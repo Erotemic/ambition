@@ -1059,7 +1059,9 @@ pub fn install_mary_o_content(app: &mut App) {
     // character definition, not a mode of this one (§4.3), and it needs its own art
     // demanded or the grown Mary-O draws a placeholder.
     {
-        use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::actors::character_runtime::{
+            CharacterDefinition, CharacterDefinitionAppExt,
+        };
         // The sheet TARGET, not the sheet file: `super_mary_o_spritesheet.ron`
         // declares `target: "super_mary_o"`, and the registry is keyed by the target.
         // A VOICE apiece — see the same note in the Sanic provider. Without one a
@@ -1101,7 +1103,9 @@ pub fn install_mary_o_content(app: &mut App) {
     // the same provider, so the per-enemy `register_*_roster` helpers (used by
     // single-enemy tests) are folded here.
     {
-        use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+        use ambition_platformer2d::actors::features::{
+            CharacterRosterAppExt, CharacterRosterFragment,
+        };
         app.register_character_roster_fragment(
             CharacterRosterFragment::from_ron(
                 provider::MARY_O_EXPERIENCE,
@@ -1119,7 +1123,8 @@ pub fn install_mary_o_content(app: &mut App) {
     {
         let mut registry = app
             .world_mut()
-            .resource_mut::<ambition_platformer2d::actors::features::RoomContentStagingRegistry>();
+            .resource_mut::<ambition_platformer2d::actors::features::RoomContentStagingRegistry>(
+        );
         snake::register_snake_content_staging(&mut registry);
         ai_slop::register_ai_slop_content_staging(&mut registry);
     }
@@ -1220,7 +1225,9 @@ impl Plugin for MaryODemoContentPlugin {
             RoomSet::from_parts(LEVEL_1_1_ROOM_ID, vec![room.clone()], Vec::new()),
             ae::RoomGeometry(room.world.clone()),
             ActiveRoomMetadata(room.metadata.clone()),
-            ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(provider::MARY_O_CHARACTER_ID),
+            ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(
+                provider::MARY_O_CHARACTER_ID,
+            ),
             ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex::default(),
         );
         let content = ambition_platformer2d::provider::prepare_platformer_content_for_app(
@@ -1254,7 +1261,9 @@ fn mary_o_setup(
     ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex,
     >,
-    editable_abilities: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::EditableAbilitySet>,
+    editable_abilities: bevy::prelude::Res<
+        ambition_platformer2d::runtime::demo_fixture::EditableAbilitySet,
+    >,
     tuning: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning>,
     starting_character: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::StartingCharacter,
@@ -1264,9 +1273,13 @@ fn mary_o_setup(
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
     prepared_characters: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
+        bevy::prelude::Res<
+            ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+        >,
     >,
-    authored_sheets: bevy::prelude::Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+    authored_sheets: bevy::prelude::Res<
+        ambition_platformer2d::actors::character_sprites::AuthoredSheets,
+    >,
     character_roster: bevy::prelude::Res<ambition_platformer2d::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
@@ -1297,10 +1310,11 @@ fn mary_o_setup(
             content_staging: &content_staging,
             // A demo enters directly rather than through provider activation,
             // so it has no prepared-content generation to state.
-            construction: ambition_platformer2d::runtime::demo_fixture::ActorConstructionContext::new(
-                &construction_recipes,
-                Default::default(),
-            ),
+            construction:
+                ambition_platformer2d::runtime::demo_fixture::ActorConstructionContext::new(
+                    &construction_recipes,
+                    Default::default(),
+                ),
             boss_catalog: &boss_catalog,
             default_character_id: provider::MARY_O_CHARACTER_ID,
             sandbox_data_asset: None,
@@ -1453,7 +1467,7 @@ impl Plugin for MaryORulesPlugin {
         let pipe_rules = (warp_through_secret_pipe, pipe::run_pipe_transits)
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
-            .after(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events);
+            .after(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet);
         // The walkers are registered by `install_mary_o_content`, the single
         // authored-content composition seam shared by direct and shell hosts.
         // Rules consume the staged actors; they do not mutate construction
@@ -1527,9 +1541,12 @@ impl Plugin for MaryORulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
         let brick_overlay = bricks::contribute_broken_bricks_to_overlay
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
-            .after(ambition_platformer2d::actors::features::rebuild_feature_ecs_world_overlay);
+            .after(ambition_platformer2d::actors::features::FeatureWorldOverlaySet);
         if self.hosted {
-            app.add_systems(sim, rules.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(
+                sim,
+                rules.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
+            );
             app.add_systems(
                 sim,
                 pipe_input.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
@@ -1538,13 +1555,22 @@ impl Plugin for MaryORulesPlugin {
                 sim,
                 pipe_rules.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
             );
-            app.add_systems(sim, cronies.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(
+                sim,
+                cronies.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
+            );
             app.add_systems(
                 sim,
                 powerups.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
             );
-            app.add_systems(sim, bricks.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)));
-            app.add_systems(sim, gait.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)));
+            app.add_systems(
+                sim,
+                bricks.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
+            );
+            app.add_systems(
+                sim,
+                gait.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
+            );
             app.add_systems(
                 sim,
                 brick_overlay.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
@@ -1565,7 +1591,9 @@ impl Plugin for MaryORulesPlugin {
 fn spawn_mary_o_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<MaryOLevelState>>,
-    session: Option<bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>>,
+    session: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>,
+    >,
 ) {
     use ambition_platformer2d::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
     // Sleep once a session-scoped host has retired the live session (at the
@@ -1591,9 +1619,11 @@ fn spawn_mary_o_mode_owner(
                     death::MaryODeathSequence::default(),
                 ),
             )
-            .insert(ambition_platformer2d::platformer::lifecycle::ModeScopedEntity(
-                MARY_O_MODE.to_string(),
-            ));
+            .insert(
+                ambition_platformer2d::platformer::lifecycle::ModeScopedEntity(
+                    MARY_O_MODE.to_string(),
+                ),
+            );
     }
 }
 
@@ -1872,7 +1902,9 @@ fn cycle_level_on_flag_tally(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut dwell: bevy::prelude::Local<f32>,
     mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
-    mut replay: bevy::prelude::MessageWriter<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,
+    mut replay: bevy::prelude::MessageWriter<
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested,
+    >,
 ) {
     let Ok((mut sequence, mut level)) = owners.single_mut() else {
         *dwell = 0.0;

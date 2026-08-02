@@ -189,7 +189,9 @@ pub const RING_SPRITE_KIND: &str = "sanic_ring_prop";
 /// A ring placement: one of the `currency:1` pickups the author script lays down
 /// (named `ring`). The demo tags these with the animated sprite and the tests
 /// count them through this one predicate.
-pub fn is_ring_placement(record: &ambition_platformer2d::world::placements::PlacementRecord) -> bool {
+pub fn is_ring_placement(
+    record: &ambition_platformer2d::world::placements::PlacementRecord,
+) -> bool {
     use ambition_platformer2d::entity_catalog::placements::{PickupKindSpec, PlacementSchema};
     record.name == "ring"
         && matches!(
@@ -268,8 +270,9 @@ pub fn sanic_speedway() -> RoomSpec {
     // badnik above — the pickup renderer then binds the animated ring sheet.
     for record in &mut room.placements {
         if is_ring_placement(record) {
-            if let ambition_platformer2d::entity_catalog::placements::PlacementSchema::Pickup(pickup) =
-                &mut record.schema
+            if let ambition_platformer2d::entity_catalog::placements::PlacementSchema::Pickup(
+                pickup,
+            ) = &mut record.schema
             {
                 pickup.sprite = Some(RING_SPRITE_KIND.to_string());
             }
@@ -555,7 +558,9 @@ pub fn install_sanic_content(app: &mut App) {
     // the prepared definition and demands its art, so the standalone app stopped
     // naming sheets and stopped hand-rolling the decode.
     {
-        use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::actors::character_runtime::{
+            CharacterDefinition, CharacterDefinitionAppExt,
+        };
         // The sheet TARGET, not the sheet file: `sanic_spritesheet.ron` declares
         // `target: "sanic"`, and the registry is keyed by the target.
         // A VOICE, so neither stands mute on a Hall pedestal. A registered-only
@@ -676,8 +681,12 @@ pub fn install_sanic_content(app: &mut App) {
 /// and the insert flips `GameAssets::is_changed()` so the prop-rebind pass runs.
 /// No-ops in a headless/sim-only build where no `GameAssets` (or renderer) exists.
 fn register_sanic_ring_prop_sheet(
-    game_assets: Option<bevy::prelude::ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>>,
-    config: Option<bevy::prelude::Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>>,
+    game_assets: Option<
+        bevy::prelude::ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
+    >,
+    config: Option<
+        bevy::prelude::Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>,
+    >,
     asset_server: Option<bevy::prelude::Res<bevy::prelude::AssetServer>>,
     layouts: Option<
         bevy::prelude::ResMut<bevy::prelude::Assets<bevy::prelude::TextureAtlasLayout>>,
@@ -691,13 +700,15 @@ fn register_sanic_ring_prop_sheet(
     if config.no_assets || game_assets.characters.props.contains_key(RING_SPRITE_KIND) {
         return;
     }
-    if let Some(asset) = ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
-        &asset_server,
-        &mut layouts,
-        &config.sprite_folder,
-        RING_SPRITE_KIND,
-        &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 2),
-    ) {
+    if let Some(asset) =
+        ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
+            &asset_server,
+            &mut layouts,
+            &config.sprite_folder,
+            RING_SPRITE_KIND,
+            &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 2),
+        )
+    {
         game_assets
             .characters
             .props
@@ -823,7 +834,9 @@ impl Plugin for SanicDemoContentPlugin {
             RoomSet::from_parts(SPEEDWAY_ROOM_ID, vec![room.clone()], Vec::new()),
             ae::RoomGeometry(room.world.clone()),
             ActiveRoomMetadata(room.metadata.clone()),
-            ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(SANIC_CHARACTER_ID),
+            ambition_platformer2d::runtime::demo_fixture::StartingCharacter::new(
+                SANIC_CHARACTER_ID,
+            ),
             ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex::default(),
         );
         let content = ambition_platformer2d::provider::prepare_platformer_content_for_app(
@@ -860,7 +873,9 @@ fn sanic_setup(
     ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::LdtkRuntimeIndex,
     >,
-    editable_abilities: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::EditableAbilitySet>,
+    editable_abilities: bevy::prelude::Res<
+        ambition_platformer2d::runtime::demo_fixture::EditableAbilitySet,
+    >,
     tuning: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning>,
     starting_character: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
         ambition_platformer2d::runtime::demo_fixture::StartingCharacter,
@@ -870,9 +885,13 @@ fn sanic_setup(
         ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
     >,
     prepared_characters: Option<
-        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
+        bevy::prelude::Res<
+            ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+        >,
     >,
-    authored_sheets: bevy::prelude::Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+    authored_sheets: bevy::prelude::Res<
+        ambition_platformer2d::actors::character_sprites::AuthoredSheets,
+    >,
     character_roster: bevy::prelude::Res<ambition_platformer2d::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
@@ -903,10 +922,11 @@ fn sanic_setup(
             content_staging: &content_staging,
             // A demo enters directly rather than through provider activation,
             // so it has no prepared-content generation to state.
-            construction: ambition_platformer2d::runtime::demo_fixture::ActorConstructionContext::new(
-                &construction_recipes,
-                Default::default(),
-            ),
+            construction:
+                ambition_platformer2d::runtime::demo_fixture::ActorConstructionContext::new(
+                    &construction_recipes,
+                    Default::default(),
+                ),
             boss_catalog: &boss_catalog,
             default_character_id: SANIC_CHARACTER_ID,
             sandbox_data_asset: None,
@@ -1050,7 +1070,7 @@ impl Plugin for SanicRulesPlugin {
                     // `apply_worn_character_gameplay` is coupled to a name the
                     // engine may rename or split; `Persona` is the contract.
                     .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
-                    .before(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events),
+                    .before(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet),
             );
         } else {
             app.add_systems(
@@ -1061,7 +1081,7 @@ impl Plugin for SanicRulesPlugin {
                     // `apply_worn_character_gameplay` is coupled to a name the
                     // engine may rename or split; `Persona` is the contract.
                     .after(ambition_platformer2d::platformer::schedule::PlayerInputSet::Persona)
-                    .before(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events),
+                    .before(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet),
             );
         }
 
@@ -1106,7 +1126,7 @@ impl Plugin for SanicRulesPlugin {
         // the deterministic fact this Sanic presentation consumes.
         let ring_loss = scatter_rings_on_hit
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerSimulation)
-            .after(ambition_platformer2d::actors::features::ecs::damage_apply::apply_player_hit_events);
+            .after(ambition_platformer2d::actors::features::ecs::damage_apply::PlayerHitResolutionSet);
         // The scattered-ring burst flies out BETWEEN the coin magnet and the
         // collect: it owns each ring's position during the lock so the magnet
         // can't reclaim it, and collect then sees the ring out at its arc rather
@@ -1129,14 +1149,20 @@ impl Plugin for SanicRulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::GameplayEffects);
         let monitor_overlay = monitors::contribute_broken_monitors_to_overlay
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
-            .after(ambition_platformer2d::actors::features::rebuild_feature_ecs_world_overlay);
+            .after(ambition_platformer2d::actors::features::FeatureWorldOverlaySet);
         if self.hosted {
-            app.add_systems(sim, rules.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)));
+            app.add_systems(
+                sim,
+                rules.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
+            );
             app.add_systems(
                 sim,
                 milestone_sfx.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
             );
-            app.add_systems(sim, badniks.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)));
+            app.add_systems(
+                sim,
+                badniks.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
+            );
             app.add_systems(
                 sim,
                 ring_loss.run_if(ambition_platformer2d::runtime::in_mode(SANIC_MODE)),
@@ -1172,7 +1198,9 @@ impl Plugin for SanicRulesPlugin {
 /// scrape once per skid onset instead of every tick it holds. One controlled body
 /// plays it, so a `Local` edge latch is sufficient.
 fn emit_sanic_skid_sfx(
-    subject: Option<bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
+    subject: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
+    >,
     mut was_skidding: bevy::prelude::Local<bool>,
     bodies: bevy::prelude::Query<(&ae::BodyMotionFacts, &ae::BodyKinematics)>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
@@ -1209,7 +1237,9 @@ fn emit_sanic_skid_sfx(
 /// single gameplay + presentation authority. No timer: a future ring drain can
 /// wear the form off the same way this toggle does.
 fn toggle_sanic_form(
-    subject: Option<bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
+    subject: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
+    >,
     mut bodies: bevy::prelude::Query<(
         &mut ambition_platformer2d::characters::brain::ActorControl,
         &mut ambition_platformer2d::characters::actor::WornCharacter,
@@ -1272,7 +1302,9 @@ fn ensure_sanic_transform_beat_policy(
         bevy::prelude::Entity,
         (
             bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>,
-            bevy::prelude::Without<ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy>,
+            bevy::prelude::Without<
+                ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy,
+            >,
         ),
     >,
 ) {
@@ -1361,9 +1393,9 @@ fn sync_super_form_traits(
         // what the beat does; this only says it happened.
         if to_super {
             if let Some(body) = body {
-                commands
-                    .entity(body)
-                    .try_insert(ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested);
+                commands.entity(body).try_insert(
+                    ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested,
+                );
             }
         }
     }
@@ -1427,7 +1459,9 @@ fn super_form_edge(worn_is_super: Option<bool>, was_super: bool) -> (Option<bool
 fn spawn_sanic_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<SanicActState>>,
-    session: Option<bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>>,
+    session: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>,
+    >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
     use ambition_platformer2d::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
@@ -1449,9 +1483,11 @@ fn spawn_sanic_mode_owner(
         // launch → quit → relaunch cycle).
         commands
             .spawn_session_scoped(spawn_scope, SanicActState::default())
-            .insert(ambition_platformer2d::platformer::lifecycle::ModeScopedEntity(
-                SANIC_MODE.to_string(),
-            ));
+            .insert(
+                ambition_platformer2d::platformer::lifecycle::ModeScopedEntity(
+                    SANIC_MODE.to_string(),
+                ),
+            );
         // Audible confirmation that the standalone shell is draining the
         // standard SfxMessage seam. Distance markers emit alternating cues as
         // the player advances, so this one also proves the bank at room entry.
@@ -1671,7 +1707,9 @@ fn sync_hosted_sanic_wallet_shield(
 /// resolver and owns only Sanic-specific entity spawning, VFX, and SFX.
 pub fn scatter_rings_on_hit(
     mut commands: bevy::prelude::Commands,
-    active_session: Option<bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>>,
+    active_session: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::lifecycle::ActiveSessionScope>,
+    >,
     mut spent: bevy::prelude::MessageReader<
         ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent,
     >,
@@ -1806,7 +1844,9 @@ pub fn arc_scattered_rings(
     // in mid-air, forever, in any session without room geometry. Absent geometry
     // means "nothing to bounce off", not "stop simulating".
     world: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d::engine_core::RoomGeometry>,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::engine_core::RoomGeometry,
+        >,
     >,
     mut rings: bevy::prelude::Query<(
         bevy::prelude::Entity,
@@ -1960,7 +2000,9 @@ pub fn act_time_text(seconds: f32) -> String {
 /// overwritten from his surface parameter on the next tick, exactly as a poked
 /// `pos` is.
 fn take_the_controls_at_the_goal(
-    subject: Option<bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
+    subject: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
+    >,
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     act: bevy::prelude::Query<&SanicActState>,
     mut commands: bevy::prelude::Commands,
@@ -2076,7 +2118,9 @@ pub fn clear_act_at_goal(
 pub fn cycle_act_after_clear(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    mut replay: bevy::prelude::MessageWriter<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,
+    mut replay: bevy::prelude::MessageWriter<
+        ambition_platformer2d::actors::session::reset::RoomReplayRequested,
+    >,
 ) {
     for mut state in &mut act {
         let SanicActPhase::Cleared { dwell, .. } = &mut state.phase else {

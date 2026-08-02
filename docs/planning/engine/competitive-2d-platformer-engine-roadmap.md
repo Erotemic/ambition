@@ -1034,6 +1034,28 @@ twenty in `app`/`content` did not — so the work is mostly "an engine crate owe
 set", not "a consumer is misbehaving", and that is a much cheaper fix than it
 looked.
 
+✔ **two more clusters converted the same way — 49 → 39.**
+* `rebuild_feature_ecs_world_overlay` finished at EIGHT consumers, not six: two
+  more pinned it through the FACADE path
+  (`ambition_platformer2d::actors::features::…`) and the first grep, keyed on the
+  monolith's own path, missed them. A re-measure by TARGET NAME rather than by
+  import path found them.
+* `apply_player_hit_events` had four game pins (mary_o ×1, sanic ×3), each
+  spelling `actors::features::ecs::damage_apply::…` through the facade. That path
+  is itself the tell: a consumer spelling four module levels to place its own
+  system is depending on engine internals. Now `PlayerHitResolutionSet`.
+
+⚠ both are ONE-MEMBER sets, and the second has a sharper reason than the first:
+`publish_kernel_reset_death` sits beside it in the tuple and is deliberately NOT
+gated on `gameplay_allowed` while this one is. A set spanning both would hand
+consumers an ordering against a system with different run conditions.
+
+▢ what is left, by consumer count: `tick_player_brains` 4 · `step_projectiles` 2 ·
+`sync_local_player_input_frame` 2 · `update_ecs_hazards` 2 ·
+`gate_worn_player_control` 2, then singletons. ⚠ `tick_player_brains` is the
+awkward one: it ALREADY has a set (`PlayerInputSet::Brain`) with two members, so
+converting is the STRICTER case, not the equivalent one.
+
 ▢ **so the remaining nine in the runtime sort into three kinds**, and only the
 first is mechanical:
 * **equivalent** — the pinned system is the head of a chained set. Convert.

@@ -28,8 +28,10 @@ use bevy::prelude::*;
 
 use ambition_platformer2d_actor_monolith::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-use ambition_platformer2d_shared_tangle::schedule::{PlayerInputSet, PlayerSimulationSet, Platformer2dSimulationPhaseMonolith};
 use ambition_platformer2d_shared_tangle::schedule::{gameplay_allowed, gameplay_suspended};
+use ambition_platformer2d_shared_tangle::schedule::{
+    Platformer2dSimulationPhaseMonolith, PlayerInputSet, PlayerSimulationSet,
+};
 
 /// Registers the engine-generic player frame (see module docs). Part of
 /// [`crate::PlatformerEnginePlugins`]; headless/RL builds run every system
@@ -203,13 +205,15 @@ impl Plugin for PlayerSchedulePlugin {
             // kit state, preserving authored movement state. Its own phase gives
             // deferred capability-marker commands an apply-deferred seam before
             // the brain/effects consumers run.
-            ambition_platformer2d_actor_monolith::avatar::apply_worn_character_gameplay.in_set(PlayerInputSet::Persona),
+            ambition_platformer2d_actor_monolith::avatar::apply_worn_character_gameplay
+                .in_set(PlayerInputSet::Persona),
         );
         app.add_systems(
             sim,
             // Universal-brain seam: translate this frame's slot input into
             // each controlled body's ActorControl frame.
-            ambition_platformer2d_actor_monolith::avatar::tick_player_brains.in_set(PlayerInputSet::Brain),
+            ambition_platformer2d_actor_monolith::avatar::tick_player_brains
+                .in_set(PlayerInputSet::Brain),
         );
         // Causal recording, in the SIM schedule because that is where its
         // publishers live and where `SimulationReplayState` means anything.
@@ -328,6 +332,9 @@ impl Plugin for PlayerSchedulePlugin {
             sim,
             (
                 ambition_platformer2d_actor_monolith::features::ecs::damage_apply::apply_player_hit_events
+                    .in_set(
+                        ambition_platformer2d_actor_monolith::features::ecs::damage_apply::PlayerHitResolutionSet,
+                    )
                     .run_if(gameplay_allowed),
                 // The kernel's own death path (pit / drown / tile hazard) never
                 // reaches the hit resolver, so it publishes its death fact here

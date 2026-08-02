@@ -17,8 +17,8 @@
 use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};
 
 use ambition_platformer2d_core as ae;
-use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
 use ambition_platformer2d_world::collision::MovingPlatformSet;
+use ambition_vfx::vfx::{DebrisBurstMessage, VfxMessage};
 
 use crate::actor::BodyAnimFacts;
 use crate::actor::PrimaryPlayerOnly;
@@ -27,7 +27,7 @@ use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent
 use crate::time::feel::Platformer2dFeelTuningMonolith;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
-    ActorDiedMessage, SafePositionContext, RoomTransitionCooldown, remember_safe_player_position,
+    remember_safe_player_position, ActorDiedMessage, RoomTransitionCooldown, SafePositionContext,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet, BodyWalletShield};
 use ambition_characters::equipment::WornEquipment;
@@ -1116,6 +1116,24 @@ pub fn void_pending_player_hits_at_lifecycle_boundaries(
         pending.0.clear();
     }
 }
+
+/// **The set `apply_player_hit_events` runs in.**
+///
+/// ⛔ four GAME call sites order against this function by name — one in
+/// `ambition_demo_mary_o`, three in `ambition_demo_sanic`, all reaching through
+/// the facade for an engine leaf (`actors::features::ecs::damage_apply::…`).
+/// That path is itself the tell: a consumer that has to spell four module levels
+/// to place its own system is depending on engine internals, which is what the
+/// facade exists to prevent.
+///
+/// ⚠ ONE member, for the same reason as
+/// [`crate::world::overlay::FeatureWorldOverlaySet`]: the system beside it in the
+/// tuple (`publish_kernel_reset_death`) is deliberately NOT gated on
+/// `gameplay_allowed` while this one is, so a set spanning both would hand
+/// consumers an ordering against a system with different run conditions. One
+/// member keeps the swap exactly equivalent.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PlayerHitResolutionSet;
 
 pub fn apply_player_hit_events(
     // Bundled into one tuple param to stay under Bevy's 16-system-param ceiling

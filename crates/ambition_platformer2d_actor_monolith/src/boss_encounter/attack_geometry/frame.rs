@@ -226,6 +226,27 @@ pub(super) fn world_space_animation_box_volumes(
         )
     };
     let boxes = |parts: &[ambition_sprite_sheet::NamedPixelRect], bbox| {
+        // A part that authored a hull IS that hull; the rest fall back to their
+        // rects. Mixing the two in one silhouette is normal — a hooded head is
+        // shaped and a shoulder pad is honestly a box.
+        if parts.iter().any(|part| !part.poly.is_empty()) {
+            return parts
+                .iter()
+                .map(|part| {
+                    if part.poly.is_empty() {
+                        ae::CombatVolume::aabb(world_aabb_from_pixel_rect(
+                            part.rect(),
+                            frame_width,
+                            frame_height,
+                            world_center,
+                            world_size,
+                        ))
+                    } else {
+                        hull(&part.poly)
+                    }
+                })
+                .collect::<Vec<_>>();
+        }
         world_space_body_aabbs_from_parts(
             parts,
             bbox,

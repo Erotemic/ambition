@@ -175,7 +175,6 @@ version = "0.1.0"
 dependencies = [
  "ambition_input",
  "ambition_persistence",
- "ambition_platformer2d_core",
  "ambition_sfx",
  "ambition_ui_nav",
  "bevy",
@@ -246,7 +245,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_entity_catalog",
- "ambition_platformer2d_core",
+ "bevy_math",
  "serde",
 ]
 

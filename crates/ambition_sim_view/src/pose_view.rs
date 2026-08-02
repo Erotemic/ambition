@@ -56,6 +56,22 @@ pub struct BodyPoseView {
     /// Fireball charge tier while the fire button is held (`None` when not
     /// charging): 0 / 1 / 2+ pick the charge-indicator size/alpha.
     pub charge_tier: Option<u8>,
+    /// **The sprite quad this body's SHEET authored**, when its geometry is
+    /// sheet-authored (`SpritePosedBody`); `None` when the render must size the
+    /// quad itself.
+    ///
+    /// Carried here rather than read as a component because the render layer
+    /// does not depend on actor machinery — and because it is the same KIND of
+    /// fact as `size` and `base_size` beside it: a sim-resolved geometry the
+    /// renderer draws rather than re-derives.
+    ///
+    /// Its presence changes what the quad MEANS. Without it, `standing_render`
+    /// is a guess about the art scaled by how far the collision box has drifted
+    /// from its baseline — the ratio that drew Mary-O's tall form ~60% larger
+    /// than the body it belonged to. With it, the box and the quad are two
+    /// readings of ONE authored scale, so neither is derived from the other and
+    /// there is no ratio to be wrong.
+    pub authored_render: Option<ambition_platformer2d_core::Vec2>,
 }
 
 impl Default for BodyPoseView {
@@ -75,6 +91,7 @@ impl Default for BodyPoseView {
             hp_max: 0,
             morph_ball: false,
             charge_tier: None,
+            authored_render: None,
         }
     }
 }
@@ -119,6 +136,22 @@ pub fn rebuild_body_pose_views(
                 Option<
                     &ambition_platformer2d_actor_monolith::features::ActorAnimOverride,
                 >,
+                // The sheet-authored sprite quad, when this body's geometry is
+                // its art. Produced beside the collision box by
+                // `sync_sprite_posed_bodies`, so reading it here is reading the
+                // SAME number the box came from.
+                //
+                // ⚠ gated on `SpritePosedBody`, NOT on the render size alone.
+                // `ActorRenderSize` is the SHARED sprite-quad component — several
+                // spawn paths insert it from sheet metadata for bodies whose
+                // collision box is still hand-authored. Reading it bare here
+                // would tell the renderer "the sheet authored this geometry"
+                // about every one of them, and hand it a quad that was never
+                // derived from their boxes.
+                Option<&ambition_platformer2d_actor_monolith::features::ActorRenderSize>,
+                bevy::prelude::Has<
+                    ambition_platformer2d_actor_monolith::character_sprites::SpritePosedBody,
+                >,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -143,6 +176,8 @@ pub fn rebuild_body_pose_views(
             roll,
             projectile_state,
             anim_override,
+            authored_render,
+            sheet_authored_body,
             pose,
         ),
     ) in &mut bodies
@@ -207,6 +242,9 @@ pub fn rebuild_body_pose_views(
                 .is_some_and(|m| m.body_mode == ambition_platformer2d_core::BodyMode::MorphBall),
             charge_tier: projectile_state
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
+            authored_render: sheet_authored_body
+                .then(|| authored_render.map(|r| r.0))
+                .flatten(),
         };
         match pose {
             Some(mut pose) => *pose = next,
@@ -269,6 +307,69 @@ mod pose_view_tests {
         assert_eq!(pose.hit_flash_secs, 0.0);
         assert!(pose.charge_tier.is_none());
         assert!(!pose.morph_ball);
+    }
+
+    /// **A sheet-authored quad is reported only by a body that HAS one.**
+    ///
+    /// `authored_render` tells the renderer "stop computing this — the box and
+    /// the quad came from one authored scale". `ActorRenderSize` alone cannot
+    /// support that claim: it is the shared sprite-quad component, and several
+    /// spawn paths set it from sheet metadata for bodies whose collision box is
+    /// still hand-authored. Reading it bare would silently retarget the render
+    /// for every such body, which is a change nothing would report.
+    ///
+    /// The negative case is the whole test — the positive one only proves the
+    /// field is wired at all.
+    #[test]
+    fn only_a_sheet_authored_body_reports_an_authored_quad() {
+        use ambition_platformer2d_actor_monolith::character_sprites::SpritePosedBody;
+        use ambition_platformer2d_actor_monolith::features::ActorRenderSize;
+
+        let mut app = bevy::prelude::App::new();
+        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+
+        let kin = ambition_platformer2d_actor_monolith::actor::BodyKinematics {
+            pos: ambition_platformer2d_core::Vec2::ZERO,
+            vel: ambition_platformer2d_core::Vec2::ZERO,
+            size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+            facing: 1.0,
+        };
+        let quad = ambition_platformer2d_core::Vec2::new(61.0, 73.0);
+
+        // A quad, but the body's box is its own business.
+        let hand_authored = app
+            .world_mut()
+            .spawn((PlayerVisual, kin, ActorRenderSize(quad)))
+            .id();
+        // A quad that came from the same scale as the box.
+        let sheet_authored = app
+            .world_mut()
+            .spawn((
+                PlayerVisual,
+                kin,
+                ActorRenderSize(quad),
+                SpritePosedBody::new("robot", 2.0),
+            ))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .get::<BodyPoseView>(hand_authored)
+                .and_then(|p| p.authored_render),
+            None,
+            "a render size without a sheet-authored body is not a claim about \
+             that body's geometry, and must not be reported as one"
+        );
+        assert_eq!(
+            app.world()
+                .get::<BodyPoseView>(sheet_authored)
+                .and_then(|p| p.authored_render),
+            Some(quad),
+            "and a body whose geometry IS its art reports the quad that came \
+             from the same scale as its box"
+        );
     }
 
     /// **A content pose pin reaches the PLAYER's view, not only an actor's.**

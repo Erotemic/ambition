@@ -18,11 +18,9 @@ use ambition_platformer2d::characters::equipment::{
     EquipmentGrant, EquipmentRow, ModifierOp, ModifierScope, OnHit, ParamModifier, WornEquipment,
 };
 
-use ambition_platformer2d::actors::actor::{BodyBaseSize, PrimaryPlayer};
+use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::actors::items::{
-    spawn_moving_world_item, ItemMotionPlan, WorldItem,
-};
+use ambition_platformer2d::actors::items::{spawn_moving_world_item, ItemMotionPlan, WorldItem};
 use ambition_platformer2d::actors::rooms::RoomLoaded;
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
@@ -188,7 +186,10 @@ pub struct MaryOSpark;
 pub fn tag_mary_o_sparks(
     mut commands: Commands,
     fresh: Query<
-        (Entity, &ambition_platformer2d::projectiles::ProjectileVisualId),
+        (
+            Entity,
+            &ambition_platformer2d::projectiles::ProjectileVisualId,
+        ),
         (
             Added<ambition_platformer2d::projectiles::ProjectileVisualId>,
             Without<MaryOSpark>,
@@ -220,14 +221,78 @@ pub fn tag_mary_o_sparks(
 #[derive(Resource, Default)]
 pub struct SpentPowerBlocks(pub std::collections::HashSet<ae::GeoId>);
 
-/// Small standing collider (30×48) and the grown collider (same width, 1.5× tall).
-/// Width is held constant so growing never wedges her into a one-tile gap.
-fn small_body_size() -> ae::Vec2 {
-    ae::movement::default_player_body_size()
+// ── Her forms' geometry, which the SHEETS author ───────────────────────────
+//
+// Jon: *"The box and the sprite seem to be not independent of each other.
+// Shouldn't the sprite sheet generator be authoring the collision boxes for the
+// characters?"*
+//
+// It should, and it does — the engine has offered
+// `BodySource::SpriteAuthored { world_per_pixel }` since §4.11 and Mary-O simply
+// did not use it. What stood here instead was a small box (the engine's default
+// 30×48) and a grown box hand-authored as `1.5 ×` it. The sheets publish
+// `body_pixel_bbox` 43×63 (small) and 47×88 (tall) — a real ratio of 1.397 — so
+// the multiplier was never what the art said, and the render had to reconcile
+// the two authorities with a scale factor. That factor is the bug: it drew her
+// tall form far larger than the body it belonged to.
+//
+// Now her three registered definitions each author this ONE scale (see
+// `register_character` in `lib.rs`) and everything follows from the art:
+//
+//   small  43×63 px → 32.8×48.0 world
+//   tall   47×88 px → 35.8×67.0 world
+//   fire   50×88 px → 38.1×67.0 world
+//
+// The scale is chosen to hold her standing height at the 48 the level is tuned
+// around; everything else is whatever the art is. Two consequences worth stating
+// rather than discovering:
+//
+// ⚠ she is a few px WIDER than the old constant-width box, because that is her
+//   actual silhouette. The old comment justified the constant width as "growing
+//   never wedges her into a one-tile gap" — but the level's clearances derive
+//   from [`tall_body_size`] rather than being hardcoded, so they widen with her.
+// ⚠ the fire form is ~2 px wider than the grown one (50 px of art vs 47). Their
+//   HEIGHTS match, which is the fact that transition needs — a height change
+//   would move her feet or clip a ceiling on a swap that is supposed to change
+//   only her loadout.
+//
+// If either width does become a problem, the fix belongs in the generator —
+// emitting a per-pose `hurtbox` rectangle narrower than the alpha silhouette,
+// which `pose_body_bbox` already prefers when present — and NOT in a second box
+// authority here.
+pub(crate) const MARY_O_WORLD_PER_PIXEL: f32 = 48.0 / 63.0;
+
+/// The sheet manifest targets her three forms resolve through. Named here
+/// because both her definitions (which author the bodies) and the level
+/// authoring (which asks how tall she gets) need the same strings.
+pub(crate) const SMALL_SHEET_TARGET: &str = "super_mary_o";
+pub(crate) const TALL_SHEET_TARGET: &str = "super_mary_o_tall";
+pub(crate) const FIRE_SHEET_TARGET: &str = "super_mary_o_fire";
+
+/// **The standing box one of her sheets authors**, in world units.
+///
+/// The level asks this to size the clearances she has to fit through (pipe
+/// mouths, vault exits). It is the same query the engine's per-tick sync makes,
+/// so a gap authored from it and the body that walks into it cannot disagree.
+///
+/// Falls back to the engine default when the sheet registry has no record — a
+/// headless fixture that baked no art. A clearance authored against the default
+/// is wrong by a few pixels; refusing to author one at all would be a panic in a
+/// test that never intended to draw anything.
+pub(crate) fn form_body_size(target: &str) -> ae::Vec2 {
+    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+        target,
+        CharacterAnim::Idle,
+        MARY_O_WORLD_PER_PIXEL,
+    )
+    .map(|geometry| geometry.collision)
+    .unwrap_or_else(ae::movement::default_player_body_size)
 }
+
+/// How tall she gets — asked of the grown form's ART, not multiplied out of the
+/// small one.
 pub(crate) fn tall_body_size() -> ae::Vec2 {
-    let s = small_body_size();
-    ae::Vec2::new(s.x, s.y * 1.5)
+    form_body_size(TALL_SHEET_TARGET)
 }
 
 /// **The ?-block bonk.** A head contact (`ContactKind::Head`) against a ?-block —
@@ -262,9 +327,7 @@ pub fn bonk_power_blocks(
         // be able to get the quasar").
         let Some((i, reward_of)) = crate::power_block_index_for(id)
             .map(|i| (i, RewardSource::PowerLadder))
-            .or_else(|| {
-                crate::quasar_block_index_for(id).map(|i| (i, RewardSource::Quasar))
-            })
+            .or_else(|| crate::quasar_block_index_for(id).map(|i| (i, RewardSource::Quasar)))
         else {
             continue;
         };
@@ -392,8 +455,7 @@ pub fn sync_grown_form(
         (
             bevy::prelude::Entity,
             &mut WornCharacter,
-            &mut BodyBaseSize,
-            &mut ae::BodyKinematics,
+            &ae::BodyKinematics,
             Option<&WornEquipment>,
         ),
         With<PrimaryPlayer>,
@@ -401,7 +463,7 @@ pub fn sync_grown_form(
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     mut commands: bevy::prelude::Commands,
 ) {
-    let Ok((body, mut worn_char, mut base, mut kin, worn)) = players.single_mut() else {
+    let Ok((body, mut worn_char, kin, worn)) = players.single_mut() else {
         return;
     };
     // THREE forms, chosen from what she wears. The fire (beacon) and grown (wand)
@@ -409,24 +471,26 @@ pub fn sync_grown_form(
     // across that transition she stays continuously tall and only her look + spark
     // loadout change; the size flickers on neither the grow nor the spark→grown
     // downgrade, only on the final grown→small hit.
-    let (target_id, target_size) = if worn.is_some_and(|w| w.wears(CINDER_BEACON_ID)) {
-        (SPARK_CHARACTER_ID, tall_body_size())
+    let target_id = if worn.is_some_and(|w| w.wears(CINDER_BEACON_ID)) {
+        SPARK_CHARACTER_ID
     } else if worn.is_some_and(|w| w.wears(STAR_WAND_ID)) {
-        (TALL_CHARACTER_ID, tall_body_size())
+        TALL_CHARACTER_ID
     } else {
-        (MARY_O_CHARACTER_ID, small_body_size())
+        MARY_O_CHARACTER_ID
     };
     if worn_char.0 == target_id {
         return;
     }
-    // Feet stay planted across a size change (grow / shrink): shift the center up
-    // by half the height gain (up = -y). The fire↔grown swap is same-size, so the
-    // guard skips the shift there and only her sheet changes.
-    if kin.size != target_size {
-        kin.pos.y -= (target_size.y - kin.size.y) * 0.5;
-        kin.size = target_size;
-        base.base_size = target_size;
-    }
+    // **No size is written here, and that is the fix.**
+    //
+    // This used to set `kin.size`, `base.base_size` and a feet-planting `pos`
+    // shift from a hand-authored constant — a second geometry authority beside
+    // the art, which is what ADR 0024 forbids and what left her box and her
+    // sprite reconciled by a scale factor. Her forms now author
+    // `SpriteAuthored` bodies (see [`MARY_O_WORLD_PER_PIXEL`]), so swapping the
+    // identity below is the WHOLE change: the engine's per-tick sync reads the
+    // arriving sheet and resizes her feet-planted through the one resize op that
+    // owns that rule. Growing is a consequence of the art, not an instruction.
     let previous_id = worn_char.0.clone();
     if let Some(cue_id) = power_transition_sfx(&previous_id, target_id) {
         // The named transition is content-authority: small→big, big→fire, and
@@ -593,7 +657,9 @@ pub fn refill_power_blocks_on_room_loaded(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d::characters::equipment::{apply_equipment_grants, resolved_ranged, WornEquipment};
+    use ambition_platformer2d::characters::equipment::{
+        apply_equipment_grants, resolved_ranged, WornEquipment,
+    };
 
     /// The star wand absorbs one hit and is then spent — the A3 armor half of
     /// Mary-O's "big → small". (The tall LOOK/size is `sync_grown_form`'s pure
@@ -622,7 +688,10 @@ mod tests {
             power_transition_sfx(SPARK_CHARACTER_ID, MARY_O_CHARACTER_ID),
             Some(SFX_FIRE_TO_SMALL)
         );
-        assert_eq!(power_transition_sfx(MARY_O_CHARACTER_ID, SPARK_CHARACTER_ID), None);
+        assert_eq!(
+            power_transition_sfx(MARY_O_CHARACTER_ID, SPARK_CHARACTER_ID),
+            None
+        );
     }
 
     #[test]
@@ -633,7 +702,10 @@ mod tests {
         // A hit spends the wand...
         assert_eq!(worn.consume_armor().as_deref(), Some(STAR_WAND_ID));
         // ...and the wand is gone on the next read (no write-back), so she'll shrink.
-        assert!(!worn.wears(STAR_WAND_ID), "losing the wand reverts to small");
+        assert!(
+            !worn.wears(STAR_WAND_ID),
+            "losing the wand reverts to small"
+        );
         // The next hit finds no armor — it would reach HP.
         assert_eq!(worn.consume_armor(), None);
     }
@@ -786,36 +858,72 @@ mod tests {
         assert_ne!(star_wand().id, cinder_beacon().id);
     }
 
-    /// The reactive grow: wearing the wand swaps to the tall sheet + a taller
-    /// collider, feet planted; losing it (a hit) reverts to small, feet planted.
-    /// The tall form is a pure VIEW of possessing the wand — no manual revert.
+    /// **Her forms are as big as their ART says**, and this is the whole of the
+    /// content claim now that the sheets author her boxes.
+    ///
+    /// It reads the real baked manifests, so it fails if the generator retimes
+    /// or re-crops her — which is the point: a hand-authored `× 1.5` could not
+    /// notice, and did not (the sheets' real ratio is 1.375).
+    ///
+    /// ⚠ the fallback in [`form_body_size`] returns the engine default when a
+    /// sheet is missing, so a registry that baked no art makes tall == small and
+    /// this fails loudly rather than passing on a default.
     #[test]
-    fn wearing_the_cap_grows_and_losing_it_shrinks_feet_planted() {
+    fn her_forms_boxes_come_from_their_sheets() {
+        let small = form_body_size(SMALL_SHEET_TARGET);
+        let tall = form_body_size(TALL_SHEET_TARGET);
+        let fire = form_body_size(FIRE_SHEET_TARGET);
+
+        assert!(
+            tall.y > small.y,
+            "growing makes her taller because the tall sheet's art IS taller \
+             (small {small:?}, tall {tall:?})"
+        );
+        assert!(
+            (fire.y - tall.y).abs() < 1e-3,
+            "the fire form stands the same HEIGHT as the grown one — the beacon \
+             downgrades INTO the wand, and a height change on that swap would \
+             move her feet or clip a ceiling (tall {tall:?}, fire {fire:?})"
+        );
+        // The one number the level is tuned around: 63 px of art at the authored
+        // scale. If the generator re-crops her this fails, which is the point —
+        // the old hand-authored constant could not notice.
+        assert!(
+            (small.y - 48.0).abs() < 1e-3,
+            "her standing height is unchanged by handing the box to the sheet \
+             (got {})",
+            small.y
+        );
+    }
+
+    /// The reactive grow: wearing the wand swaps her IDENTITY to the tall sheet;
+    /// losing it (a hit) reverts to small. The tall form is a pure VIEW of
+    /// possessing the wand — no manual revert.
+    ///
+    /// Deliberately no size assertion. This system used to write `kin.size` from
+    /// a constant and does not any more: her forms author `SpriteAuthored`
+    /// bodies, so the resize belongs to the engine's per-tick sync (which owns
+    /// the feet-planted rule, and is tested where it lives). Asserting it here
+    /// would mean re-implementing the projection in the fixture and then
+    /// agreeing with it.
+    #[test]
+    fn wearing_the_cap_grows_and_losing_it_shrinks() {
         let mut app = App::new();
-        let small = small_body_size();
         let body = app
             .world_mut()
             .spawn((
                 PrimaryPlayer,
                 WornCharacter(MARY_O_CHARACTER_ID.to_string()),
-                BodyBaseSize { base_size: small },
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: small,
+                    size: form_body_size(SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
             ))
             .id();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_systems(Update, sync_grown_form);
-
-        // Feet (screen up = -y, so feet = max.y = pos.y + size.y/2).
-        let feet = |app: &App| {
-            let k = app.world().get::<ae::BodyKinematics>(body).unwrap();
-            k.pos.y + k.size.y * 0.5
-        };
-        let feet0 = feet(&app);
 
         // Equip the wand -> she grows on the next tick.
         app.world_mut()
@@ -826,14 +934,6 @@ mod tests {
             app.world().get::<WornCharacter>(body).unwrap().0,
             TALL_CHARACTER_ID,
             "wearing the wand grows her to the tall SHEET"
-        );
-        assert!(
-            app.world().get::<ae::BodyKinematics>(body).unwrap().size.y > small.y,
-            "the collider grew taller"
-        );
-        assert!(
-            (feet(&app) - feet0).abs() < 1e-3,
-            "feet stay planted on grow"
         );
 
         // Spend the wand (a hit) -> she shrinks on the next tick.
@@ -847,34 +947,29 @@ mod tests {
             MARY_O_CHARACTER_ID,
             "losing the wand shrinks her back to small"
         );
-        assert_eq!(
-            app.world().get::<ae::BodyKinematics>(body).unwrap().size,
-            small,
-            "the collider is small again"
-        );
-        assert!(
-            (feet(&app) - feet0).abs() < 1e-3,
-            "feet stay planted on shrink"
-        );
     }
 
     /// **Both power states are tall, and the downgrade between them does not
-    /// flicker her size.** Losing the spark must change what she can DO, not how
-    /// big she is; only the second hit shrinks her, feet planted throughout.
+    /// resize her.** Losing the spark must change what she can DO, not how big
+    /// she is; only the second hit shrinks her.
+    ///
+    /// "Tall" is now an IDENTITY fact checked against the sheets' own sizes
+    /// (above): the two power states share a height but not a sheet, so the
+    /// claim is that the beacon and the wand select forms whose art agrees on
+    /// height — which [`her_forms_boxes_come_from_their_sheets`] asserts — and
+    /// that the downgrade lands on the grown form rather than the small one.
     #[test]
     fn spark_powered_is_tall_and_only_the_second_hit_shrinks_her() {
         let mut app = App::new();
-        let small = small_body_size();
         let body = app
             .world_mut()
             .spawn((
                 PrimaryPlayer,
                 WornCharacter(MARY_O_CHARACTER_ID.to_string()),
-                BodyBaseSize { base_size: small },
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: small,
+                    size: form_body_size(SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
                 WornEquipment::new(vec![cinder_beacon()]),
@@ -883,19 +978,9 @@ mod tests {
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_systems(Update, sync_grown_form);
 
-        let feet = |app: &App| {
-            let k = app.world().get::<ae::BodyKinematics>(body).unwrap();
-            k.pos.y + k.size.y * 0.5
-        };
-        // "Tall" is a SIZE fact now, since the two power states share a height but
-        // NOT a sheet: the fire form has its own distinct look.
-        let is_tall =
-            |app: &App| app.world().get::<ae::BodyKinematics>(body).unwrap().size.y > small.y;
         let form = |app: &App| app.world().get::<WornCharacter>(body).unwrap().0.clone();
 
         app.update();
-        let feet_tall = feet(&app);
-        assert!(is_tall(&app), "wearing the beacon alone reads as tall");
         assert_eq!(
             form(&app),
             SPARK_CHARACTER_ID,
@@ -908,35 +993,23 @@ mod tests {
             .unwrap()
             .consume_armor();
         app.update();
-        assert!(
-            is_tall(&app),
-            "losing the spark leaves her GROWN, not small"
-        );
         assert_eq!(
             form(&app),
             TALL_CHARACTER_ID,
-            "losing the spark drops the fire sheet back to the grown sheet"
-        );
-        assert!(
-            (feet(&app) - feet_tall).abs() < 1e-3,
-            "and her size never flickered, so her feet never moved"
+            "losing the spark drops the fire sheet back to the grown sheet, \
+             not to the small one"
         );
 
-        // Hit two: grown -> small, feet still planted.
+        // Hit two: grown -> small.
         app.world_mut()
             .get_mut::<WornEquipment>(body)
             .unwrap()
             .consume_armor();
         app.update();
-        assert!(!is_tall(&app), "the second hit finally shrinks her");
         assert_eq!(
             form(&app),
             MARY_O_CHARACTER_ID,
             "the second hit shrinks her back to the small sheet"
-        );
-        assert!(
-            (feet(&app) - feet_tall).abs() < 1e-3,
-            "feet stay planted through the shrink"
         );
     }
 
@@ -954,17 +1027,15 @@ mod tests {
         use ambition_platformer2d::sfx::{OwnedSfxMessage, SfxId, SfxMessage};
 
         let mut app = App::new();
-        let small = small_body_size();
         let body = app
             .world_mut()
             .spawn((
                 PrimaryPlayer,
                 WornCharacter(MARY_O_CHARACTER_ID.to_string()),
-                BodyBaseSize { base_size: small },
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
-                    size: small,
+                    size: form_body_size(SMALL_SHEET_TARGET),
                     facing: 1.0,
                 },
             ))

@@ -141,15 +141,36 @@ pub fn sync_sprite_posed_bodies(
         &SpritePosedBody,
         Option<&ActorAnimOverride>,
         &mut ae::BodyKinematics,
+        Option<&mut ae::BodyBaseSize>,
         Option<&ActorRenderSize>,
         Option<&ActorSpriteOffset>,
     )>,
 ) {
-    for (entity, posed, pinned, mut kin, render_size, offset) in &mut bodies {
+    for (entity, posed, pinned, mut kin, base_size, render_size, offset) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
         let Some(geometry) = posed_body_geometry(&posed.target, anim, posed.world_per_pixel) else {
             continue;
         };
+        // **The STANDING box is this sheet's `Idle` rectangle**, and it is a
+        // different fact from the box above: `size` is the pose showing NOW, and
+        // `base_size` is what the body returns to — the denominator of every
+        // stance ratio, and what a reset restores `size` to. Leaving it at the
+        // spawn placeholder meant a sheet-authored body came back from a reset
+        // wearing a box it had never had, and read as crouching forever to
+        // anything dividing by it.
+        //
+        // Only the identity authority may write it (`reset_body_clusters`
+        // restores, never redefines), and for a body whose geometry IS its art
+        // that authority is this pass.
+        if let Some(mut base) = base_size {
+            if let Some(standing) =
+                posed_body_geometry(&posed.target, CharacterAnim::Idle, posed.world_per_pixel)
+            {
+                if base.base_size != standing.collision {
+                    base.base_size = standing.collision;
+                }
+            }
+        }
         if kin.size != geometry.collision {
             // Feet-anchored, through the engine's one feet-planted resize op:
             // hold the +gravity face and move the centre by half the change, so a

@@ -13,8 +13,8 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual,
 };
-use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
+use ambition_platformer2d_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_platformer2d_shared_tangle::feature_kind::{BoundFeatureKind, FeatureVisualKind};
 use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
@@ -237,6 +237,10 @@ pub fn sync_visuals(
             Option<&CharacterAnimator>,
             &ambition_sim_view::BodyPoseView,
             Option<&ambition_sim_view::PresentedPose>,
+            // Re-anchored per frame for a sheet-authored body: its quad is the
+            // whole frame at an authored scale, so the anchor that plants its
+            // feet is a fact about the SHEET and moves when the sheet does.
+            Option<&mut Anchor>,
         ),
         With<PlayerVisual>,
     >,
@@ -274,7 +278,7 @@ pub fn sync_visuals(
         .then(|| primary_player.iter().next())
         .flatten();
     if let Some(player) = player {
-        if let Ok((mut transform, mut sprite, baseline, animator, pose, presented)) =
+        if let Ok((mut transform, mut sprite, baseline, animator, pose, presented, anchor)) =
             player_query.get_mut(player)
         {
             let draw_pos = ambition_sim_view::presented_pose::draw_pos(pose, presented);
@@ -288,6 +292,38 @@ pub fn sync_visuals(
                 sprite.custom_size = Some(BVec2::new(pose.size.x, pose.size.y));
                 let alpha = if pose.hit_flash_secs > 0.0 { 0.72 } else { 1.0 };
                 sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
+            } else if let Some(authored) = pose.authored_render {
+                // **The SHEET authored this body's geometry**, so there is
+                // nothing here to compute: the quad is the frame at the authored
+                // scale, produced beside the collision box from that one number.
+                //
+                // This branch exists because the one below cannot express it.
+                // `standing_render * (base_size / standing_collision)` is a
+                // guess about the art CORRECTED by how far the box has drifted
+                // from a baseline — two independent quantities reconciled by a
+                // ratio. That is exactly the coupling Jon reported ("the box and
+                // the sprite seem to be not independent of each other"): growing
+                // Mary-O swapped in a sheet whose art is ALREADY taller and then
+                // scaled it again by the height gain, drawing her tall form far
+                // larger than the body it belonged to. Here the box and the quad
+                // are two readings of one number, so there is no ratio and
+                // nothing to double-count.
+                sprite.custom_size = Some(BVec2::new(authored.x, authored.y));
+                // The anchor is scale-INVARIANT (`feet_anchor_norm` plus
+                // half the box over the frame, both normalized), so this is the
+                // same known-good formula the bind site uses — it just has to be
+                // restated when the sheet changes, which for a body that swaps
+                // forms mid-level is any frame at all.
+                if let (Some(animator), Some(mut anchor)) = (animator, anchor) {
+                    let next = feet_anchor_for_render_size(
+                        &animator.spec,
+                        BVec2::new(pose.size.x, pose.size.y),
+                        BVec2::new(authored.x, authored.y),
+                    );
+                    if *anchor != next {
+                        *anchor = next;
+                    }
+                }
             } else if let Some(baseline) = baseline {
                 // Body-profile experiment scale (live standing-profile swaps in
                 // the development menu): render against the recorded startup

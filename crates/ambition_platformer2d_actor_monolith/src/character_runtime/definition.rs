@@ -373,6 +373,17 @@ impl CharacterDefinition {
         self
     }
 
+    /// **Hand this character's body geometry to its spritesheet.**
+    ///
+    /// `world_per_pixel` is the ONE number: how much world one sheet pixel
+    /// covers. The collision box, the sprite quad and the quad's offset all
+    /// follow from the art at that scale, so none of the three can drift from
+    /// the other two. See [`BodySource`].
+    pub fn with_sprite_authored_body(mut self, world_per_pixel: f32) -> Self {
+        self.body = Some(BodySource::SpriteAuthored { world_per_pixel });
+        self
+    }
+
     pub fn with_hurtboxes(mut self, doc: HurtboxDoc) -> Self {
         self.hurtboxes = Some(doc);
         self

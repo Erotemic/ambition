@@ -26,11 +26,11 @@ pub mod level_1_2;
 pub mod movement;
 pub mod pipe;
 pub mod powerups;
-pub mod quasar_shader;
-pub mod star;
 pub mod provider;
+pub mod quasar_shader;
 pub mod scenery;
 pub mod snake;
+pub mod star;
 pub mod stomp;
 
 pub use provider::{
@@ -764,7 +764,10 @@ pub fn power_block_index_for(id: &ae::GeoId) -> Option<usize> {
 /// builds it out of.
 pub fn quasar_block_min(i: usize) -> ae::Vec2 {
     let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-    ae::Vec2::new(QUASAR_BLOCK_COLUMNS[i] * T, ground_top - POWER_BLOCK_ROW * T)
+    ae::Vec2::new(
+        QUASAR_BLOCK_COLUMNS[i] * T,
+        ground_top - POWER_BLOCK_ROW * T,
+    )
 }
 
 /// The durable [`GeoId`](ae::GeoId) of quasar block `i`.
@@ -1108,11 +1111,23 @@ pub fn install_mary_o_content(app: &mut App) {
         // A VOICE apiece — see the same note in the Sanic provider. Without one a
         // registered-only character has no bark pool anywhere, and the Hall's
         // ambient ticker skips whoever has nothing to say.
+        //
+        // **All THREE forms, each handing its body to its own sheet.** Growing
+        // is a change of ART, and until now her boxes were hand-guessed against
+        // it: small was the engine's default 30x48 and tall was that times an
+        // authored 1.5, while the sheets say 11x16 and 12x22 pixels — a real
+        // ratio of 1.375. Two authorities for one silhouette, so the render had
+        // to reconcile them with a scale factor, and that factor is what drew
+        // her tall form far bigger than the body it belonged to.
+        //
+        // One `world_per_pixel` for all three is the point, not a shortcut: the
+        // forms differ in SIZE because their art differs, at a shared scale.
+        // Authoring a per-form number would put the ratio back.
         for (id, display, sheet, voice) in [
             (
                 provider::MARY_O_CHARACTER_ID,
                 "Mary-O",
-                "super_mary_o",
+                powerups::SMALL_SHEET_TARGET,
                 [
                     "Jump, land, repeat. It's honest work.",
                     "The bricks owe me nothing and I break them anyway.",
@@ -1122,17 +1137,31 @@ pub fn install_mary_o_content(app: &mut App) {
             (
                 "mary_o_tall",
                 "Mary-O (Tall)",
-                "super_mary_o_tall",
+                powerups::TALL_SHEET_TARGET,
                 [
                     "One mushroom. That's the whole story.",
                     "Taller, yes. Braver, unclear.",
                     "I can see the top of the flagpole from here.",
                 ],
             ),
+            // The fire form was never registered at all — it had a catalog row
+            // and a sheet but no definition, so it was the one form whose art
+            // nothing demanded and whose body nothing could author.
+            (
+                "mary_o_fire",
+                "Mary-O (Fire)",
+                powerups::FIRE_SHEET_TARGET,
+                [
+                    "The beacon does the talking now.",
+                    "Warm opinions, thrown at speed.",
+                    "Everything flammable, please step back.",
+                ],
+            ),
         ] {
             app.register_character(
                 CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
                     .with_sheet(sheet)
+                    .with_sprite_authored_body(powerups::MARY_O_WORLD_PER_PIXEL)
                     .with_voice(voice),
             );
         }

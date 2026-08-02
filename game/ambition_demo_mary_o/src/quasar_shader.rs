@@ -167,14 +167,33 @@ fn attach_quasar_overlays(
         if !is_mary_o_form(worn.id()) {
             continue;
         }
+        // The two ways attaching can silently do nothing. Both are "not yet"
+        // conditions that normally clear within a frame or two of the sprite
+        // loading, so they are only worth a word if they PERSIST — which is
+        // exactly the case where the overlay never appears and nothing says so.
         let Some(render_size) = sprite.custom_size else {
+            warn!(
+                target: "mary_o::quasar",
+                "overlay not attached: the Mary-O sprite has no custom_size"
+            );
             continue;
         };
         let Some((uv_rect, frame_texel)) =
             current_sprite_frame(sprite, &texture_layouts, &images)
         else {
+            warn!(
+                target: "mary_o::quasar",
+                "overlay not attached: no current sprite frame (atlas {:?}, image loaded = {})",
+                sprite.texture_atlas.is_some(),
+                images.get(&sprite.image).is_some(),
+            );
             continue;
         };
+        info!(
+            target: "mary_o::quasar",
+            "overlay attached to {source_entity} ({})",
+            worn.id()
+        );
 
         let seed = seed_from_id(worn.id());
         let material = materials.add(MaryOQuasarMaterial {
@@ -234,6 +253,7 @@ fn sync_quasar_overlays(
         &MaryOQuasarOverlay,
     )>,
     mut materials: ResMut<Assets<MaryOQuasarMaterial>>,
+    mut was_enabled: Local<bool>,
 ) {
     *elapsed += presentation_time.wall_dt();
 
@@ -263,6 +283,22 @@ fn sync_quasar_overlays(
             && source_visible
             && !settings.disabled
             && settings.strength > 0.0;
+        // Say it ONCE per transition, naming every condition. "I got the quasar
+        // and saw nothing" has five possible causes and no way to tell them
+        // apart from the outside; this line distinguishes them.
+        if enabled != *was_enabled {
+            *was_enabled = enabled;
+            info!(
+                target: "mary_o::quasar",
+                "overlay enabled = {enabled} (form '{}' ok = {}, invincible = {}, \
+                 source_visible = {source_visible}, disabled = {}, strength = {})",
+                worn.id(),
+                is_mary_o_form(worn.id()),
+                offense.invincible,
+                settings.disabled,
+                settings.strength,
+            );
+        }
         *overlay_visibility = if enabled {
             Visibility::Visible
         } else {

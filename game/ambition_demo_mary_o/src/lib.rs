@@ -100,7 +100,7 @@ const POWER_BLOCK_BASE_INDEX: u16 = 10;
 /// Mary-O can take one and be briefly untouchable. Placed just before the stair
 /// pyramid so the invincibility has something to run through — the AI Slop that
 /// walks down the steps and piles at their foot.
-const QUASAR_BLOCK_COLUMNS: [f32; 2] = [50.0, 70.0];
+const QUASAR_BLOCK_COLUMNS: [f32; 3] = [10.0, 50.0, 70.0];
 /// Disjoint base ordinal so a quasar block can never share a `GeoId` with a
 /// ?-block or a brick.
 const QUASAR_BLOCK_BASE_INDEX: u16 = 30;

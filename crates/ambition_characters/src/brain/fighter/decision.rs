@@ -31,14 +31,14 @@
 use ambition_platformer2d_core::Vec2;
 
 use crate::actor::control::ActorControlFrame;
-use crate::brain::BrainSnapshot;
 use crate::brain::fighter::habit::{Choice, HabitModel};
 use crate::brain::fighter::options::{
-    AttackCandidate, MovementVerb, UtilityWeights, generate_options,
+    generate_options, AttackCandidate, MovementVerb, UtilityWeights,
 };
 use crate::brain::fighter::profile::FighterBrainProfile;
-use crate::brain::fighter::rollout::{ShadowTuning, refine_by_rollout};
-use crate::brain::fighter::situation::{Situation, classify};
+use crate::brain::fighter::rollout::{refine_by_rollout, ShadowTuning};
+use crate::brain::fighter::situation::{classify, Situation};
+use crate::brain::BrainSnapshot;
 use crate::perception::{DelayedPerception, WorldView};
 
 /// Sim rate the cadence and reaction conversions assume when nothing says
@@ -559,7 +559,7 @@ fn trace_decision(
 
     #[cfg(feature = "causal")]
     if publishing {
-        use ambition_causal::{CausalFact, FactDetail, SubjectKey, domains};
+        use ambition_causal::{domains, CausalFact, FactDetail, SubjectKey};
         // The summary is the same line a human reads; every value a TOOL would
         // want is a field beside it, so nothing has to be parsed back out.
         //
@@ -648,9 +648,43 @@ fn apply_movement(
     view: crate::perception::Perceived<'_>,
     frame: &mut ActorControlFrame,
 ) {
+    // ⛔ **`locomotion.x` IS BODY-LOCAL, and this used to write world `x`.**
+    // The kernel says so at `LocalAxes`: *"controlled-body-local axes: +x local
+    // side/right … produced by resolving raw ScreenAxes against the body's
+    // current AccelerationFrame"*. `player.rs` obeys it; the smash brain obeys
+    // it through `side_face_toward_target`, which its comments call correct
+    // under any gravity. This brain wrote `(foe.pos.x - self.pos.x).signum()` —
+    // a WORLD sign — into that field, in every verb.
+    //
+    // ⚠ nothing caught it because the conversion is a REINTERPRETATION:
+    // `LocalAxes::from_vec(self.locomotion)` copies the components and renames
+    // the type, so the type asserts a transform nobody performed.
+    //
+    // ⚠ and nothing SAW it because the two conventions agree in the only
+    // configuration that gets played: under screen-down gravity `side` is world
+    // `+x` and `to_local` is the identity, so this change is byte-identical
+    // there. It diverges exactly where this brain already reasons correctly —
+    // `fighter_from_self(view, gravity_down)` builds the shadow model in the
+    // gravity frame, and `is_punishable(foe, me.gravity_down)` reads it. The
+    // rollout was frame-aware and the emit was not.
+    let frame_axes = view.self_view.acceleration_frame();
+    // ⚠ **`f32::signum(0.0)` is `1.0`**, not `0.0` — so a delta that lies
+    // exactly along the body's gravity axis (nothing to the side at all) would
+    // come back as FULL THROTTLE sideways. The first version of this fix had
+    // that bug and the rotated-frame test caught it: forty ticks of `1.0`
+    // toward an axis the foe was not on. The deadzone is the same one
+    // `smash/emit.rs::signum_or` uses.
+    let side_toward = |world_delta: Vec2| {
+        let side = frame_axes.to_local(world_delta).x;
+        if side.abs() < 0.001 {
+            0.0
+        } else {
+            side.signum()
+        }
+    };
     let toward = view
         .nearest_hostile()
-        .map(|foe| (foe.pos.x - view.self_view.pos.x).signum())
+        .map(|foe| side_toward(foe.pos - view.self_view.pos))
         .unwrap_or(0.0);
     frame.shield_held = false;
     // **EVERY VERB AUTHORS THE WHOLE MOVEMENT INTENT.** `frame` arrives holding
@@ -708,9 +742,14 @@ fn apply_movement(
             // CORNER: every body on the left half of every stage recovered by
             // driving further left, into the blastzone it was trying to escape.
             // The stage knows where its middle is; ask it.
-            let home = ((view.stage.bounds.min.x + view.stage.bounds.max.x) * 0.5
-                - view.self_view.pos.x)
-                .signum();
+            // Body-local too — see the note where `toward` is derived. The
+            // stage centre is a WORLD point, so the delta to it is a world
+            // vector and has to be resolved like any other.
+            let centre = Vec2::new(
+                (view.stage.bounds.min.x + view.stage.bounds.max.x) * 0.5,
+                view.self_view.pos.y,
+            );
+            let home = side_toward(centre - view.self_view.pos);
             frame.locomotion.x = home;
             frame.facing = home;
             frame.jump_pressed = true;

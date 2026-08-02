@@ -5,8 +5,8 @@
 //! APM ceiling, and a noise stream that does not reproduce.
 
 use super::*;
-use crate::actor::ActorFaction;
 use crate::actor::attack_gesture::AttackDir;
+use crate::actor::ActorFaction;
 use crate::brain::fighter::options::UtilityWeights;
 use crate::brain::fighter::options::{AttackBinding, AttackVerb};
 use crate::brain::fighter::profile::FighterBrainProfile;
@@ -626,7 +626,7 @@ fn a_pending_attack_matures_into_the_press_that_reaches_its_move() {
 #[cfg(feature = "causal")]
 #[test]
 fn the_inspector_answers_why_this_fighter_chose_this_action() {
-    use ambition_causal::{CausalLog, FactValue, RecordingPolicy, SubjectKey, domains, with_sink};
+    use ambition_causal::{domains, with_sink, CausalLog, FactValue, RecordingPolicy, SubjectKey};
 
     let (cfg, mut state) = rig(immediate_profile());
     let mut snapshot = BrainSnapshot::idle();
@@ -699,7 +699,7 @@ fn the_inspector_answers_why_this_fighter_chose_this_action() {
 #[cfg(feature = "causal")]
 #[test]
 fn recording_changes_nothing_about_what_the_brain_does() {
-    use ambition_causal::{CausalLog, RecordingPolicy, with_sink};
+    use ambition_causal::{with_sink, CausalLog, RecordingPolicy};
 
     let (cfg, mut unobserved) = rig(immediate_profile());
     let quiet = run(&cfg, &mut unobserved, 20);
@@ -731,7 +731,7 @@ fn recording_changes_nothing_about_what_the_brain_does() {
 #[cfg(feature = "causal")]
 #[test]
 fn two_fighters_facts_do_not_merge_into_one_explanation() {
-    use ambition_causal::{CausalLog, RecordingPolicy, SubjectKey, domains, with_sink};
+    use ambition_causal::{domains, with_sink, CausalLog, RecordingPolicy, SubjectKey};
 
     let (cfg, mut left_state) = rig(immediate_profile());
     let (_, mut right_state) = rig(immediate_profile());
@@ -772,4 +772,60 @@ fn two_fighters_facts_do_not_merge_into_one_explanation() {
             "asking about {id} returned {other} decision(s) belonging to the other fighter"
         );
     }
+}
+
+/// ⛔ **`locomotion.x` is BODY-LOCAL, and this brain used to write world `x`.**
+///
+/// The kernel states the contract at `LocalAxes`: *"controlled-body-local axes:
+/// `+x` local side/right … produced by resolving raw `ScreenAxes` against the
+/// body's current `AccelerationFrame`"*. `apply_movement` wrote
+/// `(foe.pos.x - self.pos.x).signum()` — a WORLD sign — into it, and the
+/// conversion downstream (`LocalAxes::from_vec`) copies the components and
+/// renames the type, so nothing performed the transform the type asserts.
+///
+/// ⚠ **the two conventions agree under screen-down gravity**, which is why this
+/// never showed: `side` is world `+x` there and `to_local` is the identity. So
+/// the fix is byte-identical for every stage anyone plays, and the only test
+/// that can see it is one that rotates the frame.
+///
+/// With gravity pointing world-LEFT the body's local side axis is world `+y`, so
+/// a foe displaced along world `+x` sits on this body's GRAVITY axis — directly
+/// above or below it in its own frame. There is no sideways throttle that closes
+/// on it, and every lateral this brain emits derives from that same resolved
+/// sign. The old code answered full throttle along an axis the foe is not on.
+#[test]
+fn every_lateral_this_brain_emits_is_in_the_bodys_own_frame() {
+    let lateral = |gravity_down: ae::Vec2| -> Vec<f32> {
+        let (cfg, mut state) = rig(immediate_profile());
+        let snapshot = BrainSnapshot::idle();
+        let mut view = scene(300.0, 500.0);
+        view.self_view.gravity_down = gravity_down;
+        let mut out = ActorControlFrame::neutral();
+        let mut seen = Vec::new();
+        for _ in 0..40 {
+            tick_fighter(&cfg, &mut state, &snapshot, Some(&view), &mut out);
+            seen.push(out.locomotion.x);
+        }
+        seen
+    };
+
+    // Screen-down: unchanged behaviour. The body walks at the foe, so SOME tick
+    // must carry a lateral — otherwise the rotated case below proves nothing,
+    // because "no lateral" would be this brain's answer everywhere.
+    let upright = lateral(ae::Vec2::new(0.0, 1.0));
+    assert!(
+        upright.iter().any(|x| x.abs() > 0.0),
+        "the fighter emitted no lateral at all under normal gravity, so the \
+         rotated assertion below would hold for the wrong reason: {upright:?}"
+    );
+
+    // Rotated a quarter turn: the foe is on the gravity axis, so no lateral
+    // closes on it and every verb's resolved side sign is zero.
+    let sideways = lateral(ae::Vec2::new(-1.0, 0.0));
+    assert!(
+        sideways.iter().all(|x| *x == 0.0),
+        "with gravity pointing world-left the foe sits on this body's gravity \
+         axis, so a sideways throttle cannot close on it — a non-zero here is a \
+         WORLD x sign stamped into a body-local field: {sideways:?}"
+    );
 }

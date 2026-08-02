@@ -974,8 +974,28 @@ runs the same plugin graph"*. An unconstrained pair resolves the same way on
 every peer. What it costs is not correctness but LEGIBILITY — the position is
 decided by a topological sort rather than by anything written down.
 
-▢ so the next conversion is a design decision each time, not a refactor. Where it
-is one — a crate owing a set, as `ambition_vfx` did — it is cheap.
+✔ **and one more was exactly equivalent rather than merely stricter**, which is
+the distinction that decides whether a conversion is safe to make blind.
+`sandbox_reset.rs` pinned `.before(control::input_timer_system)`; that system is
+the FIRST element of the tuple carrying `.chain().in_set(PlayerInputSet::Device)`,
+so being before it IS being before all of Device. Converted. Runtime 10 → **9**.
+
+⛔ **and the neighbouring one is NOT, which is why they are being told apart.**
+`portal_schedule.rs` pins `.after(physics::collect_gravity_zones)`, and that
+system is the MIDDLE of three chained inside `GravitySet::ZoneSnapshot`
+(`oscillate_gravity_zones · collect_gravity_zones · collect_force_zones`).
+`.after(ZoneSnapshot)` would additionally wait for `collect_force_zones` — a
+STRICTER constraint that removes an ambiguity by choosing a side. Probably
+harmless (portal carves and force zones are semantically unrelated) and that is
+exactly the word that should stop a blind edit in a rollback schedule.
+
+▢ **so the remaining nine sort into three kinds**, and only the first is
+mechanical:
+* **equivalent** — the pinned system is the head of a chained set. Convert.
+* **stricter** — the pinned system is inside a set. Needs someone to decide the
+  new position is acceptable (`portal_schedule` × 1).
+* **intra-phase** — the pin is between members of one set. Needs a new boundary
+  invented (`portal_schedule` × 2, `player_schedule` × 2).
 
 ---
 

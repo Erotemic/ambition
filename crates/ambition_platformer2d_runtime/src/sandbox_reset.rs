@@ -22,10 +22,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
+use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::time::time_control::{ClockRequester, ClockResetRequest};
-use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
@@ -107,7 +107,9 @@ pub fn reset_sandbox(
 /// at that instant.
 #[allow(clippy::too_many_arguments)]
 pub fn apply_room_replay_request_system(
-    mut replay_requests: MessageReader<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>,
+    mut replay_requests: MessageReader<
+        ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested,
+    >,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
@@ -193,7 +195,11 @@ impl Plugin for RoomReplaySchedulePlugin {
             apply_room_replay_request_system
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                 .after(ambition_dev_tools::DevEditApplySet)
-                .before(ambition_platformer2d_actor_monolith::control::input_timer_system),
+                // ⭐ EXACTLY equivalent to the `.before(input_timer_system)` this
+                // replaces, not merely stricter: that system is the FIRST element
+                // of the tuple that gets `.chain().in_set(PlayerInputSet::Device)`,
+                // so being before it is being before all of Device.
+                .before(ambition_platformer2d_shared_tangle::schedule::PlayerInputSet::Device),
         );
         // Content dialogue-followup emitters (e.g. cut-rope "try again") run
         // before the consumer that drains their requests the same frame;

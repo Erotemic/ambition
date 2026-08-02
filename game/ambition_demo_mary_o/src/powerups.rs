@@ -20,7 +20,9 @@ use ambition_platformer2d::characters::equipment::{
 
 use ambition_platformer2d::actors::actor::{BodyBaseSize, PrimaryPlayer};
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
-use ambition_platformer2d::actors::items::{spawn_world_item, WorldItem};
+use ambition_platformer2d::actors::items::{
+    spawn_moving_world_item, ItemMotionPlan, WorldItem,
+};
 use ambition_platformer2d::actors::rooms::RoomLoaded;
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
@@ -253,13 +255,26 @@ pub fn bonk_power_blocks(
         let ContactSource::Block { id, .. } = &contact.source else {
             continue;
         };
-        let Some(i) = crate::power_block_index_for(id) else {
+        // TWO block families, and which one was struck decides what comes out.
+        // A quasar block yields the quasar to ANY form, because being briefly
+        // untouchable is not a rung on the power ladder (Jon: "a quasar is not
+        // part of the wand -> lantern item progression. Any form of maryo should
+        // be able to get the quasar").
+        let Some((i, reward_of)) = crate::power_block_index_for(id)
+            .map(|i| (i, RewardSource::PowerLadder))
+            .or_else(|| {
+                crate::quasar_block_index_for(id).map(|i| (i, RewardSource::Quasar))
+            })
+        else {
             continue;
         };
         if spent.0.contains(id) {
             continue;
         }
-        let Some(reward) = next_power_reward(worn) else {
+        let Some(reward) = (match reward_of {
+            RewardSource::Quasar => Some(quasar_reward()),
+            RewardSource::PowerLadder => next_power_reward(worn),
+        }) else {
             // No rung left to give. Unreachable while the ladder ends in the
             // star, and kept because `next_power_reward` is allowed to say no —
             // an un-spent block still has its reward waiting afterwards.
@@ -267,12 +282,41 @@ pub fn bonk_power_blocks(
         };
         spent.0.insert(id.clone());
         // The reward pops out resting on the block's top face (screen up = -y).
-        let min = crate::power_block_min(i);
-        let pos = ae::Vec2::new(min.x + crate::T * 0.5, min.y - reward.half.y);
-        spawn_world_item(
+        let min = match reward_of {
+            RewardSource::Quasar => crate::quasar_block_min(i),
+            RewardSource::PowerLadder => crate::power_block_min(i),
+        };
+        // It starts INSIDE the block and rises out — the beat Jon asked for.
+        let pos = ae::Vec2::new(min.x + crate::T * 0.5, min.y + crate::T * 0.5);
+        spawn_moving_world_item(
             &mut commands,
             WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite),
+            reward.motion,
         );
+    }
+}
+
+/// Which family of ?-block was struck, and therefore what it owes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RewardSource {
+    /// The wand -> lantern progression: what it gives depends on what she wears.
+    PowerLadder,
+    /// A quasar block: the same answer for every form.
+    Quasar,
+}
+
+/// The quasar, which any Mary-O can collect at any power tier.
+fn quasar_reward() -> PowerReward {
+    PowerReward {
+        row: crate::star::pocket_quasar(),
+        half: crate::star::QUASAR_HALF,
+        sprite: crate::star::QUASAR_SPRITE,
+        // It BOUNDS (Jon: "the quasar doesn't bound like a mario superstar
+        // does") — fast, and giving back most of every landing.
+        motion: rises_from_a_block(
+            ItemMotionPlan::bouncer(QUASAR_SPEED, QUASAR_RESTITUTION),
+            crate::star::QUASAR_HALF.y,
+        ),
     }
 }
 
@@ -281,7 +325,25 @@ struct PowerReward {
     row: EquipmentRow,
     half: ae::Vec2,
     sprite: &'static str,
+    /// **How it behaves once it is out of the block** — the engine steps this
+    /// plan, so the demo only says which one it wants.
+    motion: ItemMotionPlan,
 }
+
+/// How far and how long a reward takes to climb out of the block that produced
+/// it. It spawns INSIDE and rises to rest on the top face, so the distance is
+/// half a block plus its own half-height.
+fn rises_from_a_block(plan: ItemMotionPlan, half_y: f32) -> ItemMotionPlan {
+    plan.emerging(crate::T * 0.5 + half_y, 0.4)
+}
+
+/// Travel speed of the wand once it is out — slower than she walks, so a player
+/// who wants it can always catch it.
+const WAND_SPEED: f32 = 55.0;
+/// The quasar is faster and gives back most of what it lands with: it is meant
+/// to bound away from you like a superstar.
+const QUASAR_SPEED: f32 = 105.0;
+const QUASAR_RESTITUTION: f32 = 0.86;
 
 /// `small -> wand`, `grown -> beacon`, `spark-powered -> nothing`.
 ///
@@ -291,26 +353,26 @@ struct PowerReward {
 fn next_power_reward(worn: Option<&WornEquipment>) -> Option<PowerReward> {
     let wears = |id: &str| worn.is_some_and(|w| w.wears(id));
     if wears(CINDER_BEACON_ID) {
-        // The top of the ladder is not "nothing" any more: a fully powered
-        // Mary-O gets the star (Jon: "Super maryo needs a super-star
-        // equivalent"). The quasar is not a form, so it does not displace the
-        // beacon she is standing there wearing — it burns and is gone.
-        Some(PowerReward {
-            row: crate::star::pocket_quasar(),
-            half: crate::star::QUASAR_HALF,
-            sprite: crate::star::QUASAR_SPRITE,
-        })
+        // Fully powered: this ladder has nothing left to give. The quasar is
+        // NOT its top rung — it is not a form at all, and gating it behind two
+        // other powerups would mean a small Mary-O could never be invincible.
+        // It has its own blocks; see `bonk_power_blocks`.
+        None
     } else if wears(STAR_WAND_ID) {
         Some(PowerReward {
             row: cinder_beacon(),
             half: CINDER_BEACON_HALF,
             sprite: CINDER_BEACON_SPRITE,
+            // The beacon waits on its block, like the classic flower.
+            motion: rises_from_a_block(ItemMotionPlan::still(), CINDER_BEACON_HALF.y),
         })
     } else {
         Some(PowerReward {
             row: star_wand(),
             half: STAR_WAND_HALF,
             sprite: STAR_WAND_SPRITE,
+            // The wand WALKS and turns at walls, like the mushroom.
+            motion: rises_from_a_block(ItemMotionPlan::walker(WAND_SPEED), STAR_WAND_HALF.y),
         })
     }
 }
@@ -652,23 +714,49 @@ mod tests {
             "grown Mary-O is offered the beacon"
         );
 
-        // Spark-powered: the STAR. The ladder's top rung used to be "nothing",
-        // which is the honest answer only while no reward exists above the
-        // forms; the quasar is that reward.
+        // Fully powered: the ladder is done. The quasar is NOT its top rung.
         let sparked = WornEquipment::new(vec![cinder_beacon()]);
-        let top = next_power_reward(Some(&sparked)).map(|r| r.row);
-        assert_eq!(
-            top.as_ref().map(|row| row.id.clone()),
-            Some(crate::star::POCKET_QUASAR_ID.to_string()),
-            "a fully powered Mary-O is offered the star"
-        );
-        // And it is still not a duplicate FORM row, which is what the old
-        // assertion was really protecting: the quasar takes no exclusive slot,
-        // so collecting it cannot displace the beacon she is wearing.
         assert!(
-            top.and_then(|row| row.exclusive_slot).is_none(),
-            "the star occupies no form slot, so it never costs her a power tier"
+            next_power_reward(Some(&sparked)).is_none(),
+            "a fully powered Mary-O has nothing left to gain from a ?-block"
         );
+    }
+
+    /// **The quasar is not on the ladder at all** (Jon: "a quasar is not part of
+    /// the wand -> lantern item progression. Any form of maryo should be able to
+    /// get the quasar and be invincible").
+    ///
+    /// It briefly landed as the ladder's top rung, which read tidily and was
+    /// wrong in the way that matters: it made being untouchable a reward for
+    /// already being powerful, so the Mary-O who most needs it — small, one hit
+    /// from death — was the one who could never have it.
+    #[test]
+    fn the_quasar_is_the_same_offer_to_every_form() {
+        // It occupies no form slot, so taking it can never cost her a tier.
+        assert!(
+            quasar_reward().row.exclusive_slot.is_none(),
+            "the quasar is not a form"
+        );
+        assert_eq!(quasar_reward().row.id, crate::star::POCKET_QUASAR_ID);
+
+        // And its blocks are a family of their own: no ?-block id answers as a
+        // quasar block, and no quasar block answers as a ?-block. That disjointness
+        // is what lets ONE bonk rule serve both without either shadowing the other.
+        for i in 0..2 {
+            let quasar = crate::quasar_block_id(i);
+            assert!(crate::quasar_block_index_for(&quasar).is_some());
+            assert!(
+                crate::power_block_index_for(&quasar).is_none(),
+                "a quasar block must not read as a power block"
+            );
+        }
+        for i in 0..3 {
+            let power = crate::power_block_id(i);
+            assert!(
+                crate::quasar_block_index_for(&power).is_none(),
+                "a power block must not read as a quasar block"
+            );
+        }
     }
 
     /// **Damage walks the ladder back down**, one rung per hit, through the

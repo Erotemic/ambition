@@ -95,6 +95,16 @@ const POWER_BLOCK_ROW: f32 = 4.0;
 const POWER_BLOCK_LAYER: &str = "mary_o_ground";
 const POWER_BLOCK_BASE_INDEX: u16 = 10;
 
+/// Tile columns of the QUASAR blocks — a separate family from the ?-blocks above,
+/// because the quasar is not a rung on the wand -> lantern ladder: any form of
+/// Mary-O can take one and be briefly untouchable. Placed just before the stair
+/// pyramid so the invincibility has something to run through — the AI Slop that
+/// walks down the steps and piles at their foot.
+const QUASAR_BLOCK_COLUMNS: [f32; 2] = [50.0, 70.0];
+/// Disjoint base ordinal so a quasar block can never share a `GeoId` with a
+/// ?-block or a brick.
+const QUASAR_BLOCK_BASE_INDEX: u16 = 30;
+
 /// Tile columns of the breakable BRICKS — the ?-block's plain sibling and the
 /// SECOND consumer of the reactive-block primitive (`ContactSource::Block` carrying
 /// a durable [`GeoId`](ae::GeoId)). A head-bonk BREAKS a brick (removes it from the
@@ -444,6 +454,17 @@ pub fn level_1_1() -> RoomSpec {
         ));
     }
 
+    for i in 0..QUASAR_BLOCK_COLUMNS.len() {
+        let min = quasar_block_min(i);
+        blocks.push(ae::Block::solid_tiled(
+            format!("quasar_block_{i}"),
+            min,
+            ae::Vec2::new(T, T),
+            POWER_BLOCK_LAYER,
+            QUASAR_BLOCK_BASE_INDEX + i as u16,
+        ));
+    }
+
     // 4. The stair pyramid: four up at x=74.., a gap, four down ending at x=83.
     // (Shifted +8 with the rest of the post-vault level.)
     for step in 1..=4u16 {
@@ -737,6 +758,24 @@ pub fn power_block_id(i: usize) -> ae::GeoId {
 /// [`power_block_id`]. `None` for any other block the player bonks.
 pub fn power_block_index_for(id: &ae::GeoId) -> Option<usize> {
     (0..POWER_BLOCK_COLUMNS.len()).find(|&i| power_block_id(i) == *id)
+}
+
+/// The min corner of quasar block `i`, from the SAME constants [`level_1_1`]
+/// builds it out of.
+pub fn quasar_block_min(i: usize) -> ae::Vec2 {
+    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+    ae::Vec2::new(QUASAR_BLOCK_COLUMNS[i] * T, ground_top - POWER_BLOCK_ROW * T)
+}
+
+/// The durable [`GeoId`](ae::GeoId) of quasar block `i`.
+pub fn quasar_block_id(i: usize) -> ae::GeoId {
+    ae::GeoId::tile_layer(POWER_BLOCK_LAYER, QUASAR_BLOCK_BASE_INDEX + i as u16)
+}
+
+/// If `id` is one of the QUASAR blocks, its column index. `None` otherwise —
+/// including for a ?-block, so the two families never answer for each other.
+pub fn quasar_block_index_for(id: &ae::GeoId) -> Option<usize> {
+    (0..QUASAR_BLOCK_COLUMNS.len()).find(|&i| quasar_block_id(i) == *id)
 }
 
 /// The min corner of brick `i`, from the SAME constants [`level_1_1`] builds the

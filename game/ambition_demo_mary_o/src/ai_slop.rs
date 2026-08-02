@@ -142,23 +142,74 @@ pub fn register_ai_slop_sheet(
 /// exit pipe (column 45), and the stairs/flagpole.
 const AI_SLOP_TILE_COLUMNS: &[f32] = &[13.0, 24.0, 53.0, 70.0];
 
-/// The AI Slop spawn requests for level 1-1, dropped at the player's standing height
-/// so gravity settles each onto the ground beneath its column.
+/// **One AI Slop on top of every stair step** — `(tile column, tiles above the
+/// ground)`, matching the pyramid `level_1_1` builds: four up at columns 74-77
+/// rising 1..4 tiles, a gap, four down at 80-83 falling 4..1.
+///
+/// Jon asked for these to test the quasar: "put some AI slop on the top of each
+/// stairs so it goes down them and gets stuck in the bottom." They walk off
+/// their step, tumble down the pyramid, and collect in the gap between the two
+/// halves — a crowd to run through while invincible, which is the only way to
+/// see that invincibility is doing anything.
+const AI_SLOP_STAIR_STEPS: &[(f32, f32)] = &[
+    (74.0, 1.0),
+    (75.0, 2.0),
+    (76.0, 3.0),
+    (77.0, 4.0),
+    (80.0, 1.0),
+    (81.0, 2.0),
+    (82.0, 3.0),
+    (83.0, 4.0),
+];
+
+/// Half-extent of an AI Slop, shared by both spawn lists.
+const AI_SLOP_HALF: f32 = 14.0;
+
+/// The AI Slop spawn requests for level 1-1: the ground patrol, dropped at the
+/// player's standing height so gravity settles each onto its column, plus one
+/// per stair step, dropped just above the step it belongs to.
 fn ai_slop_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
+    let half = ae::Vec2::new(AI_SLOP_HALF, AI_SLOP_HALF);
+    let request = |id: String, pos: ae::Vec2| SpawnActorRequest {
+        id,
+        name: AI_SLOP_DISPLAY_NAME.to_string(),
+        pos,
+        half_size: half,
+        faction: ActorFaction::Enemy,
+        grudge_against: None,
+        kind: SpawnActorKind::Enemy {
+            brain: CharacterBrain::Custom(AI_SLOP_BRAIN_KEY.to_string()),
+        },
+    };
+    // The ground under the player's feet: her spawn is her body's CENTRE, so the
+    // surface is half a body below it. Every step top is a whole number of tiles
+    // above that, and a slop rests its own half-extent above whatever it lands
+    // on — expressed from her spawn so the two lists cannot drift apart when the
+    // level moves.
+    let ground_top = player_spawn.y + ae::movement::default_player_body_size().y * 0.5;
     AI_SLOP_TILE_COLUMNS
         .iter()
         .enumerate()
-        .map(|(i, col)| SpawnActorRequest {
-            id: format!("mary_o_ai_slop_{i}"),
-            name: AI_SLOP_DISPLAY_NAME.to_string(),
-            pos: ae::Vec2::new(col * T, player_spawn.y),
-            half_size: ae::Vec2::new(14.0, 14.0),
-            faction: ActorFaction::Enemy,
-            grudge_against: None,
-            kind: SpawnActorKind::Enemy {
-                brain: CharacterBrain::Custom(AI_SLOP_BRAIN_KEY.to_string()),
-            },
+        .map(|(i, col)| {
+            request(
+                format!("mary_o_ai_slop_{i}"),
+                ae::Vec2::new(col * T, player_spawn.y),
+            )
         })
+        .chain(
+            AI_SLOP_STAIR_STEPS
+                .iter()
+                .enumerate()
+                .map(|(i, (col, tiles))| {
+                    // A few px of drop, so it lands ON the step rather than
+                    // starting inside it.
+                    let step_top = ground_top - tiles * T;
+                    request(
+                        format!("mary_o_ai_slop_stair_{i}"),
+                        ae::Vec2::new(col * T, step_top - AI_SLOP_HALF - 4.0),
+                    )
+                }),
+        )
         .collect()
 }
 

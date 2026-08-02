@@ -446,6 +446,9 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     // The reward pops out RESTING ON the block's top face, so collecting it is
     // a second, separate platforming act — she has to get up there.
     let block0 = block("power_block_0");
+    /// Stay this side of the first pit while chasing the wand — the pit opens at
+    /// x = 640 and walking into it is not what this step is testing.
+    const FIRST_PIT_SAFE_X: f32 = 560.0;
     // Three things this beat has to respect, all of which a player learns in the
     // first ten seconds of the real game:
     //
@@ -495,11 +498,16 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         ))
     });
 
+    // WALK it down. The wand does not wait on the block any more — it rises out
+    // and travels, turning at walls, so mounting the block reaches an empty
+    // roof. She patrols the safe stretch between the block and the first pit
+    // until it comes to her; she is faster than it, so this always converges.
     let got_cap = drive(&mut app, 300, |b| {
         if b.is_tall() {
             return None;
         }
-        Some(mount(b, block0.center().x, block0.min.y))
+        let toward = if b.pos.x > FIRST_PIT_SAFE_X { -1.0 } else { 1.0 };
+        Some(move_x(toward, false))
     });
     eprintln!("after mount attempt: tall={} {:?}", got_cap, body(&mut app));
 

@@ -82,8 +82,11 @@ impl Invulnerability {
     /// A transformation beat is holding the body untouchable
     /// (`TransformBeatPolicy::untouchable`).
     pub const TRANSFORMING: u32 = 1 << 0;
-    /// Star power / super form — a timed pickup or a game's own super state.
-    pub const STAR: u32 = 1 << 1;
+    /// The body's own power state makes it untouchable — a timed pickup, a
+    /// super form, whatever a game calls it. Named for what is TRUE of the body
+    /// rather than for the object that caused it: "star" is one game's word for
+    /// one of its pickups, and the engine has no business knowing it.
+    pub const EMPOWERED: u32 = 1 << 1;
     /// A game or scripted sequence asserting it directly. The catch-all for
     /// callers that used to write the bool and have no finer reason to give.
     pub const SCRIPTED: u32 = 1 << 2;

@@ -17,8 +17,8 @@
 //!
 //! Damage gates on `Health::invulnerable`, which is an
 //! [`Invulnerability`](ambition_platformer2d::characters::actor::Invulnerability)
-//! — a set of REASONS rather than a bool. The star takes `STAR` while it burns
-//! and releases `STAR` when it ends, and that is the whole of its concern: a
+//! — a set of REASONS rather than a bool. The star takes `EMPOWERED` while it burns
+//! and releases `EMPOWERED` when it ends, and that is the whole of its concern: a
 //! transformation beat overlapping it holds `TRANSFORMING` independently, and
 //! neither can strip the other by finishing first.
 //!
@@ -130,7 +130,7 @@ pub fn run_star_power(
         health
             .health
             .invulnerable
-            .set(ambition_platformer2d::characters::actor::Invulnerability::STAR, burning);
+            .set(ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED, burning);
         offense.invincible = burning;
         if !burning {
             commands.entity(entity).remove::<StarPower>();

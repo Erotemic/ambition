@@ -121,7 +121,7 @@ pub fn begin_requested_transform_beats(
         };
         // TAKE the transformation's own reason. Nothing is captured and
         // nothing is restored: a star burning through this transformation holds
-        // `STAR` the whole time and is unaffected by us taking and releasing
+        // `EMPOWERED` the whole time and is unaffected by us taking and releasing
         // `TRANSFORMING`, which is the entire reason invulnerability is a set.
         if policy.untouchable {
             if let Some(mut health) = health {
@@ -360,7 +360,7 @@ mod tests {
             let mut app = app();
             let mut health = BodyHealth::new(ambition_characters::actor::Health::new(3));
             if star_first {
-                health.health.invulnerable.set(Invulnerability::STAR, true);
+                health.health.invulnerable.set(Invulnerability::EMPOWERED, true);
             }
             let body = app
                 .world_mut()
@@ -383,7 +383,7 @@ mod tests {
                 "she cannot be hit out of her own transformation",
             );
             assert_eq!(
-                mid.holds(Invulnerability::STAR),
+                mid.holds(Invulnerability::EMPOWERED),
                 star_first,
                 "and the beat neither invents nor forgets somebody else's reason",
             );
@@ -397,7 +397,7 @@ mod tests {
                     .unwrap()
                     .health
                     .invulnerable
-                    .set(Invulnerability::STAR, true);
+                    .set(Invulnerability::EMPOWERED, true);
             }
 
             advance(&mut app, 0.3);
@@ -407,7 +407,7 @@ mod tests {
                 "the beat released its own reason when it ended",
             );
             assert!(
-                after.holds(Invulnerability::STAR),
+                after.holds(Invulnerability::EMPOWERED),
                 "and the star outlives it, whichever order they started in",
             );
             assert!(after.any(), "so the body is still untouchable");

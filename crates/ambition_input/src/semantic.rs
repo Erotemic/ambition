@@ -52,11 +52,21 @@
 //! the impl would reintroduce exactly the central mutable table the open
 //! vocabulary exists to avoid.
 //!
-//! ▢ **so the open question is a TYPE DESIGN one, not a migration one**: should
-//! the id carry its kind (`SemanticActionId { id, kind }`), making two ids with
-//! the same string but different kinds distinct? That is a small change and it
-//! unblocks everything downstream. Answer it before touching 46 call sites —
-//! declaring the vocabulary first is what keeps that rename mechanical.
+//! ▢ **and the registry already settles it.** `ActionRegistry` is
+//! `BTreeMap<SemanticActionId, SemanticActionDef>` and [`ActionConflict`] refuses
+//! a second owner for the same id — so **an id has exactly one kind, by
+//! construction**. The "two ids with the same string, different kinds" worry
+//! cannot arise here.
+//!
+//! ⭐ so the shape is: keep [`SemanticActionId`] as the identity and the registry
+//! key, unchanged, and give leafwing a SEPARATE `SemanticAction { id, kind }`
+//! that is only ever built by looking an id up in the registry. It cannot be
+//! minted with a kind the registry disagrees with, and the docs' own wording —
+//! `InputMap<SemanticAction>`, not `InputMap<SemanticActionId>` — was already
+//! pointing at exactly that.
+//!
+//! ⚠ NOT built here. An unused type is a hypothetical; this belongs in the commit
+//! that does the rename, which now has one fewer decision to make.
 
 use std::collections::BTreeMap;
 

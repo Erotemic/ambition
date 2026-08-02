@@ -418,6 +418,49 @@ general thing stuck in there.
 ⛔ **but moving it rewrites the fingerprint**, which is why the geometry carve
 went first and this one has not started. Deciding this unblocks it.
 
+### ⭐ Two things measured since, both of which enlarge this decision
+
+**1. The codec blocks carve-outs by a SECOND mechanism nobody had named: the
+orphan rule.** Found 2026-08-02 while carving `ambition_projectile_spec`.
+`ambition_platformer2d_shared_tangle` contains
+
+```rust
+snapshot_unit_enum!(crate::projectile::WorldHitPolicy { Bouncing = 0, … });
+```
+
+— an impl of **core's** `SnapshotState` for its own type. Move that type into a
+new crate and the impl becomes a foreign trait on a foreign type and stops
+compiling; move the impl with it and the new crate must depend on core for
+`SnapshotState`, reintroducing exactly the edge the carve existed to remove.
+`ProjectileSpec` is dragged along by its `world_hit` field.
+
+So wherever the codec lives, it anchors every type anyone implements its traits
+on. That is independent of the fingerprint, applies to **66 encoded types across
+9 crates**, and (b) does not fix it — only moving the codec out of core does.
+
+**2. `ambition_input` is the single highest-value cut in the workspace, and it is
+this decision.** `scripts/core_import_census.py --cuts` simulates dropping one
+direct edge and reports who leaves the closure:
+
+```text
+ 3 crate(s)  ambition_input        input, inventory_ui, ui_nav
+ 3 crate(s)  ambition_characters   characters, content_cli, interaction
+ 1 crate(s)  ambition_time         time
+ 1 crate(s)  ambition_platformer2d_shared_tangle
+ 0 crate(s)  …everything else
+```
+
+`ambition_input` imports **exactly one item** from core — `ControlFrame` — and
+`ControlFrame` is line 121 of `rollback_schema_baseline.txt`
+(`derived.control_frame`). `ambition_characters`, the only cut of equal value,
+imports 77. So the cheapest three-crate cut available anywhere in the workspace
+is gated on this fork.
+
+⚠ **and be careful reading that table the way I first did.** The `--paths`
+column made it look like SEVEN crates reached core only through `ambition_input`;
+simulating the cut says three. A shortest path hides every alternative path by
+construction. Rank by `--cuts`, never by `--paths`.
+
 ### The fork
 
 **(a) Accept it.** Regenerate the baseline and bump

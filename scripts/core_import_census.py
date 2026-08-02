@@ -171,6 +171,64 @@ def _transitive_closure(name: str) -> set[str]:
     return {line.split()[0] for line in out.splitlines() if line.strip()}
 
 
+def _workspace_edges() -> dict[str, set[str]]:
+    """Workspace-crate → the workspace crates it declares as a normal dependency.
+
+    ⚠ from `cargo metadata`, so it is the DECLARED graph. That is the right graph
+    for this question: a shortest path here is a list of manifests somebody would
+    have to change, which is exactly what `--paths` is asked to report.
+    """
+    out = subprocess.run(
+        ["cargo", "metadata", "--no-deps", "--format-version", "1"],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    ).stdout
+    meta = json.loads(out)
+    ids = set(meta["workspace_members"])
+    names = {pkg["name"] for pkg in meta["packages"] if pkg["id"] in ids}
+    edges: dict[str, set[str]] = {}
+    for pkg in meta["packages"]:
+        if pkg["id"] not in ids:
+            continue
+        edges[pkg["name"]] = {
+            dep["name"] for dep in pkg["dependencies"]
+            if dep["name"] in names
+            and dep.get("kind") in (None, "null")
+            # ⛔ OPTIONAL edges excluded, and this is not cosmetic. The closure
+            # count above comes from `cargo tree --edges normal`, which resolves
+            # DEFAULT features — so counting an off-by-default optional edge here
+            # would make the two halves of this one instrument disagree about the
+            # same graph. `ambition_touch_input` is the case that showed it: it
+            # declares monolith / render / sim_view optionally, and including them
+            # made it look like it had seven paths to core when its default build
+            # has far fewer.
+            and not dep.get("optional", False)
+        }
+    return edges
+
+
+def _shortest_path(start: str, goal: str, edges: dict[str, set[str]]) -> list[str] | None:
+    """BFS, so the reported path is the FEWEST manifests that must change.
+
+    ⚠ shortest is not the same as easiest — the one-hop path may be the immovable
+    one (see the orphan-rule note in `ambition_projectile_spec`). This reports
+    distance, and a human still decides which edge is actually cuttable.
+    """
+    if start == goal:
+        return [start]
+    seen = {start}
+    queue = [[start]]
+    while queue:
+        path = queue.pop(0)
+        for nxt in sorted(edges.get(path[-1], ())):
+            if nxt in seen:
+                continue
+            if nxt == goal:
+                return path + [nxt]
+            seen.add(nxt)
+            queue.append(path + [nxt])
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--detail", action="store_true", help="every symbol, per crate")
@@ -178,6 +236,12 @@ def main() -> int:
                         help="union of what the general-NAMED crates import")
     parser.add_argument("--of", default=DEFAULT_TARGET, metavar="CRATE",
                         help="measure imports of CRATE instead of the core crate")
+    parser.add_argument("--cuts", action="store_true",
+                        help="rank direct dependents by how many crates would leave the "
+                             "target's closure if that ONE edge were cut")
+    parser.add_argument("--paths", action="store_true",
+                        help="for every crate still carrying the target, the SHORTEST "
+                             "dependency path to it — i.e. what would have to be cut")
     args = parser.parse_args()
 
     global TARGET
@@ -203,6 +267,50 @@ def main() -> int:
              if not _depends_on_target(pkg) and pkg["name"] != TARGET
              and TARGET not in _transitive_closure(pkg["name"])]
     print(f"{len(freed)} of {len(_members()) - 1} build WITHOUT it in their closure\n")
+
+    if args.cuts:
+        # ⭐ **the actual planning question**, and the one a shortest-path list
+        # answers WRONGLY. Reading the `--paths` column, seven crates looked like
+        # they reached core only through `ambition_input`; simulating the cut says
+        # THREE. The others have additional core-carrying dependencies that a
+        # shortest path hides by construction. Rank by the simulation, never by
+        # the column.
+        edges = _workspace_edges()
+        carrying = {n for n in edges if n != TARGET and _shortest_path(n, TARGET, edges)}
+        print(f"── if ONE crate dropped its direct {TARGET} edge, who leaves the closure ──")
+        rows = []
+        for name in sorted(edges):
+            if TARGET not in edges.get(name, ()):
+                continue
+            trial = {k: set(v) for k, v in edges.items()}
+            trial[name].discard(TARGET)
+            still = {n for n in trial if n != TARGET and _shortest_path(n, TARGET, trial)}
+            rows.append((len(carrying - still), name, sorted(carrying - still)))
+        for count, name, freed in sorted(rows, reverse=True):
+            names = ", ".join(f.replace("ambition_", "") for f in freed)
+            print(f"  {count:2} crate(s)  {name:<44} {names}")
+        print(f"\n  {len(carrying)} crates carry {TARGET} today.")
+        print()
+
+    if args.paths:
+        # ⭐ the question the carve-out plan kept needing a manual `cargo tree -i`
+        # to answer: for a crate that still carries the target, WHAT is carrying
+        # it. A one-hop path is a direct edge the crate could drop itself; a
+        # longer one means the work is in somebody else's manifest first.
+        edges = _workspace_edges()
+        print(f"── shortest path to {TARGET}, for crates that still carry it ──")
+        rows = []
+        for pkg in _members():
+            name = pkg["name"]
+            if name == TARGET or name in freed:
+                continue
+            path = _shortest_path(name, TARGET, edges)
+            if path:
+                rows.append((len(path), name, path))
+        for hops, name, path in sorted(rows):
+            arrow = " → ".join(p.replace("ambition_", "") for p in path[1:])
+            print(f"  {hops - 1} hop(s)  {name:<44} {arrow}")
+        print()
 
     by_module: dict[str, set[str]] = defaultdict(set)
     per_crate: dict[str, set[str]] = {}

@@ -1016,6 +1016,24 @@ the own/cross split: **all 16 order its own systems**, which is a plugin doing
 its job. The raw count was measuring the wrong thing, which is why the split is
 recorded rather than the total.
 
+✔ **and the biggest single case is converted: 49 → 45.**
+`rebuild_feature_ecs_world_overlay` was pinned by SIX consumers — four in
+`ambition_content` (`bosses`, `falling_sand`, `falling_sand_sim`, `intro`), one in
+the monolith's own `encounter`, all naming an engine leaf across a crate boundary.
+It now has `FeatureWorldOverlaySet` and every one of them orders against that.
+
+⚠ **deliberately a ONE-MEMBER set.** The obvious alternative — spanning this
+system and `update_ecs_hazards` beside it in the chain — would have made
+`.after(set)` STRICTER than the pin it replaces, because consumers would newly
+wait for hazards. One member makes the swap exactly equivalent, which is what
+lets it be made without a scheduling judgement in a rollback-critical chain.
+
+⭐ **and the measurement that made it findable is worth copying**: for each
+cross-crate pin, ask whether the TARGET already belongs to a set. Eighteen of the
+twenty in `app`/`content` did not — so the work is mostly "an engine crate owes a
+set", not "a consumer is misbehaving", and that is a much cheaper fix than it
+looked.
+
 ▢ **so the remaining nine in the runtime sort into three kinds**, and only the
 first is mechanical:
 * **equivalent** — the pinned system is the head of a chained set. Convert.

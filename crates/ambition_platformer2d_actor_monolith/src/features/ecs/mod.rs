@@ -109,7 +109,9 @@ pub use boss_clusters::{
 };
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
-pub use crate::world::overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
+pub use crate::world::overlay::{
+    rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay, FeatureWorldOverlaySet,
+};
 pub use bosses::boss_component_snapshot;
 #[allow(
     unused_imports,

@@ -153,14 +153,14 @@ pub use ecs::{
     update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
     ActorConstructionContext, ActorSteering, BossClusterQueryData, BossClusterRef,
     BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef, CanPilot,
-    ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity, FriendlyFire,
-    HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
-    Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact,
-    MountDied, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
-    PickupArt, PickupCollectLock, RidingOn, RoomContentStagingError,
-    RoomContentStagingRegistrationError, RoomContentStagingRegistry, RoomFeatureConstructionError,
-    RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest,
-    CHALLENGE_GRACE_S,
+    ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
+    FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor,
+    HitboxHits, HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState,
+    LimbSlot, Mass, MountClass, MountDeathImpact, MountDied, MountSlot, Mountable, Mounted,
+    MountedBrainCache, MountedSize, PendingChallenge, PickupArt, PickupCollectLock, RidingOn,
+    RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
+    RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
+    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
@@ -410,7 +410,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 refresh_boss_damageable_volumes,
                 refresh_breakable_damageable_volumes,
                 derive_pogo_target_volumes,
-                rebuild_feature_ecs_world_overlay,
+                rebuild_feature_ecs_world_overlay
+                    .in_set(crate::world::overlay::FeatureWorldOverlaySet),
                 update_ecs_hazards,
                 // Target selection refreshes each actor's `ActorTarget`
                 // before actor / boss update systems consume it.

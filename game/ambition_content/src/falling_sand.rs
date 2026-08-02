@@ -111,7 +111,7 @@ impl Plugin for FallingSandRoomPlugin {
                     // overlay, which the rebuild clears each frame — run after
                     // it, and after the sim half so spout state is synced and
                     // the settled ledger is current for the tile exclusion.
-                    .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
+                    .after(ambition_platformer2d_actor_monolith::features::FeatureWorldOverlaySet)
                     .after(FallingSandSimSet)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             )
@@ -254,7 +254,9 @@ fn setup_particle_types(mut commands: Commands) {
 /// not survive a room change" rule onto the bfs world.
 fn despawn_bfs_particles_when_the_room_changes(
     mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     particles: Query<Entity, With<Particle>>,
     mut last_room_id: Local<Option<String>>,
 ) {
@@ -269,7 +271,9 @@ fn despawn_bfs_particles_when_the_room_changes(
 }
 
 fn seed_falling_sand_room_boundaries(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     mut state: ResMut<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
 ) {
@@ -407,7 +411,9 @@ fn emit_particle_rect(
 /// sprite stays "on" (green) while the spout is actually off.
 fn sync_falling_sand_switch_visuals(
     state: Res<FallingSandRoomState>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     mut switches: Query<(
         &ambition_platformer2d_actor_monolith::features::SwitchFeature,
         &mut ambition_platformer2d_actor_monolith::features::SwitchOn,
@@ -432,7 +438,9 @@ fn sync_falling_sand_switch_visuals(
 
 fn sync_falling_sand_spout_nozzles(
     mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     state: Res<FallingSandRoomState>,
     existing: Query<(Entity, &FallingSandSpoutNozzle)>,
 ) {
@@ -517,7 +525,9 @@ fn sync_falling_sand_spout_nozzles(
 /// `bevy_falling_sand`'s own `render` feature draws the falling matter, and
 /// `sync_material_visuals` draws what has settled. One owner, two views of it.
 fn emit_falling_sand_spouts(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     state: Res<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     mut last_logged: Local<Option<FallingSandSpoutState>>,
@@ -717,10 +727,16 @@ fn tally_particles<'a>(
 
 fn project_particles_to_movement_world(
     mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     state: Res<FallingSandRoomState>,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_core::RoomGeometry>,
-    mut overlay: ResMut<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
+    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_core::RoomGeometry,
+    >,
+    mut overlay: ResMut<
+        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
+    >,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
     sand: Res<FallingSandWorld>,
@@ -928,7 +944,9 @@ fn project_liquid(
 fn log_falling_sand_diagnostics(
     time: Res<Time>,
     state: Res<FallingSandRoomState>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     particles: Query<(&Particle, &GridPosition)>,
     // Component-presence query: every particle that has Particle should
     // ALSO get Density/Speed/Movement/AirResistance/MovementRng inherited
@@ -1139,8 +1157,12 @@ impl MaterialKind {
 
     fn visual_color(self) -> Color {
         match self {
-            Self::Sand => ambition_platformer2d_actor_monolith::config::rgba(0.95, 0.74, 0.28, 0.72),
-            Self::Water => ambition_platformer2d_actor_monolith::config::rgba(0.18, 0.55, 1.0, 0.48),
+            Self::Sand => {
+                ambition_platformer2d_actor_monolith::config::rgba(0.95, 0.74, 0.28, 0.72)
+            }
+            Self::Water => {
+                ambition_platformer2d_actor_monolith::config::rgba(0.18, 0.55, 1.0, 0.48)
+            }
             Self::Oil => ambition_platformer2d_actor_monolith::config::rgba(0.20, 0.13, 0.06, 0.66),
         }
     }
@@ -1208,7 +1230,9 @@ fn sync_material_visuals(
 /// a paused game costs nothing.
 fn sync_sand_grid_texture(
     mut commands: Commands,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,
     mut images: ResMut<Assets<Image>>,

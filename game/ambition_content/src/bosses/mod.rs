@@ -140,7 +140,8 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 }
 
 /// Ambition's immutable App-local boss contribution.
-pub fn boss_catalog_fragment() -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment {
+pub fn boss_catalog_fragment(
+) -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment {
     ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_ron(
         crate::AMBITION_CONTENT_PROVIDER,
         Some("clockwork_warden"),
@@ -158,8 +159,10 @@ pub fn boss_catalog_fragment() -> ambition_platformer2d_actor_monolith::boss_enc
 ///
 /// Pure content tests use this helper so they exercise the same provider
 /// fragment as production composition rather than installing process state.
-pub fn authored_boss_catalog() -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog {
-    let mut registry = ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogRegistry::default();
+pub fn authored_boss_catalog() -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog
+{
+    let mut registry =
+        ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogRegistry::default();
     registry
         .register(boss_catalog_fragment())
         .expect("Ambition boss fragment should register");
@@ -190,7 +193,9 @@ impl Plugin for AmbitionBossContentPlugin {
         // multi-game hosts without process-global install order.
         register(app);
 
-        app.insert_resource(ambition_platformer2d_actor_monolith::boss_encounter::BossEncounterRegistry::default());
+        app.insert_resource(
+            ambition_platformer2d_actor_monolith::boss_encounter::BossEncounterRegistry::default(),
+        );
 
         // Cut-rope arena state is CONTENT state — owned and initialized here,
         // never by the host's sim plugin (anti-god rule 5).
@@ -292,7 +297,7 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_systems(
             sim,
             gate_gnu_ton_arena_ladder
-                .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
+                .after(ambition_platformer2d_actor_monolith::features::FeatureWorldOverlaySet)
                 .before(ambition_platformer2d_actor_monolith::features::update_ecs_hazards)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );

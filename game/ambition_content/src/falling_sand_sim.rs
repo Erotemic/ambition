@@ -263,19 +263,22 @@ impl Plugin for FallingSandSimPlugin {
                     // The projection contributes settled sand to the collision
                     // overlay, which the rebuild clears each frame — run after
                     // it (the same WorldPrep contract the gates use).
-                    .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
+                    .after(ambition_platformer2d_actor_monolith::features::FeatureWorldOverlaySet)
                     .in_set(Platformer2dSimulationPhaseMonolith::WorldPrep)
                     .in_set(FallingSandSimSet),
             )
             .add_systems(
                 sim,
-                capture_falling_sand_switch_interactions.in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
+                capture_falling_sand_switch_interactions
+                    .in_set(Platformer2dSimulationPhaseMonolith::GameplayEffects),
             );
     }
 }
 
 pub fn sync_falling_sand_room_state(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     mut state: ResMut<FallingSandRoomState>,
 ) {
@@ -301,7 +304,9 @@ pub fn sync_falling_sand_room_state(
 /// Build the sand grid on room entry (walls seeded from the SAME authored
 /// blocks the player collides with), clear it on exit.
 pub fn prepare_sand_world(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     state: Res<FallingSandRoomState>,
     mut sand: ResMut<FallingSandWorld>,
 ) {
@@ -447,7 +452,9 @@ pub fn step_sand_grid(state: Res<FallingSandRoomState>, mut sand: ResMut<Falling
 pub fn project_settled_sand(
     state: Res<FallingSandRoomState>,
     sand: Res<FallingSandWorld>,
-    mut overlay: ResMut<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
+    mut overlay: ResMut<
+        ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay,
+    >,
 ) {
     if !state.active_room {
         return;
@@ -456,7 +463,9 @@ pub fn project_settled_sand(
 }
 
 pub fn capture_falling_sand_switch_interactions(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     mut state: ResMut<FallingSandRoomState>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
     mut effects: MessageReader<ambition_platformer2d_actor_monolith::features::SwitchActivated>,
@@ -466,7 +475,8 @@ pub fn capture_falling_sand_switch_interactions(
     }
 
     for effect in effects.read() {
-        let ambition_platformer2d_actor_monolith::features::SwitchActivated { activation, .. } = effect;
+        let ambition_platformer2d_actor_monolith::features::SwitchActivated { activation, .. } =
+            effect;
         if state.spouts.toggle(activation.id.as_str()) {
             // Mirror the in-memory toggle into the save so the spout
             // state survives a reset / room re-entry. Without this
@@ -498,9 +508,14 @@ pub fn capture_falling_sand_switch_interactions(
 }
 
 pub fn grant_room_swim_controls(
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ambition_platformer2d_actor_monolith::rooms::RoomSet>,
+    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d_actor_monolith::rooms::RoomSet,
+    >,
     mut state: ResMut<FallingSandRoomState>,
-    mut players: Query<(Entity, &mut ambition_platformer2d_actor_monolith::actor::BodyAbilities)>,
+    mut players: Query<(
+        Entity,
+        &mut ambition_platformer2d_actor_monolith::actor::BodyAbilities,
+    )>,
 ) {
     if room_set.active_spec().id == ROOM_ID {
         for (entity, mut abilities) in &mut players {

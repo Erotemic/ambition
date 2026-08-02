@@ -98,7 +98,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
         app.add_systems(
             sim,
             contribute_encounter_lock_walls
-                .after(crate::features::rebuild_feature_ecs_world_overlay)
+                .after(crate::features::FeatureWorldOverlaySet)
                 .before(crate::features::update_ecs_hazards)
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );

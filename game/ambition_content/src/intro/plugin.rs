@@ -22,11 +22,11 @@ use bevy::prelude::*;
 // `redirect_post_intro_dialog` ordering — the unified dialog redirect
 // system in the sandbox `dialog` module owns its own scheduling.
 use crate::banter::CombatBanterRegistry;
+use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_platformer2d_actor_monolith::character_sprites::{
     build_npc_sprite_asset, build_prop_sprite_asset, build_prop_sprite_asset_packed,
 };
 use ambition_platformer2d_actor_monolith::rooms::GatePortalRegistry;
-use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_render::quality::ResolvedVisualQuality;
 use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 
@@ -114,7 +114,7 @@ impl Plugin for IntroPlugin {
             .add_systems(
                 sim,
                 super::route_state::sync_intro_flag_gated_lock_walls
-                    .after(ambition_platformer2d_actor_monolith::features::rebuild_feature_ecs_world_overlay)
+                    .after(ambition_platformer2d_actor_monolith::features::FeatureWorldOverlaySet)
                     .before(ambition_platformer2d_actor_monolith::features::update_ecs_hazards)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             );

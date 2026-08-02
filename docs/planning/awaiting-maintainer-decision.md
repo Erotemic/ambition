@@ -520,3 +520,61 @@ that stops it happening.
 it wants its own probe — two types with the same final segment in different
 crates must be REJECTED loudly, not silently merged. That check is the work item
 attached to choosing (b), and it should land in the same commit.
+
+## The top four ladder rungs ship a knob that measurably makes them worse (2026-08-02)
+
+**Newly surfaced**, and it is a balance call rather than a bug — but it has sat
+inside a probe's header comment where nobody was going to weigh it.
+
+### The fact
+
+`profile.rs` ships, since `ed6c55d0e` (2026-07-31 02:23):
+
+```rust
+rollout_depth: if level >= 6 { 12 } else { 0 },
+rollout_k:     if level >= 6 { 4  } else { 0 },
+```
+
+So levels 6–9 — the rungs meant to be HARDEST — run L3 lookahead, and levels 1–5
+do not. Every measurement of that knob since it shipped says it makes the fighter
+kill itself sooner:
+
+```text
+2026-07-31 morning  9/d0  5.0s to first self-KO   9/d12  9.8s    ← d12 better
+2026-07-31 evening  9/d0  5.2s                    9/d12  2.7s    ← d12 WORSE
+  (three seeds, identical on every seed)
+2026-08-02          9/d0  no self-KO in 60s       9/d12  4.8s    ← d12 WORSE
+                          0 stocks lost                  1 stock lost
+```
+
+The morning run is the outlier and the probe's own header says why it should not
+be compared: *"the morning's numbers are not comparable to the evening's."* Two
+independent runs, four seeds, agree that the knob costs survival.
+
+### What the measurement does NOT cover
+
+⚠ **the probe's opponent cannot attack.** Its header says so — *"a human seat
+with no controller… every stock lost is a self-KO"*. So this measures
+self-preservation and nothing else. Rollout could plausibly buy offence and pay
+for it in walking off ledges, and **nothing has measured the offence half**.
+`fighter-brain.md` §12.6 already records exactly this: the first measurement
+*"unblocks authoring a nonzero `rollout_depth` on a survival claim but not on an
+attack one"*. The nonzero depth was then authored anyway, and the survival claim
+it rests on has since inverted.
+
+### The fork
+
+* **Revert to `rollout_depth: 0` everywhere** until `l3_earns_its_depth` (still
+  owed, FB6e) measures an attacking opponent. Restores the state the docs
+  describe, at the cost of the top rungs losing their only distinguishing
+  mechanic.
+* **Keep it and treat self-KO as acceptable** for high rungs — a fighter that
+  commits harder and sometimes overshoots may be the more interesting opponent,
+  and the probe cannot see that.
+* **Keep it and fix the recovery** — the S48/S51 thread says the fighter cannot
+  recover from momentum it is given; if that is the real defect, depth is only
+  exposing it and reverting hides it.
+
+⚠ whichever way: the three prose claims that said `rollout_depth` was zero
+everywhere are corrected as of 2026-08-02, so the code and its description now
+agree. This decision is about the value, not about the drift.

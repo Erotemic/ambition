@@ -5,8 +5,12 @@
 //! in the engine so later story crates can share them.
 
 use ambition_characters::actor::Health;
-use ambition_platformer2d_core::Aabb;
+// `Aabb` was reached through `ambition_platformer2d_core`, where it is
+// `pub type Aabb = Aabb2d` — a `bevy_math` type. Depending on a crate named
+// for one genre to borrow a maths type made this crate's unqualified name a
+// lie; it is the only thing it took from there.
 use ambition_entity_catalog::placements::HazardRespawn;
+use bevy_math::bounding::Aabb2d as Aabb;
 
 /// A player-facing interaction trigger.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

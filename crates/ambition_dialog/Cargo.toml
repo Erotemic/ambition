@@ -20,7 +20,6 @@ input = ["ambition_input/input", "ambition_ui_nav/input"]
 
 [dependencies]
 # Vec2 for pointer/reveal geometry.
-ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # MenuFocusState + windowed-list / pointer-row helpers + MenuInputFrame scroll.
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 # MenuControlFrame (input feature) + MenuInputFrame.

@@ -1280,7 +1280,6 @@ mod local_seat_topology_tests {
         assert_eq!(topology.players(), 1);
     }
 
-    use super::*;
     use bevy::prelude::Entity;
 
     fn order(count: usize) -> LocalDeviceOrder {

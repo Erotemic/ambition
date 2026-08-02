@@ -16,8 +16,10 @@ use bevy::prelude::{Entity, Resource};
 
 use crate::content::DialogChoice;
 use crate::context::DialogueContext;
-use ambition_platformer2d_core::Vec2;
+// `Vec2` is `pub use bevy_math::Vec2` in the core crate; taking it from there
+// meant this crate declared a platformer dependency for a maths type.
 use ambition_ui_nav::MenuFocusState;
+use bevy::math::Vec2;
 
 #[cfg(feature = "ui")]
 use bevy_yarnspinner::prelude::OptionId;

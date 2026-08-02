@@ -307,7 +307,7 @@ fn on_present_line(
                 saw_shout = true;
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::DIALOGUE_MARKUP_SHOUT,
-                    pos: ambition_platformer2d_core::Vec2::ZERO,
+                    pos: bevy::math::Vec2::ZERO,
                 });
             }
             "whisper" => {
@@ -315,7 +315,7 @@ fn on_present_line(
                 saw_whisper = true;
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::DIALOGUE_MARKUP_WHISPER,
-                    pos: ambition_platformer2d_core::Vec2::ZERO,
+                    pos: bevy::math::Vec2::ZERO,
                 });
             }
             _ => {}

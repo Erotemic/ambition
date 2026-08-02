@@ -11,6 +11,6 @@ crate-type = ["rlib"]
 
 [dependencies]
 ambition_characters = { path = "../ambition_characters" }
-ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+bevy_math = "0.18.1"
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 serde = { workspace = true }

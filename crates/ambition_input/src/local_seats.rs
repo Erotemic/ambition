@@ -615,6 +615,77 @@ mod tests {
         );
     }
 
+    /// **A keyboard player beside one pad player, FROZEN, through a reconnect.**
+    ///
+    /// The frozen path shifts the handle index for every seat below the keyboard
+    /// owner (`slot - 1`), because the keyboard is not a device row: two players
+    /// declare two seats but the topology holds ONE device. That arithmetic was
+    /// added along with the identity recording and nothing exercised it — the
+    /// frozen tests had no keyboard owner and the keyboard test was not frozen.
+    ///
+    /// ⛔ getting the shift wrong is silent: seat one would claim
+    /// `device_for_handle(1)`, which is `None` in a one-device topology, so the
+    /// pad player simply never gets a pad and the keyboard player is unaffected.
+    /// Nothing crashes and nothing logs — the second player is just inert, which
+    /// is indistinguishable from "couch multiplayer does not work".
+    #[test]
+    fn a_frozen_keyboard_and_pad_pair_survives_the_pad_reconnecting() {
+        let mut app = seat_app();
+        app.insert_resource(crate::sources::InputAssignmentPolicy::JoinToClaim);
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("the only pad")))
+            .id();
+
+        // TWO declared seats, ONE device — the keyboard player has no row. Frozen
+        // before any assignment pass, the way a real match freezes.
+        let frozen = {
+            let mut topology = LocalSeatTopology::default();
+            topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![pad]), 2);
+            topology
+        };
+        app.insert_resource(frozen);
+        app.update();
+        assert_eq!(
+            assigned(&app, two),
+            Some(pad),
+            "the pad player is seat two, and the frozen handle for seat two is \
+             handle ZERO — the keyboard owner above them is not a device row"
+        );
+        assert_eq!(
+            assigned(&app, one),
+            Some(Entity::PLACEHOLDER),
+            "seat one plays on the keyboard and must stay deaf to every pad"
+        );
+
+        // The pad player's controller dies and comes back.
+        app.world_mut().entity_mut(pad).despawn();
+        app.update();
+        assert_eq!(
+            assigned(&app, one),
+            Some(Entity::PLACEHOLDER),
+            "the keyboard seat must not be handed anything by a disconnect"
+        );
+        let pad_again = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("the only pad")))
+            .id();
+        app.update();
+        assert_eq!(
+            assigned(&app, two),
+            Some(pad_again),
+            "the reconnected pad must come back to the seat that was holding it, \
+             not stay pointed at the dead entity"
+        );
+        assert_eq!(
+            assigned(&app, one),
+            Some(Entity::PLACEHOLDER),
+            "and it must never land on the keyboard seat"
+        );
+    }
+
     /// **The default policy leaves solo behaviour exactly where it was.**
     ///
     /// Same world as the couch test above and no policy resource at all. Seat

@@ -163,10 +163,7 @@ pub(crate) fn apply_boss_hit(
             )
             .with_animation_frame(animation_frame),
         );
-        if let Some(hit_aabb) = damageable
-            .iter()
-            .find(|part| event.volume.intersects_aabb(**part))
-        {
+        if let Some(hit_aabb) = damageable.iter().find(|part| event.volume.intersects(part)) {
             combat.hit_flash = 0.18;
             let impact = midpoint(event.volume.center(), hit_aabb.center());
             // CM8: an honest strike clang + spark even though this puzzle boss
@@ -199,10 +196,7 @@ pub(crate) fn apply_boss_hit(
         &crate::features::BossVolumeContext::from_ref(boss_catalog, boss.as_ref(), attack_state)
             .with_animation_frame(animation_frame),
     );
-    let Some(hit_aabb) = damageable
-        .iter()
-        .find(|part| event.volume.intersects_aabb(**part))
-    else {
+    let Some(hit_aabb) = damageable.iter().find(|part| event.volume.intersects(part)) else {
         return false;
     };
     // Speech bubble bark when player lands a hit, debounced by hit_flash.

@@ -13,7 +13,7 @@ pub(super) fn sprite_authored_volumes(
     ctx: &BossVolumeContext,
     profile: &BossAttackProfile,
     animation_elapsed_s: f32,
-) -> Option<Vec<ae::Aabb>> {
+) -> Option<Vec<ae::CombatVolume>> {
     let metrics = ctx.sprite_metrics?;
     // Use the SPRITE RENDER SIZE (not `ctx.size`) — that's the
     // world-space extent of the visible sprite quad. `ctx.size` is
@@ -35,7 +35,7 @@ pub(super) fn sprite_authored_volumes(
         }
         let selected_frame =
             authored_animation_frame_index(ctx, profile, entry, animation_elapsed_s);
-        let aabbs = world_space_animation_box_aabbs(
+        let volumes = world_space_animation_box_volumes(
             hitbox,
             selected_frame,
             metrics.frame_width,
@@ -43,8 +43,8 @@ pub(super) fn sprite_authored_volumes(
             ctx.pos,
             world_size,
         );
-        if !aabbs.is_empty() {
-            return Some(aabbs);
+        if !volumes.is_empty() {
+            return Some(volumes);
         }
     }
     None
@@ -125,37 +125,69 @@ pub(super) fn runtime_animation_keys(
     keys
 }
 
-pub(super) fn world_space_animation_box_aabbs(
+/// World-space volumes for one authored animation box, at the frame being shown.
+///
+/// **Precedence: `poly` wins.** An authored hull is the shape; `parts`/`bbox`
+/// are what a body without one publishes, and what a consumer that could not
+/// express a hull used to read INSTEAD of one. That was the split this campaign
+/// closed: the same authored attack resolved to a cone on the player path and
+/// to a differently-sized rectangle on this one, silently, because this returned
+/// `Vec<Aabb>` and could not say anything else.
+///
+/// Per-frame data still outranks the coarse per-animation box, so a large moving
+/// part (GNU-ton's head) tracks the drawn pose rather than one average.
+pub(super) fn world_space_animation_box_volumes(
     box_: &AnimationBox,
     frame_index: Option<usize>,
     frame_width: u32,
     frame_height: u32,
     world_center: ae::Vec2,
     world_size: ae::Vec2,
-) -> Vec<ae::Aabb> {
+) -> Vec<ae::CombatVolume> {
+    let hull = |poly: &[(f32, f32)]| {
+        ae::CombatVolume::convex(
+            poly.iter()
+                .map(|(x, y)| {
+                    world_point_from_pixel(
+                        *x,
+                        *y,
+                        frame_width,
+                        frame_height,
+                        world_center,
+                        world_size,
+                    )
+                })
+                .collect(),
+        )
+    };
+    let boxes = |parts: &[ambition_sprite_sheet::NamedPixelRect], bbox| {
+        world_space_body_aabbs_from_parts(
+            parts,
+            bbox,
+            frame_width,
+            frame_height,
+            world_center,
+            world_size,
+        )
+        .into_iter()
+        .map(ae::CombatVolume::aabb)
+        .collect::<Vec<_>>()
+    };
     if let Some(index) = frame_index {
         if let Some(frame) = box_
             .frames
             .get(index.min(box_.frames.len().saturating_sub(1)))
         {
             if frame.is_populated() {
-                return world_space_body_aabbs_from_parts(
-                    &frame.parts,
-                    frame.bbox,
-                    frame_width,
-                    frame_height,
-                    world_center,
-                    world_size,
-                );
+                if !frame.poly.is_empty() {
+                    return vec![hull(&frame.poly)];
+                }
+                return boxes(&frame.parts, frame.bbox);
             }
         }
     }
-    world_space_body_aabbs_from_parts(
-        &box_.parts,
-        box_.bbox,
-        frame_width,
-        frame_height,
-        world_center,
-        world_size,
-    )
+    if !box_.poly.is_empty() {
+        return vec![hull(&box_.poly)];
+    }
+    boxes(&box_.parts, box_.bbox)
 }

@@ -305,11 +305,16 @@ pub struct AnimationBoxFrame {
     pub parts: Vec<NamedPixelRect>,
     #[serde(default)]
     pub bbox: Option<PixelRect>,
+    /// Convex polygon for THIS frame, same space and precedence as the coarse
+    /// [`AnimationBox::poly`]: when present it is the shape, and `parts`/`bbox`
+    /// are the fallback for consumers that cannot express one.
+    #[serde(default)]
+    pub poly: Vec<(f32, f32)>,
 }
 
 impl AnimationBoxFrame {
     pub fn is_populated(&self) -> bool {
-        !self.parts.is_empty() || self.bbox.is_some()
+        !self.parts.is_empty() || self.bbox.is_some() || !self.poly.is_empty()
     }
 }
 

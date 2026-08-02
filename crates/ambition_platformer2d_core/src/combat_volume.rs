@@ -24,7 +24,7 @@ use crate::{Aabb, AabbExt, Vec2};
 /// A combat hit/hurt volume. Construct via [`CombatVolume::aabb`],
 /// [`CombatVolume::obb`], or [`CombatVolume::convex`]; test overlap with
 /// [`CombatVolume::intersects`]. World-space.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CombatVolume {
     /// Axis-aligned box — the common, cheapest case.
     Aabb(Aabb),
@@ -97,6 +97,40 @@ impl CombatVolume {
             CombatVolume::Obb { center, .. } => *center,
             CombatVolume::Circle { center, .. } => *center,
             CombatVolume::Convex { bounds, .. } => bounds.center(),
+        }
+    }
+
+    /// Reflect the volume across the vertical line `axis_x`, leaving its size
+    /// unchanged.
+    ///
+    /// A sprite that mirrors to face the other way takes its authored hit and
+    /// hurt geometry with it. For a box that is a centre flip; for a hull every
+    /// point moves, which is exactly why this belongs here rather than being
+    /// re-derived by each consumer that thought it only had boxes.
+    pub fn mirrored_x(&self, axis_x: f32) -> Self {
+        let flip = |x: f32| 2.0 * axis_x - x;
+        match self {
+            CombatVolume::Aabb(a) => {
+                let (c, h) = (a.center(), a.half_size());
+                CombatVolume::Aabb(Aabb::new(Vec2::new(flip(c.x), c.y), h))
+            }
+            CombatVolume::Obb {
+                center,
+                half,
+                rotation,
+            } => CombatVolume::Obb {
+                center: Vec2::new(flip(center.x), center.y),
+                half: *half,
+                // Mirroring negates the sense of rotation, not its magnitude.
+                rotation: -*rotation,
+            },
+            CombatVolume::Circle { center, radius } => CombatVolume::Circle {
+                center: Vec2::new(flip(center.x), center.y),
+                radius: *radius,
+            },
+            CombatVolume::Convex { points, .. } => {
+                CombatVolume::convex(points.iter().map(|p| Vec2::new(flip(p.x), p.y)).collect())
+            }
         }
     }
 

@@ -107,7 +107,7 @@ pub fn ecs_hit_event_hits_boss(
                 .with_animation_frame(animation_frame),
             )
             .iter()
-            .any(|part| event.volume.intersects_aabb(*part))
+            .any(|part| event.volume.intersects(part))
         },
     )
 }

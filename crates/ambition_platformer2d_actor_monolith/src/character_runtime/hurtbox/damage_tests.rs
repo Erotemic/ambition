@@ -19,9 +19,9 @@ use bevy::prelude::*;
 use ambition_combat::components::{ActorFaction, CenteredAabb, DamageableVolumes};
 use ambition_combat::events::HitEvent;
 use ambition_combat::hitbox::{apply_hitbox_damage, HitSide, Hitbox, HitboxHits, HitboxLifetime};
+use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, VolumeShape};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
-use ambition_entity_catalog::{HurtboxKeyframe, HurtboxTimeline, VolumeShape};
 use ambition_vfx::vfx::VfxMessage;
 
 use super::{AuthoredHurtboxes, HurtboxDoc, HurtboxVolume, ResolvedHurtboxes};
@@ -195,7 +195,7 @@ fn a_player_shaped_body_is_hit_on_its_authored_hurtbox() {
         "the player's authored silhouette is published, not skipped"
     );
     assert!(
-        published.volumes[0].half_size().x < COARSE_HALF.x,
+        published.volumes[0].bounds().half_size().x < COARSE_HALF.x,
         "the published volume is the AUTHORED torso ({:?}), not the coarse box",
         published.volumes[0]
     );

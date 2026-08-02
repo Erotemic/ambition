@@ -145,7 +145,8 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// CenteredAabb lookup for resolving `FollowOwner` hitboxes to
     /// their current world-space rectangle. World-anchored
     /// hitboxes don't need this — their AABB is fixed at spawn.
-    pub hitbox_owners: Query<'w, 's, &'static ambition_platformer2d::actors::features::CenteredAabb>,
+    pub hitbox_owners:
+        Query<'w, 's, &'static ambition_platformer2d::actors::features::CenteredAabb>,
     /// In-flight held-item shots (gun-sword bolt / Fireball). Their
     /// contact + splash boxes were previously undrawn, so a Fireball
     /// read as "hitting before it touches the visible box". Lives in
@@ -173,8 +174,10 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub character_catalog:
         Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     pub boss_catalog: Res<'w, ambition_platformer2d::actors::boss_encounter::BossCatalog>,
-    pub authored_attack_volumes:
-        Res<'w, ambition_platformer2d::actors::combat::authored_volumes::AuthoredAttackVolumeResolver>,
+    pub authored_attack_volumes: Res<
+        'w,
+        ambition_platformer2d::actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
+    >,
     /// In-flight player projectiles (ECS entities). Bundled here (rather than a
     /// top-level param) so `draw_debug_overlay` has a slot free for the
     /// debug-label buffer while staying under the 16-param ceiling.
@@ -369,17 +372,22 @@ pub(crate) fn draw_player_debug(
             // Draw the ACTUAL damage volume — the authored blade-arc poly (or the
             // hardcoded AABB fallback) the slash emits — not a separate preview
             // box, so the overlay matches what hits.
-            let volume = ambition_platformer2d::actors::features::ecs::attack::player_attack_hitbox(
-                character_catalog,
-                authored_attack_volumes,
-                Some(worn_character_id),
-                &view,
-                attack_state.spec.intent,
-                gravity_dir,
-            )
-            .unwrap_or_else(|| {
-                ambition_platformer2d::actors::combat::attack_hitbox_from_view(&view, attack_state.spec).into()
-            });
+            let volume =
+                ambition_platformer2d::actors::features::ecs::attack::player_attack_hitbox(
+                    character_catalog,
+                    authored_attack_volumes,
+                    Some(worn_character_id),
+                    &view,
+                    attack_state.spec.intent,
+                    gravity_dir,
+                )
+                .unwrap_or_else(|| {
+                    ambition_platformer2d::actors::combat::attack_hitbox_from_view(
+                        &view,
+                        attack_state.spec,
+                    )
+                    .into()
+                });
             let color = match attack_state.phase() {
                 Some(ambition_platformer2d::actors::combat::AttackPhase::Startup) => yellow(),
                 Some(ambition_platformer2d::actors::combat::AttackPhase::Active) => red(),
@@ -683,18 +691,27 @@ pub(crate) fn draw_feature_debug(
             );
         }
         for hurtbox in ambition_platformer2d::actors::features::damageable_volumes(&ctx) {
-            draw_aabb_styled(gizmos, world, hurtbox, hurtbox_color, developer_tools);
+            // The published silhouette's REAL shape — a boss part may be an
+            // authored hull, and drawing its bounding box here is how an
+            // overlay tells you a lie that looks like a measurement.
+            draw_hitbox_volume(gizmos, world, &hurtbox, hurtbox_color, developer_tools);
             label_box(
                 labels,
-                hurtbox,
+                hurtbox.bounds(),
                 "hurtbox",
                 hurtbox_color,
                 LabelSpot::TopLeft,
             );
         }
         for vol in ambition_platformer2d::actors::features::active_attack_volumes(&ctx) {
-            draw_aabb_styled(gizmos, world, vol, active_color, developer_tools);
-            label_box(labels, vol, "active", active_color, LabelSpot::Center);
+            draw_hitbox_volume(gizmos, world, &vol, active_color, developer_tools);
+            label_box(
+                labels,
+                vol.bounds(),
+                "active",
+                active_color,
+                LabelSpot::Center,
+            );
         }
     }
     for aabb in feature_q.breakables.iter() {
@@ -761,9 +778,13 @@ pub(crate) fn draw_feature_debug(
         let owner_pos = match (owner_pos, hitbox.anchor) {
             (Some(p), _) => p,
             // World-anchored: center is fixed at spawn, owner pos unused.
-            (None, ambition_platformer2d::actors::features::HitboxAnchor::World { .. }) => ae::Vec2::ZERO,
+            (None, ambition_platformer2d::actors::features::HitboxAnchor::World { .. }) => {
+                ae::Vec2::ZERO
+            }
             // FollowOwner with a dead/unknown owner: don't draw a ghost at origin.
-            (None, ambition_platformer2d::actors::features::HitboxAnchor::FollowOwner { .. }) => continue,
+            (None, ambition_platformer2d::actors::features::HitboxAnchor::FollowOwner { .. }) => {
+                continue
+            }
         };
         // Draw the hitbox's TRUE damage volume — the authored convex blade / OBB /
         // circle the strike actually resolves against, not just its AABB. When a
@@ -775,9 +796,8 @@ pub(crate) fn draw_feature_debug(
             ambition_platformer2d::vfx::HitSide::Player => (player_hitbox_color, "hit:player"),
             ambition_platformer2d::vfx::HitSide::Enemy => (enemy_hitbox_color, "hit:enemy"),
             ambition_platformer2d::vfx::HitSide::Boss => (boss_hitbox_color, "hit:boss"),
-            ambition_platformer2d::vfx::HitSide::Npc | ambition_platformer2d::vfx::HitSide::Neutral => {
-                (npc_hitbox_color, "hit:npc")
-            }
+            ambition_platformer2d::vfx::HitSide::Npc
+            | ambition_platformer2d::vfx::HitSide::Neutral => (npc_hitbox_color, "hit:npc"),
         };
         draw_hitbox_volume(gizmos, world, &volume, color, developer_tools);
         label_box(labels, volume.bounds(), tag, color, LabelSpot::TopRight);

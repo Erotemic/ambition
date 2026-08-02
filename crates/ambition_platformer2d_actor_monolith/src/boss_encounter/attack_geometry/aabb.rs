@@ -56,6 +56,26 @@ pub(super) fn world_aabb_from_pixel_rect(
     ae::Aabb::new(center, half)
 }
 
+/// Map one sprite-frame pixel point into world space, on exactly the terms
+/// [`world_aabb_from_pixel_rect`] maps a rectangle: frame centre to
+/// `world_center`, scaled by the rendered size, y growing downward in both.
+///
+/// This exists because an authored `poly` is written in the SAME pixel space as
+/// the `bbox` beside it, and until now only the rectangle had a way across.
+pub(super) fn world_point_from_pixel(
+    px: f32,
+    py: f32,
+    frame_width: u32,
+    frame_height: u32,
+    world_center: ae::Vec2,
+    world_size: ae::Vec2,
+) -> ae::Vec2 {
+    let fw = frame_width.max(1) as f32;
+    let fh = frame_height.max(1) as f32;
+    let scale = ae::Vec2::new(world_size.x / fw, world_size.y / fh);
+    world_center + ae::Vec2::new((px - fw * 0.5) * scale.x, (py - fh * 0.5) * scale.y)
+}
+
 /// Build the full list of world-space body AABBs for a sprite-driven
 /// actor from raw metadata parts. Both the registry's `BodyMetrics`
 /// and the gameplay snapshot `ActorSpriteMetrics` flow through here

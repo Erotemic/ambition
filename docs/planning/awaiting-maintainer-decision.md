@@ -571,9 +571,35 @@ it rests on has since inverted.
 * **Keep it and treat self-KO as acceptable** for high rungs — a fighter that
   commits harder and sometimes overshoots may be the more interesting opponent,
   and the probe cannot see that.
-* **Keep it and fix the recovery** — the S48/S51 thread says the fighter cannot
-  recover from momentum it is given; if that is the real defect, depth is only
-  exposing it and reverting hides it.
+* **Keep it and fix the recovery** — and this option changed the same day it was
+  written, because the recovery failure turned out to be MEASURED and GEOMETRIC
+  rather than a momentum problem.
+
+  ⭐ **the fighter loses its stocks in a 2.5-second limit cycle against the
+  platform's side face.** From `ladder_probe`'s unclaimed-velocity detector, 91
+  events at one frozen `x`:
+
+  ```text
+  fall off the left edge  →  jump (vel_y = -520 = JUMP_SPEED)
+                          →  dash RIGHT at 760 to recover
+                          →  dash killed instantly, x pinned at 101.84
+                          →  fall back, repeat every 150 ticks
+  ```
+
+  The platform is `x 110..530`, `y 300..332`. The body sits 8.16 px left of its
+  left edge at the platform's own height — **beside the wall, not under the
+  lip** — and a horizontal dash cannot climb 32 px of platform. `chose=Some(Recover)`
+  appears in the seam on those ticks, so the brain IS trying; it is aiming its
+  recovery at a wall.
+
+  ⚠ that makes this option concrete rather than speculative: the fix is a
+  recovery that gains HEIGHT (a jump-then-drift, or a dash whose direction rises
+  toward the lip), not a tuning change. And it means the survival numbers above
+  may be measuring stage geometry as much as lookahead depth — a fighter that
+  cannot recover at all will self-KO regardless of what its rollout decides.
+  ▢ unconfirmed detail: the 8.16 offset implies a body half-width of 8.16 and no
+  such number is authored; the box may be sprite-derived (`SpriteAuthored`'s
+  per-pose projection) or the stop may be a different contact.
 
 ⚠ whichever way: the three prose claims that said `rollout_depth` was zero
 everywhere are corrected as of 2026-08-02, so the code and its description now

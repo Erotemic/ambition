@@ -1078,10 +1078,12 @@ and `apply_player_spawn_projectile_messages` sit after the step DELIBERATELY (*"
 the new body first ticks next frame"*), so a set spanning them would push
 presentation past a spawn it is not waiting for.
 
-⭐ **the running tally for this whole thread: 49 → 33 cross-crate leaf pins, via
-six one-member sets** (`EffectExecutionSet`, `FeatureWorldOverlaySet`,
+⭐ **the running tally for this whole thread: 49 → 23 cross-crate leaf pins, via
+twelve sets** — eleven single-member (`EffectExecutionSet`, `FeatureWorldOverlaySet`,
 `PlayerHitResolutionSet`, `HazardTickSet`, `ProjectileStepSet`,
-`WornControlGateSet`) plus one phase vocabulary (`ProgressionSet`, six phases).
+`WornControlGateSet`, `MenuFrameCutsceneSkip`, `LocalInputFrameCommit`,
+`PortalLinkResolution`, `PortalPickupArming`, `PlayerBrainTick`) and one with two
+(`MenuFramePopulate`) — plus one phase vocabulary (`ProgressionSet`, six phases).
 Every conversion was chosen because it was EXACTLY equivalent; the ones that
 would have been merely stricter are recorded above and left alone.
 
@@ -1098,15 +1100,33 @@ audit it has its own silent limit.
 `--list` prints every remaining row grouped by target crate, from the tree, in
 under a second. Start there.
 
-▢ **the three kinds still classify the remaining work** — the guard tells you
-WHERE, this tells you which are mechanical:
-* **equivalent** — the pinned system is the head of a chained set, or can take a
-  single-member set with no neighbour it must not overtake. Convert.
-* **stricter** — the pinned system is already inside a multi-member set, so
-  pinning the set MOVES it. Needs a decision, not an edit. `tick_player_brains`
-  is the standing example, and it is pinned from four places.
-* **intra-phase** — the pin is between two members of one set. Needs a new
-  boundary invented before anything can be converted.
+⭐ **the "stricter" category was a mistake and is retired.** It said: when the
+pinned system already sits in a multi-member set, pinning that set moves every
+consumer later, so the conversion needs a decision rather than an edit.
+`tick_player_brains` sat under it twice, unconverted, as the single most-pinned
+function left.
+
+The error is in the word *that*. Reusing the ENCLOSING set would indeed be
+stricter — but a **nested single-member set** is always available, and it is
+exactly equivalent to the leaf pin it replaces, by construction. All four
+`tick_player_brains` pins converted with no ordering change.
+
+⚠ and the nested set reaches a case the parent never could: an intra-set edge
+between two members owned by DIFFERENT crates. `record_player_movement_intent`
+is itself in `PlayerInputSet::Brain`, so `.after(PlayerInputSet::Brain)` is a
+cycle; `.after(PlayerBrainTick)` is fine. Those edges look irreducible and are
+not.
+
+▢ **so there are two kinds left**, and the guard's `--list` tells you where:
+* **convert** — nearly everything. Give the target a set beside its definition,
+  nested inside whatever set it already has, and pin that. State at the
+  definition why the set holds the members it holds; every one of the ten so far
+  has had a different reason to stay single-member, and the next reader can only
+  widen one safely if that reason is written down.
+* **intra-phase** — the pin is between two members of one set AND the consumer
+  is in that set too, so the parent is a cycle and the sub-boundary has to be
+  invented rather than named. `PortalLinkResolution` and `PortalPickupArming`
+  are both this shape; it is still an edit, just a design one.
 
 ▢ **so the remaining nine in the runtime sort into three kinds**, and only the
 first is mechanical:

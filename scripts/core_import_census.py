@@ -290,6 +290,15 @@ def main() -> int:
             names = ", ".join(f.replace("ambition_", "") for f in freed)
             print(f"  {count:2} crate(s)  {name:<44} {names}")
         print(f"\n  {len(carrying)} crates carry {TARGET} today.")
+        print(
+            "  ⚠ this ranks by VALUE, not by FEASIBILITY: it says what a cut would\n"
+            "    buy, never whether the cut can be made. Measured 2026-08-02, the\n"
+            "    #2 entry `ambition_characters` was not a carve at all — 20 of its\n"
+            "    imports are genuinely platformer (AxisJumpLaw, AIR_ACCEL,\n"
+            "    DASH_SPEED, MovementTuning), so its dependency is real and the\n"
+            "    question there is renaming, not carving. Always read a row's\n"
+            "    surface with --detail before planning against it."
+        )
         print()
 
     if args.paths:

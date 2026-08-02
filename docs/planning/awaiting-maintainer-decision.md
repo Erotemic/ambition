@@ -461,6 +461,18 @@ column made it look like SEVEN crates reached core only through `ambition_input`
 simulating the cut says three. A shortest path hides every alternative path by
 construction. Rank by `--cuts`, never by `--paths`.
 
+**3. Checked the other three cuts, and THREE OF THE FOUR are this decision.**
+`ambition_time` takes the snapshot codec and nothing else. `shared_tangle` is
+already platformer-named. And `ambition_characters` — the only cut of equal value
+— turns out not to be a carve at all: of its 78 imports, 11 already live in
+`ambition_geometry`, 3 are the codec, and **20 are genuinely platformer**
+(`AxisJumpLaw`, `MomentumParams`, `AIR_ACCEL`, `DASH_SPEED`, `SLASH_RECOIL`,
+`AbilitySet`, `MovementTuning`). A crate whose brains reason about jump laws and
+air acceleration is a platformer crate with an unqualified name; that is a
+renaming question for you, not a carve-out.
+
+So there is no remaining carve-out work that this fork does not gate.
+
 ### The fork
 
 **(a) Accept it.** Regenerate the baseline and bump

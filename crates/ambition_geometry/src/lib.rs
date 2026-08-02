@@ -35,6 +35,20 @@
 //! Half the reason the old dependency looked load-bearing was that consumers
 //! reached *through* a platformer crate for a maths type. Anything that needs
 //! only those should depend on `bevy_math` directly and skip this crate too.
+//!
+//! ## ⛔ What this carve did NOT buy (measured 2026-08-02)
+//!
+//! `ambition_vfx` no longer NAMES `ambition_platformer2d_core` in its manifest —
+//! but core is still in its build closure, reached through
+//! `ambition_platformer2d_shared_tangle`, which it also depends on. The same is
+//! true of all four crates carved off core so far. `cargo tree --edges normal -i
+//! ambition_platformer2d_core` says so.
+//!
+//! So read the census number as *"manifests that claim core"*, never *"crates
+//! that compile without it"*. What this crate genuinely provides is an honest
+//! manifest, a floor with its own `forbidden: "*"` contract, and no route for a
+//! NEW direct use to appear. It is not decoupling, and an earlier version of
+//! this doc implied it was.
 
 pub mod combat_volume;
 pub mod geometry;

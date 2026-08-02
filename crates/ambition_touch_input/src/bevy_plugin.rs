@@ -545,8 +545,9 @@ fn position_frame_axis_glyphs(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
 ) {
-    use ambition_platformer2d_core::{AccelerationFrame, InputFrameMode};
-    let gdir = ambition_platformer2d_actor_monolith::physics::gravity_dir_or_default(gravity.as_deref());
+    use ambition_geometry::{AccelerationFrame, InputFrameMode};
+    let gdir =
+        ambition_platformer2d_actor_monolith::physics::gravity_dir_or_default(gravity.as_deref());
     let mode = user_settings
         .as_deref()
         .map_or(InputFrameMode::DEFAULT_MOVEMENT, |s| {
@@ -562,7 +563,7 @@ fn position_frame_axis_glyphs(
         let on_input = frame
             .raw_axis_for_resolved_input(
                 mode,
-                ambition_platformer2d_core::LocalAxes::from_vec(glyph.local_axis),
+                ambition_geometry::LocalAxes::from_vec(glyph.local_axis),
             )
             .vec();
         node.left = Val::Px(center.x + on_input.x * radius - 7.0);
@@ -1226,7 +1227,9 @@ pub struct ButtonPressed(pub bool);
 /// path drove JUMP from an unclassifiable button and the assert WAS the
 /// handling. A button nobody can classify gets no glyph and no press, which is
 /// the truthful answer and needs no alarm.
-fn touch_action_to_sandbox_action(action: TouchActionButton) -> Option<Platformer2dInputActionMonolith> {
+fn touch_action_to_sandbox_action(
+    action: TouchActionButton,
+) -> Option<Platformer2dInputActionMonolith> {
     match action {
         TouchActionButton::Start => Some(Platformer2dInputActionMonolith::Start),
         TouchActionButton::Reset => Some(Platformer2dInputActionMonolith::Reset),
@@ -1255,14 +1258,16 @@ pub fn update_button_glyph_from_active_input(
     // host, or a frame before the first projection), and an empty binding set
     // renders empty glyphs rather than stale ones.
     let empty = ambition_input::ActionBindings::default();
-    let bound = seat_bindings
-        .as_deref()
-        .map_or(&empty, |seats| seats.for_seat(ambition_input::ParticipantId::PRIMARY.slot()));
+    let bound = seat_bindings.as_deref().map_or(&empty, |seats| {
+        seats.for_seat(ambition_input::ParticipantId::PRIMARY.slot())
+    });
     for (TouchActionLabel(touch_action), mut glyph) in &mut labels {
         let Some(sa) = touch_action_to_sandbox_action(*touch_action) else {
             continue;
         };
-        let next = ambition_platformer2d_actor_monolith::affordances::glyph_for(sa, &preset, bound, active.0);
+        let next = ambition_platformer2d_actor_monolith::affordances::glyph_for(
+            sa, &preset, bound, active.0,
+        );
         if glyph.0 != next {
             glyph.0 = next;
         }

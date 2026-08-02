@@ -37,7 +37,7 @@ mobile_touch = [
 [dependencies]
 # The shared action/control vocabulary used by the virtual-device adapter.
 ambition_input = { path = "../ambition_input" }
-ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+ambition_geometry = { path = "../ambition_geometry" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
 # The gated plugin/menu-bridge reach the sim + render + nav + cutscene layers.
 # All OPTIONAL (track 7): only the `mobile_touch` overlay/adapter half needs

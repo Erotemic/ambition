@@ -149,6 +149,20 @@ def _module_of(path: str) -> str:
     return head if head[0].islower() else "<crate root>"
 
 
+def _transitive_closure(name: str) -> set[str]:
+    """Every workspace crate in `name`'s normal-edge build closure.
+
+    ⚠ `--edges normal` deliberately: dev-dependencies do not ship, and the
+    footprint ratchet reads the same edge set, so the two instruments agree about
+    what "depends on" means.
+    """
+    out = subprocess.run(
+        ["cargo", "tree", "-p", name, "--locked", "--edges", "normal", "--prefix", "none"],
+        cwd=REPO, capture_output=True, text=True, check=False,
+    ).stdout
+    return {line.split()[0] for line in out.splitlines() if line.strip()}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--detail", action="store_true", help="every symbol, per crate")
@@ -160,7 +174,18 @@ def main() -> int:
         (pkg for pkg in _members() if _depends_on_core(pkg)),
         key=lambda pkg: pkg["name"],
     )
-    print(f"{len(dependents)} workspace crates depend on {CORE}\n")
+    print(f"{len(dependents)} workspace crates DECLARE a dependency on {CORE}")
+    # ⛔ **the number above is a count of MANIFESTS, not of builds.** Measured
+    # 2026-08-02: all four crates carved off core so far — `interaction`,
+    # `dialog`, `vfx`, `touch_input` — still reach it transitively, each through a
+    # DIFFERENT platformer crate it also depends on. Dropping a declared edge
+    # makes a manifest honest; it does not remove core from anybody's build. The
+    # census reported only the first number for a while and the carve-out plan
+    # was written against it, so it now reports both.
+    freed = [pkg["name"] for pkg in _members()
+             if not _depends_on_core(pkg) and pkg["name"] != CORE
+             and CORE not in _transitive_closure(pkg["name"])]
+    print(f"{len(freed)} of {len(_members()) - 1} build WITHOUT it in their closure\n")
 
     by_module: dict[str, set[str]] = defaultdict(set)
     per_crate: dict[str, set[str]] = {}

@@ -792,6 +792,23 @@ pub struct PersonaBaseline {
 /// attack recoil/slash limb, bubble shield, and the chargeable projectile input.
 /// Clearing those verbs here makes a peaceful authored persona peaceful in
 /// behavior, not merely in its nominal `ActionSet`.
+/// **The set `gate_worn_player_control` runs in.**
+///
+/// ⛔ `ambition_demo_sanic` BRACKETS this function by name — one `.before`, one
+/// `.after` — reaching through the facade (`actors::avatar::…`) for an engine
+/// leaf. Bracketing is the shape that makes a leaf pin hardest to remove later:
+/// two edges that only make sense as a pair, expressed against a name neither
+/// side owns.
+///
+/// ⚠ ONE member, and this one has the subtlest reason of the set family.
+/// `gate_worn_player_control` sits inside `PlayerInputSet::ControlGate` with
+/// `sustain_bubble_shield` chained after it, and that neighbour exists precisely
+/// to run AFTER the gate ("after the gate, which keeps the persona's shield verb
+/// alive"). A set spanning both would let a consumer's `.before(set)` land ahead
+/// of a system the gate is supposed to feed.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WornControlGateSet;
+
 pub fn gate_worn_player_control(
     catalog: Res<CharacterCatalog>,
     mut players: Query<

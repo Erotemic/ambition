@@ -280,3 +280,91 @@ do not justify them):
 4. A boss and the player swinging the same authored row produce the same volume.
 5. No attack row in any manifest carries both a `poly` and an independently
    authored `bbox`.
+
+---
+
+# Fronts E and F — attack VFX ownership, and a swing that travels
+
+**Added 2026-08-02**, after the first slash landed and Jon looked at it. Fronts
+A–D above are about *shape*; these two are about *whose* effect it is and
+*where* it lives while it plays.
+
+## Front E — a character either authors its attack VFX, or gets the red polygon
+
+Two halves of one rule.
+
+**E1 — the sheet is per character.** `SLASH_SHEET = "robot_slash"` is a `const`
+at `slash_visuals.rs:30`: one sheet, four rows, every body in the game. The
+protagonist's blade is currently the engine's blade, and the geometry fix made
+that worse rather than better — the art's envelope is now sampled off *v3's*
+polygon (`robot_slash.py::_STATIONS`), so any other character swinging it wears
+a silhouette cut for someone else's hitbox.
+
+The precedent already exists one field over: `apply_player_robot_slash_sfx`
+retargets the protagonist's slash **sound** per character. Sound resolves per
+character; art cannot. Same seam, same shape of fix — a catalog field naming the
+sheet, resolved through the presentation-source machinery rather than a const,
+with several characters free to name the same sheet.
+
+**E2 — unauthored means VISIBLE, not silent.** Jon's call, and the better half
+of the idea: a character with no authored attack VFX should draw *a translucent
+red polygon exactly over its hit volume*. Not a placeholder swoosh — the volume
+itself, so an unauthored attack is legible in play instead of invisible or
+wearing a stranger's crescent.
+
+The cheap route is already three-quarters built. `Hitbox` entities exist for
+exactly the active window, carry their `shape`, and the debug overlay already
+walks them (`gizmos.rs:747`, `draw_hitbox_volume`). A product-facing pass over
+the same query, filtered to owners with no authored sheet, is the whole feature
+— **no message change at all**, and it cannot drift from the hitbox because it
+*is* the hitbox.
+
+That also settles a question front C deliberately left open. I argued then for
+shipping the descriptor rather than the hull, because a quad is all a sprite
+needs. An exact-fit fallback needs the exact shape — but it can read it off the
+live volume instead of the cue, so the descriptor stays the right payload and
+the fallback gets the truth. Both, without widening the message.
+
+**Done when:** the protagonist swings its own sheet; a character with none draws
+a red volume that matches the debug overlay's outline exactly; and no character
+silently borrows another's art.
+
+## Front F — the swing travels with the body
+
+A melee effect is attached to a person. Ours is not: `spawn_one` builds a
+world-positioned entity with a fixed `Transform` and `animate_slash` only
+advances its frames. The hitbox does the opposite — `HitboxAnchor::FollowOwner`
+re-resolves from the owner's position every tick.
+
+So during the 100 ms the swing is live, a moving attacker's damage box tracks
+the body and the drawn blade stays where the body *was*. Attacking while running
+is the common case, which makes this a per-swing drift, not an edge case.
+
+**The design is the anchor rule the hitbox already uses**, applied to the
+presentation entity: the cue carries the owner and a BODY-LOCAL shape, and the
+slash's transform is re-resolved each render frame from the owner's pose. One
+anchoring rule, two clocks.
+
+Three things that will bite, named now:
+
+- **The clock.** The visual must sample the owner's *presented* pose
+  (`PresentedPose`), not its sim pose, or the blade shudders against a body that
+  looks perfectly stable — the same failure the debug overlay's box already hit
+  and fixed by sampling `draw_pos`.
+- **Facing and gravity mid-swing.** The hitbox commits its aim at the Active
+  edge and rotates through the owner's frame. The visual must resolve identically
+  or the two disagree exactly when a player turns during a swing.
+- **Ownership at death.** A body that despawns mid-swing must not strand a
+  visual anchored to a dead entity — the same class of bug
+  `retire_orphaned_strike_volumes` exists for on the damage side.
+
+**Done when:** a capture of a running attack shows the blade on the body, and
+walking backward through a swing does not slide the art off the volume.
+
+## Sequencing
+
+E2 first: it is small, it is self-contained, and until it exists every character
+without art is either invisible or lying. E1 next, which is what lets the
+protagonist's tuned art stop being everyone's. F last — it is the only one that
+changes a message and a spawn lifetime, and it wants E's ownership settled so
+there is one path to fix rather than two.

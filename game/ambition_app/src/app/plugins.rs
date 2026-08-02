@@ -431,10 +431,11 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     #[cfg(feature = "frame_pacing")]
     app.add_plugins(crate::host::framepace::FramePacePlugin);
 
-    app.add_systems(
-        Startup,
-        ui_fonts::load_ui_fonts.in_set(ui_fonts::UiFontsLoaded),
-    );
+    // ⚠ the PLUGIN, not the bare system: `load_ui_fonts` is engine code, and
+    // registering it here alone left every non-app composition with no `UiFonts`
+    // and a vacuous `.after(UiFontsLoaded)`. Same defect the note below records
+    // for `sync_resolved_visual_quality`.
+    ui_fonts::UiFontsPlugin::ensure_installed(app);
     // ⚠ `sync_resolved_visual_quality` left this file on 2026-07-31:
     // `VisualQualityPlugin` owns the resource AND the system that keeps it
     // true, and `SessionRoomVisualsPlugin` installs it. They were apart, and

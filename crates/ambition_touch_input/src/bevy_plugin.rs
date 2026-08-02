@@ -231,6 +231,10 @@ pub struct TouchControlsPlugin;
 
 impl Plugin for TouchControlsPlugin {
     fn build(&self, app: &mut App) {
+        // ⚠ this overlay spawns TEXT and pins `.after(UiFontsLoaded)`. An empty
+        // set makes that pin vacuous with no warning, so the consumer installs
+        // the plugin that fills it rather than assuming the composition did.
+        ambition_render::ui_fonts::UiFontsPlugin::ensure_installed(app);
         use leafwing_input_manager::plugin::{CentralInputStorePlugin, InputManagerSystem};
         use leafwing_input_manager::prelude::updating::InputRegistration;
         use leafwing_input_manager::prelude::RegisterUserInput;

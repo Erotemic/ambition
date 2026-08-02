@@ -68,15 +68,43 @@ pub enum UiFontWeight {
 /// Anything spawning text at Startup has to follow it, and both the touch
 /// overlay (another crate) and the app's own UI said so by name.
 ///
-/// ⛔ **this crate defines the set but does not REGISTER the system** — the app
-/// does, at Startup. That is the app-only presentation shape: a composition that
-/// installs the render plugin without the app gets an EMPTY set, and `.after` an
-/// empty set is vacuously satisfied, so touch text would spawn with no fonts
-/// loaded and fail silently rather than loudly. The leaf pin had the identical
-/// hole — an unregistered system orders nothing either — so the set neither
-/// creates nor fixes the hazard. Naming it here is what makes it visible.
+/// ⛔ **an empty set makes `.before`/`.after` VACUOUS**, and Bevy does not warn.
+/// Until 2026-08-02 this crate defined the set but the APP alone registered its
+/// member, so any composition with the touch overlay and without the app ordered
+/// its text spawn against nothing — and, worse, never got `UiFonts` at all.
+/// [`UiFontsPlugin`] closes that; `scripts/check_set_pins_are_not_vacuous.py`
+/// keeps it closed.
 #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct UiFontsLoaded;
+
+/// Owns the UI font load — the resource AND the system that fills it.
+///
+/// ⭐ **a consumer that pins [`UiFontsLoaded`] should install this itself**, via
+/// [`ensure_installed`], rather than assuming some other plugin did. That is the
+/// difference between an ordering edge that holds in every composition and one
+/// that holds in the app that happened to wire it.
+pub struct UiFontsPlugin;
+
+impl bevy::prelude::Plugin for UiFontsPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::IntoScheduleConfigs;
+        app.add_systems(bevy::prelude::Startup, load_ui_fonts.in_set(UiFontsLoaded));
+    }
+}
+
+impl UiFontsPlugin {
+    /// Install [`UiFontsPlugin`] unless it is already present.
+    ///
+    /// ⚠ every call site must go through this. Bevy PANICS on a duplicate
+    /// plugin, and the whole point is that more than one crate now takes
+    /// responsibility for the font load being present — the app and the touch
+    /// overlay both do, and neither can know which built the `App` first.
+    pub fn ensure_installed(app: &mut bevy::prelude::App) {
+        if !app.is_plugin_added::<Self>() {
+            app.add_plugins(Self);
+        }
+    }
+}
 
 /// Bevy startup system: walk each font's canonical + legacy catalog
 /// ids, pick the first one whose asset is present under the active

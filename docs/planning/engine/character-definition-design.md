@@ -250,8 +250,9 @@ Every claim below was checked against the source on 2026-07-26.
 ### 3.3 Volume shapes already exist
 - `VolumeShape { Rect { offset, half_extents } | Circle { offset, radius } }` —
   `crates/ambition_entity_catalog/src/lib.rs:217-225`.
-- `ambition_platformer2d_core::VolumeShape { Box, Obb }` —
-  `crates/ambition_platformer2d_core/src/volume_shape.rs:32`.
+- `ambition_geometry::VolumeShape { Box, Obb }` —
+  `crates/ambition_geometry/src/volume_shape.rs:32`. (Carved out of
+  `ambition_platformer2d_core` 2026-08-01; still re-exported there.)
 - So the "rectangles only, or circles too?" question is already answered:
   **reuse `VolumeShape` for hurtboxes.** Rectangle-only would be an asymmetry
   between two volume kinds that get tested against each other, and Sanic in ball

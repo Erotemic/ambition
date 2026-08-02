@@ -6,7 +6,7 @@ authority: durable-concept
 last_verified: 2026-07-18
 implemented_by:
   - crates/ambition_platformer2d_core/src/movement
-  - crates/ambition_platformer2d_core/src/geometry.rs
+  - crates/ambition_geometry/src/geometry.rs
   - crates/ambition_platformer2d_world/src/collision.rs
   - crates/ambition_combat
   - crates/ambition_projectiles

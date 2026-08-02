@@ -393,8 +393,32 @@ Front E — a character names its own `attack_vfx` or draws its live hit volume 
 a translucent red mesh — plus `NamedPixelRect::poly` (a shape per part), the
 Gradient Sentinel's shaped silhouette, and the `SwingDescriptor`.
 
-`cargo check --workspace` is clean on the branch. The branch is based behind
-`main` and will conflict.
+**⛔ Do not merge `main` into this branch. Jon's call, 2026-08-02: `main` is not
+stable right now.** The branch is being held stable on its own base so that the
+merge, when it happens, is a merge and not a rescue — and it goes in the other
+direction, branch → `main`, once `main` settles.
+
+A merge of `main` was made on 2026-08-02 (`f6b7b617a`, bringing `88f442ada` and
+`ea17a4839`) and has been undone. The branch is now seven of its own commits
+replayed onto `015c1cbe6` (front F), and `main` is no longer an ancestor of it
+past that point. The pre-rewrite tip `f6e24962b` is kept at
+`backup/vfx-ownership-2026-08-02`; the diff between it and the current tip is
+exactly `main`'s eight files backed out, nothing of the branch's own.
+
+⚠ One thing the rewrite deliberately did NOT undo: the renderer **submodule**
+pointer, `4dffae8`. `tools/ambition_sprite2d_renderer` is its own repository with
+its own linear history, and the branch's renderer work (the boss silhouette, the
+`SwingDescriptor`) is authored on top of `f0270a0`, front D's preview. That is
+not "`main` merged into the branch" — it is one repo's history, and rewriting it
+to unpick a superproject mistake would be the actual damage.
+
+Verified on the branch after the rewrite, cold target dir:
+`cargo check --workspace --all-targets` — 0 errors, 0 warnings. Tests for the
+five crates the branch touches (`ambition_geometry`, `ambition_sprite_sheet`,
+`ambition_characters`, `ambition_render`,
+`ambition_platformer2d_actor_monolith`) — 1774 passed, 0 failed. That is a
+COMPILE-AND-UNIT result and nothing more: open 4 below still stands, because
+none of this branch's visible behaviour has been looked at.
 
 ## ⛔ Open 1 — two containment harnesses disagree, so no percentage is trusted
 

@@ -780,7 +780,18 @@ pub enum ActionRequest {
         spec: MeleeActionSpec,
         origin: ae::Vec2,
         facing: f32,
-        attack_axis: ae::Vec2,
+        /// ⚠ **body-LOCAL**, and typed so the request cannot lose the frame the
+        /// control frame already established. It was `Vec2`, so the resolver had
+        /// to call `.vec()` on a typed field and hand the request a vector that
+        /// no longer said which space it was in — a round trip through an
+        /// untyped seam for no gain.
+        ///
+        /// ⚠ nothing in production READS this today; the directional resolution
+        /// the doc on `ActorControlFrame::attack_axis` describes happens in
+        /// `ambition_combat::moveset`, from the frame directly. Kept rather than
+        /// deleted because that is a design question about where the resolution
+        /// belongs, not a cleanup.
+        attack_axis: ae::LocalAxes,
     },
     /// Spawn a projectile traveling in `dir`. Used by NPC / enemy /
     /// boss ranged: a single "fire now" edge resolved from
@@ -942,7 +953,7 @@ pub fn resolve(
                 spec,
                 origin,
                 facing: frame.facing,
-                attack_axis: frame.attack_axis.vec(),
+                attack_axis: frame.attack_axis,
             });
         }
     }

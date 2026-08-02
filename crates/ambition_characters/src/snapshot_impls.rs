@@ -13,8 +13,8 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    Reader, SnapshotCursor, SnapshotState, put_bool, put_f32, put_i32, put_opt_str, put_str,
-    put_u8, put_u32, put_u64, put_vec2,
+    put_bool, put_f32, put_i32, put_opt_str, put_str, put_u32, put_u64, put_u8, put_vec2, Reader,
+    SnapshotCursor, SnapshotState,
 };
 use ambition_platformer2d_core::{self as ae, snapshot_pod, snapshot_unit_enum};
 
@@ -618,9 +618,9 @@ impl SnapshotState for crate::brain::ActorControl {
         ] {
             put_bool(out, b);
         }
-        put_vec2(out, f.blink_quick_dir);
-        put_vec2(out, f.blink_aim_step);
-        put_vec2(out, f.aim);
+        put_vec2(out, f.blink_quick_dir.vec());
+        put_vec2(out, f.blink_aim_step.vec());
+        put_vec2(out, f.aim.vec());
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -678,9 +678,9 @@ impl SnapshotState for crate::brain::ActorControl {
             blink_released: flags[16],
             modifier_held: flags[17],
             modifier_pressed: flags[18],
-            blink_quick_dir: r.vec2()?,
-            blink_aim_step: r.vec2()?,
-            aim: r.vec2()?,
+            blink_quick_dir: ae::WorldVec2(r.vec2()?),
+            blink_aim_step: ae::WorldVec2(r.vec2()?),
+            aim: ae::LocalAxes::from_vec(r.vec2()?),
         }))
     }
 }
@@ -919,8 +919,7 @@ mod body_health_wire_tests {
     /// smallest statement of what that cost.
     #[test]
     fn a_body_over_100_percent_keeps_its_meter_and_its_policy() {
-        let mut health =
-            BodyHealth::new(Health::new(100)).with_policy(DeathPolicy::Unbounded);
+        let mut health = BodyHealth::new(Health::new(100)).with_policy(DeathPolicy::Unbounded);
         health.damage(188);
         assert_eq!(health.damage_taken(), 188);
         assert!(health.alive(), "an unbounded pool does not drain");

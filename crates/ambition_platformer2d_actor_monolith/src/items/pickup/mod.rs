@@ -20,8 +20,8 @@ use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::{
     ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec,
 };
-use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_input::ControlFrame;
+use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 #[cfg(feature = "portal")]
 use ambition_portal2d::PortalGun;
@@ -681,7 +681,7 @@ pub fn ability_aim_local(
     // frame: the aim stick, else the movement stick (`locomotion` — so you can
     // steer a held-item cast with the direction you're moving), else facing.
     if control.aim.length() > 0.1 {
-        control.aim
+        control.aim.vec()
     } else if control.locomotion.length() > 0.1 {
         control.locomotion.vec()
     } else {
@@ -893,8 +893,10 @@ pub fn held_projectile_step(
     // and `portal_transit` (which already moves this bolt's `BodyKinematics`)
     // carries it out the far portal. Carves-only preserves the bolt's historical
     // raw-world collision (it passes through moving platforms).
-    let collision_world =
-        ambition_platformer2d_world::collision::world_with_portal_carves(&world.0, &overlay.portal_carves);
+    let collision_world = ambition_platformer2d_world::collision::world_with_portal_carves(
+        &world.0,
+        &overlay.portal_carves,
+    );
     let attacker = player.single().ok();
     for (entity, mut kin, mut proj) in &mut projectiles {
         let pos = kin.pos;

@@ -26,8 +26,8 @@ use crate::world::overlay::FeatureEcsWorldOverlay;
 use crate::physics;
 use crate::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_core::RoomGeometry;
-use ambition_sfx::SfxMessage;
 use ambition_platformer2d_world::collision::MovingPlatformSet;
+use ambition_sfx::SfxMessage;
 
 /// Build the engine's `InputState` purely from `ActorControl` —
 /// the player's brain output is the single source of truth for
@@ -97,8 +97,8 @@ pub fn engine_input_from_actor_control(
                 },
             ),
         axes: actor.locomotion,
-        blink_quick_dir: ae::WorldVec2(actor.blink_quick_dir),
-        blink_aim_step: ae::WorldVec2(actor.blink_aim_step),
+        blink_quick_dir: actor.blink_quick_dir,
+        blink_aim_step: actor.blink_aim_step,
         attack_pressed: actor.melee_pressed,
         pogo_pressed: actor.pogo_pressed,
         interact_pressed: actor.interact_pressed,
@@ -349,8 +349,13 @@ mod tests {
         frame.jump_held = true;
         frame.dash_pressed = true;
         frame.blink_released = true;
-        let input =
-            engine_input_from_actor_control(frame, Platformer2dFeelTuningMonolith::default(), 0.0, 0.0, dt);
+        let input = engine_input_from_actor_control(
+            frame,
+            Platformer2dFeelTuningMonolith::default(),
+            0.0,
+            0.0,
+            dt,
+        );
         assert!(input.jump_pressed() && input.jump_held());
         assert!(input.dash_pressed());
         assert!(input.blink_released() && !input.blink_pressed());
@@ -359,16 +364,26 @@ mod tests {
         let mut recoiled = ActorControlFrame::neutral();
         recoiled.jump_pressed = true;
         recoiled.dash_pressed = true;
-        let input =
-            engine_input_from_actor_control(recoiled, Platformer2dFeelTuningMonolith::default(), 0.0, 1.0, dt);
+        let input = engine_input_from_actor_control(
+            recoiled,
+            Platformer2dFeelTuningMonolith::default(),
+            0.0,
+            1.0,
+            dt,
+        );
         assert!(!input.jump_pressed() && !input.dash_pressed());
 
         // Hitstun: eats only the jump PRESS; an in-progress jump keeps held.
         let mut stunned = ActorControlFrame::neutral();
         stunned.jump_pressed = true;
         stunned.jump_held = true;
-        let input =
-            engine_input_from_actor_control(stunned, Platformer2dFeelTuningMonolith::default(), 1.0, 0.0, dt);
+        let input = engine_input_from_actor_control(
+            stunned,
+            Platformer2dFeelTuningMonolith::default(),
+            1.0,
+            0.0,
+            dt,
+        );
         assert!(!input.jump_pressed(), "hitstun eats the jump press");
         assert!(input.jump_held(), "but an in-progress jump keeps held");
     }

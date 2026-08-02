@@ -202,16 +202,18 @@ pub fn tick_player_brain_from_control(
     // baked into `local_axis`); precision blink follows the aim mode (screen-
     // directed by default), so a precision blink points where the stick points on
     // screen under any gravity.
-    out.blink_quick_dir = frame.to_world(local_axis.vec());
-    out.blink_aim_step = frame.to_world(
-        frame
-            .resolve_input(
-                snapshot.aim_frame_mode,
-                ambition_platformer2d_core::ScreenAxes::new(c.axis_x, c.axis_y),
-            )
-            .vec(),
+    out.blink_quick_dir = ae::WorldVec2(frame.to_world(local_axis.vec()));
+    out.blink_aim_step = ae::WorldVec2(
+        frame.to_world(
+            frame
+                .resolve_input(
+                    snapshot.aim_frame_mode,
+                    ambition_platformer2d_core::ScreenAxes::new(c.axis_x, c.axis_y),
+                )
+                .vec(),
+        ),
     );
-    out.aim = local_aim;
+    out.aim = ae::LocalAxes::from_vec(local_aim);
 }
 
 #[cfg(test)]

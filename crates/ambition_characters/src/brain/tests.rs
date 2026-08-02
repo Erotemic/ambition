@@ -322,7 +322,7 @@ fn actor_action_message_predicates_match_request_variant() {
             spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
             origin: ae::Vec2::ZERO,
             facing: 1.0,
-            attack_axis: ae::Vec2::ZERO,
+            attack_axis: ae::LocalAxes::ZERO,
         },
     };
     assert!(m_melee.is_melee());

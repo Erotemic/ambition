@@ -11,9 +11,11 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer};
 use ambition_characters::actor::{BodyHealth, BodyWallet};
 use ambition_characters::brain::ActorControl;
+use ambition_platformer2d_actor_monolith::actor::{
+    BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer,
+};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
@@ -92,7 +94,7 @@ pub fn rebuild_held_item_view(
             facing: kin.facing,
             item_id: held.spec.id.clone(),
             ranged: held.spec.ranged.is_some(),
-            aim: control.0.aim,
+            aim: control.0.aim.vec(),
         });
 }
 
@@ -234,7 +236,9 @@ pub struct MarkBeaconsView(pub Vec<ae::Vec2>);
 
 pub fn rebuild_mark_beacons_view(
     mut view: ResMut<MarkBeaconsView>,
-    marks: Query<&ambition_platformer2d_actor_monolith::abilities::traversal::mark_recall::PlayerMark>,
+    marks: Query<
+        &ambition_platformer2d_actor_monolith::abilities::traversal::mark_recall::PlayerMark,
+    >,
 ) {
     view.0.clear();
     view.0.extend(marks.iter().filter_map(|mark| mark.pos));
@@ -630,7 +634,9 @@ pub fn rebuild_blink_preview_fact(
     // marker instead of a process-global scene-handle bag: `PlayerVisual` carries
     // the leafwing `ActionState`, `PrimaryPlayer` selects the one home body.
     action_query: Query<
-        &leafwing_input_manager::prelude::ActionState<ambition_input::Platformer2dInputActionMonolith>,
+        &leafwing_input_manager::prelude::ActionState<
+            ambition_input::Platformer2dInputActionMonolith,
+        >,
         (
             With<ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual>,
             With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
@@ -647,8 +653,8 @@ pub fn rebuild_blink_preview_fact(
         &ambition_platformer2d_core::BodyMotionFacts,
     )>,
 ) {
-    use ambition_platformer2d_core as ae;
     use ambition_input::read_gameplay_control_frame;
+    use ambition_platformer2d_core as ae;
 
     fact.active = false;
     let Ok((kin, abilities, motion_facts)) =
@@ -671,7 +677,10 @@ pub fn rebuild_blink_preview_fact(
     // moving-platform-aware temporary world is what the actual blink
     // resolves against, so the preview must use it too.
     let blink_world =
-        ambition_platformer2d_actor_monolith::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
+        ambition_platformer2d_actor_monolith::world::platforms::world_with_moving_platforms(
+            &world.0,
+            &platform_set.0,
+        );
     let target = if motion_facts.blink_aiming {
         ae::blink_destination_to_point_clusters(
             &blink_world,
@@ -790,7 +799,9 @@ mod tests {
             raw_dt: 0.1,
             scaled_dt: 0.1,
         });
-        app.insert_resource(ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse { remaining: 0.25 });
+        app.insert_resource(
+            ambition_platformer2d_actor_monolith::shrine::ShrineActivationPulse { remaining: 0.25 },
+        );
         app.add_systems(Update, tick_shrine_activation_pulse);
         app.update();
         let remaining = app

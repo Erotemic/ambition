@@ -187,7 +187,7 @@ fn projectile_released_emits_fire_with_resolved_aim_or_facing() {
         ae::GameplayFramePolicy::ControlledBodyLocal
     );
     assert!((fire.dir.y - (-1.0)).abs() < 0.001);
-    assert_eq!(out.aim, ae::Vec2::new(0.0, -1.0));
+    assert_eq!(out.aim, ae::LocalAxes::new(0.0, -1.0));
     // No aim → fire uses facing.
     let input2 = input_with(|c| {
         c.projectile_released = true;
@@ -200,7 +200,7 @@ fn projectile_released_emits_fire_with_resolved_aim_or_facing() {
         ae::GameplayFramePolicy::ControlledBodyLocal
     );
     assert!((fire2.dir.x - (-1.0)).abs() < 0.001);
-    assert_eq!(out2.aim, ae::Vec2::ZERO);
+    assert_eq!(out2.aim, ae::LocalAxes::ZERO);
 }
 
 #[test]
@@ -216,13 +216,16 @@ fn projectile_aim_crosses_screen_input_seam_once() {
     s.actor_facing = 1.0;
     let mut out = crate::actor::control::ActorControlFrame::default();
     tick_player_brain_from_control(&input, &s, &mut out);
-    assert_eq!(out.aim, ae::Vec2::new(1.0, 0.0));
+    assert_eq!(out.aim, ae::LocalAxes::new(1.0, 0.0));
     let fire = out.fire.expect("fire request expected");
     assert_eq!(
         fire.dir_policy,
         ae::GameplayFramePolicy::ControlledBodyLocal
     );
-    assert_eq!(fire.dir, out.aim);
+    // `ActorFireRequest.dir` stays a bare `Vec2` ON PURPOSE: it carries its frame
+    // as DATA (`dir_policy`) rather than in its type, which is the other valid
+    // answer to the same problem and the one this struct already used.
+    assert_eq!(fire.dir, out.aim.vec());
     assert_eq!(
         fire.dir_to_world(ae::AccelerationFrame::new(s.control_down)),
         ae::Vec2::new(0.0, -1.0)
@@ -250,12 +253,12 @@ fn blink_both_forms_screen_relative_by_default_quick_rotates_under_body_relative
 
     // DEFAULT: both forms screen-relative — screen-up stays screen-up in WORLD.
     assert!(
-        (out.blink_aim_step - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
+        (out.blink_aim_step.vec() - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
         "precision blink must be screen-relative by default; got {:?}",
         out.blink_aim_step
     );
     assert!(
-        (out.blink_quick_dir - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
+        (out.blink_quick_dir.vec() - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
         "quick blink is screen-relative under the default movement mode; got {:?}",
         out.blink_quick_dir
     );
@@ -267,12 +270,12 @@ fn blink_both_forms_screen_relative_by_default_quick_rotates_under_body_relative
     let mut out = crate::actor::control::ActorControlFrame::default();
     tick_player_brain_from_control(&input, &s, &mut out);
     assert!(
-        (out.blink_aim_step - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
+        (out.blink_aim_step.vec() - ae::Vec2::new(0.0, -1.0)).length() < 1e-5,
         "precision blink stays screen-relative regardless of movement mode; got {:?}",
         out.blink_aim_step
     );
     assert!(
-        (out.blink_quick_dir - ae::Vec2::new(-1.0, 0.0)).length() < 1e-5,
+        (out.blink_quick_dir.vec() - ae::Vec2::new(-1.0, 0.0)).length() < 1e-5,
         "quick blink should be locomotion-framed under body-relative movement; got {:?}",
         out.blink_quick_dir
     );

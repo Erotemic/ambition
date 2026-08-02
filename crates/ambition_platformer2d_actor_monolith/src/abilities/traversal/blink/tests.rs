@@ -149,7 +149,7 @@ fn downward_blink_does_not_embed_in_the_floor() {
     {
         let mut control = app.world_mut().get_mut::<ActorControl>(player).unwrap();
         control.0.melee_pressed = true;
-        control.0.aim = ae::Vec2::new(0.0, 1.0); // brain-resolved local aim: down
+        control.0.aim = ae::LocalAxes::new(0.0, 1.0); // brain-resolved local aim: down
     }
     app.update();
     let pos = player_pos(&app, player);

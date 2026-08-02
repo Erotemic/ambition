@@ -306,16 +306,26 @@ pub struct ActorControlFrame {
     /// WORLD-space quick-blink direction, resolved at the brain seam through the
     /// MOVEMENT frame mode (locomotion-framed). The movement engine consumes this
     /// directly so it stays frame-agnostic; `ZERO` → fall back to facing.
-    pub blink_quick_dir: Vec2,
+    /// ⚠ **WORLD**, and the kernel seam already said so by wrapping this in
+    /// `WorldVec2` on the way in — a reinterpretation that claimed a frame the
+    /// field did not carry. Typed 2026-08-02 so the wrap is a move.
+    pub blink_quick_dir: WorldVec2,
     /// WORLD-space precision-blink steer vector, resolved at the brain seam
     /// through the AIM frame mode (screen-directed by default). Decoupled from
     /// [`Self::blink_quick_dir`] so the two blink forms can use different frame
     /// policies on the same stick. `ZERO` → no precision steer this tick.
-    pub blink_aim_step: Vec2,
+    pub blink_aim_step: WorldVec2,
     /// Aim direction for charged ranged attacks in the controlled actor's local
     /// frame. `(0,0)` = use actor facing; non-zero = explicit twin-stick / mouse
     /// aim after crossing the input seam.
-    pub aim: Vec2,
+    ///
+    /// ⚠ **this struct has SIX frame-carrying fields, not the three typed
+    /// first.** `locomotion`, `velocity_target` and `attack_axis` were done on
+    /// 2026-08-02 and the commit said "the three frame-carrying fields"; `aim`
+    /// (local, per the line above), `blink_quick_dir` and `blink_aim_step` (both
+    /// WORLD — the kernel seam wraps them in `WorldVec2`) were missed. Counting
+    /// the fields whose DOC names a frame is how the other three were found.
+    pub aim: LocalAxes,
     /// Sustain: the modifier slot is held this tick.
     ///
     /// The engine attaches NO meaning to it. It is carried here — in the
@@ -397,8 +407,8 @@ impl ActorControlFrame {
                     },
                 ),
             axes: self.locomotion,
-            blink_quick_dir: ambition_platformer2d_core::WorldVec2(self.blink_quick_dir),
-            blink_aim_step: ambition_platformer2d_core::WorldVec2(self.blink_aim_step),
+            blink_quick_dir: self.blink_quick_dir,
+            blink_aim_step: self.blink_aim_step,
             attack_pressed: self.melee_pressed,
             pogo_pressed: self.pogo_pressed,
             interact_pressed: self.interact_pressed,

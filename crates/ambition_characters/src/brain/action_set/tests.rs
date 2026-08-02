@@ -236,7 +236,7 @@ fn resolve_passes_attack_axis_through_to_melee_request() {
     let reqs = resolve(&actions, &frame, ae::Vec2::ZERO);
     match reqs[0] {
         ActionRequest::Melee { attack_axis, .. } => {
-            assert_eq!(attack_axis, ae::Vec2::new(0.0, -1.0));
+            assert_eq!(attack_axis, ae::LocalAxes::new(0.0, -1.0));
         }
         _ => panic!("expected Melee"),
     }
@@ -493,7 +493,7 @@ fn action_request_label_covers_all_melee_variants() {
             spec,
             origin: ae::Vec2::ZERO,
             facing: 1.0,
-            attack_axis: ae::Vec2::ZERO,
+            attack_axis: ae::LocalAxes::ZERO,
         };
         let label = req.label();
         assert!(label.starts_with("melee_"), "{}", label);
@@ -517,7 +517,7 @@ fn action_request_label_returns_per_variant_string() {
         spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
         origin: ae::Vec2::ZERO,
         facing: 1.0,
-        attack_axis: ae::Vec2::ZERO,
+        attack_axis: ae::LocalAxes::ZERO,
     };
     assert_eq!(melee.label(), "melee_swipe");
 
@@ -525,7 +525,7 @@ fn action_request_label_returns_per_variant_string() {
         spec: MeleeActionSpec::Lunge(LungeSpec::BRUTE_DEFAULT),
         origin: ae::Vec2::ZERO,
         facing: 1.0,
-        attack_axis: ae::Vec2::ZERO,
+        attack_axis: ae::LocalAxes::ZERO,
     };
     assert_eq!(lunge.label(), "melee_lunge");
 
@@ -550,7 +550,7 @@ fn action_request_display_includes_kind_and_origin() {
         spec: MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT),
         origin: ae::Vec2::new(10.0, 20.0),
         facing: 1.0,
-        attack_axis: ae::Vec2::ZERO,
+        attack_axis: ae::LocalAxes::ZERO,
     };
     let s = format!("{}", req);
     assert!(s.contains("melee_swipe"));

@@ -688,7 +688,7 @@ pub fn tick_smash(
                     // teleports instead of arming-then-cancelling.
                     out.blink_pressed = true;
                     out.blink_released = true;
-                    out.blink_quick_dir = away;
+                    out.blink_quick_dir = ae::WorldVec2(away);
                     out.locomotion = ae::LocalAxes::ZERO;
                     out.velocity_target = ae::WorldVec2::ZERO;
                     state.blink_cooldown = cfg.blink_cooldown_s;

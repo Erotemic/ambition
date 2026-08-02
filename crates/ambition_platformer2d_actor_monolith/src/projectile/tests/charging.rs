@@ -139,7 +139,7 @@ fn a_non_home_charge_body_fires_from_its_own_muzzle_not_the_home_avatar() {
         f.projectile_pressed = pressed;
         f.projectile_held = held;
         f.projectile_released = released;
-        f.aim = ae::Vec2::new(1.0, 0.0);
+        f.aim = ae::LocalAxes::new(1.0, 0.0);
         app.world_mut().get_mut::<ActorControl>(body).unwrap().0 = f;
     };
 

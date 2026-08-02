@@ -140,7 +140,11 @@ pub struct SlotControlLatches {
 
 impl SlotControlLatches {
     /// Fold one device sample for `slot`. Levels overwrite; edges stick.
-    pub fn accumulate(&mut self, slot: PlayerSlot, sample: ambition_platformer2d_core::ControlFrame) {
+    pub fn accumulate(
+        &mut self,
+        slot: PlayerSlot,
+        sample: ambition_platformer2d_core::ControlFrame,
+    ) {
         if let Some(latch) = self.slots.get_mut(slot.0 as usize) {
             latch.accumulate(sample);
         }
@@ -590,7 +594,7 @@ pub fn emit_player_projectile_tick_messages(
             actor: entity,
             request: action_set::ActionRequest::PlayerProjectileTick {
                 axis: frame.locomotion.vec(),
-                aim: frame.aim,
+                aim: frame.aim.vec(),
                 press: frame.projectile_pressed,
                 held: frame.projectile_held,
                 released: frame.projectile_released,

@@ -188,8 +188,6 @@ def main() -> int:
             f"early forever, e.g. {readers[0]}"
         )
 
-    if args.verbose:
-        print(f"scanned {len(gates)} files; {len(optional_reads)} optional-read types")
 
     if findings:
         print("CAPABILITIES THAT DO NOT SHIP:\n")
@@ -204,7 +202,23 @@ def main() -> int:
         )
         return 1
 
-    print("every Option-read capability has at least one shipping writer")
+    # ⛔ **the counts are on the SUCCESS line, not behind `--verbose`.** They were
+    # behind it when this script was written earlier today, which meant its
+    # ordinary output — "every Option-read capability has at least one shipping
+    # writer" — was indistinguishable from a run that scanned nothing. A crate
+    # root that stopped resolving, a `cargo metadata` shape change, a module walk
+    # that returned early: all of those print the same clean sentence.
+    if not gates:
+        print(
+            "scanned NO source files — the crate walk is broken, not the code. "
+            "A pass here would mean nothing.",
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"every Option-read capability has at least one shipping writer "
+        f"({len(gates)} files, {len(optional_reads)} optional-read types)"
+    )
     return 0
 
 

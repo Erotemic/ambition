@@ -111,11 +111,21 @@ def main() -> int:
 
     root = Path(args.root).resolve()
     errors: list[str] = []
+    # ⛔ **what this check EXAMINED, not just what it found.** "passed" with no
+    # count is indistinguishable from a run whose file collection returned
+    # nothing — a path rename inside `iter_markdown`, a bad `--root`, a glob that
+    # stopped matching — and this is the gate a doc edit is checked against. It
+    # reported a clean pass on every commit of 2026-08-02 and nobody could have
+    # told a real one from an empty one.
+    documents = 0
+    links = 0
 
     for path in iter_markdown(root):
+        documents += 1
         text = path.read_text(encoding="utf8")
         rel = path.relative_to(root)
         for offset, target in collect_links(text):
+            links += 1
             if not local_target_exists(root, path, target):
                 errors.append(
                     f"{rel}:{line_for_offset(text, offset)} broken local link: {target}"
@@ -130,7 +140,15 @@ def main() -> int:
             print(f"  - {err}", file=sys.stderr)
         return 1
 
-    print("Documentation link check passed")
+    if documents == 0:
+        print(
+            f"Documentation link check examined NO documents under {root} — the "
+            "collection is broken, not the docs. A pass here would mean nothing.",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Documentation link check passed ({documents} documents, {links} local links)")
     return 0
 
 

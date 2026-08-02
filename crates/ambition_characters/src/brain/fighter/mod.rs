@@ -32,9 +32,14 @@
 //!   kernel (`ambition_platformer2d_core::hit_response` — the same one
 //!   `damage_apply` resolves authoritative hits with).
 //!
-//! Still owed: FB4's ladder self-play rig and APM enforcement (both need a brain
-//! that emits inputs), which also gate FB6e's `l3_earns_its_depth` ladder gate —
-//! ladder rows keep `rollout_depth: 0` until that instrument exists.
+//! Still owed: FB6e's `l3_earns_its_depth` ladder gate.
+//!
+//! ⛔ **"ladder rows keep `rollout_depth: 0` until that instrument exists" was
+//! true when written and is NOT true now** — corrected 2026-08-02. `ed6c55d0e`
+//! (2026-07-31) made `profile.rs` ship `rollout_depth: if level >= 6 { 12 } else
+//! { 0 }`, so half the shipped ladder runs lookahead. Three separate places went
+//! on asserting the old state, which is the cost of writing a fact about the code
+//! in prose that nothing evaluates.
 
 pub mod decision;
 pub mod habit;

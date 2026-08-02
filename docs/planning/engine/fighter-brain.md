@@ -409,9 +409,17 @@ Nine rows, `reaction_ms` 500 → 150, monotone in reaction, APM, and execution n
 those checks would otherwise surface as *"the levels do not order correctly"* after
 hours of self-play.
 
-**`rollout_depth` is zero on every row.** L3 needs N3.1's `restore`, which landed
-2026-07-10 (`ambition_platformer2d_runtime::snapshot::restore`); FB6 is now unblocked and is the
-slice that turns rollouts on (until then every row still ships `rollout_depth = 0`).
+**~~`rollout_depth` is zero on every row.~~ ⛔ STALE, corrected 2026-08-02.**
+`ed6c55d0e` (2026-07-31) made `profile.rs` ship
+`rollout_depth: if level >= 6 { 12 } else { 0 }`, so FB6 already turned rollouts
+on for half the ladder. Two facts in this sentence had rotted: the claim above,
+and the citation `ambition_platformer2d_runtime::snapshot::restore` — that module
+does not exist, having gone with the custom snapshot engine (ADR 0027). The live
+home is `ambition_platformer2d_runtime::rollback`.
+⚠ `encounter-orchestration.md` cites a test from the same deleted module and is
+NOT stale, because it says so: it records the deletion, names where the invariant
+lives now, and keeps the old name explicitly as history. That is the difference
+between a preserved citation and a rotted one.
 §1 promises graceful degradation — *"L3 is an upgrade, not a dependency"* —
 so the whole ladder plays on L2's scores alone today, and FB6 turns them on without
 touching a difficulty's identity. `the_whole_shipped_ladder_plays_without_l3` pins

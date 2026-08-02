@@ -2,9 +2,15 @@
 //!
 //! `cargo run -p ambition_demo_smash_app --bin ladder_probe`
 //!
-//! Every ladder row in this repository has carried `rollout_depth: 0`, and the
-//! reason is written down: the depth cannot be authored until something proves
-//! it buys something. FB6a–e built the rollout; nothing had ever measured a
+//! ⚠ **"every ladder row carries `rollout_depth: 0`" was true when this was
+//! written and stopped being true the same day** (`ed6c55d0e`, 2026-07-31):
+//! `profile.rs` now ships `if level >= 6 { 12 } else { 0 }`. Read every table
+//! below with that in mind — a row's level chooses its depth, so comparing
+//! ACROSS levels varies two things at once. Only the `9/d0` vs `9/d12` rows hold
+//! the profile fixed, which is why they are the only A/B here worth anything.
+//!
+//! The reason the depth was withheld is still written down: it cannot be authored
+//! until something proves it buys something. FB6a–e built the rollout; nothing had ever measured a
 //! fighter WITH it against the same fighter WITHOUT it, because until today no
 //! fighter brain could be put on a body in a running match.
 //!

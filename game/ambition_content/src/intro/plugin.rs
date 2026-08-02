@@ -115,7 +115,7 @@ impl Plugin for IntroPlugin {
                 sim,
                 super::route_state::sync_intro_flag_gated_lock_walls
                     .after(ambition_platformer2d_actor_monolith::features::FeatureWorldOverlaySet)
-                    .before(ambition_platformer2d_actor_monolith::features::update_ecs_hazards)
+                    .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
                     .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
             );
         // Intro dialog redirects are handled by the unified

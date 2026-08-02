@@ -1050,11 +1050,27 @@ looked.
 gated on `gameplay_allowed` while this one is. A set spanning both would hand
 consumers an ordering against a system with different run conditions.
 
+✔ `update_ecs_hazards` too — it lives in `ambition_combat`, is scheduled by the
+monolith beside the overlay system, and two `ambition_content` plugins ordered
+against it by name. Now `ambition_combat::hazards::HazardTickSet`. **49 → 37.**
+⚠ four re-export hops to make it reachable (`hazards` → `features::ecs` →
+`features` → the facade), which is itself the argument: a name a consumer must
+order against has to travel the same path the function does, and the function was
+already re-exported at every level. A set that stops one level short is a set
+nobody can use.
+
 ▢ what is left, by consumer count: `tick_player_brains` 4 · `step_projectiles` 2 ·
-`sync_local_player_input_frame` 2 · `update_ecs_hazards` 2 ·
-`gate_worn_player_control` 2, then singletons. ⚠ `tick_player_brains` is the
-awkward one: it ALREADY has a set (`PlayerInputSet::Brain`) with two members, so
-converting is the STRICTER case, not the equivalent one.
+`sync_local_player_input_frame` 2 · `gate_worn_player_control` 2, then singletons.
+⚠ `tick_player_brains` is the awkward one: it ALREADY has a set
+(`PlayerInputSet::Brain`) with two members, so converting is the STRICTER case,
+not the equivalent one.
+
+⭐ **the running tally for this whole thread: 49 → 37 cross-crate leaf pins, via
+four one-member sets** (`EffectExecutionSet`, `FeatureWorldOverlaySet`,
+`PlayerHitResolutionSet`, `HazardTickSet`) plus one phase vocabulary
+(`ProgressionSet`, six phases). Every conversion was chosen because it was
+EXACTLY equivalent; the ones that would have been merely stricter are recorded
+above and left alone.
 
 ▢ **so the remaining nine in the runtime sort into three kinds**, and only the
 first is mechanical:

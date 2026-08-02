@@ -7,6 +7,21 @@ use super::util::hazard_sfx_id;
 use super::*;
 
 /// Tick ECS-authored hazards and publish player damage through Bevy messages.
+/// **The set `update_ecs_hazards` runs in.**
+///
+/// ⛔ two `ambition_content` plugins (`bosses`, `intro`) order against this
+/// function by name across a crate boundary. Same shape as
+/// `ambition_vfx::EffectExecutionSet` and
+/// `crate::…::FeatureWorldOverlaySet`: a general crate consumed by content owed
+/// its consumers a name to order against and did not have one.
+///
+/// ⚠ ONE member, so `.before(HazardTickSet)` is exactly the
+/// `.before(update_ecs_hazards)` it replaces. The system sits inside a long
+/// chained tuple in the monolith's feature group; a set spanning its neighbours
+/// would change what a consumer waits for.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct HazardTickSet;
+
 pub fn update_ecs_hazards(
     world_time: Res<WorldTime>,
     mut hit_events: MessageWriter<HitEvent>,

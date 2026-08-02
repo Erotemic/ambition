@@ -154,13 +154,13 @@ pub use ecs::{
     ActorConstructionContext, ActorSteering, BossClusterQueryData, BossClusterRef,
     BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef, CanPilot,
     ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor,
-    HitboxHits, HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState,
-    LimbSlot, Mass, MountClass, MountDeathImpact, MountDied, MountSlot, Mountable, Mounted,
-    MountedBrainCache, MountedSize, PendingChallenge, PickupArt, PickupCollectLock, RidingOn,
-    RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,
-    RoomFeatureConstructionError, RoomFeatureConstructionPlan, RoomFeatureConstructionReceipt,
-    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox,
+    HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig,
+    LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountDied, MountSlot, Mountable,
+    Mounted, MountedBrainCache, MountedSize, PendingChallenge, PickupArt, PickupCollectLock,
+    RidingOn, RoomContentStagingError, RoomContentStagingRegistrationError,
+    RoomContentStagingRegistry, RoomFeatureConstructionError, RoomFeatureConstructionPlan,
+    RoomFeatureConstructionReceipt, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
@@ -412,7 +412,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 derive_pogo_target_volumes,
                 rebuild_feature_ecs_world_overlay
                     .in_set(crate::world::overlay::FeatureWorldOverlaySet),
-                update_ecs_hazards,
+                update_ecs_hazards.in_set(ambition_combat::hazards::HazardTickSet),
                 // Target selection refreshes each actor's `ActorTarget`
                 // before actor / boss update systems consume it.
                 select_actor_targets,

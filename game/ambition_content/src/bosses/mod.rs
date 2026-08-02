@@ -298,7 +298,7 @@ impl Plugin for AmbitionBossContentPlugin {
             sim,
             gate_gnu_ton_arena_ladder
                 .after(ambition_platformer2d_actor_monolith::features::FeatureWorldOverlaySet)
-                .before(ambition_platformer2d_actor_monolith::features::update_ecs_hazards)
+                .before(ambition_platformer2d_actor_monolith::features::HazardTickSet)
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
 

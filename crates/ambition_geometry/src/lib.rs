@@ -16,6 +16,7 @@
 //! combat_volume.rs   parry2d, Aabb, AabbExt, Vec2
 //! volume_shape.rs    AccelerationFrame, CombatVolume, Vec2
 //! reference_frame.rs Vec2
+//! swing_shape.rs     AabbExt, CombatVolume, Vec2   (merged from `shaped-volumes`)
 //! ```
 //!
 //! No rooms, no blocks, no ledges, no portals — and every trait they implement
@@ -38,6 +39,7 @@
 pub mod combat_volume;
 pub mod geometry;
 pub mod reference_frame;
+pub mod swing_shape;
 pub mod volume_shape;
 
 pub use bevy_math::Vec2;
@@ -47,4 +49,5 @@ pub use reference_frame::{
     AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,
     MotionFrame, RawDirectionEdges, ResolvedControlFrame, ScreenAxes, WorldVec2,
 };
+pub use swing_shape::SwingShape;
 pub use volume_shape::{VolumeShape, DUMMY_HALF};

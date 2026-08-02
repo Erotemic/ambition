@@ -71,7 +71,9 @@ pub use body_clusters::{
 // ⚠ a consumer that wants only shapes or frames should depend on
 // `ambition_geometry` directly. Reaching them through here is what made 19
 // unqualified crates declare a platformer dependency they did not have.
-pub use ambition_geometry::{combat_volume, geometry, reference_frame, volume_shape};
+pub use ambition_geometry::{
+    combat_volume, geometry, reference_frame, swing_shape, volume_shape,
+};
 pub use ambition_geometry::combat_volume::CombatVolume;
 /// Which sim frames are settled (netcode: the confirmed boundary). Absent on
 /// every non-rollback host, where it means "confirm everything".
@@ -122,6 +124,7 @@ pub use ambition_geometry::reference_frame::{
     AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,
     MotionFrame, RawDirectionEdges, ResolvedControlFrame, ScreenAxes, WorldVec2,
 };
+pub use ambition_geometry::swing_shape::SwingShape;
 pub use ambition_geometry::volume_shape::{VolumeShape, DUMMY_HALF};
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,

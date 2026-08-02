@@ -24,7 +24,7 @@ fn upright_gravity_is_the_plain_centered_box() {
     // The single damageable volume agrees with the collision box.
     let vols = damageable_volumes(&geom(ae::Vec2::new(0.0, 1.0)));
     assert_eq!(vols.len(), 1);
-    assert_eq!(vols[0].half_size(), ae::Vec2::new(15.0, 24.0));
+    assert_eq!(vols[0].bounds().half_size(), ae::Vec2::new(15.0, 24.0));
 }
 
 #[test]

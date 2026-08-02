@@ -23,12 +23,12 @@
 use ambition_platformer2d_shared_tangle::app_finalization::{finalize, finalize_and_update};
 
 use super::*;
-use ambition_platformer2d_core::AabbExt;
-use ambition_platformer2d_core::Vec2;
 use ambition_entity_catalog::{
     ClipBinding, HitVolume, HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, MoveGates,
     MoveSpec, MoveWindow, MovesetContract, VolumeShape, WindowTag,
 };
+use ambition_platformer2d_core::AabbExt;
+use ambition_platformer2d_core::Vec2;
 use std::collections::BTreeMap;
 
 /// The cue a move announces itself with. Per-move, so the assertion can tell
@@ -754,7 +754,7 @@ fn a_strike_that_clears_the_authored_torso_lands_on_nobody() {
             !published
                 .volumes
                 .iter()
-                .any(|volume| strike.strict_intersects(*volume)),
+                .any(|volume| strike.strict_intersects(volume.bounds())),
             "the strike must NOT overlap Sanic's published silhouette \
              ({:?}) — otherwise a hit would be correct and the assertion below is \
              testing the opposite of what it says (strike {strike:?})",

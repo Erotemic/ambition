@@ -343,7 +343,7 @@ fn render_room_projected(
             b.aabb,
             b.payload.clone(),
         ) {
-            overlay_aabb(&mut img, proj, hb, Rgba([60, 240, 255, 255]));
+            overlay_aabb(&mut img, proj, hb.bounds(), Rgba([60, 240, 255, 255]));
         }
     }
     for it_aabb in placement_aabbs(
@@ -429,7 +429,8 @@ fn resolve_headless_snapshot(
             dt: 0.0,
             mode: CameraSnapshotResolveMode::Instant,
             extra_clamp_center_world: None,
-            ease_tuning: ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning::default(),
+            ease_tuning:
+                ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning::default(),
             screen_framing: None,
         },
         None,

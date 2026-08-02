@@ -89,13 +89,26 @@ pub fn refresh_body_damageable_volumes(
 /// window", so a caller must NOT treat it as "nothing authored" and fall through
 /// to a coarse box — that fallthrough would silently delete an authored
 /// invulnerability. `None` means no doc, which is what the fallback is for.
+///
+/// Boxes, and honestly so: the authored hurtbox TIMELINE
+/// (`ambition_entity_catalog`'s hurtbox contracts) is authored as rectangles,
+/// so this producer publishes `CombatVolume::Aabb` and the cheap overlap path
+/// applies. The component can carry hulls — the sprite-metadata producer
+/// (`damageable_volumes`) publishes them when a sheet authors a `poly` — and
+/// widening the timeline schema to hulls is its own step, not a silent
+/// reinterpretation of rows that were written as rects.
 fn authored_world_volumes(
     hurtboxes: Option<&crate::character_runtime::ResolvedHurtboxes>,
     kin: Option<&crate::actor::BodyKinematics>,
-) -> Option<Vec<ambition_platformer2d_core::Aabb>> {
+) -> Option<Vec<ambition_platformer2d_core::CombatVolume>> {
     let (resolved, kin) = hurtboxes.zip(kin)?;
     let volumes = resolved.world_volumes(kin.aabb().center(), kin.facing)?;
-    Some(volumes.into_iter().map(|v| v.aabb()).collect())
+    Some(
+        volumes
+            .into_iter()
+            .map(|v| ambition_platformer2d_core::CombatVolume::aabb(v.aabb()))
+            .collect(),
+    )
 }
 
 /// Publish player-damageable boss volumes from the same authored hurtbox path
@@ -108,21 +121,19 @@ fn authored_world_volumes(
 /// not the composite body's bounding rectangle.
 pub fn refresh_boss_damageable_volumes(
     boss_catalog: Res<crate::boss_encounter::BossCatalog>,
-    mut bosses: Query<
-        (
-            super::boss_clusters::BossClusterRef,
-            &ambition_characters::actor::BodyHealth,
-            &ambition_characters::brain::BossAttackState,
-            Option<&crate::features::BossAnimationFrameSample>,
-            // A boss is a character too: if one AUTHORS a `HurtboxDoc`, that doc
-            // wins over the frame-sampled parts below. Without this branch a boss
-            // was the one family that could not use the authored path, which is
-            // backwards — the authored path exists BECAUSE bosses needed it.
-            Option<&crate::character_runtime::ResolvedHurtboxes>,
-            Option<&crate::actor::BodyKinematics>,
-            &mut DamageableVolumes,
-        ),
-    >,
+    mut bosses: Query<(
+        super::boss_clusters::BossClusterRef,
+        &ambition_characters::actor::BodyHealth,
+        &ambition_characters::brain::BossAttackState,
+        Option<&crate::features::BossAnimationFrameSample>,
+        // A boss is a character too: if one AUTHORS a `HurtboxDoc`, that doc
+        // wins over the frame-sampled parts below. Without this branch a boss
+        // was the one family that could not use the authored path, which is
+        // backwards — the authored path exists BECAUSE bosses needed it.
+        Option<&crate::character_runtime::ResolvedHurtboxes>,
+        Option<&crate::actor::BodyKinematics>,
+        &mut DamageableVolumes,
+    )>,
 ) {
     for (feature, health, attack_state, animation_frame, hurtboxes, kin, mut damageable) in
         &mut bosses
@@ -176,8 +187,14 @@ pub fn derive_pogo_target_volumes(
     for (damageable, policy, mut pogo) in &mut targets {
         match *policy {
             PogoPolicy::FromDamageable => {
+                // Coarsened ON PURPOSE. A pogo target is bridged into the
+                // engine's block world as a non-solid `PogoOrb`, and a block is
+                // a rectangle — this consumer is rects by nature, not by an
+                // accident of what the component could hold. `bounds()` is the
+                // named seam for that, so the coarsening is visible here rather
+                // than being the silent shape of the whole pipeline.
                 pogo.volumes.clear();
-                pogo.volumes.extend(damageable.volumes.iter().copied());
+                pogo.volumes.extend(damageable.bounds());
             }
             PogoPolicy::Custom => {}
             PogoPolicy::Disabled => pogo.volumes.clear(),

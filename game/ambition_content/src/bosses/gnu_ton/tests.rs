@@ -13,9 +13,9 @@ use ambition_platformer2d_world::collision::world_with_sandbox_solids;
 /// The gate is now a derived overlay contributor, so the arena assertions
 /// read the VIEW — what player/actor collision actually sees — not the base.
 fn arena_view(app: &App) -> ae::World {
-    let base = &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<RoomGeometry>(
-        app.world(),
-    )
+    let base = &ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
+        RoomGeometry,
+    >(app.world())
     .expect("session room geometry")
     .0;
     let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
@@ -170,7 +170,9 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
         status,
     };
     let catalog = crate::bosses::authored_boss_catalog();
-    let ctx = ambition_platformer2d_actor_monolith::features::BossVolumeContext::from_ref(&catalog, boss_ref, attack);
+    let ctx = ambition_platformer2d_actor_monolith::features::BossVolumeContext::from_ref(
+        &catalog, boss_ref, attack,
+    );
     let hurtboxes = ambition_platformer2d_actor_monolith::features::damageable_volumes(&ctx);
     assert!(
         !hurtboxes.is_empty(),
@@ -196,7 +198,7 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
     .aabb();
     for hb in &hurtboxes {
         assert!(
-            body.strict_intersects(*hb),
+            body.strict_intersects(hb.bounds()),
             "hurtbox {hb:?} does not overlap the boss body envelope {body:?} \
              — the head hurtbox has drifted off the visible body (TODO #30)"
         );
@@ -205,7 +207,10 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
 
 fn make_app(world: ambition_platformer2d_core::RoomGeometry) -> App {
     let mut app = App::new();
-    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(app.world_mut(), world);
+    ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+        app.world_mut(),
+        world,
+    );
     app.init_resource::<FeatureEcsWorldOverlay>();
     // Mirror the production WorldPrep order: the overlay rebuild clears the
     // per-frame contributions, then the gate re-derives them this frame.
@@ -247,8 +252,8 @@ fn ladder_is_hidden_on_entry_when_boss_is_alive() {
 /// `mount_links` entry) end-to-end off the embedded sandbox.ldtk.
 #[test]
 fn arena_spawns_the_adr0020_linked_pair() {
-    use ambition_platformer2d_actor_monolith::ldtk_world::LdtkProject;
     use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
+    use ambition_platformer2d_actor_monolith::ldtk_world::LdtkProject;
 
     // `to_room_set` reads the world manifest + resolves spawn display names
     // through stable authored ids; this test names the provider-owned manifest

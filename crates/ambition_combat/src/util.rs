@@ -210,19 +210,26 @@ pub fn shield_blocks_hit(
     local_side_delta.signum() == facing.signum()
 }
 
-/// On-screen size for the slash effect: a flourish a bit larger than the
-/// hitbox so the swing reads beyond the exact damage box. Takes the world
-/// hitbox half-extent. Tunable.
-fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
-    const SLASH_EFFECT_SCALE: f32 = 2.0;
-    ((hitbox_half_size * 2.0).max_element() * SLASH_EFFECT_SCALE).max(24.0)
-}
+/// How far the drawn effect overshoots the damage volume, so the swing reads
+/// beyond the exact box that hurts.
+///
+/// This is a PRESENTATION MARGIN and nothing else — it scales an already-correct
+/// shape. It replaces `SLASH_EFFECT_SCALE = 2.0`, which was applied to the
+/// longer side of a bounding box before that side became a square, and so was
+/// indistinguishable from the shape derivation it was folded into. Doubling was
+/// never a considered margin; it was what made a 205-unit square out of a
+/// 98-unit swing.
+const SLASH_ART_MARGIN: f32 = 1.15;
 
 /// THE single melee-slash effect emit. EVERY body's melee — the player AND any
 /// brain-driven actor — draws its swing through this one function, so the slash
-/// visual has exactly ONE definition (size curve + message shape). `center` is the
-/// world hitbox center, `half_size` its half-extent, `dir` the gravity-relative
-/// body→strike offset (the renderer rotates the art along it).
+/// visual has exactly ONE definition.
+///
+/// `volume` is the strike's resolved world volume — the SAME one that deals the
+/// damage — and `from` the striking body's position, which is what says which
+/// end of the shape is rooted at the body. The projection to a drawable swing
+/// lives in [`ae::SwingShape`], so the hull is measured once, here, rather than
+/// approximated by every consumer.
 ///
 /// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this.
 /// The former two-state-machine fork (the flat `MeleeSwing`/`BodyMelee` driver
@@ -231,18 +238,15 @@ fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
 /// on the strike path.
 pub fn emit_melee_slash(
     vfx: &mut MessageWriter<VfxMessage>,
-    center: ae::Vec2,
-    half_size: ae::Vec2,
+    volume: &ae::CombatVolume,
+    from: ae::Vec2,
     kind: SlashKind,
     pose: SlashPose,
-    dir: ae::Vec2,
 ) {
     vfx.write(VfxMessage::Slash {
-        center,
-        size: slash_effect_size(half_size),
+        shape: volume.swing_shape(from).scaled(SLASH_ART_MARGIN),
         kind,
         pose,
-        dir,
     });
 }
 

@@ -143,14 +143,7 @@ pub(crate) fn spawn_slash_effects(
     };
     let mut source: Option<SlashSource> = None;
     for message in messages.read() {
-        let VfxMessage::Slash {
-            center,
-            size,
-            kind,
-            pose,
-            dir,
-        } = message
-        else {
+        let VfxMessage::Slash { shape, kind, pose } = message else {
             continue;
         };
         if source.is_none() {
@@ -169,27 +162,30 @@ pub(crate) fn spawn_slash_effects(
             session_scope,
             &world.0,
             source,
-            *center,
-            *size,
+            *shape,
             *kind,
             *pose,
-            *dir,
         );
     }
 }
 
-/// Spawn a one-shot slash effect at `center`, `size` px square, playing `kind`
-/// rotated to point along the world `dir` (attacker→hitbox, gravity-relative).
+/// Spawn a one-shot slash effect fitted to `shape`: centred on the swept
+/// region, sized to the swing's own length and width, and turned to the swing
+/// axis.
+///
+/// ⚠ The quad is NOT square. It was, because the cue carried one scalar; the
+/// art is drawn in a square frame, so a swing that reaches twice as far as it
+/// is tall used to be drawn in a box as tall as it was long. The art stretches
+/// to the swing now, which is only fully honest once the art itself is
+/// generated from the same swing descriptor the hit polygon is.
 fn spawn_one(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
     source: &SlashSource,
-    center: ae::Vec2,
-    size: f32,
+    shape: ae::SwingShape,
     kind: SlashKind,
     pose: SlashPose,
-    dir: ae::Vec2,
 ) {
     let row = source.row(kind, pose);
     let mut sprite = Sprite::from_atlas_image(
@@ -199,9 +195,18 @@ fn spawn_one(
             index: row.start,
         },
     );
-    sprite.custom_size = Some(BVec2::splat(size.max(1.0)));
-    let mut transform = Transform::from_translation(world_to_bevy(world, center, WORLD_Z_FX + 2.0));
-    transform.rotation = Quat::from_rotation_z(slash_rotation(dir, pose));
+    // `x` runs along the swing axis, `y` across it — the frame the rotation
+    // below puts the sprite into. A radial swing has no axis; its extent is
+    // already world-aligned and its rotation is the pose's alone.
+    let half = shape.oriented_bounds();
+    sprite.custom_size = Some(BVec2::new((half.x * 2.0).max(1.0), (half.y * 2.0).max(1.0)));
+    let mut transform =
+        Transform::from_translation(world_to_bevy(world, shape.center(), WORLD_Z_FX + 2.0));
+    let axis = match shape {
+        ae::SwingShape::Sweep { dir, .. } => dir,
+        ae::SwingShape::Radial { .. } => ae::Vec2::ZERO,
+    };
+    transform.rotation = Quat::from_rotation_z(slash_rotation(axis, pose));
     commands.spawn_session_scoped(
         session_scope,
         (

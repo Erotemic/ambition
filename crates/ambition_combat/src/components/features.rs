@@ -158,9 +158,16 @@ pub struct StandTimer(pub f32);
 /// freshly spawned body a ghost. Both were live possibilities the first time
 /// damage started reading this component, and one of them broke a projectile test
 /// immediately.
+/// The volumes are SHAPED ([`ae::CombatVolume`]), not boxes. A body is a
+/// silhouette, and a convex piece describes an arm, a wing or a tail without the
+/// rectangle's dead corners; a body that is honestly a rectangle simply
+/// publishes [`ae::CombatVolume::Aabb`], which keeps the cheap box-vs-box
+/// overlap path. Multi-part stays multi-part: one hull cannot express disjoint
+/// pieces — a single hull over head + torso + outstretched arm fills every gap
+/// between them — so the list is the expressive unit and each entry is one part.
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct DamageableVolumes {
-    pub volumes: Vec<ae::Aabb>,
+    pub volumes: Vec<ae::CombatVolume>,
     published: bool,
 }
 
@@ -181,12 +188,12 @@ impl DamageableVolumes {
 
     pub fn set_single(&mut self, aabb: ae::Aabb) {
         self.volumes.clear();
-        self.volumes.push(aabb);
+        self.volumes.push(ae::CombatVolume::aabb(aabb));
         self.published = true;
     }
 
     /// Publish an explicit list — an authored silhouette, or a boss's active parts.
-    pub fn publish(&mut self, volumes: Vec<ae::Aabb>) {
+    pub fn publish(&mut self, volumes: Vec<ae::CombatVolume>) {
         self.volumes = volumes;
         self.published = true;
     }
@@ -197,6 +204,17 @@ impl DamageableVolumes {
         let mut out = Self::default();
         out.set_single(aabb);
         out
+    }
+
+    /// The published silhouette as coarse boxes.
+    ///
+    /// For consumers that are RECTANGLES by nature and not by accident — the
+    /// pogo-orb overlay bridges hurtboxes into the engine's block world, and a
+    /// block is a rect. Every other reader should take the volumes themselves;
+    /// this one is a deliberate, named coarsening, which is what keeps it from
+    /// being mistaken for the silhouette.
+    pub fn bounds(&self) -> Vec<ae::Aabb> {
+        self.volumes.iter().map(ae::CombatVolume::bounds).collect()
     }
 }
 

@@ -88,10 +88,16 @@ pub fn strike_reaches_victim(
     victim_aabb: &super::components::CenteredAabb,
 ) -> bool {
     match victim_damageable {
+        // Shape against shape: a published part may be a hull (an arm, a wing),
+        // and testing the strike against its bounding box instead would let a
+        // blade land in the dead corner of a rectangle nobody authored. The
+        // box-vs-box fast path still applies whenever both sides are boxes —
+        // `CombatVolume::intersects` reaches Parry only for a genuinely shaped
+        // pair, after a bounds reject.
         Some(published) if published.published() => published
             .volumes
             .iter()
-            .any(|part| world_volume.intersects_aabb(*part)),
+            .any(|part| world_volume.intersects(part)),
         // No component, or one no publisher has spoken for yet: the coarse box is
         // the best available answer, and it is what every consumer used before
         // published silhouettes existed.

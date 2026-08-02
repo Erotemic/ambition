@@ -251,7 +251,7 @@ pub fn boss_spawn_hurtboxes(
     name: &str,
     aabb: ae::Aabb,
     brain: ambition_entity_catalog::placements::BossBrain,
-) -> Vec<ae::Aabb> {
+) -> Vec<ae::CombatVolume> {
     let registry = crate::character_sprites::baked_sheet_registry();
     let mut boss =
         super::super::boss_clusters::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);

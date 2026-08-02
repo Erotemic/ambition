@@ -272,14 +272,20 @@ impl CombatGeometry for BossVolumeContext<'_> {
 /// world by the boss's render size. Falls back to
 /// `volumes_for_profile` when the sprite has no per-animation
 /// hitbox for this profile.
-pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
+pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::CombatVolume> {
     let Some(profile) = ctx.attack_state.active_profile.as_ref() else {
         return Vec::new();
     };
     if let Some(volumes) = sprite_authored_volumes(ctx, profile, ctx.attack_state.active_elapsed) {
         return volumes;
     }
+    // The hardcoded strike-geometry table is rectangles by authorship, so it
+    // stays rectangles here — a box that says it is a box costs nothing and
+    // keeps the cheap overlap path.
     volumes_for_profile(profile, ctx.pos, ctx.combat_size, ctx.behavior)
+        .into_iter()
+        .map(ae::CombatVolume::aabb)
+        .collect()
 }
 
 /// Pull sprite-author-declared hitbox rectangles for the given
@@ -301,22 +307,20 @@ pub fn active_attack_volumes(ctx: &BossVolumeContext) -> Vec<ae::Aabb> {
 /// face the player, so an off-center body's hit/hurt boxes must mirror with it;
 /// for a centered body this is a no-op (center already on the axis).
 pub(crate) fn mirror_x_if_flipped(
-    mut aabbs: Vec<ae::Aabb>,
+    mut volumes: Vec<ae::CombatVolume>,
     axis_x: f32,
     facing: f32,
-) -> Vec<ae::Aabb> {
+) -> Vec<ae::CombatVolume> {
     if facing >= 0.0 {
-        return aabbs;
+        return volumes;
     }
-    for aabb in &mut aabbs {
-        let c = aabb.center();
-        let half = aabb.half_size();
-        *aabb = ae::Aabb::new(ae::Vec2::new(2.0 * axis_x - c.x, c.y), half);
+    for volume in &mut volumes {
+        *volume = volume.mirrored_x(axis_x);
     }
-    aabbs
+    volumes
 }
 
-pub fn damageable_volumes(g: &impl CombatGeometry) -> Vec<ae::Aabb> {
+pub fn damageable_volumes(g: &impl CombatGeometry) -> Vec<ae::CombatVolume> {
     mirror_x_if_flipped(damageable_volumes_unmirrored(g), g.body_pos().x, g.facing())
 }
 
@@ -324,7 +328,7 @@ pub fn damageable_volumes(g: &impl CombatGeometry) -> Vec<ae::Aabb> {
 /// mirrors these to the actor's current facing. Actor-neutral: every input is
 /// read through the [`CombatGeometry`] trait, so player / enemy / boss share
 /// one hurtbox derivation.
-fn damageable_volumes_unmirrored(g: &impl CombatGeometry) -> Vec<ae::Aabb> {
+fn damageable_volumes_unmirrored(g: &impl CombatGeometry) -> Vec<ae::CombatVolume> {
     // Priority:
     //   1. Per-animation hurtbox for the currently-playing animation
     //      (attack frames with extended arms get a wider hurtbox than the
@@ -355,7 +359,7 @@ fn damageable_volumes_unmirrored(g: &impl CombatGeometry) -> Vec<ae::Aabb> {
             let frame_index = sel
                 .live_frame_index
                 .or_else(|| animation_frame_index(entry, sel.elapsed_s));
-            let aabbs = world_space_animation_box_aabbs(
+            let volumes = world_space_animation_box_volumes(
                 box_,
                 frame_index,
                 metrics.frame_width,
@@ -363,40 +367,40 @@ fn damageable_volumes_unmirrored(g: &impl CombatGeometry) -> Vec<ae::Aabb> {
                 pos,
                 world_size,
             );
-            if !aabbs.is_empty() {
-                return aabbs;
+            if !volumes.is_empty() {
+                return volumes;
             }
         }
         // (2) Static multi-part body.
         if !metrics.body_pixel_parts.is_empty() {
             let mut parts = Vec::with_capacity(metrics.body_pixel_parts.len());
             for part in &metrics.body_pixel_parts {
-                parts.push(world_aabb_from_pixel_rect(
+                parts.push(ae::CombatVolume::aabb(world_aabb_from_pixel_rect(
                     part.rect(),
                     metrics.frame_width,
                     metrics.frame_height,
                     pos,
                     world_size,
-                ));
+                )));
             }
             return parts;
         }
         // (3) Static single-rect body.
         if let Some(bbox) = metrics.body_pixel_bbox {
-            return vec![world_aabb_from_pixel_rect(
+            return vec![ae::CombatVolume::aabb(world_aabb_from_pixel_rect(
                 bbox,
                 metrics.frame_width,
                 metrics.frame_height,
                 pos,
                 world_size,
-            )];
+            ))];
         }
     }
     // (4) Fallback: combat_size-driven single AABB, oriented to the actor's
     // reference frame (identity under vertical gravity, so bosses — which keep
     // the default screen-down frame — are unchanged).
     let half = ae::AccelerationFrame::new(g.frame_down()).to_world_half(g.combat_size() * 0.5);
-    vec![ae::Aabb::new(g.body_pos(), half)]
+    vec![ae::CombatVolume::aabb(ae::Aabb::new(g.body_pos(), half))]
 }
 
 /// Body-contact damage AABB at the boss's combat envelope — body contact is

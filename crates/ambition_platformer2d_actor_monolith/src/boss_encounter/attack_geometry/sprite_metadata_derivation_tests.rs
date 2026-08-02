@@ -261,7 +261,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     };
     let volumes = damageable_volumes(&ctx);
     assert_eq!(volumes.len(), 1);
-    let half = volumes[0].half_size();
+    let half = volumes[0].bounds().half_size();
     // side_sweep hurtbox: 127 wide / 128 frame × 256 render =
     // 254 wide. Half = 127. Static body bbox at render scale
     // would give 106/2 * 2 = 106. So we expect half.x > 120 to
@@ -309,6 +309,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
                 poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 45,
@@ -319,6 +320,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
                         bbox: None,
                     },
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 45,
@@ -388,6 +390,7 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
                 poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 45,
@@ -398,6 +401,7 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
                         bbox: None,
                     },
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 45,
@@ -478,6 +482,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
                 poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 45,
@@ -488,6 +493,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
                         bbox: None,
                     },
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 45,
@@ -575,6 +581,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
                 poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 40,
@@ -585,6 +592,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
                         bbox: None,
                     },
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 40,
@@ -602,6 +610,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
                 poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head_hit".to_string(),
                             x: 35,
@@ -612,6 +621,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
                         bbox: None,
                     },
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head_hit".to_string(),
                             x: 35,
@@ -728,16 +738,16 @@ fn damageable_volumes_scales_to_sprite_render_size() {
         animation_frame: None,
         facing: 1.0,
     };
-    let legacy = damageable_volumes(&legacy_ctx)[0];
-    let render = damageable_volumes(&render_ctx)[0];
+    let legacy = damageable_volumes(&legacy_ctx)[0].clone();
+    let render = damageable_volumes(&render_ctx)[0].clone();
 
     // ctx.size = (128, 160) → scale (1, 1.25) → body half (53, 51.875).
     // sprite_render_size = (256, 256) → scale (2, 2) → body half (106, 83).
     // Render must be ~2× legacy on x and ≥1.5× on y.
-    let lx = legacy.half_size().x;
-    let rx = render.half_size().x;
-    let ly = legacy.half_size().y;
-    let ry = render.half_size().y;
+    let lx = legacy.bounds().half_size().x;
+    let rx = render.bounds().half_size().x;
+    let ly = legacy.bounds().half_size().y;
+    let ry = render.bounds().half_size().y;
     assert!(
         rx > lx * 1.8,
         "sprite_render_size scaling should ~2× the x half-extent; legacy={lx} render={rx}",
@@ -857,7 +867,9 @@ fn attack_fully_inside_boss_volume_still_registers() {
     // A tiny attack fully inside the boss volume — "I'm in the middle and swing".
     let attack = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 20.0));
     assert!(
-        damageable.iter().any(|p| attack.strict_intersects(*p)),
+        damageable
+            .iter()
+            .any(|p| attack.strict_intersects(p.bounds())),
         "an attack fully inside the boss volume must register (containment works)",
     );
 }
@@ -896,7 +908,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
     assert!(
         !damageable_volumes(&ctx_fallback)
             .iter()
-            .any(|p| attack.strict_intersects(*p)),
+            .any(|p| attack.strict_intersects(p.bounds())),
         "BUG: the bare combat_size box undershoots the visible sprite, so a hit on \
          the visible upper body misses",
     );
@@ -930,7 +942,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
     assert!(
         damageable_volumes(&ctx_authored)
             .iter()
-            .any(|p| attack.strict_intersects(*p)),
+            .any(|p| attack.strict_intersects(p.bounds())),
         "with an authored body hurtbox covering the visible sprite, the same hit lands",
     );
 }
@@ -947,18 +959,22 @@ fn mirror_x_if_flipped_reflects_about_axis_only_when_facing_left() {
     )];
     let axis = 50.0;
 
+    let boxes: Vec<ae::CombatVolume> = boxes.into_iter().map(ae::CombatVolume::aabb).collect();
     let right = mirror_x_if_flipped(boxes.clone(), axis, 1.0);
     assert!(
-        (right[0].center().x - 70.0).abs() < 1e-6,
+        (right[0].bounds().center().x - 70.0).abs() < 1e-6,
         "facing right is a no-op"
     );
 
     let left = mirror_x_if_flipped(boxes, axis, -1.0);
     // 70 reflected about 50 → 30 (the mirror side of the boss center).
-    assert!((left[0].center().x - 30.0).abs() < 1e-6);
-    assert!((left[0].center().y - 5.0).abs() < 1e-6, "y unchanged");
+    assert!((left[0].bounds().center().x - 30.0).abs() < 1e-6);
     assert!(
-        (left[0].half_size().x - 4.0).abs() < 1e-6,
+        (left[0].bounds().center().y - 5.0).abs() < 1e-6,
+        "y unchanged"
+    );
+    assert!(
+        (left[0].bounds().half_size().x - 4.0).abs() < 1e-6,
         "width unchanged"
     );
 }
@@ -1017,6 +1033,7 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
                     // Frame 0 puts the head high, frame 1 puts it low. Which one
                     // the derivation picks is the whole assertion.
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 45,
@@ -1027,6 +1044,7 @@ fn a_samples_profile_decides_the_frame_even_when_its_animation_key_does_not_matc
                         bbox: None,
                     },
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "head".to_string(),
                             x: 45,
@@ -1118,6 +1136,7 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
                 poly: Vec::new(),
                 frames: vec![
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "strike".to_string(),
                             x: 45,
@@ -1128,6 +1147,7 @@ fn the_hitbox_path_also_takes_its_frame_from_the_profile_not_the_key() {
                         bbox: None,
                     },
                     AnimationBoxFrame {
+                        poly: Vec::new(),
                         parts: vec![NamedPixelRect {
                             name: "strike".to_string(),
                             x: 45,
@@ -1218,6 +1238,7 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
                     poly: Vec::new(),
                     frames: vec![
                         AnimationBoxFrame {
+                            poly: Vec::new(),
                             parts: vec![NamedPixelRect {
                                 name: "torso".to_string(),
                                 x: 45,
@@ -1228,6 +1249,7 @@ fn an_idle_sample_carries_its_frame_and_an_absent_key_cannot_say_that() {
                             bbox: None,
                         },
                         AnimationBoxFrame {
+                            poly: Vec::new(),
                             parts: vec![NamedPixelRect {
                                 name: "torso".to_string(),
                                 x: 45,
@@ -1318,6 +1340,7 @@ fn a_profile_claiming_no_rows_still_finds_the_row_its_sample_names() {
                 bbox: None,
                 poly: Vec::new(),
                 frames: vec![AnimationBoxFrame {
+                    poly: Vec::new(),
                     parts: vec![NamedPixelRect {
                         name: "head".to_string(),
                         x: 45,

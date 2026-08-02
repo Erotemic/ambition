@@ -50,6 +50,7 @@ fn gnu_ton_sprite_metrics_fixture() -> super::ActorSpriteMetrics {
         y: 146,
         w: 166,
         h: 133,
+        poly: Vec::new(),
     };
     let head_descent_hurt = NamedPixelRect {
         name: "head".to_string(),
@@ -57,6 +58,7 @@ fn gnu_ton_sprite_metrics_fixture() -> super::ActorSpriteMetrics {
         y: 252,
         w: 166,
         h: 133,
+        poly: Vec::new(),
     };
     let head_descent_hit = NamedPixelRect {
         name: "head".to_string(),
@@ -64,6 +66,7 @@ fn gnu_ton_sprite_metrics_fixture() -> super::ActorSpriteMetrics {
         y: 244,
         w: 184,
         h: 148,
+        poly: Vec::new(),
     };
     let rest_entry = AnimationMetrics {
         hurtbox: Some(AnimationBox {
@@ -612,7 +615,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
     // `tick_boss_brains_system` + `update_ecs_bosses` do in the
     // real schedule.
     use ambition_characters::brain::{
-        BossAttackIntent, BossPatternCfg, BossPatternContext, BossPatternState, tick_boss_pattern,
+        tick_boss_pattern, BossAttackIntent, BossPatternCfg, BossPatternContext, BossPatternState,
     };
     let mut cfg = BossPatternCfg::neutral_test();
     cfg.aggressiveness = 1.0;

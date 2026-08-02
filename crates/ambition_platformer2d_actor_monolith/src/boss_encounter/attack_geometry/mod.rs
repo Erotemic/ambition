@@ -12,6 +12,11 @@
 //! this is boss-attack-specific geometry only.
 
 use ambition_platformer2d_core as ae;
+
+// The volumes this module returns are shaped now, so the LIB stopped measuring
+// boxes with this trait — but the sibling test modules still do, and they
+// inherit their imports from here through `use super::*`.
+#[cfg_attr(not(test), allow(unused_imports))]
 use ambition_platformer2d_core::AabbExt;
 
 use bevy::prelude::Component;

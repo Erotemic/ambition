@@ -679,9 +679,18 @@ pub fn advance_move_playback(
                             } else {
                                 ambition_vfx::vfx::SlashKind::Arc
                             };
+                            // The AERIAL clips are named `air_*`, not
+                            // `attack_air*` — `directional_attack_variants`
+                            // rebinds them that way on purpose, because that is
+                            // what the sprite manifests author their hit polys
+                            // under. This match never learned the second set of
+                            // names, so the up-air and the down-air fell to
+                            // `Side` and drew a horizontal crescent turned to
+                            // point up or down. Rotation hid it: the art aimed
+                            // the right way, and was the wrong art.
                             let pose = match pb.spec.clip.clip.as_str() {
-                                "attack_up" => ambition_vfx::vfx::SlashPose::Up,
-                                "attack_down" => ambition_vfx::vfx::SlashPose::Down,
+                                "attack_up" | "air_up" => ambition_vfx::vfx::SlashPose::Up,
+                                "attack_down" | "air_down" => ambition_vfx::vfx::SlashPose::Down,
                                 _ => ambition_vfx::vfx::SlashPose::Side,
                             };
                             crate::util::emit_melee_slash(

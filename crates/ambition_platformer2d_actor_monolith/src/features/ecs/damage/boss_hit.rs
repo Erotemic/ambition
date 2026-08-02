@@ -6,8 +6,6 @@
 //! immediate VFX (save Cleared + quest + music restore) are resolved by
 //! `update_boss_encounters` once the death outro elapses.
 
-use ambition_platformer2d_core::AabbExt;
-
 use super::super::super::util::midpoint;
 use super::super::damage_drops::{drop_ability_pickup, drop_currency_coin, drop_health_pickup};
 use super::super::{ae, GameplayBanner, HitEvent, HitSource};

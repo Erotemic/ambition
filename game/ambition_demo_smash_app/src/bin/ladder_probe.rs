@@ -284,9 +284,15 @@ fn trace_seam(app: &mut App, tick: usize) {
                             .map(|value| format!("{value}"))
                             .unwrap_or_else(|| "-".to_string())
                     };
+                    // ⚠ the VERTICAL state separates the two remaining stories for
+                    // the same signature: a body sitting at the platform lip has
+                    // `vel_y ≈ 0` and `pos_y` at the surface, while one that has
+                    // fallen off is accelerating downward. `pos_x` alone cannot
+                    // tell them apart, and guessing which cost a rebuild already.
                     let (pos_x, ground) = (show("pos_x"), show("on_ground"));
+                    let (pos_y, vel_y) = (show("pos_y"), show("vel_y"));
                     eprintln!(
-                        "[unclaimed] t={tick} {subject} dvx={step:+.4} ({prev:.2} -> {vx:.2}) pos_x={pos_x} ground={ground} ops=[] kinds={kinds:?}"
+                        "[unclaimed] t={tick} {subject} dvx={step:+.4} ({prev:.2} -> {vx:.2}) pos=({pos_x},{pos_y}) vel_y={vel_y} ground={ground} ops=[] kinds={kinds:?}"
                     );
                 }
             }

@@ -52,7 +52,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import shutil
 import re
 import subprocess
 import sys
@@ -66,43 +65,12 @@ REPO = Path(__file__).resolve().parent.parent
 # still going. See the module docstring: process-scanning for the answer is
 # what hangs, because the scan matches the shell doing the scanning.
 STATUS_NAME = "run_tests_status.json"
-# Measured 2026-07-31: 28 jobs consumed ~295G of `target/debug/deps`. This is a
-# floor with a little room, not a precise budget -- the point is to refuse
-# BEFORE a job dies of ENOSPC and reports it as a compile error.
-MIN_FREE_GB = 40.0
-
-
-def target_dir() -> Path:
-    """Where cargo actually writes — which is NOT always under the repo.
-
-    ⚠ **this function exists because the first version of the disk guard read
-    the wrong filesystem.** It measured the REPO's volume, and this checkout has
-    the repo on a 1.8 TB disk while `.cargo/config.toml` points `target-dir` at
-    `/home/joncrall/ambition-target` on a 387 GB one. The guard would have
-    reported 380 GB free while the volume that actually fills had two — a green
-    instrument answering a question nobody asked.
-    """
-    if env := os.environ.get("CARGO_TARGET_DIR"):
-        return Path(env)
-    config = REPO / ".cargo" / "config.toml"
-    if config.is_file():
-        for line in config.read_text().splitlines():
-            line = line.strip()
-            if line.startswith("target-dir"):
-                _, _, value = line.partition("=")
-                value = value.strip().strip('"').strip("'")
-                if value:
-                    return Path(value)
-    return REPO / "target"
-
-
-def free_gb_on_target() -> float:
-    """Free space on the volume cargo writes to. Falls back to the repo's own
-    volume only when the target directory's parent does not exist yet."""
-    path = target_dir()
-    while not path.exists() and path != path.parent:
-        path = path.parent
-    return shutil.disk_usage(path).free / 1024**3
+# ⭐ the disk guard lives in `check_disk_headroom.py`, not here, and is IMPORTED
+# rather than copied. It was local to this file until 2026-08-02, which is
+# exactly how the disk filled a third time: the refusal below works, but a bare
+# `cargo test --workspace` typed directly never reaches it. A guard only one
+# caller can run is a guard for one caller.
+from check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # noqa: E402
 CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"

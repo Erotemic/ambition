@@ -1449,14 +1449,12 @@ impl Plugin for MaryORulesPlugin {
         // Pipe input is authoritative rollback state on the player body. Entry
         // and transit run after ordinary WorldPrep movement, so the scripted
         // position wins this frame instead of racing the shared integrator.
-        // Her transformation numbers ride her body, so the engine beat reads
-        // authored feel instead of a default.
-        app.add_systems(
-            sim,
-            powerups::ensure_transform_beat_policy
-                .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
-                .run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
-        );
+        //
+        // (Her transformation numbers used to be installed here, once per body.
+        // They ride the REQUEST now — `sync_grown_form` authors the policy for
+        // the tier change it is making, because a beat's clip and length are
+        // facts about that change, not standing facts about her body.)
+        //
         // Mary-O's half of a body reset, answered wherever a body is restarted.
         // Outside the mode gate for the same reason Sanic's is: the observer is
         // inert without her components, and gating it would make the seam a

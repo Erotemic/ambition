@@ -238,26 +238,69 @@ impl Plugin for MaryOExperiencePlugin {
                                 release: 0.055,
                                 noise: 0.25,
                             },
-                            // The power-up chime: a bright octave-up sine sweep on
-                            // a TRANSFORM (grow, or gain fire), the classic "you
-                            // leveled up" voice. `sync_grown_form` emits it through
-                            // the `Play { id }` path when she steps UP a power tier
-                            // (not on a downgrade — the hit already speaks there).
-                            // Procedural + placeholder-quality like the Hit/Pogo
-                            // specs above: a first pass to make transforms audible
-                            // (Jon bug #14). Retune freely — the emit site names the
-                            // id, not the timbre.
+                            // Mary-O's five form-change ids authorize distinct
+                            // packed, layered cues. These compact synth specs are
+                            // only fallbacks while the provider bank is unavailable;
+                            // normal playback upgrades to the authored bank clips.
                             ambition_platformer2d::audio::spec::SfxSpec {
                                 cue: None,
-                                id: Some("mary_o.transform".to_string()),
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
-                                frequency: 520.0,
-                                frequency_end: 1040.0,
-                                duration: 0.22,
-                                volume: 0.24,
+                                id: Some(crate::powerups::SFX_SMALL_TO_BIG.to_string()),
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
+                                frequency: 220.0,
+                                frequency_end: 880.0,
+                                duration: 0.38,
+                                volume: 0.22,
                                 attack: 0.004,
-                                release: 0.12,
-                                noise: 0.0,
+                                release: 0.20,
+                                noise: 0.03,
+                            },
+                            ambition_platformer2d::audio::spec::SfxSpec {
+                                cue: None,
+                                id: Some(crate::powerups::SFX_BIG_TO_FIRE.to_string()),
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
+                                frequency: 330.0,
+                                frequency_end: 1320.0,
+                                duration: 0.52,
+                                volume: 0.22,
+                                attack: 0.006,
+                                release: 0.28,
+                                noise: 0.05,
+                            },
+                            ambition_platformer2d::audio::spec::SfxSpec {
+                                cue: None,
+                                id: Some(crate::powerups::SFX_BIG_TO_SMALL.to_string()),
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
+                                frequency: 620.0,
+                                frequency_end: 150.0,
+                                duration: 0.34,
+                                volume: 0.21,
+                                attack: 0.002,
+                                release: 0.20,
+                                noise: 0.06,
+                            },
+                            ambition_platformer2d::audio::spec::SfxSpec {
+                                cue: None,
+                                id: Some(crate::powerups::SFX_FIRE_TO_BIG.to_string()),
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
+                                frequency: 1040.0,
+                                frequency_end: 330.0,
+                                duration: 0.42,
+                                volume: 0.21,
+                                attack: 0.002,
+                                release: 0.25,
+                                noise: 0.08,
+                            },
+                            ambition_platformer2d::audio::spec::SfxSpec {
+                                cue: None,
+                                id: Some(crate::powerups::SFX_FIRE_TO_SMALL.to_string()),
+                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Saw,
+                                frequency: 880.0,
+                                frequency_end: 110.0,
+                                duration: 0.56,
+                                volume: 0.19,
+                                attack: 0.002,
+                                release: 0.34,
+                                noise: 0.10,
                             },
                             // The warp: a long DESCENDING sine slide, voiced once
                             // when a pipe transit begins and running roughly as

@@ -196,6 +196,35 @@ pub enum CharacterAnim {
     Emerge = 50,
     /// An aggravated hiss/telegraph (generator row `hiss`).
     Hiss = 51,
+    // --- Form transitions -------------------------------------------------
+    //
+    // The four clips a body that changes FORM (a power tier, a stage) plays
+    // while it changes. All one-shot, all holding the form they arrive at.
+    //
+    // **A transition clip is authored on the sheet of the form being ARRIVED
+    // AT**, so a body plays it from the identity it already switched to and
+    // nothing has to defer the swap: `grow` lives on the grown sheet and
+    // flickers small↔grown, `shrink` lives on the small sheet and flickers the
+    // other way. The clip that shows you becoming something is owned by the
+    // something. `transform_beat` is the beat that holds the pose while it runs.
+    //
+    // These are deliberately NOT aliases of [`Self::Hit`]: a power loss and a
+    // damage reaction look alike but are picked by different authorities — the
+    // beat pins the transition, the locomotion picker reads hitstun — and
+    // aliasing them made the ordinary hit read REPLAY the form-change flicker
+    // after the beat had already finished it.
+    /// Arriving at a LARGER form (generator row `grow`).
+    Grow = 52,
+    /// Arriving at a SMALLER form, one tier down (generator row `shrink`).
+    /// Degrades to [`Self::Hit`] for a sheet that drew only a hurt reaction.
+    Shrink = 53,
+    /// Arriving two tiers down at once (generator row `big_shrink`) — the long
+    /// version, for a hit that skips a rung.
+    BigShrink = 54,
+    /// Arriving at a different form of the SAME size (generator row
+    /// `transform`) — a second-stage power-up, typically a palette flash
+    /// between the two looks rather than a silhouette swap.
+    Transform = 55,
 }
 
 impl CharacterAnim {
@@ -238,6 +267,10 @@ impl CharacterAnim {
             // (the held wind-up only) — `special` is the full beat.
             "special" => Self::Special,
             "hit" | "hurt" | "smoke_burst" => Self::Hit,
+            "grow" => Self::Grow,
+            "shrink" => Self::Shrink,
+            "big_shrink" => Self::BigShrink,
+            "transform" => Self::Transform,
             "death" => Self::Death,
             "blink_out" => Self::BlinkOut,
             "blink_in" => Self::BlinkIn,
@@ -363,6 +396,15 @@ impl CharacterAnim {
             // Reactions.
             Death => Hit,
             Hit => Idle,
+            // Form transitions. A same-size transformation degrades to the
+            // growth flicker (both are "she is becoming something else" drawn
+            // as a form swap), growth to a plain stand; a power LOSS degrades to
+            // the ordinary hurt reaction, which is what a sheet that never drew
+            // a shrink has to say about losing a form.
+            Transform => Grow,
+            Grow => Idle,
+            BigShrink => Shrink,
+            Shrink => Hit,
             LandHard => LandRecovery,
             LandRecovery => Idle,
             // Idle-variant gesture.
@@ -414,6 +456,12 @@ pub fn non_looping(anim: CharacterAnim) -> bool {
             | CharacterAnim::Retreat
             | CharacterAnim::Peek
             | CharacterAnim::Emerge
+            // Form transitions run once and hold the form they arrived at —
+            // looping one would flicker between silhouettes forever.
+            | CharacterAnim::Grow
+            | CharacterAnim::Shrink
+            | CharacterAnim::BigShrink
+            | CharacterAnim::Transform
     )
 }
 

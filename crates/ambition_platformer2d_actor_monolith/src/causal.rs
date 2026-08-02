@@ -23,7 +23,7 @@
 //! window an investigation spans: "why did seat 1 walk off the stage" survives
 //! the three respawns in the middle of the answer.
 
-use ambition_causal::{CausalFact, CausalRecording, FactDetail, SubjectKey, domains};
+use ambition_causal::{domains, CausalFact, CausalRecording, FactDetail, SubjectKey};
 use bevy::prelude::*;
 
 use crate::avatar::movement_components::{BodyGroundState, BodyKinematics};
@@ -137,6 +137,16 @@ pub fn record_body_control_frame(
         &ActorControl,
         &ambition_platformer2d_core::BodyDashState,
         &Brain,
+        // ⛔ **WHY THE BODY MIGHT NOT BE OBEYING**, added 2026-08-01 after the
+        // first real measurement of this seam. A plain two-CPU match shows seven
+        // consecutive ticks pinned at exactly `-86` while the brain asks
+        // `+0.65` — neither obeying nor decelerating, so it is not a turnaround.
+        // The three candidates all live here, and without them the log can show
+        // that the body disagreed and never why (queue S51).
+        //
+        // ⚠ `Option`, because a body without a combat cluster is a legal body
+        // and must not vanish from the log for lacking one.
+        Option<&ambition_characters::actor::BodyCombat>,
     )>,
 ) {
     let Some(mut log) = log else {
@@ -145,7 +155,7 @@ pub fn record_body_control_frame(
     if !log.is_recording() {
         return;
     }
-    for (identity, kin, ground, control, dash, brain) in &bodies {
+    for (identity, kin, ground, control, dash, brain, combat) in &bodies {
         // A seated body is already covered by `record_player_movement_intent`,
         // under its SEAT — which is the better key there, because a seat
         // survives death and respawn and an actor id does not.
@@ -184,7 +194,14 @@ pub fn record_body_control_frame(
             // armed by something other than the decision shows up as a spent
             // charge and a live cooldown with `dash_pressed` false.
             .field("dash_charges", i64::from(dash.charges_available))
-            .field("dash_cooldown", dash.cooldown),
+            .field("dash_cooldown", dash.cooldown)
+            // A HARD lock (`recoil_lock_timer`) means the body has no input
+            // authority at all this tick — a disagreement under one is the
+            // system working. `hitstun_timer` is the partial-control penalty,
+            // and `attacking` is a move owning the body's motion.
+            .field("recoil_lock", combat.map_or(0.0, |c| c.recoil_lock_timer))
+            .field("hitstun", combat.map_or(0.0, |c| c.hitstun_timer))
+            .field("attacking", combat.is_some_and(|c| c.attacking)),
         );
     }
 }

@@ -1,13 +1,27 @@
 //! Mary-O's invincible rainbow-quasar presentation pass.
 //!
 //! The effect is presentation-only and content-owned. It activates for a
-//! Mary-O player body while its ordinary [`BodyOffense::invincible`] fact is
-//! true, so the eventual Cosmic Quasar pickup does not need to know anything
-//! about Bevy materials. The source sprite remains visible underneath a synced
-//! sibling `Material2d` mesh; a shader failure therefore degrades to ordinary
-//! Mary-O rather than making the player disappear.
+//! Mary-O player body while the body cannot be hurt, so the Cosmic Quasar pickup
+//! does not need to know anything about Bevy materials. The source sprite
+//! remains visible underneath a synced sibling `Material2d` mesh; a shader
+//! failure therefore degrades to ordinary Mary-O rather than making the player
+//! disappear.
 //!
-//! [`BodyOffense::invincible`]: ambition_platformer2d::engine_core::BodyOffense::invincible
+//! ## It reads the AUTHORITY, not a mirror of it
+//!
+//! "Cannot be hurt" has exactly one authoritative answer: the
+//! `Invulnerability` reason set on `Health`, which is what `Health::damage`
+//! itself consults. This used to read `BodyOffense::invincible` instead — a
+//! second field meaning the same thing — and the run log showed why that is not
+//! a stylistic preference: the star re-wrote `invincible` on EVERY tick
+//! (`star lighting 'invincible' on 1253v0`, once per frame, which only prints
+//! when the field is found false), because something else in the body tick
+//! clobbers `BodyOffense` each frame. The effect read the loser of that race and
+//! stayed dark for the whole ten seconds.
+//!
+//! Reading the fact that DECIDES whether hits land means the overlay is on
+//! exactly when she is untouchable, by construction — and there is no race to
+//! win because there is no second copy.
 
 use bevy::{
     asset::embedded_asset,
@@ -21,7 +35,7 @@ use bevy::{
 };
 
 use ambition_platformer2d::characters::actor::WornCharacter;
-use ambition_platformer2d::engine_core::BodyOffense;
+use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::platformer::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -237,7 +251,7 @@ fn sync_quasar_overlays(
         (
             Entity,
             &WornCharacter,
-            &BodyOffense,
+            &BodyHealth,
             &Transform,
             &Sprite,
             Option<&Anchor>,
@@ -260,7 +274,7 @@ fn sync_quasar_overlays(
     for (
         source_entity,
         worn,
-        offense,
+        health,
         source_transform,
         source_sprite,
         anchor,
@@ -279,7 +293,7 @@ fn sync_quasar_overlays(
 
         let source_visible = !matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
         let enabled = is_mary_o_form(worn.id())
-            && offense.invincible
+            && health.health.invulnerable.any()
             && source_visible
             && !settings.disabled
             && settings.strength > 0.0;
@@ -297,7 +311,7 @@ fn sync_quasar_overlays(
                  source_visible = {source_visible}, disabled = {}, strength = {})",
                 worn.id(),
                 is_mary_o_form(worn.id()),
-                offense.invincible,
+                health.health.invulnerable.any(),
                 settings.disabled,
                 settings.strength,
             );

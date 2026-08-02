@@ -134,13 +134,6 @@ pub fn run_star_power(
         return;
     }
     for (entity, mut star, mut health, mut offense) in &mut bodies {
-        if !offense.invincible {
-            info!(
-                target: "mary_o::quasar",
-                "star lighting `invincible` on {entity} (remaining {:.2}s, dt {dt})",
-                star.remaining
-            );
-        }
         star.remaining -= dt;
         let burning = star.remaining > 0.0;
         health

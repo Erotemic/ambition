@@ -945,10 +945,37 @@ diff identically before and after, and the original block carried no `run_if` to
 drop. That mattered more than usual — this chain runs under rollback, where a
 reordering is a desync rather than a bug report.
 
-▢ what is left, and where: `portal_schedule.rs` 3 · `combat_schedule.rs` 2 ·
-`player_schedule.rs` 2 · `sandbox_reset.rs` 2 · `mode_scope.rs` 1 ·
-`rollback/session.rs` 1. No single file now dominates, which is the honest signal
-that this clause has stopped being one file's problem.
+✔ **one more converted, and it was a CRATE that owed a set rather than a
+schedule that owed a phase.** `combat_schedule.rs` wrote
+`CombatSet::ContentSpecials.before(ambition_vfx::apply_effects)` — a cross-crate
+ordering against a bare `pub fn`, because `ambition_vfx` exposed no set to order
+against. It does now: `ambition_vfx::EffectExecutionSet`.
+⚠ that crate deliberately has NO `Plugin` — it is an effect vocabulary plus one
+executor, and the host decides when to run it. A set is the smaller thing that
+makes the host's decision expressible: it says WHERE the executor sits without
+claiming when the host should install it. Runtime total 11 → **10**.
+
+▢ **and the remaining ten are NOT mechanical — that is the finding.** Three of
+them pin INSIDE an existing phase, so converting them means inventing a boundary
+and choosing a position that is currently implicit:
+* `PortalSet::InputWarp` sits between `interaction_input_system` and
+  `sync_local_player_input_frame`, both inside `PlayerInputSet::Device`, with no
+  constraint against the three systems chained between them;
+* `player_schedule.rs:238` orders a Brain member after `tick_player_brains`,
+  another Brain member — an INTRA-phase edge that `.after(Brain)` would make
+  circular;
+* `DevEditApplySet` pins to "part A's tail", a sub-group with no name.
+
+⚠ **and the ambiguity those imply is not a determinism bug**, which is worth
+stating because it looks like one: `rollback/mod.rs` runs `GgrsSchedule` with
+`ExecutorKind::SingleThreaded` and `ambiguity_detection: LogLevel::Ignore`, on
+the stated reasoning that *"GGRS is a managed same-build contract: every peer
+runs the same plugin graph"*. An unconstrained pair resolves the same way on
+every peer. What it costs is not correctness but LEGIBILITY — the position is
+decided by a topological sort rather than by anything written down.
+
+▢ so the next conversion is a design decision each time, not a refactor. Where it
+is one — a crate owing a set, as `ambition_vfx` did — it is cheap.
 
 ---
 

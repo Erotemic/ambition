@@ -12,7 +12,9 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
-use ambition_platformer2d_shared_tangle::schedule::{CombatSet, Platformer2dSimulationPhaseMonolith, gameplay_allowed};
+use ambition_platformer2d_shared_tangle::schedule::{
+    gameplay_allowed, CombatSet, Platformer2dSimulationPhaseMonolith,
+};
 
 /// Schedules the `Platformer2dSimulationPhaseMonolith::Combat` system chain.
 pub struct CombatSchedulePlugin;
@@ -53,7 +55,8 @@ impl Plugin for CombatSchedulePlugin {
         // drains it. Registered here so the writers never hit an unregistered
         // message.
         app.add_message::<ambition_vfx::EffectRequest>();
-        app.add_message::<ambition_platformer2d_actor_monolith::combat::moveset::MoveEventMessage>();
+        app.add_message::<ambition_platformer2d_actor_monolith::combat::moveset::MoveEventMessage>(
+        );
         // On-hit techniques (pogo, …): `dispatch_hitbox_on_hit` writes one per
         // landed on-hit volume; the engine `apply_pogo_bounce` + any content
         // technique read it.
@@ -75,7 +78,8 @@ impl Plugin for CombatSchedulePlugin {
         app.add_message::<ambition_platformer2d_actor_monolith::features::SpawnActorRequest>();
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::features::apply_spawn_actor_requests.in_set(CombatSet::Materialize),
+            ambition_platformer2d_actor_monolith::features::apply_spawn_actor_requests
+                .in_set(CombatSet::Materialize),
         );
         app.add_systems(
             sim,
@@ -207,7 +211,9 @@ impl Plugin for CombatSchedulePlugin {
                 // lib-side (the enemy roster) so `apply_effects` is substrate-free;
                 // same slot as before, so minion spawn timing is unchanged.
                 (
-                    ambition_vfx::apply_effects.run_if(gameplay_allowed),
+                    ambition_vfx::apply_effects
+                        .in_set(ambition_vfx::EffectExecutionSet)
+                        .run_if(gameplay_allowed),
                     ambition_platformer2d_actor_monolith::features::apply_summon_effects.run_if(gameplay_allowed),
                 )
                     .chain(),
@@ -292,7 +298,8 @@ impl Plugin for CombatSchedulePlugin {
         );
         app.add_systems(
             sim,
-            ambition_platformer2d_actor_monolith::features::enforce_mount_rider_link.in_set(CombatSet::Settle),
+            ambition_platformer2d_actor_monolith::features::enforce_mount_rider_link
+                .in_set(CombatSet::Settle),
         );
 
         // Hand the frame's victim-side hits from the message channel to the
@@ -339,7 +346,7 @@ impl Plugin for CombatSchedulePlugin {
         // live in `Materialize`.
         app.configure_sets(
             sim,
-            CombatSet::ContentSpecials.before(ambition_vfx::apply_effects),
+            CombatSet::ContentSpecials.before(ambition_vfx::EffectExecutionSet),
         );
     }
 }
@@ -366,7 +373,9 @@ mod tests {
     #[test]
     fn content_combat_slots_are_registered_in_the_combat_chain() {
         let mut app = App::new();
-        ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(&mut app);
+        ambition_platformer2d_actor_monolith::schedule::configure_platformer2d_simulation_phases(
+            &mut app,
+        );
         app.add_plugins(CombatSchedulePlugin);
 
         let schedules = app.world().resource::<Schedules>();
@@ -428,7 +437,9 @@ fn authored_volume_resolver_for(
 /// elsewhere: a provider added later would resolve volumes from the engine's
 /// baked table while resolving everything else from its own sheet.
 fn refresh_authored_volume_resolver(
-    sheets: bevy::prelude::Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
+    sheets: bevy::prelude::Res<
+        ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets,
+    >,
     mut resolver: bevy::prelude::ResMut<
         ambition_platformer2d_actor_monolith::combat::authored_volumes::AuthoredAttackVolumeResolver,
     >,

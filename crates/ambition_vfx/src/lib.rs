@@ -306,6 +306,23 @@ pub struct EffectRequest {
 /// `DamageBox`. Pure executor — every effect carries its own geometry, so this
 /// needs no actor queries. Reads in message order (unsorted) to match the
 /// per-consumer behavior it replaces.
+/// **The set `apply_effects` runs in, so a caller can order against a NAME
+/// rather than against this function.**
+///
+/// ⛔ it did not exist until 2026-08-02, and its absence forced the defect the
+/// engine roadmap's Task 6 rules out: `combat_schedule.rs` had to write
+/// `CombatSet::ContentSpecials.before(ambition_vfx::apply_effects)` — a
+/// cross-crate ordering against a leaf function. A caller cannot tell from that
+/// line which phase the leaf lives in, which is precisely how a `GgrsSchedule`
+/// before/after cycle was produced on 2026-07-27.
+///
+/// ⚠ this crate has no `Plugin` and deliberately keeps none: it is an effect
+/// VOCABULARY plus one executor, and the host decides when to run it. A set is
+/// the smaller thing that makes the host's decision expressible — it says WHERE
+/// the executor sits without claiming when the host should install it.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct EffectExecutionSet;
+
 pub fn apply_effects(mut commands: Commands, mut requests: MessageReader<EffectRequest>) {
     for req in requests.read() {
         match &req.effect {

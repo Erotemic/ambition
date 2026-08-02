@@ -19,6 +19,7 @@
 #   ./regen_sprites.sh --force          # bypass the cache, re-render unconditionally
 #   ./regen_sprites.sh --list           # show registered targets for focused regen
 #   ./regen_sprites.sh --target <name>  # render + install one registered target
+#   ./regen_sprites.sh --target a --target b   # repeatable; renders both
 #
 # Environment:
 #   AMBITION_SPRITE_PYTHON=/path/to/python  Override the sprite tool .venv.
@@ -64,7 +65,10 @@ print_help() {
 
 force_regen=0
 list_targets=0
-target_name=""
+# `--target` ACCUMULATES. It used to assign, so a second one silently replaced
+# the first: `--target robot_slash --target player_robot_v3` rendered only the
+# player and reported success, which reads as "both are fresh" and is not.
+target_names=()
 make_gifs=0
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -77,27 +81,28 @@ while [ "$#" -gt 0 ]; do
                 echo "--target requires a target name" >&2
                 exit 2
             fi
-            target_name="$2"
+            target_names+=("$2")
             shift 2
             ;;
         --target=*)
-            target_name="${1#--target=}"
-            if [ -z "$target_name" ]; then
+            one="${1#--target=}"
+            if [ -z "$one" ]; then
                 echo "--target requires a target name" >&2
                 exit 2
             fi
+            target_names+=("$one")
             shift
             ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
 
-if [ "$list_targets" -eq 1 ] && [ -n "$target_name" ]; then
+if [ "$list_targets" -eq 1 ] && [ "${#target_names[@]}" -gt 0 ]; then
     echo "--list and --target are mutually exclusive" >&2
     exit 2
 fi
 
-if [ "$make_gifs" -eq 1 ] && [ -z "$target_name" ]; then
+if [ "$make_gifs" -eq 1 ] && [ "${#target_names[@]}" -eq 0 ]; then
     echo "--gif requires --target <name>" >&2
     exit 2
 fi
@@ -206,10 +211,17 @@ case "${LINE_PROFILE:-0}" in
         ;;
 esac
 
-# A full regeneration emits hundreds of file paths. Preserve warnings and
-# target/animation progress while collapsing path-only output by default.
+# A full regeneration emits hundreds of file paths, so it stays collapsed to a
+# count and a directory. A FOCUSED run is the opposite case: you asked for two
+# targets because you are about to go and look at what they wrote, and the
+# summary alone makes you guess the filenames. `both` prints the paths AND the
+# count. Either is still overridable from the environment.
 export AMBITION_SPRITE_PROGRESS="${AMBITION_SPRITE_PROGRESS:-1}"
-export AMBITION_SPRITE_PATH_OUTPUT="${AMBITION_SPRITE_PATH_OUTPUT:-summary}"
+if [ "${#target_names[@]}" -gt 0 ]; then
+    export AMBITION_SPRITE_PATH_OUTPUT="${AMBITION_SPRITE_PATH_OUTPUT:-both}"
+else
+    export AMBITION_SPRITE_PATH_OUTPUT="${AMBITION_SPRITE_PATH_OUTPUT:-summary}"
+fi
 
 list_sprite_targets() {
     echo "==> registered sprite targets"
@@ -245,8 +257,10 @@ if [ "$list_targets" -eq 1 ]; then
     exit 0
 fi
 
-if [ -n "$target_name" ]; then
-    regen_one_target "$target_name"
+if [ "${#target_names[@]}" -gt 0 ]; then
+    for one in "${target_names[@]}"; do
+        regen_one_target "$one"
+    done
     exit 0
 fi
 

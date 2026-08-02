@@ -20,7 +20,9 @@
     "",
     "ZERO unwanted means a game links only what it asked for. That is the",
     "condition \u00a74's carve exists to reach.",
-    "2026-08-01: `ambition_geometry` added, and it is NOT a widening. The crate was CARVED OUT of `ambition_platformer2d_core`, which was already in this closure \u2014 the same shapes/boxes/reference-frames code, now behind its own name. The ratchet was right to stop on a new name; the architecture changed on purpose, so the baseline moves in the SAME COMMIT rather than the contract being waived. The number that would mean something is the consumer linking code it did not already link, and this is not that."
+    "2026-08-01: `ambition_geometry` added, and it is NOT a widening. The crate was CARVED OUT of `ambition_platformer2d_core`, which was already in this closure \u2014 the same shapes/boxes/reference-frames code, now behind its own name. The ratchet was right to stop on a new name; the architecture changed on purpose, so the baseline moves in the SAME COMMIT rather than the contract being waived. The number that would mean something is the consumer linking code it did not already link, and this is not that.",
+    "2026-08-02 \u2014 baseline moved by the `ambition_projectile_spec` carve. ADDED ['ambition_projectile_spec']; REMOVED []. The ratchet stopped this change and was right to: a new crate genuinely entered the consumer's closure. It is recorded rather than waived, which is what that check's own message asks for.",
+    "\u26a0 HONEST COST: this carve makes the sentinel's closure BIGGER by one crate, not smaller. What it bought is elsewhere \u2014 `ambition_vfx` now builds with `ambition_platformer2d_core` absent from its closure entirely (measured with `cargo tree --edges normal`), the first crate for which that is true after four earlier carves that only removed a DECLARED edge. A consumer that links the whole facade pays one more compilation unit; a consumer that wants only the effect vocabulary now stops at four general-named crates."
   ],
   "measured_on": "2026-07-30",
   "sentinel": "fixtures/minimal_game (declares `ambition_platformer2d` and nothing else)",
@@ -54,6 +56,7 @@
     "ambition_platformer2d_shared_tangle",
     "ambition_platformer2d_world",
     "ambition_portal2d",
+    "ambition_projectile_spec",
     "ambition_projectiles",
     "ambition_render",
     "ambition_settings_menu",
@@ -65,7 +68,7 @@
     "ambition_ui_nav",
     "ambition_vfx"
   ],
-  "closure_size": 39,
+  "closure_size": 40,
   "never_asked_for": [
     "ambition_audio",
     "ambition_cutscene",

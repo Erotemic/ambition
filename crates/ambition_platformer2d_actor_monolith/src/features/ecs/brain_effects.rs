@@ -19,7 +19,7 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
-use crate::enemy_projectile::EnemyProjectileSpawn;
+use crate::enemy_projectile::ProjectileSpawn;
 #[cfg(test)]
 use crate::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_characters::brain::{
@@ -202,7 +202,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         } else {
             origin + frame.to_world(ae::Vec2::new(0.0, -8.0))
         };
-        let spawn = EnemyProjectileSpawn {
+        let spawn = ProjectileSpawn {
             origin: spawn_origin,
             dir: world_dir,
             speed: spec.speed(),

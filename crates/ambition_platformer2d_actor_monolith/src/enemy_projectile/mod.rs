@@ -1,7 +1,7 @@
 //! Enemy-fired projectile glue (pirate volleys etc).
 //!
 //! The enemy-shot MODEL — the `EnemyProjectile` marker + `EnemyProjectileState`/
-//! `EnemyProjectileSpawn` — now lives in [`ambition_projectiles::enemy`] (E2
+//! `ProjectileSpawn` — now lives in [`ambition_projectiles::enemy`] (E2
 //! carve) and is re-exported below so `crate::enemy_projectile::*` paths resolve
 //! unchanged. The canonical effect-request spawn executor now lives in
 //! [`ambition_projectiles::enemy::apply_enemy_projectile_effect_requests`]. This

@@ -21,4 +21,4 @@ pub mod state;
 
 pub use effect_spawn_systems::apply_enemy_projectile_effect_requests;
 pub use entity::EnemyProjectile;
-pub use state::{EnemyProjectileSpawn, EnemyProjectileState};
+pub use state::{EnemyProjectileState, ProjectileSpawn};

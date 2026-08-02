@@ -12,11 +12,11 @@
 use ambition_platformer2d_core as ae;
 use bevy::prelude::Resource;
 
-// `EnemyProjectileSpawn` (a substrate-neutral projectile spawn request) moved
+// `ProjectileSpawn` (a substrate-neutral projectile spawn request) moved
 // down to `ambition_platformer2d_shared_tangle::projectile` so the foundation
 // `ambition_vfx` vocabulary can reference it. Re-exported here at its
 // historical path.
-pub use ambition_platformer2d_shared_tangle::projectile::EnemyProjectileSpawn;
+pub use ambition_platformer2d_shared_tangle::projectile::ProjectileSpawn;
 
 /// Bevy resource for the enemy-projectile pool. The in-flight bodies are ECS
 /// entities; this type owns no `Vec` — it is a stable resource handle + the home
@@ -33,7 +33,7 @@ impl EnemyProjectileState {
     /// entity, and
     /// tests build it directly. The mapping is unchanged from the pre-entity
     /// pool.
-    pub fn build(request: EnemyProjectileSpawn) -> crate::InFlightProjectile {
+    pub fn build(request: ProjectileSpawn) -> crate::InFlightProjectile {
         let speed = request.speed.max(1.0);
         let dir = if request.dir.length() < 1.0e-4 {
             ae::Vec2::new(1.0, 0.0)
@@ -72,8 +72,8 @@ impl EnemyProjectileState {
 mod tests {
     use super::*;
 
-    fn spawn_request(speed: f32, damage: i32) -> EnemyProjectileSpawn {
-        EnemyProjectileSpawn {
+    fn spawn_request(speed: f32, damage: i32) -> ProjectileSpawn {
+        ProjectileSpawn {
             origin: ae::Vec2::ZERO,
             dir: ae::Vec2::new(1.0, 0.0),
             speed,
@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn build_clamps_zero_direction_to_right_facing() {
-        let proj = EnemyProjectileState::build(EnemyProjectileSpawn {
+        let proj = EnemyProjectileState::build(ProjectileSpawn {
             origin: ae::Vec2::ZERO,
             dir: ae::Vec2::ZERO,
             speed: 120.0,

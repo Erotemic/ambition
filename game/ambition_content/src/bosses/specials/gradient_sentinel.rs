@@ -11,7 +11,7 @@ use ambition_characters::brain::{
     SpecialActionSpec,
 };
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::EnemyProjectileSpawn;
+use ambition_projectiles::enemy::ProjectileSpawn;
 use ambition_time::WorldTime;
 
 // ===================================================================
@@ -190,7 +190,7 @@ pub fn spawn_apple_rain_from_special_messages(
             effects.write(ambition_vfx::EffectRequest {
                 owner: entity,
                 effect: ambition_vfx::Effect::Projectiles {
-                    shots: vec![EnemyProjectileSpawn {
+                    shots: vec![ProjectileSpawn {
                         origin: ae::Vec2::new(spawn_x, spawn_y),
                         // Downward initial velocity so the apple commits to
                         // its lane immediately instead of hanging at zero
@@ -428,7 +428,7 @@ pub fn spawn_overfit_volley_from_special_messages(
                     effects.write(ambition_vfx::EffectRequest {
                         owner: entity,
                         effect: ambition_vfx::Effect::Projectiles {
-                            shots: vec![EnemyProjectileSpawn {
+                            shots: vec![ProjectileSpawn {
                                 origin,
                                 dir,
                                 speed: shot_speed,

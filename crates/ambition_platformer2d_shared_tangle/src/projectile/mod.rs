@@ -34,4 +34,8 @@ pub mod spec;
 
 pub use body::{InFlightProjectile, ProjectileBody, ProjectileGameplay, ProjectileSolidHit};
 pub use collision::{resolve_world_collision, WorldHitOutcome, WorldHitPolicy};
-pub use spec::{EnemyProjectileSpawn, ProjectileSpec};
+// ⚠ `ProjectileSpawn` is re-exported, not owned: it lives in
+// `ambition_projectile_spec` so `ambition_vfx` can take it without taking this
+// crate. A re-export path lies about ownership — the owner is that crate.
+pub use ambition_projectile_spec::ProjectileSpawn;
+pub use spec::ProjectileSpec;

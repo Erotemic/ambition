@@ -10,7 +10,7 @@ use ambition_vfx::vfx::VfxMessage;
 
 use crate::combat::components::ActorFaction;
 use crate::enemy_projectile::test_support::{enemy_projectile_bodies, spawn_enemy_projectile};
-use crate::enemy_projectile::EnemyProjectileSpawn;
+use crate::enemy_projectile::ProjectileSpawn;
 
 #[derive(Resource, Default)]
 struct CapturedHits(Vec<HitEvent>);
@@ -86,7 +86,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     // A player-faction shot already overlapping the enemy.
     spawn_enemy_projectile(
         &mut app,
-        EnemyProjectileSpawn {
+        ProjectileSpawn {
             origin: enemy_pos,
             dir: ae::Vec2::new(1.0, 0.0),
             speed: 200.0,
@@ -173,7 +173,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     // An OWNERLESS shot already overlapping the Enemy actor.
     spawn_ownerless_projectile(
         &mut app,
-        EnemyProjectileSpawn {
+        ProjectileSpawn {
             origin: actor_pos,
             dir: ae::Vec2::new(1.0, 0.0),
             speed: 200.0,
@@ -249,7 +249,7 @@ fn spawn_boss_actor(app: &mut App, pos: ae::Vec2) -> Entity {
 fn spawn_overlapping_enemy_glider(app: &mut App, pos: ae::Vec2) {
     spawn_enemy_projectile(
         app,
-        EnemyProjectileSpawn {
+        ProjectileSpawn {
             origin: pos,
             dir: ae::Vec2::new(1.0, 0.0),
             speed: 200.0,
@@ -383,7 +383,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
     let incoming = ae::Vec2::new(-300.0, 0.0);
     spawn_enemy_projectile(
         &mut app,
-        EnemyProjectileSpawn {
+        ProjectileSpawn {
             origin: player_pos,
             dir: incoming.normalize(),
             speed: 300.0,
@@ -511,7 +511,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     app.world_mut().write_message(ambition_vfx::EffectRequest {
         owner: attacker,
         effect: ambition_vfx::Effect::Projectiles {
-            shots: vec![EnemyProjectileSpawn {
+            shots: vec![ProjectileSpawn {
                 origin: player_pos,
                 dir: ae::Vec2::new(1.0, 0.0),
                 speed: 100.0,
@@ -557,7 +557,7 @@ fn spawn_executor_attaches_visual_id() {
     app.world_mut().write_message(ambition_vfx::EffectRequest {
         owner: Entity::PLACEHOLDER,
         effect: ambition_vfx::Effect::Projectiles {
-            shots: vec![EnemyProjectileSpawn {
+            shots: vec![ProjectileSpawn {
                 origin: ae::Vec2::ZERO,
                 dir: ae::Vec2::new(1.0, 0.0),
                 speed: 100.0,

@@ -48,38 +48,6 @@ impl ProjectileSpec {
     }
 }
 
-/// A request to spawn one in-flight projectile (origin / dir / speed / damage /
-/// lifetime / size / owner-id / gravity). Substrate-neutral data: the effect
-/// vocabulary and both projectile pools build bodies from it. (Named for its
-/// historical enemy-pool origin; it is pool-agnostic.)
-#[derive(Clone, Debug)]
-pub struct EnemyProjectileSpawn {
-    pub origin: Vec2,
-    pub dir: Vec2,
-    pub speed: f32,
-    pub damage: i32,
-    pub max_lifetime: f32,
-    /// Id of the spawning actor — self-friendly-fire ignore lists, sprite
-    /// routing in the visuals layer, debug traces.
-    pub owner_id: String,
-    pub half_extent: Vec2,
-    /// Per-second downward acceleration each tick. Zero for hitscan-like
-    /// volleys; positive for arcing/falling projectiles (e.g. apple rain).
-    pub gravity: f32,
-    /// Opaque visual id, carried for the render layer only. The physics never
-    /// interprets it (exactly like `ProjectileSpec::charge_tier`): a game's
-    /// content registers a named projectile look under this string (in Ambition,
-    /// via `ambition_projectiles::ProjectileVisualCatalog`) and the render layer
-    /// resolves it. The empty string is the unspecified / generic default.
-    pub visual_id: String,
-    /// How many valid support-face landings this shot may bounce off before it
-    /// expires. Pairs with [`Self::bounce_on_world_contact`]; both default to the
-    /// straight-and-dies-on-contact volley when a firer authors nothing.
-    pub bounces: u8,
-    /// Whether world contact bounces this shot (vs. expiring it).
-    pub bounce_on_world_contact: bool,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

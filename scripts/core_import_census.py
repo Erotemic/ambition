@@ -31,15 +31,16 @@ from collections import defaultdict
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-CORE = "ambition_platformer2d_core"
+DEFAULT_TARGET = "ambition_platformer2d_core"
 
-# `use ambition_platformer2d_core::…;` and `use ae::…;` (the near-universal alias),
-# plus bare path uses like `ambition_platformer2d_core::config::WORLD_Z_FX`.
-USE_LINE = re.compile(
-    r"use\s+(?:crate::)?(?P<root>" + CORE + r"|ae)\s*::\s*(?P<tail>[^;]+);",
-    re.S,
-)
-BARE_PATH = re.compile(CORE + r"\s*::\s*(?P<tail>(?:[A-Za-z0-9_]+\s*::\s*)*[A-Za-z0-9_]+)")
+# The crate under measurement. `--of` rewrites it; `_imports` and the alias
+# pattern are the only things that read it.
+#
+# ⚠ two module-level regexes (`USE_LINE`, `BARE_PATH`) stood here and were
+# NEVER CALLED — `_imports` builds its own inline. They were deleted rather than
+# parameterised: a regex that looks like the authority and matches nothing is a
+# place to "fix" the census without changing what it measures.
+TARGET = DEFAULT_TARGET
 
 
 def _members() -> list[dict]:
@@ -55,12 +56,19 @@ def _members() -> list[dict]:
     return [pkg for pkg in meta["packages"] if pkg["id"] in ids]
 
 
-def _depends_on_core(pkg: dict) -> bool:
-    return any(dep["name"] == CORE for dep in pkg["dependencies"])
+def _depends_on_target(pkg: dict) -> bool:
+    return any(dep["name"] == TARGET for dep in pkg["dependencies"])
 
 
-# `use ambition_platformer2d_core as ae;` — the near-universal idiom here.
-SOURCE_ALIAS = re.compile(r"use\s+" + CORE + r"\s+as\s+(?P<alias>\w+)\s*;")
+def _source_alias() -> re.Pattern:
+    """`use ambition_platformer2d_core as ae;` — the near-universal idiom here.
+
+    ⚠ built per-target rather than at import time. The alias is declared in RUST,
+    not in Cargo.toml, and reading it from the manifest `rename` field is the bug
+    that once made two crates look like they imported NOTHING from a crate they
+    use on every line.
+    """
+    return re.compile(r"use\s+" + re.escape(TARGET) + r"\s+as\s+(?P<alias>\w+)\s*;")
 
 
 def _expand(tail: str) -> list[str]:
@@ -111,16 +119,16 @@ def _imports(pkg: dict) -> set[str]:
         if "/target/" in str(rust):
             continue
         source = rust.read_text(encoding="utf-8", errors="ignore")
-        aliases = {match["alias"] for match in SOURCE_ALIAS.finditer(source)}
+        aliases = {match["alias"] for match in _source_alias().finditer(source)}
         for match in re.finditer(
             r"use\s+(?:crate::)?(?P<root>[A-Za-z0-9_]+)\s*::\s*(?P<tail>[^;]+);",
             source,
             re.S,
         ):
-            if match["root"] != CORE and match["root"] not in aliases:
+            if match["root"] != TARGET and match["root"] not in aliases:
                 continue
             found.update(_expand(match["tail"]))
-        for alias in aliases | {CORE}:
+        for alias in aliases | {TARGET}:
             for match in re.finditer(
                 re.escape(alias)
                 + r"\s*::\s*(?P<tail>(?:[A-Za-z0-9_]+\s*::\s*)*[A-Za-z0-9_]+)",
@@ -168,13 +176,22 @@ def main() -> int:
     parser.add_argument("--detail", action="store_true", help="every symbol, per crate")
     parser.add_argument("--kernel", action="store_true",
                         help="union of what the general-NAMED crates import")
+    parser.add_argument("--of", default=DEFAULT_TARGET, metavar="CRATE",
+                        help="measure imports of CRATE instead of the core crate")
     args = parser.parse_args()
 
+    global TARGET
+    TARGET = args.of
+    known = {pkg["name"] for pkg in _members()}
+    if TARGET not in known:
+        print(f"no workspace crate named {TARGET!r}", file=sys.stderr)
+        return 2
+
     dependents = sorted(
-        (pkg for pkg in _members() if _depends_on_core(pkg)),
+        (pkg for pkg in _members() if _depends_on_target(pkg)),
         key=lambda pkg: pkg["name"],
     )
-    print(f"{len(dependents)} workspace crates DECLARE a dependency on {CORE}")
+    print(f"{len(dependents)} workspace crates DECLARE a dependency on {TARGET}")
     # ⛔ **the number above is a count of MANIFESTS, not of builds.** Measured
     # 2026-08-02: all four crates carved off core so far — `interaction`,
     # `dialog`, `vfx`, `touch_input` — still reach it transitively, each through a
@@ -183,8 +200,8 @@ def main() -> int:
     # census reported only the first number for a while and the carve-out plan
     # was written against it, so it now reports both.
     freed = [pkg["name"] for pkg in _members()
-             if not _depends_on_core(pkg) and pkg["name"] != CORE
-             and CORE not in _transitive_closure(pkg["name"])]
+             if not _depends_on_target(pkg) and pkg["name"] != TARGET
+             and TARGET not in _transitive_closure(pkg["name"])]
     print(f"{len(freed)} of {len(_members()) - 1} build WITHOUT it in their closure\n")
 
     by_module: dict[str, set[str]] = defaultdict(set)
@@ -195,7 +212,7 @@ def main() -> int:
         for item in items:
             by_module[_module_of(item)].add(pkg["name"])
 
-    print("── core module → how many dependents touch it ──")
+    print(f"── {TARGET} module → how many dependents touch it ──")
     for module, crates in sorted(by_module.items(), key=lambda kv: (-len(kv[1]), kv[0])):
         print(f"  {len(crates):3}  {module}")
 

@@ -157,6 +157,7 @@ name = "ambition_platformer2d_shared_tangle"
 version = "0.1.0"
 dependencies = [
  "ambition_platformer2d_core",
+ "ambition_projectile_spec",
  "bevy",
  "tracing",
 ]
@@ -190,6 +191,13 @@ dependencies = [
  "ambition_portal2d",
  "ambition_portal2d_presentation",
  "bevy",
+]
+
+[[package]]
+name = "ambition_projectile_spec"
+version = "0.1.0"
+dependencies = [
+ "bevy_math",
 ]
 
 [[package]]

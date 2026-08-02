@@ -7,7 +7,7 @@
 
 use crate::combat::components::ActorFaction;
 use crate::enemy_projectile::entity::EnemyProjectile;
-use crate::enemy_projectile::{EnemyProjectileSpawn, EnemyProjectileState};
+use crate::enemy_projectile::{EnemyProjectileState, ProjectileSpawn};
 use crate::projectile::{
     ProjectileGameplay, ProjectileOwner, ProjectileOwnerId, ProjectileSeq, ProjectileSeqCounter,
 };
@@ -21,7 +21,7 @@ use bevy::prelude::*;
 /// `ProjectileSeq` so injected bodies keep a stable order.
 pub(crate) fn spawn_enemy_projectile(
     app: &mut App,
-    request: EnemyProjectileSpawn,
+    request: ProjectileSpawn,
     faction: ActorFaction,
 ) {
     let projectile = EnemyProjectileState::build(request);
@@ -52,7 +52,7 @@ pub(crate) fn spawn_enemy_projectile(
 /// truly-ownerless shot. Damage routing treats it as INDISCRIMINATE (it hurts every
 /// body it overlaps, friend or foe), since there is no firer faction to be friendly
 /// to. Used to pin that behavior distinct from a faction-owned shot.
-pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: EnemyProjectileSpawn) {
+pub(crate) fn spawn_ownerless_projectile(app: &mut App, request: ProjectileSpawn) {
     let projectile = EnemyProjectileState::build(request);
     let seq = {
         let mut counter = app

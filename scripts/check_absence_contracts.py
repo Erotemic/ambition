@@ -547,6 +547,24 @@ DEPENDENCY_CONTRACTS: list[dict] = [
         ),
     },
     {
+        # A SECOND floor, added 2026-08-02. Authored projectile intent, carved
+        # out of `ambition_platformer2d_shared_tangle` because `ambition_vfx`
+        # imported exactly one type from it and that edge was the last path from
+        # a presentation-neutral crate to the platformer core.
+        "id": "projectile-spec-is-a-floor",
+        "crate": "ambition_projectile_spec",
+        "forbidden": "*",
+        "reason": (
+            "Content-free spawn data. It exists so a consumer can take the "
+            "vocabulary without taking a 16,927-line platformer crate, and that "
+            "is worth exactly nothing if it grows a workspace dependency of its "
+            "own — the closure it was carved to shrink would grow straight back. "
+            "⚠ this is the SECOND crate to carry `forbidden: \"*\"`, which is "
+            "the rule an `allowed` entry has to satisfy: a named allowance is "
+            "only safe if the crate it names is itself a floor."
+        ),
+    },
+    {
         "id": "engine-core-is-the-floor",
         "crate": "ambition_platformer2d_core",
         "forbidden": "*",

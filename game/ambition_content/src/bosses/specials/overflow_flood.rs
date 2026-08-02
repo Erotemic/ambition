@@ -12,7 +12,7 @@ use ambition_characters::brain::{
     SpecialActionSpec,
 };
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::EnemyProjectileSpawn;
+use ambition_projectiles::enemy::ProjectileSpawn;
 use ambition_vfx::{Effect, EffectRequest};
 
 // ---- Overflow's boundary flood (content-only, open-seam special) ----
@@ -129,7 +129,7 @@ pub fn spawn_overflow_flood_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    shots: vec![EnemyProjectileSpawn {
+                    shots: vec![ProjectileSpawn {
                         origin: ae::Vec2::new(x, spawn_y),
                         dir: ae::Vec2::new(0.0, 1.0),
                         speed: FLOOD_SPEED,

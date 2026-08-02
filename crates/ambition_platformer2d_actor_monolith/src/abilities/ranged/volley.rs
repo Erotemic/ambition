@@ -14,7 +14,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::enemy_projectile::EnemyProjectileSpawn;
+use crate::enemy_projectile::ProjectileSpawn;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_platformer2d_core as ae;
@@ -114,7 +114,7 @@ pub fn fire_volley_system(
             // player (the executor stamps `ProjectileOwner` from this entity).
             owner: entity,
             effect: ambition_vfx::Effect::Projectiles {
-                shots: vec![EnemyProjectileSpawn {
+                shots: vec![ProjectileSpawn {
                     origin,
                     dir,
                     speed: VOLLEY_SPEED,

@@ -11,7 +11,7 @@ use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, SpecialActionSpec,
 };
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::EnemyProjectileSpawn;
+use ambition_projectiles::enemy::ProjectileSpawn;
 use ambition_vfx::{Effect, EffectRequest};
 
 // ---- Mockingbird's echo fan (content-only, open-seam; mimic spread) ----
@@ -112,7 +112,7 @@ pub fn spawn_echo_fan_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    shots: vec![EnemyProjectileSpawn {
+                    shots: vec![ProjectileSpawn {
                         origin,
                         dir,
                         speed: ECHO_FAN_SPEED,

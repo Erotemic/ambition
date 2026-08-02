@@ -12,6 +12,9 @@ description = "Reusable, content-free platformer runtime primitives (lifecycle v
 crate-type = ["rlib"]
 
 [dependencies]
+# Authored projectile intent — content-free spawn data that left this crate so
+# `ambition_vfx` could stop depending on it. See that crate's module doc.
+ambition_projectile_spec = { path = "../ambition_projectile_spec" }
 # Only the ECS/state/input surface is needed: Component / Bundle / Commands /
 # EntityCommands / Entity / SystemSet / States / Reflect (via bevy::prelude). No render,
 # audio, or asset features — this crate stays reusable and headless.

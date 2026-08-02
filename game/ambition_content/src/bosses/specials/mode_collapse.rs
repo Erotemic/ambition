@@ -12,7 +12,7 @@ use ambition_characters::brain::{
     SpecialActionSpec,
 };
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::EnemyProjectileSpawn;
+use ambition_projectiles::enemy::ProjectileSpawn;
 use ambition_vfx::{Effect, EffectRequest};
 
 // ===================================================================
@@ -132,7 +132,7 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    shots: vec![EnemyProjectileSpawn {
+                    shots: vec![ProjectileSpawn {
                         origin,
                         dir,
                         speed: MC_RING_SPEED,

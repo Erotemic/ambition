@@ -17,9 +17,18 @@ bevy = { version = "0.18.1", default-features = false }
 # Geometry (Vec2 / Aabb) — the pure-logic foundation.
 ambition_geometry = { path = "../ambition_geometry" }
 
-# The projectile substrate: ProjectileFaction + the EnemyProjectileSpawn request
-# carried by Effect::Projectiles.
-ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }
+# The ProjectileSpawn request carried by Effect::Projectiles — and ONLY that.
+#
+# ⭐ this was `ambition_platformer2d_shared_tangle`, a 16,927-line crate from
+# which this one imported exactly ONE type. That single edge was the last path
+# from here to `ambition_platformer2d_core`; dropping it is what makes this
+# crate's headless, presentation-neutral claim true of its BUILD and not just of
+# its manifest.
+#
+# ⚠ the comment that stood here also claimed `ProjectileFaction`, which this
+# crate has never used — a manifest describing a dependency it does not have,
+# which is the same defect one level down.
+ambition_projectile_spec = { path = "../ambition_projectile_spec" }
 
 # SfxId for ExplosionRequest's paired sound cue + the explosion_sfx id mapping
 # that lives with the request vocab.

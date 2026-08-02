@@ -10,7 +10,7 @@ use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, SpecialActionSpec,
 };
 use ambition_platformer2d_core as ae;
-use ambition_projectiles::enemy::EnemyProjectileSpawn;
+use ambition_projectiles::enemy::ProjectileSpawn;
 use ambition_vfx::{Effect, EffectRequest};
 
 // ---- Exploding Gradient's runaway nova (content-only, open-seam special) ----
@@ -91,7 +91,7 @@ pub fn spawn_gradient_nova_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    shots: vec![EnemyProjectileSpawn {
+                    shots: vec![ProjectileSpawn {
                         origin: origin + dir * NOVA_SPAWN_RADIUS,
                         dir,
                         speed,

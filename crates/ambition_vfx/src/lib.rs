@@ -21,7 +21,7 @@ use bevy::prelude::*;
 // `ambition_platformer2d_core`, which made a presentation-neutral VFX
 // vocabulary declare a platformer dependency it did not have.
 use ambition_geometry as ae;
-use ambition_platformer2d_shared_tangle::projectile::EnemyProjectileSpawn;
+use ambition_projectile_spec::ProjectileSpawn;
 
 pub mod vfx;
 pub use vfx::{
@@ -291,7 +291,7 @@ pub struct SummonSpec {
 pub enum Effect {
     DamageBox(DamageBoxEffect),
     Summon(SummonSpec),
-    Projectiles { shots: Vec<EnemyProjectileSpawn> },
+    Projectiles { shots: Vec<ProjectileSpawn> },
 }
 
 /// "This `owner` emitted this `effect`." Written by a technique, drained by

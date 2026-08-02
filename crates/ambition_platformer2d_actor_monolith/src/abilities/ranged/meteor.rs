@@ -21,7 +21,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::enemy_projectile::EnemyProjectileSpawn;
+use crate::enemy_projectile::ProjectileSpawn;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_platformer2d_core as ae;
@@ -122,7 +122,7 @@ pub fn fire_meteor_system(
             // the player (the executor stamps `ProjectileOwner` from this entity).
             owner: entity,
             effect: ambition_vfx::Effect::Projectiles {
-                shots: vec![EnemyProjectileSpawn {
+                shots: vec![ProjectileSpawn {
                     origin,
                     // Straight toward local feet/down; gravity accelerates it in the same frame.
                     dir: gravity_dir,

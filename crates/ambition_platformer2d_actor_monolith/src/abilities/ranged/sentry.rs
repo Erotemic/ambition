@@ -16,7 +16,7 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::enemy_projectile::EnemyProjectileSpawn;
+use crate::enemy_projectile::ProjectileSpawn;
 use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
 use ambition_characters::brain::ActorControl;
 use ambition_platformer2d_core as ae;
@@ -169,7 +169,7 @@ pub fn update_sentries(
         effects.write(ambition_vfx::EffectRequest {
             owner: entity,
             effect: ambition_vfx::Effect::Projectiles {
-                shots: vec![EnemyProjectileSpawn {
+                shots: vec![ProjectileSpawn {
                     origin: sentry.pos,
                     dir,
                     speed: SENTRY_BOLT_SPEED,

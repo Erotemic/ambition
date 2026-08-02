@@ -12,7 +12,7 @@ use ambition_characters::brain::{
     SpecialActionSpec,
 };
 use ambition_platformer2d_core::{self as ae, AabbExt};
-use ambition_projectiles::enemy::EnemyProjectileSpawn;
+use ambition_projectiles::enemy::ProjectileSpawn;
 use ambition_vfx::{Effect, EffectRequest};
 
 /// approximate target point and the strike spawns a single line of fast
@@ -142,7 +142,7 @@ pub fn spawn_eye_beam_from_special_messages(
             effects.write(EffectRequest {
                 owner: entity,
                 effect: Effect::Projectiles {
-                    shots: vec![EnemyProjectileSpawn {
+                    shots: vec![ProjectileSpawn {
                         origin: beam_origin,
                         dir,
                         speed: shot_speed.max(1.0),

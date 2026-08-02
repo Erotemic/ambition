@@ -22,6 +22,7 @@ members = [
     "crates/ambition_dialog",
     "crates/ambition_entity_catalog",
     "crates/ambition_geometry",
+    "crates/ambition_projectile_spec",
     "crates/ambition_encounter",
     "crates/ambition_vfx",
     "crates/ambition_platformer2d_core",

@@ -12,7 +12,7 @@ fn spawn_request(owner_id: &str, visual_id: &str) -> ambition_vfx::EffectRequest
     ambition_vfx::EffectRequest {
         owner: Entity::PLACEHOLDER,
         effect: ambition_vfx::Effect::Projectiles {
-            shots: vec![crate::enemy::EnemyProjectileSpawn {
+            shots: vec![crate::enemy::ProjectileSpawn {
                 origin: ae::Vec2::ZERO,
                 dir: ae::Vec2::new(1.0, 0.0),
                 speed: 100.0,

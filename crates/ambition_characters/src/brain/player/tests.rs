@@ -332,3 +332,61 @@ fn tick_player_brain_no_input_emits_neutral_with_facing() {
     assert!(!out.melee_pressed);
     assert_eq!(out.facing, -1.0);
 }
+
+/// ⛔ **`velocity_target` is WORLD-space and this brain wrote a LOCAL vector.**
+///
+/// Its doc says *"exact world-space velocity command in px/s"*, and every other
+/// writer agrees: `limbs.rs` sends `(home_world - pos) * gain`, and the smash
+/// shadow model assigns it straight to `f.vel`. Only the player brain handed it
+/// the body-local stick — the free-mover steering for a POSSESSED FLYER, which
+/// is the body-generic case the comment there promises to serve.
+///
+/// ⚠ **what "wrong" looks like, measured.** Under gravity pointing world-left,
+/// a screen-RIGHT push resolves to the body-local vector `(0, -1)` — local `-y`
+/// is toward the head, and the head points world-right. Written straight into a
+/// world field that commands `(0, -speed)`: the flyer flies world-UP when the
+/// player pushes right. `to_world` turns it back into `(speed, 0)`.
+///
+/// So the property is: under SCREEN-relative control, rotating gravity must not
+/// change where a screen-right push sends the body. Identity under normal
+/// gravity, which is why nothing ever saw this.
+///
+/// Sibling of the fighter brain's `locomotion.x` defect (S48): same struct,
+/// adjacent field, OPPOSITE direction — that one wrote world into a local
+/// field, this wrote local into a world one, and both compile because both
+/// fields are a bare `Vec2`.
+#[test]
+fn a_possessed_flyer_steers_where_the_stick_points_under_any_gravity() {
+    let commanded = |control_down: ae::Vec2| -> ae::Vec2 {
+        let input = input_with(|c| c.axis_x = 1.0);
+        let mut s = BrainSnapshot::idle();
+        s.actor_facing = 1.0;
+        s.control_down = control_down;
+        // A flyer: the grounded avatar passes 0 and ignores this field entirely.
+        s.max_run_speed = 100.0;
+        let mut out = crate::actor::control::ActorControlFrame::default();
+        tick_player_brain_from_control(&input, &s, &mut out);
+        out.velocity_target
+    };
+
+    let upright = commanded(ae::Vec2::new(0.0, 1.0));
+    assert!(
+        (upright - ae::Vec2::new(100.0, 0.0)).length() < 0.001,
+        "screen-right under normal gravity must command world +x, got {upright:?}"
+    );
+
+    for rotated_down in [
+        ae::Vec2::new(-1.0, 0.0),
+        ae::Vec2::new(1.0, 0.0),
+        ae::Vec2::new(0.0, -1.0),
+    ] {
+        let rotated = commanded(rotated_down);
+        assert!(
+            (rotated - upright).length() < 0.001,
+            "with gravity at {rotated_down:?} a screen-right push commanded \
+             {rotated:?} instead of {upright:?} — the body-local stick was \
+             written into a world-space field, so the flyer goes wherever the \
+             body happens to be oriented rather than where the player pointed"
+        );
+    }
+}

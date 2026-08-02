@@ -98,7 +98,21 @@ pub fn tick_player_brain_from_control(
     // moves at its own speed with no possession-specific plumbing. The human
     // player passes `max_run_speed == 0` (its integrator ignores this field), so
     // this is inert for the grounded avatar.
-    out.velocity_target = local_axis * snapshot.max_run_speed;
+    //
+    // ⛔ **`velocity_target` is WORLD-SPACE and this wrote a LOCAL vector.** Its
+    // own doc says "exact world-space velocity command in px/s", and every other
+    // writer agrees — `limbs.rs` sends `(home_world - pos) * gain`, and the smash
+    // shadow model assigns it straight to `f.vel`. Only this one handed it the
+    // body-local stick.
+    //
+    // ⚠ invisible under screen-down gravity, where `to_world` is the identity;
+    // it bites a POSSESSED FLYER in a rotated frame, which is precisely the
+    // body-generic case the comment above promises to serve. Sibling of the
+    // fighter brain's `locomotion.x` defect (S48) — same struct, adjacent field,
+    // opposite direction: that one wrote world into a local field, this wrote
+    // local into a world one, and both compile because both fields are a bare
+    // `Vec2`.
+    out.velocity_target = frame.to_world(local_axis) * snapshot.max_run_speed;
 
     // Facing: prefer local side intent; fall back to snapshot facing when stick
     // is neutral so the actor doesn't snap to (0).

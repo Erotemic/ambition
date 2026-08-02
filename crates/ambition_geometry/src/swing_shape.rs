@@ -172,9 +172,23 @@ impl CombatVolume {
     /// is rooted at the body.
     ///
     /// A [`CombatVolume::Circle`] is radial by construction. Everything else is
-    /// a sweep along attacker → volume, which is the axis the authored volumes
-    /// are built on (`cone()`'s `(dx, dy)` is always cardinal in the body's
-    /// frame).
+    /// a sweep along the volume's OWN near-to-far axis, oriented by the attacker.
+    ///
+    /// ⚠ It used to be `attacker → volume centroid`, and that made the drawn
+    /// effect tilt whenever a swing was authored anywhere but level with the
+    /// body's centre. It is a real authoring want: the collision body is 48
+    /// units tall while the drawn character is half again that with its feet at
+    /// the box's bottom, so a swing centred on the box crosses the belly of what
+    /// a player sees. Raising the polygon to the chest then tilted the QUAD up
+    /// to meet it — measured at 8 degrees for a rise of 0.10 body-heights, with
+    /// the polygon staying level and the art alone leaning. Jon collected both
+    /// halves of that as complaints about the same jab: "tilts too much upward"
+    /// with a rise, "still tilts downward" without one.
+    ///
+    /// Taking the axis from the volume's own extremes fixes it at the source. A
+    /// half disc raised to chest height has its nearest and farthest points at
+    /// the same height, so the axis is horizontal however high the swing sits,
+    /// and the vertical placement becomes a free feel knob.
     pub fn swing_shape(&self, from: Vec2) -> SwingShape {
         if let CombatVolume::Circle { center, radius } = self {
             return SwingShape::Radial {
@@ -182,8 +196,7 @@ impl CombatVolume {
                 radius: Vec2::splat(*radius),
             };
         }
-        let axis = self.center() - from;
-        let Some(dir) = normalized(axis) else {
+        let Some(dir) = self.handle_to_tip(from) else {
             // Degenerate: the volume is centred on the attacker, so there is no
             // outward direction to sweep along. Read it as radial rather than
             // inventing a facing — this is the aerial spin's shape anyway.
@@ -224,6 +237,37 @@ impl CombatVolume {
             // would otherwise report a far end wider than the shape.
             far_half: far_half.max(near_half),
         }
+    }
+
+    /// The swing's own axis: nearest point of the volume to the attacker, toward
+    /// the farthest.
+    ///
+    /// The attacker is used only to decide WHICH END IS THE HANDLE — a blade arc
+    /// is the same polygon whichever way you read it — and never to set the
+    /// angle. That separation is the whole point: which end is the grip is a
+    /// fact about the wielder, and which way the blade runs is a fact about the
+    /// blade.
+    ///
+    /// `None` when the volume has no outward direction at all, which is the
+    /// aerial spin's shape and is read as radial by the caller.
+    fn handle_to_tip(&self, from: Vec2) -> Option<Vec2> {
+        let points = self.outline();
+        let mut near = (f32::INFINITY, Vec2::ZERO);
+        let mut far = (f32::NEG_INFINITY, Vec2::ZERO);
+        for p in &points {
+            let d = (*p - from).length_squared();
+            if d < near.0 {
+                near = (d, *p);
+            }
+            if d > far.0 {
+                far = (d, *p);
+            }
+        }
+        normalized(far.1 - near.1)
+            // A hull whose extremes coincide has no axis; fall back to the
+            // centroid direction rather than inventing one, so a degenerate
+            // volume still points away from its wielder.
+            .or_else(|| normalized(self.center() - from))
     }
 
     /// World-space outline points — the corners a projection measures against.
@@ -355,6 +399,30 @@ mod tests {
             "this swing reaches further than it is tall, and the quad should \
              say so: {half:?}"
         );
+    }
+
+    #[test]
+    fn a_swing_raised_to_the_chest_still_points_straight_ahead() {
+        // The authoring want this exists for: the drawn character is taller than
+        // its collision box with its feet at the box's bottom, so a swing level
+        // with the box's centre crosses the belly of what a player sees. Raising
+        // it must not tip it.
+        //
+        // ⛔ Restore the axis to `attacker → centroid` and this fails by about 8
+        // degrees, which is exactly the tilt Jon reported on the jab.
+        let level: Vec<Vec2> = attack_side_hull();
+        let raised: Vec<Vec2> = level.iter().map(|p| *p + Vec2::new(0.0, -40.0)).collect();
+        let from = Vec2::new(-9.18, -41.84);
+
+        for (name, hull) in [("level", level), ("raised", raised)] {
+            let SwingShape::Sweep { dir, .. } = CombatVolume::convex(hull).swing_shape(from) else {
+                panic!("a forward blade arc is a sweep");
+            };
+            assert!(
+                dir.y.abs() < 0.02,
+                "the {name} swing points straight ahead, got {dir:?}"
+            );
+        }
     }
 
     #[test]

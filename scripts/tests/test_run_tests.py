@@ -87,14 +87,22 @@ def test_fast_unfiltered_is_workspace_backbone():
     # architectural contracts, the other guards the LDtk authoring path every
     # room in the game is built with.
     #
+    # ⚠ the WARNING gate joined on 2026-08-02, deliberately and not for free:
+    # it is a `cargo check --all-targets`, so it is the only backbone job whose
+    # cost is not a few seconds. It is here because CI sets
+    # `RUSTFLAGS: -D warnings` and nothing local did — five warnings had
+    # accumulated in the tree, so every local run was green while CI was red. A
+    # gate that only exists after a push finds things late.
+    #
     # Named, not counted. A bare `len(jobs) == N` passes when a job is swapped
     # for a different one, and its failure message says nothing about which job
     # is missing — this assertion caught the ldtk job being ADDED and reported
-    # only "3 != 2" (2026-07-28).
+    # only "3 != 2" (2026-07-28), and it caught this one being added too.
     names = {j.name for j in jobs}
     assert names == {
         "repo tooling (scripts/tests)",
         "ldtk authoring tools (tools/ambition_ldtk_tools)",
+        "no warnings (cargo check --all-targets)",
         "workspace (default features)",
     }, f"unexpected backbone plan: {sorted(names)}"
     assert any("--workspace" in a for a in _argvs(jobs))

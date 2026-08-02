@@ -300,6 +300,16 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     if not only:
         jobs.append(Job("repo tooling (scripts/tests)",
                         [sys.executable, "-m", "pytest", "scripts/tests", "-q"]))
+        # ⭐ the WARNING gate, which CI has had all along and no local command
+        # did. `.github/workflows/test.yml` sets `RUSTFLAGS: -D warnings`, so a
+        # warning is a red build there; locally `cargo check` says nothing and
+        # five had accumulated in the tree by 2026-08-02.
+        # ⚠ it does NOT set RUSTFLAGS itself -- that is part of cargo's
+        # fingerprint and would rebuild the whole workspace, which is how this
+        # target directory filled the volume three times. It reads the SAME
+        # build's diagnostics instead. See the script's docstring.
+        jobs.append(Job("no warnings (cargo check --all-targets)",
+                        [sys.executable, "scripts/check_no_warnings.py"]))
         # The LDtk AUTHORING toolchain, which is the path every room in the
         # game is built through and was the second Python suite nothing ran.
         # Found 2026-07-28 with 11 of 149 RED, all of them pointing at asset

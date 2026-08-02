@@ -82,7 +82,20 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
     mut anim_facts: Query<&mut crate::actor::BodyAnimFacts>,
     held_items: Query<&super::HeldItem>,
+    // ⛔ **WHO WROTE THIS BODY'S VELOCITY.** The causal log answers "what is the
+    // velocity" and never "who set it", so a body that moves without asking to
+    // costs a survey of all 70 velocity writers to explain — measured, six
+    // rebuild-and-print cycles on one 12-tick window (queue S51). Recoil is one
+    // of those writers and the first to say so out loud.
+    //
+    // ⚠ `Option`, because the FEATURE and the PLUGIN are two switches: a host
+    // may compile the publishers without installing an inspector.
+    #[cfg(feature = "causal")] log: Option<ResMut<ambition_causal::CausalRecording>>,
+    #[cfg(feature = "causal")] identities: Query<&crate::combat::components::ActorIdentity>,
+    #[cfg(feature = "causal")] tick: Option<Res<ambition_time::SimTick>>,
 ) {
+    #[cfg(feature = "causal")]
+    let mut log = log;
     for msg in messages.read() {
         let ActionRequest::Ranged {
             spec,
@@ -220,7 +233,32 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
             RANGED_RECOIL_DEFAULT
         };
         let kick = world_dir * -recoil_strength;
+        #[cfg(feature = "causal")]
+        let before = kin.vel;
         kin.vel += kick;
+        // The authorship fact: this site NAMES itself as the writer, with the
+        // velocity either side of its own write. An explanation of the tick now
+        // says who moved the body instead of only that it moved.
+        #[cfg(feature = "causal")]
+        if let (Some(log), Ok(identity)) = (log.as_mut(), identities.get(msg.actor)) {
+            if log.is_recording() {
+                log.record(
+                    ambition_causal::CausalFact::new(
+                        ambition_causal::domains::MOVEMENT,
+                        tick.as_deref().map_or(0, |t| t.get()),
+                        ambition_causal::FactDetail::new(
+                            "velocity_authored",
+                            format!("ranged recoil pushed this body {:+.0}/s", kick.x),
+                        ),
+                    )
+                    .about(ambition_causal::SubjectKey::Sim(identity.id.clone()))
+                    .field("writer", "ranged_recoil")
+                    .field("kick_x", kick.x)
+                    .field("vel_x_before", before.x)
+                    .field("vel_x_after", kin.vel.x),
+                );
+            }
+        }
     }
 }
 

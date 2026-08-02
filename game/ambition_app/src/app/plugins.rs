@@ -518,7 +518,9 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Update,
             (
-                ambition_platformer2d::dialog::dialog_input,
+                // ⚠ `dialog_input` LEFT this chain on 2026-08-02 — it and
+                // `dialog_reveal_tick` are now owned by the monolith's
+                // `YarnBindingsPlugin`, beside the rest of the feature.
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
                 // ⚠ `sync_developer_body_profile` LEFT this chain on
@@ -604,7 +606,9 @@ fn install_fx_and_hud_systems(app: &mut App) {
         (
             update_hud,
             ambition_platformer2d::render::rendering::sync_boss_health_bar_overlay,
-            ambition_platformer2d::dialog::dialog_reveal_tick,
+            // ⚠ `dialog_reveal_tick` LEFT this chain on 2026-08-02; see the
+            // note at `dialog_input` above. It is now CHAINED after the
+            // input in one plugin, which those two never were here.
             ambition_platformer2d::render::cutscene::sync_cutscene_ui,
         )
             .chain()

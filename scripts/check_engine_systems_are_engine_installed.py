@@ -198,28 +198,21 @@ WAIVERS: dict[str, str] = {
 # move is not mechanical, and here is the specific question it waits on". Merging
 # the two would let "we have not done it" hide inside "we decided not to".
 #
-# Both rows below appeared on 2026-08-02 when `RENDER_PATH_PREFIXES` widened to
-# see dialogue — they are not new defects, they are defects that became visible.
-OPEN_ROWS: dict[str, str] = {
-    "dialog_reveal_tick": (
-        "engine presentation — its own doc says so, and the module docstring in "
-        "`actor_monolith/src/dialog.rs` says the reveal/input systems belong to "
-        "`ambition_dialog`. ⛔ blocked on a SCHEDULE question, not on effort: it "
-        "ticks the typewriter from `Res<Time>` (render time), so it must stay in "
-        "`Update` — but `ambition_dialog` is a low-level crate that does not know "
-        "the platformer's phase vocabulary, so the plugin cannot live where the "
-        "systems do."
-    ),
-    "dialog_input": (
-        "same family, and the harder half. The app pins its block "
-        "`.after(Platformer2dSimulationPhaseMonolith::CoreSimulation)`, which is "
-        "only meaningful because a fixed-tick host's `sim_schedule()` IS `Update`. "
-        "⛔ under a GGRS host they are different schedules and that edge means "
-        "nothing, so moving this needs someone to decide which schedule owns "
-        "dialogue input in a rollback composition. Guessing it blind is how a "
-        "dialogue advance lands on the wrong side of a rewind."
-    ),
-}
+# ⚠ EMPTY, and emptied by doing the work rather than by relaxing the bar. Two
+# dialogue rows landed here on 2026-08-02 with a blocker that turned out to be
+# OVERSTATED: I claimed moving them needed a decision about "which schedule owns
+# dialogue input under GGRS". Bevy runs `PreUpdate` → `RunFixedMainLoop` →
+# `Update`, and every host puts the sim ahead of `Update` — so the
+# `.after(CoreSimulation)` pin is load-bearing under `RenderFrame` (where
+# `sim_schedule()` IS `Update`) and merely decorative under the other two, while
+# being correct in all three. No rewind was ever involved: neither `DialogState`
+# nor `MenuControlFrame` is rollback state.
+#
+# ⭐ the test on this registry is what forced the issue. Once the blocker was
+# retracted the entry stopped naming one — exactly the "TODO with a ratchet's
+# authority" that test rejects. Both systems now live in the monolith's
+# `YarnBindingsPlugin`, beside the rest of the dialogue feature.
+OPEN_ROWS: dict[str, str] = {}
 
 # ── The ratchet ──
 #

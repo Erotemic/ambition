@@ -41,6 +41,41 @@ impl Plugin for YarnBindingsPlugin {
                 .in_set(ambition_dialog::YarnStateMirrorRefreshed)
                 .after(ambition_dialog::YarnPresentationCueCleared),
         );
+        // ⛔ a system that has only ever run in ONE composition has UNTESTED
+        // requirements, and moving it turns them into panics rather than skips.
+        // `dialog_input` takes a NON-optional `Res<MenuControlFrame>`; the app
+        // always had one, the headless composition never did, and three app
+        // tests died on "Resource does not exist" the moment these moved here.
+        // Ensuring it is the established pattern in this repo — `basic_presentation`,
+        // `pause_menu` and `deterministic_activity` each do the same — and it is
+        // order-independent, which a run condition would not be: "no menu frame"
+        // would then silently mean "dialogue accepts no input".
+        app.init_resource::<ambition_input::MenuControlFrame>();
+        // ⭐ the dialogue PRESENTATION pair, moved out of `ambition_app` on
+        // 2026-08-02. The app hand-registered these two while every other part
+        // of the feature lived in this plugin, so a composition could install
+        // dialogue and get no input handling and no typewriter reveal.
+        //
+        // ⚠ CHAINED, and that is a fix rather than a transcription: both take
+        // `ResMut<DialogState>`, and they sat in two different `Update` blocks
+        // with nothing ordering them. Whether the reveal ticked before or after
+        // the advance was arbitrary.
+        //
+        // ⚠ the `.after(CoreSimulation)` pin is kept because it is load-bearing
+        // under the `RenderFrame` host, where `sim_schedule()` IS `Update`. It is
+        // VACUOUS under `Fixed60Hz` and `Ggrs` — that set lives only in the sim
+        // schedule — but the ordering still holds there, because Bevy runs
+        // `PreUpdate` → `RunFixedMainLoop` → `Update` and both hosts put the sim
+        // ahead of `Update`. Correct in all three, load-bearing in one.
+        app.add_systems(
+            Update,
+            (ambition_dialog::dialog_input, ambition_dialog::dialog_reveal_tick)
+                .chain()
+                .after(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation,
+                )
+                .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
+        );
         app.world_mut()
             .resource_mut::<ambition_dialog::YarnContentBindings>()
             .installers

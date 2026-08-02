@@ -52,8 +52,14 @@ REPO = Path(__file__).resolve().parents[1]
 # and `desktop_dev` is a DEVELOPER persona; `visible` / `android` / `web` do not.
 DEV_ONLY_FEATURES = {"dev_tools"}
 
+# ⚠ the `(?:[\w:]+::)?` before `Res` is not decoration: `Option<bevy::prelude::Res<T>>`
+# is the same read and the pattern missed it entirely. Measured 2026-08-02 —
+# ZERO such reads exist in the tree today, everyone writes the bare form — so this
+# widening changes no current result and closes a hole that would have been
+# silent. Found by writing a probe in the qualified style and watching the
+# checker ignore it.
 OPTIONAL_READ = re.compile(
-    r"Option\s*<\s*Res(?:Mut)?\s*<\s*(?:[\w:]+::)?(?P<ty>[A-Z]\w+)\s*>"
+    r"Option\s*<\s*(?:[\w:]+::)?Res(?:Mut)?\s*<\s*(?:[\w:]+::)?(?P<ty>[A-Z]\w+)\s*>"
 )
 INIT_RESOURCE = re.compile(r"init_resource::<\s*(?:[\w:]+::)?(?P<ty>[A-Z]\w+)\s*>")
 INSERT_RESOURCE = re.compile(
@@ -139,6 +145,34 @@ def _gates_by_file() -> dict[Path, frozenset[str]]:
     return gates
 
 
+def _without_comments(source: str) -> str:
+    """Blank out `//`, `///` and `//!` lines and trailing `//` comments.
+
+    ⛔ **a checker that greps source reads the prose ABOUT the code as if it were
+    the code.** `ambition_platformer2d/src/app.rs` carries
+    `/// Not `insert_resource(CharacterCatalog)`: that would be a second
+    authority` — a comment stating a resource is NOT inserted, which this script
+    would otherwise count as evidence that it IS.
+
+    ⚠ measured before changing anything: stripping comments moves ZERO writers
+    and one optional-read (`CharacterCatalog`), so no finding changes today. It
+    is closed because the mechanism is real and the failure direction is silent —
+    a comment inventing a WRITER hides a capability that does not ship, which is
+    the exact defect this script exists to catch.
+
+    ⚠ this repository's Rust policy runner has stripped comments since it was
+    written (`rules/source_reference.rs`: *"Comment lines and trailing `//`
+    comments are always stripped first, so prose..."*). The Python guards did not
+    inherit that, and one of them read its own documentation as evidence before
+    this was noticed.
+    """
+    out = []
+    for line in source.splitlines():
+        stripped = line.lstrip()
+        out.append("" if stripped.startswith("//") else line.split("//", 1)[0])
+    return "\n".join(out)
+
+
 def _is_test(path: Path) -> bool:
     return "tests" in path.parts or path.name in {"tests.rs", "test_support.rs"}
 
@@ -155,7 +189,7 @@ def main() -> int:
     for path, features in gates.items():
         if _is_test(path):
             continue
-        source = path.read_text(encoding="utf-8", errors="ignore")
+        source = _without_comments(path.read_text(encoding="utf-8", errors="ignore"))
         for match in OPTIONAL_READ.finditer(source):
             optional_reads.setdefault(match["ty"], set()).add(path)
         bindings = {m["name"]: m["ty"] for m in LOCAL_BINDING.finditer(source)}

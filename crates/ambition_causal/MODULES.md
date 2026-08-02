@@ -10,8 +10,9 @@
 | [`fact`](src/fact.rs) | The fact vocabulary — enough identity to CORRELATE, and no more. |
 | [`log`](src/log.rs) | The bounded log and the tick explainer. |
 | [`sink`](src/sink.rs) | The scoped sink — how a pure function deep in a call graph publishes a fact without every caller between it and the ECS growing a parameter. |
+| [`velocity`](src/velocity.rs) | **Who wrote this body's velocity.** |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

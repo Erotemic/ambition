@@ -124,6 +124,67 @@ pub fn record_player_movement_intent(
 ///
 /// Observer by construction, like its sibling: every component immutable, the
 /// log the only thing held mutably.
+/// **The kernel's own movement operations, for the instrument.**
+///
+/// ⛔ the causal log could say a body's velocity CHANGED and never which
+/// operation changed it, and the ten velocity writers inside
+/// `ambition_platformer2d_core` cannot publish for themselves: the kernel has no
+/// `ambition_causal` dependency and, under the floor contract, may depend only
+/// on `ambition_geometry`.
+///
+/// It does not need one. `ae::FrameEvents` already carries
+/// `operations: Vec<MovementOp>` — `Dash`, `DodgeRoll`, `WallJump`,
+/// `LedgeClimbStart`, … — named by the kernel and emitted every frame, consumed
+/// until now only by FX and anim overlays. This message carries that list to the
+/// recorder, which has the log.
+///
+/// ⚠ `Option<MessageWriter>` at the call site, for the reason the damage path
+/// already documents: this is read by an INSTRUMENT and nothing else, so a
+/// composition with no inspector should publish nothing rather than panic.
+#[cfg(feature = "causal")]
+#[derive(bevy::prelude::Message, Clone, Debug)]
+pub struct BodyMovementOps {
+    pub body: bevy::prelude::Entity,
+    pub ops: Vec<ambition_platformer2d_core::MovementOp>,
+}
+
+/// Turn the kernel's operation list into facts the explainer can join.
+#[cfg(feature = "causal")]
+pub fn record_movement_operations(
+    log: Option<ResMut<CausalRecording>>,
+    mut ops: bevy::prelude::MessageReader<BodyMovementOps>,
+    identities: Query<&crate::combat::components::ActorIdentity>,
+    tick: Option<Res<ambition_time::SimTick>>,
+) {
+    let Some(mut log) = log else {
+        ops.clear();
+        return;
+    };
+    if !log.is_recording() {
+        ops.clear();
+        return;
+    }
+    for applied in ops.read() {
+        let Ok(identity) = identities.get(applied.body) else {
+            continue;
+        };
+        for op in &applied.ops {
+            log.record(
+                CausalFact::new(
+                    domains::MOVEMENT,
+                    tick.as_deref().map_or(0, |t| t.get()),
+                    FactDetail::new(
+                        "movement_operation",
+                        format!("the movement kernel performed {op:?}"),
+                    ),
+                )
+                .about(SubjectKey::Sim(identity.id.clone()))
+                .field("operation", format!("{op:?}")),
+            );
+        }
+    }
+}
+
 pub fn record_body_control_frame(
     log: Option<ResMut<CausalRecording>>,
     bodies: Query<(

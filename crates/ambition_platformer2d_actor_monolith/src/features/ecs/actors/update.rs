@@ -276,8 +276,11 @@ pub fn tick_actor_brains(
     let dt = world_time.sim_dt();
     // Accumulating sim-time for brain perception (reaction-latency lookback).
     let sim_now = sim_clock.0;
-    let feature_world =
-        ambition_platformer2d_world::collision::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let feature_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
+        &world.0,
+        &platform_set.0,
+        &overlay,
+    );
     // Resolve the live hostility table once (default = all-peaceful) for every
     // brain's world-out view this frame (§A7).
     let relations_fallback = crate::combat::targeting::FactionRelations::default();
@@ -756,6 +759,13 @@ pub(crate) fn integrate_actor_body(
     sfx: &mut ambition_sfx::SfxWriter,
     vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
     hit_events: &mut MessageWriter<HitEvent>,
+    // The kernel's own operation list, for the causal instrument only. `Option`
+    // for the reason the damage path documents: an instrument that can take
+    // down a composition is worse than no instrument. See
+    // `crate::causal::BodyMovementOps`.
+    #[cfg(feature = "causal")] movement_ops: Option<
+        &mut MessageWriter<crate::causal::BodyMovementOps>,
+    >,
 ) {
     // The brain's intent for this body, produced upstream in `tick_actor_brains`.
     let mut brain_frame = control
@@ -881,6 +891,18 @@ pub(crate) fn integrate_actor_body(
     // the same dust + SFX the player does, not the old blink-only actor branch
     // with its hand-copied second blink emit (fable review §A8). Fly-toggle +
     // shield are resolved INSIDE `em.update`'s shared pipeline.
+    // The kernel NAMED what it did; hand that to the instrument beside the FX
+    // that already read it. One publish covers every kernel velocity writer,
+    // which is why this is not sixty-eight instrumentations.
+    #[cfg(feature = "causal")]
+    if let Some(writer) = movement_ops {
+        if !move_events.operations.is_empty() {
+            writer.write(crate::causal::BodyMovementOps {
+                body: actor_entity,
+                ops: move_events.operations.clone(),
+            });
+        }
+    }
     crate::features::emit_movement_fx(
         sfx,
         vfx,
@@ -968,6 +990,12 @@ pub fn integrate_sim_bodies(
     mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hit_events: MessageWriter<HitEvent>,
+    // The kernel's operation list, for the causal instrument. `Option` so a
+    // composition with no inspector registers nothing and publishes nothing —
+    // the rule the damage path already documents.
+    #[cfg(feature = "causal")] mut movement_ops: Option<
+        MessageWriter<crate::causal::BodyMovementOps>,
+    >,
     mut actors: Query<
         (
             Entity,
@@ -1037,8 +1065,11 @@ pub fn integrate_sim_bodies(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let feature_world =
-        ambition_platformer2d_world::collision::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let feature_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
+        &world.0,
+        &platform_set.0,
+        &overlay,
+    );
     let combat_tuning = feel_tuning.feature_combat_tuning();
     // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
     for (
@@ -1086,6 +1117,8 @@ pub fn integrate_sim_bodies(
             &mut sfx,
             &mut vfx,
             &mut hit_events,
+            #[cfg(feature = "causal")]
+            movement_ops.as_mut(),
         );
         // Publish the semantic movement facts this step produced (ADR 0024):
         // presentation/combat consumers read THESE, never policy internals.

@@ -42,9 +42,9 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 // Boss/profile and combat-kit data own their own cooldown/timing constants.
 
 pub mod banter;
+pub mod brain_command;
 pub mod combat_rules;
 pub mod stocks_match;
-pub mod brain_command;
 pub mod temporary_control;
 pub use temporary_control::TemporaryControl;
 // Stable facade for boss attack geometry.
@@ -298,6 +298,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // differently, and a test fixture IS somebody composing differently.
         #[cfg(feature = "causal")]
         app.add_message::<crate::features::ecs::damage_apply::BodyHitResolved>();
+        #[cfg(feature = "causal")]
+        app.add_message::<crate::causal::BodyMovementOps>();
         // **AN INSTRUMENT REGISTERS WHAT IT READS.**
         //
         // ⛔ found by running `ladder_probe --features causal`, which panicked
@@ -531,6 +533,15 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // `asked != holding` is 0 of 2279.
                 #[cfg(feature = "causal")]
                 crate::causal::record_body_control_frame,
+                // The kernel's own operation list — `Dash`, `DodgeRoll`,
+                // `WallJump`, `LedgeClimbStart`, … — which `FrameEvents` has
+                // always carried and nothing published. One recorder covers
+                // every velocity writer inside the movement kernel, which
+                // cannot publish for itself: it has no `ambition_causal`
+                // dependency and the floor contract allows it only
+                // `ambition_geometry`.
+                #[cfg(feature = "causal")]
+                crate::causal::record_movement_operations,
                 // The SECOND blanking position, and the one that makes
                 // `ScriptedControl` mean the same thing for every body.
                 //

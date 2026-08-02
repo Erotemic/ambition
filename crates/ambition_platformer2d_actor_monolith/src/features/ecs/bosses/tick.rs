@@ -418,8 +418,11 @@ pub fn tick_boss_brains_system(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let feature_world =
-        ambition_platformer2d_world::collision::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let feature_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
+        &world.0,
+        &platform_set.0,
+        &overlay,
+    );
     for (
         _entity,
         feature,
@@ -730,8 +733,11 @@ pub fn integrate_boss_bodies(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let feature_world =
-        ambition_platformer2d_world::collision::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let feature_world = ambition_platformer2d_world::collision::world_with_sandbox_solids(
+        &world.0,
+        &platform_set.0,
+        &overlay,
+    );
     let combat_tuning = feel_tuning.feature_combat_tuning();
     for (
         entity,
@@ -784,6 +790,8 @@ pub fn integrate_boss_bodies(
             &mut sfx,
             &mut vfx,
             &mut hit_events,
+            #[cfg(feature = "causal")]
+            None,
         );
         *motion_facts = ambition_platformer2d_core::BodyMotionFacts::from_model(&motion_model);
     }

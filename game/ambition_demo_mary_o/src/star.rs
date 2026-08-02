@@ -77,9 +77,10 @@ pub fn pocket_quasar() -> EquipmentRow {
 
 /// A star currently burning on this body.
 ///
-/// Registered snapshot state in spirit: it gates whether hits land, and anything
-/// that can cause a hit to be IGNORED is simulation state. (Rollback registration
-/// for the demo's own components is a separate pass; noted rather than assumed.)
+/// **Registered snapshot state**, because it gates whether hits land — and
+/// anything that can cause a hit to be IGNORED is simulation state regardless of
+/// which struct it lives on. Registered in `lib.rs` beside the demo's other sim
+/// rows; it rides the player body, which the engine already anchors.
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct StarPower {
     pub remaining: f32,
@@ -109,6 +110,11 @@ pub fn begin_star_power(
 ) {
     for (body, mut worn) in &mut players {
         if worn.unequip(POCKET_QUASAR_ID).is_some() {
+            // The entity id matters: the overlay binds to whichever body carries
+            // `BodyOffense`, and if the star lands somewhere else the fact it
+            // writes is invisible to the effect. Printing both sides is the only
+            // way to tell "did not run" from "ran on the wrong body".
+            info!(target: "mary_o::quasar", "star begins on {body}");
             commands.entity(body).try_insert(StarPower::fresh());
         }
     }
@@ -124,7 +130,17 @@ pub fn run_star_power(
     mut bodies: Query<(Entity, &mut StarPower, &mut BodyHealth, &mut BodyOffense)>,
 ) {
     let dt = time.scaled_dt;
+    if bodies.is_empty() {
+        return;
+    }
     for (entity, mut star, mut health, mut offense) in &mut bodies {
+        if !offense.invincible {
+            info!(
+                target: "mary_o::quasar",
+                "star lighting `invincible` on {entity} (remaining {:.2}s, dt {dt})",
+                star.remaining
+            );
+        }
         star.remaining -= dt;
         let burning = star.remaining > 0.0;
         health

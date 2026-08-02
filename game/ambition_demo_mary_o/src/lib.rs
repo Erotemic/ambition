@@ -1229,6 +1229,21 @@ pub fn install_mary_o_content(app: &mut App) {
                 "ambition_demo_mary_o",
                 "content.mary_o_ai_slop",
             )
+            // A burning star is authoritative sim state by the strictest reading
+            // of it: while it runs, hits do not land, and anything that can make
+            // a hit be IGNORED has to survive a rewind or the two sims disagree
+            // about whether the player took damage. It rides the player BODY,
+            // which the engine already anchors.
+            //
+            // Its own doc comment said this and it was not done — which matters
+            // more than the tidiness: `BodyOffense` IS rollback state, so a star
+            // that vanishes across a restore leaves the fact it was writing
+            // un-refreshed, and the invincibility silently stops without the
+            // pickup ever having been spent.
+            .rollback_component_clone::<star::StarPower>(
+                "ambition_demo_mary_o",
+                "content.mary_o_star_power",
+            )
             // A transit in flight is authoritative sim state — it OWNS the body's
             // position for half a second, so a rewind that dropped it would put a
             // half-swallowed player back on the surface. It rides on the player

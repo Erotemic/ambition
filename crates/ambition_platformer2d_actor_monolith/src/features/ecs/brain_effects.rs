@@ -242,21 +242,13 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
         #[cfg(feature = "causal")]
         if let (Some(log), Ok(identity)) = (log.as_mut(), identities.get(msg.actor)) {
             if log.is_recording() {
-                log.record(
-                    ambition_causal::CausalFact::new(
-                        ambition_causal::domains::MOVEMENT,
-                        tick.as_deref().map_or(0, |t| t.get()),
-                        ambition_causal::FactDetail::new(
-                            "velocity_authored",
-                            format!("ranged recoil pushed this body {:+.0}/s", kick.x),
-                        ),
-                    )
-                    .about(ambition_causal::SubjectKey::Sim(identity.id.clone()))
-                    .field("writer", "ranged_recoil")
-                    .field("kick_x", kick.x)
-                    .field("vel_x_before", before.x)
-                    .field("vel_x_after", kin.vel.x),
-                );
+                log.record(ambition_causal::velocity_authored(
+                    tick.as_deref().map_or(0, |t| t.get()),
+                    ambition_causal::SubjectKey::Sim(identity.id.clone()),
+                    "ranged_recoil",
+                    before.x,
+                    kin.vel.x,
+                ));
             }
         }
     }

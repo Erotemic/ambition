@@ -51,16 +51,18 @@ mod ecs;
 mod fact;
 mod log;
 mod sink;
+mod velocity;
 
-pub use fact::{
-    CausalDomain, CausalFact, Execution, FactDetail, FactId, FactValue, SubjectKey, domains,
-};
 #[cfg(feature = "bevy")]
 pub use ecs::CausalRecording;
+pub use fact::{
+    domains, CausalDomain, CausalFact, Execution, FactDetail, FactId, FactValue, SubjectKey,
+};
 pub use log::{CausalLog, ExecutionKey, Explanation, RecordingPolicy};
 pub use sink::{
-    CausalSink, facts_lost_offthread, record, recording, reset_lost_offthread, with_sink,
+    facts_lost_offthread, record, recording, reset_lost_offthread, with_sink, CausalSink,
 };
+pub use velocity::velocity_authored;
 
 #[cfg(test)]
 mod tests;

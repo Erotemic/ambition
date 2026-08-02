@@ -833,6 +833,11 @@ pub fn resolve_attack_gestures(
 /// path — and they are byte-identical expressions. Naming them apart is the
 /// point: "a move moved this body" is one answer, "a CANCEL moved this body"
 /// is a different bug.
+///
+/// The fact itself comes from `ambition_causal::velocity_authored`, so this
+/// writer's story has the same shape as every other one. The move id rides
+/// along as an extra field rather than being folded into the label — a label is
+/// a SITE, and there is one site per arm however many moves flow through it.
 #[cfg(feature = "causal")]
 #[allow(clippy::too_many_arguments)]
 fn record_impulse_authorship(
@@ -844,7 +849,7 @@ fn record_impulse_authorship(
     move_id: &str,
     before: ae::Vec2,
     after: ae::Vec2,
-    impulse: ae::Vec2,
+    _impulse: ae::Vec2,
 ) {
     let (Some(log), Ok(identity)) = (log, identities.get(body)) else {
         return;
@@ -853,20 +858,14 @@ fn record_impulse_authorship(
         return;
     }
     log.record(
-        ambition_causal::CausalFact::new(
-            ambition_causal::domains::MOVEMENT,
+        ambition_causal::velocity_authored(
             tick.map_or(0, |t| t.get()),
-            ambition_causal::FactDetail::new(
-                "velocity_authored",
-                format!("move '{move_id}' impulsed this body {:+.0}/s", impulse.x),
-            ),
+            ambition_causal::SubjectKey::Sim(identity.id.clone()),
+            writer,
+            before.x,
+            after.x,
         )
-        .about(ambition_causal::SubjectKey::Sim(identity.id.clone()))
-        .field("writer", writer)
-        .field("move_id", move_id.to_string())
-        .field("kick_x", impulse.x)
-        .field("vel_x_before", before.x)
-        .field("vel_x_after", after.x),
+        .field("move_id", move_id.to_string()),
     );
 }
 

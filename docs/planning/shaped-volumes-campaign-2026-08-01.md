@@ -1,0 +1,282 @@
+# Shaped volumes — one authored swing, every consumer reads its real shape
+
+**Armed:** 2026-08-01, on Jon's instruction. Surveyed against source, not docs.
+
+**The objective, in Jon's words:**
+
+> I want it to be easy for an artist to know what hitpoly they are writing a
+> sprite for. Conversely I want a really good effect to have an artist be able
+> to draw a hitpoly to match it.
+
+Everything below serves that sentence. The correctness work (fronts A and B) is
+not a separate campaign — it is the substrate that has to be true before an
+artist can trust either direction.
+
+---
+
+## The thesis
+
+A swing is authored **once**, as a shape descriptor. The hit polygon, the
+drawn effect, and the runtime cue are all *derived* from that one object, so
+they cannot disagree. Today there is no such object: the poly, the box, and the
+art are three independent authorings of the same swing, and the runtime
+discards the shape before presentation ever sees it.
+
+---
+
+## What is true today, with evidence
+
+### 1. The manifest carries two independently-authored geometries per attack
+
+`tools/ambition_sprite2d_renderer/.../targets/characters/robot_side.py:214`:
+
+```python
+"attack_side": shaped(
+    box (cx + w*0.26, h*0.12, w*0.60, h*0.72),
+    cone(cx - w*0.06, body_cy, 1.0, 0.0, w*1.34, h*0.22, h*0.62),
+),
+```
+
+Both reproduce the shipped manifest exactly (`w = h = 128`, `cx = 64`,
+`body_cy = 60.16`). Nothing derives one from the other, and nothing checks even
+a containment relation:
+
+| | near x | far x | y span |
+|---|---|---|---|
+| `bbox` | 97.3 | 174.1 | 15.4 … 107.5 (92 tall) |
+| `poly` | 56.3 | 258.7 | −19.2 … 139.5 (159 tall) |
+
+The poly begins *behind* the box's near edge (at the body, where the swing
+originates), reaches ~1.8× further out, and is ~1.7× taller. That is by
+construction — `cone()`'s docstring says the hull is deliberately unclamped —
+but nothing makes it a *deliberate* relationship rather than an accident.
+
+Minor corroboration of drift: `box()` also emits `active_frames: [0, 1, 2]`,
+which `core/manifest_ron.py:50-69` silently drops. It has never reached a
+manifest.
+
+### 2. One authored attack has two geometries, depending on who reads it
+
+| consumer | reads | file |
+|---|---|---|
+| actor / player melee | `poly` first, `bbox` as fallback | `character_sprites/attack_hitbox.rs:100` |
+| **boss** | `parts` / `bbox` / `frames` only — never `poly` | `boss_encounter/attack_geometry/frame.rs:128` |
+
+The boss path's signature is `-> Vec<ae::Aabb>`; it structurally cannot express
+a hull. So a boss swinging the identical manifest row gets a volume ~45%
+shorter-reaching and ~40% shorter than the player's, silently. This is the same
+failure shape as "the two fighters in a Smash match are built by two different
+paths".
+
+### 3. The VFX seam destroys the shape in three lossy steps
+
+1. **Hull → AABB** — `moveset/mod.rs:682`: `let b = hb.world_volume(kin.pos).bounds();`
+2. **AABB → one scalar** — `combat/src/util.rs:216`:
+   `((half_size * 2.0).max_element() * 2.0).max(24.0)`. Aspect ratio is discarded.
+3. **Scalar → square** — `slash_visuals.rs:202`: `custom_size = Some(BVec2::splat(size))`.
+
+The message type is the whole contract:
+`VfxMessage::Slash { center: Vec2, size: f32, kind, pose, dir: Vec2 }`.
+One point, one number, one direction.
+
+For `attack_side` at a 30×48 body (scale ≈ 0.506): the hull's bounds are
+≈ 102 × 80 world units, so `size` = 204.8, and a **205 × 205 square** is drawn
+centered on the bounds centroid. The hull — a cone 98 long, 28 tall at the body
+flaring to 80 at the tip — is about **13% of the drawn quad's area**. The
+observed "the vfx has low overlap with the hit polygon" is arithmetic, not
+taste.
+
+§7.2's stated invariant ("one box drives damage AND presentation, so they can
+never point different ways") is real but covers **direction only**. Extent and
+shape were never carried.
+
+Under non-screen-down gravity `.bounds()` of a rotated hull inflates further,
+so the mismatch is worse sideways.
+
+### 4. The art and the poly live in different worlds
+
+| | hit poly | slash art |
+|---|---|---|
+| where | `targets/characters/robot_side.py::attack_hitboxes` | `targets/props/robot_slash.py` |
+| frame | 128×128, anchored at `feet_pixel` | 160×160, centered, no anchor |
+| scope | per character, per animation | **one sheet for the entire game** |
+
+`SLASH_SHEET = "robot_slash"` is a hardcoded const at `slash_visuals.rs:30`.
+Four rows (`side`/`up`/`down`/`poke`) serve ~8 authored attack polys. There is
+no channel by which the art author could know which poly they are drawing for,
+because they are drawing for all of them at once.
+
+`robot_slash.py`'s own docstring says "The game sizes this effect to the
+resolved melee hitbox" — true only in the `max_element × 2` sense above. That
+sentence is why an agent asked to fix the fit would believe the fit was already
+handled.
+
+Contrast that makes the gap sharp: the protagonist's slash **sound** already
+retargets per character (`apply_player_robot_slash_sfx` — dry air swing,
+material selector, own rebound cue), while its slash **art** cannot. It is not
+the robot's blade; it is the engine's blade.
+
+### 5. Hurtboxes are rect-only, and the original boss's are wrong
+
+`strike_reaches_victim` (`hitbox/mod.rs:85`) tests
+`world_volume.intersects_aabb(*part)` — every published hurtbox part is an
+`Aabb`. `AnimationBox.poly` exists (`ambition_sprite_sheet/src/lib.rs:278`) but
+no hurtbox authoring or consumer uses it.
+
+Multi-*rect* hurtboxes already exist and are already wrong on the original boss.
+`assets/sprites_0_5x/boss_spritesheet.ron` (clockwork_warden / Gradient
+Sentinel, `sprite_target: "boss"`):
+
+- `body_pixel_bbox` spans x **8 … 114**
+- `floor_slam` / `dash_echo` hurtbox parts: `head` x 46…82, `body` x 42…86
+
+The published silhouette covers roughly the middle 40% of the visible body.
+Several animations (`death`) fall back to a single coarse bbox. Jon's call:
+this boss is the proving ground — its hurtboxes need redoing anyway, so redo
+them **as parts with polys**, once.
+
+### 6. Two orphans found on the way
+
+- `PLAYER_ATTACK_HITBOX_SCALE = 1.3` (`attack_hitbox.rs:185`) — Jon's 2026-07-12
+  blind fix for making dair/up-tilt easier to pogo — lives on the
+  `sprite_character_id == None` arm. Both live callers pass `Some(id)`
+  (`moveset/mod.rs:584`, `ecs/attack.rs:300`), so it has been inert since the
+  lookup became character-id-keyed. The module doc at `attack_hitbox.rs:10`
+  still claims the player path uses `player_placeholder_render_size`; that arm
+  is unreachable. Decide explicitly whether to restore the 1.3 on the live path
+  or delete it — do not leave it as decoration.
+- The same divergence means the hitbox is derived at `sprite_render_size`
+  (×1.0) while the player sprite is *drawn* at `player_placeholder_render_size`
+  (×1.16, `ambition_render/.../actors/mod.rs:117,759`) — the box is built at
+  ~86% of the drawn sprite's scale.
+
+---
+
+## Decisions taken (Jon, 2026-08-01)
+
+1. **Unify on `CombatVolume`; keep `Aabb` as a variant.** The AABB fast path is
+   already *inside* the type — `intersects` (`combat_volume.rs:130`) is
+   bounds-reject → box-vs-box exact → Parry. Unifying the API costs nothing.
+   What costs is making everything *actually* a hull: `convex_shape`
+   (`:206`) allocates a `Vec<Vector>` and calls `ConvexPolygon::from_convex_hull`
+   **per test, per side, per tick**, on points that are already a convex hull.
+   So: unify the type, never force a rect authoring into a hull.
+2. **Hurtboxes go multi-part, in this campaign.** A single convex hull cannot
+   represent disjoint pieces — one hull over head + torso + outstretched arm
+   fills the armpit and every gap, which is *less* accurate than today's
+   multi-rect. Per part it is. Clockwork Warden is the proving ground.
+3. **Attack effects are per character**, with several characters allowed to
+   reference the same effect by id.
+4. **The runtime cue carries the descriptor, not a hull and not a rect.**
+   `{ origin, dir, length, near_half, far_half }` — five floats, `Copy`, same
+   message size as an oriented rect and strictly more information. The renderer
+   builds today's quad from it with no new render tech; a later mesh path builds
+   a conforming cone from the same five numbers with no message change. The
+   oriented rect is the degenerate case (`near_half == far_half`).
+
+The descriptor is the point. `cone(ox, oy, dx, dy, length, near_w, far_w, tip)`
+at `robot_side.py:157` already *is* these numbers. Promoting it to a
+first-class authored object makes one thing flow
+**authoring → hit poly → runtime cue → drawn art**, which is exactly Jon's two
+directions collapsing into one edit.
+
+---
+
+## The four fronts
+
+Ordered by dependency. C and D are the visible slice and should land together;
+A and B are the substrate and can proceed in parallel with them.
+
+### Front C — the runtime cue carries the shape
+
+- Replace `VfxMessage::Slash { size: f32 }` with the descriptor
+  `{ origin, dir, length, near_half, far_half }` (plus existing `kind`, `pose`).
+- `emit_melee_slash` derives the descriptor from the resolved `CombatVolume`
+  instead of `.bounds()` + `max_element`. For a `Convex` hull: near edge
+  midpoint → tip along the swing axis; near/far half-heights perpendicular.
+- `spawn_one` builds an oriented quad from the descriptor rather than
+  `splat(size)`. Rotation continues to come from the swing axis.
+- Delete `slash_effect_size`; its `SLASH_EFFECT_SCALE = 2.0` becomes an explicit
+  presentation margin on the descriptor, not a shape-destroying multiplier.
+
+**Done when:** the drawn quad's footprint and the hit poly's footprint agree to
+within the authored margin, verified by a capture with `show_combat_preview`
+on — the box you see and the art you see are the same swing.
+
+### Front D — the swing descriptor as the shared authoring object
+
+- Promote `cone` / `poke` / `ring` from local closures in `attack_hitboxes` to a
+  named, exported descriptor type in the generator.
+- Descriptor → hit poly (what it already does).
+- Descriptor → slash art: the crescent's inner/outer arc, length and flare drawn
+  from the *same* numbers, per character.
+- Per-character slash sheets, resolved by id the way the SFX family already is,
+  with sharing by reference so several characters can name one effect. Retire
+  the `SLASH_SHEET` const.
+- **The preview.** `authoring/frame_debug.py:79` already overlays
+  `attack_hitboxes` onto character frames. What does not exist is a composite
+  that draws **character frame + hit poly + slash art at the size and placement
+  the game will use**. That artifact is what makes "know what you are drawing
+  for" true. Both halves already render; this is compositing, not new art code.
+
+**Done when:** an artist can run one command, see the poly and the effect
+superimposed at game scale, edit five numbers, and see both move together.
+
+**Open question — `ring`.** The aerial-neutral spin (`ring()`, a hexagonal hull
+around the body) does not fit `{origin, dir, length, near_half, far_half}`. It
+needs either its own descriptor variant or a radial degenerate form
+(`length = 0`, `near_half = far_half = radius`). Decide before implementing
+front C's message type, since it fixes the enum shape.
+
+### Front A — the boss path reads shaped volumes
+
+- `attack_geometry` returns `Vec<CombatVolume>` instead of `Vec<Aabb>`;
+  `active_attack_volumes`, damage resolution, and the debug overlay follow.
+- Then **delete `bbox` from attack rows in the generator**. With one shaped
+  consumer there is no second authoring to drift.
+- Interim safety if A lands after D: emit `bbox = bounds(poly)` from the
+  generator so the box is at least a true fallback that *contains* the real
+  volume, instead of a differently-shaped rectangle.
+
+### Front B — hurtboxes go shaped and multi-part
+
+- `DamageableVolumes` carries `Vec<CombatVolume>` instead of `Vec<Aabb>`.
+- `strike_reaches_victim` uses `intersects` rather than `intersects_aabb`.
+- Author the Gradient Sentinel's hurtboxes as parts-with-polys and fix the
+  coverage gap in §5 while doing it.
+- Simple bodies keep authoring one part; one hull is already strictly better
+  than one rect for a humanoid. Allow N, author 1.
+
+**Performance notes to apply when B lands** (not before — today's volume counts
+do not justify them):
+
+- `ConvexPolygon::from_convex_polyline` instead of `from_convex_hull`; the
+  points are already hulls.
+- Cache the Parry shape on the `Hitbox` rather than rebuilding per test.
+  Hitboxes × bodies × parts tests per tick, each building two hulls, is pure
+  repeated work on static geometry.
+
+---
+
+## Non-goals
+
+- Runtime hull-clipped or mesh-based VFX. The descriptor keeps that door open;
+  this campaign does not walk through it.
+- Hurtbox polys for every character. Multi-part shaped hurtboxes must be
+  *possible* and must be right on the proving-ground boss; a rect stays the
+  honest authoring for a body that is a rect.
+- Changing what any attack does. This is geometry and authoring plumbing —
+  damage, knockback, and timing are untouched. Any felt combat change is a
+  regression, not a result.
+
+---
+
+## How we will know it worked
+
+1. The generator preview shows poly and effect superimposed, at game scale, for
+   the protagonist's `attack_side`.
+2. Editing the descriptor's `far_half` visibly moves *both* in the next preview.
+3. The Gradient Sentinel's published hurtbox covers its visible body.
+4. A boss and the player swinging the same authored row produce the same volume.
+5. No attack row in any manifest carries both a `poly` and an independently
+   authored `bbox`.

@@ -827,6 +827,49 @@ pub fn resolve_attack_gestures(
 /// actor's melee, the PCA's signature move, a folded boss's pattern, and the
 /// player's directional repertoire (R2.5). A body authoring only `"attack"`
 /// resolves every direction to it — byte-identical to the pre-directional path.
+/// **Name the writer of a move's self-motion impulse.**
+///
+/// Two call sites author the same impulse — the plain trigger and the CANCEL
+/// path — and they are byte-identical expressions. Naming them apart is the
+/// point: "a move moved this body" is one answer, "a CANCEL moved this body"
+/// is a different bug.
+#[cfg(feature = "causal")]
+#[allow(clippy::too_many_arguments)]
+fn record_impulse_authorship(
+    log: Option<&mut ambition_causal::CausalRecording>,
+    identities: &Query<&crate::components::ActorIdentity>,
+    tick: Option<&ambition_time::SimTick>,
+    body: Entity,
+    writer: &'static str,
+    move_id: &str,
+    before: ae::Vec2,
+    after: ae::Vec2,
+    impulse: ae::Vec2,
+) {
+    let (Some(log), Ok(identity)) = (log, identities.get(body)) else {
+        return;
+    };
+    if !log.is_recording() {
+        return;
+    }
+    log.record(
+        ambition_causal::CausalFact::new(
+            ambition_causal::domains::MOVEMENT,
+            tick.map_or(0, |t| t.get()),
+            ambition_causal::FactDetail::new(
+                "velocity_authored",
+                format!("move '{move_id}' impulsed this body {:+.0}/s", impulse.x),
+            ),
+        )
+        .about(ambition_causal::SubjectKey::Sim(identity.id.clone()))
+        .field("writer", writer)
+        .field("move_id", move_id.to_string())
+        .field("kick_x", impulse.x)
+        .field("vel_x_before", before.x)
+        .field("vel_x_after", after.x),
+    );
+}
+
 pub fn trigger_moveset_moves(
     mut commands: Commands,
     mut bodies: Query<(
@@ -849,7 +892,20 @@ pub fn trigger_moveset_moves(
         // trigger path.
         Option<&mut MovePlayback>,
     )>,
+    // ⛔ **WHO WROTE THIS BODY'S VELOCITY.** A move's `start_impulse` is a
+    // velocity write outside the integrator, and the causal log reported what
+    // the velocity WAS and never who set it — which cost six rebuild-and-print
+    // cycles on one 12-tick window before the first authored fact existed
+    // (queue S51). This is the second writer to name itself.
+    //
+    // ⚠ `Option` on both: the FEATURE and the PLUGIN are two switches, and a
+    // body without an identity is still a body.
+    #[cfg(feature = "causal")] log: Option<bevy::prelude::ResMut<ambition_causal::CausalRecording>>,
+    #[cfg(feature = "causal")] identities: Query<&crate::components::ActorIdentity>,
+    #[cfg(feature = "causal")] tick: Option<bevy::prelude::Res<ambition_time::SimTick>>,
 ) {
+    #[cfg(feature = "causal")]
+    let mut log = log;
     for (entity, moveset, control, gesture, resolved_frame, mut kin, ground, playback) in
         &mut bodies
     {
@@ -953,7 +1009,21 @@ pub fn trigger_moveset_moves(
             if let Some((ix, iy)) = spec.start_impulse {
                 let local = ae::Vec2::new(ix * kin.facing, iy);
                 let world_impulse = body_frame.to_world(local);
+                let before = kin.vel;
                 kin.vel += world_impulse;
+                #[cfg(feature = "causal")]
+                record_impulse_authorship(
+                    log.as_deref_mut(),
+                    &identities,
+                    tick.as_deref(),
+                    entity,
+                    "move_start_impulse_cancel",
+                    &spec.id,
+                    before,
+                    kin.vel,
+                    world_impulse,
+                );
+                let _ = before;
             }
             commands
                 .entity(entity)
@@ -968,7 +1038,21 @@ pub fn trigger_moveset_moves(
             if let Some((ix, iy)) = spec.start_impulse {
                 let local = ae::Vec2::new(ix * kin.facing, iy);
                 let world_impulse = body_frame.to_world(local);
+                let before = kin.vel;
                 kin.vel += world_impulse;
+                #[cfg(feature = "causal")]
+                record_impulse_authorship(
+                    log.as_deref_mut(),
+                    &identities,
+                    tick.as_deref(),
+                    entity,
+                    "move_start_impulse",
+                    &spec.id,
+                    before,
+                    kin.vel,
+                    world_impulse,
+                );
+                let _ = before;
             }
             commands
                 .entity(entity)

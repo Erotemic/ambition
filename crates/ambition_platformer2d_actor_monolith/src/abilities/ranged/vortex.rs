@@ -236,7 +236,7 @@ mod tests {
                 ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health {
                     current: 0,
                     max: 3,
-                    invulnerable: false,
+                    invulnerable: Default::default(),
                 }),
             ))
             .id();

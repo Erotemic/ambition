@@ -139,7 +139,7 @@ fn breakable_from_authored(
         health: ambition_characters::actor::Health {
             current: authored.payload.health_current,
             max: authored.payload.health_max,
-            invulnerable: false,
+            invulnerable: Default::default(),
         },
         respawn: authored.payload.respawn,
         collision: breakable_collision_from_spec(authored.payload.collision),

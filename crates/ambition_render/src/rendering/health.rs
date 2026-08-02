@@ -54,7 +54,7 @@ pub fn sync_boss_health_bar_overlay(
                 Health {
                     current: view.hp_current,
                     max: view.hp_max,
-                    invulnerable: false,
+                    invulnerable: Default::default(),
                 },
                 ident.name.clone(),
             ))
@@ -205,7 +205,7 @@ pub fn sync_health_overlays(
             Health {
                 current: pose.hp_current,
                 max: pose.hp_max,
-                invulnerable: false,
+                invulnerable: Default::default(),
             },
             Color::srgba(0.30, 0.92, 1.00, 0.96),
         );
@@ -215,7 +215,7 @@ pub fn sync_health_overlays(
         let hp = Health {
             current: view.hp_current,
             max: view.hp_max,
-            invulnerable: false,
+            invulnerable: Default::default(),
         };
         match view.kind {
             FeatureVisualKind::Actor => {

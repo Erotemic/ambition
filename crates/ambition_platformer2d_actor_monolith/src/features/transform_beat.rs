@@ -77,11 +77,6 @@ impl Default for TransformBeatPolicy {
 pub struct TransformBeat {
     pub remaining: f32,
     pub policy: TransformBeatPolicy,
-    /// Whether the body was already invulnerable when the beat started, so
-    /// ending it RESTORES rather than clears. Sanic's super form is invulnerable
-    /// on its own; a beat that ended by writing `false` would strip the very
-    /// trait the transformation just granted.
-    pub was_invulnerable: bool,
 }
 
 /// "This body just became something else." Written by whoever owns the meaning
@@ -112,12 +107,11 @@ pub fn begin_requested_transform_beats(
             Entity,
             Option<&TransformBeatPolicy>,
             Option<&mut BodyHealth>,
-            Option<&TransformBeat>,
         ),
         With<TransformBeatRequested>,
     >,
 ) {
-    for (body, policy, health, existing) in &mut bodies {
+    for (body, policy, health) in &mut bodies {
         // The request is consumed either way: an unauthored body transforms
         // instantly, which is what every body did before this seam existed, and
         // a request left behind would re-fire every frame.
@@ -125,23 +119,21 @@ pub fn begin_requested_transform_beats(
         let Some(policy) = policy else {
             continue;
         };
-        // Capture the pre-beat invulnerability ONCE: a restart mid-beat must
-        // not record the beat's own grant as the state to restore.
-        let was_invulnerable = match existing {
-            Some(beat) => beat.was_invulnerable,
-            None => health
-                .as_deref()
-                .is_some_and(|health| health.health.invulnerable),
-        };
+        // TAKE the transformation's own reason. Nothing is captured and
+        // nothing is restored: a star burning through this transformation holds
+        // `STAR` the whole time and is unaffected by us taking and releasing
+        // `TRANSFORMING`, which is the entire reason invulnerability is a set.
         if policy.untouchable {
             if let Some(mut health) = health {
-                health.health.invulnerable = true;
+                health
+                    .health
+                    .invulnerable
+                    .set(ambition_characters::actor::Invulnerability::TRANSFORMING, true);
             }
         }
         commands.entity(body).try_insert(TransformBeat {
             remaining: policy.duration,
             policy: *policy,
-            was_invulnerable,
         });
     }
 }
@@ -190,12 +182,15 @@ pub fn run_transform_beats(
             continue;
         }
 
-        // Done: release the pose, and give back exactly what was borrowed. A
-        // transformation that GRANTS invulnerability (Sanic's super form) keeps
-        // it; one that did not gets its vulnerability back.
+        // Done: release the pose, and release OUR reason only. A transformation
+        // that happens to overlap a star leaves the star holding the body
+        // untouchable, with nothing here having to know that.
         if beat.policy.untouchable {
             if let Some(mut health) = health {
-                health.health.invulnerable = beat.was_invulnerable;
+                health
+                    .health
+                    .invulnerable
+                    .set(ambition_characters::actor::Invulnerability::TRANSFORMING, false);
             }
         }
         commands
@@ -348,16 +343,25 @@ mod tests {
         );
     }
 
-    /// The clause that makes `untouchable` real, and the trap in it: Sanic's
-    /// super form is ALREADY invulnerable when its beat starts, so a beat that
-    /// ended by writing `false` would strip the trait the transformation just
-    /// granted.
+    /// The clause that makes `untouchable` real, and the trap that used to be
+    /// in it: a body can ALREADY be untouchable for a reason of its own — a
+    /// burning star, Sanic's super form — when a transformation starts.
+    ///
+    /// The beat used to capture that as a bool and write it back on the way out,
+    /// which handled this case and would have broken the moment the other reason
+    /// STARTED mid-beat (the restore would have erased it). It takes and
+    /// releases its own reason now, so both orderings hold for the same reason
+    /// rather than one being handled and the other being an accident.
     #[test]
-    fn the_beat_borrows_invulnerability_and_gives_back_what_it_borrowed() {
-        for already_invulnerable in [false, true] {
+    fn the_beat_takes_its_own_reason_and_leaves_every_other_one_alone() {
+        use ambition_characters::actor::Invulnerability;
+
+        for star_first in [false, true] {
             let mut app = app();
             let mut health = BodyHealth::new(ambition_characters::actor::Health::new(3));
-            health.health.invulnerable = already_invulnerable;
+            if star_first {
+                health.health.invulnerable.set(Invulnerability::STAR, true);
+            }
             let body = app
                 .world_mut()
                 .spawn((
@@ -373,26 +377,40 @@ mod tests {
                 .insert(TransformBeatRequested);
 
             advance(&mut app, 0.05);
+            let mid = app.world().get::<BodyHealth>(body).unwrap().health.invulnerable;
             assert!(
-                app.world()
-                    .get::<BodyHealth>(body)
-                    .unwrap()
-                    .health
-                    .invulnerable,
-                "she can be hit out of her own transformation",
+                mid.holds(Invulnerability::TRANSFORMING),
+                "she cannot be hit out of her own transformation",
+            );
+            assert_eq!(
+                mid.holds(Invulnerability::STAR),
+                star_first,
+                "and the beat neither invents nor forgets somebody else's reason",
             );
 
-            advance(&mut app, 0.3);
-            assert_eq!(
-                app.world()
-                    .get::<BodyHealth>(body)
+            // A star that begins DURING the beat — the ordering the old
+            // save-and-restore could not survive, because the restore was
+            // decided before this reason existed.
+            if !star_first {
+                app.world_mut()
+                    .get_mut::<BodyHealth>(body)
                     .unwrap()
                     .health
-                    .invulnerable,
-                already_invulnerable,
-                "the beat did not give back the invulnerability it borrowed \
-                 (started {already_invulnerable})",
+                    .invulnerable
+                    .set(Invulnerability::STAR, true);
+            }
+
+            advance(&mut app, 0.3);
+            let after = app.world().get::<BodyHealth>(body).unwrap().health.invulnerable;
+            assert!(
+                !after.holds(Invulnerability::TRANSFORMING),
+                "the beat released its own reason when it ended",
             );
+            assert!(
+                after.holds(Invulnerability::STAR),
+                "and the star outlives it, whichever order they started in",
+            );
+            assert!(after.any(), "so the body is still untouchable");
         }
     }
 

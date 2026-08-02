@@ -13,30 +13,21 @@
 //! was a field with no producer and no consumer outside the shader, so the
 //! overlay could not have drawn once. This module is its producer.
 //!
-//! ## Untouchable has two owners, and that is a known hazard
+//! ## Untouchable is a SET, so the star does not have to know about beats
 //!
-//! Damage is gated on `Health::invulnerable` (`Health::damage`), a plain bool.
-//! The transformation beat already writes it with a save-and-restore
-//! (`TransformBeat::was_invulnerable`), so the star is a second writer of one
-//! flag — the shape that ends with a body permanently invincible or permanently
-//! not, depending on who finished last.
+//! Damage gates on `Health::invulnerable`, which is an
+//! [`Invulnerability`](ambition_platformer2d::characters::actor::Invulnerability)
+//! — a set of REASONS rather than a bool. The star takes `STAR` while it burns
+//! and releases `STAR` when it ends, and that is the whole of its concern: a
+//! transformation beat overlapping it holds `TRANSFORMING` independently, and
+//! neither can strip the other by finishing first.
 //!
-//! Two specific orderings, and what this module does about each:
-//!
-//! * **A beat starts while the star runs.** The beat captures `was_invulnerable
-//!   = true` and restores `true` when it ends. Already correct.
-//! * **The star starts during a beat.** The beat's restore would clear it. So
-//!   [`run_star_power`] does not set the flag once at pickup — it ASSERTS it
-//!   every tick it is running, and yields on the tick it expires only if no beat
-//!   is holding the flag for its own reasons. A cleared flag is repaired on the
-//!   next tick rather than lost.
-//!
-//! That is a local precedence rule at the one place the two writers meet, not a
-//! fix for the underlying shape. The real answer is for invulnerability to be
-//! the UNION of its reasons — a transformation, a star, post-hit i-frames —
-//! instead of a bool that systems set and restore, which would also delete
-//! `was_invulnerable`. That refactor touches the rollback schema and belongs in
-//! its own pass; this comment is the marker for it.
+//! This module was written against the bool first, and the difference is worth
+//! recording. With one flag it needed a local precedence rule — assert the flag
+//! every tick so a beat's restore could not eat it, and yield on expiry only if
+//! no beat was running — which is a rule that has to be re-derived every time a
+//! third writer appears. With a reason set there is no rule, because there is
+//! nothing to coordinate.
 
 use bevy::prelude::*;
 
@@ -125,36 +116,25 @@ pub fn begin_star_power(
 
 /// Hold the star: untouchable, and visibly a quasar, until it burns out.
 ///
-/// The invincible fact is ASSERTED every tick rather than set once — see the
-/// module docs for the two-writer hazard it is defending against.
+/// It writes its own reason each tick and nothing else's, so a transformation
+/// running through the middle of a star is simply not this system's problem.
 pub fn run_star_power(
     time: Res<ambition_platformer2d::time::WorldTime>,
     mut commands: Commands,
-    mut bodies: Query<(
-        Entity,
-        &mut StarPower,
-        &mut BodyHealth,
-        &mut BodyOffense,
-        Option<&ambition_platformer2d::actors::features::transform_beat::TransformBeat>,
-    )>,
+    mut bodies: Query<(Entity, &mut StarPower, &mut BodyHealth, &mut BodyOffense)>,
 ) {
     let dt = time.scaled_dt;
-    for (entity, mut star, mut health, mut offense, beat) in &mut bodies {
+    for (entity, mut star, mut health, mut offense) in &mut bodies {
         star.remaining -= dt;
-        if star.remaining > 0.0 {
-            health.health.invulnerable = true;
-            offense.invincible = true;
-            continue;
+        let burning = star.remaining > 0.0;
+        health
+            .health
+            .invulnerable
+            .set(ambition_platformer2d::characters::actor::Invulnerability::STAR, burning);
+        offense.invincible = burning;
+        if !burning {
+            commands.entity(entity).remove::<StarPower>();
         }
-        // Burnt out. The shader's fact is ours alone, so it always clears; the
-        // damage gate is SHARED, so we only give it back if nothing else is
-        // holding it — a transformation mid-star keeps its own untouchable
-        // window, and clearing here would cancel a beat we do not own.
-        offense.invincible = false;
-        if beat.is_none() {
-            health.health.invulnerable = false;
-        }
-        commands.entity(entity).remove::<StarPower>();
     }
 }
 
@@ -228,7 +208,7 @@ mod tests {
                 .get::<BodyHealth>(body)
                 .unwrap()
                 .health
-                .invulnerable,
+                .invulnerable.any(),
             "and the fact the damage gate reads"
         );
         assert!(
@@ -262,7 +242,7 @@ mod tests {
                 .get::<BodyHealth>(body)
                 .unwrap()
                 .health
-                .invulnerable,
+                .invulnerable.any(),
             "and she is ordinary again"
         );
     }

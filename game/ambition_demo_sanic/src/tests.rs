@@ -1081,7 +1081,7 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
             .get::<BodyHealth>(player)
             .unwrap()
             .health
-            .invulnerable,
+            .invulnerable.any(),
         "wearing the super form derives invincibility"
     );
 
@@ -1095,7 +1095,7 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
             .get::<BodyHealth>(player)
             .unwrap()
             .health
-            .invulnerable,
+            .invulnerable.any(),
         "wearing the form off revokes invincibility"
     );
 }

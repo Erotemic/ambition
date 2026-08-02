@@ -210,7 +210,7 @@ impl BodyHealth {
     /// hit; whether the pool follows it down, and whether emptying the pool
     /// kills, is the policy's business.
     pub fn damage(&mut self, amount: i32) -> bool {
-        if self.health.invulnerable || amount <= 0 {
+        if self.health.invulnerable.any() || amount <= 0 {
             return false;
         }
         // ⚠ NOT gated on `alive()`. That gate is what made the meter saturate:

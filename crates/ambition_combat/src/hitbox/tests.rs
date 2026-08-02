@@ -197,7 +197,7 @@ fn a_dead_victim_is_intangible_to_a_swing() {
             .insert(BodyHealth::new(Health {
                 current,
                 max: 3,
-                invulnerable: false,
+                invulnerable: Default::default(),
             }));
         app.update();
         (app, victim)

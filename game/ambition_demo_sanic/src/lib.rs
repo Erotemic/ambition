@@ -1344,9 +1344,17 @@ fn sync_super_form_traits(
     let (worn_is_super, pos, body, was_super) = match players.single_mut() {
         Ok((body, worn, mut health, kinematics, latch)) => {
             let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
-            if health.health.invulnerable != is_super {
-                health.health.invulnerable = is_super;
-            }
+            // Super Sanic and Mary-O's pocket quasar are the SAME fact wearing
+            // two names: a body that cannot be hurt because a star-grade power
+            // is on. Both take `STAR`, so a body holding it for one reason is
+            // never stripped by the other releasing it — and neither has to know
+            // the other exists. (Jon: "in super sanic mode, sanic should be
+            // invincible, even to spikes" — this is the half that says he IS
+            // invincible; whether spikes consult the gate is theirs to answer.)
+            health.health.invulnerable.set(
+                ambition_platformer2d::characters::actor::Invulnerability::STAR,
+                is_super,
+            );
             (
                 Some(is_super),
                 kinematics.pos,

@@ -365,7 +365,7 @@ fn spawn_dead_candidate(app: &mut App, pos: ambition_platformer2d_core::Vec2) ->
             ambition_characters::actor::Health {
                 current: 0,
                 max: 3,
-                invulnerable: false,
+                invulnerable: Default::default(),
             },
         ));
     e

@@ -60,12 +60,81 @@ impl Actor {
     }
 }
 
+/// **Why a body cannot be hurt right now — a SET, not a flag.**
+///
+/// More than one thing can be true at once (a transformation is playing AND a
+/// star is burning), and each owner has to be able to stop being true without
+/// deciding for the others. A bool cannot express that: the second writer to
+/// finish decides, so the loser is either left invincible forever or stripped
+/// early. The transformation beat used to carry a `was_invulnerable` field for
+/// exactly this reason — a save-and-restore is what a missing union looks like
+/// from inside one of its writers, and it only ever handled the orderings its
+/// author thought of.
+///
+/// Reasons are bits so the whole set is one `Copy` word, which keeps
+/// [`Health`] snapshot-encodable as it was.
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize,
+)]
+pub struct Invulnerability(u32);
+
+impl Invulnerability {
+    /// A transformation beat is holding the body untouchable
+    /// (`TransformBeatPolicy::untouchable`).
+    pub const TRANSFORMING: u32 = 1 << 0;
+    /// Star power / super form — a timed pickup or a game's own super state.
+    pub const STAR: u32 = 1 << 1;
+    /// A game or scripted sequence asserting it directly. The catch-all for
+    /// callers that used to write the bool and have no finer reason to give.
+    pub const SCRIPTED: u32 = 1 << 2;
+
+    /// Nothing is holding it.
+    pub const fn none() -> Self {
+        Self(0)
+    }
+
+    /// Take or release ONE reason, leaving every other reason alone. This is
+    /// the whole point of the type.
+    pub fn set(&mut self, reason: u32, held: bool) {
+        if held {
+            self.0 |= reason;
+        } else {
+            self.0 &= !reason;
+        }
+    }
+
+    /// Whether this specific reason is held.
+    pub fn holds(&self, reason: u32) -> bool {
+        self.0 & reason != 0
+    }
+
+    /// Whether ANY reason is held — the damage gate's question.
+    pub fn any(&self) -> bool {
+        self.0 != 0
+    }
+
+    /// Drop every reason (a reset / respawn).
+    pub fn clear(&mut self) {
+        self.0 = 0;
+    }
+
+    /// The raw reason bits, for snapshot encoding.
+    pub fn bits(&self) -> u32 {
+        self.0
+    }
+
+    /// Rebuild from snapshot bits.
+    pub fn from_bits(bits: u32) -> Self {
+        Self(bits)
+    }
+}
+
 /// Generic hit-point component for enemies, bosses, breakables, and the player.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Health {
     pub current: i32,
     pub max: i32,
-    pub invulnerable: bool,
+    pub invulnerable: Invulnerability,
 }
 
 impl Health {
@@ -74,7 +143,7 @@ impl Health {
         Self {
             current: max,
             max,
-            invulnerable: false,
+            invulnerable: Invulnerability::none(),
         }
     }
 
@@ -92,7 +161,7 @@ impl Health {
 
     /// Apply positive damage and return whether this call killed the entity.
     pub fn damage(&mut self, amount: i32) -> bool {
-        if self.invulnerable || amount <= 0 || !self.alive() {
+        if self.invulnerable.any() || amount <= 0 || !self.alive() {
             return false;
         }
         self.current = (self.current - amount).max(0);
@@ -107,7 +176,7 @@ impl Health {
 
     pub fn reset(&mut self) {
         self.current = self.max;
-        self.invulnerable = false;
+        self.invulnerable.clear();
     }
 }
 
@@ -127,11 +196,11 @@ mod tests {
     #[test]
     fn health_invulnerable_drops_damage() {
         let mut health = Health::new(5);
-        health.invulnerable = true;
+        health.invulnerable.set(Invulnerability::SCRIPTED, true);
         assert!(!health.damage(3));
         assert_eq!(health.current, 5);
         // Disabling invuln re-enables damage.
-        health.invulnerable = false;
+        health.invulnerable.set(Invulnerability::SCRIPTED, false);
         assert!(!health.damage(3));
         assert_eq!(health.current, 2);
     }
@@ -232,10 +301,10 @@ mod tests {
     fn health_reset_restores_max_and_clears_invuln() {
         let mut health = Health::new(8);
         health.damage(5);
-        health.invulnerable = true;
+        health.invulnerable.set(Invulnerability::SCRIPTED, true);
         health.reset();
         assert_eq!(health.current, 8);
-        assert!(!health.invulnerable);
+        assert!(!health.invulnerable.any());
     }
 
     #[test]

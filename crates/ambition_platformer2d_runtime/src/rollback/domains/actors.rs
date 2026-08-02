@@ -149,7 +149,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
     app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeat>(
         OWNER,
         "actor.transform_beat",
-        |beat| beat.remaining.to_bits() as u64 ^ u64::from(beat.was_invulnerable) << 32,
+        |beat| beat.remaining.to_bits() as u64,
     );
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeatRequested>(
         OWNER,

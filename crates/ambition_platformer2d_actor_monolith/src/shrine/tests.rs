@@ -34,7 +34,7 @@ fn interacting_at_the_shrine_heals_to_full() {
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
-                invulnerable: false,
+                invulnerable: Default::default(),
             }),
             BodyMana::default(),
         ))
@@ -93,7 +93,7 @@ fn no_heal_without_interact_or_when_not_touching() {
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
-                invulnerable: false,
+                invulnerable: Default::default(),
             }),
             BodyMana::default(),
         ))
@@ -180,7 +180,7 @@ fn resting_at_a_shrine_records_a_checkpoint_and_the_next_session_resumes_there()
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
-                invulnerable: false,
+                invulnerable: Default::default(),
             }),
             BodyMana::default(),
         ))

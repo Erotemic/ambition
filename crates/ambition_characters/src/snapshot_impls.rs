@@ -78,7 +78,7 @@ impl SnapshotState for crate::actor::BodyHealth {
     fn encode(&self, out: &mut Vec<u8>) {
         put_i32(out, self.health.current);
         put_i32(out, self.health.max);
-        put_bool(out, self.health.invulnerable);
+        put_u32(out, self.health.invulnerable.bits());
         put_i32(out, self.damage_taken());
         self.policy().encode(out);
     }
@@ -86,7 +86,7 @@ impl SnapshotState for crate::actor::BodyHealth {
         let health = crate::actor::Health {
             current: r.i32()?,
             max: r.i32()?,
-            invulnerable: r.bool()?,
+            invulnerable: crate::actor::Invulnerability::from_bits(r.u32()?),
         };
         let damage_taken = r.i32()?;
         let policy = crate::actor::DeathPolicy::decode(r)?;

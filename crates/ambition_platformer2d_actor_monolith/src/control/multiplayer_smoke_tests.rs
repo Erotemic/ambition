@@ -255,7 +255,7 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
-                invulnerable: false,
+                invulnerable: Default::default(),
             }),
         ))
         .id();
@@ -267,7 +267,7 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
-                invulnerable: false,
+                invulnerable: Default::default(),
             }),
         ))
         .id();
@@ -305,7 +305,7 @@ fn untargeted_heal_routes_to_primary() {
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
-                invulnerable: false,
+                invulnerable: Default::default(),
             }),
         ))
         .id();
@@ -317,7 +317,7 @@ fn untargeted_heal_routes_to_primary() {
             BodyHealth::new(ambition_characters::actor::Health {
                 current: 1,
                 max: 5,
-                invulnerable: false,
+                invulnerable: Default::default(),
             }),
         ))
         .id();

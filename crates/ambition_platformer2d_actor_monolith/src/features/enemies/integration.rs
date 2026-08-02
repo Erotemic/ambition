@@ -181,9 +181,8 @@ impl<'a> ActorMut<'a> {
         // ONE integration arm for every actor: the kernel dispatches on the
         // body's explicit MotionModel (axis-swept, surface momentum, or the
         // adhesive crawler — the former hidden surface-walker path).
-        let move_events = self.integrate_body(
+        let (move_events, walked_into_wall) = self.integrate_body(
             world,
-            ai.intent,
             &frame,
             motion_model,
             dt,
@@ -199,6 +198,23 @@ impl<'a> ActorMut<'a> {
         // gated on `attacks_player`, which left peaceful actors facing-frozen.)
         if frame.facing.abs() > 0.001 {
             self.kin.facing = frame.facing.signum();
+        }
+
+        // **The wall gets the last word.** A brain commits its facing from the
+        // body state it read at the START of the tick, so on the tick the body
+        // stalls against a wall the brain is still asking to walk into it — and
+        // the commit above would erase the turn. Ordering this after the commit
+        // is the whole fix; the brain sees the new facing next tick and asks to
+        // walk the other way (`tick_wanderer` reads `actor_facing`), so the two
+        // agree from then on instead of fighting every frame.
+        //
+        // This is why turning at walls has never been observed. The reverse
+        // existed, but it ran INSIDE `integrate_body`, one line before this
+        // commit overwrote it — dead on arrival for every body whose brain
+        // commits a facing, which is every walker. Jon: "the enemies need to
+        // reverse direction when they hit a wall."
+        if walked_into_wall.0 && self.config.tuning.turns_at_walls {
+            self.kin.facing = -self.kin.facing;
         }
 
         if frame.fire.is_some() {
@@ -230,7 +246,6 @@ impl<'a> ActorMut<'a> {
     fn integrate_body(
         &mut self,
         world: &ae::World,
-        ai_intent: ambition_characters::actor::ai::CharacterAiIntent,
         frame: &ambition_characters::actor::control::ActorControlFrame,
         motion_model: &mut crate::features::MotionModel,
         dt: f32,
@@ -244,7 +259,7 @@ impl<'a> ActorMut<'a> {
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
         stagger: (f32, f32),
-    ) -> ae::FrameEvents {
+    ) -> (ae::FrameEvents, WalkedIntoWall) {
         // Wall-stop detection on the frame-PERPENDICULAR "side" axis the actor
         // walks along (so a patroller reverses when it stalls against a wall,
         // correctly under sideways gravity too).
@@ -349,16 +364,17 @@ impl<'a> ActorMut<'a> {
         if let Some(motion) = &mut self.motion.0 {
             let _ = motion.advance(self.kin.pos, dt);
         }
-        // Patrol stall → reverse (a wall-stopped patroller turns around).
-        if matches!(
-            ai_intent,
-            ambition_characters::actor::ai::CharacterAiIntent::Patrol
-        ) && prev_side_speed.abs() > 1.0
-            && self.kin.vel.dot(perp).abs() < 0.01
-        {
-            self.kin.facing *= -1.0;
-        }
-        events
+        // **Walked into a wall**: "was moving along the surface, now is not".
+        // Frame-relative (`perp`), so it holds under a gravity flip the way a
+        // raycast to the right would not.
+        //
+        // REPORTED, not acted on. Turning around here is what this code used to
+        // do — and `update` overwrites `kin.facing` from the brain's committed
+        // direction immediately after this returns, so the turn was written and
+        // erased within the same tick, every tick. See the ordering in `update`.
+        let walked_into_wall =
+            WalkedIntoWall(prev_side_speed.abs() > 1.0 && self.kin.vel.dot(perp).abs() < 0.01);
+        (events, walked_into_wall)
     }
 
     // ---- Consumer-facing geometry / combat helpers (ports of the
@@ -585,3 +601,13 @@ impl ContactAttack {
 mod dash_tests;
 #[cfg(test)]
 mod respawn_policy_tests;
+
+/// "This body was walking along its surface and something stopped it" — the
+/// wall fact, reported out of the integration step so the turn it implies can be
+/// applied AFTER the brain's facing commit rather than underneath it.
+///
+/// A newtype rather than a bare `bool` because it crosses a return boundary
+/// beside `FrameEvents`, and a naked `bool` at a call site says nothing about
+/// which of the two questions it answers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WalkedIntoWall(pub bool);

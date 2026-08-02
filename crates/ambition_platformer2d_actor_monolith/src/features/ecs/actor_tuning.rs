@@ -49,6 +49,19 @@ pub struct ActorTuning {
     /// once by [`Self::motion_model`]; runtime dispatch reads the body's
     /// explicit `MotionModel`, never this flag.
     pub surface_walker: bool,
+    /// **A grounded walker that runs into a wall turns around.**
+    ///
+    /// Default `true`, because a body that walks into a wall and keeps pushing
+    /// forever is not something anyone authored on purpose — the flag exists for
+    /// the exceptions (a body scripted to hold a heading regardless of what it
+    /// hits). This used to be gated on the brain emitting
+    /// `CharacterAiIntent::Patrol` instead, which meant the whole `Wanderer`
+    /// family — every Mary-O snake — walked into walls and stayed there: "the
+    /// enemies need to reverse direction when they hit a wall" (Jon). Turning
+    /// around at a wall is a property of the BODY, not of which brain happens to
+    /// be steering it, and a brain-intent gate is exactly the kind of test that
+    /// silently excludes a family nobody thought about.
+    pub turns_at_walls: bool,
     /// Surface-walker only: a hit knocks the actor off its surface (it
     /// falls with gravity for a moment, then re-attaches). `false` keeps
     /// it clinging when struck.
@@ -109,6 +122,7 @@ impl Default for ActorTuning {
             attack_cooldown_mult: 1.0,
             attacks_player: false,
             surface_walker: false,
+            turns_at_walls: true,
             cling_breaks_on_hit: false,
             respawn: RespawnPolicy::default(),
             // Reference body: the default tuning must not zero out the growth

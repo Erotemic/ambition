@@ -823,3 +823,75 @@ fn a_normal_actor_surface_normal_tracks_live_gravity() {
         );
     }
 }
+
+/// **A grounded walker that runs into a wall turns around** — whatever brain is
+/// steering it.
+///
+/// The reverse existed, gated on the brain emitting `CharacterAiIntent::Patrol`.
+/// Every `Wanderer` — the template behind Mary-O's snakes — emits none, so the
+/// whole family walked into walls and kept pushing: "the enemies need to reverse
+/// direction when they hit a wall" (Jon). Turning at a wall is a fact about the
+/// BODY, so the gate is now the body's authored trait, and the second half of
+/// this test is what keeps that trait from being a rename of "always".
+///
+/// Driven through the real actor tick with a plain forward control frame — the
+/// exact shape `tick_wanderer` writes — so the test cannot pass by agreeing with
+/// a brain-intent path that no longer decides anything.
+fn walk_into_wall(turns_at_walls: bool) -> f32 {
+    let world = ae::World::new(
+        String::from("wall"),
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(100.0, 100.0),
+        vec![
+            ae::Block::solid("floor", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(2000.0, 100.0)),
+            ae::Block::solid("wall", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(40.0, 200.0)),
+        ],
+    );
+    let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 476.0), ae::Vec2::new(14.0, 23.0));
+    let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
+        "walker",
+        "Snake",
+        aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Passive,
+        &[],
+    );
+    enemy.config.tuning.turns_at_walls = turns_at_walls;
+    enemy.kin.facing = 1.0;
+    let mut model = enemy.config.tuning.motion_model();
+
+    // Walk right until the wall stops the body, then a few frames past it.
+    for _ in 0..240 {
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.facing = enemy.kin.facing;
+        frame.locomotion = ae::LocalAxes::new(enemy.kin.facing, 0.0);
+        enemy.update_for_test(
+            &world,
+            ae::Vec2::new(1500.0, 476.0),
+            FeatureCombatTuning::default(),
+            1.0 / 60.0,
+            false,
+            frame,
+            &mut model,
+            ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
+        );
+    }
+    enemy.kin.facing
+}
+
+#[test]
+fn a_walker_turns_around_at_a_wall_whatever_brain_steers_it() {
+    assert_eq!(
+        walk_into_wall(true),
+        -1.0,
+        "a body that walks into a wall faces back the way it came"
+    );
+}
+
+#[test]
+fn a_body_authored_to_hold_its_heading_does_not_turn_at_a_wall() {
+    assert_eq!(
+        walk_into_wall(false),
+        1.0,
+        "the trait is the gate — opting out keeps the body pressing forward"
+    );
+}

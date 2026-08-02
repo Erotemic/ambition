@@ -111,6 +111,11 @@ pub(crate) struct CharacterArchetypeSpec {
     /// crawler with ledge-aware patrol).
     #[serde(default)]
     pub surface_walker: bool,
+    /// Turn around on walking into a wall. Defaults TRUE — see
+    /// [`crate::features::ecs::actor_tuning::ActorTuning::turns_at_walls`] for
+    /// why the exception is the thing worth authoring.
+    #[serde(default = "default_turns_at_walls")]
+    pub turns_at_walls: bool,
     /// Surface-walker only: a hit knocks the actor off its surface — it
     /// loses cling and falls with gravity for a moment before re-attaching.
     /// Authored `false` for crawlers that hold on when struck.
@@ -437,6 +442,7 @@ impl CharacterArchetypeSpec {
             attack_cooldown_mult: self.attack_cooldown_mult,
             attacks_player: self.attacks_player,
             surface_walker: self.surface_walker,
+            turns_at_walls: self.turns_at_walls,
             cling_breaks_on_hit: self.cling_breaks_on_hit,
             // The ONE authored respawn policy (ADR 0022) — the kill hook and
             // the in-place revive tick both match on it.
@@ -472,6 +478,10 @@ impl CharacterArchetypeSpec {
 /// multiplicative identity (most archetypes use the shared cooldown).
 fn default_attack_cooldown_mult() -> f32 {
     1.0
+}
+
+fn default_turns_at_walls() -> bool {
+    true
 }
 
 fn default_mass() -> f32 {

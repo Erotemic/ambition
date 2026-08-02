@@ -732,6 +732,42 @@ fn unauthored_clip_falls_back_to_the_synthetic_rect_and_still_slashes() {
     assert_eq!(cap.hits.len(), 1, "the fallback rect still lands its hit");
 }
 
+/// The AERIALS bind `air_*` clips, not `attack_air*` — that rename is what lets
+/// them resolve their authored hit polys — and the pose match only knew the
+/// grounded names, so the up-air and the down-air drew the horizontal crescent.
+/// Rotation hid it: the art pointed the right way, and was the wrong art.
+///
+/// Restore either arm below to `_ => Side` and this goes red; that is the only
+/// thing standing between the aerials and one generic swoosh.
+#[test]
+fn the_aerials_select_their_own_slash_pose_not_the_side_arc() {
+    for (clip, expected) in [
+        ("air_up", ambition_vfx::vfx::SlashPose::Up),
+        ("air_down", ambition_vfx::vfx::SlashPose::Down),
+    ] {
+        let (mut app, _victim) = app_with_victim();
+        let mut spec = simple_melee(&SimpleMeleeParams::default());
+        spec.clip.clip = clip.to_string();
+        spec.clip.fallbacks.clear();
+        spawn_attacker(
+            &mut app,
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(30.0, 48.0),
+            spec,
+        );
+        run_seconds(&mut app, 0.14);
+        let cap = app.world().resource::<Captured>();
+        let slash = cap
+            .slashes
+            .iter()
+            .find(|m| matches!(m, VfxMessage::Slash { .. }))
+            .unwrap_or_else(|| panic!("the `{clip}` attack should emit a slash VFX"));
+        if let VfxMessage::Slash { pose, .. } = slash {
+            assert_eq!(*pose, expected, "`{clip}` draws its own row");
+        }
+    }
+}
+
 #[test]
 fn upward_attack_selects_the_upward_slash_pose() {
     let (mut app, _victim) = app_with_victim();

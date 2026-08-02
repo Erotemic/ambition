@@ -176,33 +176,14 @@ fn main() {
 /// cycles. The data was there every tick; only the printing was sampled.
 #[cfg(feature = "causal")]
 thread_local! {
-    static PREV_VEL_X: std::cell::RefCell<std::collections::HashMap<String, f32>> =
-        std::cell::RefCell::new(std::collections::HashMap::new());
-    /// The last tick this detector saw, so a MATCH BOUNDARY can be recognised.
-    ///
-    /// ⛔ **without this the detector manufactures its own findings.** The probe
-    /// runs many matches in one process under one subject id; carrying a velocity
-    /// across the boundary compares the last tick of match N with the first of
-    /// match N+1 and reports the difference as an unclaimed step. On the first run
-    /// that produced 6 spurious `760.00 -> 0.00` rows at t≤5, character-identical
-    /// to the 106 REAL mid-match ones — an artifact shaped exactly like the thing
-    /// it hunts, which is this repository's most expensive recurring bug.
-    static LAST_TICK: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// ⭐ the detector itself now lives in `ambition_causal` — this probe was
+    /// where it was first needed, not where it belongs. The trace that motivated
+    /// it was taken in the SANDBOX composition and this binary runs the smash
+    /// LADDER; two hosts that never see each other's bodies, one question.
+    static UNCLAIMED: std::cell::RefCell<ambition_platformer2d::causal::UnclaimedStepDetector> =
+        std::cell::RefCell::new(ambition_platformer2d::causal::UnclaimedStepDetector::new());
 }
 
-/// The largest per-tick `vel_x` change the integrator can make WITHOUT announcing
-/// an operation — **derived from the kernel's own constants, never from a grep.**
-///
-/// ⛔ **the first version of this hardcoded `25.0`, from a grep that found a
-/// maximum of 900 px/s² and concluded `900/60 = 15`/tick.** That grep matched
-/// `field: <number>` struct initialisers and never saw
-/// `pub const RUN_ACCEL: f32 = 5200.0` — the actual ceiling, 5.8× higher. The
-/// wrong number was used to "eliminate" the integrator from S51's `-99`/tick
-/// ramp by arithmetic, and 99.17/tick is comfortably INSIDE `5200/60 = 86.67`
-/// plus a per-character override. Modelling the constant set instead of asking
-/// for it produced a confident false elimination; importing the constants makes
-/// that particular mistake unrepresentable.
-///
 /// ⛔ **the 1.5× margin this used to carry was unjustified AND it hid the
 /// signal.** It was there for "per-character tuning that raises `run_accel`
 /// above the engine default, which the catalog allows". Measured 2026-08-02:
@@ -238,14 +219,6 @@ fn trace_seam(app: &mut App, tick: usize) {
         return;
     };
     let Some(stamped) = log.tick() else { return };
-    // A tick that did not advance is a new match: drop the carried velocities so
-    // the boundary cannot be read as a step (see `LAST_TICK`).
-    LAST_TICK.with(|last| {
-        if tick <= last.get() {
-            PREV_VEL_X.with(|cell| cell.borrow_mut().clear());
-        }
-        last.set(tick);
-    });
     for subject in log.subjects_on(stamped) {
         let explanation = log.explain(stamped, &subject);
         let received = explanation.first("control_frame_received");
@@ -277,38 +250,35 @@ fn trace_seam(app: &mut App, tick: usize) {
             .and_then(|fact| fact.get("vel_x"))
             .and_then(|value| format!("{value}").parse::<f32>().ok())
         {
-            let key = format!("{subject}");
-            let previous = PREV_VEL_X.with(|cell| cell.borrow().get(&key).copied());
-            if let Some(prev) = previous {
-                let step = vx - prev;
-                if step.abs() > UNCLAIMED_STEP_THRESHOLD && operations.is_empty() {
-                    let kinds: Vec<&str> =
-                        explanation.facts().iter().map(|fact| fact.kind()).collect();
-                    // ⭐ **POSITION discriminates the candidates, and it was in
-                    // the fact all along.** A respawn TELEPORTS the body to its
-                    // spawn (a large `pos_x` jump on the same tick); a wall stop
-                    // or a dash ending does not move it at all. Printing the pose
-                    // beside the velocity separates three hypotheses without
-                    // building another instrument.
-                    let show = |name: &str| {
-                        received
-                            .and_then(|fact| fact.get(name))
-                            .map(|value| format!("{value}"))
-                            .unwrap_or_else(|| "-".to_string())
-                    };
-                    // ⚠ the VERTICAL state separates the two remaining stories for
-                    // the same signature: a body sitting at the platform lip has
-                    // `vel_y ≈ 0` and `pos_y` at the surface, while one that has
-                    // fallen off is accelerating downward. `pos_x` alone cannot
-                    // tell them apart, and guessing which cost a rebuild already.
-                    let (pos_x, ground) = (show("pos_x"), show("on_ground"));
-                    let (pos_y, vel_y) = (show("pos_y"), show("vel_y"));
-                    eprintln!(
-                        "[unclaimed] t={tick} {subject} dvx={step:+.4} ({prev:.2} -> {vx:.2}) pos=({pos_x},{pos_y}) vel_y={vel_y} ground={ground} ops=[] kinds={kinds:?}"
-                    );
-                }
+            let subject_key = format!("{subject}");
+            let found = UNCLAIMED.with(|cell| {
+                cell.borrow_mut().observe(
+                    tick as u64,
+                    &subject_key,
+                    vx,
+                    !operations.is_empty(),
+                    UNCLAIMED_STEP_THRESHOLD,
+                )
+            });
+            if let Some(step) = found {
+                let kinds: Vec<&str> = explanation.facts().iter().map(|f| f.kind()).collect();
+                let show = |name: &str| {
+                    received
+                        .and_then(|fact| fact.get(name))
+                        .map(|value| format!("{value}"))
+                        .unwrap_or_else(|| "-".to_string())
+                };
+                eprintln!(
+                    "[unclaimed] t={tick} {subject} dvx={:+.4} ({:.2} -> {:.2}) pos=({},{}) vel_y={} ground={} ops=[] kinds={kinds:?}",
+                    step.delta(),
+                    step.before,
+                    step.after,
+                    show("pos_x"),
+                    show("pos_y"),
+                    show("vel_y"),
+                    show("on_ground"),
+                );
             }
-            PREV_VEL_X.with(|cell| cell.borrow_mut().insert(key, vx));
         }
         // ⚠ **every DECISION prints, and the frames between them are sampled.**
         // The first version sampled both at 1-in-5 and every decision row came

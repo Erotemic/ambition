@@ -51,6 +51,7 @@ mod ecs;
 mod fact;
 mod log;
 mod sink;
+mod unclaimed;
 mod velocity;
 
 #[cfg(feature = "bevy")]
@@ -62,6 +63,7 @@ pub use log::{CausalLog, ExecutionKey, Explanation, RecordingPolicy};
 pub use sink::{
     facts_lost_offthread, record, recording, reset_lost_offthread, with_sink, CausalSink,
 };
+pub use unclaimed::{UnclaimedStep, UnclaimedStepDetector};
 pub use velocity::velocity_authored;
 
 #[cfg(test)]

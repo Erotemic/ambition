@@ -295,7 +295,10 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
             .query_filtered::<&mut ambition_platformer2d::characters::actor::BodyHealth, With<PrimaryPlayer>>();
         let world = app.world_mut();
         for mut health in q.iter_mut(world) {
-            health.health.invulnerable = true;
+            health.health.invulnerable.set(
+                ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED,
+                true,
+            );
         }
     }
 

@@ -77,6 +77,11 @@ impl Plugin for ItemPickupSimulationPlugin {
                 crate::shrine::restore_checkpoint_on_session_start,
                 pickup_held_item_system
                     .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
+                // Pickups that MOVE, stepped before the collect below so a
+                // pickup is collected where it IS this tick — a fast one would
+                // otherwise stay collectable from a box it has already left.
+                crate::items::item_motion::step_item_motion
+                    .run_if(ambition_platformer2d_shared_tangle::schedule::gameplay_allowed),
                 // Touch-to-collect equipment pickups (mushroom / flower). A
                 // sibling collect trigger to the pressed held-item pickup above.
                 crate::items::world_item::collect_world_items

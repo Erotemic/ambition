@@ -80,6 +80,24 @@ pub fn spawn_world_item(commands: &mut Commands, item: WorldItem) {
     commands.spawn_room_scoped((item, Name::new("World item")));
 }
 
+/// Spawn a `WorldItem` that MOVES — the same room-scoped pickup plus an authored
+/// [`ItemMotionPlan`](super::item_motion::ItemMotionPlan) for the engine to step.
+///
+/// A separate entry point rather than an `Option` on [`spawn_world_item`]: a
+/// still pickup and a moving one are different enough at the call site that
+/// naming which one you meant is worth a second function.
+pub fn spawn_moving_world_item(
+    commands: &mut Commands,
+    item: WorldItem,
+    plan: super::item_motion::ItemMotionPlan,
+) {
+    commands.spawn_room_scoped((
+        item,
+        super::item_motion::ItemMotion::new(plan),
+        Name::new("World item"),
+    ));
+}
+
 /// **Touch-to-collect.** The [`ControlledSubject`] (the driven body — player or
 /// possessed) collects a `WorldItem` it overlaps: the item's row is equipped
 /// into [`WornEquipment`] (inserted if the body wore none), and the item is

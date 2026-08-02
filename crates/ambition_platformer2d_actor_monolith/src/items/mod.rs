@@ -10,4 +10,10 @@ pub mod persist;
 pub mod pickup;
 pub mod world_item;
 
-pub use world_item::{collect_world_items, spawn_world_item, WorldItem, WorldItemPayload};
+pub mod item_motion;
+pub use item_motion::{
+    step_item_motion, ItemEmerge, ItemMotion, ItemMotionPlan, DEFAULT_ITEM_GRAVITY,
+};
+pub use world_item::{
+    collect_world_items, spawn_moving_world_item, spawn_world_item, WorldItem, WorldItemPayload,
+};

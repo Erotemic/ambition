@@ -895,14 +895,45 @@ listed rather than hidden. Domain plugins largely own their installation — the
 2026-07-27 addition of consumer-owned rollback registration is the strongest case
 of that, since the engine cannot even name the type.
 
-The second clause is not met and the file says so at a glance:
-`crates/ambition_platformer2d_runtime/src/player_schedule.rs` names `ambition_platformer2d_actor_monolith::` leaf
-systems THIRTY times in one chain. It is a readable chain with good reasons
-written beside each entry, but "orders semantic sets rather than naming leaf
-systems" is exactly what it does not do — and the 2026-07-27 `GgrsSchedule` cycle
-came out of that chain, because a system's set membership is discoverable only by
-reading which `add_systems` block it happens to sit in. Turning that chain into
-ordered semantic sub-sets is the concrete next row.
+~~The second clause is not met and the file says so at a glance…~~
+◐ **RE-MEASURED 2026-08-02: the named next row was DONE, and the debt MOVED.**
+
+The old text said `player_schedule.rs` "names `ambition_platformer2d_actor_monolith::`
+leaf systems THIRTY times in one chain" and called turning it into ordered
+semantic sub-sets "the concrete next row". That row landed. `PlayerInputSet`
+exists in `ambition_platformer2d_shared_tangle::schedule` as an ORDERED phase
+vocabulary, the file's own comment records the change (*"now placed by PHASE …
+each one states which phase it belongs to, so a caller elsewhere can order
+against the phase instead of against a name"*), and an external consumer already
+does exactly that — `action_scheme.rs:106` orders `.after(PlayerInputSet::Persona)`.
+
+⚠ **the count is still 31, and that is not the defect.** Those are PLACEMENTS
+(`.in_set(PlayerInputSet::…)`) — somebody has to say which phase each system is
+in, and the file that composes the schedule is the right somebody. The defect the
+clause names is ORDERING against a leaf, which is what made a set's membership
+undiscoverable and produced the `GgrsSchedule` cycle.
+
+**Ordering constraints against a leaf system (snake_case target), whole runtime:**
+
+```text
+  progression_schedule.rs   8   ← where the debt actually lives now
+  portal_schedule.rs        3
+  player_schedule.rs        2   ← the file this status singles out
+  combat_schedule.rs        2
+  sandbox_reset.rs          2
+  mode_scope.rs             1
+  rollback/session.rs       1
+  ────────────────────────────
+                           19
+```
+
+▢ so the concrete next row is no longer `player_schedule.rs`; it is
+`progression_schedule.rs`, which carries 8 of the 19 — six of them ordering
+against `boss_encounter::` and `features::` leaves that have no phase vocabulary
+of their own. Giving progression the same treatment `PlayerInputSet` gave input is
+the row.
+⚠ status re-measured against the code rather than re-copied; the previous verdict
+was written 2026-07-27 and the work it asked for landed after it.
 
 ---
 
@@ -1356,13 +1387,29 @@ an effect instead of suppressing it, and the emit-time gate that used to drop
 sounds during resimulation was deleted precisely because suppressing at emit time
 destroys the corrected outcome.
 
-Causal explanation at a tick is partly there and not assembled. The pieces exist
-— `ambition_gameplay_trace` (`actor_trace`, `buffer`, `dump`, `policy`), the
-per-component rollback localizer (`RollbackChecksumProbes` +
-`RollbackRestoreAudit`, which answers "which component diverged" and is run by
-two `#[ignore]`d bisection tests), and the binding report, which Task 6.5 called
-"the first inspectable-causality surface, as a value not a UI". What is missing
-is the selection step: nothing takes a tick and returns the decisions at it.
+~~Causal explanation at a tick is partly there and not assembled.~~ ⛔ **STALE —
+the selection step exists and has been load-bearing since 2026-08-01.** This
+paragraph ended *"What is missing is the selection step: nothing takes a tick and
+returns the decisions at it."* That is `ambition_causal::CausalLog::explain(tick,
+&SubjectKey) -> Explanation` (`log.rs:234`), with `Explanation::render()`
+(`log.rs:421`) printing every fact for that subject on that tick.
+
+It is not a paper API. On 2026-08-02 it answered a multi-day question — the
+fighter's ladder self-KO — by carrying `MovementOp::Slash` on exactly the ticks a
+velocity ramp appeared, and the whole `[unclaimed]` velocity detector
+(`ambition_causal::UnclaimedStepDetector`) is built on `explain` plus
+`subjects_on`.
+
+⚠ **and the paragraph's own list of pieces is what made it read as unfinished**:
+`ambition_gameplay_trace` and the rollback localizer are DIFFERENT instruments
+answering different questions. The selection step was built beside them, in
+`ambition_causal`, rather than assembled out of them — so a status looking for it
+among the named pieces would not have found it.
+
+⚠ what IS still missing on this clause, measured 2026-08-02: an explanation is
+TICK-SCOPED, so a change at tick N caused by an event at tick N−k cannot be
+joined to its cause. That is a real limitation and a different sentence from the
+one above.
 
 Budgets are measured but not ENFORCED, and only on one host. The always-on
 censuses print `[schedule-census]`, `[frame-spike]` and `[image]` lines every

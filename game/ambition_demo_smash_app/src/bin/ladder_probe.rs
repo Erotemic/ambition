@@ -151,6 +151,19 @@ fn main() {
 /// Print the joined explanation for every subject that acted this tick, then
 /// clear the log.
 ///
+/// ⛔ **`[fighter …]` lines on this same stream carry NO TICK, and must not be
+/// aligned with `[seam] t=N` by adjacency.** That is deliberate and correct —
+/// `trace_decision`'s own doc explains it: a brain five hops below the ECS does
+/// not know the world's clock, and a counter guessed there would be a second
+/// clock no other domain could join against. The fact it publishes IS stamped;
+/// only the stderr rendering is not.
+///
+/// ⚠ but the two interleave on one stream, and reading them as a pair is a
+/// mistake waiting to be made — I made it on 2026-08-02 and briefly concluded
+/// the seam and the brain disagreed about a body's velocity (`vx=760` beside
+/// `vx=-270`). They may or may not; adjacent lines here are not evidence either
+/// way. Compare only `t=`-stamped lines with each other.
+///
 /// ⚠ **cleared every tick on purpose.** A ladder run is thousands of ticks with
 /// several bodies each; a log that accumulated all of it would be a memory
 /// profile of the probe rather than a trace. The question here is always "what

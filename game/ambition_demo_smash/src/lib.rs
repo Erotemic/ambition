@@ -343,9 +343,12 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         )
             .chain()
             .in_set(ambition_platformer2d::platformer::schedule::CombatSet::Settle)
-            .after(ambition_platformer2d::combat::stocks::spend_fighter_stocks);
+            .after(ambition_platformer2d::combat::stocks::FighterStocksSpent);
         if self.hosted {
-            app.add_systems(sim, rules.run_if(ambition_platformer2d::runtime::in_mode(SMASH_MODE)));
+            app.add_systems(
+                sim,
+                rules.run_if(ambition_platformer2d::runtime::in_mode(SMASH_MODE)),
+            );
         } else {
             app.add_systems(sim, rules);
         }
@@ -418,11 +421,7 @@ pub fn publish_smash_hud(
         };
         readouts.set(
             *slot,
-            ambition_platformer2d::presentation::HudReadout::gauge(
-                name.clone(),
-                value,
-                *percent,
-            ),
+            ambition_platformer2d::presentation::HudReadout::gauge(name.clone(), value, *percent),
         );
     }
     // A 1v1 declares four slots and fills two. An unwritten slot must be
@@ -452,7 +451,9 @@ pub fn publish_smash_hud(
 /// construction and the round starting, and here those are the same tick.
 fn release_the_opening_hold(
     mut commands: bevy::prelude::Commands,
-    active: Option<bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>>,
+    active: Option<
+        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
+    >,
     held: bevy::prelude::Query<
         bevy::prelude::Entity,
         (
@@ -562,7 +563,9 @@ fn take_eliminated_fighters_out_of_play(
 /// Say who won, once.
 fn announce_the_winner(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
-    mut banner: bevy::prelude::MessageWriter<ambition_platformer2d::combat::GameplayBannerRequested>,
+    mut banner: bevy::prelude::MessageWriter<
+        ambition_platformer2d::combat::GameplayBannerRequested,
+    >,
 ) {
     for outcome in decided.read() {
         banner.write(ambition_platformer2d::combat::GameplayBannerRequested::new(
@@ -605,7 +608,9 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // rather than `resource_mut` because the rules-and-screen plugins are
         // also composed in harnesses that never installed the shell.
         app.world_mut()
-            .get_resource_or_insert_with(ambition_platformer2d::game_shell::ShellRouteCatalog::default)
+            .get_resource_or_insert_with(
+                ambition_platformer2d::game_shell::ShellRouteCatalog::default,
+            )
             .register(ambition_platformer2d::game_shell::ShellRouteSpec::new(
                 SMASH_SELECT_ROUTE,
                 SMASH_SELECT_EXPERIENCE,
@@ -726,7 +731,10 @@ fn present_the_select_screen(
     // unified default, where a spare controller is another way to move the same
     // character (milestone 8).
     let on_smash_route = router.active.as_ref().is_some_and(|active| {
-        matches!(active.route_id.as_str(), SMASH_SELECT_ROUTE | SMASH_GAMEPLAY_ROUTE)
+        matches!(
+            active.route_id.as_str(),
+            SMASH_SELECT_ROUTE | SMASH_GAMEPLAY_ROUTE
+        )
     });
     // ⛔ **write only what THIS demo claimed** (GPT 5.6, 2026-08-01). The first
     // version set `JoinToClaim` on smash routes and `UnifiedPrimary` on every
@@ -756,7 +764,8 @@ fn present_the_select_screen(
         .as_deref()
         .map(|devices| select::seats_offered_under(devices, policy))
         .unwrap_or(1) as u8;
-    let want_seats = ambition_platformer2d::input::DeclaredInputSeats(if on_select { offered } else { 0 });
+    let want_seats =
+        ambition_platformer2d::input::DeclaredInputSeats(if on_select { offered } else { 0 });
     if *lobby_seats != want_seats {
         *lobby_seats = want_seats;
     }
@@ -993,7 +1002,10 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             // fighters bring their own cues. Claiming procedural sfx it never
             // registers would be the same shape as the empty function above —
             // a declaration with nothing behind it.
-            ambition_platformer2d::provider::AuthoredCatalogFragments::new(SMASH_CHARACTER_ID, SMASH_EXPERIENCE),
+            ambition_platformer2d::provider::AuthoredCatalogFragments::new(
+                SMASH_CHARACTER_ID,
+                SMASH_EXPERIENCE,
+            ),
         )
         // **A LAUNCHER ROW LEADS TO THE QUESTION, NOT TO THE STAGE.** Without
         // this the only way into the select screen was to make it a whole app's
@@ -1031,7 +1043,9 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
             )
         })
         .entered_at(SMASH_SELECT_ROUTE)
-        .with_loading_activity(ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
+        .with_loading_activity(
+            ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID,
+        )
         .install(app, smash_prepared_session_world);
         app.add_plugins(SmashRulesPlugin::hosted());
     }
@@ -1173,7 +1187,9 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
     // placeholder. Pocket shipped that way and nobody noticed until somebody
     // looked at the screen.
     {
-        use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::actors::character_runtime::{
+            CharacterDefinition, CharacterDefinitionAppExt,
+        };
         for (id, name, sheet) in [
             (SMASH_CHARACTER_ID, "Duelist A", "player_robot_v3"),
             (SMASH_OPPONENT_ID, "Duelist B", "player_robot_v2"),
@@ -1232,7 +1248,9 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
     // stopped falling back to a generic enemy the same day); before that it
     // silently became a stand-still body.
     {
-        use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+        use ambition_platformer2d::actors::features::{
+            CharacterRosterAppExt, CharacterRosterFragment,
+        };
         app.register_character_roster_fragment(
             CharacterRosterFragment::from_ron(SMASH_EXPERIENCE, None::<String>, SMASH_ROSTER_RON)
                 .expect("the smash duelist roster fragment is valid"),
@@ -1683,7 +1701,9 @@ mod tests {
     /// (`travel: [0.0, 0.0]`) before anything said why.
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {
-        use ambition_platformer2d::characters::actor::character_catalog::{CharacterCatalog, parse_catalog};
+        use ambition_platformer2d::characters::actor::character_catalog::{
+            parse_catalog, CharacterCatalog,
+        };
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
         assert!(
@@ -1694,7 +1714,9 @@ mod tests {
         let brain = catalog
             .build_brain_from_preset(
                 "duelist",
-                &ambition_platformer2d::characters::actor::character_catalog::BrainBuildContext::at(0.0),
+                &ambition_platformer2d::characters::actor::character_catalog::BrainBuildContext::at(
+                    0.0,
+                ),
             )
             .expect("the `duelist` preset builds a brain");
         assert_eq!(
@@ -1720,10 +1742,10 @@ mod tests {
 mod pause_arbitration_tests {
     use super::*;
     use ambition_platformer2d::input::participant::{
-        ContextClaim, ParticipantContexts, context_priority, resolve_active_input_context,
+        context_priority, resolve_active_input_context, ContextClaim, ParticipantContexts,
     };
     use ambition_platformer2d::input::{
-        InputParticipant, MenuControlFrame, PAUSE_CONTEXT, SeatInputContexts, SeatMenuFrames,
+        InputParticipant, MenuControlFrame, SeatInputContexts, SeatMenuFrames, PAUSE_CONTEXT,
     };
     use bevy::prelude::*;
 
@@ -1767,7 +1789,9 @@ mod pause_arbitration_tests {
             .active = Some(ambition_platformer2d::game_shell::ActiveShellExperience {
             activation_id: ambition_platformer2d::game_shell::ShellActivationId(1),
             route_id: ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_SELECT_ROUTE),
-            experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new(SMASH_SELECT_EXPERIENCE),
+            experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new(
+                SMASH_SELECT_EXPERIENCE,
+            ),
             parameters: Default::default(),
             load_authorization: None,
             prepared_session: None,

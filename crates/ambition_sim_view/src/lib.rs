@@ -36,7 +36,7 @@ pub use anim_index::{
 };
 pub use control_prompt::{
     publish_frontend_context_prompt, rebuild_control_prompt, ControlContextKind, ControlPrompt,
-    PromptEntry,
+    ControlPromptRebuilt, PromptEntry,
 };
 // Re-exported so `ControlPrompt` consumers (the touch overlay) can name the
 // slot vocabulary without a direct `entity_catalog` dep.
@@ -115,7 +115,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 rebuild_dialog_view,
                 // "What does each control do right now" for the controlled
                 // subject — the touch overlay reads this instead of the sim.
-                rebuild_control_prompt,
+                rebuild_control_prompt.in_set(ControlPromptRebuilt),
             )
                 .in_set(ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::FeatureViewSync),
         );

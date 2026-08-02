@@ -147,8 +147,8 @@ fn register_app_local_sim_systems(app: &mut App) {
             .run_if(gameplay_allowed)
             .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
             .after(ambition_platformer2d::dev_tools::DevEditApplySet)
-            .before(ambition_platformer2d::actors::control::input_timer_system)
-            .before(ambition_platformer2d::runtime::apply_room_replay_request_system),
+            .before(ambition_platformer2d::actors::control::InputTimersAdvanced)
+            .before(ambition_platformer2d::runtime::RoomReplayApplied),
     );
 
     // ── Brain-driven player clone (press K) ────────────────────────────────
@@ -188,9 +188,7 @@ fn register_app_local_sim_systems(app: &mut App) {
                 .in_set(Platformer2dSimulationPhaseMonolith::ResetProcessing)
                 // AFTER, not before: the processor is the only system that may
                 // decline a reset, and this one waits for its commitment.
-                .after(
-                    ambition_platformer2d::actors::session::reset::process_new_game_reset_request,
-                ),
+                .after(ambition_platformer2d::actors::session::reset::NewGameResetDecided),
         );
 
     // ── The PlayerSimulation gap: home reset policy + home presentation ───
@@ -569,7 +567,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     )
         .chain()
         .after(camera_follow)
-        .after(ambition_platformer2d::host::portal::tag_portal_camera_continuity_camera);
+        .after(ambition_platformer2d::host::portal::PortalContinuityCameraTagged);
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
         debug_overlay::draw_debug_overlay,
@@ -689,7 +687,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         ambition_platformer2d::render::rendering::sync_lock_wall_visuals
-            .after(ambition_platformer2d::actors::encounter::drive_wave_encounters)
+            .after(ambition_platformer2d::actors::encounter::WaveEncounterDriven)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run

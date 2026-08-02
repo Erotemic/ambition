@@ -523,7 +523,9 @@ impl Plugin for HostCameraPlugin {
             // `.after(this system)` (the Ambition debug overlay does).
             app.add_systems(
                 Update,
-                crate::portal::tag_portal_camera_continuity_camera.after(camera_follow),
+                crate::portal::tag_portal_camera_continuity_camera
+                    .in_set(crate::portal::PortalContinuityCameraTagged)
+                    .after(camera_follow),
             );
         }
     }

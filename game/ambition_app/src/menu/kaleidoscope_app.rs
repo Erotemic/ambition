@@ -95,7 +95,9 @@ pub fn install_unified_menu_shared(app: &mut App) {
 /// land the SAME sim tick the prompt is rebuilt, under any sim schedule — the
 /// producer→consumer edge is explicit, not incidental.
 pub(crate) fn install_menu_confirm_provider(app: &mut App) {
-    use ambition_platformer2d::platformer::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt};
+    use ambition_platformer2d::platformer::schedule::{
+        Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+    };
     use bevy::prelude::IntoScheduleConfigs;
     let sim = app.sim_schedule();
     // Idempotent: the shell presentation and host input plugin init it too;
@@ -105,7 +107,7 @@ pub(crate) fn install_menu_confirm_provider(app: &mut App) {
         sim,
         publish_menu_confirm_prompt
             .in_set(Platformer2dSimulationPhaseMonolith::FeatureViewSync)
-            .before(ambition_platformer2d::sim_view::rebuild_control_prompt),
+            .before(ambition_platformer2d::sim_view::ControlPromptRebuilt),
     );
 }
 
@@ -434,10 +436,12 @@ pub(crate) struct SystemMenuParams<'w> {
     // Option: absent in non-portal personas / minimal fixtures — the row then
     // no-ops and reads "n/a".
     #[cfg(feature = "portal_render")]
-    portal_effect: Option<ResMut<'w, ambition_platformer2d::portal_presentation::PortalEffectSelection>>,
+    portal_effect:
+        Option<ResMut<'w, ambition_platformer2d::portal_presentation::PortalEffectSelection>>,
     #[cfg(feature = "portal_render")]
-    portal_camera:
-        Option<ResMut<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>>,
+    portal_camera: Option<
+        ResMut<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
+    >,
     // The Gravity cycle's target (ambient gravity). Option so the System nav stays
     // B0002-safe and fixtures without the resource render the row as "n/a".
     base_gravity: Option<ResMut<'w, ambition_platformer2d::actors::physics::BaseGravity>>,
@@ -445,7 +449,8 @@ pub(crate) struct SystemMenuParams<'w> {
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
     // defaults (mirrors the pause menu's `ResetAllSettings`).
-    editable_tuning: ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>,
+    editable_tuning:
+        ResMut<'w, ambition_platformer2d::dev_tools::dev_tools::EditableMovementTuning>,
     // The radio resources are `Option`-wrapped so the System nav stays B0002-safe
     // and never panics when audio is off / a fixture omits them: a missing radio
     // resource simply disables station audition (the rows still render). Gated on
@@ -460,7 +465,12 @@ pub(crate) struct SystemMenuParams<'w> {
     radio: Option<ResMut<'w, ambition_platformer2d::audio::library::RadioStationState>>,
     #[cfg(feature = "audio")]
     music_channel: Option<
-        Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition_platformer2d::audio::library::MusicChannel>>,
+        Res<
+            'w,
+            bevy_kira_audio::prelude::AudioChannel<
+                ambition_platformer2d::audio::library::MusicChannel,
+            >,
+        >,
     >,
     #[cfg(feature = "audio")]
     audio_output: Option<Res<'w, ambition_platformer2d::audio::AudioOutputMode>>,
@@ -480,7 +490,10 @@ impl SystemMenuParams<'_> {
     /// Radio auditions a station (keeps the menu open); Locale is a no-op stub
     /// (only English exists); Dev toggles/cycles mutate `DeveloperTools`.
     /// Returns the SFX id to play for feedback.
-    pub(crate) fn apply_option(&mut self, opt: SystemOptionId) -> ambition_platformer2d::sfx::SfxId {
+    pub(crate) fn apply_option(
+        &mut self,
+        opt: SystemOptionId,
+    ) -> ambition_platformer2d::sfx::SfxId {
         match opt {
             SystemOptionId::Radio(index) => {
                 #[cfg(feature = "audio")]
@@ -549,7 +562,11 @@ impl SystemMenuParams<'_> {
 
     /// Step a value-style screen option in place (radio prev/next station, dev
     /// cycle prev/next). Toggles + locales ignore stepping (handled by select).
-    fn step_option(&mut self, opt: SystemOptionId, dir: i32) -> Option<ambition_platformer2d::sfx::SfxId> {
+    fn step_option(
+        &mut self,
+        opt: SystemOptionId,
+        dir: i32,
+    ) -> Option<ambition_platformer2d::sfx::SfxId> {
         match opt {
             SystemOptionId::Dev(id) if id.is_cycle() => {
                 apply_dev_toggle(
@@ -650,9 +667,12 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
     ldtk_reload: Res<'w, ambition_platformer2d::actors::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]
-    portal_effect: Option<Res<'w, ambition_platformer2d::portal_presentation::PortalEffectSelection>>,
+    portal_effect:
+        Option<Res<'w, ambition_platformer2d::portal_presentation::PortalEffectSelection>>,
     #[cfg(feature = "portal_render")]
-    portal_camera: Option<Res<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>>,
+    portal_camera: Option<
+        Res<'w, ambition_platformer2d::portal_presentation::PortalCameraContinuitySelection>,
+    >,
     base_gravity: Option<Res<'w, ambition_platformer2d::actors::physics::BaseGravity>>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, ambition_platformer2d::audio::library::AudioLibrary>>,
@@ -1489,9 +1509,14 @@ fn turn_page(
 /// The directional page-turn sound for a rotation `from` → `to`: rotating to the
 /// page that sits on the viewer-LEFT of `from` plays the left rotate, otherwise the
 /// right rotate. When `from` is unknown (first publish) defaults to the right rotate.
-pub(crate) fn rotate_sfx(from: Option<MenuPage>, to: MenuPage) -> ambition_platformer2d::sfx::SfxId {
+pub(crate) fn rotate_sfx(
+    from: Option<MenuPage>,
+    to: MenuPage,
+) -> ambition_platformer2d::sfx::SfxId {
     match from {
-        Some(from) if from.on_viewer_left() == to => ambition_platformer2d::sfx::ids::UI_MENU_ROTATE,
+        Some(from) if from.on_viewer_left() == to => {
+            ambition_platformer2d::sfx::ids::UI_MENU_ROTATE
+        }
         _ => ambition_platformer2d::sfx::ids::UI_MENU_ROTATE,
     }
 }

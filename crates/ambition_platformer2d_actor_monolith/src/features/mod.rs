@@ -327,7 +327,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_combat::stocks::spend_fighter_stocks,
+                ambition_combat::stocks::spend_fighter_stocks
+                    .in_set(ambition_combat::stocks::FighterStocksSpent),
                 // AFTER the spend, in the same phase: a match decided before this
                 // tick's elimination lands would announce the previous frame's
                 // answer on the frame the last fighter goes out.

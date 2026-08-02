@@ -41,10 +41,12 @@ mod host_adapter {
     };
 
     use ambition_platformer2d_core::RoomGeometry;
+    use ambition_platformer2d_runtime::host_seams::DeveloperRuntimeState;
     use ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState;
     use ambition_platformer2d_shared_tangle::lifecycle::PlayerVisual;
-    use ambition_platformer2d_shared_tangle::markers::{ControlledSubject, PlayerEntity, PrimaryPlayer};
-    use ambition_platformer2d_runtime::host_seams::DeveloperRuntimeState;
+    use ambition_platformer2d_shared_tangle::markers::{
+        ControlledSubject, PlayerEntity, PrimaryPlayer,
+    };
 
     /// Bridge the controlled character + the collision world → the crate-owned
     /// [`PortalViewer`] seam, so each portal window is the wedge that character
@@ -211,6 +213,15 @@ mod host_adapter {
         }
     }
 
+    /// **The set [`tag_portal_camera_continuity_camera`] runs in.**
+    ///
+    /// The debug overlay draws after the continuity camera is tagged, so its
+    /// labels track a camera that already has its final identity this frame.
+    ///
+    /// ⚠ ONE member — tagging the eligible camera is the whole step.
+    #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    pub struct PortalContinuityCameraTagged;
+
     /// Tag the host's main gameplay camera as the one eligible for optional
     /// portal camera continuity. Capture cameras and UI cameras stay untagged.
     pub fn tag_portal_camera_continuity_camera(
@@ -321,8 +332,9 @@ mod host_adapter {
             return;
         };
 
-        let gravity_dir =
-            ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(gravity.as_deref());
+        let gravity_dir = ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(
+            gravity.as_deref(),
+        );
         let portal_list: Vec<ambition_portal2d::PlacedPortal> = portals.iter().cloned().collect();
         let mut camera_state = camera_state;
         for ev in transited.read() {
@@ -337,7 +349,8 @@ mod host_adapter {
             };
             let exit_channel = transit.straddling;
             let enter_channel = exit_channel.partner();
-            let Some(exit_portal) = ambition_portal2d::find_portal(&portal_list, exit_channel) else {
+            let Some(exit_portal) = ambition_portal2d::find_portal(&portal_list, exit_channel)
+            else {
                 continue;
             };
             let Some(enter_portal) = ambition_portal2d::find_portal(&portal_list, enter_channel)
@@ -778,7 +791,9 @@ mod host_adapter {
                             .chain(),
                     )
                         .in_set(PortalObservationSet)
-                        .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
+                        .run_if(
+                            ambition_platformer2d_shared_tangle::lifecycle::session_world_exists,
+                        ),
                     portal_dev_toggle_system,
                 ),
             );
@@ -880,5 +895,5 @@ pub use host_adapter::{
     publish_portal_body_views, sync_portal_camera_continuity_focus,
     sync_portal_debug_overlay_to_f1, sync_portal_viewer, sync_portal_world_frame,
     tag_portal_affordance_body, tag_portal_camera_continuity_camera, tag_portal_scene_bodies,
-    PortalObservationPlugin,
+    PortalContinuityCameraTagged, PortalObservationPlugin,
 };

@@ -86,6 +86,13 @@ pub fn reset_sandbox(
     });
 }
 
+/// **The set [`apply_room_replay_request_system`] runs in.**
+///
+/// A room replay rebuilds the room; a reset input that must be seen by that
+/// rebuild lands before it. ONE member — applying the request IS the step.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RoomReplayApplied;
+
 /// Replay the ACTIVE room on a content-emitted
 /// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
 /// — a level restart, a death, a "try again" dialogue beat.
@@ -193,6 +200,7 @@ impl Plugin for RoomReplaySchedulePlugin {
         app.add_systems(
             sim,
             apply_room_replay_request_system
+                .in_set(RoomReplayApplied)
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
                 .after(ambition_dev_tools::DevEditApplySet)
                 // ⭐ EXACTLY equivalent to the `.before(input_timer_system)` this

@@ -160,6 +160,7 @@ impl Plugin for PlayerSchedulePlugin {
             sim,
             (
                 ambition_platformer2d_actor_monolith::control::input_timer_system
+                    .in_set(ambition_platformer2d_actor_monolith::control::InputTimersAdvanced)
                     .run_if(gameplay_allowed)
                     .in_set(ambition_input::InputSet::Route),
                 ambition_platformer2d_actor_monolith::control::interaction_input_system

@@ -107,6 +107,16 @@ pub fn populate_encounter_registry(
     );
 }
 
+/// **The set [`drive_wave_encounters`] runs in.**
+///
+/// Lock-wall visuals read `gate_solids` after the encounter has populated it,
+/// which is what "runs late in the frame" meant when a renderer named this
+/// function to say so.
+///
+/// ⚠ ONE member — the wave drive is the thing that decides gate state.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct WaveEncounterDriven;
+
 /// The wave COMMAND adapter + spawn-cadence director. Emits lifecycle commands
 /// (never phase writes); the generic reducer applies them later this frame.
 ///
@@ -625,7 +635,8 @@ pub fn apply_encounter_cleanup(
                 return true;
             }
             if despawn {
-                let wanted = ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&member.id);
+                let wanted =
+                    ambition_platformer2d_shared_tangle::sim_id::SimId::placement(&member.id);
                 let entity = member.entity.or_else(|| {
                     sim_entities
                         .iter()

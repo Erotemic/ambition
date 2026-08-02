@@ -118,6 +118,16 @@ impl NewGameResetRequested {
     }
 }
 
+/// **The set [`process_new_game_reset_request`] runs in.**
+///
+/// The only system that may DECLINE a new-game reset, so anything acting on the
+/// decision waits for its commitment — `.after`, deliberately, not before.
+///
+/// ⚠ ONE member: "the reset decision is made" is a single authority, and a
+/// second member would mean two things can decline.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct NewGameResetDecided;
+
 /// Bevy system: drains a pending reset request and rebuilds the
 /// sandbox state. Idempotent on `request = false` (early returns).
 ///
@@ -407,7 +417,7 @@ impl Plugin for NewGameResetPlugin {
             // transient clear waits for `NewGameResetCommitted` and therefore
             // never runs for a reset that was refused.
             (
-                process_new_game_reset_request,
+                process_new_game_reset_request.in_set(NewGameResetDecided),
                 clear_transient_on_sandbox_reset,
             )
                 .chain()

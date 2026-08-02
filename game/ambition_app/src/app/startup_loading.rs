@@ -91,21 +91,26 @@ impl DirectStartupLoadingState {
 struct StartupAssetInputs<'w, 's> {
     asset_server: Res<'w, AssetServer>,
     game_assets: ResMut<'w, GameAssets>,
-    asset_catalog: Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
-    character_catalog: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+    asset_catalog:
+        Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
+    character_catalog:
+        Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     layouts: ResMut<'w, Assets<TextureAtlasLayout>>,
     quality: Res<'w, ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     room_sets: Query<'w, 's, &'static RoomSet, With<SessionRoot>>,
     content_staging: Res<'w, RoomContentStagingRegistry>,
-    character_load_states: ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
+    character_load_states:
+        ResMut<'w, ambition_platformer2d::actors::character_runtime::CharacterLoadStates>,
     /// Sheets this app's providers authored (queue U1) — the other real source
     /// of sheet metadata, and the only one a game outside this workspace can
     /// write to.
-    authored_sheets: Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
+    authored_sheets:
+        Res<'w, ambition_platformer2d::sprite_sheet::character::sheets::AuthoredSheets>,
     /// Registered character definitions: a real source of sheets, since a
     /// character may be declared only through `register_character`.
-    prepared_characters:
-        Option<Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
+    prepared_characters: Option<
+        Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
+    >,
     ldtk_worlds: Option<Res<'w, LdtkWorldAssets>>,
     ui_fonts: Option<Res<'w, UiFonts>>,
     #[cfg(feature = "audio")]
@@ -148,12 +153,13 @@ pub(super) fn install_direct_startup_loading(app: &mut App) {
         Update,
         drive_direct_startup_loading
             .before(ambition_platformer2d::platformer::schedule::GameplaySimulationRoot)
-            .before(ambition_platformer2d::audio::library::start_default_music_when_ready),
+            .before(ambition_platformer2d::audio::library::DefaultMusicStart),
     );
     #[cfg(not(feature = "audio"))]
     app.add_systems(
         Update,
-        drive_direct_startup_loading.before(ambition_platformer2d::platformer::schedule::GameplaySimulationRoot),
+        drive_direct_startup_loading
+            .before(ambition_platformer2d::platformer::schedule::GameplaySimulationRoot),
     );
 }
 

@@ -99,11 +99,14 @@ impl Plugin for Platformer2dAudioPlugin {
             // title/menu audio profile, so this must not fire there.
             .add_systems(
                 Update,
-                start_default_music_when_ready.run_if(music_auto_start_when_ungated),
+                start_default_music_when_ready
+                    .in_set(ambition_audio::library::DefaultMusicStart)
+                    .run_if(music_auto_start_when_ungated),
             )
             .add_systems(
                 Update,
-                audio_play_sfx_messages.after(crate::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                audio_play_sfx_messages
+                    .after(crate::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
             )
             // Observe the player's WaterContact and request the matching
             // audio environment; the smoother ramps `wetness`, then
@@ -182,7 +185,8 @@ impl Plugin for Platformer2dAudioPlugin {
             // latched so it acts exactly once per frontend entry (no thrash).
             .add_systems(
                 Update,
-                apply_frontend_music_policy.after(crate::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
+                apply_frontend_music_policy
+                    .after(crate::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
             );
     }
 }

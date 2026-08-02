@@ -477,6 +477,18 @@ impl MusicPlaybackState {
 #[derive(Resource, Default, Clone, Copy, Debug)]
 pub struct DefaultMusicStarted(pub bool);
 
+/// **The set [`start_default_music_when_ready`] runs in.**
+///
+/// Startup loading must settle before the default track is allowed to begin, so
+/// the loader pins `.before` this.
+///
+/// ⚠ ONE member. The system is already gated by a run condition
+/// (`music_auto_start_when_ungated`); ⛔ a run condition on the only member does
+/// NOT propagate to the set, so `.before` this set holds whether or not the
+/// music actually starts — which is the behaviour the pin wants.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DefaultMusicStart;
+
 /// Update-loop variant of the old `start_default_music`. Polls the
 /// asset server until the default music track's handle finishes
 /// loading, then issues the `play` call once. Important on web,

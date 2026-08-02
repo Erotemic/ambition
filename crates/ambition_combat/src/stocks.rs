@@ -68,6 +68,18 @@ pub struct FighterStockSpent {
     pub eliminated: bool,
 }
 
+/// **The set [`spend_fighter_stocks`] runs in — this tick's stock spend lands.**
+///
+/// A match's own rules (respawn placement, elimination, the winner announcement)
+/// run after the spend in the same phase, so a match decided before this tick's
+/// elimination does not announce the previous frame's answer.
+///
+/// ⚠ ONE member. `decide_stocks_match` is chained after and CONSUMES the spend;
+/// including it would make a game's rules wait on the engine's decision, which
+/// is the thing those rules are meant to run alongside.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FighterStocksSpent;
+
 /// Spend one stock per knockout, and clear the meter of anyone coming back.
 ///
 /// ⚠ **a fighter already eliminated is skipped, not spent again.** Without the
@@ -125,9 +137,7 @@ pub fn spend_fighter_stocks(
 /// versus stage numbers its seats from ONE, and the engine numbered from zero, so
 /// the two disagreed about who won. What a side is CALLED is the game's business;
 /// this only answers whether one of them is the last.
-pub fn last_side_standing(
-    rows: impl Iterator<Item = (String, bool)>,
-) -> Option<SidesOutcome> {
+pub fn last_side_standing(rows: impl Iterator<Item = (String, bool)>) -> Option<SidesOutcome> {
     let mut standing: std::collections::BTreeMap<String, bool> = std::collections::BTreeMap::new();
     for (side, in_play) in rows {
         let entry = standing.entry(side).or_insert(false);
@@ -243,7 +253,10 @@ mod tests {
         knock_out(&mut app, body);
         let spent = last_spend(&mut app).expect("the last stock was spent");
         assert_eq!(spent.remaining, 0);
-        assert!(spent.eliminated, "spending the last stock did not eliminate");
+        assert!(
+            spent.eliminated,
+            "spending the last stock did not eliminate"
+        );
         assert!(app.world().get::<FighterEliminated>(body).is_some());
     }
 
@@ -257,7 +270,10 @@ mod tests {
             .get_mut::<BodyHealth>(body)
             .unwrap()
             .damage(140);
-        assert_eq!(app.world().get::<BodyHealth>(body).unwrap().damage_taken(), 140);
+        assert_eq!(
+            app.world().get::<BodyHealth>(body).unwrap().damage_taken(),
+            140
+        );
 
         knock_out(&mut app, body);
         assert_eq!(
@@ -349,10 +365,7 @@ mod tests {
     #[test]
     fn a_body_without_stocks_is_not_a_fighter() {
         let mut app = stocks_app();
-        let body = app
-            .world_mut()
-            .spawn(BodyHealth::new(Health::new(10)))
-            .id();
+        let body = app.world_mut().spawn(BodyHealth::new(Health::new(10))).id();
         knock_out(&mut app, body);
         assert_eq!(last_spend(&mut app), None);
     }

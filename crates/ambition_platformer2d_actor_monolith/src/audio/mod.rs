@@ -47,8 +47,8 @@ pub use plugin::Platformer2dAudioPlugin;
 #[cfg(feature = "audio")]
 pub use ambition_audio::library::{
     amplitude_to_decibels, set_radio_track, start_default_music_when_ready, switch_to_music_track,
-    AudioLibrary, DefaultMusicStarted, MusicChannel, MusicPlaybackState, MusicTrackRuntime,
-    RadioStationState, SfxChannel, SfxMessageCue, SoundCue, ORIGINAL_TRACK_ID,
+    AudioLibrary, DefaultMusicStart, DefaultMusicStarted, MusicChannel, MusicPlaybackState,
+    MusicTrackRuntime, RadioStationState, SfxChannel, SfxMessageCue, SoundCue, ORIGINAL_TRACK_ID,
 };
 #[cfg(feature = "audio")]
 pub use ambition_audio::render::ProviderSfxHandleCache;

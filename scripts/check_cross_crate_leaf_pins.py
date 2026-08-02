@@ -10,13 +10,19 @@ owner stays free to add, split or reorder members behind it.
 
 This counts the first kind and holds the number down.
 
-## Why a counter and not a ban
+## It reached zero, so it is now a ban
 
-The edges are legitimate — a consumer that needs to run after projectile
-stepping is not wrong to say so. What is wrong is the *address*. So the fix for
-any given row is never "delete the edge", it is "give the target a set and pin
-that", and until the last one is converted a ban would simply be waived
-everywhere. A ratchet lets the number only fall.
+It began as a ratchet, and that was the right shape at 35: the edges are
+legitimate — a consumer that needs to run after projectile stepping is not wrong
+to say so — and what is wrong is only the *address*. The fix for any row is never
+"delete the edge", it is "give the target a set and pin that", so a ban would
+have been waived everywhere on day one.
+
+The last one converted on 2026-08-02. The ceiling is 0 and every mechanism below
+is unchanged: the guard still fails in both directions, and "below the ceiling"
+is simply unreachable now. What it means in practice is that a NEW
+`.after(other_crate::some_function)` fails immediately, with the three-step fix
+in the message.
 
 ## ⛔ the drift this closes, which is the reason it exists
 
@@ -65,10 +71,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 SOURCE_ROOTS = ["crates", "game"]
 
-# The ceiling. It may only ever be LOWERED, and lowering it is the commit that
-# converts a pin. If this file's number and the tree's disagree, the tree wins
-# and the number is stale — that is the whole point of measuring it here.
-MAX_CROSS_CRATE_LEAF_PINS = 8
+# The ceiling — now 0. It may only ever be LOWERED, so this is terminal: there is
+# no legitimate edit that raises it. If this number and the tree ever disagree,
+# the tree wins and this is stale, which is the whole point of measuring here.
+MAX_CROSS_CRATE_LEAF_PINS = 0
 
 # `.after(a::b::c)` / `.before(a::b::c)` — one qualified path, no nesting.
 #

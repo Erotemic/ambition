@@ -48,7 +48,7 @@ pub use switches::{
 };
 pub use systems::{
     apply_encounter_cleanup, apply_wave_encounter_effects, drive_wave_encounters,
-    populate_encounter_registry,
+    populate_encounter_registry, WaveEncounterDriven,
 };
 
 /// Module-local Bevy plugin: schedules the `EncounterSimulation`
@@ -70,7 +70,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             (
                 crate::world::platforms::sync_moving_platform,
-                drive_wave_encounters,
+                drive_wave_encounters.in_set(WaveEncounterDriven),
                 crate::features::apply_gameplay_banner_requests,
                 crate::features::tick_gameplay_banner,
             )

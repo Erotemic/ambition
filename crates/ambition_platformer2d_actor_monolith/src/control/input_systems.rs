@@ -11,6 +11,17 @@ use bevy::prelude::*;
 
 use ambition_input::ControlFrame;
 
+/// **The set [`input_timer_system`] runs in — this tick's input timers advance.**
+///
+/// A reset that must be seen by the timers (the app's player-reset input) lands
+/// before it.
+///
+/// ⚠ ONE member, nested inside `PlayerInputSet::Device`. The parent also holds
+/// the slot publish and the frame commit, both of which the reset must NOT
+/// precede — it needs to beat the timer decrement, not the whole device phase.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct InputTimersAdvanced;
+
 /// Tick per-frame gameplay timers and publish the primary controller's slot
 /// gestures from the local device.
 ///

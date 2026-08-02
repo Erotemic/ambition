@@ -22,13 +22,15 @@
 //! `ActiveBindings` source in P1/P5; the touch overlay keeps its own glyph
 //! subtitle in the meantime, so this model is label-first.
 
-use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
 use ambition_characters::action_scheme::{derive_action_scheme, ActorTechniques};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_combat::moveset::ActorMoveset;
 use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
 use ambition_input::{ActiveUiCues, SeatInputContexts, GAMEPLAY_CONTEXT};
-use ambition_platformer2d_shared_tangle::markers::{ControlledSubject, PlayerEntity, PrimaryPlayer};
+use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
+use ambition_platformer2d_shared_tangle::markers::{
+    ControlledSubject, PlayerEntity, PrimaryPlayer,
+};
 use ambition_platformer2d_shared_tangle::schedule::GameMode;
 use bevy::prelude::*;
 
@@ -130,6 +132,16 @@ pub fn publish_frontend_context_prompt(
         Some(confirm),
     );
 }
+
+/// **The set [`rebuild_control_prompt`] runs in — the prompt view is rebuilt.**
+///
+/// Anything contributing a cue for this frame's prompt must land before it, and
+/// three call sites say so: two inside this crate and one in the app's menu.
+///
+/// ⚠ ONE member, nested inside the `FeatureViewSync` phase, which holds every
+/// other view rebuild. A contributor needs to beat THIS rebuild, not every view.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ControlPromptRebuilt;
 
 /// Rebuild [`ControlPrompt`] from the controlled subject's action scheme.
 ///
@@ -276,11 +288,9 @@ pub fn rebuild_control_prompt(
             slot: action.slot,
             label: action.display(),
             visual: action.visual.clone(),
-            binding: bindings
-                .as_deref()
-                .and_then(|seats| {
-                    seats.label_for_slot(ambition_input::ParticipantId::PRIMARY.slot(), action.slot)
-                }),
+            binding: bindings.as_deref().and_then(|seats| {
+                seats.label_for_slot(ambition_input::ParticipantId::PRIMARY.slot(), action.slot)
+            }),
         })
         .collect();
     set_prompt(&mut prompt, ControlContextKind::Gameplay, entries, None);
@@ -305,9 +315,9 @@ fn set_prompt(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_platformer2d_core::AbilitySet;
     use ambition_entity_catalog::{ClipBinding, MoveSpec, MovesetContract};
     use ambition_input::UiCue;
+    use ambition_platformer2d_core::AbilitySet;
     use std::collections::BTreeMap;
 
     /// A body's LIVE authorities: `jump` + optionally an attack MOVE (id
@@ -394,8 +404,10 @@ mod tests {
         // `SeatBindings`. A hand-written one would prove the prompt reads a
         // resource, not that it reads the router's binding.
         let arrows = KeyboardPreset::arrows_zxc();
-        app.world_mut()
-            .spawn((ambition_input::InputParticipant::primary(), arrows.input_map()));
+        app.world_mut().spawn((
+            ambition_input::InputParticipant::primary(),
+            arrows.input_map(),
+        ));
         let body = app
             .world_mut()
             .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat"))))
@@ -431,7 +443,10 @@ mod tests {
                 world.query::<&mut InputMap<ambition_input::Platformer2dInputActionMonolith>>();
             for mut map in maps.iter_mut(world) {
                 map.clear_action(&ambition_input::Platformer2dInputActionMonolith::Jump);
-                map.insert(ambition_input::Platformer2dInputActionMonolith::Jump, KeyCode::F13);
+                map.insert(
+                    ambition_input::Platformer2dInputActionMonolith::Jump,
+                    KeyCode::F13,
+                );
             }
         }
         app.update();

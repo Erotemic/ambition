@@ -67,6 +67,16 @@ RETIRED_CRATE_NAMES = {
     # an owner string in a test fixture it is always a real crate path.
     "ambition_engine": "ambition_platformer2d_core",
     "ambition_pulse": "examples/capability_demo",
+    # ── retired TYPE names ──
+    #
+    # ⚠ the same rule, one level down, and it earns its place: `SandboxAction`
+    # was renamed with the crates and left THIRTEEN live mentions in
+    # `queue-72h-2026-07-31.md`, all describing current architecture. The row
+    # that mattered told a reader to migrate `InputMap<SandboxAction>` — a grep
+    # for which returns nothing, so the honest conclusion from that row was "this
+    # is already done". A stale crate name breaks a build; a stale TYPE name in a
+    # planning doc quietly retires a piece of work.
+    "SandboxAction": "Platformer2dInputActionMonolith",
 }
 
 # Records of what happened. Never rewritten.
@@ -79,8 +89,20 @@ HISTORICAL_PREFIXES = (
     ".agent/",
     ".llm_resource_tally/",
     "docs/planning/engine_rename_campaign.md",
-    "docs/planning/queue-24h-",
-    "docs/planning/queue-72h-",
+    # ⛔ the QUEUE files were exempt here until 2026-08-02, and the exemption was
+    # backwards. They are not a record of the past — they are the LIVE WORKLIST
+    # this repository is driven from, so a dead name in one does not misdescribe
+    # history, it hands the next reader a task they cannot find.
+    #
+    # It cost exactly that: `SandboxAction` (renamed with the crates) survived
+    # THIRTEEN times in `queue-72h-2026-07-31.md`, and the row that mattered told
+    # a reader to migrate `InputMap<SandboxAction>` — a grep for which returns
+    # nothing, so the honest conclusion from that row was "already done".
+    #
+    # ⚠ and the exemption was buying almost nothing: lifting it flagged TWO
+    # lines in the whole tree, both genuinely historical, both fixed by saying so
+    # on the line. A blanket waiver whose real population is two is a waiver
+    # nobody priced.
 )
 
 # ⚠ the guard's own test file is skipped because its FIXTURES are retired names —
@@ -125,6 +147,10 @@ HISTORICAL_MARKERS = (
     "when this was authored",
     "then called",
     "Earlier notes",
+    # ⚠ added 2026-08-02 with the queue exemption removal below. A sentence that
+    # says a name is RETIRED is the clearest possible statement that it is
+    # describing the past, and this tree already writes it that way.
+    "retired",
 )
 
 

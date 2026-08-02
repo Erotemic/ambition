@@ -54,7 +54,8 @@ impl Plugin for GravityPlugin {
             sim,
             (
                 crate::physics::oscillate_gravity_zones,
-                crate::physics::collect_gravity_zones,
+                crate::physics::collect_gravity_zones
+                    .in_set(ambition_platformer2d_shared_tangle::gravity::GravityZonesCollected),
                 collect_force_zones,
             )
                 .chain()

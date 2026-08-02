@@ -92,7 +92,8 @@ impl Plugin for PlayerSchedulePlugin {
                 // the runtime crate's neutral `SimDt` so every downstream
                 // runtime system (gravity / zones / orient-roll) reads scaled
                 // dt without a sandbox dependency.
-                ambition_platformer2d_actor_monolith::mirror_sim_dt_into_runtime,
+                ambition_platformer2d_actor_monolith::mirror_sim_dt_into_runtime
+                    .in_set(ambition_platformer2d_actor_monolith::SimDtMirrored),
             )
                 .chain()
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
@@ -147,7 +148,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.configure_sets(
             sim,
             ambition_dev_tools::DevEditApplySet
-                .after(ambition_platformer2d_actor_monolith::mirror_sim_dt_into_runtime)
+                .after(ambition_platformer2d_actor_monolith::SimDtMirrored)
                 .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput),
         );
 

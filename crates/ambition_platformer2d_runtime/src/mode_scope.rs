@@ -32,7 +32,9 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_shared_tangle::lifecycle::{despawn_scoped_entity, ModeScopedEntity};
-use ambition_platformer2d_shared_tangle::schedule::{Platformer2dSimulationPhaseMonolith, SimScheduleExt as _};
+use ambition_platformer2d_shared_tangle::schedule::{
+    Platformer2dSimulationPhaseMonolith, SimScheduleExt as _,
+};
 use ambition_platformer2d_world::rooms::ActiveRoomMetadata;
 
 /// Run condition: the active room belongs to the game mode `name`.
@@ -64,7 +66,9 @@ pub fn in_mode(
 /// [`ambition_platformer2d_shared_tangle::lifecycle::simulation_authorized`] when a
 /// system also needs the full scope-identity guarantee.
 pub fn in_base_mode(
-    active: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>>,
+    active: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
+    >,
 ) -> bool {
     active.is_some_and(|active| active.0.mode.is_none())
 }
@@ -78,7 +82,9 @@ pub fn in_base_mode(
 /// makes a mode a lifetime distinct from a room.
 pub fn despawn_departed_mode_entities(
     mut commands: Commands,
-    active: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>>,
+    active: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ActiveRoomMetadata>,
+    >,
     scoped: Query<(Entity, &ModeScopedEntity)>,
 ) {
     let Some(active) = active else { return };
@@ -107,7 +113,7 @@ impl Plugin for ModeScopePlugin {
         app.add_systems(
             sim,
             despawn_departed_mode_entities
-                .after(ambition_platformer2d_actor_monolith::rooms::sync_active_room_metadata)
+                .after(ambition_platformer2d_actor_monolith::rooms::ActiveRoomMetadataSynced)
                 .in_set(Platformer2dSimulationPhaseMonolith::Progression),
         );
     }

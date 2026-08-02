@@ -301,6 +301,7 @@ impl Plugin for CombatSchedulePlugin {
         app.add_systems(
             sim,
             ambition_platformer2d_actor_monolith::features::enforce_mount_rider_link
+                .in_set(ambition_platformer2d_actor_monolith::features::MountRiderLinkEnforced)
                 .in_set(CombatSet::Settle),
         );
 
@@ -318,7 +319,7 @@ impl Plugin for CombatSchedulePlugin {
                 // The PHASE, not the two leaves it used to sit between: this
                 // reads the frame's resolved damage, which is what `Settle` is.
                 .in_set(CombatSet::Settle)
-                .before(ambition_platformer2d_actor_monolith::features::enforce_mount_rider_link),
+                .before(ambition_platformer2d_actor_monolith::features::MountRiderLinkEnforced),
         );
 
         // The FIFO's lifecycle guard: a room boundary voids staged hits from

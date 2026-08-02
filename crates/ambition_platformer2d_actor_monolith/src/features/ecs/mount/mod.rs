@@ -378,6 +378,17 @@ pub fn sync_riders_to_mounts(
     }
 }
 
+/// **The set [`enforce_mount_rider_link`] runs in.**
+///
+/// The mount/rider link is re-established here, and the frame's staged victim
+/// hits must be handed over BEFORE that happens.
+///
+/// ⚠ ONE member, nested inside `CombatSet::Settle`. The consumer is itself in
+/// `Settle`, so pinning the parent would be a cycle — this is the shape only a
+/// nested set can express.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct MountRiderLinkEnforced;
+
 /// Dissolve a rider / mount link when either side dies. Runs after
 /// the damage pass.
 ///

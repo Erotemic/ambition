@@ -40,8 +40,6 @@
 // External API surface — bins, tests, and Android/wasm entry points reach
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
-#[cfg(feature = "causal")]
-pub mod causal;
 pub mod audio;
 /// The HOME AVATAR — the body slot 0 owns and returns to, plus the policy that is
 /// genuinely the local human's rather than any body's: its identity bundle, its
@@ -50,6 +48,8 @@ pub mod audio;
 /// control seam, the affordance table, and the body mechanics all left it in the
 /// S5/S6 fold (refactor-chain R6). What is named here is named correctly.
 pub mod avatar;
+#[cfg(feature = "causal")]
+pub mod causal;
 #[cfg(test)]
 mod character_roster;
 pub mod construction;
@@ -118,7 +118,7 @@ pub use world::{ldtk_world, rooms};
 // there directly. Only the sandbox-owned `mirror_sim_dt_into_runtime` bridge
 // still surfaces at the crate root.)
 pub use time::move_toward;
-pub use time::world_time::mirror_sim_dt_into_runtime;
+pub use time::world_time::{mirror_sim_dt_into_runtime, SimDtMirrored};
 
 pub use world::platforms::MovingPlatformState;
 
@@ -235,9 +235,7 @@ pub struct RoomTransitionCooldown {
 
 impl Default for RoomTransitionCooldown {
     fn default() -> Self {
-        Self {
-            remaining: 0.0,
-        }
+        Self { remaining: 0.0 }
     }
 }
 

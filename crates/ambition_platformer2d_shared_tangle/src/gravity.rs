@@ -136,6 +136,20 @@ pub struct GravityZones {
     pub zones: Vec<(ambition_platformer2d_core::Aabb, Vec2)>,
 }
 
+/// **The set [`collect_gravity_zones`] runs in — this tick's zone snapshot exists.**
+///
+/// Portal carve publishing waits for it: carves and the gravity snapshot share
+/// one cadence, and the pin was written to keep that cadence byte-identical to
+/// the pre-extraction `PortalSet::GravityAndCarves` chain.
+///
+/// ⚠ ONE member, nested inside `GravitySet::ZoneSnapshot`, and the distinction
+/// matters: the parent also holds `collect_force_zones`, chained AFTER this.
+/// `.after(GravitySet::ZoneSnapshot)` would additionally wait for force zones —
+/// stronger than the cadence claim, and the byte-identical promise is exactly
+/// what would break.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GravityZonesCollected;
+
 /// Rebuild the [`GravityZones`] snapshot from the live zone components. Runs
 /// before the actor integrators each frame.
 pub fn collect_gravity_zones(mut snapshot: ResMut<GravityZones>, zones: Query<&GravityZone>) {

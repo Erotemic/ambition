@@ -16,6 +16,18 @@ use super::{
 use ambition_platformer2d_core as ae;
 use ambition_time::WorldTime;
 
+/// **The set [`sync_active_room_metadata`] runs in — the active room is current.**
+///
+/// Mode teardown waits for it: a transition into a different mode tears the old
+/// mode down on the same frame it becomes stale, which requires the room
+/// metadata to already describe the NEW room.
+///
+/// ⚠ ONE member. The chained neighbours (`sync_room_music_request`,
+/// `tick_portal_phases_system`) are CONSUMERS of the fresh metadata, not part of
+/// establishing it, so widening would make teardown wait on music and portals.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ActiveRoomMetadataSynced;
+
 /// Reconcile `RoomSet::active_metadata()` into the sibling
 /// `ActiveRoomMetadata` component on the same session root, but only when the
 /// metadata actually changes. The

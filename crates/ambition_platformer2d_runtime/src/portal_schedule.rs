@@ -35,7 +35,7 @@ impl Plugin for PortalSchedulePlugin {
             sim,
             PortalSet::Carves
                 .in_set(ambition_platformer2d_shared_tangle::schedule::GameplaySimulationRoot)
-                .after(ambition_platformer2d_actor_monolith::physics::collect_gravity_zones)
+                .after(ambition_platformer2d_shared_tangle::gravity::GravityZonesCollected)
                 .before(Platformer2dSimulationPhaseMonolith::CoreSimulation),
         );
 

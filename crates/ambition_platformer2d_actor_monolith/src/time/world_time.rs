@@ -12,6 +12,17 @@
 use ambition_time::WorldTime;
 use bevy::prelude::{Res, ResMut};
 
+/// **The set [`mirror_sim_dt_into_runtime`] runs in — scaled `SimDt` is readable.**
+///
+/// Live tuning edits apply after it, so an edit lands before the input→brain
+/// chain consumes the tick's dt.
+///
+/// ⚠ ONE member, and it is the TAIL of its chain: the systems before it snapshot
+/// and scale world time, and this publishes the result. A wider set would move
+/// the boundary earlier, to a point where `SimDt` is not yet written.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SimDtMirrored;
+
 /// Mirror [`WorldTime::sim_dt`] into the runtime crate's neutral
 /// [`ambition_platformer2d_shared_tangle::time::SimDt`] resource each frame.
 ///

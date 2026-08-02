@@ -682,6 +682,14 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 magnetize_pickups.in_set(PickupMagnetize),
                 collect_ecs_pickups.in_set(PickupCollect),
                 crate::avatar::apply_player_heal_requests,
+                // Beside the heal apply because it is the same kind of thing: a
+                // METER MUTATOR on the controlled subject, scaled by sim dt.
+                // ⛔ it lived in the app's HUD chain in `Update` until
+                // 2026-08-02, which made a rollback-registered component
+                // (`body.mana`) move at render rate and never resimulate on a
+                // rewind -- and left every non-app composition with mana that
+                // does not refill.
+                crate::avatar::regen_player_mana,
             )
                 .chain()
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::FeatureCollection),

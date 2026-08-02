@@ -86,6 +86,15 @@ ENGINE_ROOTS = ["crates"]
 RENDER_PATH_PREFIXES = (
     "ambition_render::",
     "ambition_platformer2d::render::",
+    # ⭐ WIDENED 2026-08-02, by running `--all --list` and reading it, which is
+    # what the note above asks for. The finding is about this list rather than
+    # about any one system: **the narrowing is by PATH, and presentation is not
+    # only in the render crate.** `dialog_reveal_tick` owns the typewriter
+    # timing — its own doc says "this is presentation only" — and lives in
+    # `ambition_dialog`, so no prefix here could ever see it. The class this
+    # guard exists for was hiding one module outside the paths it looked at.
+    "ambition_platformer2d::dialog::",
+    "ambition_dialog::",
 )
 
 # The broad form, kept for `--all`: every engine crate, umbrella included.
@@ -180,6 +189,36 @@ WAIVERS: dict[str, str] = {
     "place_player_hud": ("the built-in HUD, as above."),
     "update_player_hud": ("the built-in HUD, as above."),
     "toggle_builtin_hud_for_declared_games": ("the built-in HUD, as above."),
+}
+
+# ── OPEN rows: the engine SHOULD own these, and a blocker is recorded ──
+#
+# ⚠ **not the same thing as a waiver, and kept apart on purpose.** A waiver says
+# "this belongs to a GAME"; an entry here says "this belongs to the ENGINE, the
+# move is not mechanical, and here is the specific question it waits on". Merging
+# the two would let "we have not done it" hide inside "we decided not to".
+#
+# Both rows below appeared on 2026-08-02 when `RENDER_PATH_PREFIXES` widened to
+# see dialogue — they are not new defects, they are defects that became visible.
+OPEN_ROWS: dict[str, str] = {
+    "dialog_reveal_tick": (
+        "engine presentation — its own doc says so, and the module docstring in "
+        "`actor_monolith/src/dialog.rs` says the reveal/input systems belong to "
+        "`ambition_dialog`. ⛔ blocked on a SCHEDULE question, not on effort: it "
+        "ticks the typewriter from `Res<Time>` (render time), so it must stay in "
+        "`Update` — but `ambition_dialog` is a low-level crate that does not know "
+        "the platformer's phase vocabulary, so the plugin cannot live where the "
+        "systems do."
+    ),
+    "dialog_input": (
+        "same family, and the harder half. The app pins its block "
+        "`.after(Platformer2dSimulationPhaseMonolith::CoreSimulation)`, which is "
+        "only meaningful because a fixed-tick host's `sim_schedule()` IS `Update`. "
+        "⛔ under a GGRS host they are different schedules and that edge means "
+        "nothing, so moving this needs someone to decide which schedule owns "
+        "dialogue input in a rollback composition. Guessing it blind is how a "
+        "dialogue advance lands on the wrong side of a rewind."
+    ),
 }
 
 # ── The ratchet ──
@@ -313,7 +352,7 @@ def app_only_systems(root: Path, every_crate: bool = False) -> dict[str, set[str
     return {
         name: files
         for name, files in by_app.items()
-        if name not in by_engine and name not in WAIVERS
+        if name not in by_engine and name not in WAIVERS and name not in OPEN_ROWS
     }
 
 
@@ -338,7 +377,12 @@ def main() -> int:
         for name in sorted(by_app):
             if name in by_engine:
                 continue
-            mark = "waived" if name in WAIVERS else "UNCLAIMED"
+            if name in WAIVERS:
+                mark = "waived"
+            elif name in OPEN_ROWS:
+                mark = "  OPEN"
+            else:
+                mark = "UNCLAIMED"
             print(f"{mark:>9}  {name}  ({', '.join(sorted(by_app[name]))})")
         return 0
 
@@ -365,6 +409,8 @@ def main() -> int:
                 print(f"      registered in {file}")
         print(
             "\nMove the registration into the engine plugin that owns the family, "
+            "or add it to OPEN_ROWS with the specific blocker if the engine "
+            "SHOULD own it and the move is not mechanical, "
             "or add the system to WAIVERS in this file with the reason it belongs "
             "to a GAME rather than to the engine."
         )

@@ -121,3 +121,37 @@ def test_every_waiver_still_names_something_the_app_registers():
 def test_every_waiver_has_a_reason():
     empty = sorted(name for name, why in WAIVERS.items() if not why.strip())
     assert not empty, f"waivers with no reason: {empty}"
+
+
+def test_open_rows_and_waivers_never_overlap():
+    """The two registries answer OPPOSITE questions.
+
+    A waiver says the ENGINE should not own it; an open row says the engine
+    should and names the blocker. A name in both means nobody has decided, while
+    the check reports a decision either way.
+    """
+    import check_engine_systems_are_engine_installed as guard
+
+    both = set(guard.WAIVERS) & set(guard.OPEN_ROWS)
+    assert not both, f"decided and undecided at once: {sorted(both)}"
+
+
+def test_every_open_row_names_a_BLOCKER_not_an_intention():
+    """⛔ this registry is the one most able to rot into 'we will get to it'.
+
+    A waiver at least states a decision. An open row states that work remains,
+    which is what every unfixed thing says — so the entry has to carry the
+    specific question it waits on, or it is a TODO with a ratchet's authority.
+    """
+    import check_engine_systems_are_engine_installed as guard
+
+    thin = [
+        name
+        for name, why in guard.OPEN_ROWS.items()
+        if "⛔" not in why or len(why) < 120
+    ]
+    assert not thin, (
+        "these open rows do not name a blocker: "
+        f"{thin}. Say what the move waits ON — a schedule question, an ownership "
+        "question, a missing seam — or fix it and delete the entry."
+    )

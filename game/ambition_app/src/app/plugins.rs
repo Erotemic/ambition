@@ -612,7 +612,14 @@ fn install_fx_and_hud_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition_platformer2d::actors::avatar::regen_player_mana,
+            // ⚠ `regen_player_mana` LEFT this chain on 2026-08-02. It mutates
+            // `BodyMana`, which is rollback-registered (`body.mana`), and it was
+            // running here in `Update` at render rate -- outside the rollback
+            // schedule entirely. Its own doc already said "a sim mutator never
+            // lives in presentation" (E4); the code had moved out of the render
+            // module and the REGISTRATION had not. It now runs in the engine's
+            // FeatureCollection phase, so every composition regenerates mana and
+            // a rewind resimulates it.
             ambition_platformer2d::render::hud::spawn_player_hud,
             ambition_platformer2d::render::hud::update_player_hud,
             // Ambition's built-in HP/MP/$ row hides whenever the active game

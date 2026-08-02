@@ -433,6 +433,26 @@ duplicate `name`s, so this is a dependency on existing behaviour, not new work.
 
 The baseline regenerates either way. **Only (b) makes the next move free.**
 
+### It already happened, today
+
+The `ambition_geometry` carve broke the schema baseline, and it took four
+commits to notice because `cargo check --all-targets` compiles tests without
+running them. The entire diff:
+
+```text
+- actor.centered_aabb  ambition_platformer2d_core::geometry::CenteredAabb
++ actor.centered_aabb  ambition_geometry::geometry::CenteredAabb
+```
+
+Same type, same projection, same registration, same bytes on the wire. Only the
+crate path inside `type_name` moved. Under (a) that is a compatibility break
+every peer must be told about; under (b) it is invisible, which is what it
+deserves to be, because nothing a peer can observe changed.
+
+⚠ note also how it was caught: not by a guard, but by going looking for
+something else. Under (a) the cost of a carve is not just the version bump — it
+is that every carve needs somebody to remember to run one specific test.
+
 ### Recommendation
 
 **(b)**, for one reason beyond consistency: the engine is at the start of a

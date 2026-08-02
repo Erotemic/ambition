@@ -147,6 +147,15 @@ pub fn record_body_control_frame(
         // ⚠ `Option`, because a body without a combat cluster is a legal body
         // and must not vanish from the log for lacking one.
         Option<&ambition_characters::actor::BodyCombat>,
+        // ⛔ **THE INTEGRATOR'S OWN INPUTS**, added after six candidates were
+        // eliminated one at a time and the cause was still not found (S51). The
+        // unauthored steps are a near-constant `-99`/tick, which is an
+        // ACCELERATION, and `integration.rs` adds exactly two:
+        // `gravity_acceleration` and `external_acceleration`. Printing both
+        // turns "which term produced -5940 px/s²?" from a search into a read.
+        //
+        // ⚠ `Option` for a body without a resolved frame (bare test bodies).
+        Option<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     )>,
 ) {
     let Some(mut log) = log else {
@@ -155,7 +164,7 @@ pub fn record_body_control_frame(
     if !log.is_recording() {
         return;
     }
-    for (identity, kin, ground, control, dash, brain, combat) in &bodies {
+    for (identity, kin, ground, control, dash, brain, combat, motion_frame) in &bodies {
         // A seated body is already covered by `record_player_movement_intent`,
         // under its SEAT — which is the better key there, because a seat
         // survives death and respawn and an actor id does not.
@@ -201,7 +210,17 @@ pub fn record_body_control_frame(
             // and `attacking` is a move owning the body's motion.
             .field("recoil_lock", combat.map_or(0.0, |c| c.recoil_lock_timer))
             .field("hitstun", combat.map_or(0.0, |c| c.hitstun_timer))
-            .field("attacking", combat.is_some_and(|c| c.attacking)),
+            .field("attacking", combat.is_some_and(|c| c.attacking))
+            // The two acceleration terms the integrator adds, in world units per
+            // second squared. At 60Hz a `-99`/tick step needs `-5940` here.
+            .field(
+                "gravity_accel_x",
+                motion_frame.map_or(0.0, |f| f.get().gravity_acceleration().x),
+            )
+            .field(
+                "external_accel_x",
+                motion_frame.map_or(0.0, |f| f.get().external_acceleration().x),
+            ),
         );
     }
 }

@@ -204,3 +204,56 @@ fn a_fallback_upgrades_when_its_sheet_appears_later() {
         "the fallback upgraded to the real sheet once its asset appeared"
     );
 }
+
+/// **A body's sprite baseline is its OWN standing size, not a constant.**
+///
+/// `standing_collision` is the reference `sync_visuals` scales the art against
+/// (`base_size / standing_collision`), and that ratio exists only for the dev
+/// menu's live body-profile experiment. Seeding it from the default player size
+/// made the ratio non-1 for any body that simply is not that size, so Mary-O
+/// growing to her tall collider stretched the tall sheet's art by 1.5 instead of
+/// drawing the tall art at the tall size — her forms have their own SHEETS, and
+/// growing must never scale art.
+#[test]
+fn the_sprite_baseline_records_the_bodys_own_standing_size() {
+    let mut app = App::new();
+    app.insert_resource(two_character_assets());
+    app.add_systems(Update, super::bind_worn_character_presentation);
+
+    let tall = ambition_platformer2d_core::Vec2::new(30.0, 72.0);
+    let grown = app
+        .world_mut()
+        .spawn((
+            PlayerVisual,
+            WornCharacter::new("robot"),
+            ambition_platformer2d_core::BodyBaseSize { base_size: tall },
+        ))
+        .id();
+    // A body that never states one still binds, on the engine default.
+    let plain = spawn_worn(&mut app, "goblin");
+
+    app.update();
+
+    let baseline = app
+        .world()
+        .get::<super::PlayerSpriteBaseline>(grown)
+        .expect("a bound body records a sprite baseline");
+    assert_eq!(
+        baseline.standing_collision, tall,
+        "the baseline is the body's own size, so the render scale is 1 and the \
+         tall sheet draws at tall size instead of being stretched"
+    );
+
+    let fallback = app
+        .world()
+        .get::<super::PlayerSpriteBaseline>(plain)
+        .expect("a body with no authored baseline still binds");
+    assert_eq!(
+        fallback.standing_collision,
+        ambition_platformer2d_core::Vec2::new(
+            ambition_platformer2d_core::DEFAULT_PLAYER_BODY_WIDTH,
+            ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT,
+        ),
+        "and one that states no size falls back to the engine default"
+    );
+}

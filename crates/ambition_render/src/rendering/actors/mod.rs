@@ -93,15 +93,33 @@ pub fn bind_worn_character_presentation(
             &ambition_characters::actor::WornCharacter,
             Option<&PlayerSpriteCharacter>,
             Has<CharacterAnimator>,
+            // This body's OWN standing size. See the seed below.
+            Option<&ae::BodyBaseSize>,
         ),
         With<PlayerVisual>,
     >,
 ) {
-    for (entity, worn, bound, has_sheet) in &players {
-        let player_collision = BVec2::new(
+    for (entity, worn, bound, has_sheet, base_size) in &players {
+        // **Seed the baseline from the BODY, not from a constant.**
+        //
+        // `PlayerSpriteBaseline::standing_collision` is the reference the render
+        // scales the art against (`base_size / standing_collision` in
+        // `sync_visuals`), and that ratio exists for ONE reason: the dev menu's
+        // live body-profile experiment. Seeding it with the default player size
+        // meant the ratio was also non-1 for any body that is simply not the
+        // default size — so Mary-O growing to her tall collider stretched the
+        // tall sheet's art by 1.5 (`render size 70x84 -> 70x125`) instead of
+        // just drawing the tall art at the tall size.
+        //
+        // Her forms have their own SHEETS. Growing should swap which art is
+        // drawn and how big her box is; it should never scale the art. Binding
+        // against the body's real baseline makes the ratio 1 for every form,
+        // and leaves the dev experiment working — that changes `base_size`
+        // after the bind, which is exactly the deviation the scale is for.
+        let player_collision = base_size.map(|b| b.base_size).unwrap_or(BVec2::new(
             ae::DEFAULT_PLAYER_BODY_WIDTH,
             ae::DEFAULT_PLAYER_BODY_HEIGHT,
-        );
+        ));
         // Resolve the sheet — absent `GameAssets` (art-free demo) and an id with no
         // sheet both fall through to the rectangle, so a worn player is ALWAYS drawn.
         let asset = assets.as_ref().and_then(|a| a.characters.sheet(worn.id()));
@@ -126,7 +144,7 @@ pub fn bind_worn_character_presentation(
             // diagnosing this and guessing.
             eprintln!(
                 "[sprite-bind] worn character '{}' collision={:.0}x{:.0} render={:.0}x{:.0} \
-                 (seed: default body constant)",
+                 (seed: body baseline)",
                 worn.id(),
                 player_collision.x,
                 player_collision.y,

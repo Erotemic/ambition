@@ -381,7 +381,7 @@ fn decide(
     // emptied list always has a longest-lived line to fall back to. An
     // unreachable refusal reads as protection while protecting nothing;
     // `ladder_probe` confirmed it fires zero times across five matches.
-    frame.locomotion.x = 0.0;
+    frame.locomotion = ae::LocalAxes::ZERO;
     let chosen = options
         .movement
         .iter()
@@ -696,7 +696,15 @@ fn apply_movement(
     //
     // Lateral is cleared by the CALLER before any verb speaks, so a verb that
     // does not set it (Jump, Blink) leaves the body with no walk rather than
-    // with the previous decision's. Facing is deliberately not cleared: which
+    // with the previous decision's.
+    //
+    // ⭐ **and each verb now writes the WHOLE `LocalAxes`, which is what the
+    // heading above always claimed.** It used to assign `locomotion.x` and leave
+    // `.y` to whatever the held frame carried — the code authored one component
+    // while its own rule said "the whole movement intent". Behaviour is
+    // identical because nothing in this brain has ever written `.y` and `held`
+    // starts at `neutral()`, so it was 0.0 for the frame's whole life; the point
+    // is that the rule and the code now say the same thing. Facing is deliberately not cleared: which
     // way a body looks between decisions is the held intent doing its job.
     //
     // **AND THE JUMP BUTTON IS RELEASED THE SAME WAY.** `jump_held` was written
@@ -708,11 +716,11 @@ fn apply_movement(
     frame.jump_held = false;
     match verb {
         MovementVerb::Approach => {
-            frame.locomotion.x = toward;
+            frame.locomotion = ae::LocalAxes::new(toward, 0.0);
             frame.facing = toward;
         }
         MovementVerb::Retreat => {
-            frame.locomotion.x = -toward;
+            frame.locomotion = ae::LocalAxes::new(-toward, 0.0);
             frame.facing = toward;
         }
         MovementVerb::Jump => {
@@ -721,11 +729,11 @@ fn apply_movement(
         }
         MovementVerb::Dash => {
             frame.dash_pressed = true;
-            frame.locomotion.x = toward;
+            frame.locomotion = ae::LocalAxes::new(toward, 0.0);
             frame.facing = toward;
         }
         MovementVerb::Shield => {
-            frame.locomotion.x = 0.0;
+            frame.locomotion = ae::LocalAxes::ZERO;
             frame.shield_held = true;
         }
         MovementVerb::Blink => {
@@ -750,7 +758,7 @@ fn apply_movement(
                 view.self_view.pos.y,
             );
             let home = side_toward(centre - view.self_view.pos);
-            frame.locomotion.x = home;
+            frame.locomotion = ae::LocalAxes::new(home, 0.0);
             frame.facing = home;
             frame.jump_pressed = true;
             frame.jump_held = true;

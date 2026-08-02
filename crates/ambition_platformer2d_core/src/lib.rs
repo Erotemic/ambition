@@ -71,10 +71,15 @@ pub use body_clusters::{
 // ⚠ a consumer that wants only shapes or frames should depend on
 // `ambition_geometry` directly. Reaching them through here is what made 19
 // unqualified crates declare a platformer dependency they did not have.
-pub use ambition_geometry::{
-    combat_volume, geometry, reference_frame, swing_shape, volume_shape,
-};
 pub use ambition_geometry::combat_volume::CombatVolume;
+pub use ambition_geometry::geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
+pub use ambition_geometry::reference_frame::{
+    AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,
+    MotionFrame, RawDirectionEdges, ResolvedControlFrame, ScreenAxes, WorldVec2,
+};
+pub use ambition_geometry::swing_shape::SwingShape;
+pub use ambition_geometry::volume_shape::{VolumeShape, DUMMY_HALF};
+pub use ambition_geometry::{combat_volume, geometry, reference_frame, swing_shape, volume_shape};
 /// Which sim frames are settled (netcode: the confirmed boundary). Absent on
 /// every non-rollback host, where it means "confirm everything".
 pub use confirmed_frame::{world_state_is_confirmed, ConfirmedFrameBoundary};
@@ -86,7 +91,6 @@ pub use control_frame::{
     accumulate_control_frame_latch, publish_latched_control_frame, ControlFrameLatch,
 };
 pub use geo_id::{Face, GeoFaceRef, GeoId, GeoSource, PlacementId};
-pub use ambition_geometry::geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
 /// The per-tick input artifact (netcode N0.2): replay, RL, forensics, wire.
 pub use input_stream::{InputStream, InputStreamError, InputStreamFrame, INPUT_STREAM_VERSION};
 pub use kinematic_path::{KinematicPath, KinematicPathMode};
@@ -96,22 +100,22 @@ pub use ledge_grab::{
     LEDGE_TOWARD_CLIMB_DELAY,
 };
 pub use movement::{
-    blink_destination_clusters, blink_destination_to_point_clusters, default_player_body_size,
-    integrate_normal_spine, knock_off_ledge, resolve_shield, step_motion, switch_motion_model,
-    ActionEdges, ActionKey, ActiveMovementTuning, AdhesiveCrawlerMotion, AxisHorizontalLaw,
-    AxisJumpLaw, AxisLocomotion, AxisManeuverState, AxisSweptMotion, AxisSweptParams, BlinkEvent,
-    BodyMotionFacts, ComboMark, CrawlAttachment, CrawlerParams, CrawlerState, DepthOcclusions,
-    Edge, FlightTuning, FrameEvents, GroundContactTransition, InputState, LedgeFacts,
-    LedgeMomentumTuning, MomentumHorizontalTuning, MomentumParams, MotionModel, MotionModelKind,
-    MotionModelSpec, MotionStepContext, MotionStepResult, MovementAction, MovementOp,
-    MovementTuning, NormalSpineCtx, OcclusionSpan, PhasedGravityJumpTuning, PhasedJumpState,
-    ResetCause, RouteDeparture, SurfaceMomentumMotion, SurfaceMotion, SurfaceRef,
-    TraversalAbilityTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE,
-    BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME,
-    DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR, DEFAULT_PLAYER_BODY_HEIGHT,
-    DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED,
-    DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL,
-    FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GRAVITY,
+    arrive_body_in_room, blink_destination_clusters, blink_destination_to_point_clusters,
+    default_player_body_size, integrate_normal_spine, knock_off_ledge, resolve_shield, step_motion,
+    switch_motion_model, ActionEdges, ActionKey, ActiveMovementTuning, AdhesiveCrawlerMotion,
+    ArrivalMomentum, AxisHorizontalLaw, AxisJumpLaw, AxisLocomotion, AxisManeuverState,
+    AxisSweptMotion, AxisSweptParams, BlinkEvent, BodyMotionFacts, ComboMark, CrawlAttachment,
+    CrawlerParams, CrawlerState, DepthOcclusions, Edge, FlightTuning, FrameEvents,
+    GroundContactTransition, InputState, LedgeFacts, LedgeMomentumTuning, MomentumHorizontalTuning,
+    MomentumParams, MotionModel, MotionModelKind, MotionModelSpec, MotionStepContext,
+    MotionStepResult, MovementAction, MovementOp, MovementTuning, NormalSpineCtx, OcclusionSpan,
+    PhasedGravityJumpTuning, PhasedJumpState, ResetCause, RouteDeparture, SurfaceMomentumMotion,
+    SurfaceMotion, SurfaceRef, TraversalAbilityTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
+    BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN,
+    DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR,
+    DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN,
+    DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED,
+    FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GRAVITY,
     GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED, PARRY_WINDOW_TIME,
     POGO_SPEED, PRECISION_BLINK_AIM_SPEED, PRECISION_BLINK_DISTANCE, RUN_ACCEL, SLASH_RECOIL,
     WALL_CLIMB_SPEED, WALL_JUMP_X, WALL_SLIDE_SPEED,
@@ -120,12 +124,6 @@ pub use player_state::{
     classify_safety_from_kinematics, resize_feet_planted, try_change_body_mode_clusters, BodyMode,
     BodyShape, LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
-pub use ambition_geometry::reference_frame::{
-    AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,
-    MotionFrame, RawDirectionEdges, ResolvedControlFrame, ScreenAxes, WorldVec2,
-};
-pub use ambition_geometry::swing_shape::SwingShape;
-pub use ambition_geometry::volume_shape::{VolumeShape, DUMMY_HALF};
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,
     ClimbableSpec, RoomGeometry, SurfaceChain, SurfaceFrame, SurfaceJunction, SurfaceKind,

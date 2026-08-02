@@ -7,14 +7,14 @@
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, With};
 
 use super::{
-    LoadingZoneActivation, RoomConstructionPlan, RoomSet, RoomSpec, RoomTransition, validated_spawn,
+    validated_spawn, LoadingZoneActivation, RoomConstructionPlan, RoomSet, RoomSpec, RoomTransition,
 };
-use crate::RoomTransitionCooldown;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::time::feel::Platformer2dFeelTuningMonolith;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::world::physics::PhysicsRoomEntity;
 use crate::world::platforms::MovingPlatformState;
+use crate::RoomTransitionCooldown;
 use ambition_dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::RoomGeometry;
@@ -52,8 +52,6 @@ pub fn commit_room_transition_geometry(
     feel: Platformer2dFeelTuningMonolith,
 ) -> RoomLoadResult {
     debug_assert_eq!(plan.target_index(), transition.target_room);
-    let old_velocity = clusters.kinematics.vel;
-    let fly_enabled = clusters.flight.fly_enabled;
     let player_size = clusters.kinematics.size;
     let edge_exit = matches!(transition.zone.activation, LoadingZoneActivation::EdgeExit);
 
@@ -72,11 +70,17 @@ pub fn commit_room_transition_geometry(
     // charges from the same `BodyAbilities`, so the second call restated its
     // answer. Four of five call sites performed that ritual and one did not,
     // which is the whole argument for folding it in.
-    ae::reset_body_clusters(motion_model, clusters, arrival, tuning.air_jumps);
-    clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
-    if edge_exit {
-        clusters.kinematics.vel = old_velocity;
-    }
+    ae::arrive_body_in_room(
+        motion_model,
+        clusters,
+        arrival,
+        tuning.air_jumps,
+        if edge_exit {
+            ae::ArrivalMomentum::Preserve
+        } else {
+            ae::ArrivalMomentum::Reset
+        },
+    );
     clock_resets.write(ClockResetRequest::sim_clock(
         ClockRequester::Engine,
         "room_transition",

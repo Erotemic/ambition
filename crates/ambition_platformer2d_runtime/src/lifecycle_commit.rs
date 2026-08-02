@@ -18,17 +18,17 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
 use ambition_platformer2d_actor_monolith::session::lifecycle_commit::{
     LifecycleIntent, PendingIntent, PendingLifecycleCommit,
 };
 use ambition_platformer2d_actor_monolith::time::feel::Platformer2dFeelTuningMonolith;
 use ambition_platformer2d_actor_monolith::world::rooms::RoomConstructionPlan;
+use ambition_platformer2d_actor_monolith::RoomTransitionCooldown;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::ConfirmedFrameBoundary;
 
 use crate::rollback::{
-    RollbackSessionOwnership, build_sync_test_session, install_rebased_sync_test_session,
+    build_sync_test_session, install_rebased_sync_test_session, RollbackSessionOwnership,
 };
 
 /// Execute a confirmed deferred lifecycle op in the exclusive world and rebase.
@@ -282,7 +282,9 @@ fn commit_transition(
     let arrival = ambition_platformer2d_shared_tangle::lifecycle::session_world_component::<
         ae::RoomGeometry,
     >(world)
-    .map(|geometry| ambition_platformer2d_world::rooms::validated_spawn(&geometry.0, arrival, player_size))
+    .map(|geometry| {
+        ambition_platformer2d_world::rooms::validated_spawn(&geometry.0, arrival, player_size)
+    })
     .unwrap_or(arrival);
 
     // Body transit on the CONTROLLED subject (load.rs:55-80): reset clusters to
@@ -294,13 +296,17 @@ fn commit_transition(
         )>();
         if let Ok((mut cluster_item, mut motion_model)) = query.get_mut(world, subject) {
             let mut clusters = cluster_item.as_clusters_mut();
-            let old_velocity = clusters.kinematics.vel;
-            let fly_enabled = clusters.flight.fly_enabled;
-            ae::reset_body_clusters(&mut motion_model, &mut clusters, arrival, air_jumps);
-            clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
-            if edge_exit {
-                clusters.kinematics.vel = old_velocity;
-            }
+            ae::arrive_body_in_room(
+                &mut motion_model,
+                &mut clusters,
+                arrival,
+                air_jumps,
+                if edge_exit {
+                    ae::ArrivalMomentum::Preserve
+                } else {
+                    ae::ArrivalMomentum::Reset
+                },
+            );
         } else {
             // UNREACHABLE after the preflight validated this exact query on this
             // exact subject. If it ever fires, a carried body lost its transit
@@ -323,12 +329,15 @@ fn commit_transition(
         combat.hitstun_timer = 0.0;
         combat.recoil_lock_timer = 0.0;
     }
-    if let Some(mut safety) = world.get_mut::<ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>(subject) {
+    if let Some(mut safety) =
+        world.get_mut::<ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>(subject)
+    {
         safety.last_safe_pos = arrival;
     }
-    if let Some(mut blink) =
-        world.get_mut::<ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>(subject)
-    {
+    if let Some(mut blink) = world
+        .get_mut::<ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>(
+        subject,
+    ) {
         blink.blink_in_timer = 0.0;
         blink.blink_camera_from = arrival;
         blink.blink_camera_to = arrival;
@@ -342,11 +351,9 @@ fn commit_transition(
     // Reset the sim clock (load.rs:81), close any open dialogue (room_flow.rs:68),
     // flash the dev preset marker (load.rs:90), and set the transition cooldown
     // (load.rs:85) so detection does not immediately re-fire.
-    if let Some(mut clock) = world
-        .get_resource_mut::<bevy::ecs::message::Messages<
-            ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest,
-        >>()
-    {
+    if let Some(mut clock) = world.get_resource_mut::<bevy::ecs::message::Messages<
+        ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest,
+    >>() {
         clock.write(
             ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest::sim_clock(
                 ambition_platformer2d_actor_monolith::time::time_control::ClockRequester::Engine,
@@ -357,7 +364,9 @@ fn commit_transition(
     if let Some(mut dialogue) = world.get_resource_mut::<ambition_dialog::DialogState>() {
         dialogue.close();
     }
-    if let Some(mut dev_state) = world.get_resource_mut::<ambition_dev_tools::DeveloperRuntimeState>() {
+    if let Some(mut dev_state) =
+        world.get_resource_mut::<ambition_dev_tools::DeveloperRuntimeState>()
+    {
         dev_state.preset_flash = 1.0;
     }
     if let Some(mut sim_state) = world.get_resource_mut::<RoomTransitionCooldown>() {

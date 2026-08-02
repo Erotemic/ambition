@@ -162,6 +162,15 @@ allow = [
     # exists to catch. (2026-07-31)
     "ambition_demo_smash",
     "ambition_sim_harness",
+    # ⛔ **the causal instrument, and the app is where it is TURNED ON.** The
+    # feature chain reached every domain recorder and NOTHING enabled it — measured
+    # 2026-08-01, `causal` resolved false for every crate in the default workspace
+    # build and `ambition_app` had no such feature at all, so every recorder was
+    # compiled out of every build the app produces while the per-crate feature jobs
+    # stayed green. Fixing that added this dependency and this list was not updated,
+    # which is the SECOND time this policy has gone red for a deliberate edge whose
+    # allowlist entry was forgotten (see `ambition_demo_smash` above). (2026-08-02)
+    "ambition_causal",
 ]
 manifest = "game/ambition_app/Cargo.toml"
 

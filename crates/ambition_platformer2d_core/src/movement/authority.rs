@@ -24,6 +24,58 @@ use super::model::MotionModel;
 use crate::body_clusters::BodyClustersMut;
 use crate::{SweepSample, Vec2};
 
+/// What a ROOM ARRIVAL does to the body's incoming velocity.
+///
+/// ⛔ **this exists because the follow-up-call defect regrew.**
+/// [`crate::reset_body_clusters`]'s own doc records the lesson in as many words —
+/// *"An authority that requires a follow-up call is not an authority — it is a
+/// two-step ritual, and the second step is the one people forget"* — and then two
+/// call sites grew exactly such a ritual around it, one layer up:
+///
+/// ```ignore
+/// let old_velocity = clusters.kinematics.vel;
+/// let fly_enabled  = clusters.flight.fly_enabled;
+/// ae::reset_body_clusters(model, clusters, arrival, air_jumps);
+/// clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
+/// if edge_exit { clusters.kinematics.vel = old_velocity; }
+/// ```
+///
+/// Five lines, character-for-character identical, in `ambition_platformer2d_actor_monolith`'s
+/// room load and `ambition_platformer2d_runtime`'s lifecycle commit — two crates,
+/// one arrival authority, no shared name. Surfaced by
+/// `engine.velocity-writes-are-authority-only` on its first run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArrivalMomentum {
+    /// Arrive at rest: a door, a respawn, a scripted placement. The room change
+    /// is a new beginning and the body's old speed means nothing in it.
+    Reset,
+    /// Keep the incoming velocity: an EDGE EXIT is the same run continuing
+    /// through a seam, so a player who walked off the right edge at full tilt
+    /// keeps walking.
+    Preserve,
+}
+
+/// THE room-arrival authority: reset the body for its new room, then apply the
+/// arrival's momentum policy — in one call, so neither half can be forgotten.
+///
+/// Restores flight only if the body still HAS the ability, which is the rule both
+/// hand-written copies implemented and neither named.
+pub fn arrive_body_in_room(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    spawn: Vec2,
+    air_jumps_default: u8,
+    momentum: ArrivalMomentum,
+) {
+    let incoming = clusters.kinematics.vel;
+    let fly_enabled = clusters.flight.fly_enabled;
+    crate::reset_body_clusters(model, clusters, spawn, air_jumps_default);
+    clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
+    if momentum == ArrivalMomentum::Preserve {
+        clusters.kinematics.vel = incoming;
+    }
+}
+
 /// What a transit does to the body's velocity.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TransitVelocity {

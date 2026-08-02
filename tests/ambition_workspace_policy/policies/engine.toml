@@ -1122,7 +1122,7 @@ watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
 rationale = "ambition_touch_input is a reusable touch presentation/input adapter; render edge is intentional"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_input", "ambition_platformer2d_core", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_actor_monolith", "ambition_sim_view", "ambition_render", "ambition_cutscene", "ambition_ui_nav", "ambition_persistence"]
+allow = ["ambition_input", "ambition_geometry", "ambition_platformer2d_shared_tangle", "ambition_platformer2d_actor_monolith", "ambition_sim_view", "ambition_render", "ambition_cutscene", "ambition_ui_nav", "ambition_persistence"]
 manifest = "crates/ambition_touch_input/Cargo.toml"
 
 [[policy]]
@@ -2388,6 +2388,89 @@ skip_paths = [
     "ambition_platformer2d_actor_monolith/src/items/pickup/",
     # Dev tooling body-profile resize (feet-planted recenter).
     "ambition_dev_tools/src/dev_tools/editable.rs",
+]
+
+# ⛔ THE OTHER HALF OF THE SAME CONTRACT, added 2026-08-02.
+#
+# `authority.rs`'s own module doc says "every production write to authoritative
+# body pose/VELOCITY belongs to exactly one named authority", and lists impulses
+# as authority #4. The rule above enforced `pos` and nothing enforced `vel` — so
+# half a documented contract was a habit, and the sentence "guarded by workspace
+# policy" was true of one noun in it.
+#
+# That gap is why "who wrote this velocity" was expensive to answer: the 2026-08-01
+# ladder investigation spent six wrong readings on a `-99`/tick ramp whose author
+# was a `vel -=` the log could not see, and the eventual answer (the fighter's own
+# slash recoil) came from an operation the kernel already emitted rather than from
+# anything a velocity write announced.
+#
+# ⚠ AGENTS.md's "avoid bullshit guardrails" bar, answered rather than assumed:
+# this is not a new CATEGORY of machinery, it is the missing half of a policy that
+# already exists and is already sanctioned. The failure is concrete and recurring
+# (the 2026-08-01 ladder investigation burned six wrong readings on a velocity
+# write nothing could attribute), and it found a real duplicated authority on its
+# first run. The more natural enforcement — making `BodyKinematics.vel` private
+# behind authority-only setters — is genuinely better and genuinely bigger: the
+# field is READ across the whole engine, so it is accessor churn on a scale this
+# does not justify alone. If that refactor ever happens, DELETE this rule rather
+# than keep both.
+#
+# ⚠ the skip list is deliberately the SAME set as the pose rule. Those are the
+# named authorities of ADR 0024; if a path is a sanctioned pose authority it is a
+# sanctioned velocity authority, and any divergence between the two lists would be
+# a claim that a site may move a body but not change how it is moving, which the
+# ADR does not say about anything.
+[[policy]]
+id = "engine.velocity-writes-are-authority-only"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
+watch_paths = ["crates", "game"]
+rationale = "ADR 0024 authority model: body VELOCITY writes go through the kernel, transit_body, an impulse seam, or a sanctioned domain integrator — never a bare field write. The pose half was enforced; this is the half that was not."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "kin.vel = ", "kin.vel += ", "kin.vel -= ",
+    "kinematics.vel = ", "kinematics.vel += ", "kinematics.vel -= ",
+    "kin.vel.x = ", "kin.vel.y = ", "kinematics.vel.x = ", "kinematics.vel.y = ",
+]
+skip_paths = [
+    # The authorities themselves + kernel-internal solvers.
+    "ambition_platformer2d_core/src/movement/",
+    "ambition_platformer2d_core/src/ledge_grab/",
+    # Engine body-shape ops (feet-planted resize recenters).
+    "ambition_platformer2d_core/src/player_state.rs",
+    # Sanctioned domain integrators: generic kinematic bodies, projectile
+    # physics, free thrown items, and the portal core's aperture transit.
+    "ambition_platformer2d_shared_tangle/src/kinematic.rs",
+    "ambition_platformer2d_shared_tangle/src/projectile/",
+    "ambition_projectiles/src/",
+    "ambition_portal2d/src/transit.rs",
+    "ambition_platformer2d_actor_monolith/src/items/pickup/",
+    # Dev tooling body-profile resize (feet-planted recenter).
+    "ambition_dev_tools/src/dev_tools/editable.rs",
+    # ── velocity-only, each NAMED rather than blanket-skipped ──
+    # ADR 0024 authority #4, verbatim: "Impulses — typed velocity operations that
+    # consume the body's resolved frame: `set_jump_velocity`,
+    # `AccelerationFrame::launch`, and frame-rotated `vel +=` writes at
+    # combat/ability seams." These are those seams.
+    "ambition_combat/src/moveset/mod.rs",
+    "ambition_platformer2d_actor_monolith/src/features/ecs/damage/actor_hit.rs",
+    # Traversal abilities that SET a velocity rather than adding an impulse: a
+    # grapple pull is a commanded speed toward the anchor, not a nudge.
+    "ambition_platformer2d_actor_monolith/src/abilities/traversal/grapple.rs",
+    # Domain integrator: a projectile reflecting off a surface, mirroring its own
+    # velocity. The same class as the projectile paths already listed above.
+    "ambition_platformer2d_actor_monolith/src/projectile/systems.rs",
+    # ⚠ GAME bodies with their own motion rules, not engine bodies: Mary-O's
+    # snake segments and Sanic's ball dash. Listed individually rather than
+    # skipping `game/`, so a NEW game reaching for a bare velocity write still
+    # fails and has to argue for itself.
+    "ambition_demo_mary_o/src/snake.rs",
+    "ambition_demo_sanic/src/ball_dash.rs",
 ]
 
 # ADR 0024 frame law: body-relative MECHANICS consume the body's per-tick

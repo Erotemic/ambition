@@ -55,13 +55,25 @@ impl Default for MaryOQuasarShaderSettings {
 
 /// Install the embedded WGSL material and its player-overlay lifecycle.
 ///
-/// Headless apps intentionally skip the pass because they do not install the
-/// embedded-asset/render registries. This function is idempotent so both Mary-O
-/// composition paths may call it safely.
+/// Idempotent, so both Mary-O composition paths may call it safely.
+///
+/// **The skip is a run condition, not an install-time probe.** It used to test
+/// for `EmbeddedAssetRegistry` as a proxy for "this app renders" — but that
+/// resource comes from `AssetPlugin`, which a headless app HAS, while the mesh
+/// and atlas asset collections these systems mutate come from the render
+/// plugins, which it does not. So a headless Mary-O installed the pass and then
+/// panicked on the first frame ("Resource does not exist"), taking 18 of the
+/// demo app's 20 integration tests with it. A proxy answers a question next to
+/// the one being asked; the run condition asks for exactly the collections the
+/// systems take, and cannot drift from them as long as it names the same types.
 pub fn install(app: &mut App) {
     if app.world().contains_resource::<QuasarShaderInstalled>() {
         return;
     }
+    // The asset half still needs its own install-time guard, for its own reason:
+    // `embedded_asset!` and `init_asset` both reach into `AssetPlugin`'s
+    // registries and panic without them. That is a real precondition of these
+    // two lines — not a stand-in for a question about rendering.
     if app
         .world()
         .get_resource::<bevy::asset::io::embedded::EmbeddedAssetRegistry>()
@@ -83,7 +95,13 @@ pub fn install(app: &mut App) {
             cleanup_quasar_overlays,
         )
             .chain()
-            .in_set(ActorOverlaySet),
+            .in_set(ActorOverlaySet)
+            // The render-world asset collections `attach_quasar_overlays` writes
+            // into. Absent = this app does not draw, so there is nothing for an
+            // overlay to be drawn on.
+            .run_if(resource_exists::<Assets<Mesh>>)
+            .run_if(resource_exists::<Assets<Image>>)
+            .run_if(resource_exists::<Assets<TextureAtlasLayout>>),
     );
 }
 

@@ -77,6 +77,17 @@ RETIRED_CRATE_NAMES = {
     # is already done". A stale crate name breaks a build; a stale TYPE name in a
     # planning doc quietly retires a piece of work.
     "SandboxAction": "Platformer2dInputActionMonolith",
+    # Found 2026-08-02 by asking a different question of the same file: which
+    # type-like names in the LIVE queues exist nowhere in `*.rs`? 27 did, and
+    # most were fine — a queue legitimately names things to BUILD and things
+    # DELETED. ⭐ the filter that separates them is whether the mention sits under
+    # an OPEN row: only there does a dead name send somebody after work.
+    #
+    # These two failed that filter. They sat in a sentence asserting what the
+    # code does TODAY — "every teardown system keys on `SandboxResetCommitted`"
+    # — and both had been renamed out from under it.
+    "SandboxResetCommitted": "NewGameResetCommitted",
+    "process_sandbox_reset_request": "process_new_game_reset_request",
 }
 
 # Records of what happened. Never rewritten.

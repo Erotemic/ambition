@@ -294,6 +294,90 @@ mod composed {
         assert_eq!(active_route(&app), Some("alpha-route".to_owned()));
     }
 
+    /// ⛔ **Moving the cursor must not rebuild the launcher.**
+    ///
+    /// `render_basic_shell` keys its rebuild on a frame string, and
+    /// `launcher.selected` used to be part of it — so every arrow press
+    /// despawned and respawned every node in the launcher. That threw away hover
+    /// state and any in-flight animation, and it is why a one-frame text defect
+    /// read as a whole-UI blink rather than as one wrong glyph.
+    ///
+    /// The cursor is RUNTIME STATE, not structure. `follow_the_launcher_cursor`
+    /// moves the highlight in place through `MenuVisualState`, and the restyle
+    /// system recolours what changed; the key names only what a rebuild is
+    /// actually needed for — which rows exist and what they say.
+    ///
+    /// ⚠ this asserts entity IDENTITY, not a node count. A rebuild that happened
+    /// to spawn the same number of nodes would pass a count and still have
+    /// thrown the tree away.
+    ///
+    /// ⚠ **gated, because the presentation is.** `basic_presentation` is not a
+    /// default feature, so a bare `cargo test -p ambition_game_shell` renders no
+    /// launcher at all — the 38 tests it reports never touch this. The runner's
+    /// per-crate feature job is what runs it (and
+    /// `scripts/tests/test_no_test_module_is_dark.py` is what keeps that job
+    /// from being exempted out from under it).
+    #[cfg(feature = "basic_presentation")]
+    #[test]
+    fn moving_the_launcher_cursor_does_not_respawn_the_ui_tree() {
+        use crate::BasicShellUiRoot;
+        use crate::ShellExperienceAppExt;
+        use bevy::prelude::{Entity, With};
+
+        let mut app = shell_app();
+        register_home(&mut app, "launcher");
+        register_alpha_provider(&mut app);
+        app.register_experience(
+            ExperienceRegistration::new("game.beta", "Beta", "beta-route"),
+            ShellRouteSpec::new("beta-route", "beta-exp"),
+        );
+        app.world_mut()
+            .resource_mut::<ShellHostConfiguration>()
+            .spec = Some(ShellHostSpec::new("launcher", "launcher"));
+        app.update();
+        app.update();
+
+        let roots = |app: &mut App| -> Vec<Entity> {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<Entity, With<BasicShellUiRoot>>();
+            let mut found: Vec<Entity> = query.iter(world).collect();
+            found.sort();
+            found
+        };
+
+        let before = roots(&mut app);
+        assert_eq!(
+            before.len(),
+            1,
+            "the launcher should have rendered exactly one root, got {before:?}"
+        );
+        let selected_before = app.world().resource::<ShellLauncherState>().selected;
+
+        app.world_mut().write_message(ShellLauncherCommand::Next);
+        // TWO updates. The command is consumed and `selected` moves in the first;
+        // `render_basic_shell` computes its key BEFORE that on the same frame, so
+        // a rebuild provoked by the new cursor lands on the SECOND. Asserting
+        // after one update passes even with `selected` back in the rebuild key —
+        // measured, not assumed: the probe that restores the original bug was
+        // green until this second update was added.
+        app.update();
+        app.update();
+
+        assert_ne!(
+            app.world().resource::<ShellLauncherState>().selected,
+            selected_before,
+            "the cursor did not move, so this test would pass without proving \
+             anything about rebuilds"
+        );
+        assert_eq!(
+            roots(&mut app),
+            before,
+            "the launcher tree was despawned and respawned by a cursor move — \
+             `launcher.selected` has leaked back into the rebuild key, and every \
+             arrow press now throws away hover state and any in-flight animation"
+        );
+    }
+
     #[test]
     fn launcher_activate_targets_the_pressed_selectable_row() {
         use crate::ShellExperienceAppExt;

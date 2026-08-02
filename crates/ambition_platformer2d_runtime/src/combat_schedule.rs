@@ -229,7 +229,9 @@ impl Plugin for CombatSchedulePlugin {
                 // tick advances one step this frame) and BEFORE the player input +
                 // spawn below (so a player shot FIRED this frame first ticks next
                 // frame — the old asymmetric spawn timing, preserved).
-                crate::projectile_schedule::step_projectiles.run_if(gameplay_allowed),
+                crate::projectile_schedule::step_projectiles
+                    .in_set(crate::projectile_schedule::ProjectileStepSet)
+                    .run_if(gameplay_allowed),
                 // Player projectile INPUT: charge / Hadouken / fire → SpawnProjectile.
                 crate::projectile_schedule::charge_projectile_input,
                 // Phase 3b player-pool spawn consumer: materializes player-fired

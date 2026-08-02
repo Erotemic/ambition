@@ -19,7 +19,7 @@
 pub use ambition_projectiles::*;
 
 pub mod systems;
-pub use systems::{charge_projectile_input, step_projectiles};
+pub use systems::{charge_projectile_input, step_projectiles, ProjectileStepSet};
 
 #[cfg(test)]
 mod tests;

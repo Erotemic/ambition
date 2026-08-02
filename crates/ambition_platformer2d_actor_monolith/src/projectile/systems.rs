@@ -381,6 +381,23 @@ struct PlayerProjectileTickInfo {
 /// `update_enemy_projectiles`; the player INPUT / charge / fire stays in
 /// [`update_projectiles`], which now only spawns into this shared pool.
 #[allow(clippy::too_many_arguments)]
+/// **The set `step_projectiles` runs in.**
+///
+/// ⛔ `ambition_platformer2d_host` orders two RENDER passes against this function
+/// by name — `sync_projectile_visuals` and `sync_projectile_charge_visuals`, both
+/// `.after(projectile_schedule::step_projectiles)` — so presentation reaches
+/// through the runtime's re-export into a monolith leaf to place itself. The
+/// comment beside them says why the edge is real ("both after the step so a
+/// projectile fired this frame is visible this frame rather than one frame
+/// late"); what was missing was a name to hang it on.
+///
+/// ⚠ ONE member. The two systems beside it in the tuple —
+/// `charge_projectile_input` and `apply_player_spawn_projectile_messages` — are
+/// deliberately AFTER the step ("so the new body first ticks next frame"), so a
+/// set spanning them would push presentation past a spawn it is not waiting for.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ProjectileStepSet;
+
 pub fn step_projectiles(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,

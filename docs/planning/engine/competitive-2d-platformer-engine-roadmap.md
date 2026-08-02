@@ -1065,10 +1065,23 @@ nobody can use.
 (`PlayerInputSet::Brain`) with two members, so converting is the STRICTER case,
 not the equivalent one.
 
-⭐ **the running tally for this whole thread: 49 → 37 cross-crate leaf pins, via
-four one-member sets** (`EffectExecutionSet`, `FeatureWorldOverlaySet`,
-`PlayerHitResolutionSet`, `HazardTickSet`) plus one phase vocabulary
-(`ProgressionSet`, six phases). Every conversion was chosen because it was
+✔ **a fifth: `ProjectileStepSet`, and this one crosses the PRESENTATION
+boundary.** `ambition_platformer2d_host` ordered two render passes
+(`sync_projectile_visuals`, `sync_projectile_charge_visuals`) against
+`projectile_schedule::step_projectiles` — presentation reaching through the
+runtime's re-export into a monolith leaf to place itself. The edge is real and
+its comment says why (*"both after the step so a projectile fired this frame is
+visible this frame rather than one frame late"*); what was missing was a name to
+hang it on. **37 → 35.**
+⚠ ONE member again, and here the neighbours make the case: `charge_projectile_input`
+and `apply_player_spawn_projectile_messages` sit after the step DELIBERATELY (*"so
+the new body first ticks next frame"*), so a set spanning them would push
+presentation past a spawn it is not waiting for.
+
+⭐ **the running tally for this whole thread: 49 → 35 cross-crate leaf pins, via
+five one-member sets** (`EffectExecutionSet`, `FeatureWorldOverlaySet`,
+`PlayerHitResolutionSet`, `HazardTickSet`, `ProjectileStepSet`) plus one phase
+vocabulary (`ProgressionSet`, six phases). Every conversion was chosen because it was
 EXACTLY equivalent; the ones that would have been merely stricter are recorded
 above and left alone.
 

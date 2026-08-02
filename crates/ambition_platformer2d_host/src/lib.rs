@@ -431,9 +431,9 @@ impl Plugin for HostProjectileVisualsPlugin {
                 // pass. Both after the step so a projectile fired this frame is
                 // visible this frame rather than one frame late.
                 ambition_render::rendering::projectile_visuals::sync_projectile_visuals
-                    .after(ambition_platformer2d_runtime::projectile_schedule::step_projectiles),
+                    .after(ambition_platformer2d_runtime::projectile_schedule::ProjectileStepSet),
                 ambition_render::rendering::projectile_visuals::sync_projectile_charge_visuals
-                    .after(ambition_platformer2d_runtime::projectile_schedule::step_projectiles),
+                    .after(ambition_platformer2d_runtime::projectile_schedule::ProjectileStepSet),
             )
                 // Both passes hang art off the PRESENTED body pose (the charge
                 // orb tracks the hand; a projectile's origin tracks the firer),

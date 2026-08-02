@@ -13,7 +13,7 @@ use ambition_platformer2d::actors::world::physics;
 #[cfg(feature = "physics_debris")]
 use ambition_platformer2d::actors::world::physics::physics_spawn_debris_messages;
 use ambition_platformer2d::dev_tools::dev_tools::{
-    self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
+    DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
 };
 use ambition_platformer2d::inventory_ui;
@@ -521,7 +521,10 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 ambition_platformer2d::dialog::dialog_input,
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
-                dev_tools::sync_developer_body_profile,
+                // ⚠ `sync_developer_body_profile` LEFT this chain on
+                // 2026-08-02: it writes rollback state (`BodyBaseSize`), so
+                // it belongs in `DevToolsSimPlugin`'s `DevEditApplySet`,
+                // which is in the schedule that rewinds.
                 ambition_platformer2d::actors::trace::handle_trace_hotkey,
                 ambition_platformer2d::actors::menu::map::handle_map_menu_hotkeys,
             )

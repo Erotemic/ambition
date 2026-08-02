@@ -20,8 +20,8 @@
 //! flag stays `false` and the shell menu is the pause menu.
 
 use ambition_menu::render::bevy_ui::{
-    install_bevy_ui_menu_actions, spawn_bevy_ui_menu_with_assets, BevyUiMenuInteractionSet,
-    BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
+    install_bevy_ui_menu_actions, BevyUiMenuInteractionSet, BevyUiMenuRoot, BevyUiMenuTabSpec,
+    BevyUiMenuView,
 };
 use ambition_menu::{
     MenuActionActivated, MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign,
@@ -319,11 +319,9 @@ fn drive_shell_pause_menu(
     let focused = rows.get(menu.cursor).copied().unwrap_or(PauseEntry::Close);
     if let (PauseEntry::Audio(id), Some(settings)) = (focused, settings.as_deref_mut()) {
         let direction = i32::from(edges.increase) - i32::from(edges.decrease);
-        if direction != 0 && ambition_settings_menu::settings::apply_settings_option(
-            id,
-            direction,
-            settings,
-        ) {
+        if direction != 0
+            && ambition_settings_menu::settings::apply_settings_option(id, direction, settings)
+        {
             play(&mut sfx, ids::UI_MENU_MOVE);
         }
     }
@@ -454,23 +452,21 @@ fn render_shell_pause_menu(
     // settings row whose number lags the setting is worse than no number.
     // Quantised to whole percent because that is all the row displays; a float
     // key would rebuild the page on every inaudible step.
-    let audio_key = SHELL_AUDIO_OPTIONS
-        .iter()
-        .fold(0u64, |acc, id| {
-            let value = match id {
-                ambition_settings_menu::settings::SettingsOptionId::Mute => {
-                    u64::from(settings.audio.muted)
-                }
-                other => (audio_value(*other, &settings).len() as u64)
-                    .wrapping_mul(31)
-                    .wrapping_add(
-                        audio_value(*other, &settings)
-                            .bytes()
-                            .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(u64::from(b))),
-                    ),
-            };
-            acc.wrapping_mul(1_000_003).wrapping_add(value)
-        });
+    let audio_key = SHELL_AUDIO_OPTIONS.iter().fold(0u64, |acc, id| {
+        let value = match id {
+            ambition_settings_menu::settings::SettingsOptionId::Mute => {
+                u64::from(settings.audio.muted)
+            }
+            other => (audio_value(*other, &settings).len() as u64)
+                .wrapping_mul(31)
+                .wrapping_add(
+                    audio_value(*other, &settings)
+                        .bytes()
+                        .fold(0u64, |a, b| a.wrapping_mul(131).wrapping_add(u64::from(b))),
+                ),
+        };
+        acc.wrapping_mul(1_000_003).wrapping_add(value)
+    });
     let key = (menu.open, menu.cursor, in_session, audio_key);
     if *prior == Some(key) {
         return;
@@ -681,8 +677,14 @@ mod tests {
 
         // The audio rows are on BOTH. That is the point of them being global.
         for id in SHELL_AUDIO_OPTIONS {
-            assert!(rows.contains(&PauseEntry::Audio(id)), "{id:?} off the title menu");
-            assert!(in_game.contains(&PauseEntry::Audio(id)), "{id:?} off the pause menu");
+            assert!(
+                rows.contains(&PauseEntry::Audio(id)),
+                "{id:?} off the title menu"
+            );
+            assert!(
+                in_game.contains(&PauseEntry::Audio(id)),
+                "{id:?} off the pause menu"
+            );
         }
     }
 
@@ -696,7 +698,11 @@ mod tests {
         let mut app = app();
         app.init_resource::<UserSettings>();
         press_start(&mut app);
-        navigate_to(&mut app, false, PauseEntry::Audio(SettingsOptionId::MasterVolume));
+        navigate_to(
+            &mut app,
+            false,
+            PauseEntry::Audio(SettingsOptionId::MasterVolume),
+        );
 
         let before = app.world().resource::<UserSettings>().audio.master_volume;
         intent(&mut app, |f| f.right = true);

@@ -10,8 +10,8 @@ use ambition_input::{
     ActiveUiCues, InputSet, UiCue, LAUNCHER_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 use ambition_menu::render::bevy_ui::{
-    install_bevy_ui_menu_actions, spawn_bevy_ui_menu_with_assets, BevyUiMenuInteractionSet,
-    BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
+    install_bevy_ui_menu_actions, BevyUiMenuInteractionSet, BevyUiMenuRoot, BevyUiMenuTabSpec,
+    BevyUiMenuView,
 };
 use ambition_menu::{
     AmbitionMenuControl, MenuActionActivated, MenuActionPreviewed, MenuColor, MenuControlKind,

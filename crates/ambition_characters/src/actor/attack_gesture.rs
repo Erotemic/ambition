@@ -7,8 +7,8 @@
 //! a device adapter or a character: human, brain, replay, RL, and remote control
 //! all traverse the same interpreter.
 
-use ambition_platformer2d_core::{self as ae, Vec2};
 pub use ambition_entity_catalog::AttackDir;
+use ambition_platformer2d_core as ae;
 use bevy::prelude::Component;
 
 /// Tilt versus smash classification. Characters map this semantic result to
@@ -251,8 +251,26 @@ mod tests {
     fn recent_flick_makes_the_press_a_smash() {
         let tuning = AttackGestureTuning::default();
         let mut state = AttackGestureState::default();
-        tick(&mut state, tuning, ae::LocalAxes::X, 1.0, false, false, false, false);
-        let out = tick(&mut state, tuning, ae::LocalAxes::X, 1.0, true, true, false, false);
+        tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::X,
+            1.0,
+            false,
+            false,
+            false,
+            false,
+        );
+        let out = tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::X,
+            1.0,
+            true,
+            true,
+            false,
+            false,
+        );
         assert_eq!(out.pressed.unwrap().strength, AttackStrength::Smash);
     }
 
@@ -263,10 +281,46 @@ mod tests {
             ..Default::default()
         };
         let mut state = AttackGestureState::default();
-        tick(&mut state, tuning, ae::LocalAxes::X, 1.0, false, false, false, false);
-        tick(&mut state, tuning, ae::LocalAxes::X, 1.0, false, false, false, false);
-        tick(&mut state, tuning, ae::LocalAxes::X, 1.0, false, false, false, false);
-        let out = tick(&mut state, tuning, ae::LocalAxes::X, 1.0, true, true, false, false);
+        tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::X,
+            1.0,
+            false,
+            false,
+            false,
+            false,
+        );
+        tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::X,
+            1.0,
+            false,
+            false,
+            false,
+            false,
+        );
+        tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::X,
+            1.0,
+            false,
+            false,
+            false,
+            false,
+        );
+        let out = tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::X,
+            1.0,
+            true,
+            true,
+            false,
+            false,
+        );
         assert_eq!(out.pressed.unwrap().strength, AttackStrength::Tilt);
     }
 
@@ -274,7 +328,16 @@ mod tests {
     fn strong_hint_does_not_require_a_flick() {
         let tuning = AttackGestureTuning::default();
         let mut state = AttackGestureState::default();
-        let out = tick(&mut state, tuning, ae::LocalAxes::ZERO, 1.0, true, true, false, true);
+        let out = tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::ZERO,
+            1.0,
+            true,
+            true,
+            false,
+            true,
+        );
         assert_eq!(out.pressed.unwrap().strength, AttackStrength::Smash);
         assert_eq!(out.pressed.unwrap().direction, AttackDir::Neutral);
     }
@@ -283,9 +346,36 @@ mod tests {
     fn press_hold_release_keep_the_initial_semantics() {
         let tuning = AttackGestureTuning::default();
         let mut state = AttackGestureState::default();
-        let press = tick(&mut state, tuning, ae::LocalAxes::Y, 1.0, true, true, false, true);
-        let hold = tick(&mut state, tuning, -ae::LocalAxes::X, -1.0, false, true, false, false);
-        let release = tick(&mut state, tuning, ae::LocalAxes::ZERO, 1.0, false, false, true, false);
+        let press = tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::Y,
+            1.0,
+            true,
+            true,
+            false,
+            true,
+        );
+        let hold = tick(
+            &mut state,
+            tuning,
+            -ae::LocalAxes::X,
+            -1.0,
+            false,
+            true,
+            false,
+            false,
+        );
+        let release = tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::ZERO,
+            1.0,
+            false,
+            false,
+            true,
+            false,
+        );
         assert_eq!(press.pressed.unwrap().direction, AttackDir::Down);
         assert_eq!(hold.held.unwrap().direction, AttackDir::Down);
         assert_eq!(release.released.unwrap().direction, AttackDir::Down);
@@ -297,7 +387,16 @@ mod tests {
     fn sub_tick_tap_emits_press_and_release_together() {
         let tuning = AttackGestureTuning::default();
         let mut state = AttackGestureState::default();
-        let out = tick(&mut state, tuning, ae::LocalAxes::ZERO, 1.0, true, false, true, false);
+        let out = tick(
+            &mut state,
+            tuning,
+            ae::LocalAxes::ZERO,
+            1.0,
+            true,
+            false,
+            true,
+            false,
+        );
         assert!(out.pressed.is_some());
         assert!(out.released.is_some());
         assert!(state.active.is_none());

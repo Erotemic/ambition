@@ -19,8 +19,6 @@ use bevy::prelude::*;
 /// misclassified as `Back` and fired the aerial back-attack the wrong way.
 #[test]
 fn attack_dir_is_relative_to_facing() {
-    use ambition_platformer2d_core::Vec2;
-
     // Facing RIGHT (+1): screen-right is forward, screen-left is back.
     assert_eq!(
         attack_dir_from_axis(ae::LocalAxes::new(1.0, 0.0), 1.0),

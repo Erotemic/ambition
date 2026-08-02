@@ -45,6 +45,13 @@ impl Plugin for DevToolsSimPlugin {
                 // reads it. Sim systems never see the inspector mirror.
                 crate::dev_tools::apply_editable_movement_tuning,
                 crate::sync_live_player_dev_edits_system,
+                // ⛔ moved out of the APP's `Update` chain on 2026-08-02. It
+                // mutates `BodyBaseSize`, which is rollback state, so under GGRS
+                // the size rewound and this edit never replayed with it. This
+                // crate already had the right home -- a sim-schedule set for
+                // exactly "a dev edit is applied to the body" -- and the
+                // registration was simply somewhere else.
+                crate::dev_tools::sync_developer_body_profile,
             )
                 .chain()
                 .in_set(DevEditApplySet),

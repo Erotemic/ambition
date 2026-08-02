@@ -243,6 +243,28 @@ pub fn steer_mount_from_rider(
             continue;
         }
         // Total grant → the mount executes the rider's locomotion intent.
+        //
+        // ⚠ **`locomotion` is CONTROLLED-BODY-LOCAL, so copying it between two
+        // bodies is only sound while both resolve the SAME frame.** They do
+        // today, and not by accident: `sync_riders_to_mounts` zeroes the rider's
+        // gravity SCALE and not its direction, so the rider keeps the room's
+        // gravity — the same direction the mount resolves `control_down` from.
+        // Nothing enforces that, which is why it is written here.
+        //
+        // ⛔ the case it would break is named in `actors/update.rs`: *"a
+        // surface-walker's frame is its clung surface; everyone else's is
+        // gravity at their position."* A surface-walking mount would receive a
+        // vector authored in its rider's frame and drive along the wrong axis.
+        // ✔ not reachable in today's content (checked 2026-08-01): the only two
+        // authored `mount_class` archetypes are the shark (`is_aerial: true`, so
+        // it steers by `velocity_target`, which is WORLD and frame-safe) and the
+        // giant ("no motion / no AI — the carried giant just stands"). A new
+        // mount with a crawler/adhesive motion model is what makes this live;
+        // the fix then is to convert rather than copy, through each body's own
+        // basis. Queue S49.
+        //
+        // `velocity_target` below needs none of this — it is world-space, which
+        // is what every OTHER cross-body hand-off in this file already uses.
         let rider_frame = rider_control.0;
         let mount_frame = &mut mount_control.0;
         mount_frame.locomotion = rider_frame.locomotion;
@@ -549,7 +571,8 @@ pub fn enforce_mount_rider_link(
                     .insert(crate::features::TemporaryControl::Autonomous)
                     // Sprite-binding refresh so the rider's sheet
                     // re-resolves on the next presentation pass.
-                    .remove::<ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind>();
+                    .remove::<ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind>(
+                    );
             }
             // Mount dead, rider already dissolved → steady state.
             (false, false) => {}
@@ -563,7 +586,8 @@ mod tests;
 /// World position of the rider's hand (where mounted attacks originate). The
 /// hand offset is sprite-layout-derived but the SIM needs it to spawn attacks, so
 /// it lives here, not in presentation.
-const HAND_OFFSET_NORM: ambition_platformer2d_core::Vec2 = ambition_platformer2d_core::Vec2::new(0.18, -0.05);
+const HAND_OFFSET_NORM: ambition_platformer2d_core::Vec2 =
+    ambition_platformer2d_core::Vec2::new(0.18, -0.05);
 pub fn rider_hand_world_pos(
     rider_pos: ambition_platformer2d_core::Vec2,
     facing: f32,

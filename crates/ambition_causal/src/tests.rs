@@ -21,6 +21,9 @@ fn recording_log() -> CausalLog {
 
 #[test]
 fn a_log_that_is_not_recording_costs_nothing_and_keeps_nothing() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     // The shipped default. An instrument that is on by default is an
     // instrument somebody turns off, and then it is not there when needed.
     let mut log = CausalLog::default();
@@ -31,6 +34,9 @@ fn a_log_that_is_not_recording_costs_nothing_and_keeps_nothing() {
 
 #[test]
 fn a_policy_admits_only_the_domains_under_investigation() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     let mut log = CausalLog::default();
     log.set_policy(RecordingPolicy::only([domains::MOVEMENT]));
     assert!(log.record(fact("moved", 1, domains::MOVEMENT)).is_some());
@@ -43,6 +49,9 @@ fn a_policy_admits_only_the_domains_under_investigation() {
 
 #[test]
 fn explaining_a_tick_gathers_this_subject_and_the_world_but_not_another_body() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     let mut log = recording_log();
     log.record(fact("chose", 10, domains::BRAIN).about(body()));
     log.record(fact("moved", 10, domains::MOVEMENT).about(body()));
@@ -66,6 +75,9 @@ fn explaining_a_tick_gathers_this_subject_and_the_world_but_not_another_body() {
 
 #[test]
 fn a_composition_with_no_combat_still_explains_its_movement() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     // The stated requirement: "the inspector should tolerate missing domains.
     // A movement-only consumer should not require combat traces."
     let mut log = CausalLog::default();
@@ -106,6 +118,9 @@ fn an_empty_explanation_says_which_of_the_two_reasons_it_is() {
 
 #[test]
 fn the_chain_walks_causes_back_to_the_root() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     let mut log = recording_log();
     let input = log
         .record(fact("action_pressed", 5, domains::INPUT).about(body()))
@@ -145,6 +160,9 @@ fn the_chain_walks_causes_back_to_the_root() {
 
 #[test]
 fn a_cause_cycle_is_bounded_rather_than_hanging_the_debugger() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     // A malformed publisher is exactly when somebody is debugging, so the
     // debugger must survive it.
     let mut log = recording_log();
@@ -172,6 +190,9 @@ fn a_cause_cycle_is_bounded_rather_than_hanging_the_debugger() {
 
 #[test]
 fn a_resimulated_tick_is_labelled_and_a_repeat_is_not_a_mystery() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     // The failure the text trace could not express: under a rollback host a
     // resimulated frame decides again and logs again, and two identical lines
     // are indistinguishable from one decision made twice.
@@ -202,6 +223,9 @@ fn a_resimulated_tick_is_labelled_and_a_repeat_is_not_a_mystery() {
 
 #[test]
 fn the_ring_is_bounded_and_says_when_it_wrapped() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     let mut log = CausalLog::with_capacity(4);
     log.set_policy(RecordingPolicy::All);
     for tick in 0..10 {
@@ -219,6 +243,9 @@ fn the_ring_is_bounded_and_says_when_it_wrapped() {
 
 #[test]
 fn the_dump_is_deterministic_and_ordered_by_tick_then_record_order() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     let mut a = recording_log();
     let mut b = recording_log();
     for log in [&mut a, &mut b] {
@@ -239,6 +266,9 @@ fn the_dump_is_deterministic_and_ordered_by_tick_then_record_order() {
 
 #[test]
 fn the_scoped_sink_collects_what_pure_code_publishes_and_is_inert_otherwise() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     // Publishing from code with no access to the log is the whole point: this
     // stands in for the fighter's decision, five hops below any ECS system.
     fn deep_pure_code(verb: &str) {
@@ -273,6 +303,9 @@ fn the_scoped_sink_collects_what_pure_code_publishes_and_is_inert_otherwise() {
 
 #[test]
 fn a_nested_scope_does_not_leak_into_the_outer_dump() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     let (outer, inner) = with_sink(recording_log(), || {
         record(fact("outer", 1, domains::BRAIN).about(body()));
         let (inner, ()) = with_sink(recording_log(), || {
@@ -335,6 +368,9 @@ fn a_fact_published_off_thread_is_counted_rather_than_vanishing() {
 /// (GPT 5.6 review, finding 6.)
 #[test]
 fn one_tick_in_two_generations_is_two_explanations() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     let mut log = recording_log();
     log.record(
         fact("chose", 20, domains::BRAIN)
@@ -378,6 +414,9 @@ fn one_tick_in_two_generations_is_two_explanations() {
 /// flip. (GPT 5.6 review, finding 6.)
 #[test]
 fn an_original_tick_and_its_resimulation_do_not_share_an_explanation() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     let mut log = recording_log();
     log.record(
         fact("moved", 20, domains::MOVEMENT)
@@ -427,6 +466,9 @@ fn an_original_tick_and_its_resimulation_do_not_share_an_explanation() {
 /// answer to a different key depending on unrelated history.
 #[test]
 fn two_resimulations_of_one_tick_are_two_explanations() {
+    // The sink counters are PROCESS globals and tests run in
+    // parallel; see `global_sink_test_lock`.
+    let _serialised = crate::sink::global_sink_test_lock();
     let mut log = recording_log();
     log.set_tick(120);
 

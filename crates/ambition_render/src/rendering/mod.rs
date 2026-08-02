@@ -36,6 +36,29 @@
 //!   blocks, surface chains, read-model body/feature boxes) + the opt-in
 //!   [`debug_viz::DebugVizPlugin`] a game host adds to get them.
 
+/// **Every pass that decides an actor sprite's handle, tint or visibility.**
+///
+/// The dev-tool sprite OVERRIDES (placeholder-sprites, hide-sprites) have to run
+/// after all of them or the toggle is nondeterministic — the comment at that
+/// registration records sprites "sporadically remaining visible" when Bevy chose
+/// the other order. Saying so used to take four `.after` edges naming four
+/// functions in two crates, three of them reached through the facade from the
+/// app.
+///
+/// ⚠ FOUR members, and unusually for this campaign that is the whole point
+/// rather than a compromise: the boundary IS "all of them", so the set is
+/// exactly as wide as the claim. A new sprite pass joins here and the override
+/// keeps working; under the old style it silently did not.
+///
+/// ⚠ `sync_projectile_visuals` is registered by `ambition_platformer2d_host`,
+/// not by this crate's plugin, so the set spans a composition boundary. That is
+/// legitimate — a set is a NAME, and the crate that owns the name need not own
+/// every registration — but it does mean a composition that installs the render
+/// plugin and not the host gets a three-member set. The override is `.after` it
+/// either way, which stays correct.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct SpriteVisualSync;
+
 pub mod actors;
 pub mod bubble_shield;
 mod camera;
@@ -154,10 +177,9 @@ fn session_presentation_is_ready(
 ) -> bool {
     let exact_world = roots.single().is_ok_and(|root| {
         gate.is_none()
-            || active
-                .as_deref()
-                .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current)
-                == Some(root.0)
+            || active.as_deref().and_then(
+                ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current,
+            ) == Some(root.0)
     });
     exact_world && !primary_player.is_empty()
 }
@@ -184,7 +206,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 Update,
                 (
                     morph_ball::spawn_morph_ball_visual,
-                    morph_ball::sync_morph_ball_visual,
+                    morph_ball::sync_morph_ball_visual.in_set(SpriteVisualSync),
                 )
                     .chain()
                     .after(actors::sync_visuals)
@@ -198,7 +220,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 Update,
                 (
                     bubble_shield::spawn_bubble_shield_visual,
-                    bubble_shield::sync_bubble_shield_visual,
+                    bubble_shield::sync_bubble_shield_visual.in_set(SpriteVisualSync),
                 )
                     .chain()
                     .after(actors::sync_visuals)
@@ -345,7 +367,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // minimal shell): give it a drawable fallback before sync_visuals
                 // queries `&mut Sprite`.
                 actors::ensure_player_visual_sprite,
-                actors::sync_visuals,
+                actors::sync_visuals.in_set(SpriteVisualSync),
                 actors::upgrade_actor_sprites,
                 // Grouped (parallel within their chain slot): player-sprite and
                 // prop-sprite quality refreshes touch disjoint entity families, so

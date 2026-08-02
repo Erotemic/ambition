@@ -44,6 +44,35 @@ def test_a_pin_naming_another_crates_function_is_counted(tmp_path):
     assert line == 1
 
 
+def test_a_pin_rustfmt_WRAPPED_is_still_counted(tmp_path):
+    """⛔ the regression that made the guard undercount its own ceiling.
+
+    rustfmt wrapped one long pin onto its own line with a TRAILING COMMA, in a
+    file this campaign had just edited. The pattern required `)` immediately
+    after the path, so the row vanished and the tree looked one pin cleaner than
+    it was. The newline was never the problem — `\\s` spans newlines — the comma
+    was, which is exactly the kind of detail that is invisible until pinned.
+
+    Fixing it surfaced TWO uncounted rows, which is also why the ceiling has to
+    be re-derived from the tree rather than adjusted by hand.
+    """
+    root = _workspace(
+        tmp_path,
+        "crates/ambition_render/src/lib.rs",
+        "\n".join(
+            [
+                "draw",
+                "    .after(",
+                "        ambition_combat::hazards::tick_hazards,",
+                "    );",
+            ]
+        ),
+    )
+    found = collect(root)
+    assert len(found) == 1, f"the wrapped pin was not found: {found}"
+    assert found[0][3] == "ambition_combat::hazards::tick_hazards"
+
+
 def test_a_pin_naming_another_crates_SET_is_the_shape_we_want(tmp_path):
     root = _workspace(
         tmp_path,

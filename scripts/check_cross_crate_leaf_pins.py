@@ -68,10 +68,21 @@ SOURCE_ROOTS = ["crates", "game"]
 # The ceiling. It may only ever be LOWERED, and lowering it is the commit that
 # converts a pin. If this file's number and the tree's disagree, the tree wins
 # and the number is stale — that is the whole point of measuring it here.
-MAX_CROSS_CRATE_LEAF_PINS = 23
+MAX_CROSS_CRATE_LEAF_PINS = 21
 
 # `.after(a::b::c)` / `.before(a::b::c)` — one qualified path, no nesting.
-PIN = re.compile(r"\.(?:before|after)\(\s*([A-Za-z_][A-Za-z_0-9]*(?:::[A-Za-z_][A-Za-z_0-9]*)+)\s*\)")
+#
+# ⛔ the trailing comma and the newline are BOTH load-bearing. The first version
+# required `)` immediately after the path, and rustfmt — run on a file this very
+# campaign had just edited — wrapped one long pin onto its own line with a
+# trailing comma, at which point the guard silently stopped counting it and the
+# ceiling looked one lower than the tree. A formatter is not an adversary; it is
+# the most likely thing to reshape these call sites, so the pattern has to
+# survive what it does. `\s` spans newlines in Python, so the wrapping itself was
+# never the problem — the comma was.
+PIN = re.compile(
+    r"\.(?:before|after)\(\s*([A-Za-z_][A-Za-z_0-9]*(?:::[A-Za-z_][A-Za-z_0-9]*)+)\s*,?\s*\)"
+)
 
 
 def _strip_comments(text: str) -> str:

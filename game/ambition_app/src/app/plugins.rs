@@ -18,7 +18,7 @@ use ambition_platformer2d::dev_tools::dev_tools::{
 };
 use ambition_platformer2d::inventory_ui;
 use ambition_platformer2d::platformer::schedule::{
-    gameplay_allowed, PresentationSetupSet, Platformer2dSimulationPhaseMonolith, SimScheduleExt,
+    gameplay_allowed, Platformer2dSimulationPhaseMonolith, PresentationSetupSet, SimScheduleExt,
 };
 use ambition_platformer2d::render::fx::{self, vfx_spawn_messages};
 use ambition_platformer2d::render::rendering::{camera_follow, sync_visuals};
@@ -103,9 +103,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(
-        simulation_host,
-    ));
+    app.add_plugins(ambition_platformer2d::runtime::PlatformerEnginePlugins::new(simulation_host));
 
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input
@@ -190,7 +188,9 @@ fn register_app_local_sim_systems(app: &mut App) {
                 .in_set(Platformer2dSimulationPhaseMonolith::ResetProcessing)
                 // AFTER, not before: the processor is the only system that may
                 // decline a reset, and this one waits for its commitment.
-                .after(ambition_platformer2d::actors::session::reset::process_new_game_reset_request),
+                .after(
+                    ambition_platformer2d::actors::session::reset::process_new_game_reset_request,
+                ),
         );
 
     // ── The PlayerSimulation gap: home reset policy + home presentation ───
@@ -214,7 +214,9 @@ fn register_app_local_sim_systems(app: &mut App) {
             // settled, before the frame's damage lands. It used to be two leaf
             // names a host had to trust stayed true — the position was documented
             // in the engine's module docs and enforced nowhere.
-            .in_set(ambition_platformer2d::platformer::schedule::PlayerSimulationSet::PostPossession),
+            .in_set(
+                ambition_platformer2d::platformer::schedule::PlayerSimulationSet::PostPossession,
+            ),
     );
 
     // The RoomTransition gap — readiness transaction + authorized commit — is
@@ -281,7 +283,9 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
 pub(super) fn spawn_ldtk_world_root(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
+    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ldtk_world::LdtkRuntimeIndex,
+    >,
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
     world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
     sandbox_asset_collection: Option<Res<loading::Platformer2dStartupAssets>>,
@@ -482,7 +486,9 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Startup,
             (
-                ambition_platformer2d::dev_tools::profiling::phase_mark("before_setup_presentation"),
+                ambition_platformer2d::dev_tools::profiling::phase_mark(
+                    "before_setup_presentation",
+                ),
                 // `PresentationSetupSet` is the machinery-facing label for
                 // this slot: audio init (and any future machinery startup
                 // work) orders `.after(the set)` instead of naming this
@@ -499,7 +505,8 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                     ),
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_setup_presentation"),
                 ambition_platformer2d::actors::menu::map::populate_map_rooms,
-                ambition_platformer2d::actors::menu::map::spawn_map_menu.run_if(super::shell_host::direct_entry),
+                ambition_platformer2d::actors::menu::map::spawn_map_menu
+                    .run_if(super::shell_host::direct_entry),
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()
@@ -612,8 +619,9 @@ fn install_fx_and_hud_systems(app: &mut App) {
             ambition_platformer2d::render::hud::toggle_builtin_hud_for_declared_games,
             // Consumes THIS frame's resolved HUD regions, so a profile that
             // reserves surround for HUD actually gets the HUD put there.
-            ambition_platformer2d::render::hud::place_player_hud
-                .after(ambition_platformer2d::presentation::gameplay_presentation::GameplayPresentationSet),
+            ambition_platformer2d::render::hud::place_player_hud.after(
+                ambition_platformer2d::presentation::gameplay_presentation::GameplayPresentationSet,
+            ),
         )
             .chain()
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
@@ -697,10 +705,10 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             ambition_platformer2d::render::rendering::apply_hide_sprites_override,
         )
             .chain()
-            .after(sync_visuals)
-            .after(ambition_platformer2d::render::rendering::morph_ball::sync_morph_ball_visual)
-            .after(ambition_platformer2d::render::rendering::bubble_shield::sync_bubble_shield_visual)
-            .after(ambition_platformer2d::render::rendering::projectile_visuals::sync_projectile_visuals)
+            // One boundary instead of four names: `SpriteVisualSync` holds
+            // every pass that decides a sprite's handle, tint or visibility, so
+            // a new one joins it and this override keeps working.
+            .after(ambition_platformer2d::render::rendering::SpriteVisualSync)
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     )
     // Mouse / touch dismissal for the map menu.

@@ -72,6 +72,21 @@ impl CharacterSheetSpec {
         }
     }
 
+    /// **How long one pass of `anim` takes to draw**, in the clock the animator
+    /// is ticked by ([`super::super::animator::CharacterAnimator::tick`]).
+    ///
+    /// Resolved through the sheet's anim set exactly like the drawing is, so
+    /// this is the length of the clip that will ACTUALLY play — a sheet that
+    /// falls back from `Transform` to a 1-frame `Idle` answers with the idle's
+    /// length, not the length of art it doesn't have. The question a caller is
+    /// asking is "how long must I hold this pose for the audience to see all of
+    /// it", and a hand-authored duplicate of the generator's frame table is the
+    /// wrong answer to it: the art moves and the number doesn't.
+    pub fn clip_seconds(&self, anim: CharacterAnim) -> f32 {
+        let row = self.row(anim);
+        row.frame_count as f32 * row.duration_secs
+    }
+
     /// Distinct page images this sheet addresses (`1` for the common case).
     pub fn page_count(&self) -> u32 {
         self.record.page_count()

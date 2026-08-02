@@ -25,6 +25,7 @@ use ambition_platformer2d::actors::rooms::RoomLoaded;
 use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
+use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 use crate::provider::MARY_O_CHARACTER_ID;
 
@@ -42,6 +43,15 @@ const TALL_CHARACTER_ID: &str = "mary_o_tall";
 /// (small). Before this she wore the plain tall sheet while spark-powered, so
 /// there was no visible difference between grown and fire (Jon bug #10).
 const SPARK_CHARACTER_ID: &str = "mary_o_fire";
+
+/// Authored transform/reversion cue ids.  The packed SFX bank provides the
+/// layered clips; Mary-O's provider registry supplies authorization and a tiny
+/// procedural fallback while the bank is unavailable.
+pub const SFX_SMALL_TO_BIG: &str = "mary_o.transform.small_to_big";
+pub const SFX_BIG_TO_FIRE: &str = "mary_o.transform.big_to_fire";
+pub const SFX_BIG_TO_SMALL: &str = "mary_o.revert.big_to_small";
+pub const SFX_FIRE_TO_BIG: &str = "mary_o.revert.fire_to_big";
+pub const SFX_FIRE_TO_SMALL: &str = "mary_o.revert.fire_to_small";
 
 /// The milk carton's half-extent — a small collectible box that pops out of a
 /// bonked ?-block and grows Mary-O when she touches it.
@@ -346,66 +356,152 @@ pub fn sync_grown_form(
         kin.size = target_size;
         base.base_size = target_size;
     }
-    // Power-UP voice (Jon bug #14): the transform chime plays only when she steps
-    // up a tier (small→grown, grown→fire, small→fire). A downgrade is a HIT, whose
-    // own sound already speaks, so it stays silent here.
-    if power_tier(target_id) > power_tier(&worn_char.0) {
-        // H2: a transformation is the most character-defining sound a body makes,
-        // and it was taking the session's source.
+    let previous_id = worn_char.0.clone();
+    if let Some(cue_id) = power_transition_sfx(&previous_id, target_id) {
+        // The named transition is content-authority: small→big, big→fire, and
+        // each loss path have different layered sound design rather than sharing
+        // one generic pitch slide.  The hit cue may still play on a downgrade;
+        // this second voice says WHAT power state was lost.
         sfx.write_for(
             body,
             ambition_platformer2d::sfx::SfxMessage::Play {
-                id: ambition_platformer2d::sfx::SfxId::new("mary_o.transform"),
+                id: ambition_platformer2d::sfx::SfxId::new(cue_id),
                 pos: kin.pos,
             },
         );
-        // The GROWING moment Jon asked for (bug #4). Stepping UP a tier only:
-        // a downgrade is a hit, and a hit already has its own beat. The engine
-        // owns what the beat DOES — the held pose, the untouchable window, and
-        // asking the regime for the time dilation; this only says it happened.
-        commands
-            .entity(body)
-            .try_insert(ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested);
     }
+    // The transformation MOMENT, in BOTH directions (Jon bugs #4 and #17: "the
+    // growing", and "a similar transform animation down to the previous state
+    // with non instant duration"). It used to fire only on a step UP, on the
+    // reasoning that a reversion could use its hurt animation instead — but the
+    // hurt read is the ordinary hitstun pose, and what a hit costs HER is a
+    // FORM. The shrink clip is about the form, so it gets the same beat the
+    // growth does. Same shape as the cue above: the transition picks it.
+    commands.entity(body).try_insert((
+        transform_beat_policy(target_id, power_tier(&previous_id), power_tier(target_id)),
+        ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested,
+    ));
     worn_char.0 = target_id.to_string();
 }
 
-/// Mary-O's transformation numbers, attached to her body so the engine beat can
-/// read them. Authored HERE because they are feel, and feel is the game's.
+/// **The transformation numbers for ONE tier change**, authored per transition
+/// rather than once per body, because which clip plays and how long the moment
+/// lasts are facts about the CHANGE, not about Mary-O. The exact shape
+/// [`power_transition_sfx`] already uses for her voice.
 ///
-/// The Death row is the closest thing her sheets have to a "growing" pose (a
-/// held, non-locomotion frame); a dedicated `grow` row is a generator change and
-/// a separate piece of work. The dilation is mild and short — a beat you notice
-/// rather than one you wait through — and BLIND until Jon plays it.
-pub fn ensure_transform_beat_policy(
-    mut commands: bevy::prelude::Commands,
-    bodies: bevy::prelude::Query<
-        bevy::prelude::Entity,
-        (
-            With<PrimaryPlayer>,
-            bevy::prelude::Without<ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy>,
-        ),
-    >,
-) {
-    for entity in &bodies {
-        commands.entity(entity).try_insert(
-            ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
-                duration: 0.5,
-                anim: ambition_platformer2d::sprite_sheet::character::CharacterAnim::Death,
-                clock_scale: 0.35,
-                untouchable: true,
-            },
-        );
+/// The duration is not a number: it is however long the arriving sheet's clip
+/// takes to draw, asked of the art. A hand-authored 0.5s (what this was) cuts
+/// the eight-frame fire transformation off before its reveal — which is exactly
+/// the "transform into fire mode is nearly instant if it even exists" report —
+/// and would go stale the first time the generator retimes a row.
+///
+/// The wall-clock conversion is the game's arithmetic, not the engine's: the
+/// animator ticks on the WORLD clock, so a beat that asks for 0.6x time
+/// stretches its own clip by 1/0.6 in wall seconds, and the beat's wall timer
+/// has to cover that or the clip is cut short by exactly the dilation it asked
+/// for.
+fn transform_beat_policy(
+    target_id: &str,
+    from_tier: u8,
+    to_tier: u8,
+) -> ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
+    let anim = transition_anim(from_tier, to_tier);
+    // A step UP is a moment to savour, so it ASKS the regime to slow the world
+    // (`ClockScaleRequest`; a regime with a second participant may refuse). A
+    // reversion does not: she was just hit, and slowing the world on a hit takes
+    // the recovery away from the player instead of giving it.
+    let clock_scale = if to_tier > from_tier {
+        STEP_UP_CLOCK_SCALE
+    } else {
+        1.0
+    };
+    ambition_platformer2d::actors::features::transform_beat::TransformBeatPolicy {
+        duration: clip_seconds(target_id, anim) / clock_scale,
+        anim,
+        clock_scale,
+        untouchable: true,
     }
 }
 
+/// How much the world slows while she steps up a tier. Mild and short — a beat
+/// you notice rather than one you wait through — and BLIND until Jon plays it.
+const STEP_UP_CLOCK_SCALE: f32 = 0.6;
+
+/// Fallback beat length for a form whose sheet cannot be read at all.
+const UNREADABLE_CLIP_SECS: f32 = 0.45;
+
+/// **Which clip shows this tier change.** A transition clip is authored on the
+/// sheet of the form ARRIVED AT, so this is always resolved against the target.
+fn transition_anim(from_tier: u8, to_tier: u8) -> CharacterAnim {
+    if to_tier > from_tier {
+        // Arriving at fire is a same-size palette transformation; arriving at
+        // grown is the silhouette flicker.
+        if to_tier == FIRE_TIER {
+            CharacterAnim::Transform
+        } else {
+            CharacterAnim::Grow
+        }
+    } else if from_tier - to_tier >= 2 {
+        CharacterAnim::BigShrink
+    } else {
+        CharacterAnim::Shrink
+    }
+}
+
+/// How long one pass of `anim` takes on the form's sheet, asked of the sheet.
+///
+/// Resolved through the sheet's anim set exactly as the drawing will be, so a
+/// form that never drew the clip answers with the length of whatever it falls
+/// back to — the beat then lasts as long as what the player actually sees.
+fn clip_seconds(character_id: &str, anim: CharacterAnim) -> f32 {
+    use ambition_platformer2d::sprite_sheet::character::{try_load_spec_for_target, SheetTuning};
+    try_load_spec_for_target(sheet_target(character_id), &SheetTuning::default())
+        .map(|spec| spec.clip_seconds(anim))
+        .filter(|secs| *secs > 0.0)
+        .unwrap_or(UNREADABLE_CLIP_SECS)
+}
+
+/// The sheet manifest target behind each form's catalog row.
+///
+/// `WornCharacter` carries the CATALOG id, which is not the sheet's name; the
+/// demo authored both halves of this pairing in its character catalog (`lib.rs`,
+/// `spritesheet:` / `manifest:`), so stating it here is reaching the same
+/// authoring decision from the sim rather than inventing a second one.
+fn sheet_target(character_id: &str) -> &'static str {
+    match character_id {
+        SPARK_CHARACTER_ID => "super_mary_o_fire",
+        TALL_CHARACTER_ID => "super_mary_o_tall",
+        _ => "super_mary_o",
+    }
+}
+
+/// The top of the power ladder — arriving HERE is the same-size transformation
+/// rather than a growth.
+const FIRE_TIER: u8 = 2;
+
 /// Power-tier of a worn-character id: small (0) < grown (1) < fire (2). The
-/// transform chime fires only when [`sync_grown_form`] moves her UP this ladder.
+/// direction and distance along this ladder pick both the transition clip and
+/// whether the moment slows the world.
 fn power_tier(character_id: &str) -> u8 {
     match character_id {
-        SPARK_CHARACTER_ID => 2,
+        SPARK_CHARACTER_ID => FIRE_TIER,
         TALL_CHARACTER_ID => 1,
         _ => 0,
+    }
+}
+
+/// The exact authored sound for a form transition.
+///
+/// The direct fire→small edge is used by the large-damage path even though the
+/// ordinary armor chain normally spends fire into big first.
+fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
+    match (from, to) {
+        (MARY_O_CHARACTER_ID, TALL_CHARACTER_ID) => Some(SFX_SMALL_TO_BIG),
+        (TALL_CHARACTER_ID, SPARK_CHARACTER_ID) => Some(SFX_BIG_TO_FIRE),
+        (TALL_CHARACTER_ID, MARY_O_CHARACTER_ID) => Some(SFX_BIG_TO_SMALL),
+        (SPARK_CHARACTER_ID, TALL_CHARACTER_ID) => Some(SFX_FIRE_TO_BIG),
+        (SPARK_CHARACTER_ID, MARY_O_CHARACTER_ID) => Some(SFX_FIRE_TO_SMALL),
+        _ => None,
     }
 }
 
@@ -433,6 +529,31 @@ mod tests {
     /// view of *wearing* the cap; the cap's data is just this one-hit armor.)
     /// Proven through the umbrella's A3 API: if `ambition_platformer2d` didn't re-export
     /// `characters::equipment`, this demo would not compile (the E9 oracle).
+    #[test]
+    fn every_supported_form_transition_has_its_own_sfx() {
+        assert_eq!(
+            power_transition_sfx(MARY_O_CHARACTER_ID, TALL_CHARACTER_ID),
+            Some(SFX_SMALL_TO_BIG)
+        );
+        assert_eq!(
+            power_transition_sfx(TALL_CHARACTER_ID, SPARK_CHARACTER_ID),
+            Some(SFX_BIG_TO_FIRE)
+        );
+        assert_eq!(
+            power_transition_sfx(TALL_CHARACTER_ID, MARY_O_CHARACTER_ID),
+            Some(SFX_BIG_TO_SMALL)
+        );
+        assert_eq!(
+            power_transition_sfx(SPARK_CHARACTER_ID, TALL_CHARACTER_ID),
+            Some(SFX_FIRE_TO_BIG)
+        );
+        assert_eq!(
+            power_transition_sfx(SPARK_CHARACTER_ID, MARY_O_CHARACTER_ID),
+            Some(SFX_FIRE_TO_SMALL)
+        );
+        assert_eq!(power_transition_sfx(MARY_O_CHARACTER_ID, SPARK_CHARACTER_ID), None);
+    }
+
     #[test]
     fn grow_cap_absorbs_one_hit_then_is_spent() {
         let mut worn = WornEquipment::new(vec![grow_cap()]);

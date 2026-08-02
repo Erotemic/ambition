@@ -31,7 +31,13 @@ use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::combat::moveset::{ActorMoveset, RANGED_VERB};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
+use ambition_platformer2d::actors::features::transform_beat::{
+    TransformBeatPolicy, TransformBeatRequested,
+};
 use ambition_platformer2d::platformer::markers::ControlledSubject;
+use ambition_platformer2d::sprite_sheet::character::{
+    try_load_spec_for_target, CharacterAnim, SheetTuning,
+};
 
 use ambition_demo_mary_o::movement::{
     MaryOGait, MaryOSparkCooldown, WALK_THROTTLE, fire_spark_on_run_press, tick_spark_cooldown,
@@ -235,6 +241,165 @@ impl Loop {
             .0
             .fire
             .is_some()
+    }
+
+    /// The transformation beat the last tier change asked for: the policy it
+    /// authored, and whether the request that starts it is on the body.
+    fn requested_beat(&self) -> (TransformBeatPolicy, bool) {
+        let policy = *self
+            .app
+            .world()
+            .get::<TransformBeatPolicy>(self.body)
+            .expect("a tier change authors its transformation beat");
+        let requested = self
+            .app
+            .world()
+            .get::<TransformBeatRequested>(self.body)
+            .is_some();
+        (policy, requested)
+    }
+}
+
+/// How long one pass of `anim` takes on a form's sheet — the same question the
+/// demo asks the art, asked here independently so the beat is checked against
+/// the ART rather than against the number the demo happened to write down.
+fn clip_secs(sheet_target: &str, anim: CharacterAnim) -> f32 {
+    try_load_spec_for_target(sheet_target, &SheetTuning::default())
+        .unwrap_or_else(|| panic!("{sheet_target} publishes a sheet manifest"))
+        .clip_seconds(anim)
+}
+
+/// **A transformation lasts as long as the art that shows it.**
+///
+/// Every tier change — up AND down — authors a beat that names the clip the
+/// ARRIVING sheet drew for it and holds long enough for every frame of that clip
+/// to be drawn. Both halves were broken: the beat named `Death` (the closest
+/// thing her sheets had to a held pose before the transition rows existed) and
+/// ran for a flat 0.5s, which is SHORTER than the eight-frame fire
+/// transformation — so the reveal frames were never reached, and Jon reported
+/// the transformation as "nearly instant if it even exists".
+///
+/// The durations are compared against the sheets, not against constants: the
+/// generator owns the frame tables, and a test that copied them would agree with
+/// a stale demo and disagree with the art.
+#[test]
+fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
+    let mut game = Loop::new();
+
+    // --- small -> grown: the growth flicker, on the sheet she becomes --------
+    game.bonk();
+    game.collect_pending_item();
+    assert_eq!(game.worn_character(), TALL_ID);
+    let (grow, requested) = game.requested_beat();
+    assert!(requested, "growing asks the engine for its beat");
+    assert_eq!(
+        grow.anim,
+        CharacterAnim::Grow,
+        "growing shows the grow clip, not a stand-in held pose"
+    );
+    assert!(
+        grow.clock_scale < 1.0,
+        "a step UP asks the regime to slow the world for the moment"
+    );
+    let grow_clip = clip_secs("super_mary_o_tall", CharacterAnim::Grow);
+    assert!(
+        grow.duration * grow.clock_scale >= grow_clip - 1e-4,
+        "the beat must outlast its own dilation: {:.3}s of wall time at {:.2}x \
+         draws {:.3}s of a {:.3}s clip",
+        grow.duration,
+        grow.clock_scale,
+        grow.duration * grow.clock_scale,
+        grow_clip,
+    );
+
+    // --- grown -> fire: the same-size transformation -------------------------
+    game.bonk();
+    game.collect_pending_item();
+    assert_eq!(game.worn_character(), FIRE_ID);
+    let (transform, _) = game.requested_beat();
+    assert_eq!(transform.anim, CharacterAnim::Transform);
+    let transform_clip = clip_secs("super_mary_o_fire", CharacterAnim::Transform);
+    assert!(
+        transform.duration * transform.clock_scale >= transform_clip - 1e-4,
+        "the eight-frame fire transformation is the clip a flat 0.5s cut off"
+    );
+    assert!(
+        transform_clip > grow_clip,
+        "and it is the longer of the two, so a shared constant could not fit both"
+    );
+
+    // --- a hit: fire -> grown, the power-loss clip ---------------------------
+    game.hit();
+    assert_eq!(game.worn_character(), TALL_ID);
+    let (shrink, requested) = game.requested_beat();
+    assert!(requested, "losing a form is a transformation too (Jon bug #17)");
+    assert_eq!(
+        shrink.anim,
+        CharacterAnim::Shrink,
+        "and it shows the shrink the arriving sheet drew"
+    );
+    assert_eq!(
+        shrink.clock_scale, 1.0,
+        "a hit does not slow the world — that would take her recovery away"
+    );
+    assert!(
+        shrink.untouchable,
+        "the beat is the hitstun window she had none of"
+    );
+    assert!(
+        shrink.duration >= clip_secs("super_mary_o_tall", CharacterAnim::Shrink) - 1e-4,
+        "and it lasts as long as the clip"
+    );
+
+    // --- a second hit: grown -> small ---------------------------------------
+    game.hit();
+    assert_eq!(game.worn_character(), MARY_O_CHARACTER_ID);
+    let (small, _) = game.requested_beat();
+    assert_eq!(small.anim, CharacterAnim::Shrink);
+    assert!(small.duration >= clip_secs("super_mary_o", CharacterAnim::Shrink) - 1e-4);
+}
+
+/// **The transition clips are on the sheets, and they are their OWN rows.**
+///
+/// A sheet publishes the clips for the form it is ARRIVED AT, which is what lets
+/// the runtime swap identity first and still show the change. And none of them
+/// alias `Hit`: the ordinary hitstun read picks `Hit` for as long as hitstun
+/// runs, so a shrink that WAS `Hit` would be replayed by the locomotion picker
+/// after the beat had already finished playing it.
+#[test]
+fn each_mary_o_sheet_publishes_the_transitions_that_arrive_at_it() {
+    let sheet = |target: &str| {
+        try_load_spec_for_target(target, &SheetTuning::default())
+            .unwrap_or_else(|| panic!("{target} publishes a sheet manifest"))
+    };
+
+    let small = sheet("super_mary_o");
+    assert!(small.maps(CharacterAnim::Shrink), "tall becomes small here");
+    assert!(
+        small.maps(CharacterAnim::BigShrink),
+        "and fire can lose two tiers into it"
+    );
+
+    let tall = sheet("super_mary_o_tall");
+    assert!(tall.maps(CharacterAnim::Grow), "small becomes tall here");
+    assert!(tall.maps(CharacterAnim::Shrink), "and fire falls back to it");
+
+    let fire = sheet("super_mary_o_fire");
+    assert!(
+        fire.maps(CharacterAnim::Transform),
+        "tall becomes fire here"
+    );
+
+    for (name, spec) in [
+        ("super_mary_o", &small),
+        ("super_mary_o_tall", &tall),
+        ("super_mary_o_fire", &fire),
+    ] {
+        assert!(
+            !spec.maps(CharacterAnim::Hit),
+            "{name}: a form change is not the generic hurt row — aliasing them \
+             lets the hitstun read replay the transition after its beat ended"
+        );
     }
 }
 

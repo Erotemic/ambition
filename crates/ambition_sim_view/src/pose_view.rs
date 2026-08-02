@@ -114,6 +114,11 @@ pub fn rebuild_body_pose_views(
                 Option<&BodyHealth>,
                 Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
                 Option<&ambition_projectiles::PlayerProjectileState>,
+                // Content-driven pose PIN — the SAME component the actor path
+                // honours in `rebuild_actor_anim_index`. See the read below.
+                Option<
+                    &ambition_platformer2d_actor_monolith::features::ActorAnimOverride,
+                >,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -137,6 +142,7 @@ pub fn rebuild_body_pose_views(
             health,
             roll,
             projectile_state,
+            anim_override,
             pose,
         ),
     ) in &mut bodies
@@ -173,6 +179,17 @@ pub fn rebuild_body_pose_views(
             ),
             _ => CharacterAnim::Idle,
         };
+        // A content pose PIN wins over the picked pose — the SAME rule
+        // `rebuild_actor_anim_index` applies to every brain-driven actor, and it
+        // belongs here for the identical reason: a pose the disposition-agnostic
+        // picker cannot infer (a shelled enemy's withdraw, a body mid-power-up)
+        // is stated by the content that owns the state machine. Reading the pin
+        // on one path and not the other was a FORK, and the player was the half
+        // that lost: `transform_beat` has been pinning a transformation pose on
+        // Mary-O since it landed, and nothing on the player's path ever looked
+        // at it, so the "growing" beat played her ordinary locomotion row for
+        // its whole duration and read as instant.
+        let anim = anim_override.map(|o| o.0).unwrap_or(anim);
         let next = BodyPoseView {
             pos: kinematics.pos,
             vel: kinematics.vel,
@@ -252,5 +269,50 @@ mod pose_view_tests {
         assert_eq!(pose.hit_flash_secs, 0.0);
         assert!(pose.charge_tier.is_none());
         assert!(!pose.morph_ball);
+    }
+
+    /// **A content pose pin reaches the PLAYER's view, not only an actor's.**
+    ///
+    /// `ActorAnimOverride` is how content states a pose the locomotion picker
+    /// cannot infer — a shell withdrawing, a body mid-transformation. The actor
+    /// read-model has always honoured it; this path did not, so every pin ever
+    /// placed on a player body (the transformation beat's, since it landed) was
+    /// written, snapshotted, rolled back — and never drawn.
+    ///
+    /// The pin is the whole assertion: an unpinned body here picks `Idle` (the
+    /// partial-cluster fallback), so a view that answers `Idle` under a pin is
+    /// exactly the silent-drop failure, and one that answers `Idle` without a
+    /// pin proves the test is reading the field the pin would have changed.
+    #[test]
+    fn a_content_pose_pin_reaches_the_players_pose_view() {
+        use ambition_platformer2d_actor_monolith::features::ActorAnimOverride;
+
+        let mut app = bevy::prelude::App::new();
+        app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);
+
+        let kin = ambition_platformer2d_actor_monolith::actor::BodyKinematics {
+            pos: ambition_platformer2d_core::Vec2::ZERO,
+            vel: ambition_platformer2d_core::Vec2::ZERO,
+            size: ambition_platformer2d_core::Vec2::new(30.0, 48.0),
+            facing: 1.0,
+        };
+        let unpinned = app.world_mut().spawn((PlayerVisual, kin)).id();
+        let pinned = app
+            .world_mut()
+            .spawn((PlayerVisual, kin, ActorAnimOverride(CharacterAnim::Grow)))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            app.world().get::<BodyPoseView>(unpinned).map(|p| p.anim),
+            Some(CharacterAnim::Idle),
+            "an unpinned body picks its pose; `Idle` is the partial-cluster read"
+        );
+        assert_eq!(
+            app.world().get::<BodyPoseView>(pinned).map(|p| p.anim),
+            Some(CharacterAnim::Grow),
+            "and a pinned one shows what the content pinned"
+        );
     }
 }

@@ -253,7 +253,7 @@ fn sync_quasar_overlays(
         &MaryOQuasarOverlay,
     )>,
     mut materials: ResMut<Assets<MaryOQuasarMaterial>>,
-    mut was_enabled: Local<bool>,
+    mut was_enabled: Local<Option<bool>>,
 ) {
     *elapsed += presentation_time.wall_dt();
 
@@ -286,8 +286,11 @@ fn sync_quasar_overlays(
         // Say it ONCE per transition, naming every condition. "I got the quasar
         // and saw nothing" has five possible causes and no way to tell them
         // apart from the outside; this line distinguishes them.
-        if enabled != *was_enabled {
-            *was_enabled = enabled;
+        // Log the FIRST observation too, not only transitions. Logging only on
+        // change meant the failing case — never enabled — printed nothing at
+        // all, which is the one case the diagnostic existed for.
+        if *was_enabled != Some(enabled) {
+            *was_enabled = Some(enabled);
             info!(
                 target: "mary_o::quasar",
                 "overlay enabled = {enabled} (form '{}' ok = {}, invincible = {}, \
@@ -338,14 +341,37 @@ fn sync_quasar_overlays(
     }
 }
 
+/// Keep the source/overlay pair honest in BOTH directions.
+///
+/// It only ever swept one way — despawn an overlay whose source is gone — and
+/// the other way is the one that actually happened. The overlay carries
+/// [`RoomVisual`], so a room rebuild or a sprite rebind ("assets changed") takes
+/// it, while the SOURCE survives holding a `MaryOQuasarSource` that points at a
+/// dead entity. From that moment the effect is permanently dark and silent:
+/// `attach` skips the source forever (it filters `Without<MaryOQuasarSource>`),
+/// `sync` fails its overlay lookup and `continue`s before it can even log, and
+/// this system finds no overlay to complain about. Jon's log shows exactly that
+/// — one "overlay attached" line early, a rebind to `mary_o_tall` later, and
+/// never another word.
+///
+/// A back-reference to an entity that can die independently is a CACHE, and a
+/// cache whose target dies has to be invalidated. Dropping the component is the
+/// invalidation: `attach` rebuilds the pair on the next frame.
 fn cleanup_quasar_overlays(
     mut commands: Commands,
-    sources: Query<(), With<MaryOQuasarSource>>,
+    sources: Query<(Entity, &MaryOQuasarSource)>,
     overlays: Query<(Entity, &MaryOQuasarOverlay)>,
 ) {
     for (overlay_entity, overlay) in &overlays {
         if sources.get(overlay.source).is_err() {
             commands.entity(overlay_entity).despawn();
+        }
+    }
+    for (source_entity, source) in &sources {
+        if overlays.get(source.overlay).is_err() {
+            commands
+                .entity(source_entity)
+                .remove::<MaryOQuasarSource>();
         }
     }
 }
@@ -425,5 +451,68 @@ mod tests {
         assert!(is_mary_o_form("mary_o_tall"));
         assert!(is_mary_o_form("mary_o_fire"));
         assert!(!is_mary_o_form("sanic"));
+    }
+
+    use super::*;
+
+    /// **A dead overlay must release its source**, or the effect is dark forever.
+    ///
+    /// `attach_quasar_overlays` filters `Without<MaryOQuasarSource>`, so a source
+    /// still holding a back-reference to a despawned overlay is never rebuilt.
+    /// The overlay is a `RoomVisual` and dies on room rebuilds and sprite
+    /// rebinds, both of which happen routinely mid-level — this is what made
+    /// Mary-O's invincibility invisible in Jon's run.
+    #[test]
+    fn a_source_whose_overlay_died_lets_go_so_the_pair_can_be_rebuilt() {
+        let mut app = App::new();
+        app.add_systems(Update, cleanup_quasar_overlays);
+
+        let overlay = app.world_mut().spawn_empty().id();
+        let source = app
+            .world_mut()
+            .spawn(MaryOQuasarSource { overlay, seed: 0.0 })
+            .id();
+        app.world_mut()
+            .entity_mut(overlay)
+            .insert(MaryOQuasarOverlay { source });
+
+        app.update();
+        assert!(
+            app.world().get::<MaryOQuasarSource>(source).is_some(),
+            "an intact pair is left alone"
+        );
+
+        // The room rebuild takes the overlay out from under the source.
+        app.world_mut().entity_mut(overlay).despawn();
+        app.update();
+
+        assert!(
+            app.world().get::<MaryOQuasarSource>(source).is_none(),
+            "the source released its dead overlay, so `attach` will rebuild the pair"
+        );
+    }
+
+    /// The direction that already worked, kept honest.
+    #[test]
+    fn an_overlay_whose_source_died_is_despawned() {
+        let mut app = App::new();
+        app.add_systems(Update, cleanup_quasar_overlays);
+
+        let source = app.world_mut().spawn_empty().id();
+        let overlay = app
+            .world_mut()
+            .spawn(MaryOQuasarOverlay { source })
+            .id();
+        app.world_mut()
+            .entity_mut(source)
+            .insert(MaryOQuasarSource { overlay, seed: 0.0 });
+
+        app.world_mut().entity_mut(source).despawn();
+        app.update();
+
+        assert!(
+            app.world().get_entity(overlay).is_err(),
+            "an orphaned overlay is cleaned up"
+        );
     }
 }

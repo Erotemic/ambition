@@ -26,6 +26,7 @@ pub mod level_1_2;
 pub mod movement;
 pub mod pipe;
 pub mod powerups;
+pub mod quasar_shader;
 pub mod provider;
 pub mod scenery;
 pub mod snake;
@@ -1219,6 +1220,7 @@ impl Plugin for MaryODemoContentPlugin {
         use bevy::prelude::IntoScheduleConfigs;
 
         install_mary_o_content(app);
+        quasar_shader::install(app);
         let room = level_1_1();
         let source = ambition_platformer2d::runtime::PreparedPlatformerSource::new(
             provider::MARY_O_EXPERIENCE,

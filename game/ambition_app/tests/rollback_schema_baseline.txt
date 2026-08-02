@@ -14,7 +14,7 @@ actor.body_mode	component-canonical	ambition_platformer2d_core::body_clusters::B
 actor.body_pose_clock	component-clone	ambition_platformer2d_actor_monolith::character_runtime::hurtbox::BodyPoseClock	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.brain	component-clone-cursor	ambition_characters::brain::Brain	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.brain_binding	component-canonical	ambition_characters::actor::character_catalog::binding::BrainBinding	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.centered_aabb	component-canonical	ambition_platformer2d_core::geometry::CenteredAabb	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.centered_aabb	component-canonical	ambition_geometry::geometry::CenteredAabb	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.charges_projectiles	component-clone	ambition_characters::brain::ChargesProjectiles	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.combo_trace	component-canonical	ambition_platformer2d_core::body_clusters::BodyComboTrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.config	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorConfig	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

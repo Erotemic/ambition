@@ -1830,355 +1830,87 @@ fn the_inert_sweep_actually_catches_an_unanchored_registration() {
     );
 }
 
-/// **Does the shipped-composition fixture actually RUN THE SIMULATION?** — an
-/// audit print, and the answer is no.
+/// **The shipped sweep, AS PLAYED** — B9's blind spot, closed.
 ///
-/// Built to ask a different question (*which ceiling resources ever change?*),
-/// which it cannot answer, and the reason it cannot is worth more than the
-/// question was.
-///
-/// `build_visible_app` starts no session — in rollback mode there deliberately is
-/// none until one is seated — so `GgrsSchedule` never advances a frame. Across 30
-/// updates **not one of the ~250 `GgrsSnapshots<T>` stores is written**, and a
-/// single advanced GGRS frame writes all of them. That is the witness this test
-/// prints.
-///
-/// ⛔ **so "never written" in this fixture means "the sim is halted", not "this
-/// resource is static"**, and the first draft of this test reported 258 of 265
-/// resources as authored data on exactly that confusion. A control that measured
-/// `ControlFrame` passed — because input sampling runs in `ReadInputs`, outside
-/// the sim window, so it advances in a world where nothing is simulating.
-///
-/// ⚠ **the snapshot-store witness is INFERENTIAL and was later found too weak to
-/// carry this claim on its own.** It measures SAVING, not simulating, and the
-/// shipped app turns out to run `SyncTest(check_distance = 0)` once a route is
-/// active — GGRS driving the simulation with rollback entirely dormant, so
-/// `GgrsSchedule` runs every frame and **zero snapshots are saved**. Under a
-/// route, "0 stores" would therefore have meant the opposite of what it means
-/// here. The direct witness is below: this fixture holds **no session at all**,
-/// and `GgrsSchedule` runs zero times. See
-/// `probe_which_ggrs_schedules_run_in_the_shipped_app`.
-///
-/// ⭐ **and this is a THIRD blind spot in the resource sweeps**, the same family
-/// as the two already recorded (post-event state; demo-provider state):
 /// `every_mutable_ambition_resource_in_the_shipped_composition_is_accounted`
-/// boots this same fixture, so **any resource the running simulation creates is
-/// invisible to it.** It enumerates the world as composed, not as played.
+/// boots a world that never simulates: `build_visible_app` seats no session, so
+/// `GgrsSchedule` never advances and **any resource the running simulation
+/// creates is structurally invisible to it.** That is the same shape as the
+/// `ActiveMatch` bug, which hid until the sandbox sweep seated a match.
 ///
-/// ⛔ the static route — asking each `GgrsSchedule` system what resource access it
-/// declares — is not available in Bevy 0.18: `System` no longer stores its
-/// access, `initialize` returns it, and `Schedule::systems()` hands out shared
-/// references. Recorded so the next person does not spend the same four probes.
+/// This drives the real path — `ShellCommand::GoTo("ambition_gameplay")`, which
+/// activates the route headlessly and starts the session — and then asks what
+/// EXISTS that did not before. Measured: the route activates, a `PrimaryPlayer`
+/// spawns, and `GgrsSchedule` runs once per update.
+///
+/// ⚠ **a DIFFERENCE ratchet, not a count.** The absolute unaccounted number is
+/// the other sweep's job and its ceiling; what only this fixture can see is the
+/// set that appears *because the world played*. Two are known and read clean:
+///
+/// | `ConfirmedFrameBoundary` | *"published once per simulated frame by the rollback bridge, from the GGRS session's own frame counters"* — re-derived every frame, so a rewind has nothing to put back. The same category as `PendingSeatInputs` and `RollbackExecutionStats`, which the shipped ceiling already waives as the machinery doing the rewinding. |
+/// | `bevy_ggrs::Session<…>` | the session itself. |
+///
+/// ⛔ **anything else appearing here is the interesting case** and is why this is
+/// an assertion rather than a print: it is a resource the simulation brought into
+/// existence, which no other sweep in this file can reach.
 #[test]
-#[ignore = "audit print, not an assertion"]
-fn the_shipped_fixture_does_not_advance_the_simulation() {
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..8 {
-        app.update();
-    }
-
-    // The witness: bevy_ggrs's per-type snapshot stores. Every one of them is
-    // written on every advanced GGRS frame, so "none of them moved" is a much
-    // stronger statement than any single counter — and unlike a counter it
-    // cannot be satisfied by a system running outside the sim window.
-    let stores: Vec<(String, bevy::ecs::component::ComponentId)> = app
-        .world()
-        .iter_resources()
-        .filter_map(|(info, _)| {
-            let name = info.name().to_string();
-            name.contains("GgrsSnapshots").then_some((name, info.id()))
-        })
-        .collect();
-    assert!(
-        !stores.is_empty(),
-        "no GgrsSnapshots stores exist, so this fixture is not a rollback host at \
-         all and the audit below would be measuring something else entirely"
-    );
-
-    let before: Vec<u32> = stores
-        .iter()
-        .map(|(_, id)| tick_of(app.world(), *id))
-        .collect();
-    for _ in 0..30 {
-        app.update();
-    }
-    let moved = stores
-        .iter()
-        .zip(&before)
-        .filter(|((_, id), was)| tick_of(app.world(), *id) != **was)
-        .count();
-
-    // The DIRECT witness, added after the inferential one proved too weak: does
-    // the sim schedule execute at all, and is there even a session to drive it?
-    let session = app
-        .world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::AmbitionGgrsSession>()
-        .is_some();
-    println!(
-        "[fixture-sim] {} of {} GgrsSnapshots stores written across 30 updates",
-        moved,
-        stores.len()
-    );
-    println!("[fixture-sim] a GGRS session exists: {session}");
-    assert!(
-        !session,
-        "this fixture is supposed to hold NO session — if one now exists, the \
-         claim this test makes about the sweep's blind spot needs re-deriving \
-         from the schedule-run witness rather than from snapshot stores"
-    );
-    println!(
-        "[fixture-sim] {}",
-        if moved == 0 {
-            "SIM HALTED — no session is seated, so GgrsSchedule never advances. \
-             Any sweep over this fixture sees the world as COMPOSED, not as PLAYED."
-        } else {
-            "the sim advances here; the note in this test's doc comment is stale \
-             and should be re-read before it is cited"
-        }
-    );
-}
-
-fn tick_of(world: &World, id: bevy::ecs::component::ComponentId) -> u32 {
-    world
-        .get_resource_change_ticks_by_id(id)
-        .map(|ticks| ticks.changed.get())
-        .unwrap_or(0)
-}
-
-/// **Can the shipped composition be driven INTO PLAY from a test?** — a probe.
-///
-/// Fourteen test files boot `build_visible_app` and not one activates a route, so
-/// every claim the shipped-composition surface makes is about a world that never
-/// simulates. This asks whether that is a fixture nobody wrote or a thing that
-/// cannot be done headlessly.
-///
-/// ⚠ **the baseline is captured AFTER the route has settled.** Installing a
-/// session writes `RollbackFrameCount`, `ConfirmedFrameCount`, `LocalPlayers` and
-/// `MaxPredictionWindow`, so a window that spans the activation shows those as
-/// "changed" and reads exactly like frames advancing. An earlier draft of this
-/// probe made that mistake and I nearly recorded "the shipped app advances GGRS
-/// frames without saving any snapshots" — which would have been a serious and
-/// completely invented defect.
-#[test]
-#[ignore = "probe"]
-fn probe_driving_the_shipped_app_into_play() {
-    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteCatalog};
+fn playing_the_shipped_composition_introduces_no_unaccounted_resource() {
+    use ambition_platformer2d::game_shell::ShellCommand;
 
     let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     for _ in 0..8 {
         app.update();
     }
-    assert!(
-        app.world()
-            .resource::<ShellRouteCatalog>()
-            .contains(&"ambition_gameplay".into()),
-        "the shipped catalog names the gameplay route this probe drives"
-    );
+    let composed: BTreeSet<String> = unaccounted_resources(app.world()).into_iter().collect();
 
     app.world_mut()
         .write_message(ShellCommand::GoTo("ambition_gameplay".into()));
-    // Deterministic stepping, the same mechanism the sim harness uses: Bevy
-    // advances `Time` by exactly one sim tick per update, so the GGRS
-    // accumulator expends once per `app.update()` rather than depending on how
-    // fast this loop runs on this machine.
+    // One sim tick per update, so the session advances on this loop rather than
+    // on how fast the machine happens to run it.
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_nanos(1_000_000_000u64 / 60),
     ));
-    for _ in 0..120 {
+    for _ in 0..240 {
         app.update();
     }
 
-    let watched: Vec<(String, bevy::ecs::component::ComponentId)> = app
-        .world()
-        .iter_resources()
-        .filter_map(|(info, _)| {
-            let name = info.name();
-            (name.starts_with("bevy_ggrs::") || name.contains("GgrsSnapshots"))
-                .then_some((name.to_string(), info.id()))
-        })
-        .collect();
-    let before: Vec<u32> = watched
-        .iter()
-        .map(|(_, id)| tick_of(app.world(), *id))
-        .collect();
-
-    for _ in 0..120 {
-        app.update();
-    }
-
-    let stores_moved = watched
-        .iter()
-        .zip(&before)
-        .filter(|((name, id), was)| {
-            name.contains("GgrsSnapshots") && tick_of(app.world(), *id) != **was
-        })
-        .count();
-    let stores_total = watched
-        .iter()
-        .filter(|(name, _)| name.contains("GgrsSnapshots"))
-        .count();
-    let driver: Vec<&str> = watched
-        .iter()
-        .zip(&before)
-        .filter(|((name, id), was)| {
-            !name.contains("GgrsSnapshots") && tick_of(app.world(), *id) != **was
-        })
-        .map(|((name, _), _)| name.rsplit("::").next().unwrap_or(name))
-        .collect();
-
+    // ⛔ **the fixture has to prove it PLAYED**, or this test passes by measuring
+    // the same halted world twice and says nothing at all — which is exactly the
+    // failure the composed sweep has and this one exists to fix.
     let players = app
         .world_mut()
         .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>>()
         .iter(app.world())
         .count();
-
-    println!("[into-play] players={players}");
-    println!("[into-play] {stores_moved} of {stores_total} snapshot stores written in a settled 120-frame window");
-    println!("[into-play] ggrs driver resources that moved: {driver:?}");
-}
-
-/// The CONTROL for `probe_driving_the_shipped_app_into_play`: the same snapshot-store
-/// measurement against a fixture that is known to rewind (45 rollback tests rest
-/// on it). If the stores move here and not there, the difference is real; if they
-/// move in neither, the measurement is wrong.
-#[test]
-#[ignore = "probe"]
-fn probe_snapshot_stores_in_a_fixture_that_definitely_rolls_back() {
-    let mut sim = Platformer2dSimHarness::new_with_options(
-        ambition_app::Platformer2dSimHarnessOptions::default()
-            .with_timestep(TimestepMode::fixed_60hz())
-            .with_start_room("combat_calibration_lab")
-            .with_sync_test_rollback_settings(4, 10),
-    )
-    .expect("sync-test harness builds");
-    for _ in 0..10 {
-        sim.step(AgentAction::default());
-    }
-
-    let stores: Vec<(String, bevy::ecs::component::ComponentId)> = sim
-        .world()
-        .iter_resources()
-        .filter_map(|(info, _)| {
-            info.name()
-                .contains("GgrsSnapshots")
-                .then_some((info.name().to_string(), info.id()))
-        })
-        .collect();
-    let before: Vec<u32> = stores
-        .iter()
-        .map(|(_, id)| tick_of(sim.world(), *id))
-        .collect();
-    for _ in 0..30 {
-        sim.step(AgentAction::default());
-    }
-    let moved = stores
-        .iter()
-        .zip(&before)
-        .filter(|((_, id), was)| tick_of(sim.world(), *id) != **was)
-        .count();
-    println!(
-        "[control] harness with sync-test rollback: {moved} of {} stores written over 30 steps",
-        stores.len()
+    assert_eq!(
+        players, 1,
+        "the gameplay route did not produce a player, so nothing below was measured \
+         against a world that played"
     );
-}
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::runtime::rollback::AmbitionGgrsSession>()
+            .is_some(),
+        "no GGRS session after activating the gameplay route — the simulation did \
+         not run, so this sweep is measuring the composed world twice"
+    );
 
-#[derive(bevy::prelude::Resource, Default, Debug)]
-struct ScheduleRunCounts(BTreeMap<String, usize>);
-
-/// **Which of bevy_ggrs's schedules actually RUN in the shipped app** — the
-/// follow-up probe to `probe_driving_the_shipped_app_into_play`, which
-/// established that nothing is saved but could not say whether frames advance.
-///
-/// A counting system is spliced into each ggrs schedule by NAME, so this test
-/// needs no dependency on the netcode crate to ask which of its phases execute.
-#[test]
-#[ignore = "probe"]
-fn probe_which_ggrs_schedules_run_in_the_shipped_app() {
-    use ambition_platformer2d::game_shell::ShellCommand;
-    use bevy::ecs::schedule::Schedules;
-
-    let mut app =
-        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
-    for _ in 0..8 {
-        app.update();
-    }
-    if std::env::var("PROBE_NO_ROUTE").is_err() {
-        app.world_mut()
-            .write_message(ShellCommand::GoTo("ambition_gameplay".into()));
-    }
-    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-        std::time::Duration::from_nanos(1_000_000_000u64 / 60),
-    ));
-    for _ in 0..120 {
-        app.update();
-    }
-
-    app.init_resource::<ScheduleRunCounts>();
-    let names: Vec<String> = app
-        .world()
-        .resource::<Schedules>()
-        .iter()
-        .map(|(label, _)| format!("{label:?}"))
+    let played: BTreeSet<String> = unaccounted_resources(app.world()).into_iter().collect();
+    let fresh: Vec<&str> = played
+        .difference(&composed)
+        .map(String::as_str)
         .filter(|name| {
-            [
-                "Ggrs",
-                "SaveWorld",
-                "LoadWorld",
-                "AdvanceWorld",
-                "ReadInputs",
-            ]
-            .iter()
-            .any(|needle| name.contains(needle))
+            !name.contains("ConfirmedFrameBoundary") && !name.starts_with("bevy_ggrs::Session")
         })
         .collect();
 
-    let mut schedules = app
-        .world_mut()
-        .remove_resource::<Schedules>()
-        .expect("schedules");
-    for (label, schedule) in schedules.iter_mut() {
-        let name = format!("{label:?}");
-        if !names.contains(&name) {
-            continue;
-        }
-        schedule.add_systems(
-            move |mut counts: bevy::prelude::ResMut<ScheduleRunCounts>| {
-                *counts.0.entry(name.clone()).or_default() += 1;
-            },
-        );
-    }
-    app.world_mut().insert_resource(schedules);
-
-    for _ in 0..120 {
-        app.update();
-    }
-
-    let kind = app
-        .world()
-        .get_resource::<ambition_platformer2d::runtime::rollback::AmbitionGgrsSession>()
-        .map(|session| match session {
-            ambition_platformer2d::runtime::rollback::AmbitionGgrsSession::SyncTest(s) => {
-                format!("SyncTest(check_distance={})", s.check_distance())
-            }
-            ambition_platformer2d::runtime::rollback::AmbitionGgrsSession::P2P(_) => {
-                "P2P".to_string()
-            }
-            ambition_platformer2d::runtime::rollback::AmbitionGgrsSession::Spectator(_) => {
-                "Spectator".to_string()
-            }
-        });
-    println!("[ggrs-phases] session = {kind:?}");
-    println!("[ggrs-phases] over 120 settled updates:");
-    for name in &names {
-        let runs = app
-            .world()
-            .resource::<ScheduleRunCounts>()
-            .0
-            .get(name)
-            .copied()
-            .unwrap_or(0);
-        println!("[ggrs-phases]   {runs:>4}x  {name}");
-    }
+    assert!(
+        fresh.is_empty(),
+        "playing the shipped composition brought {} resource(s) into existence that \
+         no rollback registration, derivation or waiver accounts for — and no other \
+         sweep in this file can see them, because the others never run the \
+         simulation: {fresh:#?}",
+        fresh.len()
+    );
 }

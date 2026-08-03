@@ -227,6 +227,15 @@ pub fn tag_mary_o_sparks(
 /// iteration whose order std does not define. (GPT review of 5cc4337..47d7de3,
 /// finding 1, which asked for canonicalization before checksumming; not
 /// iterating at all is the stronger answer.)
+///
+/// ⛔ **its Sanic twin is a `Vec` and that asymmetry is CORRECT — do not
+/// "fix" it.** `ambition_demo_sanic::monitors::SpentMonitors` answers the same
+/// question about the same kind of thing, and its own doc says why it is a Vec:
+/// the overlay contribution ITERATES it every frame, and the determinism contract
+/// bans std-hash iteration order. Nothing iterates this one. Two access patterns,
+/// two shapes. ⚠ and the dangerous direction of "making them consistent" is the
+/// other one — turning `SpentMonitors` into a HashSet would reintroduce exactly
+/// the order-dependence it was written to avoid.
 #[derive(Resource, Default, Clone)]
 pub struct SpentPowerBlocks(std::collections::HashSet<ae::GeoId>);
 

@@ -74,6 +74,7 @@ pub(crate) fn apply_entity_boss_damage(
             damage_invuln_time: 0.0,
             block_hit_flash: 0.0,
             block_invuln_floor: 0.0,
+            armor_hitstop_time: 0.070,
         },
         // NOT unstoppable, because this path cannot tell. It takes an `amount`
         // and never sees the `HitEvent`, so it has no source to match on — and

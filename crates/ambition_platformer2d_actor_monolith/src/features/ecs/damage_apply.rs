@@ -96,6 +96,13 @@ pub struct BodyHitFeel {
     pub block_hit_flash: f32,
     /// Guard i-frame on a blocked hit: the timer is raised to at least this.
     pub block_invuln_floor: f32,
+    /// Hitstop when a worn ARMOR row absorbs the hit instead of HP taking it.
+    ///
+    /// ⚠ absorbing a hit is not a quiet event — losing a form is the most
+    /// consequential thing short of dying — and this branch returns before the
+    /// damaging path's beat, so without a number here it had none. Jon reported
+    /// exactly that: *"there needs to be a bit of hitstun when maryo gets hit."*
+    pub armor_hitstop_time: f32,
 }
 
 /// What [`resolve_body_hit`] decided about one hit on one body.
@@ -273,6 +280,17 @@ pub fn resolve_body_hit(
         if armor.consume_armor().is_some() {
             combat.hit_flash = feel.hit_flash;
             combat.damage_invuln_timer = feel.damage_invuln_time;
+            // ⛔ **AND THE BEAT, which this branch used to skip.** Jon, from play:
+            // *"there needs to be a bit of hitstun when maryo gets hit."* Spending
+            // armor returns EARLY, so it never reached the hitstop the damaging
+            // path arms below — and losing a form is the most consequential thing
+            // that happens to her short of dying. She shrank mid-stride with no
+            // beat, which reads as the hit not landing at all.
+            //
+            // ⚠ the hitstop only; NOT the recoil lock or the carried launch. Those
+            // belong to being THROWN, and armor absorbs the throw — that is what
+            // absorbing means. What is owed is the pause that says it happened.
+            combat.hitstop_timer = combat.hitstop_timer.max(feel.armor_hitstop_time);
             return BodyHitResolution::Armored;
         }
     }
@@ -481,6 +499,7 @@ pub(crate) fn handle_player_damage_events(
             damage_invuln_time: feel.knockback_invulnerability_time,
             block_hit_flash: 0.0,
             block_invuln_floor: 0.12,
+            armor_hitstop_time: 0.070,
         },
         // The player's knockback i-frames are 0.75s — the longest window in the
         // game, armed by the very launch that throws them off the stage.

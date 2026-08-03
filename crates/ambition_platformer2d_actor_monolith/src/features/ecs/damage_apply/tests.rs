@@ -77,6 +77,7 @@ const TEST_FEEL: BodyHitFeel = BodyHitFeel {
     damage_invuln_time: 0.2,
     block_hit_flash: 0.16,
     block_invuln_floor: 0.2,
+    armor_hitstop_time: 0.070,
 };
 
 const DOWN: ae::Vec2 = ae::Vec2::new(0.0, 1.0);

@@ -251,6 +251,7 @@ pub(crate) fn apply_actor_hit(
                 damage_invuln_time: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
                 block_hit_flash: 0.16,
                 block_invuln_floor: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
+                armor_hitstop_time: 0.070,
             },
             left_the_world,
         );
@@ -445,10 +446,12 @@ pub(crate) fn apply_actor_hit(
             // fighter's pool is FULL at the moment it is thrown off the stage,
             // so a rule watching `alive()` would watch a healthy fighter fall
             // out of the world forever.
-            writers.knockouts.write(crate::combat::stocks::BodyKnockedOut {
-                body: actor_entity,
-                cause: event.source.clone(),
-            });
+            writers
+                .knockouts
+                .write(crate::combat::stocks::BodyKnockedOut {
+                    body: actor_entity,
+                    cause: event.source.clone(),
+                });
             // A RULESET owns this body's death (`RulesetOwnsDeath`). Health is
             // already zero and stays zero, and NONE of the world's death
             // consequences run: no bounty coin, no heart, no death explosion, no

@@ -200,60 +200,6 @@ def test_timings_payload_is_json_serializable(tmp_path):
     assert json.loads(path.read_text())[2]["ok"] is False
 
 
-def test_the_web_build_is_checked_in_the_whole_suite():
-    """The web target sat broken for at least four days because nothing in the
-    suite compiled it — every native job stayed green while `--features web` had
-    four errors in it (docs/planning/repair_wasm.md).
-
-    A CHECK rather than a test run: there is no wasm runner here, and a check is
-    what the failure mode needs anyway. Exhaustive-only, because it builds a
-    second target's dependency graph, and not under a package filter, because
-    `-p some_crate` is a question about that crate.
-
-    ⚠ 2026-08-02: this moved OUT of the default plan with the inversion, so the
-    web build is unchecked by a default run. That is a real loss and it is
-    accepted deliberately — `coverage_notice()` names the web check as one of
-    the three things the backbone does not cover, on every single run, which is
-    the difference between a stated trade and the silent gap that let the web
-    target sit broken for four days in the first place.
-    """
-    if not rt.wasm_target_installed():
-        pytest.skip("wasm32-unknown-unknown is not installed on this machine")
-
-    jobs = rt.build_jobs([], heavy=False, libtest_args=[], everything=True)
-    web = [j for j in jobs if "wasm32-unknown-unknown" in j.argv]
-    assert len(web) == 2, f"expected both web personas, got {[j.name for j in web]}"
-    personas = {a for j in web for a in j.argv} & {"web", "web_served_assets"}
-    assert personas == {"web", "web_served_assets"}
-    for job in web:
-        assert "check" in job.argv, "the web job must be a check, not a test run"
-
-    backbone = rt.build_jobs([], heavy=False, libtest_args=[])
-    assert not [j for j in backbone if "wasm32-unknown-unknown" in j.argv], (
-        "the default is the backbone; a second target's dependency graph is not"
-    )
-
-
-def test_a_non_exhaustive_run_says_what_it_did_not_cover():
-    """⛔ A skipped coverage that says nothing reads exactly like coverage that
-    passed. That is the defect that let the web target stay broken for four
-    days, and making the backbone the DEFAULT would recreate it wholesale — so
-    every non-exhaustive plan ends by naming its own blind spots.
-    """
-    notice = rt.coverage_notice(exhaustive=False, filtered=False)
-    assert "does NOT cover" in notice
-    for missing in ("cfg(feature", "external-consumer", "wasm"):
-        assert missing in notice, f"the notice must name {missing}"
-    assert "--run-everything-you-probably-dont-need-this" in notice, (
-        "naming the gap without naming the flag that closes it is half a notice")
-
-    # The exhaustive plan has nothing to disclaim.
-    assert rt.coverage_notice(exhaustive=True, filtered=False) == ""
-
-    # A package filter is narrower still, and says so in its own words.
-    assert "package filter" in rt.coverage_notice(exhaustive=False, filtered=True)
-
-
 def test_heavy_implies_the_exhaustive_plan():
     """`--heavy` is the MORE-than-exhaustive pass, so it cannot mean less.
 

@@ -533,11 +533,15 @@ def write_status(path: Path, payload: dict) -> None:
 def coverage_notice(exhaustive: bool, filtered: bool) -> str:
     """What this plan did NOT cover, said out loud.
 
-    ⛔ The repo's own rule, learned from the wasm target sitting broken for four
-    days: "a skipped coverage that says nothing reads exactly like coverage that
-    passed". Making the backbone the default is deliberate, but a green backbone
-    must never be mistaken for a green everything — so every non-exhaustive run
-    ends by naming its own blind spots and the one flag that removes them.
+    A green backbone must not be readable as a green everything. This is a
+    printed line, not a guard: it states the gap and names the flag that closes
+    it, and then gets out of the way.
+
+    ⚠ It is deliberately NOT an argument that the gap must be closed. Jon,
+    2026-08-02, on the wasm target having sat broken for four days: *"we let it
+    sit for 4 days because we didn't care about it for 4 days."* Not caring was
+    the correct call. The notice exists so the choice stays visible and
+    deliberate, not so someone feels obliged to spend an hour closing it.
     """
     if exhaustive:
         return ""

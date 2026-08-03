@@ -72,7 +72,21 @@ pub fn arrive_body_in_room(
     crate::reset_body_clusters(model, clusters, spawn, air_jumps_default);
     clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
     if momentum == ArrivalMomentum::Preserve {
+        // ⛔ **AND THE RITUAL REGREW INSIDE THE FUNCTION WRITTEN TO KILL IT.**
+        //
+        // `reset_body_clusters` transits at `TransitVelocity::Zero`, and a
+        // transit rebuilds the collapsed `SweepSample` FROM the velocity it sees
+        // — so restoring `kinematics.vel` afterwards left the body moving and
+        // its sweep sample stationary. Two motion facts, one body, disagreeing:
+        // exactly the "authority that requires a follow-up call" this type's own
+        // doc comment exists to name, one layer further in. (GPT review of
+        // 5cc4337..47d7de3, finding 8.)
+        //
+        // Reconciling AFTER the momentum policy is what makes the arrival one
+        // operation: whatever velocity the body leaves here with is the velocity
+        // every derived motion fact was built from.
         clusters.kinematics.vel = incoming;
+        reconcile_transit(model, clusters);
     }
 }
 
@@ -182,6 +196,82 @@ mod tests {
     use crate::movement::adhesive_crawler::CrawlerState;
     use crate::movement::surface_momentum::{SurfaceMotion, SurfaceRef};
     use crate::{AbilitySet, BodyClusterScratch, CrawlerParams, MomentumParams};
+
+    /// A PRESERVED arrival leaves every motion fact telling the same story.
+    ///
+    /// ⚠ **testing `transit_body` proves nothing about this.** The transit is
+    /// coherent on its own; the disagreement was manufactured one layer up, by
+    /// `arrive_body_in_room` restoring the velocity AFTER the reset had already
+    /// collapsed the sweep at zero. So this drives the wrapper and asserts the
+    /// whole arrival — position, velocity, and the sweep sample derived from
+    /// them — rather than the piece that was never wrong.
+    #[test]
+    fn a_preserved_arrival_leaves_the_sweep_agreeing_with_the_velocity() {
+        let arrival = Vec2::new(640.0, 96.0);
+        let incoming = Vec2::new(420.0, -30.0);
+
+        let mut scratch =
+            BodyClusterScratch::new_with_abilities(Vec2::new(10.0, 10.0), AbilitySet::default());
+        scratch.kinematics.vel = incoming;
+        let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
+        // The scratch body carries no sweep sample unless a test asks for one,
+        // and a test that did not ask would pass over an absent fact.
+        let mut sample = SweepSample {
+            prev: Vec2::new(10.0, 10.0),
+            curr: Vec2::new(10.0, 10.0),
+            vel: incoming,
+            half: Vec2::splat(8.0),
+        };
+        let (pos, vel) = {
+            let mut clusters = scratch.as_mut();
+            clusters.sweep = Some(&mut sample);
+            arrive_body_in_room(
+                &mut model,
+                &mut clusters,
+                arrival,
+                1,
+                ArrivalMomentum::Preserve,
+            );
+            (clusters.kinematics.pos, clusters.kinematics.vel)
+        };
+
+        assert_eq!(pos, arrival);
+        assert_eq!(vel, incoming, "an edge exit keeps its run");
+        assert_eq!(sample.prev, arrival);
+        assert_eq!(sample.curr, arrival);
+        assert_eq!(
+            sample.vel, incoming,
+            "the collapsed sweep must carry the velocity the body actually has, \
+             not the zero the reset transited through",
+        );
+    }
+
+    /// The other half of the policy: a RESET arrival is at rest everywhere.
+    #[test]
+    fn a_reset_arrival_is_at_rest_in_every_motion_fact() {
+        let arrival = Vec2::new(200.0, 48.0);
+        let mut scratch =
+            BodyClusterScratch::new_with_abilities(Vec2::new(10.0, 10.0), AbilitySet::default());
+        scratch.kinematics.vel = Vec2::new(-500.0, 220.0);
+        let mut model = MotionModel::axis_swept(crate::AxisSweptParams::default());
+        let mut sample = SweepSample {
+            prev: Vec2::new(10.0, 10.0),
+            curr: Vec2::new(10.0, 10.0),
+            vel: Vec2::new(-500.0, 220.0),
+            half: Vec2::splat(8.0),
+        };
+        let (pos, vel) = {
+            let mut clusters = scratch.as_mut();
+            clusters.sweep = Some(&mut sample);
+            arrive_body_in_room(&mut model, &mut clusters, arrival, 1, ArrivalMomentum::Reset);
+            (clusters.kinematics.pos, clusters.kinematics.vel)
+        };
+
+        assert_eq!(pos, arrival);
+        assert_eq!(vel, Vec2::ZERO);
+        assert_eq!(sample.vel, Vec2::ZERO);
+        assert_eq!(sample.curr, arrival);
+    }
 
     #[test]
     fn transit_reconciles_contacts_attachment_and_the_motion_record() {

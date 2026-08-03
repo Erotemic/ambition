@@ -1167,6 +1167,18 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
     ),
     (
+        "ambition_platformer2d_actor_monolith::audio::environment::AudioEnvironment",
+        "⭐ the strongest argument on this list, and it is in the type's own doc:          `wetness` is smoothed \"using wall-clock dt, so the transition keeps          progressing while the world is paused or in bullet-time — audio buses          always run on the WALL CLOCK\". A rewind does not move wall time          backwards, so wall-clock state is not rollback state by construction          rather than by category",
+    ),
+    (
+        "ambition_platformer2d_host::gameplay_presentation::ScreenOccupancy",
+        "what the framing was composed against, \"resolved to logical display          pixels\" — a statement about the DISPLAY, kept as its own resource so a          debug overlay can show it. The display is not rewound",
+    ),
+    (
+        "ambition_app::app::shell_host::AmbitionShellHosted",
+        "a marker saying THIS APP is composed as the shell-routed multi-game host          — \"absent in direct-entry and headless harnesses\". Composition identity,          inserted before the first frame; a rewind cannot change which app this is",
+    ),
+    (
         "ambition_platformer2d_provider::authoring::PlatformerAuthoredCatalogRegistry",
         "its own doc: \"app-local map from experience id to its authored catalog          fragments — the authority the shared preparation systems validate          against\". Authored content indexed at composition time; a rewind does not          re-author a catalog",
     ),
@@ -1439,7 +1451,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
     // wholly overwritten each tick rather than accumulated, which is the whole
     // difference between derived state and a memo.
-    const UNACCOUNTED_CEILING: usize = 4;
+    const UNACCOUNTED_CEILING: usize = 1;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

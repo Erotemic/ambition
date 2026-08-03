@@ -263,6 +263,14 @@ A smash game would have a character portrait on the bottom for each character wi
 
 ## Should DIALOGUE stop the world, or only the talker? (2026-08-01)
 
+> **JON, 2026-08-03: "dialogue should have the option to stop the world. I'm not
+> decided on what I want it to do in game."**
+
+✔ **The ENGINE answer is settled: both must be expressible.** "Stop the world" is
+a capability the dialogue system owes, not a behaviour it picks — so this is a
+policy with a default, exactly like #9 above, and the two share a shape.
+▢ **the game-level default stays open**, and does not block the engine work.
+
 **This is a product question, not a repair**, and it took a wrong turn to work
 that out — so the mechanism is written down here rather than re-derived.
 
@@ -523,6 +531,12 @@ attached to choosing (b), and it should land in the same commit.
 
 ## The top four ladder rungs ship a knob that measurably makes them worse (2026-08-02)
 
+> **JON, 2026-08-03: "not sure about balance, we are most concerned with
+> architecture right now."**
+
+◐ **Deferred, deliberately — not dropped.** The measurement stands and needs no
+re-deriving when balance comes up; do not spend run time re-measuring it.
+
 **Newly surfaced**, and it is a balance call rather than a bug — but it has sat
 inside a probe's header comment where nobody was going to weigh it.
 
@@ -609,6 +623,17 @@ agree. This decision is about the value, not about the drift.
 
 ## 8. Which block did you stand on? (queue 08-03 D10 / D11)
 
+> **JON, 2026-08-03: "the 3 blocks that break after the pipes. I will check if the
+> problem still exists."**
+
+◐ **Located, and Jon is re-checking whether it reproduces.** The subject is the
+three breakable blocks past the pipes — so it is the BRICK path after all, not the
+spent-`?`-block explanation this note was leaning toward. ⚠ that matters: the
+brick path was probed and found correct
+(`a_broken_brick_leaves_the_collision_world_the_body_reads`), so if it still
+reproduces there, that probe is measuring something the player is not hitting.
+Waiting on Jon's re-check before spending more.
+
 **One answer closes two rows or reopens a collision question**, which is why it is
 worth asking rather than guessing.
 
@@ -633,6 +658,21 @@ from the composed world against the real level while its neighbour is untouched.
 work: one is a physics investigation, the other is an art and animation task.
 
 ## 9. Can a flying fighter shield? (queue 08-03 F7-duel)
+
+> **JON, 2026-08-03: "not in smash. In other games it's up to the game. I'm not
+> sure about ambition itself yet."**
+
+⭐ **So the RULE is right and its HOME is wrong.** `cfg.can_shield &&
+obs.self_on_ground` encodes Smash's answer correctly — a Smash flier does not
+shield — but it encodes it in the BRAIN, where every game inherits Smash's call.
+Jon's answer says this is a per-game policy with three states, and Ambition's is
+still open.
+
+▢ **the architecture item, which does not need Ambition's answer**: lift
+"may a body block while airborne" out of `brain/smash` into the game's policy,
+defaulting to Smash's rule so nothing changes by accident. Then Ambition can
+answer later by authoring, not by editing the brain — and the duel fixture can
+state which rule it is testing under instead of inheriting one silently.
 
 Two `app_it` duel tests have been failing since before this run. The cause is
 measured, not suspected — the same fight, both fighters, identical capabilities:
@@ -752,6 +792,15 @@ wrong once here. This is a question about your INTENT for the dependency, which 
 measurement can answer.
 
 ## 12. Should the web build simulate on a fixed timestep? (2026-08-03)
+
+> **JON, 2026-08-03: "the web build is another deployment of the game so likely
+> needs ggrs if multiplayer is ever gonna be a real thing."**
+
+✔ **Answer: option (2) — Ggrs, not `Fixed60Hz` and not "leave it".** The reason
+given is the one that settles it: web is a DEPLOYMENT of the same game, not a
+demo, so it inherits the same simulation host rather than a cheaper one. ⚠ this
+also means the wasm bundle carries bevy_ggrs, which option (2) always implied and
+is now accepted deliberately.
 
 `build_visible_app` chooses `SimulationHost::Ggrs` inside
 `#[cfg(feature = "dev_tools")]`, and `dev_tools` is in the default feature set —

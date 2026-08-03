@@ -2421,7 +2421,7 @@
             fields: (
                 character_id: "npc_anne_druid",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_anne_druid",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2439,7 +2439,7 @@
             fields: (
                 character_id: "npc_richard_duckling",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_richard_duckling",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2457,7 +2457,7 @@
             fields: (
                 character_id: "npc_le_beast",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_le_beast",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2475,7 +2475,7 @@
             fields: (
                 character_id: "npc_hypatia_prime",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_hypatia_prime",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2493,7 +2493,7 @@
             fields: (
                 character_id: "npc_marie_curry",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_marie_curry",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2511,7 +2511,7 @@
             fields: (
                 character_id: "npc_joseph_furrier",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_joseph_furrier",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2529,7 +2529,7 @@
             fields: (
                 character_id: "npc_admiral_grass_hopper",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_admiral_grass_hopper",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2547,7 +2547,7 @@
             fields: (
                 character_id: "npc_python_goras",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_python_goras",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2565,7 +2565,7 @@
             fields: (
                 character_id: "npc_leib_knives",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_leib_knives",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2583,7 +2583,7 @@
             fields: (
                 character_id: "npc_georg_canter",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_georg_canter",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2601,7 +2601,7 @@
             fields: (
                 character_id: "npc_paul_diracula",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_npc_paul_diracula",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),
@@ -2619,7 +2619,7 @@
             fields: (
                 character_id: "player_robot_v2",
                 prompt: "Inspect",
-                dialogue_id: "",
+                dialogue_id: "hall_player_robot_v2",
                 patrol_radius: 0,
                 brain_override: "stand_still",
             ),

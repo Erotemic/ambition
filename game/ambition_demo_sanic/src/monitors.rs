@@ -51,7 +51,11 @@ const STOMP_BAND: f32 = 16.0;
 /// Which monitors are broken this run. A Vec, not a HashSet: the overlay
 /// contribution iterates it every frame and the sim determinism contract bans
 /// std-hash iteration order.
-#[derive(Resource, Default)]
+/// ⚠ **`Clone` because it is ROLLBACK STATE**, for the same reason Mary-O's
+/// broken bricks are: the overlay subtracts these names from collision every
+/// frame, so a rewind that does not restore the set disagrees with the world
+/// about which monitors are still solid.
+#[derive(Resource, Default, Clone)]
 pub struct SpentMonitors(pub Vec<String>);
 
 impl SpentMonitors {
@@ -159,7 +163,9 @@ pub fn break_monitor_boxes(
                 // replaces the live `MomentumParams` wholesale, which would
                 // orphan a live speed shoes' saved baseline — the form eats
                 // the shoes.
-                *worn = ambition_platformer2d::characters::actor::WornCharacter::new(SUPER_SANIC_CHARACTER_ID);
+                *worn = ambition_platformer2d::characters::actor::WornCharacter::new(
+                    SUPER_SANIC_CHARACTER_ID,
+                );
                 commands.entity(entity).remove::<SpeedShoes>();
             }
             SPEED_MONITOR => {

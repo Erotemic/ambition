@@ -39,7 +39,14 @@ const _: () = assert!(
 /// per process). A positional bitset iterates in a stable index order.
 /// [`refill_bricks_on_room_loaded`] clears it on every (re)load so a cyclic replay
 /// re-arms the wall — the brick twin of [`crate::powerups::SpentPowerBlocks`].
-#[derive(Resource, Default)]
+/// ⚠ **`Clone` because it is ROLLBACK STATE.** Which bricks are broken decides
+/// what the room is made of — the overlay subtracts them from collision every
+/// frame — so a rewind across a bonk that does not restore this leaves a wall
+/// with a hole in it, or a hole with a wall in it. Found by the shipped-
+/// composition resource sweep (2026-08-03), which is the sibling of the sweep
+/// that could never have seen it: this resource exists only in Mary-O's
+/// composition.
+#[derive(Resource, Default, Clone)]
 pub struct BrokenBricks(u32);
 
 impl BrokenBricks {

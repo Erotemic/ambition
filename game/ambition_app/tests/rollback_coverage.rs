@@ -195,8 +195,8 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     let mut tagged =
         world.query_filtered::<Entity, With<ambition_platformer2d::platformer::lifecycle::FeatureSimEntity>>();
     found.extend(tagged.iter(world));
-    let mut bodies =
-        world.query_filtered::<Entity, With<ambition_platformer2d::actors::actor::BodyKinematics>>();
+    let mut bodies = world
+        .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::BodyKinematics>>();
     found.extend(bodies.iter(world));
 
     let all: Vec<Entity> = {
@@ -238,7 +238,9 @@ pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeM
         .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .expect("rollback registry is installed by the engine plugins")
         .descriptors()
-        .filter(|d| d.kind != ambition_platformer2d::runtime::rollback::RollbackEntryKind::RequiredRollback)
+        .filter(|d| {
+            d.kind != ambition_platformer2d::runtime::rollback::RollbackEntryKind::RequiredRollback
+        })
         .map(|d| d.type_name.clone())
         .collect();
 
@@ -275,7 +277,9 @@ pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeM
 ///
 /// This lists what each waiver is actually covering so the claim can be re-read
 /// against reality instead of against the crate name.
-pub(crate) fn waived_components(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, &'static str> {
+pub(crate) fn waived_components(
+    sim: &mut Platformer2dSimHarness,
+) -> BTreeMap<String, &'static str> {
     let known: BTreeSet<String> = sim
         .world()
         .get_resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
@@ -348,8 +352,8 @@ fn assert_components_accounted(sim: &mut Platformer2dSimHarness, room: &str) {
 
 #[test]
 fn every_component_on_a_simulated_entity_is_registered_derived_or_waived() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     // Step a few frames so lazily-inserted runtime state (timers, resolved
     // frames, published hurtboxes) is actually present on the bodies.
     for _ in 0..8 {
@@ -567,11 +571,12 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
     use ambition_platformer2d::actors::features::{MountSlot, Mounted, RidingOn};
     use ambition_platformer2d::characters::brain::Brain;
 
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     let home = {
         let world = sim.world_mut();
-        let mut q = world.query_filtered::<Entity, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
+        let mut q = world
+            .query_filtered::<Entity, ambition_platformer2d::actors::actor::PrimaryPlayerOnly>();
         q.single(world).expect("one primary player")
     };
     let anchor = sim
@@ -594,7 +599,9 @@ fn every_component_on_a_mounted_pair_is_registered_derived_or_waived() {
         "Pirate Raider",
         (anchor.x + 120.0, anchor.y - 66.0),
         (22.0, 39.0),
-        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom("pirate_raider".to_string()),
+        ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(
+            "pirate_raider".to_string(),
+        ),
     );
     let by_id = |sim: &mut Platformer2dSimHarness, id: &str| {
         let world = sim.world_mut();
@@ -721,8 +728,8 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
 fn every_component_in_a_live_match_is_registered_derived_or_waived() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
 
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     seat_a_two_cpu_match(&mut sim);
     // The activation tick itself is already behind us, and it is swept below on
     // the way through: seating publishes on the tick the last seat lands, and
@@ -1153,8 +1160,8 @@ mod ambition_poison {
 
 #[test]
 fn the_resource_sweep_actually_catches_an_unregistered_resource() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     sim.world_mut()
         .insert_resource(ambition_poison::DeliberatelyUnregistered);
     let flagged = unaccounted_resources(sim.world());
@@ -1186,10 +1193,8 @@ fn the_resource_sweep_actually_catches_an_unregistered_resource() {
 /// day it was pointed at them.
 #[test]
 fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
-    let mut app = ambition_app::app::build_visible_app(
-        ambition_app::app::VisibleRenderMode::NoWindow,
-        true,
-    );
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
     // A few frames so lazily-inserted runtime resources exist, exactly as the
     // sandbox sweep steps its harness first.
     for _ in 0..8 {
@@ -1228,7 +1233,11 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // blind spot never had — and every classification lowers it. When it reaches
     // the point where the remainder is a short justified list, this becomes the
     // plain assertion its sibling above already is.
-    const UNACCOUNTED_CEILING: usize = 66;
+    // 66 → 64 the same day it was set, by registering `BrokenBricks` and
+    // `SpentMonitors`. Both halves of the ratchet were exercised doing it: the
+    // sweep FOUND them, and the staleness assert REFUSED to let the ceiling stay
+    // at 66 once they were gone.
+    const UNACCOUNTED_CEILING: usize = 64;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \
@@ -1256,8 +1265,8 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
 
 #[test]
 fn every_mutable_ambition_resource_is_registered_derived_or_waived() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     // Step a few frames so lazily-inserted runtime resources exist.
     for _ in 0..8 {
         sim.step(AgentAction::default());
@@ -1618,7 +1627,10 @@ fn inert_registrations(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, BTr
         // strands the same way however many copies of it the room holds, and a
         // failure listing 40 entities is a failure nobody reads.
         let key = stranded.iter().cloned().collect::<Vec<_>>().join(" + ");
-        inert.entry(key).or_default().extend(names.intersection(&anchors).cloned());
+        inert
+            .entry(key)
+            .or_default()
+            .extend(names.intersection(&anchors).cloned());
     }
     inert
 }
@@ -1653,8 +1665,8 @@ fn no_snapshot_registration_is_inert_in_the_boot_world() {
 fn no_snapshot_registration_is_inert_in_a_live_match() {
     // Fixed-tick, like its sibling sweep: `seat_a_two_cpu_match` drives the
     // seating retry to completion and the default timestep does not reach it.
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
     // ⚠ the helper returns the TICK the match activated, not a seat count — and
     // with the S2 transaction that tick is 0, because every seat now resolves
     // and commits together. Count the bodies, like the sibling sweep does.
@@ -1684,13 +1696,13 @@ fn the_inert_sweep_actually_catches_an_unanchored_registration() {
     // `MatchSeat` is registered canonical and is normally worn by a body, which
     // carries the `BodyKinematics` anchor. On a bare entity it is stranded.
     sim.world_mut()
-        .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(0));
+        .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(
+            0,
+        ));
 
     let inert = inert_registrations(&mut sim);
     assert!(
-        inert
-            .keys()
-            .any(|key| key.contains("MatchSeat")),
+        inert.keys().any(|key| key.contains("MatchSeat")),
         "the sweep did not notice a snapshot-registered component on an \
          unanchored entity, so its green result above proves nothing: {inert:#?}"
     );

@@ -677,6 +677,15 @@ pub fn install_sanic_content(app: &mut App) {
             .rollback_component_clone::<ScatteredRing>(
                 "ambition_demo_sanic",
                 "content.sanic_scattered_ring",
+            )
+            // Which monitors are spent is authoritative for the same reason
+            // Mary-O's spent blocks and broken bricks are: the overlay subtracts
+            // these from collision every frame, so a rewind across a break that
+            // did not restore the set disagrees with the world about what is
+            // still solid. Found by the shipped-composition resource sweep.
+            .rollback_resource_clone::<monitors::SpentMonitors>(
+                "ambition_demo_sanic",
+                "content.sanic_spent_monitors",
             );
         // The dropped-ring id sequence is no longer a resource: each ring now
         // mints its identity from the SPAWNING player's own `SimIdCounter`

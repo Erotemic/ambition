@@ -1343,6 +1343,17 @@ pub fn install_mary_o_content(app: &mut App) {
                 "ambition_demo_mary_o",
                 "content.mary_o_spent_power_blocks",
             )
+            // ⭐ Its BRICK twin, and the same argument exactly: which bricks are
+            // broken decides what the room is MADE OF — the feature overlay
+            // subtracts them from collision — so a rewind that left a brick
+            // broken puts a hole in a wall the other timeline still has. Found
+            // by the shipped-composition resource sweep rather than by review;
+            // the sandbox sweep could never have seen it, because this resource
+            // only exists in Mary-O's composition.
+            .rollback_resource_clone::<bricks::BrokenBricks>(
+                "ambition_demo_mary_o",
+                "content.mary_o_broken_bricks",
+            )
             .rollback_component_clone::<pipe::PipeEntryLatch>(
                 "ambition_demo_mary_o",
                 "content.mary_o_pipe_entry_latch",

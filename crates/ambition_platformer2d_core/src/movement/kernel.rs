@@ -103,6 +103,26 @@ pub fn step_motion(
     clusters: &mut BodyClustersMut<'_>,
     ctx: MotionStepContext<'_>,
 ) -> MotionStepResult {
+    // ⭐ **THE launch drain, and it is here because here is the only gateway.**
+    //
+    // An external reaction (knockback, a fling) writes a world-space launch into
+    // `BodyFlightState::pending_launch` and cannot apply it itself: it holds a
+    // `&mut Vec2`, not the model, and only the model knows what a launch MEANS to
+    // it. Writing `kinematics.vel` directly is authoritative for an axis-swept
+    // body and a LIE for a riding surface-momentum one, whose `vel` is derived
+    // from `v_t` and republished every step — which is why Sanic took knockback
+    // with every number non-zero and never moved.
+    //
+    // ⚠ draining BEFORE the step, so the launch is honoured by this tick rather
+    // than by the next one. That matches the jump path inside the surface kernel,
+    // which sets the velocity, goes airborne, and then takes its substep.
+    //
+    // ⛔ and it is drained in ONE place on purpose. The alternative — every
+    // reaction calling the model after writing the velocity — is the
+    // authority-that-needs-a-follow-up-call shape this repo keeps paying for, and
+    // the failure mode is a launch that silently does nothing.
+    let launch = std::mem::replace(&mut clusters.flight.pending_launch, crate::Vec2::ZERO);
+    accept_external_launch(model, clusters, &ctx, launch);
     match model {
         MotionModel::AxisSwept(axis) => {
             let events = super::update_body_with_frame_clusters(
@@ -194,6 +214,54 @@ pub(super) fn establish_axis_ground_contact_baseline(
     )
     .is_some();
     establish_ground_contact_baseline_from_sample(clusters, sampled_grounded, frame)
+}
+
+/// Hand a pending launch to whichever model owns this body's velocity.
+///
+/// Zero is the empty state (see [`BodyFlightState::pending_launch`]), so the
+/// common path is one comparison.
+fn accept_external_launch(
+    model: &mut MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    ctx: &MotionStepContext<'_>,
+    launch: crate::Vec2,
+) {
+    if launch.length_squared() <= 1.0e-6 {
+        return;
+    }
+    match model {
+        // `vel` IS the authority for an axis-swept body, so the reaction's own
+        // write already landed. Assigning again is deliberate rather than
+        // redundant: it makes the launch channel the single story for every
+        // model, so a reader does not have to know which arm secretly relies on
+        // a second write somewhere else.
+        MotionModel::AxisSwept(_) => {
+            clusters.kinematics.vel = launch;
+        }
+        MotionModel::SurfaceMomentum(momentum) => {
+            let mut body = SurfaceBody {
+                pos: clusters.kinematics.pos,
+                vel: clusters.kinematics.vel,
+                radius: clusters.kinematics.size.min_element() * 0.5,
+                depth_lane: momentum.depth_lane,
+                motion: momentum.state,
+                route_memory: momentum.route_memory,
+                occlusions: momentum.occlusions,
+            };
+            surface_momentum::apply_external_launch(ctx.world, &mut body, launch, ctx.dt);
+            clusters.kinematics.vel = body.vel;
+            momentum.state = body.motion;
+            momentum.occlusions = body.occlusions;
+        }
+        // ⚠ the crawler keeps its ATTACHMENT. An adhesive body is glued to its
+        // surface by the thing that makes it a crawler, and whether a hit should
+        // peel one off is a design question Jon has open (the puppy-slug contact
+        // row) — not something to answer as a side effect of routing knockback.
+        // Its velocity still takes the launch, so the impulse is not lost.
+        MotionModel::AdhesiveCrawler(_) => {
+            clusters.kinematics.vel = launch;
+        }
+    }
 }
 
 fn step_surface_momentum(

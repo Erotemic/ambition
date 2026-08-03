@@ -2005,3 +2005,111 @@ fn a_chain_rider_is_stopped_by_a_wall_the_chain_was_never_drawn_over() {
         body.pos.x
     );
 }
+
+// ── External launches (knockback), D6 ──────────────────────────────────────
+
+/// A flat floor and a body running along it, which is the situation every
+/// reported "no knockback" complaint describes.
+fn running_on_flat() -> (World, SurfaceBody) {
+    let flat = SurfaceChain::open(
+        "flat",
+        vec![Vec2::new(-500.0, 300.0), Vec2::new(500.0, 300.0)],
+    );
+    let world = world_with_chains(vec![flat]);
+    let mut body = ride(0, 500.0, 600.0, &world, 14.0);
+    body.vel = Vec2::new(600.0, 0.0);
+    (world, body)
+}
+
+/// ⛔ **THE BUG, pinned as a fact about the model rather than as an anecdote.**
+///
+/// Writing a launch into `SurfaceBody::vel` and stepping does NOT launch a riding
+/// body — `vel` is derived from `v_t` while `Riding`, so the step republishes it
+/// and the impulse is gone. This is what `apply_body_hit_reaction` used to do,
+/// and it is why knockback 360/260 and hitstun 0.24s produced a body that took
+/// hits without reacting.
+///
+/// Kept as a test because the fix is a channel, not a line: if someone later
+/// "simplifies" the launch back into a velocity write, this is what says no.
+#[test]
+fn writing_velocity_on_a_riding_body_does_not_launch_it() {
+    let (world, mut body) = running_on_flat();
+    let params = frictionless();
+
+    body.vel = Vec2::new(360.0, -260.0); // a textbook knockback: back and up
+    step_surface_body(
+        &mut body,
+        &world,
+        &params,
+        MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
+        SurfaceInputs::default(),
+        DT,
+        None,
+    );
+
+    assert!(
+        matches!(body.motion, SurfaceMotion::Riding { .. }),
+        "the write did not break the ride: {:?}",
+        body.motion
+    );
+    assert!(
+        body.vel.y.abs() < 1.0,
+        "and the upward half was republished away — vel is DERIVED while riding: \
+         {:?}",
+        body.vel
+    );
+}
+
+/// ⭐ The same launch through the model's own channel does what a hit should.
+#[test]
+fn an_external_launch_takes_a_riding_body_off_the_surface() {
+    let (world, mut body) = running_on_flat();
+    let launch = Vec2::new(360.0, -260.0);
+
+    apply_external_launch(&world, &mut body, launch, DT);
+
+    assert!(
+        matches!(body.motion, SurfaceMotion::Airborne),
+        "a hit with an off-surface component ends the ride: {:?}",
+        body.motion
+    );
+    assert!(
+        (body.vel - launch).length() < 1.0,
+        "and the body leaves with the launch it was given: {:?}",
+        body.vel
+    );
+}
+
+/// ⚠ **The rule that makes this a sibling of `apply_pad_impulse` and not the same
+/// function.** A pad's tangent-dominant case replaces `v_t` only when that makes
+/// the body FASTER — a booster declines to slow you. A hit must not decline, or
+/// being shoved while sprinting does nothing at all.
+#[test]
+fn a_tangential_launch_overrides_the_run_even_when_it_is_slower() {
+    let (world, mut body) = running_on_flat();
+    // Running at +600 along the tangent; shoved backwards at 200.
+    apply_external_launch(&world, &mut body, Vec2::new(-200.0, 0.0), DT);
+
+    let SurfaceMotion::Riding { v_t, .. } = body.motion else {
+        panic!(
+            "a purely tangential shove keeps the body on the floor: {:?}",
+            body.motion
+        );
+    };
+    assert!(
+        (v_t + 200.0).abs() < 1.0,
+        "the hit SETS the run speed rather than declining to slow it: {v_t}"
+    );
+
+    // And the pad, given the identical impulse, declines — which is the whole
+    // reason these are two functions.
+    let (world, mut pad_body) = running_on_flat();
+    apply_pad_impulse(&world, &mut pad_body, Vec2::new(-200.0, 0.0), DT);
+    let SurfaceMotion::Riding { v_t: pad_v_t, .. } = pad_body.motion else {
+        panic!("the pad kept the ride too");
+    };
+    assert!(
+        (pad_v_t - 600.0).abs() < 1.0,
+        "a booster slower than the run leaves it alone: {pad_v_t}"
+    );
+}

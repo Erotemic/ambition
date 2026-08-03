@@ -1986,5 +1986,50 @@ pub(crate) fn apply_pad_impulse(world: &World, body: &mut SurfaceBody, impulse: 
     }
 }
 
+/// **An external launch, handed to the model instead of written past it.**
+///
+/// The sibling of [`apply_pad_impulse`], and the difference between them is a
+/// RULE rather than a tuning value. A rebound pad's tangent-dominant case only
+/// replaces `v_t` *when that makes the body faster* — a booster declines to slow
+/// you down, which is what a booster is. A hit must not decline: knockback along
+/// the run overrides the run, or being hit while sprinting does nothing.
+///
+/// Off-surface component ⇒ the ride ends and the body leaves with the full world
+/// impulse, exactly as a spring or a jump does. Purely tangential ⇒ the ride
+/// survives and `v_t` is SET from the tangential component, so a hit along the
+/// ground shoves the body without peeling it off the floor.
+pub(crate) fn apply_external_launch(world: &World, body: &mut SurfaceBody, launch: Vec2, dt: f32) {
+    if launch.length_squared() <= 1.0e-6 {
+        return;
+    }
+    match body.motion {
+        SurfaceMotion::Riding { on, s, .. } => {
+            let Some(chain) = resolve_surface(world, on) else {
+                // The surface vanished under the body (a room rebuilt mid-hit).
+                // Leaving it riding a chain that no longer exists would strand
+                // the launch AND the body, so take the ballistic answer.
+                body.vel = launch;
+                body.motion = SurfaceMotion::Airborne;
+                return;
+            };
+            let frame = chain.as_ref().frame_at(s);
+            if launch.dot(frame.normal) > 0.0 {
+                body.vel = launch;
+                body.occlusions =
+                    collect_occlusions(world, body.pos, body.radius, body.depth_lane, body.vel, dt);
+                body.motion = SurfaceMotion::Airborne;
+            } else {
+                let along = launch.dot(frame.tangent);
+                body.motion = SurfaceMotion::Riding { on, s, v_t: along };
+                body.vel = along * frame.tangent;
+            }
+        }
+        SurfaceMotion::Airborne => {
+            // `vel` is authoritative here, so the launch simply IS the velocity.
+            body.vel = launch;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests;

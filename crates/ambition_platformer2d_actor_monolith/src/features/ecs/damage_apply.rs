@@ -844,7 +844,7 @@ pub(crate) fn apply_body_hit_reaction(
     // ONE tuning row for the whole reaction, so the launch and the hitstun
     // cannot disagree about which feel numbers this hit uses (FB6b).
     let response = hit_response_tuning(&feel, boss_hit);
-    *vel = ae::hit_response::knockback_velocity(
+    let launch = ae::hit_response::knockback_velocity(
         body_pos,
         body_facing,
         gravity_dir,
@@ -852,6 +852,20 @@ pub(crate) fn apply_body_hit_reaction(
         di_input_local,
         &response,
     );
+    *vel = launch;
+    // ⭐ **and PUBLISH it, because the write above is not authoritative for every
+    // body.** `BodyKinematics::vel` is the authority for an axis-swept body and a
+    // MIRROR for a riding surface-momentum one, whose velocity is derived from
+    // the scalar `v_t` along its tangent and republished on the next step. Sanic
+    // rides. So every knockback he took was applied faithfully to a field nothing
+    // read, with hitstun 0.24s and knockback 360/260 all non-zero and no reaction
+    // visible — reported as "no knockback", diagnosed for a long time as feel.
+    //
+    // `step_motion` drains this and hands it to the model, which is the only
+    // thing that knows whether a launch means *leave the surface* or *override
+    // the run*. Written here rather than applied here for the same reason: this
+    // function has a `&mut Vec2` and no world and no `MotionModel`.
+    flight.pending_launch = launch;
     combat.hitstun_timer = ae::hit_response::hitstun_duration(knockback, &response);
     // Brief hard control-lock at the front of the hitstun window: the body is
     // thrown with no authority, then regains the attack verb the instant it

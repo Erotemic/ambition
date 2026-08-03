@@ -141,6 +141,11 @@ snapshot_pod!(crate::body_clusters::BodyFlightState {
     // rewind into the middle of a launch that restored the speed and not the
     // window would resimulate a body that coasts for the wrong duration.
     carried_hold: f32,
+    // A launch written by a reaction and not yet drained by `step_motion` is
+    // state a rewind must restore: without it, a rollback across the frame a hit
+    // landed would resimulate a body that was never launched — or, worse, drain
+    // a launch that the new timeline never imparted.
+    pending_launch: vec2,
 });
 
 snapshot_pod!(crate::body_clusters::BodyBlinkState { cooldown: f32 });

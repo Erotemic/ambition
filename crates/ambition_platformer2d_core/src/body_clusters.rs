@@ -16,11 +16,11 @@
 //! [`BodyClusterScratch::new_with_abilities`] and re-borrow via
 //! `BodyClusterScratch::as_mut`.
 
-use crate::Vec2;
 use crate::abilities::AbilitySet;
 use crate::movement::ComboMark;
 use crate::player_state::{BodyMode, ResourceMeter};
 use crate::world::{ClimbableContact, WaterContact};
+use crate::Vec2;
 
 /// Mutable cluster references aggregated for the engine
 /// `update_player_*_with_clusters` entry points.
@@ -391,6 +391,39 @@ pub struct BodyFlightState {
     /// this at zero deliberately — a fling is a change of reference frame, not a
     /// reaction you are locked out of, and it has always decayed that way.
     pub carried_hold: f32,
+    /// **A world-space launch an external reaction imparted, not yet handed to
+    /// the motion model.** `Vec2::ZERO` between hits, which is almost always.
+    ///
+    /// ⭐ **why this exists at all**: writing a launch into
+    /// `BodyKinematics::vel` is only authoritative for a model that OWNS `vel`.
+    /// A surface-momentum body that is `Riding` does not — its `vel` is
+    /// documented as *"DERIVED (published for observers)"*, computed from the
+    /// scalar `v_t` along the tangent — so a knockback written there was
+    /// republished away on the next step and Sanic took hits without moving.
+    /// The impulse has to reach the model, and only the model can decide what a
+    /// launch MEANS to it (leave the surface, or override the run).
+    ///
+    /// ⚠ **drained by [`step_motion`](crate::movement::step_motion), the single
+    /// movement gateway, and by nothing else.** Putting the drain there rather
+    /// than asking each writer to also call the model is deliberate: this repo
+    /// has repeatedly been bitten by an authority that needs a follow-up call,
+    /// and a launch that silently did nothing is exactly that failure.
+    ///
+    /// ⚠ **it rides on `BodyFlightState` because that cluster is ALREADY the
+    /// world-imparted momentum channel** (see `carried_run` above, written by
+    /// the portal adapter and by knockback) and is already rollback-registered
+    /// as `body.flight`. A pending launch that did not rewind would be a phantom
+    /// hit on the resimulated timeline; here it rewinds with everything else and
+    /// needs no new registration.
+    ///
+    /// ⚠ **`Vec2::ZERO` is the empty state rather than an `Option`**, for the
+    /// snapshot's sake: the encoder has a `vec2` primitive and no `Option<Vec2>`
+    /// one, and inventing an option encoding to express "no launch" would put a
+    /// new shape in the wire format for a case that already has a harmless
+    /// spelling. A launch of exactly zero is a no-op either way — the kernel's
+    /// own `apply_pad_impulse` has always early-returned on
+    /// `length_squared() <= 1e-6` for the same reason.
+    pub pending_launch: crate::Vec2,
 }
 
 /// Blink RESOURCE: the recharge cooldown, preserved across policy switches.
@@ -762,7 +795,7 @@ impl BodyClusterScratch {
     /// `Player::new_with_abilities` but without materializing the
     /// monolithic `Player` aggregate.
     pub fn new_with_abilities(spawn: Vec2, abilities: crate::abilities::AbilitySet) -> Self {
-        use crate::movement::{DEFAULT_TUNING, default_player_body_size};
+        use crate::movement::{default_player_body_size, DEFAULT_TUNING};
         let body = default_player_body_size();
         let dash_charges = abilities.dash_charge_count();
         let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
@@ -1011,8 +1044,8 @@ mod reset_tests {
     #[test]
     fn a_pending_restart_is_announced_once() {
         use bevy_ecs::prelude::*;
-        use std::sync::Arc;
         use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
 
         let mut world = World::new();
         let seen = Arc::new(AtomicUsize::new(0));

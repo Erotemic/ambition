@@ -1337,7 +1337,12 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // waiver to finish the job — the two bugs this sweep has already caught were
     // both in a demo provider's own namespace, exactly the kind of place a broad
     // family waiver would have swallowed.
-    const UNACCOUNTED_CEILING: usize = 25;
+    //
+    // 25 → 24 by REGISTERING `ActiveRoundScope`, the third real defect this sweep
+    // has caught: a round-id allocator mutated inside the sim schedule and never
+    // rewound. The staleness assert caught the stale ceiling a THIRD time in one
+    // day.
+    const UNACCOUNTED_CEILING: usize = 24;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

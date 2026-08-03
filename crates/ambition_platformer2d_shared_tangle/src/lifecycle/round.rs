@@ -51,10 +51,53 @@ pub struct RoundScopeId(pub u64);
 pub struct RoundScopedEntity(pub RoundScopeId);
 
 /// The current round and its deterministic allocator.
-#[derive(Resource, Default, Debug)]
+///
+/// ⚠ **`Clone` because this is ROLLBACK STATE, and it was not registered for as
+/// long as both existed (found 2026-08-03 by the shipped-composition resource
+/// sweep).** `settle_versus_round` holds `ResMut<ActiveRoundScope>` and calls
+/// [`Self::begin`], and it is registered in `app.sim_schedule()` — `GgrsSchedule`
+/// in the shipped host, i.e. INSIDE the rollback window. So a rewind across a
+/// round boundary re-ran the mint against a `next_raw` that had never rewound:
+/// the resimulated timeline allocated a DIFFERENT `RoundScopeId` from the one it
+/// was reproducing, and `RoundScopedEntity` culling keys entity lifetime off
+/// exactly that id.
+///
+/// ⭐ the comment beside that system's registration already knew the shape —
+/// *"the restored score depended on presentation-frame history that resimulation
+/// does not replay. Calling a system 'the presentation half' does not make the
+/// resource it writes presentational."* — and the round scope it writes was the
+/// piece that never followed.
+#[derive(Resource, Default, Debug, Clone)]
 pub struct ActiveRoundScope {
     current: Option<RoundScopeId>,
     next_raw: u64,
+}
+
+/// ⭐ **The value, not merely the presence.** `ActiveRoundScope` is always
+/// present, so a presence-only probe would report "still there" across a rewind
+/// that allocated a different round id — which is the entire defect. The exit
+/// oracle refuses a presence probe here for exactly that reason, and this is what
+/// gives it something to compare.
+///
+/// `Option<RoundScopeId>` has no snapshot primitive, so it encodes as a presence
+/// flag plus the raw id: absent and `RoundScopeId(0)` stay distinguishable, which
+/// matters because 0 is the FIRST round a match mints.
+impl ambition_platformer2d_core::snapshot::SnapshotState for ActiveRoundScope {
+    fn encode(&self, out: &mut Vec<u8>) {
+        ambition_platformer2d_core::snapshot::put_bool(out, self.current.is_some());
+        ambition_platformer2d_core::snapshot::put_u64(out, self.current.map_or(0, |id| id.0));
+        ambition_platformer2d_core::snapshot::put_u64(out, self.next_raw);
+    }
+
+    fn decode(r: &mut ambition_platformer2d_core::snapshot::Reader<'_>) -> Option<Self> {
+        let present = r.bool()?;
+        let raw = r.u64()?;
+        let next_raw = r.u64()?;
+        Some(Self {
+            current: present.then_some(RoundScopeId(raw)),
+            next_raw,
+        })
+    }
 }
 
 impl ActiveRoundScope {

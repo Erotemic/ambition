@@ -159,8 +159,8 @@ const ENGINE: &str = "ambition_platformer2d_runtime";
 /// The complete engine-owned GGRS rollback registration set. Domain content
 /// appends its own entries through [`AmbitionRollbackApp`].
 pub fn register_engine_rollback_state(app: &mut App) {
-    use AmbitionRollbackApp as _;
     use ambition_platformer2d_core::body_clusters as bc;
+    use AmbitionRollbackApp as _;
 
     // **DOMAIN ADAPTERS** (Campaign 2). Each owns one gameplay domain's schema;
     // this function aggregates them and stops naming their types. The projectile
@@ -196,7 +196,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
     //
     // ⚠ the actor-owned members of this group moved to `domains::actors`; the
     // geometry is `ambition_platformer2d_core`'s and stays.
-    app.rollback_component_clone::<ambition_platformer2d_core::RoomGeometry>(ENGINE, "root.geometry");
+    app.rollback_component_clone::<ambition_platformer2d_core::RoomGeometry>(
+        ENGINE,
+        "root.geometry",
+    );
 
     // Global authoritative resources.
     app.rollback_resource_canonical::<ambition_time::SimTick>(ENGINE, "resource.sim_tick")
@@ -243,6 +246,28 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "resource.quest_registry",
         )
+        // ⭐ **The ROUND's identity and its allocator.** `settle_versus_round`
+        // mints the next round from inside the sim schedule, so a rewind across a
+        // round boundary re-runs the mint — and without this, against a
+        // `next_raw` that never rewound. The resimulated timeline would allocate
+        // a different `RoundScopeId` than the one it is reproducing, and
+        // `RoundScopedEntity` culls by that id: entities would be spared or
+        // despawned differently on the two timelines. Found 2026-08-03 by the
+        // shipped-composition resource sweep, the third real defect it has
+        // caught after `BrokenBricks` and `SpentMonitors`.
+        //
+        // ⚠ **OPTIONAL-canonical, not canonical.** `RoundScopePlugin` is installed
+        // by whatever composes a MATCH — a single-player platformer has no rounds
+        // and carries no round culler — so this resource legitimately COMES AND
+        // GOES. `rollback_resource_canonical` installs a checksum system taking
+        // `Res<T>`, which panics on every frame the resource is absent; picking it
+        // first turned eight rollback-oracle tests red in the calibration lab,
+        // which composes no match. The optional form checksums `Option<T>` so
+        // "no match yet" and "round 0 is live" are different values rather than
+        // one of them being unrepresentable.
+        .rollback_resource_optional_canonical::<
+            ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope,
+        >(ENGINE, "resource.active_round_scope")
         // G2b: id → live encounter entity, remapped on every load. A presence
         // probe over a singleton resource sees "still present"; this sees an id
         // pointing at the wrong encounter. Folded in the map's own (sorted) key
@@ -345,7 +370,10 @@ pub fn register_engine_rollback_state(app: &mut App) {
     )
     .rollback_component_canonical::<bc::BodyModeState>(ENGINE, "actor.body_mode")
     .rollback_component_canonical::<bc::BodyLedgeState>(ENGINE, "actor.ledge")
-    .rollback_component_canonical::<ambition_platformer2d_core::MotionModel>(ENGINE, "actor.motion_model")
+    .rollback_component_canonical::<ambition_platformer2d_core::MotionModel>(
+        ENGINE,
+        "actor.motion_model",
+    )
     .rollback_component_canonical::<bc::BodyComboTrace>(ENGINE, "actor.combo_trace")
     .rollback_component_canonical::<ambition_time::ProperTimeScale>(
         ENGINE,

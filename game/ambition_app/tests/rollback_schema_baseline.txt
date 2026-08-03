@@ -316,6 +316,7 @@ projectile.player_marker	component-canonical	ambition_projectiles::entity::Playe
 projectile.seq	component-canonical	ambition_projectiles::entity::ProjectileSeq	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.visual_id	component-canonical	ambition_projectiles::visual::ProjectileVisualId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.active_match	resource-canonical	ambition_platformer2d_actor_monolith::character_runtime::seating::ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
+resource.active_round_scope	resource-canonical	ambition_platformer2d_shared_tangle::lifecycle::round::ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.base_gravity	resource-canonical	ambition_platformer2d_shared_tangle::gravity::BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_regime_policy	resource-canonical	ambition_platformer2d_actor_monolith::time::time_control::RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.clock_state	resource-canonical	ambition_time::ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

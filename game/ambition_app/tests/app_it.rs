@@ -89,6 +89,7 @@ mod shell_host_headless_entrypoint;
 mod shell_host_lifecycle;
 mod shell_host_rendered;
 mod shell_host_startup;
+mod sim_phase_pins;
 mod smash_in_the_host;
 mod stocks;
 mod symmetry_attunement;

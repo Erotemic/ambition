@@ -1138,6 +1138,17 @@ pub fn install_grid_unified_menu(app: &mut App) {
                 .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
         )
             .chain()
+            // ⚠ **CONDITIONAL on the host, like the preset-map sync in
+            // `app/plugins.rs`.** `CoreSimulation` lives in `app.sim_schedule()`,
+            // which is this literal `Update` only under `RenderFrame`; the shipped
+            // `dev_tools` build is `Ggrs`, where measurement puts 0 systems in
+            // `Update`'s CoreSimulation node and 242 in `GgrsSchedule`. Kept
+            // because `RenderFrame` is the default host — but ⛔ do NOT read this
+            // pin as proof that menu nav consumes the frame before the sim does
+            // under rollback: there the sim has already run, in `PreUpdate`.
+            // What actually keeps the menu and the sim from fighting over a press
+            // is the `simulation_authorized` + `in_base_mode` gating above, not
+            // this edge. See `tests/sim_phase_pins.rs`.
             .before(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::CoreSimulation),
     );
     app.add_systems(

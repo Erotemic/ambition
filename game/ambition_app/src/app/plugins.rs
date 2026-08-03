@@ -418,6 +418,17 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // Input bindings/bridge live in `ambition_platformer2d::host::HostInputBindingsPlugin`
     // (E5 step 5). The app-local residue: the dev preset-input-map sync.
     #[cfg(feature = "input")]
+    // ⚠ **this pin is CONDITIONAL, and the condition is the host.**
+    // `CoreSimulation` is configured in `app.sim_schedule()`, so a `.before` on it
+    // from a LITERAL `Update` is real under `SimulationHost::RenderFrame` (the
+    // default) and is an empty node under `Fixed60Hz` and `Ggrs` — and the shipped
+    // `dev_tools` build is `Ggrs`. Measured 2026-08-03: `Update`'s CoreSimulation
+    // node holds 0 systems there against 242 in `GgrsSchedule`. Kept rather than
+    // deleted because `RenderFrame` is the default host and this is a dev preset
+    // sync, so being unordered against the sim under rollback costs at most a
+    // frame of staleness on a developer's own remapping.
+    // `tests/sim_phase_pins.rs` is the measurement, and fails if the sim moves
+    // into `Update` and makes this load-bearing.
     app.add_systems(
         Update,
         sync_preset_input_map.before(Platformer2dSimulationPhaseMonolith::CoreSimulation),

@@ -623,6 +623,22 @@ agree. This decision is about the value, not about the drift.
 
 ## 8. Which block did you stand on? (queue 08-03 D10 / D11)
 
+> **JON, 2026-08-03 (re-checked): "verified, I can no longer stand on the broken
+> bricks."**
+
+✔ **CLOSED — not reproducible at HEAD.** The subject was the three breakable
+blocks past the pipes, and the brick path is behaving. ⚠ **no fix is attributable
+to it**: nothing in this run touched brick collision, so it was either repaired by
+adjacent work or was never what the earlier report described. Recorded as *gone*,
+not as *fixed*, so a return is treated as new evidence rather than a regression.
+⭐ the probe that said the path was correct
+(`a_broken_brick_leaves_the_collision_world_the_body_reads`) is now CORROBORATED
+rather than suspect — it and the player agree.
+
+▢ **and Jon's follow-up widens the row rather than closing it**: *"I think there
+are still a bunch of maryo things in my observations that we haven't fixed yet."*
+That is a pointer at the observations file, not at this block.
+
 > **JON, 2026-08-03: "the 3 blocks that break after the pipes. I will check if the
 > problem still exists."**
 

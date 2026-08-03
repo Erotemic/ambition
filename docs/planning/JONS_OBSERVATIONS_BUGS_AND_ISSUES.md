@@ -16,7 +16,7 @@
 
 * There needs to be a bit of hitstun when maryo gets hit and there needs to be a similar transform animation down to the previous state with non instant duration.
 
-* Maryo coins and sanic rings should not be magnetic to the player. 
+* ~~Maryo coins and sanic rings should not be magnetic to the player.~~ **DONE — verified 2026-08-03.** The magnet stopped being an engine default and became an opt-in `PickupMagnet` component; neither demo declares it, so their coins and rings sit where they land. ⭐ the same change fixed a couch bug nobody had filed: the old rule named `With<PrimaryPlayer>`, so on a couch every coin in the room flew at seat one. Attraction is toward the NEAREST collector now. ⚠ Ambition's own combat drops still declare `PickupMagnet::classic()` deliberately, with the reason written at the call site.
 
 * Maryo world 1-2 needs moving platforms that move vertically down and up like an elevator. When they go OOB (far enough so they are off screen of the player in normal gameplay) they can teleport to the top / bottom of the screen to make an infinite elevator effect.
 

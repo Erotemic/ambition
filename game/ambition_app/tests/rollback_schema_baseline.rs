@@ -61,6 +61,25 @@ fn the_rollback_schema_matches_its_recorded_baseline() {
         .expect("rollback registry is installed by the engine plugins")
         .schema_dump();
 
+    // ⭐ **THE INSTRUMENT'S CHANNELS ARE ADDITIVE, and the schema is a claim
+    // about STATE.** Building with `causal` registers three message-clear rows
+    // for the causal recorders' own channels. They encode nothing — clearing a
+    // channel carries no bytes into a snapshot — so two peers that differ only
+    // in whether the instrument is compiled still agree about every value in the
+    // wire format, which is what this baseline exists to protect.
+    //
+    // Recording them in the baseline instead would make the file unreadable in
+    // the default build (three rows that are never present) and would state that
+    // turning an inspector on is a wire-format change. It is not.
+    //
+    // Found by the union feature graph (Front 1, test-cost campaign): this test
+    // had never been compiled with `causal` on before.
+    let dump: String = dump
+        .lines()
+        .filter(|line| !line.starts_with("message.causal_"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
     if dump.trim() != BASELINE.trim() {
         let recorded: Vec<&str> = BASELINE.trim().lines().collect();
         let live: Vec<&str> = dump.trim().lines().collect();

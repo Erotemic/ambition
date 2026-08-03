@@ -26,6 +26,34 @@ const OWNER: &str = "ambition_platformer2d_runtime";
 
 /// Register everything the actors domain needs rewound.
 pub(in crate::rollback) fn register(app: &mut App) {
+    // ⭐ **THE INSTRUMENT'S OWN CHANNELS REWIND TOO** — and they were invisible
+    // until the whole workspace was compiled with every feature at once. These
+    // three exist only under `causal`, so the default job never sees them and
+    // both rollback oracles reported green over channels that did not exist in
+    // their build. The union graph (Front 1 of the test-cost campaign) is what
+    // surfaced them, which is the argument for that job in one example.
+    //
+    // Clearing is the right answer rather than a waiver: a reader's cursor is
+    // `Local` state GGRS never rewinds, so a recorder resuming after a load
+    // would consume rows written in an abandoned future and print them as fact.
+    // An instrument that reports a future that did not happen is worse than one
+    // that reports nothing.
+    #[cfg(feature = "causal")]
+    {
+        app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::causal::BodyMovementOps>(
+            OWNER,
+            "message.causal_body_movement_ops",
+        );
+        app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::ecs::damage_apply::BodyHitResolved>(
+            OWNER,
+            "message.causal_body_hit_resolved",
+        );
+        app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::ecs::damage_apply::BodyReactionApplied>(
+            OWNER,
+            "message.causal_body_reaction_applied",
+        );
+    }
+
     app.require_rollback::<ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeat>(
         OWNER,
         "entity:transform_beat",

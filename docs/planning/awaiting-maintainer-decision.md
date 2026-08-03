@@ -905,3 +905,32 @@ currently bounded at 26 px by
 ⚠ **I have not touched it** — F5 is marked open by your call and I am treating that
 as standing. This is the number, not a fix.
 
+## 14. Per-block art seam, or move Mary-O 1-1 to LDtk? (queue B13 / D11, 2026-08-03)
+
+Your `?`-blocks do not show a question mark, and the reason is structural rather
+than artistic. `spawn_block` resolves art from `BlockKind` alone
+(`block_tile_sprite(Solid) → EntitySprite::SolidTile`), so **every solid block in a
+room shares one sprite**.
+
+I added interrobang and spent-block tiles to `super_mary_o_tileset` — and then
+found the sheet is consumed by nothing. Chasing that: a generated tileset becomes
+live by being named from an `.ldtk` file (`intro.ldtk` references
+`intro_lab_tileset.png`; `town_tileset` the same). Mary-O's has no such reference
+because **level 1-1 is code-authored**, not an LDtk level. Nothing was lost; there
+was never a level to bind it to.
+
+⚠ And that is the exception to AGENTS.md's own stance — *"LDtk owns world/level
+authoring"* — which is precisely why a Mary-O block cannot carry its own art.
+
+- **(a) Build the per-block art seam (B13).** `Block::art_sprite: Option<String>`
+  resolved through a registry, following `ProjectileVisualId`/`WorldItemArt`, which
+  are the same shape for other entity classes. Keeps code-authored levels
+  first-class; helps every game; four-part change.
+- **(b) Move Mary-O 1-1 to LDtk.** Matches the stated direction, makes the tileset
+  live, and the interrobang + spent tiles arrive **for free** — a tile layer already
+  does per-cell art. Much larger content migration, and several Mary-O tests drive
+  the code-authored level directly.
+
+⚠ **I have not chosen.** (b) is more aligned with where the engine says it is
+going; (a) is more aligned with what exists today. That is a product call.
+

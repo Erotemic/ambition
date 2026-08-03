@@ -314,6 +314,29 @@ exactly one seed". The one-source half of that check moved into the
 `boss_seed_library` schema; the other half is still a test. Worth knowing before
 promising that a migration dissolves a given check.
 
+### ⚠ The migration checklist a family is NOT done without
+
+Three review rounds found the same defect shape three times: the principal table
+was validated and lowered, the family was called migrated, and runtime-significant
+state AROUND the table stayed outside validation or the fingerprint. Ask all four
+before marking a row ✅:
+
+1. **Is any ORDER significant?** The fingerprint sorts definitions by content id,
+   so anything positional is invisible unless the position is IN the canonical
+   form. Caught: music track order (radio next/prev), item slot index (the grid
+   is positional — the index binds a row to its `Item` variant).
+2. **Is any REGISTRY-LEVEL field outside the rows?** Per-row `define` calls miss
+   it entirely. Caught: `default_track`, `sample_rate`.
+3. **Does any field REFERENCE another family already in the pack?** If both sides
+   are in, it belongs in reference resolution, not in a startup validator.
+   Caught: boss↔encounter (both ways), encounter→music.
+4. **Does the runtime REFUSE anything the compiler accepts?** A validator that
+   says yes where the game says no has moved the failure to the worst place.
+   Caught: archetype inheritance cycles, blank brain keys.
+
+⚠ and check the canonical form's own containers: a `HashMap` under derived
+`Debug` randomises per instance, so it is not canonical at all.
+
 ⛔ **and the second authority is `content_validation.rs`, not `include_str!`.**
 The 698-line cross-content validator still runs at app startup
 (`game/ambition_app/src/app/resources.rs:182`) over LDtk room links, dialogue

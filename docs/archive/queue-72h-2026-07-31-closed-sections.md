@@ -125,7 +125,7 @@ no longer look identical.
 
 **Why:** three independent documents converge on this one gap — AD3/AA2 in the
 24h ledger, the "lifecycle half" of
-[character-preparation-finalization-plan.md](character-preparation-finalization-plan.md),
+[character-preparation-finalization-plan.md](../planning/character-preparation-finalization-plan.md),
 and API-campaign finding **(g)** (`participants()` is a declaration, the stage's
 seating is an independent fact, and nothing reconciles them). It is the P0 both
 GPT-5.6 reviews agree on and it is the load-bearing seam under couch-versus,
@@ -213,7 +213,7 @@ false, and `resolve_body_hit` returns `Ignored`. **Selecting the variant today
 buys an immortal punching bag.** Every consumer of "how hurt is this body" is
 reading a meter that cannot express the thing the mode needs.
 
-Part 0 of [smash-siblings-plan.md](smash-siblings-plan.md): one body-generic
+Part 0 of [smash-siblings-plan.md](../planning/smash-siblings-plan.md): one body-generic
 damage authority separating **accumulated damage / threshold death / world
 death**, with the consequences named — `DeathPolicy` has to travel with the
 health component (so it moves crate-down), and the HUD needs a percent that can
@@ -661,7 +661,7 @@ is what those fixtures were really seating all along.
 **Why:** ladder rows stay `rollout_depth: 0` until `l3_earns_its_depth` exists,
 so the whole L3 rollout investment (FB6a–e, landed) is currently unexercised on
 the ladder. Specced as §13 of
-[engine/fighter-brain.md](engine/fighter-brain.md) and described there as
+[engine/fighter-brain.md](../planning/engine/fighter-brain.md) and described there as
 plumbing plus three careful pieces: `StateMachineCfg::Fighter`; the kit riding
 `BrainSnapshot.attack_kit`; APM at the ONE emission point; one
 snapshot-registered noise `u64`.
@@ -2536,3 +2536,345 @@ no reason to have.
 
 ---
 
+## ⇥ START HERE (status 2026-07-31, evening)
+
+**The GPT 5.6 review is DISCHARGED** — all five findings closed, each probed red
+first, plus its whole "constrain now" list (S11). The spine S1–S7 was already
+closed when it landed.
+
+**What has happened since, in one line each.** Everything below the review's five
+is new this evening and every row carries its probe:
+
+* **S8** the exit oracle's coverage is PINNED (it was 3 sessions, all setup — the
+  pin is a delta, not a literal).
+* **S9** one id with two display names is a reported authority conflict now.
+* **S10** three things the suite found about ITSELF — a doc ratchet, a feature
+  job that aborts on this CPU, and a standing guard that was FLAKY.
+* **S11** the pure half of composition moved before the first mutation; three
+  provisional claims narrowed to what is true.
+* **S12** a second biome had no sky in any composition but the shipped app —
+  and the backdrop that did spawn never moved.
+* **S13** that class got an INSTRUMENT, which found more the moment it existed.
+* **S14** ⛔ the disk filled (110G of incremental cache); the runner sets
+  `CARGO_INCREMENTAL=0` now. **Watch `df -h /` in a long run.**
+* **S15** the robot lineage stops authoring what the catalog already says —
+  `Incarnation` is `id` + `replaces`, and a guard that read a Rust literal now
+  asks the definition.
+* **S16** the instrument's budget reaches **0**: `sync_cutscene_ui` is WAIVED on
+  the standard rather than moved — generic, but no demo opens a cutscene and
+  moving it would reorder the shipped host's UI chain to serve a consumer that
+  does not exist.
+* **S17** 2,187 lines of closed ledger archived by a rule a reader can check.
+* **S18/S20** the CONSUMER and the DEMO now ask whether the engine drew it —
+  Outlander and Sanic both assert the backdrop exists and MOVES, both probed.
+* **S19** `cargo check --workspace --all-targets` emits **zero warnings**.
+* **S21/S22** ⛔ the fighter brain thread, and it ends somewhere useful:
+  `ladder_probe` runs 3 seeds and prints where the body died and how fast;
+  `AMBITION_FIGHTER_TRACE=1` prints one line per decision. Two real perception
+  bugs fixed (blind at the lip; "offstage" meant the ROOM), one real sentinel bug
+  fixed (`move_id: String` whose EMPTY value meant "no attack", so every rollout
+  armed a press naming no move) — and the diagnosis: **attacks ARE the movement**,
+  445 of 665 decisions inside an attack, each one lunging. The shadow model does
+  not roll them.
+
+* **S23** Smash is on the title screen — and the seam that let it be is
+  **entry route ≠ session route**: a launcher row may lead to a QUESTION
+  (character select) rather than to a game. Five playtest defects closed with it,
+  including menu text that FLASHED on every arrow press and hover (spawned at the
+  reference size, resized a frame later), a select screen a lone player could not
+  start, and the protagonist's 7-frame attack telegraph. ⛔ **the defect that
+  actually blocked the stage was in ANOTHER GAME**: `MatchParticipantRoster` is
+  global and had no owner, so versus's exit rule deleted smash's match every
+  frame. It has an owner now.
+
+* **S24/S26** the GPT 5.6 review: findings 1 (rollback dropped the percent meter
+  and death policy) and 3 (Blink re-pressed every tick) are CLOSED and probed;
+  finding 2's seam landed and its end-to-end acceptance is the first row of S26,
+  which is where every open thread from this session is written down — including
+  ⛔ **Jon cannot enter doors** and three probes that say the cause is not where
+  anybody has looked yet.
+* **S25** five goal checks were failing at the LINKER, not in the code
+  (mold + incremental); `.cargo/config.toml` turns incremental off, with the
+  diagnosis at the setting.
+
+**Still open and worth doing next:** the backlog below, by the review's standard.
+S15 is closed and the instrument's budget is **zero** — every engine
+presentation system a game registers alone is now either moved or waived with a
+reason.
+
+---
+
+Its standard is worth adopting verbatim: before assigning an
+architectural review item, require a concrete current failure, two authorities
+producing contradictory behaviour, a public contract about to become expensive
+to change, a cheap repair that removes a recurring bug class, or a real consumer
+blocked. And prefer **one targeted failing test → bounded repair → continue**
+over a prolonged defensive campaign.
+
+**All five are CLOSED (2026-07-31).** Each repair was probed red before it was
+made; item 5's answer was MEASURED and the public claim narrowed to match it
+rather than the architecture widened to meet the claim.
+
+1. ✔ **HIGH — a newly mounted module can modify the PREVIOUS module's
+   experience.** `ModuleDraft`'s cursor now clears on both sides of `define`, so
+   it is module-local. Held by
+   `app::tests::a_module_that_routes_before_declaring_an_experience_is_refused`
+   (`cargo test -p ambition_platformer2d --lib`). **Probe:** with the two clears removed the
+   test reports stage `Assembly` instead of `Declaration` — module B's route had
+   landed on experience A and the composition got all the way to assembly before
+   failing for an unrelated reason. (`crates/ambition_platformer2d/src/app.rs`)
+2. ✔ **HIGH — rollback health reports a STOPPED session as healthy.**
+   `health()` now asks `session_is_active` BEFORE any read model, and
+   `RollbackHealth::Healthy`/`Desynced` carry the session `generation` (frames
+   restart at zero, so a frame number cannot tell a restart from a rewind). The
+   diagnosis still survives teardown — a desynced-then-stopped host reports
+   `Invalidated`, via the same `carried_from` prose the next session would
+   inherit. `ambition_platformer2d::rollback::stop` is the public teardown that makes the
+   lifecycle observable at all. Held by
+   `a_stopped_session_is_not_healthy_and_a_restart_is_a_new_timeline`
+   (`fixtures/external_consumer`, 11/11 green). **Probe:** with the liveness
+   check disabled it reports `Healthy { frame: 31, generation: 0 }` after stop.
+3. ✔ **HIGH — the public rollback session can report a participant count the
+   running session does not have.** `PlatformerApp::rollback` now REFUSES a
+   count outside `1..=SlotControls::MAX_SLOTS` at the declaration pass, and
+   `rollback::start` reports `SyncTestSettings::player_count()` — the value GGRS
+   actually built with — rather than the request. Held by
+   `app::tests::a_participant_count_the_session_cannot_seat_is_refused`. The
+   session-topology redesign is NOT started; that stays with atomic activation.
+4. ✔ **MEDIUM, conditional — physical retraction keeps the outgoing persona's
+   mass and max-health.** Already repaired AFTER the reviewed range:
+   `DisplacedPhysicals` records what a persona displaced, per field, at the
+   first persona to take it, and `PhysicalRetraction` puts back what the
+   incoming character leaves unclaimed. The A→B half was held; the HOT RELOAD
+   half the review also named was not, and now is —
+   `deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back`
+   re-publishes the same character with the mass and health lines deleted and
+   watches the body go back to 100/1.0. **Probe:** with `PhysicalRetraction::
+   NONE` in the projection it stays at 60/2.0.
+5. ✔ **CONDITIONAL — ONE narrow test, and its answer.**
+   `the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys`
+   mounts Sanic + Mary-O and routes into the SECOND. It **launches**: the route
+   activates under Mary-O's own experience id with a prepared session, and her
+   sprite is in the asset catalog (catalog fragments merge, so the cast is
+   shared and correct). What follows the PRIMARY: the music fold, the
+   `SfxBankAssetPath` attribution, and the startup room theme.
+   ⚠ **and the music half was RE-CHECKED and is weaker than first written**
+   (same day): a track the catalog does not carry still resolves, through its own
+   `asset_path` or the `audio/music/generated/{id}/full.ogg` convention, so what
+   is lost is the catalog's path policy — source prefixes, quality variants —
+   and not the audio. The shipped host folds one provider's music the same way.
+   The room theme is the one with a visible consequence. Both the doc and the
+   test say this now; the first version said "no asset path" and left a reader
+   to conclude "no music", which would have sent them at the wrong fix.
+   So the claim is NARROWED — `ModuleDraft::experience` now states all three, and the test pins
+   the music limit so widening it is a failing test rather than stale prose.
+   Multi-experience asset virtualization stays deferred: no consumer is blocked.
+
+**Constrain, do not solve** (the review is explicit): `install_into` mutating the
+app before validation completes; opaque order-sensitive capability closures; the
+settle-tick rollback startup; consumer-supplied participant counts. Keep each
+provisional, do not promise it as a 1.0 contract, do not open a campaign.
+
+**Deferred until a real consumer needs it:** a capability dependency/conflict
+solver, universal declaration-order proofs, proving every rollback descriptor has
+a live population, full multi-experience asset virtualization, transactional
+recovery from failed installation, further blind-agent exercises before the
+above are repaired.
+
+### Done this run — do not reopen without new evidence
+
+* **Campaign 2 (rollback domain adapters) COMPLETE, R1–R5.** `rollback/mod.rs`
+  1,870 → 690 lines, nine domain adapters, schema dump byte-identical at every
+  step, held by `central-rollback-does-not-enumerate-domains`. R1's crate
+  extraction was DECLINED on evidence (see the campaign doc).
+* **Campaign 3A + 3B COMPLETE.** `RoundScopedEntity` is the round lifetime;
+  every reset path goes through `reset_body_clusters` and announces
+  `ae::BodyRestarted`.
+* **Campaign 4's criterion holds for BOTH operations and is tested.** Its shared
+  trait is declined: both already share `RoomConstructionPlan`.
+* **API row (g):** `SeatMenuFrames` (seat-keyed input), plus
+  `MatchParticipantRoster::unsatisfiable_seats` and `MatchSeatingRefused`.
+* **Smash demo**: select screen → lock-in → stocks match, end to end.
+* Full suite **24/24 jobs green** (`./run_tests.sh`).
+
+### ⚠ Two things you will otherwise re-learn the hard way
+
+* **`rustfmt` on a `lib.rs`/`mod.rs` cascades into its submodules** — and it is
+  PREVENTABLE, which is worth more than the warning was. It caught three commits
+  on 07-31 and four more on 08-01, each needing a revert.
+
+  ```bash
+  rustfmt --edition 2024 --config skip_children=true path/to/mod.rs
+  ```
+
+  `--skip-children` is not a flag (rustfmt rejects it); it is a CONFIG key.
+  Verified: with it, formatting `features/mod.rs` leaves every submodule
+  untouched.
+  ⚠ **it still reformats the target file wholesale**, so a `mod.rs` whose imports
+  rustfmt wants to reorder will still show churn — but in ONE file you can read,
+  instead of thirty you cannot. Check `git status` against what you edited before
+  staging either way.
+* **`ladder_probe` numbers compare only WITHIN one build.** A survival figure
+  moved 23.5s → 5.4s purely because the stocks respawn was fixed — not because
+  the brain changed.
+
+⊘ **Abandoned deliberately, same day:** a `with_cpu_brains` capability claim on
+`AuthoredCatalogFragments` (Campaign 5's shape, extended to the character group).
+The condition available at preparation — "the roster's brain keys are empty" —
+does not express what it needs to ("THIS provider registered archetypes"), so the
+guard was weak and its test failed. Backed out rather than shipped. The seam that
+DID land for the same bug is `unsatisfiable_seats`, checked per provider.
+
+## S35 — ⛔ the frozen seat topology does not exist in a shipped build (2026-08-01)
+
+Found while looking for where to pass S34's declared seat count. There is nowhere
+to pass it, because in a shipped build the thing that would receive it is never
+created.
+
+**Evidence chain, all verifiable by grep:**
+
+1. `LocalSeatTopology` is CAPTURED in exactly one non-test place:
+   `local_seat_topology()` in `game/ambition_app/src/dev/rollback_observatory.rs:295`,
+   called lazily from the GGRS session builders at lines 393 and 581.
+2. That module is `#[cfg(feature = "dev_tools")]` (`game/ambition_app/src/dev/mod.rs:9`).
+3. `dev_tools` is in the `desktop_dev` default persona and **not** in `android`.
+4. Every other use is `Option<Res<LocalSeatTopology>>` — a READ that returns early
+   when it is absent (`versus.rs:352`, `assign_local_seat_devices`).
+
+So on any build without `dev_tools`, and on desktop until somebody presses F9:
+
+* `reconcile_roster_with_frozen_topology` returns on its first line, every frame.
+  The roster and the session can disagree about seat count and nothing says so —
+  which is the precise failure that function exists to report.
+* `assign_local_seat_devices` always takes the LIVE-discovery branch. Its own doc
+  says why that is wrong: *"a session that froze `handle 0 → keyboard, 1 → pad A,
+  2 → pad B` and then let a disconnect reorder the live list would keep its GGRS
+  handle COUNT while quietly changing which physical device drives each handle"*
+  (GPT 5.6, 2026-07-29). The fix landed; the mechanism that makes it apply did
+  not ship.
+
+⚠ **this is the app-only-class defect one level worse.** The repo already has
+`check_engine_systems_are_engine_installed.py` for "the engine owns the code, the
+shipped app owns the REGISTRATION". Here the registration is owned by a DEV
+FEATURE, so the capability is absent from every build a player runs, and every
+test that exercises it passes because tests construct the resource by hand
+(`versus.rs:1070`, `local_seats.rs` tests).
+
+### What to do
+
+✔ **DONE — verified against the code 2026-08-02, and this row was stale.**
+`freeze_local_seating_for_the_decided_match` is registered by
+`ambition_platformer2d_host` (`lib.rs:296`, in `InputSet::Collect`, chained
+before `seat_input_participants_for_roster`), so the topology is frozen from the
+ROSTER — the thing that marks a decided match — in every composition that has
+input, not only under a dev feature.
+
+⭐ **and the rollback observatory INVERTED correctly**: `local_seat_topology()`
+now opens with *"if the existing one `is_frozen()`, return it"* and only captures
+its own as a fallback. The proof reads the session's answer instead of minting
+one, which is the actual shape the row was asking for — the engine decides, the
+inspector observes.
+
+⚠ **residual, named rather than left implied**: the freeze is keyed to the
+ROSTER's declared seat count, not to the gameplay session as such. It removes the
+topology when the roster goes and re-captures when the declared count CHANGES.
+For Smash/Versus a match is a session and the two coincide; a composition where
+one gameplay session sees two different rosters would advance the generation
+mid-session, and every consumer that caches on `generation` would rebuild. No
+such composition exists today — recorded so the next one does not discover it.
+
+✔ **the instrument exists — `scripts/check_capability_ships.py` (2026-08-01).**
+This class WILL recur: a capability whose only installer is behind a
+`#[cfg(feature)]` that shipping personas omit is invisible to both the compiler
+(the reader is `Option`) and the suite (tests build the resource by hand). The
+existing engine-systems check compares APP registrations against ENGINE ones; it
+never asked whether the registration survives the feature set a player gets.
+
+It flags a type that is read as `Option<Res<T>>` from shipping code and whose
+every writer sits in a module gated by a non-shipping feature, walking the module
+tree from each crate root so a file inherits its parent's gates — which is how
+`dev/mod.rs` being `#[cfg(feature = "dev_tools")]` makes everything beneath it
+dev-only, the exact shape S35 had.
+
+**Probed by recreating S35**: gate the module holding the freeze system as
+`dev_tools` and it reports, in as many words, *"LocalSeatTopology: every writer
+is dev-only; 3 shipping readers take it as Option and return early forever."*
+
+⛔ **and the first version was green through its own motivating case.** The
+writer does not name its type at the call — `freeze_local_seating_for_the_decided_match`
+builds a local, mutates it, and passes the binding
+(`commands.insert_resource(topology)`). Matching only `insert_resource(TypeName …)`
+left `LocalSeatTopology` with NO writer at all, so it fell into the
+"written nowhere, not our question" branch and the check passed. It now follows
+`let mut topology = …::LocalSeatTopology::default()` to the binding.
+⚠ that is three instruments in one day whose first draft was wrong about the
+thing it was written to measure. Probe by restoring the ORIGINAL defect, not by
+inventing a new one.
+
+⚠ `DEV_ONLY_FEATURES` is deliberately just `dev_tools`, not every feature a
+shipping persona omits: a wider net fires on platform features
+(`android_platform` legitimately installs what desktop must not), and a guard
+that cries wolf gets waived.
+
+---
+
+## Where this thread actually stands
+
+**Eleven candidates eliminated, two writers named, cause NOT found — but the
+search space is now closed to one class.**
+recoil (measured, owns one unrelated step) · move impulses incl. the cancel path
+(measured) · the actor knockback path (code + fact) · dash · brain · force zones
+(no production spawn) · gravity · the integrator's own acceleration terms (both
+`0.00` on every ramp tick).
+
+✔ **the QUERY is now fully widened, and that settles what kind of answer is
+possible.** Every fact kind the log holds across 240 ticks:
+
+```text
+body_knocked_out 1 · control_frame_received 720 · hit_resolved 12
+knockback_applied 5 · movement_intent 240 · tick_execution 240 · velocity_authored 4
+```
+
+and the fighter's own facts on the ticks before the ramp:
+
+```text
+t136..t140  [tick_execution, control_frame_received]      ← nothing else exists
+t141        [tick_execution, control_frame_received, hit_resolved]
+```
+
+⛔ **so the log provably cannot answer this yet.** It is not that I have failed to
+find the fact; there IS no fact. Seven kinds exist, none of them describes a
+velocity write, and `movement_intent` — the one kind never examined in six cycles
+— is seat-keyed and belongs to the sandbox player, not to a CPU fighter. That is
+a stronger statement than "unknown": the instrument has been asked completely and
+the gap is in what PUBLISHES, not in what was queried.
+
+✔ **and the mechanical loop is now CHEAP, which is what decides whether it gets
+finished.** The first two writers were instrumented by hand and came out subtly
+different — different field names, one carrying the move id, one not. That is the
+same divergence the log exists to prevent: two writers describing one kind of
+event in two vocabularies are uncomparable in the one place they are meant to be
+compared.
+`ambition_causal::velocity_authored(tick, subject, writer, before_x, after_x)` is
+now the single constructor; both existing sites were converted to it and the
+emitted facts are **byte-identical** to before the refactor (same four, same
+values, checked rather than assumed). Instrumenting the next writer costs a line.
+⚠ the caller still resolves its OWN subject — seat-first-then-actor-id is
+crate-specific, and a helper that guessed would be a second authority on identity.
+⚠ `writer` labels a SITE, not a mechanic. The moveset's plain trigger and its
+CANCEL path carry different labels because "a move moved this body" and "a cancel
+moved this body" are different bugs.
+
+⭐ **AND THE KERNEL ALREADY NAMES ITS OWN WRITES — the loop was aimed wrong.**
+Checked 2026-08-02 while asking why the loop stalls: **10 of the ~70
+velocity-writing files are in `ambition_platformer2d_core`**, which has no
+`ambition_causal` dependency and, under the floor contract, may depend only on
+`ambition_geometry`. Instrumenting them the way recoil and the moveset were
+instrumented is structurally impossible.
+
+But it is also unnecessary. The kernel already returns `ae::FrameEvents`, and it
+already carries `operations: Vec<MovementOp>` — `Blink`, `Dash`, `DodgeRoll`,
+`DoubleDash`, `DoubleJump`, `FlyToggle`, `Jump`, `LedgeClimbStart/Finish`. **That
+is the kernel's velocity-writer vocabulary, named, emitted every frame, and
+consumed today only by FX and anim overlays.** Nothing publishes it to the
+causal log.

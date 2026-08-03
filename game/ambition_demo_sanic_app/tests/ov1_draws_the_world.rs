@@ -196,10 +196,11 @@ fn the_demo_spawns_a_renderable_player_sprite() {
     settle(&mut app);
 
     let visible_players = {
-        let mut q = app.world_mut().query_filtered::<
-            (&ambition_platformer2d::render::rendering::PlayerSpriteCharacter, &Sprite),
-            With<ambition_platformer2d::platformer::lifecycle::PlayerVisual>,
-        >();
+        let mut q = app.world_mut().query_filtered::<(
+            &ambition_platformer2d::render::rendering::PlayerSpriteCharacter,
+            &Sprite,
+        ), With<ambition_platformer2d::platformer::lifecycle::PlayerVisual>>(
+        );
         q.iter(app.world())
             .filter(|(bound, _)| bound.id == "sanic")
             .count()
@@ -513,6 +514,22 @@ fn the_speedway_backdrop_follows_the_camera() {
 
     // Hold right. The body accelerates down the speedway, the camera follows it,
     // and each layer follows the camera at its own factor.
+    //
+    // ⛔ **SAMPLE THE WHOLE RUN, not the endpoints.** This test compared `before`
+    // against `after` alone and failed for four months' worth of wrong reasons —
+    // it was read as a missing `sync_parallax_layers`, then as an unregistered
+    // `camera_follow`, then as a broken camera clamp, then as Sanic being slow.
+    // He is not slow: he reaches 1216 px/s and x = 1533 by frame 120, and the
+    // layers move ~1000px with him. **The speedway LOOPS.** By frame 240 he is
+    // back at x ≈ 260, the camera is back on its left clamp (centre x = 400,
+    // exactly `view_width / 2` in a 6400-wide room), and every layer is back
+    // where it started — correctly, to the float.
+    //
+    // So the endpoints are the one pair of samples that cannot see this working.
+    // Track the largest deviation across the run instead: a backdrop that follows
+    // must be somewhere else at SOME point, and that is true whether the course
+    // loops, doubles back, or runs straight.
+    let mut max_deviation = 0.0f32;
     for _ in 0..240 {
         ambition_platformer2d::sim::drive_control_frame(
             app.world_mut(),
@@ -522,6 +539,12 @@ fn the_speedway_backdrop_follows_the_camera() {
             },
         );
         app.update();
+        let now = positions(&mut app);
+        if now.len() == before.len() {
+            for (start, current) in before.iter().zip(&now) {
+                max_deviation = max_deviation.max((current - start).abs());
+            }
+        }
     }
 
     let after = positions(&mut app);
@@ -532,10 +555,12 @@ fn the_speedway_backdrop_follows_the_camera() {
          motion"
     );
     assert!(
-        before.iter().zip(&after).any(|(a, b)| a != b),
-        "after 240 frames of holding right, every parallax layer is exactly \
-         where it started. The sky is pinned to the world while the camera runs \
-         down the speedway — which is what a composition without \
-         `sync_parallax_layers` draws."
+        max_deviation > 1.0,
+        "over 240 frames of holding right, no parallax layer ever moved more \
+         than {max_deviation} px from where it started. The sky is pinned to the \
+         world while the camera runs down the speedway. ⚠ before blaming a \
+         system: check that the SUBJECT moved and that the camera left its \
+         clamp — this assertion has been misread as four different bugs, and \
+         every one of them was innocent."
     );
 }

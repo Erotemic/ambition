@@ -153,6 +153,9 @@ optimising anything that touches this room.
   non-exhaustive run prints what it did not cover (feature-gated tests, the
   external-consumer fixtures, the wasm check) — read that line instead of
   reaching for the hour.
+- **The cheapest command that settles your change** is a table:
+  `docs/recipes/cheapest-sufficient-check.md`. Pick the row, run it, read what it
+  does not cover, stop. Reaching past it buys a sweep Jon already runs himself.
 - To wait on a long command, read state it WROTE — for the suite that is
   `target/run_tests_status.json` (`state`: running/done/crashed, plus
   `current_job` and `current_started` so a slow job is distinguishable from a

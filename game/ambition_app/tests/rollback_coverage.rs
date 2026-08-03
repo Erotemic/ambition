@@ -307,6 +307,46 @@ pub(crate) fn waived_components(
     waived
 }
 
+/// **Print the shipped composition's remaining unaccounted resources.**
+///
+/// The sibling of the waiver listing below, for the other sweep. Not an
+/// assertion — the ceiling test is the assertion; this is how you READ what the
+/// ceiling is holding, which is the first thing anyone lowering it further needs.
+///
+/// ⭐ these 25 are deliberately NOT covered by a category waiver. Eight families
+/// earned one on 2026-08-03 (menus, dev instruments, transition presentation,
+/// asset staging, content presentation, the presentation-profile stack,
+/// persistence, the rollback driver) and took the count 64 → 25. What remains is
+/// what no family could honestly swallow: a mix of provider-lifecycle catalogs,
+/// session-scope markers, authored art manifests and a few genuinely ambiguous
+/// ones.
+///
+/// ⚠ **read them one at a time and register or waive INDIVIDUALLY.** Both bugs
+/// this sweep has caught — `BrokenBricks` and `SpentMonitors` — were in a demo
+/// provider's namespace, which is precisely where a broad new family waiver would
+/// hide the next one.
+#[test]
+#[ignore = "audit listing: prints what the ceiling is holding; read it, do not assert on it"]
+fn list_what_the_shipped_ceiling_is_still_holding() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..8 {
+        app.update();
+    }
+    let unaccounted: Vec<String> = unaccounted_resources(app.world())
+        .into_iter()
+        .filter(|name| !name.contains("::Messages<"))
+        .filter(|name| name.starts_with("ambition_"))
+        .collect();
+    eprintln!(
+        "[shipped-sweep] {} unaccounted resources still on the ceiling:",
+        unaccounted.len()
+    );
+    for name in &unaccounted {
+        eprintln!("[shipped-sweep]   {name}");
+    }
+}
+
 /// **Print what every waiver is actually covering.** (A18)
 ///
 /// Not an assertion — a listing, so the claims can be re-read against reality.

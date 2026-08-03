@@ -29,10 +29,9 @@
 | [`provider`](src/provider.rs) | Reusable Ambition gameplay provider. |
 | [`quest`](src/quest.rs) | Ambition's authored quests + their completion payouts. |
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |
-| [`vanity_card`](src/vanity_card.rs) | Ambition's startup vanity card: the authored "I MADE THIS" comic beat. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 
-_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

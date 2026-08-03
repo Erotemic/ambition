@@ -192,6 +192,8 @@
     "feature.switch_on",
     "gravity.flip_switch",
     "item.ground_item",
+    "item.motion",
+    "item.world_item",
     "lifecycle.player_visual",
     "lifecycle.room_visual",
     "limb.intents",

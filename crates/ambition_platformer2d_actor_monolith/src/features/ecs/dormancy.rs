@@ -27,14 +27,26 @@
 //! (`magnetize_pickups` had the other version and pulled every coin toward seat
 //! one; this is the same lesson applied before the mistake instead of after.)
 //!
-//! ## 3. It sleeps the BRAIN, not the body
+//! ## 3. It sleeps the BRAIN, not the body — and must CLEAR the brain's last word
 //!
 //! The reported defect is an actor ACTING off-screen — walking off a ledge
-//! before the player arrives. A body with no control input already stands
-//! still, so gating the decision is sufficient. Freezing the BODY would be
-//! visibly wrong the moment it mattered: a falling enemy would hang in the air
-//! at the edge of the wake radius, and a thrown one would stop mid-arc. Physics
-//! is cheap; deciding is not.
+//! before the player arrives. Freezing the BODY would be visibly wrong the
+//! moment it mattered: a falling enemy would hang in the air at the edge of the
+//! wake radius, and a thrown one would stop mid-arc. Physics is cheap; deciding
+//! is not.
+//!
+//! ⛔ **but "a body with no control input already stands still" is FALSE here,
+//! and this module shipped believing it for a few hours.** `ActorControl` is a
+//! COMPONENT, not a per-tick message: `update_ecs_actors` writes it for every
+//! actor it ticks, and `integrate_sim_bodies` reads it for every actor with no
+//! `Without<Dormant>` filter at all. So a sleeping actor does not have "no
+//! control input" — it has a STALE one, and the body keeps integrating the last
+//! thing the brain said. A slop that fell asleep walking left walks left
+//! forever, which is *precisely the reported symptom* the policy was added to
+//! stop.
+//!
+//! So going dormant CLEARS the frame. That is the whole difference between this
+//! module doing what it says and doing nothing at all.
 //!
 //! ## Rollback
 //!
@@ -80,18 +92,21 @@ pub fn assess_dormancy(
         &ae::BodyKinematics,
         With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
-    actors: Query<(
+    mut actors: Query<(
         Entity,
         &ae::BodyKinematics,
         &DormancyPolicy,
         Has<Dormant>,
+        // The brain's last word, which must be RETRACTED when the brain sleeps.
+        // `Option` because a body may carry a policy before it carries a brain.
+        Option<&mut ambition_characters::brain::ActorControl>,
     )>,
 ) {
     // Collected once rather than re-iterated per actor: the observer set is
     // tiny (one to four) and the actor set is not.
     let eyes: Vec<ae::Vec2> = observers.iter().map(|body| body.pos).collect();
 
-    for (entity, body, policy, is_dormant) in &actors {
+    for (entity, body, policy, is_dormant, control) in &mut actors {
         let awake = match policy {
             DormancyPolicy::Never => true,
             DormancyPolicy::AwakeNearObservers { radius } => {
@@ -111,6 +126,19 @@ pub fn assess_dormancy(
             }
             (false, false) => {
                 commands.entity(entity).insert(Dormant);
+                // ⛔ **RETRACT the brain's last word.** See the module doc: the
+                // body integrates `ActorControl` whether or not the brain ran,
+                // so a slop that fell asleep mid-stride would keep striding —
+                // off the ledge this policy exists to keep it away from.
+                //
+                // On the TRANSITION only. Writing it every dormant tick would
+                // touch a component for every sleeping actor every frame, which
+                // is the cost this whole module exists to avoid, and it would
+                // also overwrite anything that deliberately drives a dormant
+                // body (a cutscene, a launch).
+                if let Some(mut control) = control {
+                    control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
+                }
             }
             _ => {}
         }
@@ -155,7 +183,10 @@ mod tests {
     #[test]
     fn an_actor_with_no_policy_is_never_dormant() {
         let (app, actor) = app_with(None, 10_000.0, &[0.0]);
-        assert!(!is_dormant(&app, actor), "no policy means the engine assumes nothing");
+        assert!(
+            !is_dormant(&app, actor),
+            "no policy means the engine assumes nothing"
+        );
     }
 
     #[test]
@@ -177,7 +208,9 @@ mod tests {
         );
         assert!(is_dormant(&app, actor), "asleep with the observer far away");
 
-        let mut eyes = app.world_mut().query_filtered::<&mut ae::BodyKinematics, With<PlayerEntity>>();
+        let mut eyes = app
+            .world_mut()
+            .query_filtered::<&mut ae::BodyKinematics, With<PlayerEntity>>();
         for mut eye in eyes.iter_mut(app.world_mut()) {
             eye.pos = ae::Vec2::new(900.0, 0.0);
         }
@@ -202,6 +235,98 @@ mod tests {
     fn never_stays_awake_with_every_observer_across_the_level() {
         let (app, actor) = app_with(Some(DormancyPolicy::Never), 10_000.0, &[0.0]);
         assert!(!is_dormant(&app, actor));
+    }
+
+    /// ⛔ **THE REGRESSION THIS MODULE SHIPPED WITH, for a few hours on
+    /// 2026-08-03.**
+    ///
+    /// `ActorControl` is a COMPONENT the body integrates every tick, and the
+    /// brain tick that writes it filters `Without<Dormant>`. So falling asleep
+    /// does not stop an actor — it FREEZES ITS LAST INTENT, and
+    /// `integrate_sim_bodies` (which has no dormancy filter at all, deliberately,
+    /// so a falling enemy keeps falling) goes on acting on it. A slop that dozed
+    /// off mid-stride walks that direction forever, off the ledge this policy
+    /// exists to keep it away from.
+    ///
+    /// ⚠ **the first version of this module asserted only that the POLICY was
+    /// attached**, which was true and useless: the actor was marked dormant and
+    /// kept walking. The claim to test is what the actor DOES, not what it is
+    /// labelled.
+    #[test]
+    fn falling_asleep_retracts_the_brains_last_intent() {
+        use ambition_characters::actor::control::ActorControlFrame;
+        use ambition_characters::brain::ActorControl;
+        use ambition_platformer2d_core::reference_frame::LocalAxes;
+
+        let mut app = App::new();
+        app.add_systems(Update, assess_dormancy);
+        app.world_mut().spawn((PlayerEntity, body_at(0.0)));
+
+        let mut striding = ActorControlFrame::neutral();
+        striding.locomotion = LocalAxes::new(-1.0, 0.0);
+        let actor = app
+            .world_mut()
+            .spawn((
+                body_at(1_000.0),
+                DormancyPolicy::AwakeNearObservers { radius: 400.0 },
+                ActorControl(striding),
+            ))
+            .id();
+
+        app.update();
+
+        assert!(is_dormant(&app, actor), "far from every observer");
+        assert_eq!(
+            app.world()
+                .get::<ActorControl>(actor)
+                .expect("the actor keeps its control component")
+                .0
+                .locomotion
+                .vec(),
+            ambition_platformer2d_core::Vec2::ZERO,
+            "a sleeping brain must RETRACT its last word — otherwise the body \
+             keeps integrating it and the actor walks off the level asleep, \
+             which is the exact symptom the policy was added to stop"
+        );
+    }
+
+    /// And an actor that stays AWAKE keeps its intent — the retraction is tied to
+    /// the transition, not applied to everything the pass touches.
+    #[test]
+    fn a_waking_actor_keeps_the_intent_its_brain_just_wrote() {
+        use ambition_characters::actor::control::ActorControlFrame;
+        use ambition_characters::brain::ActorControl;
+        use ambition_platformer2d_core::reference_frame::LocalAxes;
+
+        let mut app = App::new();
+        app.add_systems(Update, assess_dormancy);
+        app.world_mut().spawn((PlayerEntity, body_at(0.0)));
+
+        let mut striding = ActorControlFrame::neutral();
+        striding.locomotion = LocalAxes::new(1.0, 0.0);
+        let actor = app
+            .world_mut()
+            .spawn((
+                body_at(100.0),
+                DormancyPolicy::AwakeNearObservers { radius: 400.0 },
+                ActorControl(striding),
+            ))
+            .id();
+
+        app.update();
+
+        assert!(!is_dormant(&app, actor), "well inside the radius");
+        assert_eq!(
+            app.world()
+                .get::<ActorControl>(actor)
+                .unwrap()
+                .0
+                .locomotion
+                .vec()
+                .x,
+            1.0,
+            "an awake actor's intent is its brain's business, not this pass's"
+        );
     }
 
     /// A world with nobody in it is between activations, not frozen.

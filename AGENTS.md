@@ -167,6 +167,24 @@ cd /home/agent/code/ambition-workahead && python3 scripts/mirror_assets_for_work
   regenerated sprite lands as a REAL file in the worktree and main never sees it,
   which directory symlinks would not give you.
 
+### Interlace architecture and feature work (Jon, 2026-08-03)
+
+> *"Let's interlace architecture tasks and features tasks so we don't get so
+> hyperfocused on either, they can inform each other."*
+
+Not a scheduling preference — it finds bugs. The same day it was asked for, a
+gameplay complaint (*"Maryo's fireball only shoots to her right"*) turned out to be
+an **engine** defect in `dispatch_move_events`: every ranged moveset move fired
+world-right regardless of facing, because `frame.fire` is an edge cleared every
+tick and the fire-frame fallback resolved to the gravity frame's side axis. Fixing
+it turned two `duel_arena` tests green that the architecture lane had been unable
+to move for two days — that lane was looking at shield rules, and the bug was in
+aim.
+
+⭐ **A feature complaint is a report from the only place the whole stack is
+assembled.** Tunnelling on architecture means never running the thing; tunnelling
+on features means fixing symptoms one demo at a time. Alternate deliberately.
+
 ### Sweeping failures: ONE big run, then targeted only (Jon, 2026-08-03)
 
 > *"Run the big suite once, then fix each test individually and verify them with

@@ -20,7 +20,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import check_set_pins_are_not_vacuous as guard  # noqa: E402
+import check_set_pins_have_engine_members as guard  # noqa: E402
 
 SET_DEF = (
     "#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]\n"
@@ -50,7 +50,7 @@ def test_an_engine_pin_at_an_app_filled_set_is_found(tmp_path):
     assert registering == ["ambition_app"]
 
 
-def test_one_engine_member_is_enough_to_make_the_pin_real(tmp_path):
+def test_one_engine_member_is_enough_for_the_question_this_asks(tmp_path):
     root = _tree(tmp_path, {
         "crates/ambition_render/src/lib.rs": SET_DEF + "load.in_set(FontsLoaded);",
         "crates/ambition_touch_input/src/lib.rs": "overlay.after(ambition_render::FontsLoaded);",

@@ -1106,7 +1106,7 @@ does not warn, nothing fails, and it reads exactly like an edge that works. Nami
 widened behind its name, a function cannot — but it multiplies the places this can
 hide, because a leaf pin at least names something that exists.
 
-`scripts/check_set_pins_are_not_vacuous.py` asks, for every `.before`/`.after` in an
+`scripts/check_set_pins_have_engine_members.py` asks, for every `.before`/`.after` in an
 ENGINE crate naming a set DEFINED here: is every member registered by a GAME? If so
 the edge is real only in that game. Same shape as
 `check_engine_systems_are_engine_installed.py`, one level up — there the SYSTEM is

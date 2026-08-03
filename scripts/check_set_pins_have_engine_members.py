@@ -1,6 +1,24 @@
 #!/usr/bin/env python3
 """Which engine ordering edges point at a set only a GAME ever fills?
 
+⚠ **the name used to be `check_set_pins_are_not_vacuous`, and it promised more
+than it delivers.** A pin is vacuous for more than one reason, and this checks
+exactly ONE of them: that the set's members are all registered by game crates.
+A pin whose member is registered in a DIFFERENT SCHEDULE is equally vacuous —
+`Update`'s `.before(CoreSimulation)` orders nothing against a member registered
+in `GgrsSchedule` — and this checker cannot see that, because it does not model
+schedules and modelling them textually is a checker that would lie in a new way.
+That hazard is real and was found independently (07-31 ledger, S39). It is
+addressed where it belongs: `check_rollback_mutators_run_in_sim.py` for the
+schedule question, and the compiler-side sets themselves.
+
+A guard named for a property it does not have is worse than a narrower one, so
+this one is named for the question it actually asks. (GPT review of
+5cc4337..47d7de3, finding 10, whose own remedy — teach this checker schedule
+identity — is refused: its closing paragraph forbids another general-purpose
+checker, and that applies to itself.)
+
+
 `.before(SomeSet)` against a set with no members is **vacuously satisfied**.
 Bevy does not warn, no test fails, and the edge reads in the source exactly like
 one that works. So when an ENGINE crate orders against a set whose members are
@@ -41,8 +59,8 @@ only, `.in_set(Path::To::Set)` matched by its LAST segment. A membership added
 through a helper or a macro is invisible.
 
 Usage:
-    python3 scripts/check_set_pins_are_not_vacuous.py
-    python3 scripts/check_set_pins_are_not_vacuous.py --list
+    python3 scripts/check_set_pins_have_engine_members.py
+    python3 scripts/check_set_pins_have_engine_members.py --list
 """
 
 from __future__ import annotations

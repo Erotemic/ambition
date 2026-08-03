@@ -604,3 +604,92 @@ it rests on has since inverted.
 ⚠ whichever way: the three prose claims that said `rollout_depth` was zero
 everywhere are corrected as of 2026-08-02, so the code and its description now
 agree. This decision is about the value, not about the drift.
+
+---
+
+## 8. Which block did you stand on? (queue 08-03 D10 / D11)
+
+**One answer closes two rows or reopens a collision question**, which is why it is
+worth asking rather than guessing.
+
+Your report was *"I can stand on a broken brick"*. Everything downstream was
+traced and probed, and the brick path is CORRECT: break marks the bit, the bit
+becomes `removed_block_names`, `world_with_sandbox_solids` applies the
+subtraction before anything reads `solids()`, and a written probe
+(`a_broken_brick_leaves_the_collision_world_the_body_reads`) shows brick 0 gone
+from the composed world against the real level while its neighbour is untouched.
+
+⭐ **So the leading explanation is that it was a SPENT `?`-BLOCK**, and a spent
+`?`-block staying solid is correct — it is what the genre does.
+`SpentPowerBlocks` contributes nothing to `removed_block_names`, deliberately.
+
+- **(a) It shattered into pieces and I stood where it had been.** The probe is
+  wrong or incomplete and the collision path reopens.
+- **(b) It popped an item and stayed put.** Then nothing is broken and the real
+  defect is that it still LOOKS live — which is your own D11 row (*"used blocks
+  need their own texture and a nudge animation"*), and that becomes the fix.
+
+⚠ **I cannot distinguish these from the report**, and the two lead to opposite
+work: one is a physics investigation, the other is an art and animation task.
+
+## 9. Can a flying fighter shield? (queue 08-03 F7-duel)
+
+Two `app_it` duel tests have been failing since before this run. The cause is
+measured, not suspected — the same fight, both fighters, identical capabilities:
+
+```
+PCA:   shield_frames=535  dash=0   fly=194  fly_toggles=4   blinks=3
+robot: shield_frames=0    dash=30  fly=427  fly_toggles=12  blinks=1
+```
+
+In `brain/smash/mod.rs`, ARMING the block requires `cfg.can_shield &&
+obs.self_on_ground`, and HOLDING it requires `shield_hold_timer > 0.0 &&
+obs.self_on_ground`. The robot is airborne for 427 of ~600 frames, so the second
+layer of the layered defence (blink → shield) is **unreachable** for it — not
+chosen against, unreachable. Nothing says so at the decision site.
+
+- **(a) Air-shielding is legal.** Drop `self_on_ground` from both conditions. The
+  layered defence becomes available to a flying body, and shield stops being a
+  ground-only tool.
+- **(b) It is deliberately ground-only.** Then the DECISION SITE should say so,
+  the brain should not keep choosing a defence it cannot enact, and the tests'
+  expectations become air-aware rather than symmetric.
+- **(c) A flying fighter should land to shield.** The most work, and the most
+  like a real fighting game.
+
+⚠ **this is a design call and I should not pick it**: it changes what a fighter
+IS, and two of the three answers change the test rather than the game.
+⚠ likely fallout from the 08-02 frame-typing fixes (`5ae87b2e8`, `3e7780623`) —
+the fighter used to write raw world x into the body-local `locomotion`, so its
+movement, closing speeds, and flight decision all changed when that was
+corrected. The tests were calibrated against the buggy movement.
+
+## 10. Does `character-authority-is-app-local` bind PRESENTATION? (queue 08-03 G1 pick 2)
+
+The workspace-policy suite was found red with 10 violations from 08-02 work
+(invisible because the failing job already had a known failure in it). Eight are
+repaired or narrowed; **two are a real break with no obviously right fix.**
+
+`slash_visuals.rs` and `unauthored_volumes.rs` take
+`Option<Res<CharacterCatalog>>`, which the policy forbids by name and by
+rationale: *"may not … silently substitute an empty catalog, make those resources
+optional"*. The concrete harm is real — an absent catalog makes `attack_vfx`
+return `None`, so `authored` is false, so a placeholder volume is drawn over
+**every** attack including characters that author their own art. Silent and
+backwards.
+
+⚠ **but making the resource required panics the headless and test compositions
+the `Option` was added for**, so the obvious repair is not available.
+
+- **(a) The read-model carries it.** *Does this character author its own attack
+  VFX* becomes a published fact beside the sprite quad the read-model already
+  carries for the same reason. Presentation stops consulting the catalog at all,
+  which is what E4 says anyway. A publisher change plus two consumers.
+- **(b) The policy does not bind presentation.** Its rationale is about
+  gameplay AUTHORITY — who decides what a character IS — and a renderer asking
+  "did you author art for this" is not that. Narrow the policy's scope with the
+  reason, as was done for the dialog policy this run.
+
+⚠ **(a) is more work and probably right; (b) is defensible and I am wary of
+choosing it**, because "narrow the rule" is the answer that makes my own red go
+away, and that is exactly when it should not be my call.

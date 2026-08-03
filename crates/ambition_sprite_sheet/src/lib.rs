@@ -531,6 +531,43 @@ impl SheetRegistry {
             match ron::from_str::<Vec<SheetRecord>>(text) {
                 Ok(records) => {
                     for record in records {
+                        // ⛔ **LAST-WINS IS SILENT, AND IT COST A DAY.** A file
+                        // dated May — `pirate_heavy_spritesheet.ron`, declaring
+                        // 172x138 frames — still claimed the target
+                        // `pirate_heavy_broadside_bess`, sorted BEFORE her real
+                        // manifest's 319x250, and won the key. She then loaded the
+                        // right image and cropped it with rectangles laid out for
+                        // a sheet that no longer existed: "not cropping out the
+                        // right part of the sprite sheet", in Jon's words, and a
+                        // bisect through the asset tree to find it.
+                        //
+                        // ⚠ **a blanket collision warn would be noise**, which is
+                        // why this sat: sheets legitimately share a target
+                        // (`toon` x17, `robot` x18, `goblin` x9 — see the
+                        // file-root index below). What is NEVER legitimate is two
+                        // records claiming one target with DIFFERENT frame
+                        // geometry, because that is the case where the winner
+                        // crops the loser's image with the wrong grid.
+                        if let Some(prior) = registry.sheets.get(&record.target) {
+                            if prior.frame_width != record.frame_width
+                                || prior.frame_height != record.frame_height
+                            {
+                                warn!(
+                                    "SheetRegistry: target `{}` claimed twice with \
+                                     DIFFERENT frame geometry — {}x{} (image `{}`) \
+                                     is being replaced by {}x{} (image `{}`). One \
+                                     of these manifests is stale; the survivor will \
+                                     crop with the wrong grid.",
+                                    record.target,
+                                    prior.frame_width,
+                                    prior.frame_height,
+                                    prior.image,
+                                    record.frame_width,
+                                    record.frame_height,
+                                    record.image,
+                                );
+                            }
+                        }
                         registry.sheets.insert(record.target.clone(), record);
                         loaded += 1;
                     }

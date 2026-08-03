@@ -238,6 +238,41 @@ fn live_boss_spritesheet_ron_round_trips() {
     );
 }
 
+/// **Two manifests, one target, DIFFERENT frame geometry — the Broadside Bess
+/// shape.** The survivor crops the loser's image with the wrong grid, and the
+/// registry used to do it silently.
+///
+/// ⚠ the assertion is about the SURVIVOR, not about the log line: a test that
+/// captured the warning would be checking that a scanner sees its own fixture.
+/// What matters is that last-wins still resolves (so the seventeen legitimate
+/// archetype-sharers keep working) while the geometry mismatch is the condition
+/// a human is told about.
+#[test]
+fn two_manifests_claiming_one_target_with_different_geometry_still_resolve() {
+    let stale = r#"[(target: "pirate_heavy_broadside_bess", image: "bess.png", label_width: 100,
+        frame_width: 172, frame_height: 138,
+        rows: [(animation: "side", row_index: 0, frame_count: 1, duration_ms: 60, duration_secs: 0.06,
+                rects: [(x: 0, y: 0, w: 172, h: 138)])])]"#;
+    let live = r#"[(target: "pirate_heavy_broadside_bess", image: "bess.png", label_width: 100,
+        frame_width: 319, frame_height: 250,
+        rows: [(animation: "side", row_index: 0, frame_count: 1, duration_ms: 60, duration_secs: 0.06,
+                rects: [(x: 0, y: 0, w: 319, h: 250)])])]"#;
+    // Sorted as `build.rs` sorts them: the stale `pirate_heavy_…` root first.
+    let table: &[(&str, &str)] = &[
+        ("pirate_heavy", stale),
+        ("pirate_heavy_broadside_bess", live),
+    ];
+    let registry = SheetRegistry::from_baked_table(table);
+    let record = registry
+        .get("pirate_heavy_broadside_bess")
+        .expect("the target resolves");
+    assert_eq!(
+        (record.frame_width, record.frame_height),
+        (319, 250),
+        "last-wins is preserved — the warn is a diagnosis, not a policy change",
+    );
+}
+
 /// A quality-variant RON (`sprites_potato/…`, baked as `<root>.potato` by
 /// `build.rs::baked_key_for_path`) must NOT clobber the full-res base in the
 /// target-keyed `SheetRegistry`. Every resolution variant of a sheet carries the

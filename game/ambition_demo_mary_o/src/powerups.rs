@@ -243,24 +243,64 @@ pub struct SpentPowerBlocks(pub std::collections::HashSet<ae::GeoId>);
 //   tall   47×88 px → 35.8×67.0 world
 //   fire   50×88 px → 38.1×67.0 world
 //
-// The scale is chosen to hold her standing height at the 48 the level is tuned
-// around; everything else is whatever the art is. Two consequences worth stating
-// rather than discovering:
-//
-// ⚠ she is a few px WIDER than the old constant-width box, because that is her
-//   actual silhouette. The old comment justified the constant width as "growing
-//   never wedges her into a one-tile gap" — but the level's clearances derive
-//   from [`tall_body_size`] rather than being hardcoded, so they widen with her.
 // ⚠ the fire form is ~2 px wider than the grown one (50 px of art vs 47). Their
-//   HEIGHTS match, which is the fact that transition needs — a height change
-//   would move her feet or clip a ceiling on a swap that is supposed to change
-//   only her loadout.
+// HEIGHTS match, which is the fact that transition needs — a height change would
+// move her feet or clip a ceiling on a swap that is supposed to change only her
+// loadout.
 //
-// If either width does become a problem, the fix belongs in the generator —
-// emitting a per-pose `hurtbox` rectangle narrower than the alpha silhouette,
-// which `pose_body_bbox` already prefers when present — and NOT in a second box
-// authority here.
-pub(crate) const MARY_O_WORLD_PER_PIXEL: f32 = 48.0 / 63.0;
+// ⚠ she is WIDER than the old constant-width box, because `body_pixel_bbox` is
+// the raw alpha silhouette — hat and arms included. The builder has the seam for
+// carving a gameplay body in from that (`CharacterGenerator.body_inset`, which
+// seven other characters already override and whose own docs note it is
+// fractional so it "survives art changes"); Mary-O's generator authors none. The
+// fix belongs THERE and not in a second box authority here — see
+// `docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`.
+
+/// Her standing height in world units — the ONE number the level is tuned
+/// around (tile gaps, pipe clearances, jump arcs).
+///
+/// This is the authored quantity. The pixel-to-world scale is DERIVED from it,
+/// not the other way round, and that direction is the whole point: the sheets
+/// are regenerated regularly, every regeneration re-measures the alpha bbox, and
+/// a scale pinned to today's pixel count (it was `48.0 / 63.0`) silently changes
+/// her height the first time a crop moves by one pixel.
+pub(crate) const MARY_O_STANDING_HEIGHT: f32 = 48.0;
+
+/// **World units per sheet pixel**, asked of the art rather than remembered.
+///
+/// Her small form's body rectangle is however many pixels tall the generator
+/// last measured it to be; this scales that to [`MARY_O_STANDING_HEIGHT`], so a
+/// regeneration that re-crops her keeps her exactly as tall as the level expects
+/// and moves only what the art actually changed. Everything else — the grown
+/// form's height, all three widths, the sprite quad — follows from this one
+/// number, so none of them can drift from each other either.
+///
+/// `posed_body_geometry` at a scale of 1.0 returns the bbox in PIXELS, which is
+/// why there is no second registry lookup here: this asks the same function the
+/// engine's per-tick sync asks, so the two cannot disagree about what the sheet
+/// says.
+pub(crate) fn mary_o_world_per_pixel() -> f32 {
+    match small_form_pixel_height() {
+        Some(pixels) => MARY_O_STANDING_HEIGHT / pixels,
+        // No baked art (a headless fixture). Any scale is arbitrary here because
+        // nothing will resolve a body from it; 1.0 keeps the arithmetic honest
+        // instead of inventing a plausible-looking number.
+        None => 1.0,
+    }
+}
+
+/// The small form's body rectangle height in SHEET PIXELS, or `None` when no
+/// record is baked. Separated so a test can ask whether the art resolved at all
+/// — the scale above cannot report that, since its fallback is a real number.
+pub(crate) fn small_form_pixel_height() -> Option<f32> {
+    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+        SMALL_SHEET_TARGET,
+        CharacterAnim::Idle,
+        1.0,
+    )
+    .map(|geometry| geometry.collision.y)
+    .filter(|pixels| *pixels > 0.0)
+}
 
 /// The sheet manifest targets her three forms resolve through. Named here
 /// because both her definitions (which author the bodies) and the level
@@ -283,7 +323,7 @@ pub(crate) fn form_body_size(target: &str) -> ae::Vec2 {
     ambition_platformer2d::actors::character_sprites::posed_body_geometry(
         target,
         CharacterAnim::Idle,
-        MARY_O_WORLD_PER_PIXEL,
+        mary_o_world_per_pixel(),
     )
     .map(|geometry| geometry.collision)
     .unwrap_or_else(ae::movement::default_player_body_size)
@@ -861,13 +901,14 @@ mod tests {
     /// **Her forms are as big as their ART says**, and this is the whole of the
     /// content claim now that the sheets author her boxes.
     ///
-    /// It reads the real baked manifests, so it fails if the generator retimes
-    /// or re-crops her — which is the point: a hand-authored `× 1.5` could not
-    /// notice, and did not (the sheets' real ratio is 1.375).
+    /// It reads the real baked manifests, so it fails if the generator re-crops
+    /// her relative proportions — which is the point: a hand-authored `× 1.5`
+    /// could not notice, and did not (the sheets' real ratio is 1.397).
     ///
-    /// ⚠ the fallback in [`form_body_size`] returns the engine default when a
-    /// sheet is missing, so a registry that baked no art makes tall == small and
-    /// this fails loudly rather than passing on a default.
+    /// ⚠ deliberately NOT asserting `small.y == 48`. That was true by
+    /// construction the moment the scale started deriving FROM the height, so it
+    /// was a check that could not fail. The scale resolving from real art at all
+    /// is the precondition that can, and it is asserted separately below.
     #[test]
     fn her_forms_boxes_come_from_their_sheets() {
         let small = form_body_size(SMALL_SHEET_TARGET);
@@ -885,14 +926,24 @@ mod tests {
              downgrades INTO the wand, and a height change on that swap would \
              move her feet or clip a ceiling (tall {tall:?}, fire {fire:?})"
         );
-        // The one number the level is tuned around: 63 px of art at the authored
-        // scale. If the generator re-crops her this fails, which is the point —
-        // the old hand-authored constant could not notice.
+    }
+
+    /// **Her scale is derived from art that actually resolved.**
+    ///
+    /// [`mary_o_world_per_pixel`] falls back to `1.0` when no sheet is baked,
+    /// and a fallback that returns a real number cannot report its own absence —
+    /// every size downstream would be plausible and wrong. This is the check
+    /// that the derivation had an input, and it is the reason the fallback is
+    /// split out of the scale rather than buried in it.
+    #[test]
+    fn her_scale_is_derived_from_baked_art_not_from_the_fallback() {
+        let pixels = small_form_pixel_height()
+            .expect("her small sheet must publish a body rectangle to scale against");
         assert!(
-            (small.y - 48.0).abs() < 1e-3,
-            "her standing height is unchanged by handing the box to the sheet \
-             (got {})",
-            small.y
+            (mary_o_world_per_pixel() - MARY_O_STANDING_HEIGHT / pixels).abs() < 1e-6,
+            "the scale is the authored height over the MEASURED pixel height, so \
+             a regeneration that re-crops her keeps her exactly as tall as the \
+             level expects"
         );
     }
 

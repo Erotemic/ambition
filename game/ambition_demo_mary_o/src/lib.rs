@@ -131,6 +131,60 @@ const POLE_WIDTH: f32 = T * 0.5;
 /// same numbers the flag's BLOCK is built from — see `flag_geometry_oracle`.
 const LEVEL_WIDTH: f32 = 104.0 * T;
 
+// ── The double stairs ──────────────────────────────────────────────────────
+//
+// Two ascending staircases with a trench between them: the first rises TOWARD
+// the gap (its tallest step walls the near side), the second rises AWAY from it
+// (its shortest step floors the far side). Slop tumbling off either half
+// collects in the trench, which is the point — it is the crowd to run through
+// while the quasar is burning.
+//
+// ⚠ these are the ONE authority for the pyramid's columns. They used to be
+// arithmetic inlined in `level_1_1` AND a hand-copied `(column, height)` table in
+// `ai_slop.rs`, so moving the stairs silently left eight enemies floating where
+// the steps used to be. Both derive from here now.
+
+/// Tile column of the first (shortest) up step.
+pub(crate) const STAIR_FIRST_COLUMN: f32 = 74.0;
+/// Steps per half. Each half rises one tile per step.
+pub(crate) const STAIR_STEPS: u16 = 4;
+/// Tiles of open trench between the two halves.
+///
+/// Was 2, which is barely wider than a slop — they landed in it and were wedged
+/// rather than pacing (Jon: *"more space between them for the aislop to move
+/// around in"*). At 6 the trench is a place they patrol, so running through it
+/// reads as running through a crowd.
+///
+/// The level did NOT need lengthening for this: the far half lands on column
+/// {FIRST + STEPS + GAP} = 84 and the flagpole is at 98, so there is still a
+/// ten-tile run-out past the pyramid.
+pub(crate) const STAIR_GAP_TILES: f32 = 6.0;
+
+/// Tile column of the far half's tallest step — the first column past the
+/// trench.
+pub(crate) const fn stair_far_first_column() -> f32 {
+    STAIR_FIRST_COLUMN + STAIR_STEPS as f32 + STAIR_GAP_TILES
+}
+
+/// **Every step of the pyramid**, as `(tile column, height in tiles)`.
+///
+/// Both halves in one list because both callers want the same thing: the blocks
+/// to build, and the enemy to stand on top of each.
+pub(crate) fn stair_steps() -> Vec<(f32, f32)> {
+    let far = stair_far_first_column();
+    (1..=STAIR_STEPS)
+        .flat_map(move |step| {
+            let h = step as f32;
+            [
+                // Near half: rises left-to-right into the trench.
+                (STAIR_FIRST_COLUMN + h - 1.0, h),
+                // Far half: mirrored, so its SHORT step faces the trench.
+                (far + STAIR_STEPS as f32 - h, STAIR_STEPS as f32 + 1.0 - h),
+            ]
+        })
+        .collect()
+}
+
 /// The SURFACE half's height — every above-ground feature is placed against
 /// this, so growing the world downward for the vault below leaves the authored
 /// 1-1 layout byte-identical.
@@ -465,23 +519,26 @@ pub fn level_1_1() -> RoomSpec {
         ));
     }
 
-    // 4. The stair pyramid: four up at x=74.., a gap, four down ending at x=83.
-    // (Shifted +8 with the rest of the post-vault level.)
-    for step in 1..=4u16 {
-        let h = step as f32;
+    // 4. The double stairs. Shape lives in `stair_steps()` — see the constants
+    // beside `LEVEL_WIDTH` for why it is not arithmetic inlined here.
+    // `stair_steps()` interleaves the halves — near, far, near, far — so each
+    // pair is one step of each.
+    for (step, pair) in (1..=STAIR_STEPS).zip(stair_steps().chunks(2)) {
+        let (up_col, up_h) = pair[0];
+        let (down_col, down_h) = pair[1];
         blocks.push(ae::Block::solid_tiled(
             format!("stair_up_{step}"),
-            ae::Vec2::new((73.0 + h) * T, ground_top - h * T),
-            ae::Vec2::new(T, h * T),
+            ae::Vec2::new(up_col * T, ground_top - up_h * T),
+            ae::Vec2::new(T, up_h * T),
             "mary_o_stairs",
             step,
         ));
         blocks.push(ae::Block::solid_tiled(
             format!("stair_down_{step}"),
-            ae::Vec2::new((84.0 - h) * T, ground_top - (5.0 - h) * T),
-            ae::Vec2::new(T, (5.0 - h) * T),
+            ae::Vec2::new(down_col * T, ground_top - down_h * T),
+            ae::Vec2::new(T, down_h * T),
             "mary_o_stairs",
-            step + 4,
+            step + STAIR_STEPS,
         ));
     }
 
@@ -1161,7 +1218,7 @@ pub fn install_mary_o_content(app: &mut App) {
             app.register_character(
                 CharacterDefinition::new(id, display, provider::MARY_O_EXPERIENCE)
                     .with_sheet(sheet)
-                    .with_sprite_authored_body(powerups::MARY_O_WORLD_PER_PIXEL)
+                    .with_sprite_authored_body(powerups::mary_o_world_per_pixel())
                     .with_voice(voice),
             );
         }
@@ -2298,6 +2355,86 @@ mod tests {
             aabb("goal_pole").min.x > aabb("stair_down_1").max.x,
             "the goal is past the pyramid"
         );
+    }
+
+    /// **The trench between the double stairs is somewhere an enemy can PACE.**
+    ///
+    /// It was two tiles — barely wider than a slop, so the ones that tumbled in
+    /// were wedged rather than patrolling (Jon: *"more space between them for the
+    /// aislop to move around in"*). "Wide enough" is expressed against the thing
+    /// that has to move in it, not as a tile count, so a future slop that grows
+    /// takes this with it.
+    #[test]
+    fn the_trench_between_the_double_stairs_is_wide_enough_to_patrol() {
+        let room = level_1_1();
+        let near = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == "stair_up_4")
+            .expect("near half's tallest step")
+            .aabb;
+        let far = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == "stair_down_4")
+            .expect("far half's shortest step")
+            .aabb;
+        let trench = far.min.x - near.max.x;
+        let slop_width = ai_slop::AI_SLOP_HALF * 2.0;
+        assert!(
+            trench >= slop_width * 4.0,
+            "the trench is {trench} wide and a slop is {slop_width} — it needs \
+             room to walk, turn, and be run through, not just to fit"
+        );
+        let pole = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == "goal_pole")
+            .expect("the flagpole")
+            .aabb;
+        assert!(
+            pole.min.x > far.max.x,
+            "widening the trench must not push the pyramid into the flagpole"
+        );
+    }
+
+    /// **The enemies stand on the steps the level actually built.**
+    ///
+    /// The stair columns lived in two files — the block builder here and a
+    /// hand-copied table in `ai_slop.rs` — so widening the trench would have left
+    /// four slop floating over where the far half used to be. Both read
+    /// `stair_steps()` now, and this is the check that says so: every stair slop
+    /// must be standing over a real step.
+    #[test]
+    fn every_stair_slop_stands_over_a_real_step() {
+        let room = level_1_1();
+        let steps: Vec<ae::Aabb> = room
+            .world
+            .blocks
+            .iter()
+            .filter(|b| b.name.starts_with("stair_"))
+            .map(|b| b.aabb)
+            .collect();
+        assert_eq!(steps.len(), (STAIR_STEPS * 2) as usize, "both halves built");
+
+        let spawns = ai_slop::stair_slop_spawn_positions(room.world.spawn);
+        assert_eq!(
+            spawns.len(),
+            steps.len(),
+            "one slop per step, however many steps there are"
+        );
+        for pos in spawns {
+            assert!(
+                steps
+                    .iter()
+                    .any(|s| pos.x >= s.min.x && pos.x <= s.max.x && pos.y < s.min.y),
+                "a stair slop at {pos:?} is not above any step — the two lists \
+                 have drifted apart again"
+            );
+        }
     }
 
     /// The bricks are authored exactly where the break runtime expects them: a

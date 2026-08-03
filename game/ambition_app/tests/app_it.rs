@@ -52,6 +52,7 @@ mod hall_barks;
 mod hall_transition_cover;
 mod held_projectile_portal_transit;
 mod input_stream_replay;
+mod isolated_persistence;
 mod mary_o_hud_surround;
 mod movement_axis;
 mod participant_input;

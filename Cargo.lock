@@ -236,6 +236,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_causal",
  "ambition_characters",
+ "ambition_content_pack",
  "ambition_entity_catalog",
  "ambition_interaction",
  "ambition_platformer2d_core",
@@ -244,6 +245,7 @@ dependencies = [
  "ambition_time",
  "ambition_vfx",
  "bevy",
+ "ron 0.11.0",
  "serde",
 ]
 
@@ -298,6 +300,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_audio",
  "ambition_characters",
+ "ambition_combat",
  "ambition_content_pack",
  "ambition_items",
 ]

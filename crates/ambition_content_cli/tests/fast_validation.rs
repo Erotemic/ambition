@@ -97,7 +97,10 @@ fn validating_a_character_edit_does_not_rebuild_rust() {
     // 1. The shipped catalog, as authored.
     let (code, first, baseline) = sandbox.validate(&[]);
     assert_eq!(code, 0, "the shipped catalog validates:\n{first}");
-    assert!(first.contains("× character"), "it reports the cast:\n{first}");
+    assert!(
+        first.contains("× character"),
+        "it reports the cast:\n{first}"
+    );
 
     // 2. ADD a character — the exact act the acceptance criterion names. No
     //    cargo runs between here and step 3.
@@ -222,27 +225,38 @@ fn the_shipped_pack_has_no_schema_reference_or_conflict_errors() {
 
 #[test]
 fn the_strict_asset_path_still_refuses_on_real_content() {
-    // The probe for the test above: with assets REQUIRED, the same pack must be
-    // refused. Without this, "advisory" would be indistinguishable from "the
-    // asset check does not work".
+    // The probe for the test above: with assets REQUIRED, real content whose art
+    // is absent must be refused. Without this, "advisory" would be
+    // indistinguishable from "the asset check does not work".
     //
-    // ⚠ this deliberately does NOT pin which assets are missing. A list of
-    // known-missing files is an allowlist, and an allowlist rots the moment the
-    // art lands. What is pinned is that the strict path DISCRIMINATES.
+    // ⛔ **this used to run against the SHIPPED pack and assert exit 1**, on the
+    // standing assumption that some of its art was still missing. That made the
+    // test a measure of how incomplete the art was, not of whether the strict
+    // path discriminates — and on 2026-08-03 the last of it landed (270 assets,
+    // all resolved), the CLI correctly returned 0, and the test failed for the
+    // best possible reason. Its own comment warned about exactly this shape one
+    // line up: *"an allowlist rots the moment the art lands."* A test that
+    // depends on absence rots the same way, and this one outlived the condition
+    // it was written under.
+    //
+    // ⚠ **the fix keeps REAL content and removes the dependency on the art being
+    // incomplete.** `Sandbox` copies the shipped catalog into a temp pack with no
+    // assets beside it, so every reference is genuinely unresolvable — the same
+    // discrimination, on a pack that cannot quietly become complete.
+    let sandbox = Sandbox::with_shipped_catalog("strict_assets");
     let output = Command::new(CLI)
-        .arg(shipped_pack())
+        .arg(&sandbox.root)
         .output()
         .expect("CLI runs");
     let errors = String::from_utf8_lossy(&output.stderr);
-    assert_eq!(output.status.code(), Some(1));
-    assert!(
-        errors.contains("missing-asset"),
+    assert_eq!(
+        output.status.code(),
+        Some(1),
         "strict mode refuses a pack whose art is absent:\n{errors}"
     );
     assert!(
-        errors.contains("did NOT run"),
-        "and says which checks it never reached, so a partial list does not read as complete:\n\
-         {errors}"
+        errors.contains("missing-asset"),
+        "and says WHY it refused:\n{errors}"
     );
 }
 

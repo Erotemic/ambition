@@ -235,8 +235,11 @@ accepted it. Look for the invariant a family's own reader cannot check.
 |---|---|---|
 | character catalog | `data/character_catalog.ron` | ✅ `character_catalog`, owned by `ambition_characters` |
 | items | `data/items.ron` | ✅ `item_catalog`, owned by `ambition_items` (2026-08-03) |
-| enemy roster | `data/character_archetypes.ron` | ▢ |
-| boss profiles / seeds / sheets / validator bands | 4 × `data/boss_*.ron` | ▢ |
+| boss seeds | `data/boss_seeds.ron` | ✅ `boss_seed_library`, owned by `ambition_characters` (2026-08-03) |
+| boss calibration | `data/boss_validator_bands.ron` | ✅ `boss_validator_bands`, same owner (2026-08-03) |
+| enemy roster | `data/character_archetypes.ron` | ⛔ BLOCKED — owner is the monolith, see below |
+| boss profiles | `data/boss_profiles.ron` | ⛔ BLOCKED — owner is the monolith, see below |
+| boss sheets | `data/boss_sheets.ron` | ▢ owner `ambition_sprite_sheet` (unmeasured) |
 | boss encounters | 9 × `data/boss_encounters/*.ron` | ▢ |
 | encounter waves | `data/encounters/goblin_encounter.ron` | ▢ |
 | music + sfx registries | `assets/audio/{music,sfx}_registry.ron` | ▢ ⚠ `music_registry.ron` is GENERATED — migrate the generator's output contract, not the file |
@@ -244,6 +247,43 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | worlds | the LDtk projects | ▢ |
 | vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ▢ |
 | fighter brain ladder | `data/fighter_brain_ladder.ron` | ▢ |
+
+### ⛔ The real blocker on the rest: a schema is registered by the crate that owns its type
+
+Measured 2026-08-03, and it is the reason the ledger has ⛔ rows rather than a
+uniform ▢.
+
+A handler must construct the type it parses into, so the schema lives in that
+type's crate — and the CLI must LINK that crate to validate the family. That is
+fine while owners are light and fatal when they are not:
+
+| composition | crates in graph | links a renderer? |
+|---|---|---|
+| `ambition_content_cli` today | **239** | no |
+| `ambition_platformer2d_actor_monolith` | **708** | yes (`bevy_render`) |
+
+`BossBehaviorProfile` (boss profiles) and `CharacterRosterFragment` (enemy
+roster) both live in the monolith. Migrating either would nearly triple the
+validator's graph and make it link a renderer — destroying the one property that
+justifies the crate existing (build in seconds, validate in milliseconds, no
+rebuild to author). **These families wait on a PLACEMENT decision, not on a
+handler.** Either the type moves to a lighter crate, or the schema needs a way to
+be registered without linking its owner.
+
+⚠ this is the [orphan-rule adjudication](../../AGENTS.md) again: re-export paths
+lie about ownership, and where the type lives decides where the schema can live.
+The families migrated so far were chosen because their owners were already in
+the validator's graph — which is why the graph is **unchanged at 239**.
+
+### ⚠ A second limit: a handler sees ONE facet
+
+`compile` calls `handler.check(&facet, …)` per source, and there is no whole-pack
+hook. So a handler can express "this reference resolves" (the compiler's
+reference-resolution stage does that across sources) but NOT a cross-source
+invariant like *exact cover* — "every attack the roster plays is claimed by
+exactly one seed". The one-source half of that check moved into the
+`boss_seed_library` schema; the other half is still a test. Worth knowing before
+promising that a migration dissolves a given check.
 
 ⛔ **and the second authority is `content_validation.rs`, not `include_str!`.**
 The 698-line cross-content validator still runs at app startup

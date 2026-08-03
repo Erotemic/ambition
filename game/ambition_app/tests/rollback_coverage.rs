@@ -1080,6 +1080,52 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::cut_rope::PendingCutRopeRoomReplay",
         "dialog-flow latch consumed by the room-reset flow, presentation-gated",
     ),
+    // ── The SHIPPED composition's categories (2026-08-03) ────────────────────
+    //
+    // The sandbox sweep never saw these: it boots `Platformer2dSimHarness`, and
+    // these live in the app and in provider compositions. The shipped-composition
+    // sweep beside it found 64 unaccounted, and the first pass through them found
+    // two REAL bugs (`BrokenBricks`, `SpentMonitors`, both registered now). What
+    // is left sorts into a small number of categories, and these are them.
+    //
+    // ⚠ **each is a MODULE family, which is the widest form this file allows and
+    // the one that most easily rots.** The test is whether a sim-authoritative
+    // resource could plausibly be added to that module later. For a menu, a
+    // developer overlay or a file path, no — the module name IS the argument. Any
+    // family where the answer is "maybe" is deliberately absent below and stays
+    // on the ceiling.
+    (
+        "ambition_app::menu::",
+        "frontend menu state: cursor, tab, scroll, cached pages. Outside the          session; a rewind cannot reach it and would have nothing to say",
+    ),
+    (
+        "ambition_app::dev::",
+        "developer instruments (fps overlay, rollback observatory). Measurements          ABOUT the run; rewinding a measurement of the rewind is meaningless",
+    ),
+    (
+        "ambition_app::app::world_flow::room_transition_presentation::",
+        "the transition's own curtain/telemetry: what the player is shown WHILE a          room swaps, not what the room becomes",
+    ),
+    (
+        "ambition_app::app::world_flow::room_transition_assets::",
+        "which assets are staged and how far the prefetch got — a readiness          question about loading, never about the simulated world",
+    ),
+    (
+        "ambition_content::presentation::",
+        "content-side presentation (dialog layout/portrait playback, the deep          dream settings): draws the sim, never authors it",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::gameplay_presentation::",
+        "the presentation PROFILE stack: HUD declarations and readouts, safe-area          insets, control footprints, the resolved profile. Every one is a          statement about the display, and the display is not rewound",
+    ),
+    (
+        "ambition_persistence::",
+        "where this App keeps its files and what it last wrote. Disk, not world",
+    ),
+    (
+        "ambition_platformer2d_runtime::rollback::session::",
+        "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
+    ),
     // Bevy wrapper resources around non-simulation machinery.
     ("bevy_asset::", "asset plumbing"),
     (
@@ -1237,7 +1283,21 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // `SpentMonitors`. Both halves of the ratchet were exercised doing it: the
     // sweep FOUND them, and the staleness assert REFUSED to let the ceiling stay
     // at 66 once they were gone.
-    const UNACCOUNTED_CEILING: usize = 64;
+    //
+    // 64 → 25 by classifying eight CATEGORIES into `RESOURCE_WAIVED` — menus,
+    // developer instruments, transition presentation, asset staging, content
+    // presentation, the presentation-profile stack, persistence paths, and the
+    // rollback driver's own state. Each is a module family whose NAME is the
+    // argument. The staleness assert fired again on the way (`only 25 unaccounted
+    // now`), which is the second time in one day it has stopped a ratchet from
+    // quietly going slack.
+    //
+    // ⚠ **the 25 that remain are the ones a category could not honestly cover**,
+    // and they are where the next real bug will be. Do not reach for a wider
+    // waiver to finish the job — the two bugs this sweep has already caught were
+    // both in a demo provider's own namespace, exactly the kind of place a broad
+    // family waiver would have swallowed.
+    const UNACCOUNTED_CEILING: usize = 25;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

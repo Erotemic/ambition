@@ -156,3 +156,7 @@ untracked
 # clean `git status` is not worth throwing away somebody's keybindings.
 /sm64config.txt
 /sm64_save_file.bin
+
+# >>> llm_resource_tally local state (managed) >>>
+/.llm_resource_tally/local/
+# <<< llm_resource_tally local state (managed) <<<

@@ -1089,6 +1089,13 @@ fn super_form_traits_track_the_worn_identity_both_ways() {
             )
                 .chain(),
         );
+        // ...and the engine's projection cleanup, which the real composition
+        // installs in `PlatformerEnginePlugins`. Retracting the form REMOVES the
+        // empowerment, and releasing the reason it projected is the engine's
+        // job now rather than a second call beside every removal.
+        app.add_plugins(
+            ambition_platformer2d::actors::features::empowerment::EmpowermentProjectionPlugin,
+        );
     }
     let player = app
         .world_mut()

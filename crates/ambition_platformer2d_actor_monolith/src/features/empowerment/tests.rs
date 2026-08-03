@@ -196,3 +196,45 @@ fn a_vanished_striker_harms_nothing() {
         "no strike survives the body that was making it"
     );
 }
+
+/// **Taking the empowerment back releases what it was projecting**, with no
+/// second call at the removal site.
+///
+/// The failure this pins is silent and permanent: `run_empowerments` can only
+/// write the `EMPOWERED` reason for bodies that still HAVE the component, so a
+/// granter that removes it left the body untouchable forever. Sanic's super form
+/// is exactly that granter, and it carried a hand-written
+/// `invulnerable.set(EMPOWERED, false)` beside its `remove::<Empowered>()` to
+/// cover for it — the two-step ritual whose second step is the one people forget.
+///
+/// So this test removes the component ALONE, which is what a caller who never
+/// read the ritual would do.
+#[test]
+fn removing_the_empowerment_releases_its_invulnerability_without_a_second_call() {
+    let (mut app, striker, _victim) =
+        app_with_striker_and_victim(Empowerment::UNTOUCHABLE, 10.0, ActorFaction::Enemy);
+    app.add_plugins(EmpowermentProjectionPlugin);
+    app.update();
+    assert!(
+        app.world()
+            .get::<BodyHealth>(striker)
+            .expect("the striker has health")
+            .health
+            .invulnerable
+            .any(),
+        "an untouchable empowerment must project its reason while it is held",
+    );
+
+    app.world_mut().entity_mut(striker).remove::<Empowered>();
+
+    assert!(
+        !app.world()
+            .get::<BodyHealth>(striker)
+            .expect("the striker has health")
+            .health
+            .invulnerable
+            .any(),
+        "removing the empowerment must release the EMPOWERED reason — otherwise \
+         the body stays untouchable for the rest of its life",
+    );
+}

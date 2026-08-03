@@ -325,3 +325,50 @@ pub fn apply_contact_harm(
 
 #[cfg(test)]
 mod tests;
+
+/// **Removing the empowerment releases the trait it was projecting.**
+///
+/// ⛔ **this existed as a ritual, and the ritual was already being performed by
+/// hand.** `run_empowerments` writes `Invulnerability::EMPOWERED` from the
+/// component, and it can only write it for bodies that still HAVE the component
+/// — so a granter that takes the empowerment back (Sanic dropping its super
+/// form) left the reason set forever, and Sanic worked around it with a second
+/// call beside the removal:
+///
+/// ```ignore
+/// commands.entity(body).remove::<Empowered>();
+/// health.health.invulnerable.set(Invulnerability::EMPOWERED, false);
+/// ```
+///
+/// Two steps, and the second is the one people forget — the shape this
+/// repository has a standing rule about. An observer makes removal complete
+/// however it happens: expiry, a granter taking it back, a despawn, or a
+/// rollback restoring a frame where the body was never empowered.
+///
+/// ⚠ **the SCHEDULING deliberately stays with the games.** The review that found
+/// this asked for one engine-owned installation point for the whole feature, and
+/// that would take away a choice each game makes on purpose: Sanic installs
+/// `run_empowerments` in `GameplayEffects` and deliberately does NOT install
+/// `apply_contact_harm` (`defeat_badniks` already owns the destroy-on-touch
+/// reaction, and two authorities killing one badnik is the bug it was avoiding),
+/// while Mary-O installs both in `FeatureInteraction` with contact harm ordered
+/// after expiry. What is engine-owned is the INVARIANT, not the order.
+pub struct EmpowermentProjectionPlugin;
+
+impl Plugin for EmpowermentProjectionPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_observer(release_empowerment_projection);
+    }
+}
+
+fn release_empowerment_projection(
+    removal: On<bevy::ecs::lifecycle::Remove, Empowered>,
+    mut bodies: Query<&mut BodyHealth>,
+) {
+    if let Ok(mut health) = bodies.get_mut(removal.entity) {
+        health
+            .health
+            .invulnerable
+            .set(Invulnerability::EMPOWERED, false);
+    }
+}

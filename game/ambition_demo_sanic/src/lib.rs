@@ -666,6 +666,15 @@ pub fn install_sanic_content(app: &mut App) {
                 "ambition_demo_sanic",
                 "content.sanic_act_state",
             )
+            // The super form's EMPOWERMENT, not just the latch that decides it.
+            // Mary-O registered `Empowered` and Sanic did not, so a rewind here
+            // restored the latch while leaving the body's empowerment to be
+            // re-derived — a derived-state contract nothing declared and nothing
+            // proved. (GPT review of 5cc4337..47d7de3, finding 6.)
+            .rollback_component_clone::<ambition_platformer2d::actors::features::empowerment::Empowered>(
+                "ambition_demo_sanic",
+                "content.sanic_empowered",
+            )
             .rollback_component_clone::<SuperFormLatch>(
                 "ambition_demo_sanic",
                 "content.sanic_super_form_latch",
@@ -1350,7 +1359,6 @@ fn sync_super_form_traits(
         (
             bevy::prelude::Entity,
             &ambition_platformer2d::characters::actor::WornCharacter,
-            &mut ambition_platformer2d::characters::actor::BodyHealth,
             &ae::BodyKinematics,
             Option<&SuperFormLatch>,
         ),
@@ -1361,7 +1369,7 @@ fn sync_super_form_traits(
     // for every in-session frame, surviving room changes). Derive invincibility
     // and capture the emit position while the body is borrowed.
     let (worn_is_super, pos, body, was_super) = match players.single_mut() {
-        Ok((body, worn, mut health, kinematics, latch)) => {
+        Ok((body, worn, kinematics, latch)) => {
             let is_super = worn.id() == SUPER_SANIC_CHARACTER_ID;
             // Super Sanic and Mary-O's pocket quasar are the SAME fact wearing
             // two names: a body that cannot be hurt, and that destroys what it
@@ -1383,16 +1391,15 @@ fn sync_super_form_traits(
                     ),
                 );
             } else {
+                // The reason goes back with the form, and the ENGINE does that:
+                // removing `Empowered` releases `Invulnerability::EMPOWERED`
+                // through `EmpowermentProjectionPlugin`'s observer. This used to
+                // clear the bit by hand right here, which worked and was the
+                // two-step ritual — the second step being the one the next
+                // granter forgets.
                 commands
                     .entity(body)
                     .remove::<ambition_platformer2d::actors::features::empowerment::Empowered>();
-                // The reason goes back with the form. `run_empowerments` releases
-                // it on expiry, but a HELD empowerment never expires — its granter
-                // retracts it, so its granter releases the reason.
-                health.health.invulnerable.set(
-                    ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED,
-                    false,
-                );
             }
             (
                 Some(is_super),

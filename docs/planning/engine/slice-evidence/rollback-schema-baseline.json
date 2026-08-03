@@ -175,6 +175,7 @@
     "feature.chest",
     "feature.collected",
     "feature.damageable_volumes",
+    "feature.empowered",
     "feature.hazard",
     "feature.id",
     "feature.name",

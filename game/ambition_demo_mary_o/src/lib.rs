@@ -1326,10 +1326,6 @@ pub fn install_mary_o_content(app: &mut App) {
             // that vanishes across a restore leaves the fact it was writing
             // un-refreshed, and the invincibility silently stops without the
             // pickup ever having been spent.
-            .rollback_component_clone::<ambition_platformer2d::actors::features::empowerment::Empowered>(
-                "ambition_demo_mary_o",
-                "content.mary_o_empowered",
-            )
             // A transit in flight is authoritative sim state — it OWNS the body's
             // position for half a second, so a rewind that dropped it would put a
             // half-swallowed player back on the surface. It rides on the player

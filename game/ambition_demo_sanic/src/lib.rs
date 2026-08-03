@@ -666,15 +666,6 @@ pub fn install_sanic_content(app: &mut App) {
                 "ambition_demo_sanic",
                 "content.sanic_act_state",
             )
-            // The super form's EMPOWERMENT, not just the latch that decides it.
-            // Mary-O registered `Empowered` and Sanic did not, so a rewind here
-            // restored the latch while leaving the body's empowerment to be
-            // re-derived — a derived-state contract nothing declared and nothing
-            // proved. (GPT review of 5cc4337..47d7de3, finding 6.)
-            .rollback_component_clone::<ambition_platformer2d::actors::features::empowerment::Empowered>(
-                "ambition_demo_sanic",
-                "content.sanic_empowered",
-            )
             .rollback_component_clone::<SuperFormLatch>(
                 "ambition_demo_sanic",
                 "content.sanic_super_form_latch",

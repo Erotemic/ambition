@@ -290,6 +290,17 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "item.world_item",
     );
+    // ⛔ **AN ENGINE COMPONENT IS REGISTERED ONCE, BY THE ENGINE.** `Empowered`
+    // lives in `features::empowerment`, and Mary-O and Sanic each registered it
+    // from their own plugin — which is fine in a composition holding one demo
+    // and a PANIC in the app, which holds both: bevy_ggrs refuses a second
+    // `ComponentSnapshotPlugin` for one type ("plugin was already added"), and
+    // 56 app tests died on that one line. Two games owning one engine type is
+    // duplicate authority; the engine owns it.
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::empowerment::Empowered>(
+        OWNER,
+        "feature.empowered",
+    );
     // The motion PLAN and its cursor travel together — `ItemMotion`'s own doc
     // says a cursor without its plan is meaningless — so one registration
     // restores both halves of where the pickup is in its arc.

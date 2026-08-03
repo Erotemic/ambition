@@ -81,6 +81,91 @@ class PackageAssetGuardTests(unittest.TestCase):
                 )
             )
 
+    def test_bare_filename_resolves_beside_its_own_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            actors, _ = self.make_repo(repo)
+            # The renderer emits an actor sidecar next to the sheet it names,
+            # once per visual-quality variant directory.
+            for variant in ("sprites", "sprites_0_25x"):
+                (actors / variant).mkdir()
+                (actors / variant / "hero_spritesheet.png").write_bytes(variant.encode())
+                (actors / variant / "hero_spritesheet.ron").write_text(
+                    '[(target: "hero", image: "hero_spritesheet.png", label_width: 0, frame_width: 1, frame_height: 1, rows: [])]',
+                    encoding="utf8",
+                )
+                (actors / variant / "hero_actor.ron").write_text(
+                    '(visual: Some((spritesheet: "hero_spritesheet.png", sheet_manifest: "hero_spritesheet.ron")))',
+                    encoding="utf8",
+                )
+
+            contract, _ = asset_guard.build_contract(repo, "android")
+            self.assertNotIn("hero_spritesheet.png", contract.entries)
+            for variant in ("sprites", "sprites_0_25x"):
+                origins = contract.entries[f"{variant}/hero_spritesheet.png"].origins
+                self.assertIn(f"manifest:{variant}/hero_actor.ron:1:spritesheet", origins)
+
+    def test_bare_filename_in_a_nested_json_manifest_resolves_beside_it(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            actors, _ = self.make_repo(repo)
+            layers = actors / "backgrounds/parallax_layers"
+            layers.mkdir(parents=True)
+            (layers / "basement_sky.png").write_bytes(b"sky")
+            (layers / "parallax_manifest.json").write_text(
+                '{"layers": [{"theme": "basement", "path": "basement_sky.png"}]}',
+                encoding="utf8",
+            )
+            contract, _ = asset_guard.build_contract(repo, "android")
+            self.assertIn("backgrounds/parallax_layers/basement_sky.png", contract.entries)
+
+    def test_slashed_declaration_stays_package_root_relative(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            actors, content = self.make_repo(repo)
+            (actors / "sprites").mkdir()
+            (actors / "sprites/hero_spritesheet.png").write_bytes(b"hero")
+            (content / "data").mkdir()
+            # The catalog lives in data/ but names the sheet from the package
+            # root; anchoring it beside the catalog would look in data/sprites/.
+            (content / "data/character_catalog.ron").write_text(
+                '(characters: {"hero": (spritesheet: "sprites/hero_spritesheet.png")})',
+                encoding="utf8",
+            )
+            contract, _ = asset_guard.build_contract(repo, "android")
+            self.assertIn("sprites/hero_spritesheet.png", contract.entries)
+            self.assertNotIn("data/sprites/hero_spritesheet.png", contract.entries)
+
+    def test_source_root_prefix_is_stripped_from_a_declaration(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            actors, _ = self.make_repo(repo)
+            (actors / "sprites").mkdir()
+            (actors / "sprites/tiles.png").write_bytes(b"tiles")
+            (actors / "sprites/ldtk_sprite_manifest.json").write_text(
+                '{"tilesets": [{"path": "crates/ambition_platformer2d_actor_monolith/assets/sprites/tiles.png"}]}',
+                encoding="utf8",
+            )
+            contract, _ = asset_guard.build_contract(repo, "android")
+            self.assertIn("sprites/tiles.png", contract.entries)
+
+    def test_provenance_sidecar_paths_are_not_runtime_declarations(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            actors, _ = self.make_repo(repo)
+            bundled = actors / "fonts/bundled"
+            bundled.mkdir(parents=True)
+            (bundled / "Inter-Regular.otf").write_bytes(b"font")
+            # Records where a download landed under a since-renamed crate. The
+            # font itself still ships, as an ordinary source file.
+            (bundled / "FONT_ASSET_MANIFEST.json").write_text(
+                '{"generated_by": "scripts/grab_font_assets.py",'
+                ' "files": [{"path": "crates/ambition_sandbox/assets/fonts/bundled/Inter-Regular.otf"}]}',
+                encoding="utf8",
+            )
+            contract, _ = asset_guard.build_contract(repo, "android")
+            self.assertIn("fonts/bundled/Inter-Regular.otf", contract.entries)
+
     def test_declared_asset_missing_from_both_roots_is_fatal(self) -> None:
         with tempfile.TemporaryDirectory() as d:
             repo = Path(d)

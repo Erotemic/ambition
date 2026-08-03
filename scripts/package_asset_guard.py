@@ -72,6 +72,11 @@ QUOTED_RUNTIME_PATH_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Generated provenance records, not runtime catalogs. Their path fields say
+# where a download landed in the repo working tree, not what the game loads;
+# the files they describe reach the package as ordinary source files anyway.
+PROVENANCE_SIDECAR_NAMES = {"FONT_ASSET_MANIFEST.json"}
+
 COMMON_EXCLUDES = (
     ".git/**",
     ".*",
@@ -190,6 +195,14 @@ def normalize_package_path(raw: str, *, relative_to: str | None = None) -> str |
         value = value[len("game://") :]
     if value.startswith("assets/"):
         value = value[len("assets/") :]
+    # Some generated manifests record a source root prefix because they were
+    # written from a repo-relative path. Those are the very roots being
+    # composed, so strip them rather than hunting for the prefix in the package.
+    for root in (ACTOR_ASSET_ROOT, CONTENT_ASSET_ROOT):
+        prefix = root.as_posix() + "/"
+        if value.startswith(prefix):
+            value = value[len(prefix) :]
+            break
     if re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", value):
         return None
     if value.startswith("/") or re.match(r"^[A-Za-z]:/", value):
@@ -316,11 +329,10 @@ def add_declaration(
     if not is_runtime_asset_path(raw):
         return
     value = raw
-    if (
-        resolve_plain_relative_to is not None
-        and not value.startswith(("./", "../", "/", "assets/", "game://"))
-        and not re.match(r"^[A-Za-z][A-Za-z0-9+.-]*://", value)
-    ):
+    # A declaration with no directory component names a file beside its own
+    # manifest. Reading it as package-root-relative would look for the sibling
+    # at the top of the tree, where emitted sheets and layers never live.
+    if resolve_plain_relative_to is not None and not re.search(r"[\\/]", value):
         value = f"./{value}"
         relative_to = resolve_plain_relative_to
     normalized = normalize_package_path(value, relative_to=relative_to)
@@ -339,6 +351,8 @@ def scan_manifest_declarations(repo: Path, source_files: dict[str, SourceFile]) 
         suffix = PurePosixPath(rel).suffix.lower()
         if suffix not in TEXT_MANIFEST_SUFFIXES:
             continue
+        if PurePosixPath(rel).name in PROVENANCE_SIDECAR_NAMES:
+            continue
         try:
             text = source_file.source.read_text(encoding="utf8")
         except UnicodeDecodeError:
@@ -352,9 +366,7 @@ def scan_manifest_declarations(repo: Path, source_files: dict[str, SourceFile]) 
                 raw,
                 f"manifest:{rel}:{line}:{match.group('field')}",
                 relative_to=rel,
-                resolve_plain_relative_to=(
-                    rel if sheet_manifest and match.group("field") == "image" else None
-                ),
+                resolve_plain_relative_to=rel,
             )
         if sheet_manifest:
             # Multi-page sheet manifests place secondary images in a list, not

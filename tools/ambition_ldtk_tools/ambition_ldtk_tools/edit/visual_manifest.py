@@ -583,6 +583,15 @@ def main(argv=None) -> int:
     ap.add_argument("--format", choices=["text", "json"], default="text")
     ap.add_argument("--in-place", action="store_true")
     ap.add_argument("--output", type=Path)
+    ap.add_argument(
+        "--prune-unused-tilesets",
+        action="store_true",
+        help=(
+            "After applying, drop tileset defs nothing references. Repointing "
+            "an entity icon at a renamed sheet orphans the def it used to "
+            "point at, and that def keeps naming a PNG that no longer ships."
+        ),
+    )
     args = ap.parse_args(argv)
 
     if args.action == "clear-entity-icons":
@@ -634,6 +643,8 @@ def main(argv=None) -> int:
             raise SystemExit("apply-manifest requires --in-place or --output")
         tx = LdtkTransaction(args.ldtk, in_place=args.in_place, output=args.output)
         msgs = apply_manifest(tx.project, args.ldtk, manifest)
+        if args.prune_unused_tilesets:
+            msgs.extend(prune_unused_tilesets(tx.project))
         if msgs:
             tx.note_changed(msgs)
         out = tx.write_if_changed()

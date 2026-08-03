@@ -1257,12 +1257,17 @@ if ambition_python_exists "$python_bin" && \
 then
     run_renderer_python ldtk-manifest -m ambition_sprite2d_renderer \
         ldtk-manifest --out "$sprite_manifest" 2>&1 | sed 's/^/  /' || true
-    for world in sandbox intro you_have_to_cut_the_rope; do
+    # hall_of_characters carries the same PlayerStart icon wiring as the other
+    # three; leaving it out let its tileset def drift onto a sheet name the
+    # renderer had stopped publishing. Pruning drops the def that repointing
+    # orphans, so no world keeps naming a PNG that no longer ships.
+    for world in sandbox intro you_have_to_cut_the_rope hall_of_characters; do
         ldtk_path="$worlds_dir/$world.ldtk"
         [ -f "$ldtk_path" ] || continue
         "$ldtk_python" \
             -m ambition_ldtk_tools.edit.visual_manifest apply-manifest \
-            "$ldtk_path" "$sprite_manifest" --in-place 2>&1 | sed 's/^/  /' || true
+            "$ldtk_path" "$sprite_manifest" --in-place --prune-unused-tilesets \
+            2>&1 | sed 's/^/  /' || true
     done
 else
     echo "  (skipped — sprite renderer or ambition_ldtk_tools not importable)"

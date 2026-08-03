@@ -9,7 +9,7 @@ use super::bind_worn_character_presentation;
 use super::{PlayerSpriteCharacter, PlayerVisual};
 use ambition_characters::actor::WornCharacter;
 use ambition_sprite_sheet::character::{
-    CharacterAnimator, CharacterSpriteAsset, try_load_spec_for_character_id,
+    try_load_spec_for_character_id, CharacterAnimator, CharacterSpriteAsset,
 };
 use ambition_sprite_sheet::game_assets::GameAssets;
 use bevy::prelude::*;
@@ -226,7 +226,14 @@ fn the_sprite_baseline_records_the_bodys_own_standing_size() {
         .spawn((
             PlayerVisual,
             WornCharacter::new("robot"),
-            ambition_platformer2d_core::BodyBaseSize { base_size: tall },
+            // ⚠ the READ-MODEL, not the sim's `BodyBaseSize`. Presentation reads
+            // `ambition_sim_view` (E4), and building the fixture from the live
+            // cluster made this test disagree with the system it exercises the
+            // moment that rule was enforced.
+            ambition_sim_view::BodyPoseView {
+                base_size: tall,
+                ..Default::default()
+            },
         ))
         .id();
     // A body that never states one still binds, on the engine default.

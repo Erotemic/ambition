@@ -93,8 +93,22 @@ pub fn bind_worn_character_presentation(
             &ambition_characters::actor::WornCharacter,
             Option<&PlayerSpriteCharacter>,
             Has<CharacterAnimator>,
-            // This body's OWN standing size. See the seed below.
-            Option<&ae::BodyBaseSize>,
+            // This body's OWN standing size, from the READ-MODEL. See the seed
+            // below.
+            //
+            // ⚠ it used to be `Option<&ae::BodyBaseSize>` — presentation naming a
+            // live sim cluster, which `engine.render-never-names-live-sim-state`
+            // forbids and went red on 2026-08-02. `BodyPoseView::base_size` is
+            // the same number where the component exists, and where it does NOT
+            // the view falls back to the body's CURRENT `size` while the old code
+            // fell back to the engine's default player size.
+            //
+            // ⭐ **that difference is an improvement, not a compromise.** The seed
+            // exists so the art-scale ratio is 1 for every form (see below); a
+            // body with no authored base got `size / DEFAULT` — non-1 for anything
+            // that is simply not default-sized, which is the exact bug the comment
+            // below describes. Reading the view gives ratio 1 for that body too.
+            Option<&ambition_sim_view::BodyPoseView>,
         ),
         With<PlayerVisual>,
     >,
@@ -116,7 +130,7 @@ pub fn bind_worn_character_presentation(
         // against the body's real baseline makes the ratio 1 for every form,
         // and leaves the dev experiment working — that changes `base_size`
         // after the bind, which is exactly the deviation the scale is for.
-        let player_collision = base_size.map(|b| b.base_size).unwrap_or(BVec2::new(
+        let player_collision = base_size.map(|pose| pose.base_size).unwrap_or(BVec2::new(
             ae::DEFAULT_PLAYER_BODY_WIDTH,
             ae::DEFAULT_PLAYER_BODY_HEIGHT,
         ));

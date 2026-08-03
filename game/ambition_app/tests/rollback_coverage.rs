@@ -1167,6 +1167,18 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
     ),
     (
+        "ambition_demo_smash::select::SmashSelect",
+        "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
+    ),
+    (
+        "ambition_demo_mary_o::flag::FlagPole",
+        "pure GEOMETRY — the pole's x, top, base and half-width, mirroring the          authored block, immutable after room load, so there is nothing to rewind.          ⚠ it reads like `SpentPowerBlocks` from its NAME alone, which is exactly          why the name was not enough and it was read",
+    ),
+    (
+        "ambition_demo_sanic::ball_dash::BallDashTuning",
+        "authored dash numbers. Every production reference is `Res<>`; nothing          takes it mutably anywhere in the workspace, so it cannot differ between          two timelines of one session",
+    ),
+    (
         "ambition_demo_mary_o::quasar_shader::QuasarShaderInstalled",
         "a marker inserted during PLUGIN BUILD to make the shader install          idempotent. Composition state, written once before any frame runs",
     ),
@@ -1391,7 +1403,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
     // wholly overwritten each tick rather than accumulated, which is the whole
     // difference between derived state and a memo.
-    const UNACCOUNTED_CEILING: usize = 16;
+    const UNACCOUNTED_CEILING: usize = 13;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

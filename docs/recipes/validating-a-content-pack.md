@@ -13,8 +13,10 @@ cargo build -p ambition_content_cli --bin ambition_content
 ./target/debug/ambition_content game/ambition_content/assets --advisory-assets
 ```
 
-Measured on the shipped 148 KB catalog (140 characters, 280 references):
-**~5 ms**. The rebuild it replaces is ~10 minutes.
+Measured on the shipped pack (2 sources, 181 content identities — 140
+characters, 24 items, 17 presets — 270 assets, 280 references): **~13 ms**. The
+rebuild it replaces is ~10 minutes. Exit status is 1 on refusal and 0 on pass,
+so this is usable as a CI gate and not only as a report.
 
 ## Add a character
 
@@ -26,6 +28,18 @@ Measured on the shipped 148 KB catalog (140 characters, 280 references):
 4. Run the validator.
 
 That is the whole loop. **No Rust changes, no rebuild.**
+
+## Re-author an item
+
+Edit its row in `game/ambition_content/assets/data/items.ron` and run the
+validator. Same loop, no rebuild.
+
+⛔ **but do not delete a row.** The file is POSITIONAL — the slot index is what
+binds a row to its item, and there is no key. Removing one shifts every later
+row up a slot and re-authors the wrong items, with the short tail falling back
+to built-in defaults so the grid still looks full. To blank a slot, keep the row
+and empty its fields. The validator refuses a grid that is not exactly 24 rows
+and says this; before the `item_catalog` schema existed, nothing did.
 
 ## What it checks, and what each refusal means
 
@@ -92,8 +106,22 @@ impl ContentSchemaHandler for MySchema {
 pub fn my_schema() -> SchemaRegistration { /* id, version, capability, doc, handler */ }
 ```
 
-Then register it in `ambition_content_cli::default_registry` (and in whatever
-app composes the capability). Two rules:
+Then register it in **both** compositions — they are two sites and nothing in
+the compiler makes them agree:
+
+* `ambition_platformer2d::content::engine_schemas()` — what the GAME compiles
+  with. Gate the line on the capability's own feature (`#[cfg(feature =
+  "ambition_items")]`) so a composition without the capability does not claim to
+  own its schema.
+* `ambition_content_cli::default_registry()` — what the TOOL validates with, plus
+  a dependency on the owning capability crate with its `content_pack` feature.
+
+⚠ Miss the engine side and the game panics at startup on its own content; miss
+the CLI side and `ambition_content` reports a pack the game runs fine as
+`unknown-schema`. `content_pack_registry` in `game/ambition_content/tests/`
+fails on either, and it reads `pack.ron` off disk so it sees what you edited.
+
+Two more rules:
 
 * **Use `#[serde(deny_unknown_fields)]`** on the authored types, and map ron's
   `NoSuchStructField` to `DiagnosticCode::UnknownField`. Match the variant, not

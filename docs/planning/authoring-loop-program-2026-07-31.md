@@ -223,10 +223,18 @@ parser** — which is the two-readers-of-one-file shape the compiler exists to
 remove. Inventory taken 2026-08-03 by grepping `include_str!` in
 `game/ambition_content/src`, not from memory.
 
+⭐ **migrating a family finds bugs the old reader could not see, and that is the
+argument for doing the rest.** `items.ron` is POSITIONAL — the slot index binds
+a row to its `Item` discriminant and there is no key in the file. Deleting one
+row therefore does not remove one item, it re-authors twenty-three: every later
+row shifts up a slot, and the short tail falls back to built-in defaults so the
+grid still *looks* full. No parse error, no missing reference; `from_ron`
+accepted it. Look for the invariant a family's own reader cannot check.
+
 | family | authored source | in the pack? |
 |---|---|---|
 | character catalog | `data/character_catalog.ron` | ✅ `character_catalog`, owned by `ambition_characters` |
-| items | `data/items.ron` | ▢ `ambition_items::ItemCatalog::from_ron` |
+| items | `data/items.ron` | ✅ `item_catalog`, owned by `ambition_items` (2026-08-03) |
 | enemy roster | `data/character_archetypes.ron` | ▢ |
 | boss profiles / seeds / sheets / validator bands | 4 × `data/boss_*.ron` | ▢ |
 | boss encounters | 9 × `data/boss_encounters/*.ron` | ▢ |

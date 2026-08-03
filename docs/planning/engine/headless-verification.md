@@ -70,7 +70,7 @@ runs the **real presentation plugins**, forces the main camera through the same
 target, and writes that target to a PNG:
 
 ```
-cargo run -p ambition_app --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] \
+cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] \
     [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui] [--show-window]
 ```
 

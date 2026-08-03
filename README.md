@@ -190,15 +190,15 @@ The first Bevy build can take a while.
 The dedicated headless runner is:
 
 ```bash
-cargo run -p ambition_app --bin headless -- 120
+cargo run -p ambition_app_tools --bin headless -- 120
 ```
 
 Useful variants:
 
 ```bash
-cargo run -p ambition_app --bin headless -- 600
-cargo run -p ambition_app --bin headless -- 600 --dump-trace path/to/trace_dir
-cargo run -p ambition_app --bin headless -- 600 --start-room goblin_encounter
+cargo run -p ambition_app_tools --bin headless -- 600
+cargo run -p ambition_app_tools --bin headless -- 600 --dump-trace path/to/trace_dir
+cargo run -p ambition_app_tools --bin headless -- 600 --start-room goblin_encounter
 ```
 
 The visible binary also has a no-display fallback:
@@ -210,8 +210,8 @@ cargo run -p ambition_app --bin ambition_game_bin -- --headless --headless-ticks
 Trace replay:
 
 ```bash
-cargo run -p ambition_app --bin trace_replay -- path/to/trace.json
-cargo run -p ambition_app --bin trace_replay -- path/to/trace.json --tolerance 0.5
+cargo run -p ambition_app_tools --bin trace_replay -- path/to/trace.json
+cargo run -p ambition_app_tools --bin trace_replay -- path/to/trace.json --tolerance 0.5
 ```
 
 See [`docs/systems/headless-simulation.md`](docs/systems/headless-simulation.md)
@@ -244,7 +244,7 @@ Useful non-Rust checks and runtime probes:
 ```bash
 python scripts/check_doc_links.py
 python scripts/generate_agent_index.py
-cargo run -p ambition_app --bin headless -- 30
+cargo run -p ambition_app_tools --bin headless -- 30
 ```
 
 Formatting is advisory rather than an acceptance gate. Test authoritative

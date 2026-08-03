@@ -9,10 +9,10 @@
 //! can later reuse the same "snapshot -> render target" seam.
 //!
 //! Usage:
-//!   cargo run -p ambition_app --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui] [--show-window]
-//!   cargo run -p ambition_app --bin capture_scene -- c136 1200,480 /tmp/c136_game.png 1280x720
+//!   cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui] [--show-window]
+//!   cargo run -p ambition_app_tools --bin capture_scene -- c136 1200,480 /tmp/c136_game.png 1280x720
 //!   # center on the player, spawned AS the pirate admiral:
-//!   cargo run -p ambition_app --bin capture_scene -- central_hub_main player /tmp/p.png --character npc_pirate_admiral --warmup 40
+//!   cargo run -p ambition_app_tools --bin capture_scene -- central_hub_main player /tmp/p.png --character npc_pirate_admiral --warmup 40
 
 use std::path::PathBuf;
 

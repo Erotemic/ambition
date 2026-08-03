@@ -74,7 +74,7 @@ jobs:
         # Catches plugin-init regressions the lib tests miss (e.g. a
         # missing add_message that only fires when the visible plugin
         # path runs).
-        run: cargo run -p ambition_app --bin headless -- 60
+        run: cargo run -p ambition_app_tools --bin headless -- 60
 
   format-and-clippy:
     name: rustfmt + clippy

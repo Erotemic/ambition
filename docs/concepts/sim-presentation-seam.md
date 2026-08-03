@@ -62,5 +62,5 @@ heard.
 ./run_tests.sh -p ambition_sim_view
 ./run_tests.sh -p ambition_render
 ./run_tests.sh -k plugin_minimal_app
-cargo run -p ambition_app --bin headless -- 120
+cargo run -p ambition_app_tools --bin headless -- 120
 ```

@@ -29,7 +29,7 @@
 //! ```
 //!
 //! Each flagged step prints `(room, seed, tick, pos)` so it reproduces through
-//! `cargo run -p ambition_app --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
+//! `cargo run -p ambition_app_tools --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
 
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;

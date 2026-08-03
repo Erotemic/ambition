@@ -6,7 +6,7 @@
 //! uses — around that one card, and routes back to itself when it finishes, so
 //! the beat replays until the window is closed.
 //!
-//!     cargo run -p ambition_app --bin preview_vanity_card --features visible
+//!     cargo run -p ambition_app_tools --bin preview_vanity_card --features visible
 //!
 //! It composes NO gameplay: no session, no simulation, no launcher. If the card
 //! draws here and not in the game, the difference is host composition, not the

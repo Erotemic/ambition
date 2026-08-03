@@ -20,7 +20,7 @@
 //! Regenerate the fixture (e.g. when an intentional gameplay change shifts the
 //! trajectory):
 //!
-//!     cargo run -p ambition_app --bin headless -- 60 --dump-trace /tmp/t/
+//!     cargo run -p ambition_app_tools --bin headless -- 60 --dump-trace /tmp/t/
 //!     cp /tmp/t/ambition_gameplay_trace_*.json \
 //!        game/ambition_app/tests/fixtures/replay_central_hub_60f_v1.json
 

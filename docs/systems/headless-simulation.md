@@ -28,10 +28,10 @@ to advance authoritative state.
 ## Commands
 
 ```bash
-cargo run -p ambition_app --bin headless -- 120
-cargo run -p ambition_app --bin headless -- 600 --start-room goblin_encounter
-cargo run -p ambition_app --bin headless -- 600 --dump-trace target/trace
-cargo run -p ambition_app --bin trace_replay -- target/trace/trace.json
+cargo run -p ambition_app_tools --bin headless -- 120
+cargo run -p ambition_app_tools --bin headless -- 600 --start-room goblin_encounter
+cargo run -p ambition_app_tools --bin headless -- 600 --dump-trace target/trace
+cargo run -p ambition_app_tools --bin trace_replay -- target/trace/trace.json
 ```
 
 Use generated navigation for current flags and tests:

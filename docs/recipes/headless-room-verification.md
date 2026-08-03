@@ -85,7 +85,7 @@ need a screenshot.
 ### 2. The real render stack — `capture_scene`
 
 ```bash
-cargo run -p ambition_app --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WxH] \
+cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WxH] \
     [--warmup N] [--combat-overlay] [--press KEYS] [--character ID] [--route ID]
 ```
 

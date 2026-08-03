@@ -167,6 +167,26 @@ cd /home/agent/code/ambition-workahead && python3 scripts/mirror_assets_for_work
   regenerated sprite lands as a REAL file in the worktree and main never sees it,
   which directory symlinks would not give you.
 
+### Sweeping failures: ONE big run, then targeted only (Jon, 2026-08-03)
+
+> *"Run the big suite once, then fix each test individually and verify them with
+> local targeted reruns only, and then we DON'T run the entire thing again after.
+> We just assume we fixed them because we did locally and move on. If anything
+> else broke we catch it on the next big sweep, but we don't spend all day chasing
+> those down."*
+
+⛔ **Do not re-run the full suite to confirm a fix the targeted run already
+confirmed.** On 2026-08-03 the same agent ran `run_tests.py` or
+`cargo test --workspace` five times in one stretch; every failure it found was
+then diagnosed and fixed by a single `-p <crate> --test <target> <filter>` run, and
+no re-sweep ever caught anything the targeted run had missed. The re-sweeps cost
+more than every fix combined.
+
+⚠ **the instinct this overrides is real and still wrong here.** Re-verifying
+globally *feels* like diligence; on a pre-release engine with no CI and a
+maintainer who sweeps periodically, it buys a confirmation nobody was waiting for
+and spends the hour that the next fix needed. A fix verified locally is fixed.
+
 ### When a run is slow, get the DISTRIBUTION before theorising
 
 `--report-time` is nightly-only, so per-test timings on stable come from running

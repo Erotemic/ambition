@@ -675,6 +675,13 @@ work: one is a physics investigation, the other is an art and animation task.
 
 ## 9. Can a flying fighter shield? (queue 08-03 F7-duel)
 
+⚠ **NO LONGER BLOCKING ANY TEST (2026-08-03).** The two duel tests this was filed
+against now pass — `app_it` is 287/0 — and the fix was in ranged AIM, not shields:
+every ranged moveset move was firing world-right regardless of facing, so in a
+duel one fighter shot away from the other all match. **The shield measurement in
+this item is still accurate and still a real design question**; it simply was not
+the cause. Answer it on its merits, not under pressure.
+
 > **JON, 2026-08-03: "not in smash. In other games it's up to the game. I'm not
 > sure about ambition itself yet."**
 

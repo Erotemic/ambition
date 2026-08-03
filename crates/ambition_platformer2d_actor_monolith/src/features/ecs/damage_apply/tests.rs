@@ -715,7 +715,10 @@ fn damage_percent_is_unclamped_so_a_hud_can_print_188() {
 fn an_unbounded_body_never_dies_to_the_meter_and_never_stops_feeling_it() {
     let mut h = test_health(10).with_policy(crate::combat::DeathPolicy::Unbounded);
     for _ in 0..20 {
-        assert!(!h.damage(10), "the meter killed a body whose death is the world's");
+        assert!(
+            !h.damage(10),
+            "the meter killed a body whose death is the world's"
+        );
         assert!(h.alive(), "an Unbounded body stopped being alive");
     }
     assert_eq!(h.damage_taken(), 200);
@@ -1313,4 +1316,89 @@ fn even_an_unstoppable_hit_refuses_a_body_that_is_already_dead() {
         true,
     );
     assert_eq!(res, BodyHitResolution::Ignored);
+}
+
+// ── The launch CHANNEL (D6) ────────────────────────────────────────────────
+
+/// **The reaction publishes the launch, and not only the velocity.**
+///
+/// Writing `BodyKinematics::vel` is authoritative for an axis-swept body and a
+/// MIRROR for a riding surface-momentum one, whose velocity is derived from `v_t`
+/// and republished every step. Sanic rides — so for as long as this reaction only
+/// wrote `vel`, his knockback was applied faithfully to a field nothing read, and
+/// the symptom was "no knockback" with every authored number non-zero.
+///
+/// This is the writer's half of the seam. `step_motion` drains it; the kernel's
+/// own tests cover what the model then does with it.
+#[test]
+fn a_hit_publishes_its_launch_where_the_motion_model_will_find_it() {
+    let feel = Platformer2dFeelTuningMonolith::default();
+    let mut vel = ae::Vec2::ZERO;
+    let mut flight = ae::BodyFlightState::default();
+    let mut combat = BodyCombat::default();
+    let victim_pos = ae::Vec2::new(100.0, 100.0);
+    let knockback = crate::combat::HitKnockback {
+        dir: 1.0,
+        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
+        source_pos: victim_pos - ae::Vec2::new(40.0, 0.0),
+        impact_pos: victim_pos,
+        launch_dir: None,
+    };
+
+    apply_body_hit_reaction(
+        &mut vel,
+        &mut flight,
+        &mut combat,
+        victim_pos,
+        1.0,
+        DOWN,
+        false,
+        Some(&knockback),
+        ae::Vec2::ZERO,
+        feel,
+    );
+
+    assert_ne!(
+        flight.pending_launch,
+        ae::Vec2::ZERO,
+        "the reaction must PUBLISH the launch — a velocity write alone is invisible \
+         to a model that owns its own velocity"
+    );
+    assert_eq!(
+        flight.pending_launch, vel,
+        "and it must be the same launch the velocity got, or the two channels \
+         disagree about what the hit did"
+    );
+}
+
+/// A hit that carries NO knockback publishes nothing.
+///
+/// `Vec2::ZERO` is the channel's empty state, so this is what keeps a damage-only
+/// hit from being drained as a launch of zero — and, more importantly, from
+/// clearing a body's ride for no reason.
+#[test]
+fn a_hit_with_no_knockback_publishes_no_launch() {
+    let mut vel = ae::Vec2::new(50.0, 0.0);
+    let mut flight = ae::BodyFlightState::default();
+    let mut combat = BodyCombat::default();
+
+    apply_body_hit_reaction(
+        &mut vel,
+        &mut flight,
+        &mut combat,
+        ae::Vec2::ZERO,
+        1.0,
+        DOWN,
+        false,
+        None,
+        ae::Vec2::ZERO,
+        Platformer2dFeelTuningMonolith::default(),
+    );
+
+    assert_eq!(
+        flight.pending_launch,
+        ae::Vec2::ZERO,
+        "no knockback, no launch: {:?}",
+        flight.pending_launch
+    );
 }

@@ -924,3 +924,119 @@ fn the_crawler_circumnavigates_an_arbitrarily_rotated_chain_island() {
         "one lap crosses all four oblique faces; saw {segments_seen:?}"
     );
 }
+
+// ── The launch channel, through the real gateway (D6) ──────────────────────
+
+/// A riding surface-momentum body with a floor under it, running along it.
+fn rider_on_a_long_floor() -> (World, BodyClusterScratch, MotionModel) {
+    let chain = SurfaceChain::open(
+        "long_floor",
+        vec![Vec2::new(0.0, 600.0), Vec2::new(4_000.0, 600.0)],
+    );
+    let world = World::new(
+        "launch_channel",
+        Vec2::splat(10_000.0),
+        Vec2::splat(500.0),
+        Vec::new(),
+    )
+    .with_chains(vec![chain]);
+    let scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(600.0, 590.0), AbilitySet::default());
+    let mut model = MotionModel::surface_momentum(MomentumParams::default());
+    let MotionModel::SurfaceMomentum(motion) = &mut model else {
+        unreachable!();
+    };
+    motion.state = SurfaceMotion::Riding {
+        on: SurfaceRef::Chain(0),
+        s: 600.0,
+        v_t: 400.0,
+    };
+    (world, scratch, model)
+}
+
+/// ⭐ **The reader's half of the knockback seam, entered where production enters
+/// it.**
+///
+/// `BodyFlightState::pending_launch` is written by a damage reaction that holds
+/// no world and no `MotionModel`; `step_motion` is the one place that can hand it
+/// over. This asserts the handover happens and that the model acts on it — a
+/// running body, hit upward and back, ends the tick AIRBORNE rather than still
+/// riding at its old speed.
+#[test]
+fn a_pending_launch_takes_a_rider_off_the_floor_through_step_motion() {
+    let (world, mut scratch, mut model) = rider_on_a_long_floor();
+    let frame = MotionFrame::from_acceleration(Vec2::new(0.0, 900.0)).unwrap();
+
+    {
+        let mut clusters = scratch.as_mut();
+        clusters.flight.pending_launch = Vec2::new(-360.0, -260.0);
+    }
+    step(
+        &mut model,
+        &world,
+        &mut scratch,
+        frame,
+        InputState::default(),
+    );
+
+    let MotionModel::SurfaceMomentum(motion) = &model else {
+        unreachable!();
+    };
+    assert!(
+        matches!(motion.state, SurfaceMotion::Airborne),
+        "a launch with an off-surface component must END the ride: {:?}",
+        motion.state
+    );
+    let clusters = scratch.as_mut();
+    assert!(
+        clusters.kinematics.vel.y < 0.0,
+        "and the body must actually be moving away from the floor: {:?}",
+        clusters.kinematics.vel
+    );
+}
+
+/// **The channel is DRAINED, not merely read.** A launch that stayed set would
+/// re-fire every tick and a body would never come down — the failure mode of a
+/// one-shot written into persistent state.
+#[test]
+fn the_launch_channel_is_emptied_by_the_step_that_consumes_it() {
+    let (world, mut scratch, mut model) = rider_on_a_long_floor();
+    let frame = MotionFrame::from_acceleration(Vec2::new(0.0, 900.0)).unwrap();
+
+    {
+        let mut clusters = scratch.as_mut();
+        clusters.flight.pending_launch = Vec2::new(-360.0, -260.0);
+    }
+    step(
+        &mut model,
+        &world,
+        &mut scratch,
+        frame,
+        InputState::default(),
+    );
+    {
+        let clusters = scratch.as_mut();
+        assert_eq!(
+            clusters.flight.pending_launch,
+            Vec2::ZERO,
+            "the step that consumed the launch must clear it"
+        );
+    }
+
+    // And the tick after it, gravity is the only thing acting: the body is
+    // slowing its climb rather than being re-launched.
+    let climbing = scratch.as_mut().kinematics.vel.y;
+    step(
+        &mut model,
+        &world,
+        &mut scratch,
+        frame,
+        InputState::default(),
+    );
+    let after = scratch.as_mut().kinematics.vel.y;
+    assert!(
+        after > climbing,
+        "a drained launch does not re-fire; gravity should be pulling the upward \
+         velocity back toward zero ({climbing} -> {after})"
+    );
+}

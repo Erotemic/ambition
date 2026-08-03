@@ -76,8 +76,14 @@ pub enum WorldItemPayload {
 /// Spawn a `WorldItem` into the active session, room-scoped so it despawns with
 /// the room (never leaks across a reload) — the same scoping a thrown
 /// [`GroundItem`](super::pickup::GroundItem) uses.
-pub fn spawn_world_item(commands: &mut Commands, item: WorldItem) {
-    commands.spawn_room_scoped((item, Name::new("World item")));
+/// ⭐ **returns the entity so the caller can SCOPE what it spawned.** Room-scoping
+/// is this function's business; whether the item is also residue of one ATTEMPT is
+/// the caller's, and it could not say so while this returned `()`. See
+/// `SpawnedThisAttempt` — *"one scope cannot answer both"*.
+pub fn spawn_world_item(commands: &mut Commands, item: WorldItem) -> Entity {
+    commands
+        .spawn_room_scoped((item, Name::new("World item")))
+        .id()
 }
 
 /// Spawn a `WorldItem` that MOVES — the same room-scoped pickup plus an authored
@@ -90,12 +96,14 @@ pub fn spawn_moving_world_item(
     commands: &mut Commands,
     item: WorldItem,
     plan: super::item_motion::ItemMotionPlan,
-) {
-    commands.spawn_room_scoped((
-        item,
-        super::item_motion::ItemMotion::new(plan),
-        Name::new("World item"),
-    ));
+) -> Entity {
+    commands
+        .spawn_room_scoped((
+            item,
+            super::item_motion::ItemMotion::new(plan),
+            Name::new("World item"),
+        ))
+        .id()
 }
 
 /// **Touch-to-collect.** The [`ControlledSubject`] (the driven body — player or

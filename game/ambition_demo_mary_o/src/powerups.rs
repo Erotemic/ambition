@@ -435,11 +435,28 @@ pub fn bonk_power_blocks(
         };
         // It starts INSIDE the block and rises out — the beat Jon asked for.
         let pos = ae::Vec2::new(min.x + crate::T * 0.5, min.y + crate::T * 0.5);
-        spawn_moving_world_item(
+        let popped = spawn_moving_world_item(
             &mut commands,
             WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite),
             reward.motion,
         );
+        // ⛔ **AND IT BELONGS TO THIS ATTEMPT.** Jon, from play: *"there is an issue
+        // with resets in the maryo game — when I reset the level old drops from
+        // enemies seem to be still there."*
+        //
+        // `spawn_moving_world_item` scopes to the ROOM, which answers *does this
+        // survive leaving* and not *does this survive REPLAYING* —
+        // `SpawnedThisAttempt`'s own doc says one scope cannot answer both. A wand
+        // this attempt knocked out of a block is residue of an attempt that is
+        // about to be un-played: the block un-spends on reset and will pop
+        // another, so the old one has to go or the room accumulates them.
+        //
+        // ⚠ marked HERE rather than inside the engine helper, because only the
+        // caller knows an item was POPPED rather than authored into the level. If
+        // a second caller ever needs the same thing, that is the signal to move it.
+        commands
+            .entity(popped)
+            .insert(ambition_platformer2d::actors::features::ecs::SpawnedThisAttempt);
     }
 }
 

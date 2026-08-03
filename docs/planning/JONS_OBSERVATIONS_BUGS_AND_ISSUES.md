@@ -28,7 +28,7 @@
 
 * ~~I noticed a bug: maryo can stand on a broken brick.~~ **CLOSED by Jon's re-check, 2026-08-03: "verified, I can no longer stand on the broken bricks."** ⚠ recorded as GONE, not as fixed — nothing in this run touched brick collision, so a return is new evidence rather than a regression.
 
-* There is an issue with resets in the maryo game (probably a problem in other games as well). When I reset the level old drops from enemies seem to be still seem to be there.
+* ~~There is an issue with resets in the maryo game (probably a problem in other games as well). When I reset the level old drops from enemies seem to be still seem to be there.~~ **FIXED 2026-08-03, and your parenthesis was right — it was the SEAM, not the game.** The engine already despawns `SpawnedThisAttempt` entities on a room replay and has a test for it; what was missing is that `spawn_world_item`/`spawn_moving_world_item` scope only to the ROOM. That answers *does this survive leaving* and not *does this survive REPLAYING* — `SpawnedThisAttempt`'s own doc says one scope cannot answer both. So a wand knocked out of a ?-block stayed lying there while the block un-spent and popped another. ⭐ the helpers now RETURN the entity so a caller can scope what it spawned at all, and Mary-O marks the popped item as attempt residue. ⚠ marked at the call site rather than in the engine, because only the caller knows an item was popped rather than authored into the level.
 
 * When maryo-dies the enemies seem to reset before the death animation is finished. The level reset needs to happen all at once at a time that is easy to express in the game code. This might be a larger refactor if there is a structural problem here, and we need to avoid creating a monolith.
 

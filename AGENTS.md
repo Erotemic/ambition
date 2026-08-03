@@ -131,6 +131,36 @@ sweep and there is no CI to satisfy; Jon sweeps it periodically himself. Reach f
 it when a row above names your change (features, SDK, web) — and ask
 `run_tests.py --list` what a plan actually contains before running it.
 
+### When a run is slow, get the DISTRIBUTION before theorising
+
+`--report-time` is nightly-only, so per-test timings on stable come from running
+serially and timestamping the output:
+
+```
+cargo test -p <pkg> --test <target> <filter> -- --test-threads=1 --nocapture \
+  | python3 -u -c "
+import sys, time
+t0=time.time(); last=t0; cur=None; rows=[]
+for line in sys.stdin:
+    if line.startswith('test ') and ' ... ' in line:
+        now=time.time()
+        if cur: rows.append((now-last, cur))
+        cur=line.split(' ... ')[0][5:]; last=now
+for d,n in sorted(rows, reverse=True)[:15]: print(f'{d:7.1f}s  {n}')
+"
+```
+
+⛔ **A suite total divided by a test count is not a per-test cost, and it reads
+exactly like one.** On 2026-08-03 a 67s / 25-test subset produced an apparent
+"2.7s per app boot"; the distribution showed boot is 370ms and **one test held
+33% of the time, four held 63%**. Two fixes were built against the average before
+anyone ran the two commands that show the shape.
+
+⭐ **And the wall clock of a parallel run cannot go below its LONGEST test.** When
+a run pins several cores and still feels slow, suspect a single long pole before
+suspecting a lock or an I/O bottleneck — the CPU-percentage signature is the same
+for both.
+
 ## Test placement
 
 A test lives at the **narrowest scope that owns its invariant** — inline for

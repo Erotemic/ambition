@@ -1817,3 +1817,96 @@ fn the_inert_sweep_actually_catches_an_unanchored_registration() {
          unanchored entity, so its green result above proves nothing: {inert:#?}"
     );
 }
+
+/// **Does the shipped-composition fixture actually RUN THE SIMULATION?** — an
+/// audit print, and the answer is no.
+///
+/// Built to ask a different question (*which ceiling resources ever change?*),
+/// which it cannot answer, and the reason it cannot is worth more than the
+/// question was.
+///
+/// `build_visible_app` starts no session — in rollback mode there deliberately is
+/// none until one is seated — so `GgrsSchedule` never advances a frame. Across 30
+/// updates **not one of the ~250 `GgrsSnapshots<T>` stores is written**, and a
+/// single advanced GGRS frame writes all of them. That is the witness this test
+/// prints.
+///
+/// ⛔ **so "never written" in this fixture means "the sim is halted", not "this
+/// resource is static"**, and the first draft of this test reported 258 of 265
+/// resources as authored data on exactly that confusion. A control that measured
+/// `ControlFrame` passed — because input sampling runs in `ReadInputs`, outside
+/// the sim window, so it advances in a world where nothing is simulating.
+///
+/// ⭐ **and this is a THIRD blind spot in the resource sweeps**, the same family
+/// as the two already recorded (post-event state; demo-provider state):
+/// `every_mutable_ambition_resource_in_the_shipped_composition_is_accounted`
+/// boots this same fixture, so **any resource the running simulation creates is
+/// invisible to it.** It enumerates the world as composed, not as played.
+///
+/// ⛔ the static route — asking each `GgrsSchedule` system what resource access it
+/// declares — is not available in Bevy 0.18: `System` no longer stores its
+/// access, `initialize` returns it, and `Schedule::systems()` hands out shared
+/// references. Recorded so the next person does not spend the same four probes.
+#[test]
+#[ignore = "audit print, not an assertion"]
+fn the_shipped_fixture_does_not_advance_the_simulation() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..8 {
+        app.update();
+    }
+
+    // The witness: bevy_ggrs's per-type snapshot stores. Every one of them is
+    // written on every advanced GGRS frame, so "none of them moved" is a much
+    // stronger statement than any single counter — and unlike a counter it
+    // cannot be satisfied by a system running outside the sim window.
+    let stores: Vec<(String, bevy::ecs::component::ComponentId)> = app
+        .world()
+        .iter_resources()
+        .filter_map(|(info, _)| {
+            let name = info.name().to_string();
+            name.contains("GgrsSnapshots").then_some((name, info.id()))
+        })
+        .collect();
+    assert!(
+        !stores.is_empty(),
+        "no GgrsSnapshots stores exist, so this fixture is not a rollback host at \
+         all and the audit below would be measuring something else entirely"
+    );
+
+    let before: Vec<u32> = stores
+        .iter()
+        .map(|(_, id)| tick_of(app.world(), *id))
+        .collect();
+    for _ in 0..30 {
+        app.update();
+    }
+    let moved = stores
+        .iter()
+        .zip(&before)
+        .filter(|((_, id), was)| tick_of(app.world(), *id) != **was)
+        .count();
+
+    println!(
+        "[fixture-sim] {} of {} GgrsSnapshots stores written across 30 updates",
+        moved,
+        stores.len()
+    );
+    println!(
+        "[fixture-sim] {}",
+        if moved == 0 {
+            "SIM HALTED — no session is seated, so GgrsSchedule never advances. \
+             Any sweep over this fixture sees the world as COMPOSED, not as PLAYED."
+        } else {
+            "the sim advances here; the note in this test's doc comment is stale \
+             and should be re-read before it is cited"
+        }
+    );
+}
+
+fn tick_of(world: &World, id: bevy::ecs::component::ComponentId) -> u32 {
+    world
+        .get_resource_change_ticks_by_id(id)
+        .map(|ticks| ticks.changed.get())
+        .unwrap_or(0)
+}

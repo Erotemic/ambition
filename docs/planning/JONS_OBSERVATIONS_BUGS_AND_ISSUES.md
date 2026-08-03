@@ -11,7 +11,8 @@
 
 * When maryo is in her death animation, she still gets hit by enemies.
 
-* Maryo's fireball is very tiny, so it needs to get bigger. It also only shoots to her right, not the way she is facing. 
+* ~~Maryo's fireball is very tiny, so it needs to get bigger. It also only shoots to her right, not the way she is facing.~~ **BOTH FIXED 2026-08-03 (`56aec921c`).** ⭐ the direction half was an ENGINE bug and every ranged moveset move had it, not just hers: `frame.fire` is an edge cleared every tick, a ranged move has startup, so by the time `dispatch_move_events` re-samples the aim at the fire frame the intent is gone and it fell back to a bare `(1.0, 0.0)` — whose comment claimed that was "the body's facing direction" when controlled-body-local +x is actually the gravity frame's SIDE axis. Under normal gravity that is world-right, always. Her demo code had been passing `kin.facing` correctly the whole time. The size half is a feel number (7.0 → 10.0 half-extent, 20 px across a 32 px tile) and is now written ONCE — the render art's `min` was a duplicate of it in another file.
+* ▢ **still open next door**: `maryo flashes when her fireball hits an enemy` (below) is a separate item and was not touched by this.
 
 * There needs to be a bit of hitstun when maryo gets hit and there needs to be a similar transform animation down to the previous state with non instant duration.
 
@@ -25,7 +26,7 @@
 
 * maryo flashes when her fireball hits an enemy. that should not happen.
 
-* I noticed a bug: maryo can stand on a broken brick. 
+* ~~I noticed a bug: maryo can stand on a broken brick.~~ **CLOSED by Jon's re-check, 2026-08-03: "verified, I can no longer stand on the broken bricks."** ⚠ recorded as GONE, not as fixed — nothing in this run touched brick collision, so a return is new evidence rather than a regression.
 
 * There is an issue with resets in the maryo game (probably a problem in other games as well). When I reset the level old drops from enemies seem to be still seem to be there.
 

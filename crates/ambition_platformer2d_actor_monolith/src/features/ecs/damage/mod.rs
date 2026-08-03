@@ -53,8 +53,7 @@ pub struct FeatureHitWriters<'w, 's> {
     /// by an instrument and by nothing else, so a composition that never
     /// registers it publishes nothing rather than panicking.
     #[cfg(feature = "causal")]
-    pub resolutions:
-        Option<MessageWriter<'w, crate::features::ecs::damage_apply::BodyHitResolved>>,
+    pub resolutions: Option<MessageWriter<'w, crate::features::ecs::damage_apply::BodyHitResolved>>,
     /// The LAUNCH the reaction produced. Same `Option` rule as above.
     #[cfg(feature = "causal")]
     pub reactions:
@@ -539,7 +538,19 @@ pub fn apply_feature_hit_events(
                     // hit-landed hitstop was hardcoded 0.06. Now the feel field is
                     // authoritative.
                     combat.hitstop_timer = combat.hitstop_timer.max(feel.attack_hitstop_time);
-                    combat.hit_flash = combat.hit_flash.max(0.10);
+                    // ⛔ **A PROJECTILE HIT DOES NOT FLASH ITS THROWER.** The
+                    // attacker flash is CONTACT feel — it reads as "that connected
+                    // on my body", which is true for a slash or a pogo bounce and
+                    // false for a shot that landed somewhere across the room.
+                    // Jon, from play: *"maryo flashes when her fireball hits an
+                    // enemy. that should not happen."*
+                    //
+                    // ⚠ the HITSTOP above is kept deliberately: the brief hold on
+                    // impact is what makes a shot feel like it hit something, and
+                    // nobody reported that. Only the body-flash is wrong.
+                    if !matches!(event.source, HitSource::PlayerProjectile) {
+                        combat.hit_flash = combat.hit_flash.max(0.10);
+                    }
                     // Record the targets this slash just struck so the next active
                     // frame's emit ignores them (one hit per target per swing).
                     if record_dedup {

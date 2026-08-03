@@ -24,7 +24,7 @@
 
 * In the hall of characters, the humanoid characters are all dramatically out of scale with each other. Alice and bob are great, but characters like the vikings, or jeff hinter render as tiny little characters and look out of place compared to the rest of the cast. The character art needs to be rescaled (probably at the generator level, not via some post-hoc fix) to balance the size of these characters so they make more sense appearing in the same game together. Note the player robot v3 is supposed to be chibi and short compared to other humanoids.
 
-* maryo flashes when her fireball hits an enemy. that should not happen.
+* ~~maryo flashes when her fireball hits an enemy. that should not happen.~~ **FIXED 2026-08-03.** The attacker hit-flash is CONTACT feel — it reads as "that connected on my body", true for a slash or a pogo bounce and false for a shot that landed across the room — and it was armed for every player-attacker source including `HitSource::PlayerProjectile`. Now excluded for projectiles. ⚠ the attacker HITSTOP is deliberately kept: the brief hold on impact is what makes a shot feel like it hit something, and that was not what you reported.
 
 * ~~I noticed a bug: maryo can stand on a broken brick.~~ **CLOSED by Jon's re-check, 2026-08-03: "verified, I can no longer stand on the broken bricks."** ⚠ recorded as GONE, not as fixed — nothing in this run touched brick collision, so a return is new evidence rather than a regression.
 

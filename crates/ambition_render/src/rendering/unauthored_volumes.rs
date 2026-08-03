@@ -75,8 +75,13 @@ pub(crate) fn draw_unauthored_attack_volumes(
     active_session: Option<Res<ActiveSessionScope>>,
     catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
     hitboxes: Query<(Entity, &Hitbox)>,
+    // ⚠ the READ-MODEL pose, not the sim's `BodyKinematics`. Presentation reads
+    // `ambition_sim_view` (E4) and `engine.render-never-names-live-sim-state`
+    // enforces it; this system named the live cluster and the policy went red on
+    // 2026-08-02. `rebuild_body_pose_views` requires only `BodyKinematics`, so
+    // the population is identical — every body this used to match has a view.
     owners: Query<(
-        &ae::BodyKinematics,
+        &ambition_sim_view::BodyPoseView,
         Option<&ambition_sim_view::presented_pose::PresentedPose>,
         Option<&ambition_characters::actor::WornCharacter>,
     )>,
@@ -108,7 +113,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
         if !matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }) {
             continue;
         }
-        let Ok((kin, presented, worn)) = owners.get(hitbox.owner) else {
+        let Ok((pose, presented, worn)) = owners.get(hitbox.owner) else {
             continue;
         };
         // Authored ⇒ its own art draws it. Unauthored, unknown, or no worn
@@ -125,7 +130,7 @@ pub(crate) fn draw_unauthored_attack_volumes(
         // The DRAWN position, not the simulated one — the same reason the slash
         // visual samples it. A stand-in placed on the sim pose shudders against
         // a body drawn from the presented one.
-        let drawn = presented.map_or(kin.pos, |p| p.presented());
+        let drawn = presented.map_or(pose.pos, |p| p.presented());
         let already = existing
             .iter()
             .find(|(_, mark)| mark.hitbox == hitbox_entity)

@@ -1835,7 +1835,19 @@ watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/dialog.rs"]
 rationale = "actor dialog does not re-export reusable dialog runtime vocabulary"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-forbid = ["pub use ambition_dialog", "DialogChoice", "DialogChoiceSlot", "dialog_input", "dialog_pointer_input", "dialog_reveal_tick", "DialogueRunnerEntity"]
+# ⚠ **the three system NAMES came out on 2026-08-03, and this is a narrowing of
+# the rule rather than an exemption for a file.** The rationale is about
+# RE-EXPORTING vocabulary; `kind = "file-omits"` is a flat substring search and
+# cannot tell `pub use ambition_dialog::dialog_input` — the thing forbidden —
+# from `add_systems(Update, ambition_dialog::dialog_input)`, which is a plugin
+# REGISTERING a system it does not own and is the whole point of the 08-02 move
+# (`ambition_app` hand-registered the dialogue presentation pair, so any other
+# composition installed dialogue and got no input handling and no typewriter
+# reveal). `pub use ambition_dialog` still catches every actual re-export,
+# including of these three, because a re-export must name the module path.
+# ⛔ the alternative — adding `dialog.rs` to an exemption list — would have
+# switched the whole policy off for the one file it watches.
+forbid = ["pub use ambition_dialog", "DialogChoice", "DialogChoiceSlot", "DialogueRunnerEntity"]
 file = "crates/ambition_platformer2d_actor_monolith/src/dialog.rs"
 
 [[policy]]

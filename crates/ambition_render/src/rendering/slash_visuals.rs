@@ -183,7 +183,12 @@ pub(crate) fn spawn_slash_effects(
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     sheet_registry: Option<Res<SheetRegistry>>,
     active_session: Option<Res<ActiveSessionScope>>,
-    owners: Query<(&ae::BodyKinematics, Option<&PresentedPose>)>,
+    // ⚠ the READ-MODEL pose, not the sim's `BodyKinematics` — presentation reads
+    // `ambition_sim_view` (E4), and naming the live cluster here is what turned
+    // `engine.render-never-names-live-sim-state` red on 2026-08-02. The
+    // population is unchanged: `rebuild_body_pose_views` requires only
+    // `BodyKinematics`, so every body this matched still matches.
+    owners: Query<(&ambition_sim_view::BodyPoseView, Option<&PresentedPose>)>,
     // Who each swinging body IS, so its own sheet can be found. A body with no
     // worn character (a bare test fixture, a prop that swings) authored nothing
     // by definition and draws its volume.
@@ -310,12 +315,12 @@ fn spawn_one(
 /// stable. That is the same trap the debug overlay's own box fell into and
 /// fixed by sampling `draw_pos`.
 fn owner_pos(
-    owners: &Query<(&ae::BodyKinematics, Option<&PresentedPose>)>,
+    owners: &Query<(&ambition_sim_view::BodyPoseView, Option<&PresentedPose>)>,
     owner: Entity,
 ) -> ae::Vec2 {
     owners
         .get(owner)
-        .map(|(kin, presented)| presented.map_or(kin.pos, |p| p.presented()))
+        .map(|(pose, presented)| presented.map_or(pose.pos, |p| p.presented()))
         .unwrap_or(ae::Vec2::ZERO)
 }
 
@@ -338,14 +343,14 @@ pub(crate) fn follow_slash_owner(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         ambition_platformer2d_core::RoomGeometry,
     >,
-    owners: Query<(&ae::BodyKinematics, Option<&PresentedPose>)>,
+    owners: Query<(&ambition_sim_view::BodyPoseView, Option<&PresentedPose>)>,
     mut slashes: Query<(&SlashVisual, &mut Transform)>,
 ) {
     for (slash, mut transform) in &mut slashes {
-        let Ok((kin, presented)) = owners.get(slash.owner) else {
+        let Ok((pose, presented)) = owners.get(slash.owner) else {
             continue;
         };
-        let pos = presented.map_or(kin.pos, |p| p.presented());
+        let pos = presented.map_or(pose.pos, |p| p.presented());
         let target = world_to_bevy(&world.0, pos + slash.local.center(), WORLD_Z_FX + 2.0);
         transform.translation.x = target.x;
         transform.translation.y = target.y;

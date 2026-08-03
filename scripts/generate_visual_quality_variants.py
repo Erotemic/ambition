@@ -909,11 +909,50 @@ def effective_source_quality_scale(variant: Variant) -> float:
     return variant.nominal_scale
 
 
+def assert_one_manifest_per_page(src: Path) -> None:
+    """Refuse to publish while two manifests name the same page PNG.
+
+    ⛔ this is silent corruption, not a tidiness rule. `process_sheet` writes
+    its freshly packed page to the filename the RON's `image` field names, so
+    two `*_spritesheet.ron` claiming one PNG means whichever sorts LAST
+    overwrites the other's page — while the loser's rects stay in its own RON,
+    describing a packing that no longer exists. Nothing fails: both RONs parse,
+    every file is present, and the asset contract is satisfied. It surfaces on
+    a device as one character cropping garbage out of a correct-looking sheet.
+
+    Found 2026-08-02 (queue-72h S52): a `pirate_heavy_spritesheet.ron` left
+    behind in May, after that target was split into per-variant sheets, still
+    named Broadside Bess's page. It won the write and she rendered mis-cropped.
+
+    ⚠ counts distinct FILES, not records: one multi-record manifest sharing a
+    page across its own records (the lab props) is the legitimate case.
+    """
+    claims: dict[Path, set[Path]] = {}
+    for ron in sorted(src.rglob("*_spritesheet.ron")):
+        for fname in page_filenames_safe(ron):
+            claims.setdefault((ron.parent / fname).resolve(), set()).add(ron)
+    contested = {png: rons for png, rons in claims.items() if len(rons) > 1}
+    if not contested:
+        return
+    lines = ["a page PNG is claimed by more than one spritesheet manifest:"]
+    for png, rons in sorted(contested.items()):
+        lines.append(f"  {png.relative_to(src)}")
+        for ron in sorted(rons):
+            lines.append(f"      claimed by {ron.relative_to(src)}")
+    lines.append(
+        "Each manifest must name its own page. A manifest left behind by a "
+        "renamed or split target is the usual cause — delete it rather than "
+        "renaming its page, since nothing regenerates it."
+    )
+    raise SystemExit("\n".join(lines))
+
+
 def generate_sprite_variants(asset_root: Path) -> None:
     src = asset_root / "sprites"
     if not src.exists():
         print(f"skip missing sprite root: {src}")
         return
+    assert_one_manifest_per_page(src)
     source_targets = source_publishable_targets()
     for variant in VARIANTS:
         dst = asset_root / f"sprites_{variant.suffix}"

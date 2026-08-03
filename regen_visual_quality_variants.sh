@@ -59,12 +59,18 @@ ambition_require_python_module \
 "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
     --asset-root "$asset_root" "${args[@]}"
 
+# ⛔ these named `player_robot_spritesheet.ron` until 2026-08-02, and the player
+# sheet became `player_robot_v3` well before that. So the postcondition could
+# only ever FAIL: every sprite run did its work, printed its three summary
+# lines, and then exited 1 on a sheet that stopped existing. A guard that
+# cannot pass is not weaker than no guard, it is worse — it trains the reader
+# to ignore the exit code of the thing that publishes their assets.
 if [ "$backgrounds_only" -eq 0 ]; then
-    test -s "$asset_root/sprites_0_5x/player_robot_spritesheet.ron" || {
+    test -s "$asset_root/sprites_0_5x/player_robot_v3_spritesheet.ron" || {
         echo "sprite quality generation did not produce the half-resolution player sheet" >&2
         exit 1
     }
-    test -s "$asset_root/sprites_potato/player_robot_spritesheet.ron" || {
+    test -s "$asset_root/sprites_potato/player_robot_v3_spritesheet.ron" || {
         echo "sprite quality generation did not produce the potato player sheet" >&2
         exit 1
     }

@@ -979,8 +979,8 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
     characters: {
         "mary_o": (
             display_name: "Mary-O",
-            spritesheet: "sprites/super_mary_o_spritesheet.png",
-            manifest: "sprites/super_mary_o_spritesheet.ron",
+            spritesheet: "sprites/mary_o_v2_spritesheet.png",
+            manifest: "sprites/mary_o_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -1016,7 +1016,7 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             hall_dialogue_id: Some("hall_mary_o"),
         ),
         // TALL Mary-O: the grown form. A wand-powerup swaps the worn identity to
-        // this row (a distinct SHEET — `super_mary_o_tall` — not a scaled copy of
+        // this row (a distinct SHEET — `mary_o_v2_tall` — not a scaled copy of
         // the small sheet, per Jon), and the powerup runtime bumps her body size so
         // the taller art draws bigger. Kit is byte-identical to `mary_o` — same
         // grant list, same Mary-O Classic `axis_tuning` (re-wearing re-reads
@@ -1025,8 +1025,8 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
         // size, never her moveset.
         "mary_o_tall": (
             display_name: "Mary-O (Tall)",
-            spritesheet: "sprites/super_mary_o_tall_spritesheet.png",
-            manifest: "sprites/super_mary_o_tall_spritesheet.ron",
+            spritesheet: "sprites/mary_o_v2_tall_spritesheet.png",
+            manifest: "sprites/mary_o_v2_tall_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -1049,7 +1049,7 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
         ),
         // FIRE Mary-O: the cinder beacon (fire-flower) form. A second power-up
         // ABOVE the wand swaps the worn identity to this row — a DISTINCT fire sheet
-        // (`super_mary_o_fire`, the white-and-red fire palette with its own
+        // (`mary_o_v2_fire`, the white-and-red fire palette with its own
         // fireball pose), the SAME height as the grown form so `sync_grown_form`
         // changes only her LOOK + spark loadout, never her size, on the
         // grown↔fire transition. Kit mirrors `mary_o_tall` byte-for-byte: the
@@ -1059,8 +1059,8 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
         // visible fire form at all (Jon bug #10).
         "mary_o_fire": (
             display_name: "Mary-O (Fire)",
-            spritesheet: "sprites/super_mary_o_fire_spritesheet.png",
-            manifest: "sprites/super_mary_o_fire_spritesheet.ron",
+            spritesheet: "sprites/mary_o_v2_fire_spritesheet.png",
+            manifest: "sprites/mary_o_v2_fire_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -1163,8 +1163,8 @@ pub fn install_mary_o_content(app: &mut App) {
         use ambition_platformer2d::actors::character_runtime::{
             CharacterDefinition, CharacterDefinitionAppExt,
         };
-        // The sheet TARGET, not the sheet file: `super_mary_o_spritesheet.ron`
-        // declares `target: "super_mary_o"`, and the registry is keyed by the target.
+        // The sheet TARGET, not the sheet file: `mary_o_v2_spritesheet.ron`
+        // declares `target: "mary_o_v2"`, and the registry is keyed by the target.
         // A VOICE apiece — see the same note in the Sanic provider. Without one a
         // registered-only character has no bark pool anywhere, and the Hall's
         // ambient ticker skips whoever has nothing to say.

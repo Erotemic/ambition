@@ -28,8 +28,8 @@ const POCKET_CATALOG_RON: &str = r#"(
     characters: {
         "pocket_runner": (
             display_name: "Pocket Runner",
-            spritesheet: "sprites/super_mary_o_spritesheet.png",
-            manifest: "sprites/super_mary_o_spritesheet.ron",
+            spritesheet: "sprites/mary_o_v2_spritesheet.png",
+            manifest: "sprites/mary_o_v2_spritesheet.ron",
             tier: MainHall,
             body_kind: Standard,
             composition: None,
@@ -119,15 +119,15 @@ pub fn install_pocket_content(app: &mut App) {
     // registry, which Pocket was absent from (found by capturing the route,
     // 2026-07-29).
     //
-    // ⚠ the sheet TARGET, not the sheet FILE. `super_mary_o_spritesheet.ron`
-    // declares `target: "super_mary_o"` and the registry is keyed by that. The
+    // ⚠ the sheet TARGET, not the sheet FILE. `mary_o_v2_spritesheet.ron`
+    // declares `target: "mary_o_v2"` and the registry is keyed by that. The
     // catalog row above pointed at `sprites/mary_o_spritesheet.*`, which does not
     // exist in this repository at all, so even the legacy path had nothing to load.
     {
         use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
         app.register_character(
             CharacterDefinition::new(POCKET_CHARACTER_ID, "Pocket Runner", POCKET_EXPERIENCE)
-                .with_sheet("super_mary_o")
+                .with_sheet("mary_o_v2")
                 // A VOICE, so this one is not mute on a pedestal. A
                 // registered-only character has no catalog row to hold bark
                 // pools, and the ambient ticker skips whoever has nothing to say.

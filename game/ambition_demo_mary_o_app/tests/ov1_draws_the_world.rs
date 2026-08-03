@@ -266,7 +266,7 @@ fn the_windowed_demo_asset_root_is_the_engine_sprite_tree() {
     if root != "assets" {
         let sheet = std::path::Path::new(&root)
             .join("sprites")
-            .join("super_mary_o_spritesheet.png");
+            .join("mary_o_v2_spritesheet.png");
         assert!(
             sheet.is_file(),
             "the windowed demo's asset root {root} must contain the character \

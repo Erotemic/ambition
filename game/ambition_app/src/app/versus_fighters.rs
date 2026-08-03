@@ -236,7 +236,7 @@ pub fn duelists() -> [CharacterDefinition; 2] {
         // A rushdown fighter. Shorter reach, a faster smash — has to get inside
         // to do anything, and is rewarded for being there.
         CharacterDefinition::new("arena_duelist_close", "Close Guard", VERSUS_PROVIDER)
-            .with_sheet("super_mary_o")
+            .with_sheet("mary_o_v2")
             // Slightly frailer than the long guard, to pay for getting to swing
             // faster. Same round length, different price.
             .with_health(52, 0.9)
@@ -320,8 +320,8 @@ pub const VERSUS_CATALOG_RON: &str = r#"(
         ),
         "arena_duelist_close": (
             display_name: "Close Guard",
-            spritesheet: "sprites/super_mary_o_spritesheet.png",
-            manifest: "sprites/super_mary_o_spritesheet.ron",
+            spritesheet: "sprites/mary_o_v2_spritesheet.png",
+            manifest: "sprites/mary_o_v2_spritesheet.ron",
             tier: Basement,
             body_kind: Standard,
             composition: None,

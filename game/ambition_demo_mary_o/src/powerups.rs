@@ -30,12 +30,12 @@ use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 use crate::provider::MARY_O_CHARACTER_ID;
 
 /// The worn-character id of the GROWN form: a distinct SHEET
-/// (`super_mary_o_tall`), not a scaled copy of the small sheet. Wearing it is how
+/// (`mary_o_v2_tall`), not a scaled copy of the small sheet. Wearing it is how
 /// the powerup grows Mary-O; reverting to [`MARY_O_CHARACTER_ID`] shrinks her.
 const TALL_CHARACTER_ID: &str = "mary_o_tall";
 
 /// The worn-character id of the FIRE form (the fire-flower analog). A distinct
-/// SHEET (`super_mary_o_fire`) with its own fireball pose, tinted the classic
+/// SHEET (`mary_o_v2_fire`) with its own fireball pose, tinted the classic
 /// white-and-red fire palette — the SAME height as the grown form, so the spark
 /// beacon changes her LOOK + spark loadout without a size flicker. Wearing the
 /// [`CINDER_BEACON_ID`] row selects this; losing the spark reverts to
@@ -349,9 +349,9 @@ pub(crate) fn small_form_pixel_height() -> Option<f32> {
 /// The sheet manifest targets her three forms resolve through. Named here
 /// because both her definitions (which author the bodies) and the level
 /// authoring (which asks how tall she gets) need the same strings.
-pub(crate) const SMALL_SHEET_TARGET: &str = "super_mary_o";
-pub(crate) const TALL_SHEET_TARGET: &str = "super_mary_o_tall";
-pub(crate) const FIRE_SHEET_TARGET: &str = "super_mary_o_fire";
+pub(crate) const SMALL_SHEET_TARGET: &str = "mary_o_v2";
+pub(crate) const TALL_SHEET_TARGET: &str = "mary_o_v2_tall";
+pub(crate) const FIRE_SHEET_TARGET: &str = "mary_o_v2_fire";
 
 /// **The standing box one of her sheets authors**, in world units.
 ///
@@ -714,9 +714,9 @@ fn clip_seconds(character_id: &str, anim: CharacterAnim) -> f32 {
 /// authoring decision from the sim rather than inventing a second one.
 fn sheet_target(character_id: &str) -> &'static str {
     match character_id {
-        SPARK_CHARACTER_ID => "super_mary_o_fire",
-        TALL_CHARACTER_ID => "super_mary_o_tall",
-        _ => "super_mary_o",
+        SPARK_CHARACTER_ID => FIRE_SHEET_TARGET,
+        TALL_CHARACTER_ID => TALL_SHEET_TARGET,
+        _ => SMALL_SHEET_TARGET,
     }
 }
 
@@ -1014,6 +1014,31 @@ mod tests {
             "the scale is the authored height over the MEASURED pixel height, so \
              a regeneration that re-crops her keeps her exactly as tall as the \
              level expects"
+        );
+    }
+
+    /// **Every form is exactly as WIDE as every other.**
+    ///
+    /// Growing and catching fire change her height and her look, never how wide
+    /// a gap she fits. That used to drift, because the box was the art's alpha
+    /// bbox: the fire form's flame frills measured 22% wider than the grown
+    /// form's, so taking the beacon quietly fattened her collider. The sheets
+    /// now author one body width for all three, and this is the check that they
+    /// still agree after a regeneration.
+    #[test]
+    fn her_forms_are_all_the_same_width() {
+        let small = form_body_size(SMALL_SHEET_TARGET);
+        let tall = form_body_size(TALL_SHEET_TARGET);
+        let fire = form_body_size(FIRE_SHEET_TARGET);
+
+        assert!(
+            (tall.x - small.x).abs() < 1e-3,
+            "growing must not change her width (small {small:?}, tall {tall:?})"
+        );
+        assert!(
+            (fire.x - small.x).abs() < 1e-3,
+            "the beacon must not widen her by the width of its flames \
+             (small {small:?}, fire {fire:?})"
         );
     }
 

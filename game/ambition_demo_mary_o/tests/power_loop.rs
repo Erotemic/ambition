@@ -301,7 +301,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
         grow.clock_scale < 1.0,
         "a step UP asks the regime to slow the world for the moment"
     );
-    let grow_clip = clip_secs("super_mary_o_tall", CharacterAnim::Grow);
+    let grow_clip = clip_secs("mary_o_v2_tall", CharacterAnim::Grow);
     assert!(
         grow.duration * grow.clock_scale >= grow_clip - 1e-4,
         "the beat must outlast its own dilation: {:.3}s of wall time at {:.2}x \
@@ -318,7 +318,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
     assert_eq!(game.worn_character(), FIRE_ID);
     let (transform, _) = game.requested_beat();
     assert_eq!(transform.anim, CharacterAnim::Transform);
-    let transform_clip = clip_secs("super_mary_o_fire", CharacterAnim::Transform);
+    let transform_clip = clip_secs("mary_o_v2_fire", CharacterAnim::Transform);
     assert!(
         transform.duration * transform.clock_scale >= transform_clip - 1e-4,
         "the eight-frame fire transformation is the clip a flat 0.5s cut off"
@@ -350,7 +350,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
         "the beat is the hitstun window she had none of"
     );
     assert!(
-        shrink.duration >= clip_secs("super_mary_o_tall", CharacterAnim::Shrink) - 1e-4,
+        shrink.duration >= clip_secs("mary_o_v2_tall", CharacterAnim::Shrink) - 1e-4,
         "and it lasts as long as the clip"
     );
 
@@ -359,7 +359,7 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
     assert_eq!(game.worn_character(), MARY_O_CHARACTER_ID);
     let (small, _) = game.requested_beat();
     assert_eq!(small.anim, CharacterAnim::Shrink);
-    assert!(small.duration >= clip_secs("super_mary_o", CharacterAnim::Shrink) - 1e-4);
+    assert!(small.duration >= clip_secs("mary_o_v2", CharacterAnim::Shrink) - 1e-4);
 }
 
 /// **The transition clips are on the sheets, and they are their OWN rows.**
@@ -376,30 +376,30 @@ fn each_mary_o_sheet_publishes_the_transitions_that_arrive_at_it() {
             .unwrap_or_else(|| panic!("{target} publishes a sheet manifest"))
     };
 
-    let small = sheet("super_mary_o");
+    let small = sheet("mary_o_v2");
     assert!(small.maps(CharacterAnim::Shrink), "tall becomes small here");
     assert!(
         small.maps(CharacterAnim::BigShrink),
         "and fire can lose two tiers into it"
     );
 
-    let tall = sheet("super_mary_o_tall");
+    let tall = sheet("mary_o_v2_tall");
     assert!(tall.maps(CharacterAnim::Grow), "small becomes tall here");
     assert!(
         tall.maps(CharacterAnim::Shrink),
         "and fire falls back to it"
     );
 
-    let fire = sheet("super_mary_o_fire");
+    let fire = sheet("mary_o_v2_fire");
     assert!(
         fire.maps(CharacterAnim::Transform),
         "tall becomes fire here"
     );
 
     for (name, spec) in [
-        ("super_mary_o", &small),
-        ("super_mary_o_tall", &tall),
-        ("super_mary_o_fire", &fire),
+        ("mary_o_v2", &small),
+        ("mary_o_v2_tall", &tall),
+        ("mary_o_v2_fire", &fire),
     ] {
         assert!(
             !spec.maps(CharacterAnim::Hit),

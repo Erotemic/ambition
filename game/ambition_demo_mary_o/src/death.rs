@@ -110,7 +110,9 @@ impl MaryODeathSequence {
 pub fn begin_death_sequence(
     mut deaths: MessageReader<ambition_platformer2d::actors::ActorDiedMessage>,
     mut sequences: Query<&mut MaryODeathSequence>,
-    subject: Option<bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
+    subject: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
+    >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
     // Drain unconditionally so a death that landed during a load cannot be
@@ -132,7 +134,10 @@ pub fn begin_death_sequence(
     // reads the CONTROLLED subject — the death beat only ever runs for the body the
     // player is driving, which is the same body the message came from.
     match subject.and_then(|s| s.0) {
-        Some(body) => sfx.write_for(body, ambition_platformer2d::sfx::SfxMessage::Reset { pos: death.pos }),
+        Some(body) => sfx.write_for(
+            body,
+            ambition_platformer2d::sfx::SfxMessage::Reset { pos: death.pos },
+        ),
         // I3: the COURSE, not the session. A shell host's session provider is the
         // launcher, which does not author this cue.
         None => sfx.write_from(
@@ -194,6 +199,7 @@ pub fn run_death_sequence(
     mut bodies: Query<(
         &mut ae::BodyKinematics,
         &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
+        Option<&mut ambition_platformer2d::characters::actor::BodyHealth>,
     )>,
 ) {
     let Ok(mut sequence) = sequences.single_mut() else {
@@ -206,7 +212,7 @@ pub fn run_death_sequence(
     let Some(entity) = subject.and_then(|s| s.0) else {
         return;
     };
-    let Ok((mut kin, mut anim)) = bodies.get_mut(entity) else {
+    let Ok((mut kin, mut anim, health)) = bodies.get_mut(entity) else {
         return;
     };
     if let Some(at) = sequence.at {
@@ -221,14 +227,40 @@ pub fn run_death_sequence(
     // The early return above means the beat was live on entry, so the `else` is
     // exactly the frame the dwell ran out — she gets the body back for the
     // replay rather than staying blanked into the next attempt.
+    // ⛔ **AND SHE IS UNTOUCHABLE WHILE IT PLAYS.** Jon, from play: *"when maryo is
+    // in her death animation, she still gets hit by enemies."* The beat already
+    // owned her CONTROLS and her POSE and left her hurtbox live, so a snake
+    // walking into a body that has already lost still landed a hit.
+    //
+    // ⭐ `Invulnerability::SCRIPTED` is the engine's word for exactly this: *"a
+    // game or scripted sequence asserting it directly"*. It is a REASON BIT in a
+    // set rather than a bool, so this cannot clobber a beacon's or a transform
+    // beat's claim on the same frame — which is why the engine made it a set.
+    //
+    // Held on the same lines that hold `ScriptedControl`, so the immunity and the
+    // control blanking share ONE lifetime and cannot drift apart. The release is
+    // as load-bearing as the claim: an immunity a scripted beat forgets to drop
+    // would walk her through the replay invincible.
     if sequence.remaining > 0.0 {
         commands
             .entity(entity)
             .try_insert(ambition_platformer2d::characters::brain::ScriptedControl);
+        if let Some(mut health) = health {
+            health.health.invulnerable.set(
+                ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED,
+                true,
+            );
+        }
     } else {
         commands
             .entity(entity)
             .remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
+        if let Some(mut health) = health {
+            health.health.invulnerable.set(
+                ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED,
+                false,
+            );
+        }
     }
     // Re-armed every tick rather than set once: the engine's respawn calls
     // `BodyAnimFacts::reset()`, so a single arming would be wiped on the very

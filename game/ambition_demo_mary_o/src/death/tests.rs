@@ -132,6 +132,43 @@ fn she_dies_in_place_holds_the_pose_and_then_the_level_restarts() {
 /// A second death landing DURING the beat does not restart it. Otherwise a body
 /// still overlapping whatever killed it would extend its own death forever.
 #[test]
+fn the_death_beat_makes_her_untouchable_and_gives_her_back() {
+    // Jon, from play: "when maryo is in her death animation, she still gets hit by
+    // enemies." The beat owned her controls and her pose and left her hurtbox
+    // live, so a snake walking into a body that has already lost still landed.
+    let mut app = app();
+    let died_at = ae::Vec2::new(64.0, 32.0);
+    let body = spawn_owner_and_body(&mut app, died_at);
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_platformer2d::characters::actor::BodyHealth::new(
+            ambition_platformer2d::characters::actor::Health::new(1),
+        ));
+    kill(&mut app, died_at);
+    app.update();
+
+    let immune = |app: &mut App| {
+        app.world()
+            .get::<ambition_platformer2d::characters::actor::BodyHealth>(body)
+            .expect("body has health")
+            .health
+            .invulnerable
+            .holds(ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED)
+    };
+    assert!(immune(&mut app), "the beat holds her untouchable while it plays");
+
+    // ...and RELEASES it. An immunity a scripted beat forgets to drop is worse
+    // than the bug it fixed: she would walk the replay invincible.
+    for _ in 0..600 {
+        app.update();
+    }
+    assert!(
+        !immune(&mut app),
+        "the beat gives the body back when the dwell runs out"
+    );
+}
+
+#[test]
 fn a_second_death_during_the_beat_does_not_extend_it() {
     let mut app = app();
     let died_at = ae::Vec2::new(100.0, 100.0);

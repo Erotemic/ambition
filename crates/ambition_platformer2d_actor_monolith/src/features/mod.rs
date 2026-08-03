@@ -520,6 +520,13 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 crate::features::ecs::perception::ensure_perception,
                 crate::features::ecs::perception::collect_perception_peers,
                 crate::features::ecs::perception::collect_perception_projectiles,
+                // WHO IS AWAKE, decided before anybody decides anything. It is
+                // recomputed from live positions every tick and inserts/removes
+                // one marker, so the brain tick below can simply not match a
+                // sleeping actor. Chained (not merely ordered) because the
+                // marker is applied by `Commands` and must be flushed before the
+                // query that filters on it runs.
+                crate::features::ecs::dormancy::assess_dormancy,
                 tick_actor_brains,
                 // **IMMEDIATELY after the writer, and that placement is the
                 // whole correctness of the instrument.**

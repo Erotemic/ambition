@@ -51,6 +51,7 @@ mod brain_builders;
 pub(crate) use brain_builders::enemy_default_brain;
 mod brain_effects;
 pub mod chests;
+pub mod dormancy;
 mod damage;
 pub mod damage_apply;
 mod damage_drops;

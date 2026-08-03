@@ -59,6 +59,22 @@ The consequence is not in the docstring. Distinct feature sets mean distinct
 fingerprints, so a dependency shared by two jobs with different resolutions is
 compiled twice.
 
+**Why it is not already one compile, precisely.** Cargo resolves features per
+invocation, over only the packages that invocation selects. `cargo test -p
+ambition_render --features input,portal_render` computes one union across that
+subgraph; `cargo test -p ambition_input --features input` computes a different
+one. Any shared dependency whose resolved features differ is a different
+fingerprint, so it is a different artifact — and everything downstream of it
+rebuilds too. Twenty-eight per-crate jobs therefore admit up to twenty-eight
+variants of the mid-layer crates, which is exactly what §3 measures.
+
+**The one-compile job already exists, and it is affordable.** `workspace (default
+features)` IS `cargo test --workspace` — one graph, everything in it — and it
+costs **607s of the 3776s**. The remaining ~53 minutes buys one thing: compiling
+and running the tests behind `#[cfg(feature = "...")]`, which the default graph
+never turns on. That is the entire trade, and front 1 is how to keep the second
+half without paying for it twenty-eight times.
+
 And the count grows on its own. `queue-72h-2026-07-31.md` records the suite
 green at **24/24 jobs** on 2026-07-31; `--list` prints **33** on 2026-08-02.
 Nine jobs in two days, because the job plan is computed from the manifests and a
@@ -246,8 +262,7 @@ front door, and the focused test still does not get run.
    should run what matters — the jobs that catch real regressions — and the long
    tail should be behind a flag, the way `--heavy` already works for `#[ignore]`.
    The bar for a job being in the default set is that it has CAUGHT something, or
-   that it guards a documented recurring failure. Everything else is opt-in or
-   is CI's problem, not an agent's.
+   that it guards a documented recurring failure. Everything else is opt-in.
 2. **Make the focused route obvious and blessed**, so choosing it is not felt as
    cutting a corner. Today the narrow options (`-p`, `-k`, `--fast`) are real but
    undocumented as a *policy*, and AGENTS.md's warning that `cargo check -p
@@ -258,8 +273,28 @@ front door, and the focused test still does not get run.
 ⚠ **The counter-argument, stated because it is the thing that will be raised:**
 the job plan is computed from the manifests precisely so coverage cannot drift,
 and a curated default set is exactly the drift that design prevented. The answer
-is that the curated set does not replace the full plan — CI keeps running all of
-it, and `--all` keeps it one flag away. What changes is which one an agent pays
+is that the curated set does not replace the full plan; it changes who pays for
+it and when.
+
+**⭐ Who runs the full plan — Jon, 2026-08-02, and this is a design input, not a
+detail:**
+
+> there isn't any CI, but I do periodically run the entire suite. It's usually
+> enough to let things drift for a day or so, and then it's not so bad to go back
+> and fix all the bugs.
+
+So the full sweep already has an owner and a cadence, and they are not the
+agent's inner loop. **A day of drift is an accepted cost**, stated by the person
+who pays it. That settles the counter-argument above rather than balancing it:
+coverage is not lost by curating the default, because the exhaustive run still
+happens on Jon's schedule — and an agent running it every edit is not adding
+safety, it is duplicating a sweep that is already scheduled, an hour at a time.
+
+⚠ Do not design the default set as though a missed regression is unrecoverable.
+It is recoverable, in a batch, by the person who said so. Design it for the
+question an agent actually has in the next thirty seconds.
+
+What changes is which one an agent pays
 for by default, and the honest framing is that the current default optimises for
 never missing anything at the cost of the thing being missed most: the test that
 should have been run in the first thirty seconds.
@@ -275,7 +310,8 @@ This is the front that actually returns agent time, because it is the one that
 stops the full suite from being run out of caution.
 
 **Done when:** an agent can pick its verification from the table without
-guessing, and the suite is what CI runs rather than what every edit runs.
+guessing, and the full suite is what Jon's periodic sweep runs rather than what
+every edit runs.
 
 ### Front 4 — the scheduled crate carves are also a compile-time program
 

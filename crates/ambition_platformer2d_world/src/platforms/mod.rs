@@ -401,7 +401,7 @@ fn advance_path_position(
     }
     let mut remaining = path.speed * dt;
     while remaining > 0.0 {
-        let target_index = if *dir >= 0 { *segment + 1 } else { *segment };
+        let target_index = path_target_index(path, *segment, *dir);
         let Some(target) = path.points.get(target_index).copied() else {
             break;
         };
@@ -438,12 +438,53 @@ fn advance_path_position(
     pos
 }
 
+/// The waypoint a cursor is heading for.
+///
+/// ⭐ **`Loop` closes the circuit, which is the whole difference between it and
+/// `PingPong`.** A path of `n` points has `n - 1` open segments; a CLOSED one has
+/// `n`, the last of which runs `p[n-1] → p[0]`. Without that wrap-around index
+/// the cursor returned to segment 0 while the POSITION was still at the final
+/// point, so the mover travelled BACKWARDS over the last leg and never revisited
+/// the first — a `Loop` that never looped. (Queue D12.)
+///
+/// ⚠ reverse (`dir < 0`) is left un-wrapped deliberately: nothing sets a
+/// backwards direction under `Loop` — only `PingPong` flips `dir` — so a modulo
+/// there would be untested code serving no caller.
+fn path_target_index(
+    path: &ambition_platformer2d_core::KinematicPath,
+    segment: usize,
+    dir: i32,
+) -> usize {
+    if dir >= 0 {
+        let next = segment + 1;
+        if matches!(
+            path.mode,
+            ambition_platformer2d_core::KinematicPathMode::Loop
+        ) {
+            return next % path.points.len().max(1);
+        }
+        next
+    } else {
+        segment
+    }
+}
+
+/// The highest segment index this mode may occupy.
+///
+/// `Loop` has one more than the others: the closing leg back to the first point.
+fn path_last_segment(path: &ambition_platformer2d_core::KinematicPath) -> usize {
+    match path.mode {
+        ambition_platformer2d_core::KinematicPathMode::Loop => path.points.len().saturating_sub(1),
+        _ => path.points.len().saturating_sub(2),
+    }
+}
+
 fn advance_path_segment(
     path: &ambition_platformer2d_core::KinematicPath,
     segment: &mut usize,
     dir: &mut i32,
 ) {
-    let last_segment = path.points.len().saturating_sub(2);
+    let last_segment = path_last_segment(path);
     match path.mode {
         ambition_platformer2d_core::KinematicPathMode::Once => {
             if *dir >= 0 && *segment < last_segment {

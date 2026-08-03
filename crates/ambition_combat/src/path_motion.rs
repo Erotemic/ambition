@@ -49,8 +49,23 @@ impl PathMotion {
         }
         let mut remaining = self.path.speed * dt;
         while remaining > 0.0 {
+            // ⭐ `Loop` CLOSES its circuit — the `% len` is the leg back to the
+            // first point. Without it the cursor returned to segment 0 while the
+            // POSITION was still at the last point, so the mover retraced the
+            // final leg backwards and never revisited the first. Kept identical
+            // to `ambition_platformer2d_world::platforms`, which had the same
+            // defect and the same fix; these two steppers are the same algorithm
+            // twice and must not drift. (Queue D12.)
             let target_index = if self.dir >= 0 {
-                self.segment + 1
+                let next = self.segment + 1;
+                if matches!(
+                    self.path.mode,
+                    ambition_platformer2d_core::KinematicPathMode::Loop
+                ) {
+                    next % self.path.points.len().max(1)
+                } else {
+                    next
+                }
             } else {
                 self.segment
             };
@@ -93,7 +108,13 @@ impl PathMotion {
     }
 
     pub fn advance_segment(&mut self) {
-        let last_segment = self.path.points.len().saturating_sub(2);
+        // `Loop` has one more segment than the open modes: the closing leg.
+        let last_segment = match self.path.mode {
+            ambition_platformer2d_core::KinematicPathMode::Loop => {
+                self.path.points.len().saturating_sub(1)
+            }
+            _ => self.path.points.len().saturating_sub(2),
+        };
         lookahead_advance(
             &mut self.segment,
             &mut self.dir,
@@ -251,14 +272,16 @@ mod path_motion_tests {
         assert_eq!(dir, 1, "reverse at 0 flips to forward");
     }
 
-    /// ⛔ **The same two-point `Loop` spin the platform stepper had.**
+    /// ⛔ **The same two-point `Loop` spin the platform stepper had, and the same
+    /// closed circuit that fixes it.**
     ///
-    /// These two `advance` loops are line-for-line the same shape, so the defect
-    /// and the guard are the same. Found in the platform copy, where it hung a
-    /// test binary outright; this asserts that a spike ball or patrol dummy on a
-    /// two-waypoint looping path returns from its frame.
+    /// These two `advance` loops are line-for-line the same algorithm, so the
+    /// defect, the termination guard and the `% len` closing leg are all the same.
+    /// Found in the platform copy, where it hung a test binary outright; this
+    /// asserts that a spike ball or patrol dummy on a two-waypoint looping path
+    /// both RETURNS from its frame and goes round rather than stopping.
     #[test]
-    fn a_two_point_looping_path_terminates_instead_of_spinning() {
+    fn a_two_point_looping_path_circulates_instead_of_spinning() {
         let a = ae::Vec2::new(0.0, 0.0);
         let b = ae::Vec2::new(300.0, 0.0);
         let mut motion = PathMotion::new(ambition_platformer2d_core::KinematicPath {
@@ -269,15 +292,26 @@ mod path_motion_tests {
         });
 
         let dt = 1.0 / 60.0;
+        let step = 600.0 * dt;
         let mut pos = a;
-        // Twice what the 300px leg needs. Without the guard this never returns.
+        let mut reached_b = false;
+        let mut back_near_a = false;
+        // Four traverses of the 300px leg. Without the guard this never returns.
         for _ in 0..120 {
             pos = motion.advance(pos, dt);
+            if (pos - b).length() <= step {
+                reached_b = true;
+            }
+            if reached_b && (pos - a).length() <= step {
+                back_near_a = true;
+            }
         }
 
+        assert!(reached_b, "it should reach the far point: {pos:?}");
         assert!(
-            (pos - b).length() < 1.0,
-            "it reaches the far point and stops there: {pos:?}"
+            back_near_a,
+            "and come back round — a `Loop` that stops at the far end is the bug \
+             this test exists for: {pos:?}"
         );
     }
 }

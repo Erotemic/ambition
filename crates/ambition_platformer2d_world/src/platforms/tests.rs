@@ -368,26 +368,26 @@ fn projected_half_for_test(half: ae::Vec2, axis: ae::Vec2) -> f32 {
     half.x * axis.x.abs() + half.y * axis.y.abs()
 }
 
-// ── The wrapping elevator (queue D12) ──────────────────────────────────────
+// ── Looping paths (queue D12) ──────────────────────────────────────────────
 
 /// ⛔ **A TWO-POINT `Loop` PATH USED TO HANG THE SIMULATION, and this is how it
 /// was found: the test binary never returned.**
 ///
-/// `advance_path_segment` computes `last_segment` as `points.len() - 2`, which is
-/// **0** for a two-point path. So arriving at the second point "wraps" the cursor
-/// to segment 0 — whose target is the point the platform is already standing on.
-/// Distance zero, cursor unchanged, `continue`, forever. `advance_path_position`
-/// now breaks when an advance leaves the cursor where it was.
+/// `advance_path_segment` computed `last_segment` as `points.len() - 2`, which is
+/// **0** for two points. Arriving at the second point "wrapped" the cursor to
+/// segment 0 — whose target was the point the platform was already standing on.
+/// Distance zero, cursor unchanged, `continue`, forever, consuming no `dt`.
 ///
 /// ⭐ **this is the engine half of Jon's world 1-2** — *"vertical elevator
 /// platforms that wrap when they leave the view"* — and a two-waypoint vertical
-/// `Loop` is exactly how anyone would author it. No shipped content uses `Loop`,
-/// which is why a hang has been sitting here unnoticed.
+/// `Loop` is exactly how anyone would author it. No shipped content used `Loop`,
+/// which is the only reason a hang sat here unnoticed.
 ///
-/// ⚠ this test asserts TERMINATION and pins today's behaviour. It does not
-/// assert that `Loop` is correct, because it is not: see below.
+/// Two guards now stand behind this: `advance_path_position` breaks when an
+/// advance leaves the cursor unmoved (termination, whatever the mode does), and
+/// `Loop` closes its circuit so the cursor genuinely moves.
 #[test]
-fn a_two_point_looping_path_terminates_instead_of_spinning() {
+fn a_two_point_looping_path_circulates_instead_of_spinning() {
     let bottom = ae::Vec2::new(0.0, 400.0);
     let top = ae::Vec2::new(0.0, 100.0);
     let mut platform = MovingPlatformState::from_path(
@@ -403,35 +403,43 @@ fn a_two_point_looping_path_terminates_instead_of_spinning() {
     );
 
     let dt = 1.0 / 60.0;
-    // 120 frames is twice what the 300px column needs at 600px/s. Before the
-    // termination guard this loop did not finish at all.
+    let step = 600.0 * dt;
+    let mut near_top = false;
+    let mut back_near_bottom = false;
+    // 120 frames is four traverses of the 300px column.
     for _ in 0..120 {
         platform.update(dt);
+        if (platform.pos - top).length() <= step {
+            near_top = true;
+        }
+        if near_top && (platform.pos - bottom).length() <= step {
+            back_near_bottom = true;
+        }
     }
 
+    assert!(near_top, "it should climb the column: {:?}", platform.pos);
     assert!(
-        (platform.pos - top).length() < 1.0,
-        "the platform climbs to the top and STOPS there: {:?}",
+        back_near_bottom,
+        "and come back round — a `Loop` that stops at the far end is the bug this \
+         test exists for: {:?}",
         platform.pos
     );
 }
 
-/// ⛔ **and `Loop` does not loop — it RETRACES, which the three-point case shows
-/// without the two-point case's hang.**
+/// ⭐ **`Loop` closes the CIRCUIT: `p0 → p1 → p2 → p0`, not a retrace.**
 ///
-/// A closed circuit would run `p0 → p1 → p2 → p0`. What happens instead is that
-/// the cursor wraps to segment 0 while the POSITION is still at `p2`, so segment
-/// 0's target (`p1`) is reached by travelling BACKWARDS. The platform oscillates
-/// over the last leg forever and the first leg is never revisited.
+/// Before D12 the cursor wrapped to segment 0 while the POSITION was still at the
+/// last point, so segment 0's target (`p1`) was reached by travelling BACKWARDS
+/// over the final leg, and the first point was never revisited. A path of `n`
+/// points has `n - 1` open segments and `n` closed ones; the closing leg is what
+/// was missing.
 ///
-/// ▢ **the fix is a design call and belongs in D12**: a `Loop` that treats the
-/// path as CLOSED (adding the implicit `pₙ → p₀` leg) is one answer, and a `Loop`
-/// that TELEPORTS back to `p₀` — what a wrapping elevator actually looks like —
-/// is a different one. The queue row's instinct was right: *a platform that
-/// teleports is a transit, and transits have an arbiter*, because a body riding
-/// it has to be told whether it comes along.
+/// ⚠ the tolerance is one FRAME of travel, not a hair: the platform moves in
+/// 10px steps and will step straight past a waypoint rather than land on it. An
+/// earlier version of this test used `< 1.0` and reported "never returned" for a
+/// platform that was passing through the corner every lap.
 #[test]
-fn loop_mode_retraces_the_last_leg_rather_than_closing_the_circuit() {
+fn loop_mode_closes_the_circuit_back_to_its_first_point() {
     let a = ae::Vec2::new(0.0, 0.0);
     let b = ae::Vec2::new(300.0, 0.0);
     let c = ae::Vec2::new(300.0, 300.0);
@@ -448,27 +456,24 @@ fn loop_mode_retraces_the_last_leg_rather_than_closing_the_circuit() {
     );
 
     let dt = 1.0 / 60.0;
+    let step = 600.0 * dt;
     let mut reached_c = false;
     let mut returned_to_a = false;
     for _ in 0..600 {
         platform.update(dt);
-        if (platform.pos - c).length() < 1.0 {
+        if (platform.pos - c).length() <= step {
             reached_c = true;
         }
         // Only counts AFTER the far corner: the platform starts at `a`.
-        if reached_c && (platform.pos - a).length() < 1.0 {
+        if reached_c && (platform.pos - a).length() <= step {
             returned_to_a = true;
         }
     }
 
+    assert!(reached_c, "the platform should traverse the whole path");
     assert!(
-        reached_c,
-        "the platform should traverse the whole path first"
-    );
-    assert!(
-        !returned_to_a,
-        "TODAY `Loop` never returns to its first point — if this now fails, the \
-         circuit has been closed (or the wrap implemented) and this test should \
-         become the assertion that it STAYS closed. See queue D12."
+        returned_to_a,
+        "and close the circuit back to its first point: {:?}",
+        platform.pos
     );
 }

@@ -172,10 +172,12 @@ entity:hitbox	required-rollback	ambition_vfx::Hitbox	component presence automati
 entity:live_projectile	required-rollback	ambition_projectiles::entity::LiveProjectile	component presence automatically installs bevy_ggrs::Rollback
 entity:placed_portal	required-rollback	ambition_portal2d::types::PlacedPortal	component presence automatically installs bevy_ggrs::Rollback
 entity:transform_beat	required-rollback	ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeat	component presence automatically installs bevy_ggrs::Rollback
+entity:world_item	required-rollback	ambition_platformer2d_actor_monolith::items::world_item::WorldItem	component presence automatically installs bevy_ggrs::Rollback
 feature.breakable	component-clone	ambition_combat::components::features::BreakableFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.chest	component-clone	ambition_combat::components::features::ChestFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.collected	component-clone	ambition_combat::components::features::Collected	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.damageable_volumes	component-clone	ambition_combat::components::features::DamageableVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.empowered	component-clone	ambition_platformer2d_actor_monolith::features::empowerment::Empowered	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 feature.hazard	component-clone	ambition_combat::hazard_runtime::HazardFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.id	component-clone	ambition_combat::components::features::FeatureId	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.name	component-clone	ambition_combat::components::features::FeatureName	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -193,6 +195,8 @@ feature.switch	component-clone	ambition_platformer2d_actor_monolith::encounter::
 feature.switch_on	component-clone	ambition_platformer2d_actor_monolith::encounter::switches::SwitchOn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 gravity.flip_switch	component-clone	ambition_platformer2d_actor_monolith::gravity::lifecycle::GravityFlipSwitch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 item.ground_item	component-clone	ambition_platformer2d_actor_monolith::items::pickup::GroundItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+item.motion	component-clone	ambition_platformer2d_actor_monolith::items::item_motion::ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+item.world_item	component-clone	ambition_platformer2d_actor_monolith::items::world_item::WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 lifecycle.player_visual	component-clone	ambition_platformer2d_shared_tangle::lifecycle::markers::PlayerVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 lifecycle.room_visual	component-clone	ambition_platformer2d_shared_tangle::lifecycle::markers::RoomVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 limb.intents	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbIntents	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -348,4 +352,3 @@ root.room_set	component-clone-custom-checksum	ambition_platformer2d_world::rooms
 root:room_set	required-rollback	ambition_platformer2d_world::rooms::room_graph::RoomSet	component presence automatically installs bevy_ggrs::Rollback
 scope.room	component-canonical	ambition_platformer2d_shared_tangle::lifecycle::markers::RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 scope.session	component-canonical	ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-

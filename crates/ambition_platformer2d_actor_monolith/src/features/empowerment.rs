@@ -96,6 +96,11 @@ impl Empowerment {
     pub fn holds(self, trait_: Self) -> bool {
         self.0 & trait_.0 != 0
     }
+
+    /// The raw set, for a checksum. Not for logic — ask [`Self::holds`].
+    pub fn bits(self) -> u32 {
+        self.0
+    }
 }
 
 /// **A body currently empowered**, and for how much longer — if that is even a

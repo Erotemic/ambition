@@ -161,6 +161,11 @@ impl ItemMotion {
             .is_some_and(|rise| self.emerged_for < rise.seconds)
     }
 
+    /// Seconds spent rising so far — rollback state, hence readable.
+    pub fn emerged_for(&self) -> f32 {
+        self.emerged_for
+    }
+
     pub fn facing(&self) -> f32 {
         self.facing
     }

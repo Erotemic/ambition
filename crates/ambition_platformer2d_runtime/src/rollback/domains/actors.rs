@@ -286,9 +286,26 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "item.ground_item",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::items::world_item::WorldItem>(
+    // ⚠ PROBED, not merely cloned. A presence-only probe satisfies the coverage
+    // sweep while seeing nothing of the value, so a restore that put the item
+    // back at the wrong PLACE would checksum identical — and where a pickup is
+    // is the entire content of a pickup. (`rollback_exit_oracle` refuses a bare
+    // presence probe by name, which is how these three were caught the hour they
+    // were added.)
+    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::items::world_item::WorldItem>(
         OWNER,
         "item.world_item",
+        |item| {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            // Bit patterns: this is a checksum, not an arithmetic comparison.
+            item.pos.x.to_bits().hash(&mut hasher);
+            item.pos.y.to_bits().hash(&mut hasher);
+            item.half_extent.x.to_bits().hash(&mut hasher);
+            item.half_extent.y.to_bits().hash(&mut hasher);
+            item.sprite.hash(&mut hasher);
+            hasher.finish()
+        },
     );
     // ⛔ **AN ENGINE COMPONENT IS REGISTERED ONCE, BY THE ENGINE.** `Empowered`
     // lives in `features::empowerment`, and Mary-O and Sanic each registered it
@@ -297,16 +314,37 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // `ComponentSnapshotPlugin` for one type ("plugin was already added"), and
     // 56 app tests died on that one line. Two games owning one engine type is
     // duplicate authority; the engine owns it.
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::empowerment::Empowered>(
+    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::features::empowerment::Empowered>(
         OWNER,
         "feature.empowered",
+        |empowered| {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            // The REMAINING clock matters as much as the traits: an empowerment
+            // restored with the wrong time left expires on a different frame,
+            // and expiry is what flips invulnerability back off.
+            empowered.remaining.map(f32::to_bits).hash(&mut hasher);
+            empowered.traits.bits().hash(&mut hasher);
+            hasher.finish()
+        },
     );
     // The motion PLAN and its cursor travel together — `ItemMotion`'s own doc
     // says a cursor without its plan is meaningless — so one registration
     // restores both halves of where the pickup is in its arc.
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::items::item_motion::ItemMotion>(
+    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::items::item_motion::ItemMotion>(
         OWNER,
         "item.motion",
+        |motion| {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            // WHERE IT IS IN ITS ARC, which is the whole state: how far the rise
+            // has got, how fast it is travelling, and which way it turned last.
+            motion.emerged_for().to_bits().hash(&mut hasher);
+            motion.velocity().x.to_bits().hash(&mut hasher);
+            motion.velocity().y.to_bits().hash(&mut hasher);
+            motion.facing().to_bits().hash(&mut hasher);
+            hasher.finish()
+        },
     );
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch>(
         OWNER,

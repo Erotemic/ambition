@@ -8,6 +8,7 @@ it would prove nothing. These feed it the exact lines that survived the
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -96,14 +97,31 @@ def test_the_goal_harness_config_is_scanned_even_though_it_is_untracked():
     green items as unfinished work.
 
     `done-*.json` are archived goals and stay exempt like any other record.
+
+    ⚠ **built against a FIXTURE, not against this machine.** It used to read the
+    live `.goal/`, so it asserted that a goal was armed right now — green on a
+    developer mid-run, red in a fresh clone and red inside a source archive that
+    omits the directory. A tracked test must not depend on untracked local
+    state; what is being tested is the RULE, and the rule needs a directory, not
+    this directory.
     """
     from check_retired_crate_names import extra_paths
 
-    paths = extra_paths()
+    root = Path(tempfile.mkdtemp())
+    goal = root / ".goal"
+    goal.mkdir()
+    (goal / "active.json").write_text("{}")
+    (goal / "done-20260101T000000Z.json").write_text("{}")
+
+    paths = extra_paths(root)
     assert ".goal/active.json" in paths, "the live goal config must be scanned"
     assert not any(
         "done-" in p for p in paths
     ), "archived goals are records, not live configuration"
+    assert extra_paths(Path(tempfile.mkdtemp())) == [], (
+        "a tree with no .goal/ scans nothing extra — a fresh clone and an archive "
+        "are both that tree"
+    )
 
 
 def test_the_LIVE_QUEUES_are_not_exempt():

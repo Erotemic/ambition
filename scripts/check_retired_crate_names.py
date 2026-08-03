@@ -177,8 +177,14 @@ HISTORICAL_MARKERS = (
 # is exactly why nothing caught it.
 #
 # `done-*.json` are archived goals — records, skipped like any other history.
-def extra_paths() -> list[str]:
-    goal = REPO / ".goal"
+#
+# ⚠ `root` is a parameter so the RULE can be tested without a goal being armed on
+# the machine running the test. It used to read the live `.goal/` only, which
+# made a tracked test depend on a developer's untracked local state: green here,
+# and red in a fresh clone or a source archive that omits the directory (GPT
+# review of 5cc4337..47d7de3, finding 12).
+def extra_paths(root: Path | None = None) -> list[str]:
+    goal = (root or REPO) / ".goal"
     if not goal.is_dir():
         return []
     return [

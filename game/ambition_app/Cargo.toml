@@ -181,6 +181,35 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # self-time in every phase. default-features off = plain fast mode.
 mimalloc = { version = "0.1", default-features = false, optional = true }
 
+[target.'cfg(target_os = "android")'.dependencies]
+# ⛔ **The app died before a line of Rust ran, and the allocator was why.**
+#
+# `libmimalloc-sys` compiles mimalloc with `-ftls-model=initial-exec` unless
+# `local_dynamic_tls` is set (its build.rs picks one or the other). That is the
+# right default for an executable, and fatal here: `android` turns on
+# `mimalloc_alloc`, so those initial-exec TLS relocations
+# (3 × R_AARCH64_TLS_TPREL64, read out of the built .so) land in a library the
+# platform opens with `dlopen` — which is what `System.loadLibrary` does. The
+# loader refuses the IE access model there and the process dies at launch with
+# `UnsatisfiedLinkError: ... TLS symbol "(null)" ... using IE access model`.
+#
+# Scoped to Android on purpose. Desktop links mimalloc into an executable,
+# where initial-exec is both safe and the faster access path, and speed is the
+# entire reason `mimalloc_alloc` exists (see the note on the dep below).
+#
+# ⚠ this entry exists to ADD a feature to the dependency declared in
+# `[dependencies]`; Cargo unifies the two. Keep `optional` on both or
+# `mimalloc_alloc`'s `dep:mimalloc` stops controlling whether it is linked.
+mimalloc = { version = "0.1", default-features = false, features = ["local_dynamic_tls"], optional = true }
+
+# `oboe-sys` (cpal's Android audio backend, via bevy_kira_audio) links
+# `libc++_static` unless told otherwise, putting a second, private copy of the
+# C++ runtime inside this cdylib while `build_for_android.sh` separately copies
+# `libc++_shared.so` into jniLibs. Two C++ runtimes in one process is its own
+# hazard, and the static one was pure weight. This did NOT cause the TLS crash
+# above — measured, the relocation count was unchanged — it is just correct.
+oboe = { version = "0.6", features = ["shared-stdcxx"] }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # Browser builds intentionally opt getrandom into the JS/Web Crypto backend.
 # Several transitive deps use different getrandom major versions; enabling the

@@ -32,6 +32,16 @@ pub(in crate::rollback) fn register(app: &mut App) {
     );
     app.require_rollback::<ambition_platformer2d_actor_monolith::rooms::RoomSet>(OWNER, "root:room_set");
     app.require_rollback::<ambition_platformer2d_actor_monolith::items::pickup::GroundItem>(OWNER, "entity:ground_item");
+    // ⚠ **a MOVING world item is the same kind of thing as a ground item, and
+    // was not registered.** `spawn_moving_world_item` uses `spawn_room_scoped`,
+    // and `RoomScopedEntity` is a LIFETIME marker — it says when the entity
+    // dies with its room, and nothing about whether a rewind can reproduce it.
+    // A block bonked on a mispredicted frame therefore left an item standing in
+    // a future that was abandoned. (GPT review of 5cc4337..47d7de3, finding 1.)
+    app.require_rollback::<ambition_platformer2d_actor_monolith::items::world_item::WorldItem>(
+        OWNER,
+        "entity:world_item",
+    );
     app.require_rollback::<ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch>(
         OWNER,
         "entity:gravity_flip_switch",
@@ -275,6 +285,17 @@ pub(in crate::rollback) fn register(app: &mut App) {
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::items::pickup::GroundItem>(
         OWNER,
         "item.ground_item",
+    );
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::items::world_item::WorldItem>(
+        OWNER,
+        "item.world_item",
+    );
+    // The motion PLAN and its cursor travel together — `ItemMotion`'s own doc
+    // says a cursor without its plan is meaningless — so one registration
+    // restores both halves of where the pickup is in its arc.
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::items::item_motion::ItemMotion>(
+        OWNER,
+        "item.motion",
     );
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::gravity::GravityFlipSwitch>(
         OWNER,

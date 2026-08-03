@@ -1338,6 +1338,15 @@ pub fn install_mary_o_content(app: &mut App) {
                 "ambition_demo_mary_o",
                 "content.mary_o_pipe_transit",
             )
+            // WHICH blocks are spent is authoritative: a rewind across the frame
+            // a block was struck must leave that block ARMED again, or the same
+            // bonk on the re-simulated timeline finds a block that already gave
+            // up its pickup and the two sims disagree about what is in the room.
+            // (GPT review of 5cc4337..47d7de3, finding 1.)
+            .rollback_resource_clone::<powerups::SpentPowerBlocks>(
+                "ambition_demo_mary_o",
+                "content.mary_o_spent_power_blocks",
+            )
             .rollback_component_clone::<pipe::PipeEntryLatch>(
                 "ambition_demo_mary_o",
                 "content.mary_o_pipe_entry_latch",

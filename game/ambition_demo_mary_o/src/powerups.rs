@@ -218,8 +218,34 @@ pub fn tag_mary_o_sparks(
 /// its wand exactly once; [`refill_power_blocks_on_room_loaded`] clears it on every
 /// (re)load so a cyclic replay re-arms the blocks. Only `insert`/`contains`/`clear`
 /// touch it — never iteration — so the banned std-hash-iteration order never bites.
-#[derive(Resource, Default)]
-pub struct SpentPowerBlocks(pub std::collections::HashSet<ae::GeoId>);
+///
+/// ⚠ **`Clone` and a private set, both for the same reason.** This is rollback
+/// state — a block struck on a mispredicted frame must un-spend when that frame
+/// is thrown away — and the registration needs the clone. The set is private so
+/// the paragraph above stays TRUE rather than remaining a promise: `insert`,
+/// `contains` and `clear` are the whole surface, and no caller can reach an
+/// iteration whose order std does not define. (GPT review of 5cc4337..47d7de3,
+/// finding 1, which asked for canonicalization before checksumming; not
+/// iterating at all is the stronger answer.)
+#[derive(Resource, Default, Clone)]
+pub struct SpentPowerBlocks(std::collections::HashSet<ae::GeoId>);
+
+impl SpentPowerBlocks {
+    /// This block has already given up its pickup.
+    pub fn is_spent(&self, id: &ae::GeoId) -> bool {
+        self.0.contains(id)
+    }
+
+    /// Record a block as spent. Idempotent.
+    pub fn spend(&mut self, id: ae::GeoId) {
+        self.0.insert(id);
+    }
+
+    /// Re-arm every block — a room (re)load, so a cyclic replay plays the same.
+    pub fn rearm_all(&mut self) {
+        self.0.clear();
+    }
+}
 
 // ── Her forms' geometry, which the SHEETS author ───────────────────────────
 //
@@ -371,7 +397,7 @@ pub fn bonk_power_blocks(
         else {
             continue;
         };
-        if spent.0.contains(id) {
+        if spent.is_spent(id) {
             continue;
         }
         let Some(reward) = (match reward_of {
@@ -383,7 +409,7 @@ pub fn bonk_power_blocks(
             // an un-spent block still has its reward waiting afterwards.
             continue;
         };
-        spent.0.insert(id.clone());
+        spent.spend(id.clone());
         // The reward pops out resting on the block's top face (screen up = -y).
         let min = match reward_of {
             RewardSource::Quasar => crate::quasar_block_min(i),
@@ -689,7 +715,7 @@ pub fn refill_power_blocks_on_room_loaded(
 ) {
     for message in rooms.read() {
         if message.room_id == crate::LEVEL_1_1_ROOM_ID {
-            spent.0.clear();
+            spent.rearm_all();
         }
     }
 }

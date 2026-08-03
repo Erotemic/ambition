@@ -153,8 +153,7 @@ impl Loop {
         self.app
             .world_mut()
             .resource_mut::<SpentPowerBlocks>()
-            .0
-            .clear();
+            .rearm_all();
     }
 
     /// Walk onto whatever the block popped, so the shared touch-to-collect equips

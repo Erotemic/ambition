@@ -142,6 +142,31 @@ opt-level = 0
 [profile.dev.package.ambition_render]
 opt-level = 0
 
+# `ambition_app` joins them (2026-08-03, queue C3 / Front 3c). It is the SECOND
+# most-edited crate in the repo and it is composition — plugin wiring, CLI, menu
+# assembly — with no per-tick numeric kernel of its own.
+#
+# ⭐ MEASURED BOTH WAYS, on the shipped headless driver, before applying:
+#
+#   | config              | 3000-tick sim | build after an app-source edit |
+#   |---------------------|---------------|--------------------------------|
+#   | opt-1 (baseline)    | 2.57 / 2.67s  | 32.4s                          |
+#   | app opt-0           | 2.49 / 2.52s  | 23.3s                          |
+#   | monolith opt-0      | 4.08 / 4.16s  | 33.4s                          |
+#
+# So the app pays 28% of the edit loop back and costs NOTHING to run.
+#
+# ⛔ **and the actor monolith is deliberately NOT here.** It is the single
+# most-edited crate, so it is the obvious next candidate, and it is the wrong one:
+# at opt-0 the simulation runs **1.6x slower** (4.08s against 2.57s over the same
+# 3000 ticks, tight variance across repeats) while doing nothing at all for an
+# app-source edit. That crate IS the per-tick numeric kernel this comment's first
+# paragraph excludes — the exclusion was written as a judgement and is now a
+# number. Its 1169 tests execute in 0.58s either way, so the TEST suite would
+# never have caught the cost; only running the sim does.
+[profile.dev.package.ambition_app]
+opt-level = 0
+
 [profile.dev.build-override]
 # Build scripts / proc macros are separate from normal deps.
 # Usually keep these cheap to compile.

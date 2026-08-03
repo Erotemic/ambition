@@ -47,6 +47,16 @@ pub fn vanity_card_frames() -> Vec<(String, Duration)> {
         .collect()
 }
 
+/// Total playback time of the authored frame sequence.
+///
+/// Named because a SECOND card now has to match it: the programmatic card in
+/// `presentation::vanity_card` is timed against this so the two tell the same
+/// joke at the same pace, and a test pins the equality. Summing the holds at
+/// each call site instead would let one drift without the other noticing.
+pub fn vanity_card_total_duration() -> Duration {
+    vanity_card_frames().iter().map(|(_, hold)| *hold).sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -73,7 +83,7 @@ mod tests {
     /// time, not a frame count.
     #[test]
     fn the_card_runs_for_a_plausible_startup_duration() {
-        let total: Duration = vanity_card_frames().iter().map(|(_, hold)| *hold).sum();
+        let total = vanity_card_total_duration();
         assert!(
             total > Duration::from_secs(2) && total < Duration::from_secs(8),
             "unexpected vanity card length: {total:?}",

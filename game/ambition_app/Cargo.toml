@@ -260,6 +260,16 @@ required-features = ["rl_sim"]
 test = false
 bench = false
 
+# LOOK at the startup card without booting the game. The card is a visible
+# change and a compile proves nothing about it; this runs the real shell
+# sequence (real segment kind, real completion) around that one card, on a loop.
+[[bin]]
+name = "preview_vanity_card"
+path = "src/bin/preview_vanity_card.rs"
+required-features = ["visible"]
+test = false
+bench = false
+
 # Single aggregated integration-test binary. Every former tests/<name>.rs is a
 # `mod <name>;` submodule of tests/app_it.rs. Filter one with:
 #   cargo test -p ambition_app --test app_it -- <module_name>

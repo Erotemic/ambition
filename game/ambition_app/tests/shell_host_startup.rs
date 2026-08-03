@@ -281,11 +281,13 @@ fn controller_acknowledgement_uses_the_neutral_shell_action() {
     );
 }
 
-/// The run-in is TWO vanity cards: the engine card, then the authored comic
-/// sequence composed straight from the committed content manifest.
+/// The run-in is TWO vanity cards: the engine card, then the authorship card —
+/// which is now DRAWN by the content crate rather than played back from
+/// rendered frames, so the card exists in a checkout that never fetched the
+/// git-ignored payload.
 #[test]
 fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
-    use ambition_platformer2d::game_shell::{image_sequence_total, ShellSegmentPresentation};
+    use ambition_platformer2d::game_shell::ShellSegmentPresentation;
 
     let mut app = startup_app();
     shell_host::compose_ambition_startup_sequence(&mut app);
@@ -311,26 +313,27 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     );
 
     let segment = &segments[1];
-    let ShellSegmentPresentation::ImageSequence { frames, .. } = &segment.presentation else {
-        panic!("expected the second card to be an image sequence");
+    let ShellSegmentPresentation::Registered(kind) = &segment.presentation else {
+        panic!(
+            "expected the authorship card to be a REGISTERED segment drawn by the \
+             content crate, got {:?}",
+            segment.presentation,
+        );
     };
-    assert!(
-        frames.len() >= 2,
-        "an animated card needs more than one frame"
-    );
-    assert!(
-        frames
-            .iter()
-            .all(|frame| frame.asset_path.starts_with("game://")),
-        "frames must address the content crate's own asset source",
+    assert_eq!(
+        kind.as_str(),
+        ambition_content::presentation::vanity_card::AMBITION_VANITY_CARD_SEGMENT_KIND,
+        "the host must name the kind the content crate actually draws — a kind \
+         nothing registers spawns no scene and the run-in shows a blank card",
     );
 
-    // The card's lifetime is DERIVED from the frame holds, so retiming the
-    // animation retimes the card — there is no second number to keep in sync.
+    // The card's lifetime is still DERIVED from the authored manifest, so
+    // retiming the animation retimes the card — there is no second number to
+    // keep in sync.
     assert_eq!(
         segment.policy.auto_advance_after,
-        Some(image_sequence_total(frames)),
-        "the segment's duration must be the sum of its frame holds",
+        Some(ambition_content::vanity_card::vanity_card_total_duration()),
+        "the segment's duration must be the authored card's total",
     );
 }
 

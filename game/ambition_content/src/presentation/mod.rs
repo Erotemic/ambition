@@ -15,6 +15,7 @@
 
 pub mod deep_dream;
 pub mod dialog;
+pub mod vanity_card;
 
 use bevy::prelude::{App, Plugin};
 
@@ -30,6 +31,7 @@ pub struct AmbitionPresentationPlugin;
 impl Plugin for AmbitionPresentationPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(dialog::AmbitionDialogUiPlugin);
+        app.add_plugins(vanity_card::AmbitionVanityCardPresentationPlugin);
         deep_dream::install(app);
     }
 }

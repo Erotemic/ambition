@@ -713,6 +713,20 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
         ),
     );
 
+    // **THE STARTUP RUN-IN IS COMPOSED BY THE GAME BINARY, NOT BY
+    // `build_visible_app`** — so `--route ambition_startup` reported "unknown
+    // route", and the FIRST surface a player sees was the one frontend surface
+    // this tool could not photograph. Found while trying to look at the
+    // programmatic vanity card, which is exactly the kind of change that must
+    // be looked at rather than compiled.
+    //
+    // Composed only when it is the route being asked for: `compose_..._sequence`
+    // also makes startup the INITIAL route, which is correct here and would put
+    // a card in front of every other capture.
+    if route_id == ambition_app::app::shell_host::AMBITION_STARTUP_ROUTE {
+        ambition_app::app::shell_host::compose_ambition_startup_sequence(&mut app);
+    }
+
     let known: Vec<String> = {
         let catalog = app
             .world()

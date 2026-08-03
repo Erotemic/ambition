@@ -181,7 +181,7 @@ pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
 /// consumer that cares how long the run-in lasts derives it from
 /// [`ambition_startup_duration`] rather than restating a number.
 fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSegmentSpec> {
-    use ambition_platformer2d::game_shell::{ShellSegmentPolicy, ShellSegmentSpec, ShellSequenceFrame};
+    use ambition_platformer2d::game_shell::{ShellSegmentPolicy, ShellSegmentRole, ShellSegmentSpec};
 
     vec![
         // The ENGINE card. Held longer than the 2s default so its ease-in /
@@ -192,19 +192,29 @@ fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSe
                 ..Default::default()
             },
         ),
-        // The AUTHORSHIP card — the authored comic beat. Its length is DERIVED
-        // from the frame holds in the content manifest, so retiming the
-        // animation retimes the card with it; there is nothing to keep in sync.
+        // The AUTHORSHIP card — the authored comic beat, DRAWN rather than
+        // played back. It used to be `image_sequence_timed` over nine rendered
+        // frames from the content manifest, which meant the card only existed
+        // on a machine that had the git-ignored payload; a fresh clone played
+        // correctly-timed blank slots. `ambition_content::presentation::vanity_card`
+        // draws the same beat out of UI nodes, so the card is a property of the
+        // source. Its length is still DERIVED — from the same manifest total —
+        // so retiming the authored version retimes this one and there is
+        // nothing to keep in sync by hand.
         //
         // The id is the punchline because the studio is unnamed. When there IS a
         // studio name, rename this segment to it.
-        ShellSegmentSpec::image_sequence_timed(
+        ShellSegmentSpec::registered(
             "i_made_this",
-            ambition_content::vanity_card::vanity_card_frames()
-                .into_iter()
-                .map(|(path, hold)| ShellSequenceFrame::new(path, hold)),
-            "",
-        ),
+            ShellSegmentRole::Vanity,
+            ambition_content::presentation::vanity_card::AMBITION_VANITY_CARD_SEGMENT_KIND,
+        )
+        .with_policy(ShellSegmentPolicy {
+            auto_advance_after: Some(
+                ambition_content::presentation::vanity_card::programmatic_vanity_card_duration(),
+            ),
+            ..Default::default()
+        }),
     ]
 }
 

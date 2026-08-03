@@ -237,6 +237,56 @@ mod tests {
         );
     }
 
+    /// **END TO END: a broken brick is gone from the world a sweep reads.**
+    ///
+    /// ⚠ every link in this chain already had a test — the bonk marks the bit,
+    /// the bit becomes a `removed_block_names` entry, the level authors
+    /// `brick_<i>` with the matching `GeoId` — and Jon can still stand on a
+    /// broken brick. So the untested claim was the COMPOSITION: that the name
+    /// contributed to the overlay actually subtracts from the world
+    /// `world_with_sandbox_solids` hands to collision. This asserts that
+    /// directly, against the REAL level rather than a fixture, because a chain
+    /// of green links is not a green chain.
+    #[test]
+    fn a_broken_brick_leaves_the_collision_world_the_body_reads() {
+        let room = crate::level_1_1();
+        let mut overlay = FeatureEcsWorldOverlay::default();
+
+        // Nothing broken yet: the brick is solid, or this proves nothing.
+        let before = ambition_platformer2d::world::collision::world_with_sandbox_solids(
+            &room.world,
+            &[],
+            &overlay,
+        );
+        assert!(
+            before.blocks.iter().any(|b| b.name == brick_name(0)),
+            "brick 0 must start solid in the composed collision world",
+        );
+
+        // Break it exactly as `break_bricks` would, then contribute as the
+        // scheduled system does.
+        let mut broken = BrokenBricks::default();
+        assert!(broken.mark(0), "a fresh brick marks broken");
+        overlay
+            .removed_block_names
+            .extend(broken.broken_indices().map(brick_name));
+
+        let after = ambition_platformer2d::world::collision::world_with_sandbox_solids(
+            &room.world,
+            &[],
+            &overlay,
+        );
+        assert!(
+            !after.blocks.iter().any(|b| b.name == brick_name(0)),
+            "a broken brick must not be in the world a sweep reads — this is the \
+             'she can stand on a broken brick' report, asserted at the composition",
+        );
+        assert!(
+            after.blocks.iter().any(|b| b.name == brick_name(1)),
+            "only the broken brick leaves; its neighbours are untouched",
+        );
+    }
+
     #[test]
     fn a_broken_brick_is_subtracted_from_the_collision_overlay() {
         let mut app = App::new();

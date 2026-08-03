@@ -26,7 +26,7 @@
 //! replaces. The per-frame work is setting a transform on ~40 nodes.
 //!
 //! It is a shell SEGMENT, not a special case: the host registers
-//! [`AMBITION_VANITY_CARD_SEGMENT_KIND`] as one card in the startup run-in, this
+//! [`MADE_THIS_MEME_CARD_SEGMENT_KIND`] as one card in the startup run-in, this
 //! module spawns the scene when that segment becomes current, and reports
 //! `ProgrammaticSegmentCompleted` when the beat is done. Skip, route replacement
 //! and failure tear the scene down through `ShellSegmentScopedEntity`, which the
@@ -42,10 +42,10 @@ use bevy::prelude::*;
 use serde::Deserialize;
 
 /// Registered shell-segment kind for the vanity card.
-pub const AMBITION_VANITY_CARD_SEGMENT_KIND: &str = "ambition_vanity_card";
+pub const MADE_THIS_MEME_CARD_SEGMENT_KIND: &str = "ambition_vanity_card_made_this_meme";
 
 /// The baked animation. Committed, and generated — see the module docs.
-const VANITY_CARD_RIG_RON: &str = include_str!("../../assets/data/vanity_card_rig.ron");
+const MADE_THIS_MEME_RON: &str = include_str!("../../assets/data/vanity_card_made_this_meme.ron");
 
 /// The `game://` asset source is the content crate's own `assets/` tree.
 const ASSET_SOURCE: &str = "game://";
@@ -109,20 +109,20 @@ fn card() -> &'static RigCard {
     use std::sync::OnceLock;
     static CARD: OnceLock<RigCard> = OnceLock::new();
     CARD.get_or_init(|| {
-        ron::from_str(VANITY_CARD_RIG_RON)
-            .expect("vanity_card_rig.ron is generated and compiled in; it must parse")
+        ron::from_str(MADE_THIS_MEME_RON)
+            .expect("vanity_card_made_this_meme.ron is generated and compiled in; it must parse")
     })
 }
 
 /// How long the card plays: its own frame count at its own frame rate.
-pub fn programmatic_vanity_card_duration() -> Duration {
+pub fn made_this_meme_card_duration() -> Duration {
     let card = card();
     Duration::from_millis(card.frame_ms * card.frames.len() as u64)
 }
 
-pub struct AmbitionVanityCardPresentationPlugin;
+pub struct MadeThisMemeCardPlugin;
 
-impl Plugin for AmbitionVanityCardPresentationPlugin {
+impl Plugin for MadeThisMemeCardPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
@@ -165,7 +165,7 @@ fn spawn_vanity_card(
     else {
         return;
     };
-    if kind.as_str() != AMBITION_VANITY_CARD_SEGMENT_KIND {
+    if kind.as_str() != MADE_THIS_MEME_CARD_SEGMENT_KIND {
         return;
     }
     if roots
@@ -382,7 +382,7 @@ fn animate_vanity_card(
     mut commands: MessageWriter<ShellSequenceCommand>,
 ) {
     let card = card();
-    let total = programmatic_vanity_card_duration();
+    let total = made_this_meme_card_duration();
     for mut root in &mut roots {
         root.elapsed = (root.elapsed + time.delta()).min(total);
 
@@ -505,7 +505,7 @@ mod tests {
     /// a player who has seen it is not stuck watching it.
     #[test]
     fn the_card_runs_for_a_plausible_startup_duration() {
-        let total = programmatic_vanity_card_duration();
+        let total = made_this_meme_card_duration();
         assert!(
             total > Duration::from_secs(3) && total < Duration::from_secs(12),
             "unexpected vanity card length: {total:?}",

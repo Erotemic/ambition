@@ -5,7 +5,7 @@
 (
     canvas: (640.0, 360.0),
     frame_ms: 95,
-    sheet: "vanity_card/rig/vanity_card_parts.png",
+    sheet: "vanity_card_made_this_meme/vanity_card_parts.png",
     parts: [
         (name: "robot_far_hand", x: 1463, y: 1221, w: 107, h: 106),
         (name: "robot_far_arm_l", x: 720, y: 1221, w: 146, h: 145),

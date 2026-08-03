@@ -207,11 +207,11 @@ fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSe
         ShellSegmentSpec::registered(
             "i_made_this",
             ShellSegmentRole::Vanity,
-            ambition_content::presentation::vanity_card::AMBITION_VANITY_CARD_SEGMENT_KIND,
+            ambition_content::presentation::vanity_card_made_this_meme::MADE_THIS_MEME_CARD_SEGMENT_KIND,
         )
         .with_policy(ShellSegmentPolicy {
             auto_advance_after: Some(
-                ambition_content::presentation::vanity_card::programmatic_vanity_card_duration(),
+                ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration(),
             ),
             ..Default::default()
         }),

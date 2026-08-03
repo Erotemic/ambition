@@ -15,7 +15,7 @@
 
 pub mod deep_dream;
 pub mod dialog;
-pub mod vanity_card;
+pub mod vanity_card_made_this_meme;
 
 use bevy::prelude::{App, Plugin};
 
@@ -31,7 +31,7 @@ pub struct AmbitionPresentationPlugin;
 impl Plugin for AmbitionPresentationPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(dialog::AmbitionDialogUiPlugin);
-        app.add_plugins(vanity_card::AmbitionVanityCardPresentationPlugin);
+        app.add_plugins(vanity_card_made_this_meme::MadeThisMemeCardPlugin);
         deep_dream::install(app);
     }
 }

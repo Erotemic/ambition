@@ -322,7 +322,7 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     };
     assert_eq!(
         kind.as_str(),
-        ambition_content::presentation::vanity_card::AMBITION_VANITY_CARD_SEGMENT_KIND,
+        ambition_content::presentation::vanity_card_made_this_meme::MADE_THIS_MEME_CARD_SEGMENT_KIND,
         "the host must name the kind the content crate actually draws — a kind \
          nothing registers spawns no scene and the run-in shows a blank card",
     );
@@ -332,7 +332,7 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     // no second number to keep in sync.
     assert_eq!(
         segment.policy.auto_advance_after,
-        Some(ambition_content::presentation::vanity_card::programmatic_vanity_card_duration()),
+        Some(ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration()),
         "the segment's duration must be the baked card's own length",
     );
 }
@@ -392,7 +392,7 @@ fn the_title_music_survives_the_handoff_from_the_cards_to_the_launcher() {
 /// the real host.
 #[test]
 fn the_drawn_card_declares_a_length_the_run_in_can_schedule() {
-    let total = ambition_content::presentation::vanity_card::programmatic_vanity_card_duration();
+    let total = ambition_content::presentation::vanity_card_made_this_meme::made_this_meme_card_duration();
     let run_in = shell_host::ambition_startup_duration();
     assert!(
         run_in > total,

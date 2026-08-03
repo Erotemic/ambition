@@ -59,7 +59,7 @@ fn configure_preview_shell(app: &mut App) {
                 segments: vec![ShellSegmentSpec::registered(
                     "preview_programmatic_vanity_card",
                     ShellSegmentRole::Vanity,
-                    ambition_content::presentation::vanity_card::AMBITION_VANITY_CARD_SEGMENT_KIND,
+                    ambition_content::presentation::vanity_card_made_this_meme::MADE_THIS_MEME_CARD_SEGMENT_KIND,
                 )],
             },
         );

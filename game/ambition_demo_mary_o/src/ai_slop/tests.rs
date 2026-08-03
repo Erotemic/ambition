@@ -117,3 +117,73 @@ fn the_stomp_never_squashes_a_non_ai_slop() {
         "and never harmed — the snake's shell rule is the only thing that stomps it"
     );
 }
+
+// ── Dormancy (D1's content half) ───────────────────────────────────────────
+
+/// The tag pass is where an AI Slop learns it may sleep, so this is the link that
+/// would silently not exist: the engine's policy component is opt-in, and an actor
+/// that never receives one is awake across the whole level forever — which is
+/// exactly the reported bug, and it looks identical to "the feature is not built".
+#[test]
+fn a_staged_ai_slop_is_given_its_dormancy_policy() {
+    use ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy;
+
+    let mut app = App::new();
+    app.add_systems(Update, tag_mary_o_ai_slop);
+    let slop = app
+        .world_mut()
+        .spawn(FeatureName(AI_SLOP_DISPLAY_NAME.to_string()))
+        .id();
+    let bystander = app.world_mut().spawn(FeatureName("Snake".to_string())).id();
+    app.update();
+
+    assert_eq!(
+        app.world().get::<DormancyPolicy>(slop).copied(),
+        Some(DormancyPolicy::AwakeNearObservers {
+            radius: AI_SLOP_WAKE_RADIUS
+        }),
+        "a staged AI Slop declares the policy, or it thinks for the whole level"
+    );
+    assert!(
+        app.world().get::<DormancyPolicy>(bystander).is_none(),
+        "and the pass touches only its own kind — dormancy is per-character, so \
+         handing it to everything named in this room would be the same mistake as \
+         the engine assuming a distance"
+    );
+}
+
+/// ⭐ **The radius is DERIVED, and this is what makes that claim checkable.**
+///
+/// `AI_SLOP_WAKE_RADIUS` was chosen to clear the half-width of the widest view a
+/// PLAYER can select, so an actor is never popped into frame already moving. That
+/// reasoning is only true while the presets say what they said — so read them
+/// rather than restate them. If someone widens `Cinematic`, this fails and names
+/// the number to move, instead of the radius quietly becoming too small.
+#[test]
+fn the_wake_radius_clears_the_widest_playable_view() {
+    use ambition_platformer2d::persistence::settings::video::CameraZoomPreset;
+
+    let (widest_play_width, _) = CameraZoomPreset::Cinematic.base_view();
+    let half_width = widest_play_width * 0.5;
+    assert!(
+        AI_SLOP_WAKE_RADIUS > half_width,
+        "the wake radius ({AI_SLOP_WAKE_RADIUS}) must exceed the half-width of the \
+         widest PLAYABLE view ({half_width}), or an actor wakes inside the frame"
+    );
+
+    // And the margin is the point, not an accident: five tiles of settling room.
+    assert!(
+        AI_SLOP_WAKE_RADIUS - half_width >= 5.0 * T,
+        "the margin ({}) is what lets a slop settle onto its column before it is \
+         seen; below five tiles it wakes mid-fall in view",
+        AI_SLOP_WAKE_RADIUS - half_width
+    );
+
+    // ⚠ Debug's view is deliberately NOT cleared — see the constant's doc.
+    let (debug_width, _) = CameraZoomPreset::Debug.base_view();
+    assert!(
+        AI_SLOP_WAKE_RADIUS < debug_width * 0.5,
+        "if content ever grows to cover the DEBUG zoom, the policy culls nothing \
+         and this test should be deleted along with the reason for the radius"
+    );
+}

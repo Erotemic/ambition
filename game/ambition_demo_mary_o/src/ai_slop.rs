@@ -47,6 +47,27 @@ pub const AI_SLOP_BRAIN_KEY: &str = "mary_o_ai_slop";
 /// enemy render resolves for an AI Slop.
 pub const AI_SLOP_SHEET_TARGET: &str = "ai_slop";
 
+/// **How close an observer must be for an AI Slop to keep thinking**, in world
+/// units. Jon's report is the reason this number exists: *"ai slop will just walk
+/// off the edge of the level before she even gets to that part of the level"*.
+///
+/// ⭐ **DERIVED from the view presets, not chosen by feel.** A wake radius below
+/// the half-width of the view a player selected pops an actor into frame already
+/// moving. The five presets are 640/800/960/1120/1600 world units wide, so the
+/// half-widths are 320/400/480/**560**/800. `Cinematic`'s 560 is the widest that
+/// is a PLAY choice; 720 clears it by 160 — five tiles at this level's `T` — so a
+/// slop has settled onto its column well before it is visible.
+///
+/// ⚠ **`Debug`'s 1600 is deliberately not covered.** A developer at twice the
+/// gameplay view is looking for exactly this kind of thing, and sizing content for
+/// that zoom would leave the policy culling nothing.
+///
+/// ⭐ and it culls the reported case: 1-1's slop sit at x = 416/768/1696/2240 plus
+/// one per stair step near the flagpole, in a level 104 columns / 3328px wide,
+/// with the player spawning at `2 * T` = 64. The near pair is awake; everything
+/// from the third column out sleeps until she comes for it.
+pub const AI_SLOP_WAKE_RADIUS: f32 = 720.0;
+
 /// Upward speed Mary-O gets off a squashed AI Slop — a lively hop, a touch under a
 /// full jump so a stomp reads as a bounce, not a re-jump. Matches the snake's, so
 /// bouncing off either enemy feels identical.
@@ -242,7 +263,16 @@ pub fn tag_mary_o_ai_slop(
 ) {
     for (entity, name) in &fresh {
         if name.0 == AI_SLOP_DISPLAY_NAME {
-            commands.entity(entity).try_insert(AiSlop);
+            // The dormancy policy rides the same tag pass rather than the spawn
+            // request, because `SpawnActorRequest` is the ENGINE's vocabulary for
+            // what an actor IS and dormancy is a per-character decision the
+            // content makes about it. Declaring it here also means a slop staged
+            // by any future path picks it up for free.
+            commands.entity(entity).try_insert((
+                AiSlop,
+                ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy::
+                    AwakeNearObservers { radius: AI_SLOP_WAKE_RADIUS },
+            ));
         }
     }
 }

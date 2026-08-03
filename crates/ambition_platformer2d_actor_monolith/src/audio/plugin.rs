@@ -225,6 +225,7 @@ fn reset_audio_request_state_on_context_change(
     base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
     sfx_channel: Res<bevy_kira_audio::prelude::AudioChannel<SfxChannel>>,
     layer_channels: crate::music::MusicLayerChannels,
+    frontend: Option<Res<ambition_audio::selection::FrontendAudioProfile>>,
     mut state: AudioRequestState,
 ) {
     let current = selection.owner();
@@ -234,6 +235,19 @@ fn reset_audio_request_state_on_context_change(
     if !reset {
         return;
     }
+
+    // The title theme can OUTLIVE this reset — see `title_theme_keeps_playing`.
+    // Everything else here still runs: the encounter/room/radio requests and the
+    // intent are activation-local by definition, and it is only the song that is
+    // the same song.
+    let keep_base_track = match (frontend.as_deref(), state.music_playback.as_deref()) {
+        (Some(profile), Some(playback)) => ambition_audio::music::title_theme_keeps_playing(
+            profile.title_track(),
+            current,
+            playback,
+        ),
+        _ => false,
+    };
     if let Some(encounter) = state.encounter.as_deref_mut() {
         **encounter = Default::default();
     }
@@ -246,21 +260,23 @@ fn reset_audio_request_state_on_context_change(
     if let Some(intent) = state.intent.as_deref_mut() {
         *intent = Default::default();
     }
-    match (&mut state.director, &mut state.music_playback) {
-        (Some(director), Some(playback)) => {
-            ambition_audio::music::silence_music_backend(
-                &base_music_channel,
-                &layer_channels,
-                &mut **director,
-                &mut **playback,
-            );
-        }
-        (director, playback) => {
-            if let Some(director) = director.as_deref_mut() {
-                *director = Default::default();
+    if !keep_base_track {
+        match (&mut state.director, &mut state.music_playback) {
+            (Some(director), Some(playback)) => {
+                ambition_audio::music::silence_music_backend(
+                    &base_music_channel,
+                    &layer_channels,
+                    &mut **director,
+                    &mut **playback,
+                );
             }
-            if let Some(playback) = playback.as_deref_mut() {
-                playback.active_track.clear();
+            (director, playback) => {
+                if let Some(director) = director.as_deref_mut() {
+                    *director = Default::default();
+                }
+                if let Some(playback) = playback.as_deref_mut() {
+                    playback.silence();
+                }
             }
         }
     }
@@ -314,6 +330,7 @@ fn apply_frontend_music_policy(
     library: Option<ResMut<ambition_audio::library::AudioLibrary>>,
     asset_server: Res<AssetServer>,
     selection: Res<ambition_audio::selection::ActiveAudioSelection>,
+    frontend: Option<Res<ambition_audio::selection::FrontendAudioProfile>>,
     emission: Res<ambition_sfx::SfxEmissionContext>,
     director: Option<ResMut<crate::music::MusicDirectorState>>,
     music_state: Option<ResMut<ambition_audio::library::MusicPlaybackState>>,
@@ -342,6 +359,18 @@ fn apply_frontend_music_policy(
         *applied_owner = owner;
         return;
     };
+
+    // The title theme outlives frontend churn — ONE rule, stated once beside the
+    // silencer it exempts.
+    if ambition_audio::music::title_theme_keeps_playing(
+        frontend.as_deref().and_then(|profile| profile.title_track()),
+        owner,
+        &music_state,
+    ) {
+        *applied_owner = owner;
+        return;
+    }
+
     ambition_audio::music::silence_music_backend(
         &base_music_channel,
         &layer_channels,
@@ -363,7 +392,7 @@ fn apply_frontend_music_policy(
                     if layer_channels.output_mode().emits_to_device() {
                         base_music_channel.play(handle).looped();
                     }
-                    music_state.active_track = track_id.to_owned();
+                    music_state.begin_track(track_id);
                 }
             }
         }

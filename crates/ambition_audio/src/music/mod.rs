@@ -87,5 +87,56 @@ pub fn silence_music_backend(
     base_music_channel.stop();
     layer_channels.stop_all(0);
     *director = MusicDirectorState::default();
-    music_state.active_track.clear();
+    music_state.silence();
+}
+
+/// Does the base track SURVIVE this change of audio context?
+///
+/// ⭐ **The same song, chosen by a different owner, is still the same song.**
+/// Frontend audio is keyed by the ACTIVATION that selected it, so walking from
+/// the startup cards to the launcher is a new `Frontend(_)` owner — and every
+/// context-change path then stopped the channel and started the identical title
+/// track again from zero, because `FrontendAudioProfile` names one title theme
+/// for the whole provider. The audible result was the title music restarting on
+/// the handoff, which nobody had declared and nobody wanted. (Jon, 2026-08-03.)
+///
+/// Arbitrating by IDENTITY rather than by owner needs no route to name another
+/// route: a screen declares its own track, and playing a track that is already
+/// playing is a no-op. A per-route "continue what the last one played" flag
+/// would make continuity a property of the PAIR of screens, which is the
+/// coupling that makes adding a third screen a question.
+///
+/// ⚠ **frontend to frontend only, deliberately.** A gameplay session handing
+/// back to a title screen must still stop and reset even when the base track
+/// happens to match: what it is carrying — adaptive layers, a director mid-cue,
+/// a room request — is exactly what the title screen is not, and only the reset
+/// path clears it.
+///
+/// ⚠ this predicate lives HERE, next to the silencer, because two separate
+/// systems perform this reset (the context-change reset and the frontend policy
+/// application). One rule, applied at both, rather than the same condition
+/// written twice and drifting.
+/// ⛔ **it is NOT a comparison of owners, and the first two attempts were.**
+/// Measured with the play counter rather than reasoned about: one handoff from
+/// the startup cards to the launcher produced SIX generations — silence,
+/// silence, play, silence, silence, play — because the audio owner passes
+/// through `None` between activations. Any rule of the form "the previous owner
+/// and the next owner are both frontends" is false at exactly the moment it is
+/// asked. The stable fact is the PROFILE: `FrontendAudioProfile` is composed
+/// once for the whole host and does not blink out between two of its screens.
+pub fn title_theme_keeps_playing(
+    title_track: Option<&str>,
+    incoming_owner: Option<ambition_sfx::AudioContextOwner>,
+    music_state: &MusicPlaybackState,
+) -> bool {
+    if matches!(
+        incoming_owner,
+        Some(ambition_sfx::AudioContextOwner::Gameplay(_))
+    ) {
+        return false;
+    }
+    match title_track {
+        Some(track) => !track.is_empty() && music_state.active_track() == track,
+        None => false,
+    }
 }

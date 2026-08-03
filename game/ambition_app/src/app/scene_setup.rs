@@ -111,7 +111,7 @@ pub fn install_audio_library(
     // Direct startup and shell activation can now include the initial track in
     // their real readiness evidence. Only the selected first track is warmed;
     // the rest of the catalog remains lazy.
-    audio_library.preload_track(&music_state.active_track, asset_server);
+    audio_library.preload_track(music_state.active_track(), asset_server);
     commands.insert_resource(audio_library);
     commands.insert_resource(music_state);
     if let Some(provider) = bank_provider {

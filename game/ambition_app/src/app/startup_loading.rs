@@ -426,9 +426,9 @@ fn build_startup_manifest(
         inputs.audio_library.as_deref(),
         inputs.music_state.as_deref(),
     ) {
-        if let Some(handle) = library.resolved_track_handle(&music_state.active_track) {
+        if let Some(handle) = library.resolved_track_handle(music_state.active_track()) {
             supporting.push(StartupAssetDependency {
-                label: format!("music '{}'", music_state.active_track),
+                label: format!("music '{}'", music_state.active_track()),
                 asset_id: UntypedAssetId::from(&handle),
             });
         }

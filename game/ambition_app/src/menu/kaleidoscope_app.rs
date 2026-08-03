@@ -721,7 +721,7 @@ fn radio_snapshot_from(
 ) -> RadioSnapshot {
     let active_id = radio
         .and_then(|r| r.selected_track())
-        .unwrap_or(music_state.active_track.as_str())
+        .unwrap_or(music_state.active_track())
         .to_string();
     let active = library.track_index(&active_id);
     let stations = (0..library.track_count())

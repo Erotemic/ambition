@@ -450,9 +450,30 @@ impl AudioLibrary {
     }
 }
 
+/// What the base music channel is playing, and WHICH PLAY it is.
+///
+/// ⭐ **the generation is the difference between "still playing" and "started
+/// again".** The track name alone cannot tell those apart — a screen transition
+/// that stops the title theme and immediately restarts the identical file leaves
+/// exactly the state it found. That is audible, it was a real defect (the music
+/// restarting on the startup → launcher handoff, Jon 2026-08-03), and nothing in
+/// the world recorded it, so a test could only watch the director's clock
+/// sideways and hope.
+///
+/// This is deliberately NOT an event log. Wwise and FMOD ship capture logs and
+/// Unreal has trace channels, but that is a debugging surface for a whole audio
+/// department; the question here — *did this song restart?* — is a fact about
+/// the state, and the state should be able to answer it. If audio ever earns a
+/// timeline it belongs in `ambition_causal` as a domain, not in a second
+/// observability authority.
+///
+/// The fields are private so the counter cannot be forgotten: starting a track
+/// and recording that it started are ONE operation ([`Self::begin_track`]), not
+/// a write plus a follow-up call somebody remembers.
 #[derive(Resource, Clone, Debug)]
 pub struct MusicPlaybackState {
-    pub active_track: String,
+    active_track: String,
+    play_generation: u64,
 }
 
 impl MusicPlaybackState {
@@ -461,7 +482,37 @@ impl MusicPlaybackState {
             .default_track_id(&music.default_track)
             .unwrap_or_default()
             .to_string();
-        Self { active_track }
+        Self {
+            active_track,
+            play_generation: 0,
+        }
+    }
+
+    /// What is playing, or empty for silence.
+    pub fn active_track(&self) -> &str {
+        &self.active_track
+    }
+
+    /// How many times the base channel has been started. Only equality across
+    /// two observations is meaningful — same generation means the same
+    /// uninterrupted play.
+    pub fn play_generation(&self) -> u64 {
+        self.play_generation
+    }
+
+    /// A track STARTED on the base channel. Bumps the generation even when the
+    /// track id is unchanged, because restarting the same song is precisely the
+    /// event this records.
+    pub fn begin_track(&mut self, track_id: impl Into<String>) {
+        self.active_track = track_id.into();
+        self.play_generation = self.play_generation.wrapping_add(1);
+    }
+
+    /// The base channel stopped. A later play of the same track is a NEW play,
+    /// so the generation moves here too.
+    pub fn silence(&mut self) {
+        self.active_track.clear();
+        self.play_generation = self.play_generation.wrapping_add(1);
     }
 
     pub fn active_display_name<'a>(&self, library: &'a AudioLibrary) -> &'a str {
@@ -582,7 +633,7 @@ pub fn switch_to_music_track(
         warn!("cannot switch to missing music track '{next_track}'");
         return;
     }
-    state.active_track = next_track.to_string();
+    state.begin_track(next_track);
     if output.emits_to_device() {
         music_channel.stop().fade_out(AudioTween::new(
             Duration::from_millis(180),

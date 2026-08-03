@@ -96,8 +96,8 @@ fn frontend_kind(app: &mut App, kind: FrontendPresentationKind) -> usize {
 fn active_music_track(app: &App) -> String {
     app.world()
         .resource::<ambition_platformer2d::audio::library::MusicPlaybackState>()
-        .active_track
-        .clone()
+        .active_track()
+        .to_string()
 }
 
 fn assert_recording_audio_output(app: &App) {

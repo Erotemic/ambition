@@ -337,6 +337,49 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
     );
 }
 
+/// **The title music plays THROUGH the handoff instead of restarting on it.**
+///
+/// Jon, 2026-08-03: *"the music restarts when it transitions to the game menu …
+/// I want the music to play uninterrupted in the title sequence."*
+///
+/// The track NAME cannot answer this — it is the same either way — so the
+/// question is asked of `play_generation`, which counts how many times the base
+/// channel has been started. Same generation across the handoff means the same
+/// uninterrupted play, which is precisely what "uninterrupted" means.
+#[test]
+fn the_title_music_survives_the_handoff_from_the_cards_to_the_launcher() {
+    use ambition_platformer2d::audio::library::MusicPlaybackState;
+
+    let mut app = startup_app();
+    shell_host::compose_ambition_startup_sequence(&mut app);
+    settle(&mut app);
+
+    // ⚠ vacuity check FIRST. If the frontend never selected a track, everything
+    // below passes over an empty world and proves nothing.
+    let playback = app.world().resource::<MusicPlaybackState>();
+    let playing = playback.active_track().to_string();
+    let generation = playback.play_generation();
+    assert!(
+        !playing.is_empty(),
+        "the startup cards must have selected the title track for this to mean anything",
+    );
+
+    skip_remaining_cards(&mut app);
+    assert!(launcher_active(&app), "the run-in reached the launcher");
+
+    let playback = app.world().resource::<MusicPlaybackState>();
+    assert_eq!(
+        playback.active_track(),
+        playing,
+        "the launcher plays the same title track the cards did",
+    );
+    assert_eq!(
+        playback.play_generation(),
+        generation,
+        "the title music was stopped and started again across the handoff",
+    );
+}
+
 /// The card the run-in schedules is the one the content crate DRAWS, and it
 /// terminates on its own.
 ///

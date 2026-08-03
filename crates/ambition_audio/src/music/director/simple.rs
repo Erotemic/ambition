@@ -32,7 +32,7 @@ pub(super) fn apply_simple_music_intent(
 ) {
     let target = resolved_simple_track(library, simple_track_candidates);
     let needs_switch = director.last_simple_track.as_deref() != Some(target.as_str())
-        || music_state.active_track != target;
+        || music_state.active_track() != target;
     if needs_switch && library.track(&target).is_some() {
         info!(target: MUSIC_LOG_TARGET, "simple_music target={}", target);
         switch_to_music_track(

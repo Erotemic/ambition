@@ -77,7 +77,7 @@ pub fn drive_music_director(
     // and leave the backend idle (guarded so we do not re-stop every frame).
     if intent.authority.is_deliberate_silence() {
         let already_silent =
-            director.mode == MusicDirectorMode::Idle && music_state.active_track.is_empty();
+            director.mode == MusicDirectorMode::Idle && music_state.active_track().is_empty();
         if !already_silent {
             super::silence_music_backend(
                 &base_music_channel,

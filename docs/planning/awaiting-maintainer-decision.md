@@ -778,3 +778,51 @@ Three answers, and they are not close to equivalent:
    so the next person does not treat it as an oversight.
 
 ⚠ I have not touched it. Which one is a call about what the web build is FOR.
+
+## 13. Should a crawler's collision volume ORIENT with its attachment? (queue F5, 2026-08-03)
+
+F5 has been open by your call since 2026-07-29 — you saw the contact was wrong
+after the motion fix and said to leave it. This puts the number beside it, because
+the fix is one decision and it closes two symptoms at once.
+
+### The fact, and it is arithmetic rather than a measurement
+
+The slug is authored **48 × 22**. Its MOTION already resolves extents in the
+surface's frame — `body_extents_for` swaps them on a vertical face, which is what
+fixed the sticking. **Contact does not**: `kinematics.size` stays 48 × 22 in world
+axes while the sprite rotates with the attachment (`FeatureView::rotation_rad`).
+
+On any vertical face the two disagree by 90°:
+
+| | |
+|---|---|
+| world-axis hurtbox | 48 × 22 = 1056 px² |
+| what the drawn slug occupies | 22 × 48 |
+| overlap | 22 × 22 = 484 px² |
+| **misplaced** | **572 px² — 54% of the hurtbox** |
+
+It protrudes **13 px out of the wall** on each side and falls **13 px short**
+along it. So on every vertical surface a player can hit empty air beside the slug
+and miss the slug's own head.
+
+⚠ **the same root causes the ~25 px convex pivot pop** — structural for a
+non-rotating non-square AABB, since the two placements share no position. It is
+currently bounded at 26 px by
+`a_slug_wrapping_a_ledge_end_pivots_once_and_keeps_going`.
+
+### The decision
+
+- **(a) Orient the collision volume by the attachment.** Likely closes the contact
+  bug AND the pivot pop together, because both are the same disagreement.
+  ⚠ it makes the body's world AABB non-constant, which every consumer of
+  `kinematics.size` currently assumes. `crawl_chain` carries the same
+  transposition and is untouched.
+- **(b) Author the slug SQUARE.** The disagreement vanishes at 22 × 22 or 48 × 48
+  with no engine change at all, at the cost of the silhouette.
+- **(c) Leave it.** Correct if adhesive crawlers stay a curiosity; the cost is
+  that every vertical-surface fight against one is wrong in the player's favour in
+  one direction and against them in the other.
+
+⚠ **I have not touched it** — F5 is marked open by your call and I am treating that
+as standing. This is the number, not a fix.
+

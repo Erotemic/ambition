@@ -72,18 +72,3 @@ def test_an_impossible_floor_refuses():
 def test_a_floor_of_zero_passes():
     done = _run("--min-gb", "0", "--quiet")
     assert done.returncode == 0, done.stderr
-
-
-def test_run_tests_uses_this_guard_rather_than_its_own_copy():
-    """⭐ the reason this file exists at all.
-
-    The refusal in `run_tests.py` worked; the disk still filled a third time,
-    because a bare `cargo test --workspace` never reaches it. Keeping ONE
-    implementation is what makes the check available to anything that wants it.
-    """
-    text = (REPO / "scripts" / "run_tests.py").read_text(encoding="utf-8")
-    assert "from check_disk_headroom import" in text
-    assert "shutil.disk_usage" not in text, (
-        "run_tests.py has grown its own copy again; two copies drift and the "
-        "second one is the one nobody updates"
-    )

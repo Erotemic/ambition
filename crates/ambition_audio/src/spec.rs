@@ -23,6 +23,7 @@ use std::collections::{BTreeSet, HashSet};
 /// per cue. Deliberately separate from [`MusicRegistry`] — different
 /// concern, different file.
 #[derive(Clone, Debug, Deserialize, PartialEq, Resource)]
+#[serde(deny_unknown_fields)]
 pub struct SfxRegistry {
     pub sample_rate: u32,
     pub sfx: Vec<SfxSpec>,
@@ -115,6 +116,7 @@ pub enum WaveformSpec {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct SfxSpec {
     /// Compatibility shorthand for the engine's common typed gameplay cues.
     /// Exactly one of `cue` or `id` must be authored.
@@ -156,6 +158,7 @@ impl SfxSpec {
 /// there is no tempo/arrangement metadata because the OGG is what plays
 /// and the runtime music director owns looping/crossfade.
 #[derive(Clone, Debug, Deserialize, PartialEq, Resource)]
+#[serde(deny_unknown_fields)]
 pub struct MusicRegistry {
     /// Track id played at startup / when no radio station is selected.
     pub default_track: String,
@@ -202,6 +205,7 @@ impl MusicRegistry {
 /// was vestigial (the OGG dictates length), and dropping it is what lets
 /// the registry be generated from `id` alone.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct MusicTrack {
     pub id: String,
     pub display_name: String,

@@ -36,6 +36,12 @@ pub fn default_registry() -> SchemaRegistry {
         )
         .expect("the default registry installs each schema once");
     registry
+        .register(ambition_audio::content_schema::music_registry_schema())
+        .expect("the default registry installs each schema once");
+    registry
+        .register(ambition_audio::content_schema::sfx_registry_schema())
+        .expect("the default registry installs each schema once");
+    registry
 }
 
 /// What the CLI was asked to do.

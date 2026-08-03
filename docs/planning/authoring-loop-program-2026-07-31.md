@@ -242,7 +242,8 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | boss sheets | `data/boss_sheets.ron` | ▢ owner `ambition_sprite_sheet` (unmeasured) |
 | boss encounters | 9 × `data/boss_encounters/*.ron` | ▢ |
 | encounter waves | `data/encounters/goblin_encounter.ron` | ▢ |
-| music + sfx registries | `assets/audio/{music,sfx}_registry.ron` | ▢ ⚠ `music_registry.ron` is GENERATED — migrate the generator's output contract, not the file |
+| music registry | `assets/audio/music_registry.ron` | ✅ `music_registry`, owned by `ambition_audio` (2026-08-03). ⚠ GENERATED — a refusal is a generator bug |
+| sfx registry | `assets/audio/sfx_registry.ron` | ✅ `sfx_registry`, same owner (2026-08-03) |
 | dialogue | 7 × `assets/dialogue/sandbox/*.yarn` | ▢ not RON; needs a handler that parses Yarn |
 | worlds | the LDtk projects | ▢ |
 | vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ▢ |

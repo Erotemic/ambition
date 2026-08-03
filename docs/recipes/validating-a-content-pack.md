@@ -10,13 +10,20 @@ it.
 cargo build -p ambition_content_cli --bin ambition_content
 
 # thereafter, every edit costs milliseconds
-./target/debug/ambition_content game/ambition_content/assets --advisory-assets
+./target/debug/ambition_content game/ambition_content/assets \
+    --asset-root crates/ambition_platformer2d_actor_monolith/assets
 ```
 
-Measured on the shipped pack (2 sources, 181 content identities — 140
-characters, 24 items, 17 presets — 270 assets, 280 references): **~13 ms**. The
-rebuild it replaces is ~10 minutes. Exit status is 1 on refusal and 0 on pass,
-so this is usable as a CI gate and not only as a report.
+⚠ **pass that `--asset-root`.** Ambition's binary payloads live in the engine's
+asset tree, not beside `pack.ron`, so the pack-root-only default reports every
+sprite sheet and all 72 music tracks as missing. That is the asset check working
+— it is looking where you told it to — but it is not the invocation you want.
+
+Measured on the shipped pack (6 sources, 278 content identities — 140
+characters, 72 music tracks, 24 items, 15 SFX cues, 9 boss seeds, 17 presets —
+342 assets, 280 references): **~18 ms**, and it passes STRICT with zero missing
+assets. The rebuild it replaces is ~10 minutes. Exit status is 1 on refusal and
+0 on pass, so this is usable as a CI gate and not only as a report.
 
 ## Add a character
 
@@ -72,10 +79,12 @@ On a checkout whose art was never generated they are legitimately absent, so:
 * **`--no-asset-check`** — do not look. The prepared pack records `<unchecked>`
   provenance, so it is visibly not claiming anything about its assets.
 
-⚠ Ambition's own pack currently has **three characters with no art at all** —
-`npc_giant_gnu_hands` (sheet present, manifest missing), `npc_hypatia_prime`,
-`npc_le_beast` — and all three have Hall pedestals. Found by this tool on its
-first run. They are content rows awaiting art, not a bug in the tool.
+✔ **The three art-less characters are FIXED** (re-measured 2026-08-03).
+`npc_giant_gnu_hands`, `npc_hypatia_prime` and `npc_le_beast` were reported by
+this tool on its first run as having no art; their sheets and manifests are all
+present now, and the whole pack passes the STRICT asset path with zero missing
+assets. Recorded because the old note read as a standing defect and is no longer
+one — and because the tool finding them is what got them made.
 
 ## Add a content family (a new schema)
 

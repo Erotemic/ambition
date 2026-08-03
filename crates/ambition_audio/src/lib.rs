@@ -10,6 +10,12 @@ pub mod output;
 pub mod selection;
 pub mod spec;
 
+/// The `music_registry` and `sfx_registry` authored-content schemas this
+/// capability owns. Behind `content_pack`: a game that never validates its
+/// content must not link a compiler.
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
+
 #[cfg(feature = "kira")]
 pub mod bank_asset;
 pub mod catalog;

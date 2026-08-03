@@ -94,6 +94,12 @@ pub mod content {
                 ),
             )
             .expect("the engine's own schemas are registered once");
+        registry
+            .register(ambition_audio::content_schema::music_registry_schema())
+            .expect("the engine's own schemas are registered once");
+        registry
+            .register(ambition_audio::content_schema::sfx_registry_schema())
+            .expect("the engine's own schemas are registered once");
         // ⚠ a capability's schema follows the CAPABILITY. `ambition_items` is an
         // optional facade edge (slice H), so a composition without it must not
         // claim to own `item_catalog` — that is what makes "uninstalled

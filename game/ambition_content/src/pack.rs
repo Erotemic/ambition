@@ -34,6 +34,8 @@ pub(crate) const CATALOG_SOURCE_PATH: &str = "data/character_catalog.ron";
 const ITEMS_SOURCE_PATH: &str = "data/items.ron";
 const BOSS_SEEDS_SOURCE_PATH: &str = "data/boss_seeds.ron";
 const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
+const MUSIC_REGISTRY_SOURCE_PATH: &str = "audio/music_registry.ron";
+const SFX_REGISTRY_SOURCE_PATH: &str = "audio/sfx_registry.ron";
 
 /// The authored item grid (compile-time include; the loose file stays on disk
 /// so the CLI and the Python tooling read the same bytes).
@@ -54,6 +56,14 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
         (
             BOSS_VALIDATOR_BANDS_SOURCE_PATH.to_string(),
             crate::bosses::BOSS_VALIDATOR_BANDS_RON.to_string(),
+        ),
+        (
+            MUSIC_REGISTRY_SOURCE_PATH.to_string(),
+            crate::audio_registries::MUSIC_REGISTRY_RON.to_string(),
+        ),
+        (
+            SFX_REGISTRY_SOURCE_PATH.to_string(),
+            crate::audio_registries::SFX_REGISTRY_RON.to_string(),
         ),
     ]
 }

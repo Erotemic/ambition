@@ -664,7 +664,21 @@ the fighter used to write raw world x into the body-local `locomotion`, so its
 movement, closing speeds, and flight decision all changed when that was
 corrected. The tests were calibrated against the buggy movement.
 
-## 10. Does `character-authority-is-app-local` bind PRESENTATION? (queue 08-03 G1 pick 2)
+## 10. ~~Does `character-authority-is-app-local` bind PRESENTATION?~~ RESOLVED 2026-08-03 — no decision needed
+
+**Option (a) was implemented** (`bec8ee083`), which this note already called "more
+work and probably right". `ambition_sim_view::AttackVfxView` carries the fact;
+neither render system names the catalog. The publisher takes `Res`, not
+`Option<Res>`, so a composition without a catalog leaves the component ABSENT
+instead of laundering the absence into a `None` — which is the distinction the bug
+erased, now expressed by the type.
+
+⭐ (b) — narrowing the policy — is explicitly NOT what happened, for the reason
+stated below: it was the answer that made my own red go away.
+
+The original write-up follows.
+
+### original
 
 The workspace-policy suite was found red with 10 violations from 08-02 work
 (invisible because the failing job already had a known failure in it). Eight are

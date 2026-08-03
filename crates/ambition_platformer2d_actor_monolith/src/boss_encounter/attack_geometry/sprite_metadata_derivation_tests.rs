@@ -3,6 +3,7 @@
 use super::*;
 use ambition_platformer2d_core::AabbExt;
 use ambition_sprite_sheet::{NamedPixelRect, PixelRect};
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
 /// Centered pixel bbox at frame center → world AABB at world_center.
 /// The 128×128 frame with a 64×64 bbox at (32, 32) should map to

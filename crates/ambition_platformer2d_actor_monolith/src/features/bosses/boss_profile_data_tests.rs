@@ -5,6 +5,7 @@
 //! unchanged).
 
 use super::*;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
 /// `assets/data/boss_profiles.ron` must carry a row for every
 /// boss the codebase has a constructor for. Without this, the

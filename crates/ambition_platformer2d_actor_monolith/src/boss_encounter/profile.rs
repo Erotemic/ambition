@@ -34,6 +34,7 @@ pub struct BossProfile {
 use super::behavior;
 use super::BossCatalog;
 use crate::boss_encounter::BossSpecRoster;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 /// `BossRewardProfile` is authored in `boss_profiles.ron` and parsed
 /// into `BossBehaviorProfile::reward`. Re-exported from its definition
 /// site (`content::features::bosses`) so existing

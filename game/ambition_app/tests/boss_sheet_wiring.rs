@@ -23,6 +23,7 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_platformer2d::actors::boss_encounter::BossBehaviorProfileExt;
 use std::collections::BTreeSet;
 
 /// Load the provider-owned world manifest and assemble the same immutable

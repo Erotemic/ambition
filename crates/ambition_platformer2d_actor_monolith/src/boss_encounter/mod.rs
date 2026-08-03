@@ -50,7 +50,7 @@ pub use ambition_characters::boss_encounter::{
     ActorPhaseState, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent, PhaseTrigger,
     PhaseTriggerCondition,
 };
-pub use behavior::{BossProfileRegistry, LimbMotion, LimbRoute};
+pub use behavior::{BossBehaviorProfileExt, BossProfileRegistry, LimbMotion, LimbRoute};
 #[cfg(test)]
 pub(crate) use catalog::test_boss_catalog;
 pub use catalog::{

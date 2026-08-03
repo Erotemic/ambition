@@ -4,6 +4,7 @@
 use super::super::CenteredAabb;
 use super::*;
 use bevy::prelude::*;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
 type ActorClusterBundle = (
     super::super::actor_clusters::BodyKinematics,

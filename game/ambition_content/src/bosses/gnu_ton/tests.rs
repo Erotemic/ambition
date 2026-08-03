@@ -4,6 +4,7 @@
 //! `use super::*;`.
 
 use super::*;
+use ambition_platformer2d_actor_monolith::boss_encounter::BossBehaviorProfileExt;
 use ambition_platformer2d_actor_monolith::features::{
     rebuild_feature_ecs_world_overlay, BossBehaviorProfile, BossClusterScratch,
 };

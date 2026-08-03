@@ -3,6 +3,7 @@
 
 use super::*;
 use ambition_platformer2d_core as ae;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
 /// The extracted pure metrics derivation (`boss_sprite_metrics_from_registry`)
 /// reproduces GNU-ton's metrics without the ECS system, via

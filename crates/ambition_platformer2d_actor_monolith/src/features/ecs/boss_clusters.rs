@@ -20,6 +20,7 @@
 
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
 use crate::boss_encounter::behavior::{
     canonical_boss_id_from, ActorSpriteMetrics, BossBehaviorProfile,

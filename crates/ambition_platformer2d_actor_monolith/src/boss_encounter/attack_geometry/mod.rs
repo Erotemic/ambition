@@ -427,50 +427,14 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 // (`boss_attack_moveset`). The sprite-frame-tracking multi-part geometry those helpers
 // still express is the fidelity the static move volumes approximate (bulk-review).
 
-/// One body-local strike rectangle, expressed as DATA rather than an imperative
-/// `match` arm (fable review §C6: "collapse the named-boss geometry toward authored
-/// rect DATA"). Both the center offset and the half-extent are an AFFINE function of
-/// the boss's combat size — `factor * size + const` — so the shape scales with any
-/// boss body while a fixed pixel margin (a floor-slam's 22px reach past the feet, its
-/// 18px slab thickness) stays fixed. `serde`-ready so a content boss can eventually
-/// AUTHOR its strike geometry (in the boss roster RON) instead of a core enum variant —
-/// the "second game adds a boss without editing core" oracle. Today the built-in
-/// per-profile tables below supply it; an authored override is the next slice.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct StrikeRect {
-    /// Center offset from the strike origin, as a fraction of the body size.
-    pub offset_factor: ae::Vec2,
-    /// Center offset from the strike origin, as a fixed pixel amount (added).
-    #[serde(default)]
-    pub offset_const: ae::Vec2,
-    /// Half-extent, as a fraction of the body size.
-    pub half_factor: ae::Vec2,
-    /// Half-extent, as a fixed pixel amount (added).
-    #[serde(default)]
-    pub half_const: ae::Vec2,
-}
-
-impl StrikeRect {
-    /// A rect whose center offset and half-extent are PURE fractions of the body
-    /// size (no fixed-pixel term) — the common case for every profile but FloorSlam.
-    pub const fn scaled(offset_factor: ae::Vec2, half_factor: ae::Vec2) -> Self {
-        Self {
-            offset_factor,
-            offset_const: ae::Vec2::ZERO,
-            half_factor,
-            half_const: ae::Vec2::ZERO,
-        }
-    }
-
-    /// Resolve this data rect to a world-space AABB for a body of `size` whose strike
-    /// origin is `origin`.
-    pub fn to_aabb(&self, origin: ae::Vec2, size: ae::Vec2) -> ae::Aabb {
-        ae::Aabb::new(
-            origin + self.offset_factor * size + self.offset_const,
-            self.half_factor * size + self.half_const,
-        )
-    }
-}
+/// One body-local strike rectangle, as DATA.
+///
+/// ⚠ **DEFINED in `ambition_characters::brain::boss_pattern::profile`** since
+/// 2026-08-03 — a boss AUTHORS strike-geometry overrides in `boss_profiles.ron`,
+/// so this type is part of that vocabulary and had to move with it for the
+/// content compiler to own the family without linking this crate. Pure data
+/// over `ae::Vec2`; nothing about it needed to be here.
+pub use ambition_characters::brain::boss_pattern::profile::StrikeRect;
 
 // Built-in per-profile strike geometry, as DATA. Each was a hardcoded `vec![Aabb::new
 // (..)]` arm in `volumes_for_profile`; the numbers are IDENTICAL (pinned byte-for-byte

@@ -95,6 +95,11 @@ pub mod content {
             )
             .expect("the engine's own schemas are registered once");
         registry
+            .register(
+                crate::characters::brain::boss_pattern::content_schema::boss_profiles_schema(),
+            )
+            .expect("the engine's own schemas are registered once");
+        registry
             .register(ambition_audio::content_schema::music_registry_schema())
             .expect("the engine's own schemas are registered once");
         registry

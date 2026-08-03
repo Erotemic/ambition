@@ -102,14 +102,13 @@ impl Pickup {
 }
 
 /// The reward/effect represented by a pickup or chest.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum PickupKind {
-    Health { amount: i32 },
-    Currency { amount: i32 },
-    Ability { ability_id: String },
-    StoryFlag { flag: String },
-    Custom(String),
-}
+///
+/// ⚠ **DEFINED in `ambition_entity_catalog`** (the floor) since 2026-08-03, and
+/// re-exported here because this is where every existing caller names it. It
+/// moved down so the boss-profile vocabulary — which authors a post-defeat
+/// reward — could live in `ambition_characters` without the cycle this crate's
+/// dependency on `ambition_characters` would otherwise create.
+pub use ambition_entity_catalog::PickupKind;
 
 /// Treasure chest state and reward. Chests are interactables plus persistence.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]

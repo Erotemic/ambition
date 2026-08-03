@@ -1,23 +1,28 @@
 //! The boss-pattern capability's authored-content SCHEMA registrations.
 //!
-//! Two families, both owned here because the types they parse into are owned
-//! here: the SEED LIBRARY (`boss_seeds.ron`) and the fairness CALIBRATION
-//! (`boss_validator_bands.ron`).
+//! Three families, all owned here because the types they parse into are owned
+//! here: the boss ROSTER (`boss_profiles.ron`), the SEED LIBRARY
+//! (`boss_seeds.ron`) and the fairness CALIBRATION (`boss_validator_bands.ron`).
 //!
-//! ## Why these two and not `boss_profiles.ron`
+//! ## The roster only became ownable when its type moved
 //!
-//! ⛔ `BossBehaviorProfile` lives in `ambition_platformer2d_actor_monolith`, and a
-//! schema must be registered by the crate that owns its type — which means the
-//! CLI has to LINK that crate to validate the family. Measured 2026-08-03: the
-//! validator's dependency graph is 239 crates, the monolith's is 708, and the
-//! monolith pulls `bevy_render`. Migrating a monolith-owned family would nearly
-//! triple the validator and make it link a renderer, which contradicts the one
-//! property that justifies it (`cargo build` in seconds, validate in
-//! milliseconds).
+//! ⛔ `BossBehaviorProfile` lived in `ambition_platformer2d_actor_monolith` until
+//! 2026-08-03, and that BLOCKED this schema. A schema must be registered by the
+//! crate owning its type, and the validator has to link that crate — so a
+//! boss-profile schema meant the CLI linking the monolith: **708 crates against
+//! its 239, and a renderer**, destroying the property that justifies the
+//! compiler at all.
 //!
-//! So `boss_profiles` waits on a placement decision, not on a handler. These two
-//! parse into types `ambition_characters` already owns, and the CLI already
-//! links this crate — they cost the tool nothing.
+//! The fix was not a workaround, it was the placement being wrong: nothing in
+//! that vocabulary ever needed the actor crate (`cargo check -p
+//! ambition_characters` passed the moment it moved, unchanged). It now lives in
+//! [`super::profile`], the actor crate re-exports it, and the `BossCatalog`
+//! lookups became `BossBehaviorProfileExt` there because the orphan rule does
+//! not let an inherent `impl` follow a type across a crate boundary.
+//!
+//! ⚠ `PickupKind` moved DOWN to `ambition_entity_catalog` in the same change —
+//! `BossRewardProfile` names it and `ambition_interaction` depends on THIS
+//! crate, so it was a cycle.
 
 use std::sync::Arc;
 
@@ -26,6 +31,7 @@ use ambition_content_pack::{
     RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
 };
 
+use super::profile::BossBehaviorProfile;
 use super::seeds::SeedLibrary;
 use super::validator::ValidatorBands;
 
@@ -36,9 +42,13 @@ pub const BOSS_SEEDS_SCHEMA: &str = "boss_seed_library";
 /// One attack archetype in the library.
 pub const BOSS_SEED_SCHEMA: &str = "boss_seed";
 pub const BOSS_VALIDATOR_BANDS_SCHEMA: &str = "boss_validator_bands";
+pub const BOSS_PROFILES_SCHEMA: &str = "boss_profiles";
+/// One authored boss.
+pub const BOSS_SCHEMA: &str = "boss";
 
 pub const BOSS_SEEDS_VERSION: SchemaVersion = SchemaVersion(1);
 pub const BOSS_VALIDATOR_BANDS_VERSION: SchemaVersion = SchemaVersion(1);
+pub const BOSS_PROFILES_VERSION: SchemaVersion = SchemaVersion(1);
 
 /// The canonical form an entry contributes to the pack fingerprint.
 ///
@@ -245,6 +255,123 @@ pub fn boss_validator_bands_schema() -> SchemaRegistration {
         doc: "One game's boss-fairness calibration: the tick rate and the per-threat \
               telegraph/recovery bands the fight validator judges against.",
         handler: Arc::new(BossValidatorBandsSchema),
+    }
+}
+
+// ── the boss roster ──────────────────────────────────────────────────────────
+
+/// The parsed boss roster: `{ "<boss_id>": BossBehaviorProfile }`.
+pub type BossProfiles = std::collections::BTreeMap<String, BossBehaviorProfile>;
+
+struct BossProfilesSchema;
+
+impl ContentSchemaHandler for BossProfilesSchema {
+    fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
+        let profiles: BossProfiles = match ron::from_str(facet.text) {
+            Ok(profiles) => profiles,
+            Err(error) => {
+                out.report(facet.diagnostic(code_for(&error), format!("{error}")));
+                return;
+            }
+        };
+
+        if profiles.is_empty() {
+            out.report(facet.diagnostic(
+                DiagnosticCode::MalformedSource,
+                "the boss roster is empty, so every authored boss falls back to a generic clone",
+            ));
+        }
+
+        for (key, profile) in &profiles {
+            let id = facet.content_id_in(BOSS_SCHEMA, key);
+            out.define(id.clone(), canonical(profile));
+
+            // ⛔ **the key IS the lookup, and the row states its own id.** Every
+            // runtime path resolves a boss by MAP KEY (`catalog.behavior(key)`)
+            // and then reads `profile.id` for its sheet target, its music, its
+            // bark pool. When the two disagree the boss is looked up under one
+            // name and draws, sounds and speaks as another — with no error
+            // anywhere, because each half is individually valid.
+            if profile.id != *key {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::ConflictingModuleContribution,
+                            format!(
+                                "boss row `{key}` declares `id: \"{}\"` — the key is what the \
+                                 runtime looks up, the id is what it then draws and sounds as",
+                                profile.id
+                            ),
+                        )
+                        .about(id.clone())
+                        .at_field("id")
+                        .fix("make `id` equal the row's key, or move the row to the key it names"),
+                );
+            }
+
+            // A non-positive strike scale freezes the boss mid-attack: the
+            // moveset bake turns it into the Active window's motion_scale.
+            if profile.strike_speed_scale <= 0.0 {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::MalformedProviderBinding,
+                            format!(
+                                "boss `{key}` has `strike_speed_scale: {}` — at or below zero the \
+                                 boss cannot move during a strike at all",
+                                profile.strike_speed_scale
+                            ),
+                        )
+                        .about(id.clone())
+                        .at_field("strike_speed_scale")
+                        .fix(
+                            "`< 1.0` anchors the boss so its telegraph stays over its hitbox; \
+                              `1.0` leaves steering untouched",
+                        ),
+                );
+            }
+
+            for (field, value) in [
+                ("attack_cooldown", profile.attack_cooldown),
+                ("attack_windup", profile.attack_windup),
+                ("attack_active", profile.attack_active),
+            ] {
+                if value < 0.0 {
+                    out.report(
+                        facet
+                            .diagnostic(
+                                DiagnosticCode::MalformedProviderBinding,
+                                format!("boss `{key}` has a negative `{field}` ({value})"),
+                            )
+                            .about(id.clone())
+                            .at_field(field),
+                    );
+                }
+            }
+        }
+
+        if !out.failed() {
+            out.lower(profiles);
+        }
+    }
+}
+
+/// The boss roster a prepared pack lowered to — the runtime's load path.
+pub fn lowered_boss_profiles(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Option<&BossProfiles> {
+    pack.lowered::<BossProfiles>(&SchemaId::new(BOSS_PROFILES_SCHEMA))
+}
+
+pub fn boss_profiles_schema() -> SchemaRegistration {
+    SchemaRegistration {
+        id: SchemaId::new(BOSS_PROFILES_SCHEMA),
+        version: BOSS_PROFILES_VERSION,
+        capability: CapabilityId::new(BOSS_PATTERN_CAPABILITY),
+        disposition: RuntimeDisposition::Runtime,
+        doc: "The boss roster: movement, attacks, damage, hitbox and reward tuning, one row \
+              per boss. Defines `boss` identities.",
+        handler: Arc::new(BossProfilesSchema),
     }
 }
 

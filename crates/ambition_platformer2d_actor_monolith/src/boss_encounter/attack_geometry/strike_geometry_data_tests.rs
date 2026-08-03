@@ -5,6 +5,7 @@
 
 use super::*;
 use ambition_characters::brain::BossAttackProfile;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
 /// The ORIGINAL hardcoded `volumes_for_profile` arms, verbatim — the reference the
 /// `StrikeRect` DATA table (fable §C6) must reproduce byte-for-byte.

@@ -146,11 +146,27 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 /// Ambition's immutable App-local boss contribution.
 pub fn boss_catalog_fragment(
 ) -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment {
-    ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_ron(
+    // ⛔ **THROUGH THE COMPILER, not beside it.** This used to pass
+    // `BOSS_PROFILES_RON` to `from_ron`, which re-parsed bytes the pack had
+    // already read and judged — the two-readers split the content pack exists to
+    // close. The roster now arrives as the compiler's lowered artifact.
+    //
+    // The schema additionally refuses what `from_ron` accepted: a row whose `id`
+    // disagrees with its map KEY. Every runtime path looks a boss up by key and
+    // then reads `profile.id` for its sheet, music and barks — so a mismatch
+    // means the boss is found under one name and draws as another, with each
+    // half individually valid and nothing reporting it.
+    let behaviors =
+        ambition_characters::brain::boss_pattern::content_schema::lowered_boss_profiles(
+            crate::pack::prepared(),
+        )
+        .expect("the boss-profile schema lowers its roster for every pack that compiles")
+        .clone();
+    ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_prepared_behaviors(
         crate::AMBITION_CONTENT_PROVIDER,
         Some("clockwork_warden"),
         Some("gradient_sentinel"),
-        BOSS_PROFILES_RON,
+        behaviors,
         BOSS_ENCOUNTER_RONS,
         include_str!("../../assets/data/boss_sheets.ron"),
         boss_sprite_filenames(),

@@ -9,6 +9,7 @@ use crate::features::FeatureCombatTuning;
 use ambition_characters::brain::boss_pattern::BossPatternStep;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
 fn gnu_ton_runtime() -> super::super::ecs::boss_clusters::BossClusterScratch {
     let behavior = BossBehaviorProfile::gnu_ton_rider();

@@ -185,6 +185,37 @@ impl BossCatalogFragment {
                     message: error.to_string(),
                 },
             )?;
+        Self::from_prepared_behaviors(
+            provider_id,
+            fallback_boss_id,
+            fallback_sheet_key,
+            behaviors,
+            encounter_rons,
+            boss_sheets_ron,
+            sprite_filenames,
+            special_anim_keys,
+        )
+    }
+
+    /// The same assembly, with the boss roster ALREADY PARSED.
+    ///
+    /// ⛔ **this is what lets the content pack be the load path for
+    /// `boss_profiles.ron`.** [`Self::from_ron`] re-parses bytes the compiler has
+    /// already read and judged — two readers of one file, which is the split the
+    /// content pack exists to close. A provider whose roster came out of a
+    /// `PreparedContentPack` hands the lowered value here instead.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_prepared_behaviors(
+        provider_id: impl Into<String>,
+        fallback_boss_id: Option<impl Into<String>>,
+        fallback_sheet_key: Option<impl Into<String>>,
+        behaviors: BTreeMap<String, BossBehaviorProfile>,
+        encounter_rons: &[&str],
+        boss_sheets_ron: &str,
+        sprite_filenames: BTreeMap<String, String>,
+        special_anim_keys: BTreeMap<String, Vec<String>>,
+    ) -> Result<Self, BossCatalogAssemblyError> {
+        let provider_id = provider_id.into();
         let sheets =
             ron::from_str::<BTreeMap<String, BossSheetSpec>>(boss_sheets_ron).map_err(|error| {
                 BossCatalogAssemblyError::MalformedSheets {

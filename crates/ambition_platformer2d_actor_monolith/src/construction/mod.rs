@@ -38,6 +38,7 @@ use ambition_platformer2d_shared_tangle::construction::{
     RelationCheck, RelationDispatch, RelationKind, RelationOps, SpawnOrigin,
 };
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 use bevy::prelude::{Entity, World};
 
 use crate::boss_encounter::BossCatalog;

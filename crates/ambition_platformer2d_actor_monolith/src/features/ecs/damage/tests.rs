@@ -6,6 +6,7 @@ use super::super::damage_drops::{
     spawn_split_offspring,
 };
 use super::*;
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};
 use ambition_characters::actor::BodyHealth;

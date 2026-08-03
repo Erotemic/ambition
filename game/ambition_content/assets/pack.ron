@@ -31,6 +31,7 @@
     sources: [
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
         (path: "data/items.ron", schema: "item_catalog", version: 1),
+        (path: "data/boss_profiles.ron", schema: "boss_profiles", version: 1),
         (path: "data/boss_seeds.ron", schema: "boss_seed_library", version: 1),
         (path: "data/boss_validator_bands.ron", schema: "boss_validator_bands", version: 1),
         (path: "audio/music_registry.ron", schema: "music_registry", version: 1),

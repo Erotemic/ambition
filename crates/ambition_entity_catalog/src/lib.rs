@@ -35,6 +35,27 @@ use serde::{Deserialize, Serialize};
 pub mod action_scheme;
 pub mod placements;
 
+/// The reward/effect represented by a pickup, a chest, or a defeated boss.
+///
+/// ⚠ **this lived in `ambition_interaction` until 2026-08-03, and moving it DOWN
+/// is what let the boss-profile vocabulary move at all.** A boss authors its
+/// post-defeat reward in `boss_profiles.ron`, so that vocabulary names this
+/// type; the vocabulary belongs in `ambition_characters` (light, and what the
+/// content compiler can link), but `ambition_interaction` DEPENDS on
+/// `ambition_characters` — so naming it from there was a dependency cycle.
+///
+/// The type itself is a leaf noun: `i32` and `String`, no behaviour, no Bevy. It
+/// was never interaction-specific, it was merely first needed there.
+/// `ambition_interaction` re-exports it, so every existing path still resolves.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum PickupKind {
+    Health { amount: i32 },
+    Currency { amount: i32 },
+    Ability { ability_id: String },
+    StoryFlag { flag: String },
+    Custom(String),
+}
+
 // ---------------------------------------------------------------------------
 // Ability vocabulary: the ONE effect reference + its opaque params.
 // ---------------------------------------------------------------------------

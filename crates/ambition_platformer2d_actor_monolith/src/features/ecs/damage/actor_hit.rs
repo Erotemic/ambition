@@ -542,6 +542,9 @@ pub(crate) fn apply_actor_hit(
                                 half_extent: ae::Vec2::splat(16.0),
                             },
                             bevy::prelude::Name::new("Dropped weapon"),
+                            // The attempt produced it; the attempt's reset takes
+                            // it back (see `reset::SpawnedThisAttempt`).
+                            crate::features::ecs::SpawnedThisAttempt,
                         ),
                     );
                 }

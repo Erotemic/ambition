@@ -198,6 +198,7 @@
     "item.world_item",
     "lifecycle.player_visual",
     "lifecycle.room_visual",
+    "lifecycle.spawned_this_attempt",
     "limb.intents",
     "limb.member",
     "limb.rig",

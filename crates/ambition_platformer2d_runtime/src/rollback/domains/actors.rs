@@ -340,6 +340,14 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // is the entire content of a pickup. (`rollback_exit_oracle` refuses a bare
     // presence probe by name, which is how these three were caught the hour they
     // were added.)
+    // WHO SPAWNED IT — a marker, so presence IS the value. A rewind that
+    // recreates a dropped coin must recreate the fact that the attempt produced
+    // it, or a later reset leaves loot standing that should have gone with the
+    // attempt. (Flagged by the coverage sweep the same run the marker landed.)
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ecs::SpawnedThisAttempt>(
+        OWNER,
+        "lifecycle.spawned_this_attempt",
+    );
     app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::items::world_item::WorldItem>(
         OWNER,
         "item.world_item",

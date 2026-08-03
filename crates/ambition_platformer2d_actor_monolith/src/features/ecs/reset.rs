@@ -7,13 +7,46 @@
 
 use super::*;
 
+/// **Spawned by THIS attempt at the room, and cleared when the attempt is.**
+///
+/// Jon, 2026-08-03: *"When I reset the level old drops from enemies seem to
+/// still be there."* Reproduced as a test before this existed: a coin dropped by
+/// an enemy killed in the previous attempt was still lying in the room after the
+/// reset, because it is session-scoped — and a session outlives a replay.
+///
+/// ⛔ **re-scoping the drop to the ROOM would be the wrong fix.** A weapon you
+/// drop in one room and find again when you walk back is intended behaviour, and
+/// room scope deletes it on an ordinary transition. The two questions are
+/// genuinely different — *does this survive leaving the room* and *does this
+/// survive REPLAYING it* — and one scope cannot answer both. So the attempt is
+/// named explicitly rather than inferred from a lifetime that means something
+/// else.
+///
+/// ⚠ **it marks what the ATTEMPT produced, not everything spawned at runtime.**
+/// A summon a player is still commanding, a projectile mid-flight, an item the
+/// player threw — each is somebody's live state; loot on the ground is the
+/// residue of a fight that is about to be un-fought. The reset already despawns
+/// in-flight enemy volleys for exactly this reason, and its comment says so:
+/// they "belong to the previous attempt".
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SpawnedThisAttempt;
+
 /// Reset ECS-owned static feature state after a same-room sandbox reset.
 pub fn reset_ecs_room_features(
     mut commands: Commands,
     mut reset_requests: MessageReader<ResetRoomFeaturesEvent>,
     collected_pickups: Query<Entity, (With<FeatureSimEntity>, With<Collected>)>,
     opened_chests: Query<Entity, (With<FeatureSimEntity>, With<Opened>)>,
-    post_boss_npcs: Query<Entity, With<crate::features::PostBossNpc>>,
+    // ONE query because the two despawn identically, and because this system is
+    // at Bevy's 16-parameter ceiling — a post-boss NPC and the loot an attempt
+    // dropped are both "spawned by the run, cleared with the run".
+    run_spawned: Query<
+        Entity,
+        bevy::prelude::Or<(
+            With<crate::features::PostBossNpc>,
+            With<SpawnedThisAttempt>,
+        )>,
+    >,
     mut breakables: Query<
         (Entity, &mut BreakableFeature, Option<&mut StandTimer>),
         With<FeatureSimEntity>,
@@ -107,7 +140,9 @@ pub fn reset_ecs_room_features(
     for entity in &opened_chests {
         commands.entity(entity).remove::<Opened>();
     }
-    for entity in &post_boss_npcs {
+    // Everything the RUN spawned: post-boss NPCs, and the loot an attempt
+    // dropped. Same rule the in-flight volleys above already follow.
+    for entity in &run_spawned {
         commands.entity(entity).despawn();
     }
     for entity in &pinned_poses {
@@ -288,6 +323,44 @@ mod reset_tests {
         app.world_mut()
             .spawn((FeatureSimEntity, BreakableFeature::new(b)))
             .id()
+    }
+
+    /// **PROBE (2026-08-03): does loot dropped in the previous attempt survive a
+    /// room reset?** Jon: *"When I reset the level old drops from enemies seem to
+    /// still be there."*
+    ///
+    /// The reset already despawns in-flight enemy volleys, with the reason
+    /// stated in its own comment — they "belong to the previous attempt". A coin
+    /// dropped by an enemy killed in that attempt is the same class of thing.
+    #[test]
+    fn a_drop_from_the_previous_attempt_does_not_survive_the_reset() {
+        use crate::items::pickup::GroundItem;
+        let mut app = app();
+        let drop = app
+            .world_mut()
+            .spawn((
+                FeatureSimEntity,
+                SpawnedThisAttempt,
+                GroundItem {
+                    spec: Default::default(),
+                    pos: ambition_platformer2d_core::Vec2::new(100.0, 100.0),
+                    vel: ambition_platformer2d_core::Vec2::ZERO,
+                    half_extent: ambition_platformer2d_core::Vec2::splat(8.0),
+                },
+            ))
+            .id();
+
+        app.world_mut()
+            .write_message(ResetRoomFeaturesEvent::default());
+        app.update();
+
+        let survived = app.world().get_entity(drop).is_ok();
+        assert!(
+            !survived,
+            "a coin dropped in the previous attempt is still lying in the room \
+             after the reset — the same class as the in-flight volleys this \
+             reset already clears",
+        );
     }
 
     #[test]

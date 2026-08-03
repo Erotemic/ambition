@@ -44,6 +44,7 @@ pub fn drop_currency_coin(
                 format!("coin:{id}"),
                 ambition_interaction::PickupKind::Currency { amount },
             )),
+            super::reset::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             // It stopped being an engine default (Jon: coins and rings must not
             // be magnetic), so the games that want it declare it — this one does,
@@ -155,6 +156,7 @@ pub fn drop_health_pickup(
                 format!("heart:{id}"),
                 ambition_interaction::PickupKind::Health { amount },
             )),
+            super::reset::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             // It stopped being an engine default (Jon: coins and rings must not
             // be magnetic), so the games that want it declare it — this one does,
@@ -189,6 +191,7 @@ pub fn drop_ability_pickup(
                     ability_id: ability_id.to_string(),
                 },
             )),
+            super::reset::SpawnedThisAttempt,
         ),
     );
 }

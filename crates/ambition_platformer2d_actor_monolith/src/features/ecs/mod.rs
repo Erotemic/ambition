@@ -151,7 +151,7 @@ pub use pickups::{
     collect_ecs_pickups, magnetize_pickups, PickupArt, PickupCollect, PickupCollectLock,
     PickupMagnetize,
 };
-pub use reset::reset_ecs_room_features;
+pub use reset::{reset_ecs_room_features, SpawnedThisAttempt};
 pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
 };

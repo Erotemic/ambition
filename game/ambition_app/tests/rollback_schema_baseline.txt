@@ -200,6 +200,7 @@ item.pickup_magnet	component-clone	ambition_platformer2d_actor_monolith::feature
 item.world_item	component-clone	ambition_platformer2d_actor_monolith::items::world_item::WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 lifecycle.player_visual	component-clone	ambition_platformer2d_shared_tangle::lifecycle::markers::PlayerVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 lifecycle.room_visual	component-clone	ambition_platformer2d_shared_tangle::lifecycle::markers::RoomVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+lifecycle.spawned_this_attempt	component-clone	ambition_platformer2d_actor_monolith::features::ecs::reset::SpawnedThisAttempt	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 limb.intents	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbIntents	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 limb.member	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::Limb	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 limb.rig	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbRig	bevy_ggrs clone snapshot; keyed entity MAP remapped, probed with each key folded against its target's stable sim identity

@@ -715,11 +715,23 @@ plugins, including a date picker, a time picker, snackbars, chips, an app bar an
 a toolbar. The crate's own documentation offers the core separately so a consumer
 installs only what it draws.
 
-- **(a) Trim it.** Install the core plus whichever components the menus actually
-  need. The bisect is bounded — core alone is 412 systems (−172) — and the payoff
-  is up to ~170 systems off every frame of every phase.
-- **(b) Leave it.** If Material UI is a direction you are part-way into, the cost
-  buys future work and trimming now is churn that gets reverted.
+✔ **TRIMMED, 2026-08-03** — `MaterialUiCorePlugin` + `DialogPlugin` only, found by
+a six-step bisect against the one failing test. **584 → 428 systems**, 156 off
+every frame. `app_it` 284/2 (the duel pair alone, exactly the baseline).
+
+⚠ `DialogPlugin` is load-bearing for MENU TYPOGRAPHY, which no one would have
+guessed — two reasoned guesses (the core alone; the core plus the *adaptive
+layout* plugin) were wrong before the mechanical bisect found it.
+
+**So the question left for you is narrower than it was, and it is about intent:**
+
+- **(a) Leave it trimmed.** Ambition draws no Material date picker, time picker,
+  snackbar or toolbar, and adding one later means adding its plugin beside the
+  two — one line.
+- **(b) Put the bundle back.** If Material UI is a direction you are part-way
+  into and you want the whole widget set available while you build with it, say
+  so and it reverts to `MaterialUiPlugin` in one line. The 31% is then a cost you
+  are choosing, which is a completely different thing from one nobody noticed.
 
 ⚠ **I am not treating "unused by grep" as "unused"** — that inference was already
 wrong once here. This is a question about your INTENT for the dependency, which no

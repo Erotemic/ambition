@@ -1,9 +1,4 @@
-use bevy::prelude::*;
-use bevy_asset_loader::asset_collection::AssetCollectionApp;
-use bevy_ecs_ldtk::prelude::LdtkPlugin;
 #[cfg(feature = "ui")]
-use bevy_material_ui::MaterialUiPlugin;
-
 use ambition_platformer2d::actors::assets::loading;
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms;
@@ -23,6 +18,9 @@ use ambition_platformer2d::platformer::schedule::{
 use ambition_platformer2d::render::fx::{self, vfx_spawn_messages};
 use ambition_platformer2d::render::rendering::{camera_follow, sync_visuals};
 use ambition_platformer2d::render::ui_fonts;
+use bevy::prelude::*;
+use bevy_asset_loader::asset_collection::AssetCollectionApp;
+use bevy_ecs_ldtk::prelude::LdtkPlugin;
 
 use crate::dev::debug_overlay;
 use crate::host::windowing;
@@ -829,9 +827,40 @@ pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 /// `build_sandbox_simulation_plugins` so the yarn runtime,
 /// the bridge observers, and the binding registrations all spawn
 /// in one place. Don't re-mount it here.
+/// ⭐ **THE TWO PIECES THIS GAME DRAWS, not the bundle of thirty.**
+///
+/// `MaterialUiPlugin` is a convenience bundle: `MaterialUiCorePlugin` (theme,
+/// icons, focus, ripple) plus **29 component plugins** — button, fab, card,
+/// checkbox, radio, switch, slider, text field, progress, dialog, list, menu,
+/// tabs, select, button group, motion, snackbar, chip, app bar, badge, tooltip,
+/// scroll, DATE PICKER, TIME PICKER, search, toolbar, loading indicator,
+/// adaptive. The crate's own docs offer the core separately for exactly this
+/// reason. Ambition draws no Material date picker.
+///
+/// MEASURED (2026-08-03, `tests/update_schedule_census.rs`): the full bundle put
+/// **182 systems into `Update` — 31% of the entire schedule**, half of every
+/// system in it belonging to no set, running every frame including the title
+/// screen. That is precisely where `dev/journals/code_smells.md` measured the
+/// executor spending 10–18% of CPU self-time. Trimmed: **584 → 428 systems.**
+///
+/// ⚠ **`DialogPlugin` is load-bearing and was found by BISECT, not by reading.**
+/// `git grep bevy_material_ui` returns one file — this one — so nothing names a
+/// type from the crate, and I first concluded it was unused. Removing it
+/// entirely fails `the_title_screen_says_choose_game_and_is_readable`: the title
+/// renders at 20.0px, Bevy's default, because menu typography stops resolving. A
+/// plugin contributes SYSTEMS AND RESOURCES, not names, so no grep could have
+/// shown this. Six bisect steps against that one test found the pair.
+///
+/// ⛔ **so do not "simplify" this back to `MaterialUiPlugin`**, and do not drop
+/// `DialogPlugin` because nothing appears to use it. Both moves have been tried
+/// and measured here. If a Material widget is added later, add ITS plugin beside
+/// these two.
 #[cfg(feature = "ui")]
 pub(super) fn add_ui_plugins(app: &mut App) {
-    app.add_plugins(MaterialUiPlugin);
+    app.add_plugins((
+        bevy_material_ui::MaterialUiCorePlugin,
+        bevy_material_ui::dialog::DialogPlugin,
+    ));
 }
 
 #[cfg(not(feature = "ui"))]

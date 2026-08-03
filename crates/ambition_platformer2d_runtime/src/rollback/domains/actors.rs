@@ -388,6 +388,26 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // recreates a dropped coin must recreate the fact that the attempt produced
     // it, or a later reset leaves loot standing that should have gone with the
     // attempt. (Flagged by the coverage sweep the same run the marker landed.)
+    // ⛔ **WHO IS ASLEEP IS ROLLBACK STATE, because falling asleep has an EDGE.**
+    // `Dormant`'s own doc said "derived every tick; never authored, never
+    // persisted", and that was true right up until dormancy started RETRACTING
+    // the brain's last intent on the transition — `ActorControl` is restored by a
+    // rewind, and the marker that decides whether the retraction fires was not.
+    //
+    // So a rewind across the moment an actor fell asleep restored a body that was
+    // already marked dormant, the transition did not re-fire, the retraction never
+    // happened, and the resimulated timeline drove an actor the original had
+    // stopped. `mary_o_it` reported it as a sync-test checksum mismatch at frames
+    // [2, 3, 4] and a `git bisect` over 160 commits named the dormancy commit —
+    // after seven one-at-a-time reverts had failed to.
+    //
+    // ⭐ the general rule this is an instance of: **a derived marker stops being
+    // derived the moment something EDGE-TRIGGERS off it.** "Recomputed every tick"
+    // is only safe while nothing remembers the previous tick's answer.
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ecs::dormancy::Dormant>(
+        OWNER,
+        "actor.dormant",
+    );
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ecs::SpawnedThisAttempt>(
         OWNER,
         "lifecycle.spawned_this_attempt",

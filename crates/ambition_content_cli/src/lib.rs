@@ -9,8 +9,8 @@
 use std::path::PathBuf;
 
 use ambition_content_pack::{
-    AdvisoryAssets, AssetSource, AssetsUnchecked, CapabilityId, CompileFailure, DirectoryAssets,
-    PreparedContentPack, SchemaRegistry, compile_dir,
+    compile_dir, AdvisoryAssets, AssetSource, AssetsUnchecked, CapabilityId, CompileFailure,
+    DirectoryAssets, PreparedContentPack, SchemaRegistry,
 };
 
 /// The schemas and capabilities this tool composes.
@@ -24,6 +24,16 @@ pub fn default_registry() -> SchemaRegistry {
         .expect("the default registry installs each schema once");
     registry
         .register(ambition_items::content_schema::item_catalog_schema())
+        .expect("the default registry installs each schema once");
+    registry
+        .register(
+            ambition_characters::brain::boss_pattern::content_schema::boss_seed_library_schema(),
+        )
+        .expect("the default registry installs each schema once");
+    registry
+        .register(
+            ambition_characters::brain::boss_pattern::content_schema::boss_validator_bands_schema(),
+        )
         .expect("the default registry installs each schema once");
     registry
 }
@@ -109,14 +119,14 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Invocation, 
     let mut args = args.into_iter();
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--asset-root" => asset_roots.push(PathBuf::from(
-                args.next()
-                    .ok_or_else(|| ArgError::MissingValue("--asset-root".into()))?,
-            )),
-            "--capability" => extra_capabilities.push(CapabilityId::new(
-                args.next()
-                    .ok_or_else(|| ArgError::MissingValue("--capability".into()))?,
-            )),
+            "--asset-root" => asset_roots
+                .push(PathBuf::from(args.next().ok_or_else(|| {
+                    ArgError::MissingValue("--asset-root".into())
+                })?)),
+            "--capability" => extra_capabilities
+                .push(CapabilityId::new(args.next().ok_or_else(|| {
+                    ArgError::MissingValue("--capability".into())
+                })?)),
             "--no-asset-check" => skip_asset_check = true,
             "--advisory-assets" => advisory_assets = true,
             "--list-schemas" => list_schemas = true,
@@ -191,11 +201,9 @@ mod tests {
     fn the_default_registry_installs_the_character_capability() {
         let registry = default_registry();
         assert!(registry.has_capability(&CapabilityId::new("characters")));
-        assert!(
-            registry
-                .get(&ambition_content_pack::SchemaId::new("character_catalog"))
-                .is_some()
-        );
+        assert!(registry
+            .get(&ambition_content_pack::SchemaId::new("character_catalog"))
+            .is_some());
     }
 
     #[test]
@@ -212,13 +220,19 @@ mod tests {
         .expect("parses");
         assert_eq!(invocation.pack_root, PathBuf::from("packs/cast"));
         assert_eq!(invocation.asset_roots.len(), 2);
-        assert_eq!(invocation.extra_capabilities, vec![CapabilityId::new("combat")]);
+        assert_eq!(
+            invocation.extra_capabilities,
+            vec![CapabilityId::new("combat")]
+        );
         assert!(!invocation.skip_asset_check && !invocation.advisory_assets);
     }
 
     #[test]
     fn a_bad_invocation_is_refused_rather_than_defaulted() {
-        assert_eq!(parse_args(args(&[])).unwrap_err(), ArgError::MissingPackRoot);
+        assert_eq!(
+            parse_args(args(&[])).unwrap_err(),
+            ArgError::MissingPackRoot
+        );
         assert_eq!(
             parse_args(args(&["pack", "--asset-root"])).unwrap_err(),
             ArgError::MissingValue("--asset-root".into())

@@ -49,27 +49,31 @@ pub const BOSS_SEEDS_RON: &str = include_str!("../../assets/data/boss_seeds.ron"
 pub const BOSS_VALIDATOR_BANDS_RON: &str =
     include_str!("../../assets/data/boss_validator_bands.ron");
 
-/// The parsed validator bands. Panics at first use if the RON is malformed, which
-/// a content test catches long before a fight does.
+/// The validator bands the fight validator judges against.
+///
+/// ⛔ **THROUGH THE COMPILER, not beside it.** This used to be
+/// `ValidatorBands::from_ron(BOSS_VALIDATOR_BANDS_RON)` — a second reader of a
+/// file the pack already validates. The schema additionally refuses a `tick_hz`
+/// of zero, which `from_ron` accepted and which converts every authored duration
+/// to zero ticks silently.
 pub fn validator_bands(
 ) -> &'static ambition_characters::brain::boss_pattern::validator::ValidatorBands {
-    use ambition_characters::brain::boss_pattern::validator::ValidatorBands;
-    static BANDS: std::sync::LazyLock<ValidatorBands> = std::sync::LazyLock::new(|| {
-        ValidatorBands::from_ron(BOSS_VALIDATOR_BANDS_RON)
-            .unwrap_or_else(|err| panic!("boss_validator_bands.ron failed to deserialize: {err}"))
-    });
-    &BANDS
+    ambition_characters::brain::boss_pattern::content_schema::lowered_validator_bands(
+        crate::pack::prepared(),
+    )
+    .expect("the bands schema lowers its calibration for every pack that compiles")
 }
 
-/// The parsed seed library. Parsed once; panics at first use if the RON is
-/// malformed, which a content test catches long before a player does.
+/// The boss seed library.
+///
+/// ⛔ Same move as the bands: the compiler's lowered artifact, not a re-parse.
+/// The schema refuses an inverted duration band (which matches nothing, so every
+/// instance silently falls outside it) and an attack claimed by two seeds.
 pub fn seed_library() -> &'static ambition_characters::brain::boss_pattern::seeds::SeedLibrary {
-    use ambition_characters::brain::boss_pattern::seeds::SeedLibrary;
-    static LIB: std::sync::LazyLock<SeedLibrary> = std::sync::LazyLock::new(|| {
-        SeedLibrary::from_ron(BOSS_SEEDS_RON)
-            .unwrap_or_else(|err| panic!("boss_seeds.ron failed to deserialize: {err}"))
-    });
-    &LIB
+    ambition_characters::brain::boss_pattern::content_schema::lowered_seed_library(
+        crate::pack::prepared(),
+    )
+    .expect("the seed schema lowers its library for every pack that compiles")
 }
 
 /// Embedded encounter rows contributed by the Ambition provider.

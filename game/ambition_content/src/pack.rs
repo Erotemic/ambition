@@ -32,6 +32,8 @@ const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
 /// rather than by silently loading an empty family.
 pub(crate) const CATALOG_SOURCE_PATH: &str = "data/character_catalog.ron";
 const ITEMS_SOURCE_PATH: &str = "data/items.ron";
+const BOSS_SEEDS_SOURCE_PATH: &str = "data/boss_seeds.ron";
+const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
 
 /// The authored item grid (compile-time include; the loose file stays on disk
 /// so the CLI and the Python tooling read the same bytes).
@@ -45,6 +47,14 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
             crate::character_catalog::CHARACTER_CATALOG_RON.to_string(),
         ),
         (ITEMS_SOURCE_PATH.to_string(), ITEMS_RON.to_string()),
+        (
+            BOSS_SEEDS_SOURCE_PATH.to_string(),
+            crate::bosses::BOSS_SEEDS_RON.to_string(),
+        ),
+        (
+            BOSS_VALIDATOR_BANDS_SOURCE_PATH.to_string(),
+            crate::bosses::BOSS_VALIDATOR_BANDS_RON.to_string(),
+        ),
     ]
 }
 

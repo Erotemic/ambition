@@ -104,6 +104,7 @@ pub enum MovementVerb {
 
 /// An inclusive duration envelope, seconds.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct DurationBand {
     pub min_s: f32,
     pub max_s: f32,
@@ -121,6 +122,7 @@ impl DurationBand {
 /// A named parameterization of a seed — the "2–3 param recipes" §2 asks for.
 /// A recipe is a STARTING POINT an agent tunes, not a constant.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SeedRecipe {
     /// e.g. `"readable_opener"`, `"enrage_tight"`.
     pub name: String,
@@ -132,6 +134,7 @@ pub struct SeedRecipe {
 
 /// One archetype, extracted from the shipped roster, generalized, documented.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct MoveSeed {
     pub archetype: SeedArchetype,
     /// The design intent, in prose, for the agent composing a fight.

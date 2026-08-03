@@ -44,6 +44,20 @@ impl FacetSource<'_> {
         ContentId::new(self.namespace, self.schema, name)
     }
 
+    /// Mint an identity under a DIFFERENT schema than the file's.
+    ///
+    /// One authored file routinely defines several identity KINDS: a character
+    /// catalog defines `character`, `brain_preset` and `action_set_preset`; a
+    /// seed library defines `boss_seed`. Those are different questions, and
+    /// keeping them apart is what lets a refusal list the presets that exist
+    /// rather than the characters.
+    ///
+    /// Hand-rolled as `ContentId::new(facet.namespace, &SchemaId::new(…), name)`
+    /// in three handlers before it lived here.
+    pub fn content_id_in(&self, schema: &str, name: impl Into<String>) -> ContentId {
+        ContentId::new(self.namespace, &SchemaId::new(schema), name)
+    }
+
     /// A diagnostic already carrying this facet's source path.
     pub fn diagnostic(&self, code: DiagnosticCode, message: impl Into<String>) -> Diagnostic {
         Diagnostic::error(code, CompileStage::FacetValidation, message)

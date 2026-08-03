@@ -50,7 +50,7 @@ pub mod causal {
     /// never turns itself on: an instrument that is on by default is one
     /// somebody switches off, and then it is not there when it is needed.
     pub use ambition_platformer2d_runtime::causal::{
-        CausalPlugin, RecordingSet, assert_no_offthread_loss, record_domains,
+        assert_no_offthread_loss, record_domains, CausalPlugin, RecordingSet,
     };
 }
 
@@ -83,6 +83,17 @@ pub mod content {
         registry
             .register(crate::characters::actor::character_catalog::character_catalog_schema())
             .expect("the engine's own schemas are registered once");
+        registry
+            .register(
+                crate::characters::brain::boss_pattern::content_schema::boss_seed_library_schema(),
+            )
+            .expect("the engine's own schemas are registered once");
+        registry
+            .register(
+                crate::characters::brain::boss_pattern::content_schema::boss_validator_bands_schema(
+                ),
+            )
+            .expect("the engine's own schemas are registered once");
         // ⚠ a capability's schema follows the CAPABILITY. `ambition_items` is an
         // optional facade edge (slice H), so a composition without it must not
         // claim to own `item_catalog` — that is what makes "uninstalled
@@ -95,7 +106,6 @@ pub mod content {
     }
 }
 
-pub use ambition_platformer2d_actor_monolith as actors;
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
 pub use ambition_characters as characters;
@@ -107,24 +117,26 @@ pub use ambition_dev_tools as dev_tools;
 pub use ambition_dialog as dialog;
 #[cfg(feature = "ambition_encounter")]
 pub use ambition_encounter as encounter;
-pub use ambition_platformer2d_core as engine_core;
 pub use ambition_entity_catalog as entity_catalog;
 pub use ambition_game_shell as game_shell;
-pub use ambition_platformer2d_host as host;
 pub use ambition_input as input;
 pub use ambition_interaction as interaction;
 #[cfg(feature = "ambition_inventory_ui")]
 pub use ambition_inventory_ui as inventory_ui;
 #[cfg(feature = "ambition_items")]
 pub use ambition_items as items;
-#[cfg(feature = "ambition_platformer2d_ldtk")]
-pub use ambition_platformer2d_ldtk as ldtk_map;
 pub use ambition_load as load;
 pub use ambition_load_presentation as load_presentation;
 #[cfg(feature = "ambition_menu")]
 pub use ambition_menu as menu;
 #[cfg(feature = "ambition_persistence")]
 pub use ambition_persistence as persistence;
+pub use ambition_platformer2d_actor_monolith as actors;
+pub use ambition_platformer2d_core as engine_core;
+pub use ambition_platformer2d_host as host;
+#[cfg(feature = "ambition_platformer2d_ldtk")]
+pub use ambition_platformer2d_ldtk as ldtk_map;
+pub use ambition_platformer2d_runtime as runtime;
 pub use ambition_platformer2d_shared_tangle as platformer;
 #[cfg(feature = "ambition_portal2d")]
 pub use ambition_portal2d as portal;
@@ -134,7 +146,6 @@ pub use ambition_portal2d_presentation as portal_presentation;
 pub use ambition_projectiles as projectiles;
 #[cfg(feature = "ambition_render")]
 pub use ambition_render as render;
-pub use ambition_platformer2d_runtime as runtime;
 #[cfg(feature = "ambition_settings_menu")]
 pub use ambition_settings_menu as settings_menu;
 #[cfg(feature = "ambition_sfx")]
@@ -268,22 +279,24 @@ pub mod actor {
 ///
 /// Closed list.
 pub mod character {
-    /// Registering a roster archetype (the enemy half of a cast).
-    pub use ambition_platformer2d_actor_monolith::features::CharacterRosterAppExt;
     /// The cast, as authored content.
     pub use ambition_characters::actor::character_catalog::{
         parse_catalog, CharacterCatalog, CharacterCatalogAppExt, CharacterCatalogFragment,
     };
+    /// Registering a roster archetype (the enemy half of a cast).
+    pub use ambition_platformer2d_actor_monolith::features::CharacterRosterAppExt;
 
     /// What providers have authored, for a game that wants to inspect its own
     /// content before a session exists.
     pub use ambition_platformer2d_provider::PlatformerAuthoredCatalogRegistry;
 
+    pub use ambition_characters::actor::WornCharacter;
     /// Declaring a character in Rust, for the cases ADR 0032 keeps in Rust:
     /// tests, procedural generation, unrepresentable schemas, and a cast whose
     /// behavior is supplied by host code as a deliberate authoring choice.
-    pub use ambition_platformer2d_actor_monolith::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
-    pub use ambition_characters::actor::WornCharacter;
+    pub use ambition_platformer2d_actor_monolith::character_runtime::{
+        CharacterDefinition, CharacterDefinitionAppExt,
+    };
 
     /// What a character can do, and how it decides.
     pub use ambition_characters::brain::ActionSet;
@@ -413,8 +426,8 @@ pub use bevy;
 /// Engine assembly helpers most games need first.
 pub mod engine {
     pub use ambition_platformer2d_runtime::{
-        add_headless_foundation, init_engine_states, PlatformerEnginePlugins, Platformer2dSimulationFoundationPlugin,
-        SimCoreResourcesPlugin, SimulationHost, SimulationHostAppExt,
+        add_headless_foundation, init_engine_states, Platformer2dSimulationFoundationPlugin,
+        PlatformerEnginePlugins, SimCoreResourcesPlugin, SimulationHost, SimulationHostAppExt,
     };
 }
 
@@ -475,8 +488,8 @@ pub mod presentation {
 #[cfg(all(test, feature = "causal"))]
 mod causal_sdk_tests {
     use crate::causal::{
-        CausalFact, CausalPlugin, CausalRecording, FactDetail, RecordingPolicy, RecordingSet,
-        SubjectKey, domains, record_domains,
+        domains, record_domains, CausalFact, CausalPlugin, CausalRecording, FactDetail,
+        RecordingPolicy, RecordingSet, SubjectKey,
     };
     use bevy::prelude::*;
 
@@ -499,7 +512,10 @@ mod causal_sdk_tests {
         app.add_plugins(CausalPlugin);
         app.insert_resource(crate::time::SimTick(11));
         record_domains(&mut app, RecordingPolicy::All);
-        app.add_systems(Update, a_game_publishes_something.in_set(RecordingSet::Publish));
+        app.add_systems(
+            Update,
+            a_game_publishes_something.in_set(RecordingSet::Publish),
+        );
         app.update();
 
         let why = app
@@ -526,7 +542,10 @@ mod causal_sdk_tests {
         app.add_plugins(CausalPlugin);
         app.insert_resource(crate::time::SimTick(0));
         record_domains(&mut app, RecordingPolicy::All);
-        app.add_systems(Update, a_game_publishes_something.in_set(RecordingSet::Publish));
+        app.add_systems(
+            Update,
+            a_game_publishes_something.in_set(RecordingSet::Publish),
+        );
 
         app.world_mut().resource_mut::<crate::time::SimTick>().0 = 40;
         app.update();
@@ -553,9 +572,9 @@ mod causal_sdk_tests {
 #[cfg(all(test, feature = "content_pack"))]
 mod content_sdk_tests {
     use crate::content::{
-        AssetsUnchecked, CompileStage, ContentPackDraft, ContentPackManifest, DiagnosticCode,
-        ModuleNamespace, PackId, PackVersion, SchemaId, SchemaVersion, SourceDeclaration, compile,
-        engine_schemas,
+        compile, engine_schemas, AssetsUnchecked, CompileStage, ContentPackDraft,
+        ContentPackManifest, DiagnosticCode, ModuleNamespace, PackId, PackVersion, SchemaId,
+        SchemaVersion, SourceDeclaration,
     };
 
     const CATALOG: &str = r#"(
@@ -619,7 +638,10 @@ mod content_sdk_tests {
         let failure = compile(
             &pack(
                 "typo",
-                &CATALOG.replace(r#"default_brain: "stand_still""#, r#"default_brain: "stand_stil""#),
+                &CATALOG.replace(
+                    r#"default_brain: "stand_still""#,
+                    r#"default_brain: "stand_stil""#,
+                ),
             ),
             &engine_schemas(),
             &AssetsUnchecked,

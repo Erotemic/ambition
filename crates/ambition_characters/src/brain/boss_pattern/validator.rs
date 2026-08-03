@@ -42,6 +42,7 @@ use super::{
 /// the sim runs at a fixed rate — a designer reasoning about "frames of startup"
 /// should read the same number the RON carries.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ThreatTicks {
     pub pressure: f32,
     pub light: f32,
@@ -62,6 +63,7 @@ impl ThreatTicks {
 
 /// The per-game calibration §3 pins. Content data, never a const here.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ValidatorBands {
     /// Sim ticks per second. The bands are in ticks; the authored data is in
     /// seconds. This is the only conversion, and it lives with the numbers.

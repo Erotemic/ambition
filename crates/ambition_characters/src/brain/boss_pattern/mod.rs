@@ -1167,6 +1167,12 @@ pub mod validator;
 /// duration bands. The catalog itself is content.
 pub mod seeds;
 
+/// The `boss_seed_library` and `boss_validator_bands` authored-content schemas
+/// this capability owns. Behind `content_pack`: a game that never validates its
+/// content must not link a compiler.
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
+
 /// Where the boss is in the encounter.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BossEncounterPhase {

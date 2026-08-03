@@ -1167,6 +1167,93 @@ fn the_resource_sweep_actually_catches_an_unregistered_resource() {
     );
 }
 
+/// **The same sweep, over the composition that actually ships.**
+///
+/// ⛔ **the sweep above boots `Platformer2dSimHarness` — the Ambition sandbox —
+/// so a resource that only exists in a DEMO PROVIDER's composition is invisible
+/// to it.** `SpentPowerBlocks` (Mary-O's spent ?-blocks) lived unregistered for
+/// as long as both existed, and no sweep could have said so: the world it walks
+/// never had Mary-O's plugin in it.
+///
+/// `build_visible_app` composes every provider — Ambition, Sanic, Mary-O,
+/// Pocket, Smash — so booting it needs no new fixture and sees what a player's
+/// process sees. `NoWindow` keeps it headless (and, since 2026-08-03, writes its
+/// own state directory rather than the user's).
+///
+/// ⚠ this is the SECOND of the two blind spots B3b names; the first — transient
+/// entities spawned and despawned inside a route — is covered by
+/// `rollback_exit_oracle`'s per-frame census, which caught two regressions the
+/// day it was pointed at them.
+#[test]
+fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
+    let mut app = ambition_app::app::build_visible_app(
+        ambition_app::app::VisibleRenderMode::NoWindow,
+        true,
+    );
+    // A few frames so lazily-inserted runtime resources exist, exactly as the
+    // sandbox sweep steps its harness first.
+    for _ in 0..8 {
+        app.update();
+    }
+
+    // ⚠ **message channels are somebody else's job.**
+    // `Messages<T>` is a resource, so a naive sweep counts ~240 of them here —
+    // and `rollback_exit_oracle::every_gameplay_message_channel_is_rewound_on_rollback_or_named`
+    // already owns that question, with its own named list and its own reasoning
+    // about stale reader cursors. Two instruments claiming one population is how
+    // a waiver in one gets read as coverage by the other.
+    // ...and so is the rollback ENGINE's own storage. `bevy_ggrs`'s snapshot
+    // stores are generic over our types, so `ComponentSnapshots<ambition_…>`
+    // matches a substring search for `ambition_` while being the machinery doing
+    // the rewinding rather than state to be rewound. Same for the two bevy render
+    // resources that mention our types. Keeping only names that START with
+    // `ambition_` is the population this sweep is actually about: 308 → 66.
+    let unaccounted: Vec<String> = unaccounted_resources(app.world())
+        .into_iter()
+        .filter(|name| !name.contains("::Messages<"))
+        .filter(|name| name.starts_with("ambition_"))
+        .collect();
+
+    // ⚠ **A RATCHET, not a pass/fail — and the number is a debt, not a target.**
+    //
+    // The shipped composition has 66 resources this sweep cannot account for.
+    // Classifying them is real work and most are presentation, dev tooling or
+    // host bookkeeping that the sandbox sweep's own WAIVED list already justifies
+    // by category — but "most" is not "all", and this file's header is explicit:
+    // *do not waive to get green, a wrong choice here is a desync later.* Waiving
+    // 66 in one pass at the speed they were discovered is exactly that mistake.
+    //
+    // So the sweep lands as a ceiling. It cannot go UP — a new unaccounted
+    // resource in any provider fails here immediately, which is the property the
+    // blind spot never had — and every classification lowers it. When it reaches
+    // the point where the remainder is a short justified list, this becomes the
+    // plain assertion its sibling above already is.
+    const UNACCOUNTED_CEILING: usize = 66;
+    if unaccounted.len() > UNACCOUNTED_CEILING {
+        let mut report = format!(
+            "The SHIPPED composition gained an unaccounted resource: {} now, \
+             ceiling {UNACCOUNTED_CEILING}.\n\
+             Register it in its owning content plugin's rollback seam, declare it \
+             derived, or waive it with a reason — then LOWER the ceiling.\n\n",
+            unaccounted.len(),
+        );
+        for type_name in &unaccounted {
+            report.push_str(&format!("  {type_name}\n"));
+        }
+        panic!("{report}");
+    }
+    // ⚠ and it must be able to go DOWN without anybody noticing by accident:
+    // a classification pass that lowers the real number and forgets the ceiling
+    // leaves a check that has stopped constraining anything.
+    assert!(
+        unaccounted.len() >= UNACCOUNTED_CEILING,
+        "the ceiling is stale: only {} unaccounted now, so lower \
+         UNACCOUNTED_CEILING to {} and keep the ratchet tight",
+        unaccounted.len(),
+        unaccounted.len(),
+    );
+}
+
 #[test]
 fn every_mutable_ambition_resource_is_registered_derived_or_waived() {
     let mut sim =

@@ -44,6 +44,12 @@ pub fn drop_currency_coin(
                 format!("coin:{id}"),
                 ambition_interaction::PickupKind::Currency { amount },
             )),
+            // Ambition's OWN combat drops keep the loot magnet, and now say so.
+            // It stopped being an engine default (Jon: coins and rings must not
+            // be magnetic), so the games that want it declare it — this one does,
+            // for the reason the old constant's comment gave: a coin that needs a
+            // pixel-perfect walk-over reads as a bug.
+            super::pickups::PickupMagnet::classic(),
         ),
     );
 }
@@ -149,6 +155,12 @@ pub fn drop_health_pickup(
                 format!("heart:{id}"),
                 ambition_interaction::PickupKind::Health { amount },
             )),
+            // Ambition's OWN combat drops keep the loot magnet, and now say so.
+            // It stopped being an engine default (Jon: coins and rings must not
+            // be magnetic), so the games that want it declare it — this one does,
+            // for the reason the old constant's comment gave: a coin that needs a
+            // pixel-perfect walk-over reads as a bug.
+            super::pickups::PickupMagnet::classic(),
         ),
     );
 }

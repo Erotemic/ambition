@@ -4,12 +4,41 @@ use super::*;
 use crate::features::SetFlagRequested;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
-/// Range within which dropped loot drifts toward the player — a coin/loot magnet,
-/// so the coins + hearts this run drops come to you instead of needing a pixel-
-/// perfect walk-over.
-const PICKUP_MAGNET_RANGE: f32 = 130.0;
-/// How fast magnetized pickups close on the player (px/s).
-const PICKUP_MAGNET_SPEED: f32 = 340.0;
+/// **A pickup that comes to you.** Absent by default — a pickup with no
+/// `PickupMagnet` sits where it landed and is collected by touching it.
+///
+/// ⛔ **this used to be an engine DEFAULT and two hardcoded constants**, applied
+/// to every pickup in every game. Jon, 2026-08-03: *"Maryo coins and sanic rings
+/// should not be magnetic to the player."* That is not a tuning request — the
+/// engine had decided for all content, and the only way for a game to say "my
+/// coins stay put" was to not use pickups.
+///
+/// ⚠ **and the old rule named the PLAYER** (`With<PrimaryPlayer>`), which is the
+/// first core value inverted: on a couch, every coin in the room flew at seat
+/// one. The attraction is toward the NEAREST collector now — the same population
+/// `collect_ecs_pickups` already claims with — so four players work without this
+/// module knowing what a protagonist is.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
+pub struct PickupMagnet {
+    /// Distance within which this pickup starts drifting toward a collector.
+    pub range: f32,
+    /// How fast it closes (px/s).
+    pub speed: f32,
+}
+
+impl PickupMagnet {
+    /// The behaviour every pickup used to get: 130px reach, 340px/s.
+    ///
+    /// Named rather than `Default` on purpose: a game asking for the classic
+    /// loot magnet should have to say so, and "default" reads like "what a
+    /// pickup is", which is exactly the assumption this component removes.
+    pub fn classic() -> Self {
+        Self {
+            range: 130.0,
+            speed: 340.0,
+        }
+    }
+}
 
 /// A pickup that is temporarily NEITHER magnetizable NOR collectible — a piece
 /// of loot mid-toss that has not settled yet (Sanic's scattered rings burst from
@@ -48,12 +77,14 @@ pub struct PickupMagnetize;
 /// pulled into overlap is collected the same frame.
 pub fn magnetize_pickups(
     time: Res<ambition_time::WorldTime>,
-    players: Query<
+    // The SAME population `collect_ecs_pickups` claims with, so a pickup cannot
+    // be pulled toward a body that is not allowed to pick it up.
+    collectors: Query<
         &ambition_platformer2d_core::BodyKinematics,
-        With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
+        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
     >,
     mut pickups: Query<
-        &mut CenteredAabb,
+        (&mut CenteredAabb, &PickupMagnet),
         (
             With<PickupFeature>,
             Without<Collected>,
@@ -64,14 +95,22 @@ pub fn magnetize_pickups(
     >,
 ) {
     let dt = time.scaled_dt;
-    let Ok(player) = players.single() else {
-        return;
-    };
-    for mut aabb in &mut pickups {
-        let to_player = player.pos - aabb.center;
-        let dist = to_player.length();
-        if dist > 1.0 && dist < PICKUP_MAGNET_RANGE {
-            aabb.center += to_player.normalize() * (PICKUP_MAGNET_SPEED * dt).min(dist);
+    for (mut aabb, magnet) in &mut pickups {
+        // NEAREST collector, not the first one the query yields: iteration order
+        // is not a gameplay fact, and on a couch "whoever the query happened to
+        // return" would be a coin flip between two players.
+        let Some((to_collector, dist)) = collectors
+            .iter()
+            .map(|body| {
+                let delta = body.pos - aabb.center;
+                (delta, delta.length())
+            })
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+        else {
+            return;
+        };
+        if dist > 1.0 && dist < magnet.range {
+            aabb.center += to_collector.normalize() * (magnet.speed * dt).min(dist);
         }
     }
 }

@@ -184,6 +184,57 @@ fn collect_is_a_noop_with_no_player() {
     );
 }
 
+/// **A pickup with no magnet does not move**, which is the whole change: the
+/// engine used to attract every pickup in every game.
+#[test]
+fn a_pickup_that_declares_no_magnet_stays_where_it_landed() {
+    let mut app = App::new();
+    app.insert_resource(ambition_time::WorldTime {
+        scaled_dt: 0.1,
+        ..Default::default()
+    });
+    app.add_systems(Update, magnetize_pickups);
+    player_at(&mut app, ae::Vec2::new(100.0, 100.0));
+    // Well inside the CLASSIC range (dist 100 < 130), and carrying no magnet.
+    let sitting = health_pickup_at(&mut app, "sitting", ae::Vec2::new(200.0, 100.0));
+    app.update();
+    assert_eq!(
+        app.world().get::<CenteredAabb>(sitting).unwrap().center.x,
+        200.0,
+        "a pickup with no PickupMagnet must not drift — Mary-O's coins and \
+         Sanic's rings are exactly this case",
+    );
+}
+
+/// The magnet pulls toward the NEAREST collector, not toward "the player".
+///
+/// ⚠ the old rule queried `With<PrimaryPlayer>` and `.single()`, so on a couch
+/// every coin in the room flew at seat one — and with two players present it
+/// would not have run at all.
+#[test]
+fn a_magnetized_pickup_goes_to_the_nearest_collector_of_several() {
+    let mut app = App::new();
+    app.insert_resource(ambition_time::WorldTime {
+        scaled_dt: 0.1,
+        ..Default::default()
+    });
+    app.add_systems(Update, magnetize_pickups);
+    player_at(&mut app, ae::Vec2::new(0.0, 100.0));
+    player_at(&mut app, ae::Vec2::new(260.0, 100.0));
+
+    let pickup = health_pickup_at(&mut app, "contested", ae::Vec2::new(200.0, 100.0));
+    app.world_mut()
+        .entity_mut(pickup)
+        .insert(super::PickupMagnet::classic());
+    app.update();
+
+    let x = app.world().get::<CenteredAabb>(pickup).unwrap().center.x;
+    assert!(
+        x > 200.0,
+        "the pickup must move toward the NEARER body at x=260 (went to x={x})",
+    );
+}
+
 #[test]
 fn nearby_pickups_drift_toward_the_player() {
     let mut app = App::new();
@@ -193,10 +244,16 @@ fn nearby_pickups_drift_toward_the_player() {
     });
     app.add_systems(Update, magnetize_pickups);
     player_at(&mut app, ae::Vec2::new(100.0, 100.0));
-    // In range (dist 100 < 130) -> drifts toward the player (leftward).
+    // In range (dist 100 < 130) -> drifts toward the collector (leftward).
     let near = health_pickup_at(&mut app, "near", ae::Vec2::new(200.0, 100.0));
     // Out of range (dist 400) -> unmoved.
     let far = health_pickup_at(&mut app, "far", ae::Vec2::new(500.0, 100.0));
+    // Both DECLARE the classic magnet now — attraction is a pickup's policy.
+    for pickup in [near, far] {
+        app.world_mut()
+            .entity_mut(pickup)
+            .insert(super::PickupMagnet::classic());
+    }
     app.update();
     let near_x = app.world().get::<CenteredAabb>(near).unwrap().center.x;
     let far_x = app.world().get::<CenteredAabb>(far).unwrap().center.x;

@@ -1,0 +1,34 @@
+{
+  "_comment": [
+    "72-hour run, prepared 2026-08-03 on Jon's instruction: 'We are going to",
+    "prepare for another 72 hour long run, picking up the unfinished items from",
+    "the last one and adding more.' The deadline below is an ABSOLUTE wall-clock",
+    "stamp -- re-arming after a session is replaced does NOT restart the 72 hours,",
+    "which is deliberate. Only Jon ends this run.",
+    "",
+    "Lane A (the programmatic vanity card) is FIRST by Jon's explicit ask: a",
+    "visible change at the top of the run. Everything after it is ordered so the",
+    "next ten rows get cheaper -- Lane C is the architecture headline."
+  ],
+  "goal": "Work continuously for 72 hours on docs/planning/queue-72h-2026-08-03.md, in lane order. A: land the programmatic vanity card from the 07-26 zip -- port the substance, re-derive the wiring, no new crate, and LOOK at the preview. B: the triaged GPT review of 5cc4337..47d7de3 -- take the six confirmed defects, refuse #7 and #13 and the compliance machinery, and say no without hedging. C: test iteration cost, Jon's headline -- Front 0 first because every other front is judged by it. D: Jon's observations file, whose three architecture rows (dormant actors, one-reset-at-one-time, drops outliving a reset) compete with C on merit. E: the couch-input test that only fails in a full binary run -- find the shared state, never a serial-test attribute. F: carried residue by pointer. ONCE LANES A-F ARE DISCHARGED, EVERYTHING ELSE IN docs/planning IS IN SCOPE (Jon, 2026-08-03) -- read the roadmap, tracks, the 07-26 and 07-31 ledgers' open rows and the engine design docs, pick the item that makes the next ten cheapest, and add it to the spine as a row before working it. Do not invent work outside docs/planning. Prefer ARCHITECTURE items that make future work easier -- a seam, an authority, a lifecycle boundary, or a measurement that can move. THERE IS NO COMPLETION CRITERION: if every row is checked, the next item has not been WRITTEN DOWN yet -- go read docs/planning, add it, and get back to work. Do not write a completion-shaped summary while time remains; that prose is the exact artifact that ends runs early.",
+  "deadline_utc": "2026-08-06T04:00:00Z",
+  "max_run_hours": 74,
+  "max_stalled_blocks": 40,
+  "checks": [
+    {
+      "name": "the ledger has no open rows (refill it rather than stopping)",
+      "cmd": "! grep -q '▢' docs/planning/queue-72h-2026-08-03.md",
+      "timeout": 60
+    },
+    {
+      "name": "the app compiles (the gate, not a per-crate check)",
+      "cmd": "$HOME/.cargo/bin/cargo check -p ambition_app --quiet",
+      "timeout": 900
+    },
+    {
+      "name": "nothing is left uncommitted",
+      "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal' ':!untracked' ':!tools/ambition_sprite2d_renderer' ':!ambition-agent-source-*' ':!*.zip' ':!docs/planning/gpt-diff.patch' ':!assets/manual-art')\"",
+      "timeout": 60
+    }
+  ]
+}

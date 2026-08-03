@@ -1,4 +1,10 @@
-#[cfg(feature = "ui")]
+// ⛔ **NOT `#[cfg(feature = "ui")]`.** It was, while its three use sites were
+// not — so `--no-default-features --features web` had the uses without the
+// import and the web build did not compile. `Platformer2dStartupAssets` is an
+// asset collection and has nothing to do with the UI feature; the gate was on
+// the wrong half of the pair. Found 2026-08-03 by running the web check, which
+// only the exhaustive plan runs — the same way this target sat broken for four
+// days once before.
 use ambition_platformer2d::actors::assets::loading;
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms;

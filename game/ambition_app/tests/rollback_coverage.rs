@@ -1167,6 +1167,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
     ),
     (
+        "ambition_platformer2d_shared_tangle::schedule::SimulationReplayState",
+        "the marker saying THIS PASS IS A REPLAY — its own doc calls it a          \"host-owned marker for a historical replay pass\", raised after loading          historical state and cleared when the host finishes the request batch.          It is the machinery doing the rewinding, so a rewind that restored it          would be restoring the thing doing the restoring. Same argument as          `PendingSeatInputs` and `RollbackExecutionStats`; it sits in a different          module only because the SCHEDULE vocabulary owns the marker while the          driver owns the writers",
+    ),
+    (
         "ambition_platformer2d_shared_tangle::lifecycle::session::ActiveSessionScope",
         "the SESSION scope and its deterministic allocator — and unlike its          sibling `ActiveRoundScope`, which WAS a real desync, its sole writer          (`translate_shell_session_lifecycle`) is registered in literal `Update`.          A rewind cannot re-run it, so the allocator cannot mint differently on a          resimulated timeline. ⚠ this waiver goes stale the moment that system          moves into `app.sim_schedule()` — and the round scope is the proof that          such a move happens: somebody moved the score system into the sim and          the scope it wrote did not follow",
     ),
@@ -1367,7 +1371,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
     // wholly overwritten each tick rather than accumulated, which is the whole
     // difference between derived state and a memo.
-    const UNACCOUNTED_CEILING: usize = 22;
+    const UNACCOUNTED_CEILING: usize = 21;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

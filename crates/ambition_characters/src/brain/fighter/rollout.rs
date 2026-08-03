@@ -30,11 +30,11 @@
 //! on now has an EXTENT ([`ShadowFighter::ground_span`]); everything above it
 //! remains omitted.
 
+use ambition_entity_catalog::MoveFrameData;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::hit_response::{
     self, HitKnockback, HitKnockbackMagnitude, HitResponseTuning,
 };
-use ambition_entity_catalog::MoveFrameData;
 
 use super::habit::HabitModel;
 use super::options::OptionSet;
@@ -891,12 +891,28 @@ pub struct RefinedChoice {
     ///
     /// ⚠ a veto that can empty the list needs this, and finding out cost a
     /// measurement: with `Recover` finally modelled the rollout could strike it,
-    /// and `Recover` is the ONLY verb offered in `Situation::Recovery`. So an
-    /// airborne body's list emptied, the halt fired, and a doomed recovery was
-    /// replaced by standing still — which for a body in the air is not caution,
-    /// it is the same death with the last option thrown away. Survival at level
-    /// 9 fell 40.2 s → 9.2 s the moment the model got good enough to condemn the
-    /// verb.
+    /// and at the time `Recover` was the ONLY verb offered in
+    /// `Situation::Recovery`. So an airborne body's list emptied, the halt fired,
+    /// and a doomed recovery was replaced by standing still — which for a body in
+    /// the air is not caution, it is the same death with the last option thrown
+    /// away. Survival at level 9 fell 40.2 s → 9.2 s the moment the model got
+    /// good enough to condemn the verb.
+    ///
+    /// ⛔ **"the only verb" is no longer true, and the stale sentence is worth
+    /// more corrected than deleted** — it sent one investigation down a path the
+    /// repo had already closed (2026-08-03). Measured, `Situation::Recovery` now
+    /// offers:
+    /// | jump left, can blink | `Recover@1.00` `Blink@0.90` `Jump@0.50` |
+    /// | no jump, can blink   | `Recover@1.00` `Blink@0.90` |
+    /// | no jump, no blink    | `Recover@1.00` |
+    /// so the list only empties for a body with neither a jump nor a blink. ⚠ and
+    /// note `Recover` outranks `Blink` at every budget, while `Jump` correctly
+    /// disappears when the budget is gone — `Recover`'s emit presses jump without
+    /// checking it. That is NOT a live defect: the shadow models the empty-budget
+    /// case honestly (drift only, the fall continues), so L3 can strike a doomed
+    /// `Recover` and leave `Blink` unjudged and therefore still available. See
+    /// [`AIR_DRIFT_FRACTION`] — out-of-jumps drift was measured OFF the path to
+    /// the ladder deaths on 2026-07-31.
     ///
     /// Standing still is only a fallback where standing still is survivable. On
     /// the ground it is; in the air it never is.

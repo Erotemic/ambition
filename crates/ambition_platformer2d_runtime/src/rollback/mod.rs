@@ -30,6 +30,8 @@ pub enum AmbitionLoadWorldSet {
 mod codec;
 mod codecs;
 mod domains;
+#[cfg(test)]
+mod host_invariant_tests;
 mod probes;
 #[cfg(test)]
 mod provenance_tests;
@@ -96,6 +98,37 @@ pub struct AmbitionRollbackPlugin;
 
 impl Plugin for AmbitionRollbackPlugin {
     fn build(&self, app: &mut App) {
+        // ⛔ **THE HOST IS AN AUTHORITY, AND THIS PLUGIN USED TO ASSUME IT.**
+        // `register_app_descriptor` ASKS `SimulationHost` before it installs any
+        // bevy_ggrs machinery, so a Fixed/render-frame game records the schema
+        // and pays for nothing. This plugin asked nothing: it installed GGRS
+        // wherever it was added, and the only thing keeping the two halves
+        // agreeing was one `if self.host.is_ggrs()` in
+        // `PlatformerEnginePlugins::build`.
+        //
+        // A composition that added this plugin under any other host got a
+        // running GGRS session over a world whose registrations were all
+        // `RecordedOnly` — every rollback restoring nothing, silently and
+        // deterministically. Nothing in the repo does that today; nothing
+        // stopped it either.
+        //
+        // ⭐ and the convention was load-bearing far outside this file: every
+        // "that system is in literal `Update`, so it is outside the rollback
+        // window" judgement in the schema triage depends on rollback implying
+        // `GgrsSchedule`. That reasoning is sound only if this holds, so it is
+        // stated here rather than assumed there.
+        let host = app.world().get_resource::<crate::SimulationHost>().copied();
+        assert_eq!(
+            host,
+            Some(crate::SimulationHost::Ggrs),
+            "AmbitionRollbackPlugin installs GGRS and may only be added to a \
+             composition whose simulation host is Ggrs (found {host:?}). Set it \
+             with `app.set_simulation_host(SimulationHost::Ggrs)` before adding \
+             this plugin — under any other host the rollback registrations are \
+             recorded-only, so the session would rewind a world with nothing \
+             registered in it."
+        );
+
         app.add_plugins(GgrsPlugin::<AmbitionGgrsConfig>::default())
             .insert_resource(RollbackFrameRate(crate::SIM_TICK_HZ as usize));
 

@@ -26,6 +26,15 @@
 //! every engine-side fixture and most of the demo shells run under. The pins are
 //! not wrong; they are conditional, and nothing said out loud which condition.
 //!
+//! ⭐ **and the conditional is sharper than "some host somewhere" — measured
+//! 2026-08-03.** The shipped desktop app is a GGRS host only because
+//! `build_visible_app` sets it inside `#[cfg(feature = "dev_tools")]` and
+//! `dev_tools` is in the default feature set. **`run_web` never sets a host at
+//! all**, so the browser build resolves to the render-frame default. The
+//! `.before(CoreSimulation)` pins in literal `Update` are therefore not a
+//! hypothetical host's concern — they are **the web build's**, and sweeping them
+//! would break the one composition that still needs them.
+//!
 //! This says it out loud, for the composition Jon actually runs, in a form that
 //! FAILS when the answer changes. If the shipped app ever moves its sim into
 //! `Update`, the literal-`Update` pins become load-bearing that same day and this

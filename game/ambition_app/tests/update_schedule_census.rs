@@ -24,6 +24,15 @@
 //! public `ScheduleGraph` API in 0.18 — so "how many are gated" cannot be
 //! measured here and is not asserted. Set MEMBERSHIP can be, and it bounds the
 //! answer from above: an unsetted system is certainly not set-gated.
+//!
+//! ⚠ **this counts the DEV composition, and that is not a detail.** The shipped
+//! desktop build sets `SimulationHost::Ggrs` inside
+//! `#[cfg(feature = "dev_tools")]`, so its ~242 `CoreSimulation` systems live in
+//! `GgrsSchedule` and are NOT in the number below. A build without `dev_tools` —
+//! the browser entry sets no host at all — resolves to the render-frame default
+//! and puts those systems back into `Update`. So this census is a lower bound
+//! for that composition, and comparing it against one taken from a different
+//! feature set compares two different schedules. (Measured 2026-08-03.)
 
 use bevy::ecs::schedule::graph::Direction;
 use bevy::ecs::schedule::{NodeId, ScheduleLabel, Schedules};

@@ -736,3 +736,31 @@ layout* plugin) were wrong before the mechanical bisect found it.
 ⚠ **I am not treating "unused by grep" as "unused"** — that inference was already
 wrong once here. This is a question about your INTENT for the dependency, which no
 measurement can answer.
+
+## 12. Should the web build simulate on a fixed timestep? (2026-08-03)
+
+`build_visible_app` chooses `SimulationHost::Ggrs` inside
+`#[cfg(feature = "dev_tools")]`, and `dev_tools` is in the default feature set —
+so every desktop build steps the simulation at a fixed 1/60 s. `run_web` never
+calls `set_simulation_host`, and the resolver's own comment says *"Missing means
+the lightweight render-frame host"*, so the browser build steps the simulation
+**once per render frame with the real frame delta** (`refresh_world_time` reads
+the schedule-local `Res<Time>`).
+
+**A platformer's feel is a function of its timestep**, so this is not a
+performance difference — the jump arc differs between a 60 Hz and a 144 Hz
+browser, and between either and the desktop build. ADR 0023's determinism
+contract also holds only where a fixed host was chosen.
+
+Three answers, and they are not close to equivalent:
+
+1. **`Fixed60Hz` for the web entry** — one line, makes the browser match the
+   desktop's step, no netcode in wasm. Changes how the game currently feels in a
+   browser for anyone who has played it there.
+2. **Ggrs for the web entry** — matches desktop exactly, and drags bevy_ggrs and
+   the whole rollback stack into the wasm bundle.
+3. **Leave it** — correct if the browser build is a demo rather than a way people
+   actually play, in which case the answer wants writing down next to `run_web`
+   so the next person does not treat it as an oversight.
+
+⚠ I have not touched it. Which one is a call about what the web build is FOR.

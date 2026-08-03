@@ -39,6 +39,28 @@ use leafwing_input_manager::prelude::Buttonlike;
 fn shell_host_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    // ⛔ **PINNED, because `app.update()` is otherwise a unit of WALL CLOCK.**
+    //
+    // Under Bevy's default `TimeUpdateStrategy::Automatic` the clock advances by
+    // real elapsed time, so how much simulation a `settle()` covers depends on
+    // how busy the machine is: almost none when idle, many fixed steps under
+    // load. This module asserts DISTANCES two fighters moved, which is exactly
+    // the count-like claim that turns into a coin flip.
+    //
+    // Measured 2026-08-03, not assumed: three full runs of `app_it` alone are
+    // green, and TWO CONCURRENT full runs fail in BOTH processes with
+    // "the keyboard moved the PAD player's fighter". Isolating
+    // `AMBITION_DATA_DIR` per process did not change it, which rules out the
+    // shared settings/save files this app reads at startup.
+    //
+    // ⚠ third occurrence of one defect. `shell_host_startup` pins for this
+    // reason, `shell_host_rendered` was fixed for it (dev/journals/code_smells.md,
+    // whose lesson is "a test that steps a real Bevy App and asserts anything
+    // count-like or state-like MUST pin the timestep"), and this module was
+    // written without it.
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
     app.add_plugins(AssetPlugin::default());
     app.add_plugins(ImagePlugin::default());
     app.add_plugins(TransformPlugin);

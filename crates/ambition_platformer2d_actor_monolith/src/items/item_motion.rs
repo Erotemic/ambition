@@ -239,9 +239,25 @@ fn step_one_item(world: &ae::World, item: &mut WorldItem, motion: &mut ItemMotio
         // Screen up is -y. No collision: it is inside the block it is leaving.
         if let Some(rise) = motion.plan.emerge {
             if motion.emerged_for < rise.seconds {
-                let step = (dt / rise.seconds.max(1e-4)).min(1.0);
-                item.pos.y -= rise.distance * step;
-                motion.emerged_for += dt;
+                // **CLAMP THE TIME CONSUMED, not the per-tick fraction.**
+                //
+                // `(dt / seconds).min(1.0)` bounds a single step at the whole
+                // rise, which only matters for a rise shorter than one tick —
+                // and says nothing about the LAST tick of a normal one. An
+                // authored duration that is not an exact multiple of the fixed
+                // timestep (0.25s against 1/60s is not) leaves a part-tick at
+                // the end, and spending a full tick's worth of distance in it
+                // pushed the item past the height the block authored. The item
+                // then began its travel from somewhere nobody wrote down.
+                //
+                // Taking `min(remaining)` makes the fractions sum to exactly
+                // one, so total displacement is exactly `rise.distance` for any
+                // duration and any timestep. (GPT review of 5cc4337..47d7de3.)
+                let remaining = (rise.seconds - motion.emerged_for).max(0.0);
+                let used = dt.min(remaining);
+                let fraction = used / rise.seconds.max(1e-4);
+                item.pos.y -= rise.distance * fraction;
+                motion.emerged_for += used;
                 return;
             }
         }

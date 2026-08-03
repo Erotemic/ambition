@@ -512,6 +512,26 @@ pub struct CharacterCatalogEntry {
     /// dialogue. These are authoring defaults rather than immutable canon.
     #[serde(default)]
     pub fallback_dialogue: Vec<String>,
+    /// **The sheet this character's melee draws its swing from.** `None` means
+    /// UNAUTHORED, which is a real authored answer and not a gap to paper over.
+    ///
+    /// The slash sheet used to be a `const` in the renderer, so every body in
+    /// the game — the protagonist, its enemies, a boss — swung the same four
+    /// rows. That was already wrong and got worse when the art started being
+    /// shaped to a specific character's hit polygon: another character naming it
+    /// wears a silhouette cut for someone else's volume.
+    ///
+    /// Several characters MAY name the same sheet; that is sharing, and it is
+    /// fine as long as their polygons are compatible. What is not fine is
+    /// inheriting one by default, which is why the default is `None`.
+    ///
+    /// ⚠ `None` does not mean invisible. A body with no authored attack VFX
+    /// draws its hit volume directly, as a translucent shape, so an unauthored
+    /// attack is legible in play instead of silent — see
+    /// `ambition_render`'s unauthored-volume pass. An unresolvable id is a
+    /// different thing entirely and is reported, not defaulted.
+    #[serde(default)]
+    pub attack_vfx: Option<String>,
     /// Gameplay sprite tuning (collision scale / sample inset / feet
     /// anchor override). `None` = defaults. Replaces the old
     /// hardcoded `*_SHEET` statics in `character_sprites/sheets.rs`.
@@ -836,7 +856,6 @@ mod momentum_spec_tests {
         assert_eq!(spec.to_kernel(), ae::MomentumParams::default());
     }
 }
-
 
 fn default_fighter_decision_interval() -> u32 {
     crate::brain::fighter::decision::DEFAULT_DECISION_INTERVAL_TICKS

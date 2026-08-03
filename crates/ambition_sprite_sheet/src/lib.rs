@@ -385,6 +385,16 @@ pub struct NamedPixelRect {
     pub y: i32,
     pub w: i32,
     pub h: i32,
+    /// Convex polygon for THIS part, in the same frame-pixel space as the rect,
+    /// which stays as its bounds and its fallback.
+    ///
+    /// Multi-part and SHAPED are different axes and a silhouette wants both. A
+    /// single hull cannot describe disjoint pieces — one hull over a head, a
+    /// torso and an outstretched arm fills every gap between them — and a rect
+    /// per piece cannot describe a piece that is not a rectangle. A hooded head
+    /// and a flaring cloak are neither.
+    #[serde(default)]
+    pub poly: Vec<(f32, f32)>,
 }
 
 impl NamedPixelRect {

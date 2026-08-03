@@ -175,6 +175,31 @@ impl CombatVolume {
     /// a sweep along attacker → volume, which is the axis the authored volumes
     /// are built on (`cone()`'s `(dx, dy)` is always cardinal in the body's
     /// frame).
+    /// ⛔ THE AXIS IS THE ATTACKER'S, AND THAT IS A KNOWN LIMIT.
+    ///
+    /// Taking it from `attacker → volume centroid` means a swing authored above
+    /// the body — a slash across the chest rather than the navel, which is what
+    /// the drawn character wants, being half again its collision box with its
+    /// feet at the bottom — tilts the drawn quad up to meet it. Measured: 8
+    /// degrees for a rise of 0.10 body-heights, polygon level, art alone
+    /// leaning. `SLASH_RISE` is 0 in the generator for exactly that reason.
+    ///
+    /// ⚠ Inferring the axis FROM THE VOLUME does not fix it, and I tried three
+    /// ways. Nearest-vertex-to-farthest puts both ends on corners, arbitrarily,
+    /// because a symmetric edge has two of them. Averaging a slice at each end
+    /// recovers the midpoints only if the provisional axis is already level —
+    /// and the tilt is precisely what makes the two corners of one edge project
+    /// differently, so it converges on the tilt it was given. Both measured
+    /// worse than this: 30+ degrees of false tilt on a level polygon, and a
+    /// third of the drawn slash outside its own hitbox.
+    ///
+    /// The reason inference keeps failing is that it is re-deriving something
+    /// the AUTHORING KNEW. `cone()` and `half_disc()` take a cardinal `(dx, dy)`
+    /// and the volume drops it on the way out — the same class of loss as the
+    /// `.bounds()` call this type was created to remove. The fix is to carry the
+    /// swing's direction on the `Hitbox` beside its shape, and to read it here
+    /// rather than guess. That is a real change to the strike-spawn path and it
+    /// is not this commit.
     pub fn swing_shape(&self, from: Vec2) -> SwingShape {
         if let CombatVolume::Circle { center, radius } = self {
             return SwingShape::Radial {

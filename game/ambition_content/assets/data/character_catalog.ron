@@ -172,6 +172,12 @@
             // content default is now unrelated to keeping the code kit — a demo
             // whose default authors its own kit (Sanic) gets that kit.
             playable_kit: HostCode,
+            // The protagonist's blade, and ONLY the protagonist's: the sheet's
+            // silhouette is sampled from v3's own hit polygon, so a character
+            // with a different swing that named it would wear art cut for
+            // somebody else's volume. A character that names nothing draws its
+            // hit volume instead of borrowing this.
+            attack_vfx: Some("robot_slash"),
             tags: ["player"],
             // AF4b: v3's OWN voice, which used to be authored a second time in
             // `player_robot_lineage.rs`. `barks.hall` only covers a pedestal.

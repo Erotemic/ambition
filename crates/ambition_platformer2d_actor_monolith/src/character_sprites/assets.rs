@@ -31,8 +31,8 @@ use ambition_asset_manager::AssetId;
 
 use crate::assets::platformer_assets::{ids, Platformer2dAssetCatalog};
 use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogData};
-use ambition_platformer2d_core as ae;
 use ambition_persistence::settings::VisualQualityBudget;
+use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::character::{
     CharacterSheetSpec, CharacterSpriteAsset, CharacterSpritePage,
@@ -398,9 +398,9 @@ pub fn materialize_declared_character_sprite(
         ambition_sprite_sheet::character::CharacterSheetState::Ready(_) => {
             return SpriteMaterialization::Ready
         }
-        ambition_sprite_sheet::character::CharacterSheetState::Declared {
-            character_id,
-        } => character_id.to_string(),
+        ambition_sprite_sheet::character::CharacterSheetState::Declared { character_id } => {
+            character_id.to_string()
+        }
         ambition_sprite_sheet::character::CharacterSheetState::Unknown => {
             return SpriteMaterialization::NoSheet
         }
@@ -486,7 +486,6 @@ pub fn load_character_sprites_in(
     }
     out
 }
-
 
 /// Resolve the catalog id, gate on profile policy via
 /// `try_path_for_load`, and call `asset_server.load(...)` if the gate
@@ -845,6 +844,7 @@ mod sprite_body_collision_tests {
                     y: 40,
                     w: 32,
                     h: 50,
+                    poly: Vec::new(),
                 },
                 NamedPixelRect {
                     name: "right".into(),
@@ -852,6 +852,7 @@ mod sprite_body_collision_tests {
                     y: 40,
                     w: 32,
                     h: 50,
+                    poly: Vec::new(),
                 },
             ],
         );

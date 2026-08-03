@@ -38,8 +38,10 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::rl_sim::{
+    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
 use ambition_platformer2d::characters::actor::BodyHealth;
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::{Entity, With, Without, World};
 
 fn repro_sim() -> Platformer2dSimHarness {
@@ -119,7 +121,10 @@ fn wound_one_enemy(world: &mut World) -> (Entity, i32) {
 /// baseline). Returns its entity so the reset's restore-to-intact can be checked.
 fn smash_one_brick(world: &mut World) -> Entity {
     let brick = {
-        let mut q = world.query::<(Entity, &ambition_platformer2d::combat::components::BreakableFeature)>();
+        let mut q = world.query::<(
+            Entity,
+            &ambition_platformer2d::combat::components::BreakableFeature,
+        )>();
         q.iter(world)
             .find(|(_, feature)| !feature.broken())
             .map(|(e, _)| e)
@@ -279,5 +284,63 @@ fn a_player_death_reset_survives_the_rollback_window() {
     assert!(
         saw_death,
         "the 3-HP player should have died and reset at least once in 2400 frames"
+    );
+}
+
+/// What a rollback frame COSTS — an instrument, not an assertion.
+///
+/// `#[ignore]`d deliberately: it asserts nothing, and a timing assertion on
+/// shared CI-less hardware would be a guard that fails for the weather. Run it
+/// when the rollback schema changes, or when someone claims a snapshot cost:
+///
+/// ```text
+/// cargo test --release -p ambition_app --features rl_sim --test app_it \
+///     probe_what_a_rollback_frame_costs -- --ignored --nocapture
+/// ```
+///
+/// Release, 2026-08-03, `combat_calibration_lab`, 300 steady-state frames:
+/// 2.17 ms plain / 4.32 ms at distance 1 / 6.94 at 2 / 11.92 at 4 — linear at
+/// ~2.5 ms per resimulated frame over a ~1.8 ms fixed floor.
+///
+/// ⚠ the floor is save PLUS checksum, and the checksum is sync-test-only, so the
+/// floor a shipped netplay session pays is strictly smaller and is not separated
+/// by this probe. What IS separated: a resimulated frame costs 2.5 ms against a
+/// 2.17 ms plain step, so save+restore is ~0.35 ms — **the cost of a rollback is
+/// re-running the SIMULATION, not moving the state.**
+#[test]
+#[ignore = "measurement, not an assertion — see the doc comment"]
+fn probe_what_a_rollback_frame_costs() {
+    fn run(label: &str, opts: Platformer2dSimHarnessOptions) {
+        let mut sim = Platformer2dSimHarness::new_with_options(opts).expect("builds");
+        stage_on_floor(&mut sim, 3);
+        for _ in 0..60 {
+            sim.step(AgentAction::default());
+        }
+        let t = std::time::Instant::now();
+        for _ in 0..300 {
+            sim.step(AgentAction::default());
+        }
+        eprintln!(
+            "PROBE {label:28} = {:.2}ms/frame",
+            t.elapsed().as_secs_f64() * 1000.0 / 300.0
+        );
+    }
+    let base = || {
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("combat_calibration_lab")
+    };
+    run("fixed60 no rollback", base().with_fixed_tick(true));
+    run(
+        "synctest dist=1",
+        base().with_sync_test_rollback_settings(1, 10),
+    );
+    run(
+        "synctest dist=2",
+        base().with_sync_test_rollback_settings(2, 10),
+    );
+    run(
+        "synctest dist=4",
+        base().with_sync_test_rollback_settings(4, 10),
     );
 }

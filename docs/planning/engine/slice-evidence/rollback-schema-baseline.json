@@ -43,6 +43,7 @@
     "actor.control",
     "actor.cooldowns",
     "actor.disposition",
+    "actor.dormant",
     "actor.faction",
     "actor.held_item",
     "actor.identity",
@@ -354,7 +355,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 332,
+  "stable_schema_name_count": 333,
   "encoded_types": [
     "ambition_platformer2d_actor_monolith::RoomTransitionCooldown",
     "ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState",

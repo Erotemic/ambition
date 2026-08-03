@@ -63,7 +63,12 @@ pub mod presentation;
 pub mod projectiles;
 pub mod quest;
 pub mod quests;
-pub mod vanity_card;
+// ⛔ no `vanity_card` module. The startup card USED to be a manifest of nine
+// rendered frames read from here and composed by the host as an image sequence;
+// it is now drawn by `presentation::vanity_card` from baked rig placements, and
+// two card authorities is exactly the fork this project deletes on sight.
+// The rendered frames, their manifest and `tools/vanity_card_prep` stay on disk
+// as REFERENCE art (Jon, 2026-08-03) — nothing in the game reads them.
 /// The LDtk world payload + Ambition's `WorldManifest` (install seam:
 /// `ambition_platformer2d_actor_monolith::ldtk_world`).
 pub mod worlds;

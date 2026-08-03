@@ -327,80 +327,32 @@ fn the_startup_run_in_plays_the_engine_card_then_the_authorship_card() {
          nothing registers spawns no scene and the run-in shows a blank card",
     );
 
-    // The card's lifetime is still DERIVED from the authored manifest, so
-    // retiming the animation retimes the card — there is no second number to
-    // keep in sync.
+    // The card's lifetime is DERIVED from the baked animation's own frame count
+    // and rate, so re-timing it in the exporter re-times the segment — there is
+    // no second number to keep in sync.
     assert_eq!(
         segment.policy.auto_advance_after,
-        Some(ambition_content::vanity_card::vanity_card_total_duration()),
-        "the segment's duration must be the authored card's total",
+        Some(ambition_content::presentation::vanity_card::programmatic_vanity_card_duration()),
+        "the segment's duration must be the baked card's own length",
     );
 }
 
-/// The real authored frame data plays through and terminates.
+/// The card the run-in schedules is the one the content crate DRAWS, and it
+/// terminates on its own.
 ///
-/// Timing lives in the shell's pure sequence logic (unit-tested there); this
-/// drives that logic with the ACTUAL content manifest, which is what would catch
-/// a manifest that exports zero-length or wrongly-ordered holds.
+/// ⛔ this replaced a test that drove the shell's sequence runtime with the
+/// authored image manifest. That path is gone: the startup card is no longer an
+/// image sequence, so the old test's subject stopped existing rather than
+/// stopping being covered. What still matters — the segment auto-advances and
+/// hands off — is asserted by `startup_card_plays_then_hands_off_to_the_launcher`
+/// and `startup_naturally_auto_advances_on_the_shipping_timeline` above, against
+/// the real host.
 #[test]
-fn the_authored_card_advances_through_its_frames_and_finishes() {
-    use ambition_platformer2d::game_shell::{
-        ShellSegmentSpec, ShellSequenceFrame, ShellSequenceRuntime, ShellSequenceSpec,
-    };
-    use std::time::Duration;
-
-    let frames = ambition_content::vanity_card::vanity_card_frames();
-    let total: Duration = frames.iter().map(|(_, hold)| *hold).sum();
-    let segment = ShellSegmentSpec::image_sequence_timed(
-        "startup",
-        frames
-            .into_iter()
-            .map(|(path, hold)| ShellSequenceFrame::new(path, hold)),
-        "",
-    );
-    let mut runtime = ShellSequenceRuntime::new(ShellSequenceSpec {
-        segments: vec![segment],
-    });
-
-    // Step in small slices and record which frame is showing at each moment.
-    let step = Duration::from_millis(25);
-    let mut seen = Vec::new();
-    let mut elapsed = Duration::ZERO;
-    while !runtime.finished {
-        if let Some(index) = current_frame_index(&runtime) {
-            if seen.last() != Some(&index) {
-                seen.push(index);
-            }
-        }
-        runtime.tick(step);
-        elapsed += step;
-        assert!(
-            elapsed < total + Duration::from_secs(2),
-            "the card must terminate on its own, near its authored length",
-        );
-    }
-
+fn the_drawn_card_declares_a_length_the_run_in_can_schedule() {
+    let total = ambition_content::presentation::vanity_card::programmatic_vanity_card_duration();
+    let run_in = shell_host::ambition_startup_duration();
     assert!(
-        seen.len() >= 2,
-        "the card must actually advance through frames, saw {seen:?}",
+        run_in > total,
+        "the run-in ({run_in:?}) must budget for the card ({total:?}) plus the engine card",
     );
-    assert!(
-        seen.windows(2).all(|pair| pair[0] < pair[1]),
-        "frames must advance forward and never wrap, saw {seen:?}",
-    );
-    // Auto-advance fires once the holds are spent, so the card ends near its
-    // authored length rather than running long or cutting the punchline short.
-    assert!(
-        elapsed >= total && elapsed <= total + Duration::from_millis(200),
-        "card ran {elapsed:?}, authored length {total:?}",
-    );
-}
-
-fn current_frame_index(runtime: &ambition_platformer2d::game_shell::ShellSequenceRuntime) -> Option<usize> {
-    use ambition_platformer2d::game_shell::{image_sequence_frame_at, ShellSegmentPresentation};
-    let segment = runtime.current()?;
-    let ShellSegmentPresentation::ImageSequence { frames, .. } = &segment.presentation else {
-        return None;
-    };
-    Some(image_sequence_frame_at(frames, runtime.elapsed))
 }

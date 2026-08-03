@@ -30,6 +30,7 @@ pub enum AmbitionLoadWorldSet {
 mod codec;
 mod codecs;
 mod domains;
+pub mod local_session;
 #[cfg(test)]
 mod host_invariant_tests;
 mod probes;

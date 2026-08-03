@@ -1166,6 +1166,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_runtime::rollback::session::",
         "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
     ),
+    (
+        "ambition_platformer2d_runtime::rollback::local_session::",
+        "WHO OWNS the local session and how deeply it verifies — the policy and          the ownership record. Same argument as the driver state above and the          same module family in spirit: this decides whether a session EXISTS,          so a rewind that restored it would be restoring the thing doing the          restoring. ⚠ it is also not per-tick state: the policy changes when a          developer asks for a proof pulse, and the ownership record when          gameplay starts or ends",
+    ),
     // Bevy wrapper resources around non-simulation machinery.
     ("bevy_asset::", "asset plumbing"),
     (

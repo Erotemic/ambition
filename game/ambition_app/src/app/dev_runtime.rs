@@ -116,7 +116,9 @@ pub(super) fn handle_ldtk_hot_reload(
     mut dev_state: ResMut<DeveloperRuntimeState>,
     mut sim_state: ResMut<ambition_platformer2d::actors::RoomTransitionCooldown>,
     mut dialogue: ResMut<ambition_platformer2d::dialog::DialogState>,
-    mut ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<ldtk_world::LdtkRuntimeIndex>,
+    mut ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+        ldtk_world::LdtkRuntimeIndex,
+    >,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     // Bundled to keep this system within Bevy's 16 top-level SystemParam limit.
     tuning: (
@@ -153,7 +155,9 @@ pub(super) fn handle_ldtk_hot_reload(
         Res<ldtk_world::WorldManifest>,
     ),
     mut content_identity: (
-        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<ambition_platformer2d::runtime::PreparedContent>,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+            ambition_platformer2d::runtime::PreparedContent,
+        >,
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
             ambition_platformer2d::runtime::PreparedContentIdentity,
         >,
@@ -210,9 +214,12 @@ pub(super) fn handle_ldtk_hot_reload(
         }
     };
 
-    if let Some(settings) = restart_local_ggrs {
+    // ⚠ the SETTINGS are no longer carried across the reload: the session owner
+    // holds the policy, and a content reload does not change it. What this marks
+    // is only "the world under the session was replaced, rebase it".
+    if restart_local_ggrs.is_some() {
         ambition_platformer2d::runtime::rollback::stop_session_deferred(&mut commands);
-        commands.insert_resource(RestartLocalGgrsAfterLdtkReload { settings });
+        commands.insert_resource(RestartLocalGgrsAfterLdtkReload);
     }
     if let Ok((mut cluster_item, mut motion_model, mut combat, mut safety)) = player_q.single_mut()
     {
@@ -279,14 +286,12 @@ pub(super) fn handle_ldtk_hot_reload(
 }
 
 #[derive(Resource, Clone, Copy, Debug)]
-struct RestartLocalGgrsAfterLdtkReload {
-    settings: ambition_platformer2d::runtime::rollback::SyncTestSettings,
-}
+struct RestartLocalGgrsAfterLdtkReload;
 
 /// Rebind the cheap local baseline after the Update-stage content transaction
 /// and its deferred session removal have both committed.
 pub(super) fn restart_local_ggrs_after_hot_reload(world: &mut World) {
-    let Some(restart) = world.remove_resource::<RestartLocalGgrsAfterLdtkReload>() else {
+    let Some(_restart) = world.remove_resource::<RestartLocalGgrsAfterLdtkReload>() else {
         return;
     };
 
@@ -295,21 +300,17 @@ pub(super) fn restart_local_ggrs_after_hot_reload(world: &mut World) {
     if ambition_platformer2d::runtime::rollback::session_is_active(world) {
         ambition_platformer2d::runtime::rollback::stop_session(world);
     }
-    match ambition_platformer2d::runtime::rollback::start_sync_test_session(world, restart.settings) {
-        Ok(()) => {
-            #[cfg(feature = "dev_tools")]
-            crate::dev::rollback_observatory::mark_baseline_restarted(world);
-            info!("LDtk hot reload rebased the local GGRS baseline");
-        }
-        Err(error) => {
-            #[cfg(feature = "dev_tools")]
-            crate::dev::rollback_observatory::mark_baseline_restart_failed(
-                world,
-                &error.to_string(),
-            );
-            error!("failed to restart local GGRS after LDtk hot reload: {error}");
-        }
-    }
+    // ⭐ **STOP, and let the OWNER rebuild.** This used to call
+    // `start_sync_test_session` itself, which made the hot-reload path a third
+    // place that installed a session — beside the observatory and, now, beside
+    // `runtime::rollback::local_session`. Releasing ownership is the whole of
+    // what this path owes: `maintain_local_session` sees no session on the next
+    // frame and starts one, with the SAME policy and the SAME frozen seating,
+    // because neither of those is what a content reload changed.
+    world
+        .resource_mut::<ambition_platformer2d::runtime::rollback::local_session::LocalSessionOwnership>()
+        .release();
+    info!("LDtk hot reload released the local GGRS baseline; the session owner will rebase it");
 }
 
 pub(super) struct LdtkReloadTransaction {
@@ -383,7 +384,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    moving_platforms: &mut Vec<ambition_platformer2d::actors::world::platforms::MovingPlatformState>,
+    moving_platforms: &mut Vec<
+        ambition_platformer2d::actors::world::platforms::MovingPlatformState,
+    >,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     assets: Option<&ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
     quality: Option<&ambition_platformer2d::render::quality::ResolvedVisualQuality>,
@@ -476,9 +479,11 @@ pub(super) fn reload_ldtk_world_from_disk(
     // after `commit_deferred`, so this transaction still verifies against the
     // binding it was prepared under (the epoch that existed at preflight);
     // every LATER transaction must state the new one or be refused as stale.
-    commands.insert_resource(ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
-        committed_content.epoch(),
-    ));
+    commands.insert_resource(
+        ambition_platformer2d::actors::rooms::ActiveContentBinding::content(
+            committed_content.epoch(),
+        ),
+    );
 
     // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
     // momentum kept for a same-spot reload, contacts/attachment reconciled
@@ -532,10 +537,16 @@ mod hot_reload_session_tests {
 
     #[test]
     fn f1_action_toggles_the_app_debug_overlay_both_directions() {
-        let bindings = ambition_platformer2d::platformer::developer_hotkeys::DeveloperHotkeyBindings::default();
+        let bindings =
+            ambition_platformer2d::platformer::developer_hotkeys::DeveloperHotkeyBindings::default(
+            );
         assert_eq!(
             bindings.chord_for(DeveloperAction::ToggleDebugOverlay),
-            Some(ambition_platformer2d::platformer::developer_hotkeys::DeveloperKeyChord::key(KeyCode::F1,))
+            Some(
+                ambition_platformer2d::platformer::developer_hotkeys::DeveloperKeyChord::key(
+                    KeyCode::F1,
+                )
+            )
         );
 
         let mut app = App::new();

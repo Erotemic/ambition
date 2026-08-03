@@ -26,7 +26,6 @@ use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d::runtime::rollback::{
     self, AdvanceWorld, AdvanceWorldSystems, AmbitionGgrsSession, ConfirmedFrameCount, LoadWorld,
     LoadWorldSystems, Rollback, RollbackFrameCount, RollbackSessionStatus, RunGgrsSystems,
-    SyncTestSettings,
 };
 
 const DEFAULT_CHECK_DISTANCE: usize = 6;
@@ -162,25 +161,6 @@ pub(crate) fn reset_for_content_reload(world: &mut World) {
     }
 }
 
-pub(crate) fn mark_baseline_restarted(world: &mut World) {
-    if let Some(mut state) = world.get_resource_mut::<RollbackProofState>() {
-        state.owns_session = true;
-        state.session_mode = Some(OwnedSessionMode::Baseline);
-        state.startup_error = None;
-    }
-}
-
-pub(crate) fn mark_baseline_restart_failed(world: &mut World, error: &str) {
-    if let Some(mut state) = world.get_resource_mut::<RollbackProofState>() {
-        state.owns_session = false;
-        state.session_mode = None;
-        state.startup_error = Some(format!(
-            "LDtk reload committed, but local GGRS baseline restart failed: {error}"
-        ));
-        state.hud_seconds_left = HUD_SECONDS;
-    }
-}
-
 #[derive(Component)]
 struct RollbackProofText;
 
@@ -240,7 +220,9 @@ impl Plugin for RollbackObservatoryPlugin {
             )
             .add_systems(
                 Update,
-                maintain_local_ggrs_session.in_set(RollbackProofUpdateSet::Session),
+                request_session_mode
+                    .in_set(RollbackProofUpdateSet::Session)
+                    .before(rollback::local_session::LocalSessionSet::Maintain),
             )
             .add_systems(
                 Update,
@@ -276,156 +258,76 @@ impl Plugin for RollbackObservatoryPlugin {
 /// [`finish_completed_proof_pulse`] immediately restores the baseline. The
 /// expensive N-frame resimulation is bounded to the proof request instead of
 /// continuing for the rest of gameplay.
-/// **This gameplay session's frozen seating**, captured once and reused.
+/// Ask the ENGINE's session owner for the mode this instrument wants.
 ///
-/// Freezing is what makes the rollback session, the per-seat latches, the
-/// handle→device mapping and the versus roster the SAME answer rather than four
-/// samples of a live resource that usually agree. A controller connecting
-/// between two samples is otherwise enough to seat three fighters into a
-/// two-handle session with nothing saying so.
+/// ⭐ **this used to BE the session owner** — 120 lines that started, stopped and
+/// re-seated the local GGRS session, inside `#[cfg(feature = "dev_tools")]`. That
+/// made a developer tool the only thing in the app that could supply a session,
+/// so the GGRS host itself had to be gated on the same feature and a shipped
+/// build without dev tooling could not use one.
 ///
-/// ⚠ Captured on the FIRST call of a gameplay session and never again while it
-/// lasts. Baseline starts, proof pulses and rebases are all *the same session
-/// restarted*: recapturing for one of them would make the topology stable only
-/// per GGRS sub-session, which is not the lifetime anything else uses. Pressing
-/// F9 after a controller connected would have grown the session while the
-/// already-constructed roster stayed as it was.
+/// The lifecycle moved to `runtime::rollback::local_session`, which owns it for
+/// every composition. What is left here is the part that really is a developer's:
+/// **how many frames the session should verify**, raised for a proof pulse and
+/// dropped back afterwards. The owner notices the policy changed and restarts.
 ///
-/// Released by `maintain_local_ggrs_session` when gameplay ends.
-fn local_seat_topology(world: &mut World) -> ambition_platformer2d::input::LocalSeatTopology {
-    if let Some(frozen) = world.get_resource::<ambition_platformer2d::input::LocalSeatTopology>() {
-        if frozen.is_frozen() {
-            return frozen.clone();
-        }
-    }
-    let order = world
-        .get_resource::<ambition_platformer2d::input::LocalDeviceOrder>()
-        .map(|devices| devices.devices().to_vec())
-        .unwrap_or_default();
-    let order = ambition_platformer2d::input::LocalDeviceOrder::from_devices(order);
-    let mut topology =
-        world.get_resource_or_insert_with(ambition_platformer2d::input::LocalSeatTopology::default);
-    topology.capture(&order);
-    topology.clone()
-}
-
-fn maintain_local_ggrs_session(world: &mut World) {
+/// ⚠ the frozen seating went with the lifecycle, deliberately — capturing it is
+/// part of starting a session, not part of observing one.
+fn request_session_mode(world: &mut World) {
     let control = *world.resource::<RollbackObservatoryControl>();
     let settings = *world.resource::<RollbackProofSettings>();
-    let gameplay_active = ambition_platformer2d::platformer::lifecycle::session_world_entity(world).is_some();
-    let ggrs_active = world.contains_resource::<AmbitionGgrsSession>();
-    let (owns_session, current_mode, handled_request) = {
-        let state = world.resource::<RollbackProofState>();
-        (
-            state.owns_session,
-            state.session_mode,
-            state.handled_request,
-        )
-    };
+    let handled_request = world.resource::<RollbackProofState>().handled_request;
+    let owns = world
+        .resource::<rollback::local_session::LocalSessionOwnership>()
+        .owns_session();
 
-    if !gameplay_active {
-        if owns_session && ggrs_active {
-            rollback::stop_session(world);
-        }
-        // THE TOPOLOGY BELONGS TO THE GAMEPLAY SESSION, so it ends with it.
-        //
-        // Left standing, it would be the previous match's seating presented to
-        // the next one as a frozen fact — and the versus roster reads any frozen
-        // topology without asking whether a session owns it, so two people who
-        // played, quit, and came back with one controller would still seat two
-        // fighters (GPT 5.6, 2026-07-29).
-        world.remove_resource::<ambition_platformer2d::input::LocalSeatTopology>();
+    // A session the engine owner did not start (a future Matchbox/P2P one) is
+    // authoritative; the observatory may watch it and must not re-aim it.
+    if !owns {
         let mut state = world.resource_mut::<RollbackProofState>();
         state.owns_session = false;
         state.session_mode = None;
-        state.proof_completed = false;
-        state.ghosts.clear();
-        state.ghost_seconds_left = 0.0;
-        state.hud_seconds_left = 0.0;
         return;
     }
 
-    // A future Matchbox/P2P session is authoritative. The observatory may
-    // inspect it, but must never replace a session it does not own.
-    if ggrs_active && !owns_session {
-        return;
-    }
-
-    let proof_requested = control.requested_proofs() > handled_request
-        && current_mode != Some(OwnedSessionMode::Proof);
-    let requested_mode = if proof_requested {
+    let live = world
+        .resource::<rollback::local_session::LocalSessionPolicy>()
+        .check_distance;
+    let proof_requested = control.requested_proofs() > handled_request;
+    let want = if proof_requested {
         OwnedSessionMode::Proof
-    } else if current_mode.is_none()
-        || (current_mode == Some(OwnedSessionMode::Baseline) && !ggrs_active)
-    {
-        OwnedSessionMode::Baseline
+    } else if live == OwnedSessionMode::Proof.check_distance(settings) {
+        // A pulse is running; leave it alone until it completes.
+        OwnedSessionMode::Proof
     } else {
-        return;
+        OwnedSessionMode::Baseline
     };
 
-    if ggrs_active && owns_session {
-        rollback::stop_session(world);
+    let wanted_distance = want.check_distance(settings);
+    if wanted_distance != live {
+        world
+            .resource_mut::<rollback::local_session::LocalSessionPolicy>()
+            .check_distance = wanted_distance;
+        if want == OwnedSessionMode::Proof {
+            info!(
+                "GGRS rollback proof pulse requested ({} frames)",
+                wanted_distance
+            );
+        }
     }
 
-    // HOW MANY PEOPLE ARE PLAYING, asked rather than assumed.
-    //
-    // This built the session with `..Default::default()`, whose player count is
-    // ONE — so the multi-handle session API, the per-seat input latches and the
-    // two-stream rollback harness all existed while the VISIBLE app started a
-    // one-player session and left seats 1..3 driven by live device state
-    // instead of confirmed/resimulated GGRS input. The mechanism was real and
-    // production did not use it (GPT 5.6, 2026-07-28).
-    //
-    // `LocalDeviceOrder` is the same source the versus roster seats from, so
-    // the session topology and the roster cannot disagree about who is here.
-    // Clamped to at least one: a keyboard-only desktop has no device rows and
-    // still has a player.
-    // FREEZE THE SEATING, once, here — and let every other consumer read the
-    // snapshot rather than the live device order.
-    //
-    // The roster and the session both need to agree about how many people are
-    // playing. Sampling `LocalDeviceOrder` independently means a controller
-    // connecting between the two samples makes them disagree while both cite
-    // "the same source": the roster seats three fighters into a two-handle
-    // session and nothing says so. Deciding it once at session start is what
-    // makes them the same answer rather than two answers that usually match
-    // (GPT 5.6, 2026-07-28).
-    let local_players = local_seat_topology(world).players();
-    let session_settings = SyncTestSettings {
-        check_distance: requested_mode.check_distance(settings),
-        max_prediction_window: settings.max_prediction_window,
-        players: local_players,
-    };
-    match rollback::start_sync_test_session(world, session_settings) {
-        Ok(()) => {
-            if requested_mode == OwnedSessionMode::Proof {
-                *world.resource_mut::<RollbackProofState>() = RollbackProofState {
-                    owns_session: true,
-                    session_mode: Some(OwnedSessionMode::Proof),
-                    handled_request: control.requested_proofs(),
-                    hud_seconds_left: HUD_SECONDS,
-                    ..default()
-                };
-                info!(
-                    "GGRS rollback proof pulse started ({} frames)",
-                    settings.check_distance
-                );
-            } else {
-                let mut state = world.resource_mut::<RollbackProofState>();
-                state.owns_session = true;
-                state.session_mode = Some(OwnedSessionMode::Baseline);
-                state.startup_error = None;
-            }
-        }
-        Err(error) => {
-            error!("failed to start local GGRS observatory session: {error}");
-            let mut state = world.resource_mut::<RollbackProofState>();
-            state.startup_error = Some(format!("failed to start local GGRS session: {error}"));
-            state.handled_request = control.requested_proofs();
-            state.hud_seconds_left = HUD_SECONDS;
-            state.owns_session = false;
-            state.session_mode = None;
-        }
+    let mut state = world.resource_mut::<RollbackProofState>();
+    if proof_requested && want == OwnedSessionMode::Proof {
+        *state = RollbackProofState {
+            owns_session: true,
+            session_mode: Some(OwnedSessionMode::Proof),
+            handled_request: control.requested_proofs(),
+            hud_seconds_left: HUD_SECONDS,
+            ..default()
+        };
+    } else {
+        state.owns_session = true;
+        state.session_mode = Some(want);
     }
 }
 
@@ -574,51 +476,20 @@ fn finish_completed_proof_pulse(world: &mut World) {
         return;
     }
 
-    let settings = *world.resource::<RollbackProofSettings>();
-    if world.contains_resource::<AmbitionGgrsSession>() {
-        rollback::stop_session(world);
-    }
-    let players = local_seat_topology(world).players();
-    match rollback::start_sync_test_session(
-        world,
-        SyncTestSettings {
-            check_distance: OwnedSessionMode::Baseline.check_distance(settings),
-            max_prediction_window: settings.max_prediction_window,
-            // THE PLAYER COUNT, which `..Default::default()` silently made ONE.
-            //
-            // Completing a proof pulse rebuilt the baseline session from
-            // prediction-window values alone, so a four-player match came back
-            // from F9 with a single GGRS handle while the frozen topology and
-            // the versus roster still described four. Exactly the defect that
-            // was repaired for initial startup and for hot reload, surviving in
-            // the third path that constructs a session (GPT 5.6, 2026-07-29).
-            //
-            // Every reconstruction reads the SAME frozen topology, which is
-            // what makes "the same session, restarted" true rather than hoped.
-            players,
-        },
-    ) {
-        Ok(()) => {
-            let mut state = world.resource_mut::<RollbackProofState>();
-            state.owns_session = true;
-            state.session_mode = Some(OwnedSessionMode::Baseline);
-            state.hud_seconds_left = state.hud_seconds_left.max(HUD_SECONDS);
-            info!("GGRS rollback proof verified; restored zero-distance baseline");
-        }
-        Err(error) => {
-            error!("failed to restore GGRS baseline after proof: {error}");
-            let mut state = world.resource_mut::<RollbackProofState>();
-            state.startup_error = Some(format!(
-                "rollback proof ran, but baseline restart failed: {error}"
-            ));
-            state.owns_session = false;
-            state.session_mode = None;
-            state.proof_completed = false;
-            state.hud_seconds_left = HUD_SECONDS;
-        }
-    }
+    // ⭐ **hand the mode back to the OWNER instead of restarting the session
+    // here.** Dropping `check_distance` to the baseline is the whole of ending a
+    // pulse; `maintain_local_session` sees the policy changed and rebuilds. This
+    // used to stop and re-start the session itself, which is what made a
+    // developer tool a second owner of it — and re-froze the seating on a path
+    // that is the SAME gameplay session, not a new one.
+    world
+        .resource_mut::<rollback::local_session::LocalSessionPolicy>()
+        .check_distance = 0;
+    let mut state = world.resource_mut::<RollbackProofState>();
+    state.session_mode = Some(OwnedSessionMode::Baseline);
+    state.proof_completed = false;
+    state.hud_seconds_left = HUD_SECONDS;
 }
-
 fn spawn_rollback_proof_hud(mut commands: Commands, ui_fonts: Option<Res<UiFonts>>) {
     let font = ui_fonts
         .map(|fonts| fonts.text_font(13.0, UiFontWeight::Monospace))
@@ -727,9 +598,15 @@ fn rollback_proof_visible(state: Res<RollbackProofState>) -> bool {
 
 fn draw_rollback_ghosts(
     state: Res<RollbackProofState>,
-    world_q: Query<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>,
+    world_q: Query<
+        &ae::RoomGeometry,
+        With<ambition_platformer2d::platformer::lifecycle::SessionRoot>,
+    >,
     current_bodies: Query<
-        (&ambition_platformer2d::platformer::sim_id::SimId, &ae::BodyKinematics),
+        (
+            &ambition_platformer2d::platformer::sim_id::SimId,
+            &ae::BodyKinematics,
+        ),
         With<Rollback>,
     >,
     mut gizmos: Gizmos,
@@ -820,9 +697,11 @@ mod tests {
         // and the copy the test watched was not the one the roster used.
         let pads = |count: usize| {
             let mut topology = ambition_platformer2d::input::LocalSeatTopology::default();
-            topology.capture(&ambition_platformer2d::input::LocalDeviceOrder::from_devices(
-                (0..count as u32).filter_map(Entity::from_raw_u32).collect(),
-            ));
+            topology.capture(
+                &ambition_platformer2d::input::LocalDeviceOrder::from_devices(
+                    (0..count as u32).filter_map(Entity::from_raw_u32).collect(),
+                ),
+            );
             topology.players()
         };
         assert_eq!(pads(2), 2, "two pads is a two-player session");

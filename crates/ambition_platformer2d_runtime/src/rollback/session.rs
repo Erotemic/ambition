@@ -593,6 +593,18 @@ pub(crate) fn install_session_bridge(app: &mut App) {
     // or render-frame game carries none of these systems at all.
     crate::external_effects::quarantine_presentation_effects(app, LoadWorld);
 
+    // ⭐ **THE SESSION OWNER, and it is the engine's.** A GGRS host that never
+    // installs a session never simulates; before this the only installer was the
+    // dev observatory, so the host choice was coupled to a feature flag. See
+    // `local_session`.
+    app.init_resource::<super::local_session::LocalSessionPolicy>()
+        .init_resource::<super::local_session::LocalSessionOwnership>()
+        .add_systems(
+            Update,
+            super::local_session::maintain_local_session
+                .in_set(super::local_session::LocalSessionSet::Maintain),
+        );
+
     app.init_resource::<PendingLocalInput>()
         .init_resource::<PendingSeatInputs>()
         .init_resource::<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>()
@@ -1516,8 +1528,13 @@ mod ac23_tests {
             "frame numbers from a dead timeline were carried into a live one, so \
              the new session reports a mismatch at frames it has not reached"
         );
-        let reason = carried.invalidation.expect("the mismatch survives as prose");
-        assert!(reason.contains("41"), "the reason lost the evidence: {reason}");
+        let reason = carried
+            .invalidation
+            .expect("the mismatch survives as prose");
+        assert!(
+            reason.contains("41"),
+            "the reason lost the evidence: {reason}"
+        );
         assert!(
             reason.contains("PREVIOUS"),
             "the reason does not say the mismatch belongs to the old timeline: {reason}"

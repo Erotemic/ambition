@@ -8,7 +8,9 @@ use bevy::window::WindowResolution;
 use ambition_platformer2d::engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 
-use super::plugins::{AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin};
+use super::plugins::{
+    AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
+};
 
 /// Resolve the on-disk asset root for the desktop app.
 ///
@@ -189,7 +191,10 @@ mod headless_arg_tests {
             root.is_absolute(),
             "dev checkout should resolve an absolute sandbox assets path, got {root:?}"
         );
-        assert!(root.ends_with("crates/ambition_platformer2d_actor_monolith/assets") || root.ends_with("assets"));
+        assert!(
+            root.ends_with("crates/ambition_platformer2d_actor_monolith/assets")
+                || root.ends_with("assets")
+        );
         assert!(
             root.join("ambition/platformer_defaults.ron").exists(),
             "asset root {root:?} must contain ambition/platformer_defaults.ron"
@@ -621,19 +626,27 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     let asset_root = desktop_asset_root();
     eprintln!("ambition_app: asset root = {asset_root}");
     let mut app = App::new();
-    #[cfg(feature = "dev_tools")]
     {
-        // The observatory is requested at runtime, but Bevy seals SimSchedule
-        // when the first simulation plugin registers. Developer-visible builds
-        // therefore use GGRS from construction onward. Ordinary play uses a
-        // zero-distance baseline; F9 installs one bounded proof pulse and then
-        // returns to that baseline.
+        // ⭐ **NO LONGER GATED ON `dev_tools`.** Bevy seals `SimSchedule` when the
+        // first simulation plugin registers, so the host is chosen here for the
+        // whole build. It used to be chosen inside `#[cfg(feature = "dev_tools")]`
+        // — not a developer convenience but a COUPLING: the only thing that
+        // installed a GGRS session was the dev observatory, and a GGRS host with
+        // no session composes, boots, renders and never simulates. The engine
+        // owns the session now (`runtime::rollback::local_session`), so every
+        // build can have one.
+        //
+        // Ordinary play runs a zero-distance baseline: GGRS drives the simulation
+        // deterministically and rollback stays dormant. F9 raises the check
+        // distance for one bounded proof pulse and drops it back.
         use ambition_platformer2d::runtime::SimulationHostAppExt as _;
         app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Ggrs);
     }
     let direct_windowed = matches!(render, VisibleRenderMode::Windowed) && !shell_hosted;
     if direct_windowed {
-        app.insert_resource(ambition_platformer2d::platformer::lifecycle::InitialGameplayReadiness::closed());
+        app.insert_resource(
+            ambition_platformer2d::platformer::lifecycle::InitialGameplayReadiness::closed(),
+        );
     }
     if matches!(
         render,

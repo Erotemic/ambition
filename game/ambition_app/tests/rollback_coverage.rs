@@ -1277,6 +1277,18 @@ fn the_resource_sweep_actually_catches_an_unregistered_resource() {
 /// entities spawned and despawned inside a route — is covered by
 /// `rollback_exit_oracle`'s per-frame census, which caught two regressions the
 /// day it was pointed at them.
+///
+/// ⛔ **AND IT HAS A BLIND SPOT OF ITS OWN, MEASURED 2026-08-03: this fixture
+/// never runs the simulation.** `build_visible_app` seats no session, and in
+/// rollback mode there deliberately is none until one is, so `GgrsSchedule` never
+/// advances a frame — `the_shipped_fixture_does_not_advance_the_simulation`
+/// prints the witness (0 of 255 snapshot stores written across 30 updates).
+///
+/// So this sweep enumerates the world **as COMPOSED, not as PLAYED**, and any
+/// resource the running simulation creates is invisible to it. That is the same
+/// shape as the `ActiveMatch` bug, which was invisible until the sandbox sweep
+/// seated a match. A green result here means *composed clean* — it is not, and
+/// must not be cited as, a statement about a session in progress.
 #[test]
 fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     let mut app =

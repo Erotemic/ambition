@@ -131,6 +131,15 @@ sweep and there is no CI to satisfy; Jon sweeps it periodically himself. Reach f
 it when a row above names your change (features, SDK, web) — and ask
 `run_tests.py --list` what a plan actually contains before running it.
 
+⛔ **The 11-second job is the one to stop skipping.** `repo tooling
+(scripts/tests)` runs 180 tests including
+`test_every_contract_holds_against_the_live_tree` — the 25 architectural absence
+contracts, which are the only thing that catches a registration or a dependency
+edge landing in the wrong place. On 2026-08-03 two of them sat red through
+several commits because targeted `cargo test` filters were run instead of the
+plan. ⚠ and `python3 scripts/check_absence_contracts.py` **exits 0 while printing
+`2 of 25 violated`** — enforcement needs `--check`.
+
 ### When a run is slow, get the DISTRIBUTION before theorising
 
 `--report-time` is nightly-only, so per-test timings on stable come from running

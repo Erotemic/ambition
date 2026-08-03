@@ -367,3 +367,108 @@ fn ledge_contact_for_platform(
 fn projected_half_for_test(half: ae::Vec2, axis: ae::Vec2) -> f32 {
     half.x * axis.x.abs() + half.y * axis.y.abs()
 }
+
+// ── The wrapping elevator (queue D12) ──────────────────────────────────────
+
+/// ⛔ **A TWO-POINT `Loop` PATH USED TO HANG THE SIMULATION, and this is how it
+/// was found: the test binary never returned.**
+///
+/// `advance_path_segment` computes `last_segment` as `points.len() - 2`, which is
+/// **0** for a two-point path. So arriving at the second point "wraps" the cursor
+/// to segment 0 — whose target is the point the platform is already standing on.
+/// Distance zero, cursor unchanged, `continue`, forever. `advance_path_position`
+/// now breaks when an advance leaves the cursor where it was.
+///
+/// ⭐ **this is the engine half of Jon's world 1-2** — *"vertical elevator
+/// platforms that wrap when they leave the view"* — and a two-waypoint vertical
+/// `Loop` is exactly how anyone would author it. No shipped content uses `Loop`,
+/// which is why a hang has been sitting here unnoticed.
+///
+/// ⚠ this test asserts TERMINATION and pins today's behaviour. It does not
+/// assert that `Loop` is correct, because it is not: see below.
+#[test]
+fn a_two_point_looping_path_terminates_instead_of_spinning() {
+    let bottom = ae::Vec2::new(0.0, 400.0);
+    let top = ae::Vec2::new(0.0, 100.0);
+    let mut platform = MovingPlatformState::from_path(
+        "elevator",
+        "elevator",
+        ae::Vec2::new(64.0, 16.0),
+        ambition_platformer2d_core::KinematicPath {
+            points: vec![bottom, top],
+            speed: 600.0,
+            mode: ambition_platformer2d_core::KinematicPathMode::Loop,
+            start_offset_seconds: 0.0,
+        },
+    );
+
+    let dt = 1.0 / 60.0;
+    // 120 frames is twice what the 300px column needs at 600px/s. Before the
+    // termination guard this loop did not finish at all.
+    for _ in 0..120 {
+        platform.update(dt);
+    }
+
+    assert!(
+        (platform.pos - top).length() < 1.0,
+        "the platform climbs to the top and STOPS there: {:?}",
+        platform.pos
+    );
+}
+
+/// ⛔ **and `Loop` does not loop — it RETRACES, which the three-point case shows
+/// without the two-point case's hang.**
+///
+/// A closed circuit would run `p0 → p1 → p2 → p0`. What happens instead is that
+/// the cursor wraps to segment 0 while the POSITION is still at `p2`, so segment
+/// 0's target (`p1`) is reached by travelling BACKWARDS. The platform oscillates
+/// over the last leg forever and the first leg is never revisited.
+///
+/// ▢ **the fix is a design call and belongs in D12**: a `Loop` that treats the
+/// path as CLOSED (adding the implicit `pₙ → p₀` leg) is one answer, and a `Loop`
+/// that TELEPORTS back to `p₀` — what a wrapping elevator actually looks like —
+/// is a different one. The queue row's instinct was right: *a platform that
+/// teleports is a transit, and transits have an arbiter*, because a body riding
+/// it has to be told whether it comes along.
+#[test]
+fn loop_mode_retraces_the_last_leg_rather_than_closing_the_circuit() {
+    let a = ae::Vec2::new(0.0, 0.0);
+    let b = ae::Vec2::new(300.0, 0.0);
+    let c = ae::Vec2::new(300.0, 300.0);
+    let mut platform = MovingPlatformState::from_path(
+        "circuit",
+        "circuit",
+        ae::Vec2::new(64.0, 16.0),
+        ambition_platformer2d_core::KinematicPath {
+            points: vec![a, b, c],
+            speed: 600.0,
+            mode: ambition_platformer2d_core::KinematicPathMode::Loop,
+            start_offset_seconds: 0.0,
+        },
+    );
+
+    let dt = 1.0 / 60.0;
+    let mut reached_c = false;
+    let mut returned_to_a = false;
+    for _ in 0..600 {
+        platform.update(dt);
+        if (platform.pos - c).length() < 1.0 {
+            reached_c = true;
+        }
+        // Only counts AFTER the far corner: the platform starts at `a`.
+        if reached_c && (platform.pos - a).length() < 1.0 {
+            returned_to_a = true;
+        }
+    }
+
+    assert!(
+        reached_c,
+        "the platform should traverse the whole path first"
+    );
+    assert!(
+        !returned_to_a,
+        "TODAY `Loop` never returns to its first point — if this now fails, the \
+         circuit has been closed (or the wrap implemented) and this test should \
+         become the assertion that it STAYS closed. See queue D12."
+    );
+}

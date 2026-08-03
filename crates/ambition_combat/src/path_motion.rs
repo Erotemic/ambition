@@ -60,7 +60,26 @@ impl PathMotion {
             let to_target = target - pos;
             let distance = to_target.length();
             if distance <= 0.001 {
+                // ⛔ **A CURSOR THAT DOES NOT MOVE ENDS THE FRAME, or this spins
+                // forever.** This branch consumes no `remaining`, so it is only
+                // safe while every advance changes where the mover is heading. A
+                // two-point `Loop` path breaks that: `last_segment` is
+                // `len.saturating_sub(2)` = 0, so arriving at the second point
+                // "wraps" to segment 0 — whose target is the point the mover is
+                // already standing on. Zero distance, cursor unchanged,
+                // `continue`, forever.
+                //
+                // ⚠ found in the platform copy of this loop
+                // (`ambition_platformer2d_world::platforms`), which hung a test
+                // binary. The two steppers are line-for-line the same shape, so
+                // the same guard belongs in both — this one drives spike balls,
+                // patrol dummies and scripted hazards. See queue D12 for why
+                // `Loop` is broken rather than merely dangerous.
+                let before = (self.segment, self.dir);
                 self.advance_segment();
+                if (self.segment, self.dir) == before {
+                    break;
+                }
                 continue;
             }
             let step = remaining.min(distance);
@@ -230,5 +249,35 @@ mod path_motion_tests {
         dir = -1;
         lookahead_advance(&mut seg, &mut dir, 2, KinematicPathMode::PingPong);
         assert_eq!(dir, 1, "reverse at 0 flips to forward");
+    }
+
+    /// ⛔ **The same two-point `Loop` spin the platform stepper had.**
+    ///
+    /// These two `advance` loops are line-for-line the same shape, so the defect
+    /// and the guard are the same. Found in the platform copy, where it hung a
+    /// test binary outright; this asserts that a spike ball or patrol dummy on a
+    /// two-waypoint looping path returns from its frame.
+    #[test]
+    fn a_two_point_looping_path_terminates_instead_of_spinning() {
+        let a = ae::Vec2::new(0.0, 0.0);
+        let b = ae::Vec2::new(300.0, 0.0);
+        let mut motion = PathMotion::new(ambition_platformer2d_core::KinematicPath {
+            points: vec![a, b],
+            speed: 600.0,
+            mode: KinematicPathMode::Loop,
+            start_offset_seconds: 0.0,
+        });
+
+        let dt = 1.0 / 60.0;
+        let mut pos = a;
+        // Twice what the 300px leg needs. Without the guard this never returns.
+        for _ in 0..120 {
+            pos = motion.advance(pos, dt);
+        }
+
+        assert!(
+            (pos - b).length() < 1.0,
+            "it reaches the far point and stops there: {pos:?}"
+        );
     }
 }

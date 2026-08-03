@@ -408,7 +408,24 @@ fn advance_path_position(
         let to_target = target - pos;
         let distance = to_target.length();
         if distance <= 0.001 {
+            // ⛔ **A CURSOR THAT DOES NOT MOVE ENDS THE FRAME, or this spins
+            // forever.** This branch consumes no `remaining`, so it is only safe
+            // while every advance changes where the platform is heading. A
+            // two-point `Loop` path breaks that: `last_segment` is
+            // `len.saturating_sub(2)` = 0, so arriving at the second point
+            // "wraps" to segment 0 — whose target is the point the platform is
+            // already standing on. Zero distance, cursor unchanged, `continue`,
+            // forever. It hung a test binary for five minutes before this guard
+            // existed, and it would have hung the GAME the first time a
+            // two-waypoint looping platform was authored.
+            //
+            // ⚠ this is a TERMINATION guard, not a fix for `Loop` — see the
+            // tests, and queue D12. It makes a broken mode stop instead of hang.
+            let before = (*segment, *dir);
             advance_path_segment(path, segment, dir);
+            if (*segment, *dir) == before {
+                break;
+            }
             continue;
         }
         let step = remaining.min(distance);

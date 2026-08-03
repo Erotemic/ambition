@@ -140,6 +140,33 @@ several commits because targeted `cargo test` filters were run instead of the
 plan. ⚠ and `python3 scripts/check_absence_contracts.py` **exits 0 while printing
 `2 of 25 violated`** — enforcement needs `--check`.
 
+### The write-ahead worktree (Jon, 2026-08-03)
+
+Builds and tests are not slow because of the compiler alone — they are slow
+because **every job reads the LIVE tree**, so a suite running on `main` freezes
+editing for its whole duration. A second tree removes that serialization:
+
+```
+git worktree add -b workahead /home/agent/code/ambition-workahead main
+cd /home/agent/code/ambition-workahead && python3 scripts/mirror_assets_for_worktree.py
+```
+
+- **Write ahead in the worktree** while `main` is mid-build. Next feature, next
+  refactor — whatever the running job would have blocked.
+- **Integrate, build and test on `main`.** Merge the worktree's branch when main
+  is clean, start the next job, and go back to writing.
+- ⛔ **Do NOT build in the worktree.** A second `target/` cannot be shared (they
+  fight over artifacts and lockfiles) so it is a full cold duplicate — and this
+  volume has hit 100% three times. Jon's call, and the reason the split is
+  write-there / build-here rather than two independent checkouts.
+- ⚠ **Mirror the assets first, always.** Generated art and audio are gitignored,
+  so a fresh worktree has ~4 sprite files against main's 996 — and the sheet
+  registry is baked from those directories, so an assetless tree compiles a binary
+  with an EMPTY sheet table and ~40 tests fail for reasons unrelated to the
+  change. `mirror_assets_for_worktree.py` links them file by file on purpose: a
+  regenerated sprite lands as a REAL file in the worktree and main never sees it,
+  which directory symlinks would not give you.
+
 ### When a run is slow, get the DISTRIBUTION before theorising
 
 `--report-time` is nightly-only, so per-test timings on stable come from running

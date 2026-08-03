@@ -7,6 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`anim_index`](src/anim_index.rs) | The per-actor POSE index + the per-boss FRAME index (E4 slices 3, 7, 19): id-keyed read-models rebuilt once per sim tick; presentation animates from these snapshots and never borrows the live clusters. |
+| [`attack_vfx_view`](src/attack_vfx_view.rs) | **Whether a body's character authors its own attack art** — resolved sim-side, so presentation never asks the catalog. |
 | [`camera_snapshot`](src/camera_snapshot.rs) | Pure 2D camera-follow snapshot policy. |
 | [`control_prompt`](src/control_prompt.rs) | `ControlPrompt` — the read-model of "what does each on-screen control do right now, and what is it called," for whatever currently owns input. |
 | [`dialog_view`](src/dialog_view.rs) | `DialogView` — the dialogue overlay's per-frame read-model (recon C3). |
@@ -15,7 +16,7 @@
 | [`presented_pose`](src/presented_pose.rs) | **[the frame clock]** — presented poses sampled from tick read-models. |
 | [`view_index`](src/view_index.rs) | `FeatureViewIndex` resource and the per-frame rebuild pass. |
 
-_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_9 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

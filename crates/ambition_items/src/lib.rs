@@ -24,6 +24,12 @@
 
 pub mod shop;
 
+/// The `item_catalog` authored-content schema this capability owns. Behind the
+/// `content_pack` feature: a game that never validates its content must not
+/// link a compiler.
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
+
 use bevy::prelude::Resource;
 
 /// Number of item slots — the OoT item subscreen's 6 × 4 grid, and therefore the
@@ -107,7 +113,14 @@ pub enum Item {
 /// (installed via [`install_item_catalog`], the [`ItemCatalog`] override) — the same
 /// "content out of core" pattern as `boss_profiles.ron` / boss sheets (C6). The
 /// engine's built-in 24 stay in [`ITEM_META`] as the byte-identical default.
+/// ⚠ **`deny_unknown_fields` is load-bearing, not tidiness.** An authored field
+/// nothing consumes is the most expensive content bug there is: the row looks
+/// authored, the mechanic silently never fires, and nothing anywhere says so.
+/// The `item_catalog` schema maps the resulting serde error to
+/// `DiagnosticCode::UnknownField`. The built-in `ITEM_META` table is built in
+/// Rust rather than deserialized, so this constrains `items.ron` only.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ItemMeta {
     pub display_name: String,
     pub description: String,
@@ -138,6 +151,20 @@ impl ItemCatalog {
             panic!("items.ron failed to deserialize as Vec<ItemMeta>: {err}")
         });
         Self { rows }
+    }
+
+    /// The catalog the `item_catalog` schema LOWERS a validated `items.ron` to.
+    ///
+    /// The compiler has already parsed and judged these rows, so re-entering
+    /// through [`Self::from_ron`] would parse the same bytes a second time —
+    /// the two-readers shape the content pack exists to remove.
+    pub fn from_rows(rows: Vec<ItemMeta>) -> Self {
+        Self { rows }
+    }
+
+    /// The authored rows, in grid order.
+    pub fn rows(&self) -> &[ItemMeta] {
+        &self.rows
     }
 
     fn row(&self, index: usize) -> Option<&ItemMeta> {

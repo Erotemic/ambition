@@ -70,11 +70,20 @@ impl Plugin for AmbitionContentPlugin {
         // the engine's built-in 24-item default table (pinned by
         // `items_ron_matches_builtin_defaults`), so shipped items read unchanged;
         // a content game re-authors an item by editing its row in `items.ron`.
-        // Additive: absent rows / a content-less build fall back to the built-in
-        // default, so this never gates a spawn on the install.
-        ambition_items::install_item_catalog(ambition_items::ItemCatalog::from_ron(include_str!(
-            "../assets/data/items.ron"
-        )));
+        //
+        // ⛔ **THROUGH THE COMPILER, not beside it.** This used to be
+        // `ItemCatalog::from_ron(include_str!(…))` — a second reader of a file
+        // the pack already validates, which is the split the content pack
+        // exists to close. It also meant the grid's positional invariant went
+        // unchecked at the only place that could check it: `from_ron` accepts a
+        // file with a row missing, and every later row then silently re-authors
+        // the wrong slot, with the tail falling back to built-in defaults so the
+        // grid still looks full. The `item_catalog` schema refuses that.
+        ambition_items::install_item_catalog(
+            ambition_items::content_schema::lowered_item_catalog(crate::pack::prepared())
+                .expect("the items schema lowers its catalog for every pack that compiles")
+                .clone(),
+        );
 
         // Insert Ambition's authored music-cue catalog (the goblin adaptive tune
         // + its encounter binding) so the reusable ambition_audio director plays

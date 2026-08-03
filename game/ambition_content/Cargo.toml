@@ -27,7 +27,11 @@ static_map = ["ambition_platformer2d_actor_monolith/static_map"]
 falling_sand = ["dep:bevy_falling_sand"]
 
 [dependencies]
-ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities"] }
+# `content_pack`: this crate's own content goes through the compiler, and the
+# facade's `content::engine_schemas()` is the ONE list of engine-owned schemas
+# it compiles against. Without the feature that function does not exist and this
+# crate would have to hand-roll the list — which is exactly what it used to do.
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "content_pack"] }
 # Baseline machinery features: the sandbox lib was never built fully bare
 # (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
 # pins the same always-on baseline every persona used pre-split.
@@ -71,7 +75,7 @@ ambition_characters = { path = "../../crates/ambition_characters", features = ["
 ambition_content_pack = { path = "../../crates/ambition_content_pack" }
 ambition_persistence = { path = "../../crates/ambition_persistence" }
 ambition_interaction = { path = "../../crates/ambition_interaction" }
-ambition_items = { path = "../../crates/ambition_items" }
+ambition_items = { path = "../../crates/ambition_items", features = ["content_pack"] }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.8", optional = true }
 # Drop bevy_falling_sand's default `physics` feature: it bundles its OWN
@@ -95,6 +99,14 @@ serde_json = "1"
 # (the F13 momentum-drift regression shipped "green" that way). Downstream crates
 # are unaffected; only content's dev/test profile gets the feature.
 ambition_content = { path = ".", features = ["portal"] }
+# The CLI's schema composition, so `content_pack_registry` can check it against
+# the one the GAME compiles with. A pack that validates in the tool and refuses
+# in the game (or vice versa) is the two-authorities defect the compiler exists
+# to remove, one level up — and with one schema installed the two lists agree
+# trivially, so the drift is invisible until a second family lands. Test-only:
+# the CLI links no content and no renderer, so this costs the dev profile
+# nothing it does not already have.
+ambition_content_cli = { path = "../../crates/ambition_content_cli" }
 insta = { version = "1", features = ["ron"] }
 # The standalone Yarn compiler (same version bevy_yarnspinner pulls) for the
 # `yarn_compile` guard test — compiles the authored sources the way the

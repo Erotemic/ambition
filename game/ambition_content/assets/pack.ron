@@ -30,5 +30,6 @@
     requires: [],
     sources: [
         (path: "data/character_catalog.ron", schema: "character_catalog", version: 1),
+        (path: "data/items.ron", schema: "item_catalog", version: 1),
     ],
 )

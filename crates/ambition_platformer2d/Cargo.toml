@@ -12,7 +12,14 @@ description = "Facade crate for composing Ambition-derived platformer games from
 causal = ["ambition_platformer2d_runtime/causal", "dep:ambition_causal"]
 # The content compiler, off by default for the same reason: a game that ships
 # its content embedded and never validates at runtime must not link one.
-content_pack = ["dep:ambition_content_pack", "ambition_characters/content_pack"]
+# `ambition_items?/content_pack`: the `?` means "only if that optional edge is
+# already enabled". A movement-only game with `default-features = false` gets
+# the compiler without being forced to link the items capability to have it.
+content_pack = [
+    "dep:ambition_content_pack",
+    "ambition_characters/content_pack",
+    "ambition_items?/content_pack",
+]
 # Slice H: the facade's dependency edges are optional CAPABILITIES, and the
 # default is all of them — a consumer with default features gets exactly the
 # pre-slice-H facade. `default-features = false` is how a game says "only what

@@ -12,6 +12,7 @@ mod content_it_sync;
 
 mod boss_fight_validator;
 mod boss_seeds;
+mod content_pack_registry;
 mod dialogue_lint;
 mod fighter_brain_ladder;
 mod intro_sprite_catalog;

@@ -83,6 +83,14 @@ pub mod content {
         registry
             .register(crate::characters::actor::character_catalog::character_catalog_schema())
             .expect("the engine's own schemas are registered once");
+        // ⚠ a capability's schema follows the CAPABILITY. `ambition_items` is an
+        // optional facade edge (slice H), so a composition without it must not
+        // claim to own `item_catalog` — that is what makes "uninstalled
+        // capability" a real refusal rather than a hypothetical one.
+        #[cfg(feature = "ambition_items")]
+        registry
+            .register(ambition_items::content_schema::item_catalog_schema())
+            .expect("the engine's own schemas are registered once");
         registry
     }
 }

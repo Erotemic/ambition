@@ -12,6 +12,15 @@ crate-type = ["rlib"]
 [dependencies]
 ambition_characters = { path = "../ambition_characters" }
 ambition_persistence = { path = "../ambition_persistence" }
+# The content compiler, OPTIONAL and default-OFF for the same §2e reason as
+# `ambition_characters`: a game that never validates its content must not link a
+# compiler. The items capability OWNS the `item_catalog` schema, so the
+# registration lives here rather than in a central content enum.
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_state"] }
 ron = { workspace = true }
 serde = { workspace = true }
+
+[features]
+# The authored-content schema this capability owns. See the dependency note.
+content_pack = ["dep:ambition_content_pack"]

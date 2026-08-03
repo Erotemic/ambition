@@ -1,0 +1,108 @@
+//! Ambition's own content pack — the compile that IS the load path.
+//!
+//! This module used to live inside `character_catalog.rs`, which was honest
+//! while the pack had exactly one source. It does not any more: `pack.ron`
+//! declares a growing source list, and a per-family module is the wrong owner
+//! for "the whole pack compiles".
+//!
+//! ## One manifest, two source origins
+//!
+//! ⚠ A shipped binary must EMBED its content — there is no asset directory
+//! beside a wasm bundle — and the CLI must READ a directory. What must not
+//! differ is the manifest that says what the pack IS, or the pipeline that
+//! judges it. So `pack.ron` is embedded from the same file the CLI reads, and
+//! both go through `ambition_content_pack::compile`.
+//!
+//! ## Adding a source is TWO edits here, and both fail loudly
+//!
+//! A new line in `pack.ron` needs a matching entry in [`embedded_sources`]. Miss
+//! it and the compiler refuses with "the manifest declares `X` but no source was
+//! supplied for it" at startup — not a silent empty family. Miss the schema
+//! registration instead and `content_pack_registry` goes red before you ever run
+//! the game.
+
+use ambition_content_pack::{CompileFailure, PreparedContentPack};
+
+/// The pack manifest, embedded from the SAME file the CLI reads off disk.
+const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
+
+/// The declared path of each source, exactly as `pack.ron` spells it.
+///
+/// A mismatch is caught by the compiler's own "no source supplied" refusal
+/// rather than by silently loading an empty family.
+pub(crate) const CATALOG_SOURCE_PATH: &str = "data/character_catalog.ron";
+const ITEMS_SOURCE_PATH: &str = "data/items.ron";
+
+/// The authored item grid (compile-time include; the loose file stays on disk
+/// so the CLI and the Python tooling read the same bytes).
+pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
+
+/// Every source `pack.ron` declares, paired with its embedded text.
+fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
+    [
+        (
+            CATALOG_SOURCE_PATH.to_string(),
+            crate::character_catalog::CHARACTER_CATALOG_RON.to_string(),
+        ),
+        (ITEMS_SOURCE_PATH.to_string(), ITEMS_RON.to_string()),
+    ]
+}
+
+/// The schemas Ambition's own pack is compiled against.
+///
+/// ⛔ **ONE composition, not a third hand-rolled list.** This used to build its
+/// own `SchemaRegistry` and register the character catalog by hand — a third
+/// site doing what the facade's `engine_schemas()` exists to do, beside the
+/// CLI's `default_registry()`. Three lists that all had to agree, with nothing
+/// making them agree, and `engine_schemas()` itself had ZERO callers: the SDK's
+/// declared answer to "which crates own which schemas" was dead code while two
+/// other places answered it privately.
+///
+/// With one schema installed all three agreed trivially, which is exactly why
+/// this was worth fixing BEFORE a second family landed rather than after the
+/// first divergence. `content_pack_registry` is the probe.
+pub fn pack_schemas() -> ambition_content_pack::SchemaRegistry {
+    ambition_platformer2d::content::engine_schemas()
+}
+
+/// Compile Ambition's embedded pack.
+///
+/// **This is the load path, not a check beside it.** Before this, the compiler
+/// proved the content correct and the game parsed the same bytes again through
+/// its own reader — two readers of one file, with nothing guaranteeing they
+/// agreed. Now the runtime takes what the compiler lowered.
+///
+/// ⚠ assets are UNCHECKED here on purpose. A shipped binary's art may
+/// legitimately be absent on a fresh clone (AGENTS.md: git-ignored payloads,
+/// "degrade visibly when a file is absent"), and refusing to boot over a missing
+/// sheet would make this compiler the thing that stops the game rather than the
+/// thing that explains it. The CLI's strict mode is where art is a gate.
+pub fn compile_pack() -> Result<PreparedContentPack, CompileFailure> {
+    let manifest: ambition_content_pack::ContentPackManifest = ron::from_str(PACK_MANIFEST_RON)
+        .expect("Ambition's own pack manifest is committed beside this file and must parse");
+    let draft =
+        ambition_content_pack::ContentPackDraft::from_sources(manifest, embedded_sources())?;
+    ambition_content_pack::compile(
+        &draft,
+        &pack_schemas(),
+        &ambition_content_pack::AssetsUnchecked,
+    )
+}
+
+/// The prepared pack, compiled once per process.
+///
+/// Every family's install reads the SAME prepared value rather than compiling
+/// its own: compiling per family would multiply the cost by the family count
+/// and — worse — let two families disagree about which pack they came from.
+///
+/// A loud stop on failure, and the repo has already chosen once between this and
+/// a half-built start: *"a silent partial start would be worse than a loud
+/// stop"*. Content that silently lost a character or an item is exactly that.
+pub fn prepared() -> &'static PreparedContentPack {
+    static PREPARED: std::sync::OnceLock<PreparedContentPack> = std::sync::OnceLock::new();
+    PREPARED.get_or_init(|| {
+        compile_pack().unwrap_or_else(|failure| {
+            panic!("Ambition's own content pack does not compile:\n{failure}")
+        })
+    })
+}

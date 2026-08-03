@@ -23,6 +23,7 @@ pub mod bosses;
 /// The character catalog data and curated playable cast, contributed as an
 /// immutable provider fragment to the App-local catalog assembly.
 pub mod character_catalog;
+pub mod pack;
 pub mod content_validation;
 pub mod dialogue;
 /// The spectator-duel exhibition fight (RoomLoaded consumer + `<<duel>>`).

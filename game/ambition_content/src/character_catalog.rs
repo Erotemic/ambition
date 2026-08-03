@@ -11,68 +11,16 @@
 /// shared with the off-disk tooling).
 pub const CHARACTER_CATALOG_RON: &str = include_str!("../assets/data/character_catalog.ron");
 
-/// The pack manifest, embedded from the SAME file the CLI reads off disk.
-///
-/// ⚠ **one manifest, two source origins.** A shipped binary must embed its
-/// content — there is no asset directory beside a wasm bundle — and the CLI must
-/// read a directory. What must not differ is the manifest that says what the
-/// pack IS, or the pipeline that judges it.
-const PACK_MANIFEST_RON: &str = include_str!("../assets/pack.ron");
-
-/// The declared path of the catalog source, as `pack.ron` spells it. A mismatch
-/// here is caught at composition by the compiler's own "no source supplied"
-/// refusal rather than by silently loading an empty cast.
-const CATALOG_SOURCE_PATH: &str = "data/character_catalog.ron";
-
-/// Compile Ambition's embedded pack.
-///
-/// **This is the load path, not a check beside it.** Before this, the compiler
-/// proved the catalog correct and the game parsed the same bytes again through
-/// `parse_catalog` — two readers of one file, with nothing guaranteeing they
-/// agreed. Now the runtime takes what the compiler lowered.
-///
-/// ⚠ assets are UNCHECKED here on purpose. A shipped binary's art may legitimately
-/// be absent on a fresh clone (AGENTS.md: git-ignored payloads, "degrade visibly
-/// when a file is absent"), and refusing to boot over a missing sheet would make
-/// this compiler the thing that stops the game rather than the thing that
-/// explains it. The CLI's strict mode is where art is a gate.
-pub fn compile_pack()
--> Result<ambition_content_pack::PreparedContentPack, ambition_content_pack::CompileFailure> {
-    let manifest: ambition_content_pack::ContentPackManifest = ron::from_str(PACK_MANIFEST_RON)
-        .expect("Ambition's own pack manifest is committed beside this file and must parse");
-    let draft = ambition_content_pack::ContentPackDraft::from_sources(
-        manifest,
-        [(
-            CATALOG_SOURCE_PATH.to_string(),
-            CHARACTER_CATALOG_RON.to_string(),
-        )],
-    )?;
-    let mut registry = ambition_content_pack::SchemaRegistry::new();
-    registry
-        .register(ambition_characters::actor::character_catalog::character_catalog_schema())
-        .expect("one schema, registered once");
-    ambition_content_pack::compile(
-        &draft,
-        &registry,
-        &ambition_content_pack::AssetsUnchecked,
-    )
-}
-
 /// Parse Ambition's checked-in catalog into an explicit immutable value.
 ///
-/// Goes through [`compile_pack`], so a preset typo or a duplicate identity
-/// refuses HERE — at composition, naming the character and the field — rather
-/// than surfacing hours later as a spawn-time fallback.
+/// Goes through [`crate::pack::prepared`], so a preset typo or a duplicate
+/// identity refuses HERE — at composition, naming the character and the field —
+/// rather than surfacing hours later as a spawn-time fallback.
 pub fn load_catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
-    let pack = compile_pack().unwrap_or_else(|failure| {
-        // A loud stop, and the repo has already chosen once between this and a
-        // half-built start: "a silent partial start would be worse than a loud
-        // stop". A cast that silently lost a character is exactly that.
-        panic!("Ambition's own content pack does not compile:\n{failure}")
-    });
-    let data = ambition_characters::actor::character_catalog::lowered_catalog(&pack)
-        .expect("the character schema lowers its catalog for every pack that compiles")
-        .clone();
+    let data =
+        ambition_characters::actor::character_catalog::lowered_catalog(crate::pack::prepared())
+            .expect("the character schema lowers its catalog for every pack that compiles")
+            .clone();
     ambition_characters::actor::character_catalog::CharacterCatalog::from_data(data)
 }
 
@@ -90,15 +38,13 @@ pub fn register(app: &mut bevy::prelude::App) {
     // through a different reader. Two authorities over one file is the precise
     // split the compiler exists to close, and it had survived one layer above
     // it. (GPT 5.6 review, finding 1.)
-    let pack = compile_pack().unwrap_or_else(|failure| {
-        panic!("Ambition's own content pack does not compile:\n{failure}")
-    });
-    let catalog = ambition_characters::actor::character_catalog::lowered_catalog(&pack)
-        .expect("the character schema lowers its catalog for every pack that compiles")
-        .clone();
+    let catalog =
+        ambition_characters::actor::character_catalog::lowered_catalog(crate::pack::prepared())
+            .expect("the character schema lowers its catalog for every pack that compiles")
+            .clone();
     app.register_character_catalog_fragment(
         CharacterCatalogFragment::from_prepared(
-            CATALOG_SOURCE_PATH,
+            crate::pack::CATALOG_SOURCE_PATH,
             crate::AMBITION_CONTENT_PROVIDER,
             Some(PLAYABLE_ROSTER[0]),
             catalog,
@@ -163,20 +109,19 @@ mod tests {
     /// while the game loads something else is worth nothing.
     #[test]
     fn the_shipped_cast_is_what_the_compiler_prepared() {
-        let pack = compile_pack().expect("Ambition's own pack compiles");
+        let pack = crate::pack::prepared();
         assert_eq!(pack.namespace.0, "ambition");
         assert!(
-            pack.ids_of(&ambition_content_pack::SchemaId::new("character")).len() > 100,
+            pack.ids_of(&ambition_content_pack::SchemaId::new("character"))
+                .len()
+                > 100,
             "the whole cast came through the compiler, not a subset"
         );
 
         // The catalog the game will use IS the lowered artifact, entry for entry.
         let catalog = load_catalog();
         for id in PLAYABLE_ROSTER {
-            let prepared = pack.get(
-                &ambition_content_pack::SchemaId::new("character"),
-                id,
-            );
+            let prepared = pack.get(&ambition_content_pack::SchemaId::new("character"), id);
             assert!(
                 prepared.is_some(),
                 "playable `{id}` is a prepared identity, so a tool and the game name it the \
@@ -193,9 +138,9 @@ mod tests {
     /// passes validation and the game loads something else.
     #[test]
     fn the_registered_app_catalog_is_the_compilers_artifact() {
-        let pack = compile_pack().expect("compiles");
-        let lowered = ambition_characters::actor::character_catalog::lowered_catalog(&pack)
-            .expect("lowered");
+        let pack = crate::pack::prepared();
+        let lowered =
+            ambition_characters::actor::character_catalog::lowered_catalog(pack).expect("lowered");
 
         let mut app = bevy::prelude::App::new();
         register(&mut app);

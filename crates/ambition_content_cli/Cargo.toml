@@ -17,6 +17,7 @@ ambition_content_pack = { path = "../ambition_content_pack" }
 # schemas it owns; which ones are linked here IS the composition this CLI
 # validates against, and it is why "uninstalled capability" is a real refusal.
 ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
+ambition_items = { path = "../ambition_items", features = ["content_pack"] }
 
 # No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
 # test harness for each of these against the full engine graph. Nothing was in

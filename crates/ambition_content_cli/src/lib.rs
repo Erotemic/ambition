@@ -23,6 +23,9 @@ pub fn default_registry() -> SchemaRegistry {
         .register(ambition_characters::actor::character_catalog::character_catalog_schema())
         .expect("the default registry installs each schema once");
     registry
+        .register(ambition_items::content_schema::item_catalog_schema())
+        .expect("the default registry installs each schema once");
+    registry
 }
 
 /// What the CLI was asked to do.

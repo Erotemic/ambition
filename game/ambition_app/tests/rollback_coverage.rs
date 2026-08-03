@@ -1167,6 +1167,18 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
     ),
     (
+        "ambition_platformer2d_provider::authoring::PlatformerAuthoredCatalogRegistry",
+        "its own doc: \"app-local map from experience id to its authored catalog          fragments — the authority the shared preparation systems validate          against\". Authored content indexed at composition time; a rewind does not          re-author a catalog",
+    ),
+    (
+        "ambition_platformer2d_provider::lifecycle::PlatformerStreamingReadiness",
+        "which packed-SFX loads a provider is still waiting on. ASSET streaming          bookkeeping keyed by `LoadId` — it describes work the loader is doing,          and a rewind neither un-loads a file nor re-requests one",
+    ),
+    (
+        "ambition_platformer2d_provider::lifecycle::PreparedPlatformerSessions",
+        "the shared PREPARED-CONTENT store: immutable content plus the report from          the validation transaction that produced it. Preparation happens BEFORE a          session simulates, and the content is immutable by construction — the          rollback contract already fingerprints this content as part of session          identity, which is the stronger statement that it cannot drift",
+    ),
+    (
         "ambition_characters::brain::SlotControlLatches",
         "the DEVICE side of the input boundary: it folds device samples between          ticks and drains on the tick clock. A rollback resimulates from STORED          INPUTS and never by re-reading a latch, so this is input TO the rollback          rather than state inside it — restoring it would feed the resimulation a          second copy of what it is already replaying",
     ),
@@ -1427,7 +1439,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
     // wholly overwritten each tick rather than accumulated, which is the whole
     // difference between derived state and a memo.
-    const UNACCOUNTED_CEILING: usize = 7;
+    const UNACCOUNTED_CEILING: usize = 4;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

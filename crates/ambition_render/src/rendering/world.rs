@@ -20,12 +20,12 @@ use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_platformer2d_world::rooms::{LoadingZone, LoadingZoneActivation, PropDraw, PropSpec};
 use ambition_sprite_sheet::character::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
     CharacterAnimator,
 };
 use ambition_sprite_sheet::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
-use ambition_platformer2d_world::rooms::{LoadingZone, LoadingZoneActivation, PropDraw, PropSpec};
 
 /// Presentation consumer of [`ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested`].
 ///
@@ -702,6 +702,9 @@ pub fn spawn_block(
             // of `removed_block_names`, reconciled by `sync_removed_block_visuals`.
             BlockVisual {
                 block_name: block.name.clone(),
+                // The DURABLE identity beside the human label — a bonk arrives as
+                // `ContactSource::Block { id, .. }` and has no name to offer.
+                geo_id: block.id.clone(),
             },
             RoomVisual,
         ),
@@ -888,7 +891,9 @@ fn spawn_authored_hazard(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::HazardVolumeSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::HazardVolumeSpec,
+    >,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -908,7 +913,9 @@ fn spawn_authored_chest(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::ChestSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::ChestSpec,
+    >,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -940,7 +947,9 @@ fn spawn_authored_interactable(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     world: &ae::World,
-    authored: &ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::rooms::InteractableSpec>,
+    authored: &ambition_platformer2d_world::rooms::Authored<
+        ambition_platformer2d_world::rooms::InteractableSpec,
+    >,
     assets: Option<&GameAssets>,
 ) {
     let interactable = &authored.payload;
@@ -1095,11 +1104,78 @@ pub fn sync_lock_wall_visuals(
 /// One-directional by design: room (re)load respawns the full authored block set via
 /// [`spawn_room_visuals`], and the content contributor clears `removed_block_names`
 /// on a re-arm, so a rebuilt brick simply reappears with the room — no respawn logic
+/// **A struck block flinches, and the collision box does not move.**
+///
+/// Consumes `BlockStruck` and drives the drawn quad out and back over
+/// `NUDGE_SECONDS`. Jon asked for "a small animation (probably an in-code position
+/// nudge up and back into place) when they are hit".
+///
+/// ⛔ **the offset lives on the VISUAL's transform and nowhere else.** Moving the
+/// block itself would lift a body standing on it, shove one beside it, and give a
+/// rollback an animation to rewind. This is presentation; the geometry is
+/// authoritative and static.
+///
+/// ⚠ **against GRAVITY, not "up"** — resolved from the acceleration frame, so a
+/// block struck in a flipped room flinches the way that room means it. Same
+/// relativity rule the engine applies to feet and jumps.
+pub fn flinch_struck_blocks(
+    mut commands: Commands,
+    mut struck: MessageReader<ambition_platformer2d_shared_tangle::block_nudge::BlockStruck>,
+    time: Res<bevy::time::Time>,
+    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
+    blocks: Query<(Entity, &BlockVisual)>,
+    mut flinching: Query<(Entity, &mut Transform, &mut BlockFlinch, &BlockVisual)>,
+) {
+    for message in struck.read() {
+        for (entity, visual) in &blocks {
+            if visual.geo_id == message.id {
+                commands.entity(entity).try_insert(BlockFlinch {
+                    elapsed: 0.0,
+                    home: None,
+                });
+            }
+        }
+    }
+
+    let down = gravity
+        .map(|g| g.gravity_accel(1.0))
+        .unwrap_or(ambition_platformer2d_core::Vec2::new(0.0, 1.0));
+    let rise = -down.normalize_or(ambition_platformer2d_core::Vec2::new(0.0, 1.0));
+    for (entity, mut transform, mut flinch, _) in &mut flinching {
+        // The home position is captured on the FIRST frame rather than at insert:
+        // a second strike while one is playing must not record the flinched
+        // position as home, or the block walks away from its own geometry.
+        let home = *flinch.home.get_or_insert(transform.translation);
+        flinch.elapsed += time.delta_secs();
+        let f = ambition_platformer2d_shared_tangle::block_nudge::nudge_fraction(flinch.elapsed);
+        if flinch.elapsed >= ambition_platformer2d_shared_tangle::block_nudge::NUDGE_SECONDS {
+            transform.translation = home;
+            commands.entity(entity).remove::<BlockFlinch>();
+            continue;
+        }
+        let offset = f * ambition_platformer2d_shared_tangle::block_nudge::NUDGE_RISE_PX;
+        // World -> Bevy: the render layer's y is flipped relative to the sim's,
+        // which is why this reads the rise through the same conversion the spawn
+        // did rather than adding to y directly.
+        transform.translation = home + Vec3::new(rise.x * offset, -rise.y * offset, 0.0);
+    }
+}
+
+/// A block visual mid-flinch. Presentation only; never rewound.
+#[derive(Component, Debug)]
+pub struct BlockFlinch {
+    elapsed: f32,
+    /// Where the quad sits at rest, captured on the first frame of the flinch.
+    home: Option<Vec3>,
+}
+
 /// is owed here. Generic over the block name, so it serves every game the reusable
 /// presentation plugin drives, not just Mary-O's bricks.
 pub fn sync_removed_block_visuals(
     mut commands: Commands,
-    overlay: Option<Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>>,
+    overlay: Option<
+        Res<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>,
+    >,
     blocks: Query<(Entity, &BlockVisual)>,
 ) {
     let Some(overlay) = overlay else {
@@ -1199,12 +1275,14 @@ mod lock_wall_visual_tests {
             .world_mut()
             .spawn(BlockVisual {
                 block_name: "brick_1".to_string(),
+                geo_id: ambition_platformer2d_core::GeoId::anon(),
             })
             .id();
         let ground = app
             .world_mut()
             .spawn(BlockVisual {
                 block_name: "ground_open_teach".to_string(),
+                geo_id: ambition_platformer2d_core::GeoId::anon(),
             })
             .id();
         app.insert_resource(FeatureEcsWorldOverlay {
@@ -1233,6 +1311,7 @@ mod lock_wall_visual_tests {
             .world_mut()
             .spawn(BlockVisual {
                 block_name: "brick_1".to_string(),
+                geo_id: ambition_platformer2d_core::GeoId::anon(),
             })
             .id();
         app.add_systems(Update, sync_removed_block_visuals);

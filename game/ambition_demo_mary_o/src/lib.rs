@@ -1554,6 +1554,12 @@ impl Plugin for MaryORulesPlugin {
         // engine registers it too (`NewGameResetPlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
+        // ⚠ declared HERE as well as engine-side, because a channel's EMITTER
+        // owes its existence: a composition that installs this demo without the
+        // full sim-core resources (every one of this crate's own test apps) still
+        // runs `bonk_power_blocks`, and an unregistered message fails parameter
+        // validation rather than being ignored.
+        app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         // The authoritative attempt-lost fact `spend_lives_on_death` reads. The
         // engine registers it in `SimCoreResourcesPlugin`; a rules-only harness
         // does not, and a missing message is a hard system-param panic rather

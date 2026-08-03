@@ -67,6 +67,10 @@ pub struct LockWallVisual {
 #[derive(Component, Clone, Debug)]
 pub struct BlockVisual {
     pub block_name: String,
+    /// Durable geometry identity. `block_name` is the human label the removal
+    /// reconciler matches on; this is what a CONTACT names, and the two are kept
+    /// side by side for the same reason `ae::Block` keeps both.
+    pub geo_id: ambition_platformer2d_core::GeoId,
 }
 
 #[derive(Component)]

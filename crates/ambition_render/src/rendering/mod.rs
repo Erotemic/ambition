@@ -140,7 +140,7 @@ pub use wielded_item_visuals::{
     WieldedItemVisualAppExt, WieldedItemVisualCatalog, WieldedItemVisualSpec,
 };
 pub use world::{
-    refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals,
+    flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals,
     spawn_surface_chain_visuals, sync_lock_wall_visuals, sync_removed_block_visuals,
 };
 
@@ -247,6 +247,8 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                     // this frame (a broken brick, a gate-dropped wall) — the render
                     // half of `removed_block_names`. Generic; every game gets it.
                     sync_removed_block_visuals,
+                    // A struck block flinches — presentation only, see `block_nudge`.
+                    flinch_struck_blocks,
                     item_visuals::sync_held_item_visual.after(actors::sync_visuals),
                     item_visuals::sync_held_projectile_visuals.after(actors::sync_visuals),
                     shrine_visuals::sync_shrine_visual.after(actors::sync_visuals),

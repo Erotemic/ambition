@@ -392,6 +392,9 @@ pub(crate) fn tall_body_size() -> ae::Vec2 {
 pub fn bonk_power_blocks(
     mut commands: Commands,
     mut spent: ResMut<SpentPowerBlocks>,
+    mut struck: bevy::prelude::MessageWriter<
+        ambition_platformer2d::platformer::block_nudge::BlockStruck,
+    >,
     players: Query<(&PlayerBodyFrameOutput, Option<&WornEquipment>), With<PrimaryPlayer>>,
 ) {
     let Ok((frame, worn)) = players.single() else {
@@ -428,6 +431,12 @@ pub fn bonk_power_blocks(
             continue;
         };
         spent.spend(id.clone());
+        // ⭐ **it FLINCHES.** Jon: blocks that are used "need a small animation
+        // (probably an in-code position nudge up and back into place) when they
+        // are hit." The motion belongs to the render layer — moving the block
+        // itself would lift a body standing on it — so this only says WHAT was
+        // struck, keyed by the name both halves already share.
+        struck.write(ambition_platformer2d::platformer::block_nudge::BlockStruck::new(id.clone()));
         // The reward pops out resting on the block's top face (screen up = -y).
         let min = match reward_of {
             RewardSource::Quasar => crate::quasar_block_min(i),
@@ -1224,6 +1233,10 @@ mod tests {
     fn a_head_bonk_on_a_power_block_pops_one_wand_once() {
         let mut app = App::new();
         app.init_resource::<SpentPowerBlocks>();
+        // The bonk announces the strike so the render layer can flinch the block;
+        // an unregistered message fails parameter validation rather than being
+        // ignored, so even a fixture that draws nothing has to declare it.
+        app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
             .events
@@ -1261,6 +1274,10 @@ mod tests {
     fn a_head_bonk_on_a_plain_block_pops_nothing() {
         let mut app = App::new();
         app.init_resource::<SpentPowerBlocks>();
+        // The bonk announces the strike so the render layer can flinch the block;
+        // an unregistered message fails parameter validation rather than being
+        // ignored, so even a fixture that draws nothing has to declare it.
+        app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
             .events

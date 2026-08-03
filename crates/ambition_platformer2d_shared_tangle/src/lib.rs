@@ -27,6 +27,7 @@ pub mod time;
 pub mod transit;
 
 pub mod feature_kind;
+pub mod block_nudge;
 pub mod feature_overlay;
 
 pub mod held_item_art;

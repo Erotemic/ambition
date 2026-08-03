@@ -23,29 +23,29 @@ use bevy::prelude::*;
 use ambition_platformer2d::actors::actor::{BodyBaseSize, PrimaryPlayer};
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d::actors::equipment::reconcile_equipment_grants;
-use ambition_platformer2d::actors::items::{WorldItem, collect_world_items};
+use ambition_platformer2d::actors::features::transform_beat::{
+    TransformBeatPolicy, TransformBeatRequested,
+};
+use ambition_platformer2d::actors::items::{collect_world_items, WorldItem};
 use ambition_platformer2d::characters::actor::WornCharacter;
-use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_platformer2d::characters::brain::action_set::{ActionSet, IdentityKit};
+use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::combat::moveset::{ActorMoveset, RANGED_VERB};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
-use ambition_platformer2d::actors::features::transform_beat::{
-    TransformBeatPolicy, TransformBeatRequested,
-};
 use ambition_platformer2d::platformer::markers::ControlledSubject;
 use ambition_platformer2d::sprite_sheet::character::{
     try_load_spec_for_target, CharacterAnim, SheetTuning,
 };
 
 use ambition_demo_mary_o::movement::{
-    MaryOGait, MaryOSparkCooldown, WALK_THROTTLE, fire_spark_on_run_press, tick_spark_cooldown,
-    walk_by_default_run_while_held,
+    fire_spark_on_run_press, tick_spark_cooldown, walk_by_default_run_while_held, MaryOGait,
+    MaryOSparkCooldown, WALK_THROTTLE,
 };
 use ambition_demo_mary_o::powerups::{
-    STAR_WAND_ID, CINDER_BEACON_ID, SpentPowerBlocks, bonk_power_blocks, cinder_beacon,
-    sync_grown_form,
+    bonk_power_blocks, cinder_beacon, sync_grown_form, SpentPowerBlocks, CINDER_BEACON_ID,
+    STAR_WAND_ID,
 };
 use ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID;
 
@@ -67,6 +67,7 @@ impl Loop {
         app.init_resource::<SpentPowerBlocks>();
         // `sync_grown_form` now voices a transform chime through `SfxWriter`.
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
 
         let size = ae::movement::default_player_body_size();
         let body = app
@@ -331,7 +332,10 @@ fn every_tier_change_holds_its_arriving_sheets_transition_clip() {
     game.hit();
     assert_eq!(game.worn_character(), TALL_ID);
     let (shrink, requested) = game.requested_beat();
-    assert!(requested, "losing a form is a transformation too (Jon bug #17)");
+    assert!(
+        requested,
+        "losing a form is a transformation too (Jon bug #17)"
+    );
     assert_eq!(
         shrink.anim,
         CharacterAnim::Shrink,
@@ -381,7 +385,10 @@ fn each_mary_o_sheet_publishes_the_transitions_that_arrive_at_it() {
 
     let tall = sheet("super_mary_o_tall");
     assert!(tall.maps(CharacterAnim::Grow), "small becomes tall here");
-    assert!(tall.maps(CharacterAnim::Shrink), "and fire falls back to it");
+    assert!(
+        tall.maps(CharacterAnim::Shrink),
+        "and fire falls back to it"
+    );
 
     let fire = sheet("super_mary_o_fire");
     assert!(
@@ -493,7 +500,9 @@ fn the_whole_power_loop_runs_on_the_real_systems() {
 #[test]
 fn the_authored_spark_arcs_bounces_and_expires() {
     use ambition_platformer2d::characters::equipment::apply_equipment_grants;
-    use ambition_platformer2d::platformer::projectile::{ProjectileBody, ProjectileSpec, WorldHitPolicy};
+    use ambition_platformer2d::platformer::projectile::{
+        ProjectileBody, ProjectileSpec, WorldHitPolicy,
+    };
 
     // Take the shot exactly as the beacon grants it.
     let mut actions = ActionSet::peaceful();
@@ -565,11 +574,13 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 #[test]
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition_platformer2d::actors::features::{
-        ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
-        SetFlagRequested, apply_feature_hit_events, spawn_encounter_mob,
+        apply_feature_hit_events, spawn_encounter_mob, ActorIdentity, CharacterRoster,
+        FeatureEcsWorldOverlay, GameplayBanner, HitEvent, SetFlagRequested,
     };
-    use ambition_platformer2d::actors::projectile::{ProjectileBody, step_projectiles};
-    use ambition_platformer2d::characters::actor::{BodyHealth, character_catalog::CharacterCatalog};
+    use ambition_platformer2d::actors::projectile::{step_projectiles, ProjectileBody};
+    use ambition_platformer2d::characters::actor::{
+        character_catalog::CharacterCatalog, BodyHealth,
+    };
     use ambition_platformer2d::characters::equipment::apply_equipment_grants;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
@@ -618,6 +629,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::vfx::vfx::DebrisBurstMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
 
     // Mary-O's OWN Solid Snake archetype, registered exactly as the demo registers it.
@@ -730,15 +742,15 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
 /// off). Nothing here sets state by hand; it is the stomp, read from the world.
 #[test]
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
+    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::actors::features::{
-        ActorConfig, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner,
-        HitEvent, spawn_encounter_mob,
+        spawn_encounter_mob, ActorConfig, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
+        GameplayBanner, HitEvent,
     };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
-    use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
 
     // Snake head sits at y = 300 - 16 = 284 (size.y = 32). Player feet land in the
     // stomp band just onto that head, falling (+y is down), overlapping in x.
@@ -768,6 +780,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.init_resource::<FeatureEcsWorldOverlay>();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<HitEvent>();
 
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
@@ -865,14 +878,14 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
 /// shell and bounces you, proven in the pure state-machine tests.)
 #[test]
 fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
+    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::actors::features::{
-        ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
-        HitSource, HitTarget, spawn_encounter_mob,
+        spawn_encounter_mob, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
+        GameplayBanner, HitEvent, HitSource, HitTarget,
     };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
-    use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
 
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
@@ -900,6 +913,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     app.init_resource::<FeatureEcsWorldOverlay>();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<HitEvent>();
 
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
@@ -994,15 +1008,15 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 /// nothing at all and stops moving.
 #[test]
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
+    use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::actors::features::{
-        ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
-        spawn_encounter_mob,
+        spawn_encounter_mob, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
+        GameplayBanner, HitEvent,
     };
-    use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
+    use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
     use ambition_platformer2d::platformer::lifecycle::SessionSpawnScope;
-    use ambition_demo_mary_o::snake::{SnakeShell, run_snake_shells};
 
     const SNAKE_POS: ae::Vec2 = ae::Vec2::new(400.0, 300.0);
 
@@ -1030,6 +1044,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     app.init_resource::<FeatureEcsWorldOverlay>();
     app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<HitEvent>();
 
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
@@ -1133,11 +1148,11 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
 /// authored slide has run. Nothing here sets a position by hand.
 #[test]
 fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
+    use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
+    use ambition_demo_mary_o::{pipe_mouth, vault_arrival};
     use ambition_platformer2d::characters::actor::BodyCombat;
     use ambition_platformer2d::characters::brain::ActorControl;
     use ambition_platformer2d::engine_core::AabbExt;
-    use ambition_demo_mary_o::pipe::{EMERGE_S, PipeTransit, SWALLOW_S};
-    use ambition_demo_mary_o::{pipe_mouth, vault_arrival};
 
     let mut app = App::new();
     app.insert_resource(ambition_platformer2d::time::WorldTime {
@@ -1145,6 +1160,7 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
         ..Default::default()
     });
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
 
     // A full body standing ON the entry pipe's mouth.

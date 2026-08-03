@@ -91,6 +91,12 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>()
             .init_resource::<ambition_combat::GameplayBanner>()
             .init_resource::<ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay>()
+            // A struck block flinches. Registered beside the world overlay because
+            // it is the same kind of fact — something happened to authored
+            // geometry — and because BOTH halves need the channel to exist: the
+            // game emits it and the renderer consumes it, so a composition with
+            // only one of them must still boot.
+            .add_message::<ambition_platformer2d_shared_tangle::block_nudge::BlockStruck>()
             .init_resource::<ambition_sim_view::FeatureViewIndex>()
             .init_resource::<ambition_sim_view::ActorRenderIndex>()
             .init_resource::<ambition_sim_view::BossRenderIndex>()
@@ -164,7 +170,9 @@ impl Plugin for SimCoreResourcesPlugin {
         let mut recipes = app
             .world_mut()
             .resource_mut::<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>();
-        ambition_platformer2d_actor_monolith::construction::install_actor_construction_recipes(&mut recipes)
-            .expect("the engine's own construction recipes cannot conflict with each other");
+        ambition_platformer2d_actor_monolith::construction::install_actor_construction_recipes(
+            &mut recipes,
+        )
+        .expect("the engine's own construction recipes cannot conflict with each other");
     }
 }

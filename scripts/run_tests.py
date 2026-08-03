@@ -235,6 +235,13 @@ class JobResult:
     every test binary already prints. The rest is the build graph, and the whole
     campaign this measurement serves is about paying for that graph fewer times.
     A job with no test binaries (a bare `cargo check`) reports 0.0 and means it.
+
+    ⚠ **it counts LIBTEST only, and the pytest jobs therefore read 0.0.** The
+    repo-tooling and ldtk-tools jobs really do spend their whole wall clock
+    executing, so the summary percentage is a statement about the CARGO jobs —
+    which is where the campaign's cost is — and understates the whole-suite
+    figure. Said here because a percentage nobody can source is how the last
+    measurement went wrong.
     """
     name: str
     argv: list[str]

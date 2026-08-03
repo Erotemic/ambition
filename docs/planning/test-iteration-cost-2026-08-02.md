@@ -176,6 +176,40 @@ the expensive option keeps getting chosen.
 
 ---
 
+## ⭐ RESULT (2026-08-03): 63 minutes → 25.5, and the disk cost is gone
+
+Fronts 0 and 1 landed and the suite measured itself. Every number below comes
+from `dev/run_tests_cost.jsonl`, which Front 0 exists so that nobody has to read
+another log by hand:
+
+| | before (08-02, hand-read) | after (08-03, from the ledger) |
+|---|---|---|
+| wall clock | 3776s / 63 min | **1528s / 25.5 min** |
+| executing tests | ~7% | **17%** (266s) |
+| disk consumed | +77 GB | **+3 GB** |
+
+What did it: the 23 per-crate feature jobs were doing two things at once, and only
+one of them needed its own build graph. They are now 23 `cargo check` proofs
+(468s total, 20.3s mean) plus ONE `cargo test --workspace --no-fail-fast` over
+the union of every headless-safe feature (339.5s wall, 126.8s executing) — about
+what the plain default-feature job costs, while running strictly more.
+
+⭐ **the disk result matters more than the minutes.** The volume filled three
+times across two runs (S14, S33) because every feature job left a full variant of
+the graph behind; a check lane produces no codegen to leave.
+
+⚠ **three findings the union surfaced that no per-crate job could**, and they are
+the argument for the shape rather than a side effect: three `causal` message
+channels sitting outside both rollback oracles because the default job never
+compiled them; a rollback schema dump that is feature-dependent; and (from the
+same run) an `Empowered` component registered by two demos, green in each and a
+panic in the app that composes both.
+
+⚠ **2 of 33 jobs report FAIL** — both workspace jobs, on three pre-existing
+`app_it` failures that predate this work. A faithful red, not a false green.
+
+---
+
 ## The fronts
 
 Ordered by dependency. Front 0 is not optional — every other front's claim is

@@ -29,8 +29,12 @@ use bevy::ecs::schedule::graph::Direction;
 use bevy::ecs::schedule::{NodeId, ScheduleLabel, Schedules};
 use bevy::prelude::*;
 
-/// Systems in the schedule, split into (in at least one AUTHORED set, in none).
-fn set_membership(app: &mut App, label: impl ScheduleLabel) -> (usize, usize) {
+/// Systems in the schedule, split into (in at least one AUTHORED set, in none),
+/// plus a per-crate tally of the UNSETTED ones.
+fn set_membership(
+    app: &mut App,
+    label: impl ScheduleLabel,
+) -> (usize, usize, Vec<(String, usize)>) {
     let label = label.intern();
     app.world_mut()
         .resource_scope(|world, mut schedules: Mut<Schedules>| {
@@ -42,7 +46,9 @@ fn set_membership(app: &mut App, label: impl ScheduleLabel) -> (usize, usize) {
             let hierarchy = graph.hierarchy().graph();
             let mut in_a_set = 0usize;
             let mut orphan = 0usize;
-            for (key, _system) in schedule
+            let mut by_crate: std::collections::BTreeMap<String, usize> =
+                std::collections::BTreeMap::new();
+            for (key, system) in schedule
                 .systems()
                 .expect("initialized above, so the systems are enumerable")
             {
@@ -82,9 +88,23 @@ fn set_membership(app: &mut App, label: impl ScheduleLabel) -> (usize, usize) {
                     in_a_set += 1;
                 } else {
                     orphan += 1;
+                    // ⚠ the SYSTEM's own name, not `get_node_name` — see above
+                    // for why naming a node can panic on this graph.
+                    let name = format!("{}", system.name());
+                    let owner = name
+                        .split("::")
+                        .next()
+                        .unwrap_or("<unknown>")
+                        .rsplit(' ')
+                        .next()
+                        .unwrap_or("<unknown>")
+                        .to_string();
+                    *by_crate.entry(owner).or_default() += 1;
                 }
             }
-            (in_a_set, orphan)
+            let mut tally: Vec<(String, usize)> = by_crate.into_iter().collect();
+            tally.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+            (in_a_set, orphan, tally)
         })
 }
 
@@ -103,8 +123,8 @@ fn census_of_how_much_of_update_is_inside_a_set() {
         app.update();
     }
 
-    let (update_in_set, update_orphan) = set_membership(&mut app, Update);
-    let (ggrs_in_set, ggrs_orphan) = set_membership(
+    let (update_in_set, update_orphan, update_tally) = set_membership(&mut app, Update);
+    let (ggrs_in_set, ggrs_orphan, _) = set_membership(
         &mut app,
         ambition_platformer2d::runtime::rollback::GgrsSchedule,
     );
@@ -121,6 +141,10 @@ fn census_of_how_much_of_update_is_inside_a_set() {
          {ggrs_orphan} in NONE ({:.0}% unsetted)",
         100.0 * ggrs_orphan as f32 / ggrs_total.max(1) as f32
     );
+
+    for (owner, count) in update_tally.iter().take(15) {
+        eprintln!("[update-census]   unsetted in `Update`: {count:>4}  {owner}");
+    }
 
     assert!(
         update_total > 100,

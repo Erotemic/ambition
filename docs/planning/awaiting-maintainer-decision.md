@@ -693,3 +693,34 @@ the `Option` was added for**, so the obvious repair is not available.
 ⚠ **(a) is more work and probably right; (b) is defensible and I am wary of
 choosing it**, because "narrow the rule" is the answer that makes my own red go
 away, and that is exactly when it should not be my call.
+
+## 11. Is `bevy_material_ui` being adopted, or is it 31% of the frame for nothing?
+
+**`MaterialUiPlugin` contributes 182 systems to `Update` — 31% of the entire
+schedule, and half of every system in it that belongs to no set.** They run every
+frame, title screen included, which is exactly where `code_smells.md` measured the
+executor spending 10–18% of CPU self-time.
+
+`git grep bevy_material_ui` across every `.rs` in the workspace returns **one
+file**: the line that installs the plugin, and a doc comment above it. No type,
+component, system or helper from the crate is named anywhere.
+
+⚠ **but it is load-bearing.** Removing it fails
+`the_title_screen_says_choose_game_and_is_readable` — the title renders at 20.0px,
+Bevy's default font size, so menu typography stops resolving. A plugin contributes
+systems and resources, not names; the grep could not have told me that.
+
+⭐ **and `MaterialUiPlugin` is a BUNDLE**: `MaterialUiCorePlugin` plus 29 component
+plugins, including a date picker, a time picker, snackbars, chips, an app bar and
+a toolbar. The crate's own documentation offers the core separately so a consumer
+installs only what it draws.
+
+- **(a) Trim it.** Install the core plus whichever components the menus actually
+  need. The bisect is bounded — core alone is 412 systems (−172) — and the payoff
+  is up to ~170 systems off every frame of every phase.
+- **(b) Leave it.** If Material UI is a direction you are part-way into, the cost
+  buys future work and trimming now is churn that gets reverted.
+
+⚠ **I am not treating "unused by grep" as "unused"** — that inference was already
+wrong once here. This is a question about your INTENT for the dependency, which no
+measurement can answer.

@@ -8,8 +8,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::data::MusicRegistry;
-use ambition_platformer2d_actor_monolith::ldtk_world::{field_string, LdtkProject};
 use ambition_encounter::encounter_reward_looted_flag;
+use ambition_platformer2d_actor_monolith::ldtk_world::{field_string, LdtkProject};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ContentValidationReport {
@@ -414,10 +414,11 @@ fn validate_quest_conditions(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
 
-    let loaded_encounters = ambition_platformer2d_actor_monolith::encounter::load_encounter_specs_from_ldtk(
-        project,
-        &ambition_persistence::save_data::AmbitionGameSaveData::default(),
-    );
+    let loaded_encounters =
+        ambition_platformer2d_actor_monolith::encounter::load_encounter_specs_from_ldtk(
+            project,
+            &ambition_persistence::save_data::AmbitionGameSaveData::default(),
+        );
     for (id, spec, _) in loaded_encounters {
         if !spec.music_track.trim().is_empty() && !valid_tracks.contains(spec.music_track.as_str())
         {
@@ -489,6 +490,19 @@ fn validate_quest_conditions(
     }
 }
 
+/// ⚠ **The content compiler now checks this too, for pack-supplied content.**
+/// `boss_encounter` emits a `music_track` reference per non-empty phase field,
+/// so an unknown track in Ambition's own encounters is refused at reference
+/// resolution — before startup, with the field named.
+///
+/// This is NOT dead: it reads the ASSEMBLED catalog, so it still covers a
+/// provider that contributes bosses WITHOUT shipping a content pack. It can be
+/// deleted when every boss-contributing provider goes through the compiler —
+/// and not before, because deleting startup validation to make a migration look
+/// finished is exactly the overclaiming this campaign keeps having to walk back.
+///
+/// Two checks that AGREE are redundant; two that disagree are the defect. These
+/// two apply the same rule to the same four fields, so the overlap is safe.
 fn validate_boss_music_tracks(
     music: &MusicRegistry,
     boss_catalog: &ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog,
@@ -499,7 +513,9 @@ fn validate_boss_music_tracks(
         .iter()
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
-    for spec in ambition_platformer2d_actor_monolith::boss_encounter::default_boss_specs(boss_catalog) {
+    for spec in
+        ambition_platformer2d_actor_monolith::boss_encounter::default_boss_specs(boss_catalog)
+    {
         for (field, track) in [
             ("music_intro", spec.music_intro.as_str()),
             ("music_phase1", spec.music_phase1.as_str()),
@@ -562,9 +578,11 @@ fn authored_boss_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
                     .map(|name| name.trim().to_string())
                     .filter(|name| !name.is_empty())
                     .unwrap_or_else(|| entity.iid.clone());
-                ids.insert(ambition_platformer2d_actor_monolith::boss_encounter::encounter_id_from_name(
-                    &name,
-                ));
+                ids.insert(
+                    ambition_platformer2d_actor_monolith::boss_encounter::encounter_id_from_name(
+                        &name,
+                    ),
+                );
             }
         }
     }

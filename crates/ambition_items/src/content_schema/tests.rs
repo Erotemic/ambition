@@ -200,3 +200,100 @@ fn a_refused_pack_hands_out_no_runtime_value() {
     );
     assert!(failure.is_err(), "a short grid is refused");
 }
+
+/// ⛔ **Swapping two rows changes which metadata belongs to which `Item`, so it
+/// must change the fingerprint.**
+///
+/// The pack fingerprint sorts definitions by content id, so a canonical form
+/// keyed only by `dialog_id` made a full row swap invisible — the same set of
+/// `(dialog_id, row)` pairs, a different game. Exactly the hole the music track
+/// ORDER had. (GPT 5.6 review, finding 1.)
+#[test]
+fn swapping_two_item_rows_moves_the_fingerprint() {
+    let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+    let base = compile(
+        &draft("slot_base", &format!("[{}]", rows.join(","))),
+        &registry(),
+        &AssetsUnchecked,
+    )
+    .expect("compiles")
+    .fingerprint
+    .0;
+
+    rows.swap(3, 9);
+    let swapped = compile(
+        &draft("slot_swapped", &format!("[{}]", rows.join(","))),
+        &registry(),
+        &AssetsUnchecked,
+    )
+    .expect("compiles")
+    .fingerprint
+    .0;
+
+    assert_ne!(
+        base, swapped,
+        "the grid is positional: moving a row re-authors two different items"
+    );
+}
+
+/// The complement — the fingerprint must still be about CONTENT, not layout.
+#[test]
+fn reformatting_the_item_grid_does_not_move_the_fingerprint() {
+    let rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+    let plain = format!("[{}]", rows.join(","));
+    let reflowed = format!("[\n  // a comment nobody reads\n{}\n]", rows.join(",\n"));
+    let at = |name: &str, text: &str| {
+        compile(&draft(name, text), &registry(), &AssetsUnchecked)
+            .expect("compiles")
+            .fingerprint
+            .0
+    };
+    assert_eq!(at("reflow_base", &plain), at("reflow_moved", &reflowed));
+}
+
+/// **An id no script can reach is unreachable content.** `Item::from_dialog_id`
+/// normalizes the QUERY (lowercase, alphanumerics only) and compares it to the
+/// stored spelling verbatim, so an un-normalized authored id silently never
+/// resolves. (GPT 5.6 review, finding 3.)
+#[test]
+fn a_dialog_id_the_runtime_lookup_can_never_resolve_is_refused() {
+    for spelling in ["PortalGun", "portal_gun", "portal gun", "portal-gun"] {
+        let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+        rows[2] = format!(
+            r#"(
+                display_name: "Unreachable",
+                description: "No script can ask for this.",
+                category: Weapon,
+                held_item_id: None,
+                dialog_id: "{spelling}",
+            )"#
+        );
+        let failure = refuse("unreachable_id", &format!("[{}]", rows.join(",")));
+        assert!(
+            failure.has(DiagnosticCode::MalformedProviderBinding),
+            "`{spelling}` normalizes to something else at lookup, so it must be refused: {:?}",
+            failure.codes()
+        );
+    }
+}
+
+/// The shipped ids are already canonical — the contract above must not be a
+/// change to what ships, only a guard on what can be authored next.
+#[test]
+fn an_already_normalized_dialog_id_is_accepted() {
+    let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
+    rows[2] = r#"(
+        display_name: "Fine",
+        description: "Canonical id.",
+        category: Weapon,
+        held_item_id: None,
+        dialog_id: "portalgun2",
+    )"#
+    .to_string();
+    compile(
+        &draft("normalized_ok", &format!("[{}]", rows.join(","))),
+        &registry(),
+        &AssetsUnchecked,
+    )
+    .expect("a lowercase alphanumeric id is exactly what the lookup resolves");
+}

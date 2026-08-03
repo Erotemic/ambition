@@ -99,8 +99,10 @@ dependencies = [
 name = "ambition_audio"
 version = "0.1.0"
 dependencies = [
+ "ambition_content_pack",
  "ambition_sfx",
  "bevy",
+ "ron 0.11.0",
  "serde",
 ]
 
@@ -128,6 +130,7 @@ name = "ambition_combat"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
+ "ambition_content_pack",
  "ambition_entity_catalog",
  "ambition_interaction",
  "ambition_platformer2d_core",
@@ -136,6 +139,7 @@ dependencies = [
  "ambition_time",
  "ambition_vfx",
  "bevy",
+ "ron 0.11.0",
  "serde",
 ]
 
@@ -272,6 +276,7 @@ name = "ambition_items"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
+ "ambition_content_pack",
  "ambition_persistence",
  "bevy",
  "ron 0.11.0",
@@ -3465,7 +3470,7 @@ dependencies = [
  "bitflags 2.13.1",
  "libc",
  "plain",
- "redox_syscall 0.9.1",
+ "redox_syscall 0.9.0",
 ]
 
 [[package]]
@@ -4407,9 +4412,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.9.1"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07507be7b4a5f9f26eeb41eeaebb1f5a7ff29dfb29739facc21d35bf8b11c21e"
+checksum = "c5102a6aaa05aa011a238e178e6bca86d2cb56fc9f586d37cb80f5bca6e07759"
 dependencies = [
  "bitflags 2.13.1",
 ]

@@ -6,9 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`content_schema`](src/content_schema.rs) | The items capability's authored-content SCHEMA registration. |
 | [`shop`](src/shop.rs) | Merchant economy primitives: buy/sell transactions over the player's [`BodyWallet`] and the 24-item [`OwnedItems`] catalog. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

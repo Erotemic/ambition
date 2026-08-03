@@ -21,6 +21,7 @@
 | [`intro`](src/intro/mod.rs) | Intro sequence story content. |
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |
 | [`music`](src/music.rs) | Ambition's authored music-cue catalog + encounter bindings. |
+| [`pack`](src/pack.rs) | Ambition's own content pack — the compile that IS the load path. |
 | [`player_robot_lineage`](src/player_robot_lineage.rs) | **The player robot's incarnations, emitted from one source.** |
 | [`plugin`](src/plugin.rs) | [`AmbitionContentPlugin`] — named Ambition game-content registration. |
 | [`portal`](src/portal/mod.rs) | Ambition-specific portal adapters. |
@@ -31,7 +32,7 @@
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 
-_24 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

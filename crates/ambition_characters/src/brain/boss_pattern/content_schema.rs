@@ -117,9 +117,34 @@ impl ContentSchemaHandler for BossEncounterSchema {
             SchemaId::new(BOSS_SCHEMA),
             &spec.id,
             "boss profile",
-            id,
+            id.clone(),
             "id",
         ));
+
+        // ⛔ **AND ITS MUSIC, because both sides are in the pack now.** These
+        // four fields name `music_registry` tracks. Until this, an encounter
+        // could name a track that does not exist, compile clean, and be caught
+        // only by `content_validation.rs` at app startup — a second validator
+        // doing what reference resolution is FOR, on content the compiler can
+        // already see. Empty means "no swap for this phase" and is not a
+        // reference. (GPT 5.6 review, finding 2.)
+        for (field, track) in [
+            ("music_intro", &spec.music_intro),
+            ("music_phase1", &spec.music_phase1),
+            ("music_phase2", &spec.music_phase2),
+            ("music_enrage", &spec.music_enrage),
+        ] {
+            if track.trim().is_empty() {
+                continue;
+            }
+            out.refer(PendingRef::new(
+                SchemaId::new("music_track"),
+                track.trim(),
+                "music track",
+                id.clone(),
+                field,
+            ));
+        }
     }
 }
 

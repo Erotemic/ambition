@@ -6,11 +6,13 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`archetype_spec`](src/archetype_spec.rs) | The enemy-ARCHETYPE authoring vocabulary — the type `character_archetypes.ron` is deserialized into. |
 | [`authored_volumes`](src/authored_volumes.rs) | App-local authored attack-volume resolution. |
 | [`banner`](src/banner.rs) | Gameplay banner ticking and deferred-request application. |
 | [`breakables`](src/breakables.rs) | Per-frame tick for breakable feature entities: respawn countdown and the stand-to-break collapse trigger. |
 | [`causal`](src/causal.rs) | This crate's causal facts: **why did a body lose a stock, get eliminated, or end the match?** |
 | [`components`](src/components/mod.rs) | ECS-native feature components. |
+| [`content_schema`](src/content_schema.rs) | The combat capability's authored-content SCHEMA registration. |
 | [`events`](src/events.rs) | Combat-kit message/event vocabulary + small shared value types. |
 | [`falling_chest`](src/falling_chest.rs) | Falling-chest physics for ECS reward chests. |
 | [`hazard_runtime`](src/hazard_runtime.rs) | `HazardRuntime`: the per-hazard runtime blob (id/name/pos/size, its `DamageVolume`, optional patrol `PathMotion`, and resolve `HitMode`) carried by LDtk-entity hazards. |
@@ -28,7 +30,7 @@
 | [`util`](src/util.rs) | Grab-bag of small feature-side helpers — not a cohesive subsystem. |
 | [`variation`](src/variation.rs) | Stable per-actor variation helpers for ECS feature actors. |
 
-_21 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_23 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

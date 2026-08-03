@@ -110,6 +110,37 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
     for (index, row) in rows.iter().enumerate() {
         let dialog_id = row.dialog_id.trim();
 
+        // ⚠ **the runtime NORMALIZES the query and compares it against the RAW
+        // authored value.** `Item::from_dialog_id` strips non-alphanumerics and
+        // lowercases what a script asks for, then matches it against the stored
+        // spelling verbatim — so `"portal_gun"`, `"PortalGun"` and `" portalgun "`
+        // are all authorable, all compile, and are all unreachable: the query
+        // normalizes to `portalgun` and never equals what was stored. Refuse the
+        // un-normalized spelling rather than silently rewriting it, so the id an
+        // author reads in the file is the id scripts use.
+        // (GPT 5.6 review, finding 3.)
+        let normalized: String = dialog_id
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(|c| c.to_lowercase())
+            .collect();
+        if !dialog_id.is_empty() && dialog_id != normalized {
+            out.report(
+                facet
+                    .diagnostic(
+                        DiagnosticCode::MalformedProviderBinding,
+                        format!(
+                            "item at grid slot {index} has `dialog_id: \"{dialog_id}\"`, which no \
+                             script can reach — lookups normalize to `{normalized}`"
+                        ),
+                    )
+                    .at_field("dialog_id")
+                    .fix(format!(
+                        "spell it `{normalized}`: lowercase, alphanumerics only"
+                    )),
+            );
+        }
+
         // The authoring id is the identity. An empty one cannot be referred to
         // by `inventory_has(...)` at all, so the row is unreachable content.
         if dialog_id.is_empty() {
@@ -130,7 +161,15 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
         }
 
         let id = ContentId::new(facet.namespace, &SchemaId::new(ITEM_SCHEMA), dialog_id);
-        out.define(id.clone(), canonical(row));
+        // ⛔ **THE SLOT IS PART OF THE ROW'S IDENTITY, so it must be in the
+        // canonical form.** The pack fingerprint sorts definitions by content
+        // id, so a per-row canonical keyed only by `dialog_id` made SWAPPING two
+        // complete rows a no-op for the fingerprint — while swapping exactly
+        // which metadata belongs to which `Item` enum variant. This file is
+        // positional; the whole reason the row COUNT is checked is that the
+        // index is the binding. The same hole the music track ORDER had.
+        // (GPT 5.6 review, finding 1.)
+        out.define(id.clone(), format!("slot={index}\n{}", canonical(row)));
 
         // Two rows answering one `inventory_has` is an authority conflict, not a
         // duplicate: every script asking the question gets whichever the lookup

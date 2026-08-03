@@ -189,11 +189,16 @@ pub(crate) fn spawn_slash_effects(
     // population is unchanged: `rebuild_body_pose_views` requires only
     // `BodyKinematics`, so every body this matched still matches.
     owners: Query<(&ambition_sim_view::BodyPoseView, Option<&PresentedPose>)>,
-    // Who each swinging body IS, so its own sheet can be found. A body with no
-    // worn character (a bare test fixture, a prop that swings) authored nothing
-    // by definition and draws its volume.
-    worn: Query<&ambition_characters::actor::WornCharacter>,
-    catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
+    // Which sheet each swinging body's character authors — the READ-MODEL fact,
+    // resolved sim-side by `rebuild_attack_vfx_views`.
+    //
+    // ⛔ this used to be `Option<Res<CharacterCatalog>>` plus a `WornCharacter`
+    // lookup, which `engine.character-authority-is-app-local` forbids: in every
+    // composition that installs no catalog the `Option` is `None`, and `None`
+    // there is indistinguishable from "this character authors no attack art".
+    // The view cannot make that mistake — an unresolved body has NO component,
+    // which is not the same as one whose `sheet` resolved to `None`.
+    attack_vfx: Query<&ambition_sim_view::AttackVfxView>,
     mut cache: ResMut<SlashSources>,
 ) {
     let Some(session_scope) =
@@ -215,14 +220,13 @@ pub(crate) fn spawn_slash_effects(
         // **A character either names its sheet or gets no sprite at all.**
         // Falling back to somebody else's art is what this whole change exists
         // to stop; the unauthored-volume pass makes the silence visible.
-        let Some(sheet) = catalog.as_deref().and_then(|catalog| {
-            worn.get(*owner)
-                .ok()
-                .and_then(|worn| catalog.attack_vfx(worn.id()))
-        }) else {
+        let Some(sheet) = attack_vfx
+            .get(*owner)
+            .ok()
+            .and_then(|view| view.sheet.clone())
+        else {
             continue;
         };
-        let sheet = sheet.to_string();
         let Some(source) = slash_source(
             &sheet,
             &asset_server,

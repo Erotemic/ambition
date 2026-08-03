@@ -22,6 +22,7 @@
 
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 mod anim_index;
+mod attack_vfx_view;
 pub mod camera_snapshot;
 mod control_prompt;
 mod dialog_view;
@@ -41,6 +42,7 @@ pub use control_prompt::{
 // Re-exported so `ControlPrompt` consumers (the touch overlay) can name the
 // slot vocabulary without a direct `entity_catalog` dep.
 pub use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
+pub use attack_vfx_view::{rebuild_attack_vfx_views, AttackVfxView};
 pub use dialog_view::{rebuild_dialog_view, DialogView};
 pub use facts::*;
 pub use pose_view::{
@@ -110,6 +112,10 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // the per-body half of the pose read-model (E4 slices 1–4).
                 rebuild_body_pose_views,
                 rebuild_shield_rings_view,
+                // Which bodies' characters author their own attack art, so no
+                // render system has to ask the catalog — see the module docs
+                // for why an absent catalog must stay ABSENT here.
+                rebuild_attack_vfx_views,
                 // The dialogue overlay's row (recon C3): presentation reads
                 // THIS, never the live `DialogState`.
                 rebuild_dialog_view,

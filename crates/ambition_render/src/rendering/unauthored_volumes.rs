@@ -73,7 +73,6 @@ pub(crate) fn draw_unauthored_attack_volumes(
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
-    catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
     hitboxes: Query<(Entity, &Hitbox)>,
     // ⚠ the READ-MODEL pose, not the sim's `BodyKinematics`. Presentation reads
     // `ambition_sim_view` (E4) and `engine.render-never-names-live-sim-state`
@@ -83,7 +82,8 @@ pub(crate) fn draw_unauthored_attack_volumes(
     owners: Query<(
         &ambition_sim_view::BodyPoseView,
         Option<&ambition_sim_view::presented_pose::PresentedPose>,
-        Option<&ambition_characters::actor::WornCharacter>,
+        // The READ-MODEL fact, not the catalog — see the read below.
+        Option<&ambition_sim_view::AttackVfxView>,
     )>,
     existing: Query<(Entity, &UnauthoredVolumeVisual)>,
     mut transforms: Query<&mut Transform, With<UnauthoredVolumeVisual>>,
@@ -113,17 +113,24 @@ pub(crate) fn draw_unauthored_attack_volumes(
         if !matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }) {
             continue;
         }
-        let Ok((pose, presented, worn)) = owners.get(hitbox.owner) else {
+        let Ok((pose, presented, attack_vfx)) = owners.get(hitbox.owner) else {
             continue;
         };
-        // Authored ⇒ its own art draws it. Unauthored, unknown, or no worn
-        // character at all ⇒ this.
-        let authored = catalog
-            .as_deref()
-            .zip(worn)
-            .and_then(|(catalog, worn)| catalog.attack_vfx(worn.id()))
-            .is_some();
-        if authored {
+        // ⛔ **UNKNOWN IS NOT UNAUTHORED, and conflating them drew a stand-in
+        // over every attack in the game.** This used to ask
+        // `Option<Res<CharacterCatalog>>` directly: absent in every composition
+        // that installs no catalog, so `attack_vfx` was `None`, so `authored`
+        // was false, so a placeholder volume covered even the characters that
+        // author their own art. `engine.character-authority-is-app-local` names
+        // that shape for this reason.
+        //
+        // The read-model separates the two. No component = the resolver has not
+        // spoken, and the honest response to not knowing is to draw NOTHING —
+        // a stand-in is a positive claim that a character authored no art.
+        let Some(attack_vfx) = attack_vfx else {
+            continue;
+        };
+        if attack_vfx.authored() {
             continue;
         }
 

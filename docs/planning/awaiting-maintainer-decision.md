@@ -816,6 +816,13 @@ measurement can answer.
 
 ## 12. Should the web build simulate on a fixed timestep? (2026-08-03)
 
+✔ **DONE (`1505e0d88`, and the host change that follows it).** `run_web` now sets
+`SimulationHost::Ggrs`. ⚠ two things had to be true first, and neither was:
+the ENGINE had to own the GGRS session (it was owned by a `dev_tools`-gated
+observatory, so this host outside dev tooling meant a build that never simulated),
+and **the web target had to compile at all** — it had been broken since 2026-08-01
+by a `#[cfg(feature = "ui")]` on an import whose three use sites were ungated.
+
 > **JON, 2026-08-03: "the web build is another deployment of the game so likely
 > needs ggrs if multiplayer is ever gonna be a real thing."**
 

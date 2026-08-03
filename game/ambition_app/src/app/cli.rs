@@ -945,6 +945,27 @@ pub fn run_web() {
     // WindowPlugin above — so install the windowed web composition directly.
     // (repair_wasm.md failure #5: this used to `match render`, a variable copied
     // from the native `build_visible_app` builder that never existed here.)
+    // ⭐ **THE SAME SIMULATION HOST AS THE DESKTOP BUILD** (Jon, 2026-08-03: *"the
+    // web build is another deployment of the game so likely needs ggrs if
+    // multiplayer is ever gonna be a real thing"*).
+    //
+    // ⛔ this entry used to set NO host, so it fell to the render-frame default
+    // and the browser stepped the simulation once per RENDER FRAME with the real
+    // frame delta — `refresh_world_time` reads the schedule-local `Res<Time>`.
+    // A platformer's feel is a function of its timestep, so the same game had a
+    // different jump arc in a browser than on a desktop, and at 144 Hz than at 60.
+    //
+    // ⚠ this is only safe because the ENGINE now owns the local GGRS session
+    // (`runtime::rollback::local_session`). While the only installer was the dev
+    // observatory, choosing this host outside `dev_tools` produced a build that
+    // composed, booted, rendered and never simulated.
+    //
+    // Must precede the first simulation plugin: Bevy seals `SimSchedule` on the
+    // first read.
+    {
+        use ambition_platformer2d::runtime::SimulationHostAppExt as _;
+        app.set_simulation_host(ambition_platformer2d::runtime::SimulationHost::Ggrs);
+    }
     app.add_plugins((
         AmbitionGameSimulationPlugin,
         AmbitionGameLdtkRuntimePlugin,

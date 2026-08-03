@@ -315,6 +315,7 @@
     "projectile.seq",
     "projectile.visual_id",
     "resource.active_match",
+    "resource.active_round_scope",
     "resource.base_gravity",
     "resource.clock_regime_policy",
     "resource.clock_state",
@@ -353,7 +354,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 324,
+  "stable_schema_name_count": 332,
   "encoded_types": [
     "ambition_platformer2d_actor_monolith::RoomTransitionCooldown",
     "ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState",

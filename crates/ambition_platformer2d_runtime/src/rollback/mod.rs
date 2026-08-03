@@ -176,6 +176,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     domains::items::register(app);
     domains::portal::register(app);
     domains::projectiles::register(app);
+    domains::lifecycle::register(app);
     // Rollback participation. These anchors cover the canonical session root,
     // every simulated body, projectile-only entities, encounter authorities,
     // and any semantic-identity entity that does not fit those families.
@@ -246,28 +247,6 @@ pub fn register_engine_rollback_state(app: &mut App) {
             ENGINE,
             "resource.quest_registry",
         )
-        // ⭐ **The ROUND's identity and its allocator.** `settle_versus_round`
-        // mints the next round from inside the sim schedule, so a rewind across a
-        // round boundary re-runs the mint — and without this, against a
-        // `next_raw` that never rewound. The resimulated timeline would allocate
-        // a different `RoundScopeId` than the one it is reproducing, and
-        // `RoundScopedEntity` culls by that id: entities would be spared or
-        // despawned differently on the two timelines. Found 2026-08-03 by the
-        // shipped-composition resource sweep, the third real defect it has
-        // caught after `BrokenBricks` and `SpentMonitors`.
-        //
-        // ⚠ **OPTIONAL-canonical, not canonical.** `RoundScopePlugin` is installed
-        // by whatever composes a MATCH — a single-player platformer has no rounds
-        // and carries no round culler — so this resource legitimately COMES AND
-        // GOES. `rollback_resource_canonical` installs a checksum system taking
-        // `Res<T>`, which panics on every frame the resource is absent; picking it
-        // first turned eight rollback-oracle tests red in the calibration lab,
-        // which composes no match. The optional form checksums `Option<T>` so
-        // "no match yet" and "round 0 is live" are different values rather than
-        // one of them being unrepresentable.
-        .rollback_resource_optional_canonical::<
-            ambition_platformer2d_shared_tangle::lifecycle::ActiveRoundScope,
-        >(ENGINE, "resource.active_round_scope")
         // G2b: id → live encounter entity, remapped on every load. A presence
         // probe over a singleton resource sees "still present"; this sees an id
         // pointing at the wrong encounter. Folded in the map's own (sorted) key

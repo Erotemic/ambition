@@ -58,8 +58,14 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "entity:transform_beat",
     );
-    app.require_rollback::<ambition_platformer2d_actor_monolith::rooms::RoomSet>(OWNER, "root:room_set");
-    app.require_rollback::<ambition_platformer2d_actor_monolith::items::pickup::GroundItem>(OWNER, "entity:ground_item");
+    app.require_rollback::<ambition_platformer2d_actor_monolith::rooms::RoomSet>(
+        OWNER,
+        "root:room_set",
+    );
+    app.require_rollback::<ambition_platformer2d_actor_monolith::items::pickup::GroundItem>(
+        OWNER,
+        "entity:ground_item",
+    );
     // ⚠ **a MOVING world item is the same kind of thing as a ground item, and
     // was not registered.** `spawn_moving_world_item` uses `spawn_room_scoped`,
     // and `RoomScopedEntity` is a LIFETIME marker — it says when the entity
@@ -183,7 +189,10 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "player.local_marker",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ActorConfig>(OWNER, "actor.config");
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ActorConfig>(
+        OWNER,
+        "actor.config",
+    );
     app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeat>(
         OWNER,
         "actor.transform_beat",
@@ -197,7 +206,10 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.anim_override",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::BossConfig>(OWNER, "boss.config");
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::BossConfig>(
+        OWNER,
+        "boss.config",
+    );
     app.rollback_component_clone_entity_map::<ambition_platformer2d_actor_monolith::features::LimbRig>(
         OWNER,
         "limb.rig",
@@ -208,34 +220,61 @@ pub(in crate::rollback) fn register(app: &mut App) {
                 .collect()
         },
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::LimbRig>(OWNER, "map.limb_rig");
+    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::LimbRig>(
+        OWNER,
+        "map.limb_rig",
+    );
     app.rollback_component_clone_entity_ref::<ambition_platformer2d_actor_monolith::features::Limb>(
         OWNER,
         "limb.member",
         |limb| limb.of,
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::Limb>(OWNER, "map.limb_member");
+    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::Limb>(
+        OWNER,
+        "map.limb_member",
+    );
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::LimbRouteState>(
         OWNER,
         "limb.route_state",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::LimbIntents>(OWNER, "limb.intents");
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::CanPilot>(OWNER, "mount.can_pilot");
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::Mass>(OWNER, "mount.mass");
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::LimbIntents>(
+        OWNER,
+        "limb.intents",
+    );
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::CanPilot>(
+        OWNER,
+        "mount.can_pilot",
+    );
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::Mass>(
+        OWNER,
+        "mount.mass",
+    );
     app.rollback_component_clone_entity_set::<ambition_platformer2d_actor_monolith::features::MountSlot>(
         OWNER,
         "mount.slot",
         |slot| slot.rider.into_iter().collect(),
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::MountSlot>(OWNER, "map.mount_slot");
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::Mountable>(OWNER, "mount.mountable");
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::Mounted>(OWNER, "mount.mounted");
+    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::MountSlot>(
+        OWNER,
+        "map.mount_slot",
+    );
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::Mountable>(
+        OWNER,
+        "mount.mountable",
+    );
+    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::Mounted>(
+        OWNER,
+        "mount.mounted",
+    );
     app.rollback_component_clone_entity_ref::<ambition_platformer2d_actor_monolith::features::RidingOn>(
         OWNER,
         "mount.riding_on",
         |riding| riding.mount,
     );
-    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::RidingOn>(OWNER, "map.riding_on");
+    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::RidingOn>(
+        OWNER,
+        "map.riding_on",
+    );
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::BossOverrides>(
         OWNER,
         "boss.overrides",
@@ -336,8 +375,13 @@ pub(in crate::rollback) fn register(app: &mut App) {
     );
     // ⚠ PROBED, not merely cloned. A presence-only probe satisfies the coverage
     // sweep while seeing nothing of the value, so a restore that put the item
-    // back at the wrong PLACE would checksum identical — and where a pickup is
-    // is the entire content of a pickup. (`rollback_exit_oracle` refuses a bare
+    // back at the wrong PLACE would checksum identical.
+    // ⛔ this used to add *"and where a pickup is is the entire content of a
+    // pickup"*, which was never true — a pickup is also WHAT IT GRANTS and, when
+    // it moves, the PLAN it is following, and the probes below omitted both
+    // (found in review, 2026-08-03). The sentence read as a justification for
+    // stopping at position, which is exactly how a probe ends up narrower than
+    // the value it certifies. (`rollback_exit_oracle` refuses a bare
     // presence probe by name, which is how these three were caught the hour they
     // were added.)
     // WHO SPAWNED IT — a marker, so presence IS the value. A rewind that
@@ -360,6 +404,24 @@ pub(in crate::rollback) fn register(app: &mut App) {
             item.half_extent.x.to_bits().hash(&mut hasher);
             item.half_extent.y.to_bits().hash(&mut hasher);
             item.sprite.hash(&mut hasher);
+            // WHAT COLLECTING IT DOES, which the box and the sprite do not say.
+            // Two pickups can sit in the same place looking the same and equip
+            // different rows, and only this tells them apart.
+            //
+            // ⚠ the ROW IDENTITY, not the row's authored numbers. `EquipmentRow`
+            // carries modifiers, grants and an on-hit rule, and those are
+            // CONTENT — read from the same files, identical for a given id in
+            // one build, and therefore incapable of differing between two
+            // timelines of one session. The id and the exclusive slot are what
+            // a divergent spawn would change.
+            match &item.payload {
+                ambition_platformer2d_actor_monolith::items::world_item::WorldItemPayload::Equip(
+                    row,
+                ) => {
+                    row.id.hash(&mut hasher);
+                    row.exclusive_slot.hash(&mut hasher);
+                }
+            }
             hasher.finish()
         },
     );
@@ -393,12 +455,24 @@ pub(in crate::rollback) fn register(app: &mut App) {
         |motion| {
             use std::hash::{Hash, Hasher};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            // WHERE IT IS IN ITS ARC, which is the whole state: how far the rise
-            // has got, how fast it is travelling, and which way it turned last.
+            // WHERE IT IS IN ITS ARC: how far the rise has got, how fast it is
+            // travelling, and which way it turned last.
             motion.emerged_for().to_bits().hash(&mut hasher);
             motion.velocity().x.to_bits().hash(&mut hasher);
             motion.velocity().y.to_bits().hash(&mut hasher);
             motion.facing().to_bits().hash(&mut hasher);
+            // AND THE PLAN IT IS FOLLOWING. The cursor above is meaningless
+            // without it — `emerged_for` is read against `emerge.seconds`, and
+            // the same cursor under a different plan is a different pickup
+            // mid-arc. The plan is authored and does not normally change, which
+            // is exactly why a timeline where it DID is worth catching.
+            let plan = &motion.plan;
+            plan.emerge.map(|e| (e.distance.to_bits(), e.seconds.to_bits())).hash(&mut hasher);
+            plan.speed.to_bits().hash(&mut hasher);
+            plan.facing.to_bits().hash(&mut hasher);
+            plan.gravity.to_bits().hash(&mut hasher);
+            plan.bounce.to_bits().hash(&mut hasher);
+            plan.turns_at_walls.hash(&mut hasher);
             hasher.finish()
         },
     );
@@ -504,7 +578,10 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "message.spawn_actor_request",
     );
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::ActorDiedMessage>(OWNER, "message.actor_died");
+    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::ActorDiedMessage>(
+        OWNER,
+        "message.actor_died",
+    );
     app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::session::reset::NewGameResetCommitted>(
         OWNER,
         "message.sandbox_reset_committed",
@@ -575,6 +652,8 @@ fn room_set_checksum(rooms: &ambition_platformer2d_actor_monolith::rooms::RoomSe
     checksum_bytes(&bytes)
 }
 
-fn ldtk_runtime_index_checksum(index: &ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex) -> u64 {
+fn ldtk_runtime_index_checksum(
+    index: &ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex,
+) -> u64 {
     checksum_bytes(index.active_area().as_bytes())
 }

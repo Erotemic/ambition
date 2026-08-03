@@ -1520,7 +1520,7 @@ def main() -> int:
             "it, so the guard now follows the types instead of the file."
         )
         for item in new:
-            print(f"       NEW    {item} entered the CENTRAL registration")
+            print(f"       NEW    {item} entered the rollback wire format")
         for item in stale:
             print(
                 f"       STALE  {item} left the rollback registration but is "

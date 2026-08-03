@@ -26,6 +26,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp as _;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
@@ -97,6 +98,24 @@ impl Plugin for FallingSandRoomPlugin {
                     .with_map_size(32),
             )
             .add_systems(Startup, setup_particle_types)
+            // ⭐ **DERIVED, and said so rather than left on the sweep's ceiling.**
+            // `project_particles_to_movement_world` runs in the SIM schedule and
+            // takes `ResMut` of this, which is the exact shape that made
+            // `ActiveRoundScope` a real rollback defect (2026-08-03) — a resource
+            // mutated inside the rewind window and never restored.
+            //
+            // The difference, and the only thing that makes this one safe: the
+            // report is WHOLLY OVERWRITTEN every tick (`*report = …` on both the
+            // early-return and the main path), never accumulated. A rewind
+            // restores the particles, the next projection recomputes the report
+            // from them, and nothing reads it in between. That is derived state,
+            // not a memo — and a memo that gated behaviour would NOT qualify.
+            .declare_rollback_derived_resource::<FallingSandProjectionReport>(
+                "ambition_content",
+                "content.falling_sand_projection_report",
+                "wholly overwritten each tick by the projection that runs before \
+                 any reader; a rewind reproduces it from the restored particles",
+            )
             .add_systems(
                 sim,
                 (

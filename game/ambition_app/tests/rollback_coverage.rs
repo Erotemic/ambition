@@ -1342,7 +1342,12 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // has caught: a round-id allocator mutated inside the sim schedule and never
     // rewound. The staleness assert caught the stale ceiling a THIRD time in one
     // day.
-    const UNACCOUNTED_CEILING: usize = 24;
+    //
+    // 24 → 23 by DECLARING `FallingSandProjectionReport` derived — the same
+    // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
+    // wholly overwritten each tick rather than accumulated, which is the whole
+    // difference between derived state and a memo.
+    const UNACCOUNTED_CEILING: usize = 23;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

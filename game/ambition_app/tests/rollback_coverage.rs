@@ -1167,6 +1167,30 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
     ),
     (
+        "ambition_characters::brain::SlotControlLatches",
+        "the DEVICE side of the input boundary: it folds device samples between          ticks and drains on the tick clock. A rollback resimulates from STORED          INPUTS and never by re-reading a latch, so this is input TO the rollback          rather than state inside it — restoring it would feed the resimulation a          second copy of what it is already replaying",
+    ),
+    (
+        "ambition_platformer2d_core::control_frame::ControlFrameLatch",
+        "the same boundary, one level down — the per-frame latch `ReadInputs`          fills before GGRS is handed its inputs. Same argument: the session          replays what was RECORDED, not what the devices are doing now",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperHotkeyBindings",
+        "which key toggles which developer overlay. No production code takes it          mutably; it is configuration, and it is not present in a player's build's          decisions at all",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::lifecycle::session::SessionGatedSimulation",
+        "a marker inserted by `init_resource` at plugin build, saying THIS APP          routes gameplay through a launcher. Composition identity, written once          before any frame; `simulation_authorized` reads it and nothing writes it",
+    ),
+    (
+        "ambition_platformer2d_runtime::room_transition::loading::RoomTransitionAssetContributor",
+        "which assets a transition wants STAGED. Nothing takes it mutably in          production, and what it describes is loading work rather than anything          the world did",
+    ),
+    (
+        "ambition_platformer2d_runtime::room_transition::loading::RoomTransitionPresentationAvailable",
+        "whether the transition's presentation half is installed in THIS          composition — a fact about the build, not about the run",
+    ),
+    (
         "ambition_demo_smash::select::SmashSelect",
         "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
     ),
@@ -1403,7 +1427,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
     // wholly overwritten each tick rather than accumulated, which is the whole
     // difference between derived state and a memo.
-    const UNACCOUNTED_CEILING: usize = 13;
+    const UNACCOUNTED_CEILING: usize = 7;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

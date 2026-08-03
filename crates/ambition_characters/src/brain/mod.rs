@@ -646,3 +646,51 @@ pub fn log_brain_action_messages(mut reader: MessageReader<ActorActionMessage>) 
 
 #[cfg(test)]
 mod tests;
+
+/// ⚠ moved here from `ambition_platformer2d_actor_monolith::features::ecs::actor_tuning`
+/// on 2026-08-03. It is authored vocabulary — `character_archetypes.ron` names
+/// these variants — and the content compiler cannot link the actor crate.
+/// Generic kit vocabulary: the brain module is the universal-actor
+/// abstraction and shouldn't know named enemies, and the runtime brain
+/// rebuild (provoke-to-hostile, dismount) must reconstruct a brain from
+/// projected data without naming the content archetype enum. Authored
+/// per archetype in `character_archetypes.ron` and projected onto
+/// [`CharacterBrainSpec`] at spawn.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub enum CharacterBrainTemplate {
+    /// No motion / no AI — the actor only reacts to events (sandbag's
+    /// PunchWeak counter, dialogue-only NPCs that become hostile).
+    StandStill,
+    /// Surface-walking idle wanderer.
+    Wanderer,
+    /// Approach-then-strike melee policy. Variety comes from the
+    /// per-actor chase_speed / attack_range / aggro_radius in
+    /// [`ActorTuning`].
+    MeleeBrute,
+    /// Strafe-and-fire ranged policy. Maintains a standoff distance and
+    /// emits `frame.fire` on a fixed cooldown.
+    Skirmisher,
+    /// Hold position + long-range fire. Like `Skirmisher` but does not
+    /// strafe — stationary turret-like enemies.
+    Sniper,
+    /// Charge-and-crash motion policy: dive at the target, then recover.
+    ChargeCrash,
+    /// Smash-brawl pipeline: observe → mode → action → difficulty →
+    /// emit. See `ambition_characters::brain::smash`.
+    Smash,
+    /// Lively flyer: an aerial dive-bomber when hostile (stalk → dive →
+    /// recover). Shares its code with the peaceful catalog `Aerial` bird via
+    /// `StateMachineCfg::Aerial` — hostility is just `aggressiveness > 0`.
+    Aerial,
+    /// **The FB4b fighter brain**: L1 classify → L2 options → L3 rollout, on a
+    /// human cadence with an APM ceiling and execution noise.
+    ///
+    /// ⚠ added 2026-07-31, and it is the THIRD brain vocabulary the rig needed a
+    /// variant in — `BrainPreset` (catalog rows), `CharacterBrainTemplate`
+    /// (archetypes), and the `brain_profile` STRING that selects an archetype.
+    /// A match seat travels the archetype path, so a rig reachable only from the
+    /// catalog was reachable from everything except a match. Worth stating
+    /// plainly because the next brain will need all three too, and nothing
+    /// currently says so.
+    Fighter,
+}

@@ -19,6 +19,7 @@
 
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
+use crate::features::enemies::CharacterArchetypeSpecExt;
 
 /// Content-driven animation PIN for an actor.
 ///

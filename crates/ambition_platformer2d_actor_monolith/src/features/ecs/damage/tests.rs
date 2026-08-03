@@ -13,6 +13,7 @@ use ambition_characters::actor::BodyHealth;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{App, IntoScheduleConfigs, Update};
+use crate::features::enemies::CharacterArchetypeSpecExt;
 
 /// Register every message the shared feature-hit pipeline writes.
 ///

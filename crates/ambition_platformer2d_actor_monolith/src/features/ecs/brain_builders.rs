@@ -16,6 +16,7 @@ use ambition_characters::brain::{
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
     WandererCfg,
 };
+use crate::features::enemies::CharacterArchetypeSpecExt;
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///

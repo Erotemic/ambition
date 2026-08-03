@@ -12,6 +12,10 @@ crate-type = ["rlib"]
 [dependencies]
 # The brain MeleeActionSpec the attack specs reference.
 ambition_characters = { path = "../ambition_characters" }
+# The content compiler. OPTIONAL and default-OFF (§2e): a game that never
+# validates its content must not link one. The combat capability owns the
+# `character_archetypes` schema because it owns the type that file parses into.
+ambition_content_pack = { path = "../ambition_content_pack", optional = true }
 # Structured causal facts. Optional and default-off (§2e): a game that never
 # opens an inspector must not link one.
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
@@ -27,10 +31,14 @@ ambition_sfx = { path = "../ambition_sfx" }
 ambition_time = { path = "../ambition_time" }
 ambition_vfx = { path = "../ambition_vfx" }
 # Authored-hazard serde (the room-IR ron-room bake carries DamageVolume).
+# Only the schema handler parses RON here.
+ron = { workspace = true, optional = true }
 serde = { workspace = true }
 # One Resource derive (the slot registry); ECS surface only.
 bevy = { version = "0.18.1", default-features = false }
 
 [features]
+# The authored-content schema this capability owns.
+content_pack = ["dep:ambition_content_pack", "dep:ron"]
 # Publish this crate's causal facts (the stock lifecycle, for now).
 causal = ["dep:ambition_causal"]

@@ -20,6 +20,7 @@ content_pack = [
     "ambition_characters/content_pack",
     "ambition_items?/content_pack",
     "ambition_audio/content_pack",
+    "ambition_combat/content_pack",
 ]
 # Slice H: the facade's dependency edges are optional CAPABILITIES, and the
 # default is all of them — a consumer with default features gets exactly the

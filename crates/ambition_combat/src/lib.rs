@@ -5,12 +5,16 @@
 //! here lets tests and future headless validators reason about combat without a
 //! renderer.
 
-#[cfg(feature = "causal")]
-pub mod causal;
+pub mod archetype_spec;
 pub mod authored_volumes;
 pub mod banner;
 pub mod breakables;
+#[cfg(feature = "causal")]
+pub mod causal;
 pub mod components;
+/// The `character_archetypes` authored-content schema this capability owns.
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
 pub mod events;
 pub mod falling_chest;
 pub mod hazard_runtime;
@@ -22,8 +26,8 @@ pub mod on_hit;
 pub mod path_motion;
 pub mod rules;
 pub mod slots;
-pub mod stocks;
 mod snapshot_impls;
+pub mod stocks;
 pub mod targeting;
 pub mod util;
 pub mod variation;
@@ -87,9 +91,9 @@ use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxM
 #[allow(unused_imports)]
 use bevy::prelude::*;
 
-use ambition_platformer2d_core::{Aabb, AabbExt, KinematicPath, Vec2};
 pub use ambition_entity_catalog::placements::DamageKind;
 use ambition_entity_catalog::placements::{DamageTeam, HazardRespawn};
+use ambition_platformer2d_core::{Aabb, AabbExt, KinematicPath, Vec2};
 
 /// Damage payload shared by hitboxes and persistent damage volumes.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -250,7 +254,10 @@ impl AttackSpec {
     /// local side, up/down are away-from-feet/toward-feet. This conversion is the
     /// single runtime seam that turns those local values into world AABBs and
     /// impulses.
-    pub fn into_world_frame(mut self, frame: ambition_platformer2d_core::AccelerationFrame) -> Self {
+    pub fn into_world_frame(
+        mut self,
+        frame: ambition_platformer2d_core::AccelerationFrame,
+    ) -> Self {
         self.hitbox_offset = frame.to_world(self.hitbox_offset);
         self.hitbox_half_size = frame.to_world_half(self.hitbox_half_size);
         self.self_impulse = frame.to_world(self.self_impulse);

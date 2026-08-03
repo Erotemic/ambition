@@ -171,50 +171,14 @@ impl ActorTuning {
     }
 }
 
-/// Generic kit vocabulary: the brain module is the universal-actor
-/// abstraction and shouldn't know named enemies, and the runtime brain
-/// rebuild (provoke-to-hostile, dismount) must reconstruct a brain from
-/// projected data without naming the content archetype enum. Authored
-/// per archetype in `character_archetypes.ron` and projected onto
-/// [`CharacterBrainSpec`] at spawn.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
-pub enum CharacterBrainTemplate {
-    /// No motion / no AI — the actor only reacts to events (sandbag's
-    /// PunchWeak counter, dialogue-only NPCs that become hostile).
-    StandStill,
-    /// Surface-walking idle wanderer.
-    Wanderer,
-    /// Approach-then-strike melee policy. Variety comes from the
-    /// per-actor chase_speed / attack_range / aggro_radius in
-    /// [`ActorTuning`].
-    MeleeBrute,
-    /// Strafe-and-fire ranged policy. Maintains a standoff distance and
-    /// emits `frame.fire` on a fixed cooldown.
-    Skirmisher,
-    /// Hold position + long-range fire. Like `Skirmisher` but does not
-    /// strafe — stationary turret-like enemies.
-    Sniper,
-    /// Charge-and-crash motion policy: dive at the target, then recover.
-    ChargeCrash,
-    /// Smash-brawl pipeline: observe → mode → action → difficulty →
-    /// emit. See `ambition_characters::brain::smash`.
-    Smash,
-    /// Lively flyer: an aerial dive-bomber when hostile (stalk → dive →
-    /// recover). Shares its code with the peaceful catalog `Aerial` bird via
-    /// `StateMachineCfg::Aerial` — hostility is just `aggressiveness > 0`.
-    Aerial,
-    /// **The FB4b fighter brain**: L1 classify → L2 options → L3 rollout, on a
-    /// human cadence with an APM ceiling and execution noise.
-    ///
-    /// ⚠ added 2026-07-31, and it is the THIRD brain vocabulary the rig needed a
-    /// variant in — `BrainPreset` (catalog rows), `CharacterBrainTemplate`
-    /// (archetypes), and the `brain_profile` STRING that selects an archetype.
-    /// A match seat travels the archetype path, so a rig reachable only from the
-    /// catalog was reachable from everything except a match. Worth stating
-    /// plainly because the next brain will need all three too, and nothing
-    /// currently says so.
-    Fighter,
-}
+/// Generic kit vocabulary for an archetype's brain.
+///
+/// ⚠ **DEFINED in `ambition_characters::brain`** since 2026-08-03. Its own doc
+/// already said the brain module is the universal-actor abstraction; it was
+/// merely LOCATED here. It moved so `character_archetypes.ron`'s authored
+/// vocabulary could leave this crate, which is what let the content compiler
+/// own the enemy-roster family without linking a renderer.
+pub use ambition_characters::brain::CharacterBrainTemplate;
 
 /// The generic brain-construction inputs projected from an actor's
 /// authored archetype at spawn, carried on the enemy config component so
@@ -299,10 +263,12 @@ impl ActorTuning {
     /// parameters live each tick).
     pub fn motion_model(&self) -> crate::features::MotionModel {
         if self.surface_walker {
-            crate::features::MotionModel::adhesive_crawler(ambition_platformer2d_core::CrawlerParams {
-                crawl_speed: self.patrol_speed,
-                max_fall_speed: self.movement.max_fall_speed,
-            })
+            crate::features::MotionModel::adhesive_crawler(
+                ambition_platformer2d_core::CrawlerParams {
+                    crawl_speed: self.patrol_speed,
+                    max_fall_speed: self.movement.max_fall_speed,
+                },
+            )
         } else {
             crate::features::MotionModel::axis_swept(
                 self.movement

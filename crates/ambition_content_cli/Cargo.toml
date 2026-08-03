@@ -19,6 +19,7 @@ ambition_content_pack = { path = "../ambition_content_pack" }
 ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
 ambition_items = { path = "../ambition_items", features = ["content_pack"] }
 ambition_audio = { path = "../ambition_audio", features = ["content_pack"] }
+ambition_combat = { path = "../ambition_combat", features = ["content_pack"] }
 
 # No `#[test]` in a bin entry point, so `cargo test` was compiling and LINKING a
 # test harness for each of these against the full engine graph. Nothing was in

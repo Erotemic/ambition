@@ -4,6 +4,7 @@
 //! invariants — all driven through the cluster scratch views without a renderer.
 
 use super::*;
+use crate::features::enemies::CharacterArchetypeSpecExt;
 
 /// Build a peaceful actor (the unified cluster) with a patrol radius and a
 /// player parked far outside the talk radius, plus the catalog Brain that

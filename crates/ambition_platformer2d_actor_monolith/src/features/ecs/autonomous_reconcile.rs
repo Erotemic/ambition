@@ -45,6 +45,7 @@ use ambition_characters::brain::{ActorControl, Brain, PlayerSlot, NPC_PATROL_SPE
 use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
+use crate::features::enemies::CharacterArchetypeSpecExt;
 
 /// The complete set of components a provoked hostile archetype installs on an
 /// actor — the deterministic projection of `(archetype spec, current config,

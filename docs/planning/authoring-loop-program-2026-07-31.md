@@ -237,8 +237,8 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | items | `data/items.ron` | ✅ `item_catalog`, owned by `ambition_items` (2026-08-03) |
 | boss seeds | `data/boss_seeds.ron` | ✅ `boss_seed_library`, owned by `ambition_characters` (2026-08-03) |
 | boss calibration | `data/boss_validator_bands.ron` | ✅ `boss_validator_bands`, same owner (2026-08-03) |
-| enemy roster | `data/character_archetypes.ron` | ⛔ BLOCKED — owner is the monolith, see below |
-| boss profiles | `data/boss_profiles.ron` | ⛔ BLOCKED — owner is the monolith, see below |
+| enemy roster | `data/character_archetypes.ron` | ✅ `character_archetypes`, owned by `ambition_combat` (2026-08-03) |
+| boss profiles | `data/boss_profiles.ron` | ✅ `boss_profiles`, owned by `ambition_characters` (2026-08-03) |
 | boss sheets | `data/boss_sheets.ron` | ▢ owner `ambition_sprite_sheet` (unmeasured) |
 | boss encounters | 9 × `data/boss_encounters/*.ron` | ▢ |
 | encounter waves | `data/encounters/goblin_encounter.ron` | ▢ |
@@ -249,32 +249,41 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ▢ |
 | fighter brain ladder | `data/fighter_brain_ladder.ron` | ▢ |
 
-### ⛔ The real blocker on the rest: a schema is registered by the crate that owns its type
+### ✔ RESOLVED — the placement blocker, and what it actually was
 
-Measured 2026-08-03, and it is the reason the ledger has ⛔ rows rather than a
-uniform ▢.
+This section used to say boss profiles and the enemy roster were BLOCKED on a
+crate-placement decision, deferred to the §4 carve. **That was wrong, and the
+correction is the useful part.**
 
-A handler must construct the type it parses into, so the schema lives in that
-type's crate — and the CLI must LINK that crate to validate the family. That is
-fine while owners are light and fatal when they are not:
+A schema must be registered by the crate owning its type, and the validator has
+to link that crate. Both families' types lived in
+`ambition_platformer2d_actor_monolith` — 708 crates and a renderer, against the
+validator's 242 — so migrating them looked like it would triple the tool.
 
-| composition | crates in graph | links a renderer? |
-|---|---|---|
-| `ambition_content_cli` today | **239** | no |
-| `ambition_platformer2d_actor_monolith` | **708** | yes (`bevy_render`) |
+⭐ **But the coupling was LOCATIONAL, not real.** Nothing in either vocabulary
+needed the actor crate: every field resolves against
+`ambition_platformer2d_core`, `ambition_entity_catalog`, `ambition_characters`
+and `ambition_combat`. Moved, `cargo check` passed first try, unchanged. **The
+validator went 242 → 252 crates and still links no renderer** — the families
+that were "blocked on tripling the tool" cost it ten crates, because the tool was
+never the problem. The lesson generalises: *measure whether the owner crate's
+weight is a dependency of the TYPE or an accident of where the type sits.*
 
-`BossBehaviorProfile` (boss profiles) and `CharacterRosterFragment` (enemy
-roster) both live in the monolith. Migrating either would nearly triple the
-validator's graph and make it link a renderer — destroying the one property that
-justifies the crate existing (build in seconds, validate in milliseconds, no
-rebuild to author). **These families wait on a PLACEMENT decision, not on a
-handler.** Either the type moves to a lighter crate, or the schema needs a way to
-be registered without linking its owner.
+Three consequences worth knowing before the next move:
 
-⚠ this is the [orphan-rule adjudication](../../AGENTS.md) again: re-export paths
-lie about ownership, and where the type lives decides where the schema can live.
-The families migrated so far were chosen because their owners were already in
-the validator's graph — which is why the graph is **unchanged at 239**.
+* **The orphan rule bills you at the seam.** `impl BossBehaviorProfile { … }`
+  and `impl CharacterArchetypeSpec { … }` could not follow their types, because
+  they return actor-crate shapes (`BossCatalog`, `ActorTuning`). Both became
+  extension traits in the actor crate — `BossBehaviorProfileExt`,
+  `CharacterArchetypeSpecExt`. Call sites keep their syntax and gain a `use`.
+* **A move can need a move under it.** `PickupKind` had to go DOWN to
+  `ambition_entity_catalog` first (`BossRewardProfile` names it, and its old home
+  `ambition_interaction` depends on `ambition_characters` — a cycle);
+  `CharacterBrainTemplate` went to `ambition_characters::brain`, which its own
+  doc comment had already argued for.
+* **Re-export paths lie about ownership.** `audio_registries.rs` imports
+  `MusicRegistry` from the monolith; it is DEFINED in `ambition_audio`. Checking
+  cost one grep and unblocked a family that looked as stuck as the others.
 
 ### ⚠ A second limit: a handler sees ONE facet
 

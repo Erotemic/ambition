@@ -1718,6 +1718,69 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     }
 }
 
+/// **A body with no live aim fires the way it is FACING, not world-right.**
+///
+/// `frame.fire` is an edge — `clear_edges()` nulls it every tick — and a ranged
+/// move has startup, so by the time its fire frame arrives the intent that
+/// started it is usually gone. That fallback used to be a bare `(1.0, 0.0)`,
+/// which `dir_to_world` resolves through the acceleration frame alone, so every
+/// such shot went world-RIGHT whichever way the body looked. Reported from play
+/// as "Maryo's fireball only shoots to her right, not the way she is facing".
+#[test]
+fn a_ranged_move_without_live_aim_fires_along_the_bodys_facing() {
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::brain::{ActorActionMessage, ActorControl};
+    for facing in [-1.0f32, 1.0] {
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<ActorActionMessage>();
+        app.add_systems(Update, dispatch_move_events);
+
+        // No `control.0.fire`: the intent was cleared before the fire frame.
+        let owner = app
+            .world_mut()
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 50.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(16.0, 24.0),
+                    facing,
+                },
+                ActionSet {
+                    ranged: Some(RangedActionSpec::bolt(240.0, 3)),
+                    ..Default::default()
+                },
+                ActorControl::default(),
+            ))
+            .id();
+        app.world_mut()
+            .resource_mut::<Messages<MoveEventMessage>>()
+            .write(MoveEventMessage {
+                owner,
+                move_id: "fire".into(),
+                presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
+                kind: MoveEventKind::Ranged,
+            });
+        app.update();
+
+        let acts: Vec<ActorActionMessage> = app
+            .world_mut()
+            .resource_mut::<Messages<ActorActionMessage>>()
+            .drain()
+            .collect();
+        match &acts[0].request {
+            ActionRequest::Ranged { dir, .. } => assert_eq!(
+                dir.x.signum(),
+                facing,
+                "a body facing {facing} fired along {dir:?}"
+            ),
+            other => panic!("expected ActionRequest::Ranged, got {other:?}"),
+        }
+    }
+}
+
 /// Ranged subsumption slice 2: `build_actor_moveset` folds `ActionSet.ranged`
 /// into a `"ranged"`-verb fire move (Startup → fire event → Recovery, no hit
 /// volume), and `trigger_moveset_moves` starts it on a `frame.fire` intent — the

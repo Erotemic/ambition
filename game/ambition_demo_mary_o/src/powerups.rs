@@ -150,10 +150,19 @@ fn spark_shot() -> RangedActionSpec {
         .with_flight(
             ProjectileFlight::arcing(SPARK_GRAVITY, SPARK_BOUNCES)
                 .with_lifetime(SPARK_LIFETIME_S)
-                .with_half_extent(ae::Vec2::new(7.0, 7.0)),
+                .with_half_extent(ae::Vec2::new(SPARK_HALF_EXTENT, SPARK_HALF_EXTENT)),
         )
         .with_visual(SPARK_VISUAL)
 }
+
+/// Half-extent of a spark, in px — so the shot is **20 px across a 32 px tile**.
+///
+/// ⚠ it was 7.0 (14 px), which Jon reported from play as *"very tiny"*. This is a
+/// FEEL number and the obvious one to tune; what matters structurally is that it
+/// is the ONE place the size is written. The render art asks for
+/// `ProjectileRenderSize::Body`, so the drawn quad follows this half-extent and
+/// the sprite cannot disagree with the hitbox.
+const SPARK_HALF_EXTENT: f32 = 10.0;
 
 /// Launch speed of a spark (px/s).
 const SPARK_SPEED: f32 = 300.0;

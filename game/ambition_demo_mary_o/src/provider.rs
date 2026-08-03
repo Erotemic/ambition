@@ -5,12 +5,12 @@ use bevy::prelude::*;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::presentation::profiles;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
+use ambition_platformer2d::runtime::PreparedPlatformerSource;
 
-use crate::{LEVEL_1_1_ROOM_ID, MaryORulesPlugin, level_1_1};
+use crate::{level_1_1, MaryORulesPlugin, LEVEL_1_1_ROOM_ID};
 
 pub const MARY_O_EXPERIENCE: &str = "mary_o";
 pub const MARY_O_GAMEPLAY_ROUTE: &str = "mary_o_gameplay";
@@ -105,7 +105,9 @@ impl Plugin for MaryOExperiencePlugin {
         // image is published by regen_sprites.sh; until then the render falls back
         // to the quad.
         {
-            use ambition_platformer2d::platformer::world_item_art::{WorldItemArtAppExt, WorldItemArtEntry};
+            use ambition_platformer2d::platformer::world_item_art::{
+                WorldItemArtAppExt, WorldItemArtEntry,
+            };
             app.register_world_item_art([
                 WorldItemArtEntry::new(
                     crate::powerups::STAR_WAND_SPRITE,
@@ -119,7 +121,10 @@ impl Plugin for MaryOExperiencePlugin {
                 // quad, so the pickup is always visible.
                 WorldItemArtEntry::new(
                     crate::powerups::CINDER_BEACON_SPRITE,
-                    format!("sprites/props/{}.png", crate::powerups::CINDER_BEACON_SPRITE),
+                    format!(
+                        "sprites/props/{}.png",
+                        crate::powerups::CINDER_BEACON_SPRITE
+                    ),
                     // Likewise from the beacon's bbox (39x59px) — a lantern is
                     // taller than it is wide.
                     ae::Vec2::new(24.0, 36.0),
@@ -149,8 +154,15 @@ impl Plugin for MaryOExperiencePlugin {
                     source: ProjectileArtSource::EnergyTinted {
                         rgba: [1.0, 0.62, 0.16, 0.96],
                     },
+                    // ⚠ **`min: 0.0` on purpose — the BODY is the size
+                    // authority.** This used to be 7.0, the same number as the
+                    // flight half-extent, maintained in two files: growing the
+                    // shot in one place would have left the drawn quad clamped at
+                    // the old size, which is the failure the pickup probes just
+                    // had in another form. The floor exists to keep a sub-pixel
+                    // projectile visible; a spark is 20 px and does not need one.
                     size: ProjectileRenderSize::Body {
-                        min: 7.0,
+                        min: 0.0,
                         scale: 1.0,
                     },
                     // It tumbles as it skips rather than pointing along travel —
@@ -274,7 +286,8 @@ impl Plugin for MaryOExperiencePlugin {
                             ambition_platformer2d::audio::spec::SfxSpec {
                                 cue: None,
                                 id: Some(crate::powerups::SFX_SMALL_TO_BIG.to_string()),
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
+                                waveform:
+                                    ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
                                 frequency: 220.0,
                                 frequency_end: 880.0,
                                 duration: 0.38,
@@ -298,7 +311,8 @@ impl Plugin for MaryOExperiencePlugin {
                             ambition_platformer2d::audio::spec::SfxSpec {
                                 cue: None,
                                 id: Some(crate::powerups::SFX_BIG_TO_SMALL.to_string()),
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
+                                waveform:
+                                    ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
                                 frequency: 620.0,
                                 frequency_end: 150.0,
                                 duration: 0.34,

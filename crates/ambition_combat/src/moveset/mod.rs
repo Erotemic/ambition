@@ -1207,12 +1207,29 @@ pub fn dispatch_move_events(
                 };
                 let kin = positions.get(ev.owner).ok();
                 let origin = kin.map(|k| k.pos).unwrap_or(ae::Vec2::ZERO);
-                // Sample the owner's live aim at the fire frame; fall back to forward
-                // (controlled-body-local +x = the body's facing direction).
+                // Sample the owner's live aim at the fire frame, and fall back to
+                // the body's FACING when there is none.
+                //
+                // ⛔ **the fallback used to be a bare `(1.0, 0.0)`, and its comment
+                // said that was "forward (controlled-body-local +x = the body's
+                // facing direction)". It is not.** `ControlledBodyLocal` +x is the
+                // gravity frame's SIDE axis — `dir_to_world` applies
+                // `AccelerationFrame::to_world` and nothing else — so under normal
+                // gravity the fallback resolved to world +x and every such shot
+                // went RIGHT, whichever way the body was looking.
+                //
+                // ⚠ and the fallback is the COMMON path, not the rare one.
+                // `frame.fire` is an EDGE: `clear_edges()` nulls it every tick. A
+                // ranged move has startup, so by the time its fire frame arrives
+                // the intent that started it is already gone and this branch is
+                // what runs. Jon reported it as "Maryo's fireball only shoots to
+                // her right, not the way she is facing" — the demo passes
+                // `kin.facing` correctly on the press, and the value never
+                // survived to the shot.
                 let (dir, dir_policy) = match control.0.fire {
                     Some(req) => (req.dir, req.dir_policy),
                     None => (
-                        ae::Vec2::new(1.0, 0.0),
+                        ae::Vec2::new(kin.map(|k| k.facing.signum()).unwrap_or(1.0), 0.0),
                         ae::GameplayFramePolicy::ControlledBodyLocal,
                     ),
                 };

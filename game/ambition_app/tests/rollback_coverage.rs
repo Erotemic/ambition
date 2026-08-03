@@ -1922,3 +1922,141 @@ fn tick_of(world: &World, id: bevy::ecs::component::ComponentId) -> u32 {
         .map(|ticks| ticks.changed.get())
         .unwrap_or(0)
 }
+
+/// **Can the shipped composition be driven INTO PLAY from a test?** — a probe.
+///
+/// Fourteen test files boot `build_visible_app` and not one activates a route, so
+/// every claim the shipped-composition surface makes is about a world that never
+/// simulates. This asks whether that is a fixture nobody wrote or a thing that
+/// cannot be done headlessly.
+///
+/// ⚠ **the baseline is captured AFTER the route has settled.** Installing a
+/// session writes `RollbackFrameCount`, `ConfirmedFrameCount`, `LocalPlayers` and
+/// `MaxPredictionWindow`, so a window that spans the activation shows those as
+/// "changed" and reads exactly like frames advancing. An earlier draft of this
+/// probe made that mistake and I nearly recorded "the shipped app advances GGRS
+/// frames without saving any snapshots" — which would have been a serious and
+/// completely invented defect.
+#[test]
+#[ignore = "probe"]
+fn probe_driving_the_shipped_app_into_play() {
+    use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteCatalog};
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..8 {
+        app.update();
+    }
+    assert!(
+        app.world()
+            .resource::<ShellRouteCatalog>()
+            .contains(&"ambition_gameplay".into()),
+        "the shipped catalog names the gameplay route this probe drives"
+    );
+
+    app.world_mut()
+        .write_message(ShellCommand::GoTo("ambition_gameplay".into()));
+    // Deterministic stepping, the same mechanism the sim harness uses: Bevy
+    // advances `Time` by exactly one sim tick per update, so the GGRS
+    // accumulator expends once per `app.update()` rather than depending on how
+    // fast this loop runs on this machine.
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_nanos(1_000_000_000u64 / 60),
+    ));
+    for _ in 0..120 {
+        app.update();
+    }
+
+    let watched: Vec<(String, bevy::ecs::component::ComponentId)> = app
+        .world()
+        .iter_resources()
+        .filter_map(|(info, _)| {
+            let name = info.name();
+            (name.starts_with("bevy_ggrs::") || name.contains("GgrsSnapshots"))
+                .then_some((name.to_string(), info.id()))
+        })
+        .collect();
+    let before: Vec<u32> = watched
+        .iter()
+        .map(|(_, id)| tick_of(app.world(), *id))
+        .collect();
+
+    for _ in 0..120 {
+        app.update();
+    }
+
+    let stores_moved = watched
+        .iter()
+        .zip(&before)
+        .filter(|((name, id), was)| {
+            name.contains("GgrsSnapshots") && tick_of(app.world(), *id) != **was
+        })
+        .count();
+    let stores_total = watched
+        .iter()
+        .filter(|(name, _)| name.contains("GgrsSnapshots"))
+        .count();
+    let driver: Vec<&str> = watched
+        .iter()
+        .zip(&before)
+        .filter(|((name, id), was)| {
+            !name.contains("GgrsSnapshots") && tick_of(app.world(), *id) != **was
+        })
+        .map(|((name, _), _)| name.rsplit("::").next().unwrap_or(name))
+        .collect();
+
+    let players = app
+        .world_mut()
+        .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::actors::actor::PrimaryPlayer>>()
+        .iter(app.world())
+        .count();
+
+    println!("[into-play] players={players}");
+    println!("[into-play] {stores_moved} of {stores_total} snapshot stores written in a settled 120-frame window");
+    println!("[into-play] ggrs driver resources that moved: {driver:?}");
+}
+
+/// The CONTROL for `probe_driving_the_shipped_app_into_play`: the same snapshot-store
+/// measurement against a fixture that is known to rewind (45 rollback tests rest
+/// on it). If the stores move here and not there, the difference is real; if they
+/// move in neither, the measurement is wrong.
+#[test]
+#[ignore = "probe"]
+fn probe_snapshot_stores_in_a_fixture_that_definitely_rolls_back() {
+    let mut sim = Platformer2dSimHarness::new_with_options(
+        ambition_app::Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("combat_calibration_lab")
+            .with_sync_test_rollback_settings(4, 10),
+    )
+    .expect("sync-test harness builds");
+    for _ in 0..10 {
+        sim.step(AgentAction::default());
+    }
+
+    let stores: Vec<(String, bevy::ecs::component::ComponentId)> = sim
+        .world()
+        .iter_resources()
+        .filter_map(|(info, _)| {
+            info.name()
+                .contains("GgrsSnapshots")
+                .then_some((info.name().to_string(), info.id()))
+        })
+        .collect();
+    let before: Vec<u32> = stores
+        .iter()
+        .map(|(_, id)| tick_of(sim.world(), *id))
+        .collect();
+    for _ in 0..30 {
+        sim.step(AgentAction::default());
+    }
+    let moved = stores
+        .iter()
+        .zip(&before)
+        .filter(|((_, id), was)| tick_of(sim.world(), *id) != **was)
+        .count();
+    println!(
+        "[control] harness with sync-test rollback: {moved} of {} stores written over 30 steps",
+        stores.len()
+    );
+}

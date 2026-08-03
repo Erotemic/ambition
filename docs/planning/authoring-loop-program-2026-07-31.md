@@ -147,6 +147,19 @@ negative tests, and the API leaks recorded. No slice waits on another's polish.
 
 The narrowest end-to-end cut of all three programs at once.
 
+> **✔ STATUS 2026-08-03 — P1a and P1b are DONE, and the blocker they left is
+> CLOSED.** `crates/ambition_content_pack` (the compiler), `crates/ambition_content_cli`
+> (the front door) and `ambition_characters`'s `character_catalog` schema all
+> ship. The honest half recorded on 07-31 — *"the RUNTIME still reads
+> `include_str!`; nothing consumes a `PreparedContentPack` yet"* — no longer
+> holds: `game/ambition_content/src/character_catalog.rs` compiles the pack and
+> lowers it, in `load_catalog` AND in `register`, so the running game and the
+> validator are one read of one file.
+>
+> **What is actually left is scope, not a blocker**, and it is tracked in
+> [the migration ledger](#the-migration-ledger--which-families-are-in-the-pack).
+> One family of thirteen is in. See that section before writing anything here.
+
 **P1a — `PreparedContentPack` is a value, and a character validates off disk.**
 New engine crate `ambition_content_pack`:
 
@@ -197,6 +210,41 @@ land first.
 the panel is later and smaller.
 
 **Guard:** an `explain_tick` module in `app_it`.
+
+### The migration ledger — which families are in the pack
+
+**Read this before claiming the compiler is or is not "done".** The compiler is
+built; what remains is moving families through it. `pack.ron` says so itself:
+*"the only migrated family is the character catalog… This grows as families
+migrate."*
+
+Every ▢ row below still reaches the runtime through `include_str!` **and its own
+parser** — which is the two-readers-of-one-file shape the compiler exists to
+remove. Inventory taken 2026-08-03 by grepping `include_str!` in
+`game/ambition_content/src`, not from memory.
+
+| family | authored source | in the pack? |
+|---|---|---|
+| character catalog | `data/character_catalog.ron` | ✅ `character_catalog`, owned by `ambition_characters` |
+| items | `data/items.ron` | ▢ `ambition_items::ItemCatalog::from_ron` |
+| enemy roster | `data/character_archetypes.ron` | ▢ |
+| boss profiles / seeds / sheets / validator bands | 4 × `data/boss_*.ron` | ▢ |
+| boss encounters | 9 × `data/boss_encounters/*.ron` | ▢ |
+| encounter waves | `data/encounters/goblin_encounter.ron` | ▢ |
+| music + sfx registries | `assets/audio/{music,sfx}_registry.ron` | ▢ ⚠ `music_registry.ron` is GENERATED — migrate the generator's output contract, not the file |
+| dialogue | 7 × `assets/dialogue/sandbox/*.yarn` | ▢ not RON; needs a handler that parses Yarn |
+| worlds | the LDtk projects | ▢ |
+| vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ▢ |
+| fighter brain ladder | `data/fighter_brain_ladder.ron` | ▢ |
+
+⛔ **and the second authority is `content_validation.rs`, not `include_str!`.**
+The 698-line cross-content validator still runs at app startup
+(`game/ambition_app/src/app/resources.rs:182`) over LDtk room links, dialogue
+ids, quest conditions, encounter/boss ids and music refs. That is *exactly*
+what the compiler's reference-resolution stage is built to own. Migrating a
+family is only half a row; the other half is the cross-reference it lets
+`content_validation.rs` stop doing. A family that moves without shrinking that
+file has added a third reader, not removed a second.
 
 ### ▢ P2. Slice 2 — the multi-context participant flow
 

@@ -31,7 +31,8 @@ fn settle_until(app: &mut App, frames: usize, ready: impl Fn(&App) -> bool) -> b
 
 fn parallax_layer_positions(app: &mut App) -> Vec<(f32, f32)> {
     let world = app.world_mut();
-    let mut query = world.query_filtered::<&Transform, With<ambition_platformer2d::view::ParallaxLayerVisual>>();
+    let mut query = world
+        .query_filtered::<&Transform, With<ambition_platformer2d::view::ParallaxLayerVisual>>();
     query
         .iter(world)
         .map(|transform| (transform.translation.x, transform.translation.y))
@@ -66,6 +67,21 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
 
     // Walk. The camera follows the body, and the layers follow the camera at
     // their own rate — that last edge is the one that was missing.
+    //
+    // ⛔ **SAMPLE THE WHOLE RUN, not the endpoints.** The twin of this assertion
+    // in `ambition_demo_sanic_app` compared `before` against `after` alone and
+    // cost FOUR wrong diagnoses on 2026-08-03 — a missing `sync_parallax_layers`,
+    // an unregistered `camera_follow`, a broken camera clamp, and "the subject is
+    // slow" — before the numbers showed the truth: the speedway LOOPS, so after
+    // 240 frames the body was back near its start, the camera was back on its
+    // clamp, and every layer was back where it began, correctly, to the float.
+    // The endpoints are the one pair of samples that cannot see a following
+    // backdrop working.
+    //
+    // Nothing guarantees the outlander's course does not double back either, so
+    // this tracks the largest deviation across the walk. That holds whether the
+    // route loops, reverses, or runs straight.
+    let mut max_deviation = 0.0f32;
     for _ in 0..180 {
         outlander::drive_control_frame(
             &mut app,
@@ -75,6 +91,15 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
             },
         );
         app.update();
+        let now = parallax_layer_positions(&mut app);
+        if now.len() == before.len() {
+            for (start, current) in before.iter().zip(&now) {
+                // Layer positions are (x, y) here, unlike the Sanic twin's bare
+                // x — take the distance so a purely vertical parallax counts too.
+                let moved = ((current.0 - start.0).powi(2) + (current.1 - start.1).powi(2)).sqrt();
+                max_deviation = max_deviation.max(moved);
+            }
+        }
     }
 
     let after = parallax_layer_positions(&mut app);
@@ -85,11 +110,13 @@ fn the_backdrop_is_drawn_and_follows_the_camera() {
          about motion"
     );
     assert!(
-        before.iter().zip(&after).any(|(a, b)| a != b),
-        "every parallax layer is exactly where it was after 180 frames of \
-         walking. The backdrop is pinned to the world while the camera moves — \
-         which is what a composition without `sync_parallax_layers` draws, and \
-         it looks like art that is simply somewhere else."
+        max_deviation > 1.0,
+        "over 180 frames of walking, no parallax layer ever moved more than \
+         {max_deviation} px from where it started. The backdrop is pinned to the \
+         world while the camera moves, and it looks like art that is simply \
+         somewhere else. ⚠ before blaming a system: check that the SUBJECT moved \
+         and that the camera left its clamp — the sibling of this assertion was \
+         misread as four different bugs, every one of them innocent."
     );
 }
 

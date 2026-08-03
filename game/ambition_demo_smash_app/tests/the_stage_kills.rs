@@ -315,7 +315,7 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
         .sum();
     assert!(
         travelled > 1.0,
-        "neither fighter moved in 240 ticks — a fighter brain that emits nothing \
+        "neither fighter moved in 120 ticks — a fighter brain that emits nothing \
          is indistinguishable from one that was never installed, and that is \
          exactly what an unresolved brain profile used to produce: {before:?} -> \
          {after:?}"

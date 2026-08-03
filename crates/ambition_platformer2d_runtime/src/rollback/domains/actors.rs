@@ -314,6 +314,26 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "item.ground_item",
     );
+    // The pickup's ATTRACTION POLICY rides the same entity as the pickup, so a
+    // rewind that recreates a dropped coin has to recreate whether it comes to
+    // you. Authored at spawn and never mutated — but "never mutated" is not
+    // "never needs restoring" when the entity itself is rollback state.
+    //
+    // ⚠ caught by `rollback_exit_oracle`'s PER-FRAME census within an hour of
+    // the component existing, because a dropped coin is transient — spawned and
+    // despawned inside the route — and the one-shot sweep in `rollback_coverage`
+    // cannot see it. That is B3b's first blind spot, demonstrating itself.
+    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::features::ecs::pickups::PickupMagnet>(
+        OWNER,
+        "item.pickup_magnet",
+        |magnet| {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            magnet.range.to_bits().hash(&mut hasher);
+            magnet.speed.to_bits().hash(&mut hasher);
+            hasher.finish()
+        },
+    );
     // ⚠ PROBED, not merely cloned. A presence-only probe satisfies the coverage
     // sweep while seeing nothing of the value, so a restore that put the item
     // back at the wrong PLACE would checksum identical — and where a pickup is

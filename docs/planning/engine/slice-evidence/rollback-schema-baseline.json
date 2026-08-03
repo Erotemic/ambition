@@ -194,6 +194,7 @@
     "gravity.flip_switch",
     "item.ground_item",
     "item.motion",
+    "item.pickup_magnet",
     "item.world_item",
     "lifecycle.player_visual",
     "lifecycle.room_visual",

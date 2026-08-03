@@ -1454,13 +1454,31 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     // The number stays EXACT, so further drift still fails here. The crossed
     // rebase itself is covered thoroughly by
     // `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`.
+    // ⚠ **RE-PINNED to +0 on 2026-08-03, and this is the SECOND time the number
+    // moved for a reason unrelated to what the oracle proves.** The confirmed
+    // Track-B commit that the 07-31 note describes moving INTO the walk has moved
+    // back out of it; the likely cause is the 08-02 reference-frame corrections
+    // (`5ae87b2e8`, `3e7780623`), which changed how a body's `locomotion` is
+    // interpreted and therefore when this route's objectives land.
+    //
+    // Checked before re-pinning rather than after: the crossed-rebase claim this
+    // count was standing in for is owned by
+    // `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`,
+    // and all four tests in that module pass. The checksum identity this oracle
+    // exists for is unaffected — only the coverage narrative was.
+    //
+    // ⚠ **the honest doubt, recorded rather than resolved**: an EXACT count
+    // pinned to a walk whose timing depends on content tuning is a tripwire that
+    // fires on tuning. It has now cost two investigations and caught no defect.
+    // If it moves a third time, the question to ask is whether the oracle should
+    // assert the checksum identity and merely REPORT the session count.
     assert_eq!(
         stats.sessions_installed,
-        sessions_at_the_start + 1,
+        sessions_at_the_start,
         "this oracle's COVERAGE changed. The walk installed {} further \
          session(s) on top of the {sessions_at_the_start} the setup built, and \
-         this route is pinned at exactly ONE — the confirmed lifecycle commit it \
-         has crossed since the protagonist's attack lost its windup. A different \
+         this route is pinned at exactly ZERO since the 08-02 reference-frame \
+         corrections moved the confirmed lifecycle commit back out of the walk. A different \
          number means the route now crosses a different set of commits, which \
          proves something different from what this run is written to prove, and \
          the difference used to be invisible. Either restore the route/content, \

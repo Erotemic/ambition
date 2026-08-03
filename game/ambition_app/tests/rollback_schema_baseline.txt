@@ -196,6 +196,7 @@ feature.switch_on	component-clone	ambition_platformer2d_actor_monolith::encounte
 gravity.flip_switch	component-clone	ambition_platformer2d_actor_monolith::gravity::lifecycle::GravityFlipSwitch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 item.ground_item	component-clone	ambition_platformer2d_actor_monolith::items::pickup::GroundItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 item.motion	component-clone	ambition_platformer2d_actor_monolith::items::item_motion::ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+item.pickup_magnet	component-clone	ambition_platformer2d_actor_monolith::features::ecs::pickups::PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 item.world_item	component-clone	ambition_platformer2d_actor_monolith::items::world_item::WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 lifecycle.player_visual	component-clone	ambition_platformer2d_shared_tangle::lifecycle::markers::PlayerVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 lifecycle.room_visual	component-clone	ambition_platformer2d_shared_tangle::lifecycle::markers::RoomVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

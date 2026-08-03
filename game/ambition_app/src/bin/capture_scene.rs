@@ -406,55 +406,80 @@ impl SceneCaptureConfig {
         let mut press: Vec<PressStep> = Vec::new();
         let mut i = 0usize;
         while i < args.len() {
-            match args[i].as_str() {
+            // **THE ARM SAYS HOW MANY ARGUMENTS IT ATE; THE LOOP DOES THE
+            // ADVANCING.** (2026-08-03)
+            //
+            // Every arm used to end with its own `i += 1` or `i += 2`, and
+            // `--combat-overlay` — the newest one — did not. So the loop saw the
+            // same flag forever and the binary HUNG before the app was even
+            // constructed: the documented `capture_scene ... --combat-overlay`
+            // command could never have been run once. Reported by a review; the
+            // missing line was there to read.
+            //
+            // Restoring the line would have fixed this instance and left the
+            // class, and the class is the "authority that requires a follow-up
+            // call" shape this repository keeps rediscovering: a step every
+            // future arm has to remember. A cursor the arms cannot write cannot
+            // be forgotten — an arm that ate one argument and says nothing is a
+            // compile error, not a hang.
+            let consumed = match args[i].as_str() {
+                // ⚠ it does NOT imply `--dev-overlays`. It did, and that made
+                // `silence_dev_overlays` return early, so a capture asking for
+                // combat VOLUMES also kept the FPS counter, the debug HUD and
+                // the nameplates that read like raw identifiers leaking into
+                // player UI. Two independent concerns: clear the developer
+                // chrome, and switch the combat gizmos on. The gizmos need
+                // `DeveloperRuntimeState.debug` and the gizmo toggles, none of
+                // which the chrome settings touch — and `force_combat_overlay`
+                // is chained AFTER the silencer either way.
                 "--combat-overlay" => {
                     combat_overlay = true;
-                    dev_overlays = true;
+                    1
                 }
                 "--dev-overlays" => {
                     dev_overlays = true;
-                    i += 1;
+                    1
                 }
                 "--include-ui" => {
                     include_ui = true;
-                    i += 1;
+                    1
                 }
                 "--show-window" => {
                     show_window = true;
-                    i += 1;
+                    1
                 }
                 "--character" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--character requires a catalog id".to_string());
                     };
                     character = Some(value.clone());
-                    i += 2;
+                    2
                 }
                 arg if arg.starts_with("--character=") => {
                     character = Some(arg.trim_start_matches("--character=").to_string());
-                    i += 1;
+                    1
                 }
                 "--press" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--press requires a comma-separated key list".to_string());
                     };
                     press = parse_press_sequence(value)?;
-                    i += 2;
+                    2
                 }
                 arg if arg.starts_with("--press=") => {
                     press = parse_press_sequence(arg.trim_start_matches("--press="))?;
-                    i += 1;
+                    1
                 }
                 "--route" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--route requires a shell route id".to_string());
                     };
                     route = Some(value.clone());
-                    i += 2;
+                    2
                 }
                 arg if arg.starts_with("--route=") => {
                     route = Some(arg.trim_start_matches("--route=").to_string());
-                    i += 1;
+                    1
                 }
                 "--warmup" => {
                     let Some(value) = args.get(i + 1) else {
@@ -463,23 +488,24 @@ impl SceneCaptureConfig {
                     warmup_frames = value
                         .parse::<u32>()
                         .map_err(|_| format!("--warmup must be an integer, got '{value}'"))?;
-                    i += 2;
+                    2
                 }
                 arg if arg.starts_with("--warmup=") => {
                     let value = arg.trim_start_matches("--warmup=");
                     warmup_frames = value
                         .parse::<u32>()
                         .map_err(|_| format!("--warmup must be an integer, got '{value}'"))?;
-                    i += 1;
+                    1
                 }
                 other if other.starts_with('-') => {
                     return Err(format!("unknown option '{other}'"));
                 }
                 other => {
                     positional.push(other.to_string());
-                    i += 1;
+                    1
                 }
-            }
+            };
+            i += consumed;
         }
 
         // A ROUTE has no room id and no focus point: the shell composes its own
@@ -584,6 +610,50 @@ impl SceneCaptureConfig {
 /// silently photographs somewhere else is how a blind agent reports the wrong
 /// thing with confidence, and that is the defect this whole mode exists to
 /// remove.
+/// **RESTART THE CAPTURE CLOCK when the press sequence is spent** — whichever
+/// step type happened to be last.
+///
+/// A confirmation starts a ROUTE CHANGE, and the route it starts has its own
+/// load, its own cameras and its own readiness. A fixed post-press count cannot
+/// express that: raising it to 600 made the tool time out on texture readback
+/// after 691 frames, because the readback deadline is computed from the same
+/// budget the settle spends. So the presses end one capture and begin another —
+/// zeroing the frame count and un-setting readiness re-runs the machinery that
+/// already knows how to wait for a route ("warmup is a duration, readiness is a
+/// FACT"), and the deadline is recomputed with it rather than eaten by it.
+///
+/// ⛔ **this lived inside the deferred-release branch of a TAP**, so it ran only
+/// when the last step was a tap. `Hold`, `Release` and `Wait` advance the cursor
+/// through a different path and none of them completed the sequence — and BOTH
+/// shaped-volume examples this tool ships end in `release:`, so neither ever got
+/// the post-input warmup its documentation promises. The shutter could fire
+/// almost immediately after the final release instead of N ticks into the action
+/// it triggered, which for a tool whose purpose is photographing a specific
+/// moment is the whole ballgame.
+///
+/// Spent means all three are exhausted: no steps left, no tap awaiting its
+/// release, no wait counting down. Asking one question in one place is what
+/// stops the next step type from being forgotten the way these three were.
+fn complete_press_sequence_if_spent(
+    config: &SceneCaptureConfig,
+    runtime: &mut SceneCaptureRuntime,
+) {
+    if runtime.press_cursor < config.press.len()
+        || runtime.press_held.is_some()
+        || runtime.press_wait > 0
+    {
+        return;
+    }
+    if runtime.press_done_frame.is_some() {
+        return;
+    }
+    runtime.press_done_frame = Some(0);
+    runtime.frames = 0;
+    runtime.world_ready = false;
+    runtime.cameras_adopted = 0;
+    eprintln!("capture_scene: press sequence complete; waiting for the state it asked for");
+}
+
 /// Silence the developer overlays unless the caller asked for them.
 ///
 /// A `desktop_dev` build draws a debug banner, an FPS counter and per-entity
@@ -756,6 +826,14 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
         Update,
         (
             silence_dev_overlays,
+            // ⚠ **the same system the ROOM builder installs.** It was in one
+            // builder only, so `--route ... --combat-overlay` accepted the
+            // option and silently photographed no volumes — and the route path
+            // is how you reach a playable surface. This file's own comment two
+            // screens up already warns that each mode assembles its own app and
+            // "a change to one reads as done"; that is now four flags this has
+            // happened to.
+            force_combat_overlay,
             go_to_route,
             adopt_route_cameras,
             request_capture,
@@ -1114,37 +1192,22 @@ fn request_capture(
     // Runs AFTER warmup, so the surface exists and has settled, and holds the
     // shutter until the sequence is spent — a capture taken mid-sequence would
     // photograph a half-made decision and look like a product bug.
-    if runtime.press_cursor < config.press.len() || runtime.press_held.is_some() {
+    // ⚠ **`press_wait` belongs in this condition.** Without it a trailing
+    // `wait:N` left the sequence "inactive" the moment its cursor passed the
+    // last step, so the wait was never counted down and never completed —
+    // a step type that silently did nothing when it happened to be last.
+    if runtime.press_cursor < config.press.len()
+        || runtime.press_held.is_some()
+        || runtime.press_wait > 0
+    {
         if runtime.press_wait > 0 {
             runtime.press_wait -= 1;
+            complete_press_sequence_if_spent(&config, &mut runtime);
             return;
         }
         if let Some(key) = runtime.press_held.take() {
             keys.release(key);
-            if runtime.press_cursor >= config.press.len() {
-                // **RESTART THE CAPTURE CLOCK instead of budgeting a settle.**
-                //
-                // A confirmation starts a ROUTE CHANGE, and the route it starts
-                // has its own load, its own cameras and its own readiness. A
-                // fixed post-press count cannot express that: raising it to 600
-                // made the tool time out on texture readback after 691 frames,
-                // because the readback deadline is computed from the same budget
-                // the settle spends.
-                //
-                // So the presses end one capture and begin another. Zeroing the
-                // frame count and un-setting readiness re-runs the machinery
-                // that already knows how to wait for a route — the same
-                // "warmup is a duration, readiness is a FACT" rule this file
-                // applies at the other end — and the deadline is recomputed with
-                // it rather than eaten by it.
-                runtime.press_done_frame = Some(0);
-                runtime.frames = 0;
-                runtime.world_ready = false;
-                runtime.cameras_adopted = 0;
-                eprintln!(
-                    "capture_scene: press sequence complete; waiting for the state it asked for"
-                );
-            }
+            complete_press_sequence_if_spent(&config, &mut runtime);
         } else {
             match config.press[runtime.press_cursor] {
                 PressStep::Tap(key) => {
@@ -1185,6 +1248,7 @@ fn request_capture(
                 }
             }
             runtime.press_cursor += 1;
+            complete_press_sequence_if_spent(&config, &mut runtime);
         }
         return;
     }

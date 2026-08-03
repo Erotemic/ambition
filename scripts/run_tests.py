@@ -406,6 +406,8 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # --fast (backbone only). Big composition crates whose extra features gate no
     # test code are always skipped -- their default-feature job already runs every
     # test, and a feature variant would recompile the whole graph for nothing.
+    check_jobs: list[Job] = []
+    union_features: list[str] = []
     if everything:
         for crate in members:
             name = crate.name
@@ -420,9 +422,23 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                            if not is_denied(f) and f not in default)
             if not extra or not crate_has_tests(crate):
                 continue
-            jobs.append(Job(f"{name} [{','.join(extra)}]",
-                            [CARGO, "test", "-p", name,
-                             "--features", ",".join(extra), *libtest()]))
+            # ⭐ **FRONT 1: PROVE IT COMPILES HERE, RUN IT ONCE BELOW.**
+            #
+            # This used to be `cargo test -p <crate> --features <extra>`, and
+            # that job did two different things at once: proved the feature
+            # combination COMPILES, and RAN the tests those features gate. Only
+            # the first needs its own build graph — and a distinct feature set IS
+            # a distinct build graph, which is why 23 of these cost 23 dependency
+            # builds at opt-level 3 (measured 2026-08-02: 1858 compile events,
+            # 400 of 454 crates built more than once, ~7% of the hour executing
+            # tests).
+            #
+            # `cargo check` keeps the compile guarantee without codegen or
+            # linking; the union job below runs every gated test in ONE graph.
+            check_jobs.append(Job(f"{name} [{','.join(extra)}] (compiles)",
+                                  [CARGO, "check", "-p", name, "--all-targets",
+                                   "--features", ",".join(extra)]))
+            union_features.extend(f"{name}/{f}" for f in extra)
 
     # ⛔ **THE CAUSAL INSTRUMENT AGAINST THE REAL APP.** `ambition_app` is in
     # SKIP_FEATURE_JOB, and that set's own rule says adding a
@@ -443,11 +459,44 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # default, so the cost would be code size and a per-tick policy check, not
     # published facts.
     if not only and everything:
-        jobs.append(Job(
-            "ambition_app [causal] — the instrument against the real composition",
-            [CARGO, "test", "-p", "ambition_app", "--features", "rl_sim causal",
-             "--test", "app_it", *libtest(["causal_explains_the_real_app"])],
-        ))
+        # The compile proofs first: they are cheap, and a combination that does
+        # not build should say so before an hour of test running.
+        jobs.extend(check_jobs)
+
+        # ⭐ **AND THE ONE GRAPH THAT RUNS EVERY GATED TEST.** (Front 1)
+        #
+        # The union of every feature job's extras, package-qualified. Measured
+        # 2026-08-03 rather than assumed: `cargo check --workspace` with all 55
+        # entries resolves, and the test run takes 5m54s of wall clock for the
+        # whole workspace — against 23 separate graphs, each rebuilding shared
+        # dependencies at opt-level 3.
+        #
+        # ⚠ **the union SEES MORE than the per-crate jobs, which is the finding
+        # that justifies it.** Compiling everything at once surfaced three
+        # `causal` message channels that both rollback oracles had been green
+        # over because the default job never compiled them.
+        #
+        # ⚠ `--no-fail-fast` is load-bearing: cargo otherwise stops at the first
+        # failing target, so one red crate hides every later one — measured, and
+        # it is why this must not be a plain `cargo test`.
+        #
+        # ⚠ feature unification means a crate here is compiled with features its
+        # own job would not enable. That is exactly what the check lane above
+        # exists to cover: each combination still gets its own resolution proof.
+        if union_features:
+            jobs.append(Job(
+                "workspace [every headless-safe feature] — one graph, every gated test",
+                [CARGO, "test", "--workspace", "--no-fail-fast",
+                 "--features", ",".join(sorted(set(union_features))), *libtest()],
+            ))
+        else:
+            # The causal instrument against the real composition, kept for the
+            # filtered case where no union was accumulated.
+            jobs.append(Job(
+                "ambition_app [causal] — the instrument against the real composition",
+                [CARGO, "test", "-p", "ambition_app", "--features", "rl_sim causal",
+                 "--test", "app_it", *libtest(["causal_explains_the_real_app"])],
+            ))
 
     # The external-consumer fixture (Phase 6): its own [workspace], lockfile,
     # and target dir, driven through --manifest-path so its INDEPENDENT

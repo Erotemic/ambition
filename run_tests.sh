@@ -2,13 +2,20 @@
 # Ambition test suite -- pytest-like front door. Runs everything that can run
 # headlessly by default; heavy/diagnostic tests are #[ignore]d and opt-in.
 #
-#   ./run_tests.sh              full headless suite (excludes #[ignore])
-#   ./run_tests.sh --heavy      ALSO run #[ignore]d tests + app acceptance cycles
-#   ./run_tests.sh --list       print the job plan, run nothing
-#   ./run_tests.sh -k <substr>  only tests whose name contains <substr>
+#   ./run_tests.sh              BACKBONE: python suites + cargo test --workspace
 #   ./run_tests.sh -p <crate>   only that crate's job (repeatable)
-#   ./run_tests.sh --fast       backbone only: cargo test --workspace
+#   ./run_tests.sh -k <substr>  only tests whose name contains <substr>
+#   ./run_tests.sh --list       print the job plan, run nothing
 #   ./run_tests.sh -- --nocapture   args after `--` go to libtest
+#   ./run_tests.sh --run-everything-you-probably-dont-need-this
+#                               the 33-job exhaustive plan (~1 HOUR)
+#   ./run_tests.sh --heavy      ALSO #[ignore]d tests + app acceptance cycles;
+#                               implies the exhaustive plan
+#
+# The default is deliberately not exhaustive (Jon, 2026-08-02): the exhaustive
+# plan spends ~63 minutes to execute ~4 minutes of tests, and being the default
+# made it the thing an agent ran instead of the focused test that would have
+# answered the question. Every non-exhaustive run prints what it did not cover.
 #
 # Waiting for a run: read target/run_tests_status.json ("running"/"done"/
 # "crashed"), NOT `pgrep -f run_tests.py` -- that matches the polling shell

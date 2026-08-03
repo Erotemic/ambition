@@ -313,6 +313,41 @@ stops the full suite from being run out of caution.
 guessing, and the full suite is what Jon's periodic sweep runs rather than what
 every edit runs.
 
+### Front 3c — compile frequently-changing crates without optimizations
+
+**Jon, 2026-08-02:** *"Does it make sense to compile tests for frequently
+changing modules without any optimizations? That might also help the build
+time."* Yes, and the mechanism is already in the tree — this is an extension of
+an existing decision, not a new lever.
+
+`Cargo.toml:139-143` already pins two workspace crates to `opt-level = 0`:
+
+```toml
+[profile.dev.package.ambition_platformer2d_runtime]
+opt-level = 0
+[profile.dev.package.ambition_render]
+opt-level = 0
+```
+
+with the stated rule — "codegen-heavy workspace crates that are NOT hot loops
+under test". Everything else in the workspace gets `opt-level = 1` and the
+dependencies get 3.
+
+So the front is: **extend that list by measurement, crate by crate.** The
+candidates are the crates an agent edits most and §3 rebuilds most —
+`ambition_platformer2d_actor_monolith` first.
+
+⚠ **The counter-force, which is why this is measured and not just applied.**
+These tests boot real app compositions: the rollback oracle alone runs 2980
+sim advances, and `app_it` is 190s of the run. Dropping the monolith to
+`opt-level = 0` moves cost from compile into that runtime. At today's split —
+93% compiling, 7% running — the trade is heavily favourable and might still be
+favourable at 50/50, but it inverts at some point and the existing comment's
+"NOT hot loops under test" is exactly the right test to apply.
+
+Measure per crate: compile seconds saved against test seconds added, on the same
+run. Front 0's record is what makes that a subtraction rather than an argument.
+
 ### Front 4 — the scheduled crate carves are also a compile-time program
 
 **Jon, 2026-08-02:** *"working on scheduled crate carves could help improve

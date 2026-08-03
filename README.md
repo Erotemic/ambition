@@ -222,10 +222,15 @@ for current details.
 Use the repository test runner as the canonical headless front door:
 
 ```bash
-./run_tests.sh --list
-./run_tests.sh -p <owning-package> -k <test-substring>
-./run_tests.sh
+./run_tests.sh --list                                   # what would run
+./run_tests.sh -p <owning-package> -k <test-substring>  # focused
+./run_tests.sh                                          # backbone: python + cargo test --workspace
+./run_tests.sh --run-everything-you-probably-dont-need-this   # exhaustive, ~1 hour
 ```
+
+The default is the backbone, not the exhaustive plan. Each run prints what it
+did not cover; the exhaustive plan is worth its hour before a release or after
+touching features, an SDK surface, or the web path — rarely mid-edit.
 
 Localize the narrowest tests before running broad suites:
 

@@ -1,8 +1,14 @@
 """Tests for scripts/run_tests.py job planning.
 
 Regression coverage for the package-filter bugs: a `-p <crate>` filter used to be
-able to plan ZERO jobs and exit 0 (making a typo look green), and `--fast` ignored
-`-p` entirely. Run with `pytest scripts/tests/`.
+able to plan ZERO jobs and exit 0 (making a typo look green), and the old
+`--fast` ignored `-p` entirely. Run with `pytest scripts/tests/`.
+
+⭐ 2026-08-02: the default INVERTED. The backbone (python suites + one
+`cargo test --workspace`) is what an unflagged run plans; the exhaustive plan is
+`everything=True`, reached by `--run-everything-you-probably-dont-need-this`.
+The assertions below are the contract for that inversion, so a future change
+that quietly restores the 33-job default fails here.
 """
 from __future__ import annotations
 
@@ -71,16 +77,23 @@ def test_selected_package_always_gets_a_default_job():
         assert all("--workspace" not in a for a in _argvs(jobs))
 
 
-def test_fast_honors_package_filter():
+def test_package_filter_plans_exactly_the_one_default_job():
     pkg = KNOWN[0]
-    jobs = rt.build_jobs([pkg], heavy=False, libtest_args=[], fast=True)
-    # --fast -p drops feature jobs, so exactly one default job for the package.
+    jobs = rt.build_jobs([pkg], heavy=False, libtest_args=[])
+    # A filtered default run drops feature jobs: exactly one job for the package.
     assert len(jobs) == 1
     assert jobs[0].argv == [rt.CARGO, "test", "-p", pkg]
 
 
-def test_fast_unfiltered_is_workspace_backbone():
-    jobs = rt.build_jobs([], heavy=False, libtest_args=[], fast=True)
+def test_the_default_plan_is_the_workspace_backbone():
+    """⭐ The inversion, asserted. An unflagged run is the BACKBONE.
+
+    Before 2026-08-02 this shape was only reachable with `--fast`, and the
+    default was 33 jobs / ~63 minutes of which ~7% executed tests. Being the
+    default is what made it the thing an agent ran instead of the focused test
+    that would have answered the question, so the default is now this.
+    """
+    jobs = rt.build_jobs([], heavy=False, libtest_args=[])
     # The two Python tooling jobs plus the workspace backbone. Both tooling jobs
     # are in the backbone deliberately: together they cost ~6s, and they are what
     # the rest of the plan is trusted through — one guards the runner and the
@@ -106,14 +119,15 @@ def test_fast_unfiltered_is_workspace_backbone():
         "workspace (default features)",
     }, f"unexpected backbone plan: {sorted(names)}"
     assert any("--workspace" in a for a in _argvs(jobs))
-    assert all("--features" not in a for a in _argvs(jobs)), "--fast drops feature jobs"
+    assert all("--features" not in a for a in _argvs(jobs)), (
+        "the backbone plans no feature jobs")
 
 
 def test_multiple_packages_each_get_a_job():
     if len(KNOWN) < 2:
         pytest.skip("need >=2 workspace members")
     pair = KNOWN[:2]
-    jobs = rt.build_jobs(pair, heavy=False, libtest_args=[], fast=True)
+    jobs = rt.build_jobs(pair, heavy=False, libtest_args=[])
     for pkg in pair:
         assert _has_pkg(jobs, pkg)
 
@@ -130,7 +144,7 @@ def test_unknown_package_reported_even_alongside_a_valid_one():
 
 
 def test_libtest_args_are_forwarded():
-    jobs = rt.build_jobs([KNOWN[0]], heavy=False, libtest_args=["--nocapture"], fast=True)
+    jobs = rt.build_jobs([KNOWN[0]], heavy=False, libtest_args=["--nocapture"])
     assert jobs[0].argv[-2:] == ["--", "--nocapture"]
 
 
@@ -192,14 +206,21 @@ def test_the_web_build_is_checked_in_the_whole_suite():
     four errors in it (docs/planning/repair_wasm.md).
 
     A CHECK rather than a test run: there is no wasm runner here, and a check is
-    what the failure mode needs anyway. Non-fast, because it builds a second
-    target's dependency graph, and not under a package filter, because `-p
-    some_crate` is a question about that crate.
+    what the failure mode needs anyway. Exhaustive-only, because it builds a
+    second target's dependency graph, and not under a package filter, because
+    `-p some_crate` is a question about that crate.
+
+    ⚠ 2026-08-02: this moved OUT of the default plan with the inversion, so the
+    web build is unchecked by a default run. That is a real loss and it is
+    accepted deliberately — `coverage_notice()` names the web check as one of
+    the three things the backbone does not cover, on every single run, which is
+    the difference between a stated trade and the silent gap that let the web
+    target sit broken for four days in the first place.
     """
     if not rt.wasm_target_installed():
         pytest.skip("wasm32-unknown-unknown is not installed on this machine")
 
-    jobs = rt.build_jobs([], heavy=False, libtest_args=[])
+    jobs = rt.build_jobs([], heavy=False, libtest_args=[], everything=True)
     web = [j for j in jobs if "wasm32-unknown-unknown" in j.argv]
     assert len(web) == 2, f"expected both web personas, got {[j.name for j in web]}"
     personas = {a for j in web for a in j.argv} & {"web", "web_served_assets"}
@@ -207,7 +228,40 @@ def test_the_web_build_is_checked_in_the_whole_suite():
     for job in web:
         assert "check" in job.argv, "the web job must be a check, not a test run"
 
-    fast = rt.build_jobs([], heavy=False, libtest_args=[], fast=True)
-    assert not [j for j in fast if "wasm32-unknown-unknown" in j.argv], (
-        "--fast is the backbone; a second target's dependency graph is not"
+    backbone = rt.build_jobs([], heavy=False, libtest_args=[])
+    assert not [j for j in backbone if "wasm32-unknown-unknown" in j.argv], (
+        "the default is the backbone; a second target's dependency graph is not"
     )
+
+
+def test_a_non_exhaustive_run_says_what_it_did_not_cover():
+    """⛔ A skipped coverage that says nothing reads exactly like coverage that
+    passed. That is the defect that let the web target stay broken for four
+    days, and making the backbone the DEFAULT would recreate it wholesale — so
+    every non-exhaustive plan ends by naming its own blind spots.
+    """
+    notice = rt.coverage_notice(exhaustive=False, filtered=False)
+    assert "does NOT cover" in notice
+    for missing in ("cfg(feature", "external-consumer", "wasm"):
+        assert missing in notice, f"the notice must name {missing}"
+    assert "--run-everything-you-probably-dont-need-this" in notice, (
+        "naming the gap without naming the flag that closes it is half a notice")
+
+    # The exhaustive plan has nothing to disclaim.
+    assert rt.coverage_notice(exhaustive=True, filtered=False) == ""
+
+    # A package filter is narrower still, and says so in its own words.
+    assert "package filter" in rt.coverage_notice(exhaustive=False, filtered=True)
+
+
+def test_heavy_implies_the_exhaustive_plan():
+    """`--heavy` is the MORE-than-exhaustive pass, so it cannot mean less.
+
+    Before the inversion `heavy` rode on top of a default that already planned
+    the feature jobs. It now has to request them itself, and this is the
+    assertion that catches it if that wiring is ever dropped.
+    """
+    jobs = rt.build_jobs([], heavy=True, libtest_args=[])
+    assert any("--features" in a for a in _argvs(jobs)), (
+        "--heavy must plan the feature jobs, not just the ignored-test pass")
+    assert any("--include-ignored" in a for a in _argvs(jobs))

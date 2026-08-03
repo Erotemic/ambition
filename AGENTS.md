@@ -141,8 +141,18 @@ optimising anything that touches this room.
   `file://` link to the artifact AND its directory (`[link=file://…]…[/link]`,
   `try/except ImportError` fallback to plain paths). Pattern:
   `scripts/git_debloat.py`, `scripts/archive_agent_source.py`.
-- `./run_tests.sh` is the suite; use narrower tests when a focused one already
-  covers the touched concept.
+- `./run_tests.sh` is the BACKBONE — the repo's Python suites plus one
+  `cargo test --workspace`. It is broad-good-enough and it is what a dev cycle
+  wants. Narrower is better still when a focused test already covers the touched
+  concept: `-p <crate>`, `-k <substr>`.
+  ⛔ **the exhaustive plan is `--run-everything-you-probably-dont-need-this`, and
+  the name is the instruction.** Measured 2026-08-02: 33 jobs, **63 minutes, ~7%
+  of it executing tests**, the actor monolith compiled sixteen times. There is no
+  CI; Jon sweeps it periodically himself and accepts a day of drift, so running
+  it mid-edit duplicates a scheduled sweep instead of adding safety. Every
+  non-exhaustive run prints what it did not cover (feature-gated tests, the
+  external-consumer fixtures, the wasm check) — read that line instead of
+  reaching for the hour.
 - To wait on a long command, read state it WROTE — for the suite that is
   `target/run_tests_status.json` (`state`: running/done/crashed). ⛔ never poll
   with `pgrep -f <script>`: the polling shell's own command line contains the

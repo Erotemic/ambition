@@ -1,28 +1,46 @@
 #!/usr/bin/env python3
 """Ambition test runner -- a pytest-like front door to the whole cargo suite.
 
-`./run_tests.sh` (which execs this) runs *everything that can run headlessly*:
-the default `cargo test --workspace`, PLUS one job per crate that has extra
-feature-gated tests, with those features turned on. Heavy/diagnostic tests are
-marked `#[ignore]` in Rust (the "skip marker") and are opt-in via `--heavy`.
+`./run_tests.sh` (which execs this) runs the BACKBONE: the repo's own Python
+suites, and `cargo test --workspace` — one cargo invocation, one build graph.
+That is broad-good-enough coverage and it is what you want in a dev cycle.
 
-Why per-crate feature jobs: cargo unifies features per build graph, and there is
-no safe workspace-wide "--all-features" here (that would pull in android/web/wasm
-targets). So to actually COMPILE AND RUN a crate's `#[cfg(feature = "...")]`
-tests, we enable that crate's headless-safe features in its own `cargo test -p`
-invocation. The safe set is computed from each Cargo.toml (own features minus a
+⭐ **THE DEFAULT IS DELIBERATELY NOT EXHAUSTIVE, and that is Jon's call
+(2026-08-02).** The exhaustive plan — a separate `cargo test -p` per crate with
+its feature-gated tests enabled, the external-consumer fixtures, the wasm check —
+lives behind `--run-everything-you-probably-dont-need-this`, and the name is the
+warning. Measured on 2026-08-02: the exhaustive plan is 33 jobs and **63 minutes**
+of which **~7% executed tests**; the backbone's cargo job is 607s of that. The
+rest is cargo re-resolving features per invocation and rebuilding the same
+dependencies — the actor monolith was compiled SIXTEEN times in one run.
+
+⛔ **If you are an agent, you almost certainly want the default or narrower.**
+There is no CI. Jon runs the exhaustive plan periodically himself and accepts a
+day of drift; you spending an hour on it does not add safety, it duplicates a
+sweep that is already scheduled. Run the focused test that answers your actual
+question. The full plan's whole value is finding what the backbone cannot see,
+and it is worth an hour roughly never in the middle of an edit.
+
+What the exhaustive plan buys, so the trade is legible rather than folkloric:
+cargo unifies features per build graph, and there is no safe workspace-wide
+"--all-features" here (that would pull in android/web/wasm targets). So a crate's
+`#[cfg(feature = "...")]` tests are compiled ONLY by a `cargo test -p` that
+enables them. The safe set is computed from each Cargo.toml (own features minus a
 platform/wasm/static-asset denylist), so it can't drift as features are added.
+The backbone therefore does not run feature-gated tests at all, and says so out
+loud at the end of every run rather than letting a partial pass read as a full one.
 
 Usage:
-  ./run_tests.sh                     # full headless suite (excludes #[ignore])
-  ./run_tests.sh --heavy             # ALSO run #[ignore]d tests + app acceptance
-  ./run_tests.sh --list              # print the job plan, run nothing
-  ./run_tests.sh -k <substr>         # only tests whose name contains <substr>
+  ./run_tests.sh                     # BACKBONE: python suites + cargo test --workspace
   ./run_tests.sh -p <crate>          # only that crate's job (repeatable)
-  ./run_tests.sh --fast              # backbone only (default features, no
-                                     #   feature jobs); honors -p if given
-An unknown -p package or an otherwise empty plan is a hard error.
+  ./run_tests.sh -k <substr>         # only tests whose name contains <substr>
+  ./run_tests.sh --list              # print the job plan, run nothing
   ./run_tests.sh -- --nocapture      # args after `--` go to libtest
+  ./run_tests.sh --run-everything-you-probably-dont-need-this
+                                     # the 33-job exhaustive plan (~1 hour)
+  ./run_tests.sh --heavy             # ALSO #[ignore]d tests + app acceptance;
+                                     #   implies the exhaustive plan
+An unknown -p package or an otherwise empty plan is a hard error.
 
 Exit code is nonzero if any job fails. A pytest-style summary is printed last.
 
@@ -284,9 +302,19 @@ def wasm_target_installed() -> bool:
 
 
 def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
-               fast: bool = False) -> list[Job]:
+               everything: bool = False) -> list[Job]:
+    """Plan the run. `everything=False` (the DEFAULT) is the backbone.
+
+    ⚠ The gate below reads `if everything:` and it used to read `if not fast:`.
+    The inversion is the point, not a refactor: the exhaustive plan is opt-in as
+    of 2026-08-02 because being the default made it the thing an agent reached
+    for instead of the focused test that would have answered the question. See
+    the module docstring and `docs/planning/test-iteration-cost-2026-08-02.md`.
+    """
     jobs: list[Job] = []
     members = selected_members(only)
+    # `--heavy` is the MORE-than-exhaustive pass; it cannot mean less.
+    everything = everything or heavy
 
     # The repo's OWN tooling, which is Python and was therefore invisible to a
     # cargo-only runner. `scripts/tests/` guards the goal guard, the test runner,
@@ -360,7 +388,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # --fast (backbone only). Big composition crates whose extra features gate no
     # test code are always skipped -- their default-feature job already runs every
     # test, and a feature variant would recompile the whole graph for nothing.
-    if not fast:
+    if everything:
         for crate in members:
             name = crate.name
             if only and name not in only:
@@ -396,7 +424,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # folding `causal` into `desktop_dev` — recording is policy-gated `Off` by
     # default, so the cost would be code size and a per-tick policy check, not
     # published facts.
-    if not only and not fast:
+    if not only and everything:
         jobs.append(Job(
             "ambition_app [causal] — the instrument against the real composition",
             [CARGO, "test", "-p", "ambition_app", "--features", "rl_sim causal",
@@ -409,7 +437,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     # `ambition_platformer2d` umbrella. Whole-suite, non-fast only — an umbrella API break
     # can land while every in-repo job stays green (workspace feature
     # unification hides it), and this job is the only gate that can see it.
-    if not only and not fast:
+    if not only and everything:
         jobs.append(Job("external consumer: outlander",
                         [CARGO, "test"],
                         cwd=str(REPO / "fixtures" / "external_consumer")))
@@ -456,7 +484,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     #
     # A cargo CHECK, so this costs a compile and not a link + run. Whole-suite
     # and non-fast, because it builds a second target's dependency graph.
-    if not only and not fast:
+    if not only and everything:
         if wasm_target_installed():
             for persona in ("web", "web_served_assets"):
                 jobs.append(Job(
@@ -475,7 +503,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
 
     # Heavy pass: rerun including #[ignore]d tests, plus the shipping-entrypoint
     # acceptance cycles (full app boot). Whole-suite, non-fast only.
-    if heavy and not only and not fast:
+    if heavy and not only:
         jobs.append(Job("workspace (+ ignored)",
                         [CARGO, "test", "--workspace",
                          *libtest(["--include-ignored"])]))
@@ -502,13 +530,40 @@ def write_status(path: Path, payload: dict) -> None:
     tmp.replace(path)
 
 
+def coverage_notice(exhaustive: bool, filtered: bool) -> str:
+    """What this plan did NOT cover, said out loud.
+
+    ⛔ The repo's own rule, learned from the wasm target sitting broken for four
+    days: "a skipped coverage that says nothing reads exactly like coverage that
+    passed". Making the backbone the default is deliberate, but a green backbone
+    must never be mistaken for a green everything — so every non-exhaustive run
+    ends by naming its own blind spots and the one flag that removes them.
+    """
+    if exhaustive:
+        return ""
+    scope = "this package filter" if filtered else "the default BACKBONE plan"
+    return (
+        f"\n  ⚠ this was {scope}, which does NOT cover:\n"
+        "      - tests behind #[cfg(feature = \"...\")] (only a per-crate\n"
+        "        `cargo test -p <crate> --features ...` compiles them)\n"
+        "      - the external-consumer fixtures (own workspace + lockfile, so\n"
+        "        an umbrella API break stays invisible to a workspace build)\n"
+        "      - the wasm/web build check\n"
+        "    All three: --run-everything-you-probably-dont-need-this (~1 hour).\n"
+        "    That is the right trade for a dev cycle and the wrong one before a\n"
+        "    release or after touching features, an SDK surface, or the web path."
+    )
+
+
 def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
-        status_json: str | None = None) -> int:
+        status_json: str | None = None, exhaustive: bool = False,
+        filtered: bool = False) -> int:
     if list_only:
         print(f"Planned {len(jobs)} job(s):\n")
         for j in jobs:
             print(f"  {j.name}")
             print(f"      {' '.join(j.argv)}")
+        print(coverage_notice(exhaustive, filtered))
         return 0
 
     env = dict(os.environ)
@@ -593,6 +648,9 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
         for n in failed:
             print(f"    - {n}")
     print(timing_report(results))
+    notice = coverage_notice(exhaustive, filtered)
+    if notice:
+        print(notice)
     print("=" * 60)
 
     if timings_json:
@@ -632,9 +690,24 @@ def main() -> int:
         description="Ambition full test suite runner (pytest-like).",
         formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
     ap.add_argument("--heavy", action="store_true",
-                    help="also run #[ignore]d tests and app acceptance cycles")
+                    help="also run #[ignore]d tests and app acceptance cycles "
+                         "(implies the exhaustive plan)")
+    # ⭐ The NAME is the feature. An agent reading `--help` or a stale command
+    # line should be talked out of it by the flag itself, because being the
+    # default is exactly how the exhaustive plan became the reflex.
+    ap.add_argument("--run-everything-you-probably-dont-need-this",
+                    dest="run_everything", action="store_true",
+                    help="the exhaustive plan: a cargo test -p per crate with "
+                         "its feature-gated tests, the external-consumer "
+                         "fixtures, the wasm check. ~33 jobs, ~1 HOUR, ~7% of "
+                         "it actually executing tests. There is no CI and Jon "
+                         "sweeps this periodically himself, so in a dev cycle "
+                         "the default plan or a focused test is what you want.")
+    # Kept so an existing command line or script does not break. `--fast` WAS
+    # the backbone-only mode; the backbone is now the default, so it is a no-op
+    # that says so rather than a silent one.
     ap.add_argument("--fast", action="store_true",
-                    help="backbone only: cargo test --workspace")
+                    help="DEPRECATED no-op: the backbone is the default now")
     ap.add_argument("--list", action="store_true", help="print job plan, run nothing")
     ap.add_argument("-k", metavar="SUBSTR", default=None,
                     help="only tests whose name contains SUBSTR (libtest filter)")
@@ -657,9 +730,22 @@ def main() -> int:
     if args.k:
         libtest_args.insert(0, args.k)
 
-    jobs = build_jobs(args.package, args.heavy, libtest_args, fast=args.fast)
+    if args.fast:
+        print("run_tests: --fast is a no-op now — the backbone IS the default. "
+              "The exhaustive plan is "
+              "--run-everything-you-probably-dont-need-this.")
+
+    jobs = build_jobs(args.package, args.heavy, libtest_args,
+                      everything=args.run_everything)
+    if args.run_everything or args.heavy:
+        print("run_tests: EXHAUSTIVE plan requested. Measured 2026-08-02: "
+              "~33 jobs, ~63 minutes, ~7% of it executing tests. If you are "
+              "mid-edit, a focused test almost certainly answers your question "
+              "faster and just as well.")
     return run(jobs, args.list, timings_json=args.timings_json,
-               status_json=args.status_json)
+               status_json=args.status_json,
+               exhaustive=args.run_everything or args.heavy,
+               filtered=bool(args.package))
 
 
 if __name__ == "__main__":

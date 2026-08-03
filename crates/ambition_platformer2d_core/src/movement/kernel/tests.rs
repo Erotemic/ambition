@@ -968,7 +968,7 @@ fn a_pending_launch_takes_a_rider_off_the_floor_through_step_motion() {
     let frame = MotionFrame::from_acceleration(Vec2::new(0.0, 900.0)).unwrap();
 
     {
-        let mut clusters = scratch.as_mut();
+        let clusters = scratch.as_mut();
         clusters.flight.pending_launch = Vec2::new(-360.0, -260.0);
     }
     step(
@@ -1004,7 +1004,7 @@ fn the_launch_channel_is_emptied_by_the_step_that_consumes_it() {
     let frame = MotionFrame::from_acceleration(Vec2::new(0.0, 900.0)).unwrap();
 
     {
-        let mut clusters = scratch.as_mut();
+        let clusters = scratch.as_mut();
         clusters.flight.pending_launch = Vec2::new(-360.0, -260.0);
     }
     step(

@@ -1849,6 +1849,16 @@ fn the_inert_sweep_actually_catches_an_unanchored_registration() {
 /// `ControlFrame` passed — because input sampling runs in `ReadInputs`, outside
 /// the sim window, so it advances in a world where nothing is simulating.
 ///
+/// ⚠ **the snapshot-store witness is INFERENTIAL and was later found too weak to
+/// carry this claim on its own.** It measures SAVING, not simulating, and the
+/// shipped app turns out to run `SyncTest(check_distance = 0)` once a route is
+/// active — GGRS driving the simulation with rollback entirely dormant, so
+/// `GgrsSchedule` runs every frame and **zero snapshots are saved**. Under a
+/// route, "0 stores" would therefore have meant the opposite of what it means
+/// here. The direct witness is below: this fixture holds **no session at all**,
+/// and `GgrsSchedule` runs zero times. See
+/// `probe_which_ggrs_schedules_run_in_the_shipped_app`.
+///
 /// ⭐ **and this is a THIRD blind spot in the resource sweeps**, the same family
 /// as the two already recorded (post-event state; demo-provider state):
 /// `every_mutable_ambition_resource_in_the_shipped_composition_is_accounted`
@@ -1899,10 +1909,23 @@ fn the_shipped_fixture_does_not_advance_the_simulation() {
         .filter(|((_, id), was)| tick_of(app.world(), *id) != **was)
         .count();
 
+    // The DIRECT witness, added after the inferential one proved too weak: does
+    // the sim schedule execute at all, and is there even a session to drive it?
+    let session = app
+        .world()
+        .get_resource::<ambition_platformer2d::runtime::rollback::AmbitionGgrsSession>()
+        .is_some();
     println!(
         "[fixture-sim] {} of {} GgrsSnapshots stores written across 30 updates",
         moved,
         stores.len()
+    );
+    println!("[fixture-sim] a GGRS session exists: {session}");
+    assert!(
+        !session,
+        "this fixture is supposed to hold NO session — if one now exists, the \
+         claim this test makes about the sweep's blind spot needs re-deriving \
+         from the schedule-run witness rather than from snapshot stores"
     );
     println!(
         "[fixture-sim] {}",
@@ -2059,4 +2082,103 @@ fn probe_snapshot_stores_in_a_fixture_that_definitely_rolls_back() {
         "[control] harness with sync-test rollback: {moved} of {} stores written over 30 steps",
         stores.len()
     );
+}
+
+#[derive(bevy::prelude::Resource, Default, Debug)]
+struct ScheduleRunCounts(BTreeMap<String, usize>);
+
+/// **Which of bevy_ggrs's schedules actually RUN in the shipped app** — the
+/// follow-up probe to `probe_driving_the_shipped_app_into_play`, which
+/// established that nothing is saved but could not say whether frames advance.
+///
+/// A counting system is spliced into each ggrs schedule by NAME, so this test
+/// needs no dependency on the netcode crate to ask which of its phases execute.
+#[test]
+#[ignore = "probe"]
+fn probe_which_ggrs_schedules_run_in_the_shipped_app() {
+    use ambition_platformer2d::game_shell::ShellCommand;
+    use bevy::ecs::schedule::Schedules;
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..8 {
+        app.update();
+    }
+    if std::env::var("PROBE_NO_ROUTE").is_err() {
+        app.world_mut()
+            .write_message(ShellCommand::GoTo("ambition_gameplay".into()));
+    }
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_nanos(1_000_000_000u64 / 60),
+    ));
+    for _ in 0..120 {
+        app.update();
+    }
+
+    app.init_resource::<ScheduleRunCounts>();
+    let names: Vec<String> = app
+        .world()
+        .resource::<Schedules>()
+        .iter()
+        .map(|(label, _)| format!("{label:?}"))
+        .filter(|name| {
+            [
+                "Ggrs",
+                "SaveWorld",
+                "LoadWorld",
+                "AdvanceWorld",
+                "ReadInputs",
+            ]
+            .iter()
+            .any(|needle| name.contains(needle))
+        })
+        .collect();
+
+    let mut schedules = app
+        .world_mut()
+        .remove_resource::<Schedules>()
+        .expect("schedules");
+    for (label, schedule) in schedules.iter_mut() {
+        let name = format!("{label:?}");
+        if !names.contains(&name) {
+            continue;
+        }
+        schedule.add_systems(
+            move |mut counts: bevy::prelude::ResMut<ScheduleRunCounts>| {
+                *counts.0.entry(name.clone()).or_default() += 1;
+            },
+        );
+    }
+    app.world_mut().insert_resource(schedules);
+
+    for _ in 0..120 {
+        app.update();
+    }
+
+    let kind = app
+        .world()
+        .get_resource::<ambition_platformer2d::runtime::rollback::AmbitionGgrsSession>()
+        .map(|session| match session {
+            ambition_platformer2d::runtime::rollback::AmbitionGgrsSession::SyncTest(s) => {
+                format!("SyncTest(check_distance={})", s.check_distance())
+            }
+            ambition_platformer2d::runtime::rollback::AmbitionGgrsSession::P2P(_) => {
+                "P2P".to_string()
+            }
+            ambition_platformer2d::runtime::rollback::AmbitionGgrsSession::Spectator(_) => {
+                "Spectator".to_string()
+            }
+        });
+    println!("[ggrs-phases] session = {kind:?}");
+    println!("[ggrs-phases] over 120 settled updates:");
+    for name in &names {
+        let runs = app
+            .world()
+            .resource::<ScheduleRunCounts>()
+            .0
+            .get(name)
+            .copied()
+            .unwrap_or(0);
+        println!("[ggrs-phases]   {runs:>4}x  {name}");
+    }
 }

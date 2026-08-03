@@ -1167,6 +1167,18 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
     ),
     (
+        "ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest",
+        "which SPRITE a held item id binds to. Written by app-builder          REGISTRATION (`&mut Self` on `App`, at composition time), never by a          system — so there is no tick on which it can differ between two          timelines. Authored art binding, not world state",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::world_item_art::WorldItemArtManifest",
+        "the same, for world items: an id → sprite table filled at composition          time by the provider. A pickup's POSITION and payload are rollback state          and are registered; what it LOOKS like is not",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::camera_layers::MainCameraEntity",
+        "which entity is the camera. Written where the camera is SPAWNED by the          render composition; a rewind does not respawn the camera, and a          simulation that depended on which entity draws it would already be          wrong. Presentation identity",
+    ),
+    (
         "ambition_platformer2d_shared_tangle::schedule::SimulationReplayState",
         "the marker saying THIS PASS IS A REPLAY — its own doc calls it a          \"host-owned marker for a historical replay pass\", raised after loading          historical state and cleared when the host finishes the request batch.          It is the machinery doing the rewinding, so a rewind that restored it          would be restoring the thing doing the restoring. Same argument as          `PendingSeatInputs` and `RollbackExecutionStats`; it sits in a different          module only because the SCHEDULE vocabulary owns the marker while the          driver owns the writers",
     ),
@@ -1371,7 +1383,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
     // wholly overwritten each tick rather than accumulated, which is the whole
     // difference between derived state and a memo.
-    const UNACCOUNTED_CEILING: usize = 21;
+    const UNACCOUNTED_CEILING: usize = 18;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

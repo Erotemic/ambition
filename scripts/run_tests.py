@@ -228,11 +228,19 @@ class Job:
 
 @dataclass
 class JobResult:
-    """One executed job: what ran, whether it passed, and how long it took."""
+    """One executed job: what ran, whether it passed, and how long it took.
+
+    `executed_seconds` is the part of `seconds` that was RUNNING TESTS rather
+    than compiling — summed from libtest's own "finished in Xs" lines, which
+    every test binary already prints. The rest is the build graph, and the whole
+    campaign this measurement serves is about paying for that graph fewer times.
+    A job with no test binaries (a bare `cargo check`) reports 0.0 and means it.
+    """
     name: str
     argv: list[str]
     ok: bool
     seconds: float
+    executed_seconds: float = 0.0
 
 
 def timing_report(results: list[JobResult]) -> str:
@@ -242,10 +250,19 @@ def timing_report(results: list[JobResult]) -> str:
     without being confused for a slow-but-green one; pass/fail accounting
     itself stays in the summary block, which lists failures separately.
     """
-    lines = ["  job timings (slowest first):"]
+    total = sum(r.seconds for r in results) or 1.0
+    executed = sum(r.executed_seconds for r in results)
+    lines = ["  job timings (slowest first, `run` = libtest's own execution time):"]
     for r in sorted(results, key=lambda r: -r.seconds):
         tag = "ok  " if r.ok else "FAIL"
-        lines.append(f"    {r.seconds:8.1f}s  {tag}  {r.name}")
+        lines.append(
+            f"    {r.seconds:8.1f}s  {tag}  {r.name}"
+            f"   (run {r.executed_seconds:.1f}s)"
+        )
+    lines.append(
+        f"    ── {executed:.0f}s of {total:.0f}s executing tests "
+        f"({executed / total * 100:.0f}%); the rest is the build graph."
+    )
     return "\n".join(lines)
 
 
@@ -257,6 +274,7 @@ def timings_payload(results: list[JobResult]) -> list[dict]:
             "command": " ".join(r.argv),
             "ok": r.ok,
             "seconds": round(r.seconds, 3),
+            "executed_seconds": round(r.executed_seconds, 3),
         }
         for r in results
     ]
@@ -517,6 +535,84 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
     return jobs
 
 
+# libtest ends every binary with a line naming how long IT ran, and that number
+# is the only part of a job's wall clock that is not the build graph.
+LIBTEST_DURATION = re.compile(r"finished in ([0-9]+\.[0-9]+)s")
+
+
+def run_job_streaming(job: "Job", env: dict) -> tuple[int, float]:
+    """Run one job, echoing its output live, and total libtest's own runtime.
+
+    ⚠ **live output is not negotiable**, which is why this streams rather than
+    capturing: somebody watching a suite needs to see the failure as it happens.
+    stdout is piped only so the "finished in Xs" lines can be counted on the way
+    past; stderr (where cargo writes progress) stays attached to the terminal.
+    """
+    executed = 0.0
+    proc = subprocess.Popen(
+        job.argv,
+        cwd=job.cwd or REPO,
+        env=env,
+        stdout=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+    )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        sys.stdout.write(line)
+        match = LIBTEST_DURATION.search(line)
+        if match:
+            executed += float(match.group(1))
+    sys.stdout.flush()
+    return proc.wait(), executed
+
+
+def completed_rows(results: list[JobResult]) -> list[dict]:
+    """The finished jobs, for a reader of the status file."""
+    return [
+        {"job": r.name, "ok": r.ok, "seconds": round(r.seconds, 1),
+         "executed_seconds": round(r.executed_seconds, 1)}
+        for r in results
+    ]
+
+
+def append_cost_ledger(results: list[JobResult], exhaustive: bool,
+                       filtered: bool) -> Path | None:
+    """Record what this run COST, on every run, so two runs can be compared.
+
+    ⭐ **Front 0 of the test-iteration campaign** (Jon, 2026-08-02: *"testing
+    iteration is wasting too much agent time, it is unacceptable"*). Every claim
+    the campaign makes — that a change removed a compile, that parallelism helped
+    — is judged against this file, and the campaign must not quote another
+    hand-read log: its founding numbers were read off ONE run by hand, on a
+    machine that had a second agent building in the same target directory.
+
+    Appended, never rewritten: the value is the TREND, and one line per run is
+    small enough to keep forever.
+    """
+    ledger = Path(os.environ.get("RUN_TESTS_COST_LEDGER",
+                                 REPO / "dev" / "run_tests_cost.jsonl"))
+    row = {
+        "finished": time.time(),
+        "jobs": len(results),
+        "seconds": round(sum(r.seconds for r in results), 1),
+        "executed_seconds": round(sum(r.executed_seconds for r in results), 1),
+        "passed": sum(1 for r in results if r.ok),
+        "exhaustive": exhaustive,
+        "filtered": filtered,
+        "per_job": timings_payload(results),
+    }
+    try:
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        with ledger.open("a") as handle:
+            handle.write(json.dumps(row) + "\n")
+    except OSError as exc:
+        # A cost record is worth having and never worth failing a suite over.
+        print(f"  (could not append the cost ledger: {exc})")
+        return None
+    return ledger
+
+
 def write_status(path: Path, payload: dict) -> None:
     """Rewrite the run-state file atomically.
 
@@ -629,16 +725,31 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             print(f"\n\033[1m==> {j.name}\033[0m")
             print("    " + " ".join(j.argv))
             start = time.monotonic()
-            rc = subprocess.run(j.argv, cwd=j.cwd or REPO, env=env).returncode
+            # ⭐ **WHICH job, and since WHEN** — written BEFORE the job runs.
+            #
+            # The status file used to carry a count and nothing else, so an agent
+            # waiting on a suite could see "7 of 33 done" and had no way to tell a
+            # slow job from a wedged one. The two facts that answer it are the
+            # name of what is running now and the time it started.
+            write_status(status, {**base, "state": "running",
+                                  "finished_jobs": len(results),
+                                  "current_job": j.name,
+                                  "current_started": time.time(),
+                                  "completed": completed_rows(results)})
+            rc, executed = run_job_streaming(j, env)
             results.append(
-                JobResult(j.name, j.argv, rc == 0, time.monotonic() - start))
+                JobResult(j.name, j.argv, rc == 0, time.monotonic() - start,
+                          executed))
             if rc != 0:
                 print(f"\033[31m    FAILED ({j.name})\033[0m")
             write_status(status, {**base, "state": "running",
-                                  "finished_jobs": len(results)})
+                                  "finished_jobs": len(results),
+                                  "current_job": None,
+                                  "completed": completed_rows(results)})
     except BaseException:
         write_status(status, {**base, "state": "crashed",
                               "finished_jobs": len(results),
+                              "completed": completed_rows(results),
                               "failed": [r.name for r in results if not r.ok]})
         raise
 
@@ -662,6 +773,13 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
             json.dumps(timings_payload(results), indent=2) + "\n")
         print(f"  timings written to {timings_json}")
 
+    # ...and the ledger every run appends to, whether or not anybody asked.
+    # `--timings-json` is for looking at ONE run; this is what makes the next
+    # measurement a comparison instead of another hand-read log.
+    ledger = append_cost_ledger(results, exhaustive, filtered)
+    if ledger:
+        print(f"  cost appended to {ledger.relative_to(REPO) if ledger.is_relative_to(REPO) else ledger}")
+
     # **What this run COST in disk**, as a number rather than as a surprise.
     #
     # The suite is the repo's largest disk consumer and its cost is invisible
@@ -682,6 +800,10 @@ def run(jobs: list[Job], list_only: bool, timings_json: str | None = None,
     write_status(status, {**base, "state": "done", "finished_jobs": len(results),
                           "passed": passed, "failed": failed,
                           "seconds": round(total, 1),
+                          "executed_seconds": round(
+                              sum(r.executed_seconds for r in results), 1),
+                          "completed": completed_rows(results),
+                          "current_job": None,
                           "free_gb_at_end": round(free_after, 1),
                           "disk_gb_spent": round(spent, 1),
                           "exit_code": 1 if failed else 0})

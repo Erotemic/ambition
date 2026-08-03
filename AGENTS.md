@@ -154,7 +154,11 @@ optimising anything that touches this room.
   external-consumer fixtures, the wasm check) — read that line instead of
   reaching for the hour.
 - To wait on a long command, read state it WROTE — for the suite that is
-  `target/run_tests_status.json` (`state`: running/done/crashed). ⛔ never poll
+  `target/run_tests_status.json` (`state`: running/done/crashed, plus
+  `current_job` and `current_started` so a slow job is distinguishable from a
+  wedged one, and `completed` with each finished job's seconds). Every run also
+  appends what it cost to `dev/run_tests_cost.jsonl` — wall clock, and how much
+  of it was libtest actually executing rather than cargo building. ⛔ never poll
   with `pgrep -f <script>`: the polling shell's own command line contains the
   pattern, so it matches ITSELF and the loop sleeps forever (seven stranded,
   2026-07-31). Better still, don't poll — a backgrounded command reports its exit.

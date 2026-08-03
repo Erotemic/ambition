@@ -643,6 +643,18 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
         // playback-state path, but the final output side effect is recorded
         // instead of issuing Kira `play` commands to the user's speakers.
         app.insert_resource(ambition_platformer2d::audio::AudioOutputMode::Recording);
+        // ...and the SAME rule for the other side effect a non-session App must
+        // not have: writing the user's settings and save. A windowless host is a
+        // test, a capture, or a headless acceptance run — none of them is a
+        // player, and all of them used to read and write
+        // `~/.local/share/ambition/` because the path was resolved from the
+        // environment rather than owned by the App.
+        //
+        // ⚠ that directory is per-USER, not per-checkout: every `app_it` test
+        // shared three mutable files with every other test, every other
+        // worktree, and every concurrent session on the machine. A headless
+        // acceptance run could overwrite a real save.
+        app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot::isolated());
     }
     // The game's OWN asset source (`game://`): the content crate's assets
     // dir in a dev checkout, the shipped `assets/` dir otherwise. The

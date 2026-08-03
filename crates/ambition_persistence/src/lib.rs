@@ -21,6 +21,31 @@ impl Default for PersistenceRoot {
         Self(settings::platform_paths::data_dir_root())
     }
 }
+
+impl PersistenceRoot {
+    /// A private directory nobody else writes — for an App that is not a
+    /// player's session.
+    ///
+    /// ⭐ **the symmetry to keep in mind**: a windowless host already redirects
+    /// AUDIO away from the user's speakers (`AudioOutputMode::Recording`). This
+    /// is the same rule for the other side effect a non-session App should not
+    /// have — writing the user's settings and save.
+    ///
+    /// Unique per call: process id plus a counter, so two Apps in one test
+    /// binary do not share a root either. Nothing cleans these up, deliberately
+    /// — a few empty directories under the temp dir are cheaper than a harness
+    /// that deletes paths, and the OS reclaims them.
+    pub fn isolated() -> Self {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let unique = NEXT.fetch_add(1, Ordering::Relaxed);
+        Self(
+            std::env::temp_dir()
+                .join("ambition-app-state")
+                .join(format!("{}-{unique}", std::process::id())),
+        )
+    }
+}
 pub mod save_data;
 pub mod settings;
 

@@ -71,8 +71,15 @@ pub fn save_developer(path: &Path, developer: &DeveloperTools) -> std::io::Resul
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_developer_at_startup(mut developer: ResMut<DeveloperTools>) {
-    let path = developer_path();
+pub fn load_developer_at_startup(
+    mut developer: ResMut<DeveloperTools>,
+    // Same App-owned root the settings and save use: a windowless host writes
+    // its own directory rather than the user's. `developer.ron` was the file
+    // that kept moving after the other two stopped, because this system resolved
+    // the path from the environment on its own.
+    root: Res<ambition_persistence::PersistenceRoot>,
+) {
+    let path = developer_path_under(&root.0);
     if !path.exists() {
         return;
     }
@@ -85,11 +92,14 @@ pub fn load_developer_at_startup(mut developer: ResMut<DeveloperTools>) {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn save_developer_on_change(developer: Res<DeveloperTools>) {
+pub fn save_developer_on_change(
+    developer: Res<DeveloperTools>,
+    root: Res<ambition_persistence::PersistenceRoot>,
+) {
     if !developer.is_changed() {
         return;
     }
-    let path = developer_path();
+    let path = developer_path_under(&root.0);
     if let Err(error) = save_developer(&path, &developer) {
         warn!(
             target: "ambition_platformer2d::settings",
@@ -112,7 +122,10 @@ pub struct DeveloperPersistenceSchedulePlugin;
 
 impl Plugin for DeveloperPersistenceSchedulePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, load_developer_at_startup)
+        // Idempotent: whichever plugin gets here first supplies the default, and
+        // an App that declared its own root before adding either keeps it.
+        app.init_resource::<ambition_persistence::PersistenceRoot>()
+            .add_systems(Startup, load_developer_at_startup)
             .add_systems(Update, save_developer_on_change);
     }
 }

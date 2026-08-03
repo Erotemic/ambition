@@ -159,6 +159,8 @@ fn startup_with_an_unchanged_file_does_not_rewrite_it() {
     let mut world = World::new();
     world.init_resource::<UserSettings>();
     world.init_resource::<LastPersistedSettings>();
+    // The root is APP state now; these systems read it instead of the process env.
+    world.init_resource::<crate::PersistenceRoot>();
     world
         .run_system_cached(load_settings_at_startup)
         .expect("startup load runs");

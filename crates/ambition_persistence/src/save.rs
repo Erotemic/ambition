@@ -225,8 +225,9 @@ pub fn load_save_at_startup(
     mut save: ResMut<AmbitionGameSave>,
     mut last: ResMut<LastPersistedSave>,
     mut writable: ResMut<SaveFileWritable>,
+    root: Res<crate::PersistenceRoot>,
 ) {
-    let path = save_path();
+    let path = save_path_under(&root.0);
     if !path.exists() {
         return;
     }
@@ -297,6 +298,7 @@ pub fn autosave_sandbox_save(
     save: Res<AmbitionGameSave>,
     mut last: ResMut<LastPersistedSave>,
     writable: Res<SaveFileWritable>,
+    root: Res<crate::PersistenceRoot>,
 ) {
     // Startup found a file this build must not replace — a save from a newer
     // build, or bytes it could not parse. Refusing to write is the whole
@@ -307,7 +309,7 @@ pub fn autosave_sandbox_save(
     if last.0.as_ref() == Some(&save.0) {
         return;
     }
-    let path = save_path();
+    let path = save_path_under(&root.0);
     match write_save(&path, &save.0) {
         Ok(()) => last.0 = Some(save.0.clone()),
         Err(error) => warn!(

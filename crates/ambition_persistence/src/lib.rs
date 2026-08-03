@@ -7,6 +7,20 @@
 pub mod host;
 pub mod quest;
 pub mod save;
+
+/// The directory this App reads and writes its settings, save and developer
+/// files in. Defaults to the platform data dir, so production is unchanged.
+///
+/// ⚠ **it exists so that "where my files are" is an APP fact.** As a global it
+/// was shared by every test in a binary and by every process on the machine.
+#[derive(bevy::prelude::Resource, Clone, Debug)]
+pub struct PersistenceRoot(pub std::path::PathBuf);
+
+impl Default for PersistenceRoot {
+    fn default() -> Self {
+        Self(settings::platform_paths::data_dir_root())
+    }
+}
 pub mod save_data;
 pub mod settings;
 
@@ -18,6 +32,17 @@ impl bevy::prelude::Plugin for PersistenceSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs as _, Startup, Update};
 
+        // ⭐ **WHERE THIS APP KEEPS ITS FILES, as app state rather than as an
+        // ambient process fact.** The path used to be read from the environment
+        // at every call, which made it PER-USER: every `app_it` test shared one
+        // settings file, one save and one developer file — with each other, and
+        // with every other checkout and session on the machine, concurrently.
+        // Nothing declared that, and a test cannot opt out of a global.
+        //
+        // `init_resource` keeps production behaviour exactly (the default IS the
+        // platform dir) while letting any App — a test, a tool, a second
+        // instance — declare its own root before adding this plugin.
+        app.init_resource::<PersistenceRoot>();
         app.init_resource::<save::SaveFileWritable>()
             .init_resource::<save::LastPersistedSave>()
             .init_resource::<settings::persistence::LastPersistedSettings>()

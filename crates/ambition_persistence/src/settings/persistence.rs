@@ -107,8 +107,9 @@ fn load_existing_settings(
 pub fn load_settings_at_startup(
     mut settings: ResMut<UserSettings>,
     mut last: ResMut<LastPersistedSettings>,
+    root: Res<crate::PersistenceRoot>,
 ) {
-    let path = settings_path();
+    let path = settings_path_under(&root.0);
     if !load_existing_settings(&path, &mut settings, &mut last) {
         return;
     }
@@ -148,11 +149,12 @@ pub struct LastPersistedSettings(Option<UserSettings>);
 pub fn save_settings_on_change(
     settings: Res<UserSettings>,
     mut last: ResMut<LastPersistedSettings>,
+    root: Res<crate::PersistenceRoot>,
 ) {
     if last.0.as_ref() == Some(&*settings) {
         return;
     }
-    let path = settings_path();
+    let path = settings_path_under(&root.0);
     match save_settings(&path, &settings) {
         Ok(()) => last.0 = Some(settings.clone()),
         Err(error) => warn!(

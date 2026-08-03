@@ -1167,6 +1167,14 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the ROLLBACK DRIVER's own state — pending inputs, session status,          execution stats. This is the machinery doing the rewinding, and it is          the one thing a rewind must not rewind",
     ),
     (
+        "ambition_demo_mary_o::quasar_shader::QuasarShaderInstalled",
+        "a marker inserted during PLUGIN BUILD to make the shader install          idempotent. Composition state, written once before any frame runs",
+    ),
+    (
+        "ambition_demo_mary_o::quasar_shader::MaryOQuasarShaderSettings",
+        "its own doc: \"runtime tuning for development and capture tooling\", and          the field that disables the overlay says it does so \"without changing          the authoritative invincible fact\". The invincibility IS rollback state          and is registered as such; how brightly it is DRAWN is not. ⚠ read          rather than assumed because both real defects this sweep has caught          were in a demo namespace",
+    ),
+    (
         "ambition_platformer2d_shared_tangle::held_item_art::HeldItemArtManifest",
         "which SPRITE a held item id binds to. Written by app-builder          REGISTRATION (`&mut Self` on `App`, at composition time), never by a          system — so there is no tick on which it can differ between two          timelines. Authored art binding, not world state",
     ),
@@ -1383,7 +1391,7 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
     // wholly overwritten each tick rather than accumulated, which is the whole
     // difference between derived state and a memo.
-    const UNACCOUNTED_CEILING: usize = 18;
+    const UNACCOUNTED_CEILING: usize = 16;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

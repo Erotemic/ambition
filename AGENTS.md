@@ -97,6 +97,40 @@ invariants hold.
   `--test <file_name>` will not resolve: `cargo test -p ambition_app --test
   app_it -- <module>`.
 
+## The cheapest sufficient command
+
+Pick the narrowest row that covers what you changed. **Every number below was
+measured on 2026-08-03 against a warm target directory** (`dev/run_tests_cost.jsonl`
+plus direct timings); they are the real loop cost, not an estimate.
+
+| I changed… | run | s | what it does NOT cover |
+|---|---|---|---|
+| a doc, a plan, a ledger | *nothing* | 0 | a doc a TEST reads — the goal file and `AGENTS.md` are both read by `scripts/tests` |
+| a Python tool in `scripts/` | `python -m pytest scripts/tests -q` | 12 | the Rust side, entirely |
+| LDtk tooling | `tools/ambition_ldtk_tools/.venv/bin/python -m pytest tests -q` | 6 | anything that consumes what it emits |
+| one engine crate's code | `cargo test -p <crate>` | ~5 | **the app build** (see below), and every `#[cfg(feature)]` item |
+| anything the app composes | `cargo check -p ambition_app` | 21 | behaviour — it proves compilation and nothing else |
+| one app-level behaviour | `cargo test -p ambition_app --test app_it <module>` | 31–90 first, **1.3 warm** | the other modules, and failures that only appear under LOAD |
+| all app-level behaviour | `cargo test -p ambition_app --test app_it` | ~101 | non-default features |
+| a feature gate | `cargo check -p <crate> --features <combo> --all-targets` | 20 | RUNNING the gated tests — only the union job does |
+| every gated test | `cargo test --workspace --features <union>` (see `scripts/run_tests.py`) | 340 | little; it is the widest single graph we have |
+| the default sweep | `python scripts/run_tests.py` | 393 (6.5 min) | features, external consumers, the wasm check |
+| before a release, or after touching features / the SDK surface / the web path | `python scripts/run_tests.py --run-everything-you-probably-dont-need-this` | 1528 (25.5 min) | `#[ignore]`d tests and acceptance cycles — add `--heavy` |
+
+⭐ **The one that surprises people: a warm filtered `app_it` run is 1.3 seconds.**
+The 31–90s figure is the RELINK after an `ambition_app` source edit, so the loop to
+optimise is *edit less of `ambition_app`*, not *test less*.
+
+⚠ **`cargo check -p <crate>` is not the gate — `cargo check -p ambition_app` is**,
+and the row above says 21s for a reason: it is cheap enough that there is no
+excuse. A per-crate check has been observed green on a crate that fails to compile
+in the app build.
+
+⛔ **Do not reach for the exhaustive plan out of caution.** It is 4× the default
+sweep and there is no CI to satisfy; Jon sweeps it periodically himself. Reach for
+it when a row above names your change (features, SDK, web) — and ask
+`run_tests.py --list` what a plan actually contains before running it.
+
 ## Test placement
 
 A test lives at the **narrowest scope that owns its invariant** — inline for

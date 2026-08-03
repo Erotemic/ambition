@@ -37,7 +37,7 @@ Usage:
   ./run_tests.sh --list              # print the job plan, run nothing
   ./run_tests.sh -- --nocapture      # args after `--` go to libtest
   ./run_tests.sh --run-everything-you-probably-dont-need-this
-                                     # the 33-job exhaustive plan (~1 hour)
+                                     # the 33-job exhaustive plan (~25 min)
   ./run_tests.sh --heavy             # ALSO #[ignore]d tests + app acceptance;
                                      #   implies the exhaustive plan
 An unknown -p package or an otherwise empty plan is a hard error.
@@ -705,7 +705,7 @@ def coverage_notice(exhaustive: bool, filtered: bool) -> str:
         "      - the external-consumer fixtures (own workspace + lockfile, so\n"
         "        an umbrella API break stays invisible to a workspace build)\n"
         "      - the wasm/web build check\n"
-        "    All three: --run-everything-you-probably-dont-need-this (~1 hour).\n"
+        "    All three: --run-everything-you-probably-dont-need-this (~25 min).\n"
         "    That is the right trade for a dev cycle and the wrong one before a\n"
         "    release or after touching features, an SDK surface, or the web path."
     )
@@ -881,8 +881,16 @@ def main() -> int:
                     dest="run_everything", action="store_true",
                     help="the exhaustive plan: a cargo test -p per crate with "
                          "its feature-gated tests, the external-consumer "
-                         "fixtures, the wasm check. ~33 jobs, ~1 HOUR, ~7% of "
-                         "it actually executing tests. There is no CI and Jon "
+                         # ⚠ `%%`, not `%`. argparse runs every action help
+                         # string through `%`-formatting, and it read "7% of"
+                         # as the octal conversion `% o` — so `--help` itself
+                         # died with `TypeError: %o format: an integer is
+                         # required, not dict`. A runner whose --help crashes
+                         # is a runner nobody asks, which is how the exhaustive
+                         # sweep stays the reflex. (2026-08-03, C2.)
+                         "fixtures, the wasm check. ~33 jobs, ~25 MINUTES, "
+                         "~17%% of it actually executing tests. There is no "
+                         "CI and Jon "
                          "sweeps this periodically himself, so in a dev cycle "
                          "the default plan or a focused test is what you want.")
     # Kept so an existing command line or script does not break. `--fast` WAS
@@ -920,8 +928,8 @@ def main() -> int:
     jobs = build_jobs(args.package, args.heavy, libtest_args,
                       everything=args.run_everything)
     if args.run_everything or args.heavy:
-        print("run_tests: EXHAUSTIVE plan requested. Measured 2026-08-02: "
-              "~33 jobs, ~63 minutes, ~7% of it executing tests. If you are "
+        print("run_tests: EXHAUSTIVE plan requested. Measured 2026-08-03: "
+              "~33 jobs, ~25 minutes, ~17% of it executing tests. If you are "
               "mid-edit, a focused test almost certainly answers your question "
               "faster and just as well.")
     return run(jobs, args.list, timings_json=args.timings_json,

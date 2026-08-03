@@ -211,3 +211,38 @@ fn a_zero_tick_rate_is_refused() {
         failure.codes()
     );
 }
+
+/// ⛔ **A fingerprint that moves between processes is not a fingerprint.**
+///
+/// `canonical` is derived `Debug`, which follows iteration order, so any map in
+/// a canonicalized type must be ORDERED. `strike_geometry` was a `HashMap`:
+/// building the same overrides in a different insertion order produced a
+/// different canonical string, so two identical rosters got two fingerprints.
+/// (GPT 5.6 review, finding 4.)
+#[test]
+fn the_canonical_form_does_not_depend_on_map_construction_order() {
+    let forward = seeds_with_overrides(["alpha", "beta", "gamma", "delta"]);
+    let reverse = seeds_with_overrides(["delta", "gamma", "beta", "alpha"]);
+    assert_eq!(
+        forward, reverse,
+        "the canonical form must not depend on the order the overrides were inserted"
+    );
+}
+
+/// Build a profile's strike-geometry map in the given insertion order and return
+/// the canonical string the fingerprint would use.
+fn seeds_with_overrides(keys: [&str; 4]) -> String {
+    use super::super::profile::StrikeRect;
+    use ambition_platformer2d_core as ae;
+    let mut map: std::collections::BTreeMap<String, Vec<StrikeRect>> = Default::default();
+    for key in keys {
+        map.insert(
+            key.to_string(),
+            vec![StrikeRect::scaled(
+                ae::Vec2::new(0.0, 0.0),
+                ae::Vec2::new(1.0, 1.0),
+            )],
+        );
+    }
+    format!("{map:?}")
+}

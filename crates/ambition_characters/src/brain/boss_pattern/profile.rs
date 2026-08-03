@@ -203,7 +203,15 @@ pub struct BossBehaviorProfile {
     /// `#[serde(default)]`) = use the built-in per-profile geometry, unchanged. The
     /// "second game adds a boss without editing core" oracle, for strike shapes.
     #[serde(default)]
-    pub strike_geometry: std::collections::HashMap<String, Vec<StrikeRect>>,
+    /// ⛔ **`BTreeMap`, and the ordering is load-bearing.** This is part of the
+    /// profile's CANONICAL form, and canonicalization is derived `Debug`, which
+    /// follows iteration order. A `HashMap` randomises that per instance — six
+    /// constructions of the same four-key map gave six different orders in one
+    /// process — so two identical rosters produced two different pack
+    /// fingerprints as soon as any boss authored a second strike override.
+    /// (GPT 5.6 review, finding 4.) The same rule ADR 0023 already states for
+    /// every ordered read.
+    pub strike_geometry: std::collections::BTreeMap<String, Vec<StrikeRect>>,
     /// ADR 0020: mount classes a boss authored as a would-be RIDER may pilot. A
     /// boss that rides a mount (GNU-ton the scholar aboard the `giant_gnu` mount)
     /// authors e.g. `["giant"]`; `spawn_boss` then attaches a [`CanPilot`] tag —
@@ -355,14 +363,17 @@ mod boss_vec2_required {
 /// authority lives in the App-local `BossCatalog`.
 #[derive(Clone, Debug, Default)]
 pub struct BossProfileRegistry {
-    by_id: std::collections::HashMap<String, BossBehaviorProfile>,
+    /// `BTreeMap` for the same determinism reason as `strike_geometry` above:
+    /// a parsed roster is iterated, and ADR 0023 says an iteration order must not
+    /// depend on a hash seed.
+    by_id: std::collections::BTreeMap<String, BossBehaviorProfile>,
 }
 
 impl BossProfileRegistry {
-    /// Parse a boss-profile RON document (`HashMap<id, BossBehaviorProfile>`).
+    /// Parse a boss-profile RON document (`BTreeMap<id, BossBehaviorProfile>`).
     pub fn from_ron(ron: &str) -> Self {
         let by_id = ron::from_str(ron).unwrap_or_else(|err| {
-            panic!("boss_profiles.ron failed to deserialize as HashMap<String, BossBehaviorProfile>: {err}")
+            panic!("boss_profiles.ron failed to deserialize as BTreeMap<String, BossBehaviorProfile>: {err}")
         });
         Self { by_id }
     }

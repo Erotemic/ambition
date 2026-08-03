@@ -91,6 +91,28 @@ impl ContentSchemaHandler for MusicRegistrySchema {
             );
         }
 
+        // ⛔ **REGISTRY-LEVEL STATE MUST REACH THE FINGERPRINT.** The pack
+        // fingerprint is taken over `out.define(...)` entries only — not the
+        // lowered artifact, not the source bytes. Defining one entry per TRACK
+        // therefore left `default_track` and the track ORDER contributing
+        // nothing: two packs that start on different music, or sequence the
+        // radio differently, fingerprinted identically. Both are runtime-real
+        // (`AudioLibrary` resolves the default at startup and indexes
+        // `music_tracks[next]` for next/prev). (GPT 5.6 review, finding 1.)
+        out.define(
+            facet.content_id_in(MUSIC_REGISTRY_SCHEMA, "registry"),
+            format!(
+                "default_track={}\norder={}",
+                registry.default_track,
+                registry
+                    .tracks
+                    .iter()
+                    .map(|track| track.id.as_str())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+        );
+
         for track in &registry.tracks {
             let id = facet.content_id_in(MUSIC_TRACK_SCHEMA, &track.id);
             out.define(id.clone(), canonical(track));
@@ -131,6 +153,14 @@ impl ContentSchemaHandler for SfxRegistrySchema {
         if let Err(message) = registry.validate() {
             out.report(facet.diagnostic(DiagnosticCode::MalformedProviderBinding, message));
         }
+
+        // The same fingerprint gap as the music registry: `sample_rate` is
+        // registry-level, changes procedural synthesis for every cue, and would
+        // otherwise contribute nothing to the pack's identity.
+        out.define(
+            facet.content_id_in(SFX_REGISTRY_SCHEMA, "registry"),
+            format!("sample_rate={}", registry.sample_rate),
+        );
 
         // A procedural cue has no asset — it IS the synthesis spec. Identities
         // still matter so a caller can name what a provider authorized.

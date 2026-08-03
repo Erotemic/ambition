@@ -100,6 +100,11 @@ pub mod content {
             )
             .expect("the engine's own schemas are registered once");
         registry
+            .register(
+                crate::characters::brain::boss_pattern::content_schema::boss_encounter_schema(),
+            )
+            .expect("the engine's own schemas are registered once");
+        registry
             .register(ambition_combat::content_schema::character_archetypes_schema())
             .expect("the engine's own schemas are registered once");
         registry

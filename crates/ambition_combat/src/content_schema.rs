@@ -75,9 +75,32 @@ impl ContentSchemaHandler for CharacterArchetypesSchema {
             );
         }
 
+        // ⛔ **THE COMPILER MUST NOT APPROVE WHAT THE RUNTIME REFUSES.** The
+        // roster assembly rejects a blank brain key (`EmptyBrainId`) and any
+        // inheritance CYCLE (`MovementInheritanceCycle`, a full DFS). Checking
+        // only missing parents and direct self-inheritance here left `a inherits
+        // b, b inherits a` compiling clean and then panicking at startup —
+        // a validator that says yes to content the game says no to is worse than
+        // no validator, because it moves the failure to the worst place.
+        // (GPT 5.6 review, finding 3.)
+        report_inheritance_cycles(facet, &archetypes, out);
+
         for (key, spec) in &archetypes {
             let id = facet.content_id_in(ARCHETYPE_SCHEMA, key);
             out.define(id.clone(), canonical(spec));
+
+            if key.trim().is_empty() {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::MalformedProviderBinding,
+                            "an archetype key is blank — nothing can spawn it, and the roster \
+                             assembly refuses it at startup",
+                        )
+                        .about(id.clone())
+                        .fix("the key IS the spawn brain key a LoadingZone authors"),
+                );
+            }
 
             // ── the inheritance edge, as a real reference ────────────────────
             // Provider-local by design: an unqualified parent must be owned by
@@ -171,6 +194,77 @@ impl ContentSchemaHandler for CharacterArchetypesSchema {
     }
 }
 
+/// Report every inheritance CYCLE in the roster, naming the loop.
+///
+/// The runtime's `resolve_movement_inheritance` does the same walk and returns
+/// `MovementInheritanceCycle`; this is that check moved to where it can be seen
+/// without booting a game. Reported once per cycle rather than once per member,
+/// so a two-row loop is one diagnostic and not two saying the same thing.
+fn report_inheritance_cycles(
+    facet: &FacetSource<'_>,
+    archetypes: &CharacterArchetypes,
+    out: &mut FacetOutcome,
+) {
+    let mut settled: std::collections::BTreeSet<&str> = Default::default();
+    let mut reported: std::collections::BTreeSet<String> = Default::default();
+
+    for start in archetypes.keys() {
+        if settled.contains(start.as_str()) {
+            continue;
+        }
+        // Walk the parent chain from `start`, remembering the path so a loop can
+        // report the ring it actually closes rather than just "a cycle exists".
+        let mut chain: Vec<&str> = Vec::new();
+        let mut cursor = start.as_str();
+        loop {
+            if let Some(at) = chain.iter().position(|seen| *seen == cursor) {
+                let ring: Vec<&str> = chain[at..].to_vec();
+                // Canonical spelling of the ring (rotate to its smallest member)
+                // so the same loop found from two entry points reports once.
+                let pivot = ring
+                    .iter()
+                    .enumerate()
+                    .min_by_key(|(_, name)| **name)
+                    .map(|(i, _)| i)
+                    .unwrap_or(0);
+                let mut rotated: Vec<&str> = ring[pivot..].to_vec();
+                rotated.extend_from_slice(&ring[..pivot]);
+                let key = rotated.join(" -> ");
+                if reported.insert(key.clone()) {
+                    out.report(
+                        facet
+                            .diagnostic(
+                                DiagnosticCode::ConflictingModuleContribution,
+                                format!(
+                                    "archetype inheritance forms a cycle: {key} -> {}",
+                                    rotated[0]
+                                ),
+                            )
+                            .about(facet.content_id_in(ARCHETYPE_SCHEMA, rotated[0]))
+                            .at_field("inherits")
+                            .fix(
+                                "inheritance folds BASELINE <- parent <- this row, so a loop has \
+                                 no baseline to start from — break the ring",
+                            ),
+                    );
+                }
+                break;
+            }
+            chain.push(cursor);
+            match archetypes
+                .get(cursor)
+                .and_then(|spec| spec.inherits.as_deref())
+            {
+                // A missing parent is already reported as an unresolved
+                // reference; stop rather than reporting it twice.
+                Some(parent) if archetypes.contains_key(parent) => cursor = parent,
+                _ => break,
+            }
+        }
+        settled.extend(chain);
+    }
+}
+
 /// Semantic canonical form. `Debug`, because these types are
 /// `Deserialize`-only — see the note on the boss schemas for why that is the
 /// right trade rather than adding `Serialize` to hash them.
@@ -197,3 +291,6 @@ pub fn character_archetypes_schema() -> SchemaRegistration {
         handler: Arc::new(CharacterArchetypesSchema),
     }
 }
+
+#[cfg(test)]
+mod tests;

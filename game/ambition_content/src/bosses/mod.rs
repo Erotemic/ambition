@@ -144,6 +144,22 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
 }
 
 /// Ambition's immutable App-local boss contribution.
+///
+/// ⚠ **NOT all of this is compiled content, and the pack fingerprint does not
+/// cover the rest.** In the pack: the roster (`boss_profiles.ron`), the nine
+/// encounter files, the seed library and the calibration. NOT in the pack, and
+/// therefore changeable without moving the fingerprint:
+///
+/// * `boss_sheets.ron` — `BossSheetSpec` lives in `ambition_sprite_sheet`, which
+///   pulls `bevy_render`; migrating it needs the same placement analysis the
+///   profile vocabulary got, not just a handler;
+/// * [`boss_sprite_filenames`] and [`special_animation_keys`] — content authored
+///   as Rust `BTreeMap`s. They have to become authored DATA before a schema can
+///   own them.
+///
+/// Stated here rather than left implied, because "the boss content goes through
+/// the compiler" is the kind of half-true claim this whole effort exists to stop
+/// making. (GPT 5.6 review, finding 2.)
 pub fn boss_catalog_fragment(
 ) -> ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment {
     // ⛔ **THROUGH THE COMPILER, not beside it.** This used to pass

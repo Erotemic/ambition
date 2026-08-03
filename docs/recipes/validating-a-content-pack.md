@@ -19,10 +19,10 @@ asset tree, not beside `pack.ron`, so the pack-root-only default reports every
 sprite sheet and all 72 music tracks as missing. That is the asset check working
 — it is looking where you told it to — but it is not the invocation you want.
 
-Measured on the shipped pack (8 sources, 311 content identities — 140
+Measured on the shipped pack (17 sources, 322 content identities — 140
 characters, 72 music tracks, 24 items, 24 enemy archetypes, 15 SFX cues, 9
-bosses, 9 boss seeds, 17 presets — 342 assets, 280 references): **~17 ms**, and
-it passes STRICT with zero missing assets. The rebuild it replaces is ~10 minutes. Exit status is 1 on refusal and
+bosses, 9 boss encounters, 9 boss seeds, 17 presets — 342 assets, 298 resolved
+references): **~17 ms**, and it passes STRICT with zero missing assets. The rebuild it replaces is ~10 minutes. Exit status is 1 on refusal and
 0 on pass, so this is usable as a CI gate and not only as a report.
 
 ## Add a character

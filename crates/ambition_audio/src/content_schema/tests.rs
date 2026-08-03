@@ -160,3 +160,83 @@ fn both_tracks_resolve_when_their_conventional_files_exist() {
     compile(&music_draft("both_present", MUSIC), &registry(), &assets)
         .expect("every track's conventional file is there");
 }
+
+// ── the fingerprint covers REGISTRY-LEVEL state, not only rows ───────────────
+//
+// ⛔ The pack fingerprint is taken over `out.define(...)` entries only. Defining
+// one entry per track/cue left `default_track`, the track ORDER, and
+// `sample_rate` outside the pack's identity — so two packs that start on
+// different music, sequence the radio differently, or synthesize at a different
+// rate were indistinguishable to a cache or a session-compatibility check.
+// (GPT 5.6 review, finding 1.)
+
+fn music_fingerprint(name: &str, text: &str) -> u64 {
+    compile(&music_draft(name, text), &registry(), &AssetsUnchecked)
+        .expect("compiles")
+        .fingerprint
+        .0
+}
+
+#[test]
+fn changing_only_the_default_track_moves_the_fingerprint() {
+    let other = MUSIC.replace(r#"default_track: "theme""#, r#"default_track: "fanfare""#);
+    assert_ne!(
+        music_fingerprint("default_base", MUSIC),
+        music_fingerprint("default_moved", &other),
+        "the track the game starts on is part of what the pack IS"
+    );
+}
+
+#[test]
+fn changing_only_the_track_order_moves_the_fingerprint() {
+    let reordered = r#"(
+    default_track: "theme",
+    tracks: [
+        (id: "fanfare", display_name: "Fanfare", one_shot: true),
+        (id: "theme", display_name: "Theme"),
+    ],
+)"#;
+    assert_ne!(
+        music_fingerprint("order_base", MUSIC),
+        music_fingerprint("order_moved", reordered),
+        "order drives radio next/prev (`music_tracks[next]`), so it is semantic"
+    );
+}
+
+#[test]
+fn changing_only_the_sfx_sample_rate_moves_the_fingerprint() {
+    let at = |name: &str, text: &str| {
+        let d = draft(
+            name,
+            "sfx.ron",
+            text,
+            SFX_REGISTRY_SCHEMA,
+            SFX_REGISTRY_VERSION,
+        );
+        compile(&d, &registry(), &AssetsUnchecked)
+            .expect("compiles")
+            .fingerprint
+            .0
+    };
+    let other = SFX.replace("sample_rate: 44100", "sample_rate: 22050");
+    assert_ne!(
+        at("rate_base", SFX),
+        at("rate_moved", &other),
+        "sample_rate changes every procedurally synthesized cue"
+    );
+}
+
+/// The complement, and the reason the fingerprint is worth having: reflowing the
+/// file must NOT move it.
+#[test]
+fn reformatting_the_registry_does_not_move_the_fingerprint() {
+    let reflowed = MUSIC.replace(
+        "\n    tracks: [",
+        "\n\n    // a comment nobody reads\n    tracks: [",
+    );
+    assert_eq!(
+        music_fingerprint("reflow_base", MUSIC),
+        music_fingerprint("reflow_moved", &reflowed),
+        "a comment is not content"
+    );
+}

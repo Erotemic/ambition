@@ -60,6 +60,42 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
             crate::bosses::BOSS_PROFILES_RON.to_string(),
         ),
         (
+            "data/boss_encounters/clockwork_warden.ron".to_string(),
+            crate::bosses::BOSS_ENCOUNTER_RONS[0].to_string(),
+        ),
+        (
+            "data/boss_encounters/mockingbird.ron".to_string(),
+            crate::bosses::BOSS_ENCOUNTER_RONS[1].to_string(),
+        ),
+        (
+            "data/boss_encounters/gnu_ton_rider.ron".to_string(),
+            crate::bosses::BOSS_ENCOUNTER_RONS[2].to_string(),
+        ),
+        (
+            "data/boss_encounters/smirking_behemoth_boss.ron".to_string(),
+            crate::bosses::BOSS_ENCOUNTER_RONS[3].to_string(),
+        ),
+        (
+            "data/boss_encounters/flying_spaghetti_monster_boss.ron".to_string(),
+            crate::bosses::BOSS_ENCOUNTER_RONS[4].to_string(),
+        ),
+        (
+            "data/boss_encounters/trex_boss.ron".to_string(),
+            crate::bosses::BOSS_ENCOUNTER_RONS[5].to_string(),
+        ),
+        (
+            "data/boss_encounters/mode_collapse_boss.ron".to_string(),
+            crate::bosses::BOSS_ENCOUNTER_RONS[6].to_string(),
+        ),
+        (
+            "data/boss_encounters/exploding_gradient_boss.ron".to_string(),
+            crate::bosses::BOSS_ENCOUNTER_RONS[7].to_string(),
+        ),
+        (
+            "data/boss_encounters/overflow_boss.ron".to_string(),
+            crate::bosses::BOSS_ENCOUNTER_RONS[8].to_string(),
+        ),
+        (
             BOSS_SEEDS_SOURCE_PATH.to_string(),
             crate::bosses::BOSS_SEEDS_RON.to_string(),
         ),

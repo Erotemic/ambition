@@ -27,13 +27,14 @@
 use std::sync::Arc;
 
 use ambition_content_pack::{
-    CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome, FacetSource,
+    CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome, FacetSource, PendingRef,
     RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
 };
 
 use super::profile::BossBehaviorProfile;
 use super::seeds::SeedLibrary;
 use super::validator::ValidatorBands;
+use crate::boss_encounter::BossEncounterSpec;
 
 /// The capability that owns both schemas here.
 pub const BOSS_PATTERN_CAPABILITY: &str = "boss_pattern";
@@ -45,18 +46,28 @@ pub const BOSS_VALIDATOR_BANDS_SCHEMA: &str = "boss_validator_bands";
 pub const BOSS_PROFILES_SCHEMA: &str = "boss_profiles";
 /// One authored boss.
 pub const BOSS_SCHEMA: &str = "boss";
+pub const BOSS_ENCOUNTER_SCHEMA: &str = "boss_encounter";
 
 pub const BOSS_SEEDS_VERSION: SchemaVersion = SchemaVersion(1);
 pub const BOSS_VALIDATOR_BANDS_VERSION: SchemaVersion = SchemaVersion(1);
 pub const BOSS_PROFILES_VERSION: SchemaVersion = SchemaVersion(1);
+pub const BOSS_ENCOUNTER_VERSION: SchemaVersion = SchemaVersion(1);
 
 /// The canonical form an entry contributes to the pack fingerprint.
 ///
 /// ⚠ `Debug`, not `ron::ser`, because these types are `Deserialize`-only — they
 /// are read from authored RON and never written back. Debug is derived on all of
-/// them, gives stable field order and materialised values, and moves when a
-/// value moves. Adding `Serialize` to five types purely to hash them would be a
-/// wider change for the same property.
+/// them and moves when a value moves.
+///
+/// ⛔ **but Debug follows ITERATION ORDER, so every container reaching this must
+/// be ordered.** I wrote "gives stable field order" here and it was only true of
+/// the fields: `BossBehaviorProfile::strike_geometry` was a `HashMap`, whose
+/// order is randomised per instance (measured: six constructions of one
+/// four-key map, six different orders, same process). Two identical rosters
+/// therefore fingerprinted differently the moment a boss authored a second
+/// strike override. It is a `BTreeMap` now, and
+/// `the_canonical_form_does_not_depend_on_map_construction_order` is the guard.
+/// (GPT 5.6 review, finding 4.)
 fn canonical<T: std::fmt::Debug>(value: &T) -> String {
     format!("{value:?}")
 }
@@ -66,6 +77,61 @@ fn code_for(error: &ron::error::SpannedError) -> DiagnosticCode {
     match error.code {
         ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
         _ => DiagnosticCode::MalformedSource,
+    }
+}
+
+// ── one boss encounter ───────────────────────────────────────────────────────
+
+/// One encounter file.
+///
+/// ⚠ **`AuthoringOnly`, and that is a real limitation stated rather than
+/// hidden.** Ambition authors nine separate encounter files, and [`compile`]
+/// deliberately refuses a schema LOWERED by more than one source — merge
+/// semantics is the handler's question and a generic merge would be the
+/// compiler guessing. So these files reach the fingerprint and take part in
+/// reference resolution, but the runtime still parses them itself.
+///
+/// What that buys, which is most of what was missing: editing an encounter now
+/// MOVES the pack fingerprint, and the boss↔encounter correspondence the
+/// runtime enforces (`MissingEncounter` / `MissingBehavior`, both directions) is
+/// checked at compile time instead of at startup behind an `.expect`.
+/// (GPT 5.6 review, finding 2.)
+struct BossEncounterSchema;
+
+impl ContentSchemaHandler for BossEncounterSchema {
+    fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
+        let spec: BossEncounterSpec = match ron::from_str(facet.text) {
+            Ok(spec) => spec,
+            Err(error) => {
+                out.report(facet.diagnostic(code_for(&error), format!("{error}")));
+                return;
+            }
+        };
+
+        let id = facet.content_id_in(BOSS_ENCOUNTER_SCHEMA, &spec.id);
+        out.define(id.clone(), canonical(&spec));
+
+        // Every encounter needs the behaviour row it drives. The runtime says
+        // so too (`MissingBehavior`) — after the game has started.
+        out.refer(PendingRef::new(
+            SchemaId::new(BOSS_SCHEMA),
+            &spec.id,
+            "boss profile",
+            id,
+            "id",
+        ));
+    }
+}
+
+pub fn boss_encounter_schema() -> SchemaRegistration {
+    SchemaRegistration {
+        id: SchemaId::new(BOSS_ENCOUNTER_SCHEMA),
+        version: BOSS_ENCOUNTER_VERSION,
+        capability: CapabilityId::new(BOSS_PATTERN_CAPABILITY),
+        disposition: RuntimeDisposition::AuthoringOnly,
+        doc: "One boss encounter: phase progression and HP thresholds. Defines a \
+              `boss_encounter` identity and requires the `boss` profile of the same id.",
+        handler: Arc::new(BossEncounterSchema),
     }
 }
 
@@ -285,6 +351,17 @@ impl ContentSchemaHandler for BossProfilesSchema {
         for (key, profile) in &profiles {
             let id = facet.content_id_in(BOSS_SCHEMA, key);
             out.define(id.clone(), canonical(profile));
+
+            // The other half of the correspondence the runtime enforces: a
+            // profile with no encounter is `MissingEncounter` at startup, behind
+            // an `.expect`. Resolved here, across sources, before the game runs.
+            out.refer(PendingRef::new(
+                SchemaId::new(BOSS_ENCOUNTER_SCHEMA),
+                key,
+                "boss encounter",
+                id.clone(),
+                "id",
+            ));
 
             // ⛔ **the key IS the lookup, and the row states its own id.** Every
             // runtime path resolves a boss by MAP KEY (`catalog.behavior(key)`)

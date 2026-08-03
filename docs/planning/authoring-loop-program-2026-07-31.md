@@ -239,8 +239,9 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | boss calibration | `data/boss_validator_bands.ron` | ✅ `boss_validator_bands`, same owner (2026-08-03) |
 | enemy roster | `data/character_archetypes.ron` | ✅ `character_archetypes`, owned by `ambition_combat` (2026-08-03) |
 | boss profiles | `data/boss_profiles.ron` | ✅ `boss_profiles`, owned by `ambition_characters` (2026-08-03) |
-| boss sheets | `data/boss_sheets.ron` | ▢ owner `ambition_sprite_sheet` (unmeasured) |
-| boss encounters | 9 × `data/boss_encounters/*.ron` | ▢ |
+| boss sheets | `data/boss_sheets.ron` | ▢ owner `ambition_sprite_sheet`, which pulls `bevy_render` — needs the placement analysis the profile vocabulary got |
+| boss sprite/anim maps | Rust `BTreeMap`s in `bosses/mod.rs` | ▢ content authored as CODE; must become data before a schema can own it |
+| boss encounters | 9 × `data/boss_encounters/*.ron` | ◐ `boss_encounter`, `ambition_characters` (2026-08-03) — in the fingerprint and cross-referenced, but AuthoringOnly: see the multi-source limit below |
 | encounter waves | `data/encounters/goblin_encounter.ron` | ▢ |
 | music registry | `assets/audio/music_registry.ron` | ✅ `music_registry`, owned by `ambition_audio` (2026-08-03). ⚠ GENERATED — a refusal is a generator bug |
 | sfx registry | `assets/audio/sfx_registry.ron` | ✅ `sfx_registry`, same owner (2026-08-03) |
@@ -284,6 +285,24 @@ Three consequences worth knowing before the next move:
 * **Re-export paths lie about ownership.** `audio_registries.rs` imports
   `MusicRegistry` from the monolith; it is DEFINED in `ambition_audio`. Checking
   cost one grep and unblocked a family that looked as stuck as the others.
+
+### ⚠ A THIRD limit: a schema may be LOWERED by only one source
+
+`compile` refuses a schema whose artifact is produced by two sources, on
+purpose — merge semantics is the handler's question and a generic merge would be
+the compiler guessing. Ambition's nine boss-encounter files hit this exactly.
+
+The workaround, and its honest cost: the `boss_encounter` schema is
+`RuntimeDisposition::AuthoringOnly`. All nine files therefore **do** reach the
+fingerprint and **do** take part in reference resolution — editing an encounter
+moves the pack fingerprint, and the boss↔encounter correspondence the runtime
+enforces both ways (`MissingEncounter` / `MissingBehavior`) is now a compile-time
+refusal instead of a startup panic behind an `.expect`. But the runtime still
+PARSES them itself, so that family is half-migrated: validated, not loaded.
+
+Closing it needs an aggregation contract — *parse each source, merge the
+schema's own fragments, validate the aggregate, lower once* — which is the next
+real piece of compiler design, not a handler.
 
 ### ⚠ A second limit: a handler sees ONE facet
 

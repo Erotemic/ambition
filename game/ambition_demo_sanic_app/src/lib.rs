@@ -188,49 +188,6 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     app
 }
 
-/// presentation plugin. This is the single path for Sanic art, block/entity art,
-/// and the room's skybridge parallax stack.
-#[cfg(feature = "visible")]
-fn load_sanic_game_assets(
-    config: Res<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>,
-    character_catalog: Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
-    authored_sheets: Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
-    boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
-    catalog: Res<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
-    asset_server: Res<AssetServer>,
-    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
-    quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
-    mut game_assets: ResMut<ambition_platformer2d::sprite_sheet::game_assets::GameAssets>,
-) {
-    // Startup asset binding precedes gameplay activation in the shared host, so
-    // derive the presentation theme from Sanic's immutable authored world rather
-    // than reaching for a not-yet-published live session root. Runtime consumers
-    // still read the exact `SessionRoot` components after activation.
-    let authored_room = ambition_demo_sanic::sanic_session_world().metadata;
-    *game_assets = ambition_platformer2d::actors::assets::game_assets::load_game_assets(
-        &config,
-        &character_catalog,
-        &authored_sheets,
-        &boss_catalog,
-        &catalog,
-        &asset_server,
-        &mut layouts,
-        &authored_room.0,
-        quality.as_deref().map(|q| &q.budget),
-    );
-
-    // NOTE: the animated ring prop sheet is registered by Sanic CONTENT
-    // (`register_sanic_ring_prop_sheet`, added in `install_sanic_content`) so it
-    // loads identically here and in the multi-game host — not app-side.
-
-    // No character demand here: both Sanic forms `register_character` in the
-    // PROVIDER (`install_sanic_content`), which publishes each prepared definition
-    // and demands its art in one call.
-    info!(
-        "sanic_demo: loaded {} parallax layer handle(s) for the active room",
-        game_assets.parallax_layers.len()
-    );
-}
 
 /// Install the engine-owned audio runtime plus Sanic's resident catalog cache.
 /// The same selection, intent, director, SFX, and frontend-reset path is used by
@@ -348,10 +305,16 @@ mod tests {
 
         let mut app = super::build_windowed_demo_app(super::RenderMode::Headless);
         // This is an asset-publication test, not a shell/load-lifecycle test.
-        // Run the real Startup schedule that owns `load_sanic_game_assets`
-        // without also advancing Update into provider preparation/activation.
-        // Full standalone-host lifecycle coverage lives in the integration
-        // tests, while this test stays focused on PNG+RON -> GameAssets binding.
+        // Run the real Startup schedule without also advancing Update into
+        // provider preparation/activation. Full standalone-host lifecycle
+        // coverage lives in the integration tests, while this test stays focused
+        // on PNG+RON -> GameAssets binding.
+        //
+        // ⚠ this comment used to say Startup "owns `load_sanic_game_assets`". It
+        // did not: that function was defined and registered NOWHERE, deleted
+        // 2026-08-03. The binding this test asserts comes from the PROVIDER's
+        // `register_character` (each form publishes its definition and demands
+        // its art in one call), which is why the test passes without it.
         app.finish();
         app.cleanup();
         app.world_mut().run_schedule(bevy::app::Startup);

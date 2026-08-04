@@ -277,9 +277,15 @@ fn request_session_mode(world: &mut World) {
     let control = *world.resource::<RollbackObservatoryControl>();
     let settings = *world.resource::<RollbackProofSettings>();
     let handled_request = world.resource::<RollbackProofState>().handled_request;
-    let owns = world
-        .resource::<rollback::local_session::LocalSessionOwnership>()
-        .owns_session();
+    // ⭐ **asked of the ownership AUTHORITY, not of the policy memo.**
+    // `LocalSessionOwnership::owns_session` used to answer this from
+    // `started.is_some()`, which stayed `Some` after an external session was
+    // installed over a local one — so the observatory would have believed it
+    // could re-aim a P2P session, which the comment below says it must not.
+    let owns = matches!(
+        world.get_resource::<rollback::RollbackSessionOwnership>(),
+        Some(rollback::RollbackSessionOwnership::LocalSyncTest(_))
+    );
 
     // A session the engine owner did not start (a future Matchbox/P2P one) is
     // authoritative; the observatory may watch it and must not re-aim it.

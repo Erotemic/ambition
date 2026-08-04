@@ -76,8 +76,20 @@ impl Default for LocalSessionPolicy {
 /// from "the policy changed" from "somebody else's session".
 #[derive(Resource, Default, Debug)]
 pub struct LocalSessionOwnership {
-    /// `Some` when THIS module started the live session, carrying the policy it
-    /// was started with.
+    /// The policy the live session was started WITH — a memo, not a claim.
+    ///
+    /// ⛔ **this used to BE the ownership test** (`started.is_some()`), and it
+    /// was a second authority that could disagree with the first.
+    /// `install_session` marks [`RollbackSessionOwnership::External`] without
+    /// clearing it, so a P2P session installed over a local one left this
+    /// `Some` — and the maintainer, which consulted only this, would stop that
+    /// external session on gameplay exit or replace it on a policy change. That
+    /// is the precise thing the module's own comment says must never happen
+    /// (GPT 5.6 review, 2026-08-04).
+    ///
+    /// ⭐ [`RollbackSessionOwnership`] is the single authority now. This answers
+    /// only *"with which policy"*, and is read ONLY once that resource has
+    /// already said the live session is locally owned.
     started: Option<LocalSessionPolicy>,
     /// Set once a start fails, so the failure is reportable rather than a
     /// silently sessionless app.
@@ -85,24 +97,66 @@ pub struct LocalSessionOwnership {
 }
 
 impl LocalSessionOwnership {
-    /// True when the live session is one this module started.
-    pub fn owns_session(&self) -> bool {
-        self.started.is_some()
-    }
-
-    /// The policy the live session was started with, if this module started it.
+    /// The policy the live session was started with. ⚠ **not an ownership
+    /// test** — ask [`locally_owned`] first.
     pub fn running_policy(&self) -> Option<LocalSessionPolicy> {
         self.started
     }
 
-    /// Give up ownership so the owner rebuilds on the next frame.
+    /// Forget which policy the live session was started with, so the maintainer
+    /// rebuilds it on the next frame.
     ///
     /// For a caller that has just invalidated the world under the session — a
     /// content hot-reload — and needs it rebased. ⚠ it does NOT touch the frozen
     /// seating: a reload changes the level, not who is playing.
+    ///
+    /// ⭐ **this now actually rebuilds.** While `started` was the ownership test,
+    /// clearing it made the session look externally owned, and the maintainer
+    /// stepped aside instead of rebasing — the opposite of what this method's
+    /// name and its callers intend.
     pub fn release(&mut self) {
         self.started = None;
     }
+}
+
+/// The live session's settings **if it is a sync-test session at all**.
+///
+/// ⛔ **this is NOT an ownership test, and assuming it was cost a red test.**
+/// The GPT 5.6 review (2026-08-04) proposed making
+/// `RollbackSessionOwnership` the single ownership authority, and that is right
+/// in direction and wrong as the enum stands: `LocalSyncTest` distinguishes a
+/// sync-test session from an EXTERNAL one, not a session this maintainer
+/// started from one somebody else started. Match activation starts its own
+/// sync-test session with the decided roster's player count. Treating that as
+/// "mine" made the maintainer stop a two-player match session and rebuild it
+/// with its own count — `two_local_seats_drive_independently_under_a_rollback_host`
+/// went red with *"seat two authored 40 frames of right and its fighter moved
+/// 0.00px"*.
+///
+/// ⭐ so the real defect the review found is narrower than its proposed fix:
+/// ownership was never CHECKED against `External`. That check is what
+/// [`externally_owned`] adds. Collapsing to one authority still wants doing, and
+/// wants the enum to name the OWNER (maintainer / activation / dev tool) rather
+/// than the session kind — recorded as queue G1's residue.
+fn sync_test_settings(world: &World) -> Option<super::session::SyncTestSettings> {
+    match world.get_resource::<super::session::RollbackSessionOwnership>() {
+        Some(super::session::RollbackSessionOwnership::LocalSyncTest(settings)) => Some(*settings),
+        _ => None,
+    }
+}
+
+/// **The live session belongs to a peer, and must never be touched here.**
+///
+/// The missing check. `install_session` marks `External` without clearing this
+/// module's `started`, so a P2P session installed over a local one left the
+/// maintainer believing it owned one — and it would stop that session on
+/// gameplay exit, or replace it on a policy change, which is exactly what this
+/// module's own comment says must never happen.
+fn externally_owned(world: &World) -> bool {
+    matches!(
+        world.get_resource::<super::session::RollbackSessionOwnership>(),
+        Some(super::session::RollbackSessionOwnership::External)
+    )
 }
 
 /// Keep exactly one local session alive for as long as gameplay is.
@@ -114,9 +168,26 @@ pub fn maintain_local_session(world: &mut World) {
     let gameplay_active =
         ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_some();
     let session_live = world.contains_resource::<AmbitionGgrsSession>();
-    let owned = world
-        .get_resource::<LocalSessionOwnership>()
-        .and_then(|state| state.started);
+    // ⭐ **ONE authority.** `RollbackSessionOwnership` says whose session this is;
+    // `LocalSessionOwnership.started` only says which policy it was started with,
+    // and is meaningless unless the first has already said "mine".
+    // ⭐ **the claim AND the veto.** `started` is this module's own record that it
+    // started the live session; `externally_owned` is the check that was missing,
+    // and without it that record outlived an external session being installed
+    // over the top.
+    let external = externally_owned(world);
+    let owned = if external {
+        None
+    } else {
+        world
+            .get_resource::<LocalSessionOwnership>()
+            .and_then(|state| state.started)
+    };
+    let owned_settings = if external {
+        None
+    } else {
+        sync_test_settings(world)
+    };
 
     if !gameplay_active {
         if owned.is_some() && session_live {
@@ -148,7 +219,32 @@ pub fn maintain_local_session(world: &mut World) {
         .get_resource::<LocalSessionPolicy>()
         .copied()
         .unwrap_or_default();
-    // Already running exactly what is asked for.
+    // Already running exactly what is asked for — and "exactly" includes HOW
+    // MANY PEOPLE.
+    //
+    // ⛔ **the policy alone was not enough.** The roster-aware seating freeze and
+    // this maintainer both run in `Update` with no ordering contract between
+    // them, so on the first gameplay frame this could freeze a topology from
+    // connected DEVICES before the roster published its decided PARTICIPANTS —
+    // which differ for a keyboard seat, a spare pad, or a CPU seat. The roster
+    // replaced the topology later in the same frame, but the running session was
+    // only ever compared by policy, so a session started for the wrong number of
+    // players stayed wrong for its whole lifetime (GPT 5.6 review, 2026-08-04).
+    //
+    // The running `SyncTestSettings` are right there in the ownership resource,
+    // so comparing them costs nothing and closes the hole.
+    // ⛔ **G2's cheap remedy was TRIED HERE AND REMOVED, because it is harmful.**
+    // The review asks to compare the running `SyncTestSettings` against the
+    // desired player count and restart on a mismatch. Probed: restarting a live
+    // session mid-match loses the seat→handle binding, and
+    // `two_local_seats_drive_independently_under_a_rollback_host` fails with
+    // *"seat two authored 40 frames of right and its fighter moved 0.00px"*.
+    // Removing the comparison alone makes it pass, which isolates it.
+    //
+    // ⭐ so only the review's STRONGER endpoint is correct: publish the decided
+    // roster topology BEFORE the session is installed, so there is never a
+    // mismatch to detect. Detect-and-restart trades a wrong player count for a
+    // dead seat. Recorded as G2's residue rather than half-applied.
     if session_live && owned == Some(policy) {
         return;
     }

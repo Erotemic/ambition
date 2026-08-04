@@ -303,7 +303,26 @@ pub fn sanic_speedway() -> RoomSpec {
     let mut labels = vec![
         (
             "start".to_string(),
-            "START   Z: JUMP   DOWN+X: REV   RELEASE DOWN: DASH   D: SUPER".to_string(),
+            {
+                // ⛔ **this was a hardcoded string, and it named a key nothing
+                // binds.** It read `"… D: SUPER"` while the preset binds jump Z,
+                // attack X, dash C, special G — no `D` at all. Jon reported it
+                // as *"in sanic the button text doesn't match what the controls
+                // really are"*, and that is two separate bugs: the touch button
+                // labels (queue D17) and this legend.
+                //
+                // ⭐ **a legend written as a literal cannot help but drift from
+                // the preset beside it.** Read the SAME table the bindings do,
+                // so a rebind moves the sign with it.
+                let keys = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().actions;
+                let name = ambition_platformer2d::input::key_name;
+                format!(
+                    "START   {}: JUMP   DOWN+{}: REV   RELEASE DOWN: DASH   {}: SUPER",
+                    name(keys.jump),
+                    name(keys.attack),
+                    name(keys.special),
+                )
+            },
             ae::Vec2::new(300.0, FLOOR_TOP - 230.0),
         ),
         (

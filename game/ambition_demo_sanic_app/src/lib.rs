@@ -45,7 +45,7 @@ pub fn build_demo_app_with_home(home_route: &str) -> App {
 /// home. The provider is host-independent — only these host lines (the two
 /// routes, and the host spec) are host-specific.
 fn compose_sanic_shell(app: &mut App, home_route: &str) {
-    use ambition_demo_sanic::{SANIC_GAMEPLAY_ROUTE, SanicExperiencePlugin};
+    use ambition_demo_sanic::{SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 
     // The seven standard host steps, plus the one thing this demo actually
     // decides: its launcher speaks, so the frontend context carries the three
@@ -87,8 +87,18 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
 /// `tests/ov1_draws_the_world.rs` meaningful without a GPU.
 #[cfg(feature = "visible")]
 pub fn build_windowed_demo_app(render: RenderMode) -> App {
-    use bevy::render::RenderPlugin;
+    build_windowed_demo_app_with_home(render, ambition_demo_sanic::SANIC_LAUNCHER_ROUTE)
+}
+
+/// The windowed host with an explicitly named home route.
+///
+/// ⚠ **a capture needs the GAMEPLAY route, not the launcher** — booting the
+/// default home and counting frames photographs a menu. Mary-O's binary learned
+/// this by writing a blank file first.
+#[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
+pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -> App {
     use bevy::render::settings::{RenderCreation, WgpuSettings};
+    use bevy::render::RenderPlugin;
     use bevy::window::{ExitCondition, WindowPlugin};
 
     let mut app = App::new();
@@ -108,17 +118,25 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
                     title: "Sanic — momentum demo".into(),
                     ..default()
                 }),
-                RenderMode::Headless => None,
+                RenderMode::Headless | RenderMode::OffscreenGpu => None,
             },
             exit_condition: match render {
                 RenderMode::Windowed => ExitCondition::OnAllClosed,
-                RenderMode::Headless => ExitCondition::DontExit,
+                RenderMode::Headless | RenderMode::OffscreenGpu => ExitCondition::DontExit,
             },
             close_when_requested: matches!(render, RenderMode::Windowed),
             ..default()
         });
     match render {
         RenderMode::Windowed => app.add_plugins(plugins),
+        // ⛔ **`winit` is also the RUNNER.** Without it Bevy's default runner
+        // performs ONE update and returns, so a capture exits 0 having rendered
+        // nothing. Mary-O's binary found that the hard way.
+        RenderMode::OffscreenGpu => app
+            .add_plugins(plugins.disable::<bevy::winit::WinitPlugin>())
+            .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
+                std::time::Duration::from_millis(0),
+            )),
         RenderMode::Headless => app.add_plugins(
             plugins
                 // Presentation tests construct several Apps in one process. Bevy's
@@ -153,7 +171,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // Visible and headless hosts share one provider/shell/session lifecycle.
     // The provider installs Sanic's content definitions before the shared asset
     // catalog is assembled below.
-    compose_sanic_shell(&mut app, ambition_demo_sanic::SANIC_LAUNCHER_ROUTE);
+    compose_sanic_shell(&mut app, home_route);
     // The UMBRELLA install, not a copy of it (2026-07-27). See the twin comment
     // in the Mary-O shell: these two demos ARE the regression test for the
     // helper an external consumer now depends on.
@@ -188,7 +206,6 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     app
 }
 
-
 /// Install the engine-owned audio runtime plus Sanic's resident catalog cache.
 /// The same selection, intent, director, SFX, and frontend-reset path is used by
 /// the multi-game host; only provider-authored resources differ here.
@@ -207,7 +224,8 @@ fn install_sanic_audio(app: &mut App) {
     app.add_plugins(ambition_platformer2d::actors::audio::Platformer2dAudioPlugin)
         .add_systems(
             Startup,
-            setup_sanic_audio_library.in_set(ambition_platformer2d::actors::schedule::PresentationSetupSet),
+            setup_sanic_audio_library
+                .in_set(ambition_platformer2d::actors::schedule::PresentationSetupSet),
         );
 }
 
@@ -223,14 +241,15 @@ fn setup_sanic_audio_library(
     let sfx = catalogs
         .sfx_for(ambition_demo_sanic::SANIC_EXPERIENCE)
         .expect("Sanic provider registered its App-local SFX catalog");
-    let (library, music_state) = ambition_platformer2d::audio::library::AudioLibrary::new_with_playback_state(
-        &mut audio_sources,
-        sfx,
-        music,
-        None,
-        None,
-        None,
-    );
+    let (library, music_state) =
+        ambition_platformer2d::audio::library::AudioLibrary::new_with_playback_state(
+            &mut audio_sources,
+            sfx,
+            music,
+            None,
+            None,
+            None,
+        );
     commands.insert_resource(library);
     commands.insert_resource(music_state);
 }
@@ -243,6 +262,11 @@ pub enum RenderMode {
     Windowed,
     /// The render graph, no backend, no window. What CI wants.
     Headless,
+    /// **No window and a REAL backend** — the mode that produces pixels without
+    /// a display. ⛔ `Headless` cannot: it sets `backends: None`, so there is no
+    /// RenderApp and nothing to read a texture out of. See
+    /// `ambition_render::capture` and Mary-O's identical variant.
+    OffscreenGpu,
 }
 
 #[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
@@ -281,8 +305,13 @@ mod tests {
     #[test]
     fn headless_demo_uses_the_device_free_recording_audio_backend() {
         let app = super::build_windowed_demo_app(super::RenderMode::Headless);
-        let backend = app.world().resource::<ambition_platformer2d::audio::AudioBackendState>();
-        assert_eq!(backend.mode, ambition_platformer2d::audio::AudioOutputMode::Recording);
+        let backend = app
+            .world()
+            .resource::<ambition_platformer2d::audio::AudioBackendState>();
+        assert_eq!(
+            backend.mode,
+            ambition_platformer2d::audio::AudioOutputMode::Recording
+        );
         assert!(!backend.device_backend_installed);
     }
 
@@ -359,7 +388,8 @@ mod tests {
 
         let states = app
             .world()
-            .resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>();
+            .resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadStates>(
+        );
         for (character_id, sheet_stem) in forms {
             assert_eq!(
                 states.outcome(character_id),

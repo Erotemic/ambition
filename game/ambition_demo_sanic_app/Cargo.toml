@@ -23,6 +23,10 @@ default = []
 # — a windowed demo that ignored the keyboard would not be a playable-persona demo.
 # Without it the shell steps the sim headlessly (`tests/exit_3.rs`, the `sanic_demo`
 # bin default).
+# Offscreen capture: the `capture_sanic` binary. Implies `visible` and adds the
+# engine's capture module + its PNG encoder. Off by default so nothing that ships
+# links an encoder.
+capture = ["visible", "ambition_platformer2d/capture"]
 visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "input", "dep:bevy_kira_audio"]
 # The STANDARD host input path (leafwing bindings + the device→ControlFrame bridge +
 # the fixed-tick latch), the same production wiring the full app uses. Folded into
@@ -45,3 +49,10 @@ bevy_kira_audio = { version = "0.25", default-features = false, features = ["ogg
 [[test]]
 name = "sanic_it"
 path = "tests/sanic_it.rs"
+
+# ⚠ `required-features`, or `cargo check --all-targets` builds this against a
+# crate whose windowed builder is behind `visible`.
+[[bin]]
+name = "capture_sanic"
+path = "src/bin/capture_sanic.rs"
+required-features = ["capture"]

@@ -288,18 +288,33 @@ impl KeyboardPreset {
             PresetId::WasdJkl | PresetId::WasdUipo => VirtualDPad::wasd(),
         };
         map.insert_dual_axis(Platformer2dInputActionMonolith::Move, keyboard_move);
-        map.insert(Platformer2dInputActionMonolith::MoveLeft, self.movement.left);
-        map.insert(Platformer2dInputActionMonolith::MoveRight, self.movement.right);
+        map.insert(
+            Platformer2dInputActionMonolith::MoveLeft,
+            self.movement.left,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::MoveRight,
+            self.movement.right,
+        );
         map.insert(Platformer2dInputActionMonolith::MoveUp, self.movement.up);
-        map.insert(Platformer2dInputActionMonolith::MoveDown, self.movement.down);
+        map.insert(
+            Platformer2dInputActionMonolith::MoveDown,
+            self.movement.down,
+        );
         map.insert(Platformer2dInputActionMonolith::Jump, self.actions.jump);
         map.insert(Platformer2dInputActionMonolith::Attack, self.actions.attack);
         map.insert(Platformer2dInputActionMonolith::Dash, self.actions.dash);
-        map.insert(Platformer2dInputActionMonolith::Reset, self.actions.select_reset);
+        map.insert(
+            Platformer2dInputActionMonolith::Reset,
+            self.actions.select_reset,
+        );
         map.insert(Platformer2dInputActionMonolith::Reset, KeyCode::Delete);
         map.insert(Platformer2dInputActionMonolith::Start, self.actions.pause);
 
-        map.insert(Platformer2dInputActionMonolith::Blink, self.actions.secondary);
+        map.insert(
+            Platformer2dInputActionMonolith::Blink,
+            self.actions.secondary,
+        );
         // Special is a FIRST-CLASS slot with its OWN dedicated key on every
         // preset — no longer aliasing Blink. Dynamic-slot policy for the gamepad:
         // every face/shoulder/trigger/stick button is already assigned (see
@@ -308,45 +323,112 @@ impl KeyboardPreset {
         // to the remap UX (P5). Keyboard (this key) and the touch overlay's
         // dedicated Special button cover it meanwhile.
         // `special_is_a_dedicated_slot_...` pins this policy.
-        map.insert(Platformer2dInputActionMonolith::Special, self.actions.special);
-        map.insert(Platformer2dInputActionMonolith::QuickAction, self.actions.quick_action);
-        map.insert(Platformer2dInputActionMonolith::Interact, self.actions.interact);
-        map.insert(Platformer2dInputActionMonolith::Modifier, self.actions.modifier);
-        map.insert(Platformer2dInputActionMonolith::Utility, self.actions.utility);
+        map.insert(
+            Platformer2dInputActionMonolith::Special,
+            self.actions.special,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::QuickAction,
+            self.actions.quick_action,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::Interact,
+            self.actions.interact,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::Modifier,
+            self.actions.modifier,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::Utility,
+            self.actions.utility,
+        );
         map.insert(Platformer2dInputActionMonolith::Map, self.actions.map);
-        map.insert(Platformer2dInputActionMonolith::Inventory, self.actions.inventory);
-        map.insert(Platformer2dInputActionMonolith::Projectile, self.actions.projectile);
-        map.insert(Platformer2dInputActionMonolith::TrailToggle, self.actions.trail_toggle);
-        insert_optional(map, Platformer2dInputActionMonolith::Pogo, self.actions.dedicated_pogo);
+        map.insert(
+            Platformer2dInputActionMonolith::Inventory,
+            self.actions.inventory,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::Projectile,
+            self.actions.projectile,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::TrailToggle,
+            self.actions.trail_toggle,
+        );
+        insert_optional(
+            map,
+            Platformer2dInputActionMonolith::Pogo,
+            self.actions.dedicated_pogo,
+        );
 
         // Menu navigation seam. Cardinal/D-pad/arrow keys all hit the
         // same MenuNavigate* actions; the analog stick provides MenuStick
         // for repeat handling, and Enter/Space/South map to MenuSelect.
-        map.insert(Platformer2dInputActionMonolith::MenuNavigateUp, KeyCode::ArrowUp);
-        map.insert(Platformer2dInputActionMonolith::MenuNavigateUp, KeyCode::KeyW);
-        map.insert(Platformer2dInputActionMonolith::MenuNavigateDown, KeyCode::ArrowDown);
-        map.insert(Platformer2dInputActionMonolith::MenuNavigateDown, KeyCode::KeyS);
-        map.insert(Platformer2dInputActionMonolith::MenuNavigateLeft, KeyCode::ArrowLeft);
-        map.insert(Platformer2dInputActionMonolith::MenuNavigateLeft, KeyCode::KeyA);
-        map.insert(Platformer2dInputActionMonolith::MenuNavigateRight, KeyCode::ArrowRight);
-        map.insert(Platformer2dInputActionMonolith::MenuNavigateRight, KeyCode::KeyD);
+        map.insert(
+            Platformer2dInputActionMonolith::MenuNavigateUp,
+            KeyCode::ArrowUp,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::MenuNavigateUp,
+            KeyCode::KeyW,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::MenuNavigateDown,
+            KeyCode::ArrowDown,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::MenuNavigateDown,
+            KeyCode::KeyS,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::MenuNavigateLeft,
+            KeyCode::ArrowLeft,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::MenuNavigateLeft,
+            KeyCode::KeyA,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::MenuNavigateRight,
+            KeyCode::ArrowRight,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::MenuNavigateRight,
+            KeyCode::KeyD,
+        );
 
         map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Enter);
-        map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::NumpadEnter);
+        map.insert(
+            Platformer2dInputActionMonolith::MenuSelect,
+            KeyCode::NumpadEnter,
+        );
         map.insert(Platformer2dInputActionMonolith::MenuSelect, KeyCode::Space);
         // Also accept the player's configured Jump and Interact keys as
         // confirm so existing dialogue/cutscene muscle memory survives the
         // participant migration. Enter remains the canonical menu confirmation.
-        map.insert(Platformer2dInputActionMonolith::MenuSelect, self.actions.jump);
-        map.insert(Platformer2dInputActionMonolith::MenuSelect, self.actions.interact);
+        map.insert(
+            Platformer2dInputActionMonolith::MenuSelect,
+            self.actions.jump,
+        );
+        map.insert(
+            Platformer2dInputActionMonolith::MenuSelect,
+            self.actions.interact,
+        );
 
         map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Escape);
-        map.insert(Platformer2dInputActionMonolith::MenuBack, KeyCode::Backspace);
+        map.insert(
+            Platformer2dInputActionMonolith::MenuBack,
+            KeyCode::Backspace,
+        );
 
         // Paged-menu page turn: `MoveLeft`/`MoveRight` already own A/D, so
         // paging uses Q/E.
         map.insert(Platformer2dInputActionMonolith::MenuPageLeft, KeyCode::KeyQ);
-        map.insert(Platformer2dInputActionMonolith::MenuPageRight, KeyCode::KeyE);
+        map.insert(
+            Platformer2dInputActionMonolith::MenuPageRight,
+            KeyCode::KeyE,
+        );
     }
 }
 
@@ -391,22 +473,34 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
     // to `threshold = 0.0`) fires a `MoveUp` press edge, and
     // that edge exits MorphBall the same frame the player
     // entered it.
-    map.insert(Platformer2dInputActionMonolith::MoveLeft, GamepadButton::DPadLeft);
+    map.insert(
+        Platformer2dInputActionMonolith::MoveLeft,
+        GamepadButton::DPadLeft,
+    );
     map.insert(
         Platformer2dInputActionMonolith::MoveLeft,
         GamepadControlDirection::LEFT_LEFT.threshold(STICK_DIRECTION_THRESHOLD),
     );
-    map.insert(Platformer2dInputActionMonolith::MoveRight, GamepadButton::DPadRight);
+    map.insert(
+        Platformer2dInputActionMonolith::MoveRight,
+        GamepadButton::DPadRight,
+    );
     map.insert(
         Platformer2dInputActionMonolith::MoveRight,
         GamepadControlDirection::LEFT_RIGHT.threshold(STICK_DIRECTION_THRESHOLD),
     );
-    map.insert(Platformer2dInputActionMonolith::MoveUp, GamepadButton::DPadUp);
+    map.insert(
+        Platformer2dInputActionMonolith::MoveUp,
+        GamepadButton::DPadUp,
+    );
     map.insert(
         Platformer2dInputActionMonolith::MoveUp,
         GamepadControlDirection::LEFT_UP.threshold(STICK_DIRECTION_THRESHOLD),
     );
-    map.insert(Platformer2dInputActionMonolith::MoveDown, GamepadButton::DPadDown);
+    map.insert(
+        Platformer2dInputActionMonolith::MoveDown,
+        GamepadButton::DPadDown,
+    );
     map.insert(
         Platformer2dInputActionMonolith::MoveDown,
         GamepadControlDirection::LEFT_DOWN.threshold(STICK_DIRECTION_THRESHOLD),
@@ -414,38 +508,98 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
 
     map.insert(Platformer2dInputActionMonolith::Jump, GamepadButton::South);
     map.insert(Platformer2dInputActionMonolith::Attack, GamepadButton::West);
-    map.insert(Platformer2dInputActionMonolith::Dash, GamepadButton::RightTrigger2);
-    map.insert(Platformer2dInputActionMonolith::Reset, GamepadButton::Select);
+    map.insert(
+        Platformer2dInputActionMonolith::Dash,
+        GamepadButton::RightTrigger2,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::Reset,
+        GamepadButton::Select,
+    );
     map.insert(Platformer2dInputActionMonolith::Start, GamepadButton::Start);
 
     map.insert(Platformer2dInputActionMonolith::Blink, GamepadButton::East);
-    map.insert(Platformer2dInputActionMonolith::QuickAction, GamepadButton::RightTrigger);
-    map.insert(Platformer2dInputActionMonolith::Interact, GamepadButton::RightTrigger);
-    map.insert(Platformer2dInputActionMonolith::Modifier, GamepadButton::LeftTrigger2);
-    map.insert(Platformer2dInputActionMonolith::Utility, GamepadButton::LeftTrigger);
-    map.insert(Platformer2dInputActionMonolith::Map, GamepadButton::LeftThumb);
-    map.insert(Platformer2dInputActionMonolith::Inventory, GamepadButton::RightThumb);
-    map.insert(Platformer2dInputActionMonolith::Projectile, GamepadButton::North);
+    map.insert(
+        Platformer2dInputActionMonolith::QuickAction,
+        GamepadButton::RightTrigger,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::Interact,
+        GamepadButton::RightTrigger,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::Modifier,
+        GamepadButton::LeftTrigger2,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::Utility,
+        GamepadButton::LeftTrigger,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::Map,
+        GamepadButton::LeftThumb,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::Inventory,
+        GamepadButton::RightThumb,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::Projectile,
+        GamepadButton::North,
+    );
 
-    map.insert(Platformer2dInputActionMonolith::MenuNavigateUp, GamepadButton::DPadUp);
-    map.insert(Platformer2dInputActionMonolith::MenuNavigateDown, GamepadButton::DPadDown);
-    map.insert(Platformer2dInputActionMonolith::MenuNavigateLeft, GamepadButton::DPadLeft);
-    map.insert(Platformer2dInputActionMonolith::MenuNavigateRight, GamepadButton::DPadRight);
-    map.insert(Platformer2dInputActionMonolith::MenuSelect, GamepadButton::South);
-    map.insert(Platformer2dInputActionMonolith::MenuBack, GamepadButton::East);
+    map.insert(
+        Platformer2dInputActionMonolith::MenuNavigateUp,
+        GamepadButton::DPadUp,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::MenuNavigateDown,
+        GamepadButton::DPadDown,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::MenuNavigateLeft,
+        GamepadButton::DPadLeft,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::MenuNavigateRight,
+        GamepadButton::DPadRight,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::MenuSelect,
+        GamepadButton::South,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::MenuBack,
+        GamepadButton::East,
+    );
 
     // The bumpers double as gameplay Utility/QuickAction, but menu page actions
     // are only read while a paged menu is open, so the physical button is shared
     // safely.
-    map.insert(Platformer2dInputActionMonolith::MenuPageLeft, GamepadButton::LeftTrigger);
-    map.insert(Platformer2dInputActionMonolith::MenuPageRight, GamepadButton::RightTrigger);
+    map.insert(
+        Platformer2dInputActionMonolith::MenuPageLeft,
+        GamepadButton::LeftTrigger,
+    );
+    map.insert(
+        Platformer2dInputActionMonolith::MenuPageRight,
+        GamepadButton::RightTrigger,
+    );
 
-    map.insert_dual_axis(Platformer2dInputActionMonolith::MenuStick, GamepadStick::LEFT);
-    map.insert_dual_axis(Platformer2dInputActionMonolith::AimStick, GamepadStick::RIGHT);
+    map.insert_dual_axis(
+        Platformer2dInputActionMonolith::MenuStick,
+        GamepadStick::LEFT,
+    );
+    map.insert_dual_axis(
+        Platformer2dInputActionMonolith::AimStick,
+        GamepadStick::RIGHT,
+    );
     // RIGHT_Z is the analog right-trigger axis on most pads.
     // Reading it as an axis lets us apply hysteresis ourselves
     // instead of relying on the binary just_pressed edge.
-    map.insert_axis(Platformer2dInputActionMonolith::DashAnalog, GamepadControlAxis::RIGHT_Z);
+    map.insert_axis(
+        Platformer2dInputActionMonolith::DashAnalog,
+        GamepadControlAxis::RIGHT_Z,
+    );
 }
 
 impl KeyboardPreset {
@@ -493,13 +647,25 @@ pub const GAMEPAD_MAP: &[(&str, &str)] = &[
 ];
 
 #[cfg(feature = "input")]
-fn insert_optional(map: &mut InputMap<Platformer2dInputActionMonolith>, action: Platformer2dInputActionMonolith, key: Option<KeyCode>) {
+fn insert_optional(
+    map: &mut InputMap<Platformer2dInputActionMonolith>,
+    action: Platformer2dInputActionMonolith,
+    key: Option<KeyCode>,
+) {
     if let Some(key) = key {
         map.insert(action, key);
     }
 }
 
-pub(crate) fn key_name(key: KeyCode) -> &'static str {
+/// The label a HUD should print for a key.
+///
+/// ⭐ **public since 2026-08-04 so a GAME's on-screen legend can read the same
+/// table the BINDINGS do.** Sanic's speedway printed a hardcoded
+/// `"START   Z: JUMP   DOWN+X: REV   RELEASE DOWN: DASH   D: SUPER"` — and the
+/// preset binds no `D` at all. Jon reported it as *"in sanic the button text
+/// doesn't match what the controls really are"*, and a legend written as a
+/// string literal cannot help but drift from the preset beside it.
+pub fn key_name(key: KeyCode) -> &'static str {
     match key {
         KeyCode::KeyA => "A",
         KeyCode::KeyB => "B",
@@ -600,7 +766,8 @@ mod tests {
         // the same type, so the count is the only thing that distinguishes
         // them. The full preset binds Move three ways (keys, D-pad, stick).
         assert_eq!(
-            map.get_dual_axislike(&Platformer2dInputActionMonolith::Move).map(Vec::len),
+            map.get_dual_axislike(&Platformer2dInputActionMonolith::Move)
+                .map(Vec::len),
             Some(2),
             "the second seat's Move should be D-pad + left stick and nothing else"
         );

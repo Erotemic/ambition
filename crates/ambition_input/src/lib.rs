@@ -28,8 +28,8 @@ mod motion_input;
 pub mod participant;
 mod presets;
 pub mod semantic;
-pub mod sources;
 pub mod settings;
+pub mod sources;
 
 #[cfg(test)]
 mod tests;
@@ -118,8 +118,10 @@ pub use participant::{
     DEBUG_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT, INVENTORY_CONTEXT, LAUNCHER_CONTEXT,
     PAUSE_CONTEXT, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
-pub use presets::{ActionKeys, KeyboardPreset, MovementKeys, PresetId, GAMEPAD_MAP};
+// ⚠ `key_name` joins this list rather than the module being opened: the crate
+// exposes a chosen surface, and a HUD legend needs exactly one function from it.
+pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId, GAMEPAD_MAP};
 pub use semantic::{
-    ActionControlKind, ActionConflict, ActionRegistry, InstalledActions, SemanticActionDef,
+    ActionConflict, ActionControlKind, ActionRegistry, InstalledActions, SemanticActionDef,
     SemanticActionId, ENGINE_ACTIONS, ENGINE_CAPABILITY,
 };

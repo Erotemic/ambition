@@ -12,6 +12,7 @@
 
 mod mary_o_it_sync;
 
+mod death_reset_timing;
 mod exit_3;
 mod hud_placement;
 mod level_1_acceptance;

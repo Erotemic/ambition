@@ -31,18 +31,23 @@ pub enum MenuTapMode {
 
 impl Default for MenuTapMode {
     fn default() -> Self {
-        // Touch-only Android testing is more tolerant when a row tap selects
-        // first and requires an explicit second tap / Confirm. Desktop and
-        // Steam Deck keep the faster single-tap behavior, while Android avoids
-        // accidental activation when a finger press turns into a small drag.
-        #[cfg(target_os = "android")]
-        {
-            Self::TapToSelectThenConfirm
-        }
-        #[cfg(not(target_os = "android"))]
-        {
-            Self::SingleTapWithDestructiveGuard
-        }
+        // ⛔ **Android used to default to `TapToSelectThenConfirm`, and Jon hit
+        // it on a Pixel 5**: a dialogue response took two taps, which reads as
+        // the tap not working — a touchscreen has no hover or focus feedback, so
+        // "it highlighted but did nothing" is indistinguishable from a dropped
+        // input. Worse, the visible list recenters around the new selection
+        // between the two taps, so the second tap can land on a NEIGHBOUR.
+        //
+        // The stated reason for it was accidental activation when a press turns
+        // into a small drag. That is a real hazard and it is not what a
+        // whole-menu confirmation policy is for: `SingleTapWithDestructiveGuard`
+        // already keeps the two-step for exactly the presses worth guarding (a
+        // stray touch on Quit), and drag-cancellation belongs to the gesture
+        // layer, where a press that moves past the drag threshold is a scroll.
+        //
+        // So every platform now shares one default, which also removes a
+        // behaviour that could only be discovered by owning the device.
+        Self::SingleTapWithDestructiveGuard
     }
 }
 

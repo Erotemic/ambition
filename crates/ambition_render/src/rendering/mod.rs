@@ -130,8 +130,8 @@ pub use parallax::{
     ParallaxLayerVisual,
 };
 pub use primitives::{
-    FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline, PlayerVisual, PropVisual,
-    QuestPanelText, RoomScopedEntity, RoomVisual,
+    BlockArt, BlockVisual, FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline,
+    PlayerVisual, PropVisual, QuestPanelText, RoomScopedEntity, RoomVisual,
 };
 // Game-supplied art map for walk-into world items; the reusable renderer owns the
 // seam, each game fills it with its own pickups' images.
@@ -140,8 +140,9 @@ pub use wielded_item_visuals::{
     WieldedItemVisualAppExt, WieldedItemVisualCatalog, WieldedItemVisualSpec,
 };
 pub use world::{
-    flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals,
-    spawn_surface_chain_visuals, sync_lock_wall_visuals, sync_removed_block_visuals,
+    apply_block_art, flinch_struck_blocks, refresh_entity_sprite_handles_on_game_assets_change,
+    spawn_room_visuals, spawn_surface_chain_visuals, sync_lock_wall_visuals,
+    sync_removed_block_visuals,
 };
 
 /// The public seam for CONTENT-OWNED per-actor overlay presentation: sibling

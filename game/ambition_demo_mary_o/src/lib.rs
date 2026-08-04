@@ -1673,6 +1673,9 @@ impl Plugin for MaryORulesPlugin {
         let powerups = (
             powerups::refill_power_blocks_on_room_loaded,
             powerups::bonk_power_blocks,
+            // Presentation, derived from the spent set each frame — see
+            // `dress_power_blocks` for why it is not driven by the bonk.
+            powerups::dress_power_blocks,
             powerups::sync_grown_form,
             // The star, after the form sync: collecting the quasar converts a
             // worn token into a timed body state, and `run_star_power` asserts

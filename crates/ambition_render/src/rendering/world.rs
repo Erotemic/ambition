@@ -12,7 +12,7 @@ use bevy::sprite::Anchor;
 use super::label_layout::WorldLabelFamily;
 use super::nameplates::DoorNameplateSource;
 use super::primitives::{
-    block_color, feature_color, feature_z, spawn_world_label, BlockVisual, FeatureVisual,
+    block_color, feature_color, feature_z, spawn_world_label, BlockArt, BlockVisual, FeatureVisual,
     LockWallVisual, PropVisual, RoomVisual,
 };
 use ambition_platformer2d_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
@@ -582,12 +582,50 @@ fn tiled_block_stretch(render: BVec2, source_px: f32) -> f32 {
 /// identity, avoiding the despawn/respawn bugs from earlier live-refresh attempts.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundEntitySprite {
-    key: game_assets::EntitySprite,
+    // ⚠ `pub(crate)` since 2026-08-04: `apply_block_art` REWRITES this when a
+    // game names its own art for a block, and it is the resolved binding the
+    // asset-reload refresher reads back.
+    pub(crate) key: game_assets::EntitySprite,
 }
 
 impl BoundEntitySprite {
     fn new(key: game_assets::EntitySprite) -> Self {
         Self { key }
+    }
+}
+
+/// **Apply a game's own art choice for a block**, rewriting the binding the
+/// kind-derived spawn left behind. See [`BlockArt`].
+///
+/// ⭐ **it writes `BoundEntitySprite`, not just the `Sprite`.** That component is
+/// the RESOLVED binding, and
+/// `refresh_entity_sprite_handles_on_game_assets_change` re-derives every
+/// sprite's image from it when `GameAssets` reloads. Setting only the image would
+/// look right until the next asset change quietly restored the kind's texture —
+/// the shape of bug that shows up an hour later with no edit to blame.
+///
+/// ⚠ **a block with no `BlockArt` is not touched at all.** The kind-derived
+/// texture stays the default for every block in every game; this seam exists for
+/// the ones a game has something to say about.
+pub fn apply_block_art(
+    assets: Option<Res<GameAssets>>,
+    mut blocks: Query<
+        (&BlockArt, &mut BoundEntitySprite, &mut Sprite),
+        Or<(Changed<BlockArt>, Added<BoundEntitySprite>)>,
+    >,
+) {
+    let Some(assets) = assets else {
+        return;
+    };
+    for (BlockArt(art), mut bound, mut sprite) in &mut blocks {
+        if bound.key != *art {
+            bound.key = *art;
+        }
+        if let Some(handle) = assets.entities.get(*art) {
+            if sprite.image != *handle {
+                sprite.image = handle.clone();
+            }
+        }
     }
 }
 
@@ -643,6 +681,11 @@ pub fn spawn_block(
     // Provenance, not a name sniff (W2): the IR emission stamps tile-derived
     // geometry with `GeoSource::TileLayer`; `name` is a display label only.
     let is_intgrid_block = matches!(block.id.source, ae::GeoSource::TileLayer { .. });
+    // ⚠ the KIND's art is the DEFAULT, not the last word: a game that has its own
+    // name for this block's art attaches `BlockArt` and `apply_block_art` takes
+    // over from here. Spawn deliberately does not consult it — the art a block
+    // wears changes mid-play (a bonus block becomes a used one), so a value read
+    // once at spawn could never be right for long.
     let sprite_key = if is_intgrid_block {
         game_assets::block_tile_sprite(block.kind)
     } else {

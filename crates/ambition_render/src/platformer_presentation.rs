@@ -50,8 +50,8 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionScopeId, SessionScopeSet, SessionSpawnScope,
 };
 use ambition_platformer2d_shared_tangle::physics::PhysicsSandboxSettings;
-use ambition_sprite_sheet::game_assets::GameAssets;
 use ambition_platformer2d_world::rooms::RoomSet;
+use ambition_sprite_sheet::game_assets::GameAssets;
 
 use crate::rendering::{
     spawn_parallax_layers, spawn_room_visuals, PlayerVisualSchedulePlugin,
@@ -97,6 +97,15 @@ impl Plugin for SessionRoomVisualsPlugin {
             Update,
             sync_session_room_visuals.in_set(SessionScopeSet::Presentation),
         );
+        // ⭐ **the per-block art override, beside the pass that spawns blocks.**
+        // `spawn_room_visuals` resolves a block's texture from its `BlockKind`
+        // alone, so every solid in a room is one picture; `BlockArt` is how a
+        // game says otherwise, and `apply_block_art` is what makes saying it
+        // work. Registered HERE for the reason the three notes around it give:
+        // the composition that spawns the thing installs the pass that completes
+        // it, or the seam exists everywhere and functions in the shipped app
+        // only.
+        app.add_systems(Update, crate::rendering::apply_block_art);
         // ⚠ **the same lesson as the label pass above, one family over.** The
         // parallax THEME load lived in `game/ambition_app`'s room-transition
         // machinery, so a room in a second biome had a backdrop in the shipped

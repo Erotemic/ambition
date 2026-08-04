@@ -753,6 +753,50 @@ fn power_transition_sfx(from: &str, to: &str) -> Option<&'static str> {
 /// Re-arm every ?-block when level 1-1 (re)loads, so a cyclic replay pops fresh
 /// wand. Mirrors the snake restage; the wand items themselves are room-scoped and
 /// despawn with the room.
+/// **Dress her bonus blocks so a player can see which ones still hold something.**
+///
+/// ⛔ **every solid in the room drew the same texture, including the `?`-blocks.**
+/// Block art resolves from `BlockKind`, and a bonus block IS a `Solid` — so
+/// nothing in the pipeline could tell one from a wall, and Jon's *"used blocks
+/// need their own texture"* had no seam to hang on (queue D11). `BlockArt` is
+/// that seam: this attaches it to a LIVE block and removes it from a spent one,
+/// which falls back to the kind's plain tile — exactly the block a used one
+/// becomes, so the used state needs no art of its own.
+///
+/// ⚠ **it reads `SpentPowerBlocks` every frame rather than reacting to the bonk.**
+/// That set is ROLLBACK STATE: a block struck on a mispredicted frame un-spends
+/// when the frame is thrown away, and art driven by the EVENT would keep the used
+/// look through a rewind that undid the strike. Deriving from the state cannot
+/// drift from it — the same reasoning `SpentPowerBlocks`' own doc gives for being
+/// `Clone`.
+pub fn dress_power_blocks(
+    mut commands: Commands,
+    spent: Res<SpentPowerBlocks>,
+    blocks: Query<(
+        Entity,
+        &ambition_platformer2d::render::rendering::BlockVisual,
+        Option<&ambition_platformer2d::render::rendering::BlockArt>,
+    )>,
+) {
+    use ambition_platformer2d::render::rendering::BlockArt;
+    let live =
+        BlockArt(ambition_platformer2d::actors::assets::game_assets::EntitySprite::BonusBlockTile);
+    for (entity, visual, art) in &blocks {
+        let is_bonus = crate::power_block_index_for(&visual.geo_id).is_some()
+            || crate::quasar_block_index_for(&visual.geo_id).is_some();
+        let wants_live = is_bonus && !spent.is_spent(&visual.geo_id);
+        match (wants_live, art) {
+            (true, None) => {
+                commands.entity(entity).insert(live);
+            }
+            (false, Some(_)) => {
+                commands.entity(entity).remove::<BlockArt>();
+            }
+            _ => {}
+        }
+    }
+}
+
 pub fn refill_power_blocks_on_room_loaded(
     mut rooms: MessageReader<RoomLoaded>,
     mut spent: ResMut<SpentPowerBlocks>,

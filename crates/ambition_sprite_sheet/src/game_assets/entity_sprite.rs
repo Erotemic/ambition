@@ -53,6 +53,15 @@ pub enum EntitySprite {
     // via `Sprite::image_mode = Tiled` so they REPEAT across the
     // arbitrary aspect ratios that long floors / tall walls produce,
     // instead of stretching one sprite across the whole footprint.
+    /// A LIVE bonus block — warm plate, rivets, interrobang glyph.
+    ///
+    /// ⚠ **not reachable from `BlockKind`, and that is the point.** Bonus blocks
+    /// are `BlockKind::Solid` like every wall, so no kind-derived lookup can
+    /// tell them apart; a game names this through the `BlockArt` component
+    /// (queue D11). The USED state needs no art of its own — a spent block drops
+    /// the override and falls back to `SolidTile`, which is exactly the plain
+    /// block it becomes.
+    BonusBlockTile,
     SolidTile,
     OneWayTile,
     HazardTile,
@@ -93,6 +102,7 @@ impl EntitySprite {
             Self::DoorZone => "entities/door_zone.png",
             Self::EdgeExit => "entities/edge_exit.png",
             Self::ProjectileEnergy => "entities/projectile_energy.png",
+            Self::BonusBlockTile => "entities/bonus_block_tile.png",
             Self::SolidTile => "entities/solid_tile.png",
             Self::OneWayTile => "entities/one_way_tile.png",
             Self::HazardTile => "entities/hazard_tile.png",
@@ -127,6 +137,7 @@ impl EntitySprite {
         Self::DoorZone,
         Self::EdgeExit,
         Self::ProjectileEnergy,
+        Self::BonusBlockTile,
         Self::SolidTile,
         Self::OneWayTile,
         Self::HazardTile,
@@ -169,6 +180,7 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
         EntitySprite::DoorZone => "door_zone",
         EntitySprite::EdgeExit => "edge_exit",
         EntitySprite::ProjectileEnergy => "projectile_energy",
+        EntitySprite::BonusBlockTile => "bonus_block_tile",
         EntitySprite::SolidTile => "solid_tile",
         EntitySprite::OneWayTile => "one_way_tile",
         EntitySprite::HazardTile => "hazard_tile",
@@ -280,9 +292,10 @@ pub(crate) fn insert_scaled_image_entry(
     scale: TextureResolutionScale,
     preload_group: PreloadGroup,
 ) {
-    let Some(id) =
-        ambition_asset_manager::platformer_assets::scaled_asset_id(base_id, scale.asset_id_suffix())
-    else {
+    let Some(id) = ambition_asset_manager::platformer_assets::scaled_asset_id(
+        base_id,
+        scale.asset_id_suffix(),
+    ) else {
         return;
     };
     manifest.insert(

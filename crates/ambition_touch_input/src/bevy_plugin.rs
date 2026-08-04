@@ -1521,6 +1521,12 @@ fn update_buttons_from_interactions(
 /// action touchable" without restating the match — a second copy of that mapping
 /// is how the two halves this file just unified got out of step in the first
 /// place.
+///
+/// ⚠ `cfg(test)`: the production path only ever WRITES the mask, so leaving this
+/// ungated is a `dead_code` warning — and `no warnings (cargo check
+/// --all-targets)` is one of the suite's four jobs, so it would have been a red
+/// I armed myself.
+#[cfg(test)]
 fn held_of(edges: &TouchButtonEdges, action: TouchActionButton) -> bool {
     match action {
         TouchActionButton::Jump => edges.jump,

@@ -13,8 +13,8 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_bool, put_f32, put_i32, put_opt_str, put_str, put_u32, put_u8, put_vec2,
-    Reader, SnapshotCursor, SnapshotResolve, SnapshotState,
+    put_bool, put_f32, put_i32, put_opt_str, put_str, put_u32, put_u8, put_vec2, Reader,
+    SnapshotCursor, SnapshotResolve, SnapshotState,
 };
 use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
 
@@ -101,10 +101,26 @@ snapshot_pod!(crate::components::ActorCooldowns {
 /// The blob is `(move id, facing, t, landed_hit)`; the `MoveSpec` comes back out of the
 /// entity's own `ActorMoveset`, which a patched entity still carries.
 ///
-/// `live_boxes` comes back empty and `fired` is rebuilt from `t` — both by
-/// `MovePlayback::resumed`. That is sound because a strike volume's existence is
-/// DERIVED from `(t, window)` and `retire_orphaned_strike_volumes` maintains that
-/// derivation every frame, so the rewound clock re-creates exactly the boxes it should.
+/// ⛔ **the narrative that used to sit here described a DELETED mechanism.** It
+/// said `live_boxes` comes back empty and `fired` is rebuilt from `t`, "both by
+/// `MovePlayback::resumed`". Under bevy_ggrs (ADR 0027) the registration is
+/// `rollback_component_resolved`, a CLONE snapshot: the whole component is
+/// restored, `fired` and `hit_targets` included, and `live_boxes` is
+/// entity-remapped rather than emptied. A comment describing a snapshot engine
+/// that no longer exists is worse than none — it tells the next reader the dedup
+/// state is not preserved when it is (GPT 5.6 review, 2026-08-04).
+///
+/// What survives from that story is why the cache is safe to restore: a strike
+/// volume's existence is DERIVED from `(t, window)`, and
+/// `retire_orphaned_strike_volumes` re-checks that against the live world every
+/// frame, so a restored slot naming a dead entity is dropped and respawned.
+///
+/// ⭐ **and `hit_targets` is in the CHECKSUM now.** The restore always carried it;
+/// the projection did not, so two peers could disagree about which target a
+/// multi-tick strike had already hit and still agree on the hash — a divergence
+/// that surfaces later as different damage and SFX. Sorted before hashing because
+/// it is a SET: the same targets struck in either order are the same state, and
+/// hashing the insertion order would report a false divergence.
 ///
 /// A move id the moveset no longer knows resolves to `None`, and the component is left
 /// off. That is a content change between snapshot and restore — impossible in a
@@ -115,6 +131,12 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         put_f32(out, self.facing);
         put_f32(out, self.t);
         put_bool(out, self.landed_hit);
+        let mut targets: Vec<&str> = self.hit_targets.iter().map(String::as_str).collect();
+        targets.sort_unstable();
+        put_u32(out, targets.len() as u32);
+        for target in targets {
+            put_str(out, target);
+        }
     }
 }
 

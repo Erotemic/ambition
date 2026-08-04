@@ -238,9 +238,14 @@ pub struct MovePlayback {
     /// that swing is a read-model rebuilt every frame by
     /// `project_moveset_melee_to_body_melee`, which wiped the accumulator and made
     /// every active tick re-hit + re-fire the hit SFX (the old flat-swing dedup
-    /// didn't survive the moveset projection). Starts empty per move; like
-    /// `live_boxes` it is not yet carried across a rollback resume, so fold it into
-    /// the snapshot blob if strike-dedup ever needs to be rollback-exact.
+    /// didn't survive the moveset projection). Starts empty per move.
+    ///
+    /// ⛔ **this used to say it "is not yet carried across a rollback resume".
+    /// That was false and stale.** The registration is a CLONE snapshot, so the
+    /// whole component including this list is restored; what was missing was the
+    /// CHECKSUM projection, which is why two peers could disagree about who had
+    /// already been struck and still agree on the hash. Both are right now — see
+    /// `SnapshotResolve for MovePlayback`.
     pub hit_targets: Vec<String>,
 }
 

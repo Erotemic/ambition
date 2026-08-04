@@ -177,17 +177,17 @@ fn definition_from(
     // engine has offered `BodySource::SpriteAuthored { world_per_pixel }` since
     // §4.11 — every NPC and enemy derives its box from published sprite metrics
     // and Mary-O's three forms use this exact seam. The player robot used
-    // neither: he kept the engine's default 30×48 constant while his sprite was
+    // neither: they kept the engine's default 30×48 constant while their sprite was
     // drawn through a hand-tuned `collision_scale`, and the two were never
     // reconciled. Measured 2026-08-03 with `scripts/show_sprite_gameplay_box.py`:
-    // his collider ran **1.28× wider and 1.29× taller than the body inside it**,
-    // its top edge 17 px above the tip of his antenna. That is the report.
+    // their collider ran **1.28× wider and 1.29× taller than the body inside it**,
+    // its top edge 17 px above the tip of their antenna. That is the report.
     //
     // ⚠ **the SCALE is derived and the HEIGHT is the authored quantity**, the
     // same direction Mary-O's `MARY_O_STANDING_HEIGHT` takes and for the same
     // reason: the sheets are regenerated regularly, every regeneration
     // re-measures, and a scale pinned to today's pixel count silently changes
-    // how tall he stands the first time a crop moves by a pixel. Levels are
+    // how tall they stand the first time a crop moves by a pixel. Levels are
     // authored against the standing height, so that is what must hold still.
     //
     // ⚠ **only an AUTHORED body qualifies**, which is why this can be a blanket
@@ -216,22 +216,22 @@ fn definition_from(
     definition
 }
 
-/// **Being hit is judged on his torso, not on his outline.**
+/// **Being hit is judged on their torso, not on their outline.**
 ///
 /// Jon: *"It should be under the main head, and well within the player arms.
 /// The player hitbox needs to be very forgiving to the player."*
 ///
 /// ⭐ **that sentence describes TWO boxes, which is why it read as
-/// contradictory.** The collision box has to keep his head, or a robot whose
-/// head is nearly half his height walks it through every ceiling; the hurtbox is
+/// contradictory.** The collision box has to keep their head, or a robot whose
+/// head is nearly half their height walks it through every ceiling; the hurtbox is
 /// the one that can stop under it. They were one rectangle until this, so
 /// "forgiving" had nowhere to live — the `HurtboxDoc` seam has existed since A7
-/// and the protagonist authored nothing, so his hurtbox fell back to the coarse
+/// and the protagonist authored nothing, so their hurtbox fell back to the coarse
 /// body AABB.
 ///
 /// The insets are FRACTIONS of the sheet's authored body box, not pixels, for
 /// the same reason `body_inset` is fractional: they survive a regeneration that
-/// re-crops him. What they were measured against, in his 224 px idle frame:
+/// re-crops them. What they were measured against, in their 224 px idle frame:
 ///
 /// | | |
 /// |---|---|
@@ -243,7 +243,7 @@ fn definition_from(
 ///
 /// So `top` clears the head and lands on the shoulder line, `bottom` keeps the
 /// shoe line the box already stood on, and the sides come in inside the arm
-/// span — further on the right because his head, and only his head, is drawn
+/// span — further on the right because their head, and only their head, is drawn
 /// off-centre that way.
 fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc {
     // Fractions of the authored body box, per edge.
@@ -254,8 +254,8 @@ fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc
 
     // ⚠ **+y is DOWN** — `DEFAULT_GRAVITY_DIR` is `(0, 1)`, and sheet pixel
     // space and world space share that handedness. A box that sits low on the
-    // body therefore takes a POSITIVE y offset; the opposite sign would put his
-    // hurtbox in the air above his head and nothing would ever hit him.
+    // body therefore takes a POSITIVE y offset; the opposite sign would put their
+    // hurtbox in the air above their head and nothing would ever hit them.
     let offset = ambition_platformer2d_core::Vec2::new(
         ((LEFT + (1.0 - RIGHT)) * 0.5 - 0.5) * body_world.x,
         ((TOP + (1.0 - BOTTOM)) * 0.5 - 0.5) * body_world.y,
@@ -341,11 +341,11 @@ mod tests {
         }
     }
 
-    /// **v3 stands as tall as the level expects, and his box is his ART.**
+    /// **v3 stands as tall as the level expects, and their box is their ART.**
     ///
     /// Jon: *"The current player V3 collision / hurt box is larger than the
-    /// player sprite."* It was, by 1.28× wide and 1.29× tall, because his box
-    /// was the engine's default constant while his sprite was drawn through a
+    /// player sprite."* It was, by 1.28× wide and 1.29× tall, because their box
+    /// was the engine's default constant while their sprite was drawn through a
     /// hand-tuned `collision_scale` and nothing reconciled the two.
     ///
     /// Both halves are asserted because either alone is satisfiable by a bug:
@@ -360,8 +360,8 @@ mod tests {
         let definition = definition_from(&catalog, &V3);
         let Some(BodySource::SpriteAuthored { world_per_pixel }) = definition.body else {
             panic!(
-                "v3 authors no sprite body, so his collision box is still the \
-                 engine's default constant and his sprite is still drawn by a \
+                "v3 authors no sprite body, so their collision box is still the \
+                 engine's default constant and their sprite is still drawn by a \
                  hand-tuned collision_scale: {:?}",
                 definition.body
             );
@@ -400,10 +400,10 @@ mod tests {
         let doc = definition
             .hurtboxes
             .as_ref()
-            .expect("v3 authors a hurtbox; without one he is hit on his coarse body box");
+            .expect("v3 authors a hurtbox; without one the hit lands on the coarse body box");
         let volumes = doc
             .volumes_for(None, None)
-            .expect("his default timeline resolves at rest");
+            .expect("their default timeline resolves at rest");
         assert_eq!(volumes.len(), 1, "one torso volume, not a part list");
         let VolumeShape::Rect {
             offset,
@@ -438,8 +438,8 @@ mod tests {
         assert!(
             half_extents.1 < body.y * 0.35,
             "the hurtbox is {} tall against a body half-height of {} — 'under \
-             the main head' means the head is OUT of it, and his head is more \
-             than a third of him",
+             the main head' means the head is OUT of it, and their head is more \
+             than a third of them",
             half_extents.1 * 2.0,
             body.y * 0.5,
         );
@@ -447,7 +447,7 @@ mod tests {
             offset.1 > 0.0,
             "+y is DOWN in this engine (DEFAULT_GRAVITY_DIR is (0, 1)), so a \
              torso box sitting below the body centre must have a POSITIVE y \
-             offset; {} puts his hurtbox in the air above his head",
+             offset; {} puts their hurtbox in the air above their head",
             offset.1,
         );
     }
@@ -470,7 +470,7 @@ mod tests {
             assert!(
                 definition_from(&catalog, incarnation).body.is_none(),
                 "'{}' measured its box rather than authoring one, so scaling \
-                 him by it would hand him a collision body that includes his \
+                 them by it would hand them a collision body that includes their \
                  outstretched arms",
                 incarnation.id,
             );

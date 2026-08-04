@@ -110,7 +110,7 @@ def world_per_pixel(sheet: Sheet, collision: tuple[float, float]) -> float:
     the art at that scale, so there is no second formula to keep in step. The
     height is the authored quantity and the scale is derived from it — pinning
     the scale instead would change how tall the character stands the first time
-    a regeneration re-crops him by a pixel.
+    a regeneration re-crops them by a pixel.
     """
     _, _, _, body_h = sheet.body_bbox
     return collision[1] / max(body_h, 1)

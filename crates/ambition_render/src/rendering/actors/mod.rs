@@ -323,12 +323,36 @@ pub fn sync_visuals(
                 // are two readings of one number, so there is no ratio and
                 // nothing to double-count.
                 sprite.custom_size = Some(BVec2::new(authored.x, authored.y));
-                // The anchor is scale-INVARIANT (`feet_anchor_norm` plus
-                // half the box over the frame, both normalized), so this is the
-                // same known-good formula the bind site uses — it just has to be
-                // restated when the sheet changes, which for a body that swaps
-                // forms mid-level is any frame at all.
-                if let (Some(animator), Some(mut anchor)) = (animator, anchor) {
+                // ⭐ **and the PLACEMENT comes from the same publisher as the
+                // size, rather than being re-derived here.** A sheet frame is not
+                // its character: the art sits somewhere inside the frame, usually
+                // off-centre, so a quad centred on the body draws the character
+                // wherever the padding happens to put it.
+                // `sync_sprite_posed_bodies` computes the offset that puts the
+                // ART on the BOX, and the actor path has always read it — this
+                // branch instead recomputed a feet anchor from
+                // `feet_anchor_norm`, which is a SECOND derivation of one fact
+                // and disagreed with the first (for v3, ~1 px vertically and
+                // ~2.5 px horizontally, because his `feet_pixel.y` is 157 against
+                // a box bottom of 158 and his authored box is centred on 114.5
+                // against a frame centre of 112).
+                //
+                // ⚠ the anchor becomes CENTER and the offset moves the quad,
+                // which is what the actor path does. Sheet pixel space and world
+                // space share +y down, but Bevy's UI/render y runs UP — hence the
+                // negated y, the same conversion `sync_sprite_posed_bodies`
+                // documents at its own seam.
+                if let Some(offset) = pose.authored_offset {
+                    transform.translation.x += offset.x;
+                    transform.translation.y -= offset.y;
+                    if let Some(mut anchor) = anchor {
+                        if *anchor != Anchor::CENTER {
+                            *anchor = Anchor::CENTER;
+                        }
+                    }
+                } else if let (Some(animator), Some(mut anchor)) = (animator, anchor) {
+                    // No published offset (a sheet that authors no body): the
+                    // scale-invariant feet anchor is still the right answer.
                     let next = feet_anchor_for_render_size(
                         &animator.spec,
                         BVec2::new(pose.size.x, pose.size.y),

@@ -72,6 +72,18 @@ pub struct BodyPoseView {
     /// readings of ONE authored scale, so neither is derived from the other and
     /// there is no ratio to be wrong.
     pub authored_render: Option<ambition_platformer2d_core::Vec2>,
+    /// **Where to draw that quad, relative to the body centre** — the companion
+    /// to `authored_render` and gated on the same `SpritePosedBody`.
+    ///
+    /// ⛔ **the player used to RE-DERIVE this and the actor path did not.** A
+    /// sheet frame is not its character: the art sits somewhere inside the frame,
+    /// usually off-centre, so a quad centred on the body draws the character
+    /// wherever the padding happens to put it. `sync_sprite_posed_bodies` already
+    /// publishes the offset that puts the ART on the BOX, and `view_index` (the
+    /// actor path) reads it — while the player path recomputed a feet anchor from
+    /// `feet_anchor_norm` instead. Two derivations of one fact, differing for v3
+    /// by ~1 px vertically and ~2.5 px horizontally.
+    pub authored_offset: Option<ambition_platformer2d_core::Vec2>,
 }
 
 impl Default for BodyPoseView {
@@ -92,6 +104,7 @@ impl Default for BodyPoseView {
             morph_ball: false,
             charge_tier: None,
             authored_render: None,
+            authored_offset: None,
         }
     }
 }
@@ -149,6 +162,11 @@ pub fn rebuild_body_pose_views(
                 // about every one of them, and hand it a quad that was never
                 // derived from their boxes.
                 Option<&ambition_platformer2d_actor_monolith::features::ActorRenderSize>,
+                // The quad's PLACEMENT, published beside its size by the same
+                // pass. Gated on `SpritePosedBody` below for the same reason the
+                // size is: several spawn paths insert these from sheet metadata
+                // for bodies whose collision box is still hand-authored.
+                Option<&ambition_platformer2d_actor_monolith::features::ActorSpriteOffset>,
                 bevy::prelude::Has<
                     ambition_platformer2d_actor_monolith::character_sprites::SpritePosedBody,
                 >,
@@ -177,6 +195,7 @@ pub fn rebuild_body_pose_views(
             projectile_state,
             anim_override,
             authored_render,
+            authored_offset,
             sheet_authored_body,
             pose,
         ),
@@ -244,6 +263,9 @@ pub fn rebuild_body_pose_views(
                 .and_then(|s| s.charging.map(|hold| s.charge_tuning.tier_for_hold(hold))),
             authored_render: sheet_authored_body
                 .then(|| authored_render.map(|r| r.0))
+                .flatten(),
+            authored_offset: sheet_authored_body
+                .then(|| authored_offset.map(|o| o.0))
                 .flatten(),
         };
         match pose {

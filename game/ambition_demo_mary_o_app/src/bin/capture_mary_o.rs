@@ -17,7 +17,7 @@
 //!
 //! ```text
 //! cargo run -p ambition_demo_mary_o_app --features visible --bin capture_mary_o \
-//!     -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--no-ui]
+//!     -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--walk N] [--no-ui]
 //! ```
 
 use std::path::PathBuf;
@@ -33,6 +33,14 @@ use bevy::prelude::*;
 #[derive(Resource)]
 struct Warmup {
     remaining: u32,
+    /// Frames of held RIGHT before the shot.
+    ///
+    /// ⛔ **without this the camera only ever saw the level's first screen.** A
+    /// pipe recolour landed unverified on 2026-08-04 for exactly that reason:
+    /// no pipe is in frame at the spawn point, and a capture that cannot travel
+    /// can only photograph the opening (queue D22). Holding a direction is the
+    /// cheapest way to reach the rest of a side-scroller.
+    walk_right: u32,
 }
 
 fn main() {
@@ -41,6 +49,7 @@ fn main() {
     let mut size = UVec2::new(960, 540);
     let mut warmup = 90u32;
     let mut include_ui = true;
+    let mut walk = 0u32;
 
     let mut positional_seen = false;
     while let Some(arg) = args.next() {
@@ -50,6 +59,12 @@ fn main() {
                     .next()
                     .and_then(|v| v.parse().ok())
                     .unwrap_or_else(|| fail("--warmup needs a frame count"));
+            }
+            "--walk" => {
+                walk = args
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or_else(|| fail("--walk needs a frame count"));
             }
             "--no-ui" => include_ui = false,
             other if other.starts_with("--") => fail(&format!("unknown flag '{other}'")),
@@ -87,12 +102,16 @@ fn main() {
         include_ui,
     });
     app.init_resource::<CaptureProgress>();
-    app.insert_resource(Warmup { remaining: warmup });
+    app.insert_resource(Warmup {
+        remaining: warmup,
+        walk_right: walk,
+    });
     app.add_systems(Startup, setup_capture_target);
     app.add_systems(
         Update,
         (
             adopt_cameras_into_capture_target,
+            hold_right_while_walking,
             shoot_when_warm,
             finish_after_capture,
         )
@@ -126,6 +145,44 @@ fn shoot_when_warm(
         return;
     }
     request_capture(&mut commands, &target, &mut progress);
+}
+
+/// Hold RIGHT while there are walking frames left.
+///
+/// ⚠ **written into `ButtonInput` directly**, which is what `capture_scene`
+/// does: the demo's binding layer reads the same resource a real keyboard fills,
+/// so this exercises the actual input path rather than a bypass.
+fn hold_right_while_walking(
+    mut keys: ResMut<ButtonInput<KeyCode>>,
+    target: Option<Res<CaptureTarget>>,
+    mut warmup: ResMut<Warmup>,
+) {
+    // Walking starts only once something is drawing, for the same reason the
+    // warmup does: frames spent waiting for a body are latency, not travel.
+    if target.is_none_or(|target| target.adopted == 0) {
+        return;
+    }
+    if warmup.walk_right == 0 {
+        keys.release(KeyCode::ArrowRight);
+        keys.release(KeyCode::KeyZ);
+        return;
+    }
+    warmup.walk_right -= 1;
+    keys.press(KeyCode::ArrowRight);
+    // ⛔ **walking alone cannot cross a side-scroller.** The first version held
+    // only Right and she died to the first snake — the capture came back at the
+    // spawn point with a life spent, which looks exactly like the flag not
+    // working. A traversal that cannot jump reaches the first hazard and stops.
+    //
+    // A periodic hop is not a solution to the level, it is enough to keep moving
+    // past the early enemies; a capture that needs a specific route wants a real
+    // `--press` sequence like `capture_scene`'s.
+    let phase = warmup.walk_right % 45;
+    if phase < 12 {
+        keys.press(KeyCode::KeyZ);
+    } else {
+        keys.release(KeyCode::KeyZ);
+    }
 }
 
 fn fail(message: &str) -> ! {

@@ -559,6 +559,18 @@ pub fn surface_return_from_1_2() -> ambition_platformer2d::world::rooms::Loading
 // suffixes must stay dense from 0; `authored_family_count` is what notices when
 // they do not.
 
+/// The authored block a CONTACT names, looked up in the room the player is in.
+///
+/// ⛔ **this is what replaced the index tables.** `ContactSource::Block` carries a
+/// durable `GeoId` and nothing else, so a system that wants to know *what it
+/// hit* has to ask the room. It used to answer by comparing the id against ids
+/// RECONSTRUCTED from constant arrays (`power_block_id(i)` for i in 0..3), which
+/// is why nothing an author did could move a ?-block: the level drew one place
+/// and the runtime matched another.
+pub fn authored_block_by_id<'a>(world: &'a ae::World, id: &ae::GeoId) -> Option<&'a ae::Block> {
+    world.blocks.iter().find(|block| block.id == *id)
+}
+
 /// Every authored block in the embedded world file, by name.
 ///
 /// ⚠ a process-global `LazyLock` over a `const &str`, which is safe for the

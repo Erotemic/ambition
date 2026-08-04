@@ -402,6 +402,9 @@ pub fn bonk_power_blocks(
         ambition_platformer2d::platformer::block_nudge::BlockStruck,
     >,
     players: Query<(&PlayerBodyFrameOutput, Option<&WornEquipment>), With<PrimaryPlayer>>,
+    // The room the contact happened in — a `GeoId` names a block, and only the
+    // world can say WHICH block that is.
+    geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
 ) {
     let Ok((frame, worn)) = players.single() else {
         return;
@@ -413,17 +416,26 @@ pub fn bonk_power_blocks(
         let ContactSource::Block { id, .. } = &contact.source else {
             continue;
         };
+        // ⛔ **ASK THE BLOCK WHAT IT IS.** This used to compare the struck id
+        // against ids reconstructed from constant column arrays, so a ?-block was
+        // wherever Rust said it was and an authored one could never be found.
+        // The room answers now, and the answer is the KIND the author picked.
+        let Some(block) = crate::authored_block_by_id(&geometry.0, id) else {
+            continue;
+        };
         // TWO block families, and which one was struck decides what comes out.
         // A quasar block yields the quasar to ANY form, because being briefly
         // untouchable is not a rung on the power ladder (Jon: "a quasar is not
         // part of the wand -> lantern item progression. Any form of maryo should
         // be able to get the quasar").
-        let Some((i, reward_of)) = crate::power_block_index_for(id)
-            .map(|i| (i, RewardSource::PowerLadder))
-            .or_else(|| crate::quasar_block_index_for(id).map(|i| (i, RewardSource::Quasar)))
-        else {
-            continue;
+        let reward_of = match crate::ldtk_vocabulary::block_kind_of(&block.name) {
+            Some(crate::ldtk_vocabulary::MaryOBlockKind::Power) => RewardSource::PowerLadder,
+            Some(crate::ldtk_vocabulary::MaryOBlockKind::Quasar) => RewardSource::Quasar,
+            // A brick is `bricks::break_bricks`' business, and anything else is
+            // ordinary level geometry.
+            _ => continue,
         };
+        let block_aabb = block.aabb;
         if spent.is_spent(id) {
             continue;
         }
@@ -449,13 +461,11 @@ pub fn bonk_power_blocks(
         // itself would lift a body standing on it — so this only says WHAT was
         // struck, keyed by the name both halves already share.
         struck.write(ambition_platformer2d::platformer::block_nudge::BlockStruck::new(id.clone()));
-        // The reward pops out resting on the block's top face (screen up = -y).
-        let min = match reward_of {
-            RewardSource::Quasar => crate::quasar_block_min(i),
-            RewardSource::PowerLadder => crate::power_block_min(i),
-        };
         // It starts INSIDE the block and rises out — the beat Jon asked for.
-        let pos = ae::Vec2::new(min.x + crate::T * 0.5, min.y + crate::T * 0.5);
+        // ⭐ **from the block's OWN centre**, so a block the author dragged pops
+        // its reward where it now sits. This used to be `power_block_min(i)`, the
+        // position the constants claimed.
+        let pos = (block_aabb.min + block_aabb.max) * 0.5;
         let popped = spawn_moving_world_item(
             &mut commands,
             // ⭐ **it starts INSIDE the block and climbs out.** Spawned at the
@@ -1339,10 +1349,38 @@ mod tests {
 
     /// A head-bonk on a ?-block pops exactly one wand, matched by the block's
     /// durable `GeoId` on the contact — and a spent block never pops again.
+    ///
+    /// ⭐ **it bonks a REAL AUTHORED BLOCK now.** The fixture used to invent a
+    /// contact carrying `power_block_id(0)`, an id reconstructed from a constant
+    /// array — so it proved the runtime agreed with the constants, which is not
+    /// the question any more. It loads the level, takes the first block the
+    /// AUTHOR marked as a ?-block, and hits that.
     #[test]
     fn a_head_bonk_on_a_power_block_pops_one_wand_once() {
+        use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
+
+        let room = crate::level_1_1();
+        let struck_id = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| {
+                crate::ldtk_vocabulary::block_kind_of(&b.name)
+                    == Some(crate::ldtk_vocabulary::MaryOBlockKind::Power)
+            })
+            .expect("the level authors a ?-block")
+            .id
+            .clone();
+
         let mut app = App::new();
         app.init_resource::<SpentPowerBlocks>();
+        let mut scope = ActiveSessionScope::default();
+        let session = scope.begin();
+        app.insert_resource(scope);
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ae::RoomGeometry(room.world.clone()),
+        ));
         // The bonk announces the strike so the render layer can flinch the block;
         // an unregistered message fails parameter validation rather than being
         // ignored, so even a fixture that draws nothing has to declare it.
@@ -1359,7 +1397,7 @@ mod tests {
                 surface_velocity: ae::Vec2::ZERO,
                 source: ContactSource::Block {
                     kind: ae::BlockKind::Solid,
-                    id: crate::power_block_id(0),
+                    id: struck_id,
                 },
             });
         app.world_mut().spawn((PrimaryPlayer, frame));

@@ -55,6 +55,13 @@ const FIRE_ID: &str = "mary_o_fire";
 struct Loop {
     app: App,
     body: Entity,
+    /// The AUTHORED ?-block this harness bonks.
+    ///
+    /// ⛔ it used to be `power_block_id(0)`, an id reconstructed from a Rust
+    /// column array — which stopped naming anything the moment the level became
+    /// authored. The harness loads the real level and takes the first block the
+    /// AUTHOR marked as a ?-block, so what it hits is what a player would.
+    struck: ae::GeoId,
 }
 
 impl Loop {
@@ -65,6 +72,23 @@ impl Loop {
             ..Default::default()
         });
         app.init_resource::<SpentPowerBlocks>();
+        // The bonk handler asks the ROOM what it hit, so the room has to be here.
+        let room = ambition_demo_mary_o::level_1_1();
+        let struck = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| {
+                ambition_demo_mary_o::ldtk_vocabulary::block_kind_of(&b.name)
+                    == Some(ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockKind::Power)
+            })
+            .expect("the level authors a ?-block")
+            .id
+            .clone();
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ae::RoomGeometry(room.world.clone()),
+        );
         // `sync_grown_form` now voices a transform chime through `SfxWriter`.
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
@@ -108,7 +132,7 @@ impl Loop {
             )
                 .chain(),
         );
-        Self { app, body }
+        Self { app, body, struck }
     }
 
     /// Head-bonk the level's first ?-block, exactly as the movement phase reports
@@ -138,7 +162,7 @@ impl Loop {
                 surface_velocity: ae::Vec2::ZERO,
                 source: ContactSource::Block {
                     kind: ae::BlockKind::Solid,
-                    id: ambition_demo_mary_o::power_block_id(0),
+                    id: self.struck.clone(),
                 },
             });
         self.app.update();

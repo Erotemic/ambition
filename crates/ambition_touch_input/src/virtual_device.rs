@@ -218,7 +218,7 @@ impl Buttonlike for TouchStickDirection {
     }
 }
 
-const ALL_TOUCH_BUTTONS: [TouchActionButton; 12] = [
+pub(crate) const ALL_TOUCH_BUTTONS: [TouchActionButton; 12] = [
     TouchActionButton::Jump,
     TouchActionButton::Attack,
     TouchActionButton::Special,
@@ -277,7 +277,10 @@ fn set_touch_button(world: &mut World, action: TouchActionButton, held: bool) {
 /// The declared touch binding table: which `Platformer2dInputActionMonolith`s each virtual
 /// control feeds. Multi-action rows are the honest form of what used to be
 /// hidden branches (Jump/Interact confirm menus; Reset backs out).
-pub fn touch_bindings() -> Vec<(ambition_input::Platformer2dInputActionMonolith, TouchVirtualButton)> {
+pub fn touch_bindings() -> Vec<(
+    ambition_input::Platformer2dInputActionMonolith,
+    TouchVirtualButton,
+)> {
     use ambition_input::Platformer2dInputActionMonolith as A;
     use TouchActionButton as B;
     vec![
@@ -295,6 +298,18 @@ pub fn touch_bindings() -> Vec<(ambition_input::Platformer2dInputActionMonolith,
         // the keyboard/gamepad bindings feed.
         (A::Utility, TouchVirtualButton(B::FlyToggle)),
         (A::QuickAction, TouchVirtualButton(B::Shield)),
+        // ⛔ **`Modifier` was MISSING here until 2026-08-04, and the button was
+        // drawn the whole time.** `touch_button_slot` maps it to
+        // `ControlSlot::Modifier`, so a scheme carrying that slot made the button
+        // available, labelled from the scheme, and hit-testable — with nothing to
+        // send. Keyboard binds it (`presets.rs`, X on the default preset) and
+        // gamepad binds it (LeftTrigger2); touch bound nothing.
+        //
+        // ⭐ **that is Mary-O's RUN button.** Her published prompt is exactly
+        // `Jump`, `Modifier` "Run", `Interact` (queue D15c), so on a phone she
+        // could not run — the one verb a Mario-like is unplayable without. Jon
+        // plays on a Pixel 5.
+        (A::Modifier, TouchVirtualButton(B::Modifier)),
         (A::Start, TouchVirtualButton(B::Start)),
         (A::Reset, TouchVirtualButton(B::Reset)),
         (A::MenuBack, TouchVirtualButton(B::Reset)),
@@ -308,10 +323,16 @@ pub fn touch_bindings() -> Vec<(ambition_input::Platformer2dInputActionMonolith,
 /// the write does not re-trigger this system into duplicate bindings.
 pub fn bind_touch_virtual_inputs(
     mut maps: Query<
-        &mut leafwing_input_manager::prelude::InputMap<ambition_input::Platformer2dInputActionMonolith>,
+        &mut leafwing_input_manager::prelude::InputMap<
+            ambition_input::Platformer2dInputActionMonolith,
+        >,
         (
             With<ambition_input::InputParticipant>,
-            Changed<leafwing_input_manager::prelude::InputMap<ambition_input::Platformer2dInputActionMonolith>>,
+            Changed<
+                leafwing_input_manager::prelude::InputMap<
+                    ambition_input::Platformer2dInputActionMonolith,
+                >,
+            >,
         ),
     >,
 ) {

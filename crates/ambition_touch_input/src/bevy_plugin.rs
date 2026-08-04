@@ -2067,6 +2067,43 @@ mod prompt_tests {
         );
     }
 
+    /// **Every button the overlay can DRAW can also be PRESSED.**
+    ///
+    /// Two tables decide a touch button's life and they lived in different files:
+    /// `touch_button_slot` says which `ControlSlot` it labels — and therefore
+    /// whether it is shown and hit-tested at all — while
+    /// `virtual_device::touch_bindings` says what pressing it sends. Nothing tied
+    /// them together, so a button could have a slot and no binding: drawn,
+    /// labelled from the scheme, tappable, inert.
+    ///
+    /// ⛔ **`Modifier` was exactly that until 2026-08-04, and it is Mary-O's RUN
+    /// button** (her prompt is `Jump`, `Modifier` "Run", `Interact` — queue
+    /// D15c). Keyboard and gamepad both bound it; touch did not. On a phone she
+    /// could not run.
+    ///
+    /// ⚠ the implication only runs ONE way. `Start` and `Reset` are bound and
+    /// carry no gameplay slot, which is correct — they are shell verbs.
+    #[test]
+    fn every_button_the_overlay_can_draw_can_also_be_pressed() {
+        let bound: std::collections::HashSet<TouchActionButton> =
+            crate::virtual_device::touch_bindings()
+                .into_iter()
+                .map(|(_, button)| button.0)
+                .collect();
+        for action in crate::virtual_device::ALL_TOUCH_BUTTONS {
+            if touch_button_slot(action).is_none() {
+                continue; // no gameplay slot: never labelled from a scheme
+            }
+            assert!(
+                bound.contains(&action),
+                "{action:?} carries a ControlSlot, so the overlay draws it, \
+                 labels it from the subject's scheme and hit-tests it — but \
+                 `touch_bindings` sends nothing when it is pressed. A button \
+                 that lies about being a control is worse than a missing one"
+            );
+        }
+    }
+
     /// **A menu that names no confirm verb still labels its buttons honestly** —
     /// the Sanic case, and the one that actually bit.
     ///

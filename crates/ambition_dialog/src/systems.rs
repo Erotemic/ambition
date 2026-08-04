@@ -138,8 +138,20 @@ pub fn dialog_pointer_input(
                 dialogue.pointer_armed = update.pointer_armed;
                 dialogue.focus = update.focus;
                 dialogue.last_pointer_position = update.last_pointer_position;
+                // A mouse button released over the row it pressed reports
+                // `Hovered`, not `None`.
+                if dialogue.row_press.release(index, cursor_position) == Some(index) {
+                    dialogue.selected_option = index;
+                    dialogue.confirm_or_advance();
+                    return;
+                }
             }
             Interaction::Pressed => {
+                // ⭐ **press SELECTS and ARMS; it no longer confirms.** Activating
+                // on press is what forced touch into two-tap mode: a finger that
+                // lands on a row and then slides has already fired it. Now the
+                // row highlights, the press is remembered, and a drag can still
+                // cancel it — see `RowPress`.
                 let update = resolve_selectable_row_interaction(
                     interaction,
                     index,
@@ -153,12 +165,27 @@ pub fn dialog_pointer_input(
                 dialogue.pointer_armed = update.pointer_armed;
                 dialogue.focus = update.focus;
                 dialogue.last_pointer_position = cursor_position;
+                dialogue.row_press.press(index, cursor_position);
+                // ⚠ a tap mode that ALREADY confirms on press (the desktop
+                // single-tap policies) is honoured — this change is about not
+                // NEEDING the two-tap promotion, not about overriding a user's
+                // explicit choice.
                 if update.outcome == RowPointerOutcome::Confirmed {
+                    dialogue.row_press.clear();
                     dialogue.confirm_or_advance();
                 }
                 return;
             }
-            Interaction::None => {}
+            // The pointer came UP on this row (Bevy has no `Released`: a lifted
+            // finger reports `None`, a lifted mouse button reports `Hovered`, and
+            // the `Changed` filter is what makes the transition visible).
+            Interaction::None => {
+                if dialogue.row_press.release(index, cursor_position) == Some(index) {
+                    dialogue.selected_option = index;
+                    dialogue.confirm_or_advance();
+                    return;
+                }
+            }
         }
     }
 }
@@ -177,15 +204,24 @@ pub fn dialog_pointer_input() {}
 #[cfg(feature = "input")]
 fn effective_dialog_tap_mode(
     configured: MenuTapMode,
-    active_input: Option<ActiveInputKind>,
+    _active_input: Option<ActiveInputKind>,
 ) -> MenuTapMode {
-    if active_input == Some(ActiveInputKind::Touch)
-        && configured == MenuTapMode::SingleTapWithDestructiveGuard
-    {
-        MenuTapMode::TapToSelectThenConfirm
-    } else {
-        configured
-    }
+    // ⛔ **the touch PROMOTION is gone (2026-08-04).** This used to upgrade
+    // `SingleTapWithDestructiveGuard` to `TapToSelectThenConfirm` whenever the
+    // active input was touch, so every dialogue choice on a phone cost two
+    // deliberate taps. It existed for one reason: activation happened on PRESS,
+    // so a finger that landed on a row and then slid had already chosen it.
+    //
+    // ⭐ activation is on RELEASE now, with a drag cancelling the press
+    // (`ambition_ui_nav::RowPress`) — so a slide is navigation and a tap is a
+    // choice, and the promotion has nothing left to protect against. Jon, from a
+    // Pixel 5: dialogue *"is frustrating and error prone"*, and two taps per
+    // choice was the frustration.
+    //
+    // ⚠ the argument stays so the signature still says the device is part of
+    // this decision. A game that WANTS two-tap on touch should say so in its
+    // configured mode, not have it imposed.
+    configured
 }
 
 #[cfg(feature = "input")]
@@ -299,25 +335,58 @@ mod tests {
         dialogue
     }
 
+    /// **Touch keeps the configured policy — and drag safety comes from RELEASE.**
+    ///
+    /// ⛔ **this test used to assert the opposite**, because the behaviour was the
+    /// opposite: touch was promoted to `TapToSelectThenConfirm`, which is two
+    /// deliberate taps per dialogue choice on a phone. That promotion existed
+    /// only because activation happened on PRESS, so a finger that landed and
+    /// slid had already chosen.
+    ///
+    /// ⚠ **rewritten rather than deleted, because the guarantee it protected is
+    /// still owed** — a drag must not activate. That is now `RowPress`'s job, and
+    /// the second half of this test is where it is asserted, so removing the
+    /// promotion cannot quietly remove the safety with it.
     #[test]
-    fn direct_touch_uses_drag_safe_tap_policy_without_changing_mouse_or_explicit_single_tap() {
-        assert_eq!(
-            effective_dialog_tap_mode(
+    fn touch_keeps_its_configured_tap_policy_and_a_drag_still_cannot_activate() {
+        for kind in [ActiveInputKind::Touch, ActiveInputKind::Mouse] {
+            for configured in [
                 MenuTapMode::SingleTapWithDestructiveGuard,
-                Some(ActiveInputKind::Touch),
-            ),
-            MenuTapMode::TapToSelectThenConfirm,
-        );
+                MenuTapMode::SingleTap,
+                MenuTapMode::TapToSelectThenConfirm,
+            ] {
+                assert_eq!(
+                    effective_dialog_tap_mode(configured, Some(kind)),
+                    configured,
+                    "{kind:?} must not have a tap policy imposed on it — a game \
+                     that wants two-tap says so in its configured mode"
+                );
+            }
+        }
+
+        // The safety the promotion used to buy, where it lives now.
+        let mut press = ambition_ui_nav::RowPress::default();
+        press.press(2, Some(bevy::prelude::Vec2::new(100.0, 100.0)));
         assert_eq!(
-            effective_dialog_tap_mode(
-                MenuTapMode::SingleTapWithDestructiveGuard,
-                Some(ActiveInputKind::Mouse),
-            ),
-            MenuTapMode::SingleTapWithDestructiveGuard,
+            press.release(2, Some(bevy::prelude::Vec2::new(101.0, 102.0))),
+            Some(2),
+            "a thumb rolls a pixel or two on a real tap and that is still a tap"
         );
+
+        let mut dragged = ambition_ui_nav::RowPress::default();
+        dragged.press(2, Some(bevy::prelude::Vec2::new(100.0, 100.0)));
         assert_eq!(
-            effective_dialog_tap_mode(MenuTapMode::SingleTap, Some(ActiveInputKind::Touch)),
-            MenuTapMode::SingleTap,
+            dragged.release(2, Some(bevy::prelude::Vec2::new(100.0, 400.0))),
+            None,
+            "a finger that pressed a row and then scrolled the list chose nothing"
+        );
+
+        let mut wandered = ambition_ui_nav::RowPress::default();
+        wandered.press(2, Some(bevy::prelude::Vec2::new(100.0, 100.0)));
+        assert_eq!(
+            wandered.release(5, Some(bevy::prelude::Vec2::new(100.0, 100.0))),
+            None,
+            "releasing over a DIFFERENT row than the one pressed activates neither"
         );
     }
 

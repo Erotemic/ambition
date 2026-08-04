@@ -17,5 +17,5 @@ pub use list::scroll_into_view;
 pub use list::visible_window_start;
 pub use pointer::{
     resolve_selectable_row_interaction, DialogChoiceSlot, MenuFocusOwner, MenuFocusState,
-    RowPointerOutcome,
+    RowPointerOutcome, RowPress, ROW_TAP_SLOP_PX,
 };

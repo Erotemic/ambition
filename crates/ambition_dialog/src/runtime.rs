@@ -113,6 +113,9 @@ pub struct DialogState {
     /// Used to ignore stationary hover when the option list scrolls
     /// underneath the mouse.
     pub(crate) last_pointer_position: Option<Vec2>,
+    /// The row a finger or cursor went DOWN on, armed until it comes up. See
+    /// `ambition_ui_nav::RowPress` for why activation moved to release.
+    pub(crate) row_press: ambition_ui_nav::RowPress,
 
     /// Pending request: `Some((dialogue_id, npc_name))` until a
     /// dispatch system drains it and calls `runner.start_node`.
@@ -213,6 +216,7 @@ impl DialogState {
         self.yarn_option_ids.clear();
         self.selected_option = 0;
         self.pointer_armed = None;
+        self.row_press.clear();
         self.focus = MenuFocusState::default();
         self.last_pointer_position = None;
         self.pending_start = Some(PendingStart {

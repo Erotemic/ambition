@@ -3,7 +3,7 @@
 //! `MenuTapMode` (from `ambition_input::settings`) to a Bevy `Interaction` to
 //! decide hover-vs-select-vs-activate.
 
-use bevy::prelude::Interaction;
+use bevy::prelude::{Interaction, Vec2};
 
 use ambition_input::settings::{MenuPointerPress, MenuTapMode};
 
@@ -49,6 +49,81 @@ impl MenuFocusState {
     pub fn mark_pointer(&mut self, index: usize) {
         self.owner = MenuFocusOwner::Pointer;
         self.last_hovered_row = Some(index);
+    }
+}
+
+/// **The row a pointer went DOWN on, and where.**
+///
+/// ⛔ **activating on PRESS is why touch needed two taps.** A finger that
+/// presses a row and then slides — scrolling a list, moving a stick — has
+/// activated it the moment it landed, so the only way to make dragging safe was
+/// to promote touch to tap-to-select-then-confirm. Jon reported the result from
+/// a Pixel 5: dialogue *"is frustrating and error prone"* because every choice
+/// costs two deliberate taps.
+///
+/// ⭐ **release-with-drag-cancel is the primitive that removes the need for the
+/// promotion**, and this repo already had it — the kaleidoscope menu's
+/// `kaleidoscope_pointer_press`/`_release` pair arms an action at press,
+/// cancels it past a drag threshold, and dispatches on release. That is the
+/// behaviour, lifted to the shared row vocabulary so dialogue and every other
+/// selectable list get it rather than one menu (GPT 5.6 review, 2026-08-04).
+///
+/// ⚠ **the identity is the ROW INDEX, not an entity.** A windowed list rebuilds
+/// its rows between press and release, so an entity-keyed arm would be a dangling
+/// handle by the time the finger lifts — the same reason the kaleidoscope stores
+/// the ACTION at press rather than the entity.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct RowPress {
+    /// The row index the pointer went down on.
+    pub index: Option<usize>,
+    /// Where it went down, for the drag test. `None` when the backend could not
+    /// say, in which case a drag cannot be detected and release still activates —
+    /// no position is not evidence of a drag.
+    pub origin: Option<Vec2>,
+    /// The pointer travelled past the threshold: this press is dead and will not
+    /// activate, however it ends.
+    pub cancelled: bool,
+}
+
+/// How far a pointer may travel between press and release and still count as a
+/// tap, in logical pixels.
+///
+/// ⚠ generous on purpose. A thumb rolls several pixels on a deliberate tap, and
+/// a threshold tuned on a mouse turns real taps into ignored drags — which reads
+/// as an unresponsive UI, the failure this whole change exists to remove.
+pub const ROW_TAP_SLOP_PX: f32 = 16.0;
+
+impl RowPress {
+    /// A pointer went down on `index` at `origin`.
+    pub fn press(&mut self, index: usize, origin: Option<Vec2>) {
+        self.index = Some(index);
+        self.origin = origin;
+        self.cancelled = false;
+    }
+
+    /// The pointer moved. Past [`ROW_TAP_SLOP_PX`] this press stops being a tap.
+    pub fn moved(&mut self, to: Option<Vec2>) {
+        if let (Some(origin), Some(to)) = (self.origin, to) {
+            if origin.distance(to) > ROW_TAP_SLOP_PX {
+                self.cancelled = true;
+            }
+        }
+    }
+
+    /// The pointer came up. Returns the row to activate, if this press survived
+    /// as a tap ON THE SAME ROW, and clears the arm either way.
+    pub fn release(&mut self, index: usize, at: Option<Vec2>) -> Option<usize> {
+        self.moved(at);
+        let armed = self.index.take();
+        let cancelled = std::mem::take(&mut self.cancelled);
+        self.origin = None;
+        (!cancelled && armed == Some(index)).then_some(index)
+    }
+
+    /// Abandon the press without activating — the row went away, the menu
+    /// closed, the finger left the control.
+    pub fn clear(&mut self) {
+        *self = Self::default();
     }
 }
 

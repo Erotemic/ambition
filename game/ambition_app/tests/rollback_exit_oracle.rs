@@ -1703,6 +1703,21 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
             "bevy_state::state::transitions::StateTransitionEvent<ambition_platformer2d_shared_tangle::schedule::GameMode>",
             "bevy's state machinery; a mode transition is a frame-level fact the sim              never reads",
         ),
+        (
+            "ambition_platformer2d_shared_tangle::block_nudge::BlockStruck",
+            "the flinch is PRESENTATION and has exactly one reader: \
+             `flinch_struck_blocks`, registered in `Update` in the render plugin, \
+             which writes only a `Transform` on a `BlockVisual` and a `BlockFlinch` \
+             that nothing outside presentation reads, on the WALL clock. A stale \
+             cursor can make a block flinch twice or not at all; it cannot reach \
+             the simulation, because the block's geometry is authoritative and \
+             static by design (see `block_nudge`'s module doc: moving the box \
+             would lift a body standing on it and give a rollback an animation to \
+             rewind). ⚠ this argument is UNCONDITIONAL rather than \
+             host-conditional: under a `RenderFrame` host `Update` would be the sim \
+             schedule, but that host has no GGRS at all, so there is no rollback \
+             for a cursor to be stale across",
+        ),
     ];
 
     let mut sim = oracle_sim();

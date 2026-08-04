@@ -2,14 +2,29 @@
 
 **Status: PROPOSED — awaiting Jon's review. Nothing here is implemented.**
 
+> ⛔ **CORRECTED 2026-08-04, before review, and the correction is most of the
+> value.** The first draft concluded that five of Mary-O's concepts were BLOCKED
+> on an engine change. **They are not.** I found the gap by reading type
+> definitions — closed enums, no extension slot — and did not check what the
+> shipped code does about it. **Sanic already authors exactly this class of thing
+> in LDtk today**: its monitor boxes are named `Solid` entities, and
+> `break_monitor_boxes` matches them by `block.name` (`monitors.rs:119`), with
+> breakage fed back through the collision overlay's `removed_block_names`. A
+> monitor box IS a ?-block. The engine gap in §2 is real, but it is a **taste**
+> question about where a payload lives, not a blocker — see §4, rewritten.
+> ⚠ the lesson for me: a closed enum proves the *typed* channel is closed, not
+> that the concept is inexpressible. Verify a "blocked" finding against the code
+> that ships, by a different route.
+
 Raised by Jon, 2026-08-04: *"I would like to make maryo an ldtk level so I can
 manually play with it and lay it out. That means it needs to have the right
 entities exposed for it and make it easy to author in."* — and then: think about
 what makes this hard vs easy, and whether an engine change would make it better.
 
-This document answers that. **Short version: about two thirds of Mary-O 1-1 can
-move to LDtk today with no engine change at all, and the remaining third is
-blocked by one specific gap that is worth fixing properly.**
+This document answers that. **Short version: all of Mary-O 1-1 can move to LDtk
+with no engine change. What has to change is Mary-O's own runtime, which today
+re-derives the level from Rust constants instead of reading it. There is one
+genuine engine wart underneath, and it can be decided later, with experience.**
 
 ---
 
@@ -37,7 +52,7 @@ and an LDtk *entity* gets `GeoSource::Placement` (`surfaces.rs:324`). The match
 would simply stop firing. No error, no bonk, no wand.
 
 **The one-sentence version: Mary-O's level is written in Rust not because nobody
-got round to LDtk, but because the vocabulary she needs cannot be authored.**
+got round to LDtk, but because her RUNTIME reads constants, not the level.**
 
 ## 2. The gap, precisely
 
@@ -54,12 +69,28 @@ one general channel — `placements: Vec<PlacementRecord>` — carries
 `RoomSpec` and `Block` have no extension slot either.
 
 So the door is open and the room behind it is engine-only. A game-specific
-authored concept — *a block that contains a wand*, *a pipe that warps to **that**
-pipe*, *the flagpole that ends the level* — has nowhere to land.
+authored *payload* — "this block contains a wand" — has no **typed** place to
+land.
 
-⚠ **This is also why the engine keeps being asked to absorb one game's nouns.**
+⚠ **But it does have an UNTYPED one, and it ships.** An authored block keeps its
+`name`, and the name is a game-readable channel: Sanic's `break_monitor_boxes`
+does `block.name.starts_with("monitor_")` then `block.name == "monitor_super"`
+(`monitors.rs:119`, `:129`) to decide which powerup a broken box grants — one
+game's noun, authored in LDtk, with no engine vocabulary for it at all. Breaking
+it is fed back through the collision overlay's `removed_block_names`
+(`monitors.rs:235`), which is the same mechanism Mary-O's bricks would want.
+
+So the accurate statement of the gap is narrower than the first draft claimed:
+**an authored block carries a name and nothing else** — `Block` is
+`{id, name, aabb, kind, velocity, art_color}` (`world.rs:50`), and a Surface
+entity's custom fields are consumed by `parse_surface_spec` and never reach the
+runtime. A game that wants structured authored data on a block must encode it in
+the name string.
+
+⚠ **This is still why the engine keeps being asked to absorb one game's nouns.**
 The pressure that produced `PickupKind`, `ChestSpec` and friends is the same
-pressure; the enum grows because it is the only place anything can go.
+pressure; the typed enum grows because it is the only *typed* place anything can
+go, and everything else becomes a name convention.
 
 ## 3. What is FREE today (and I would do this regardless)
 
@@ -83,83 +114,91 @@ special blocks. **Sanic is the proven template for the shape** — spatial layou
 in the demo's own `.ldtk`, generated once by a script, with the parts LDtk has no
 vocabulary for grafted on in Rust after load (`demo_sanic/src/lib.rs:14`).
 
-## 4. What is NOT free — the decision
+## 4. The five special concepts — expressible today, with one wart
 
-Five concepts have no authoring path: **?-block, brick, quasar block, warp pipe,
-flagpole goal.** All five are the same shape: *authored geometry that carries
-game-defined meaning and must be addressable by the runtime after the author has
-moved it.*
+**?-block, brick, quasar block, warp pipe, flagpole goal.** All five are the same
+shape: *authored geometry carrying game-defined meaning, which the runtime must
+still find after the author has moved it.*
 
-The identity half is **already solved** and worth saying plainly: an
-entity-authored surface gets `GeoId::placement(PlacementId(iid))`, the LDtk iid
-survives moves and edits, and `ContactSource::Block` already reports the struck
-block's `GeoId`. **What is missing is only the payload** — nowhere to author
-"this one contains a wand" — and a way for the game to read its own records back.
+Both halves are already available:
+
+- **Identity.** An entity-authored surface gets
+  `GeoId::placement(PlacementId(iid))` (`surfaces.rs:324`); the LDtk iid survives
+  moves and edits. And the block keeps its authored `name`.
+- **Meaning.** The game matches on the name. This is not a workaround I invented
+  for this document — it is what Sanic ships for the same problem
+  (`monitors.rs:119`).
+
+So Mary-O's blocks become named `Solid` entities added AFTER `area create`, for
+the reason Sanic's generator already states in so many words: *"Monitors stay
+ENTITY instances (never IntGrid): the demo identifies them as named blocks to
+break + grant, so `area create`'s static-collision lowering must not eat their
+names."* That comment is the whole design, already written down.
+
+⭐ **Mary-O keeps her BETTER detection.** Sanic overlap-tests every block against
+the player each frame; Mary-O matches a real head-bonk contact
+(`ContactSource::Block` carries the struck `GeoId`, and her comment calls out
+"with no point-matching" as the point). She keeps that and adds one lookup:
+`GeoId` → the block → its name. Contact precision plus authored identity.
 
 ⚠ note the split that falls out: **terrain must be IntGrid** (tiled art,
-paintable) and **special blocks must be entities** (durable iid). IntGrid blocks
-are keyed by a *row-major merge ordinal*, which renumbers when you paint a cell,
-so an IntGrid ?-block could never hold an identity. That is not a compromise; it
-is the engine's existing design being right.
+paintable) and **special blocks must be entities** (durable identity, name
+preserved). IntGrid blocks are keyed by a *row-major merge ordinal*, which
+renumbers when you paint a cell, so an IntGrid ?-block could never hold an
+identity. That is not a compromise; it is the engine's existing design being
+right, and `area create` does the entity→IntGrid lowering for terrain so nothing
+has to be hand-painted.
 
-### Option A — extend the engine enums
+### The wart, stated plainly
 
-Add `PlacementSchema::PowerBlock`, `::WarpPipe`, `::Flagpole`.
+**An authored block carries a name and nothing else.** A ?-block that contains a
+wand has to say so *in its name* — `power_block_wand_0` — and warp-pipe pairing
+has to be a shared name suffix. That is stringly-typed, and it is the honest cost
+of doing this with no engine change.
 
-⛔ **I recommend against it.** These are one game's nouns. The engine would
-accumulate every game's vocabulary, which is the pressure described in §2 given
-its way, and it contradicts the federation direction ADR 0032 just established
-for content schemas. It also does not scale to the next demo.
+Three ways to remove it, if and when it earns removal:
 
-### Option B — one opaque game channel on the room
+- **A — extend the engine enums** (`PlacementSchema::PowerBlock`, …).
+  ⛔ **Recommend against.** These are one game's nouns; the engine would
+  accumulate every game's vocabulary, and it contradicts the federation direction
+  ADR 0032 just set for content schemas.
+- **B — one opaque game channel**: `RoomSpec` gains
+  `authored: Vec<{id, kind, aabb, fields}>` the engine carries and never
+  interprets. Small and honest; still untyped, but *structured* and validated at
+  the game's own load.
+- **C — open `PlacementKind` from an enum to an id**, with a game-registered
+  lowering interpreter. The mechanism is already the stated direction: the
+  placements channel is *"the schema-over-record channel every family converges
+  onto"* and records are *"inert until an interpreter is registered for their
+  kind"* (`conversion/mod.rs:409`). ⚠ but `PlacementKind::stable_id` is a declared
+  compatibility contract *"[that] may only change with a fingerprint-schema
+  bump"* (`placements.rs:441`), so a game-defined kind would need the collision
+  discipline content-pack schema ids already have.
 
-`RoomEmission`/`RoomSpec` gain a single `authored: Vec<AuthoredRecord>` where the
-record is `{ id: PlacementId, kind: String, aabb, fields }`. The engine carries
-it from LDtk to the room and **never interprets it**; the game reads its own
-records at load.
+⭐ **My recommendation is to decide none of these yet.** Author the level first
+with names, and let the wart argue for itself. If after a week of authoring the
+name conventions read fine, the engine change was never owed; if they read badly,
+you will know exactly which fields you wanted and B or C stops being a guess.
+Choosing an extension mechanism before there is a second user is how the closed
+enum in §2 got closed in the first place.
+## 5. Warp-pipe pairing, and what a name costs
 
-Small, and honest about what it is. The cost is a stringly-typed bag at the seam
-with nothing validating it.
+Pipe pairing is the one place the name convention is genuinely weaker than a
+typed field, so it is worth being concrete.
 
-### Option C — make the placements channel game-extensible ⭐ recommended
-
-Open `PlacementKind` from a closed enum to an id, and let a game register a
-**lowering interpreter** for its own kind.
-
-⭐ **The mechanism already exists and is already the stated direction.** The
-placements channel is documented as *"the schema-over-record channel every family
-converges onto"*, and records are explicitly *"inert until an interpreter is
-registered for their kind"* (`conversion/mod.rs:409`). Six engine families
-already converge there. The only thing making it engine-only is that the kind is
-an enum.
-
-This gets B's extensibility while keeping one channel, one registry, and one
-lowering path shared with the engine's own families — and it lands `?-block` and
-`brick` as *the same kind of thing* the engine already lowers, rather than beside
-it.
-
-⚠ **the honest cost, stated up front**: the closed enum is currently what makes a
-placement's construction schema stable, and `PlacementKind::stable_id` is a
-declared *"compatibility contract [that] may only change with a fingerprint-schema
-bump"* (`placements.rs:441`). Opening it means a game-defined kind participates in
-that identity, so kind ids need the same collision discipline content-pack schema
-ids have — plausibly by registering them **through the content pack**, which is
-where a capability already declares what it owns. That link is the part most
-worth your opinion.
-
-⚠ and `install_ldtk_entity_converters` is a process-global `OnceLock` whose
-endpoint is already written down as "should be an App resource selected through
-provider context" (queue G3). Mary-O would be its **first real user**. I would
-not fix that as part of this, but it stops being hypothetical.
-
-## 5. What entity refs buy for free
-
-LDtk supports entity references, and the engine already resolves one across the
+LDtk supports entity references and the engine already resolves one across the
 seam: `mount_links` carries `(rider_id, mount_id)` from an authored `mounted_on`
-ref (`conversion/mod.rs:401`). **That is exactly warp-pipe pairing.** Under
-option B or C a pipe authors `warp_to: <the other pipe>` and Jon can lay out a
-new pipe pair in the GUI with no code at all — where today the pairing is the
-order of a four-element Rust tuple list.
+ref (`conversion/mod.rs:401`). That is *exactly* the shape a pipe wants —
+`warp_to: <the other pipe>`, picked in the GUI, impossible to dangle.
+
+With names only, a pair is a shared suffix (`pipe_down_vault_a` ↔
+`pipe_up_vault_a`), which means: a typo pairs nothing, and only a load-time check
+catches it. **So write that check** — every pipe's partner must exist, refused
+loudly at load, which is §6's `every warp pipe's partner exists` invariant. That
+is the mitigation, and it is worth having regardless of how the pairing is
+expressed.
+
+⭐ If any single thing tips §4 toward B or C later, I expect it to be this one.
 
 ## 6. Consequence worth accepting deliberately
 
@@ -177,26 +216,32 @@ itself: those are the properties, and today they are only implied by constants.
 
 ## 7. What I would do, in order
 
-1. **Phase 1 — no engine change, no decision needed.** Author terrain, spawn,
-   zones, coins, enemies and props for 1-1 and 1-2 into
-   `game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk`, generated once by
-   `game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py` from today's
-   constants, then loaded and grafted exactly the way Sanic does. The five
-   special concepts stay Rust-side and keep working, unchanged.
-   **Jon can start laying out the level as soon as this lands.**
-2. **Decide §4.** If option C, the special blocks become authored entities, the
-   Rust constant tables and `FlagPole`'s mirrored resource are deleted rather
-   than kept in parallel, and the tests in §6 become invariants.
-3. Only then: pipes-by-reference, and 1-2's elevators.
+No step here waits on a decision from you.
 
-Phase 1 is not a throwaway step toward phase 2 — it is the same file, gaining
+1. **The file, and the terrain.** Author 1-1 and 1-2 into
+   `game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk`, generated from today's
+   constants by `game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py`, then
+   loaded and grafted the way Sanic does. Terrain, spawn, zones, coins, enemies,
+   props. The five special concepts stay Rust-side and keep working untouched.
+   **Jon can start laying the level out as soon as this lands.**
+2. **The special blocks, as named entities.** ?-block, brick, quasar block,
+   flagpole, pipes — moved one family at a time, each one deleting its Rust
+   constant table rather than running beside it. `FlagPole` becomes derived from
+   the loaded room instead of a mirrored `Resource`.
+3. **The invariants** of §6, replacing the three exact-layout pins.
+4. Then 1-2's elevators, and whatever §4 has earned by that point.
+
+Step 1 is not a throwaway toward step 2 — it is the same file, gaining
 vocabulary.
 
 ## 8. What I need from you
 
-- **§4: A, B, or C** — and if C, whether a game-defined placement kind should be
-  declared through the content pack (so kind ids get the collision discipline
-  schema ids already have) or registered directly at plugin-build time.
+- **Nothing, to start.** This is the change to §8 the correction made: steps 1–3
+  need no architecture decision, so I am doing them.
+- **§4 is a taste call I would rather you make with the level in front of you.**
+  When the name conventions are real — `power_block_wand_0`, a pipe pair sharing
+  a suffix — tell me whether they read fine or badly. Badly means B or C, and by
+  then we will know which fields we actually wanted instead of guessing.
 - Anything in §3 you would rather keep in Rust. I have assumed you want the
   terrain and the enemy/prop/coin placement in the GUI and do not care where the
   vault's coin loop lives.

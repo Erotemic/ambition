@@ -81,13 +81,21 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 PKG_DIR = Path(__file__).resolve().parents[1]
 SANDBOX_LDTK = default_sandbox_ldtk()
 VALIDATOR = PKG_DIR / "validate.py"
+# ⛔ **this path was three renames stale and the tool DIED on it.** It pointed
+# into `ambition_platformer2d_actor_monolith/src/world/ldtk_world/`, a tree that
+# has not existed since the LDtk code moved to its own crate — so
+# `def register-entity` wrote the entity definition into the .ldtk successfully
+# and then raised `FileNotFoundError`, leaving the caller with a non-zero exit and
+# a file that HAD been updated. A half-succeeded tool is worse than a failed one.
+#
+# ⚠ a hardcoded consumer path in a tool is the same class as the renderer
+# submodules that hardcode the consumer crate name: nothing compiles it, so a
+# rename cannot break it until someone runs the command.
 RUNTIME_RS = (
     REPO_ROOT
     / "crates"
-    / "ambition_platformer2d_actor_monolith"
+    / "ambition_platformer2d_ldtk"
     / "src"
-    / "world"
-    / "ldtk_world"
     / "bevy_runtime"
     / "plugin.rs"
 )
@@ -275,7 +283,25 @@ def patch_validator_known_entities(identifiers: list[str]) -> list[str]:
 
 
 def patch_runtime_identifiers(identifiers: list[str]) -> list[str]:
-    """Add `identifiers` to `bevy_runtime.rs::AMBITION_LDTK_ENTITY_IDENTIFIERS`."""
+    """Add `identifiers` to `bevy_runtime.rs::AMBITION_LDTK_ENTITY_IDENTIFIERS`.
+
+    ⛔ **ENGINE identifiers only.** That list mirrors `standard_converters()` and a
+    test pins the two equal, so adding a GAME's entity to it makes the engine
+    claim a vocabulary it cannot convert. A game registers its own nouns through
+    `install_ldtk_entity_converters` at plugin-build time and must not appear
+    here — `MaryOBlock` is the first such entity and the reason this note exists.
+
+    ⚠ the file being absent is a WARNING, not a crash. It used to be a hardcoded
+    path three renames stale, so `def register-entity` wrote the entity into the
+    .ldtk and then died — leaving a non-zero exit and a file that HAD been
+    changed. A half-succeeded tool is worse than a failed one.
+    """
+    if not RUNTIME_RS.exists():
+        print(
+            f"warning: {RUNTIME_RS} not found; skipped the engine identifier list. "
+            "If this is an ENGINE entity, that list now disagrees with the project."
+        )
+        return []
     text = RUNTIME_RS.read_text()
     match = re.search(
         r"pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &\[&str\] = &\[\s*([^]]+?)\];",

@@ -44,6 +44,7 @@ KNOWN_ENTITIES = {
     "KinematicPath",
     "LoadingZone",
     "LockWall",
+    "MaryOBlock",
     "MovingPlatform",
     "NpcSpawn",
     "OneWayPlatform",

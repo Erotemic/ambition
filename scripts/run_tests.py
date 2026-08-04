@@ -408,6 +408,41 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         jobs.append(Job("workspace (default features)",
                         [CARGO, "test", "--workspace", *libtest()]))
 
+    # ⭐ **the RENDER composition, which nothing else boots.** Every app-boot
+    # job in this plan is `--headless`, and so is every app-boot test in the
+    # workspace: the suite proves the SIMULATION composes and has never once
+    # proved the presentation does.
+    #
+    # That hole is the exact shape of the defects. On 2026-08-04 four
+    # param-validation panics sat in a row in `Update` systems of the render
+    # composition — a `Res<ResolvedVisualQuality>` with no owner installed, a
+    # `Res<ActiveShellSequence>` with no shell, a `MessageWriter` for an
+    # unregistered message — and the whole suite was green through all of them,
+    # because the shipped app installs everything and every acceptance cycle runs
+    # headless. They were found by hand, by someone who happened to want a
+    # picture (queue D16).
+    #
+    # `capture_scene` already builds that composition and already exits non-zero
+    # when a param fails to validate, so this needs no new test infrastructure —
+    # only for something to RUN it. It asks whether the app COMPOSES, not what it
+    # looks like, hence 320x180 and 20 warmup ticks.
+    #
+    # ⚠ **in the DEFAULT plan, not behind `--heavy`.** Opt-in coverage is what
+    # let `modules_md.py` sit with a check mode nothing ever called, and this
+    # repo's conclusion from that was "a guard nobody executes is not a guard."
+    # The class bit during ordinary work, so it runs during ordinary work; the
+    # cost is RUNTIME only, because `--workspace` above already builds this
+    # binary's graph.
+    # Whole-suite only: a `-p ambition_input` run has no business booting a
+    # renderer, and the filter's contract is that it plans that package's tests.
+    if not only:
+        jobs.append(Job("acceptance: the render composition draws a frame",
+                        [CARGO, "run", "-p", "ambition_app_tools",
+                         "--bin", "capture_scene", "--",
+                         "central_hub_complex", "player",
+                         "target/composition_boot.png", "320x180",
+                         "--warmup", "20"]))
+
     # Per-crate feature jobs: enable each crate's headless-safe extra features so
     # its #[cfg(feature = "...")] tests actually compile and run. Skipped under
     # --fast (backbone only). Big composition crates whose extra features gate no

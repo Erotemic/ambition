@@ -1941,6 +1941,76 @@ mod prompt_tests {
         assert!(touch_action_available(TouchActionButton::Start, &e));
     }
 
+    /// **Every button a dialogue SHOWS reads what it actually does.**
+    ///
+    /// Jon: *"it would be nice if we had a test that proved the on screen
+    /// buttons displayed the right text for the dialogue menu (i.e. accept /
+    /// back)… I know in sanic the button text doesn't match what the controls
+    /// really are."*
+    ///
+    /// Driven through the real systems — `update_button_verb_from_prompt` then
+    /// `render_touch_button_text` — so it asserts the rendered `Text`, not an
+    /// intermediate. And it asserts over the buttons that are LIVE, because a
+    /// stale label on a hidden button is invisible while a stale label on a
+    /// shown one is the complaint.
+    #[test]
+    fn every_button_a_dialogue_shows_reads_what_it_does() {
+        let confirm = "Advance";
+        let mut app = App::new();
+        app.insert_resource(menu_prompt(confirm));
+        app.add_systems(
+            Update,
+            (update_button_verb_from_prompt, render_touch_button_text).chain(),
+        );
+        // Seeded with GAMEPLAY verbs, which is the state a dialogue opens from:
+        // the player was just playing. A button that keeps one is the bug.
+        for (action, gameplay_label) in [
+            (TouchActionButton::Jump, "Jump"),
+            (TouchActionButton::Interact, "Talk"),
+            (TouchActionButton::Attack, "Atk"),
+            (TouchActionButton::Start, "Menu"),
+            (TouchActionButton::Reset, "Back"),
+        ] {
+            app.world_mut().spawn((
+                TouchActionLabel(action),
+                action,
+                ButtonVerb::Static(gameplay_label),
+                ButtonGlyph(Cow::Borrowed("")),
+                Text::new(gameplay_label),
+            ));
+        }
+        app.update();
+
+        let prompt_value = app.world().resource::<ControlPrompt>().clone();
+        let mut shown = app.world_mut().query::<(&TouchActionButton, &Text)>();
+        let mut seen = 0;
+        for (action, text) in shown.iter(app.world()) {
+            if !touch_action_live(*action, &prompt_value, false) {
+                continue; // hidden: its label is not on screen to be wrong
+            }
+            seen += 1;
+            let body = text.0.lines().next().unwrap_or_default().to_owned();
+            let expected = match action {
+                TouchActionButton::Jump | TouchActionButton::Interact => confirm,
+                TouchActionButton::Start => "Menu",
+                TouchActionButton::Reset => "Back",
+                other => panic!("{other:?} should not be visible in a dialogue"),
+            };
+            assert_eq!(
+                body, expected,
+                "{action:?} is on screen during a dialogue reading {body:?}, but \
+                 it does {expected:?} — a confirm button still wearing its \
+                 gameplay verb is a control that lies about itself"
+            );
+        }
+        assert!(
+            seen >= 3,
+            "the dialogue must SHOW something to confirm and something to go \
+             back with; only {seen} button(s) were live, which is the state that \
+             left a phone player with no way out but the corner back button"
+        );
+    }
+
     /// **The move stick is shown wherever it STEERS something**, which includes
     /// a menu or a dialogue — not only gameplay.
     ///

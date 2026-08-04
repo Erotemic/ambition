@@ -39,6 +39,9 @@ const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
 const MUSIC_REGISTRY_SOURCE_PATH: &str = "audio/music_registry.ron";
 const SFX_REGISTRY_SOURCE_PATH: &str = "audio/sfx_registry.ron";
 
+/// The authored encounter wave timelines.
+const ENCOUNTER_WAVES_SOURCE_PATH: &str = "data/encounters/goblin_encounter.ron";
+
 /// The authored item grid (compile-time include; the loose file stays on disk
 /// so the CLI and the Python tooling read the same bytes).
 pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
@@ -56,6 +59,10 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
             crate::character_catalog::CHARACTER_CATALOG_RON.to_string(),
         ),
         (ITEMS_SOURCE_PATH.to_string(), ITEMS_RON.to_string()),
+        (
+            ENCOUNTER_WAVES_SOURCE_PATH.to_string(),
+            crate::ENCOUNTER_WAVES_RON.to_string(),
+        ),
         (
             ARCHETYPES_SOURCE_PATH.to_string(),
             crate::enemy_roster::CHARACTER_ROSTER_RON.to_string(),

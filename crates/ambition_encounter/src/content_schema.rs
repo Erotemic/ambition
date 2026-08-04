@@ -1,0 +1,164 @@
+//! The `encounter_waves` authored-content schema, owned by this capability.
+//!
+//! ⛔ **this family had TWO readers of one file, which is the shape the content
+//! compiler exists to remove.** `AmbitionContentPlugin` did
+//! `ron::from_str(include_str!("…/goblin_encounter.ron")).expect(…)` at
+//! plugin-build time and handed the result to a process-global holder. So the
+//! pack could validate a file the runtime never consulted, and the runtime could
+//! panic on a file the pack never saw — with a serde message, at startup, in a
+//! game (GPT 5.6 review G3; authoring-loop program's `encounter waves` row).
+//!
+//! ⭐ **the migration is worth doing for what it FINDS, not for tidiness.** The
+//! program doc puts it plainly after `items.ron`: *"migrating a family finds bugs
+//! the old reader could not see."* `items.ron` turned out to be positional, so
+//! deleting one row silently re-authored twenty-three. The invariant below is
+//! this family's version of that question — **what can a wave book say that its
+//! own parser accepts and the runtime cannot use?**
+//!
+//! An encounter with NO waves parses perfectly and means something the author
+//! cannot have intended: the loader falls back to marker-derived spawns, which is
+//! exactly what omitting the key entirely does. An empty list is therefore a
+//! wordier way of writing nothing, and it reads as "this encounter has no mobs".
+
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use ambition_content_pack::{
+    CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome, FacetSource,
+    RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
+};
+
+use crate::spec::EncounterWaveSpec;
+
+/// The capability that owns every schema in this module.
+pub const ENCOUNTER_CAPABILITY: &str = "encounter";
+
+/// The authored FILE kind: a book of wave timelines keyed by trigger id.
+pub const ENCOUNTER_WAVES_SCHEMA: &str = "encounter_waves";
+
+/// The schema version this handler reads.
+pub const ENCOUNTER_WAVES_VERSION: SchemaVersion = SchemaVersion(1);
+
+/// What a prepared pack lowers a validated wave book to.
+pub type EncounterWaveBook = HashMap<String, Vec<EncounterWaveSpec>>;
+
+struct EncounterWavesSchema;
+
+impl ContentSchemaHandler for EncounterWavesSchema {
+    fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
+        let book: EncounterWaveBook = match ron::from_str(facet.text) {
+            Ok(book) => book,
+            Err(error) => {
+                // Match the ron VARIANT, not the message text — the message is a
+                // rendering detail and pinning it makes the diagnostic depend on
+                // ron's release notes.
+                let code = match error.code {
+                    ron::error::Error::NoSuchStructField { .. } => DiagnosticCode::UnknownField,
+                    _ => DiagnosticCode::MalformedSource,
+                };
+                out.report(facet.diagnostic(code, format!("{error}")));
+                return;
+            }
+        };
+
+        declare(facet, &book, out);
+
+        // LOWER only when clean — a caller must never receive a runtime value
+        // out of a pack that was refused.
+        if !out.failed() {
+            out.lower(book);
+        }
+    }
+}
+
+fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOutcome) {
+    // ⚠ iterate SORTED. A `HashMap`'s order is not defined, and a diagnostic list
+    // whose order changes between runs is one nobody can diff.
+    let mut ids: Vec<&String> = book.keys().collect();
+    ids.sort();
+
+    for id in ids {
+        let waves = &book[id];
+        let trimmed = id.trim();
+        if trimmed.is_empty() {
+            out.report(facet.diagnostic(
+                DiagnosticCode::MalformedSource,
+                "an encounter trigger id is empty; the loader looks waves up BY id, so a \
+                 nameless entry can never be found",
+            ));
+            continue;
+        }
+        if trimmed != id {
+            out.report(
+                facet
+                    .diagnostic(
+                        DiagnosticCode::MalformedSource,
+                        format!("the trigger id {id:?} has surrounding whitespace"),
+                    )
+                    .fix(
+                        "the loader matches the id VERBATIM against the level's trigger, so a \
+                         padded key compiles and is unreachable",
+                    ),
+            );
+        }
+
+        // ⛔ the invariant a serde parse cannot see.
+        if waves.is_empty() {
+            out.report(
+                facet
+                    .diagnostic(
+                        DiagnosticCode::MalformedSource,
+                        format!("encounter {trimmed:?} authors ZERO waves"),
+                    )
+                    .fix(
+                        "an encounter with no waves falls back to marker-derived spawns — \
+                         exactly what omitting the key does. Either author the waves or delete \
+                         the entry, so the file cannot claim a timeline it does not have",
+                    ),
+            );
+        }
+
+        for (index, wave) in waves.iter().enumerate() {
+            if wave.mobs.is_empty() {
+                out.report(
+                    facet
+                        .diagnostic(
+                            DiagnosticCode::MalformedSource,
+                            format!(
+                                "encounter {trimmed:?} wave {index} ({:?}) has no mobs",
+                                wave.label
+                            ),
+                        )
+                        .fix(
+                            "a wave with no mobs is CLEARED the instant it starts, so it reads \
+                             as a pause the encounter never actually takes",
+                        ),
+                );
+            }
+        }
+    }
+}
+
+/// The wave book a prepared pack lowered to, if it carries one — the runtime's
+/// load path, replacing `ron::from_str(include_str!(…))` at the call site.
+pub fn lowered_encounter_waves(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Option<&EncounterWaveBook> {
+    pack.lowered::<EncounterWaveBook>(&SchemaId::new(ENCOUNTER_WAVES_SCHEMA))
+}
+
+/// The encounter capability's registration, for a composition to install.
+pub fn encounter_waves_schema() -> SchemaRegistration {
+    SchemaRegistration {
+        id: SchemaId::new(ENCOUNTER_WAVES_SCHEMA),
+        version: ENCOUNTER_WAVES_VERSION,
+        capability: CapabilityId::new(ENCOUNTER_CAPABILITY),
+        disposition: RuntimeDisposition::Runtime,
+        doc: "Authored wave timelines keyed by encounter trigger id. An encounter absent from \
+              the book falls back to one wave assembled from its level's spawn markers.",
+        handler: Arc::new(EncounterWavesSchema),
+    }
+}
+
+#[cfg(test)]
+mod tests;

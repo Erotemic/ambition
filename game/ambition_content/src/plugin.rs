@@ -103,11 +103,17 @@ impl Plugin for AmbitionContentPlugin {
         // Install authored encounter wave timelines (goblin mob-lab, …) into the
         // machinery lib's wave book before the encounter loader runs — the engine
         // hard-codes no encounter's waves.
+        // ⭐ **from the PREPARED PACK, not a second parse of the same file.**
+        // This was `ron::from_str(include_str!(..)).expect(..)` — so the pack
+        // could validate bytes the runtime never consulted, and a malformed file
+        // reached a player as a serde panic at startup instead of a compile
+        // diagnostic. The `encounter_waves` schema owns the reading now, and its
+        // check refuses things a parse accepts: an encounter with zero waves, a
+        // wave with no mobs, a trigger id the verbatim lookup can never match.
         ambition_encounter::install_encounter_waves(
-            ron::from_str(include_str!(
-                "../assets/data/encounters/goblin_encounter.ron"
-            ))
-            .expect("goblin_encounter.ron should parse as an encounter wave book"),
+            ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
+                .cloned()
+                .expect("the encounter schema lowers its book for every pack that compiles"),
         );
 
         // The spectator duel is the arena room's registered content staging:

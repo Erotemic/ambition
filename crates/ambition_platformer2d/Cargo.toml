@@ -22,6 +22,9 @@ content_pack = [
     "dep:ambition_content_pack",
     "ambition_characters/content_pack",
     "ambition_items?/content_pack",
+    # Same `?` rule: the encounter capability owns `encounter_waves`, and a
+    # composition without that optional edge must not try to compile it.
+    "ambition_encounter?/content_pack",
     "ambition_audio/content_pack",
     "ambition_combat/content_pack",
 ]

@@ -23,7 +23,15 @@ pub mod bosses;
 /// The character catalog data and curated playable cast, contributed as an
 /// immutable provider fragment to the App-local catalog assembly.
 pub mod character_catalog;
-pub mod pack;
+/// The authored encounter wave timelines, embedded once and read through the
+/// PACK — not `ron::from_str(include_str!(..))` at plugin-build time.
+///
+/// ⛔ that call site was two readers of one file: the pack could validate bytes
+/// the runtime never consulted, and the runtime could `expect`-panic at startup
+/// on a serde message the pack never saw.
+pub const ENCOUNTER_WAVES_RON: &str =
+    include_str!("../assets/data/encounters/goblin_encounter.ron");
+
 pub mod content_validation;
 pub mod dialogue;
 /// The spectator-duel exhibition fight (RoomLoaded consumer + `<<duel>>`).
@@ -39,6 +47,7 @@ pub mod falling_sand;
 /// and the headless harness can drive the room (the F13 lesson: a
 /// feature-gated test silently stops running).
 pub mod falling_sand_sim;
+pub mod pack;
 /// The authored audio registries (music/SFX RON), registered as an App-local
 /// provider fragment.
 pub mod provider;

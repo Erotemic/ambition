@@ -260,7 +260,14 @@ rationale = "ambition_encounter source must not reach into sim/content/render/ho
 source_doc = "docs/planning/engine/decomposition.md#E-enc"
 severity = "error"
 roots = ["crates/ambition_encounter/src"]
-forbid = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_platformer2d_ldtk", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content", "ambition_app"]
+# ⚠ `ambition_content::` with the PATH SEPARATOR, not the bare crate name. A bare
+# `ambition_content` is a substring of `ambition_content_pack`, which is a
+# different crate — the engine's content COMPILER, which `ambition_characters`
+# and `ambition_items` already depend on to own their schemas. Forbidding it here
+# by accident blocked this capability from owning `encounter_waves` at all
+# (2026-08-04). The terminator convention is the same one
+# `engine.actor-monolith-*` uses for `ambition_portal2d::` below.
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_characters", "ambition_platformer2d_ldtk", "ambition_sim_view", "ambition_platformer2d_runtime", "ambition_render", "ambition_content::", "ambition_content;", "ambition_app"]
 
 # was: architecture_boundaries_host_does_not_depend_on_actors
 [[policy]]

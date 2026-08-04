@@ -18,6 +18,10 @@ ambition_content_pack = { path = "../ambition_content_pack" }
 # validates against, and it is why "uninstalled capability" is a real refusal.
 ambition_characters = { path = "../ambition_characters", features = ["content_pack"] }
 ambition_items = { path = "../ambition_items", features = ["content_pack"] }
+# The encounter capability owns `encounter_waves`. ⚠ the CLI must judge Ambition's
+# content by the SAME rules the game does — a test pins the two registries equal
+# — so a schema added to one belongs in the other in the same commit.
+ambition_encounter = { path = "../ambition_encounter", features = ["content_pack"] }
 ambition_audio = { path = "../ambition_audio", features = ["content_pack"] }
 ambition_combat = { path = "../ambition_combat", features = ["content_pack"] }
 

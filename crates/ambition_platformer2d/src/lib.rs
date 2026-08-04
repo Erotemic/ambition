@@ -121,6 +121,13 @@ pub mod content {
         registry
             .register(ambition_items::content_schema::item_catalog_schema())
             .expect("the engine's own schemas are registered once");
+        // Same rule, same reason: `ambition_encounter` is an optional facade
+        // edge, so a composition without it must not claim to own
+        // `encounter_waves`.
+        #[cfg(feature = "ambition_encounter")]
+        registry
+            .register(ambition_encounter::content_schema::encounter_waves_schema())
+            .expect("the engine's own schemas are registered once");
         registry
     }
 }

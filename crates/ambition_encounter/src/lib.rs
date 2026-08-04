@@ -7,6 +7,8 @@
 //! by its [`EncounterObjective`] (E8/E9). Host crates adapt it to LDtk, ECS
 //! spawning, banners, save/quest plumbing, and renderer/audio side effects.
 
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
 pub mod entity;
 pub mod events;
 pub mod lifecycle;

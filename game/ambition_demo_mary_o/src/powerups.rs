@@ -427,14 +427,20 @@ pub fn bonk_power_blocks(
         if spent.is_spent(id) {
             continue;
         }
-        let Some(reward) = (match reward_of {
-            RewardSource::Quasar => Some(quasar_reward()),
+        // ⛔ **A VALID BONK IS ALWAYS ACKNOWLEDGED.** This used to read
+        // `let Some(reward) = … else { continue }`, and `next_power_reward`
+        // answered `None` at the top of the ladder — so a FIRE-form Mary-O hit a
+        // ?-block and got nothing at all: no flinch, no spent state, no art
+        // change, no sound. The block read as unhittable, which is what Jon saw.
+        // (GPT 5.6's Mary-O spec, §5.)
+        //
+        // ⚠ the comment that stood here called the branch "unreachable while the
+        // ladder ends in the star" — and the ladder ends in the BEACON, which is
+        // exactly the case that reached it. A comment asserting a branch is dead
+        // is a claim, and this one was false.
+        let reward = match reward_of {
+            RewardSource::Quasar => quasar_reward(),
             RewardSource::PowerLadder => next_power_reward(worn),
-        }) else {
-            // No rung left to give. Unreachable while the ladder ends in the
-            // star, and kept because `next_power_reward` is allowed to say no —
-            // an un-spent block still has its reward waiting afterwards.
-            continue;
         };
         spent.spend(id.clone());
         // ⭐ **it FLINCHES.** Jon: blocks that are used "need a small animation
@@ -539,30 +545,37 @@ const QUASAR_RESTITUTION: f32 = 0.86;
 /// Reading the worn set rather than a demo flag is what makes duplicates
 /// unrepresentable: there is no state to drift out of sync with, because the
 /// question "what does she have" has exactly one answer.
-fn next_power_reward(worn: Option<&WornEquipment>) -> Option<PowerReward> {
+fn next_power_reward(worn: Option<&WornEquipment>) -> PowerReward {
     let wears = |id: &str| worn.is_some_and(|w| w.wears(id));
+    let beacon = || PowerReward {
+        row: cinder_beacon(),
+        half: CINDER_BEACON_HALF,
+        sprite: CINDER_BEACON_SPRITE,
+        // The beacon waits on its block, like the classic flower.
+        motion: rises_from_a_block(ItemMotionPlan::still(), CINDER_BEACON_HALF.y),
+    };
     if wears(CINDER_BEACON_ID) {
-        // Fully powered: this ladder has nothing left to give. The quasar is
-        // NOT its top rung — it is not a form at all, and gating it behind two
-        // other powerups would mean a small Mary-O could never be invincible.
-        // It has its own blocks; see `bonk_power_blocks`.
-        None
+        // ⛔ **THE TOP RUNG REPEATS; it does not answer NOTHING.** Returning
+        // `None` here meant a fully-powered Mary-O bonked a block and the whole
+        // hit was swallowed — no flinch, no spend, no art change (GPT 5.6's
+        // Mary-O spec, §5). A player cannot tell "you are already maxed" from "a
+        // block that does not work", and only one of those is true.
+        //
+        // ⚠ another beacon is the placeholder the spec allows, not a design
+        // decision: *"spawning another lantern is acceptable unless the existing
+        // design clearly prefers score, a reserve item, or another reward."*
+        // Score or a reserve slot is the classic answer and neither exists yet.
+        beacon()
     } else if wears(STAR_WAND_ID) {
-        Some(PowerReward {
-            row: cinder_beacon(),
-            half: CINDER_BEACON_HALF,
-            sprite: CINDER_BEACON_SPRITE,
-            // The beacon waits on its block, like the classic flower.
-            motion: rises_from_a_block(ItemMotionPlan::still(), CINDER_BEACON_HALF.y),
-        })
+        beacon()
     } else {
-        Some(PowerReward {
+        PowerReward {
             row: star_wand(),
             half: STAR_WAND_HALF,
             sprite: STAR_WAND_SPRITE,
             // The wand WALKS and turns at walls, like the mushroom.
             motion: rises_from_a_block(ItemMotionPlan::walker(WAND_SPEED), STAR_WAND_HALF.y),
-        })
+        }
     }
 }
 
@@ -943,12 +956,12 @@ mod tests {
         // Small: the wand.
         let bare = WornEquipment::default();
         assert_eq!(
-            next_power_reward(None).map(|r| r.row.id),
+            Some(next_power_reward(None).row.id),
             Some(STAR_WAND_ID.to_string()),
             "small Mary-O is offered the wand"
         );
         assert_eq!(
-            next_power_reward(Some(&bare)).map(|r| r.row.id),
+            Some(next_power_reward(Some(&bare)).row.id),
             Some(STAR_WAND_ID.to_string()),
             "an empty worn set reads as small too"
         );
@@ -956,16 +969,23 @@ mod tests {
         // Grown: the beacon.
         let grown = WornEquipment::new(vec![star_wand()]);
         assert_eq!(
-            next_power_reward(Some(&grown)).map(|r| r.row.id),
+            Some(next_power_reward(Some(&grown)).row.id),
             Some(CINDER_BEACON_ID.to_string()),
             "grown Mary-O is offered the beacon"
         );
 
-        // Fully powered: the ladder is done. The quasar is NOT its top rung.
+        // ⛔ **Fully powered still gets an ANSWER.** The ladder used to return
+        // `None` here and the bonk handler swallowed the whole hit, so a fire
+        // Mary-O struck a ?-block and nothing happened at all — no flinch, no
+        // spend, no art change. A player cannot tell "already maxed" from "this
+        // block is broken", and only one of those is true. The quasar is NOT the
+        // top rung; the beacon repeats until there is a score or a reserve slot
+        // to give instead.
         let sparked = WornEquipment::new(vec![cinder_beacon()]);
-        assert!(
-            next_power_reward(Some(&sparked)).is_none(),
-            "a fully powered Mary-O has nothing left to gain from a ?-block"
+        assert_eq!(
+            next_power_reward(Some(&sparked)).row.id,
+            CINDER_BEACON_ID,
+            "a fully powered Mary-O still gets an acknowledged hit"
         );
     }
 

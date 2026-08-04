@@ -211,6 +211,91 @@ fn stick(size: f32) -> ScreenOcclusion {
     .expect("an anchored occluder resolves itself")
 }
 
+/// **A dialogue is laid out where it can be READ**, which is not the same
+/// question as where the subject is framed.
+///
+/// Jon, on a Pixel 5, 2026-08-03: *"the trick is that space for dialogue on a
+/// phone is so tight… I am able to navigate it on the phone, but it's
+/// frustrating and error prone."* Both halves of that are one defect —
+/// `dialog_ui` laid out in percentages of the whole screen, so its panel ran
+/// under the touch action cluster. Text behind a button cannot be read, and a
+/// tap meant for the text goes to the button.
+///
+/// ⚠ **the distinguishing input is a SYSTEM control**, and that is why this test
+/// is not just the subject-safe test again. `SystemMenuControl` answers
+/// `reserves_subject_space() == false` — it is small, cornered, glanced at, and
+/// a camera can afford to ignore it — while a paragraph underneath it is exactly
+/// the corner Back button Jon says he has to rely on. A reading rect that
+/// carved on the subject predicate would pass every other assertion here and
+/// still ship the bug.
+#[test]
+fn the_reading_rect_clears_the_controls_a_camera_is_allowed_to_ignore() {
+    let profile = GameplayPresentationProfile::full_bleed();
+    let display = ae::Vec2::new(2400.0, 1080.0);
+    let corner_menu = ScreenOccluder::anchored(
+        ScreenOcclusionPurpose::SystemMenuControl,
+        ScreenAnchor::TopRight,
+        ae::Vec2::splat(24.0),
+        ae::Vec2::new(300.0, 160.0),
+    )
+    .self_resolved(ScreenRect::from_min_size(ae::Vec2::ZERO, display))
+    .expect("an anchored occluder resolves itself");
+
+    let resolved = resolve(display, ScreenInsets::ZERO, &profile, &[corner_menu]);
+
+    assert!(
+        !resolved.reading_rect().overlaps(corner_menu.rect),
+        "the dialogue box {:?} sits under the system controls {:?} — text there \
+         cannot be read and a tap there goes to the button",
+        resolved.reading_rect(),
+        corner_menu.rect,
+    );
+    // The half that makes the test discriminating: the camera is still allowed
+    // to ignore this occluder, so a reading rect derived from the subject
+    // question would not have moved at all.
+    assert!(
+        resolved.subject_safe_rect.overlaps(corner_menu.rect),
+        "this fixture is only meaningful while the SUBJECT rect still overlaps \
+         the corner menu; if that stopped being true the two predicates have \
+         converged and this test no longer distinguishes them"
+    );
+}
+
+/// The reading rect refuses to disappear, however crowded the screen.
+///
+/// A phone with a full control overlay can be carved past usefulness, and a
+/// dialogue resolved to a sliver is strictly worse than one that overlaps: the
+/// game becomes unplayable rather than awkward.
+#[test]
+fn a_crowded_screen_still_leaves_something_to_read() {
+    let profile = GameplayPresentationProfile::full_bleed();
+    let display = ae::Vec2::new(640.0, 360.0); // Pixel-5-ish landscape
+    let crowd = [
+        ScreenOcclusionPurpose::VirtualMovementStick,
+        ScreenOcclusionPurpose::VirtualActionCluster,
+        ScreenOcclusionPurpose::SystemMenuControl,
+        ScreenOcclusionPurpose::PersistentHud,
+    ]
+    .map(|purpose| {
+        ScreenOccluder::anchored(
+            purpose,
+            ScreenAnchor::BottomLeft,
+            ae::Vec2::ZERO,
+            ae::Vec2::new(400.0, 300.0),
+        )
+        .self_resolved(ScreenRect::from_min_size(ae::Vec2::ZERO, display))
+        .expect("an anchored occluder resolves itself")
+    });
+
+    let rect = resolve(display, ScreenInsets::ZERO, &profile, &crowd).reading_rect();
+    let floor = display * ResolvedGameplayPresentation::READING_MIN_FRACTION;
+    assert!(
+        rect.size().x >= floor.x && rect.size().y >= floor.y,
+        "reading rect {:?} was carved below the floor {floor:?}",
+        rect.size(),
+    );
+}
+
 /// Oracle 7 — occlusion-aware framing keeps the subject-safe region clear of
 /// controls, and does so by trimming the corner-ward strip rather than half
 /// the display.

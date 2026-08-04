@@ -11,7 +11,7 @@ use super::control_regions::resolve_control_regions;
 use super::{
     AspectRatio, ControlFootprints, FixedAspectFit, GameplayPresentationProfile,
     GameplayViewportPolicy, NamedScreenRect, ResolvedGameplayPresentation, ScreenInsets,
-    ScreenOcclusion, ScreenRect, SurroundRegion,
+    ScreenOcclusion, ScreenOcclusionPurpose, ScreenRect, SurroundRegion,
 };
 
 /// Pure input bundle for [`resolve_gameplay_presentation`].
@@ -102,7 +102,12 @@ pub fn resolve_gameplay_presentation(
                 let floor = (gameplay_rect.size()
                     * profile.min_region_fraction.max(ae::Vec2::ZERO))
                 .min(authored.size());
-                carve_occlusions(authored, &occlusions, floor)
+                carve_occlusions(
+                    authored,
+                    &occlusions,
+                    floor,
+                    ScreenOcclusionPurpose::reserves_subject_space,
+                )
             } else {
                 authored
             }
@@ -161,14 +166,20 @@ fn fit_fixed_aspect(safe: ScreenRect, aspect: AspectRatio, fit: FixedAspectFit) 
 /// Carving stops rather than shrinking the region below `floor` — dense
 /// occupancy must degrade to "the subject may overlap a control", never to
 /// "the camera pins the subject to a sliver".
-fn carve_occlusions(
+/// `reserves` is the QUESTION being asked of each occluder, because there is
+/// more than one: a camera asks whether the subject must stay clear, a text
+/// panel asks whether reading must. They differ — see
+/// [`ScreenOcclusionPurpose::reserves_reading_space`] — and passing the
+/// predicate in keeps one carve rather than two that can drift.
+pub(crate) fn carve_occlusions(
     region: ScreenRect,
     occlusions: &[ScreenOcclusion],
     floor: ae::Vec2,
+    reserves: fn(ScreenOcclusionPurpose) -> bool,
 ) -> ScreenRect {
     let mut ordered: Vec<&ScreenOcclusion> = occlusions
         .iter()
-        .filter(|occlusion| occlusion.purpose.reserves_subject_space())
+        .filter(|occlusion| reserves(occlusion.purpose))
         .collect();
     // Stable composition: the same set of regions must always produce the same
     // result regardless of the order entities happened to be iterated in.

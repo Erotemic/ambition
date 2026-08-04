@@ -481,6 +481,38 @@ impl ScreenOcclusionPurpose {
             Self::SystemMenuControl | Self::Dialogue => false,
         }
     }
+
+    /// Whether a READING panel — dialogue body, choice list, any block of text
+    /// the player has to parse and tap — should be kept out of this region.
+    ///
+    /// ⭐ **the sibling of [`Self::reserves_subject_space`], and its absence was
+    /// the defect.** The engine already knew not to frame the PLAYER behind the
+    /// buttons; nothing said the same about TEXT, so `dialog_ui` laid its panel
+    /// out in percentages of the whole screen and ran straight under the action
+    /// cluster. Jon, 2026-08-03, on a Pixel 5: *"the trick is that space for
+    /// dialogue on a phone is so tight… I am able to navigate it, but it's
+    /// frustrating and error prone."* Both halves of that are this: text behind a
+    /// button is unreadable, and a tap there goes to the button.
+    ///
+    /// It differs from the subject predicate in one place, and the difference is
+    /// the point. `SystemMenuControl` does not shrink gameplay framing — it is
+    /// small, cornered and glanced at — but it is exactly the corner Back button
+    /// Jon says he has to rely on, and text underneath it is the collision he
+    /// described. A camera can afford to ignore it; a paragraph cannot.
+    ///
+    /// `Dialogue` is false because it is the panel itself. Carving a region
+    /// against its own occupancy is the placement-depends-on-occupancy-depends-on-
+    /// placement loop `ResolvedControlRegions::occlusions` documents.
+    pub fn reserves_reading_space(self) -> bool {
+        match self {
+            Self::VirtualMovementStick
+            | Self::VirtualActionCluster
+            | Self::ContextualAction
+            | Self::PersistentHud
+            | Self::SystemMenuControl => true,
+            Self::Dialogue => false,
+        }
+    }
 }
 
 /// Where an occluder's rectangle comes from.
@@ -1040,6 +1072,36 @@ impl ResolvedGameplayPresentation {
     pub fn has_surround(&self) -> bool {
         !self.surround_rects.is_empty()
     }
+
+    /// **Where a block of text belongs: the safe display, carved back from
+    /// everything a reader must not sit behind.**
+    ///
+    /// The sibling of [`Self::subject_safe_rect`], answering
+    /// [`ScreenOcclusionPurpose::reserves_reading_space`] instead of the subject
+    /// question, through the same carve. `dialog_ui` laid out in percentages of
+    /// the whole screen before this existed, so on a 640x360 phone viewport its
+    /// panel spanned x≈90..550 while the action cluster sat at x 407..640 — a
+    /// third of the panel behind live buttons.
+    ///
+    /// ⚠ **the floor is load-bearing.** A small screen with a full control
+    /// overlay can be carved down to nothing, and a dialogue that resolves to a
+    /// zero-height box is a game that cannot be played at all — strictly worse
+    /// than one that overlaps. [`Self::READING_MIN_FRACTION`] is where the carve
+    /// stops conceding, after which the panel overlaps knowingly.
+    pub fn reading_rect(&self) -> ScreenRect {
+        let floor = self.display_safe_rect.size() * Self::READING_MIN_FRACTION;
+        resolve::carve_occlusions(
+            self.display_safe_rect,
+            &self.occlusions,
+            floor,
+            ScreenOcclusionPurpose::reserves_reading_space,
+        )
+    }
+
+    /// The fraction of the safe display [`Self::reading_rect`] will never carve
+    /// below. Wide rather than tall: a dialogue can scroll, and a line of text
+    /// that has to wrap every three words cannot be read at all.
+    pub const READING_MIN_FRACTION: ae::Vec2 = ae::Vec2::new(0.6, 0.25);
 
     pub fn surround_rect(&self, region: SurroundRegion) -> Option<ScreenRect> {
         self.surround_rects

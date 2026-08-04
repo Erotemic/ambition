@@ -128,12 +128,11 @@ pub const BOSS_ENCOUNTERS: &[(&str, &str)] = &[
     ),
 ];
 
-/// Just the bytes, for the catalog builder that does not care where they came
-/// from. ⚠ derived from [`BOSS_ENCOUNTERS`] rather than kept beside it — a
-/// second list is how the first one drifted.
-pub fn boss_encounter_rons() -> Vec<&'static str> {
-    BOSS_ENCOUNTERS.iter().map(|(_, ron)| *ron).collect()
-}
+// ⭐ `boss_encounter_rons()` — "just the bytes, for the catalog builder" — is
+// GONE (2026-08-04). It existed to hand nine raw files to a builder that parsed
+// them itself; the builder now takes the compiler's merged book, so the only
+// consumer of those bytes is the pack. [`BOSS_ENCOUNTERS`] still carries them,
+// because the pack is where they belong.
 
 fn boss_sprite_filenames() -> std::collections::BTreeMap<String, String> {
     std::collections::BTreeMap::from([
@@ -224,12 +223,22 @@ pub fn boss_catalog_fragment(
         )
         .expect("the boss-profile schema lowers its roster for every pack that compiles")
         .clone();
-    ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_prepared_behaviors(
+    // ⛔ **and the nine encounters, for the same reason and by the same route.**
+    // Until the compiler could merge a schema lowered by several sources, these
+    // were `AuthoringOnly`: validated by the pack and then parsed AGAIN, nine
+    // times, inside the catalog builder. One reader now (2026-08-04).
+    let encounters =
+        ambition_characters::brain::boss_pattern::content_schema::lowered_boss_encounters(
+            crate::pack::prepared(),
+        )
+        .expect("the encounter schema merges its nine files for every pack that compiles")
+        .clone();
+    ambition_platformer2d_actor_monolith::boss_encounter::BossCatalogFragment::from_prepared(
         crate::AMBITION_CONTENT_PROVIDER,
         Some("clockwork_warden"),
         Some("gradient_sentinel"),
         behaviors,
-        &boss_encounter_rons(),
+        encounters,
         include_str!("../../assets/data/boss_sheets.ron"),
         boss_sprite_filenames(),
         special_animation_keys(),
@@ -447,5 +456,41 @@ mod apple_rain_animation_key_tests {
              gone and the profile identity can be replaced by a key comparison. \
              Update the fold's row in the 72h queue rather than just this test"
         );
+    }
+
+}
+
+#[cfg(test)]
+mod encounter_book_tests {
+    /// ⛔ **The nine encounter files reach the runtime through the COMPILER.**
+    ///
+    /// Until 2026-08-04 the `boss_encounter` schema was `AuthoringOnly` — the
+    /// pack validated all nine and the catalog builder parsed all nine again,
+    /// so the compiler could bless a file the game never consulted. This is the
+    /// probe that the merged book is what the catalog actually holds.
+    ///
+    /// ⚠ **it asserts the ARTIFACT and the CATALOG agree, not just that both
+    /// exist.** "The book has nine entries" would pass over a builder that
+    /// ignored it and reparsed, which is the exact defect being closed.
+    #[test]
+    fn the_encounter_book_the_runtime_loads_is_the_one_the_compiler_merged() {
+        let book = ambition_characters::brain::boss_pattern::content_schema::lowered_boss_encounters(
+            crate::pack::prepared(),
+        )
+        .expect("the encounter schema merges its files for every pack that compiles");
+        assert_eq!(
+            book.len(),
+            super::BOSS_ENCOUNTERS.len(),
+            "one merged entry per authored file"
+        );
+        let catalog = super::authored_boss_catalog();
+        for (id, spec) in book {
+            assert_eq!(
+                catalog.encounter(id),
+                Some(spec),
+                "encounter `{id}` in the catalog must BE the compiler's merged value, not a \
+                 second parse that happens to agree today"
+            );
+        }
     }
 }

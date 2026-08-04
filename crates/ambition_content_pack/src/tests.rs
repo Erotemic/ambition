@@ -15,6 +15,10 @@ use super::*;
 
 const CRITTER: &str = "critter";
 const HABITAT: &str = "habitat";
+/// One file per burrow: the shape three real families have (boss encounters,
+/// dialogue, worlds) and the reason aggregation exists.
+const BURROW: &str = "burrow";
+const ORDER: &str = "order";
 
 /// Critters name a habitat, a `mood` preset defined in the same file, and a
 /// sprite. That is enough shape to exercise a cross-source reference, a LOCAL
@@ -123,6 +127,95 @@ impl ContentSchemaHandler for HabitatSchema {
     }
 }
 
+// ── the aggregating family ──────────────────────────────────────────────────
+//
+// ⭐ **the FRAGMENT type and the ARTIFACT type are deliberately different.** A
+// toy where each file lowers a `Vec<String>` and the merge is a concatenated
+// `Vec<String>` cannot tell a real aggregation from the compiler shortcutting a
+// single source straight through — both downcast. `BurrowFile` in, `BTreeMap`
+// out, so the single-source probe below can actually fail.
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BurrowFile {
+    dweller: String,
+    depth: u32,
+}
+
+/// name → depth, assembled from every burrow file in the pack.
+type BurrowMap = BTreeMap<String, u32>;
+
+struct BurrowSchema;
+
+impl ContentSchemaHandler for BurrowSchema {
+    fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
+        match ron::from_str::<BurrowFile>(facet.text) {
+            Ok(file) => {
+                out.define(facet.content_id(&file.dweller), format!("depth={}", file.depth));
+                out.lower(file);
+            }
+            Err(error) => out.report(
+                facet.diagnostic(DiagnosticCode::MalformedSource, format!("{error}")),
+            ),
+        }
+    }
+
+    fn aggregate(
+        &self,
+        fragments: &[LoweredFragment<'_>],
+        out: &mut AggregateOutcome,
+    ) -> Aggregation {
+        let mut map = BurrowMap::new();
+        let mut sources: BTreeMap<String, String> = BTreeMap::new();
+        for fragment in fragments {
+            let Some(file) = fragment.get::<BurrowFile>() else {
+                continue;
+            };
+            if let Some(first) = sources.get(&file.dweller) {
+                out.report(
+                    AggregateOutcome::refusal(
+                        DiagnosticCode::ConflictingModuleContribution,
+                        format!(
+                            "`{}` is burrowed in `{first}` and in `{}`",
+                            file.dweller, fragment.declared_path
+                        ),
+                    )
+                    .in_source(fragment.declared_path),
+                );
+                continue;
+            }
+            sources.insert(file.dweller.clone(), fragment.declared_path.to_string());
+            map.insert(file.dweller.clone(), file.depth);
+        }
+        if !out.failed() {
+            out.lower(map);
+        }
+        Aggregation::Defined
+    }
+}
+
+/// The order fragments arrived in, as one string — for the declared-order probe.
+struct OrderSchema;
+
+impl ContentSchemaHandler for OrderSchema {
+    fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
+        out.lower(facet.text.trim().to_string());
+    }
+
+    fn aggregate(
+        &self,
+        fragments: &[LoweredFragment<'_>],
+        out: &mut AggregateOutcome,
+    ) -> Aggregation {
+        let joined: Vec<String> = fragments
+            .iter()
+            .filter_map(|f| f.get::<String>().cloned())
+            .collect();
+        out.lower(joined.join(","));
+        Aggregation::Defined
+    }
+}
+
 fn registration(
     id: &str,
     disposition: RuntimeDisposition,
@@ -157,6 +250,22 @@ fn registry() -> SchemaRegistry {
             HABITAT,
             RuntimeDisposition::Runtime,
             Arc::new(HabitatSchema),
+        ))
+        .expect("fresh registry");
+    // The many-sources family. Installed but unauthored by every other pack
+    // here, which is the ordinary state of a capability nobody used.
+    registry
+        .register(registration(
+            BURROW,
+            RuntimeDisposition::Runtime,
+            Arc::new(BurrowSchema),
+        ))
+        .expect("fresh registry");
+    registry
+        .register(registration(
+            ORDER,
+            RuntimeDisposition::Runtime,
+            Arc::new(OrderSchema),
         ))
         .expect("fresh registry");
     registry
@@ -706,14 +815,17 @@ fn a_runtime_schema_that_lowers_nothing_is_refused() {
     );
 }
 
-/// ⛔ **Two sources lowering one schema is REFUSED, never last-wins.**
+/// ⛔ **Two sources lowering one schema is REFUSED, never last-wins — unless
+/// the schema has SAID how they combine.**
 ///
 /// Silently overwriting means the content INDEX knows about both sources while
 /// the runtime artifact holds only the last — validation and the running game
-/// seeing different content. Refusal is the first contract on purpose: only the
-/// HANDLER knows whether two of its artifacts union, override or conflict, so a
-/// generic merge here would be the compiler guessing. (GPT 5.6 review,
-/// finding 3.)
+/// seeing different content. Only the HANDLER knows whether two of its artifacts
+/// union, override or conflict, so a generic merge here would be the compiler
+/// guessing. (GPT 5.6 review, finding 3.)
+///
+/// `habitat` never said, so it is still refused; the refusal now names BOTH
+/// files, because "which two" is the first thing a reader asks.
 #[test]
 fn two_sources_lowering_one_schema_is_refused_rather_than_silently_last_wins() {
     let pack = Pack::empty("two_runtime_sources");
@@ -729,16 +841,139 @@ fn two_sources_lowering_one_schema_is_refused_rather_than_silently_last_wins() {
         )"#,
     );
     let failure = pack.refuse();
-    assert_eq!(failure.stage, CompileStage::FacetValidation);
+    assert_eq!(failure.stage, CompileStage::Aggregation);
     assert!(
         failure.has(DiagnosticCode::ConflictingModuleContribution),
         "got {:?}",
         failure.codes()
     );
+    let rendered = failure.render();
     assert!(
-        failure.render().contains("how two of its artifacts combine"),
-        "and it names the missing contract rather than just refusing:\n{}",
+        rendered.contains("how two of its artifacts combine"),
+        "and it names the missing contract rather than just refusing:\n{rendered}"
+    );
+    assert!(
+        rendered.contains("a.ron") && rendered.contains("b.ron"),
+        "both files, so the author knows which two collided:\n{rendered}"
+    );
+}
+
+/// **The aggregation contract: many sources, one artifact.**
+///
+/// Three families are shaped this way — nine boss encounters, seven dialogue
+/// files, the LDtk worlds — and before this each of them either had to be
+/// `AuthoringOnly` (validated, then reparsed by the runtime) or crammed into a
+/// single file.
+#[test]
+fn an_aggregating_schema_merges_every_source_into_one_artifact() {
+    let pack = Pack::empty("aggregate_many");
+    pack.write("mole.ron", r#"(dweller: "mole", depth: 3)"#);
+    pack.write("shrike.ron", r#"(dweller: "shrike", depth: 1)"#);
+    pack.manifest(
+        r#"(
+            id: "critters", version: "1.0.0", namespace: "test",
+            sources: [
+                (path: "mole.ron", schema: "burrow", version: 1),
+                (path: "shrike.ron", schema: "burrow", version: 1),
+            ],
+        )"#,
+    );
+    let prepared = pack.compile().expect("two burrows merge");
+    let burrows = prepared
+        .lowered::<BurrowMap>(&SchemaId::new(BURROW))
+        .expect("the merged artifact is what a Runtime schema lowered");
+    assert_eq!(burrows.get("mole"), Some(&3));
+    assert_eq!(burrows.get("shrike"), Some(&1));
+    assert_eq!(burrows.len(), 2, "both, not the last one");
+}
+
+/// ⛔⛔ **THE TRAP, and the reason this probe exists at all.**
+///
+/// The tempting implementation is "aggregate only when there are two or more
+/// fragments — one source can be lowered straight through". Under it this pack
+/// lowers a `BurrowFile` where the runtime asks for a `BurrowMap`, so **the
+/// artifact's TYPE depends on how many files an author happened to write.** It
+/// would work at nine encounters and break the day someone deleted the eighth,
+/// with a `None` from a downcast and no diagnostic anywhere.
+///
+/// ⚠ this is only a real probe because the fragment type and the artifact type
+/// DIFFER. A toy that lowered `Vec<String>` fragments into a `Vec<String>`
+/// artifact would pass under the broken rule too.
+#[test]
+fn an_aggregating_schema_is_asked_to_merge_even_a_single_source() {
+    let pack = Pack::empty("aggregate_one");
+    pack.write("mole.ron", r#"(dweller: "mole", depth: 3)"#);
+    pack.manifest(
+        r#"(
+            id: "critters", version: "1.0.0", namespace: "test",
+            sources: [(path: "mole.ron", schema: "burrow", version: 1)],
+        )"#,
+    );
+    let prepared = pack.compile().expect("one burrow is a pack too");
+    assert!(
+        prepared
+            .lowered::<BurrowMap>(&SchemaId::new(BURROW))
+            .is_some_and(|burrows| burrows.get("mole") == Some(&3)),
+        "one source must lower the same TYPE nine sources do"
+    );
+}
+
+/// A merge is also the first place a CROSS-SOURCE invariant can be checked — a
+/// per-facet handler sees one file and cannot know another claimed the name.
+#[test]
+fn an_aggregation_refuses_what_no_single_facet_could_have_seen() {
+    let pack = Pack::empty("aggregate_conflict");
+    pack.write("deep.ron", r#"(dweller: "mole", depth: 9)"#);
+    pack.write("shallow.ron", r#"(dweller: "mole", depth: 1)"#);
+    pack.manifest(
+        r#"(
+            id: "critters", version: "1.0.0", namespace: "test",
+            sources: [
+                (path: "deep.ron", schema: "burrow", version: 1),
+                (path: "shallow.ron", schema: "burrow", version: 1),
+            ],
+        )"#,
+    );
+    let failure = pack.refuse();
+    assert_eq!(failure.stage, CompileStage::Aggregation);
+    assert!(
+        failure.render().contains("burrowed in `deep.ron`"),
+        "the handler's own merge rule speaks, naming both files:\n{}",
         failure.render()
+    );
+    assert!(
+        failure
+            .stopped_before()
+            .contains(&CompileStage::ReferenceResolution),
+        "and a refusal here says what never ran"
+    );
+}
+
+/// ⚠ **fragments arrive in DECLARED order**, not map order and not filesystem
+/// order. A merge with override semantics needs a defined order, and the one an
+/// author can see and diff is the manifest, top to bottom. The paths here sort
+/// the other way on purpose, so an accidental `BTreeMap` of sources would fail.
+#[test]
+fn fragments_reach_the_merge_in_the_order_the_manifest_declares() {
+    let pack = Pack::empty("aggregate_order");
+    pack.write("z_first.ron", "one");
+    pack.write("a_second.ron", "two");
+    pack.manifest(
+        r#"(
+            id: "critters", version: "1.0.0", namespace: "test",
+            sources: [
+                (path: "z_first.ron", schema: "order", version: 1),
+                (path: "a_second.ron", schema: "order", version: 1),
+            ],
+        )"#,
+    );
+    let prepared = pack.compile().expect("both lower");
+    assert_eq!(
+        prepared
+            .lowered::<String>(&SchemaId::new(ORDER))
+            .map(String::as_str),
+        Some("one,two"),
+        "declared order, not the alphabetical order of the paths"
     );
 }
 

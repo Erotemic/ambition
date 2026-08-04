@@ -138,6 +138,70 @@ impl FacetOutcome {
     }
 }
 
+/// One source's contribution to a schema whose artifact spans several files.
+pub struct LoweredFragment<'a> {
+    /// The path exactly as the manifest declared it — so a merge conflict names
+    /// the FILE an author has to open, never an index into a list.
+    pub declared_path: &'a str,
+    pub(crate) value: &'a Arc<dyn Any + Send + Sync>,
+}
+
+impl LoweredFragment<'_> {
+    /// This fragment as the type its handler lowered.
+    ///
+    /// `None` means the handler lowered something else from that file, which is
+    /// a bug in the handler rather than in the content — it is the only code
+    /// that produces these and the only code that reads them.
+    pub fn get<T: Any + Send + Sync>(&self) -> Option<&T> {
+        self.value.downcast_ref::<T>()
+    }
+}
+
+/// What a handler made of ALL of one schema's sources.
+#[derive(Default)]
+pub struct AggregateOutcome {
+    pub diagnostics: Vec<Diagnostic>,
+    /// The merged artifact — the runtime value, lowered ONCE.
+    pub lowered: Option<Arc<dyn Any + Send + Sync>>,
+}
+
+impl AggregateOutcome {
+    /// Publish the merged runtime value.
+    pub fn lower<T: Any + Send + Sync>(&mut self, value: T) {
+        self.lowered = Some(Arc::new(value));
+    }
+
+    pub fn report(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
+    }
+
+    /// A refusal already carrying the aggregation stage — report it once it
+    /// carries its source and its fix.
+    pub fn refusal(code: DiagnosticCode, message: impl Into<String>) -> Diagnostic {
+        Diagnostic::error(code, CompileStage::Aggregation, message)
+    }
+
+    pub fn failed(&self) -> bool {
+        self.diagnostics.iter().any(Diagnostic::is_error)
+    }
+}
+
+/// Whether a schema has defined how its sources' fragments combine.
+///
+/// ⭐ **the return value IS the declaration.** The alternative was a field on
+/// [`SchemaRegistration`] — but then a schema could say "I aggregate" and not
+/// implement the merge, or implement it and forget to say so, and the compiler
+/// would have two facts that can disagree about one thing. Asking the handler
+/// leaves one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Aggregation {
+    /// This schema has no merge rule: one source lowers the artifact and a
+    /// second is a refusal. The default, and what a single-file family wants.
+    Undefined,
+    /// The handler merged the fragments; whatever it lowered is in the outcome.
+    Defined,
+}
+
 /// The behaviour half of a schema registration.
 pub trait ContentSchemaHandler: Send + Sync {
     /// Read one facet: declare what it defines, what it references, what assets
@@ -148,6 +212,32 @@ pub trait ContentSchemaHandler: Send + Sync {
     /// cheapest way to get this right; rolling your own field walk and
     /// forgetting is how a typo becomes a mechanic that silently never fires.
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome);
+
+    /// Merge every fragment this schema's sources lowered into the ONE artifact
+    /// the runtime consumes, and judge the aggregate.
+    ///
+    /// The default is [`Aggregation::Undefined`]: a schema that says nothing
+    /// here is a one-source schema, and a second source that lowers is refused.
+    ///
+    /// ⛔ **a schema that defines this is called for ONE source too**, and that
+    /// is the point rather than an accident. The tempting rule is "aggregate
+    /// only when there are two or more", and under it a pack that declared a
+    /// single file would lower a FRAGMENT where the runtime expects the
+    /// COLLECTION — the artifact's TYPE would depend on how many files an author
+    /// happened to write, and the failure would appear the day someone deleted
+    /// the eighth encounter.
+    ///
+    /// ⚠ fragments arrive in the order their sources are DECLARED in the
+    /// manifest. A merge with override semantics needs a defined order, and
+    /// declared order is the one an author can see and diff.
+    fn aggregate(
+        &self,
+        fragments: &[LoweredFragment<'_>],
+        out: &mut AggregateOutcome,
+    ) -> Aggregation {
+        let _ = (fragments, out);
+        Aggregation::Undefined
+    }
 }
 
 /// Identity + version + owner + behaviour + disposition. All five, or the facet

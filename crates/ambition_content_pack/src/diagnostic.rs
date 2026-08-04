@@ -30,6 +30,14 @@ pub enum CompileStage {
     CapabilityValidation,
     /// Handlers read their facets and declare what they define and need.
     FacetValidation,
+    /// A schema lowered by SEVERAL sources merges their fragments into the one
+    /// artifact the runtime consumes, and judges the aggregate.
+    ///
+    /// Its own stage because it is the first check that can only be made once
+    /// every source of a schema has been read — a per-facet handler cannot see
+    /// two files at all, so "these nine encounters have two claiming the same
+    /// id" has nowhere else to live.
+    Aggregation,
     /// Every declared reference finds its target.
     ReferenceResolution,
     /// Duplicate identities, conflicting module contributions.
@@ -37,11 +45,12 @@ pub enum CompileStage {
 }
 
 impl CompileStage {
-    pub const ORDER: [Self; 6] = [
+    pub const ORDER: [Self; 7] = [
         Self::Parse,
         Self::SchemaResolution,
         Self::CapabilityValidation,
         Self::FacetValidation,
+        Self::Aggregation,
         Self::ReferenceResolution,
         Self::ConflictDetection,
     ];
@@ -52,6 +61,7 @@ impl CompileStage {
             Self::SchemaResolution => "schema resolution",
             Self::CapabilityValidation => "capability validation",
             Self::FacetValidation => "facet validation",
+            Self::Aggregation => "aggregation",
             Self::ReferenceResolution => "reference resolution",
             Self::ConflictDetection => "conflict detection",
         }

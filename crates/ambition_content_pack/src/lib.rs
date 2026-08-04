@@ -6,6 +6,7 @@
 //!     ↓ schema resolution
 //!     ↓ capability validation
 //!     ↓ facet validation
+//!     ↓ aggregation
 //!     ↓ reference resolution
 //!     ↓ conflict detection
 //!     ↓ canonical ordering
@@ -58,8 +59,8 @@ pub use refs::{
     DirectoryAssets, FixedAssets, NoAssets, PendingRef, ResolvedContentRef, UnresolvedContentRef,
 };
 pub use schema::{
-    ContentSchemaHandler, DefinedContent, FacetOutcome, FacetSource, RuntimeDisposition,
-    SchemaRegistration, SchemaRegistry,
+    AggregateOutcome, Aggregation, ContentSchemaHandler, DefinedContent, FacetOutcome, FacetSource,
+    LoweredFragment, RuntimeDisposition, SchemaRegistration, SchemaRegistry,
 };
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -191,7 +192,10 @@ pub fn compile(
     let mut asset_needs: Vec<AssetRequirement> = Vec::new();
     let mut prepared_sources: Vec<Source> = Vec::new();
     let mut facet_requirements: BTreeSet<CapabilityId> = BTreeSet::new();
-    let mut lowered: BTreeMap<SchemaId, std::sync::Arc<dyn std::any::Any + Send + Sync>> =
+    // ⚠ EVERY fragment, in DECLARED order — not the first, and not the last.
+    // Which of them becomes the runtime artifact is the aggregation stage's
+    // question, and it cannot be answered while only one source has been read.
+    let mut fragments: BTreeMap<SchemaId, Vec<(String, std::sync::Arc<dyn std::any::Any + Send + Sync>)>> =
         BTreeMap::new();
 
     for source in &draft.sources {
@@ -209,36 +213,10 @@ pub fn compile(
 
         diagnostics.extend(outcome.diagnostics);
         if let Some(artifact) = outcome.lowered {
-            // ⛔ **NEVER last-wins.** Overwriting silently means the content
-            // INDEX knows about both sources while the runtime artifact holds
-            // only the last one — validation and the running game seeing
-            // different content, which is the exact split this compiler exists
-            // to close. (GPT 5.6 review, finding 3.)
-            //
-            // Refusal is the first contract, deliberately. A schema with two
-            // sources needs to say how its artifacts MERGE, and that is the
-            // HANDLER's question — only it knows whether two rosters union,
-            // override, or conflict. A generic merge here would be the compiler
-            // guessing.
-            if lowered.contains_key(&source.schema) {
-                diagnostics.push(
-                    Diagnostic::error(
-                        DiagnosticCode::ConflictingModuleContribution,
-                        CompileStage::FacetValidation,
-                        format!(
-                            "schema `{}` is lowered by more than one source, and it has not                              defined how two of its artifacts combine",
-                            source.schema
-                        ),
-                    )
-                    .in_source(&source.declared_path)
-                    .fix("put this schema's content in ONE source for now")
-                    .fix(
-                        "or give the schema an explicit aggregation: parse each source, merge                          the schema's own fragments, validate the aggregate, lower once",
-                    ),
-                );
-            } else {
-                lowered.insert(source.schema.clone(), artifact);
-            }
+            fragments
+                .entry(source.schema.clone())
+                .or_default()
+                .push((source.declared_path.clone(), artifact));
         }
         pending_refs.extend(outcome.references);
         asset_needs.extend(outcome.assets);
@@ -301,7 +279,7 @@ pub fn compile(
             continue;
         };
         if registration.disposition == RuntimeDisposition::Runtime
-            && !lowered.contains_key(schema)
+            && !fragments.contains_key(schema)
             // Only meaningful when the handler otherwise succeeded: a facet that
             // failed validation is already refused, and demanding an artifact
             // from it would bury the real diagnostic under a consequence.
@@ -365,6 +343,102 @@ pub fn compile(
         ));
     }
     required.extend(facet_requirements);
+
+    // ── aggregation ──────────────────────────────────────────────────────
+    //
+    // ⛔ **NEVER last-wins.** Overwriting silently means the content INDEX knows
+    // about both sources while the runtime artifact holds only the last one —
+    // validation and the running game seeing different content, which is the
+    // exact split this compiler exists to close. (GPT 5.6 review, finding 3.)
+    //
+    // So a schema lowered by several sources must SAY how its fragments
+    // combine, because only it knows whether two of them union, override, or
+    // conflict. A generic merge here would be the compiler guessing. What
+    // changed on 2026-08-04 is that saying so is now possible: before, refusal
+    // was the whole contract and nine boss encounters had to be AuthoringOnly.
+    let mut lowered: BTreeMap<SchemaId, std::sync::Arc<dyn std::any::Any + Send + Sync>> =
+        BTreeMap::new();
+    let mut aggregation_failures: Vec<Diagnostic> = Vec::new();
+    for (schema, parts) in fragments {
+        let registration = registry
+            .get(&schema)
+            .expect("schema resolution proved every source has one");
+        let borrowed: Vec<schema::LoweredFragment<'_>> = parts
+            .iter()
+            .map(|(declared_path, value)| schema::LoweredFragment {
+                declared_path,
+                value,
+            })
+            .collect();
+        let mut outcome = schema::AggregateOutcome::default();
+        match registration.handler.aggregate(&borrowed, &mut outcome) {
+            schema::Aggregation::Defined => {
+                // ⚠ ask THIS handler whether it refused, before its diagnostics
+                // join the pile — `aggregation_failures` already holds every
+                // earlier schema's, so testing that would let one schema's
+                // refusal hide the next one's missing artifact.
+                let refused = outcome.failed();
+                aggregation_failures.extend(outcome.diagnostics);
+                match outcome.lowered {
+                    Some(artifact) => {
+                        lowered.insert(schema, artifact);
+                    }
+                    None if refused => {}
+                    // Defined, clean, and yet nothing published: the merge ran
+                    // and produced no artifact, which is a handler bug rather
+                    // than a content one. Distinct from the `Runtime`-lowered
+                    // nothing check above — there, no source lowered at all.
+                    None => aggregation_failures.push(
+                        Diagnostic::error(
+                            DiagnosticCode::MalformedProviderBinding,
+                            CompileStage::Aggregation,
+                            format!(
+                                "schema `{schema}` defines an aggregation that reported no \
+                                 problems and published no artifact"
+                            ),
+                        )
+                        .fix("call `AggregateOutcome::lower` with the merged runtime value"),
+                    ),
+                }
+            }
+            // No merge rule. One fragment is the artifact; two is the refusal
+            // this stage was carved out of.
+            schema::Aggregation::Undefined => {
+                let mut parts = parts.into_iter();
+                let (first_path, first) = parts.next().expect("a schema with no fragments is absent");
+                lowered.insert(schema.clone(), first);
+                for (declared_path, _) in parts {
+                    aggregation_failures.push(
+                        Diagnostic::error(
+                            DiagnosticCode::ConflictingModuleContribution,
+                            CompileStage::Aggregation,
+                            format!(
+                                "schema `{schema}` is lowered by `{first_path}` and by \
+                                 `{declared_path}`, and it has not defined how two of its \
+                                 artifacts combine"
+                            ),
+                        )
+                        .in_source(&declared_path)
+                        .fix("put this schema's content in ONE source")
+                        .fix(
+                            "or implement `ContentSchemaHandler::aggregate`: merge the schema's \
+                             own fragments, validate the aggregate, lower once",
+                        ),
+                    );
+                }
+            }
+        }
+    }
+    if aggregation_failures.iter().any(Diagnostic::is_error) {
+        return Err(CompileFailure::new(
+            CompileStage::Aggregation,
+            aggregation_failures
+                .into_iter()
+                .filter(Diagnostic::is_error)
+                .collect(),
+        ));
+    }
+    diagnostics.extend(aggregation_failures);
 
     // ── reference resolution ─────────────────────────────────────────────
     let mut resolved_references = Vec::new();

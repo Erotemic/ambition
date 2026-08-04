@@ -27,8 +27,9 @@
 use std::sync::Arc;
 
 use ambition_content_pack::{
-    CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome, FacetSource, PendingRef,
-    RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
+    AggregateOutcome, Aggregation, CapabilityId, ContentSchemaHandler, DiagnosticCode,
+    FacetOutcome, FacetSource, LoweredFragment, PendingRef, RuntimeDisposition, SchemaId,
+    SchemaRegistration, SchemaVersion,
 };
 
 use super::profile::BossBehaviorProfile;
@@ -82,21 +83,25 @@ fn code_for(error: &ron::error::SpannedError) -> DiagnosticCode {
 
 // ── one boss encounter ───────────────────────────────────────────────────────
 
-/// One encounter file.
+/// One encounter file, of nine — the family the aggregation contract was built
+/// for.
 ///
-/// ⚠ **`AuthoringOnly`, and that is a real limitation stated rather than
-/// hidden.** Ambition authors nine separate encounter files, and [`compile`]
-/// deliberately refuses a schema LOWERED by more than one source — merge
-/// semantics is the handler's question and a generic merge would be the
-/// compiler guessing. So these files reach the fingerprint and take part in
-/// reference resolution, but the runtime still parses them itself.
+/// ⛔ **this was `AuthoringOnly` until 2026-08-04, and that was a real
+/// limitation stated rather than hidden.** [`compile`] refused a schema lowered
+/// by more than one source, because merge semantics is the handler's question
+/// and a generic merge would have been the compiler guessing. So the nine files
+/// reached the fingerprint and took part in reference resolution, and the
+/// runtime **parsed all nine a second time** — compiler on one path, loading on
+/// another, which is the split this crate exists to close.
 ///
-/// What that buys, which is most of what was missing: editing an encounter now
-/// MOVES the pack fingerprint, and the boss↔encounter correspondence the
-/// runtime enforces (`MissingEncounter` / `MissingBehavior`, both directions) is
-/// checked at compile time instead of at startup behind an `.expect`.
-/// (GPT 5.6 review, finding 2.)
+/// ⭐ **the schema now says how they combine** ([`Self::aggregate`]): each file
+/// lowers one [`BossEncounterSpec`], and the merge is the
+/// `BTreeMap<String, BossEncounterSpec>` the boss catalog already holds. The
+/// compiler's copy IS the runtime's copy.
 struct BossEncounterSchema;
+
+/// What the nine encounter files lower to, together: the catalog's own map.
+pub type BossEncounterBook = std::collections::BTreeMap<String, BossEncounterSpec>;
 
 impl ContentSchemaHandler for BossEncounterSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
@@ -162,7 +167,60 @@ impl ContentSchemaHandler for BossEncounterSchema {
                 field,
             ));
         }
+
+        // The fragment: ONE encounter, which `aggregate` keys into the book.
+        out.lower(spec);
     }
+
+    fn aggregate(
+        &self,
+        fragments: &[LoweredFragment<'_>],
+        out: &mut AggregateOutcome,
+    ) -> Aggregation {
+        let mut book = BossEncounterBook::new();
+        let mut source_of: std::collections::BTreeMap<String, String> =
+            std::collections::BTreeMap::new();
+        for fragment in fragments {
+            let Some(spec) = fragment.get::<BossEncounterSpec>() else {
+                continue;
+            };
+            // ⚠ **checked here even though `define` already makes two encounter
+            // files with one id a `DuplicateIdentity`.** The merge must not
+            // depend on another stage having caught it: a silent `insert` that
+            // returns `Some` is exactly the last-wins the compiler refuses, and
+            // it would be one refactor of `check` away from being the only
+            // reader of that fact. `BossCatalogFragment` makes the same check
+            // for the same reason.
+            if let Some(first) = source_of.get(&spec.id) {
+                out.report(
+                    AggregateOutcome::refusal(
+                        DiagnosticCode::ConflictingModuleContribution,
+                        format!(
+                            "encounter `{}` is defined by `{first}` and by `{}`",
+                            spec.id, fragment.declared_path
+                        ),
+                    )
+                    .in_source(fragment.declared_path)
+                    .fix("one encounter id, one file — the runtime looks the id up ONCE"),
+                );
+                continue;
+            }
+            source_of.insert(spec.id.clone(), fragment.declared_path.to_string());
+            book.insert(spec.id.clone(), spec.clone());
+        }
+        if !out.failed() {
+            out.lower(book);
+        }
+        Aggregation::Defined
+    }
+}
+
+/// The encounter book a prepared pack lowered, if it carries one — the runtime's
+/// load path, replacing nine `ron::from_str` calls in the catalog builder.
+pub fn lowered_boss_encounters(
+    pack: &ambition_content_pack::PreparedContentPack,
+) -> Option<&BossEncounterBook> {
+    pack.lowered::<BossEncounterBook>(&SchemaId::new(BOSS_ENCOUNTER_SCHEMA))
 }
 
 pub fn boss_encounter_schema() -> SchemaRegistration {
@@ -170,9 +228,10 @@ pub fn boss_encounter_schema() -> SchemaRegistration {
         id: SchemaId::new(BOSS_ENCOUNTER_SCHEMA),
         version: BOSS_ENCOUNTER_VERSION,
         capability: CapabilityId::new(BOSS_PATTERN_CAPABILITY),
-        disposition: RuntimeDisposition::AuthoringOnly,
+        disposition: RuntimeDisposition::Runtime,
         doc: "One boss encounter: phase progression and HP thresholds. Defines a \
-              `boss_encounter` identity and requires the `boss` profile of the same id.",
+              `boss_encounter` identity and requires the `boss` profile of the same id. \
+              Every such file merges into one encounter book.",
         handler: Arc::new(BossEncounterSchema),
     }
 }

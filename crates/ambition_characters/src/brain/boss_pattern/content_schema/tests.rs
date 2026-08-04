@@ -346,3 +346,91 @@ fn an_exactly_empty_music_field_is_no_swap_and_makes_no_reference() {
         "blanking one phase must remove exactly its own reference and no other"
     );
 }
+
+// ── the nine-files-one-book contract ─────────────────────────────────────────
+
+/// A draft of SEVERAL encounter files, which is the shape Ambition actually
+/// authors and the shape the compiler could not lower until 2026-08-04.
+fn encounters_draft(name: &str, files: &[(&str, &str)]) -> ContentPackDraft {
+    let root = std::env::temp_dir().join(format!("ambition_boss_schema_test/{name}"));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("temp dir");
+    for (file, text) in files {
+        std::fs::write(root.join(file), text).expect("write source");
+    }
+    ContentPackDraft::read_manifest(
+        root,
+        ContentPackManifest {
+            id: PackId("test_boss".into()),
+            version: PackVersion("1.0.0".into()),
+            namespace: ModuleNamespace("test".into()),
+            requires: Vec::new(),
+            sources: files
+                .iter()
+                .map(|(file, _)| SourceDeclaration {
+                    path: (*file).into(),
+                    schema: SchemaId::new(BOSS_ENCOUNTER_SCHEMA),
+                    version: BOSS_ENCOUNTER_VERSION,
+                })
+                .collect(),
+        },
+    )
+    .expect("draft reads")
+}
+
+fn refuse_encounters(name: &str, files: &[(&str, &str)]) -> CompileFailure {
+    compile(&encounters_draft(name, files), &registry(), &AssetsUnchecked)
+        .expect_err("no boss profiles in these drafts, so they always refuse eventually")
+}
+
+/// ⛔ **Two files claiming one encounter id, caught where only the MERGE can see
+/// it.** A per-facet handler reads one file and cannot know another named the
+/// same encounter; the runtime resolves by id and would simply have used
+/// whichever won.
+#[test]
+fn two_files_claiming_one_encounter_id_are_refused_by_the_merge() {
+    let failure = refuse_encounters(
+        "duplicate_encounter",
+        &[("first.ron", ENCOUNTER), ("second.ron", ENCOUNTER)],
+    );
+    assert_eq!(
+        failure.stage,
+        ambition_content_pack::CompileStage::Aggregation,
+        "before reference resolution, which would otherwise report first: {:?}",
+        failure.codes()
+    );
+    let rendered = failure.render();
+    assert!(
+        rendered.contains("first.ron") && rendered.contains("second.ron"),
+        "and it names both files, because 'which two' is the first question:\n{rendered}"
+    );
+}
+
+/// The complement, and what makes the test above about the ID rather than about
+/// the count: two DISTINCT encounters merge, and the compile gets all the way to
+/// reference resolution — which then refuses for the reason every single-source
+/// encounter draft here does, that no boss profile exists to point back.
+///
+/// ⚠ negative space, deliberately: this crate cannot author a minimal boss
+/// profile (the row is the whole struct), so the positive artifact is probed
+/// where the real nine files live — `ambition_content`'s
+/// `the_encounter_book_the_runtime_loads_is_the_one_the_compiler_merged`.
+#[test]
+fn two_distinct_encounters_merge_rather_than_conflict() {
+    let failure = refuse_encounters(
+        "two_encounters",
+        &[
+            ("first.ron", ENCOUNTER),
+            (
+                "second.ron",
+                &ENCOUNTER.replace(r#"id: "probe_encounter""#, r#"id: "other_encounter""#),
+            ),
+        ],
+    );
+    assert_eq!(
+        failure.stage,
+        ambition_content_pack::CompileStage::ReferenceResolution,
+        "the merge accepted both; what refuses is the missing boss profile: {:?}",
+        failure.codes()
+    );
+}

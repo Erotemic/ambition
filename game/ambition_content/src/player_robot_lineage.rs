@@ -35,6 +35,7 @@
 //! from v2. A reader who treats it as an inheritance edge has reintroduced the
 //! patch layer this design exists to refuse.
 
+use ambition_entity_catalog::{HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape};
 use ambition_platformer2d_actor_monolith::character_runtime::{
     CharacterBindings, CharacterDefinition, CharacterDefinitionAppExt, Lineage,
 };
@@ -198,9 +199,10 @@ fn definition_from(
     if let Some(body_px) = ambition_platformer2d::actors::character_sprites::authored_body_pixel_size(
         sheet,
     ) {
-        definition = definition.with_sprite_authored_body(
-            ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / body_px.y,
-        );
+        let world_per_pixel = ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / body_px.y;
+        definition = definition
+            .with_sprite_authored_body(world_per_pixel)
+            .with_hurtboxes(forgiving_hurtbox(body_px * world_per_pixel));
     }
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),
@@ -212,6 +214,75 @@ fn definition_from(
         source_fingerprint: None,
     });
     definition
+}
+
+/// **Being hit is judged on his torso, not on his outline.**
+///
+/// Jon: *"It should be under the main head, and well within the player arms.
+/// The player hitbox needs to be very forgiving to the player."*
+///
+/// ⭐ **that sentence describes TWO boxes, which is why it read as
+/// contradictory.** The collision box has to keep his head, or a robot whose
+/// head is nearly half his height walks it through every ceiling; the hurtbox is
+/// the one that can stop under it. They were one rectangle until this, so
+/// "forgiving" had nowhere to live — the `HurtboxDoc` seam has existed since A7
+/// and the protagonist authored nothing, so his hurtbox fell back to the coarse
+/// body AABB.
+///
+/// The insets are FRACTIONS of the sheet's authored body box, not pixels, for
+/// the same reason `body_inset` is fractional: they survive a regeneration that
+/// re-crops him. What they were measured against, in his 224 px idle frame:
+///
+/// | | |
+/// |---|---|
+/// | antenna | `y 59..67`, `x 80..92` — a 13 px stalk |
+/// | head | `y 68..104`, out to `x 148` at its widest |
+/// | shoulders/neck | `y 104..110`, narrowing to `x 95..145` |
+/// | torso and arms | `y 110..140`, `x 83..138` |
+/// | legs and feet | `y 140..157`, `x 87..136` |
+///
+/// So `top` clears the head and lands on the shoulder line, `bottom` keeps the
+/// shoe line the box already stood on, and the sides come in inside the arm
+/// span — further on the right because his head, and only his head, is drawn
+/// off-centre that way.
+fn forgiving_hurtbox(body_world: ambition_platformer2d_core::Vec2) -> HurtboxDoc {
+    // Fractions of the authored body box, per edge.
+    const LEFT: f32 = 0.09;
+    const RIGHT: f32 = 0.21;
+    const TOP: f32 = 0.43;
+    const BOTTOM: f32 = 0.01;
+
+    // ⚠ **+y is DOWN** — `DEFAULT_GRAVITY_DIR` is `(0, 1)`, and sheet pixel
+    // space and world space share that handedness. A box that sits low on the
+    // body therefore takes a POSITIVE y offset; the opposite sign would put his
+    // hurtbox in the air above his head and nothing would ever hit him.
+    let offset = ambition_platformer2d_core::Vec2::new(
+        ((LEFT + (1.0 - RIGHT)) * 0.5 - 0.5) * body_world.x,
+        ((TOP + (1.0 - BOTTOM)) * 0.5 - 0.5) * body_world.y,
+    );
+    let half_extents = ambition_platformer2d_core::Vec2::new(
+        (1.0 - LEFT - RIGHT) * 0.5 * body_world.x,
+        (1.0 - TOP - BOTTOM) * 0.5 * body_world.y,
+    );
+    HurtboxDoc {
+        // One timeline, no poses and no moves. The duelists vary theirs by pose
+        // because their archetypes trade reach against exposure; nothing about
+        // the protagonist's body changes shape, and authoring a pose entry that
+        // restates the default is a second place for the number to drift.
+        default: Some(HurtboxTimeline {
+            keyframes: vec![HurtboxKeyframe {
+                at_s: 0.0,
+                volumes: vec![HurtboxVolume {
+                    shape: VolumeShape::Rect {
+                        offset: (offset.x, offset.y),
+                        half_extents: (half_extents.x, half_extents.y),
+                    },
+                }],
+            }],
+        }),
+        poses: Default::default(),
+        moves: Default::default(),
+    }
 }
 
 /// Register every incarnation as a character in its own right.
@@ -307,6 +378,77 @@ mod tests {
              around — the scale is DERIVED from the height, never the reverse",
             standing.y,
             ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT,
+        );
+    }
+
+    /// **The forgiving hurtbox is strictly inside the box that carries it.**
+    ///
+    /// Jon asked for a hitbox that is *"very forgiving to the player"* — under
+    /// the main head and well within the arms — and the only way that claim can
+    /// be wrong without anyone noticing is if the authored volume quietly
+    /// resolves to something as big as the collision box, which is exactly what
+    /// the unauthored fallback does. So this asserts the CONTAINMENT rather than
+    /// the numbers: every edge strictly inside, and the top by much more than
+    /// the sides, which is what "under the head" means on a body whose head is
+    /// most of its silhouette.
+    #[test]
+    fn v3s_hurtbox_is_smaller_than_his_collision_box_on_every_edge() {
+        use ambition_entity_catalog::VolumeShape;
+
+        let catalog = crate::character_catalog::load_catalog();
+        let definition = definition_from(&catalog, &V3);
+        let doc = definition
+            .hurtboxes
+            .as_ref()
+            .expect("v3 authors a hurtbox; without one he is hit on his coarse body box");
+        let volumes = doc
+            .volumes_for(None, None)
+            .expect("his default timeline resolves at rest");
+        assert_eq!(volumes.len(), 1, "one torso volume, not a part list");
+        let VolumeShape::Rect {
+            offset,
+            half_extents,
+        } = volumes[0].shape
+        else {
+            panic!("the torso is a rect: {:?}", volumes[0].shape);
+        };
+
+        let pixels = ambition_platformer2d::actors::character_sprites::authored_body_pixel_size(
+            "player_robot_v3",
+        )
+        .expect("v3's sheet authors a body box");
+        let body =
+            pixels * (ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / pixels.y);
+
+        // Every edge of the hurtbox, against the matching edge of the body box.
+        for (axis, off, half, body_half) in [
+            ("x", offset.0, half_extents.0, body.x * 0.5),
+            ("y", offset.1, half_extents.1, body.y * 0.5),
+        ] {
+            assert!(
+                off - half > -body_half && off + half < body_half,
+                "the hurtbox escapes the collision box on {axis}: it spans \
+                 {}..{} against a body half-extent of {body_half} — a hurtbox \
+                 wider than the body it belongs to is not forgiving, it is the \
+                 bug this replaced",
+                off - half,
+                off + half,
+            );
+        }
+        assert!(
+            half_extents.1 < body.y * 0.35,
+            "the hurtbox is {} tall against a body half-height of {} — 'under \
+             the main head' means the head is OUT of it, and his head is more \
+             than a third of him",
+            half_extents.1 * 2.0,
+            body.y * 0.5,
+        );
+        assert!(
+            offset.1 > 0.0,
+            "+y is DOWN in this engine (DEFAULT_GRAVITY_DIR is (0, 1)), so a \
+             torso box sitting below the body centre must have a POSITIVE y \
+             offset; {} puts his hurtbox in the air above his head",
+            offset.1,
         );
     }
 

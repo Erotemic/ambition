@@ -183,7 +183,22 @@ def idle_frame(sheet: Sheet):
     return frame
 
 
-def draw(sheet: Sheet, collision, visual_scale: float, out: Path, zoom: int = 3):
+def hurtbox_in_frame_pixels(sheet: Sheet, insets: tuple[float, float, float, float]):
+    """A fractional inset of the authored body box, in frame pixels.
+
+    The fractions are a PARAMETER rather than a constant on purpose: the
+    authored hurtbox lives on the character definition in Rust, and a copy of
+    its numbers here would be a second authority that drifts silently. Pass the
+    ones you are checking; the picture is the point.
+    """
+    if sheet.body_bbox is None:
+        return None
+    left, right, top, bottom = insets
+    bx, by, bw, bh = sheet.body_bbox
+    return (bx + bw * left, by + bh * top, bx + bw * (1 - right), by + bh * (1 - bottom))
+
+
+def draw(sheet: Sheet, collision, visual_scale: float, out: Path, zoom: int = 3, hurtbox=None):
     from PIL import Image, ImageDraw
 
     frame = idle_frame(sheet).resize(
@@ -213,7 +228,16 @@ def draw(sheet: Sheet, collision, visual_scale: float, out: Path, zoom: int = 3)
         outline=(240, 80, 90, 255),
         width=max(1, zoom // 2),
     )
-    art.text((6, 6), f"{sheet.target}  green=authored body  red=collider", fill=(235, 235, 240, 255))
+    legend = f"{sheet.target}  green=authored body  red=collider"
+    if hurtbox is not None:
+        hx0, hy0, hx1, hy1 = hurtbox
+        art.rectangle(
+            [hx0 * zoom, hy0 * zoom, hx1 * zoom, hy1 * zoom],
+            outline=(120, 170, 255, 255),
+            width=max(1, zoom // 2),
+        )
+        legend += "  blue=hurtbox"
+    art.text((6, 6), legend, fill=(235, 235, 240, 255))
     out.parent.mkdir(parents=True, exist_ok=True)
     board.convert("RGB").save(out)
     return out
@@ -272,7 +296,20 @@ def main() -> int:
     ap.add_argument("--out", default=str(REPO / "target/sprite_gameplay_box"))
     ap.add_argument("--zoom", type=int, default=3)
     ap.add_argument("--quiet", action="store_true", help="numbers only, no PNG")
+    ap.add_argument(
+        "--hurtbox-inset",
+        metavar="L,R,T,B",
+        help="also draw a hurtbox as fractional insets of the authored body box "
+        "(the character definition owns the real numbers; this only draws them)",
+    )
     args = ap.parse_args()
+
+    insets = None
+    if args.hurtbox_inset:
+        parts = [float(v) for v in args.hurtbox_inset.split(",")]
+        if len(parts) != 4:
+            ap.error("--hurtbox-inset takes four fractions: left,right,top,bottom")
+        insets = tuple(parts)
 
     w, _, h = args.collision.partition("x")
     collision = (float(w), float(h))
@@ -296,7 +333,16 @@ def main() -> int:
             continue
         print("\n".join(report(sheet, collision, scale)))
         if not args.quiet:
-            written.append(draw(sheet, collision, scale, Path(args.out) / f"{sheet.target}.png", args.zoom))
+            written.append(
+                draw(
+                    sheet,
+                    collision,
+                    scale,
+                    Path(args.out) / f"{sheet.target}.png",
+                    args.zoom,
+                    hurtbox=hurtbox_in_frame_pixels(sheet, insets) if insets else None,
+                )
+            )
     for path in written:
         out = link(path)
         if out:

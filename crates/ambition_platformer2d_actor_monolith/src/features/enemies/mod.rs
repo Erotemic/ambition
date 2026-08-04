@@ -77,6 +77,15 @@ pub use ambition_combat::archetype_spec::CharacterArchetypeSpec;
 /// generic kit vocabulary — re-exported here so the archetype spec row
 /// (`brain_template`) and the spawn-site projection keep their existing
 /// path. See [`crate::features::ecs::actor_tuning::CharacterBrainTemplate`].
+///
+/// ⚠ **`cfg(test)`: the production callers this re-export was made for are
+/// gone.** Its own doc still claims the archetype spec row and the spawn-site
+/// projection come through here; they do not — the only remaining users are this
+/// module's `enemy_archetype_data_tests` and `capability_tests`. Left in place
+/// rather than deleted because those tests read better naming it through the
+/// family they are about, but gated so it stops costing the suite's
+/// `no warnings (cargo check --all-targets)` job a warning on every run.
+#[cfg(test)]
 pub(super) use crate::features::ecs::actor_tuning::CharacterBrainTemplate;
 
 /// Every authored spawn brain key in the lib's fixture roster — the

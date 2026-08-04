@@ -39,6 +39,9 @@ fn registry() -> SchemaRegistry {
         .register(boss_validator_bands_schema())
         .expect("fresh registry");
     registry
+        .register(boss_encounter_schema())
+        .expect("fresh registry");
+    registry
 }
 
 fn draft(
@@ -245,4 +248,93 @@ fn seeds_with_overrides(keys: [&str; 4]) -> String {
         );
     }
     format!("{map:?}")
+}
+
+/// The shipped clockwork-warden encounter, as the fixture — a probe whose
+/// fixture drifts from the authored shape stops testing the real schema.
+const ENCOUNTER: &str = r#"(
+    id: "clockwork_warden",
+    name: "Clockwork Warden",
+    max_hp: 36,
+    phase1_to_transition_hp: 0.66,
+    transition_to_phase2_hp: 0.66,
+    phase2_to_enrage_hp: 0.22,
+    intro_seconds: 2.4,
+    transition_seconds: 1.6,
+    stagger_seconds: 1.8,
+    death_seconds: 2.4,
+    stagger_threshold: 6,
+    stagger_window_seconds: 1.5,
+    music_intro: "fast_paced_violin_boss",
+    music_phase1: "fast_paced_violin_boss",
+    music_phase2: "fast_paced_violin_boss",
+    music_enrage: "fast_paced_violin_boss",
+)"#;
+
+fn encounter_music_diagnostics(name: &str, text: &str) -> Vec<String> {
+    // A single-source draft cannot resolve the `boss` reference either, so
+    // asserting merely "some UnresolvedReference" would pass for the wrong
+    // reason. Look only at the MUSIC diagnostics.
+    let failure = compile(
+        &draft(
+            name,
+            "encounter.ron",
+            text,
+            BOSS_ENCOUNTER_SCHEMA,
+            BOSS_ENCOUNTER_VERSION,
+        ),
+        &registry(),
+        &AssetsUnchecked,
+    )
+    .expect_err("no boss profile in this draft, so it always refuses");
+    failure
+        .diagnostics
+        .iter()
+        .filter(|d| d.message.contains("music track"))
+        .map(|d| d.message.clone())
+        .collect()
+}
+
+/// ⛔ **A whitespace-only music field is a REQUEST, not an absence.**
+///
+/// `phase_music` gates on `!track.is_empty()`, so `"   "` reaches the audio
+/// director as a real priority request that matches nothing and silently falls
+/// through. Both validators used to skip it on `trim().is_empty()` — accepting a
+/// value the runtime acts on. The padded case (`" name "`) is covered by the
+/// CLI probe; this is the EMPTINESS predicate, a different rule, missed when
+/// that one was fixed. (GPT 5.6 review, this round.)
+#[test]
+fn a_whitespace_only_music_field_is_refused_not_skipped() {
+    let text = ENCOUNTER.replace(
+        r#"music_phase1: "fast_paced_violin_boss""#,
+        r#"music_phase1: "   ""#,
+    );
+    assert_ne!(
+        text, ENCOUNTER,
+        "the fixture must actually carry that field"
+    );
+    let music = encounter_music_diagnostics("blank_music", &text);
+    assert!(
+        music.iter().any(|m| m.contains("   ")),
+        "the whitespace-only phase field must become an unresolved reference: {music:?}"
+    );
+}
+
+/// The complement, and the reason this is a predicate change and not a ban: an
+/// EXACTLY empty field really does mean "no swap for this phase" and must NOT
+/// become a reference.
+#[test]
+fn an_exactly_empty_music_field_is_no_swap_and_makes_no_reference() {
+    let text = ENCOUNTER.replace(
+        r#"music_phase1: "fast_paced_violin_boss""#,
+        r#"music_phase1: """#,
+    );
+    assert_ne!(text, ENCOUNTER);
+    let baseline = encounter_music_diagnostics("empty_baseline", ENCOUNTER).len();
+    let with_empty = encounter_music_diagnostics("empty_music", &text).len();
+    assert_eq!(
+        with_empty,
+        baseline - 1,
+        "blanking one phase must remove exactly its own reference and no other"
+    );
 }

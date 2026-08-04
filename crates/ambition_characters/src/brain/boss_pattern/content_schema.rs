@@ -134,7 +134,16 @@ impl ContentSchemaHandler for BossEncounterSchema {
             ("music_phase2", &spec.music_phase2),
             ("music_enrage", &spec.music_enrage),
         ] {
-            if track.trim().is_empty() {
+            // ⛔ **EXACTLY empty, not `trim().is_empty()`.** `phase_music`
+            // gates on `!track.is_empty()`, so `"   "` is a REAL music request
+            // at runtime — one that matches no track and silently falls through
+            // to another candidate. Skipping it here (and in the startup
+            // validator) meant both validators accepted a value the runtime
+            // acts on, which is the same compiler-vs-runtime rule mismatch as
+            // the padded case one line below, in its emptiness predicate.
+            // Whitespace-only now becomes an unresolved exact reference and is
+            // refused. (GPT 5.6 review, this round.)
+            if track.is_empty() {
                 continue;
             }
             // ⛔ **the EXACT authored string, not a trimmed copy.** Startup

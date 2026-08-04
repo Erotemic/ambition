@@ -420,8 +420,9 @@ fn validate_quest_conditions(
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
         );
     for (id, spec, _) in loaded_encounters {
-        if !spec.music_track.trim().is_empty() && !valid_tracks.contains(spec.music_track.as_str())
-        {
+        // Exactly-empty, matching `encounter/systems.rs`'s own
+        // `!spec.music_track.is_empty()` gate — same reason as the boss phases.
+        if !spec.music_track.is_empty() && !valid_tracks.contains(spec.music_track.as_str()) {
             report.push_error(format!(
                 "encounter '{}' references unknown music track '{}'",
                 id, spec.music_track
@@ -522,7 +523,10 @@ fn validate_boss_music_tracks(
             ("music_phase2", spec.music_phase2.as_str()),
             ("music_enrage", spec.music_enrage.as_str()),
         ] {
-            if !track.trim().is_empty() && !tracks.contains(track) {
+            // Exactly-empty, matching `phase_music`'s own gate: a
+            // whitespace-only field is a request the runtime makes and must not
+            // be waved through here.
+            if !track.is_empty() && !tracks.contains(track) {
                 report.push_error(format!(
                     "boss spec '{}' {field} references unknown music track '{}'",
                     spec.id, track

@@ -106,3 +106,46 @@ fn a_padded_trigger_id_is_refused_because_the_lookup_is_verbatim() {
     );
     assert!(format!("{failure:?}").contains("whitespace"), "{failure:?}");
 }
+
+/// ⛔⛔ **Editing a wave must MOVE THE PACK'S IDENTITY.**
+///
+/// This schema lowered its book and defined nothing, and `canonical_bytes` is
+/// built from defined rows — so changing a mob's delay, its archetype, or the
+/// wave ORDER changed what the game runs and left the fingerprint byte-identical.
+/// Two peers could carry different encounters and agree they had the same
+/// content (GPT 5.6 review of `1a05b98`, finding 1).
+///
+/// ⚠ the probe varies a field that is NOT part of any content id, which is the
+/// whole point: an id change would move the fingerprint even under the bug.
+#[test]
+fn changing_a_wave_moves_the_pack_fingerprint() {
+    let book = |delay: &str| {
+        format!(
+            r#"{{"goblin_encounter": [(label: "first", mobs: [(kind: "medium_striker", \
+               spawn: (1180.0, 580.0), size: (22.0, 38.0), delay: {delay})])]}}"#
+        )
+        .replace("\\\n               ", "")
+    };
+    let fingerprint = |name: &str, delay: &str| {
+        compile(
+            &draft(name, &book(delay)),
+            &registry(),
+            &AssetsUnchecked,
+        )
+        .expect("a well-formed book compiles")
+        .fingerprint
+    };
+    assert_ne!(
+        fingerprint("delay_zero", "0.0"),
+        fingerprint("delay_two", "2.0"),
+        "a mob that now arrives two seconds later is different content, and the \
+         pack has to say so"
+    );
+    // The complement, so the test is about the CHANGE and not about the pack id:
+    // the same book twice fingerprints the same.
+    assert_eq!(
+        fingerprint("same_a", "0.0"),
+        fingerprint("same_b", "0.0"),
+        "identical content must keep one identity"
+    );
+}

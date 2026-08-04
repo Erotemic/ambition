@@ -192,6 +192,7 @@ pub fn compile(
     let mut asset_needs: Vec<AssetRequirement> = Vec::new();
     let mut prepared_sources: Vec<Source> = Vec::new();
     let mut facet_requirements: BTreeSet<CapabilityId> = BTreeSet::new();
+    let mut defining_schemas: BTreeSet<SchemaId> = BTreeSet::new();
     // ⚠ EVERY fragment, in DECLARED order — not the first, and not the last.
     // Which of them becomes the runtime artifact is the aggregation stage's
     // question, and it cannot be answered while only one source has been read.
@@ -223,6 +224,9 @@ pub fn compile(
         facet_requirements.extend(outcome.requires);
 
         let mut source_canonical = String::new();
+        if !outcome.defines.is_empty() {
+            defining_schemas.insert(source.schema.clone());
+        }
         for entry in outcome.defines {
             source_canonical.push_str(&entry.id.to_string());
             source_canonical.push('\n');
@@ -296,6 +300,45 @@ pub fn compile(
                 .fix("call `FacetOutcome::lower` with the value the runtime will consume")
                 .fix(
                     "or register the schema `AuthoringOnly`, if reaching no runtime is what it                      means",
+                ),
+            );
+        }
+    }
+
+    // ⛔⛔ **WHAT A SCHEMA LOWERS MUST ALSO BE DEFINED, or it is invisible to the
+    // pack's IDENTITY.**
+    //
+    // `canonical_bytes` is built from `define`d rows, so a schema that lowers a
+    // runtime artifact and declares no content contributes NOTHING to the
+    // fingerprint: its authored values can change the running game while the
+    // pack reports the same identity. That defeats every use the fingerprint
+    // has — cache invalidation, packaging, session compatibility, and telling
+    // two peers apart. `encounter_waves` shipped exactly that shape for five
+    // commits (GPT 5.6 review of `1a05b98`, finding 1).
+    //
+    // ⚠ this checks the LINK, not the CONTENT of the canonical form. A handler
+    // can still define a row whose canonical string omits the field it lowered,
+    // and no compiler check can see that. What this removes is the whole silent
+    // CLASS — lowering with no identity at all — so the remaining mistake has to
+    // be made one field at a time, in a canonical form somebody wrote on purpose.
+    for schema in fragments.keys() {
+        if !defining_schemas.contains(schema) && !diagnostics.iter().any(Diagnostic::is_error) {
+            diagnostics.push(
+                Diagnostic::error(
+                    DiagnosticCode::MalformedProviderBinding,
+                    CompileStage::FacetValidation,
+                    format!(
+                        "schema `{schema}` lowers a runtime artifact and defines no content, so \
+                         its authored values reach the game without reaching the pack's identity"
+                    ),
+                )
+                .fix(
+                    "call `FacetOutcome::define` with a canonical form covering what was \
+                     lowered — one row per authored thing is the usual shape",
+                )
+                .fix(
+                    "the fingerprint is built from defined rows; a schema absent from them can \
+                     change the running game without changing the pack",
                 ),
             );
         }

@@ -102,6 +102,23 @@ fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOut
             );
         }
 
+        // ⛔⛔ **DEFINE the encounter, or it has no IDENTITY in the pack.**
+        // This schema lowered its book and defined nothing, and the pack
+        // fingerprint is built from `define`d rows — so editing a wave's delay,
+        // its mob roster, or the wave ORDER changed what the game runs and left
+        // the pack's identity byte-identical. Two peers could carry different
+        // encounters and agree they had the same content (GPT 5.6 review of
+        // `1a05b98`, finding 1 — against this schema, five commits after I wrote
+        // it).
+        //
+        // ⚠ `Debug` is canonical for THIS vocabulary and it is worth saying why,
+        // because it is not canonical in general: `EncounterWaveSpec` and
+        // `EncounterMobSpec` are plain fields and ordered `Vec`s all the way
+        // down, with no map to randomise its iteration. A map anywhere under
+        // here would have to become a `BTreeMap` first — the trap
+        // `BossBehaviorProfile::strike_geometry` already fell into.
+        out.define(facet.content_id(trimmed), format!("{waves:?}"));
+
         // ⛔ the invariant a serde parse cannot see.
         if waves.is_empty() {
             out.report(

@@ -199,7 +199,13 @@ struct OrderSchema;
 
 impl ContentSchemaHandler for OrderSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        out.lower(facet.text.trim().to_string());
+        // ⚠ it DEFINES as well as lowering, and it did not at first — the
+        // lower-must-define rule caught this toy the moment the rule existed,
+        // which is the population it is for: a schema whose authored values
+        // reach the game without reaching the pack's identity.
+        let word = facet.text.trim().to_string();
+        out.define(facet.content_id(&word), word.clone());
+        out.lower(word);
     }
 
     fn aggregate(

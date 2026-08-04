@@ -1328,8 +1328,18 @@ const SUPER_SPARKLE_RISE: f32 = 8.0;
 /// (the wear itself grants it); what the catalog CANNOT express lives here:
 ///
 /// - **Invincibility**: `Health::invulnerable` tracks the worn identity, so
-///   badnik contact can't hurt a super Sanic. (Kernel hazards — the pit, the
-///   spikes — still reset the body: falling off the world outranks any form.)
+///   badnik contact can't hurt a super Sanic — **and since 2026-08-04, neither
+///   can the speedway's spike strip.** Jon, from play: *"in super sanic mode,
+///   sanic should be invincible, even to spikes."* This used to say the kernel's
+///   hazards still reset him, and that was true for a structural reason rather
+///   than a Sanic one: an authored hazard drawn as an ECS volume asked
+///   `body_vulnerable`, while the same hazard drawn as a TILE became an
+///   unconditional teleport-to-spawn nothing could see. `integrate_home_body`
+///   now applies the one predicate to both roads.
+///   ⚠ **the PIT still swallows him**, and that is the line. A hazard tile is
+///   never a collision surface, so a super Sanic falls straight through the
+///   strip at the bottom and leaves the world — and `ResetCause::LeftTheWorld`
+///   exempts nobody. Falling out is not something that HIT you.
 /// - **Sparkles**: a golden pulse trails the form, so the transformation reads
 ///   on screen and not just on the spritesheet.
 ///

@@ -44,12 +44,22 @@ fn rig(world: ae::World) -> Rig {
 }
 
 fn step(r: &mut Rig, frame: ActorControlFrame) -> Option<ae::Vec2> {
+    step_as(r, frame, ambition_characters::actor::Invulnerability::none())
+}
+
+fn step_as(
+    r: &mut Rig,
+    frame: ActorControlFrame,
+    invulnerable: ambition_characters::actor::Invulnerability,
+) -> Option<ae::Vec2> {
     let mut clusters = r.scratch.as_mut();
     integrate_home_body(
         frame,
         &r.world,
         &mut clusters,
         &BodyCombat::default(),
+        invulnerable,
+        false,
         &mut r.hurtbox,
         &mut r.frame_out,
         &[],
@@ -219,4 +229,100 @@ fn surface_skidding_reads_opposing_input_against_fast_travel() {
     // Airborne there is no tangent to fight.
     let airborne = MotionModel::SurfaceMomentum(MomentumMotion::new(ae::MomentumParams::default()));
     assert!(!super::surface_skidding(&airborne, -1.0));
+}
+
+// ── a hazard tile is DAMAGE, and damage asks whether the body can be hurt ────
+
+/// A room whose floor has a spike strip in the middle of it.
+fn spiked_world() -> ae::World {
+    ae::World::new(
+        "spiked",
+        ae::Vec2::new(1200.0, 800.0),
+        ae::Vec2::new(100.0, 500.0),
+        vec![
+            ae::Block::solid("floor", ae::Vec2::new(0.0, 560.0), ae::Vec2::new(1200.0, 40.0)),
+            ae::Block::hazard("spikes", ae::Vec2::new(300.0, 520.0), ae::Vec2::new(200.0, 40.0)),
+        ],
+    )
+}
+
+/// Run right until the body either reaches the spikes' far side or is reset.
+/// Returns the reset the integration published, if any.
+fn run_into_the_spikes(
+    invulnerable: ambition_characters::actor::Invulnerability,
+) -> Option<ae::ResetCause> {
+    let mut r = rig(spiked_world());
+    let mut run = ActorControlFrame::neutral();
+    run.locomotion.x = 1.0;
+    run.facing = 1.0;
+    for _ in 0..240 {
+        r.frame_out.reset = None;
+        step_as(&mut r, run, invulnerable);
+        if let Some(reset) = r.frame_out.reset {
+            return Some(reset.cause);
+        }
+        if r.scratch.kinematics.pos.x > 560.0 {
+            // Cleared the strip without being reset.
+            return None;
+        }
+    }
+    None
+}
+
+/// ⛔ **Jon, from play: *"in super sanic mode, sanic should be invincible, even
+/// to spikes."*** He was right and the reason is structural, not a Sanic bug: an
+/// authored `HazardBlock` reaches the runtime by TWO roads. As an ECS damage
+/// volume it goes through `body_vulnerable` like every other emitter; as a
+/// tile-grid `BlockKind::Hazard` it became an unconditional teleport-to-spawn
+/// that no invulnerability could see. **The same authored spikes therefore
+/// behaved differently depending on how they were drawn**, and nothing said so.
+#[test]
+fn a_body_that_cannot_be_hurt_runs_straight_over_a_hazard_tile() {
+    assert_eq!(
+        run_into_the_spikes(ambition_characters::actor::Invulnerability::none()),
+        Some(ae::ResetCause::Hazard),
+        "an ordinary body is still reset by spikes — the control half of this probe"
+    );
+    let empowered = {
+        let mut set = ambition_characters::actor::Invulnerability::none();
+        set.set(ambition_characters::actor::Invulnerability::EMPOWERED, true);
+        set
+    };
+    assert_eq!(
+        run_into_the_spikes(empowered), None,
+        "a body that cannot be hurt must run straight over them"
+    );
+}
+
+/// ⚠ **and the void still wins**, which is the line this change must not cross.
+/// `resolve_body_hit` already states it for damage — *"you cannot be invulnerable
+/// to the edge of the world"* — and the reset seam has to agree: leaving the
+/// world is not damage, so no reason set exempts a body from it.
+#[test]
+fn no_reason_set_exempts_a_body_from_leaving_the_world() {
+    let mut r = rig(ae::World::new(
+        "void",
+        ae::Vec2::new(600.0, 400.0),
+        ae::Vec2::new(300.0, 100.0),
+        Vec::new(),
+    ));
+    let empowered = {
+        let mut set = ambition_characters::actor::Invulnerability::none();
+        set.set(ambition_characters::actor::Invulnerability::EMPOWERED, true);
+        set
+    };
+    let mut fell = None;
+    for _ in 0..600 {
+        r.frame_out.reset = None;
+        step_as(&mut r, ActorControlFrame::neutral(), empowered);
+        if let Some(reset) = r.frame_out.reset {
+            fell = Some(reset.cause);
+            break;
+        }
+    }
+    assert_eq!(
+        fell,
+        Some(ae::ResetCause::LeftTheWorld),
+        "an empowered body still falls out of the world"
+    );
 }

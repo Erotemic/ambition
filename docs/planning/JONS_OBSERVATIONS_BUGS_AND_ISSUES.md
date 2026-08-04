@@ -5,7 +5,7 @@
 
 * When SANIC is hit, there it seems like he is given no iframes. He should also have some hitstun and be knocked back a bit, and then have a few second of recovery iframes. The rings don't splash out nearly large enough. He needs an opportunity to recollect some of them after his hitstun wears off and before they disappear. 
 
-* In super sanic mode, sanic should be invincible, even to spikes. 
+* ~~In super sanic mode, sanic should be invincible, even to spikes.~~ **POSSIBLY FIXED 2026-08-04 — needs your play-check.** ⭐ it was not a Sanic bug: an authored hazard reaches the runtime by TWO roads and only one of them asked. Drawn as an entity it becomes an ECS damage volume and goes through `body_vulnerable` like every other emitter; drawn as an IntGrid TILE it becomes `BlockKind::Hazard`, and the owner teleported the body to spawn with nothing consulted at all — so no invulnerability of any kind (super form, transformation beat, scripted grant, i-frames) could see the tile road. The same authored spikes therefore behaved differently depending on how they had been drawn. `integrate_home_body` now applies the one predicate to both. ⚠ **the PIT still swallows him and that is deliberate** — a hazard tile is never a collision surface, so he falls through the bottom strip and leaves the world, and `LeftTheWorld` exempts nobody: falling out is not something that hit you. ⭐ Mary-O's pocket quasar gets this for free, being the same fact.
 
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 

@@ -1053,6 +1053,12 @@ pub fn integrate_sim_bodies(
         (
             ae::BodyClusterQueryData,
             &BodyCombat,
+            // ⛔ **the body's own reason set, because a hazard TILE is damage.**
+            // A player who cannot be hurt — a super form, a transformation beat,
+            // a scripted grant — must not be reset to spawn by walking over
+            // spikes. `Option` because a home body without health is a valid
+            // scratch/test body and there is nothing to ask.
+            Option<&ambition_characters::actor::BodyHealth>,
             &ambition_characters::brain::ActorControl,
             &mut CenteredAabb,
             &mut crate::avatar::PlayerBodyFrameOutput,
@@ -1149,6 +1155,7 @@ pub fn integrate_sim_bodies(
     for (
         mut cluster_item,
         combat,
+        health,
         control,
         mut hurtbox,
         mut frame_out,
@@ -1172,6 +1179,11 @@ pub fn integrate_sim_bodies(
             &world.0,
             &mut clusters,
             combat,
+            health.map_or_else(
+                ambition_characters::actor::Invulnerability::none,
+                |h| h.health.invulnerable,
+            ),
+            motion_facts.dodge_rolling,
             &mut hurtbox,
             &mut frame_out,
             &platform_set.0,

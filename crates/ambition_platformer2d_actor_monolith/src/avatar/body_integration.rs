@@ -121,12 +121,25 @@ pub fn ledge_platform_carry(
 /// to spawn (engine-level body reset, the same on every body) and `frame_out.reset`
 /// is set. The SANDBOX reset + ROOM reset are HOME POLICY, run by a separate phase
 /// that reads this flag — this function never performs them.
+///
+/// ⛔ **except a hazard a body that cannot be hurt walked into**, which is where
+/// this function decides. [`ae::ResetCause`]'s own contract is *"the kernel
+/// reports WHAT the world did to the body; the owner decides what it MEANS"*, and
+/// this is the owner. The reasoning is at the filter below.
+///
+/// `invulnerable` and `dodge_rolling` are the two halves of
+/// [`crate::combat::util::body_vulnerable`] the clusters do not already carry.
+/// ⚠ they are passed as INPUTS rather than as a resolved `bool` on purpose: the
+/// predicate is applied in ONE place — here — so a second caller cannot invent a
+/// slightly different rule for "can this body be hurt".
 #[allow(clippy::too_many_arguments)]
 pub fn integrate_home_body(
     actor_control: ambition_characters::actor::control::ActorControlFrame,
     world: &ae::World,
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &BodyCombat,
+    invulnerable: ambition_characters::actor::Invulnerability,
+    dodge_rolling: bool,
     hurtbox: &mut ae::CenteredAabb,
     frame_out: &mut PlayerBodyFrameOutput,
     moving_platforms: &[MovingPlatformState],
@@ -214,9 +227,37 @@ pub fn integrate_home_body(
     // Capture the causal position before home-body policy teleports to spawn.
     // Reading kinematics after `reset_body_clusters` would report the respawn
     // point as the death impact location.
-    let reset = result.events.reset.map(|cause| BodyReset {
-        cause,
-        origin: clusters.kinematics.pos,
+    // ⛔ **A HAZARD TILE IS DAMAGE, so it has to ask what damage asks.** Jon,
+    // from play: *"in super sanic mode, sanic should be invincible, even to
+    // spikes."* He was right, and the cause is structural rather than a Sanic
+    // bug: an authored `HazardBlock` reaches the runtime by TWO roads. Drawn as
+    // an entity it becomes an ECS damage volume, and `ambition_combat::hazards`
+    // gates it on `body_vulnerable` like every other emitter. Drawn as an
+    // IntGrid tile it becomes `BlockKind::Hazard`, the kernel flags
+    // `ResetCause::Hazard`, and this line teleported the body to spawn with
+    // nothing consulted at all. **The same authored spikes therefore behaved
+    // differently depending on how they had been drawn**, and no invulnerability
+    // — super form, transformation beat, scripted grant, i-frames — could see
+    // the tile road.
+    //
+    // ⚠ **`LeftTheWorld` and `Drowned` are NOT exempted, deliberately.**
+    // `resolve_body_hit` already states the rule for damage — *"you cannot be
+    // invulnerable to the edge of the world"* — and this seam has to agree or
+    // the two disagree about the same body. Falling out is not something that
+    // HIT you, and neither is running out of air. `Requested` is the reset verb
+    // and is always honoured.
+    let reset = result.events.reset.and_then(|cause| {
+        let untouched = cause == ae::ResetCause::Hazard
+            && !crate::combat::util::body_vulnerable(
+                invulnerable,
+                dodge_rolling,
+                clusters.shield,
+                combat,
+            );
+        (!untouched).then(|| BodyReset {
+            cause,
+            origin: clusters.kinematics.pos,
+        })
     });
     if reset.is_some() {
         // ⚠ `axis_tuning.air_jumps`, not the engine default. This site was the

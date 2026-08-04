@@ -1269,6 +1269,17 @@ pub fn install_mary_o_content(app: &mut App) {
             // enemy.
             snake::register_solid_snake_sheet,
             ai_slop::register_ai_slop_sheet,
+            // ⛔ **the bonus blocks' LOOK, and it was in the SIM chain first.**
+            // Registered beside `bonk_power_blocks` because that is where the
+            // powerup rules live — and it mutates RENDER entities, from inside
+            // the rollback schedule, which is a category error dressed as
+            // tidiness. It drew nothing, the crate's tests passed, and only a
+            // capture of the running demo showed the `?`-blocks as plain grey
+            // tiles (queue D11/D20, 2026-08-04).
+            //
+            // Presentation reads sim state and writes render components, in
+            // `Update`, exactly like the two sheet registrations above it.
+            powerups::dress_power_blocks,
         ),
     );
 
@@ -1673,9 +1684,6 @@ impl Plugin for MaryORulesPlugin {
         let powerups = (
             powerups::refill_power_blocks_on_room_loaded,
             powerups::bonk_power_blocks,
-            // Presentation, derived from the spent set each frame — see
-            // `dress_power_blocks` for why it is not driven by the bonk.
-            powerups::dress_power_blocks,
             powerups::sync_grown_form,
             // The star, after the form sync: collecting the quasar converts a
             // worn token into a timed body state, and `run_star_power` asserts

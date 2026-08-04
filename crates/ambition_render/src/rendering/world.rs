@@ -621,10 +621,22 @@ pub fn apply_block_art(
         if bound.key != *art {
             bound.key = *art;
         }
-        if let Some(handle) = assets.entities.get(*art) {
-            if sprite.image != *handle {
-                sprite.image = handle.clone();
-            }
+        // ⛔ **a missing handle used to be a SILENT no-op**, which is how this
+        // seam shipped, passed its crate's tests and drew nothing: a game names
+        // art the catalog does not hold and the block keeps its kind's texture,
+        // saying so nowhere. "Silence is not a fallback" — the whole point of a
+        // per-block override is that somebody asked for something specific, so
+        // not having it is news.
+        let Some(handle) = assets.entities.get(*art) else {
+            warn!(
+                "BlockArt names {art:?}, which is not in `GameAssets.entities` — \
+                 the block keeps its BlockKind's texture. The sprite is declared \
+                 but its image never reached this composition's catalog."
+            );
+            continue;
+        };
+        if sprite.image != *handle {
+            sprite.image = handle.clone();
         }
     }
 }

@@ -83,6 +83,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 /// That is not a hypothetical — it is what the first demo capture wrote
 /// (2026-08-04), and it is exactly the readiness contract
 /// `ambition_render::capture` says belongs to the caller.
+#[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
 pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -> App {
     use bevy::render::settings::{RenderCreation, WgpuSettings};
     use bevy::render::RenderPlugin;

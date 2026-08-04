@@ -25,7 +25,7 @@ use ambition_sim_view::DialogView;
 use ambition_sprite_sheet::{
     PortraitClipRecord, PortraitFrameRect, PortraitSheetRegistry, PortraitSheetRegistryPlugin,
 };
-use ambition_ui_nav::{visible_window_start, DialogChoiceSlot};
+use ambition_ui_nav::DialogChoiceSlot;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -325,8 +325,22 @@ struct DialogChoiceWindow {
 }
 
 impl DialogChoiceWindow {
+    /// Centre the window on `selected`. Kept for callers with no scroll state
+    /// to carry; the dialogue itself uses [`Self::at`] with a remembered start,
+    /// because recentering moves a row out from under a finger.
+    #[cfg(test)]
     fn new(selected: usize, total: usize, capacity: usize) -> Self {
-        let start = visible_window_start(selected, total, capacity);
+        Self::at(
+            ambition_ui_nav::visible_window_start(selected, total, capacity),
+            total,
+            capacity,
+        )
+    }
+
+    /// The window at an explicit start, already resolved by the caller's scroll
+    /// rule.
+    fn at(start: usize, total: usize, capacity: usize) -> Self {
+        let start = if total <= capacity { 0 } else { start.min(total - capacity) };
         Self {
             start,
             end: (start + capacity).min(total),
@@ -382,6 +396,14 @@ fn sync_ambition_dialog_ui(
     portrait_registry: Res<PortraitSheetRegistry>,
     mut portrait_playback: ResMut<AmbitionDialogPortraitPlayback>,
     asset_server: Option<Res<AssetServer>>,
+    // **Where the choice window is scrolled to**, remembered across rebuilds.
+    //
+    // A `Local` because it is a PRESENTATION fact: it is a function of the
+    // selection AND of how many rows fit on this screen, and only this pass
+    // knows the second half. Nothing in the sim reads it, so it is not rollback
+    // state — a rewind that moves the selection re-derives it on the next
+    // rebuild through the same scroll rule.
+    mut choice_window_start: Local<usize>,
 ) {
     let viewport = windows
         .single()
@@ -412,8 +434,24 @@ fn sync_ambition_dialog_ui(
     }
 
     let profile = DialogLayoutProfile::for_viewport(viewport);
-    let choice_window = DialogChoiceWindow::new(
+    // ⛔ **the window used to RECENTER on every selection change**, which on a
+    // phone is a moving target: touching a row selects it, the list rebuilds
+    // around it, and the row you touched is now somewhere else — so the second
+    // press Android's tap-mode needs lands on a NEIGHBOUR. Jon reported exactly
+    // that on a Pixel 5, and it looks random while being perfectly
+    // deterministic.
+    //
+    // Scrolling only as far as it must keeps a row's screen position stable for
+    // as long as the selection stays visible, which is what makes touching one
+    // mean what it looked like it meant.
+    *choice_window_start = ambition_ui_nav::scroll_into_view(
+        *choice_window_start,
         dialogue.selected_option,
+        dialogue.option_labels.len(),
+        profile.option_capacity,
+    );
+    let choice_window = DialogChoiceWindow::at(
+        *choice_window_start,
         dialogue.option_labels.len(),
         profile.option_capacity,
     );
@@ -1279,7 +1317,15 @@ mod tests {
             })
             .collect::<Vec<_>>();
         slots.sort_unstable();
-        assert_eq!(slots, vec![4, 5, 6, 7, 8]);
+        // ⚠ **re-baselined 2026-08-03 from the centered `[4..8]`**, and the
+        // SUBJECT of this test is unchanged: only a window renders, and its
+        // slots carry ABSOLUTE list indices. What moved is where the window sits.
+        //
+        // Selecting option 7 from a fresh window scrolls it to the NEAR EDGE
+        // (start 3) instead of recentering on the selection (start 4), because
+        // recentering moves a row out from under a finger between the two taps
+        // Android's tap-mode needs. See `scroll_into_view`.
+        assert_eq!(slots, vec![3, 4, 5, 6, 7]);
 
         let mut indicators = app
             .world_mut()
@@ -1287,7 +1333,7 @@ mod tests {
         let indicator = indicators
             .single(app.world())
             .expect("one scroll indicator");
-        assert!(indicator.0.contains("Choices 5–9 of 9"));
+        assert!(indicator.0.contains("Choices 4–8 of 9"));
 
         let mut thumbs = app
             .world_mut()

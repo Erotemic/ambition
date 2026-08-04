@@ -35,6 +35,44 @@ pub fn visible_window_start(selected: usize, total: usize, capacity: usize) -> u
     start.min(total - capacity)
 }
 
+/// **Scroll the window only as far as it must to show `selected`** — the
+/// alternative to recentering, and the one a finger can use.
+///
+/// ⛔ [`visible_window_start`] is a pure function of `selected`, so it recenters
+/// on EVERY selection change: touch a row, and the list rebuilds around it and
+/// the row you touched moves to a different screen position. On Android, where
+/// a menu press selects before it confirms, the second press then lands on a
+/// NEIGHBOUR — Jon reported exactly this on a Pixel 5 ("users may repeatedly
+/// chase an option as it moves", and the behaviour looks random while being
+/// perfectly deterministic).
+///
+/// This keeps `previous_start` whenever the selection is already visible, and
+/// otherwise moves by the minimum needed to bring it to the near edge. A row
+/// therefore holds its screen position for as long as the selection stays in
+/// the window, which is what makes a direct touch mean what it looked like it
+/// meant.
+pub fn scroll_into_view(
+    previous_start: usize,
+    selected: usize,
+    total: usize,
+    capacity: usize,
+) -> usize {
+    if total <= capacity || capacity == 0 {
+        return 0;
+    }
+    let max_start = total - capacity;
+    let start = previous_start.min(max_start);
+    if selected < start {
+        selected
+    } else if selected >= start + capacity {
+        // The near edge, not the centre: one step of travel per step of
+        // navigation, so a held direction scrolls smoothly instead of paging.
+        (selected + 1 - capacity).min(max_start)
+    } else {
+        start
+    }
+}
+
 /// Map a visible slot index back to its absolute list row.
 pub fn visible_row_index(
     slot_index: usize,
@@ -337,6 +375,38 @@ pub fn decorate_windowed_label(
 
 #[cfg(test)]
 mod tests {
+
+    /// **A row holds its screen position while the selection stays visible** —
+    /// the property that makes a direct touch mean what it looked like it meant.
+    #[test]
+    fn the_window_does_not_move_while_the_selection_is_already_visible() {
+        // Capacity 3 over 8 rows, window showing 2..5.
+        for selected in 2..5 {
+            assert_eq!(
+                scroll_into_view(2, selected, 8, 3),
+                2,
+                "selecting a VISIBLE row must not scroll: recentering is what \
+                 moved the row out from under the finger between the two taps \
+                 Android needs"
+            );
+        }
+    }
+
+    /// Leaving the window scrolls by the MINIMUM, to the near edge.
+    #[test]
+    fn leaving_the_window_scrolls_one_step_not_a_page() {
+        assert_eq!(scroll_into_view(2, 5, 8, 3), 3, "stepping down past the bottom edge scrolls by one");
+        assert_eq!(scroll_into_view(2, 1, 8, 3), 1, "stepping up past the top edge scrolls by one");
+        assert_eq!(scroll_into_view(0, 7, 8, 3), 5, "a jump to the end clamps at the last full window");
+    }
+
+    /// A list that fits needs no window at all, and a stale start cannot push
+    /// the window past the end.
+    #[test]
+    fn a_short_list_and_a_stale_start_are_both_handled() {
+        assert_eq!(scroll_into_view(4, 1, 3, 5), 0, "everything fits: start is 0");
+        assert_eq!(scroll_into_view(99, 7, 8, 3), 5, "a start beyond the end clamps before it is used");
+    }
     use super::*;
 
     #[test]

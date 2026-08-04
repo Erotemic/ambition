@@ -96,48 +96,63 @@ fn every_named_block_the_runtime_looks_for_survives_conversion() {
     }
 }
 
-/// ⚠ **measurement, not a guard** — `#[ignore]`d so it never runs in the suite.
-/// The vault pipe's length is derived from Mary-O's TALL SPRITE, which a
-/// generator cannot call into. Run it when the sheet changes.
+/// ⚠ **ONE instrument, `#[ignore]`d so it never runs in the suite** — what the
+/// authored file actually contains, when a claim about it needs settling.
+///
+/// ⭐ it earned its keep twice on the day it was written. The vault pipe hangs by
+/// a clearance derived from Mary-O's TALL SPRITE, which the Python generator
+/// cannot call into; I guessed 48, it is 67.2, and 24 cells of pipe hung too low
+/// until this printed it. Then a capture *looked* like the ground slab had grown
+/// to three rows — it prints `y 416..480`, exactly the two tiles authored, and
+/// the zoom was the liar.
+///
+///     cargo test -p ambition_demo_mary_o what_the_file_authors -- --ignored --nocapture
 #[test]
 #[ignore]
-fn print_the_sprite_derived_numbers_the_generator_has_to_mirror() {
-    println!("tall_body_size = {:?}", crate::powerups::tall_body_size());
-}
-
-/// ⚠ measurement, not a guard. What conversion names things.
-#[test]
-#[ignore]
-fn print_the_authored_block_names() {
+fn print_what_the_file_authors() {
     let room = ldtk_room();
-    let mut names: Vec<String> = room
+    println!("world size {:?}", room.world.size);
+    println!(
+        "tall_body_size = {:?}  (the generator mirrors this by hand)",
+        crate::powerups::tall_body_size()
+    );
+
+    let mut named: Vec<String> = room
         .world
         .blocks
         .iter()
         .map(|b| format!("{} [{:?}]", b.name, b.id.source))
         .collect();
-    names.sort();
-    names.dedup();
+    named.sort();
+    named.dedup();
     println!("{} blocks:", room.world.blocks.len());
-    for n in names.iter().take(40) {
+    for n in &named {
         println!("  {n}");
     }
-}
 
-/// ⚠ measurement, not a guard.
-#[test]
-#[ignore]
-fn print_the_authored_placements() {
-    let room = ldtk_room();
+    let mut runs: Vec<(i32, i32, i32, i32)> = room
+        .world
+        .blocks
+        .iter()
+        .filter(|b| b.name == "ldtk solid")
+        .map(|b| {
+            (
+                b.aabb.min.y as i32,
+                b.aabb.max.y as i32,
+                b.aabb.min.x as i32,
+                b.aabb.max.x as i32,
+            )
+        })
+        .collect();
+    runs.sort();
+    println!("{} merged terrain rects:", runs.len());
+    for r in &runs {
+        println!("  y {}..{}  x {}..{}", r.0, r.1, r.2, r.3);
+    }
+
+    use ambition_platformer2d::engine_core::AabbExt;
     println!("{} placements:", room.placements.len());
-    for p in room.placements.iter().take(12) {
-        use ambition_platformer2d::engine_core::AabbExt;
-        println!(
-            "  {:?} center={:?} vault min={:?} max={:?}",
-            p.id,
-            p.aabb.center(),
-            crate::vault_bounds().min,
-            crate::vault_bounds().max
-        );
+    for p in room.placements.iter().take(4) {
+        println!("  {:?} center={:?}", p.id, p.aabb.center());
     }
 }

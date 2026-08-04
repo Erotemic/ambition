@@ -177,6 +177,19 @@ WAIVERS: dict[str, str] = {
     #
     # The system lives in `VisualQualityPlugin` now, beside its resource, so
     # there is nothing left to waive.
+    "fit_to_reading_rect": (
+        "the cutscene overlay's half of it, registered in the SAME `.chain()` as "
+        "`sync_cutscene_ui` below and waived on that entry's reasoning exactly: "
+        "it follows the system whose root it repositions, and it moves the day "
+        "that one does. The dialogue's half is NOT here — "
+        "`DefaultDialogUiPlugin` installs it engine-side, which is the shape "
+        "both should end up in. "
+        "AND THE OTHER QUESTION, because on 2026-08-04 a waiver that answered "
+        "only this file's question cost four panics (queue D16): its params are "
+        "`Option<Res<ResolvedGameplayPresentation>>` and a `Query`, so there is "
+        "no composition it can fail to validate in. A waiver here says nothing "
+        "about that, and it has to be checked separately."
+    ),
     "sync_cutscene_ui": (
         "WAIVED ON THE STANDARD, not on the architecture (2026-07-31). It is "
         "generic — `ambition_cutscene` is an engine crate and the engine group "

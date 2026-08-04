@@ -14,11 +14,12 @@
 | [`hud`](src/hud.rs) | Always-on player HUD: health, mana, and money meters (visible build). |
 | [`platformer_presentation`](src/platformer_presentation.rs) | **The presentation face a demo can add** — [`PlatformerPresentationPlugin`]. |
 | [`quality`](src/quality.rs) | Live resolved visual-quality resource. |
+| [`reading_layout`](src/reading_layout.rs) | **Where a block of text goes**, for every overlay that shows one. |
 | [`rendering`](src/rendering/mod.rs) | Bevy visual synchronization for engine state. |
 | [`screen_effects`](src/screen_effects.rs) | Whole-screen post-processing effects for presentation cameras. |
 | [`ui_fonts`](src/ui_fonts.rs) | UI font loading for the presentation layer. |
 
-_11 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

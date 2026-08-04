@@ -87,7 +87,29 @@ fn hp(app: &mut App, body: Entity) -> i32 {
 
 /// Walk the attacker until the fighters' centers sit `target_gap` apart
 /// (±8 px), then release the stick and let it come to rest.
-fn walk_to_gap(app: &mut App, pad: Entity, attacker: Entity, victim: Entity, target_gap: f32) {
+/// Returns whether the requested gap was actually ESTABLISHED.
+///
+/// ⛔ **it did not used to return anything, and that is the defect this signature
+/// fixes.** The walker can fail — the comment below records one instance, and on
+/// 2026-08-03 two of four cases missed by a factor of four (target 113, arrived
+/// 29; target 219, arrived 96). The caller then asked the shadow model about a
+/// gap of 113 and MEASURED it at 29, scoring the answer as if the question had
+/// been the one it asked. Two cases at the same arrived gap and different real
+/// outcomes then read as the model contradicting itself, when the model had
+/// never been asked the same question twice.
+///
+/// ⚠ the far gaps may be unreachable BY CONSTRUCTION: opening distance means
+/// walking away from an opponent whose brain is chasing, so the retreat and the
+/// pursuit cancel. That is a fact about the fixture, not about the model, and it
+/// has to be reported as one.
+#[must_use]
+fn walk_to_gap(
+    app: &mut App,
+    pad: Entity,
+    attacker: Entity,
+    victim: Entity,
+    target_gap: f32,
+) -> bool {
     for _ in 0..900 {
         // A knockout mid-walk freezes the controls until the next round; a
         // walker that keeps pressing into the freeze burns its whole budget
@@ -132,6 +154,63 @@ fn walk_to_gap(app: &mut App, pad: Entity, attacker: Entity, victim: Entity, tar
             break;
         }
     }
+    // Judged AFTER the settle, because the settle is part of establishing it: a
+    // body still sliding out of its walk has not arrived anywhere yet.
+    let a = kin(app, attacker);
+    let v = kin(app, victim);
+    ((v.pos.x - a.pos.x).abs() - target_gap).abs() <= 8.0
+}
+
+/// **Stage the gap by PLACING the attacker, not by walking it there.**
+///
+/// Walking could not reach the far gaps and never will: opening distance means
+/// retreating from an opponent whose brain is chasing, so the retreat and the
+/// pursuit cancel and the walker burns its budget arriving somewhere else. The
+/// instrument's question is *"does this swing land from HERE"*, and HERE is the
+/// fixture's to choose.
+///
+/// `transit_body` is the engine's authority for discretely relocating a body
+/// (ADR 0024) — poking `BodyKinematics.pos` would leave the motion model's
+/// private attachment state describing the old position, which is the bug
+/// `room_replay.rs` documents from the other side.
+fn place_at_gap(app: &mut App, attacker: Entity, victim: Entity, target_gap: f32) -> bool {
+    let victim_pos = kin(app, victim).pos;
+    let attacker_pos = kin(app, attacker).pos;
+    // Keep the attacker on the side it is already on, so nothing has to turn
+    // around and the facing the view reports is the facing it had.
+    let side = if attacker_pos.x <= victim_pos.x { -1.0 } else { 1.0 };
+    let destination = ae::Vec2::new(victim_pos.x + side * target_gap, attacker_pos.y);
+
+    let mut query = app.world_mut().query::<(
+        Entity,
+        ae::BodyClusterQueryData,
+        &mut ambition_platformer2d::actors::features::MotionModel,
+    )>();
+    let world = app.world_mut();
+    let mut placed = false;
+    for (entity, mut cluster_item, mut motion_model) in query.iter_mut(world) {
+        if entity != attacker {
+            continue;
+        }
+        let mut clusters = cluster_item.as_clusters_mut();
+        ae::movement::transit_body(
+            &mut motion_model,
+            &mut clusters,
+            destination,
+            ae::movement::TransitVelocity::Zero,
+        );
+        placed = true;
+    }
+    if !placed {
+        return false;
+    }
+    // One step so the placement is resolved against the world (a destination
+    // inside geometry is pushed out, and the answer must be about where the body
+    // ACTUALLY is), then read the gap that resulted.
+    app.update();
+    let a = kin(app, attacker);
+    let v = kin(app, victim);
+    ((v.pos.x - a.pos.x).abs() - target_gap).abs() <= 8.0
 }
 
 /// Hand-fill the view a perception pass would build for the attacker.
@@ -266,7 +345,12 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
     // The frame data comes from the REAL MovePlayback the button starts, so
     // the shadow model predicts the move the fighter actually throws — no
     // hand-typed table, exactly like L2.
-    walk_to_gap(&mut app, pad_one, attacker, victim, 30.0);
+    // Walked rather than placed, and the return is deliberately ignored: this
+    // one only needs the two close enough for a swing to be worth throwing, and
+    // whether it arrived at exactly 30px does not change what `MovePlayback`
+    // reports about the move. The four MEASURED gaps below are placed, because
+    // there the exact distance is the question.
+    let _ = walk_to_gap(&mut app, pad_one, attacker, victim, 30.0);
     pad_set(&mut app, pad_one, GamepadButton::West, 1.0);
     let mut frames: Option<MoveFrameData> = None;
     for _ in 0..30 {
@@ -302,6 +386,8 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
     ];
 
     let mut agreements = 0;
+    let mut scored = 0;
+    let mut unstaged: Vec<String> = Vec::new();
     let mut table = String::new();
     for (index, &gap) in gaps.iter().enumerate() {
         if !matches!(
@@ -310,7 +396,7 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
         ) {
             settle_into_a_live_round(&mut app);
         }
-        walk_to_gap(&mut app, pad_one, attacker, victim, gap);
+        let established = place_at_gap(&mut app, attacker, victim, gap);
         let actual_gap = {
             let a = kin(&mut app, attacker);
             let v = kin(&mut app, victim);
@@ -320,10 +406,29 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
         let predicted = shadow_predicts_a_hit(&view, &frames);
         let landed = real_swing_lands(&mut app, pad_one, victim, &frames);
         let agree = predicted == landed;
-        agreements += agree as u32;
+        // ⛔ **a case the fixture could not stage is NOT evidence about the
+        // model**, in either direction. Scoring it as agreement would hide a
+        // broken fixture behind a green test; scoring it as disagreement is what
+        // this test did until 2026-08-03, and it is why the model looked like it
+        // was contradicting itself at two identical gaps that were never the same
+        // question.
+        if established {
+            scored += 1;
+            agreements += agree as u32;
+        } else {
+            unstaged.push(format!(
+                "  case {index}: asked for {gap:.0}px, arrived at {actual_gap:.0}px"
+            ));
+        }
         table.push_str(&format!(
             "  case {index}: gap {actual_gap:.0}px (target {gap:.0}) — shadow: {predicted}, real: {landed}{}\n",
-            if agree { "" } else { "  ← DISAGREE" }
+            if !established {
+                "  ← NOT STAGED, not scored"
+            } else if agree {
+                ""
+            } else {
+                "  ← DISAGREE"
+            }
         ));
         // Clear hitstun/i-frames before the next question.
         for _ in 0..150 {
@@ -331,11 +436,26 @@ fn the_shadow_model_agrees_with_the_real_sim_about_what_lands() {
         }
     }
 
+    // The fixture's own health is asserted FIRST and separately, because a
+    // fixture that cannot stage its question produces a number about nothing —
+    // and a test that reports such a number as a verdict on the subject is the
+    // failure mode this file has now hit three times.
     assert!(
-        agreements >= 3,
-        "the shadow model agreed with the real sim on only {agreements}/4 gaps — \
-         the imagination is lying hard enough that rollout arg-max is noise. \
-         (reach {:.0}px, effective {effective:.0}px)\n{table}",
+        unstaged.is_empty(),
+        "the fixture could not STAGE {} of 4 gaps, so those cases say nothing \
+         about the shadow model:\n{}\n\n⚠ opening a gap means walking away from \
+         an opponent whose brain is chasing, so the far cases may be unreachable \
+         by construction — the repair is to PLACE the bodies through the engine's \
+         relocation authority (as `room_replay.rs` does) or to quiesce the \
+         victim, not to widen the tolerance.\n{table}",
+        unstaged.len(),
+        unstaged.join("\n"),
+    );
+    assert!(
+        agreements * 4 >= scored * 3,
+        "the shadow model agreed with the real sim on only {agreements}/{scored} \
+         STAGED gaps — the imagination is lying hard enough that rollout arg-max \
+         is noise. (reach {:.0}px, effective {effective:.0}px)\n{table}",
         frames.reach
     );
 }

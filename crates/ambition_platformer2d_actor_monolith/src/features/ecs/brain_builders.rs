@@ -6,7 +6,7 @@
 //! hand-rolling a slightly different mix of archetype tuning, aggressiveness,
 //! and per-actor jitter.
 
-use super::super::enemies::CharacterArchetypeSpec;
+use super::super::enemies::ArchetypeSpec;
 use super::actor_clusters::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
@@ -16,14 +16,14 @@ use ambition_characters::brain::{
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
     WandererCfg,
 };
-use crate::features::enemies::CharacterArchetypeSpecExt;
+use crate::features::enemies::ArchetypeSpecExt;
 
 /// Build the enemy's durable combat capability kit from archetype data.
 ///
 /// The kit intentionally does **not** include held item overlays; a held item is
 /// a separate component and can be dropped/swapped later. `ActionSet` is derived
 /// from `CombatKit + HeldItem` for whichever aggression state is currently live.
-pub(super) fn enemy_combat_kit_for_spec(spec: &CharacterArchetypeSpec) -> CombatKit {
+pub(super) fn enemy_combat_kit_for_spec(spec: &ArchetypeSpec) -> CombatKit {
     CombatKit {
         innate_melee: spec.melee_spec(),
         innate_ranged: spec.ranged_spec(),
@@ -44,11 +44,11 @@ pub(super) fn action_set_from_combat_kit(
 /// Build the enemy's default `ActionSet` from its authored spec.
 ///
 /// Reads `melee_spec()` / `ranged_spec()` / `move_style()` straight off the
-/// data-driven `CharacterArchetypeSpec` — every spec value (timings, damage,
+/// data-driven `ArchetypeSpec` — every spec value (timings, damage,
 /// reach) lives in `character_archetypes.ron`. Spawn-time only: the spec is
 /// resolved on the spawn seed before the entity exists, so the spawn path
 /// never names the roster enum.
-pub(super) fn enemy_default_action_set(spec: &CharacterArchetypeSpec) -> ActionSet {
+pub(super) fn enemy_default_action_set(spec: &ArchetypeSpec) -> ActionSet {
     let mut actions = enemy_combat_kit_for_spec(spec).to_action_set(spec.held_item_spec().as_ref());
     // The special is a data-driven MOVE now (the moveset subsumes `ActionSet.special`,
     // fable review §A1): if the archetype authors a signature move on the `special`
@@ -68,14 +68,14 @@ pub(super) fn enemy_default_action_set(spec: &CharacterArchetypeSpec) -> ActionS
 }
 
 pub(super) fn held_item_for_spec(
-    spec: &CharacterArchetypeSpec,
+    spec: &ArchetypeSpec,
 ) -> Option<ambition_characters::brain::HeldItemSpec> {
     spec.held_item_spec()
 }
 
 /// Build the enemy's default `Brain` from its archetype spec.
 ///
-/// Reads `brain_template()` off the consolidated `CharacterArchetypeSpec` so adding
+/// Reads `brain_template()` off the consolidated `ArchetypeSpec` so adding
 /// a new archetype is a single row, not a parallel match.
 pub(crate) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
     match enemy.brain_spec.template {

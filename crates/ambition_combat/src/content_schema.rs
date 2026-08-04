@@ -1,7 +1,7 @@
 //! The combat capability's authored-content SCHEMA registration.
 //!
 //! `character_archetypes.ron` — the enemy roster — is a `{ "<brain_key>":
-//! CharacterArchetypeSpec }` table, and this crate owns that type
+//! ArchetypeSpec }` table, and this crate owns that type
 //! ([`crate::archetype_spec`]), so it owns the schema.
 //!
 //! ⛔ **the type moved here on 2026-08-03 for exactly this reason.** It was
@@ -26,7 +26,7 @@ use ambition_content_pack::{
     RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
 };
 
-use crate::archetype_spec::CharacterArchetypeSpec;
+use crate::archetype_spec::ArchetypeSpec;
 
 /// The capability that owns this schema.
 pub const COMBAT_CAPABILITY: &str = "combat";
@@ -40,14 +40,14 @@ pub const CHARACTER_ARCHETYPES_VERSION: SchemaVersion = SchemaVersion(1);
 /// The reserved fallback row every unknown brain key resolves to.
 const FALLBACK_BRAIN_KEY: &str = "combatant";
 
-/// The parsed roster: `{ "<brain_key>": CharacterArchetypeSpec }`.
-pub type CharacterArchetypes = std::collections::BTreeMap<String, CharacterArchetypeSpec>;
+/// The parsed roster: `{ "<brain_key>": ArchetypeSpec }`.
+pub type Archetypes = std::collections::BTreeMap<String, ArchetypeSpec>;
 
-struct CharacterArchetypesSchema;
+struct ArchetypesSchema;
 
-impl ContentSchemaHandler for CharacterArchetypesSchema {
+impl ContentSchemaHandler for ArchetypesSchema {
     fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
-        let archetypes: CharacterArchetypes = match ron::from_str(facet.text) {
+        let archetypes: Archetypes = match ron::from_str(facet.text) {
             Ok(archetypes) => archetypes,
             Err(error) => {
                 let code = match error.code {
@@ -202,7 +202,7 @@ impl ContentSchemaHandler for CharacterArchetypesSchema {
 /// so a two-row loop is one diagnostic and not two saying the same thing.
 fn report_inheritance_cycles(
     facet: &FacetSource<'_>,
-    archetypes: &CharacterArchetypes,
+    archetypes: &Archetypes,
     out: &mut FacetOutcome,
 ) {
     let mut settled: std::collections::BTreeSet<&str> = Default::default();
@@ -275,8 +275,8 @@ fn canonical<T: std::fmt::Debug>(value: &T) -> String {
 /// The roster a prepared pack lowered to — the runtime's load path.
 pub fn lowered_character_archetypes(
     pack: &ambition_content_pack::PreparedContentPack,
-) -> Option<&CharacterArchetypes> {
-    pack.lowered::<CharacterArchetypes>(&SchemaId::new(CHARACTER_ARCHETYPES_SCHEMA))
+) -> Option<&Archetypes> {
+    pack.lowered::<Archetypes>(&SchemaId::new(CHARACTER_ARCHETYPES_SCHEMA))
 }
 
 pub fn character_archetypes_schema() -> SchemaRegistration {
@@ -288,7 +288,7 @@ pub fn character_archetypes_schema() -> SchemaRegistration {
         doc: "The hostile-archetype roster: how each spawn brain key fights. Keys are the \
               spawn brain keys; `combatant` is the reserved fallback. Defines \
               `character_archetype` identities.",
-        handler: Arc::new(CharacterArchetypesSchema),
+        handler: Arc::new(ArchetypesSchema),
     }
 }
 

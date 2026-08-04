@@ -134,7 +134,7 @@ impl ControllerBinding {
 ///
 /// A brain says how hard to try; the BODY turns that into its own acceleration,
 /// speed cap, and traction. `patrol_speed` / `chase_speed` / `aggro_radius` /
-/// `attack_range` on `CharacterArchetypeSpec` are the standing inconsistency:
+/// `attack_range` on `ArchetypeSpec` are the standing inconsistency:
 /// they are brain or encounter policy that knows absolute world speeds, so a
 /// heavy and a light "chasing" move at the same authored number regardless of
 /// what their bodies are.

@@ -8,7 +8,7 @@ use super::{resolve_movement_for, CharacterRosterAssemblyError};
 use crate::combat::{BodyMovementPatch, BodyMovementTuning};
 use ambition_entity_catalog::placements::CharacterBrain;
 use std::collections::BTreeMap;
-use crate::features::enemies::CharacterArchetypeSpecExt;
+use crate::features::enemies::ArchetypeSpecExt;
 
 /// The composition primitive: `Some` knobs override, `None` knobs inherit.
 #[test]

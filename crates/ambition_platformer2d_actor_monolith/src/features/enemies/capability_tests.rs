@@ -5,7 +5,7 @@
 //! unchanged).
 
 use super::{test_spec, ALL_BRAIN_KEYS};
-use crate::features::enemies::CharacterArchetypeSpecExt;
+use crate::features::enemies::ArchetypeSpecExt;
 
 /// Pin the authored capability rows in `character_archetypes.ron` to the
 /// behavior the actor layer used to hardcode by archetype identity

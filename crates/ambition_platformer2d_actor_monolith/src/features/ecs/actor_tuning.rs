@@ -231,7 +231,7 @@ pub struct CharacterBrainSpec {
 
 impl CharacterBrainSpec {
     /// Default melee smash hit-band (px) when an archetype authors none. Single
-    /// source of truth shared with `CharacterArchetypeSpec::brain_spec`.
+    /// source of truth shared with `ArchetypeSpec::brain_spec`.
     pub const DEFAULT_SMASH_HIT_BAND: f32 = 36.0;
 }
 

@@ -79,7 +79,7 @@ pub enum SpawnActorKind {
         overrides: BossOverrides,
     },
     /// A hostile enemy, resolved through `spec_for_brain` (brain key →
-    /// `CharacterArchetypeSpec`) — the same path a room `EnemySpawn` takes.
+    /// `ArchetypeSpec`) — the same path a room `EnemySpawn` takes.
     Enemy {
         brain: ambition_entity_catalog::placements::CharacterBrain,
     },
@@ -1341,7 +1341,7 @@ pub struct GiantHandPlan {
 /// Whether an archetype is a limbed `"giant"`-class host. The one predicate the
 /// request builder and any remaining loop share, so they cannot disagree about
 /// which enemies are planned as hosts.
-pub(crate) fn spec_is_limbed_host(spec: &super::super::enemies::CharacterArchetypeSpec) -> bool {
+pub(crate) fn spec_is_limbed_host(spec: &super::super::enemies::ArchetypeSpec) -> bool {
     mount_has_hand_limbs(spec)
 }
 
@@ -1355,7 +1355,7 @@ pub(crate) fn spec_is_limbed_host(spec: &super::super::enemies::CharacterArchety
 /// ARE supported; they lower through the planner. Returns `true` (having logged)
 /// when the caller should skip the spawn.
 pub(crate) fn reject_runtime_giant(
-    spec: &super::super::enemies::CharacterArchetypeSpec,
+    spec: &super::super::enemies::ArchetypeSpec,
     origin: &str,
     id: &str,
 ) -> bool {
@@ -1377,7 +1377,7 @@ pub(crate) fn reject_runtime_giant(
 pub(crate) fn giant_hand_plans(
     giant_id: &str,
     giant_aabb: ae::Aabb,
-    spec: &super::super::enemies::CharacterArchetypeSpec,
+    spec: &super::super::enemies::ArchetypeSpec,
 ) -> Vec<GiantHandPlan> {
     let giant_half = spec
         .default_size
@@ -1406,7 +1406,7 @@ pub(crate) fn giant_hand_plans(
 /// v1 predicate (Q18): which mount archetypes carry driven hand limbs. Scoped to
 /// the `"giant"` class — the only limbed mount today. Generalizing to a
 /// data-driven archetype flag is deferred until a second limbed mount exists.
-fn mount_has_hand_limbs(spec: &super::super::enemies::CharacterArchetypeSpec) -> bool {
+fn mount_has_hand_limbs(spec: &super::super::enemies::ArchetypeSpec) -> bool {
     spec.mount_class.as_deref() == Some("giant")
 }
 
@@ -1430,7 +1430,7 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
 fn attach_mount_role(
     commands: &mut Commands,
     entity: bevy::ecs::entity::Entity,
-    spec: &super::super::enemies::CharacterArchetypeSpec,
+    spec: &super::super::enemies::ArchetypeSpec,
 ) {
     if let Some(class) = &spec.mount_class {
         // Saddle offset heuristic: the rider sits just above the mount's top.

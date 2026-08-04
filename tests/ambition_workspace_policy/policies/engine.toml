@@ -433,7 +433,16 @@ rationale = "ambition_items source stays free of forbidden refs"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["crates/ambition_items/src"]
-forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_content", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
+# ⚠ `ambition_content::`, not `ambition_content` — the bare form also matches
+# `ambition_content_pack`, which is the ENGINE's schema/compile
+# infrastructure that engine crates legitimately define their own content
+# schemas through (combat, characters and items each have a
+# `content_schema.rs`). The sibling `engine.combat-kit-content-free` policy
+# already uses the precise form (`crate::ambition_content`), so this is the
+# established shape in this file rather than a loosening: what the rationale
+# forbids is reaching into the ambition_content GAME crate, and that is what
+# the qualified path names.
+forbid = ["ambition_platformer2d_actor_monolith", "ambition_render", "ambition_content::", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
 
 
 # was: architecture_boundaries_inventory_ui_crate_is_menu_state_only

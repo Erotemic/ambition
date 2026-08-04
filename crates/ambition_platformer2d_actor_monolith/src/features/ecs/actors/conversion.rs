@@ -65,7 +65,7 @@ pub(crate) fn hostile_spec_for_actor(
     id: &str,
     name: &str,
     dialogue_id: Option<&str>,
-) -> super::super::super::enemies::CharacterArchetypeSpec {
+) -> super::super::super::enemies::ArchetypeSpec {
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(
         hostile_brain_id_for_actor(id, name, dialogue_id).into(),
     );

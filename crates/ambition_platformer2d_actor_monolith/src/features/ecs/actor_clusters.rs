@@ -19,7 +19,7 @@
 
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
-use crate::features::enemies::CharacterArchetypeSpecExt;
+use crate::features::enemies::ArchetypeSpecExt;
 
 /// Content-driven animation PIN for an actor.
 ///
@@ -40,7 +40,7 @@ pub struct ActorAnimOverride(pub ambition_sprite_sheet::character::CharacterAnim
 
 use super::super::components::BodyMelee;
 use super::super::enemies::{
-    ActorSpawnState, ActorSurfaceState, CharacterArchetypeSpec, CharacterRoster,
+    ActorSpawnState, ActorSurfaceState, ArchetypeSpec, CharacterRoster,
 };
 use super::super::path_motion::PathMotion;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
@@ -159,7 +159,7 @@ impl ActorBody {
     /// turns on with `can_blink` (the pipeline's blink limb; the driver emits the
     /// blink sfx/vfx from the returned `FrameEvents.blinks`).
     /// Seed a combat body's movement `AbilitySet` from its authored **movement
-    /// kit** (`CharacterArchetypeSpec::movement_kit`): the shared locomotion base
+    /// kit** (`ArchetypeSpec::movement_kit`): the shared locomotion base
     /// unioned with the character's authored verbs (blink / fly / shield / dash),
     /// plus the `attack` verb every combat body carries. `is_aerial` forces
     /// flight on regardless of the kit. This is the one place a character's
@@ -385,7 +385,7 @@ pub struct ActorClusterSeed {
     /// spawn path — only this data does. `pub(crate)`: the seed type itself is
     /// publicly re-exported (content builds peaceful seeds) but this archetype
     /// field is internal-only.
-    pub(crate) spec: CharacterArchetypeSpec,
+    pub(crate) spec: ArchetypeSpec,
 }
 
 /// Convert an authored LDtk actor rectangle plus a possibly sprite-derived
@@ -552,7 +552,7 @@ impl ActorClusterSeed {
     /// (which only feeds the integrator's patrol-stall intent). The seed's `spec`
     /// field is filled with an inert default (peaceful actors never spawn through
     /// the archetype path), so callers — including the content crate — need no
-    /// `CharacterArchetypeSpec`. Returns the seed plus the optional sprite render size
+    /// `ArchetypeSpec`. Returns the seed plus the optional sprite render size
     /// Build a peaceful actor from the caller's App-local character catalog.
     pub fn new_peaceful_npc_in(
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,

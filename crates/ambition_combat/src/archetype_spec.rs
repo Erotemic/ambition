@@ -36,7 +36,7 @@ mod vec2_option {
     }
 }
 
-/// Serde default for [`CharacterArchetypeSpec::attack_cooldown_mult`]: the
+/// Serde default for [`ArchetypeSpec::attack_cooldown_mult`]: the
 /// multiplicative identity (most archetypes use the shared cooldown).
 pub fn default_attack_cooldown_mult() -> f32 {
     1.0
@@ -56,14 +56,14 @@ fn default_turns_at_walls() -> bool {
     true
 }
 
-/// Serde default for [`CharacterArchetypeSpec::weight`] (CM1): the reference
+/// Serde default for [`ArchetypeSpec::weight`] (CM1): the reference
 /// body, so knockback growth divides by 1.0 for every un-authored archetype.
 pub fn default_weight() -> f32 {
     1.0
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
-pub struct CharacterArchetypeSpec {
+pub struct ArchetypeSpec {
     /// Optional parent archetype id to inherit movement tuning from. The resolver
     /// folds `BASELINE ← parent (resolved) ← this row's `movement` patch`, so an
     /// archetype can extend another and override only what differs. `None` =

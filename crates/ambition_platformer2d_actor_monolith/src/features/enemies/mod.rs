@@ -66,7 +66,7 @@ pub const ENEMY_DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
 /// linking this crate. The roster ASSEMBLY below — inheritance folding,
 /// provider-local parents, transactional publication — is genuinely coupled to
 /// this crate and stayed.
-pub use ambition_combat::archetype_spec::CharacterArchetypeSpec;
+pub use ambition_combat::archetype_spec::ArchetypeSpec;
 
 /// Glue: `Option<ae::Vec2>` deserializes from a `(x, y)` tuple in RON
 /// or an explicit `None`. `bevy_math::Vec2` doesn't implement
@@ -136,12 +136,12 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
 /// The actor-crate projections of an authored archetype row.
 ///
 /// ⛔ **an extension TRAIT because the orphan rule says so**, not as a style
-/// choice: `CharacterArchetypeSpec` is defined in `ambition_combat` now, so an
+/// choice: `ArchetypeSpec` is defined in `ambition_combat` now, so an
 /// inherent `impl` for it can only be written there — and every one of these
 /// returns an ACTOR-crate type (`ActorTuning`, `CharacterBrainSpec`). The data
 /// moved; the projections into this crate's runtime shapes stayed with the
 /// shapes.
-pub(crate) trait CharacterArchetypeSpecExt {
+pub(crate) trait ArchetypeSpecExt {
     fn brain_spec(&self) -> crate::features::ecs::actor_tuning::CharacterBrainSpec;
     fn movement_kit(&self) -> ae::AbilitySet;
     fn held_item_spec(&self) -> Option<ambition_characters::brain::HeldItemSpec>;
@@ -152,7 +152,7 @@ pub(crate) trait CharacterArchetypeSpecExt {
     fn combat_capabilities(&self) -> crate::combat::CombatCapabilities;
 }
 
-impl CharacterArchetypeSpecExt for CharacterArchetypeSpec {
+impl ArchetypeSpecExt for ArchetypeSpec {
     /// Project the generic brain-construction inputs (kit vocabulary) the
     /// runtime brain rebuilds reconstruct without naming the roster.
     fn brain_spec(&self) -> crate::features::ecs::actor_tuning::CharacterBrainSpec {
@@ -279,10 +279,10 @@ impl CharacterArchetypeSpecExt for CharacterArchetypeSpec {
 /// production resolution.
 #[derive(bevy::prelude::Resource, Clone, Debug)]
 pub struct CharacterRoster {
-    by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
-    fallback: CharacterArchetypeSpec,
+    by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
+    fallback: ArchetypeSpec,
     #[cfg(test)]
-    provider_fallbacks: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
+    provider_fallbacks: std::collections::BTreeMap<String, ArchetypeSpec>,
 }
 
 impl CharacterRoster {
@@ -290,8 +290,8 @@ impl CharacterRoster {
     /// (resolved for any unknown brain key, mirroring `from_brain`'s
     /// `Combatant` default).
     pub(crate) fn new(
-        by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
-        fallback: CharacterArchetypeSpec,
+        by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
+        fallback: ArchetypeSpec,
     ) -> Self {
         Self {
             by_brain,
@@ -302,9 +302,9 @@ impl CharacterRoster {
     }
 
     fn with_provider_fallbacks(
-        by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
-        fallback: CharacterArchetypeSpec,
-        provider_fallbacks: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
+        by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
+        fallback: ArchetypeSpec,
+        provider_fallbacks: std::collections::BTreeMap<String, ArchetypeSpec>,
     ) -> Self {
         #[cfg(not(test))]
         let _ = &provider_fallbacks;
@@ -322,7 +322,7 @@ impl CharacterRoster {
     pub(crate) fn fallback_for_provider(
         &self,
         provider_id: &str,
-    ) -> Option<&CharacterArchetypeSpec> {
+    ) -> Option<&ArchetypeSpec> {
         self.provider_fallbacks.get(provider_id)
     }
 
@@ -369,7 +369,7 @@ impl CharacterRoster {
     pub(crate) fn spec_for_brain(
         &self,
         brain: &ambition_entity_catalog::placements::CharacterBrain,
-    ) -> CharacterArchetypeSpec {
+    ) -> ArchetypeSpec {
         let key = match brain {
             ambition_entity_catalog::placements::CharacterBrain::Custom(name) => name.as_str(),
             _ => "",
@@ -385,7 +385,7 @@ impl CharacterRoster {
     /// `from_brain` default). This is the roster-enum-free construction path:
     /// the map keys ARE the spawn brain keys, so no `CharacterArchetype` is named.
     pub(crate) fn from_map(
-        mut by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
+        mut by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
     ) -> Self {
         // Resolve each archetype's movement tuning by folding its patch along the
         // inheritance chain. Done HERE — the single chokepoint every roster passes
@@ -409,7 +409,7 @@ impl CharacterRoster {
     /// rosters). Provider code uses the fallible
     /// [`CharacterRosterFragment::from_ron`].
     pub(crate) fn from_ron(ron: &str) -> Self {
-        let by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec> =
+        let by_brain: std::collections::BTreeMap<String, ArchetypeSpec> =
             ron::from_str(ron)
                 .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
         Self::from_map(by_brain)
@@ -425,7 +425,7 @@ impl CharacterRoster {
 /// fallbacks. The candidate registry is assembled transactionally, so callers
 /// keep the previous prepared roster when this returns an error.
 fn resolve_movement_inheritance(
-    specs: &mut std::collections::BTreeMap<String, CharacterArchetypeSpec>,
+    specs: &mut std::collections::BTreeMap<String, ArchetypeSpec>,
     owners: &std::collections::BTreeMap<String, String>,
 ) -> Result<(), CharacterRosterAssemblyError> {
     // Snapshot the authored (patch, parent) so resolution reads immutable data
@@ -545,7 +545,7 @@ impl Default for CharacterRoster {
 pub struct CharacterRosterFragment {
     provider_id: String,
     fallback_brain_id: Option<String>,
-    by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
+    by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
     source_ron: String,
     /// WHERE the RON came from, for diagnostics. See
     /// [`Self::from_ron_at`]; `None` means "built from a literal", not "unknown".
@@ -573,7 +573,7 @@ impl CharacterRosterFragment {
     pub fn from_prepared_specs(
         provider_id: impl Into<String>,
         fallback_brain_id: Option<impl Into<String>>,
-        by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
+        by_brain: std::collections::BTreeMap<String, ArchetypeSpec>,
         source_ron: impl Into<String>,
     ) -> Result<Self, CharacterRosterAssemblyError> {
         let provider_id = provider_id.into();
@@ -620,7 +620,7 @@ impl CharacterRosterFragment {
             return Err(CharacterRosterAssemblyError::EmptyProviderId);
         }
         let by_brain =
-            ron::from_str::<std::collections::BTreeMap<String, CharacterArchetypeSpec>>(roster_ron)
+            ron::from_str::<std::collections::BTreeMap<String, ArchetypeSpec>>(roster_ron)
                 .map_err(|error| CharacterRosterAssemblyError::MalformedFragment {
                     provider_id: provider_id.clone(),
                     source: source.clone(),
@@ -939,7 +939,7 @@ pub(crate) fn test_roster() -> CharacterRoster {
 /// Resolve a spec by its spawn brain key against the checked-in Ambition test
 /// fixture. Production callers always receive an explicit App-local roster.
 #[cfg(test)]
-pub(crate) fn test_spec(brain_key: &str) -> CharacterArchetypeSpec {
+pub(crate) fn test_spec(brain_key: &str) -> ArchetypeSpec {
     test_roster().spec_for_brain(
         &ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
     )

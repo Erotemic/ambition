@@ -14,7 +14,7 @@ use ambition_characters::brain::{
 };
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, Commands, Update};
-use crate::features::enemies::CharacterArchetypeSpecExt;
+use crate::features::enemies::ArchetypeSpecExt;
 
 fn make_enemy(brain_key: &str) -> ActorConfig {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));

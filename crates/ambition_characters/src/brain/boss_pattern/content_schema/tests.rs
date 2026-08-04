@@ -250,10 +250,18 @@ fn seeds_with_overrides(keys: [&str; 4]) -> String {
     format!("{map:?}")
 }
 
-/// The shipped clockwork-warden encounter, as the fixture — a probe whose
-/// fixture drifts from the authored shape stops testing the real schema.
+/// A shipped encounter's SHAPE as the fixture — a probe whose fixture drifts
+/// from the authored shape stops testing the real schema.
+///
+/// ⚠ **the id and display name are deliberately generic, and that costs nothing.**
+/// This fixture proves the SCHEMA — which fields exist, their types, and what the
+/// validator says about them — and a schema is its field set, not its values. The
+/// shape below is still the shipped one, field for field. Naming the actual boss
+/// here made an ENGINE crate name Ambition content, which is what
+/// `engine.combat-kit-content-free`'s sibling policy forbids and what this
+/// fixture was tripping (2026-08-04).
 const ENCOUNTER: &str = r#"(
-    id: "clockwork_warden",
+    id: "probe_encounter",
     name: "Clockwork Warden",
     max_hp: 36,
     phase1_to_transition_hp: 0.66,

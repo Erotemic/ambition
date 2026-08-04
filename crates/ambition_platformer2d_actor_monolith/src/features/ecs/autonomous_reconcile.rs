@@ -33,7 +33,7 @@ use super::{CombatKit, HeldItem};
 use crate::abilities::traversal::possession::PossessionState;
 use crate::combat::CombatCapabilities;
 use crate::features::ecs::actor_tuning::{ActorTuning, CharacterBrainSpec};
-use crate::features::enemies::{CharacterArchetypeSpec, CharacterRoster};
+use crate::features::enemies::{ArchetypeSpec, CharacterRoster};
 use crate::features::TemporaryControl;
 use ambition_characters::actor::character_catalog::{
     AuthoredBrainContext, AutonomousSource, BrainBinding, BrainBuildContext, CharacterBodyKind,
@@ -45,7 +45,7 @@ use ambition_characters::brain::{ActorControl, Brain, PlayerSlot, NPC_PATROL_SPE
 use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use crate::features::enemies::CharacterArchetypeSpecExt;
+use crate::features::enemies::ArchetypeSpecExt;
 
 /// The complete set of components a provoked hostile archetype installs on an
 /// actor — the deterministic projection of `(archetype spec, current config,
@@ -77,7 +77,7 @@ pub(crate) struct ProvokedArchetype {
 /// deliberate exception: the PLACEMENT-owned respawn policy, which the archetype
 /// does not get to overwrite (ADR 0022, see `ActorTuning::adopting_archetype`).
 pub(crate) fn project_provoked_archetype(
-    spec: &CharacterArchetypeSpec,
+    spec: &ArchetypeSpec,
     archetype: &str,
     current_config: &ActorConfig,
     combat_kit: &CombatKit,

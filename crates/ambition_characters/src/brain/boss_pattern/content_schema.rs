@@ -137,9 +137,17 @@ impl ContentSchemaHandler for BossEncounterSchema {
             if track.trim().is_empty() {
                 continue;
             }
+            // ⛔ **the EXACT authored string, not a trimmed copy.** Startup
+            // validation compares the raw value against the track set and
+            // `phase_music` hands the raw value to playback, so trimming here
+            // made `" fast_paced_violin_boss "` resolve in the compiler and fail
+            // at startup — the compiler and the runtime applying different
+            // rules, which is the precise defect this reference was added to
+            // remove. Resolve what the runtime will actually ask for.
+            // (GPT 5.6 review, finding 3.)
             out.refer(PendingRef::new(
                 SchemaId::new("music_track"),
-                track.trim(),
+                track.as_str(),
                 "music track",
                 id.clone(),
                 field,

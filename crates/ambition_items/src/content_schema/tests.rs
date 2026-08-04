@@ -257,7 +257,17 @@ fn reformatting_the_item_grid_does_not_move_the_fingerprint() {
 /// resolves. (GPT 5.6 review, finding 3.)
 #[test]
 fn a_dialog_id_the_runtime_lookup_can_never_resolve_is_refused() {
-    for spelling in ["PortalGun", "portal_gun", "portal gun", "portal-gun"] {
+    // ⚠ leading/trailing whitespace is IN this list because the first version of
+    // the check trimmed before comparing and therefore could not see it.
+    for spelling in [
+        "PortalGun",
+        "portal_gun",
+        "portal gun",
+        "portal-gun",
+        " portalgun ",
+        "portalgun ",
+        " portalgun",
+    ] {
         let mut rows: Vec<String> = (0..ITEM_COUNT).map(row).collect();
         rows[2] = format!(
             r#"(

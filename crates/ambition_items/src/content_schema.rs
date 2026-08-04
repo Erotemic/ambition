@@ -118,19 +118,26 @@ fn declare(facet: &FacetSource<'_>, rows: &[ItemMeta], out: &mut FacetOutcome) {
         // normalizes to `portalgun` and never equals what was stored. Refuse the
         // un-normalized spelling rather than silently rewriting it, so the id an
         // author reads in the file is the id scripts use.
-        // (GPT 5.6 review, finding 3.)
-        let normalized: String = dialog_id
+        //
+        // ⛔ **compared against `row.dialog_id`, the RAW value — NOT the trimmed
+        // one.** My first version normalized a trimmed copy and compared it to
+        // that same trimmed copy, so `" portalgun "` passed the check my own
+        // comment named, and then lowered with its whitespace intact. A check
+        // that pre-applies part of the transform it is testing for cannot see
+        // that part. (GPT 5.6 review, finding 2.)
+        let raw = row.dialog_id.as_str();
+        let normalized: String = raw
             .chars()
             .filter(|c| c.is_alphanumeric())
             .flat_map(|c| c.to_lowercase())
             .collect();
-        if !dialog_id.is_empty() && dialog_id != normalized {
+        if !raw.trim().is_empty() && raw != normalized {
             out.report(
                 facet
                     .diagnostic(
                         DiagnosticCode::MalformedProviderBinding,
                         format!(
-                            "item at grid slot {index} has `dialog_id: \"{dialog_id}\"`, which no \
+                            "item at grid slot {index} has `dialog_id: \"{raw}\"`, which no \
                              script can reach — lookups normalize to `{normalized}`"
                         ),
                     )

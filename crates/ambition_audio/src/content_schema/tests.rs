@@ -240,3 +240,29 @@ fn reformatting_the_registry_does_not_move_the_fingerprint() {
         "a comment is not content"
     );
 }
+
+/// ⛔ **A delimiter is not a serialization.** Track ids need only be non-empty
+/// and unique, so commas are legal; `join(",")` let two different orders encode
+/// identically while the per-track entries stayed the same, holding the whole
+/// fingerprint still. (GPT 5.6 review, finding 4.)
+#[test]
+fn two_orders_of_comma_bearing_track_ids_do_not_collide() {
+    let pack = |name: &str, ids: [&str; 4]| {
+        let tracks = ids
+            .iter()
+            .map(|id| format!(r#"(id: "{id}", display_name: "n")"#))
+            .collect::<Vec<_>>()
+            .join(",");
+        // ⚠ default_track is held CONSTANT: my first version used `ids[0]`,
+        // which differs between the two permutations and distinguished them by
+        // itself — so the test passed against the buggy `join(",")` and proved
+        // nothing. The ORDER must be the only thing that differs.
+        let text = format!("(default_track: \"a\", tracks: [{tracks}])");
+        music_fingerprint(name, &text)
+    };
+    assert_ne!(
+        pack("collide_a", ["a", "b,c", "a,b", "c"]),
+        pack("collide_b", ["a,b", "c", "a", "b,c"]),
+        "both used to flatten to `a,b,c,a,b,c`"
+    );
+}

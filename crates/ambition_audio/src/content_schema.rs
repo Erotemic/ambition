@@ -99,19 +99,22 @@ impl ContentSchemaHandler for MusicRegistrySchema {
         // radio differently, fingerprinted identically. Both are runtime-real
         // (`AudioLibrary` resolves the default at startup and indexes
         // `music_tracks[next]` for next/prev). (GPT 5.6 review, finding 1.)
-        out.define(
-            facet.content_id_in(MUSIC_REGISTRY_SCHEMA, "registry"),
+        out.define(facet.content_id_in(MUSIC_REGISTRY_SCHEMA, "registry"), {
+            // ⛔ **serialized, not `join(",")`.** A track id is only required
+            // to be non-empty and unique — commas are legal — so an
+            // unescaped delimiter let two different orders encode
+            // identically: `["a", "b,c", "a,b", "c"]` and
+            // `["a,b", "c", "a", "b,c"]` both flatten to `a,b,c,a,b,c`, with
+            // the per-track entries unchanged, so the whole fingerprint
+            // held still while the order moved. (GPT 5.6 review, finding 4.)
+            let order: Vec<&str> = registry.tracks.iter().map(|t| t.id.as_str()).collect();
             format!(
                 "default_track={}\norder={}",
-                registry.default_track,
-                registry
-                    .tracks
-                    .iter()
-                    .map(|track| track.id.as_str())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
-        );
+                ron::ser::to_string(&registry.default_track)
+                    .unwrap_or_else(|_| registry.default_track.clone()),
+                ron::ser::to_string(&order).unwrap_or_else(|e| format!("<uncanonical: {e}>"))
+            )
+        });
 
         for track in &registry.tracks {
             let id = facet.content_id_in(MUSIC_TRACK_SCHEMA, &track.id);

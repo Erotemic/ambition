@@ -1153,6 +1153,7 @@ fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt, gameplay
 /// hiding their root would take those with it.
 pub fn sync_touch_stick_visibility_from_context(
     active_context: Option<Res<ambition_input::SeatInputContexts>>,
+    prompt: Res<ControlPrompt>,
     visible: Res<TouchControlsVisible>,
     mut sticks: Query<(&TouchSurface, &mut Visibility)>,
 ) {
@@ -1160,7 +1161,25 @@ pub fn sync_touch_stick_visibility_from_context(
     let gameplay = active_context
         .as_deref()
         .is_none_or(|seats| seats.primary().gameplay_owned());
-    let target = if visible.0 && gameplay {
+    // **The stick STEERS A MENU too, and hiding it there cost the player their
+    // only way to move a selection.**
+    //
+    // `bind_touch_virtual_inputs` maps `TouchVirtualStick` to BOTH `Move` and
+    // `MenuStick`, and the axis writer is ungated — so while a menu or dialogue
+    // owns the seat the stick is a working navigation control, and hiding it on
+    // `gameplay_owned()` alone hid a control that does something. (A hidden node
+    // takes no drags, so it really was dead, not merely invisible: this is the
+    // opposite of the buttons' bug, where hidden ones stayed live.)
+    //
+    // ⚠ the rule is still "a control nobody can use must not be on screen" —
+    // the Empty context, where nothing owns the seat and neither binding routes,
+    // still hides it.
+    let steers_something = gameplay
+        || matches!(
+            prompt.context,
+            ControlContextKind::Menu | ControlContextKind::Dialogue
+        );
+    let target = if visible.0 && steers_something {
         Visibility::Inherited
     } else {
         Visibility::Hidden
@@ -1920,6 +1939,45 @@ mod prompt_tests {
         assert!(!touch_action_available(TouchActionButton::Jump, &e));
         assert!(!touch_action_available(TouchActionButton::Attack, &e));
         assert!(touch_action_available(TouchActionButton::Start, &e));
+    }
+
+    /// **The move stick is shown wherever it STEERS something**, which includes
+    /// a menu or a dialogue — not only gameplay.
+    ///
+    /// `bind_touch_virtual_inputs` maps `TouchVirtualStick` to both `Move` and
+    /// `MenuStick`, so while a menu owns the seat the stick is a working
+    /// navigation control. Hiding it on `gameplay_owned()` alone left a phone
+    /// player with no way to move a dialogue selection — and a hidden node takes
+    /// no drags, so it was genuinely dead rather than merely invisible.
+    #[test]
+    fn the_move_stick_is_shown_wherever_it_steers_something() {
+        fn stick_visibility(prompt_value: ControlPrompt) -> Visibility {
+            let mut app = App::new();
+            app.insert_resource(prompt_value);
+            // Nobody owns gameplay — the dialogue/menu case.
+            app.init_resource::<ambition_input::SeatInputContexts>();
+            app.insert_resource(TouchControlsVisible(true));
+            app.add_systems(Update, sync_touch_stick_visibility_from_context);
+            let stick = app
+                .world_mut()
+                .spawn((TouchSurface::Movement, Visibility::Hidden))
+                .id();
+            app.update();
+            *app.world().get::<Visibility>(stick).expect("the stick exists")
+        }
+
+        assert_eq!(
+            stick_visibility(menu_prompt("Select")),
+            Visibility::Inherited,
+            "a menu or dialogue owns the seat and `MenuStick` is bound to this \
+             stick, so it steers the selection and must be on screen"
+        );
+        assert_eq!(
+            stick_visibility(ControlPrompt::default()),
+            Visibility::Hidden,
+            "the Empty context routes neither binding, and the standing rule is \
+             that a control nobody can use must not be on screen"
+        );
     }
 
     /// **A dialogue's confirm button is SHOWN and LIVE** — the report's third

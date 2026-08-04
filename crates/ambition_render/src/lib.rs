@@ -14,6 +14,7 @@
 
 /// Text census of texture decoding: which sheets landed, how big, and when.
 pub mod asset_census;
+#[cfg(feature = "capture")]
 pub mod capture;
 pub mod cutscene;
 /// Provider-selectable dialogue presentation: one shared lifecycle / ordering

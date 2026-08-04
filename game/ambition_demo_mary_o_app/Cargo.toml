@@ -23,6 +23,11 @@ default = []
 # (`input`) — a windowed demo you cannot control is not a playable demo. Without
 # it the shell steps the sim headlessly (`tests/exit_3.rs`, the `mary_o_demo`
 # bin default).
+# Offscreen capture: the `capture_mary_o` binary. Implies `visible`, because a
+# capture of a game with no renderer is a blank file, and adds the engine's
+# capture module + its PNG encoder. Off by default so nothing that ships links
+# an encoder.
+capture = ["visible", "ambition_platformer2d/capture"]
 visible = ["ambition_platformer2d/visible", "ambition_platformer2d/basic_shell_presentation", "ambition_platformer2d/audio", "input", "dep:bevy_kira_audio"]
 # The STANDARD host input path (leafwing bindings + the device->ControlFrame
 # bridge + the fixed-tick latch), the same production wiring the full app uses.
@@ -53,4 +58,4 @@ path = "tests/mary_o_it.rs"
 [[bin]]
 name = "capture_mary_o"
 path = "src/bin/capture_mary_o.rs"
-required-features = ["visible"]
+required-features = ["capture"]

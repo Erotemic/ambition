@@ -10,6 +10,9 @@ description = "Facade crate for composing Ambition-derived platformer games from
 # The causal inspector, off by default: a game that never opens one must not
 # link one. Forwards to the runtime's host half and the foundation vocabulary.
 causal = ["ambition_platformer2d_runtime/causal", "dep:ambition_causal"]
+# Offscreen capture, off by default for the same reason as everything else here:
+# it links a PNG encoder, and a shipped game has nothing to encode.
+capture = ["ambition_render/capture"]
 # The content compiler, off by default for the same reason: a game that ships
 # its content embedded and never validates at runtime must not link one.
 # `ambition_items?/content_pack`: the `?` means "only if that optional edge is

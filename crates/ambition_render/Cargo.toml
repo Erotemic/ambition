@@ -10,6 +10,9 @@ description = "Ambition's Bevy presentation layer: the sandbox's default rendere
 crate-type = ["rlib"]
 
 [features]
+# Offscreen capture — the `capture` module and its PNG encoder. Enabled by the
+# capture binaries, and by nothing that ships.
+capture = ["dep:image"]
 default = []
 # Forwarders: cfg(feature = "...") gates inside this crate key off OUR feature
 # names; app/content composition chooses the matching producer-side features so
@@ -19,8 +22,15 @@ input = ["ambition_sim_view/input"]
 portal_render = ["dep:ambition_portal2d_presentation"]
 
 [dependencies]
-# PNG encoding for `capture` — the entire visual channel on a machine with no display.
-image = { version = "0.25", default-features = false, features = ["png"] }
+# ⛔ **OPTIONAL, and the ratchets are why.** `image` is a PNG ENCODER and it is
+# only ever used by the offscreen `capture` module — a development tool. Landing
+# it unconditionally widened the linked closure of every consumer of this crate,
+# including `fixtures/minimal_game` and `fixtures/external_consumer`, whose whole
+# purpose is to be small. The capability-footprint ratchet and three sub-workspace
+# lockfiles all went red within one suite run (2026-08-04), which is the guard
+# doing exactly its job: a debug tool must not be in a shipped game's dependency
+# graph.
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
 ambition_sim_view = { path = "../ambition_sim_view" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_projectiles = { path = "../ambition_projectiles" }

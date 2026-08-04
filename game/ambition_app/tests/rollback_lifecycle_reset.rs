@@ -343,4 +343,25 @@ fn probe_what_a_rollback_frame_costs() {
         "synctest dist=4",
         base().with_sync_test_rollback_settings(4, 10),
     );
+
+    // ⭐ **POPULATION vs SCHEMA, the whole point of this addition.** Same
+    // rollback settings, same frame count, different amounts of world to
+    // snapshot. A floor that barely moves is fixed per-registration cost and the
+    // schema IS the lever; one that tracks the body count is snapshot volume and
+    // the schema is not.
+    let empty = || {
+        Platformer2dSimHarnessOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room("tiny_chamber")
+    };
+    // ⚠ **the knob is the ROOM, not a body count.** `stage_on_floor`'s second
+    // argument is HP — I read it as a population and nearly ran an experiment
+    // that varied nothing while appearing to vary the thing under test. The
+    // population difference that exists is between rooms: the calibration lab is
+    // furnished, `tiny_chamber` is not.
+    run(
+        "synctest d=2 tiny room",
+        empty().with_sync_test_rollback_settings(2, 10),
+    );
+    run("fixed60 tiny room", empty().with_fixed_tick(true));
 }

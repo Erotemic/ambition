@@ -452,16 +452,17 @@ pub fn bonk_power_blocks(
         let pos = ae::Vec2::new(min.x + crate::T * 0.5, min.y + crate::T * 0.5);
         let popped = spawn_moving_world_item(
             &mut commands,
-            // ⭐ **it starts INSIDE the block and climbs out.** Spawned emerging
-            // (drawn behind the world) and at the block's own centre rather than
-            // above it, so the first frame shows nothing and the pickup rises
-            // into view through the block's top edge. `clear_emerged_powerups`
-            // ends it. Jon: *"the powerups should rise, behind the blocks, so
-            // they look like they emerge from them."*
-            WorldItem {
-                emerging: true,
-                ..WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite)
-            },
+            // ⭐ **it starts INSIDE the block and climbs out.** Spawned at the
+            // block's own centre rather than above it, so the first frame shows
+            // nothing and the pickup rises into view through the block's top
+            // edge. Jon: *"the powerups should rise, behind the blocks, so they
+            // look like they emerge from them."*
+            //
+            // ⚠ **being drawn BEHIND the world is not set here.** It is derived
+            // from the motion's own emergence window, so it ends exactly when the
+            // rise does. It used to be a `WorldItem.emerging` flag set true here
+            // and cleared by a system that was never written.
+            WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite),
             reward.motion,
         );
         // ⛔ **AND IT BELONGS TO THIS ATTEMPT.** Jon, from play: *"there is an issue

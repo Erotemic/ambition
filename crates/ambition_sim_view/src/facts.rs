@@ -184,24 +184,38 @@ pub struct WorldItemFact {
     /// layer resolves to a real sprite; `None` draws the row-tinted quad.
     pub sprite: Option<String>,
     /// Still emerging from whatever produced it — draw it BEHIND the world.
-    /// See `WorldItem::emerging`.
+    ///
+    /// ⛔ **DERIVED from the motion, never mirrored from the item.** `WorldItem`
+    /// carried an `emerging: bool` that Mary-O set `true` at spawn and NOTHING
+    /// ever set back to `false`, so a wand finished rising, began its ordinary
+    /// arc, and stayed drawn behind the world for the rest of its life (GPT 5.6
+    /// review of `1a05b98`, finding 3).
+    ///
+    /// ⚠ the motion already knew — `ItemMotion::emerging()` compares elapsed rise
+    /// against the authored one. A second mutable copy of a fact the simulation
+    /// derives per frame can only ever go stale; this asks the one that cannot.
     pub emerging: bool,
 }
 
 pub fn rebuild_world_items_view(
     mut view: ResMut<WorldItemsView>,
-    items: Query<&ambition_platformer2d_actor_monolith::items::world_item::WorldItem>,
+    items: Query<(
+        &ambition_platformer2d_actor_monolith::items::world_item::WorldItem,
+        Option<&ambition_platformer2d_actor_monolith::items::item_motion::ItemMotion>,
+    )>,
 ) {
     use ambition_platformer2d_actor_monolith::items::world_item::WorldItemPayload;
     view.0.clear();
-    view.0.extend(items.iter().map(|item| WorldItemFact {
+    view.0.extend(items.iter().map(|(item, motion)| WorldItemFact {
         pos: item.pos,
         half_extent: item.half_extent,
         row_id: match &item.payload {
             WorldItemPayload::Equip(row) => row.id.clone(),
         },
         sprite: item.sprite.clone(),
-        emerging: item.emerging,
+        // An item with no motion is not rising: a dropped or authored item sits
+        // where it is, and belongs in front of the world like any other pickup.
+        emerging: motion.is_some_and(|motion| motion.emerging()),
     }));
 }
 

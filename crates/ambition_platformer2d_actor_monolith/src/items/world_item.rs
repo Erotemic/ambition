@@ -38,21 +38,17 @@ pub struct WorldItem {
     /// ≠ equipment id): a game maps it to an image through its own `WorldItemArt`.
     /// `None` keeps the draw-blind quad.
     pub sprite: Option<String>,
-    /// **This pickup is still coming OUT of something** — draw it behind the
-    /// world geometry so it reads as emerging rather than as already free.
-    ///
-    /// Jon, 2026-08-04: *"the powerups should rise, behind the blocks, so they
-    /// look like they emerge from them."* A world item draws in front of blocks
-    /// normally, which is right for one lying on the ground and wrong for one
-    /// climbing out of the block that just produced it: it appears whole,
-    /// pasted on top, the instant the block is struck.
-    ///
-    /// ⚠ **a FACT, not a timer.** Whoever spawns the item owns when the
-    /// emergence ends — Mary-O clears it once the item's foot clears the
-    /// block's top edge — because only the spawner knows what it emerged from.
-    /// The renderer just honours it.
-    #[doc(alias = "behind_world")]
-    pub emerging: bool,
+
+    // ⛔ **`emerging: bool` LIVED HERE and is GONE (2026-08-04).** Mary-O set it
+    // `true` when a ?-block popped a reward and nothing ever set it back — the
+    // comment named a `clear_emerged_powerups` that was never written — so an item
+    // finished rising, began its ordinary arc, and stayed drawn BEHIND the world
+    // for the rest of its life (GPT 5.6 review of `1a05b98`, finding 3).
+    //
+    // ⭐ the fact was already derivable: `ItemMotion::emerging()` compares elapsed
+    // rise against the authored one, every frame, and cannot go stale. `SimView`
+    // asks that instead. A second mutable copy of a derived fact is a bug with a
+    // schedule.
 }
 
 impl WorldItem {
@@ -63,7 +59,6 @@ impl WorldItem {
             pos,
             half_extent,
             sprite: None,
-            emerging: false,
         }
     }
 

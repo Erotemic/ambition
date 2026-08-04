@@ -136,6 +136,18 @@ enough that their SIZE is a finding on its own, independent of placement:
 `crates/ambition_platformer2d_actor_monolith/src/features/enemies/mod.rs` (1039). Those are the two
 worth a maintainer's attention first.
 
+⚠ **Three joined the list on 2026-08-04 and TWO of them are the agent's own
+doing**, recorded rather than quietly marked: `player_robot_lineage.rs` went
+141 → 277 test lines when D14's sprite-body assertions landed, and
+`character_sprites/assets.rs` sits at exactly 200 because one fixture field was
+added to it. `features/transform_beat.rs` (211) crossed on its own. All three are
+`behavioral-local` and none is extractable without widening a private API, which
+`test-placement.md` forbids — so they are review-pending, which is the disposition
+an agent is allowed to record.
+
+<!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/features/transform_beat.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_content/src/player_robot_lineage.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d/src/app.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/action_scheme.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/features/ecs/autonomous_reconcile.rs kind=behavioral-local disposition=maintainer-review-pending -->
@@ -184,6 +196,6 @@ it reports. (Restored 2026-07-19: the 07-18 rewrite dropped them, which left the
 KB check red.)
 
 <!-- planning-evidence: boss-validator errors=8 warnings=10 -->
-<!-- planning-evidence: workspace-members count=58 -->
+<!-- planning-evidence: workspace-members count=59 -->
 <!-- planning-evidence: module-size waivers=0 unwaived-violations=0 stale-waivers=0 invalid-waivers=0 -->
 <!-- planning-evidence: cc3 status=ignored -->

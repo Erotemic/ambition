@@ -446,7 +446,16 @@ pub fn bonk_power_blocks(
         let pos = ae::Vec2::new(min.x + crate::T * 0.5, min.y + crate::T * 0.5);
         let popped = spawn_moving_world_item(
             &mut commands,
-            WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite),
+            // ⭐ **it starts INSIDE the block and climbs out.** Spawned emerging
+            // (drawn behind the world) and at the block's own centre rather than
+            // above it, so the first frame shows nothing and the pickup rises
+            // into view through the block's top edge. `clear_emerged_powerups`
+            // ends it. Jon: *"the powerups should rise, behind the blocks, so
+            // they look like they emerge from them."*
+            WorldItem {
+                emerging: true,
+                ..WorldItem::equipping(reward.row, pos, reward.half).with_sprite(reward.sprite)
+            },
             reward.motion,
         );
         // ⛔ **AND IT BELONGS TO THIS ATTEMPT.** Jon, from play: *"there is an issue
@@ -778,21 +787,26 @@ pub fn dress_power_blocks(
         Option<&ambition_platformer2d::render::rendering::BlockArt>,
     )>,
 ) {
+    use ambition_platformer2d::actors::assets::game_assets::EntitySprite;
     use ambition_platformer2d::render::rendering::BlockArt;
-    let live =
-        BlockArt(ambition_platformer2d::actors::assets::game_assets::EntitySprite::BonusBlockTile);
     for (entity, visual, art) in &blocks {
         let is_bonus = crate::power_block_index_for(&visual.geo_id).is_some()
             || crate::quasar_block_index_for(&visual.geo_id).is_some();
-        let wants_live = is_bonus && !spent.is_spent(&visual.geo_id);
-        match (wants_live, art) {
-            (true, None) => {
-                commands.entity(entity).insert(live);
-            }
-            (false, Some(_)) => {
-                commands.entity(entity).remove::<BlockArt>();
-            }
-            _ => {}
+        if !is_bonus {
+            continue;
+        }
+        // ⚠ **a spent block gets its OWN texture, it does not fall back to the
+        // kind's.** The first version removed the override and let the block
+        // become plain masonry, which hides its own history — a player cannot
+        // tell a used block from a wall. Jon, 2026-08-04: *"A used questionmark
+        // block should get an inert texture."*
+        let want = BlockArt(if spent.is_spent(&visual.geo_id) {
+            EntitySprite::SpentBlockTile
+        } else {
+            EntitySprite::BonusBlockTile
+        });
+        if art != Some(&want) {
+            commands.entity(entity).insert(want);
         }
     }
 }

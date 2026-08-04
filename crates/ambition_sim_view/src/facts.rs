@@ -183,6 +183,9 @@ pub struct WorldItemFact {
     /// Optional presentation art id (e.g. `"super_mary_o_milk_carton"`) the render
     /// layer resolves to a real sprite; `None` draws the row-tinted quad.
     pub sprite: Option<String>,
+    /// Still emerging from whatever produced it — draw it BEHIND the world.
+    /// See `WorldItem::emerging`.
+    pub emerging: bool,
 }
 
 pub fn rebuild_world_items_view(
@@ -198,6 +201,7 @@ pub fn rebuild_world_items_view(
             WorldItemPayload::Equip(row) => row.id.clone(),
         },
         sprite: item.sprite.clone(),
+        emerging: item.emerging,
     }));
 }
 

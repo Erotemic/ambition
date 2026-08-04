@@ -367,7 +367,8 @@ pub fn sync_ground_item_visuals(
         reported.clear();
     }
     for ground in &grounds.0 {
-        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
+        let translation =
+            ambition_platformer2d_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
         let bound = resolve_art(
             art.as_deref().map(|art| &art.0),
             failed_art.as_deref().map(|failed| &failed.held),
@@ -422,7 +423,9 @@ pub struct WorldItemArt(pub ArtBindings<WorldItemSprite>);
 pub fn build_world_item_art(
     mut commands: Commands,
     assets: Res<AssetServer>,
-    manifest: Option<Res<ambition_platformer2d_shared_tangle::world_item_art::WorldItemArtManifest>>,
+    manifest: Option<
+        Res<ambition_platformer2d_shared_tangle::world_item_art::WorldItemArtManifest>,
+    >,
 ) {
     let art = match manifest {
         Some(manifest) => WorldItemArt(ArtBindings::new(
@@ -468,7 +471,12 @@ pub fn sync_world_item_visuals(
         reported.clear();
     }
     for item in &items.0 {
-        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, item.pos, 8.0);
+        // ⭐ **an emerging pickup draws BEHIND the world**, so it reads as coming
+        // out of the block that produced it instead of being pasted whole on top
+        // of it (Jon, 2026-08-04). `WORLD_Z_BLOCK` is 0.0, so anything below it
+        // is occluded by the geometry; a free item keeps the ordinary 8.0.
+        let z = if item.emerging { -1.0 } else { 8.0 };
+        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, item.pos, z);
         // A real bound sprite wins; otherwise the row-tinted quad. An item that
         // declares NO sprite id is authored that way and reports nothing; an item
         // that declares one nobody registered is reported, once.
@@ -652,7 +660,8 @@ pub fn sync_held_projectile_visuals(
     };
     let art = art.get_or_insert_with(|| HeldProjectileVisualArt::load(&asset_server));
     for shot in &shots.0 {
-        let translation = ambition_platformer2d_core::config::world_to_bevy(&world.0, shot.pos, 9.5);
+        let translation =
+            ambition_platformer2d_core::config::world_to_bevy(&world.0, shot.pos, 9.5);
         if shot.fireball {
             // Fireball: a glowing ball, sized a touch over the contact box so the
             // fire visibly fills the space that hits. No rotation — it's radial.

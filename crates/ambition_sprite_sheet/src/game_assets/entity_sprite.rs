@@ -62,6 +62,14 @@ pub enum EntitySprite {
     /// the override and falls back to `SolidTile`, which is exactly the plain
     /// block it becomes.
     BonusBlockTile,
+    /// A USED bonus block — the same plate and rivets, drained and glyphless.
+    ///
+    /// ⚠ **a spent block does NOT fall back to `SolidTile`**, which was the
+    /// first design. A used block that looks like a wall hides its own history:
+    /// a player deciding whether a block is worth hitting cannot tell it from
+    /// masonry. Jon, 2026-08-04: *"A used questionmark block should get an inert
+    /// texture."*
+    SpentBlockTile,
     SolidTile,
     OneWayTile,
     HazardTile,
@@ -103,6 +111,7 @@ impl EntitySprite {
             Self::EdgeExit => "entities/edge_exit.png",
             Self::ProjectileEnergy => "entities/projectile_energy.png",
             Self::BonusBlockTile => "entities/bonus_block_tile.png",
+            Self::SpentBlockTile => "entities/spent_block_tile.png",
             Self::SolidTile => "entities/solid_tile.png",
             Self::OneWayTile => "entities/one_way_tile.png",
             Self::HazardTile => "entities/hazard_tile.png",
@@ -138,6 +147,7 @@ impl EntitySprite {
         Self::EdgeExit,
         Self::ProjectileEnergy,
         Self::BonusBlockTile,
+        Self::SpentBlockTile,
         Self::SolidTile,
         Self::OneWayTile,
         Self::HazardTile,
@@ -181,6 +191,7 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
         EntitySprite::EdgeExit => "edge_exit",
         EntitySprite::ProjectileEnergy => "projectile_energy",
         EntitySprite::BonusBlockTile => "bonus_block_tile",
+        EntitySprite::SpentBlockTile => "spent_block_tile",
         EntitySprite::SolidTile => "solid_tile",
         EntitySprite::OneWayTile => "one_way_tile",
         EntitySprite::HazardTile => "hazard_tile",

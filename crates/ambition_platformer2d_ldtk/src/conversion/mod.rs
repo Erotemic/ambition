@@ -151,26 +151,36 @@ impl LdtkProject {
         let mut loading_zones = Vec::new();
         let mut water_regions = Vec::new();
         let mut climbable_regions = Vec::new();
-        let mut moving_platforms: Vec<ambition_platformer2d_world::platforms::MovingPlatformSpec> = Vec::new();
+        let mut moving_platforms: Vec<ambition_platformer2d_world::platforms::MovingPlatformSpec> =
+            Vec::new();
         let mut camera_zones: Vec<CameraZoneSpec> = Vec::new();
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut props: Vec<PropSpec> = Vec::new();
         let mut ground_items: Vec<ambition_platformer2d_world::rooms::GroundItemSpec> = Vec::new();
-        let mut portal_gun_spawns: Vec<ambition_platformer2d_world::rooms::PortalGunSpawnSpec> = Vec::new();
+        let mut portal_gun_spawns: Vec<ambition_platformer2d_world::rooms::PortalGunSpawnSpec> =
+            Vec::new();
         let mut shrines: Vec<ambition_platformer2d_world::rooms::ShrineSpec> = Vec::new();
-        let mut gravity_zones: Vec<ambition_platformer2d_world::rooms::GravityZoneSpec> = Vec::new();
+        let mut gravity_zones: Vec<ambition_platformer2d_world::rooms::GravityZoneSpec> =
+            Vec::new();
         let mut enemy_spawns: Vec<
-            ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+            ambition_platformer2d_world::rooms::Authored<
+                ambition_entity_catalog::placements::CharacterBrain,
+            >,
         > = Vec::new();
         let mut boss_spawns: Vec<
-            ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+            ambition_platformer2d_world::rooms::Authored<
+                ambition_entity_catalog::placements::BossBrain,
+            >,
         > = Vec::new();
         let mut debug_labels: Vec<
-            ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::debug_label::DebugLabel>,
+            ambition_platformer2d_world::rooms::Authored<
+                ambition_platformer2d_world::debug_label::DebugLabel,
+            >,
         > = Vec::new();
         let mut mount_links: Vec<(String, String)> = Vec::new();
         let mut chains: Vec<ae::SurfaceChain> = Vec::new();
-        let mut placements: Vec<ambition_platformer2d_world::placements::PlacementRecord> = Vec::new();
+        let mut placements: Vec<ambition_platformer2d_world::placements::PlacementRecord> =
+            Vec::new();
         let mut metadata = ambition_platformer2d_world::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -370,11 +380,21 @@ pub struct RoomEmission {
     pub gravity_zones: Vec<ambition_platformer2d_world::rooms::GravityZoneSpec>,
     // --- Per-family authored entity emissions:
     // interactables migrated to the `placements` channel (fable audit F9.2).
-    pub enemy_spawns:
-        Vec<ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>>,
-    pub boss_spawns:
-        Vec<ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>>,
-    pub debug_labels: Vec<ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::debug_label::DebugLabel>>,
+    pub enemy_spawns: Vec<
+        ambition_platformer2d_world::rooms::Authored<
+            ambition_entity_catalog::placements::CharacterBrain,
+        >,
+    >,
+    pub boss_spawns: Vec<
+        ambition_platformer2d_world::rooms::Authored<
+            ambition_entity_catalog::placements::BossBrain,
+        >,
+    >,
+    pub debug_labels: Vec<
+        ambition_platformer2d_world::rooms::Authored<
+            ambition_platformer2d_world::debug_label::DebugLabel,
+        >,
+    >,
     /// ADR 0020 authored mount links: `(rider_id, mount_id)` pairs emitted by a
     /// rider `EnemySpawn` carrying a `mounted_on` entity-ref. Resolved into a
     /// `RidingOn`/`MountSlot` link after both actors spawn (`FeatureId` match).
@@ -430,7 +450,9 @@ impl RoomEmission {
         }
     }
 
-    pub fn moving_platform(spec: ambition_platformer2d_world::platforms::MovingPlatformSpec) -> Self {
+    pub fn moving_platform(
+        spec: ambition_platformer2d_world::platforms::MovingPlatformSpec,
+    ) -> Self {
         Self {
             moving_platforms: vec![spec],
             ..Self::default()
@@ -535,7 +557,9 @@ impl RoomEmission {
     }
 
     pub fn boss_spawn(
-        authored: ambition_platformer2d_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+        authored: ambition_platformer2d_world::rooms::Authored<
+            ambition_entity_catalog::placements::BossBrain,
+        >,
     ) -> Self {
         Self {
             boss_spawns: vec![authored],
@@ -544,7 +568,9 @@ impl RoomEmission {
     }
 
     pub fn debug_label(
-        authored: ambition_platformer2d_world::rooms::Authored<ambition_platformer2d_world::debug_label::DebugLabel>,
+        authored: ambition_platformer2d_world::rooms::Authored<
+            ambition_platformer2d_world::debug_label::DebugLabel,
+        >,
     ) -> Self {
         Self {
             debug_labels: vec![authored],
@@ -646,12 +672,38 @@ static EXTRA_ENTITY_CONVERTERS: OnceLock<BTreeMap<String, LdtkEntityConverter>> 
 /// this at plugin-build time (before any world load). Installed identifiers
 /// pass validation and convert exactly like the engine's standard vocabulary;
 /// a standard identifier cannot be overridden (the standard table wins on
-/// lookup). First install wins; later calls are ignored.
+/// lookup).
+///
+/// ⛔ **"first install wins; later calls are ignored" was the whole sentence,
+/// and silence was the wrong half of it.** Two games, a game and a tool, or two
+/// test Apps in one process cannot carry different LDtk vocabularies — the
+/// first one defines conversion for all of them, saying nothing (GPT 5.6
+/// review, 2026-08-04).
+///
+/// ⚠ **the IDENTIFIERS are what conflict, not the function pointers.** Two
+/// providers registering the same ids is the normal repeated-build case and
+/// stays silent; a different id SET is a real disagreement about vocabulary and
+/// is loud. Comparing the fn pointers would flag every rebuild, since a
+/// closure's address is not stable.
 pub fn install_ldtk_entity_converters<I>(converters: I)
 where
     I: IntoIterator<Item = (String, LdtkEntityConverter)>,
 {
-    let _ = EXTRA_ENTITY_CONVERTERS.set(converters.into_iter().collect());
+    let converters: BTreeMap<String, LdtkEntityConverter> = converters.into_iter().collect();
+    if let Err(rejected) = EXTRA_ENTITY_CONVERTERS.set(converters) {
+        let installed: Option<Vec<&String>> = EXTRA_ENTITY_CONVERTERS
+            .get()
+            .map(|map| map.keys().collect());
+        let attempted: Vec<&String> = rejected.keys().collect();
+        if installed.as_deref() != Some(attempted.as_slice()) {
+            bevy::log::error!(
+                "a SECOND, DIFFERENT set of LDtk entity converters was installed in this \
+                 process and was IGNORED: {attempted:?} vs the installed {installed:?}. \
+                 Conversion is process-global, so the first provider's vocabulary wins for \
+                 every App built here."
+            );
+        }
+    }
 }
 
 /// The engine's standard LDtk vocabulary, registered through the SAME
@@ -1127,8 +1179,10 @@ mod tests {
             links: Vec::new(),
         };
         let baked = ambition_platformer2d_world::ron_room::room_doc_to_ron(&doc).expect("bakes");
-        let reloaded = ambition_platformer2d_world::ron_room::room_doc_from_ron(&baked).expect("parses");
-        let rebaked = ambition_platformer2d_world::ron_room::room_doc_to_ron(&reloaded).expect("re-bakes");
+        let reloaded =
+            ambition_platformer2d_world::ron_room::room_doc_from_ron(&baked).expect("parses");
+        let rebaked =
+            ambition_platformer2d_world::ron_room::room_doc_to_ron(&reloaded).expect("re-bakes");
         assert_eq!(baked, rebaked, "serialize∘parse is a fixed point");
         let twin_set = ambition_platformer2d_world::rooms::RoomSet::from_parts(
             reloaded.spec.id.clone(),

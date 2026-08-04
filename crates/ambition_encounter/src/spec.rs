@@ -22,7 +22,17 @@ static ENCOUNTER_WAVE_BOOK: std::sync::OnceLock<HashMap<String, Vec<EncounterWav
 /// Install authored encounter wave timelines. Content crates call this during
 /// plugin build, before the LDtk adapter populates the live encounter registry.
 pub fn install_encounter_waves(book: HashMap<String, Vec<EncounterWaveSpec>>) {
-    let _ = ENCOUNTER_WAVE_BOOK.set(book);
+    // ⛔ see `install_item_catalog`: a second, DIFFERENT wave book was swallowed,
+    // so the first provider in the process defined encounters for every later
+    // App. Identical re-installation is normal and silent; a conflict is loud.
+    if let Err(rejected) = ENCOUNTER_WAVE_BOOK.set(book) {
+        if ENCOUNTER_WAVE_BOOK.get() != Some(&rejected) {
+            bevy::log::error!(
+                "a SECOND, DIFFERENT encounter wave book was installed in this process and \
+                 was IGNORED — the first provider's waves win for every App built here."
+            );
+        }
+    }
 }
 
 /// Look up an authored multi-wave timeline for a trigger id.

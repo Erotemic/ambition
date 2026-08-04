@@ -138,7 +138,7 @@ pub struct ItemMeta {
 /// the built-in default for that grid slot. Absent rows (and no install) fall back
 /// to the built-in [`ITEM_META`] — the E58/C6 "empty default = built-in" pattern,
 /// so no core edit is needed to re-author item flavor.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct ItemCatalog {
     rows: Vec<ItemMeta>,
 }
@@ -179,7 +179,26 @@ static ITEM_CATALOG_OVERRIDE: std::sync::OnceLock<ItemCatalog> = std::sync::Once
 /// Install the authored item catalog — `ambition_content` calls this at
 /// plugin-build time alongside the other roster installs.
 pub fn install_item_catalog(catalog: ItemCatalog) {
-    let _ = ITEM_CATALOG_OVERRIDE.set(catalog);
+    // ⛔ **a SECOND, DIFFERENT catalog used to be swallowed.** `let _ = set(..)`
+    // means the first provider in the process defines items for every App built
+    // after it — two games, or a game and a tool, in one process silently share
+    // the first one's content. That is the worst available behaviour: the seam
+    // looks provider-local and is not (GPT 5.6 review, 2026-08-04).
+    //
+    // ⚠ **identical re-installation is NORMAL and stays silent** — two Apps
+    // built from the same provider in one test binary do it constantly. Only a
+    // DIFFERENT catalog is a conflict, and it is loud until this family becomes
+    // an App resource selected through provider context.
+    if let Err(rejected) = ITEM_CATALOG_OVERRIDE.set(catalog) {
+        if ITEM_CATALOG_OVERRIDE.get() != Some(&rejected) {
+            bevy::log::error!(
+                "a SECOND, DIFFERENT item catalog was installed in this process and was \
+                 IGNORED — the first provider's items win for every App built here. This \
+                 seam is process-global; until it is App-local, one process serves one \
+                 game's items."
+            );
+        }
+    }
 }
 
 /// Resolve an item's metadata: the content-authored override row for `index` if one

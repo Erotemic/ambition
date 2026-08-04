@@ -105,6 +105,29 @@ impl Body {
     }
 }
 
+/// Where every collectible in the room IS, which is the question the wand row
+/// needs answered before anybody touches the pickup path.
+///
+/// The mount loop below patrols a stretch and waits for the wand to come to her.
+/// That converges only if the wand is actually travelling toward it, and nothing
+/// in the failure message said where the wand was — so the row was diagnosed
+/// three times from her position alone.
+fn world_items(app: &mut App) -> Vec<(String, ae::Vec2)> {
+    let mut query = app
+        .world_mut()
+        .query::<&ambition_platformer2d::actors::items::WorldItem>();
+    let world = app.world();
+    query
+        .iter(world)
+        .map(|item| {
+            (
+                item.sprite.clone().unwrap_or_else(|| "?".to_string()),
+                item.pos,
+            )
+        })
+        .collect()
+}
+
 fn body(app: &mut App) -> Option<Body> {
     let mut hostiles = app.world_mut().query_filtered::<(
         &ambition_platformer2d::actors::features::CenteredAabb,
@@ -485,6 +508,8 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     assert!(!took_off, "the bonk beat is time-boxed, not terminal");
 
     eprintln!("after bonk: {:?}", body(&mut app));
+    eprintln!("after bonk, items: {:?}", world_items(&mut app));
+
 
     // Back off left so she can mount the block from beside it.
     drive(&mut app, 60, |b| {
@@ -502,13 +527,27 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     // and travels, turning at walls, so mounting the block reaches an empty
     // roof. She patrols the safe stretch between the block and the first pit
     // until it comes to her; she is faster than it, so this always converges.
-    let got_cap = drive(&mut app, 300, |b| {
-        if b.is_tall() {
-            return None;
+    // Chunked so the WAND's travel is visible, not only hers. The comment above
+    // asserts convergence ("she is faster than it") and nothing was measuring the
+    // thing that has to converge.
+    let mut got_cap = false;
+    for chunk in 0..6 {
+        got_cap = drive(&mut app, 50, |b| {
+            if b.is_tall() {
+                return None;
+            }
+            let toward = if b.pos.x > FIRST_PIT_SAFE_X { -1.0 } else { 1.0 };
+            Some(move_x(toward, false))
+        });
+        eprintln!(
+            "mount chunk {chunk}: tall={got_cap} her={:?} items={:?}",
+            body(&mut app).map(|b| b.pos),
+            world_items(&mut app)
+        );
+        if got_cap {
+            break;
         }
-        let toward = if b.pos.x > FIRST_PIT_SAFE_X { -1.0 } else { 1.0 };
-        Some(move_x(toward, false))
-    });
+    }
     eprintln!("after mount attempt: tall={} {:?}", got_cap, body(&mut app));
 
     assert!(

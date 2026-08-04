@@ -2194,6 +2194,20 @@ mod tests {
                 && !mary_o_kit.attack,
             "advanced movement and the full Ambition kit stay out of the classic core"
         );
+        // ⭐ **and no TALK verb.** Jon, from a phone: *"maryo has more than 2 on
+        // screen buttons … that shouldn't be the case for her."* The third was
+        // Interact, which `derive_action_scheme` used to upsert for every
+        // controllable body. It is an ability now, absent from `NONE` and
+        // therefore from any composed grant list — so the classic run-and-jump
+        // floor draws exactly two buttons, and her pipes are unaffected because
+        // they answer UP or DOWN and never a button (her own rule, in
+        // `level_1_2.rs`).
+        assert!(
+            !mary_o_kit.interact,
+            "Mary-O Classic has no talk verb: the game she converges on has none, \
+             and a button that does nothing is what put a third control on her \
+             phone HUD"
+        );
 
         let mary_o_tuning = catalog
             .axis_tuning(provider::MARY_O_CHARACTER_ID)

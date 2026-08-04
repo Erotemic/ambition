@@ -64,6 +64,22 @@ impl Plugin for VisualQualityPlugin {
         app.insert_resource(VisualQualityInstalled);
         app.init_resource::<ResolvedVisualQuality>();
         app.add_systems(Update, sync_resolved_visual_quality);
+        // ⭐ **the portal budget joins its resource here, 2026-08-04.** It was
+        // registered in `ambition_app`'s plugin file alone while the resource it
+        // REQUIRES (`Res<ResolvedVisualQuality>`, not `Option`) was installed by
+        // this plugin — so any other composition that pulled in the render
+        // presentation and this system panicked on a missing resource.
+        //
+        // ⚠ that is the SAME defect the note beside its old call site records
+        // for `sync_resolved_visual_quality` on 2026-07-31 ("they were apart, and
+        // the half that MOVES was registered here alone"). The sibling was fixed
+        // and this one was left, one system later in the same file.
+        //
+        // It cost `capture_scene` — the repo's only way to LOOK at a visual
+        // change on a machine with no display — which panicked before drawing
+        // anything.
+        #[cfg(feature = "portal_render")]
+        app.add_systems(Update, sync_portal_quality_budget);
     }
 }
 

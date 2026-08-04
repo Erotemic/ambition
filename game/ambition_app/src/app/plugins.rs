@@ -456,6 +456,14 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     // true, and `SessionRoomVisualsPlugin` installs it. They were apart, and
     // the half that MOVES was registered here alone — so every other
     // composition held a `ResolvedVisualQuality` that never left its default.
+    // ⭐ and the OWNER, for the same reason as `UiFontsPlugin` above: this
+    // function registers systems that take `Res<ResolvedVisualQuality>`, and the
+    // plugin that installs it was reached only along the shipped host's path
+    // (`SessionRoomVisualsPlugin`). `capture_scene` composes this function
+    // WITHOUT that path, so it panicked on a missing resource before drawing a
+    // frame. Idempotent by construction (`is_unique() -> false` plus a marker),
+    // so saying it here costs the host nothing.
+    app.add_plugins(ambition_platformer2d::render::quality::VisualQualityPlugin);
     app.add_systems(
         Update,
         // ⚠ `refresh_parallax_layers_on_quality_change` left this chain on
@@ -469,11 +477,11 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
             .chain()
             .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
     );
-    #[cfg(feature = "portal_render")]
-    app.add_systems(
-        Update,
-        ambition_platformer2d::render::quality::sync_portal_quality_budget,
-    );
+    // ⚠ `sync_portal_quality_budget` left this file on 2026-08-04, for exactly
+    // the reason the note above gives for its sibling: it REQUIRES
+    // `Res<ResolvedVisualQuality>`, which `VisualQualityPlugin` owns, and being
+    // registered apart from it panicked every other composition that installs the
+    // render presentation — `capture_scene` among them.
 }
 
 /// Pause menu, inventory, map menu, presentation startup, dev/dialog

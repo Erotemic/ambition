@@ -322,13 +322,19 @@ fn step(app: &mut App, frame: ControlFrame) {
 // run follows it rather than walking into a wall.
 
 fn block(name: &str) -> ae::Aabb {
+    block_of(name).aabb
+}
+
+/// The whole authored block, so a probe can ask about its IDENTITY and not only
+/// its rectangle — "was this one struck" is a question about its `GeoId`.
+fn block_of(name: &str) -> ae::world::Block {
     let room = ambition_demo_mary_o::level_1_1();
     room.world
         .blocks
         .iter()
         .find(|b| b.name == name)
         .unwrap_or_else(|| panic!("level 1-1 authors a block named {name}"))
-        .aabb
+        .clone()
 }
 
 /// The three bottomless gaps, as (left lip, right lip), derived from the ground
@@ -509,6 +515,12 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
 
     eprintln!("after bonk: {:?}", body(&mut app));
     eprintln!("after bonk, items: {:?}", world_items(&mut app));
+    eprintln!(
+        "after bonk, block0 SPENT = {:?}",
+        app.world()
+            .get_resource::<ambition_demo_mary_o::powerups::SpentPowerBlocks>()
+            .map(|spent| spent.is_spent(&block_of("power_block_0").id))
+    );
 
 
     // Back off left so she can mount the block from beside it.

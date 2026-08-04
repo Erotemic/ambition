@@ -25,50 +25,52 @@ use ambition_platformer2d::actors::rooms::RoomLoaded;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 
-use crate::{brick_count, brick_index_for, brick_min, brick_name, BRICK_CAPACITY, LEVEL_1_1_ROOM_ID, T};
+use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 
-// One bit per brick in [`BrokenBricks`]; the level authors far fewer than 32.
-const _: () = assert!(
-    BRICK_CAPACITY <= 32,
-    "BrokenBricks packs each brick into a u32 bit"
-);
+use crate::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};
+use crate::LEVEL_1_1_ROOM_ID;
 
-/// Which bricks are broken this run. A fixed bitset over the level's brick indices,
-/// NOT a `HashSet`: [`contribute_broken_bricks_to_overlay`] ITERATES it every frame,
-/// and the sim determinism contract bans std-hash iteration (whose order is seeded
-/// per process). A positional bitset iterates in a stable index order.
-/// [`refill_bricks_on_room_loaded`] clears it on every (re)load so a cyclic replay
-/// re-arms the wall — the brick twin of [`crate::powerups::SpentPowerBlocks`].
+/// Which bricks are broken this run, **by their authored NAME**.
+///
+/// ⛔ **this was a `u32` bitset over brick INDICES.** An index is a position in a
+/// Rust column array, and the level is authored now — there is no array, the
+/// author can add a tenth brick, and inserting one would have renumbered every
+/// brick after it *including the ones already recorded broken*. The name is what
+/// the collision overlay subtracts anyway (`removed_block_names`), so storing
+/// anything else meant converting on the way out.
+///
+/// ⚠ **`BTreeSet`, not `HashSet`, and that is the determinism contract.**
+/// [`contribute_broken_bricks_to_overlay`] ITERATES this every frame, and
+/// std-hash iteration order is seeded per process — two peers would subtract the
+/// same blocks in different orders. A `BTreeSet` iterates in name order,
+/// everywhere, always.
+///
 /// ⚠ **`Clone` because it is ROLLBACK STATE.** Which bricks are broken decides
 /// what the room is made of — the overlay subtracts them from collision every
 /// frame — so a rewind across a bonk that does not restore this leaves a wall
-/// with a hole in it, or a hole with a wall in it. Found by the shipped-
-/// composition resource sweep (2026-08-03), which is the sibling of the sweep
-/// that could never have seen it: this resource exists only in Mary-O's
-/// composition.
+/// with a hole in it, or a hole with a wall in it.
 #[derive(Resource, Default, Clone)]
-pub struct BrokenBricks(u32);
+pub struct BrokenBricks(std::collections::BTreeSet<String>);
 
 impl BrokenBricks {
-    fn is_broken(&self, i: usize) -> bool {
-        self.0 & (1 << i) != 0
+    /// Mark this brick broken; `true` only on the FRESH break, so the caller
+    /// shatters it exactly once rather than every frame the contact re-reports.
+    fn mark(&mut self, name: &str) -> bool {
+        self.0.insert(name.to_string())
     }
 
-    /// Mark brick `i` broken; returns `true` only on the FRESH break (so the caller
-    /// shatters it exactly once, never every frame the bonk contact re-reports).
-    fn mark(&mut self, i: usize) -> bool {
-        let bit = 1 << i;
-        let newly = self.0 & bit == 0;
-        self.0 |= bit;
-        newly
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn is_broken(&self, name: &str) -> bool {
+        self.0.contains(name)
     }
 
     fn clear(&mut self) {
-        self.0 = 0;
+        self.0.clear();
     }
 
-    fn broken_indices(&self) -> impl Iterator<Item = usize> + '_ {
-        (0..brick_count()).filter(move |&i| self.is_broken(i))
+    /// The broken names, in a stable order.
+    fn broken_names(&self) -> impl Iterator<Item = &String> + '_ {
+        self.0.iter()
     }
 }
 
@@ -82,6 +84,8 @@ pub fn break_bricks(
     mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     players: Query<&PlayerBodyFrameOutput, With<PrimaryPlayer>>,
+    // A `GeoId` names a block; only the room can say which one.
+    geometry: SessionWorldRef<ae::RoomGeometry>,
 ) {
     let Ok(frame) = players.single() else {
         return;
@@ -93,14 +97,20 @@ pub fn break_bricks(
         let ContactSource::Block { id, .. } = &contact.source else {
             continue;
         };
-        let Some(i) = brick_index_for(id) else {
+        // ⭐ **ask the ROOM, then ask the BLOCK what it is.** This looked the id
+        // up in a table of ids reconstructed from a column array, so an authored
+        // brick was simply not in it.
+        let Some(block) = crate::authored_block_by_id(&geometry.0, id) else {
             continue;
         };
-        if broken.mark(i) {
+        if block_kind_of(&block.name) != Some(MaryOBlockKind::Brick) {
+            continue;
+        }
+        let center = (block.aabb.min + block.aabb.max) * 0.5;
+        if broken.mark(&block.name) {
             // A fresh break shatters into brick-red shards through the engine's
             // shared particle seam — the same `VfxMessage::Burst` the snake squash
             // pops, so a brick reads as breaking with no bespoke vfx.
-            let center = brick_min(i) + ae::Vec2::splat(T * 0.5);
             vfx.write(ambition_platformer2d::vfx::VfxMessage::Burst {
                 pos: center,
                 count: 14,
@@ -154,13 +164,38 @@ pub fn contribute_broken_bricks_to_overlay(
 ) {
     overlay
         .removed_block_names
-        .extend(broken.broken_indices().map(brick_name));
+        .extend(broken.broken_names().cloned());
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::brick_id;
+
+    /// Two bricks the LEVEL authors — the population `break_bricks` serves.
+    fn two_authored_bricks() -> (String, String) {
+        let room = crate::level_1_1();
+        let mut names: Vec<String> = room
+            .world
+            .blocks
+            .iter()
+            .filter(|b| block_kind_of(&b.name) == Some(MaryOBlockKind::Brick))
+            .map(|b| b.name.clone())
+            .collect();
+        names.sort();
+        assert!(names.len() >= 2, "the level authors a brick wall: {names:?}");
+        (names[0].clone(), names[1].clone())
+    }
+
+    fn authored_brick_id(name: &str) -> ae::GeoId {
+        crate::level_1_1()
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == name)
+            .expect("that brick is authored")
+            .id
+            .clone()
+    }
 
     fn head_bonk_frame(id: ae::GeoId) -> PlayerBodyFrameOutput {
         let mut frame = PlayerBodyFrameOutput::default();
@@ -186,6 +221,13 @@ mod tests {
         app.init_resource::<BrokenBricks>();
         app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        // ⚠ **the REAL level, because `break_bricks` asks the room what it hit.**
+        // A fixture with no room answers nothing, which is a green test about an
+        // empty world rather than a test about bricks.
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ae::RoomGeometry(crate::level_1_1().world.clone()),
+        );
         app.add_systems(Update, break_bricks);
         app
     }
@@ -200,18 +242,19 @@ mod tests {
 
     #[test]
     fn a_head_bonk_breaks_the_struck_brick_and_shatters_once() {
+        let (struck, neighbour) = two_authored_bricks();
         let mut app = break_app();
-        app.world_mut()
-            .spawn((PrimaryPlayer, head_bonk_frame(brick_id(1))));
+        let id = authored_brick_id(&struck);
+        app.world_mut().spawn((PrimaryPlayer, head_bonk_frame(id)));
 
         app.update();
         assert!(
-            app.world().resource::<BrokenBricks>().is_broken(1),
+            app.world().resource::<BrokenBricks>().is_broken(&struck),
             "the bonked brick is broken"
         );
         assert!(
-            !app.world().resource::<BrokenBricks>().is_broken(0),
-            "only the struck brick breaks — the GeoId match is specific"
+            !app.world().resource::<BrokenBricks>().is_broken(&neighbour),
+            "only the struck brick breaks — the id match is specific"
         );
         assert_eq!(
             drain_bursts(&mut app),
@@ -237,7 +280,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .resource::<BrokenBricks>()
-                .broken_indices()
+                .broken_names()
                 .count(),
             0,
             "a plain block is not a brick"
@@ -258,6 +301,21 @@ mod tests {
     fn a_broken_brick_leaves_the_collision_world_the_body_reads() {
         let room = crate::level_1_1();
         let mut overlay = FeatureEcsWorldOverlay::default();
+        // ⭐ the AUTHORED bricks, whatever they are called and however many there
+        // are. This used to name `brick_name(0)` and `brick_name(1)` — positions
+        // in a Rust array that no longer exists.
+        let bricks: Vec<String> = room
+            .world
+            .blocks
+            .iter()
+            .filter(|b| block_kind_of(&b.name) == Some(MaryOBlockKind::Brick))
+            .map(|b| b.name.clone())
+            .collect();
+        assert!(
+            bricks.len() >= 2,
+            "the level authors a brick wall to break into: {bricks:?}"
+        );
+        let (broken_one, neighbour) = (&bricks[0], &bricks[1]);
 
         // Nothing broken yet: the brick is solid, or this proves nothing.
         let before = ambition_platformer2d::world::collision::world_with_sandbox_solids(
@@ -266,17 +324,17 @@ mod tests {
             &overlay,
         );
         assert!(
-            before.blocks.iter().any(|b| b.name == brick_name(0)),
-            "brick 0 must start solid in the composed collision world",
+            before.blocks.iter().any(|b| b.name == *broken_one),
+            "`{broken_one}` must start solid in the composed collision world",
         );
 
         // Break it exactly as `break_bricks` would, then contribute as the
         // scheduled system does.
         let mut broken = BrokenBricks::default();
-        assert!(broken.mark(0), "a fresh brick marks broken");
+        assert!(broken.mark(broken_one), "a fresh brick marks broken");
         overlay
             .removed_block_names
-            .extend(broken.broken_indices().map(brick_name));
+            .extend(broken.broken_names().cloned());
 
         let after = ambition_platformer2d::world::collision::world_with_sandbox_solids(
             &room.world,
@@ -284,12 +342,12 @@ mod tests {
             &overlay,
         );
         assert!(
-            !after.blocks.iter().any(|b| b.name == brick_name(0)),
+            !after.blocks.iter().any(|b| b.name == *broken_one),
             "a broken brick must not be in the world a sweep reads — this is the \
              'she can stand on a broken brick' report, asserted at the composition",
         );
         assert!(
-            after.blocks.iter().any(|b| b.name == brick_name(1)),
+            after.blocks.iter().any(|b| b.name == *neighbour),
             "only the broken brick leaves; its neighbours are untouched",
         );
     }
@@ -299,8 +357,8 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<FeatureEcsWorldOverlay>();
         let mut broken = BrokenBricks::default();
-        broken.mark(0);
-        broken.mark(2);
+        broken.mark("brick_alpha");
+        broken.mark("brick_gamma");
         app.insert_resource(broken);
         app.add_systems(Update, contribute_broken_bricks_to_overlay);
 
@@ -310,11 +368,12 @@ mod tests {
             .resource::<FeatureEcsWorldOverlay>()
             .removed_block_names;
         assert!(
-            removed.contains(&brick_name(0)) && removed.contains(&brick_name(2)),
+            removed.contains(&"brick_alpha".to_string())
+                && removed.contains(&"brick_gamma".to_string()),
             "broken bricks are named in removed_block_names: {removed:?}"
         );
         assert!(
-            !removed.contains(&brick_name(1)),
+            !removed.contains(&"brick_beta".to_string()),
             "an intact brick is not subtracted"
         );
     }
@@ -323,7 +382,7 @@ mod tests {
     fn a_reload_rearms_the_bricks() {
         let mut app = App::new();
         let mut broken = BrokenBricks::default();
-        broken.mark(0);
+        broken.mark("brick_alpha");
         app.insert_resource(broken);
         app.add_message::<RoomLoaded>();
         app.add_systems(Update, refill_bricks_on_room_loaded);
@@ -337,7 +396,7 @@ mod tests {
         assert_eq!(
             app.world()
                 .resource::<BrokenBricks>()
-                .broken_indices()
+                .broken_names()
                 .count(),
             0,
             "a level (re)load rebuilds the wall for the next lap"

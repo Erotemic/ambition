@@ -327,6 +327,25 @@ fn block(name: &str) -> ae::Aabb {
 
 /// The whole authored block, so a probe can ask about its IDENTITY and not only
 /// its rectangle — "was this one struck" is a question about its `GeoId`.
+/// The first ?-block the LEVEL authors.
+///
+/// ⛔ this file used to reach for `power_block_min(0)` and `block_of("power_
+/// block_0")` — a Rust column array and a generated name. Both were how the
+/// level was BUILT; the level is authored now, so the question is "which block
+/// did the author mark as a ?-block".
+fn first_power_block() -> ae::world::Block {
+    let room = ambition_demo_mary_o::level_1_1();
+    room.world
+        .blocks
+        .iter()
+        .find(|b| {
+            ambition_demo_mary_o::ldtk_vocabulary::block_kind_of(&b.name)
+                == Some(ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockKind::Power)
+        })
+        .expect("level 1-1 authors a ?-block")
+        .clone()
+}
+
 fn block_of(name: &str) -> ae::world::Block {
     let room = ambition_demo_mary_o::level_1_1();
     room.world
@@ -340,16 +359,53 @@ fn block_of(name: &str) -> ae::world::Block {
 /// The three bottomless gaps, as (left lip, right lip), derived from the ground
 /// slabs rather than restated.
 fn pits() -> Vec<(f32, f32)> {
-    let slabs: Vec<ae::Aabb> = [
-        "ground_open_teach",
-        "ground_after_pit_a",
-        "ground_after_pit_b",
-        "ground_after_pit_c",
-    ]
-    .iter()
-    .map(|n| block(n))
-    .collect();
-    slabs.windows(2).map(|w| (w[0].max.x, w[1].min.x)).collect()
+    // ⚠ **the ground runs are painted into an IntGrid and carry no authored
+    // name.** This named `ground_open_teach` and its three siblings — how the
+    // level was BUILT. A pit is the gap between contiguous slab at the ground
+    // row, which is what it always meant and what survives repainting.
+    let room = ambition_demo_mary_o::level_1_1();
+    let probe_y = room
+        .world
+        .blocks
+        .iter()
+        .filter(|b| matches!(b.kind, ae::world::BlockKind::Solid))
+        .map(|b| b.aabb.min.y)
+        .filter(|y| *y > 0.0)
+        .fold(f32::MAX, f32::min)
+        .max(0.0);
+    let solid_at = |x: f32, y: f32| {
+        room.world.blocks.iter().any(|b| {
+            matches!(b.kind, ae::world::BlockKind::Solid)
+                && b.aabb.min.x <= x
+                && b.aabb.max.x >= x
+                && b.aabb.min.y <= y
+                && b.aabb.max.y >= y
+        })
+    };
+    // Walk the ground row and collect the spans that are NOT solid.
+    let tile = 32.0;
+    let ground_row = room
+        .world
+        .blocks
+        .iter()
+        .filter(|b| matches!(b.kind, ae::world::BlockKind::Solid) && b.aabb.min.y > probe_y)
+        .map(|b| b.aabb.min.y)
+        .fold(f32::MAX, f32::min);
+    let row = if ground_row.is_finite() { ground_row } else { probe_y };
+    let mut pits = Vec::new();
+    let mut gap_start: Option<f32> = None;
+    let mut x = 0.0f32;
+    while x <= room.world.size.x {
+        if solid_at(x, row + tile * 0.5) {
+            if let Some(start) = gap_start.take() {
+                pits.push((start, x));
+            }
+        } else if gap_start.is_none() {
+            gap_start = Some(x);
+        }
+        x += tile;
+    }
+    pits
 }
 
 /// Land on a narrow ledge from beside it: jump, then feed rightward input ONLY
@@ -502,7 +558,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         // can jump from elevated ground. The question is whether her HEAD ever
         // reached the block's underside WHILE HORIZONTALLY UNDER IT.
         {
-            let bmin = ambition_demo_mary_o::power_block_min(0);
+            let bmin = first_power_block().aabb.min;
             let under = b.pos.x + 12.8 > bmin.x && b.pos.x - 12.8 < bmin.x + 32.0;
             if under {
                 frames_under += 1;
@@ -543,7 +599,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         // variable jump exists to express. Steering off the measurement rather
         // than off a frame count means this stays correct if her tuning or the
         // block row moves, which a hand-tuned "hold for 4 frames" would not.
-        let underside = ambition_demo_mary_o::power_block_min(0).y + 32.0;
+        let underside = first_power_block().aabb.max.y;
         let head_below_underside = b.pos.y - 24.0 > underside;
         if head_below_underside {
             return Some(with_jump(move_x(0.0, false)));
@@ -560,11 +616,11 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     assert!(
         app.world()
             .get_resource::<ambition_demo_mary_o::powerups::SpentPowerBlocks>()
-            .is_some_and(|spent| spent.is_spent(&block_of("power_block_0").id)),
+            .is_some_and(|spent| spent.is_spent(&first_power_block().id)),
         "she never struck power_block_0, so no reward was ever spawned — the \
          wand she is later asked to wear was never made. Her head reached \
          {head_under_block:.1} while under it, and the underside is at {:.1}",
-        ambition_demo_mary_o::power_block_min(0).y + 32.0,
+        first_power_block().aabb.max.y,
     );
 
     {
@@ -576,7 +632,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
             let shown: String = model.unwrap_or_else(|| "<none>".to_string());
             eprintln!("motion model: {}", &shown[..shown.len().min(600)]);
         }
-        let block_underside = ambition_demo_mary_o::power_block_min(0).y + 32.0;
+        let block_underside = first_power_block().aabb.max.y;
         let needed_centre = block_underside + 48.0 * 0.5;
         eprintln!(
             "after bonk: apex_y={apex_y:.1} (lower is higher); block underside y={block_underside:.1}; \
@@ -594,7 +650,7 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         "after bonk, block0 SPENT = {:?}",
         app.world()
             .get_resource::<ambition_demo_mary_o::powerups::SpentPowerBlocks>()
-            .map(|spent| spent.is_spent(&block_of("power_block_0").id))
+            .map(|spent| spent.is_spent(&first_power_block().id))
     );
 
 

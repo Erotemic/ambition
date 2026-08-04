@@ -10,6 +10,7 @@
 | [`bricks`](src/bricks.rs) | Mary-O's breakable bricks — the SECOND consumer of the reactive-block primitive. |
 | [`death`](src/death.rs) | **The death beat.** She is hit with nothing left to lose, and the level stops to say so before it starts again. |
 | [`flag`](src/flag.rs) | **M3 — the flagpole sequence.** |
+| [`ldtk_vocabulary`](src/ldtk_vocabulary.rs) | **Mary-O's own LDtk nouns**, so a level is authored by filling in FIELDS rather than by typing a name convention exactly right. |
 | [`level_1_2`](src/level_1_2.rs) | **World 1-2** — the underground level, and the demo's first SECOND ROOM. |
 | [`movement`](src/movement.rs) | Mary-O Classic presentation/control glue. |
 | [`pipe`](src/pipe.rs) | **The pipe transit** — the scripted slide into one tube and out of the other. |
@@ -21,7 +22,7 @@
 | [`star`](src/star.rs) | **The pocket quasar** — Mary-O's super-star. |
 | [`stomp`](src/stomp.rs) | **The ONE top/side contact authority for Mary-O's enemies.** |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

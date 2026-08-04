@@ -591,105 +591,20 @@ fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::G
     &BLOCKS
 }
 
-/// The authored `<prefix><i>` block, or `None` if the file does not author one.
-fn authored_block(prefix: &str, i: usize) -> Option<&'static (ae::GeoId, ae::Aabb)> {
-    authored_named_blocks().get(&format!("{prefix}{i}"))
-}
-
-/// How many `<prefix>0`, `<prefix>1`, … the file authors, counting from zero and
-/// stopping at the first gap.
-///
-/// ⚠ **stopping at the gap is deliberate.** A level with `brick_0` and `brick_2`
-/// and no `brick_1` is an authoring mistake, and reporting 1 makes the missing
-/// brick inert rather than making index 2 answer for index 1.
-fn authored_family_count(prefix: &str) -> usize {
-    (0..).take_while(|&i| authored_block(prefix, i).is_some()).count()
-}
-
-/// The min corner of ?-block `i` **as authored** — so the powerup runtime pops the
-/// wand out at the block Jon actually drew.
-pub fn power_block_min(i: usize) -> ae::Vec2 {
-    authored_block(POWER_BLOCK_PREFIX, i)
-        .map(|(_, aabb)| aabb.min)
-        .unwrap_or_default()
-}
-
-/// The durable [`GeoId`](ae::GeoId) of ?-block `i`, read off the authored file —
-/// the id the engine reports on a head-bonk contact (`ContactSource::Block`).
-/// Matching against this is how the powerup runtime knows a specific ?-block was
-/// struck, with no point-matching.
-pub fn power_block_id(i: usize) -> ae::GeoId {
-    authored_block(POWER_BLOCK_PREFIX, i)
-        .map(|(id, _)| id.clone())
-        .unwrap_or_else(ae::GeoId::anon)
-}
-
-/// If `id` is one of the ?-blocks, its index — the inverse of [`power_block_id`].
-/// `None` for any other block the player bonks.
-pub fn power_block_index_for(id: &ae::GeoId) -> Option<usize> {
-    (0..authored_family_count(POWER_BLOCK_PREFIX)).find(|&i| power_block_id(i) == *id)
-}
-
-/// The min corner of quasar block `i`, as authored.
-pub fn quasar_block_min(i: usize) -> ae::Vec2 {
-    authored_block(QUASAR_BLOCK_PREFIX, i)
-        .map(|(_, aabb)| aabb.min)
-        .unwrap_or_default()
-}
-
-/// The durable [`GeoId`](ae::GeoId) of quasar block `i`, as authored.
-pub fn quasar_block_id(i: usize) -> ae::GeoId {
-    authored_block(QUASAR_BLOCK_PREFIX, i)
-        .map(|(id, _)| id.clone())
-        .unwrap_or_else(ae::GeoId::anon)
-}
-
-/// If `id` is one of the QUASAR blocks, its index. `None` otherwise — including
-/// for a ?-block, so the two families never answer for each other.
-pub fn quasar_block_index_for(id: &ae::GeoId) -> Option<usize> {
-    (0..authored_family_count(QUASAR_BLOCK_PREFIX)).find(|&i| quasar_block_id(i) == *id)
-}
-
-/// The min corner of brick `i`, as authored — so the break runtime removes the
-/// exact brick that was drawn.
-pub fn brick_min(i: usize) -> ae::Vec2 {
-    authored_block(BRICK_PREFIX, i)
-        .map(|(_, aabb)| aabb.min)
-        .unwrap_or_default()
-}
-
-/// The durable [`GeoId`](ae::GeoId) of brick `i`, as authored. Matching against
-/// this is how [`bricks::break_bricks`] knows a specific brick was struck.
-pub fn brick_id(i: usize) -> ae::GeoId {
-    authored_block(BRICK_PREFIX, i)
-        .map(|(id, _)| id.clone())
-        .unwrap_or_else(ae::GeoId::anon)
-}
-
-/// If `id` is one of the bricks, its index — the inverse of [`brick_id`]. `None`
-/// for any other block. Disjoint from [`power_block_index_for`] because the two
-/// families are authored under different NAMES, so a bonk is a ?-block or a
-/// brick, never both.
-pub fn brick_index_for(id: &ae::GeoId) -> Option<usize> {
-    (0..brick_count()).find(|&i| brick_id(i) == *id)
-}
-
-/// The authored NAME of brick `i` (`brick_<i>`) — the key the collision overlay's
-/// `removed_block_names` subtraction and the render reconcile both match on.
-pub fn brick_name(i: usize) -> String {
-    format!("{BRICK_PREFIX}{i}")
-}
-
-/// How many bricks the file authors.
-pub fn brick_count() -> usize {
-    authored_family_count(BRICK_PREFIX)
-}
-
-/// The widest brick wall [`bricks::BrokenBricks`] can pack into its bitset. A
-/// CAP, not the authored count — the level authors far fewer, and the assert
-/// beside the bitset is what makes exceeding it a compile error rather than a
-/// silently unbreakable brick.
-pub const BRICK_CAPACITY: usize = 32;
+// ⭐⭐ **THE INDEX HELPERS ARE GONE (2026-08-04)** — `power_block_id`,
+// `power_block_min`, `power_block_index_for` and their quasar and brick twins,
+// plus `brick_name`, `brick_count` and `BRICK_CAPACITY`.
+//
+// They answered "which position in a Rust array is this block", which is a
+// question with no meaning once an author places the blocks: a converter sees one
+// entity and cannot know an ordinal, and inserting a block would renumber every
+// one after it — including the ones a rollback resource had already recorded as
+// spent or broken.
+//
+// What replaced them is [`authored_block_by_id`] plus
+// [`ldtk_vocabulary::block_kind_of`]: ask the ROOM which block was struck, then
+// ask the BLOCK what kind it is. Position comes from the block's own `aabb`, so a
+// block dragged in the editor pops its reward where it now sits.
 
 
 /// The pole's geometry, derived from the SAME constants [`level_1_1`] builds the
@@ -2406,39 +2321,36 @@ mod tests {
         }
     }
 
-    /// The bricks are authored exactly where the break runtime expects them: a
-    /// `brick_<i>` block per column whose durable `GeoId` is `brick_id(i)`, solid
-    /// until bonked, and never sharing an id with a ?-block. The brick twin of the
-    /// ?-block/powerup agreement — the level and the reactive-block runtime can never
-    /// drift on which block is a brick or where it is.
+    /// **Every authored brick is a solid the break runtime recognises**, and no
+    /// brick is mistaken for a ?-block.
+    ///
+    /// ⛔ this used to assert an INDEX round-trip — `brick_name(i)` finds a block
+    /// whose id is `brick_id(i)` whose index resolves back to `i` — which proved
+    /// the runtime agreed with a Rust column array. The array is gone and the
+    /// level is authored, so the question is no longer "is brick 2 where the
+    /// constants say" but "does the runtime recognise what the author drew".
     #[test]
     fn level_1_1_authors_the_bricks_the_break_runtime_expects() {
+        use crate::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};
         let room = level_1_1();
-        assert!(brick_count() > 0, "the level authors a brick wall");
-        for i in 0..brick_count() {
-            let block = room
-                .world
-                .blocks
-                .iter()
-                .find(|b| b.name == brick_name(i))
-                .unwrap_or_else(|| panic!("brick {i} is authored into the level"));
-            assert_eq!(
-                block.id,
-                brick_id(i),
-                "brick {i}'s GeoId matches the runtime's"
-            );
-            assert_eq!(
-                brick_index_for(&block.id),
-                Some(i),
-                "the runtime resolves the authored brick back to its index"
-            );
+        let bricks: Vec<&ae::Block> = room
+            .world
+            .blocks
+            .iter()
+            .filter(|b| block_kind_of(&b.name) == Some(MaryOBlockKind::Brick))
+            .collect();
+        assert!(!bricks.is_empty(), "the level authors a brick wall");
+        for brick in bricks {
             assert!(
-                matches!(block.kind, ae::BlockKind::Solid),
-                "a brick is solid geometry until a bonk breaks it"
+                matches!(brick.kind, ae::BlockKind::Solid),
+                "`{}` is a brick and must be solid geometry until a bonk breaks it",
+                brick.name
             );
-            assert!(
-                power_block_index_for(&block.id).is_none(),
-                "a brick's id never collides with a ?-block's"
+            assert_ne!(
+                block_kind_of(&brick.name),
+                Some(MaryOBlockKind::Power),
+                "`{}` must not read as a ?-block as well",
+                brick.name
             );
         }
     }

@@ -820,9 +820,19 @@ pub fn dress_power_blocks(
     use ambition_platformer2d::actors::assets::game_assets::EntitySprite;
     use ambition_platformer2d::render::rendering::BlockArt;
     for (entity, visual, art) in &blocks {
-        let is_bonus = crate::power_block_index_for(&visual.geo_id).is_some()
-            || crate::quasar_block_index_for(&visual.geo_id).is_some();
-        if !is_bonus {
+        // ⭐ **the block's own NAME says what it is.** This asked two index
+        // tables whether the id matched a constant column; a block the author
+        // dragged answered neither, so it drew as plain masonry however clearly
+        // it was marked a ?-block. `BlockVisual` already carries the name beside
+        // the id, so the dresser needs nothing new to ask the right question.
+        let kind = crate::ldtk_vocabulary::block_kind_of(&visual.block_name);
+        if !matches!(
+            kind,
+            Some(
+                crate::ldtk_vocabulary::MaryOBlockKind::Power
+                    | crate::ldtk_vocabulary::MaryOBlockKind::Quasar
+            )
+        ) {
             continue;
         }
         // ⚠ **a spent block gets its OWN texture, it does not fall back to the
@@ -1016,22 +1026,38 @@ mod tests {
         );
         assert_eq!(quasar_reward().row.id, crate::star::POCKET_QUASAR_ID);
 
-        // And its blocks are a family of their own: no ?-block id answers as a
-        // quasar block, and no quasar block answers as a ?-block. That disjointness
-        // is what lets ONE bonk rule serve both without either shadowing the other.
-        for i in 0..2 {
-            let quasar = crate::quasar_block_id(i);
-            assert!(crate::quasar_block_index_for(&quasar).is_some());
+        // And its blocks are a family of their own: no ?-block reads as a quasar
+        // block and no quasar block reads as a ?-block. That disjointness is what
+        // lets ONE bonk rule serve both without either shadowing the other.
+        //
+        // ⭐ asked of the AUTHORED level rather than of reconstructed ids. It used
+        // to build `quasar_block_id(i)` from a constant array and check the
+        // lookup tables disagreed about it — a question about two Rust functions.
+        // This is a question about the level.
+        use crate::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};
+        let room = crate::level_1_1();
+        let of_kind = |want: MaryOBlockKind| {
+            room.world
+                .blocks
+                .iter()
+                .filter(|b| block_kind_of(&b.name) == Some(want))
+                .count()
+        };
+        assert!(of_kind(MaryOBlockKind::Quasar) > 0, "the level authors quasar blocks");
+        assert!(of_kind(MaryOBlockKind::Power) > 0, "and ?-blocks");
+        for block in &room.world.blocks {
+            let kinds = [
+                MaryOBlockKind::Power,
+                MaryOBlockKind::Quasar,
+                MaryOBlockKind::Brick,
+            ]
+            .into_iter()
+            .filter(|k| block_kind_of(&block.name) == Some(*k))
+            .count();
             assert!(
-                crate::power_block_index_for(&quasar).is_none(),
-                "a quasar block must not read as a power block"
-            );
-        }
-        for i in 0..3 {
-            let power = crate::power_block_id(i);
-            assert!(
-                crate::quasar_block_index_for(&power).is_none(),
-                "a power block must not read as a quasar block"
+                kinds <= 1,
+                "`{}` reads as more than one kind of reactive block",
+                block.name
             );
         }
     }

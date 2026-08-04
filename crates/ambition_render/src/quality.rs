@@ -78,8 +78,26 @@ impl Plugin for VisualQualityPlugin {
         // It cost `capture_scene` — the repo's only way to LOOK at a visual
         // change on a machine with no display — which panicked before drawing
         // anything.
+        //
+        // ⛔ **and it is GATED, because moving it here alone only moved the
+        // panic.** This system BRIDGES two plugins: it reads
+        // `ResolvedVisualQuality`, which this plugin owns, and writes
+        // `PortalCaptureQualityBudget`, which the portal presentation owns.
+        // Registered unconditionally it panicked inside `ambition_render`'s own
+        // parallax tests — invisible under `cargo test -p ambition_render`,
+        // where `portal_render` is off, and red under `--workspace`, where
+        // feature unification turns it on.
+        //
+        // ⭐ so co-location is not "put the system with THE owner" — a bridge has
+        // two. It lives with the owner of what it WRITES to be reached at all,
+        // and asks about the half it does not own.
         #[cfg(feature = "portal_render")]
-        app.add_systems(Update, sync_portal_quality_budget);
+        app.add_systems(
+            Update,
+            sync_portal_quality_budget.run_if(
+                resource_exists::<ambition_portal2d_presentation::PortalCaptureQualityBudget>,
+            ),
+        );
     }
 }
 

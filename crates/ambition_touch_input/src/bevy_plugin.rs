@@ -921,7 +921,7 @@ fn spawn_action_button_at(
                 // `render_touch_button_text`. Splitting these concerns
                 // means each per-frame derived value (verb, glyph) gets
                 // its own narrow update system instead of one god-system.
-                ButtonVerb::Static(label),
+                ButtonVerb::new(label),
                 // Per-device glyph subtitle (Phase 2). Empty until
                 // `update_button_glyph_from_active_input` writes the
                 // first frame's value, so cold-start renders the verb
@@ -944,25 +944,49 @@ pub struct TouchActionLabel(pub TouchActionButton);
 /// independent concerns — verb, future glyph subtitle, future
 /// pressed-state highlight — each own their own component + update
 /// system and compose at render.
+///
+/// ⛔ **this was an enum — `Static(&'static str)` OR `Dynamic(String)` — and the
+/// two states were the bug.** Once the prompt wrote a `Dynamic`, the spawn-time
+/// label was GONE, and `update_button_verb_from_prompt` only writes when the
+/// prompt offers a verb. A button that is DRAWN with nothing to say therefore
+/// kept whatever it last said, from a context that had ended.
+///
+/// That is not hypothetical. In a menu, Jump and Interact are drawn as the
+/// confirm pair, and they take their verb from `prompt.menu_confirm` — which is
+/// published by `install_menu_confirm_provider`, called from `ambition_app`'s
+/// kaleidoscope menu and NOWHERE else. Open a menu in Sanic and the confirm
+/// buttons still read "Spin Dash" and "Jump," which is Jon's report on
+/// 2026-08-03: *"in sanic the button text doesn't match what the controls really
+/// are."* The doc on `update_button_verb_from_prompt` promised the opposite in
+/// so many words — *"so a menu button never reads 'Jump'"* — and the promise was
+/// only kept where a provider happened to exist.
+///
+/// As a struct, the fallback is never overwritten and the current verb is
+/// `Option`, so "the prompt has nothing to say" resolves to the spawn label
+/// instead of to stale text. The failure is unrepresentable rather than guarded.
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
-pub enum ButtonVerb {
-    /// Pre-affordance label baked in at spawn — used until the
-    /// affordance system populates the dynamic value, and as the
-    /// stable fallback for buttons that don't carry a contextual
-    /// meaning (FlyToggle / Start / Reset).
-    Static(&'static str),
-    /// Dynamic label written by the affordance update system.
-    /// `String` (not `&'static str`) so authored `InteractVariant::Custom`
-    /// prompts can flow through unchanged.
-    Dynamic(String),
+pub struct ButtonVerb {
+    /// The label baked in at spawn: what this button says when the prompt offers
+    /// it no verb. Also the permanent text of the buttons that carry no
+    /// contextual meaning at all (FlyToggle / Start / Reset).
+    fallback: &'static str,
+    /// What the prompt says this frame, if anything. `String` (not
+    /// `&'static str`) so authored `InteractVariant::Custom` prompts flow
+    /// through unchanged.
+    current: Option<String>,
 }
 
 impl ButtonVerb {
-    fn as_str(&self) -> &str {
-        match self {
-            ButtonVerb::Static(s) => s,
-            ButtonVerb::Dynamic(s) => s.as_str(),
+    /// A button that says `fallback` until a prompt gives it something better.
+    pub fn new(fallback: &'static str) -> Self {
+        Self {
+            fallback,
+            current: None,
         }
+    }
+
+    fn as_str(&self) -> &str {
+        self.current.as_deref().unwrap_or(self.fallback)
     }
 }
 
@@ -983,6 +1007,14 @@ fn touch_button_slot(action: TouchActionButton) -> Option<ControlSlot> {
         TouchActionButton::Start | TouchActionButton::Reset => return None,
     })
 }
+
+/// What a menu's confirm button says when the menu did not name its own verb.
+///
+/// Generic on purpose: a specific word ("Play", "Advance", "Equip") is a game's
+/// to publish through `ControlPrompt::menu_confirm`. This is only the guarantee
+/// that the button never falls back to a GAMEPLAY verb, which is what it did
+/// before — see `ButtonVerb`.
+const DEFAULT_MENU_CONFIRM: &str = "Select";
 
 /// The select-functional touch buttons: in a menu these fold into
 /// `MenuControlFrame.select`, so they wear the menu's confirm verb.
@@ -1019,19 +1051,37 @@ pub fn update_button_verb_from_prompt(
                 .and_then(|slot| prompt.label_for(slot))
                 .map(str::to_owned),
             ControlContextKind::Menu | ControlContextKind::Dialogue => {
-                is_menu_confirm_button(*action)
-                    .then(|| prompt.menu_confirm.clone())
-                    .flatten()
+                // ⛔ **`.flatten()` used to live here, and it was the Sanic bug.**
+                // No authored confirm verb meant no write at all, so the button
+                // kept its gameplay verb — in a Sanic menu, "Spin Dash" over a
+                // control that selects. `menu_confirm` is published by
+                // `install_menu_confirm_provider`, which `ambition_app`'s
+                // kaleidoscope menu calls and no other composition does, so
+                // "no authored verb" is the NORMAL case everywhere but the
+                // shipped app.
+                //
+                // The fallback belongs here rather than in each demo: what this
+                // button does in a menu is CONFIRM, and that is true of every
+                // composition that has a menu at all. A game with a better word
+                // for it still says so through `menu_confirm`.
+                is_menu_confirm_button(*action).then(|| {
+                    prompt
+                        .menu_confirm
+                        .clone()
+                        .unwrap_or_else(|| DEFAULT_MENU_CONFIRM.to_owned())
+                })
             }
             ControlContextKind::Empty => None,
         };
-        if let Some(next) = next {
-            // Only flip when the string actually changes, keeping
-            // `Changed<ButtonVerb>` honest for `render_touch_button_text`.
-            let same = matches!(&*verb, ButtonVerb::Dynamic(s) if *s == next);
-            if !same {
-                *verb = ButtonVerb::Dynamic(next);
-            }
+        // ⛔ **unconditional, including the `None`.** This used to be
+        // `if let Some(next)`, so a button the prompt had nothing to say about
+        // kept the verb of a context that had ended — see `ButtonVerb`. Writing
+        // `None` is what lets it fall back to its spawn label.
+        //
+        // Still change-detected, so `Changed<ButtonVerb>` stays honest for
+        // `render_touch_button_text`.
+        if verb.current != next {
+            verb.current = next;
         }
     }
 }
@@ -1807,13 +1857,13 @@ mod prompt_tests {
             .world_mut()
             .spawn((
                 TouchActionLabel(TouchActionButton::Attack),
-                ButtonVerb::Static("Atk"),
+                ButtonVerb::new("Atk"),
             ))
             .id();
         app.update();
 
         let verb = app.world().entity(text).get::<ButtonVerb>().unwrap();
-        assert_eq!(verb, &ButtonVerb::Dynamic("Cleave".to_owned()));
+        assert_eq!(verb.as_str(), "Cleave");
     }
 
     #[test]
@@ -1865,7 +1915,7 @@ mod prompt_tests {
                 TouchActionButton::Jump,
                 Visibility::Inherited,
                 TouchActionLabel(TouchActionButton::Jump),
-                ButtonVerb::Static("Jump"),
+                ButtonVerb::new("Jump"),
             ))
             .id();
         let attack = app
@@ -1880,8 +1930,8 @@ mod prompt_tests {
 
         let ent = |e: Entity| app.world().entity(e);
         assert_eq!(
-            ent(jump).get::<ButtonVerb>().unwrap(),
-            &ButtonVerb::Dynamic("Equip".to_owned()),
+            ent(jump).get::<ButtonVerb>().unwrap().as_str(),
+            "Equip",
             "select button wears the menu confirm verb"
         );
         assert_eq!(
@@ -1980,7 +2030,7 @@ mod prompt_tests {
             app.world_mut().spawn((
                 TouchActionLabel(action),
                 action,
-                ButtonVerb::Static(gameplay_label),
+                ButtonVerb::new(gameplay_label),
                 ButtonGlyph(Cow::Borrowed("")),
                 Text::new(gameplay_label),
             ));
@@ -2017,6 +2067,78 @@ mod prompt_tests {
         );
     }
 
+    /// **A menu that names no confirm verb still labels its buttons honestly** —
+    /// the Sanic case, and the one that actually bit.
+    ///
+    /// Jon, 2026-08-03: *"I know in sanic the button text doesn't match what the
+    /// controls really are."* `menu_confirm` is published by
+    /// `install_menu_confirm_provider`, which only `ambition_app`'s kaleidoscope
+    /// menu calls — so in every demo it is `None`, the old `.flatten()` wrote
+    /// nothing, and the confirm pair kept the verbs of the gameplay the player
+    /// had just left.
+    ///
+    /// ⚠ the sibling test above passes a verb and would pass against the broken
+    /// code, because supplying one is exactly what hides this. The distinguishing
+    /// input is `menu_confirm: None`, so that is what this drives.
+    #[test]
+    fn a_menu_with_no_authored_verb_still_never_reads_a_gameplay_one() {
+        let gameplay_verbs = ["Spin Dash", "Jump", "Talk", "Atk"];
+        let mut app = App::new();
+        app.insert_resource(ControlPrompt {
+            context: ControlContextKind::Menu,
+            entries: Vec::new(),
+            menu_confirm: None, // ← the whole point
+        });
+        app.add_systems(
+            Update,
+            (update_button_verb_from_prompt, render_touch_button_text).chain(),
+        );
+        for (action, gameplay_label) in [
+            (TouchActionButton::Jump, "Spin Dash"),
+            (TouchActionButton::Interact, "Talk"),
+            (TouchActionButton::Attack, "Atk"),
+            (TouchActionButton::Start, "Menu"),
+            (TouchActionButton::Reset, "Back"),
+        ] {
+            app.world_mut().spawn((
+                TouchActionLabel(action),
+                action,
+                ButtonVerb::new(gameplay_label),
+                ButtonGlyph(Cow::Borrowed("")),
+                Text::new(gameplay_label),
+            ));
+        }
+        app.update();
+
+        let prompt_value = app.world().resource::<ControlPrompt>().clone();
+        let mut shown = app.world_mut().query::<(&TouchActionButton, &Text)>();
+        let mut confirms = 0;
+        for (action, text) in shown.iter(app.world()) {
+            if !touch_action_live(*action, &prompt_value, false) {
+                continue;
+            }
+            let body = text.0.lines().next().unwrap_or_default().to_owned();
+            if is_menu_confirm_button(*action) {
+                confirms += 1;
+                assert_eq!(
+                    body, DEFAULT_MENU_CONFIRM,
+                    "{action:?} confirms this menu but reads {body:?}"
+                );
+            }
+            assert!(
+                !gameplay_verbs.contains(&body.as_str()),
+                "{action:?} is on screen in a MENU reading {body:?}, a verb from \
+                 the gameplay the player just left — the control lies about what \
+                 pressing it does"
+            );
+        }
+        assert!(
+            confirms >= 1,
+            "a menu with no authored verb still has to offer a way to confirm; \
+             {confirms} confirm button(s) were live"
+        );
+    }
+
     /// **The move stick is shown wherever it STEERS something**, which includes
     /// a menu or a dialogue — not only gameplay.
     ///
@@ -2039,7 +2161,9 @@ mod prompt_tests {
                 .spawn((TouchSurface::Movement, Visibility::Hidden))
                 .id();
             app.update();
-            *app.world().get::<Visibility>(stick).expect("the stick exists")
+            *app.world()
+                .get::<Visibility>(stick)
+                .expect("the stick exists")
         }
 
         assert_eq!(

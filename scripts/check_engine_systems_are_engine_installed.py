@@ -166,7 +166,17 @@ WAIVERS: dict[str, str] = {
     "sync_portal_sprite_animation": ("portal, as above."),
     "sync_portal_ring_rotation_system": ("portal, as above."),
     "hide_portal_loading_zone_visuals": ("portal, as above."),
-    "sync_portal_quality_budget": ("portal, feature-gated, Ambition's."),
+    # ⛔ `sync_portal_quality_budget`'s waiver was DELETED on 2026-08-04, and how
+    # it read is the lesson: *"portal, feature-gated, Ambition's."* That is a
+    # true and correct answer to the question this file asks — should this engine
+    # system live in an engine plugin? — and it was silent about the one that bit.
+    # The system took `Res<ResolvedVisualQuality>`, which `VisualQualityPlugin`
+    # owns and no other composition installed, so it PANICKED everywhere but the
+    # shipped app. A waiver answers this checker's question; this checker's
+    # question was never the dangerous one (queue D16).
+    #
+    # The system lives in `VisualQualityPlugin` now, beside its resource, so
+    # there is nothing left to waive.
     "sync_cutscene_ui": (
         "WAIVED ON THE STANDARD, not on the architecture (2026-07-31). It is "
         "generic — `ambition_cutscene` is an engine crate and the engine group "

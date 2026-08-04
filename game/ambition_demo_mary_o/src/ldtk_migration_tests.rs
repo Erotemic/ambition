@@ -104,3 +104,40 @@ fn every_named_block_the_runtime_looks_for_survives_conversion() {
 fn print_the_sprite_derived_numbers_the_generator_has_to_mirror() {
     println!("tall_body_size = {:?}", crate::powerups::tall_body_size());
 }
+
+/// ⚠ measurement, not a guard. What conversion names things.
+#[test]
+#[ignore]
+fn print_the_authored_block_names() {
+    let room = ldtk_room();
+    let mut names: Vec<String> = room
+        .world
+        .blocks
+        .iter()
+        .map(|b| format!("{} [{:?}]", b.name, b.id.source))
+        .collect();
+    names.sort();
+    names.dedup();
+    println!("{} blocks:", room.world.blocks.len());
+    for n in names.iter().take(40) {
+        println!("  {n}");
+    }
+}
+
+/// ⚠ measurement, not a guard.
+#[test]
+#[ignore]
+fn print_the_authored_placements() {
+    let room = ldtk_room();
+    println!("{} placements:", room.placements.len());
+    for p in room.placements.iter().take(12) {
+        use ambition_platformer2d::engine_core::AabbExt;
+        println!(
+            "  {:?} center={:?} vault min={:?} max={:?}",
+            p.id,
+            p.aabb.center(),
+            crate::vault_bounds().min,
+            crate::vault_bounds().max
+        );
+    }
+}

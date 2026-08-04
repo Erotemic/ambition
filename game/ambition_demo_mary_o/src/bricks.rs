@@ -25,11 +25,11 @@ use ambition_platformer2d::actors::rooms::RoomLoaded;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 
-use crate::{brick_index_for, brick_min, brick_name, BRICK_COUNT, LEVEL_1_1_ROOM_ID, T};
+use crate::{brick_count, brick_index_for, brick_min, brick_name, BRICK_CAPACITY, LEVEL_1_1_ROOM_ID, T};
 
 // One bit per brick in [`BrokenBricks`]; the level authors far fewer than 32.
 const _: () = assert!(
-    BRICK_COUNT <= 32,
+    BRICK_CAPACITY <= 32,
     "BrokenBricks packs each brick into a u32 bit"
 );
 
@@ -68,7 +68,7 @@ impl BrokenBricks {
     }
 
     fn broken_indices(&self) -> impl Iterator<Item = usize> + '_ {
-        (0..BRICK_COUNT).filter(move |&i| self.is_broken(i))
+        (0..brick_count()).filter(move |&i| self.is_broken(i))
     }
 }
 

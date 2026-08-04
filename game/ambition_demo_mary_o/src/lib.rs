@@ -74,53 +74,46 @@ pub(crate) const T: f32 = 32.0;
 /// Ground thickness, in tiles.
 const GROUND_TILES: f32 = 2.0;
 
-/// Tile columns of the ?-blocks (bonk from below for the wand powerup), and how
-/// many tiles above the ground they float. Shared by [`level_1_1`] (which builds
-/// the solid blocks) and [`power_block_id`]/[`power_block_min`] (which derive
-/// their durable [`GeoId`](ae::GeoId) and position) so the level and the powerup
-/// runtime can never disagree on which block is a ?-block or where it is.
-/// Three of them, and the third is the one that matters: the ladder is
-/// state-driven (wand while small, beacon once grown), so with only two blocks a
-/// player who took a hit between them could never reach the spark form at all —
-/// the first block re-grows her and the second is already spent. The third sits
-/// after the brick run, past the point where a snake is likely to have cost her
-/// the wand, so the fire form is reachable on a normal messy playthrough rather
-/// than only on a clean one.
-const POWER_BLOCK_COLUMNS: [f32; 3] = [6.0, 30.0, 60.0];
-const POWER_BLOCK_ROW: f32 = 4.0;
-/// The IntGrid tile layer the ?-blocks are filed under, and the merge ordinal the
-/// first ?-block's [`GeoId`](ae::GeoId) starts at. `solid_tiled` stamps
-/// `GeoId::tile_layer(POWER_BLOCK_LAYER, POWER_BLOCK_BASE_INDEX + i)` — a STABLE
-/// identity the powerup runtime matches a head-bonk contact against (no
-/// point-matching): the engine's `ContactSource::Block` now carries the struck
-/// block's `GeoId`.
-const POWER_BLOCK_LAYER: &str = "mary_o_ground";
-const POWER_BLOCK_BASE_INDEX: u16 = 10;
+// ⭐ **THE COLUMN TABLES ARE GONE (2026-08-04)** — `POWER_BLOCK_COLUMNS`,
+// `QUASAR_BLOCK_COLUMNS`, `BRICK_COLUMNS`, their `_ROW`s, and the
+// `_LAYER`/`_BASE_INDEX` pairs that minted their `GeoId`s. Ten constants that
+// said where the special blocks were, in a language the level editor could not
+// read. Where they are is authored now; `authored_block` reads it back.
+//
+// ⚠ deleting them rather than leaving them "for reference" is the whole point.
+// A constant that still names a block's column is a second authority waiting to
+// disagree with the file the moment Jon drags one.
 
-/// Tile columns of the QUASAR blocks — a separate family from the ?-blocks above,
-/// because the quasar is not a rung on the wand -> lantern ladder: any form of
-/// Mary-O can take one and be briefly untouchable. Placed just before the stair
-/// pyramid so the invincibility has something to run through — the AI Slop that
-/// walks down the steps and piles at their foot.
-const QUASAR_BLOCK_COLUMNS: [f32; 3] = [10.0, 50.0, 70.0];
-/// Disjoint base ordinal so a quasar block can never share a `GeoId` with a
-/// ?-block or a brick.
-const QUASAR_BLOCK_BASE_INDEX: u16 = 30;
+// ── THE AUTHORED VOCABULARY ────────────────────────────────────────────────
+//
+// ⛔ **A block's NAME is its meaning**, because the engine has no typed channel
+// for one game's nouns: an authored block carries `{id, name, aabb, kind,
+// velocity, art_color}` and nothing else. Sanic's monitor boxes work the same
+// way (`monitors.rs`), and the trade-off is written up in
+// `docs/planning/proposal-authored-vocabulary-2026-08-04.md` §4.
+//
+// ⚠ **these prefixes are the contract between the LDtk file and this crate.**
+// Renaming one silently unhooks every block that wore it — the level still
+// loads, the blocks are still solid, and they simply stop being special. Nothing
+// in the type system can catch that, so
+// `every_named_block_the_runtime_looks_for_survives_conversion` pins the whole
+// list against the shipped file.
 
-/// Tile columns of the breakable BRICKS — the ?-block's plain sibling and the
-/// SECOND consumer of the reactive-block primitive (`ContactSource::Block` carrying
-/// a durable [`GeoId`](ae::GeoId)). A head-bonk BREAKS a brick (removes it from the
-/// world) — same durable-id match as the ?-block powerup, opposite effect: the
-/// ?-block ADDS a wand pickup, the brick SUBTRACTS itself. A short run over the
-/// ground after pit B, clear of the ?-blocks so the two motifs never blur. See
-/// [`bricks`].
-const BRICK_COLUMNS: [f32; 3] = [48.0, 49.0, 50.0];
-/// Bricks sit at the same bonk height as the ?-blocks.
-const BRICK_ROW: f32 = POWER_BLOCK_ROW;
-/// The IntGrid tile layer + merge-ordinal base for the bricks' durable `GeoId`s. A
-/// base index disjoint from the ?-blocks' so no brick ever shares an id with one.
-const BRICK_LAYER: &str = "mary_o_ground";
-const BRICK_BASE_INDEX: u16 = 20;
+/// A ?-block: bonk it from below for the next rung of the powerup ladder.
+pub const POWER_BLOCK_PREFIX: &str = "power_block_";
+/// The pocket quasar — any form can take one and be briefly untouchable.
+pub const QUASAR_BLOCK_PREFIX: &str = "quasar_block_";
+/// Breakable masonry: a bonk from a grown body removes it.
+pub const BRICK_PREFIX: &str = "brick_";
+/// One half of a warp tube. Two halves sharing a `<link>` are a PAIR.
+pub const WARP_PIPE_PREFIX: &str = "warp_pipe_";
+/// The suffix that says a pipe's mouth points DOWN — you fall out of it, or rise
+/// into it. Anything else is mouth-up: you press DOWN on it.
+pub const PIPE_MOUTH_DOWN_SUFFIX: &str = "_down";
+/// The flag: shaft, finial and banner, all the same width and column.
+pub const GOAL_POLE_PREFIX: &str = "goal_pole";
+/// The secret chamber's stone — `vault_floor` and `vault_wall_<n>`.
+pub const VAULT_MASONRY_PREFIX: &str = "vault_";
 
 /// How thick the goal pole is drawn. Half a tile — a pole, not a pillar. Named
 /// because [`goal_pole`] must derive the grab band from the SAME number
@@ -128,10 +121,11 @@ const BRICK_BASE_INDEX: u16 = 20;
 /// that cannot be finished.
 const POLE_WIDTH: f32 = T * 0.5;
 
-/// The level's world width and height. Named, rather than inlined into
-/// [`level_1_1`], because [`goal_pole`] must derive the flag's geometry from the
-/// same numbers the flag's BLOCK is built from — see `flag_geometry_oracle`.
-const LEVEL_WIDTH: f32 = 104.0 * T;
+// ⭐ `LEVEL_WIDTH` / `LEVEL_HEIGHT` are GONE (2026-08-04). They were the level's
+// size as a Rust fact, and the level's size is now whatever Jon drew — read it
+// off the loaded room (`room.world.size`). Deleting them rather than leaving
+// them "for reference" is the point: a constant that still names the world is a
+// second authority waiting to disagree with the file.
 
 // ── The double stairs ──────────────────────────────────────────────────────
 //
@@ -195,65 +189,37 @@ const SURFACE_HEIGHT: f32 = 15.0 * T;
 /// How far below the ground slab the secret vault's floor sits.
 const VAULT_DEPTH_TILES: f32 = 9.0;
 
-const LEVEL_HEIGHT: f32 = SURFACE_HEIGHT + VAULT_DEPTH_TILES * T;
 
-/// **A warp pipe is a TUBE THROUGH THE GROUND SLAB.** Each one is authored as two
-/// halves at the SAME tile column: a SURFACE half standing on the ground with its
-/// mouth up, and a VAULT half hanging from the vault's ceiling with its mouth down.
-/// That is the whole geometric rule, and it buys three things the old layout was
-/// missing: every pipe you go INTO has a pipe you come OUT of, a pipe that leads
-/// upward hangs from the ceiling instead of standing on the floor pointing the
-/// wrong way, and the two ends of one tube line up the way a real tube would.
+/// The four halves of Mary-O's two warp tubes, by their AUTHORED names.
 ///
-/// There are two tubes:
-/// * The **descent** tube at column 26 — press DOWN on its surface mouth and you
-///   drop out of its vault half. Column 26 is the safe run between pit A and pit B:
-///   far enough past the open teach that a player has learned the jump, close
-///   enough that the first pipe they ever see is not at the end of the level.
-/// * The **ascent** tube at column 35 — press UP at its vault half's mouth, which
-///   hangs at head height at the far end of the chamber, and you rise out of its
-///   surface half. Column 35 sits inside
-///   the vault's span [23,41] and on the solid run [22,42) before pit B, so the tube
-///   is straight: you come up exactly where you were standing, nine tiles past where
-///   you went down, with five clear tiles to build the run-up for pit B. (It used to
-///   surface ACROSS pit B, which bent the "tube" sideways through the ground for no
-///   reason a player could read.)
-const PIPE_COLUMN: f32 = 26.0;
-const EXIT_PIPE_COLUMN: f32 = 35.0;
-/// THREE tiles wide, not the two a Mario pipe nominally is, because a pipe here
-/// has to be able to HIDE the body going through it. Mary-O's collision box is
-/// about one tile across but her SPRITE is drawn far wider than that (character
-/// art deliberately overflows its hitbox), so a two-tile pipe left her shoulders
-/// sticking out either side while she slid down it.
-const PIPE_WIDTH_TILES: f32 = 3.0;
-const PIPE_HEIGHT_TILES: f32 = 2.0;
-/// The descent tube: the surface half you press DOWN on, and the vault half you
-/// drop out of directly below it.
-const PIPE_NAME: &str = "secret_pipe";
-const VAULT_ENTRY_PIPE_NAME: &str = "vault_entry_pipe";
-/// The ascent tube: the vault half you press UP under, and the surface half you
-/// rise out of directly above it.
-const EXIT_PIPE_NAME: &str = "vault_return_pipe";
-const SURFACE_EXIT_PIPE_NAME: &str = "surface_exit_pipe";
+/// ⛔ **`pipe_halves()` — a four-element Rust table of positions, sizes and a
+/// `mouth_down` flag — is GONE (2026-08-04), and with it `PIPE_COLUMN`,
+/// `EXIT_PIPE_COLUMN`, `PIPE_WIDTH_TILES`, `PIPE_HEIGHT_TILES`,
+/// `surface_pipe_min/size`, `vault_pipe_min/size` and `vault_pipe_clearance`.**
+/// Nine constants and five functions computing where a pipe was, in a language
+/// the level editor could not read — and the descent/ascent PAIRING was the
+/// order of the tuples. A pipe is authored now; these names are how the runtime
+/// finds the one it means.
+///
+/// ⚠ **the pairing is still the NAME**, `warp_pipe_<link>_<up|down>`, which is
+/// the weakest part of the authored vocabulary: a typo pairs nothing and only a
+/// load-time check can catch it. `a_pipe_you_enter_always_has_a_pipe_you_come_
+/// out_of` is that check.
+const PIPE_NAME: &str = "warp_pipe_descent_up";
+const VAULT_ENTRY_PIPE_NAME: &str = "warp_pipe_descent_down";
+const EXIT_PIPE_NAME: &str = "warp_pipe_ascent_down";
+const SURFACE_EXIT_PIPE_NAME: &str = "warp_pipe_ascent_up";
+
+/// The stone the secret chamber is cut from — the one thing about the vault the
+/// LDtk file cannot say, since a block carries no authored colour.
 const VAULT_STONE_COLOR: [f32; 4] = [0.24, 0.20, 0.30, 1.0];
 
-/// Coins waiting in the vault. The whole reward for finding the pipe.
-const VAULT_COINS: usize = 8;
-
-/// The vault's interior, in world coordinates: a sealed chamber dug under the
-/// ground slab, directly below the pipe that leads into it.
+/// The vault's interior, in world coordinates.
 ///
-/// One function so the level geometry, the warp destination, and the coin row
-/// can never disagree about where the room actually is.
-///
-/// It is a WIDE 18-tile chamber at columns [23,41], tucked entirely under the SOLID
-/// ground between pit A [20,22) and the (shifted-right) pit B [42,45). The original
-/// 14-tile chamber reached under pit B when pit B sat at [34,37), so its ceiling
-/// (the ground slab) had the pit's gap punched through it — a body that fell into
-/// pit B dropped straight into the secret ("the hole in the ceiling"). The level was
-/// LENGTHENED (pit B and everything past it pushed 8 tiles right) so a roomy vault
-/// fits under unbroken ground here, still directly under the entry pipe (col 26) so
-/// warping down is a short camera move, not a pan across the level.
+/// ▢ still derived, and it is the last of 1-1's geometry that is: the chamber's
+/// walls are authored but its BOUNDS are computed here, and the two agree only
+/// because the generator emitted the walls from this. Deriving it from the
+/// authored `vault_wall_*` blocks is the obvious next move.
 pub fn vault_bounds() -> ae::Aabb {
     let ceiling = SURFACE_HEIGHT;
     let floor = SURFACE_HEIGHT + (VAULT_DEPTH_TILES - 2.0) * T;
@@ -261,89 +227,6 @@ pub fn vault_bounds() -> ae::Aabb {
     let size = ae::Vec2::new(18.0 * T, floor - ceiling);
     let min = ae::Vec2::new(left, ceiling);
     ae::Aabb::new(min + size * 0.5, size * 0.5)
-}
-
-/// How big a SURFACE half of a tube is: two tiles, the classic stub you stand on.
-fn surface_pipe_size() -> ae::Vec2 {
-    ae::Vec2::new(PIPE_WIDTH_TILES * T, PIPE_HEIGHT_TILES * T)
-}
-
-/// How big a VAULT half is. It reaches most of the way DOWN the chamber rather
-/// than being a matching two-tile stub, so its lip hangs at STANDING HEAD HEIGHT
-/// instead of near the ceiling five tiles up — see [`vault_pipe_clearance`] for
-/// why that height exactly. The chamber is [`VAULT_DEPTH_TILES`] - 2 tiles tall.
-fn vault_pipe_size() -> ae::Vec2 {
-    let interior = vault_bounds().max.y - vault_bounds().min.y;
-    ae::Vec2::new(PIPE_WIDTH_TILES * T, interior - vault_pipe_clearance())
-}
-
-/// The min corner of the SURFACE half of the tube at `column` — standing on the
-/// ground slab, mouth up.
-fn surface_pipe_min(column: f32) -> ae::Vec2 {
-    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-    ae::Vec2::new(column * T, ground_top - PIPE_HEIGHT_TILES * T)
-}
-
-/// The min corner of the VAULT half of the tube at `column` — hanging from the
-/// vault's ceiling (which is the level's own ground slab), mouth down.
-fn vault_pipe_min(column: f32) -> ae::Vec2 {
-    ae::Vec2::new(column * T, vault_bounds().min.y)
-}
-
-/// Walking room left under a vault half's lip: **exactly one grown body, plus a
-/// hair.** That number is not a taste call — it is what makes the mouth reachable.
-///
-/// You enter a pipe by TOUCHING its mouth (see [`mouth_band`]), so a hanging pipe
-/// has to hang where a body standing under it can touch. Any less and her grown
-/// form cannot walk under it at all — she would be stopped by its side, outside
-/// the column, and could never reach the mouth. Any more and the mouth floats
-/// above every reachable head, which is the state that made pressing UP feel like
-/// a button that worked in a column of air.
-///
-/// The quarter-tile is clearance for the walk itself, so she is not scraping the
-/// lip on every step.
-fn vault_pipe_clearance() -> f32 {
-    powerups::tall_body_size().y + 0.25 * T
-}
-
-/// **Every pipe half in level 1-1**, as `(name, min corner, size, mouth points
-/// down, art index)`. ONE list, so the collision blocks and the art can never
-/// disagree about where a pipe is or which way it faces.
-fn pipe_halves() -> [(&'static str, ae::Vec2, ae::Vec2, bool, u16); 4] {
-    [
-        // The descent tube: you press DOWN on this one...
-        (
-            PIPE_NAME,
-            surface_pipe_min(PIPE_COLUMN),
-            surface_pipe_size(),
-            false,
-            0,
-        ),
-        // ...and fall out of this one, which hangs from the ceiling right below.
-        (
-            VAULT_ENTRY_PIPE_NAME,
-            vault_pipe_min(PIPE_COLUMN),
-            vault_pipe_size(),
-            true,
-            1,
-        ),
-        // The ascent tube: you press UP under this one near the vault's far end...
-        (
-            EXIT_PIPE_NAME,
-            vault_pipe_min(EXIT_PIPE_COLUMN),
-            vault_pipe_size(),
-            true,
-            2,
-        ),
-        // ...and rise out of this one, straight up through the slab.
-        (
-            SURFACE_EXIT_PIPE_NAME,
-            surface_pipe_min(EXIT_PIPE_COLUMN),
-            surface_pipe_size(),
-            false,
-            3,
-        ),
-    ]
 }
 
 /// How close to a pipe's open face counts as touching it: half a tile.
@@ -371,13 +254,20 @@ fn mouth_band(min: ae::Vec2, size: ae::Vec2, mouth_down: bool) -> ae::Aabb {
     ae::Aabb::new(corner + band * 0.5, band * 0.5)
 }
 
-/// The mouth of the pipe half called `name`, straight off [`pipe_halves`].
+/// The mouth of the AUTHORED pipe half called `name`.
+///
+/// ⛔ this used to read `pipe_halves()`, a four-element Rust table — so the warp
+/// trigger sat where the constants said a pipe was, and moving the pipe in the
+/// editor would have left the trigger behind. It reads the block Jon drew.
 fn mouth_of(name: &str) -> ae::Aabb {
-    let (_, min, size, mouth_down, _) = pipe_halves()
-        .into_iter()
-        .find(|half| half.0 == name)
-        .expect("every named mouth belongs to a pipe half in this level");
-    mouth_band(min, size, mouth_down)
+    let (_, aabb) = authored_named_blocks()
+        .get(name)
+        .unwrap_or_else(|| panic!("the level authors a `{name}` pipe half"));
+    mouth_band(
+        aabb.min,
+        aabb.max - aabb.min,
+        name.ends_with(PIPE_MOUTH_DOWN_SUFFIX),
+    )
 }
 
 /// The mouth of the descent tube — the open top of the pipe you stand on.
@@ -388,18 +278,19 @@ pub fn pipe_mouth() -> ae::Aabb {
 /// Where the descent tube drops you: out of its VAULT half's mouth, so you fall
 /// out of a pipe you can see rather than materializing in open stone.
 pub fn vault_arrival() -> ae::Vec2 {
-    let min = vault_pipe_min(PIPE_COLUMN);
-    ae::Vec2::new(
-        min.x + PIPE_WIDTH_TILES * 0.5 * T,
-        min.y + vault_pipe_size().y + 0.5 * T,
-    )
+    let (_, pipe) = authored_named_blocks()
+        .get(VAULT_ENTRY_PIPE_NAME)
+        .expect("the level authors the descent tube's vault half");
+    ae::Vec2::new((pipe.min.x + pipe.max.x) * 0.5, pipe.max.y + 0.5 * T)
 }
 
 /// Where the ascent tube puts you: on top of its SURFACE half, directly above the
 /// vault pipe you entered — twelve tiles further into the level than you went down.
 pub fn pipe_arrival() -> ae::Vec2 {
-    let min = surface_pipe_min(EXIT_PIPE_COLUMN);
-    ae::Vec2::new(min.x + PIPE_WIDTH_TILES * 0.5 * T, min.y - T)
+    let (_, pipe) = authored_named_blocks()
+        .get(SURFACE_EXIT_PIPE_NAME)
+        .expect("the level authors the ascent tube's surface half");
+    ae::Vec2::new((pipe.min.x + pipe.max.x) * 0.5, pipe.min.y - T)
 }
 
 /// The ascent tube's mouth — the open BOTTOM of the pipe hanging from the vault
@@ -430,265 +321,153 @@ pub fn vault_exit() -> ae::Aabb {
 /// 5. **The goal** — a tall pole. Its geometry is here; the SEQUENCE that plays
 ///    when you grab it is [`flag`], and [`goal_pole`] is the one place both agree
 ///    on where it stands.
+/// **World 1-1, as Jon authors it.**
+///
+/// ⛔ **The level is `assets/worlds/mary_o.ldtk` now, not this function.** It used
+/// to build ~330 lines of blocks from constants, and every runtime that cared
+/// about a specific block re-derived its position from those same constants — so
+/// the geometry was the shadow of the code rather than the other way round, and
+/// nothing Jon could do in an editor would have moved it. He asked for the
+/// opposite (2026-08-04): *"I would like to make maryo an ldtk level so I can
+/// manually play with it and lay it out."*
+///
+/// What is left here is what LDtk has no vocabulary for, and each piece is
+/// DERIVED FROM THE LOADED ROOM rather than from a constant — dressing the
+/// authored blocks in their art, and the two walk-in zones to World 1-2.
+///
+/// ⚠ regenerate the file with
+/// `python3 game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py` only to
+/// re-derive it from scratch; ordinary layout edits belong in the LDtk editor,
+/// and the generator's constants are history the moment Jon touches it.
 pub fn level_1_1() -> RoomSpec {
-    let width = LEVEL_WIDTH; // 104 tiles — a real 1-1 is ~210; this is its grammar.
-    let height = LEVEL_HEIGHT;
-    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-
-    let mut blocks = Vec::new();
-
-    // A ground segment spanning tiles `[from, to)`, full depth. Surfaces are
-    // TILED, not stretched entity art — the engine default a game should reach for
-    // (`Block::solid_tiled`). `idx` keeps each segment's tile-layer geo id unique.
-    let ground = |blocks: &mut Vec<ae::Block>, name: &str, idx: u16, from: f32, to: f32| {
-        blocks.push(ae::Block::solid_tiled(
-            name,
-            ae::Vec2::new(from * T, ground_top),
-            ae::Vec2::new((to - from) * T, GROUND_TILES * T),
-            "mary_o_ground",
-            idx,
-        ));
-    };
-
-    // 1 + 3. Open teach, then the widening pit rhythm. The first run after pit A is
-    // extended (34 → 42) to roof the WIDE secret vault below it with unbroken ground;
-    // pit B and everything past it were pushed 8 tiles right to make that room.
-    ground(&mut blocks, "ground_open_teach", 0, 0.0, 20.0);
-    ground(&mut blocks, "ground_after_pit_a", 1, 22.0, 42.0); // 2-tile pit at [20,22)
-    ground(&mut blocks, "ground_after_pit_b", 2, 45.0, 60.0); // 3-tile pit at [42,45)
-    ground(&mut blocks, "ground_after_pit_c", 3, 65.0, 104.0); // 5-tile pit at [60,65)
-
-    // 2. The first platform: over SAFE ground, at jump height. Tiled, like the
-    // ground it teaches you to leave.
-    blocks.push(ae::Block::one_way_tiled(
-        "teach_platform",
-        ae::Vec2::new(12.0 * T, ground_top - 4.0 * T),
-        ae::Vec2::new(3.0 * T, 0.5 * T),
-        "mary_o_platform",
-        0,
-    ));
-
-    // 3. The widest pit's stepping stone: the same jump, now load-bearing. (Pit C
-    // moved to [60,65) with the +8 shift, so its stone follows to column 62.)
-    blocks.push(ae::Block::one_way_tiled(
-        "pit_c_stepping_stone",
-        ae::Vec2::new(62.0 * T, ground_top - 3.0 * T),
-        ae::Vec2::new(1.0 * T, 0.5 * T),
-        "mary_o_platform",
-        1,
-    ));
-
-    // The ?-blocks: SOLID one-tile blocks floating at bonk height. Jump into one
-    // from below and the wand powerup pops out (see `powerups`). They are plain
-    // level geometry here; the powerup runtime recognizes a bonked ?-block by the
-    // durable `GeoId` `solid_tiled` stamps — `power_block_id(i)` re-derives the
-    // SAME id, so the level and the runtime never drift.
-    for i in 0..POWER_BLOCK_COLUMNS.len() {
-        let min = power_block_min(i);
-        blocks.push(ae::Block::solid_tiled(
-            format!("power_block_{i}"),
-            min,
-            ae::Vec2::new(T, T),
-            POWER_BLOCK_LAYER,
-            POWER_BLOCK_BASE_INDEX + i as u16,
-        ));
-    }
-
-    // The breakable bricks: SOLID one-tile blocks, same as any wall until a
-    // head-bonk breaks one. Plain level geometry here; `bricks::break_bricks`
-    // recognizes a bonked brick by the durable `GeoId` `solid_tiled` stamps —
-    // `brick_id(i)` re-derives the SAME id, so the level and the runtime never
-    // drift, exactly like the ?-blocks above.
-    for i in 0..BRICK_COLUMNS.len() {
-        let min = brick_min(i);
-        blocks.push(ae::Block::solid_tiled(
-            format!("brick_{i}"),
-            min,
-            ae::Vec2::new(T, T),
-            BRICK_LAYER,
-            BRICK_BASE_INDEX + i as u16,
-        ));
-    }
-
-    for i in 0..QUASAR_BLOCK_COLUMNS.len() {
-        let min = quasar_block_min(i);
-        blocks.push(ae::Block::solid_tiled(
-            format!("quasar_block_{i}"),
-            min,
-            ae::Vec2::new(T, T),
-            POWER_BLOCK_LAYER,
-            QUASAR_BLOCK_BASE_INDEX + i as u16,
-        ));
-    }
-
-    // 4. The double stairs. Shape lives in `stair_steps()` — see the constants
-    // beside `LEVEL_WIDTH` for why it is not arithmetic inlined here.
-    // `stair_steps()` interleaves the halves — near, far, near, far — so each
-    // pair is one step of each.
-    for (step, pair) in (1..=STAIR_STEPS).zip(stair_steps().chunks(2)) {
-        let (up_col, up_h) = pair[0];
-        let (down_col, down_h) = pair[1];
-        blocks.push(ae::Block::solid_tiled(
-            format!("stair_up_{step}"),
-            ae::Vec2::new(up_col * T, ground_top - up_h * T),
-            ae::Vec2::new(T, up_h * T),
-            "mary_o_stairs",
-            step,
-        ));
-        blocks.push(ae::Block::solid_tiled(
-            format!("stair_down_{step}"),
-            ae::Vec2::new(down_col * T, ground_top - down_h * T),
-            ae::Vec2::new(T, down_h * T),
-            "mary_o_stairs",
-            step + STAIR_STEPS,
-        ));
-    }
-
-    // 5. The goal. ONE-WAY, not solid: touching it must END the level, and a
-    // solid pole stops the body a half-body-width short of its own center, so the
-    // grab could only ever fire from above the top. One-way lets her run straight
-    // into it at any height while still holding her up if she drops onto the top
-    // from the stairs.
-    //
-    // ART: the collision blocks are made VISUALLY TRANSPARENT and a decorative
-    // `super_mary_o_flag_pole_*` construction sprite is layered over each (see
-    // `scenery.rs`). The shared block art can only key on `BlockKind`, so a
-    // one-way pole would take the platform texture stretched down a 16x288 column
-    // into a smear; a zero-alpha `art_color` shortcuts that, and the prop supplies
-    // the real look. Collision is unchanged, so the flag grab band is identical.
-    //
-    // Three pieces so the goal READS as a flagpole instead of a bar: a shaft, a
-    // finial capping it, and a banner hanging off the top. All three are the SAME
-    // width and column as the pole, so none of them changes what is reachable or
-    // where the grab band is — the silhouette is new, the level is not.
-    let pole_x = POLE_COLUMN * T;
-    let pole_top = ground_top - 9.0 * T;
-    blocks.push(
-        ae::Block::one_way(
-            "goal_pole",
-            ae::Vec2::new(pole_x, pole_top),
-            ae::Vec2::new(POLE_WIDTH, 9.0 * T),
-        )
-        .with_art_color(scenery::TRANSPARENT),
-    );
-    blocks.push(
-        ae::Block::one_way(
-            "goal_pole_knob",
-            ae::Vec2::new(pole_x, pole_top - POLE_WIDTH),
-            ae::Vec2::splat(POLE_WIDTH),
-        )
-        .with_art_color(scenery::TRANSPARENT),
-    );
-    blocks.push(
-        ae::Block::one_way(
-            "goal_pole_banner",
-            ae::Vec2::new(pole_x, pole_top + POLE_WIDTH),
-            ae::Vec2::new(POLE_WIDTH, POLE_WIDTH * 2.0),
-        )
-        .with_art_color(scenery::TRANSPARENT),
-    );
-
-    // ── 6. The secret pipe, and the vault under the level ───────────────────
-    //
-    // A warp pipe standing on safe ground between pit A and pit B. Press DOWN on
-    // its mouth and you drop into a sealed coin vault built into the SAME room,
-    // below the ground slab — which is why the world grew downward rather than a
-    // second room being authored: cross-room transition lives in `ambition_app`'s
-    // `world_flow`, so a demo that ships its own app could not use it and would
-    // have worked only when Ambition hosted it.
-    //
-    // The vault is reachable ONLY through the pipe: it is walled on all four
-    // sides, and the ground slab above is its ceiling.
-    //
-    // Because BOTH ends of both warps live in this one room, each warp is one
-    // physical TUBE through that slab, authored as two halves at matching columns:
-    // surface + vault for the descent at col 26, vault + surface for the ascent at
-    // col 35. Transparent collision blocks; the props below supply the look.
-    // A surface half is the classic two-tile stub; a vault half reaches down the
-    // chamber so its mouth hangs at head height (`mouth_down` is also what
-    // mirrors its lip art).
-    for (name, min, size, _, art_index) in pipe_halves() {
-        blocks.push(
-            ae::Block::solid_tiled(name, min, size, "mary_o_pipe", art_index)
-                .with_art_color(scenery::TRANSPARENT),
-        );
-    }
-
-    let vault = vault_bounds();
-    let wall = T;
-    // Floor, then the two side walls. The ceiling is the level's own ground
-    // slab, so a vault dug directly under solid ground needs no lid.
-    blocks.push(
-        ae::Block::solid_tiled(
-            "vault_floor",
-            ae::Vec2::new(vault.min.x - wall, vault.max.y),
-            ae::Vec2::new(vault.max.x - vault.min.x + wall * 2.0, wall),
-            "mary_o_ground",
-            10,
-        )
-        .with_art_color(VAULT_STONE_COLOR),
-    );
-    for (idx, x) in [(11u16, vault.min.x - wall), (12, vault.max.x)] {
-        blocks.push(
-            ae::Block::solid_tiled(
-                "vault_wall",
-                ae::Vec2::new(x, vault.min.y),
-                ae::Vec2::new(wall, vault.max.y - vault.min.y),
-                "mary_o_ground",
-                idx,
-            )
-            .with_art_color(VAULT_STONE_COLOR),
-        );
-    }
-
-    let spawn = ae::Vec2::new(2.0 * T, ground_top - 2.0 * T);
-    let world = ae::World::new("Mary-O 1-1", ae::Vec2::new(width, height), spawn, blocks);
-
-    let mut room = RoomSpec::new(LEVEL_1_1_ROOM_ID, world);
+    let mut room = authored_room(LEVEL_1_1_ROOM_ID);
     room.metadata.mode = Some(MARY_O_MODE.to_string());
+    dress_authored_blocks(&mut room);
+    room.props.extend(scenery_for_authored_room(&room));
 
-    // ── Scenery: the flagpole + warp-pipe LOOK (decorative props over the
-    // transparent collision blocks; see `scenery.rs`). Presentation only — none
-    // of this changes geometry, the grab band, or the warp mouths.
+    // The two ends of the trip to World 1-2. Walk-in zones, not a third pipe:
+    // the vault's own pipes answer a directional press (Jon's rule), and a
+    // shaft in the floor is a different affordance rather than a competing one.
     //
-    // Flagpole: the finial caps the shaft, the shaft runs its full height, and the
-    // banner hangs off the top. The banner PROP is wider than its (pole-width)
-    // collision block and offset to the side, so the flag reads as a flag without
-    // widening what the body can touch.
-    let mut scenery_props = vec![
-        // BUILT WORLD, not scenery: character sizing derives a sprite's width
-        // from the box's LONGEST side, so a shaft whose box is nine tiles tall
-        // was drawn eighteen tiles WIDE. It stays behind the cast, though —
-        // she has to be visible climbing it.
-        scenery::structure_prop(
-            "goal_pole_shaft_art",
-            scenery::POLE_BODY_SPRITE,
-            ae::Vec2::new(pole_x, pole_top),
-            ae::Vec2::new(POLE_WIDTH, 9.0 * T),
-        ),
-        scenery::prop_over(
-            "goal_pole_finial_art",
-            scenery::POLE_TOP_SPRITE,
-            ae::Vec2::new(pole_x - POLE_WIDTH * 0.5, pole_top - POLE_WIDTH * 1.5),
-            ae::Vec2::splat(POLE_WIDTH * 2.0),
-        ),
-        // The banner: wider than the pole and hung to the right of the shaft top.
-        PropSpec {
-            id: "goal_pole_banner_art".to_string(),
-            name: "goal_pole_banner_art".to_string(),
-            kind: scenery::FLAG_SPRITE.to_string(),
-            pos: ae::Vec2::new(pole_x + T, pole_top + T),
-            size: ae::Vec2::new(1.5 * T, 1.5 * T),
-            flip_y: false,
-            draw: Default::default(),
-        },
-    ];
-    // Every pipe half, tiled over its OWN block from the same list the blocks came
-    // from: one LIP tile at the open end and body tiles filling the rest. The lip
-    // is what makes a pipe point somewhere — top tile for a surface half (mouth up,
-    // you drop in), BOTTOM tile for a vault half (mouth down, hanging from the
-    // ceiling — you fall out of it, or rise into it), mirrored to match.
-    for (name, min, size, mouth_down, _) in pipe_halves() {
+    // ▢ these still derive from `vault_bounds()`. They are the last constant in
+    // 1-1 and they want to be authored `LoadingZone` entities like everything
+    // else; leaving them is deliberate scope, not an oversight.
+    room.loading_zones
+        .extend([descent_to_1_2(), surface_return_from_1_2()]);
+    room
+}
+
+/// The authored world file. Embedded, so a demo that ships its own binary needs
+/// no asset root — the same choice Sanic's speedway makes.
+pub const MARY_O_WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk");
+
+/// Load one authored area out of [`MARY_O_WORLD_JSON`].
+///
+/// ⚠ **`.expect` on a level file is normally forbidden** (the LDtk authoring
+/// contract says startup must print every validator error and exit nonzero, so a
+/// bad edit does not become a panic mid-play). It is acceptable HERE only because
+/// this file is EMBEDDED at compile time: a broken edit cannot reach a running
+/// player without passing the build and this crate's tests first. The moment the
+/// world is loaded from disk instead, this has to become a reported refusal.
+fn authored_room(area: &str) -> RoomSpec {
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(MARY_O_WORLD_JSON)
+        .expect("mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)");
+    let room_set = project
+        .to_room_set_with_entry(area)
+        .unwrap_or_else(|errors| panic!("mary_o.ldtk converts to rooms: {errors:?}"));
+    room_set
+        .rooms
+        .into_iter()
+        .find(|room| room.id == area)
+        .unwrap_or_else(|| panic!("mary_o.ldtk authors the `{area}` area"))
+}
+
+/// Paint the authored blocks that wear something other than their kind's art.
+///
+/// ⛔ **LDtk cannot author a block's colour, so the game says it here — BY NAME.**
+/// That is the whole authored vocabulary at work: a warp pipe and the flagpole
+/// are collision only (their look comes from the props below, laid over them), and
+/// the vault's masonry is its own stone. Doing this from the loaded names rather
+/// than at construction is what lets Jon add a fourth pipe and have it dressed.
+fn dress_authored_blocks(room: &mut RoomSpec) {
+    for block in &mut room.world.blocks {
+        if block.name.starts_with(WARP_PIPE_PREFIX) || block.name.starts_with(GOAL_POLE_PREFIX) {
+            block.art_color = Some(scenery::TRANSPARENT);
+        } else if block.name.starts_with(VAULT_MASONRY_PREFIX) {
+            block.art_color = Some(VAULT_STONE_COLOR);
+        }
+    }
+}
+
+/// Every authored block whose name starts with `prefix`, as `(name, min, size)`.
+fn authored_blocks_named(room: &RoomSpec, prefix: &str) -> Vec<(String, ae::Vec2, ae::Vec2)> {
+    let mut out: Vec<_> = room
+        .world
+        .blocks
+        .iter()
+        .filter(|block| block.name.starts_with(prefix))
+        .map(|block| {
+            (
+                block.name.clone(),
+                block.aabb.min,
+                block.aabb.max - block.aabb.min,
+            )
+        })
+        .collect();
+    // Sorted so the props a level produces do not depend on block order.
+    out.sort_by(|a, b| a.0.cmp(&b.0));
+    out
+}
+
+/// The flagpole and warp-pipe LOOK: decorative props laid over the transparent
+/// collision blocks the file authors. Presentation only — none of it changes
+/// geometry, the grab band, or the warp mouths.
+///
+/// ⭐ **derived from the loaded room**, so moving a pipe in the editor moves its
+/// art with it and a new pipe is dressed without a line of Rust.
+fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
+    let mut props = Vec::new();
+
+    for (name, min, size) in authored_blocks_named(room, GOAL_POLE_PREFIX) {
+        match name.as_str() {
+            // BUILT WORLD, not scenery: character sizing derives a sprite's width
+            // from the box's LONGEST side, so a shaft whose box is nine tiles tall
+            // was drawn eighteen tiles WIDE. It stays behind the cast, though —
+            // she has to be visible climbing it.
+            "goal_pole" => props.push(scenery::structure_prop(
+                "goal_pole_shaft_art",
+                scenery::POLE_BODY_SPRITE,
+                min,
+                size,
+            )),
+            "goal_pole_knob" => props.push(scenery::prop_over(
+                "goal_pole_finial_art",
+                scenery::POLE_TOP_SPRITE,
+                min - ae::Vec2::new(size.x * 0.5, size.y * 0.5),
+                size * 2.0,
+            )),
+            // The banner: wider than the pole and hung to the right of the shaft
+            // top, so the flag reads as a flag without widening what she can touch.
+            "goal_pole_banner" => props.push(PropSpec {
+                id: "goal_pole_banner_art".to_string(),
+                name: "goal_pole_banner_art".to_string(),
+                kind: scenery::FLAG_SPRITE.to_string(),
+                pos: min + ae::Vec2::new(T - size.x * 0.5, T - size.y * 0.5),
+                size: ae::Vec2::splat(1.5 * T),
+                flip_y: false,
+                draw: Default::default(),
+            }),
+            _ => {}
+        }
+    }
+
+    // Every pipe, tiled over its OWN block: one LIP tile at the open end and body
+    // tiles filling the rest. The lip is what makes a pipe point somewhere — top
+    // tile for a mouth-up half (you drop in), BOTTOM tile for a mouth-down one
+    // (hanging from the ceiling, you fall out of it or rise into it), mirrored to
+    // match.
+    for (name, min, size) in authored_blocks_named(room, WARP_PIPE_PREFIX) {
+        let mouth_down = name.ends_with(PIPE_MOUTH_DOWN_SUFFIX);
         // Laid FROM THE MOUTH inward, so the lip sits exactly on the open face
         // however long the half is — a pipe's length is set by where its mouth
         // has to be, not by a whole number of tiles, and only the far end (which
@@ -709,7 +488,7 @@ pub fn level_1_1() -> RoomSpec {
             if row == 1 {
                 // A mouth-down pipe is the SAME head sheet, mirrored — a pipe head
                 // drawn right way up under a ceiling reads as standing on nothing.
-                scenery_props.push(scenery::pipe_prop(
+                props.push(scenery::pipe_prop(
                     &format!("{name}_lip_art"),
                     scenery::PIPE_TOP_SPRITE,
                     at,
@@ -717,7 +496,7 @@ pub fn level_1_1() -> RoomSpec {
                     mouth_down,
                 ));
             } else {
-                scenery_props.push(scenery::pipe_prop(
+                props.push(scenery::pipe_prop(
                     &format!("{name}_body_art_{row}"),
                     scenery::PIPE_BODY_SPRITE,
                     at,
@@ -727,41 +506,7 @@ pub fn level_1_1() -> RoomSpec {
             }
         }
     }
-    room.props.extend(scenery_props);
-
-    // The vault's reward, on the ordinary placements channel: `currency`
-    // pickups the SHARED economy collects and credits to the body wallet. No
-    // demo collection code, and they land in the HUD's COINS readout for free —
-    // the same path Sanic's rings already take.
-    let vault = vault_bounds();
-    let coin_y = vault.max.y - 1.5 * T;
-    for i in 0..VAULT_COINS {
-        // Spread across the wide chamber: 8 coins at 2-tile spacing span [+1,+15]
-        // inside the 18-tile vault.
-        let x = vault.min.x + (1.0 + i as f32 * 2.0) * T;
-        room.placements
-            .push(ambition_platformer2d::world::placements::PlacementRecord::new(
-                format!("vault_coin_{i}"),
-                ambition_platformer2d::entity_catalog::placements::PlacementSchema::Pickup(
-                    ambition_platformer2d::entity_catalog::placements::PickupSpec::new(
-                        ambition_platformer2d::entity_catalog::placements::PickupKindSpec::Currency {
-                            amount: 1,
-                        },
-                    ),
-                ),
-                {
-                    let size = ae::Vec2::splat(0.75 * T);
-                    ae::Aabb::new(ae::Vec2::new(x, coin_y) + size * 0.5, size * 0.5)
-                },
-            ));
-    }
-
-    // The two ends of the trip to World 1-2. Walk-in zones, not a third pipe:
-    // the vault's own pipes answer a directional press (Jon's rule), and a
-    // shaft in the floor is a different affordance rather than a competing one.
-    room.loading_zones
-        .extend([descent_to_1_2(), surface_return_from_1_2()]);
-    room
+    props
 }
 
 /// The open shaft at the vault's far end that drops into World 1-2.
@@ -796,82 +541,143 @@ pub fn surface_return_from_1_2() -> ambition_platformer2d::world::rooms::Loading
         aabb: ae::Aabb::new(center, size * 0.5),
     }
 }
+// ── The authored blocks, resolved by NAME ──────────────────────────────────
+//
+// ⛔ **These used to CONSTRUCT ids from constants; they now LOOK THEM UP in the
+// authored file.** `power_block_id(i)` was
+// `GeoId::tile_layer("mary_o_ground", 10 + i)` — an id computed from an index
+// into a Rust array, which is why nothing Jon did in an editor could move a
+// ?-block: the level drew one place and the runtime matched another. The id is
+// whatever the file says it is now (`GeoId::placement(<the LDtk iid>)`), and the
+// position is the authored block's own corner.
+//
+// ⚠ **the index survives on purpose, for now.** Every consumer — the spent set,
+// the broken-brick bitset, the dresser — is keyed by `i`, and `i` is the suffix
+// of the authored name (`power_block_2` is index 2). That keeps this change to
+// the LOOKUP and leaves the rollback-state shapes alone. It also means the
+// suffixes must stay dense from 0; `authored_family_count` is what notices when
+// they do not.
 
-/// The min corner of ?-block `i`, from the SAME constants [`level_1_1`] builds the
-/// `power_block_*` blocks out of — so the powerup runtime pops the wand out at the
-/// exact block it was authored at.
+/// Every authored block in the embedded world file, by name.
+///
+/// ⚠ a process-global `LazyLock` over a `const &str`, which is safe for the
+/// reason a `OnceLock` fed by a provider is not: the input is fixed at COMPILE
+/// time, so there is no second value it could ever hold and no install order to
+/// get wrong.
+fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)> {
+    static BLOCKS: std::sync::LazyLock<
+        std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)>,
+    > = std::sync::LazyLock::new(|| {
+        authored_room(LEVEL_1_1_ROOM_ID)
+            .world
+            .blocks
+            .iter()
+            .map(|block| (block.name.clone(), (block.id.clone(), block.aabb)))
+            .collect()
+    });
+    &BLOCKS
+}
+
+/// The authored `<prefix><i>` block, or `None` if the file does not author one.
+fn authored_block(prefix: &str, i: usize) -> Option<&'static (ae::GeoId, ae::Aabb)> {
+    authored_named_blocks().get(&format!("{prefix}{i}"))
+}
+
+/// How many `<prefix>0`, `<prefix>1`, … the file authors, counting from zero and
+/// stopping at the first gap.
+///
+/// ⚠ **stopping at the gap is deliberate.** A level with `brick_0` and `brick_2`
+/// and no `brick_1` is an authoring mistake, and reporting 1 makes the missing
+/// brick inert rather than making index 2 answer for index 1.
+fn authored_family_count(prefix: &str) -> usize {
+    (0..).take_while(|&i| authored_block(prefix, i).is_some()).count()
+}
+
+/// The min corner of ?-block `i` **as authored** — so the powerup runtime pops the
+/// wand out at the block Jon actually drew.
 pub fn power_block_min(i: usize) -> ae::Vec2 {
-    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-    ae::Vec2::new(POWER_BLOCK_COLUMNS[i] * T, ground_top - POWER_BLOCK_ROW * T)
+    authored_block(POWER_BLOCK_PREFIX, i)
+        .map(|(_, aabb)| aabb.min)
+        .unwrap_or_default()
 }
 
-/// The durable [`GeoId`](ae::GeoId) of ?-block `i` — the SAME id `solid_tiled`
-/// stamps in [`level_1_1`], which the engine reports on a head-bonk contact
-/// (`ContactSource::Block`). Matching against this is how the powerup runtime
-/// knows a specific ?-block was struck, with no point-matching.
+/// The durable [`GeoId`](ae::GeoId) of ?-block `i`, read off the authored file —
+/// the id the engine reports on a head-bonk contact (`ContactSource::Block`).
+/// Matching against this is how the powerup runtime knows a specific ?-block was
+/// struck, with no point-matching.
 pub fn power_block_id(i: usize) -> ae::GeoId {
-    ae::GeoId::tile_layer(POWER_BLOCK_LAYER, POWER_BLOCK_BASE_INDEX + i as u16)
+    authored_block(POWER_BLOCK_PREFIX, i)
+        .map(|(id, _)| id.clone())
+        .unwrap_or_else(ae::GeoId::anon)
 }
 
-/// If `id` is one of the ?-blocks, its column index — the inverse of
-/// [`power_block_id`]. `None` for any other block the player bonks.
+/// If `id` is one of the ?-blocks, its index — the inverse of [`power_block_id`].
+/// `None` for any other block the player bonks.
 pub fn power_block_index_for(id: &ae::GeoId) -> Option<usize> {
-    (0..POWER_BLOCK_COLUMNS.len()).find(|&i| power_block_id(i) == *id)
+    (0..authored_family_count(POWER_BLOCK_PREFIX)).find(|&i| power_block_id(i) == *id)
 }
 
-/// The min corner of quasar block `i`, from the SAME constants [`level_1_1`]
-/// builds it out of.
+/// The min corner of quasar block `i`, as authored.
 pub fn quasar_block_min(i: usize) -> ae::Vec2 {
-    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-    ae::Vec2::new(
-        QUASAR_BLOCK_COLUMNS[i] * T,
-        ground_top - POWER_BLOCK_ROW * T,
-    )
+    authored_block(QUASAR_BLOCK_PREFIX, i)
+        .map(|(_, aabb)| aabb.min)
+        .unwrap_or_default()
 }
 
-/// The durable [`GeoId`](ae::GeoId) of quasar block `i`.
+/// The durable [`GeoId`](ae::GeoId) of quasar block `i`, as authored.
 pub fn quasar_block_id(i: usize) -> ae::GeoId {
-    ae::GeoId::tile_layer(POWER_BLOCK_LAYER, QUASAR_BLOCK_BASE_INDEX + i as u16)
+    authored_block(QUASAR_BLOCK_PREFIX, i)
+        .map(|(id, _)| id.clone())
+        .unwrap_or_else(ae::GeoId::anon)
 }
 
-/// If `id` is one of the QUASAR blocks, its column index. `None` otherwise —
-/// including for a ?-block, so the two families never answer for each other.
+/// If `id` is one of the QUASAR blocks, its index. `None` otherwise — including
+/// for a ?-block, so the two families never answer for each other.
 pub fn quasar_block_index_for(id: &ae::GeoId) -> Option<usize> {
-    (0..QUASAR_BLOCK_COLUMNS.len()).find(|&i| quasar_block_id(i) == *id)
+    (0..authored_family_count(QUASAR_BLOCK_PREFIX)).find(|&i| quasar_block_id(i) == *id)
 }
 
-/// The min corner of brick `i`, from the SAME constants [`level_1_1`] builds the
-/// `brick_*` blocks out of — so the break runtime removes the exact authored brick.
+/// The min corner of brick `i`, as authored — so the break runtime removes the
+/// exact brick that was drawn.
 pub fn brick_min(i: usize) -> ae::Vec2 {
-    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-    ae::Vec2::new(BRICK_COLUMNS[i] * T, ground_top - BRICK_ROW * T)
+    authored_block(BRICK_PREFIX, i)
+        .map(|(_, aabb)| aabb.min)
+        .unwrap_or_default()
 }
 
-/// The durable [`GeoId`](ae::GeoId) of brick `i` — the SAME id `solid_tiled` stamps
-/// in [`level_1_1`], which the engine reports on a head-bonk contact
-/// (`ContactSource::Block`). Matching against this is how [`bricks::break_bricks`]
-/// knows a specific brick was struck, with no point-matching.
+/// The durable [`GeoId`](ae::GeoId) of brick `i`, as authored. Matching against
+/// this is how [`bricks::break_bricks`] knows a specific brick was struck.
 pub fn brick_id(i: usize) -> ae::GeoId {
-    ae::GeoId::tile_layer(BRICK_LAYER, BRICK_BASE_INDEX + i as u16)
+    authored_block(BRICK_PREFIX, i)
+        .map(|(id, _)| id.clone())
+        .unwrap_or_else(ae::GeoId::anon)
 }
 
 /// If `id` is one of the bricks, its index — the inverse of [`brick_id`]. `None`
-/// for any other block. Disjoint from [`power_block_index_for`] by construction
-/// (the two use different `GeoId` base indices), so a bonk is a ?-block OR a brick,
-/// never both.
+/// for any other block. Disjoint from [`power_block_index_for`] because the two
+/// families are authored under different NAMES, so a bonk is a ?-block or a
+/// brick, never both.
 pub fn brick_index_for(id: &ae::GeoId) -> Option<usize> {
-    (0..BRICK_COLUMNS.len()).find(|&i| brick_id(i) == *id)
+    (0..brick_count()).find(|&i| brick_id(i) == *id)
 }
 
 /// The authored NAME of brick `i` (`brick_<i>`) — the key the collision overlay's
-/// `removed_block_names` subtraction and the render reconcile both match on. Kept
-/// beside [`brick_id`] so the name and the id are derived from the same `i`.
+/// `removed_block_names` subtraction and the render reconcile both match on.
 pub fn brick_name(i: usize) -> String {
-    format!("brick_{i}")
+    format!("{BRICK_PREFIX}{i}")
 }
 
-/// How many bricks the level authors.
-pub const BRICK_COUNT: usize = BRICK_COLUMNS.len();
+/// How many bricks the file authors.
+pub fn brick_count() -> usize {
+    authored_family_count(BRICK_PREFIX)
+}
+
+/// The widest brick wall [`bricks::BrokenBricks`] can pack into its bitset. A
+/// CAP, not the authored count — the level authors far fewer, and the assert
+/// beside the bitset is what makes exceeding it a compile error rather than a
+/// silently unbreakable brick.
+pub const BRICK_CAPACITY: usize = 32;
+
 
 /// The pole's geometry, derived from the SAME constants [`level_1_1`] builds the
 /// `goal_pole` block out of. A second source of truth for where the flag is would
@@ -2136,6 +1942,75 @@ pub fn add_demo_content(app: &mut App) {
 mod tests {
     use super::*;
 
+    // ── Reading the AUTHORED level, instead of the names it used to be built with ──
+    //
+    // ⛔ **Seven tests here looked terrain up by the name `level_1_1` gave it —
+    // `ground_open_teach`, `stair_up_3`, `secret_pipe`.** Terrain is painted into
+    // an IntGrid now, and `area create`'s lowering EATS the name (the merged
+    // rectangles all come back as `ldtk solid`), so those lookups could not
+    // survive the migration and should not: a test that needs the level's fourth
+    // ground run to still be CALLED something is pinned to how the level was
+    // built, not to what it is.
+    //
+    // ⭐ these ask the collision instead, which is the question they always meant
+    // and the version that survives Jon repainting the floor.
+
+    /// Is any solid or one-way surface covering this world point?
+    fn solid_at(room: &RoomSpec, at: ae::Vec2) -> bool {
+        room.world.blocks.iter().any(|b| {
+            !matches!(b.kind, ae::BlockKind::Hazard)
+                && b.aabb.min.x <= at.x
+                && b.aabb.max.x >= at.x
+                && b.aabb.min.y <= at.y
+                && b.aabb.max.y >= at.y
+        })
+    }
+
+    /// The level's GROUND RUNS as `[from_x, to_x)`, derived from the authored
+    /// collision: contiguous spans of solid slab at the ground row. The gaps
+    /// between them are the pits, which is what every pit assertion here wants.
+    fn authored_ground_runs(room: &RoomSpec) -> Vec<(f32, f32)> {
+        let probe_y = SURFACE_HEIGHT - GROUND_TILES * T + T * 0.5;
+        let mut runs: Vec<(f32, f32)> = Vec::new();
+        let mut x = 0.0f32;
+        while x < room.world.size.x {
+            if solid_at(room, ae::Vec2::new(x, probe_y)) {
+                match runs.last_mut() {
+                    Some(run) if (run.1 - x).abs() < T * 0.5 => run.1 = x + T,
+                    _ => runs.push((x, x + T)),
+                }
+            }
+            x += T;
+        }
+        runs
+    }
+
+    /// The TOP of the highest solid standing at column `x` above the ground row —
+    /// how tall the step, stair or slab there is. `None` where the column is open.
+    fn surface_top_at(room: &RoomSpec, x: f32) -> Option<f32> {
+        room.world
+            .blocks
+            .iter()
+            .filter(|b| {
+                matches!(b.kind, ae::BlockKind::Solid)
+                    && b.aabb.min.x <= x
+                    && b.aabb.max.x >= x
+                    && b.aabb.min.y < SURFACE_HEIGHT
+            })
+            .map(|b| b.aabb.min.y)
+            .min_by(|a, b| a.partial_cmp(b).expect("finite"))
+    }
+
+    /// The authored block with this exact name.
+    fn authored_named(room: &RoomSpec, name: &str) -> ae::Aabb {
+        room.world
+            .blocks
+            .iter()
+            .find(|b| b.name == name)
+            .unwrap_or_else(|| panic!("the level authors a `{name}` block"))
+            .aabb
+    }
+
     #[test]
     fn mary_o_demo_content_plugin_installs() {
         let mut app = App::new();
@@ -2325,25 +2200,14 @@ mod tests {
     fn no_pit_drops_into_the_secret_vault() {
         let room = level_1_1();
         let vault = vault_bounds();
-        let named = |n: &str| {
-            room.world
-                .blocks
-                .iter()
-                .find(|b| b.name == n)
-                .unwrap_or_else(|| panic!("block {n}"))
-                .aabb
-        };
-
-        // Each pit is the gap between consecutive ground runs.
-        let runs = [
-            named("ground_open_teach"),
-            named("ground_after_pit_a"),
-            named("ground_after_pit_b"),
-        ];
+        // Each pit is the gap between consecutive ground runs, read off the
+        // authored collision rather than off the names the runs used to carry.
+        let runs = authored_ground_runs(&room);
+        assert!(runs.len() >= 2, "the level authors ground with pits in it");
         for pair in runs.windows(2) {
             let (left, right) = (pair[0], pair[1]);
-            let gap_min = left.max.x;
-            let gap_max = right.min.x;
+            let gap_min = left.1;
+            let gap_max = right.0;
             assert!(gap_max > gap_min, "these runs do not bound a pit");
             assert!(
                 gap_max <= vault.min.x || gap_min >= vault.max.x,
@@ -2363,54 +2227,92 @@ mod tests {
     fn level_1_1_carries_the_grammar_it_claims() {
         let room = level_1_1();
         let world = &room.world;
-        let named = |n: &str| world.blocks.iter().find(|b| b.name == n);
-        let aabb = |n: &str| named(n).unwrap_or_else(|| panic!("block {n}")).aabb;
 
         // The spawn sits inside the room, on the open-teach run.
         let s = world.spawn;
         assert!(s.x >= 0.0 && s.x <= world.size.x && s.y >= 0.0 && s.y <= world.size.y);
 
         // Three pits, WIDENING. A pit is the gap between consecutive ground runs.
-        let a = aabb("ground_open_teach");
-        let b = aabb("ground_after_pit_a");
-        let c = aabb("ground_after_pit_b");
-        let d = aabb("ground_after_pit_c");
-        let (pit_a, pit_b, pit_c) = (b.min.x - a.max.x, c.min.x - b.max.x, d.min.x - c.max.x);
+        let runs = authored_ground_runs(&room);
         assert!(
-            pit_a < pit_b && pit_b < pit_c,
+            runs.len() >= 4,
+            "1-1's grammar is an open run and three pits: got {runs:?}"
+        );
+        let pits: Vec<f32> = runs.windows(2).map(|p| p[1].0 - p[0].1).collect();
+        assert!(
+            pits.windows(2).all(|p| p[0] < p[1]),
             "the pit rhythm must WIDEN — each pit charges more for the last one's \
-             lesson: {pit_a} then {pit_b} then {pit_c}"
+             lesson: {pits:?}"
         );
 
         // The first platform hangs over SAFE ground: missing it costs nothing.
-        let teach = aabb("teach_platform");
+        let (open_from, open_to) = runs[0];
+        let teach_top = SURFACE_HEIGHT - GROUND_TILES * T - 4.0 * T;
+        let teach_x = (open_from + open_to) * 0.5;
         assert!(
-            teach.min.x > a.min.x && teach.max.x < a.max.x,
-            "the teach platform must hang over the open run, never over a pit"
+            room.world.blocks.iter().any(|b| {
+                matches!(b.kind, ae::BlockKind::OneWay)
+                    && (b.aabb.min.y - teach_top).abs() < T
+                    && b.aabb.min.x >= open_from
+                    && b.aabb.max.x <= open_to
+            }),
+            "a jump-height platform must hang over the OPEN run (around x={teach_x}), \
+             never over a pit"
         );
 
-        // ...and the same jump is load-bearing exactly once, inside the widest pit.
-        let stone = aabb("pit_c_stepping_stone");
+        // ...and the same jump is load-bearing exactly once, inside the WIDEST pit:
+        // a one-way standing in the gap you cannot clear without it.
+        let widest = runs
+            .windows(2)
+            .max_by(|a, b| {
+                (a[1].0 - a[0].1)
+                    .partial_cmp(&(b[1].0 - b[0].1))
+                    .expect("finite")
+            })
+            .map(|p| (p[0].1, p[1].0))
+            .expect("the level has pits");
         assert!(
-            stone.min.x > c.max.x && stone.max.x < d.min.x,
-            "the stepping stone must be INSIDE the widest pit"
+            room.world.blocks.iter().any(|b| {
+                matches!(b.kind, ae::BlockKind::OneWay)
+                    && b.aabb.min.x >= widest.0
+                    && b.aabb.max.x <= widest.1
+            }),
+            "a stepping stone must stand INSIDE the widest pit [{}, {}]",
+            widest.0,
+            widest.1
         );
 
-        // Both are one-way: you rise through them and never get stuck under one.
-        for name in ["teach_platform", "pit_c_stepping_stone"] {
+        // ⚠ every platform in the level is one-way: you rise through them and never
+        // get stuck under one. Stated over the whole population rather than over two
+        // names, so a platform Jon adds is held to the same rule.
+        let platform_top = SURFACE_HEIGHT - GROUND_TILES * T - 2.0 * T;
+        for block in room.world.blocks.iter().filter(|b| {
+            b.aabb.min.y < platform_top
+                && b.aabb.max.y - b.aabb.min.y <= T
+                && !b.name.starts_with(GOAL_POLE_PREFIX)
+                && !authored_named_blocks().contains_key(&b.name)
+        }) {
             assert!(
-                matches!(named(name).unwrap().kind, ae::BlockKind::OneWay),
-                "{name} must be a one-way — this grammar's platforms admit from below"
+                matches!(block.kind, ae::BlockKind::OneWay),
+                "`{}` floats at jump height and is not a one-way — this grammar's \
+                 platforms admit from below",
+                block.name
             );
         }
 
-        // The pyramid ascends, then descends, and the goal is past it.
+        // The pyramid ascends, then descends, and the goal is past both halves.
+        let pole = authored_named(&room, "goal_pole");
+        let tallest = (0..(room.world.size.x / T) as i32)
+            .filter_map(|c| surface_top_at(&room, c as f32 * T + T * 0.5).map(|top| (c, top)))
+            .filter(|(_, top)| *top < SURFACE_HEIGHT - GROUND_TILES * T - T)
+            .map(|(c, _)| c as f32 * T)
+            .collect::<Vec<_>>();
         assert!(
-            aabb("stair_up_4").max.x < aabb("stair_down_4").min.x,
-            "up before down"
+            !tallest.is_empty(),
+            "the level raises something above ground height — the pyramid"
         );
         assert!(
-            aabb("goal_pole").min.x > aabb("stair_down_1").max.x,
+            pole.min.x > tallest.iter().cloned().fold(f32::MIN, f32::max),
             "the goal is past the pyramid"
         );
     }
@@ -2425,21 +2327,21 @@ mod tests {
     #[test]
     fn the_trench_between_the_double_stairs_is_wide_enough_to_patrol() {
         let room = level_1_1();
-        let near = room
-            .world
-            .blocks
-            .iter()
-            .find(|b| b.name == "stair_up_4")
-            .expect("near half's tallest step")
-            .aabb;
-        let far = room
-            .world
-            .blocks
-            .iter()
-            .find(|b| b.name == "stair_down_4")
-            .expect("far half's shortest step")
-            .aabb;
-        let trench = far.min.x - near.max.x;
+        // ⚠ the trench is the GAP between the two raised halves, found by walking
+        // the authored surface — not by naming `stair_up_4` and `stair_down_4`,
+        // which were how the pyramid used to be BUILT rather than what it is.
+        let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+        let raised: Vec<f32> = (0..(room.world.size.x / T) as i32)
+            .map(|c| c as f32 * T + T * 0.5)
+            .filter(|&x| surface_top_at(&room, x).is_some_and(|top| top < ground_top - T * 0.5))
+            .collect();
+        assert!(!raised.is_empty(), "the level raises a pyramid");
+        // The widest gap between consecutive raised columns IS the trench.
+        let trench = raised
+            .windows(2)
+            .map(|p| p[1] - p[0])
+            .fold(0.0f32, f32::max)
+            - T;
         let slop_width = ai_slop::AI_SLOP_HALF * 2.0;
         assert!(
             trench >= slop_width * 4.0,
@@ -2454,7 +2356,7 @@ mod tests {
             .expect("the flagpole")
             .aabb;
         assert!(
-            pole.min.x > far.max.x,
+            pole.min.x > raised.iter().cloned().fold(f32::MIN, f32::max),
             "widening the trench must not push the pyramid into the flagpole"
         );
     }
@@ -2469,28 +2371,24 @@ mod tests {
     #[test]
     fn every_stair_slop_stands_over_a_real_step() {
         let room = level_1_1();
-        let steps: Vec<ae::Aabb> = room
-            .world
-            .blocks
-            .iter()
-            .filter(|b| b.name.starts_with("stair_"))
-            .map(|b| b.aabb)
-            .collect();
-        assert_eq!(steps.len(), (STAIR_STEPS * 2) as usize, "both halves built");
-
         let spawns = ai_slop::stair_slop_spawn_positions(room.world.spawn);
         assert_eq!(
             spawns.len(),
-            steps.len(),
-            "one slop per step, however many steps there are"
+            (STAIR_STEPS * 2) as usize,
+            "one slop per step of both halves"
         );
+        // ⚠ **the question is whether a slop has GROUND under it**, asked of the
+        // authored surface. It used to count blocks named `stair_*` and pair them
+        // with the spawn list — but the pyramid is painted into an IntGrid now,
+        // whose merged rectangles carry no step names, and "is this enemy standing
+        // on something" never needed one.
         for pos in spawns {
+            let top = surface_top_at(&room, pos.x);
             assert!(
-                steps
-                    .iter()
-                    .any(|s| pos.x >= s.min.x && pos.x <= s.max.x && pos.y < s.min.y),
-                "a stair slop at {pos:?} is not above any step — the two lists \
-                 have drifted apart again"
+                top.is_some_and(|top| pos.y < top + T),
+                "a stair slop at {pos:?} is not standing over a step — the spawn \
+                 list and the authored pyramid have drifted apart (surface here: \
+                 {top:?})"
             );
         }
     }
@@ -2503,8 +2401,8 @@ mod tests {
     #[test]
     fn level_1_1_authors_the_bricks_the_break_runtime_expects() {
         let room = level_1_1();
-        assert_eq!(BRICK_COUNT, BRICK_COLUMNS.len());
-        for i in 0..BRICK_COUNT {
+        assert!(brick_count() > 0, "the level authors a brick wall");
+        for i in 0..brick_count() {
             let block = room
                 .world
                 .blocks
@@ -2646,6 +2544,7 @@ mod tests {
         let vault = vault_bounds();
         let arrival = vault_arrival();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+        let authored = level_1_1();
 
         // The vault hangs BELOW the ground slab — that is what makes it secret
         // rather than a visible annex of the level.
@@ -2668,8 +2567,11 @@ mod tests {
         );
 
         // The world is tall enough to contain the vault it was grown for.
+        // ⚠ read off the AUTHORED room, not a constant: Jon can resize the level
+        // in the editor, and the question is whether the vault fits in the world
+        // he drew.
         assert!(
-            vault.max.y < LEVEL_HEIGHT,
+            vault.max.y < authored.world.size.y,
             "the vault floor must be inside the world bounds"
         );
 
@@ -2728,7 +2630,9 @@ mod tests {
             !at_mouth(
                 standing(
                     powerups::tall_body_size(),
-                    under + PIPE_WIDTH_TILES * T // one pipe-width clear
+                    // One pipe-width clear, measured off the AUTHORED pipe
+                    // rather than a constant tile count.
+                    under + (vault_exit().max.x - vault_exit().min.x)
                 ),
                 vault_exit()
             ),
@@ -2793,13 +2697,34 @@ mod tests {
              {return_pipe:?}",
             vault_exit()
         );
-        assert_eq!(
-            room.placements
-                .iter()
-                .filter(|p| p.id.as_str().starts_with("vault_coin_"))
-                .count(),
-            VAULT_COINS,
-            "the vault is stocked"
+        // ⚠ **an INVARIANT, not the authored count.** This used to pin exactly
+        // `VAULT_COINS`, which was right while a Rust constant stocked the
+        // chamber and is a tripwire now that Jon stocks it: adding a ninth coin
+        // is authoring, not a regression. What has to stay true is that the
+        // reward for finding the pipe EXISTS and is reachable — inside the
+        // chamber rather than buried in its stone.
+        // ⛔ **selected by WHERE THEY ARE, not by what they are called.** An
+        // authored pickup's id is its LDtk iid (`PickupSpawn-106857`), not a name
+        // the generator chose — so a filter on `vault_coin_` found nothing while
+        // all eight coins sat in the chamber. The invariant is the reward itself:
+        // the secret holds currency, inside the room you reach by pipe.
+        let coins: Vec<_> = room
+            .placements
+            .iter()
+            .filter(|p| {
+                let at = p.aabb.center();
+                matches!(
+                    p.schema,
+                    ambition_platformer2d::entity_catalog::placements::PlacementSchema::Pickup(_)
+                ) && at.x > vault.min.x
+                    && at.x < vault.max.x
+                    && at.y > vault.min.y
+                    && at.y < vault.max.y
+            })
+            .collect();
+        assert!(
+            !coins.is_empty(),
+            "the vault is stocked — the whole reward for finding the pipe"
         );
     }
 
@@ -2932,15 +2857,11 @@ mod tests {
         let vault = vault_bounds();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
         let room = level_1_1();
-        // A ground-slab block (min.y at the slab top) covering world-x `x`.
-        let slab_covers = |x: f32| {
-            room.world.blocks.iter().any(|b| {
-                b.name.starts_with("ground_")
-                    && (b.aabb.min.y - ground_top).abs() < 1.0
-                    && b.aabb.min.x <= x
-                    && b.aabb.max.x >= x
-            })
-        };
+        // ⚠ ASK THE COLLISION, not the name. Terrain is painted into an IntGrid
+        // and the merged blocks carry no `ground_*` name to match on — and the
+        // question was never about names: is there slab over the secret at this
+        // column, whatever drew it.
+        let slab_covers = |x: f32| solid_at(&room, ae::Vec2::new(x, ground_top + T * 0.5));
         let mut x = vault.min.x;
         while x <= vault.max.x {
             assert!(

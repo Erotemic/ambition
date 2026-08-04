@@ -375,6 +375,12 @@ pub(crate) fn form_body_size(target: &str) -> ae::Vec2 {
 
 /// How tall she gets — asked of the grown form's ART, not multiplied out of the
 /// small one.
+///
+/// ⚠ its one production caller was the vault pipe's hanging clearance, and that
+/// geometry is AUTHORED now. Kept because the number is still the honest answer
+/// to "how tall is she", and the generator's mirrored copy has to be re-measured
+/// against it whenever her sheet changes.
+#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn tall_body_size() -> ae::Vec2 {
     form_body_size(TALL_SHEET_TARGET)
 }

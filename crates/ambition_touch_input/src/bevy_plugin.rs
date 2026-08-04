@@ -1084,8 +1084,34 @@ pub fn touch_action_live(
     prompt: &ControlPrompt,
     gameplay_owns_input: bool,
 ) -> bool {
+    if !touch_action_available(action, prompt) {
+        return false;
+    }
     let always_available = matches!(action, TouchActionButton::Start | TouchActionButton::Reset);
-    (gameplay_owns_input || always_available) && touch_action_available(action, prompt)
+    if always_available {
+        return true;
+    }
+    // ⭐ **the gameplay-ownership term applies only to a GAMEPLAY prompt**, and
+    // narrowing it to that is what gives dialogue its confirm button back.
+    //
+    // `publish_frontend_context_prompt` already resolves this correctly: when a
+    // non-gameplay context owns the seat it rewrites the prompt to
+    // `ControlContextKind::Menu` with that context's own submit label, and
+    // `touch_action_available` then admits only the menu confirm + menu row.
+    // Every gameplay verb is ALREADY hidden by that, which is the case the
+    // ownership term was added for on 2026-07-28 (the launcher's capturing claim
+    // over the title screen) — so ANDing it over a menu prompt was redundant
+    // there and wrong here: it hid the very Jump/Interact the dialogue had just
+    // nominated as its confirm.
+    //
+    // ⚠ what the term still buys is the STALE case: the prompt keeps its last
+    // value when no seat resolves an owner, so a prompt still claiming Gameplay
+    // while nobody owns gameplay must not show gameplay verbs. That is exactly
+    // the condition below, and nothing wider.
+    if !matches!(prompt.context, ControlContextKind::Gameplay) {
+        return true;
+    }
+    gameplay_owns_input
 }
 
 /// Zero the held flag of any action not LIVE this frame, so an unavailable
@@ -1468,6 +1494,29 @@ fn update_buttons_from_interactions(
     state.0.start = make_btn(now.start, edges.start);
     state.0.reset = make_btn(now.reset, edges.reset);
     *edges = now;
+}
+
+/// Read one action's held flag back out of the edge mask.
+///
+/// The inverse of [`set_button_held`], and it exists so a test can ask "is this
+/// action touchable" without restating the match — a second copy of that mapping
+/// is how the two halves this file just unified got out of step in the first
+/// place.
+fn held_of(edges: &TouchButtonEdges, action: TouchActionButton) -> bool {
+    match action {
+        TouchActionButton::Jump => edges.jump,
+        TouchActionButton::Attack => edges.attack,
+        TouchActionButton::Special => edges.special,
+        TouchActionButton::Dash => edges.dash,
+        TouchActionButton::Blink => edges.blink,
+        TouchActionButton::Interact => edges.interact,
+        TouchActionButton::Projectile => edges.projectile,
+        TouchActionButton::FlyToggle => edges.fly_toggle,
+        TouchActionButton::Shield => edges.shield,
+        TouchActionButton::Modifier => edges.modifier,
+        TouchActionButton::Start => edges.start,
+        TouchActionButton::Reset => edges.reset,
+    }
 }
 
 fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held: bool) {
@@ -1873,51 +1922,100 @@ mod prompt_tests {
         assert!(touch_action_available(TouchActionButton::Start, &e));
     }
 
-    /// **A button hidden because gameplay does not own input is not tappable
-    /// either** — the half `hidden_action_is_not_tappable_end_to_end` did not
-    /// cover, and the one Jon hit on a Pixel 5.
+    /// **A dialogue's confirm button is SHOWN and LIVE** — the report's third
+    /// failure, and the one the ownership term caused.
     ///
-    /// During DIALOGUE the prompt marks Jump and Interact as confirm buttons, so
-    /// the prompt term says "available" while the `gameplay_owned()` term hides
-    /// them. The mask consulted only the prompt, so those two buttons stayed
-    /// LIVE while invisible — a pair of dead zones sitting over the dialogue
-    /// panel. Touching an apparently empty area advanced dialogue; touching a
-    /// visible choice could activate a hidden HUD action instead.
-    ///
-    /// ⚠ this asserts the BEHAVIOUR, not that both call one function. The two
-    /// halves agreeing today is a fact about one `touch_action_live` call; what
-    /// must not come back is a second expression anywhere.
+    /// When a non-gameplay context owns the seat, `publish_frontend_context_prompt`
+    /// rewrites the prompt to `Menu` with that context's submit label, so the
+    /// prompt has already nominated Jump/Interact as the way to confirm. ANDing
+    /// `gameplay_owned()` over that hid exactly those buttons, which is why the
+    /// right-hand cluster vanished during dialogue on a phone and left no
+    /// reliable way to confirm a choice.
     #[test]
-    fn a_button_hidden_by_context_is_not_tappable_either() {
-        let mut app = App::new();
-        // Dialogue owns input: the PROMPT says Jump is a confirm button...
-        app.insert_resource(menu_prompt("Select"));
-        // ...and no seat owns gameplay, which is what hides it.
-        app.init_resource::<ambition_input::SeatInputContexts>();
-        app.init_resource::<Touches>();
-        app.init_resource::<ButtonInput<MouseButton>>();
-        app.init_resource::<MobileTouchState>();
-        app.init_resource::<TouchButtonEdges>();
-        app.init_resource::<crate::placement::TouchControlPlacement>();
-        app.add_systems(Update, update_buttons_from_interactions);
-        app.world_mut()
-            .spawn((Button, Interaction::Pressed, TouchActionButton::Jump));
-        app.world_mut()
-            .spawn((Button, Interaction::Pressed, TouchActionButton::Start));
-        app.update();
+    fn a_dialogue_confirm_button_is_live_even_though_gameplay_does_not_own_input() {
+        let m = menu_prompt("Select");
+        assert!(
+            touch_action_live(TouchActionButton::Jump, &m, false),
+            "a menu/dialogue prompt nominates Jump as its confirm button, so it \
+             must be drawn AND tappable while that context owns the seat"
+        );
+        assert!(
+            !touch_action_live(TouchActionButton::Attack, &m, false),
+            "Attack is not a menu verb — the prompt term still hides it"
+        );
+    }
 
-        let state = &app.world().resource::<MobileTouchState>().0;
-        assert!(
-            !state.jump.held,
-            "Jump is HIDDEN while a dialogue owns input, so its screen region \
-             must be dead — a hidden button that still registers is an invisible \
-             control sitting over the dialogue the player is trying to touch"
+    /// **A STALE gameplay prompt while nobody owns gameplay shows nothing** —
+    /// the 2026-07-28 fix, preserved and now stated as its own case.
+    ///
+    /// The prompt keeps its last value when no seat resolves an owner, so this
+    /// is the one condition the ownership term still buys. Narrowing it to a
+    /// gameplay-context prompt is what let the dialogue case above work without
+    /// giving this one back.
+    #[test]
+    fn a_stale_gameplay_prompt_shows_nothing_while_nobody_owns_gameplay() {
+        let g = prompt(
+            ControlContextKind::Gameplay,
+            vec![(ControlSlot::Jump, "Jump")],
         );
         assert!(
-            state.start.held,
-            "Start is exempt from the gameplay term on purpose — it is a shell \
-             verb, and hiding it is how a phone with no keyboard loses its way out"
+            !touch_action_live(TouchActionButton::Jump, &g, false),
+            "a prompt still claiming Gameplay while nobody owns gameplay must \
+             not offer gameplay verbs — the launcher's capturing claim over the \
+             title screen is exactly this"
         );
+        assert!(
+            touch_action_live(TouchActionButton::Start, &g, false),
+            "Start is a shell verb and stays live; hiding it is how a phone with \
+             no keyboard loses its way out"
+        );
+    }
+
+    /// **Drawn and touchable are the same question**, over every combination.
+    ///
+    /// This is the invariant the two halves used to violate by one term. It is
+    /// asserted as a PROPERTY rather than by checking that both call one
+    /// function, because what must not come back is a second expression — and a
+    /// second expression would pass a "do they call the same fn" test by simply
+    /// not calling it.
+    #[test]
+    fn what_is_drawn_is_exactly_what_is_touchable() {
+        let prompts = [
+            prompt(
+                ControlContextKind::Gameplay,
+                vec![(ControlSlot::Jump, "Jump"), (ControlSlot::Attack, "Hit")],
+            ),
+            menu_prompt("Select"),
+            ControlPrompt::default(),
+        ];
+        let actions = [
+            TouchActionButton::Jump,
+            TouchActionButton::Attack,
+            TouchActionButton::Special,
+            TouchActionButton::Dash,
+            TouchActionButton::Interact,
+            TouchActionButton::Start,
+            TouchActionButton::Reset,
+        ];
+        for p in &prompts {
+            for gameplay in [false, true] {
+                for a in actions {
+                    let drawn = touch_action_live(a, p, gameplay);
+                    let mut edges = TouchButtonEdges::default();
+                    set_button_held(&mut edges, a, true);
+                    mask_unavailable(&mut edges, p, gameplay);
+                    let touchable = held_of(&edges, a);
+                    assert_eq!(
+                        drawn, touchable,
+                        "{a:?} is drawn={drawn} but touchable={touchable} \
+                         (context {:?}, gameplay {gameplay}) — a button that is \
+                         one and not the other is an invisible control or a dead \
+                         visible one",
+                        p.context,
+                    );
+                }
+            }
+        }
     }
 
     #[test]

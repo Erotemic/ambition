@@ -16,7 +16,16 @@ use ambition_persistence::save::AmbitionGameSave;
 /// Set once the saved inventory has been applied to the live state (or skipped
 /// for a fresh save), so the write-back can't fire before the restore and
 /// clobber a loaded save with the starter set.
-#[derive(Resource, Default)]
+///
+/// ⛔ **ROLLBACK STATE, registered in the items domain.** This is an
+/// "already applied" flag that GATES behaviour, not a cache, and every piece of
+/// state it coordinates rewinds: `OwnedItems`, `BodyWallet` and
+/// `AmbitionGameSave` are all in the schema. Left un-rewound it survived a
+/// rewind that undid the restore, `restore_inventory_from_save` then returned
+/// early forever, and `persist_inventory_to_save` — gated on this being TRUE —
+/// wrote the starter set over the loaded save. Which is the sentence above,
+/// arrived at from the other direction.
+#[derive(Resource, Default, Clone)]
 pub struct InventoryRestored(pub bool);
 
 /// Apply the saved inventory + wallet to the live state **once**, after the save

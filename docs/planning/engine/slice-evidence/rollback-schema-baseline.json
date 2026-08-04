@@ -328,6 +328,7 @@
     "resource.gameplay_elapsed",
     "resource.gravity_field",
     "resource.input_stream_recorder",
+    "resource.inventory_restored",
     "resource.moving_platform_set",
     "resource.owned_items",
     "resource.pending_lifecycle_commit",
@@ -355,7 +356,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 333,
+  "stable_schema_name_count": 334,
   "encoded_types": [
     "ambition_platformer2d_actor_monolith::RoomTransitionCooldown",
     "ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState",

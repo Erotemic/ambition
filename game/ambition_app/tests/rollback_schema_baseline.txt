@@ -329,6 +329,7 @@ resource.friendly_fire	resource-clone	ambition_combat::targeting::FriendlyFire	b
 resource.gameplay_elapsed	resource-canonical	ambition_platformer2d_actor_monolith::features::GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.gravity_field	resource-canonical	ambition_platformer2d_shared_tangle::gravity::GravityField	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.input_stream_recorder	resource-clone	ambition_platformer2d_runtime::input_stream::InputStreamRecorder	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.inventory_restored	resource-clone	ambition_platformer2d_actor_monolith::items::persist::InventoryRestored	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.moving_platform_set	resource-canonical	ambition_platformer2d_world::collision::MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.owned_items	resource-clone	ambition_items::OwnedItems	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 resource.pending_lifecycle_commit	resource-canonical	ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

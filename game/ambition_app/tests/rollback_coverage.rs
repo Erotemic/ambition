@@ -1489,7 +1489,22 @@ fn every_mutable_ambition_resource_in_the_shipped_composition_is_accounted() {
     // shape as `ActiveRoundScope` (mutated by a system in the sim schedule) but
     // wholly overwritten each tick rather than accumulated, which is the whole
     // difference between derived state and a memo.
-    const UNACCOUNTED_CEILING: usize = 1;
+    //
+    // ⭐ **1 → 0 on 2026-08-04, and the last one was a real bug, not a
+    // reclassification.** `InventoryRestored` was the item the ceiling held. The
+    // queue row said it should be READ once more rather than swept, and reading
+    // it found the asymmetry: `OwnedItems`, `BodyWallet` and `AmbitionGameSave`
+    // are all in the rollback schema and the latch that says "the save has been
+    // applied to them" was not. A rewind therefore undid the restore and kept
+    // the record of it, after which the write-back — gated on that latch being
+    // TRUE — put the STARTER inventory over the loaded save.
+    //
+    // ⚠ **zero is the number this can now hold, and it is the number that will
+    // hurt.** Every future resource that is mutated in the sim schedule and not
+    // registered lands here with nothing to hide behind. That is the point; the
+    // staleness assert below is what made lowering it safe, and it fired on this
+    // change exactly as designed.
+    const UNACCOUNTED_CEILING: usize = 0;
     if unaccounted.len() > UNACCOUNTED_CEILING {
         let mut report = format!(
             "The SHIPPED composition gained an unaccounted resource: {} now, \

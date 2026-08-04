@@ -27,9 +27,11 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::rl_sim::{
+    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::characters::equipment::{EquipmentRow, OnHit, WornEquipment};
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
 use bevy::prelude::{Entity, With, Without};
 
 const ORACLE_ARMOR_ID: &str = "oracle_armor";
@@ -710,6 +712,15 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         (
             "ambition_items::OwnedItems",
             "inventory set; wants a canonical projection (G2b)",
+        ),
+        (
+            "ambition_platformer2d_actor_monolith::items::persist::InventoryRestored",
+            "the save-applied latch, set in literal `Update` and so NOT in step \
+             with the sim ticks a checksum covers — projecting the bool reddened \
+             `the_calibration_lab_is_checksum_stable_at_rest` and most of this \
+             file. It must REWIND (or a rewind past the restore keeps the record \
+             of applying a save it just undid, and the write-back puts the \
+             starter inventory over it) and must NOT be checksummed",
         ),
         (
             "ambition_persistence::quest::registry::QuestRegistry",
@@ -1725,7 +1736,9 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
         .world()
         .resource::<ambition_platformer2d::runtime::rollback::RollbackRegistry>()
         .descriptors()
-        .filter(|d| d.kind == ambition_platformer2d::runtime::rollback::RollbackEntryKind::MessageClear)
+        .filter(|d| {
+            d.kind == ambition_platformer2d::runtime::rollback::RollbackEntryKind::MessageClear
+        })
         .map(|d| d.type_name.clone())
         .collect();
 

@@ -45,7 +45,12 @@ pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
 
 /// Every source `pack.ron` declares, paired with its embedded text.
 fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
-    [
+    // ⭐ **the boss encounters are appended from ONE table**, not written out
+    // here beside `BOSS_ENCOUNTER_RONS[n]`. Path and bytes travel together in
+    // `bosses::BOSS_ENCOUNTERS`, so reordering that list cannot attach a file's
+    // contents to another file's diagnostic path — which the index form allowed,
+    // silently, because the runtime resolves rows by their internal ids.
+    let mut sources: Vec<(String, String)> = vec![
         (
             CATALOG_SOURCE_PATH.to_string(),
             crate::character_catalog::CHARACTER_CATALOG_RON.to_string(),
@@ -58,42 +63,6 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
         (
             BOSS_PROFILES_SOURCE_PATH.to_string(),
             crate::bosses::BOSS_PROFILES_RON.to_string(),
-        ),
-        (
-            "data/boss_encounters/clockwork_warden.ron".to_string(),
-            crate::bosses::BOSS_ENCOUNTER_RONS[0].to_string(),
-        ),
-        (
-            "data/boss_encounters/mockingbird.ron".to_string(),
-            crate::bosses::BOSS_ENCOUNTER_RONS[1].to_string(),
-        ),
-        (
-            "data/boss_encounters/gnu_ton_rider.ron".to_string(),
-            crate::bosses::BOSS_ENCOUNTER_RONS[2].to_string(),
-        ),
-        (
-            "data/boss_encounters/smirking_behemoth_boss.ron".to_string(),
-            crate::bosses::BOSS_ENCOUNTER_RONS[3].to_string(),
-        ),
-        (
-            "data/boss_encounters/flying_spaghetti_monster_boss.ron".to_string(),
-            crate::bosses::BOSS_ENCOUNTER_RONS[4].to_string(),
-        ),
-        (
-            "data/boss_encounters/trex_boss.ron".to_string(),
-            crate::bosses::BOSS_ENCOUNTER_RONS[5].to_string(),
-        ),
-        (
-            "data/boss_encounters/mode_collapse_boss.ron".to_string(),
-            crate::bosses::BOSS_ENCOUNTER_RONS[6].to_string(),
-        ),
-        (
-            "data/boss_encounters/exploding_gradient_boss.ron".to_string(),
-            crate::bosses::BOSS_ENCOUNTER_RONS[7].to_string(),
-        ),
-        (
-            "data/boss_encounters/overflow_boss.ron".to_string(),
-            crate::bosses::BOSS_ENCOUNTER_RONS[8].to_string(),
         ),
         (
             BOSS_SEEDS_SOURCE_PATH.to_string(),
@@ -111,7 +80,13 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
             SFX_REGISTRY_SOURCE_PATH.to_string(),
             crate::audio_registries::SFX_REGISTRY_RON.to_string(),
         ),
-    ]
+    ];
+    sources.extend(
+        crate::bosses::BOSS_ENCOUNTERS
+            .iter()
+            .map(|(path, ron)| ((*path).to_string(), (*ron).to_string())),
+    );
+    sources
 }
 
 /// The schemas Ambition's own pack is compiled against.

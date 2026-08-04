@@ -76,18 +76,64 @@ pub fn seed_library() -> &'static ambition_characters::brain::boss_pattern::seed
     .expect("the seed schema lowers its library for every pack that compiles")
 }
 
-/// Embedded encounter rows contributed by the Ambition provider.
-pub const BOSS_ENCOUNTER_RONS: &[&str] = &[
-    include_str!("../../assets/data/boss_encounters/clockwork_warden.ron"),
-    include_str!("../../assets/data/boss_encounters/mockingbird.ron"),
-    include_str!("../../assets/data/boss_encounters/gnu_ton_rider.ron"),
-    include_str!("../../assets/data/boss_encounters/smirking_behemoth_boss.ron"),
-    include_str!("../../assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
-    include_str!("../../assets/data/boss_encounters/trex_boss.ron"),
-    include_str!("../../assets/data/boss_encounters/mode_collapse_boss.ron"),
-    include_str!("../../assets/data/boss_encounters/exploding_gradient_boss.ron"),
-    include_str!("../../assets/data/boss_encounters/overflow_boss.ron"),
+/// Embedded encounter rows contributed by the Ambition provider: **each source's
+/// path and its bytes, together, once.**
+///
+/// ⛔ **these used to be two lists joined by INDEX.** The bytes lived here as a
+/// bare `&[&str]`, and `pack.rs` separately wrote nine literal paths beside
+/// `BOSS_ENCOUNTER_RONS[0]`…`[8]`. Reordering either list attached a file's
+/// contents to the wrong diagnostic path and fingerprint while the runtime went
+/// on resolving rows by their internal ids — so nothing would fail, and a
+/// compile error would point at the wrong file forever (GPT 5.6 review,
+/// 2026-08-04).
+///
+/// ⚠ **positional coupling across two files is the shape**, not the count. It
+/// was maintainable at nine and would have been silently wrong at ten.
+pub const BOSS_ENCOUNTERS: &[(&str, &str)] = &[
+    (
+        "data/boss_encounters/clockwork_warden.ron",
+        include_str!("../../assets/data/boss_encounters/clockwork_warden.ron"),
+    ),
+    (
+        "data/boss_encounters/mockingbird.ron",
+        include_str!("../../assets/data/boss_encounters/mockingbird.ron"),
+    ),
+    (
+        "data/boss_encounters/gnu_ton_rider.ron",
+        include_str!("../../assets/data/boss_encounters/gnu_ton_rider.ron"),
+    ),
+    (
+        "data/boss_encounters/smirking_behemoth_boss.ron",
+        include_str!("../../assets/data/boss_encounters/smirking_behemoth_boss.ron"),
+    ),
+    (
+        "data/boss_encounters/flying_spaghetti_monster_boss.ron",
+        include_str!("../../assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
+    ),
+    (
+        "data/boss_encounters/trex_boss.ron",
+        include_str!("../../assets/data/boss_encounters/trex_boss.ron"),
+    ),
+    (
+        "data/boss_encounters/mode_collapse_boss.ron",
+        include_str!("../../assets/data/boss_encounters/mode_collapse_boss.ron"),
+    ),
+    (
+        "data/boss_encounters/exploding_gradient_boss.ron",
+        include_str!("../../assets/data/boss_encounters/exploding_gradient_boss.ron"),
+    ),
+    (
+        "data/boss_encounters/overflow_boss.ron",
+        include_str!("../../assets/data/boss_encounters/overflow_boss.ron"),
+    ),
 ];
+
+/// Just the bytes, for the catalog builder that does not care where they came
+/// from. ⚠ derived from [`BOSS_ENCOUNTERS`] rather than kept beside it — a
+/// second list is how the first one drifted.
+pub fn boss_encounter_rons() -> Vec<&'static str> {
+    BOSS_ENCOUNTERS.iter().map(|(_, ron)| *ron).collect()
+}
 
 fn boss_sprite_filenames() -> std::collections::BTreeMap<String, String> {
     std::collections::BTreeMap::from([
@@ -183,7 +229,7 @@ pub fn boss_catalog_fragment(
         Some("clockwork_warden"),
         Some("gradient_sentinel"),
         behaviors,
-        BOSS_ENCOUNTER_RONS,
+        &boss_encounter_rons(),
         include_str!("../../assets/data/boss_sheets.ron"),
         boss_sprite_filenames(),
         special_animation_keys(),

@@ -337,8 +337,39 @@ def run_tool(*args: str) -> None:
 
 
 def main() -> None:
+    # ⛔⛔ **THIS SCRIPT DESTROYS THE LEVEL, so it refuses to run twice.**
+    #
+    # It deletes `mary_o.ldtk` and rebuilds it from the mirrored constants at the
+    # top of this file. That is exactly right ONCE, to bootstrap the migration,
+    # and it is catastrophic the moment Jon has opened the project and moved
+    # anything: every block he dragged, every enemy he placed, every level he
+    # added is gone, and the generator cheerfully reports success.
+    #
+    # ⚠ **the danger is that re-running a generator FEELS safe** — it is what you
+    # do after editing the layout constants, and those constants are still sitting
+    # right there at the top of this file looking authoritative. They are history.
+    # The .ldtk is the level.
+    #
+    # So: the file existing is a REFUSAL, and overwriting it has to be typed out
+    # in full. `--regenerate` is deliberately not `-f`.
+    if TARGET.exists() and "--regenerate" not in sys.argv:
+        sys.exit(
+            f"REFUSED: {TARGET.relative_to(REPO)} already exists.\n"
+            "\n"
+            "This script REBUILDS the level from the Rust constants at the top of "
+            "it and would discard every edit made in the LDtk editor. The .ldtk "
+            "file is the level now; these constants are how it was bootstrapped.\n"
+            "\n"
+            "  • to change the layout: edit it in LDtk, not here\n"
+            "  • to genuinely start over and lose the authored file:\n"
+            f"      python3 {Path(__file__).relative_to(REPO)} --regenerate\n"
+            "\n"
+            "⚠ commit first. `git checkout` cannot bring back what was never "
+            "committed."
+        )
     TARGET.parent.mkdir(parents=True, exist_ok=True)
     if TARGET.exists():
+        print(f"!! REGENERATING {TARGET.relative_to(REPO)} — discarding authored edits")
         TARGET.unlink()
     run_tool("world", "init", str(TARGET), "--identifier", "ambition-mary-o-world")
     with tempfile.TemporaryDirectory() as tmp:

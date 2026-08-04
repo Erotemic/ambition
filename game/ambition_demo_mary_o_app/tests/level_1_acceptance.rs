@@ -527,9 +527,45 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
         if b.on_ground {
             return Some(move_x(toward, false));
         }
-        Some(with_jump(move_x(0.0, false)))
+        // ⛔ **RELEASE while airborne — a bonk is a SHORT HOP.** Holding jump here
+        // is what made this beat unable to bonk anything: her classic jump is
+        // `jump_speed 450` under `gravity 2250` with `held_rise_gravity_scale 0.2`,
+        // so a HELD press rises ~145 px while the ?-block's underside is only
+        // 48 px above her head. Measured before the fix: 35 frames spent
+        // horizontally under the block with her head 174 px ABOVE its underside —
+        // she flew clean over it every time. Tapping is how the game this
+        // converges on hits a row-4 block, and the variable jump is what makes
+        // the difference expressible at all.
+        //
+        // ⭐ **hold only until her HEAD reaches the underside, then release.** A
+        // bare tap rises 32.6 px and the underside is 48 px up — 15 px short — so
+        // "tap" and "hold" are both wrong and the right answer is the one the
+        // variable jump exists to express. Steering off the measurement rather
+        // than off a frame count means this stays correct if her tuning or the
+        // block row moves, which a hand-tuned "hold for 4 frames" would not.
+        let underside = ambition_demo_mary_o::power_block_min(0).y + 32.0;
+        let head_below_underside = b.pos.y - 24.0 > underside;
+        if head_below_underside {
+            return Some(with_jump(move_x(0.0, false)));
+        }
+        Some(move_x(0.0, false))
     });
     assert!(!took_off, "the bonk beat is time-boxed, not terminal");
+
+    // ⛔ **and the beat now has to have DONE something.** `!took_off` only says it
+    // did not end early, so a beat that never landed a strike passed for as long
+    // as this test has existed — which is why three separate diagnoses went
+    // looking for the wand instead of for the bonk. `SpentPowerBlocks` is the
+    // game's own record that a block gave up its reward.
+    assert!(
+        app.world()
+            .get_resource::<ambition_demo_mary_o::powerups::SpentPowerBlocks>()
+            .is_some_and(|spent| spent.is_spent(&block_of("power_block_0").id)),
+        "she never struck power_block_0, so no reward was ever spawned — the \
+         wand she is later asked to wear was never made. Her head reached \
+         {head_under_block:.1} while under it, and the underside is at {:.1}",
+        ambition_demo_mary_o::power_block_min(0).y + 32.0,
+    );
 
     {
         {
@@ -583,11 +619,28 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     // thing that has to converge.
     let mut got_cap = false;
     for chunk in 0..6 {
+        // ⭐ **CHASE the wand, do not park.** The comment above says "she patrols
+        // … until it comes to her; she is faster than it, so this always
+        // converges" — but the wand travels RIGHT, away from the block and toward
+        // the first pit, so it never comes to her. Measured: it leaves the block
+        // at x=483 and runs at ~55 px/s while she stood on `FIRST_PIT_SAFE_X`
+        // watching it pass, then fall (y 400 → 488 → 1132 → 4294).
+        //
+        // "She is faster than it" is TRUE — 300 px/s against 55 — so the fixture's
+        // premise was right and only its steering was wrong. Walking at the wand
+        // (clamped short of the pit, which is what `FIRST_PIT_SAFE_X` is for)
+        // converges with time to spare: from x=226 she covers the 257 px gap in
+        // under a second, and the wand needs ~2.9 s to reach the pit.
+        let wand_x = world_items(&mut app)
+            .first()
+            .map(|(_, pos)| pos.x)
+            .unwrap_or(FIRST_PIT_SAFE_X);
+        let target = wand_x.min(FIRST_PIT_SAFE_X);
         got_cap = drive(&mut app, 50, |b| {
             if b.is_tall() {
                 return None;
             }
-            let toward = if b.pos.x > FIRST_PIT_SAFE_X { -1.0 } else { 1.0 };
+            let toward = if b.pos.x > target { -1.0 } else { 1.0 };
             Some(move_x(toward, false))
         });
         eprintln!(

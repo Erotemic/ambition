@@ -20,6 +20,8 @@ pub mod ai_slop;
 #[cfg(test)]
 mod binding_tests;
 pub mod bricks;
+#[cfg(test)]
+mod ldtk_migration_tests;
 pub mod death;
 pub mod flag;
 pub mod level_1_2;

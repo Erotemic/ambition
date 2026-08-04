@@ -284,7 +284,13 @@ fn request_session_mode(world: &mut World) {
     // could re-aim a P2P session, which the comment below says it must not.
     let owns = matches!(
         world.get_resource::<rollback::RollbackSessionOwnership>(),
-        Some(rollback::RollbackSessionOwnership::LocalSyncTest(_))
+        // The observatory re-aims the MAINTAINER's session by moving its policy.
+        // A sync-test session somebody else started (match activation, a
+        // harness) is no more re-aimable than a peer's.
+        Some(rollback::RollbackSessionOwnership::LocalSyncTest {
+            owner: rollback::SyncTestOwner::LocalMaintainer,
+            ..
+        })
     );
 
     // A session the engine owner did not start (a future Matchbox/P2P one) is

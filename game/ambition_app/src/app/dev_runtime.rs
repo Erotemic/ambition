@@ -83,7 +83,7 @@ fn local_ggrs_restart_policy(
         Some(ambition_platformer2d::runtime::rollback::RollbackSessionOwnership::External) => Err(
             "LDtk hot reload cannot replace an external/P2P GGRS session; peers need a coordinated content barrier",
         ),
-        Some(ambition_platformer2d::runtime::rollback::RollbackSessionOwnership::LocalSyncTest(settings)) => {
+        Some(ambition_platformer2d::runtime::rollback::RollbackSessionOwnership::LocalSyncTest { settings, .. }) => {
             // THE SAME SESSION, RESTARTED — so it inherits from the session it
             // replaces, and only the deliberate override is spelled out.
             //
@@ -569,13 +569,14 @@ mod hot_reload_session_tests {
 
     #[test]
     fn local_sync_test_reload_returns_to_a_zero_distance_baseline() {
-        let restart = local_ggrs_restart_policy(Some(RollbackSessionOwnership::LocalSyncTest(
-            SyncTestSettings {
+        let restart = local_ggrs_restart_policy(Some(RollbackSessionOwnership::LocalSyncTest {
+            owner: ambition_platformer2d::runtime::rollback::SyncTestOwner::LocalMaintainer,
+            settings: SyncTestSettings {
                 check_distance: 6,
                 max_prediction_window: 8,
                 ..SyncTestSettings::for_players(1)
             },
-        )))
+        }))
         .expect("local developer sessions may be rebased")
         .expect("an active local session needs a replacement");
 
@@ -593,13 +594,14 @@ mod hot_reload_session_tests {
     /// WHO IS PLAYING is not a baseline, it is topology (GPT 5.6, 2026-07-28).
     #[test]
     fn a_reload_keeps_every_local_player_in_the_session() {
-        let restart = local_ggrs_restart_policy(Some(RollbackSessionOwnership::LocalSyncTest(
-            SyncTestSettings {
+        let restart = local_ggrs_restart_policy(Some(RollbackSessionOwnership::LocalSyncTest {
+            owner: ambition_platformer2d::runtime::rollback::SyncTestOwner::LocalMaintainer,
+            settings: SyncTestSettings {
                 check_distance: 6,
                 max_prediction_window: 8,
                 players: 4,
             },
-        )))
+        }))
         .expect("local developer sessions may be rebased")
         .expect("an active local session needs a replacement");
 

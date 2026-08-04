@@ -133,30 +133,18 @@ impl LocalSessionOwnership {
 /// went red with *"seat two authored 40 frames of right and its fighter moved
 /// 0.00px"*.
 ///
-/// ⭐ so the real defect the review found is narrower than its proposed fix:
-/// ownership was never CHECKED against `External`. That check is what
-/// [`externally_owned`] adds. Collapsing to one authority still wants doing, and
-/// wants the enum to name the OWNER (maintainer / activation / dev tool) rather
-/// than the session kind — recorded as queue G1's residue.
-fn sync_test_settings(world: &World) -> Option<super::session::SyncTestSettings> {
+/// ⭐ **that residue is CLOSED**: the enum names the OWNER now
+/// (`SyncTestOwner::{LocalMaintainer, Caller}`), so this asks for the
+/// maintainer's own sessions specifically and an `External` veto is no longer a
+/// separate check — a peer's session is simply not `LocalMaintainer`.
+fn maintained_settings(world: &World) -> Option<super::session::SyncTestSettings> {
     match world.get_resource::<super::session::RollbackSessionOwnership>() {
-        Some(super::session::RollbackSessionOwnership::LocalSyncTest(settings)) => Some(*settings),
+        Some(super::session::RollbackSessionOwnership::LocalSyncTest {
+            settings,
+            owner: super::session::SyncTestOwner::LocalMaintainer,
+        }) => Some(*settings),
         _ => None,
     }
-}
-
-/// **The live session belongs to a peer, and must never be touched here.**
-///
-/// The missing check. `install_session` marks `External` without clearing this
-/// module's `started`, so a P2P session installed over a local one left the
-/// maintainer believing it owned one — and it would stop that session on
-/// gameplay exit, or replace it on a policy change, which is exactly what this
-/// module's own comment says must never happen.
-fn externally_owned(world: &World) -> bool {
-    matches!(
-        world.get_resource::<super::session::RollbackSessionOwnership>(),
-        Some(super::session::RollbackSessionOwnership::External)
-    )
 }
 
 /// Keep exactly one local session alive for as long as gameplay is.
@@ -171,29 +159,23 @@ pub fn maintain_local_session(world: &mut World) {
     // ⭐ **ONE authority.** `RollbackSessionOwnership` says whose session this is;
     // `LocalSessionOwnership.started` only says which policy it was started with,
     // and is meaningless unless the first has already said "mine".
-    // ⭐ **the claim AND the veto.** `started` is this module's own record that it
-    // started the live session; `externally_owned` is the check that was missing,
-    // and without it that record outlived an external session being installed
-    // over the top.
-    let external = externally_owned(world);
-    let owned = if external {
-        None
-    } else {
+    // ⭐ **ONE authority, at last.** `RollbackSessionOwnership` now names the
+    // OWNER, not just the session kind, so "is this mine" is a question the
+    // authority can answer — and `LocalSessionOwnership.started` is free to be
+    // what it always should have been: the POLICY memo, read only once ownership
+    // has said yes.
+    let owned_settings = maintained_settings(world);
+    let owned = owned_settings.and(
         world
             .get_resource::<LocalSessionOwnership>()
-            .and_then(|state| state.started)
-    };
-    let owned_settings = if external {
-        None
-    } else {
-        sync_test_settings(world)
-    };
+            .and_then(|state| state.started),
+    );
 
     if !gameplay_active {
-        if owned.is_some() && session_live {
+        if owned_settings.is_some() && session_live {
             super::session::stop_session(world);
         }
-        if owned.is_some() {
+        if owned_settings.is_some() {
             // ⛔ **THE TOPOLOGY BELONGS TO THE GAMEPLAY SESSION, so it ends with
             // it.** Left standing it is the previous match's seating presented to
             // the next one as a frozen fact — and the versus roster reads any
@@ -211,7 +193,7 @@ pub fn maintain_local_session(world: &mut World) {
     // ⚠ **a session this module did not start is AUTHORITATIVE.** A Matchbox/P2P
     // session installed through `install_session` outranks the local one; the
     // owner inspects and steps aside rather than replacing it.
-    if session_live && owned.is_none() {
+    if session_live && owned_settings.is_none() {
         return;
     }
 
@@ -271,7 +253,11 @@ pub fn maintain_local_session(world: &mut World) {
         max_prediction_window: policy.max_prediction_window,
         players,
     };
-    match super::session::start_sync_test_session(world, settings) {
+    match super::session::start_sync_test_session_owned(
+        world,
+        settings,
+        super::session::SyncTestOwner::LocalMaintainer,
+    ) {
         Ok(()) => {
             let mut state = world.resource_mut::<LocalSessionOwnership>();
             state.started = Some(policy);

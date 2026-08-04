@@ -40,7 +40,7 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     let Some(boundary) = world.get_resource::<ConfirmedFrameBoundary>().copied() else {
         return;
     };
-    let Some(RollbackSessionOwnership::LocalSyncTest(settings)) =
+    let Some(RollbackSessionOwnership::LocalSyncTest { settings, owner }) =
         world.get_resource::<RollbackSessionOwnership>().copied()
     else {
         return;
@@ -114,7 +114,11 @@ pub fn commit_confirmed_lifecycle(world: &mut World) {
     // the op WITHOUT rebasing would leave old ring history restorable — the rebase
     // is the load-bearing half of the confirmed authoritative discontinuity, and
     // the install is infallible so the commit cannot half-complete.
-    install_rebased_sync_test_session(world, session, settings);
+    // ⭐ **a rebase KEEPS its owner.** This commit rebuilds the session under a
+    // new world; it does not change whose session it is, and inferring an owner
+    // here would quietly hand a match-activation session to the local
+    // maintainer.
+    install_rebased_sync_test_session(world, session, settings, owner);
 }
 
 /// What a commit attempt resolved to. The three outcomes differ in what happens

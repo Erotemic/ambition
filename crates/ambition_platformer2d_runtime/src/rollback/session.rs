@@ -235,8 +235,37 @@ impl SyncTestSettings {
 /// must never be replaced unilaterally by the local host.
 #[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RollbackSessionOwnership {
-    LocalSyncTest(SyncTestSettings),
+    LocalSyncTest {
+        settings: SyncTestSettings,
+        /// **WHO started it**, which `LocalSyncTest` alone never said.
+        ///
+        /// ⛔ **the variant used to name the session KIND, and a consumer read
+        /// that as ownership.** Match activation, the dev observatory and the
+        /// local maintainer all start sync-test sessions, so "is this a
+        /// sync-test session" and "is this MINE" are different questions with
+        /// the same answer shape. Answering the first while meaning the second
+        /// made the maintainer rebuild a two-player match session as one player
+        /// (2026-08-04, caught by
+        /// `two_local_seats_drive_independently_under_a_rollback_host`).
+        owner: SyncTestOwner,
+    },
     External,
+}
+
+/// Which starter owns a live sync-test session.
+///
+/// ⭐ **this is the distinction that lets `LocalSessionOwnership` stop claiming
+/// ownership.** The maintainer had to keep a shadow `started: Option<policy>`
+/// precisely because the ownership resource could not tell its own sessions from
+/// anybody else's — and a shadow that can disagree with the authority is the
+/// defect the GPT 5.6 review named first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SyncTestOwner {
+    /// `maintain_local_session` started it and may stop or rebuild it.
+    LocalMaintainer,
+    /// Somebody else did — match activation, a dev tool, a test harness. The
+    /// maintainer inspects and steps aside, exactly as it does for `External`.
+    Caller,
 }
 
 /// Settings for `players` local streams, at the standard rollback depth.
@@ -274,6 +303,20 @@ pub fn start_sync_test_session(
     world: &mut World,
     settings: SyncTestSettings,
 ) -> Result<(), ggrs::GgrsError> {
+    start_sync_test_session_owned(world, settings, SyncTestOwner::Caller)
+}
+
+/// [`start_sync_test_session`], declaring WHO owns the result.
+///
+/// ⚠ **the owner is an argument, not a follow-up call.** Stamping ownership
+/// after the session exists would leave a window where the maintainer's own
+/// session looks like somebody else's — and "an authority that needs a second
+/// call" is the shape this repo has been bitten by before.
+pub fn start_sync_test_session_owned(
+    world: &mut World,
+    settings: SyncTestSettings,
+    owner: SyncTestOwner,
+) -> Result<(), ggrs::GgrsError> {
     // The ONLY fallible step — pure GGRS construction, touches no world — runs
     // first. A caller that must not mutate the world until it knows the session
     // will exist (the atomic lifecycle commit) instead calls
@@ -281,7 +324,7 @@ pub fn start_sync_test_session(
     // `install_rebased_sync_test_session` after; this convenience wrapper is for
     // callers that own the whole rebase (startup / harness restart).
     let session = build_sync_test_session(settings)?;
-    install_rebased_sync_test_session(world, session, settings);
+    install_rebased_sync_test_session(world, session, settings, owner);
     Ok(())
 }
 
@@ -382,6 +425,9 @@ pub fn install_rebased_sync_test_session(
     world: &mut World,
     session: AmbitionGgrsSession,
     settings: SyncTestSettings,
+    // Declared by the caller for the same reason as `start_sync_test_session_owned`:
+    // a rebase keeps its owner, and inferring one here would guess.
+    owner: SyncTestOwner,
 ) {
     warn_if_no_world_to_rewind(world);
     // A newly installed GGRS session always starts from the current live world
@@ -404,7 +450,7 @@ pub fn install_rebased_sync_test_session(
     install_session_with_ownership(
         world,
         session,
-        RollbackSessionOwnership::LocalSyncTest(settings),
+        RollbackSessionOwnership::LocalSyncTest { settings, owner },
     );
 }
 
@@ -1029,11 +1075,14 @@ mod tests {
         assert_eq!(world.resource::<RollbackFrameCount>().0, 0);
         assert_eq!(
             *world.resource::<RollbackSessionOwnership>(),
-            RollbackSessionOwnership::LocalSyncTest(SyncTestSettings {
-                check_distance: 0,
-                max_prediction_window: 8,
-                ..SyncTestSettings::for_players(1)
-            })
+            RollbackSessionOwnership::LocalSyncTest {
+                owner: SyncTestOwner::Caller,
+                settings: SyncTestSettings {
+                    check_distance: 0,
+                    max_prediction_window: 8,
+                    ..SyncTestSettings::for_players(1)
+                },
+            }
         );
         assert_eq!(
             world.resource::<Time<GgrsTime>>().elapsed(),
@@ -1070,7 +1119,7 @@ mod tests {
         world.insert_resource(old_timeline);
         world.insert_resource(RollbackFrameCount(540));
 
-        install_rebased_sync_test_session(&mut world, session, settings);
+        install_rebased_sync_test_session(&mut world, session, settings, SyncTestOwner::Caller);
 
         assert_eq!(world.resource::<RollbackFrameCount>().0, 0);
         assert_eq!(
@@ -1080,7 +1129,10 @@ mod tests {
         );
         assert_eq!(
             *world.resource::<RollbackSessionOwnership>(),
-            RollbackSessionOwnership::LocalSyncTest(settings),
+            RollbackSessionOwnership::LocalSyncTest {
+                settings,
+                owner: SyncTestOwner::Caller,
+            },
             "the pre-built session is installed under the sync-test ownership"
         );
         assert!(

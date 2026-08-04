@@ -1182,6 +1182,24 @@ pub fn flinch_struck_blocks(
     mut flinching: Query<(Entity, &mut Transform, &mut BlockFlinch, &BlockVisual)>,
 ) {
     for message in struck.read() {
+        // ⛔ **a RE-STRIKE resets the clock and KEEPS the home.** Inserting a
+        // fresh `BlockFlinch` replaces the live one, and the animation pass below
+        // fills a `None` home from `transform.translation` — which, mid-flinch, is
+        // the DISPLACED position. So every strike during the animation adopted the
+        // current offset as the new resting place and the drawn block walked away
+        // from its static collider, a few pixels per hit. The comment beside the
+        // component claimed this was prevented; resetting the component reset the
+        // very thing that would have prevented it (GPT 5.6 review, 2026-08-04).
+        let mut restruck = false;
+        for (_, _, mut flinch, visual) in &mut flinching {
+            if visual.geo_id == message.id {
+                flinch.elapsed = 0.0;
+                restruck = true;
+            }
+        }
+        if restruck {
+            continue;
+        }
         for (entity, visual) in &blocks {
             if visual.geo_id == message.id {
                 commands.entity(entity).try_insert(BlockFlinch {

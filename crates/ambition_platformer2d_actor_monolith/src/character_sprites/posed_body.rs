@@ -175,6 +175,10 @@ pub fn sync_sprite_posed_bodies(
         // it.** Absent ⇒ a body that never body-modes, and the pose IS the box.
         Option<&ae::BodyModeState>,
     )>,
+    // The body's LOCAL gravity, resolved the same way movement and contact do.
+    // Optional so a composition without a gravity field still poses bodies.
+    gravity: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityField>>,
+    zones: Option<Res<ambition_platformer2d_shared_tangle::gravity::GravityZones>>,
 ) {
     for (entity, posed, pinned, mut kin, base_size, render_size, offset, body_mode) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
@@ -219,17 +223,37 @@ pub fn sync_sprite_posed_bodies(
         // to the POSE's rectangle rather than to `base_size` is what keeps this
         // right for a body whose silhouette changes shape: a boxed snake that
         // crouched would otherwise crouch from its sprawled height.
-        let posed_collision = body_mode
-            .map_or(geometry.collision, |mode| mode.body_mode.shape(geometry.collision).size);
+        let posed_collision = body_mode.map_or(geometry.collision, |mode| {
+            mode.body_mode.shape(geometry.collision).size
+        });
         if kin.size != posed_collision {
             // Feet-anchored, through the engine's one feet-planted resize op:
             // hold the +gravity face and move the centre by half the change, so a
             // withdraw/emerge never drives the body through the ground it is
             // standing on. This used to be a bare `kin.pos +=` here, which ADR
             // 0024 forbids precisely because it re-derives an authority that
-            // already exists. Bodies on this seam are ordinary gravity-down
-            // actors; a flipped-gravity variant passes its own gravity instead.
-            ae::resize_feet_planted(&mut kin, posed_collision, ae::DEFAULT_GRAVITY_DIR);
+            // already exists.
+            //
+            // ⛔ **and it used to pass `DEFAULT_GRAVITY_DIR`**, under a comment
+            // promising that "a flipped-gravity variant passes its own gravity
+            // instead" — a variant that did not exist, on a system that serves
+            // every sprite-posed body. In a reversed or horizontal-gravity room
+            // the resize anchored the wrong face and pushed the body into or off
+            // its own support. The module's contract is that the +gravity face
+            // stays planted; the direction has to be the body's, not the
+            // default's (GPT 5.6 review, 2026-08-04).
+            let gravity_dir = match (gravity.as_deref(), zones.as_deref()) {
+                (Some(field), Some(zones)) => {
+                    ambition_platformer2d_shared_tangle::gravity::gravity_dir_for(
+                        ae::Aabb::new(kin.pos, kin.size * 0.5),
+                        zones,
+                        field.dir,
+                    )
+                }
+                (Some(field), None) => field.dir,
+                _ => ae::DEFAULT_GRAVITY_DIR,
+            };
+            ae::resize_feet_planted(&mut kin, posed_collision, gravity_dir);
         }
         if render_size.map(|r| r.0) != Some(geometry.render) {
             commands

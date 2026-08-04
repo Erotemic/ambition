@@ -331,6 +331,14 @@ fn probe_what_a_rollback_frame_costs() {
             .with_start_room("combat_calibration_lab")
     };
     run("fixed60 no rollback", base().with_fixed_tick(true));
+    // ⭐ **d=0 is what the SHIPPED build runs**, and B9 counted `SaveWorld` 0×
+    // over 120 frames there. If that is right, this line lands on the
+    // no-rollback baseline and the shipped floor is literally zero — measured by
+    // a second route rather than inferred from a schedule census.
+    run(
+        "synctest dist=0 (shipped)",
+        base().with_sync_test_rollback_settings(0, 10),
+    );
     run(
         "synctest dist=1",
         base().with_sync_test_rollback_settings(1, 10),

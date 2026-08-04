@@ -137,6 +137,19 @@ impl SnapshotResolve for crate::moveset::MovePlayback {
         for target in targets {
             put_str(out, target);
         }
+        // ⚠ **the AIM is state, so it is checksummed** — added in the same change
+        // that started carrying it. Two peers whose in-flight move disagrees
+        // about the direction it will fire have diverged, and the shot it
+        // produces later is the visible consequence. The POLICY is part of the
+        // value: body-local and world `(1,0)` are different shots.
+        match self.aim {
+            Some((dir, policy)) => {
+                put_bool(out, true);
+                put_vec2(out, dir);
+                put_u32(out, policy as u32);
+            }
+            None => put_bool(out, false),
+        }
     }
 }
 

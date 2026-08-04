@@ -247,6 +247,25 @@ pub struct MovePlayback {
     /// already been struck and still agree on the hash. Both are right now — see
     /// `SnapshotResolve for MovePlayback`.
     pub hit_targets: Vec<String>,
+    /// **The ranged intent that STARTED this move**, if one did.
+    ///
+    /// ⛔ **a move's fire event usually arrives after its own request is gone.**
+    /// `ActorControl.fire` is an EDGE — `clear_edges()` nulls it every tick — and
+    /// a ranged move has startup, so by the time its authored `Ranged` frame
+    /// fires, the intent that triggered it has been cleared. The handler fell
+    /// back to the body's horizontal facing, which is right for a forward shot
+    /// and flattens every aim that was UP, DOWN or DIAGONAL: a move triggered
+    /// with an upward aim fired sideways (GPT 5.6 review, 2026-08-04).
+    ///
+    /// Captured here at move start and consumed at the fire frame, so the shot
+    /// carries the aim the player actually gave it. `None` for a move nobody
+    /// aimed, which is what keeps the facing fallback meaningful.
+    ///
+    /// ⚠ the POLICY travels with the direction. A body-local `(1,0)` and a world
+    /// `(1,0)` are different shots under non-default gravity, so storing the
+    /// vector alone would re-introduce the frame confusion `dir_to_world` exists
+    /// to prevent.
+    pub aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>,
 }
 
 impl bevy::ecs::entity::MapEntities for MovePlayback {
@@ -308,7 +327,16 @@ impl MovePlayback {
             live_boxes: Vec::new(),
             fired,
             hit_targets: Vec::new(),
+            // Nobody aimed unless a caller says so — `with_aim` is the seam, and
+            // the facing fallback at the fire frame is what an unaimed move gets.
+            aim: None,
         }
+    }
+
+    /// Remember the ranged intent that started this move. See [`Self::aim`].
+    pub fn with_aim(mut self, aim: Option<(ae::Vec2, ae::GameplayFramePolicy)>) -> Self {
+        self.aim = aim;
+        self
     }
 
     /// Normalized move progress — what presentation samples the bound clip
@@ -1047,7 +1075,12 @@ pub fn trigger_moveset_moves(
             }
             commands
                 .entity(entity)
-                .insert(MovePlayback::new(spec.clone(), kin.facing));
+                // ⭐ **capture the aim at START, because it will be gone by the
+                // fire frame.** See `MovePlayback::aim`.
+                .insert(
+                    MovePlayback::new(spec.clone(), kin.facing)
+                        .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy))),
+                );
             continue;
         }
 
@@ -1074,9 +1107,14 @@ pub fn trigger_moveset_moves(
                 );
                 let _ = before;
             }
-            commands
-                .entity(entity)
-                .insert(MovePlayback::new(spec.clone(), kin.facing));
+            commands.entity(entity).insert(
+                // ⚠ **the plain trigger path needs the aim just as much as the
+                // cancel path above.** Capturing on one of the two start sites
+                // would have fixed aimed shots only for moves that interrupted
+                // another one, which is the rarer half.
+                MovePlayback::new(spec.clone(), kin.facing)
+                    .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy))),
+            );
         }
     }
 }
@@ -1135,6 +1173,9 @@ pub fn dispatch_move_events(
         // scales the shot's damage/speed at fire (trigger-resolve).
         Option<&ambition_characters::equipment::WornEquipment>,
     )>,
+    // The move that is playing, for the aim it was STARTED with. See
+    // `MovePlayback::aim`.
+    playbacks: Query<&MovePlayback>,
     mut sfx: SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::VfxMessage>,
     mut actions: MessageWriter<ActorActionMessage>,
@@ -1231,9 +1272,24 @@ pub fn dispatch_move_events(
                 // her right, not the way she is facing" — the demo passes
                 // `kin.facing` correctly on the press, and the value never
                 // survived to the shot.
-                let (dir, dir_policy) = match control.0.fire {
-                    Some(req) => (req.dir, req.dir_policy),
-                    None => (
+                //
+                // ⭐ **THREE tiers, and the middle one is the fix.** A live edge
+                // this frame wins (a moveset shot still tracks a strafing target).
+                // Otherwise the aim the move was STARTED with — captured into
+                // `MovePlayback::aim`, because the request that triggered the move
+                // has been cleared by the time its fire frame arrives, which is
+                // the common case this comment already described. Only an
+                // unaimed move falls through to facing.
+                //
+                // ⛔ **before the middle tier, an UPWARD aim fired sideways.** The
+                // facing fallback repairs left-versus-right and flattens every
+                // non-horizontal shot, and it was reached by essentially every
+                // authored ranged move (GPT 5.6 review, 2026-08-04).
+                let started_with = playbacks.get(ev.owner).ok().and_then(|pb| pb.aim);
+                let (dir, dir_policy) = match (control.0.fire, started_with) {
+                    (Some(req), _) => (req.dir, req.dir_policy),
+                    (None, Some((dir, policy))) => (dir, policy),
+                    (None, None) => (
                         ae::Vec2::new(kin.map(|k| k.facing.signum()).unwrap_or(1.0), 0.0),
                         ae::GameplayFramePolicy::ControlledBodyLocal,
                     ),

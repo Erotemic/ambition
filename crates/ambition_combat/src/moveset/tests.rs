@@ -1640,6 +1640,88 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     );
 }
 
+/// **A move started with an UPWARD aim fires upward, not sideways.**
+///
+/// ⛔ **the aimed case was the broken one, and the fallback hid it.**
+/// `ActorControl.fire` is an EDGE cleared every tick, and a ranged move has
+/// startup — so by the time its authored fire frame arrives the request that
+/// triggered it is gone, and the handler fell through to the body's horizontal
+/// FACING. That repairs left-versus-right (queue D8) and flattens every aim that
+/// was up, down or diagonal (GPT 5.6 review, 2026-08-04).
+///
+/// ⚠ **the sibling test above cannot see this**: it supplies a live `fire` on
+/// the event frame, which is the tier that always worked. The distinguishing
+/// input is a playback whose aim was captured at START with NO live edge now —
+/// so that is what this drives.
+#[test]
+fn a_move_started_aiming_up_fires_up_after_its_request_is_cleared() {
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::brain::{ActorActionMessage, ActorControl};
+    let mut app = App::new();
+    app.add_message::<MoveEventMessage>();
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ActorActionMessage>();
+    app.add_systems(Update, dispatch_move_events);
+
+    let up = ae::Vec2::new(0.0, -1.0);
+    let owner = app
+        .world_mut()
+        .spawn((
+            ae::BodyKinematics {
+                pos: ae::Vec2::new(100.0, 50.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(16.0, 24.0),
+                facing: 1.0,
+            },
+            ActionSet {
+                ranged: Some(RangedActionSpec::bolt(240.0, 3)),
+                ..Default::default()
+            },
+            // No live fire edge — it was cleared during the move's startup, which
+            // is the whole point.
+            ActorControl::default(),
+            // Any authored move will do — the aim is what is under test, and
+            // `swat()` is the fixture the rest of this file already builds.
+            MovePlayback::new(swat(), 1.0)
+                .with_aim(Some((up, ae::GameplayFramePolicy::WorldSpace))),
+        ))
+        .id();
+    app.world_mut()
+        .resource_mut::<Messages<MoveEventMessage>>()
+        .write(MoveEventMessage {
+            owner,
+            move_id: "fire".into(),
+            presentation_source: ambition_sfx::PresentationSourceId::unscoped(),
+            kind: MoveEventKind::Ranged,
+        });
+    app.update();
+
+    let acts: Vec<ActorActionMessage> = app
+        .world_mut()
+        .resource_mut::<Messages<ActorActionMessage>>()
+        .drain()
+        .collect();
+    assert_eq!(acts.len(), 1, "the Ranged event bridged to one action");
+    match &acts[0].request {
+        ActionRequest::Ranged {
+            dir, dir_policy, ..
+        } => {
+            assert_eq!(
+                *dir, up,
+                "the move was started aiming UP and fired {dir:?} — the startup \
+                 cleared the request and the shot fell back to facing"
+            );
+            assert!(
+                matches!(dir_policy, ae::GameplayFramePolicy::WorldSpace),
+                "the aim's FRAME travels with it: a world-space up is not a \
+                 body-local up under non-default gravity"
+            );
+        }
+        other => panic!("expected a Ranged action, got {other:?}"),
+    }
+}
+
 /// Ranged subsumption (option A): a `MoveEventKind::Ranged` fire event BRIDGES to
 /// the SAME `ActorActionMessage::Ranged` the flat `frame.fire` resolver emits —
 /// carrying the owner's authored `ActionSet.ranged` spec and SAMPLING its LIVE

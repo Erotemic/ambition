@@ -241,7 +241,7 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | boss profiles | `data/boss_profiles.ron` | ✅ `boss_profiles`, owned by `ambition_characters` (2026-08-03) |
 | boss sheets | `data/boss_sheets.ron` | ▢ owner `ambition_sprite_sheet`, which pulls `bevy_render` — needs the placement analysis the profile vocabulary got |
 | boss sprite/anim maps | Rust `BTreeMap`s in `bosses/mod.rs` | ▢ content authored as CODE; must become data before a schema can own it |
-| boss encounters | 9 × `data/boss_encounters/*.ron` | ◐ `boss_encounter`, `ambition_characters` (2026-08-03) — in the fingerprint and cross-referenced, but AuthoringOnly: see the multi-source limit below |
+| boss encounters | 9 × `data/boss_encounters/*.ron` | ✅ `boss_encounter`, `ambition_characters` — validated 2026-08-03, **LOADED 2026-08-04** once the schema could say how nine sources merge |
 | encounter waves | `data/encounters/goblin_encounter.ron` | ✅ `encounter_waves`, owned by `ambition_encounter` (2026-08-04). ⭐ found: an empty wave list means what OMITTING the key means |
 | music registry | `assets/audio/music_registry.ron` | ✅ `music_registry`, owned by `ambition_audio` (2026-08-03). ⚠ GENERATED — a refusal is a generator bug |
 | sfx registry | `assets/audio/sfx_registry.ron` | ✅ `sfx_registry`, same owner (2026-08-03) |
@@ -286,25 +286,44 @@ Three consequences worth knowing before the next move:
   `MusicRegistry` from the monolith; it is DEFINED in `ambition_audio`. Checking
   cost one grep and unblocked a family that looked as stuck as the others.
 
-### ⚠ A THIRD limit: a schema may be LOWERED by only one source
+### ✔ RESOLVED — the THIRD limit: a schema lowered by MANY sources
 
-`compile` refuses a schema whose artifact is produced by two sources, on
-purpose — merge semantics is the handler's question and a generic merge would be
-the compiler guessing. Ambition's nine boss-encounter files hit this exactly.
+This section used to say a schema may be lowered by only ONE source. `compile`
+refused a second, on purpose — merge semantics is the handler's question and a
+generic merge would be the compiler guessing — and Ambition's nine
+boss-encounter files hit it exactly, so that family was `AuthoringOnly`:
+validated, and then **parsed a second time by the runtime**.
 
-The workaround, and its honest cost: the `boss_encounter` schema is
-`RuntimeDisposition::AuthoringOnly`. All nine files therefore **do** reach the
-fingerprint and **do** take part in reference resolution — editing an encounter
-moves the pack fingerprint, and the boss↔encounter correspondence the runtime
-enforces both ways (`MissingEncounter` / `MissingBehavior`) is now a compile-time
-refusal instead of a startup panic behind an `.expect`. But the runtime still
-PARSES them itself, so that family is half-migrated: validated, not loaded.
+**Closed 2026-08-04** by the contract this section asked for — *parse each
+source, merge the schema's own fragments, validate the aggregate, lower once* —
+as `ContentSchemaHandler::aggregate`, a trait method with a default.
 
-Closing it needs an aggregation contract — *parse each source, merge the
-schema's own fragments, validate the aggregate, lower once* — which is the next
-real piece of compiler design, not a handler.
+⭐ **the return value IS the declaration** (`Aggregation::{Undefined, Defined}`).
+The alternative was a field on `SchemaRegistration`, and then a schema could
+claim it aggregates without implementing the merge, or implement it and forget
+to say so — two facts that can disagree about one thing.
 
-### ⚠ A second limit: a handler sees ONE facet
+⛔ **it is called for ONE source too.** The tempting rule is "aggregate only at
+two or more", and under it a pack declaring a single file lowers a FRAGMENT
+where the runtime expects the COLLECTION: the artifact's type would depend on
+how many files an author happened to write. Fine at nine, broken the day someone
+deletes the eighth. ⚠ the probe for it only works because the toy's fragment
+type and artifact type DIFFER — a `Vec<String>` merged into a `Vec<String>`
+passes under the broken rule too.
+
+⚠ **fragments arrive in DECLARED order** (the manifest, top to bottom), which is
+the order an author can see and diff — not map order, not filesystem order.
+
+⭐ **and it answers half of the SECOND limit below**: aggregation is the first
+point at which a schema can see all of its own sources, so a cross-source
+invariant within one family now has somewhere to live. "Two of these nine files
+claim one encounter id" is refused there. Cross-SCHEMA invariants still are not
+expressible; that is the part of the second limit that stands.
+
+`CompileStage::Aggregation` sits between facet validation and reference
+resolution, so a refusal there reports what never ran.
+
+### ◐ A second limit: a handler sees ONE facet — of ONE schema
 
 `compile` calls `handler.check(&facet, …)` per source, and there is no whole-pack
 hook. So a handler can express "this reference resolves" (the compiler's
@@ -313,6 +332,12 @@ invariant like *exact cover* — "every attack the roster plays is claimed by
 exactly one seed". The one-source half of that check moved into the
 `boss_seed_library` schema; the other half is still a test. Worth knowing before
 promising that a migration dissolves a given check.
+
+⭐ **half of this fell to the aggregation contract above (2026-08-04):** a
+schema's `aggregate` sees every one of ITS OWN sources at once, which is where
+"two encounter files claim one id" now lives. What remains is genuinely
+cross-SCHEMA — the exact-cover check spans the seed library and the roster, two
+different schemas, and no hook sees both.
 
 ### ⚠ The migration checklist a family is NOT done without
 

@@ -41,9 +41,8 @@ A block's name IS its meaning — the engine has no typed channel for a game's o
 nouns, so this is the convention (see
 `docs/planning/proposal-authored-vocabulary-2026-08-04.md` §4):
 
-    power_block_<n>      a ?-block: bonk from below, pops the ladder powerup
-    quasar_block_<n>     the pocket quasar: any form can take it
-    brick_<n>            breakable: a bonk from a grown body removes it
+    MaryOBlock (kind: Power|Quasar|Brick)   the reactive blocks — a FIELD, not
+                                            a name; see `ldtk_vocabulary.rs`
     warp_pipe_<link>_up      a pipe whose mouth points UP (you press DOWN on it)
     warp_pipe_<link>_down    a pipe whose mouth points DOWN (you fall out of it)
     goal_pole{,_knob,_banner}   the flag; touching the shaft ends the level
@@ -226,18 +225,24 @@ def vault_coins() -> list[dict]:
 
 
 def bonus_blocks() -> list[dict]:
-    """The three reactive-block families. One tile each, floating at bonk height.
+    """The three reactive-block families, as `MaryOBlock` entities.
 
-    ⚠ these MUST stay entities: the runtime recognises them by name, and
-    `area create`'s IntGrid lowering would eat it."""
+    ⭐ **authored by a FIELD, not by a name.** These used to be `Solid` entities
+    called `power_block_0` and friends — the index mattered and the spelling
+    mattered, and adding a fourth meant knowing the convention. A `MaryOBlock`
+    carries `kind`, which is a dropdown in the editor, and the converter derives
+    the runtime name from it.
+
+    ⚠ they MUST stay entities either way: `area create`'s IntGrid lowering would
+    eat the identity the runtime recognises them by."""
     y = GROUND_TOP - BONUS_ROW * T
     out = []
-    for i, column in enumerate(POWER_BLOCK_COLUMNS):
-        out.append(rect("Solid", (column * T, y), (T, T), name=f"power_block_{i}"))
-    for i, column in enumerate(QUASAR_BLOCK_COLUMNS):
-        out.append(rect("Solid", (column * T, y), (T, T), name=f"quasar_block_{i}"))
-    for i, column in enumerate(BRICK_COLUMNS):
-        out.append(rect("Solid", (column * T, y), (T, T), name=f"brick_{i}"))
+    for column in POWER_BLOCK_COLUMNS:
+        out.append(rect("MaryOBlock", (column * T, y), (T, T), kind="Power"))
+    for column in QUASAR_BLOCK_COLUMNS:
+        out.append(rect("MaryOBlock", (column * T, y), (T, T), kind="Quasar"))
+    for column in BRICK_COLUMNS:
+        out.append(rect("MaryOBlock", (column * T, y), (T, T), kind="Brick"))
     return out
 
 
@@ -376,6 +381,23 @@ def main() -> None:
         area = Path(tmp) / "mary_o_1_1_area.json"
         area.write_text(json.dumps(area_spec(), indent=2))
         run_tool("area", "create", str(area), "--ldtk", str(TARGET))
+        # ⛔ **DEFS AFTER THE FIRST LEVEL, BEFORE THE ENTITIES THAT NEED THEM.**
+        # `world init` clones the sandbox's definitions, which do not include
+        # Mary-O's own nouns — but `def register-entity` VALIDATES, and an
+        # empty project fails validation ("project has no levels"). So the
+        # window is exactly here: after `area create` has made a level out of
+        # standard entities, and before `entity add` places the `MaryOBlock`s
+        # that need the definition to exist.
+        run_tool(
+            "def",
+            "register-entity",
+            str(Path(__file__).resolve().parent / "mary_o_entities.json"),
+            "--ldtk",
+            str(TARGET),
+            "--in-place",
+            # Mary-O's noun, not the engine's — see the flag's help.
+            "--game-owned",
+        )
         named = Path(tmp) / "mary_o_1_1_named.json"
         named.write_text(json.dumps(named_blocks(), indent=2))
         run_tool("entity", "add", str(named), "--ldtk", str(TARGET), "--in-place")

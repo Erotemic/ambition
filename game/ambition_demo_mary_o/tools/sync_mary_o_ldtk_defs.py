@@ -63,6 +63,8 @@ def main() -> None:
         "--ldtk",
         str(TARGET),
         "--in-place",
+        # Mary-O's noun, not the engine's — see the flag's help.
+        "--game-owned",
         tolerate="already exists in the project",
     )
     run_tool("repair", str(TARGET), "--in-place")

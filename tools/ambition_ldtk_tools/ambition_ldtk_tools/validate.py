@@ -44,7 +44,6 @@ KNOWN_ENTITIES = {
     "KinematicPath",
     "LoadingZone",
     "LockWall",
-    "MaryOBlock",
     "MovingPlatform",
     "NpcSpawn",
     "OneWayPlatform",
@@ -917,7 +916,19 @@ def validate(
 
         for entity in layer.get("entityInstances") or []:
             ident = entity.get("__identifier")
-            if ident not in KNOWN_ENTITIES:
+            # ⭐ **A PROJECT THAT DEFINES AN ENTITY HAS DECLARED IT.**
+            # `KNOWN_ENTITIES` is the ENGINE's vocabulary, and it is checked two
+            # ways: every project must define all of it, and no instance may fall
+            # outside it. Together those made a game-owned noun impossible —
+            # adding `MaryOBlock` to the set forced every OTHER world to define a
+            # block only Mary-O has, and leaving it out made her own level
+            # unsupported.
+            #
+            # A game registers its own nouns through
+            # `install_ldtk_entity_converters`, and the project's own `defs` is
+            # where that vocabulary is visible to tooling. So an identifier this
+            # project defines is supported here, whoever owns the converter.
+            if ident not in KNOWN_ENTITIES and ident not in entity_defs:
                 errors.append(
                     f"level {identifier!r} has unsupported entity {ident!r} ({entity.get('iid')})"
                 )

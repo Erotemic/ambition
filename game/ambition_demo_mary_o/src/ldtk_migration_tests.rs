@@ -74,20 +74,63 @@ fn the_ldtk_room_is_the_room_the_constants_built() {
     );
 }
 
-/// The named blocks the runtime RECOGNISES have to survive conversion — this is
-/// the half `area create`'s IntGrid lowering would silently eat.
+/// The vocabulary the runtime RECOGNISES has to survive conversion — this is the
+/// half `area create`'s IntGrid lowering would silently eat.
+///
+/// ⛔ it used to pin a LIST OF NAMES (`power_block_0`, `brick_2`, …). Those were
+/// the bootstrap generator's names, and the level authors `MaryOBlock` entities
+/// with a `kind` field now — so pinning names would pin the scaffolding rather
+/// than the contract. What has to hold is that each KIND still arrives, and that
+/// the pieces addressed by name still are.
 #[test]
 fn every_named_block_the_runtime_looks_for_survives_conversion() {
+    use crate::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};
     let room = ldtk_room();
     let names: Vec<&str> = room.world.blocks.iter().map(|b| b.name.as_str()).collect();
+
+    for kind in [
+        MaryOBlockKind::Power,
+        MaryOBlockKind::Quasar,
+        MaryOBlockKind::Brick,
+    ] {
+        assert!(
+            names.iter().any(|n| block_kind_of(n) == Some(kind)),
+            "no block converts to {kind:?}; the level authors one of each"
+        );
+    }
+
+    // ⚠ **and every reactive block has a DISTINCT id.** `Block::solid` leaves the
+    // id anonymous, so a converter that forgets to stamp the placement produces
+    // blocks that all answer to one identity — a bonk on any of them resolved to
+    // whichever came first. That happened, and this is what would have caught it.
+    let ids: std::collections::BTreeSet<String> = room
+        .world
+        .blocks
+        .iter()
+        .filter(|b| block_kind_of(&b.name).is_some())
+        .map(|b| format!("{:?}", b.id))
+        .collect();
+    let reactive = room
+        .world
+        .blocks
+        .iter()
+        .filter(|b| block_kind_of(&b.name).is_some())
+        .count();
+    assert_eq!(ids.len(), reactive, "every reactive block needs its own identity");
+
+    // The pieces still addressed by NAME, because a pipe pair and the flag are
+    // not `MaryOBlock`s yet.
     for expected in [
-        "power_block_0", "power_block_1", "power_block_2",
-        "quasar_block_0", "quasar_block_1", "quasar_block_2",
-        "brick_0", "brick_1", "brick_2",
-        "warp_pipe_descent_up", "warp_pipe_descent_down",
-        "warp_pipe_ascent_down", "warp_pipe_ascent_up",
-        "goal_pole", "goal_pole_knob", "goal_pole_banner",
-        "vault_floor", "vault_wall_0", "vault_wall_1",
+        "warp_pipe_descent_up",
+        "warp_pipe_descent_down",
+        "warp_pipe_ascent_down",
+        "warp_pipe_ascent_up",
+        "goal_pole",
+        "goal_pole_knob",
+        "goal_pole_banner",
+        "vault_floor",
+        "vault_wall_0",
+        "vault_wall_1",
     ] {
         assert!(
             names.contains(&expected),

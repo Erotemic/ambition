@@ -371,6 +371,17 @@ pub const MARY_O_WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk")
 /// player without passing the build and this crate's tests first. The moment the
 /// world is loaded from disk instead, this has to become a reported refusal.
 fn authored_room(area: &str) -> RoomSpec {
+    // ⛔ **THE READER INSTALLS THE VOCABULARY, because the file cannot be read
+    // without it.** `MaryOBlock` is Mary-O's own LDtk noun; conversion refuses an
+    // identifier it has no converter for, loudly and by design. Doing this only
+    // in `MaryORulesPlugin::build` meant every test, tool and probe that loads
+    // the level directly got nine refusals — and the level is not readable
+    // without its vocabulary in ANY of those contexts, so the load is where the
+    // requirement belongs.
+    //
+    // ⚠ safe to call repeatedly: the registry keeps the first install and stays
+    // silent for an identical set, which is exactly the repeated case.
+    ldtk_vocabulary::install();
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(MARY_O_WORLD_JSON)
         .expect("mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)");
     let room_set = project
@@ -1289,6 +1300,12 @@ impl MaryORulesPlugin {
 impl Plugin for MaryORulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
+        // ⛔ **BEFORE ANY WORLD LOAD.** LDtk conversion runs from pure non-system
+        // code with no `World` in hand, so the converter registry is process-wide
+        // and has to be populated at plugin-build time. Without this the level's
+        // `MaryOBlock` entities are an unknown identifier and conversion refuses
+        // the room outright — loudly, which is the right failure.
+        ldtk_vocabulary::install();
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.insert_resource(goal_pole());
         app.init_resource::<powerups::SpentPowerBlocks>();

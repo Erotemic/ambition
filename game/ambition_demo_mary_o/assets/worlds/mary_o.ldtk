@@ -5915,7 +5915,7 @@
 		},
 		{
 			"identifier": "MaryOBlock",
-			"uid": 106886,
+			"uid": 106867,
 			"tags": [],
 			"exportToToc": false,
 			"allowOutOfBounds": true,
@@ -5952,7 +5952,7 @@
 					"identifier": "kind",
 					"doc": null,
 					"__type": "String",
-					"uid": 106885,
+					"uid": 106866,
 					"type": "F_String",
 					"isArray": false,
 					"canBeNull": true,
@@ -7229,174 +7229,165 @@
 							]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "MaryOBlock",
 							"__grid": [12,18],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#E8A33D",
 							"__worldX": 192,
 							"__worldY": 288,
-							"iid": "Solid-106866",
+							"iid": "MaryOBlock-106868",
 							"width": 32,
 							"height": 32,
-							"defUid": 2001,
+							"defUid": 106867,
 							"px": [192,288],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "power_block_0", "__tile": null, "defUid": 3001, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["power_block_0"]
-							}] }]
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Power", "__tile": null, "defUid": 106866, "realEditorValues": [] }]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "MaryOBlock",
 							"__grid": [60,18],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#E8A33D",
 							"__worldX": 960,
 							"__worldY": 288,
-							"iid": "Solid-106867",
+							"iid": "MaryOBlock-106869",
 							"width": 32,
 							"height": 32,
-							"defUid": 2001,
+							"defUid": 106867,
 							"px": [960,288],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "power_block_1", "__tile": null, "defUid": 3001, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["power_block_1"]
-							}] }]
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Power", "__tile": null, "defUid": 106866, "realEditorValues": [] }]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "MaryOBlock",
 							"__grid": [120,18],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#E8A33D",
 							"__worldX": 1920,
 							"__worldY": 288,
-							"iid": "Solid-106868",
+							"iid": "MaryOBlock-106870",
 							"width": 32,
 							"height": 32,
-							"defUid": 2001,
+							"defUid": 106867,
 							"px": [1920,288],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "power_block_2", "__tile": null, "defUid": 3001, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["power_block_2"]
-							}] }]
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Power", "__tile": null, "defUid": 106866, "realEditorValues": [] }]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "MaryOBlock",
 							"__grid": [20,18],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#E8A33D",
 							"__worldX": 320,
 							"__worldY": 288,
-							"iid": "Solid-106869",
+							"iid": "MaryOBlock-106871",
 							"width": 32,
 							"height": 32,
-							"defUid": 2001,
+							"defUid": 106867,
 							"px": [320,288],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "quasar_block_0", "__tile": null, "defUid": 3001, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106866, "realEditorValues": [{
 								"id": "V_String",
-								"params": ["quasar_block_0"]
+								"params": ["Quasar"]
 							}] }]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "MaryOBlock",
 							"__grid": [100,18],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#E8A33D",
 							"__worldX": 1600,
 							"__worldY": 288,
-							"iid": "Solid-106870",
+							"iid": "MaryOBlock-106872",
 							"width": 32,
 							"height": 32,
-							"defUid": 2001,
+							"defUid": 106867,
 							"px": [1600,288],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "quasar_block_1", "__tile": null, "defUid": 3001, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106866, "realEditorValues": [{
 								"id": "V_String",
-								"params": ["quasar_block_1"]
+								"params": ["Quasar"]
 							}] }]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "MaryOBlock",
 							"__grid": [140,18],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#E8A33D",
 							"__worldX": 2240,
 							"__worldY": 288,
-							"iid": "Solid-106871",
+							"iid": "MaryOBlock-106873",
 							"width": 32,
 							"height": 32,
-							"defUid": 2001,
+							"defUid": 106867,
 							"px": [2240,288],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "quasar_block_2", "__tile": null, "defUid": 3001, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106866, "realEditorValues": [{
 								"id": "V_String",
-								"params": ["quasar_block_2"]
+								"params": ["Quasar"]
 							}] }]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "MaryOBlock",
 							"__grid": [96,18],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#E8A33D",
 							"__worldX": 1536,
 							"__worldY": 288,
-							"iid": "Solid-106872",
+							"iid": "MaryOBlock-106874",
 							"width": 32,
 							"height": 32,
-							"defUid": 2001,
+							"defUid": 106867,
 							"px": [1536,288],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "brick_0", "__tile": null, "defUid": 3001, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106866, "realEditorValues": [{
 								"id": "V_String",
-								"params": ["brick_0"]
+								"params": ["Brick"]
 							}] }]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "MaryOBlock",
 							"__grid": [98,18],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#E8A33D",
 							"__worldX": 1568,
 							"__worldY": 288,
-							"iid": "Solid-106873",
+							"iid": "MaryOBlock-106875",
 							"width": 32,
 							"height": 32,
-							"defUid": 2001,
+							"defUid": 106867,
 							"px": [1568,288],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "brick_1", "__tile": null, "defUid": 3001, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106866, "realEditorValues": [{
 								"id": "V_String",
-								"params": ["brick_1"]
+								"params": ["Brick"]
 							}] }]
 						},
 						{
-							"__identifier": "Solid",
+							"__identifier": "MaryOBlock",
 							"__grid": [100,18],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
-							"__smartColor": "#6B7280",
+							"__smartColor": "#E8A33D",
 							"__worldX": 1600,
 							"__worldY": 288,
-							"iid": "Solid-106874",
+							"iid": "MaryOBlock-106876",
 							"width": 32,
 							"height": 32,
-							"defUid": 2001,
+							"defUid": 106867,
 							"px": [1600,288],
-							"fieldInstances": [{ "__identifier": "name", "__type": "String", "__value": "brick_2", "__tile": null, "defUid": 3001, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106866, "realEditorValues": [{
 								"id": "V_String",
-								"params": ["brick_2"]
+								"params": ["Brick"]
 							}] }]
 						},
 						{
@@ -7408,7 +7399,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 832,
 							"__worldY": 352,
-							"iid": "Solid-106875",
+							"iid": "Solid-106877",
 							"width": 96,
 							"height": 64,
 							"defUid": 2001,
@@ -7427,7 +7418,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 832,
 							"__worldY": 480,
-							"iid": "Solid-106876",
+							"iid": "Solid-106878",
 							"width": 96,
 							"height": 148,
 							"defUid": 2001,
@@ -7446,7 +7437,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 1120,
 							"__worldY": 480,
-							"iid": "Solid-106877",
+							"iid": "Solid-106879",
 							"width": 96,
 							"height": 148,
 							"defUid": 2001,
@@ -7465,7 +7456,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 1120,
 							"__worldY": 352,
-							"iid": "Solid-106878",
+							"iid": "Solid-106880",
 							"width": 96,
 							"height": 64,
 							"defUid": 2001,
@@ -7484,7 +7475,7 @@
 							"__smartColor": "#A4D65E",
 							"__worldX": 3136,
 							"__worldY": 128,
-							"iid": "OneWayPlatform-106879",
+							"iid": "OneWayPlatform-106881",
 							"width": 16,
 							"height": 288,
 							"defUid": 2003,
@@ -7503,7 +7494,7 @@
 							"__smartColor": "#A4D65E",
 							"__worldX": 3136,
 							"__worldY": 112,
-							"iid": "OneWayPlatform-106880",
+							"iid": "OneWayPlatform-106882",
 							"width": 16,
 							"height": 16,
 							"defUid": 2003,
@@ -7522,7 +7513,7 @@
 							"__smartColor": "#A4D65E",
 							"__worldX": 3136,
 							"__worldY": 144,
-							"iid": "OneWayPlatform-106881",
+							"iid": "OneWayPlatform-106883",
 							"width": 16,
 							"height": 32,
 							"defUid": 2003,
@@ -7541,7 +7532,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 704,
 							"__worldY": 704,
-							"iid": "Solid-106882",
+							"iid": "Solid-106884",
 							"width": 640,
 							"height": 32,
 							"defUid": 2001,
@@ -7560,7 +7551,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 704,
 							"__worldY": 480,
-							"iid": "Solid-106883",
+							"iid": "Solid-106885",
 							"width": 32,
 							"height": 224,
 							"defUid": 2001,
@@ -7579,7 +7570,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 1312,
 							"__worldY": 480,
-							"iid": "Solid-106884",
+							"iid": "Solid-106886",
 							"width": 32,
 							"height": 224,
 							"defUid": 2001,

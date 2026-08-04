@@ -102,24 +102,11 @@ pub fn block_kind_of(name: &str) -> Option<MaryOBlockKind> {
         let (kind, _iid) = rest.split_once(':')?;
         return MaryOBlockKind::parse(kind);
     }
-    // ⚠ **the BOOTSTRAP names, still recognised on purpose.** The file the
-    // migration generated authors `power_block_0` / `quasar_block_1` /
-    // `brick_2`, because it predates this entity type. Reading both lets the
-    // runtime move to kinds BEFORE the file is regenerated, which is what keeps
-    // each step of the migration green instead of requiring one flip-day where
-    // the level and the code change together.
-    //
-    // ▢ delete this arm once the shipped file authors `MaryOBlock` throughout —
-    // it is scaffolding with an expiry, not a compatibility promise.
-    for (prefix, kind) in [
-        (crate::POWER_BLOCK_PREFIX, MaryOBlockKind::Power),
-        (crate::QUASAR_BLOCK_PREFIX, MaryOBlockKind::Quasar),
-        (crate::BRICK_PREFIX, MaryOBlockKind::Brick),
-    ] {
-        if name.starts_with(prefix) {
-            return Some(kind);
-        }
-    }
+    // ⚠ **the BOOTSTRAP arm is GONE.** While the generated file still authored
+    // `power_block_0` and friends, this also decoded those prefixes so the
+    // runtime could move to kinds before the level was regenerated — scaffolding
+    // with an expiry, and the expiry has arrived: the shipped file authors
+    // `MaryOBlock` throughout.
     None
 }
 
@@ -138,12 +125,19 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
             entity.iid
         ));
     };
+    let mut block = ae::Block::solid(encoded_name(kind, &entity.iid), min, size);
+    // ⛔⛔ **STAMP THE DURABLE IDENTITY, because `Block::solid` does not.** Its
+    // own doc says so — *"fixture constructors default to `GeoSource::Anon`; the
+    // IR emission paths assign real sources"* — and this IS an IR emission path.
+    //
+    // ⚠ **every authored block shared ONE anonymous id** until this line existed,
+    // so `authored_block_by_id` returned whichever came first and a head-bonk on
+    // any reactive block resolved to the same one. The engine's own
+    // `compile_surface` stamps `GeoId::placement(iid)` for exactly this reason;
+    // a converter that forgets it produces geometry with no identity at all.
+    block.id = ae::GeoId::placement(ae::PlacementId::new(entity.iid.clone()), 0);
     let mut emission = RoomEmission::default();
-    emission.blocks.push(ae::Block::solid(
-        encoded_name(kind, &entity.iid),
-        min,
-        size,
-    ));
+    emission.blocks.push(block);
     Ok(emission)
 }
 
@@ -189,15 +183,6 @@ mod tests {
 
     /// A block that is not one of Mary-O's is not one of Mary-O's — the decoder
     /// must not claim the level's ordinary terrain.
-    /// ⚠ the bootstrap names the generated file still uses decode too, so the
-    /// runtime can move to kinds before the level is regenerated.
-    #[test]
-    fn the_bootstrap_names_decode_until_the_file_is_regenerated() {
-        assert_eq!(block_kind_of("power_block_0"), Some(MaryOBlockKind::Power));
-        assert_eq!(block_kind_of("quasar_block_2"), Some(MaryOBlockKind::Quasar));
-        assert_eq!(block_kind_of("brick_1"), Some(MaryOBlockKind::Brick));
-    }
-
     #[test]
     fn an_ordinary_block_name_is_not_a_mary_o_block() {
         for name in ["ldtk solid", "goal_pole", "vault_floor", "maryo_block:", ""] {

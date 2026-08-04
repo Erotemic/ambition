@@ -337,6 +337,14 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--ldtk", type=Path, default=SANDBOX_LDTK)
     parser.add_argument("--in-place", action="store_true", help="write to --ldtk")
+    parser.add_argument(
+        "--game-owned",
+        action="store_true",
+        help=(
+            "this entity belongs to a GAME, not the engine: register it in the "
+            "project only, and leave the engine's vocabulary lists alone"
+        ),
+    )
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--backup", action="store_true")
     parser.add_argument(
@@ -389,10 +397,17 @@ def main(argv=None) -> int:
     print(f"wrote {target} with {len(new_identifiers)} new entity def(s)")
 
     if not args.no_source_patch:
-        added_validator = patch_validator_known_entities(new_identifiers)
-        if added_validator:
-            print(f"validator KNOWN_ENTITIES += {added_validator}")
-        added_runtime = patch_runtime_identifiers(new_identifiers)
+        # ⛔ **A GAME'S NOUN MUST NOT JOIN THE ENGINE'S VOCABULARY.**
+        # `KNOWN_ENTITIES` is checked two ways — every project must define ALL of
+        # it, and no instance may fall outside it — so adding `MaryOBlock` there
+        # forced every OTHER world to define a block only Mary-O has.
+        # `AMBITION_LDTK_ENTITY_IDENTIFIERS` mirrors `standard_converters()` with
+        # a test pinning them equal, so a game entity there makes the engine claim
+        # a vocabulary it cannot convert. A game registers its own through
+        # `install_ldtk_entity_converters`; the project's `defs` is where tooling
+        # sees it, and the validator accepts an identifier the project defines.
+        added_validator = [] if args.game_owned else patch_validator_known_entities(new_identifiers)
+        added_runtime = [] if args.game_owned else patch_runtime_identifiers(new_identifiers)
         if added_runtime:
             print(f"bevy_runtime AMBITION_LDTK_ENTITY_IDENTIFIERS += {added_runtime}")
 

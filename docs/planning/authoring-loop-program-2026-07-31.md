@@ -242,7 +242,7 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | boss sheets | `data/boss_sheets.ron` | ▢ owner `ambition_sprite_sheet`, which pulls `bevy_render` — needs the placement analysis the profile vocabulary got |
 | boss sprite/anim maps | Rust `BTreeMap`s in `bosses/mod.rs` | ▢ content authored as CODE; must become data before a schema can own it |
 | boss encounters | 9 × `data/boss_encounters/*.ron` | ◐ `boss_encounter`, `ambition_characters` (2026-08-03) — in the fingerprint and cross-referenced, but AuthoringOnly: see the multi-source limit below |
-| encounter waves | `data/encounters/goblin_encounter.ron` | ▢ |
+| encounter waves | `data/encounters/goblin_encounter.ron` | ✅ `encounter_waves`, owned by `ambition_encounter` (2026-08-04). ⭐ found: an empty wave list means what OMITTING the key means |
 | music registry | `assets/audio/music_registry.ron` | ✅ `music_registry`, owned by `ambition_audio` (2026-08-03). ⚠ GENERATED — a refusal is a generator bug |
 | sfx registry | `assets/audio/sfx_registry.ron` | ✅ `sfx_registry`, same owner (2026-08-03) |
 | dialogue | 7 × `assets/dialogue/sandbox/*.yarn` | ▢ not RON; needs a handler that parses Yarn |

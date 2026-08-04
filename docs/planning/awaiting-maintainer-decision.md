@@ -934,3 +934,38 @@ authoring"* — which is precisely why a Mary-O block cannot carry its own art.
 ⚠ **I have not chosen.** (b) is more aligned with where the engine says it is
 going; (a) is more aligned with what exists today. That is a product call.
 
+
+---
+
+## #15 — Mary-O 1-1's first ?-block drops its wand into a pit, and it is uncatchable
+
+**Measured 2026-08-04, after fixing the two things that were hiding it.** The
+acceptance run could never strike that block (it held jump, and a held Mary-O
+Classic jump clears a row-4 block by 174 px), and the beat asserted only that it
+had not ended early — so three separate diagnoses went looking for the wand
+instead of for the bonk. Both are repaired; the block is struck and the wand
+spawns.
+
+**The wand then cannot be collected.** It pops at `x = 483` and travels RIGHT,
+crossing the first pit's lip at `x = 640` around frame 125 and falling
+(`y 400 → 488 → 1132 → 4294`). Reaching it from her post-bonk `x = 222` needs
+**334 px/s**; her authored top speed is **300**. Probed by lifting the fixture's
+pit-safe clamp to 620: she arrives at 622 by frame 200 and the wand is already at
+`y = 1132`. So this is not a fixture problem and not a tuning problem — **the
+powerup is placed where the player cannot retrieve it.**
+
+⚠ an item falling into a pit is authentic to the game this converges on; a first
+powerup that ALWAYS does is a level-authoring accident. The options are content
+calls:
+
+- **(a) Move `power_block_0` left**, away from the pit, so the wand's travel has
+  room. Smallest change; the block's column is one constant.
+- **(b) Give the wand something to turn on** before the pit — a wall or lip. This
+  is what the original does, and `spawn_moving_world_item` already turns at walls.
+- **(c) Accept it** and change the acceptance run to get the wand from a different
+  block. ⚠ this leaves a first-powerup a player will lose on their first attempt,
+  which is the part worth deciding rather than defaulting into.
+
+⚠ **the acceptance test stays RED until this is answered**, and that is now a
+faithful red: everything upstream of the collection is proven working in the same
+run (`SpentPowerBlocks` records the strike, the item exists at a known position).

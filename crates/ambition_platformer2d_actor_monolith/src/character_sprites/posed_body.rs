@@ -128,6 +128,33 @@ pub fn posed_body_geometry(
     })
 }
 
+/// **The sheet's AUTHORED gameplay body, in sheet pixels — `None` when it only
+/// measured one.**
+///
+/// The question a caller is really asking is *"may I scale this character by
+/// this rectangle?"*, and the honest answer is no for a measured alpha bbox: it
+/// is the extent of the drawing, hat and outstretched arms included, and using
+/// it as a body is how a collision box ends up 1.28× the character inside it.
+/// So this refuses rather than returning a number that looks usable
+/// (`BodyMetrics::authored_body` is the sheet's own claim, emitted only when a
+/// target authored the box).
+///
+/// The `Idle` pose is the standing body — the same rectangle
+/// [`sync_sprite_posed_bodies`] restores `base_size` to.
+pub fn authored_body_pixel_size(target: &str) -> Option<ae::Vec2> {
+    let record = record_for_target(target)?;
+    let metrics = record.body_metrics.as_ref()?;
+    if !metrics.authored_body {
+        return None;
+    }
+    // Asked of the same function the per-tick sync asks, at a scale of 1.0 so
+    // the answer is in pixels — so the two cannot disagree about what the sheet
+    // says.
+    posed_body_geometry(target, CharacterAnim::Idle, 1.0)
+        .map(|geometry| geometry.collision)
+        .filter(|size| size.x > 0.0 && size.y > 0.0)
+}
+
 /// Keep every [`SpritePosedBody`] actor's collision box, sprite quad, and quad
 /// offset equal to what its sheet says about the pose it is showing.
 ///

@@ -168,6 +168,40 @@ fn definition_from(
         crate::AMBITION_CONTENT_PROVIDER,
     )
     .with_sheet(sheet);
+    // **Hand the body to the art, for whichever incarnation authored one.**
+    //
+    // Jon, on Mary-O and then again on v3: *"The box and the sprite seem to be
+    // not independent of each other. Shouldn't the sprite sheet generator be
+    // authoring the collision boxes for the characters?"* It should, and the
+    // engine has offered `BodySource::SpriteAuthored { world_per_pixel }` since
+    // §4.11 — every NPC and enemy derives its box from published sprite metrics
+    // and Mary-O's three forms use this exact seam. The player robot used
+    // neither: he kept the engine's default 30×48 constant while his sprite was
+    // drawn through a hand-tuned `collision_scale`, and the two were never
+    // reconciled. Measured 2026-08-03 with `scripts/show_sprite_gameplay_box.py`:
+    // his collider ran **1.28× wider and 1.29× taller than the body inside it**,
+    // its top edge 17 px above the tip of his antenna. That is the report.
+    //
+    // ⚠ **the SCALE is derived and the HEIGHT is the authored quantity**, the
+    // same direction Mary-O's `MARY_O_STANDING_HEIGHT` takes and for the same
+    // reason: the sheets are regenerated regularly, every regeneration
+    // re-measures, and a scale pinned to today's pixel count silently changes
+    // how tall he stands the first time a crop moves by a pixel. Levels are
+    // authored against the standing height, so that is what must hold still.
+    //
+    // ⚠ **only an AUTHORED body qualifies**, which is why this can be a blanket
+    // rule over the lineage instead of a per-version flag. `authored_body_pixel_size`
+    // returns `None` for a sheet that merely MEASURED its alpha bbox, so v0 and
+    // v2 — whose boxes are still raw silhouettes, arms and all — keep exactly
+    // the path they have today and opt in when someone authors them. Absence is
+    // the answer, not an omission to fix here.
+    if let Some(body_px) = ambition_platformer2d::actors::character_sprites::authored_body_pixel_size(
+        sheet,
+    ) {
+        definition = definition.with_sprite_authored_body(
+            ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / body_px.y,
+        );
+    }
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),
         // Left `None` deliberately. These are hand-authored incarnations, not
@@ -233,6 +267,71 @@ mod tests {
                 incarnation.id
             );
             previous = Some(incarnation.id);
+        }
+    }
+
+    /// **v3 stands as tall as the level expects, and his box is his ART.**
+    ///
+    /// Jon: *"The current player V3 collision / hurt box is larger than the
+    /// player sprite."* It was, by 1.28× wide and 1.29× tall, because his box
+    /// was the engine's default constant while his sprite was drawn through a
+    /// hand-tuned `collision_scale` and nothing reconciled the two.
+    ///
+    /// Both halves are asserted because either alone is satisfiable by a bug:
+    /// a body source that resolves to nothing would leave the height right and
+    /// the box unowned, and a scale read off today's pixel count would leave the
+    /// box owned and the height wrong the next time a crop moves.
+    #[test]
+    fn v3s_body_is_his_sheets_and_he_still_stands_at_the_authored_height() {
+        use ambition_platformer2d_actor_monolith::character_runtime::BodySource;
+
+        let catalog = crate::character_catalog::load_catalog();
+        let definition = definition_from(&catalog, &V3);
+        let Some(BodySource::SpriteAuthored { world_per_pixel }) = definition.body else {
+            panic!(
+                "v3 authors no sprite body, so his collision box is still the \
+                 engine's default constant and his sprite is still drawn by a \
+                 hand-tuned collision_scale: {:?}",
+                definition.body
+            );
+        };
+
+        let pixels = ambition_platformer2d::actors::character_sprites::authored_body_pixel_size(
+            "player_robot_v3",
+        )
+        .expect("v3's sheet publishes an AUTHORED body box, not a measured alpha bbox");
+        let standing = pixels * world_per_pixel;
+        assert!(
+            (standing.y - ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT).abs() < 0.01,
+            "v3 stands {} units tall against the {} the levels are authored \
+             around — the scale is DERIVED from the height, never the reverse",
+            standing.y,
+            ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT,
+        );
+    }
+
+    /// **v0 and v2 keep the path they have**, and the reason is a fact about
+    /// their sheets rather than a decision spelled out per version.
+    ///
+    /// Their boxes are still raw alpha silhouettes — arms and all — so the
+    /// lineage's blanket rule declines them on its own. If someone authors one,
+    /// it opts in with no edit here, which is the point of asking the sheet.
+    #[test]
+    fn an_incarnation_that_only_measured_its_box_is_not_given_a_sprite_body() {
+        use ambition_platformer2d::actors::character_sprites::authored_body_pixel_size;
+
+        let catalog = crate::character_catalog::load_catalog();
+        for incarnation in [&V0, &V2] {
+            if authored_body_pixel_size(incarnation.id).is_some() {
+                continue; // someone authored it since; the rule opts it in.
+            }
+            assert!(
+                definition_from(&catalog, incarnation).body.is_none(),
+                "'{}' measured its box rather than authoring one, so scaling \
+                 him by it would hand him a collision body that includes his \
+                 outstretched arms",
+                incarnation.id,
+            );
         }
     }
 

@@ -66,6 +66,12 @@ class Sheet:
     body_bbox: tuple[int, int, int, int] | None
     feet_anchor_y: float | None
     rows: list
+    # The sheet's own claim that `body_pixel_bbox` is a GAMEPLAY BODY rather
+    # than the alpha extent of the drawing. A character whose sheet says so is
+    # sized through `BodySource::SpriteAuthored { world_per_pixel }` and never
+    # touches `collision_scale`, so reporting it through the legacy formula
+    # would describe a path it is not on.
+    authored_body: bool = False
 
 
 def load_sheet(name: str) -> Sheet:
@@ -93,11 +99,28 @@ def load_sheet(name: str) -> Sheet:
         body_bbox=(bbox["x"], bbox["y"], bbox["w"], bbox["h"]) if bbox else None,
         feet_anchor_y=anchor["y"] if anchor else None,
         rows=record.get("rows") or [],
+        authored_body=bool(metrics.get("authored_body")),
     )
+
+
+def world_per_pixel(sheet: Sheet, collision: tuple[float, float]) -> float:
+    """The sprite-authored scale: stand this character at the authored height.
+
+    `BodySource::SpriteAuthored` takes ONE number and everything follows from
+    the art at that scale, so there is no second formula to keep in step. The
+    height is the authored quantity and the scale is derived from it — pinning
+    the scale instead would change how tall the character stands the first time
+    a regeneration re-crops him by a pixel.
+    """
+    _, _, _, body_h = sheet.body_bbox
+    return collision[1] / max(body_h, 1)
 
 
 def render_size(sheet: Sheet, collision: tuple[float, float], visual_scale: float):
     """`sprite_render_size_scaled` — the runtime formula, reproduced."""
+    if sheet.authored_body:
+        wpp = world_per_pixel(sheet, collision)
+        return sheet.frame_w * wpp, sheet.frame_h * wpp
     height = max(collision[0], collision[1], 8.0) * sheet.collision_scale * max(visual_scale, 0.05)
     width = height * (sheet.frame_w / sheet.frame_h)
     return width, height
@@ -110,6 +133,13 @@ def anchor_norm_y(sheet: Sheet, collision: tuple[float, float], render_h: float)
 
 def collider_in_frame_pixels(sheet: Sheet, collision: tuple[float, float], visual_scale: float):
     """Where the world collision box lands in sprite-frame pixel space."""
+    if sheet.authored_body:
+        # By construction it lands ON the authored rectangle: that IS the box,
+        # and the quad is placed by `ActorSpriteOffset` so the art's rectangle
+        # sits on it. Nothing here to reconcile — which is the entire argument
+        # for the seam.
+        bx, by, bw, bh = sheet.body_bbox
+        return float(bx), float(by), float(bx + bw), float(by + bh)
     rw, rh = render_size(sheet, collision, visual_scale)
     ay = anchor_norm_y(sheet, collision, rh)
     # x: the anchor is horizontally centred, so world x maps straight through.
@@ -190,7 +220,12 @@ def draw(sheet: Sheet, collision, visual_scale: float, out: Path, zoom: int = 3)
 
 
 def report(sheet: Sheet, collision, visual_scale: float) -> list[str]:
-    lines = [f"{sheet.target}: frame {sheet.frame_w}x{sheet.frame_h}, collision_scale {sheet.collision_scale}"]
+    how = (
+        f"AUTHORED body, world_per_pixel {world_per_pixel(sheet, collision):.4f}"
+        if sheet.authored_body and sheet.body_bbox
+        else f"measured body, collision_scale {sheet.collision_scale}"
+    )
+    lines = [f"{sheet.target}: frame {sheet.frame_w}x{sheet.frame_h}, {how}"]
     rw, rh = render_size(sheet, collision, visual_scale)
     lines.append(f"  collider {collision[0]:.0f}x{collision[1]:.0f}  ->  sprite quad {rw:.1f}x{rh:.1f}")
     drawn = drawn_body_in_world(sheet, collision, visual_scale)

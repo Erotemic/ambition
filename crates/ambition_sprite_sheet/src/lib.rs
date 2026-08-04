@@ -226,6 +226,22 @@ pub struct BodyMetrics {
     pub feet_pixel: Option<PixelPoint>,
     #[serde(default)]
     pub feet_anchor_norm: Option<NormPoint>,
+    /// **`body_pixel_bbox` is this character's GAMEPLAY BODY, not the extent of
+    /// its art.**
+    ///
+    /// The two rectangles were sharing one field. By default the generator
+    /// measures the idle frame's alpha bbox — hat, antenna, outstretched arms
+    /// and all — and a target that cares authors a tighter box instead
+    /// (`body_metrics_fn`, or a fractional `body_inset` of the measured one).
+    /// Nothing distinguished them, so a consumer asking "how big is this
+    /// character's body" could be handed a drawing, and the only way to scale a
+    /// character correctly was a hand-tuned [`SheetTuning::collision_scale`]
+    /// that nothing checked.
+    ///
+    /// `false` (the default, and the absent case) means MEASURED. Treat a
+    /// measured box as evidence about the art and not as a collision box.
+    #[serde(default)]
+    pub authored_body: bool,
 }
 
 /// Per-animation authored / derived hit + hurt box data. The

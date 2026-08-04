@@ -809,6 +809,8 @@ mod sprite_body_collision_tests {
             animations: Default::default(),
             feet_pixel: None,
             feet_anchor_norm: None,
+            // These fixtures are about the measured path, which is the default.
+            authored_body: false,
         }
     }
 

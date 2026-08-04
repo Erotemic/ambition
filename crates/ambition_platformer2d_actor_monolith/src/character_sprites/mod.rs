@@ -39,7 +39,8 @@ pub use ambition_sprite_sheet::{baked_sheet_registry, SheetRegistryPlugin};
 pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
 pub use anim::{pick_actor_anim, pick_player_anim, ActorAnimState, CharacterAnim};
 pub use posed_body::{
-    posed_body_geometry, sync_sprite_posed_bodies, PosedBodyGeometry, SpritePosedBody,
+    authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies, PosedBodyGeometry,
+    SpritePosedBody,
 };
 #[allow(
     unused_imports,

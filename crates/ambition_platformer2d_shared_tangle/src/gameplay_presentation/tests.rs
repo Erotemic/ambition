@@ -31,6 +31,23 @@ fn resolve(
     })
 }
 
+/// `resolve` with published control footprints — the overlay/surround rungs do
+/// nothing without them.
+fn resolve_with_footprints(
+    display: ae::Vec2,
+    insets: ScreenInsets,
+    profile: &GameplayPresentationProfile,
+    control_footprints: &ControlFootprints,
+) -> ResolvedGameplayPresentation {
+    resolve_gameplay_presentation(GameplayPresentationInput {
+        display_px: display,
+        safe_area_insets: insets,
+        profile,
+        occlusions: &[],
+        control_footprints: *control_footprints,
+    })
+}
+
 fn four_three() -> GameplayPresentationProfile {
     *profiles::fixed_four_by_three().for_environment(PresentationEnvironment::Desktop)
 }
@@ -209,6 +226,60 @@ fn stick(size: f32) -> ScreenOcclusion {
         ae::Vec2::new(2400.0, 1080.0),
     ))
     .expect("an anchored occluder resolves itself")
+}
+
+/// **An overlay control never lands outside the screen it is anchored to.**
+///
+/// The overlay rung placed at `footprint.preferred` unconditionally, so a safe
+/// rect smaller than a cluster produced `min = safe.max - size` — a corner
+/// outside the safe area, i.e. a control the player cannot reach. Its sibling
+/// rungs had asked `scale_within` the whole time.
+///
+/// ⚠ the second assertion is the one that keeps this honest: the fix must NOT
+/// shrink controls that already fit. A thumb is a fixed physical size, so a
+/// touch cluster should take MORE of a small screen, not less, and "make the
+/// buttons smaller" is the wrong reading of a cramped phone.
+#[test]
+fn an_overlay_control_stays_inside_the_screen_it_is_anchored_to() {
+    let footprints = ControlFootprints {
+        movement: Some(ControlFootprint::new(
+            ae::Vec2::splat(210.0),
+            ae::Vec2::splat(64.0),
+        )),
+        ..Default::default()
+    };
+    let profile = GameplayPresentationProfile::full_bleed();
+
+    // A window far too small for the authored cluster.
+    let tiny = ae::Vec2::new(180.0, 140.0);
+    let resolved = resolve_with_footprints(tiny, ScreenInsets::ZERO, &profile, &footprints);
+    let placed = resolved
+        .controls
+        .movement
+        .expect("a movement footprint was published");
+    let safe = resolved.display_safe_rect;
+    assert!(
+        placed.rect.min.x >= safe.min.x - 1e-3
+            && placed.rect.min.y >= safe.min.y - 1e-3
+            && placed.rect.max.x <= safe.max.x + 1e-3
+            && placed.rect.max.y <= safe.max.y + 1e-3,
+        "the movement control {:?} sits outside the safe area {safe:?} — a \
+         control off the edge of the screen cannot be pressed",
+        placed.rect,
+    );
+
+    // ...and a screen with room to spare is untouched.
+    let roomy = ae::Vec2::new(1600.0, 900.0);
+    let unchanged = resolve_with_footprints(roomy, ScreenInsets::ZERO, &profile, &footprints)
+        .controls
+        .movement
+        .expect("a movement footprint was published");
+    assert_eq!(
+        unchanged.scale, 1.0,
+        "a cluster that fits must keep its authored size: a thumb is the same \
+         size on every device, so shrinking touch controls to buy screen space \
+         trades a real problem for a worse one"
+    );
 }
 
 /// **A dialogue is laid out where it can be READ**, which is not the same

@@ -410,8 +410,33 @@ enum Corner {
 }
 
 /// The pre-existing behavior: full-size, anchored to a device-safe corner.
+///
+/// ⛔ **"full-size" was UNCONDITIONAL, and the whole scaling ladder beside it
+/// applied only to the surround rungs.** `place_in_column` asks
+/// `scale_within` — the largest uniform scale that still clears `minimum` — and
+/// this rung asked nothing, so a cluster larger than the safe rect got
+/// `min = safe.max - size`, which is a corner OUTSIDE the safe area. Controls
+/// placed off the edge of the screen are not merely ugly, they are unreachable,
+/// and the fallback ladder that exists to prevent exactly that was one function
+/// away. Found 2026-08-04 (queue D19), from the same family as everything else
+/// found that day: a mechanism wired into one path and not its sibling.
+///
+/// ⚠ **and it does NOT shrink controls that fit — `scale_within` caps at 1.0.**
+/// The tempting reading of Jon's Pixel 5 report is that the clusters are too big
+/// for a phone; that reading is wrong and this deliberately does not act on it.
+/// A thumb is a fixed PHYSICAL size, so a touch control should get *more* of a
+/// small screen, not less. The squeeze he feels is real and is solved on the
+/// text's side (`reading_rect`), not by making the buttons harder to hit.
+///
+/// So the only behaviour that changes is the case that was broken: a cluster
+/// that could not fit at all. Everything that fits is placed exactly where it
+/// was.
 fn overlay(footprint: ControlFootprint, safe: ScreenRect, corner: Corner) -> PlacedControl {
-    let size = footprint.preferred;
+    // `None` means even `minimum` does not fit, and there is no honest placement
+    // left — preferring the authored size keeps the old behaviour for a screen
+    // too small for controls at all, rather than inventing a third rule.
+    let scale = footprint.scale_within(safe.size()).unwrap_or(1.0);
+    let size = footprint.preferred * scale;
     let min = match corner {
         Corner::BottomLeft => ae::Vec2::new(safe.min.x, safe.max.y - size.y),
         Corner::BottomRight => ae::Vec2::new(safe.max.x - size.x, safe.max.y - size.y),
@@ -421,7 +446,7 @@ fn overlay(footprint: ControlFootprint, safe: ScreenRect, corner: Corner) -> Pla
         rect: ScreenRect::from_min_size(min, size),
         anchor: ControlAnchor::Overlay,
         reserved: false,
-        scale: 1.0,
+        scale,
     }
 }
 

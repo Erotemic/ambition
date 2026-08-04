@@ -36,7 +36,7 @@ pub fn build_demo_app_with_home(home_route: &str) -> App {
 /// minimal shell + the reusable provider + a launcher home. The provider is
 /// host-independent — only these host lines are host-specific.
 fn compose_mary_o_shell(app: &mut App, home_route: &str) {
-    use ambition_demo_mary_o::{MARY_O_GAMEPLAY_ROUTE, MaryOExperiencePlugin};
+    use ambition_demo_mary_o::{MaryOExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
 
     // The shell, the load coordinator, the loading presentation, the frontend
     // audio context and the two route registrations — the seven steps every
@@ -71,8 +71,21 @@ fn compose_mary_o_shell(app: &mut App, home_route: &str) {
 /// `tests/ov1_draws_the_world.rs` meaningful without a GPU.
 #[cfg(feature = "visible")]
 pub fn build_windowed_demo_app(render: RenderMode) -> App {
-    use bevy::render::RenderPlugin;
+    build_windowed_demo_app_with_home(render, ambition_demo_mary_o::MARY_O_LAUNCHER_ROUTE)
+}
+
+/// The windowed host with an explicitly named home route — the sibling of
+/// [`build_demo_app_with_home`], and the reason it exists is the same.
+///
+/// ⚠ **a capture needs the GAMEPLAY route, not the launcher.** Booting the
+/// default home and counting frames produces a blank picture: the launcher is
+/// where the shell starts, and no number of warmup ticks walks it into a level.
+/// That is not a hypothetical — it is what the first demo capture wrote
+/// (2026-08-04), and it is exactly the readiness contract
+/// `ambition_render::capture` says belongs to the caller.
+pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -> App {
     use bevy::render::settings::{RenderCreation, WgpuSettings};
+    use bevy::render::RenderPlugin;
     use bevy::window::{ExitCondition, WindowPlugin};
 
     let mut app = App::new();
@@ -95,17 +108,30 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
                     title: "Super Mary-O — 1-1".into(),
                     ..default()
                 }),
-                RenderMode::Headless => None,
+                RenderMode::Headless | RenderMode::OffscreenGpu => None,
             },
             exit_condition: match render {
                 RenderMode::Windowed => ExitCondition::OnAllClosed,
-                RenderMode::Headless => ExitCondition::DontExit,
+                RenderMode::Headless | RenderMode::OffscreenGpu => ExitCondition::DontExit,
             },
             close_when_requested: matches!(render, RenderMode::Windowed),
             ..default()
         });
     match render {
         RenderMode::Windowed => app.add_plugins(plugins),
+        // A real renderer with nothing to present to. `winit` is the only thing
+        // dropped, because a window is the only thing missing.
+        RenderMode::OffscreenGpu => {
+            // ⛔ **`winit` is also the RUNNER.** Disabling it leaves Bevy's
+            // default single-pass runner, so `app.run()` performs exactly ONE
+            // update and returns — the app exits 0 having rendered nothing, and
+            // a capture reports success with no file written. Found by trying
+            // it (2026-08-04).
+            app.add_plugins(plugins.disable::<bevy::winit::WinitPlugin>())
+                .add_plugins(bevy::app::ScheduleRunnerPlugin::run_loop(
+                    std::time::Duration::from_millis(0),
+                ))
+        }
         RenderMode::Headless => app.add_plugins(
             plugins
                 // These tests construct several Apps in one process. Logging
@@ -134,7 +160,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // Visible and headless hosts share one provider/shell/session lifecycle.
     // The provider installs Mary-O's content definitions before the shared asset
     // catalog is assembled below.
-    compose_mary_o_shell(&mut app, ambition_demo_mary_o::MARY_O_LAUNCHER_ROUTE);
+    compose_mary_o_shell(&mut app, home_route);
     // The UMBRELLA install, not a copy of it (2026-07-27). This shell used to
     // hand-roll ~90 lines here, and so did Sanic's, and the external-consumer
     // fixture recorded that a third party got neither — so it drew the world as
@@ -190,7 +216,8 @@ fn install_mary_o_audio(app: &mut App) {
     app.add_plugins(ambition_platformer2d::actors::audio::Platformer2dAudioPlugin)
         .add_systems(
             Startup,
-            setup_mary_o_audio_library.in_set(ambition_platformer2d::actors::schedule::PresentationSetupSet),
+            setup_mary_o_audio_library
+                .in_set(ambition_platformer2d::actors::schedule::PresentationSetupSet),
         );
 }
 
@@ -206,14 +233,15 @@ fn setup_mary_o_audio_library(
     let sfx = catalogs
         .sfx_for(ambition_demo_mary_o::MARY_O_EXPERIENCE)
         .expect("Mary-O provider registered its App-local SFX catalog");
-    let (library, music_state) = ambition_platformer2d::audio::library::AudioLibrary::new_with_playback_state(
-        &mut audio_sources,
-        sfx,
-        music,
-        None,
-        None,
-        None,
-    );
+    let (library, music_state) =
+        ambition_platformer2d::audio::library::AudioLibrary::new_with_playback_state(
+            &mut audio_sources,
+            sfx,
+            music,
+            None,
+            None,
+            None,
+        );
     commands.insert_resource(library);
     commands.insert_resource(music_state);
 }
@@ -226,4 +254,15 @@ pub enum RenderMode {
     Windowed,
     /// The render graph, no backend, no window. What CI wants.
     Headless,
+    /// **No window and a REAL backend** — the mode that can produce pixels
+    /// without a display.
+    ///
+    /// ⛔ `Headless` cannot be used for this: it sets `backends: None`, so there
+    /// is no RenderApp and nothing to read a texture out of. That difference is
+    /// invisible until you try to photograph something, which is why this run
+    /// found it by trying (queue D20).
+    ///
+    /// Everything a window would have given us stays: `CorePipelinePlugin`, the
+    /// gizmo pass, the real wgpu backend. Only `winit` and the window itself go.
+    OffscreenGpu,
 }

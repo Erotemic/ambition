@@ -1,0 +1,135 @@
+//! **Photograph Mary-O.**
+//!
+//! ⛔ **before this, four of the five games could not be looked at at all.** The
+//! only capture tool here is `capture_scene`, which composes `ambition_app` —
+//! Ambition's rooms, Ambition's content. So every visual claim about Mary-O,
+//! Sanic, Smash or Pocket was argued rather than seen, and on 2026-08-04 two
+//! changes to Mary-O's own art landed unlooked-at for exactly that reason
+//! (queue D20).
+//!
+//! ⭐ **this binary is deliberately small, and that is the evidence.** Everything
+//! hard — building a render target, pointing the cameras at it, reading the
+//! texture back, writing the PNG, exiting — is `ambition_render::capture`, shared
+//! and game-agnostic. What is left here is the part that genuinely differs
+//! between games: which app to build, and when its world is worth photographing.
+//! If a second demo needs more than this file's length, the split is in the
+//! wrong place.
+//!
+//! ```text
+//! cargo run -p ambition_demo_mary_o_app --features visible --bin capture_mary_o \
+//!     -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--no-ui]
+//! ```
+
+use std::path::PathBuf;
+
+use ambition_platformer2d::render::capture::{
+    adopt_cameras_into_capture_target, finish_after_capture, request_capture, setup_capture_target,
+    CaptureProgress, CaptureSettings, CaptureTarget,
+};
+use bevy::prelude::*;
+
+/// Frames to advance before shooting. A demo boots its shell, loads a room and
+/// spawns a body; a capture taken before that is a picture of an empty world.
+#[derive(Resource)]
+struct Warmup {
+    remaining: u32,
+}
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let mut output = PathBuf::from("mary_o.png");
+    let mut size = UVec2::new(960, 540);
+    let mut warmup = 90u32;
+    let mut include_ui = true;
+
+    let mut positional_seen = false;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--warmup" => {
+                warmup = args
+                    .next()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or_else(|| fail("--warmup needs a frame count"));
+            }
+            "--no-ui" => include_ui = false,
+            other if other.starts_with("--") => fail(&format!("unknown flag '{other}'")),
+            other if !positional_seen => {
+                output = PathBuf::from(other);
+                positional_seen = true;
+            }
+            other => {
+                // WIDTHxHEIGHT, the same shape `capture_scene` takes, so a
+                // command line moves between the two tools unchanged.
+                let Some((w, h)) = other.split_once('x') else {
+                    fail(&format!("expected WIDTHxHEIGHT, got '{other}'"));
+                };
+                let (Ok(w), Ok(h)) = (w.parse(), h.parse()) else {
+                    fail(&format!("expected WIDTHxHEIGHT, got '{other}'"));
+                };
+                size = UVec2::new(w, h);
+            }
+        }
+    }
+
+    // ⚠ `OffscreenGpu`, never `Headless`: headless sets `backends: None`, so
+    // there is no RenderApp and no texture to read. See `RenderMode`.
+    // ⚠ the GAMEPLAY route, not the default launcher home. Booting the launcher
+    // and counting frames writes a blank PNG — no amount of warmup walks a menu
+    // into a level, and that is the readiness contract `capture` hands back to
+    // the caller. It is also literally what the first attempt produced.
+    let mut app = ambition_demo_mary_o_app::build_windowed_demo_app_with_home(
+        ambition_demo_mary_o_app::RenderMode::OffscreenGpu,
+        ambition_demo_mary_o::MARY_O_GAMEPLAY_ROUTE,
+    );
+    app.insert_resource(CaptureSettings {
+        output,
+        size,
+        include_ui,
+    });
+    app.init_resource::<CaptureProgress>();
+    app.insert_resource(Warmup { remaining: warmup });
+    app.add_systems(Startup, setup_capture_target);
+    app.add_systems(
+        Update,
+        (
+            adopt_cameras_into_capture_target,
+            shoot_when_warm,
+            finish_after_capture,
+        )
+            .chain(),
+    );
+    app.run();
+}
+
+/// Count the world in, then ask for the picture.
+///
+/// ⛔ **it waits for an ADOPTED camera, not just for frames.** A demo builds its
+/// cameras when its shell resolves a route, which is well after `Startup`;
+/// shooting before then reads back 960x540 pixels of `(0,0,0,0)` and reports
+/// success. That is not hypothetical — it is what the first two attempts wrote,
+/// and it took printing the pixel values to tell "nothing drew" apart from "the
+/// scene is white". Warmup only starts counting once something is drawing.
+fn shoot_when_warm(
+    mut commands: Commands,
+    target: Option<Res<CaptureTarget>>,
+    mut progress: ResMut<CaptureProgress>,
+    mut warmup: ResMut<Warmup>,
+) {
+    let Some(target) = target else {
+        return;
+    };
+    if target.adopted == 0 {
+        return;
+    }
+    if warmup.remaining > 0 {
+        warmup.remaining -= 1;
+        return;
+    }
+    request_capture(&mut commands, &target, &mut progress);
+}
+
+fn fail(message: &str) -> ! {
+    eprintln!("capture_mary_o: {message}");
+    eprintln!("usage: capture_mary_o OUT.png [WIDTHxHEIGHT] [--warmup N] [--no-ui]");
+    std::process::exit(2);
+}

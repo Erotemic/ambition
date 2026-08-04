@@ -46,3 +46,11 @@ bevy_kira_audio = { version = "0.25", default-features = false, features = ["ogg
 [[test]]
 name = "mary_o_it"
 path = "tests/mary_o_it.rs"
+
+# ⚠ `required-features`, or `cargo check --all-targets` (the no-warnings job)
+# tries to build this against a crate whose `build_windowed_demo_app` and
+# `RenderMode` are both behind `visible` and fails on a binary nobody asked for.
+[[bin]]
+name = "capture_mary_o"
+path = "src/bin/capture_mary_o.rs"
+required-features = ["visible"]

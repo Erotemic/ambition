@@ -19,6 +19,8 @@ input = ["ambition_sim_view/input"]
 portal_render = ["dep:ambition_portal2d_presentation"]
 
 [dependencies]
+# PNG encoding for `capture` — the entire visual channel on a machine with no display.
+image = { version = "0.25", default-features = false, features = ["png"] }
 ambition_sim_view = { path = "../ambition_sim_view" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_projectiles = { path = "../ambition_projectiles" }

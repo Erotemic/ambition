@@ -115,10 +115,19 @@ pub fn begin_death_sequence(
     >,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    // Drain unconditionally so a death that landed during a load cannot be
-    // re-read and charged to the next attempt (the same rule the life counter
-    // follows).
-    let Some(death) = deaths.read().last().cloned() else {
+    // ⭐ **filter by VICTIM, not "the last death".** This used to take whatever
+    // died most recently and apply it to the controlled subject, which is right
+    // only while one body can die at all. It is still drained unconditionally so
+    // a death that landed during a load cannot be re-read and charged to the next
+    // attempt (the same rule the life counter follows) — the filter narrows what
+    // is USED, not what is consumed (GPT 5.6 review, 2026-08-04).
+    let mine = subject.as_deref().and_then(|subject| subject.0);
+    let Some(death) = deaths
+        .read()
+        .filter(|death| mine.is_none_or(|body| death.victim == body))
+        .last()
+        .cloned()
+    else {
         return;
     };
     let Ok(mut sequence) = sequences.single_mut() else {

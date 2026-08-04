@@ -147,6 +147,24 @@ use bevy::prelude::{Message, Resource};
 /// (`SfxMessage` / `VfxMessage` / `DebrisBurstMessage`).
 #[derive(Message, Clone, Debug)]
 pub struct ActorDiedMessage {
+    /// **WHO died.**
+    ///
+    /// ⛔ **this message carried no victim at all**, so a consumer could only
+    /// take the last death and assume it was theirs. Mary-O does exactly that —
+    /// reads the latest message and applies it to the current
+    /// `ControlledSubject` — and it works only because emission is effectively
+    /// restricted to the one controlled body today. The moment two participants
+    /// can die, that consumer cannot tell whose death it is holding (GPT 5.6
+    /// review, 2026-08-04).
+    ///
+    /// ⚠ **an `Entity` is a SAME-FRAME identity, not a durable one.** Bevy
+    /// recycles indices, so this is right for a consumer filtering "was that my
+    /// body, this tick" and wrong for a replay or a peer. A durable
+    /// victim identity — participant, or the body's stable
+    /// `PresentationSourceId` — is what multiplayer attribution will need, and
+    /// naming that here is the point of writing it down rather than discovering
+    /// it later.
+    pub victim: bevy::prelude::Entity,
     pub pos: ae::Vec2,
     pub cause: DeathCause,
 }

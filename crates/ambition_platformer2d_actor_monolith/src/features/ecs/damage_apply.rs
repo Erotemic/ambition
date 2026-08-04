@@ -322,6 +322,9 @@ pub fn resolve_body_hit(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn death_respawn_player(
+    // WHO died — see `ActorDiedMessage::victim`. Threaded rather than re-derived:
+    // `handle_player_damage_events` already holds it as `player_entity`.
+    victim: Entity,
     world: &ae::World,
     sfx: &mut SfxWriter,
     // G1: the dying body's own presentation source. A death is the most
@@ -371,7 +374,11 @@ pub(crate) fn death_respawn_player(
     ));
     sfx.write_for_body(victim_source, SfxMessage::Death { pos: from });
     vfx.write(VfxMessage::ResetEffects { from, to });
-    died.write(ActorDiedMessage { pos: from, cause });
+    died.write(ActorDiedMessage {
+        victim,
+        pos: from,
+        cause,
+    });
 }
 
 /// **The two things a death ANNOUNCES**, bundled because Bevy caps a system at
@@ -647,6 +654,7 @@ pub(crate) fn handle_player_damage_events(
                 attacker: damage.attacker,
             };
             death_respawn_player(
+                player_entity,
                 world,
                 sfx,
                 victim_source,
@@ -1074,13 +1082,14 @@ pub fn incoming_player_damage_multiplier(
 /// teleports to the player spawn, so it never sets this flag.
 pub fn publish_kernel_reset_death(
     mut died: MessageWriter<ActorDiedMessage>,
-    bodies: Query<&crate::avatar::PlayerBodyFrameOutput, PrimaryPlayerOnly>,
+    bodies: Query<(Entity, &crate::avatar::PlayerBodyFrameOutput), PrimaryPlayerOnly>,
 ) {
-    for frame_out in &bodies {
+    for (victim, frame_out) in &bodies {
         let Some(reset) = frame_out.reset else {
             continue;
         };
         died.write(ActorDiedMessage {
+            victim,
             pos: reset.origin,
             // The kernel gate now says WHICH world killed her, so this reports
             // it instead of apologizing for not knowing. No entity claims any

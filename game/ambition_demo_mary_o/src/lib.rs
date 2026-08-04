@@ -1887,7 +1887,11 @@ fn spend_lives_on_death(
     // Drain unconditionally: the cursor must advance even on a frame with no
     // level, or a death that landed during a load would be re-read later and
     // charged to the next attempt.
-    let died = deaths.read().count() > 0;
+    //
+    // ⚠ **drain FIRST, filter after.** The victim filter below needs the body
+    // query, and the early returns between here and there must not be allowed to
+    // skip the drain — that is the invariant this comment has always been about.
+    let victims: Vec<bevy::prelude::Entity> = deaths.read().map(|death| death.victim).collect();
 
     let Ok((mut level, mut death_beat)) = level.single_mut() else {
         return;
@@ -1899,9 +1903,14 @@ fn spend_lives_on_death(
     // version got this for free by querying the body's `BodyLifetime`; the
     // authoritative signal does not need the body, so the guard is now
     // explicit.)
-    let Some((_, kin)) = bodies.iter().next() else {
+    let Some((body, kin)) = bodies.iter().next() else {
         return;
     };
+    // ⭐ **HER death, not any death.** This used to count every `ActorDiedMessage`
+    // in the frame, which is right only while one body can die: an enemy dying
+    // would have spent one of her lives the moment anything else emitted the
+    // fact (GPT 5.6 review, 2026-08-04).
+    let died = victims.contains(&body);
     let died_at = kin.map(|kin| kin.pos);
 
     // The clock reaching zero is its own death, and it must not fire twice
@@ -2979,8 +2988,17 @@ mod tests {
             app
         }
         fn kill(app: &mut App) {
+            // The life counter charges HER death, so the fixture has to say the
+            // body died — an unattributed death now spends nothing, correctly.
+            let victim = app
+                .world_mut()
+                .query_filtered::<bevy::prelude::Entity, bevy::prelude::With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>()
+                .iter(app.world())
+                .next()
+                .expect("the fixture spawns the primary player before killing it");
             app.world_mut()
                 .write_message(ambition_platformer2d::actors::ActorDiedMessage {
+                    victim,
                     pos: ambition_platformer2d::engine_core::Vec2::ZERO,
                     cause: ambition_platformer2d::actors::DeathCause {
                         source: ambition_platformer2d::combat::HitSource::Hazard,

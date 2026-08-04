@@ -44,9 +44,18 @@ fn spawn_owner_and_body(app: &mut App, at: ae::Vec2) -> bevy::prelude::Entity {
     body
 }
 
+/// ⚠ **the victim is the CONTROLLED SUBJECT**, because the beat only reacts to
+/// her death now. A fixture that emits an unattributed death is emitting
+/// something the engine cannot produce.
 fn kill(app: &mut App, at: ae::Vec2) {
+    let victim = app
+        .world()
+        .resource::<ambition_platformer2d::platformer::markers::ControlledSubject>()
+        .0
+        .expect("the fixture seats a controlled body before killing it");
     app.world_mut()
         .write_message(ambition_platformer2d::actors::ActorDiedMessage {
+            victim,
             pos: at,
             cause: ambition_platformer2d::actors::DeathCause {
                 source: ambition_platformer2d::actors::combat::HitSource::EnemyBody,
@@ -139,11 +148,11 @@ fn the_death_beat_makes_her_untouchable_and_gives_her_back() {
     let mut app = app();
     let died_at = ae::Vec2::new(64.0, 32.0);
     let body = spawn_owner_and_body(&mut app, died_at);
-    app.world_mut()
-        .entity_mut(body)
-        .insert(ambition_platformer2d::characters::actor::BodyHealth::new(
+    app.world_mut().entity_mut(body).insert(
+        ambition_platformer2d::characters::actor::BodyHealth::new(
             ambition_platformer2d::characters::actor::Health::new(1),
-        ));
+        ),
+    );
     kill(&mut app, died_at);
     app.update();
 
@@ -155,7 +164,10 @@ fn the_death_beat_makes_her_untouchable_and_gives_her_back() {
             .invulnerable
             .holds(ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED)
     };
-    assert!(immune(&mut app), "the beat holds her untouchable while it plays");
+    assert!(
+        immune(&mut app),
+        "the beat holds her untouchable while it plays"
+    );
 
     // ...and RELEASES it. An immunity a scripted beat forgets to drop is worse
     // than the bug it fixed: she would walk the replay invincible.
@@ -213,13 +225,12 @@ fn a_quiet_level_never_restarts_itself() {
         app.update();
         assert_eq!(replays(&mut app), 0);
     }
-    assert!(
-        !app.world_mut()
-            .query::<&MaryODeathSequence>()
-            .single(app.world())
-            .unwrap()
-            .active()
-    );
+    assert!(!app
+        .world_mut()
+        .query::<&MaryODeathSequence>()
+        .single(app.world())
+        .unwrap()
+        .active());
 }
 
 /// **The death track is DECLARED, not just requested.**

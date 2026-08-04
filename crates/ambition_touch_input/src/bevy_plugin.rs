@@ -1060,12 +1060,40 @@ pub fn touch_action_available(action: TouchActionButton, prompt: &ControlPrompt)
     }
 }
 
-/// Zero the held flag of any action unavailable this frame, so an unavailable
+/// **Is this button LIVE this frame — drawn AND touchable?**
+///
+/// ⛔ **the drawn overlay and its touch targets used to answer this with
+/// different expressions, and the difference was exactly one term.** Visibility
+/// asked `(gameplay || always_available) && touch_action_available(..)`; the
+/// touch mask asked `touch_action_available(..)` alone, under a comment claiming
+/// "one availability source of truth". During DIALOGUE the dialogue prompt marks
+/// Jump and Interact as confirm buttons, so the mask kept them live while the
+/// `gameplay_owned()` term hid them — **an invisible pair of buttons sitting over
+/// the dialogue panel**, which is Jon's report from a Pixel 5: touching an
+/// apparently empty area advances dialogue, and touching a visible choice can
+/// activate a hidden HUD action instead.
+///
+/// So both halves call THIS, and a button cannot be drawn and untouchable or
+/// touchable and undrawn.
+///
+/// `Start` and `Reset` are exempt from the gameplay term on purpose: they are
+/// shell verbs — pause, restart — and hiding them is how a phone with no keyboard
+/// loses its way out.
+pub fn touch_action_live(
+    action: TouchActionButton,
+    prompt: &ControlPrompt,
+    gameplay_owns_input: bool,
+) -> bool {
+    let always_available = matches!(action, TouchActionButton::Start | TouchActionButton::Reset);
+    (gameplay_owns_input || always_available) && touch_action_available(action, prompt)
+}
+
+/// Zero the held flag of any action not LIVE this frame, so an unavailable
 /// action never registers touch — even through the raw fixed-layout hit test —
 /// and a held action that becomes unavailable produces a clean release edge
 /// (never a stuck hold or a dangling pending press).
-fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt) {
-    let avail = |a| touch_action_available(a, prompt);
+fn mask_unavailable(now: &mut TouchButtonEdges, prompt: &ControlPrompt, gameplay: bool) {
+    let avail = |a| touch_action_live(a, prompt, gameplay);
     now.jump &= avail(TouchActionButton::Jump);
     now.attack &= avail(TouchActionButton::Attack);
     now.special &= avail(TouchActionButton::Special);
@@ -1152,9 +1180,7 @@ pub fn sync_touch_button_visibility_from_prompt(
         .is_none_or(|seats| seats.primary().gameplay_owned());
 
     for (action, mut vis) in &mut buttons {
-        let always_available =
-            matches!(action, TouchActionButton::Start | TouchActionButton::Reset);
-        let target = if (gameplay || always_available) && touch_action_available(*action, &prompt) {
+        let target = if touch_action_live(*action, &prompt, gameplay) {
             Visibility::Inherited
         } else {
             Visibility::Hidden
@@ -1367,9 +1393,16 @@ fn update_buttons_from_interactions(
     windows: Query<&Window, With<PrimaryWindow>>,
     placement: Res<crate::placement::TouchControlPlacement>,
     prompt: Res<ControlPrompt>,
+    // The SAME term the visibility pass reads. Optional for the same reason it is
+    // optional there: this overlay composes into apps that never install the
+    // participant-context resolver, and absent, the prompt-only behaviour stands.
+    active_context: Option<Res<ambition_input::SeatInputContexts>>,
     mut state: ResMut<MobileTouchState>,
     mut edges: ResMut<TouchButtonEdges>,
 ) {
+    let gameplay = active_context
+        .as_deref()
+        .is_none_or(|seats| seats.primary().gameplay_owned());
     let mut now = TouchButtonEdges::default();
 
     // Desktop / editor path: Bevy UI interactions are enough for
@@ -1411,9 +1444,11 @@ fn update_buttons_from_interactions(
         }
     }
 
-    // A button hidden by the current prompt must not register touch even via
-    // the raw fixed-layout hit test above — one availability source of truth.
-    mask_unavailable(&mut now, &prompt);
+    // A button HIDDEN must not register touch even via the raw fixed-layout hit
+    // test above. `touch_action_live` is now literally the one source of truth —
+    // the visibility pass calls the same function with the same two inputs, so
+    // the drawn overlay and its touch targets cannot disagree.
+    mask_unavailable(&mut now, &prompt, gameplay);
 
     let make_btn = |held_now: bool, held_prev: bool| super::TouchButton {
         held: held_now,
@@ -1836,6 +1871,53 @@ mod prompt_tests {
         assert!(!touch_action_available(TouchActionButton::Jump, &e));
         assert!(!touch_action_available(TouchActionButton::Attack, &e));
         assert!(touch_action_available(TouchActionButton::Start, &e));
+    }
+
+    /// **A button hidden because gameplay does not own input is not tappable
+    /// either** — the half `hidden_action_is_not_tappable_end_to_end` did not
+    /// cover, and the one Jon hit on a Pixel 5.
+    ///
+    /// During DIALOGUE the prompt marks Jump and Interact as confirm buttons, so
+    /// the prompt term says "available" while the `gameplay_owned()` term hides
+    /// them. The mask consulted only the prompt, so those two buttons stayed
+    /// LIVE while invisible — a pair of dead zones sitting over the dialogue
+    /// panel. Touching an apparently empty area advanced dialogue; touching a
+    /// visible choice could activate a hidden HUD action instead.
+    ///
+    /// ⚠ this asserts the BEHAVIOUR, not that both call one function. The two
+    /// halves agreeing today is a fact about one `touch_action_live` call; what
+    /// must not come back is a second expression anywhere.
+    #[test]
+    fn a_button_hidden_by_context_is_not_tappable_either() {
+        let mut app = App::new();
+        // Dialogue owns input: the PROMPT says Jump is a confirm button...
+        app.insert_resource(menu_prompt("Select"));
+        // ...and no seat owns gameplay, which is what hides it.
+        app.init_resource::<ambition_input::SeatInputContexts>();
+        app.init_resource::<Touches>();
+        app.init_resource::<ButtonInput<MouseButton>>();
+        app.init_resource::<MobileTouchState>();
+        app.init_resource::<TouchButtonEdges>();
+        app.init_resource::<crate::placement::TouchControlPlacement>();
+        app.add_systems(Update, update_buttons_from_interactions);
+        app.world_mut()
+            .spawn((Button, Interaction::Pressed, TouchActionButton::Jump));
+        app.world_mut()
+            .spawn((Button, Interaction::Pressed, TouchActionButton::Start));
+        app.update();
+
+        let state = &app.world().resource::<MobileTouchState>().0;
+        assert!(
+            !state.jump.held,
+            "Jump is HIDDEN while a dialogue owns input, so its screen region \
+             must be dead — a hidden button that still registers is an invisible \
+             control sitting over the dialogue the player is trying to touch"
+        );
+        assert!(
+            state.start.held,
+            "Start is exempt from the gameplay term on purpose — it is a shell \
+             verb, and hiding it is how a phone with no keyboard loses its way out"
+        );
     }
 
     #[test]

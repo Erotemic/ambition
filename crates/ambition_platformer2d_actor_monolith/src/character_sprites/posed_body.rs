@@ -171,9 +171,12 @@ pub fn sync_sprite_posed_bodies(
         Option<&mut ae::BodyBaseSize>,
         Option<&ActorRenderSize>,
         Option<&ActorSpriteOffset>,
+        // **The STANCE, which composes with the pose rather than competing with
+        // it.** Absent ⇒ a body that never body-modes, and the pose IS the box.
+        Option<&ae::BodyModeState>,
     )>,
 ) {
-    for (entity, posed, pinned, mut kin, base_size, render_size, offset) in &mut bodies {
+    for (entity, posed, pinned, mut kin, base_size, render_size, offset, body_mode) in &mut bodies {
         let anim = pinned.map_or(CharacterAnim::Idle, |o| o.0);
         let Some(geometry) = posed_body_geometry(&posed.target, anim, posed.world_per_pixel) else {
             continue;
@@ -198,7 +201,27 @@ pub fn sync_sprite_posed_bodies(
                 }
             }
         }
-        if kin.size != geometry.collision {
+        // **The pose says how big the body IS; the MODE says what it is doing
+        // with it, and the box is the composition of the two.**
+        //
+        // ⛔ writing `geometry.collision` straight into `kin.size` silently
+        // undid every stance. The crouch is applied ONCE, on the tick the mode
+        // changes — `body_mode::mechanics` does `if mode == target { continue }`
+        // and `try_change_body_mode_clusters` early-returns on an unchanged mode
+        // — so nothing re-asserts the shorter box afterwards, while THIS pass
+        // runs every tick. A body on this seam crouched for one tick and then
+        // stood back up inside its own crouch, with `BodyModeState` still saying
+        // `Crouching`. Probed red before the fix
+        // (`a_stance_survives_the_per_tick_resync`).
+        //
+        // `BodyMode::shape` is the same function the stance transition uses, so
+        // the two cannot disagree about what crouching means — and applying it
+        // to the POSE's rectangle rather than to `base_size` is what keeps this
+        // right for a body whose silhouette changes shape: a boxed snake that
+        // crouched would otherwise crouch from its sprawled height.
+        let posed_collision = body_mode
+            .map_or(geometry.collision, |mode| mode.body_mode.shape(geometry.collision).size);
+        if kin.size != posed_collision {
             // Feet-anchored, through the engine's one feet-planted resize op:
             // hold the +gravity face and move the centre by half the change, so a
             // withdraw/emerge never drives the body through the ground it is
@@ -206,7 +229,7 @@ pub fn sync_sprite_posed_bodies(
             // 0024 forbids precisely because it re-derives an authority that
             // already exists. Bodies on this seam are ordinary gravity-down
             // actors; a flipped-gravity variant passes its own gravity instead.
-            ae::resize_feet_planted(&mut kin, geometry.collision, ae::DEFAULT_GRAVITY_DIR);
+            ae::resize_feet_planted(&mut kin, posed_collision, ae::DEFAULT_GRAVITY_DIR);
         }
         if render_size.map(|r| r.0) != Some(geometry.render) {
             commands

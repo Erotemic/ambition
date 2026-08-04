@@ -151,6 +151,59 @@ fn the_resize_holds_the_feet() {
     );
 }
 
+/// **A crouching body stays crouched.**
+///
+/// The stance is applied ONCE, on the tick the mode changes: the crouch
+/// mechanics `continue` when the body is already in the target mode, so nothing
+/// re-asserts the shorter box on later ticks. This pass, meanwhile, runs every
+/// tick. Writing the pose's standing rectangle straight into `kin.size` was
+/// therefore not "keeping the box in step with the art" — it was silently
+/// undoing every stance the moment it stopped changing, leaving the body mode
+/// saying `Crouching` and the collider standing at full height.
+///
+/// The pose says how big the body is; the MODE says what it is doing with it.
+/// Both are facts, and the box is the composition of the two.
+#[test]
+fn a_stance_survives_the_per_tick_resync() {
+    let mut app = bevy::prelude::App::new();
+    let standing = geometry(CharacterAnim::Idle);
+    let entity = app
+        .world_mut()
+        .spawn((
+            SpritePosedBody::new(SNAKE, SCALE),
+            ae::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                vel: ae::Vec2::ZERO,
+                size: standing.collision,
+                facing: 1.0,
+            },
+            ae::BodyModeState {
+                body_mode: ae::BodyMode::Crouching,
+                ..Default::default()
+            },
+        ))
+        .id();
+    app.add_systems(bevy::prelude::Update, sync_sprite_posed_bodies);
+    // Twice: once to settle, once to prove it is not a first-tick effect. The
+    // defect this pins is a per-tick overwrite, so a single step could pass by
+    // accident on a system that happens to run before the stance is applied.
+    app.update();
+    app.update();
+
+    let kin = app
+        .world()
+        .get::<ae::BodyKinematics>(entity)
+        .copied()
+        .expect("kinematics");
+    let crouched = ae::BodyMode::Crouching.shape(standing.collision).size;
+    assert_eq!(
+        kin.size, crouched,
+        "a crouching body was resynced back to its standing box ({:?}) — the \
+         stance is applied once, on the mode change, and nothing re-asserts it",
+        standing.collision,
+    );
+}
+
 #[test]
 fn the_pose_pin_drives_the_geometry_the_renderer_is_told_about() {
     let mut app = bevy::prelude::App::new();

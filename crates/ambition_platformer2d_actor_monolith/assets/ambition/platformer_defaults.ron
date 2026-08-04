@@ -30,6 +30,7 @@
         glide: true,
         dodge: true,
         shield: true,
+        interact: true,
     ),
     tuning: (
         gravity: 2250.0,

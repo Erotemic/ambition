@@ -786,14 +786,53 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
 
     // Start and Reset are deliberately exempt: shell-shaped verbs, and a phone
     // with no keyboard needs its way out of a game.
+    //
+    // ⚠ **Jump and Interact are exempt too now, and that is a CHANGE (2026-08-04)
+    // rather than a loosening.** This screen publishes
+    // `ControlPrompt { context: Menu, menu_confirm: Some("Play") }` — measured —
+    // and `touch_action_available`'s Menu branch has always admitted exactly the
+    // menu-confirm buttons plus the menu row. So on the game-select screen those
+    // two ARE the Play button: they wear its label and pressing one picks the
+    // game. The test's original premise, "gameplay verbs that do nothing there",
+    // was true of Attack and Dash and never of these.
+    //
+    // What it asserted, meanwhile, was the opposite of what the availability rule
+    // said — and the touch overlay agreed with the TEST rather than the rule,
+    // which is the divergence Jon hit from a phone: no on-screen way to confirm,
+    // so the corner back button was the only route. The invariant kept here is
+    // the one that was always meant: **nothing is advertised that does nothing.**
+    let menu_functional = |action: &TouchActionButton| {
+        matches!(
+            action,
+            TouchActionButton::Start
+                | TouchActionButton::Reset
+                | TouchActionButton::Jump
+                | TouchActionButton::Interact
+        )
+    };
     let advertised: Vec<TouchActionButton> = all
         .iter()
+        .filter(|(action, _)| !menu_functional(action))
+        .filter(|(_, visibility)| *visibility != Visibility::Hidden)
+        .map(|(action, _)| *action)
+        .collect();
+
+    // And the other half, which the original could not state: the screen must
+    // OFFER a confirm. A launcher that advertises nothing is the phone bug.
+    let confirms: Vec<TouchActionButton> = all
+        .iter()
         .filter(|(action, _)| {
-            !matches!(action, TouchActionButton::Start | TouchActionButton::Reset)
+            matches!(action, TouchActionButton::Jump | TouchActionButton::Interact)
         })
         .filter(|(_, visibility)| *visibility != Visibility::Hidden)
         .map(|(action, _)| *action)
         .collect();
+    assert!(
+        !confirms.is_empty(),
+        "the game-select screen shows no confirm control at all, so a phone \
+         player has no on-screen way to pick a game — which is the report this \
+         behaviour came from"
+    );
 
     assert!(
         advertised.is_empty(),

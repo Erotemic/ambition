@@ -35,6 +35,9 @@ pub struct EditableAbilitySet {
     pub glide: bool,
     pub dodge: bool,
     pub shield: bool,
+    /// World interaction (talk / open). A dev toggle over the same ability the
+    /// character's grant list decides — see `AbilitySet::interact`.
+    pub interact: bool,
 }
 
 impl EditableAbilitySet {
@@ -66,6 +69,7 @@ impl EditableAbilitySet {
             glide: self.glide,
             dodge: self.dodge,
             shield: self.shield,
+            interact: self.interact,
         }
     }
 }
@@ -99,6 +103,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             glide: value.glide,
             dodge: value.dodge,
             shield: value.shield,
+            interact: value.interact,
         }
     }
 }

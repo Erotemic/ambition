@@ -110,6 +110,32 @@ pub struct AbilitySet {
     /// (projectile reflection, counter stun).
     #[serde(default)]
     pub shield: bool,
+    /// **World interaction: talk, open, read.** Resolved against nearby
+    /// interactables at press time, so this flag is only "does this body have the
+    /// verb at all" — the world half was always handled downstream.
+    ///
+    /// ⛔ **it used to be UNCONDITIONAL.** `derive_action_scheme` upserted an
+    /// Interact action for every controllable body, with the comment *"Interact
+    /// is available to every controllable subject"* — an assumption about the
+    /// GAME rather than about the body, so a game with nothing to interact with
+    /// put a button on screen that never did anything. Jon, from a phone: *"maryo
+    /// has more than 2 on screen buttons … that shouldn't be the case for her."*
+    ///
+    /// ⚠ **absent from [`Self::NONE`] on purpose, which is what makes a
+    /// restricted kit restrictive.** `compose` folds grants from `NONE`, so a
+    /// character authoring a grant list gets exactly what it asked for — and
+    /// [`AbilityGrant::RunJump`], "the minimal kit a platformer protagonist
+    /// needs", carries no talk verb, faithfully to the game it is named after.
+    /// `basic` / `sane_subset` / `sandbox_all` all keep it.
+    ///
+    /// ⚠ **`serde` default is TRUE, not `bool::default()`.** Authored data that
+    /// predates this field (the shipped `platformer_defaults.ron`, a save, an
+    /// authored spec) must keep the verb it had — a missing field meaning "no
+    /// interact" would silently take talking away from every body loaded from
+    /// data, which is the opposite of the conservative reading and would not
+    /// fail loudly anywhere.
+    #[serde(default = "yes")]
+    pub interact: bool,
 }
 
 impl AbilitySet {
@@ -142,6 +168,7 @@ impl AbilitySet {
             glide: false,
             dodge: false,
             shield: false,
+            interact: true,
         }
     }
 
@@ -174,6 +201,7 @@ impl AbilitySet {
             glide: true,
             dodge: true,
             shield: true,
+            interact: true,
         }
     }
 
@@ -213,6 +241,7 @@ impl AbilitySet {
             glide: false,
             dodge: false,
             shield: false,
+            interact: true,
         }
     }
 
@@ -250,6 +279,7 @@ impl AbilitySet {
         glide: false,
         dodge: false,
         shield: false,
+        interact: false,
     };
 
     /// Field-wise OR: a verb is granted if *either* set grants it.
@@ -290,6 +320,7 @@ impl AbilitySet {
             glide: self.glide || other.glide,
             dodge: self.dodge || other.dodge,
             shield: self.shield || other.shield,
+            interact: self.interact || other.interact,
         }
     }
 
@@ -332,6 +363,7 @@ impl AbilitySet {
             glide: self.glide && mask.glide,
             dodge: self.dodge && mask.dodge,
             shield: self.shield && mask.shield,
+            interact: self.interact && mask.interact,
         }
     }
 
@@ -407,6 +439,12 @@ impl AbilitySet {
         }
         warnings
     }
+}
+
+/// `serde` default for [`AbilitySet::interact`]: data that does not mention the
+/// field describes a body from before it existed, and that body could interact.
+fn yes() -> bool {
+    true
 }
 
 impl Default for AbilitySet {

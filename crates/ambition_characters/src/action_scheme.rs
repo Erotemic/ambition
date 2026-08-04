@@ -372,7 +372,8 @@ fn combat_actions(
 /// Derive a body's action scheme from its live authorities.
 ///
 /// - **Movement** actions from the `AbilitySet` (jump/dash/blink/fly/shield).
-/// - **Interact** is universal — every controllable body can attempt it.
+/// - **Interact** when the body's `AbilitySet` grants it. Not universal: a
+///   restricted kit (`RunJump`) has no talk verb, so no button is drawn for one.
 /// - **Combat** actions unioned from the moveset AND the `ActionSet`
 ///   (see [`combat_actions`]).
 /// - **Techniques** (content-declared, already `Technique`-gated `ActionSpec`s)
@@ -387,18 +388,23 @@ pub fn derive_action_scheme(
 ) -> ActionSchemeContract {
     let mut actions = movement_actions(abilities);
 
-    // Interact is available to every controllable subject; the actual prompt
-    // (Talk / Open / …) resolves against nearby interactables at press time.
-    upsert(
-        &mut actions,
-        ActionSpec {
-            id: ActionId::new(ids::INTERACT),
-            slot: ControlSlot::Interact,
-            display_name: None,
-            visual: None,
-            gate: ActionGate::Interact,
-        },
-    );
+    // **Interact is a CAPABILITY now, not a universal.** The prompt (Talk / Open /
+    // …) still resolves against nearby interactables at press time — that was
+    // always the world half. What changed is the body half: this used to be
+    // upserted for every controllable subject, so a game with nothing to interact
+    // with still put the button on screen, where it did nothing forever.
+    if abilities.interact {
+        upsert(
+            &mut actions,
+            ActionSpec {
+                id: ActionId::new(ids::INTERACT),
+                slot: ControlSlot::Interact,
+                display_name: None,
+                visual: None,
+                gate: ActionGate::Interact,
+            },
+        );
+    }
 
     for spec in combat_actions(moveset, action_set) {
         upsert(&mut actions, spec);

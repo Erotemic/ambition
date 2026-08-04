@@ -43,6 +43,7 @@ impl SnapshotState for crate::AbilitySet {
         put_bool(out, self.glide);
         put_bool(out, self.dodge);
         put_bool(out, self.shield);
+        put_bool(out, self.interact);
     }
 
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
@@ -73,6 +74,7 @@ impl SnapshotState for crate::AbilitySet {
             glide: r.bool()?,
             dodge: r.bool()?,
             shield: r.bool()?,
+            interact: r.bool()?,
         })
     }
 }

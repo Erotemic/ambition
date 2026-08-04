@@ -255,6 +255,27 @@ fn sprite_body_collision_for_character_id_from_data(
         &spec,
         bevy::math::Vec2::new(ldtk_collision.x, ldtk_collision.y),
     );
+    // ⭐ **an authored STANDING HEIGHT overrides the room's spawn box.** Without
+    // one, size is `LDtk box x collision_scale x (body / frame)` — two
+    // per-character guesses and a rectangle drawn in a level editor, none of
+    // which is a claim about how tall anybody is. With one, the height IS the
+    // input and everything else follows the sheet: scale the frame so the
+    // visible body measures `height`, and keep the frame's aspect so the art is
+    // never stretched.
+    //
+    // ⚠ the LDtk box still decides where a character STANDS and how much room a
+    // level reserved for it; it stops deciding how big the character is.
+    let standing_height = entry
+        .standing_height
+        .or_else(|| entry.body_kind.default_standing_height())
+        .filter(|height| *height > 0.0);
+    let render = match standing_height {
+        Some(height) if body_h > 0.0 => {
+            let scale = height / body_h;
+            bevy::math::Vec2::new(frame_w * scale, frame_h * scale)
+        }
+        _ => render,
+    };
     // The visible body occupies (body / frame) of that render quad.
     let collision = ae::Vec2::new(body_w / frame_w * render.x, body_h / frame_h * render.y);
     Some(SpriteBodyCollision {
@@ -900,10 +921,46 @@ mod sprite_body_collision_tests {
         let frame_w = record.frame_width.max(1) as f32;
         let frame_h = record.frame_height.max(1) as f32;
 
-        // (1) render == legacy sprite_render_size(spec, ldtk).
-        let legacy = sheets::sprite_render_size(&spec, bevy::math::Vec2::new(ldtk.x, ldtk.y));
-        assert!((derived.render_size.x - legacy.x).abs() < 1e-3);
-        assert!((derived.render_size.y - legacy.y).abs() < 1e-3);
+        // (1) ⛔ **this used to assert `render == legacy sprite_render_size(spec,
+        // ldtk)` unconditionally, and that claim was retired on 2026-08-04.** The
+        // LDtk spawn box no longer decides how big a character IS when its row —
+        // or its body kind — states a standing height; that was the whole defect
+        // (queue D4: nothing in the pipeline ever stated a height, so nothing
+        // could be consistent about one).
+        //
+        // Both branches are asserted rather than one deleted, because "the legacy
+        // path is untouched where no height applies" is half the contract and is
+        // what keeps crawlers and any future unauthored kind working.
+        let height = entry
+            .standing_height
+            .or_else(|| entry.body_kind.default_standing_height())
+            .filter(|h| *h > 0.0);
+        match height {
+            Some(height) => {
+                assert!(
+                    (derived.collision.y - height).abs() < 1e-3,
+                    "{cid} states a standing height of {height} but its visible \
+                     body measures {}",
+                    derived.collision.y,
+                );
+                // The art is scaled, never stretched: the quad keeps the sheet's
+                // frame aspect.
+                let frame_aspect = frame_w / frame_h;
+                let render_aspect = derived.render_size.x / derived.render_size.y;
+                assert!(
+                    (render_aspect - frame_aspect).abs() < 1e-3,
+                    "{cid}'s render quad {:?} does not keep the frame aspect \
+                     {frame_aspect}",
+                    derived.render_size,
+                );
+            }
+            None => {
+                let legacy =
+                    sheets::sprite_render_size(&spec, bevy::math::Vec2::new(ldtk.x, ldtk.y));
+                assert!((derived.render_size.x - legacy.x).abs() < 1e-3);
+                assert!((derived.render_size.y - legacy.y).abs() < 1e-3);
+            }
+        }
 
         // (2) collision == (body / frame) × render.
         let expect_x = body_w / frame_w * derived.render_size.x;

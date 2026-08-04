@@ -31,6 +31,29 @@ pub enum CharacterBodyKind {
     Crawler,
 }
 
+impl CharacterBodyKind {
+    /// The height a character of this kind stands, in world px, when its row
+    /// does not say.
+    ///
+    /// ⚠ **only `Standard` answers, and that narrowness is the design.** The
+    /// complaint was about HUMANOIDS being mutually out of scale; a crawler, a
+    /// floating drone and a wide body have no shared height to be consistent
+    /// about, and inventing one for them would be changing sizes to satisfy a
+    /// pattern rather than a report. They keep the old derivation until somebody
+    /// authors a number or brings a complaint.
+    ///
+    /// ⭐ **48.0 is not invented: it is the protagonist.** `player_robot_v3`
+    /// resolves to a 30x48 body through the sprite-authored seam, so a Standard
+    /// character now stands exactly as tall as the character the player looks at
+    /// most. A reference the game already contains beats a plausible number.
+    pub fn default_standing_height(self) -> Option<f32> {
+        match self {
+            Self::Standard => Some(48.0),
+            Self::Wide | Self::Floating | Self::Crawler => None,
+        }
+    }
+}
+
 /// Optional composition layer for multi-part sprites (bosses, etc.).
 /// Dormant scaffolding — the renderer still emits a composed sheet
 /// today, so the runtime ignores this field. Reserved for future
@@ -476,6 +499,26 @@ pub struct CharacterCatalogEntry {
     pub tier: CharacterTier,
     /// Footprint hint. Drives slot sizing.
     pub body_kind: CharacterBodyKind,
+    /// **How TALL this character stands, in world px, feet to the top of the
+    /// visible body.** `None` falls back to
+    /// [`CharacterBodyKind::default_standing_height`].
+    ///
+    /// ⭐ **the one quantity a viewer actually compares, and it was authored
+    /// NOWHERE.** A catalog character's on-screen size was
+    /// `authored LDtk spawn box × collision_scale × (body / frame)` — two
+    /// per-character guesses and a room's spawn rectangle. Nothing in that
+    /// product is a statement about height, so nothing could be consistent about
+    /// one, and the Hall of Characters drew comparable humanoids across a 2x
+    /// range: the goblin taller than the robots, one goblin half the other
+    /// (measured from a capture, 2026-08-04, queue D4).
+    ///
+    /// This is the same direction the definition side already took —
+    /// `BodySource::SpriteAuthored { world_per_pixel }` and
+    /// `MARY_O_STANDING_HEIGHT` — moved down to the authority the Hall's cast
+    /// actually has. A 140-row catalog produces no `CharacterDefinition`, so the
+    /// recipe that fixed the player robot could never reach it.
+    #[serde(default)]
+    pub standing_height: Option<f32>,
     /// Optional layered composition (multi-part sprites). `None` for
     /// single-part characters.
     #[serde(default)]

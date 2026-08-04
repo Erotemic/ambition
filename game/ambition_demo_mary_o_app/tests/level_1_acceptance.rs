@@ -490,7 +490,25 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     // * There is a Solid Snake just past the block. With no armor yet, touching
     //   its side ends the run, so stomp it when it closes.
     let bonk_x = block0.center().x;
+    // **How high does she actually get?** The bonk beat asserts only that it
+    // did not end early, so "she jumped and missed" and "she never jumped" look
+    // identical from outside.
+    let mut apex_y = f32::MAX;
+    let mut head_under_block = f32::MAX;
+    let mut frames_under = 0usize;
     let took_off = drive(&mut app, 400, |b| {
+        apex_y = apex_y.min(b.pos.y);
+        // ⚠ apex alone is NOT a jump-height measurement — over 400 frames she
+        // can jump from elevated ground. The question is whether her HEAD ever
+        // reached the block's underside WHILE HORIZONTALLY UNDER IT.
+        {
+            let bmin = ambition_demo_mary_o::power_block_min(0);
+            let under = b.pos.x + 12.8 > bmin.x && b.pos.x - 12.8 < bmin.x + 32.0;
+            if under {
+                frames_under += 1;
+                head_under_block = head_under_block.min(b.pos.y - 24.0);
+            }
+        }
         let toward = (bonk_x - b.pos.x).clamp(-1.0, 1.0);
         let under_it = (b.pos.x - bonk_x).abs() < 8.0;
         // The snake comes FIRST. She is a one-hit body here — no wand yet — so a
@@ -513,6 +531,27 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
     });
     assert!(!took_off, "the bonk beat is time-boxed, not terminal");
 
+    {
+        {
+            let mut q = app
+                .world_mut()
+                .query_filtered::<&ambition_platformer2d::actors::features::MotionModel, With<PrimaryPlayer>>();
+            let model = q.iter(app.world()).next().map(|m| format!("{m:?}"));
+            let shown: String = model.unwrap_or_else(|| "<none>".to_string());
+            eprintln!("motion model: {}", &shown[..shown.len().min(600)]);
+        }
+        let block_underside = ambition_demo_mary_o::power_block_min(0).y + 32.0;
+        let needed_centre = block_underside + 48.0 * 0.5;
+        eprintln!(
+            "after bonk: apex_y={apex_y:.1} (lower is higher); block underside y={block_underside:.1}; \
+             she needs centre y<={needed_centre:.1} — short by {:.1}px",
+            apex_y - needed_centre
+        );
+        eprintln!(
+            "under the block for {frames_under} frame(s); best HEAD y there = {head_under_block:.1} \
+             (needs <= {block_underside:.1})"
+        );
+    }
     eprintln!("after bonk: {:?}", body(&mut app));
     eprintln!("after bonk, items: {:?}", world_items(&mut app));
     eprintln!(

@@ -382,10 +382,25 @@ fn parse_key(name: &str) -> Result<KeyCode, String> {
         "z" => Ok(KeyCode::KeyZ),
         "x" => Ok(KeyCode::KeyX),
         "c" => Ok(KeyCode::KeyC),
+        // ⛔ **the rest of the default preset's action row, and its absence had a
+        // cost.** `z`/`x`/`c` are jump/attack/dash; the preset also binds
+        // secondary=A, quick_action=E, special=G and **interact=F**. Interact is
+        // the verb that opens a DIALOGUE — and dialogue on a small screen is the
+        // surface Jon has been reporting bugs on since 2026-08-03, blind,
+        // because he can only test on an Android device.
+        //
+        // So the repo's only way to LOOK at a visual change could not reach the
+        // one screen most in need of looking at. Found 2026-08-04 while trying to
+        // photograph the dialogue reading-rect carve (queue D18) and discovering
+        // there was no key for it.
+        "a" => Ok(KeyCode::KeyA),
+        "e" => Ok(KeyCode::KeyE),
+        "f" => Ok(KeyCode::KeyF),
+        "g" => Ok(KeyCode::KeyG),
         other => Err(format!(
             "--press does not know the key '{other}'. Known: up, down, left, \
-                 right, enter, space, escape, z, x, c, wait, wait:N, hold:KEY, \
-                 release:KEY"
+                 right, enter, space, escape, z, x, c, a, e, f, g, wait, wait:N, \
+                 hold:KEY, release:KEY"
         )),
     }
 }

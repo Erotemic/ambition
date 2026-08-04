@@ -58,6 +58,9 @@ pub fn sync_cutscene_ui(
     request: Res<CutsceneAdvanceRequest>,
     overlays: Query<Entity, With<CutsceneOverlayRoot>>,
     ui_fonts: Option<Res<crate::ui_fonts::UiFonts>>,
+    presentation: Option<
+        Res<ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation>,
+    >,
 ) {
     use bevy::ui::{
         AlignItems, BorderRadius, FlexDirection, JustifyContent, Node, PositionType, UiRect, Val,
@@ -95,17 +98,26 @@ pub fn sync_cutscene_ui(
 
     commands
         .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                top: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                padding: UiRect::all(Val::Px(24.0)),
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::SpaceBetween,
-                align_items: AlignItems::Center,
-                ..default()
+            // ⚠ the SECOND text overlay, and it had the same defect as the
+            // first. Full-screen with `SpaceBetween` puts the speaker line and
+            // the skip meter along the BOTTOM — under the movement stick and
+            // the action cluster on a phone. Fixing `dialog_ui` alone would
+            // have left this looking fixed from the other half.
+            {
+                let mut node = Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    bottom: Val::Px(0.0),
+                    padding: UiRect::all(Val::Px(24.0)),
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::SpaceBetween,
+                    align_items: AlignItems::Center,
+                    ..default()
+                };
+                crate::reading_layout::place_in_reading_rect(&mut node, presentation.as_deref());
+                node
             },
             ZIndex(50),
             Name::new("Cutscene Overlay Root"),

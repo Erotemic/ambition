@@ -25,6 +25,7 @@ pub mod hud;
 /// The presentation face a demo can add (oracle-violation OV1). See its module docs.
 pub mod platformer_presentation;
 pub mod quality;
+pub mod reading_layout;
 pub mod rendering;
 pub mod screen_effects;
 pub mod ui_fonts;

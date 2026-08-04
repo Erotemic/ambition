@@ -14,6 +14,7 @@
 use bevy::log::info;
 use bevy::prelude::*;
 
+use crate::reading_layout::{fit_to_reading_rect, place_in_reading_rect};
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_platformer2d_shared_tangle::gameplay_presentation::ResolvedGameplayPresentation;
 use ambition_sim_view::DialogView;
@@ -68,7 +69,10 @@ impl Plugin for DefaultDialogUiPlugin {
         claim_dialog_presentation(app, "ambition_render::DefaultDialogUiPlugin");
         app.add_systems(
             Update,
-            (sync_default_dialog_ui, fit_dialog_to_reading_rect)
+            (
+                sync_default_dialog_ui,
+                fit_to_reading_rect::<DialogOverlayRoot>,
+            )
                 .chain()
                 .in_set(DialogPresentationSet),
         );
@@ -80,76 +84,6 @@ pub struct DefaultDialogPanel;
 
 #[derive(Component)]
 pub struct DefaultDialogFooter;
-
-/// The dialogue root's box, laid into the space a reader can actually use.
-///
-/// ⛔ **this was `left/right: 0, top: 15%, bottom: 0` — percentages of the WHOLE
-/// screen**, which on a 640x360 phone viewport put a third of the panel behind
-/// the touch action cluster (measured: panel x≈90..550, cluster x 407..640).
-/// Text there is unreadable and a tap there goes to the button, which is both
-/// halves of Jon's *"frustrating and error prone"* from a Pixel 5.
-///
-/// ⚠ **no resolver means the OLD box, not a zero one.** A composition without
-/// the layout resolver (`capture_scene` had one such path, and every demo that
-/// skips `HostGameplayPresentationPlugin` has another) must still show a
-/// dialogue; falling back to the full-screen percentages is what it did before
-/// and is correct-in-the-large, just uninformed about controls.
-fn reading_node(presentation: Option<&ResolvedGameplayPresentation>) -> Node {
-    let Some(presentation) = presentation else {
-        return Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px(0.0),
-            right: Val::Px(0.0),
-            top: Val::Percent(15.0),
-            bottom: Val::Px(0.0),
-            padding: UiRect::axes(Val::Px(18.0), Val::Px(18.0)),
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::Center,
-            ..default()
-        };
-    };
-    let rect = presentation.reading_rect();
-    let display = presentation.display_rect;
-    Node {
-        position_type: PositionType::Absolute,
-        left: Val::Px(rect.min.x - display.min.x),
-        top: Val::Px(rect.min.y - display.min.y),
-        width: Val::Px(rect.size().x),
-        height: Val::Px(rect.size().y),
-        padding: UiRect::axes(Val::Px(18.0), Val::Px(18.0)),
-        flex_direction: FlexDirection::Column,
-        justify_content: JustifyContent::FlexStart,
-        align_items: AlignItems::Center,
-        ..default()
-    }
-}
-
-/// Keep the dialogue root in the reading rect as the layout moves.
-///
-/// Spawn-time placement alone would be right until the first rotation, resize,
-/// or control-overlay change — and "correct until the player turns the phone" is
-/// the class of bug that only ever reproduces on a device.
-pub fn fit_dialog_to_reading_rect(
-    presentation: Option<Res<ResolvedGameplayPresentation>>,
-    mut roots: Query<&mut Node, With<DialogOverlayRoot>>,
-) {
-    let Some(presentation) = presentation else {
-        return;
-    };
-    if !presentation.is_changed() {
-        return;
-    }
-    let next = reading_node(Some(&presentation));
-    for mut node in &mut roots {
-        // ⚠ compare before writing: `Node` is read by bevy_ui's layout pass on
-        // change, and rewriting an identical box every frame would relayout the
-        // whole dialogue subtree for nothing.
-        if *node != next {
-            *node = next.clone();
-        }
-    }
-}
 
 pub fn sync_default_dialog_ui(
     mut commands: Commands,
@@ -218,8 +152,23 @@ pub fn sync_default_dialog_ui(
     commands
         .spawn((
             // Spawned into the reading rect straight away so the FIRST frame is
-            // right; `fit_dialog_to_reading_rect` keeps it right across resizes.
-            reading_node(presentation.as_deref()),
+            // right; `fit_to_reading_rect` keeps it right across resizes.
+            {
+                let mut node = Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    top: Val::Percent(15.0),
+                    bottom: Val::Px(0.0),
+                    padding: UiRect::axes(Val::Px(18.0), Val::Px(18.0)),
+                    flex_direction: FlexDirection::Column,
+                    justify_content: JustifyContent::FlexStart,
+                    align_items: AlignItems::Center,
+                    ..default()
+                };
+                place_in_reading_rect(&mut node, presentation.as_deref());
+                node
+            },
             ZIndex(45),
             Name::new("Default Dialogue Overlay Root"),
             DialogOverlayRoot,

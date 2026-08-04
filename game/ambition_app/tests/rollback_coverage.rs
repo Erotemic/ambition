@@ -224,6 +224,21 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
 /// waived. The population differs per room — enemies, switches, and breakables
 /// only exist where a room authors them — so callers sweep representative
 /// rooms, not just the boot default.
+///
+/// ⚠ **it walks the entities PRESENT in a booted room, so state that only exists
+/// after an EVENT is structurally invisible to it.** An item spat out by a
+/// struck block, a projectile in flight, a pickup mid-arc: none of them are in a
+/// world nobody has played yet, and no amount of sweeping more rooms reaches
+/// them. This is a property of a one-shot census, not a gap to be waived, and it
+/// is worth stating because the sweep's silence about a component reads exactly
+/// like a pass.
+///
+/// **What covers the other half:** `rollback_exit_oracle`'s PER-FRAME census,
+/// which watches a session as it runs and therefore sees state that comes into
+/// existence and goes away again. It caught `PickupMagnet` and
+/// `SpawnedThisAttempt` on the day this note was written — both transient, both
+/// invisible here. The two instruments are complementary, and the failure mode
+/// this comment exists to prevent is reading one of them as if it were both.
 pub(crate) fn unaccounted_components(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, usize> {
     // An ANCHOR is not coverage. `require_rollback` only installs the
     // `bevy_ggrs::Rollback` marker so the entity participates; it snapshots

@@ -266,15 +266,17 @@ regen_one_target() {
     local target="$1"
     local dest_root="$sprites_dir"
 
-    # Most targets install directly under assets/sprites/. The entity target
-    # is the historical exception: runtime entity sprites live under
-    # assets/sprites/entities/, so keep focused regen consistent with the
-    # full regen path. Custom targets such as gnu_ton_boss, gnu_ton_apple,
-    # interdimensional_gate, pirate_heavy, and mockingbird_boss own any
-    # further subdirectory behavior via their Python Target.install hooks.
-    if [ "$target" = "entities" ]; then
-        dest_root="$entities_dir"
-    fi
+    # Every target installs to assets/sprites/ and owns any further subdirectory
+    # behavior in its own Python `Target.install` hook — gnu_ton_boss,
+    # gnu_ton_apple, interdimensional_gate, pirate_heavy, mockingbird_boss,
+    # sanic_support_entities, and (since 2026-08-04) `entities`.
+    #
+    # ⛔ **`entities` used to be a special case HERE**, rewriting dest_root to
+    # $entities_dir. That made this script right and the CLI wrong: anyone
+    # running `python3 -m ambition_sprite2d_renderer publish entities` installed
+    # a directory too high, where the runtime loader never looks, and nothing in
+    # the chain said so. A rule that lives in one of two callers is a rule the
+    # other caller breaks (queue D21).
 
     echo "==> sprite target: $target → $dest_root"
     run_renderer_python "publish-$target" -m ambition_sprite2d_renderer publish "$target" --dest-root "$dest_root"
@@ -721,7 +723,10 @@ echo "==> config-driven targets (robot / goblin / boss) → $sprites_dir"
 run_renderer_python draw-all -m ambition_sprite2d_renderer draw-all --out-dir "$sprites_dir"
 
 echo "==> entity sprites → $entities_dir"
-run_renderer_python publish-entities -m ambition_sprite2d_renderer publish entities --dest-root "$entities_dir"
+# ⚠ `$sprites_dir`, not `$entities_dir`: the target's own `install` hook adds the
+# `entities/` leg now. Passing the subdirectory here as well would nest it
+# (`sprites/entities/entities/`) — see the note in `regen_one_target`.
+run_renderer_python publish-entities -m ambition_sprite2d_renderer publish entities --dest-root "$sprites_dir"
 
 echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # `draw-review` renders configs/review/*.yaml (toon-target NPC

@@ -115,6 +115,15 @@ pub struct CardPortrait(pub usize);
 #[derive(Component, Clone, Copy)]
 pub struct CardName(pub usize);
 
+/// The initials drawn under a portrait, shown only when the art never arrives.
+///
+/// ⚠ it carries the HANDLE rather than a boolean, because "is there art" cannot
+/// be answered when the cell is built: the path resolves by convention and the
+/// load fails later, asynchronously, or never finishes. Asking the asset server
+/// each frame is the only honest form of the question.
+#[derive(Component)]
+pub struct PortraitMonogram(pub Option<Handle<Image>>);
+
 /// The line that says what the screen is waiting for.
 #[derive(Component)]
 pub struct SelectPrompt;
@@ -181,6 +190,22 @@ fn display_name(catalog: Option<&CharacterCatalog>, id: &str) -> String {
         // authoring slip that should be visible on the screen rather than fatal
         // in a demo somebody is showing to a room.
         .unwrap_or_else(|| id.to_string())
+}
+
+/// Initials, for a cell whose art did not arrive. The dialogue box has done this
+/// for speakers with no portrait since it was written; this is the same idea one
+/// screen over.
+fn monogram(label: &str) -> String {
+    let mut words = label
+        .split(|ch: char| !ch.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .filter_map(|word| word.chars().next())
+        .map(|ch| ch.to_uppercase().collect::<String>());
+    let first = words.next().unwrap_or_else(|| "?".to_string());
+    match words.next() {
+        Some(second) => format!("{first}{second}"),
+        None => first,
+    }
 }
 
 /// The viewport this screen is laid out for, or `None` where there is no window.
@@ -288,7 +313,41 @@ pub fn spawn_select_screen(
                     Name::new(format!("portrait cell {index}")),
                 ))
                 .with_children(|cell| {
-                    match portrait(id) {
+                    // **A MONOGRAM UNDER EVERY PORTRAIT.**
+                    //
+                    // ⛔ found by LOOKING: `mary_o` draws a hole. Her catalog row
+                    // names `mary_o_v2_spritesheet.png`, `portrait_ref` derives
+                    // `mary_o_v2_portraits.png` by convention, and that file was
+                    // never generated — so the path resolves, the load fails,
+                    // and the `ImageNode` renders nothing. **A derived path is
+                    // not a promise that the art exists**, and the failure is
+                    // silent all the way down.
+                    //
+                    // So the cell says who it is underneath, always. A missing
+                    // portrait then reads as missing ART rather than as a broken
+                    // grid, and it costs nothing when the art is there.
+                    let art = portrait(id);
+                    cell.spawn((
+                        PortraitMonogram(art.clone()),
+                        Node {
+                            position_type: PositionType::Absolute,
+                            left: Val::Px(0.0),
+                            right: Val::Px(0.0),
+                            top: Val::Percent(24.0),
+                            justify_content: JustifyContent::Center,
+                            ..default()
+                        },
+                        Visibility::Hidden,
+                        Name::new(format!("portrait {index} monogram")),
+                    ))
+                    .with_children(|slate| {
+                        slate.spawn((
+                            Text::new(monogram(&display_name(catalog, id))),
+                            text_font(46.0),
+                            TextColor(Color::srgb(0.28, 0.31, 0.42)),
+                        ));
+                    });
+                    match art {
                         Some(handle) => {
                             cell.spawn((
                                 ImageNode::new(handle),
@@ -301,20 +360,12 @@ pub fn spawn_select_screen(
                             ));
                         }
                         None => {
-                            // No portrait resolved. Draw the SHAPE of one
-                            // anyway: a hole in the grid reads as a layout bug
-                            // and a flat plate reads as the missing art it is.
-                            cell.spawn((
-                                Node {
-                                    flex_grow: 1.0,
-                                    width: Val::Percent(100.0),
-                                    min_height: Val::Px(0.0),
-                                    border: UiRect::all(Val::Px(1.0)),
-                                    ..default()
-                                },
-                                BackgroundColor(Color::srgb(0.12, 0.13, 0.18)),
-                                BorderColor::all(PANEL_EDGE),
-                            ));
+                            cell.spawn((Node {
+                                flex_grow: 1.0,
+                                width: Val::Percent(100.0),
+                                min_height: Val::Px(0.0),
+                                ..default()
+                            },));
                         }
                     }
                     cell.spawn((
@@ -466,8 +517,8 @@ pub fn spawn_select_screen(
                     border_radius: BorderRadius::MAX,
                     ..default()
                 },
-                BackgroundColor(Color::srgba(1.0, 1.0, 1.0, 0.10)),
-                BorderColor::all(Color::WHITE),
+                BackgroundColor(Color::srgba(1.0, 0.96, 0.62, 0.35)),
+                BorderColor::all(Color::srgb(1.0, 0.93, 0.35)),
                 GlobalZIndex(640),
                 Name::new("select cursor"),
             ));
@@ -752,6 +803,10 @@ pub fn update_the_select_screen(
             Without<CardName>,
         ),
     >,
+    mut monograms: Query<
+        (&PortraitMonogram, &mut Visibility),
+        (Without<SlotToken>, Without<CardPortrait>),
+    >,
     mut tokens: Query<(&SlotToken, &mut Node, &mut Visibility), Without<CardPortrait>>,
     mut cursor_node: Query<&mut Node, (With<CursorNode>, Without<SlotToken>)>,
 ) {
@@ -825,6 +880,27 @@ pub fn update_the_select_screen(
         }
     }
 
+    // **THE INITIALS SHOW ONLY WHERE THE ART DID NOT ARRIVE.**
+    //
+    // ⛔ the first draft drew them under every cell unconditionally and they
+    // showed THROUGH the portraits, which have transparent backgrounds — a
+    // ghostly "DB" behind Duelist B. Found by looking at the capture.
+    for (mono, mut visibility) in &mut monograms {
+        let missing = match (&mono.0, asset_server.as_deref()) {
+            (None, _) => true,
+            (Some(handle), Some(server)) => server
+                .get_load_state(handle.id())
+                .is_none_or(|state| state.is_failed()),
+            // No asset server at all is a headless fixture; claiming the art is
+            // missing would be true and useless.
+            (Some(_), None) => false,
+        };
+        set_visibility(
+            &mut visibility,
+            if missing { Visibility::Inherited } else { Visibility::Hidden },
+        );
+    }
+
     for mut text in &mut prompt {
         let next = select
             .blocker()
@@ -852,11 +928,20 @@ pub fn update_the_select_screen(
         set_rect(&mut node, rect);
     }
 
+    // ⚠ **the cursor is placed HERE, not only by `drive_the_cursor`.** Driving
+    // is gated on this screen owning its input — correct, because a pause menu
+    // over the top must take the presses — but a cursor that stops being DRAWN
+    // when something covers the screen is a cursor that has vanished. This
+    // always runs, and it is also what puts the pointer somewhere real on the
+    // very first frame.
+    let home = layout.portrait(0).map(HitRect::center);
     for mut node in &mut cursor_node {
-        set_rect(
-            &mut node,
-            HitRect::from_center_size(pointer.position, Vec2::splat(CURSOR_PX)),
-        );
+        let at = if pointer.placed {
+            pointer.position
+        } else {
+            home.unwrap_or(layout.viewport * 0.5)
+        };
+        set_rect(&mut node, HitRect::from_center_size(at, Vec2::splat(CURSOR_PX)));
     }
 }
 

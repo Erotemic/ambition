@@ -49,7 +49,11 @@ pub const HEADLESS_VIEWPORT: Vec2 = Vec2::new(1280.0, 720.0);
 
 const MARGIN: f32 = 14.0;
 const GAP: f32 = 10.0;
-const TITLE_H: f32 = 36.0;
+/// ⚠ **tall enough to clear the shell's own buttons.** The host draws Menu and
+/// Back in the top-right corner over whatever route is up, and a 36px title
+/// strip put the last portrait of the first row underneath them — photographed,
+/// not reasoned about.
+const TITLE_H: f32 = 64.0;
 const POOL_H: f32 = 44.0;
 const CARD_GAP: f32 = 8.0;
 const ROLE_BUTTON_H: f32 = 30.0;
@@ -80,8 +84,12 @@ impl SelectLayout {
     pub fn new(viewport: Vec2, characters: usize) -> Self {
         let viewport = Vec2::new(viewport.x.max(320.0), viewport.y.max(240.0));
         let characters = characters.max(1);
-        let columns = characters.min(MAX_COLUMNS);
-        let rows = characters.div_ceil(columns);
+        // **BALANCE THE ROWS.** Eight fighters under a plain `min(n, 6)` wrap
+        // 6 + 2, which reads as a grid with two strays rather than as a roster.
+        // Take the fewest rows the column cap allows, then spread the fighters
+        // evenly across them: 8 becomes 4 + 4, 9 becomes 5 + 4.
+        let rows = characters.div_ceil(MAX_COLUMNS);
+        let columns = characters.div_ceil(rows);
 
         let grid_top = TITLE_H;
         let grid_bottom = viewport.y * GRID_FRACTION - POOL_H;
@@ -325,11 +333,35 @@ mod tests {
         let layout = wide();
         assert_eq!(layout.characters, SmashRoster::default().len());
         assert!(layout.portrait(layout.characters).is_none());
-        assert_eq!(
+        assert!(
             layout.columns * layout.rows >= layout.characters,
-            true,
             "the grid has fewer cells than fighters"
         );
+    }
+
+    /// **The rows are BALANCED**, or a roster reads as a grid with strays.
+    ///
+    /// ⛔ found by looking at a capture: eight fighters under a plain
+    /// `min(n, 6)` wrapped 6 + 2.
+    #[test]
+    fn the_grid_spreads_evenly_rather_than_filling_rows_to_the_cap() {
+        for (characters, expected) in [(1, (1, 1)), (4, (4, 1)), (6, (6, 1)), (8, (4, 2)), (9, (5, 2)), (13, (5, 3))] {
+            let layout = SelectLayout::new(Vec2::new(1280.0, 720.0), characters);
+            assert_eq!(
+                (layout.columns, layout.rows),
+                expected,
+                "{characters} fighters laid out {}x{}",
+                layout.columns,
+                layout.rows
+            );
+            let stragglers = layout.columns * layout.rows - characters;
+            assert!(
+                stragglers < layout.rows,
+                "{characters} fighters left {stragglers} empty cells across \
+                 {} rows, so the last row is a stub",
+                layout.rows
+            );
+        }
     }
 
     /// ⚠ **a viewport nobody set must not collapse the screen to a point.** A

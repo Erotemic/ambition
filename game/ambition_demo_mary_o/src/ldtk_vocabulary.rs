@@ -333,6 +333,237 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
     Ok(emission)
 }
 
+// ── THE WARP TUBE ──────────────────────────────────────────────────────────
+//
+// Jon, 2026-08-04: *"The pipe placements need to be linkable with a better
+// schema (maybe similar to how we do portals)."*
+//
+// ⛔ **the pairing used to be a SUBSTRING OF A NAME.** A pipe half was a plain
+// `Solid` called `warp_pipe_<link>_<up|down>`, and the runtime found its four
+// halves by spelling those four names in Rust. The comment that stood over
+// those constants said what was wrong with it: *"a typo pairs nothing and only
+// a load-time check can catch it."* It could not catch it either — a
+// `warp_pipe_dscent_down` still converted, still stood there solid, and simply
+// stopped being half of a tube.
+//
+// ⭐ **the fix is the portal's shape**, which is what Jon pointed at:
+// `convert_portal` carries an explicit `link` string that names its partner and
+// a `normal` saying which surface it sits on, and it pairs by that link rather
+// than by anything about its name. A pipe half now authors the same three
+// answers as FIELDS:
+//
+// * `link`  — who my partner is. Two halves sharing one are ONE tube.
+// * `mouth` — which way my open face points, `Up` or `Down`. This is the
+//   portal's `normal` for a thing that is always vertical, and it is what
+//   decides the PRESS: you press DOWN into an up-facing mouth and UP into a
+//   down-facing one. **Jon's rule — a pipe answers UP or DOWN, never a generic
+//   Interact — is this field.**
+// * `role`  — `Entrance` or `Exit`. A portal pair is symmetric and a warp tube
+//   is not: 1-1's descent tube swallows you at the surface and spits you out
+//   underground, and its ascent tube does the reverse. Without this the two
+//   vault halves are geometrically identical (both hang from the ceiling,
+//   mouth down) and nothing could say which one you may press UP into.
+//
+// ⚠ **`PlacementSchema` could NOT carry this.** It is a closed enum in
+// `ambition_entity_catalog` with a fingerprinted `PlacementKind::stable_id`
+// beside it, so a `Pipe` variant would put one game's noun in the engine's
+// construction-schema contract — exactly what `MaryOBlock`'s own header refuses
+// ("the engine must not interpret Mary-O's progression"). A pipe is also SOLID
+// GEOMETRY, which a placement is not: its collision is the tube you walk into.
+// So it lowers to a `Block` carrying its authored answers in the one channel a
+// block has, the same trade-off `maryo_block:` makes, written up in
+// `docs/planning/proposal-authored-vocabulary-2026-08-04.md` §4.
+
+/// **Which way a pipe half's OPEN FACE points**, and so which press enters it.
+///
+/// Screen-relative because the tube is: `Up` is the lip you stand on and drop
+/// into, `Down` is the lip hanging overhead that you rise into or fall out of.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MaryOPipeMouth {
+    /// Open face on TOP. You stand on it and press DOWN; you arrive standing on
+    /// it.
+    Up,
+    /// Open face on the BOTTOM — a pipe hanging from a ceiling. You stand under
+    /// it and press UP; you arrive falling out of it.
+    Down,
+}
+
+impl MaryOPipeMouth {
+    /// The word an author picks in the editor.
+    pub fn authored(self) -> &'static str {
+        match self {
+            Self::Up => "Up",
+            Self::Down => "Down",
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "up" | "top" => Some(Self::Up),
+            "down" | "bottom" => Some(Self::Down),
+            _ => None,
+        }
+    }
+}
+
+/// **Which END of a tube this half is.**
+///
+/// ⭐ the one place a warp tube is NOT a portal. A portal pair is symmetric, so
+/// `link` alone is the whole relation; a warp tube is directed, and the two
+/// halves of 1-1's descent are told apart by nothing else — both are 96×148
+/// boxes in the same column, one hanging from the vault ceiling.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MaryOPipeRole {
+    /// The mouth you press INTO. Exactly one per link.
+    Entrance,
+    /// The mouth you come OUT of. Exactly one per link.
+    Exit,
+}
+
+impl MaryOPipeRole {
+    pub fn authored(self) -> &'static str {
+        match self {
+            Self::Entrance => "Entrance",
+            Self::Exit => "Exit",
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "entrance" | "enter" | "in" => Some(Self::Entrance),
+            "exit" | "out" => Some(Self::Exit),
+            _ => None,
+        }
+    }
+}
+
+/// One authored half of a warp tube: who it pairs with, which way it opens, and
+/// which end of the trip it is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MaryOPipe {
+    pub link: String,
+    pub mouth: MaryOPipeMouth,
+    pub role: MaryOPipeRole,
+}
+
+impl MaryOPipe {
+    pub fn new(link: impl Into<String>, mouth: MaryOPipeMouth, role: MaryOPipeRole) -> Self {
+        Self {
+            link: link.into(),
+            mouth,
+            role,
+        }
+    }
+}
+
+/// The LDtk entity identifier an author places for one half of a tube.
+pub const MARY_O_PIPE: &str = "MaryOPipe";
+
+/// The prefix every converted pipe half carries.
+const PIPE_ENCODED_PREFIX: &str = "maryo_pipe:";
+
+/// Encode one authored pipe half into the only channel a `Block` has.
+///
+/// ```text
+/// maryo_pipe:<link>:<mouth>:<role>:<iid>
+/// ```
+///
+/// ⚠ **the iid stays LAST**, as in `maryo_block:`, so it keeps being the only
+/// field that may contain anything — which is why a `link` containing a colon
+/// is refused at conversion rather than silently splitting into two.
+pub fn pipe_encoded_name(pipe: &MaryOPipe, iid: &str) -> String {
+    format!(
+        "{PIPE_ENCODED_PREFIX}{}:{}:{}:{iid}",
+        pipe.link,
+        pipe.mouth.authored(),
+        pipe.role.authored()
+    )
+}
+
+/// A pipe half, built the way [`convert_mary_o_pipe`] builds one: encoded name,
+/// and the durable placement identity that `Block::solid` does not set.
+pub fn pipe_block(pipe: &MaryOPipe, iid: &str, min: ae::Vec2, size: ae::Vec2) -> ae::Block {
+    let mut solid = ae::Block::solid(pipe_encoded_name(pipe, iid), min, size);
+    solid.id = ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0);
+    solid
+}
+
+/// The pipe half this authored NAME describes, or `None` when the name did not
+/// come from [`convert_mary_o_pipe`].
+pub fn pipe_of(name: &str) -> Option<MaryOPipe> {
+    let rest = name.strip_prefix(PIPE_ENCODED_PREFIX)?;
+    let (link, rest) = rest.split_once(':')?;
+    let (mouth, rest) = rest.split_once(':')?;
+    let (role, _iid) = rest.split_once(':')?;
+    if link.is_empty() {
+        return None;
+    }
+    Some(MaryOPipe::new(
+        link,
+        MaryOPipeMouth::parse(mouth)?,
+        MaryOPipeRole::parse(role)?,
+    ))
+}
+
+/// `MaryOPipe` → a solid tube half carrying its link, mouth and role.
+///
+/// ⚠ **every field is REQUIRED and a bad one is a refusal**, for the reason
+/// `MaryOBlock`'s `kind` is: a pipe half that quietly stopped being half of a
+/// tube is still a solid green box in the level, so nothing looks wrong and the
+/// warp is simply gone. The author gets told at load which entity and why.
+///
+/// ⚠ the PAIRING is not checked here and cannot be — a converter sees ONE
+/// entity and has no idea what else the level holds. `pipe_tubes` in `lib.rs`
+/// is the load-time check that a link has both its halves.
+pub fn convert_mary_o_pipe(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
+    let (entity, _name, min, size) = ctx.parts();
+    let link = ambition_platformer2d::ldtk_map::field_string(entity, "link")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if link.is_empty() {
+        return Err(format!(
+            "MaryOPipe `{}` has no `link` — a pipe half is paired with its \
+             partner by an explicit link id, and two halves sharing one are ONE \
+             tube",
+            entity.iid
+        ));
+    }
+    if link.contains(':') {
+        return Err(format!(
+            "MaryOPipe `{}` has link {link:?}, which contains a `:` — that is \
+             the separator the authored name is encoded with",
+            entity.iid
+        ));
+    }
+    let authored_mouth =
+        ambition_platformer2d::ldtk_map::field_string(entity, "mouth").unwrap_or_default();
+    let Some(mouth) = MaryOPipeMouth::parse(&authored_mouth) else {
+        return Err(format!(
+            "MaryOPipe `{}` has mouth {authored_mouth:?}, which is not Up or \
+             Down. A mouth is the pipe's OPEN FACE, and it is what decides the \
+             press: DOWN into an Up mouth, UP into a Down one",
+            entity.iid
+        ));
+    };
+    let authored_role =
+        ambition_platformer2d::ldtk_map::field_string(entity, "role").unwrap_or_default();
+    let Some(role) = MaryOPipeRole::parse(&authored_role) else {
+        return Err(format!(
+            "MaryOPipe `{}` has role {authored_role:?}, which is not Entrance \
+             or Exit. Each link needs exactly one of each — the tube is a trip, \
+             not a doorway",
+            entity.iid
+        ));
+    };
+    let pipe = MaryOPipe::new(link, mouth, role);
+    let mut emission = RoomEmission::default();
+    emission
+        .blocks
+        .push(pipe_block(&pipe, &entity.iid, min, size));
+    Ok(emission)
+}
+
 /// **Mary-O's LDtk vocabulary**: the engine's nouns plus her own.
 ///
 /// ⭐ **this is a VALUE now, and that is the whole change.** It used to be
@@ -351,10 +582,16 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
 /// impossible to forget, where a build-time install was something you could
 /// simply not have done yet.
 pub fn vocabulary() -> ambition_platformer2d::ldtk_map::LdtkVocabulary {
-    ambition_platformer2d::ldtk_map::LdtkVocabulary::extended_by([(
-        MARY_O_BLOCK.to_string(),
-        convert_mary_o_block as ambition_platformer2d::ldtk_map::LdtkEntityConverter,
-    )])
+    ambition_platformer2d::ldtk_map::LdtkVocabulary::extended_by([
+        (
+            MARY_O_BLOCK.to_string(),
+            convert_mary_o_block as ambition_platformer2d::ldtk_map::LdtkEntityConverter,
+        ),
+        (
+            MARY_O_PIPE.to_string(),
+            convert_mary_o_pipe as ambition_platformer2d::ldtk_map::LdtkEntityConverter,
+        ),
+    ])
 }
 
 /// **Every LDtk noun Mary-O owns**, and the list [`install`] is checked against.
@@ -367,7 +604,7 @@ pub fn vocabulary() -> ambition_platformer2d::ldtk_map::LdtkVocabulary {
 /// derived from the other, which is the whole point: the first attempt let
 /// validation accept anything the project DEFINED, and a `BogusEntity`
 /// definition with no converter anywhere passed.
-pub const MARY_O_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[MARY_O_BLOCK];
+pub const MARY_O_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[MARY_O_BLOCK, MARY_O_PIPE];
 
 /// The manifest the LDtk tooling reads, compiled in so the pin below cannot go
 /// looking for a file that moved.
@@ -485,6 +722,67 @@ mod tests {
         for name in ["ldtk solid", "goal_pole", "vault_floor", "maryo_block:", ""] {
             assert_eq!(block_look_of(name), None, "`{name}` is not a Mary-O block");
         }
+    }
+
+    /// Round-trip for the tube half: what the converter encodes, the runtime
+    /// decodes — every mouth crossed with every role, because the two are
+    /// independent and an encoder that dropped one would still be green over a
+    /// diagonal.
+    #[test]
+    fn every_pipe_half_survives_the_name_it_is_encoded_into() {
+        for mouth in [MaryOPipeMouth::Up, MaryOPipeMouth::Down] {
+            for role in [MaryOPipeRole::Entrance, MaryOPipeRole::Exit] {
+                // ⚠ a link with a hyphen and one with a digit, because a link is
+                // whatever an author types and the encoding must not care.
+                for link in ["descent", "ascent", "vault-2", "b3"] {
+                    let pipe = MaryOPipe::new(link, mouth, role);
+                    let name = pipe_encoded_name(&pipe, "MaryOPipe-4321");
+                    assert_eq!(
+                        pipe_of(&name).as_ref(),
+                        Some(&pipe),
+                        "`{name}` must decode back to the half it was encoded from"
+                    );
+                }
+            }
+        }
+    }
+
+    /// A pipe half's name is not a block's, and neither is the level's ordinary
+    /// stone — the two decoders must not claim each other's blocks.
+    #[test]
+    fn the_two_mary_o_decoders_do_not_claim_each_others_blocks() {
+        let pipe = pipe_encoded_name(
+            &MaryOPipe::new("descent", MaryOPipeMouth::Up, MaryOPipeRole::Entrance),
+            "MaryOPipe-1",
+        );
+        let block = encoded_name(MaryOBlock::plain(MaryOBlockLook::Question), "MaryOBlock-1");
+        assert_eq!(block_of(&pipe), None, "a tube half is not a reactive block");
+        assert_eq!(pipe_of(&block), None, "a reactive block is not a tube half");
+        for name in [
+            "vault_floor",
+            "goal_pole",
+            "maryo_pipe:",
+            "maryo_pipe:a:b",
+            "",
+        ] {
+            assert_eq!(pipe_of(name), None, "`{name}` is not a pipe half");
+        }
+    }
+
+    /// A typo in a pipe's own fields is REFUSED too — a half that quietly
+    /// stopped being a pipe is a solid green box standing in the level with the
+    /// warp silently gone, which is the same failure `kind` has below.
+    #[test]
+    fn an_unknown_mouth_or_role_is_not_silently_a_default() {
+        for bad in ["", "Upp", "sideways", "left", "Entrence"] {
+            assert_eq!(MaryOPipeMouth::parse(bad), None, "`{bad}` is not a mouth");
+        }
+        for bad in ["", "Entrence", "Exti", "Up", "both"] {
+            assert_eq!(MaryOPipeRole::parse(bad), None, "`{bad}` is not a role");
+        }
+        // ...and the spellings an author reasonably reaches for DO work.
+        assert_eq!(MaryOPipeMouth::parse(" Down "), Some(MaryOPipeMouth::Down));
+        assert_eq!(MaryOPipeRole::parse("exit"), Some(MaryOPipeRole::Exit));
     }
 
     /// An author's typo has to be REFUSED at load rather than becoming a wall.

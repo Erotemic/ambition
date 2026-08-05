@@ -108,12 +108,6 @@ def test_an_upsert_keeps_the_uids_every_placement_references():
     before = block_def(project)
     entity_uid, kind_uid = before["uid"], before["fieldDefs"][0]["uid"]
 
-    # ⚠ what the manifest ALREADY declares, whatever that is today. Naming the
-    # fields would couple this test to Mary-O's live vocabulary, which is Jon's
-    # to edit — and it did: adding `contents` to `MaryOBlock` turned this red
-    # for no reason but its own literal. What is under test is that an upsert
-    # PRESERVES, not what the block happens to hold this week.
-    existing = [f["name"] for f in manifest["entities"][0]["fields"]]
     manifest["entities"][0]["fields"][0]["default"] = "Brick"
     manifest["entities"][0]["fields"].append(
         {"name": "respawns", "type": "Bool", "default": True}
@@ -125,9 +119,14 @@ def test_an_upsert_keeps_the_uids_every_placement_references():
     kind = next(f for f in after["fieldDefs"] if f["identifier"] == "kind")
     assert kind["uid"] == kind_uid, changes
     assert kind["defaultOverride"] == {"id": "V_String", "params": ["Brick"]}
-    assert [f["identifier"] for f in after["fieldDefs"]] == existing + ["respawns"], (
-        "every field the manifest already declared survives, in order, with the "
-        "new one appended"
+    # ⚠ the manifest's OWN fields plus the one this test appends — read off the
+    # spec rather than spelled out, because spelling them out is what went stale:
+    # `contents` landed an hour after this assertion was written, and the list
+    # said `["kind", "respawns"]` from then on. Two of us fixed this
+    # independently and the same way, which is a decent sign it was the fix.
+    expected = [f["name"] for f in manifest["entities"][0]["fields"]]
+    assert [f["identifier"] for f in after["fieldDefs"]] == expected, (
+        "every field the manifest declares survives the upsert, in order"
     )
     assert all(inst["defUid"] == entity_uid for inst in block_instances(project))
 

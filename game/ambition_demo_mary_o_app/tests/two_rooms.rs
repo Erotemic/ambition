@@ -274,10 +274,10 @@ fn a_body_standing_on_the_ferry_is_carried_by_it() {
 
 /// Where the 1-2 ferry is right now, out of the live platform set.
 ///
-/// ⚠ found by its authored NAME, not by an id. The ferry is a `MovingPlatform`
-/// entity in `mary_o.ldtk` now and the converter keys a platform's runtime id to
-/// the LDtk iid — a value the file mints, so nothing outside the file can spell
-/// it. The name is what an author types and what a reader recognises.
+/// ⭐ found by its authored ID. It was found by NAME until the converter learned
+/// to read one: a platform's runtime id was the LDtk iid, which the file mints
+/// and nothing outside it can spell, so presentation was the only handle going —
+/// and renaming the platform in the editor would have broken this silently.
 fn ferry(app: &mut App) -> (Vec2, Vec2) {
     let set = app
         .world()
@@ -285,7 +285,7 @@ fn ferry(app: &mut App) -> (Vec2, Vec2) {
     let platform = set
         .0
         .iter()
-        .find(|platform| platform.name == ambition_demo_mary_o::level_1_2::FERRY_NAME)
+        .find(|platform| platform.id == ambition_demo_mary_o::level_1_2::FERRY_ID)
         .expect("1-2's ferry is in the live platform set");
     (platform.pos, platform.size)
 }

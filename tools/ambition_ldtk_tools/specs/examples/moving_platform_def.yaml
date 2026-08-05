@@ -10,6 +10,16 @@ entities:
       travel range (positive sweeps right then ping-pongs back, negative sweeps
       left first) and `speed` is in world px/s.
     fields:
+      # ⛔ **`id` was MISSING and every other placement had one.** `LoadingZone`,
+      # `CameraZone`, `Portal` and `ShrineSpawn` all let an author name the thing
+      # they placed; a moving platform could only be addressed by its LDtk iid or
+      # by its `name`, and a name is presentation — `FeatureName`'s own doc calls
+      # it "human-facing … for debug overlays / inspectors". Mary-O's underground
+      # ferry is located by name today for exactly this reason.
+      #
+      # ⚠ blank by default, and the converter falls back to the iid, so every
+      # platform authored before this field existed keeps the id it already had.
+      - { name: id,       type: String, default: null }
       - { name: name,     type: String, default: "Moving Platform" }
       - { name: path_id,  type: String, default: null }
       - { name: sweep_dx, type: Float,  default: 240.0 }

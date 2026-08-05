@@ -63,9 +63,20 @@ pub const ARRIVAL_ZONE_ID: &str = "mary_o_1_2_arrival";
 pub const EXIT_ZONE_ID: &str = "mary_o_1_2_exit";
 pub const SURFACE_RETURN_ZONE_ID: &str = "mary_o_1_1_surface_return";
 
-/// The ferry's authored display name — its runtime id is the LDtk iid, so this
-/// is what names it to a reader.
-pub const FERRY_NAME: &str = "Underground Ferry";
+/// **The ferry's authored ID.**
+///
+/// ⛔ **this used to be its display NAME, because there was no id to use.**
+/// `convert_moving_platform` went straight to the LDtk iid — a value the file
+/// mints, which nothing outside the file can spell — so the only handle a reader
+/// had was `name`, and a name is presentation: `FeatureName`'s own doc calls it
+/// *"human-facing … for debug overlays / inspectors"*. Renaming the platform in
+/// the editor would have silently broken every lookup, which is the same defect
+/// the snake paid for twice.
+///
+/// The converter reads `field_string(entity, "id")` now and the engine's
+/// `MovingPlatform` definition carries the field, so the ferry is addressed by
+/// something an author chose on purpose.
+pub const FERRY_ID: &str = "mary_o_1_2_ferry";
 
 /// The stone the cavern is cut from. The one thing about 1-2 the LDtk file
 /// cannot say, since a block carries no authored colour — the same reason 1-1
@@ -191,7 +202,7 @@ mod tests {
         let mut ferry = room
             .moving_platforms
             .iter()
-            .find(|platform| platform.name == FERRY_NAME)
+            .find(|platform| platform.id == FERRY_ID)
             .cloned()
             .expect("1-2 authors its ferry");
         let (mut left, mut right) = (f32::MAX, f32::MIN);

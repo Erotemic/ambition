@@ -87,8 +87,25 @@ pub const MARY_O_BLOCK: &str = "MaryOBlock";
 const ENCODED_PREFIX: &str = "maryo_block:";
 
 /// Encode one authored block's identity into the only channel a `Block` has.
-fn encoded_name(kind: MaryOBlockKind, iid: &str) -> String {
+///
+/// Public so a FIXTURE course can build the same blocks the converter does —
+/// a test course that spelled its own names would be testing a vocabulary
+/// nothing else speaks.
+pub fn encoded_name(kind: MaryOBlockKind, iid: &str) -> String {
     format!("{ENCODED_PREFIX}{}:{iid}", kind.authored())
+}
+
+/// A reactive block, built the way [`convert_mary_o_block`] builds one: encoded
+/// name, and the durable placement identity that `Block::solid` does not set.
+pub fn reactive_block(
+    kind: MaryOBlockKind,
+    iid: &str,
+    min: ae::Vec2,
+    size: ae::Vec2,
+) -> ae::Block {
+    let mut block = ae::Block::solid(encoded_name(kind, iid), min, size);
+    block.id = ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0);
+    block
 }
 
 /// The kind of block this authored NAME describes, or `None` when the name did
@@ -125,19 +142,16 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
             entity.iid
         ));
     };
-    let mut block = ae::Block::solid(encoded_name(kind, &entity.iid), min, size);
-    // ⛔⛔ **STAMP THE DURABLE IDENTITY, because `Block::solid` does not.** Its
-    // own doc says so — *"fixture constructors default to `GeoSource::Anon`; the
-    // IR emission paths assign real sources"* — and this IS an IR emission path.
-    //
-    // ⚠ **every authored block shared ONE anonymous id** until this line existed,
-    // so `authored_block_by_id` returned whichever came first and a head-bonk on
-    // any reactive block resolved to the same one. The engine's own
-    // `compile_surface` stamps `GeoId::placement(iid)` for exactly this reason;
-    // a converter that forgets it produces geometry with no identity at all.
-    block.id = ae::GeoId::placement(ae::PlacementId::new(entity.iid.clone()), 0);
+    // ⚠ **`reactive_block` stamps the durable identity, because `Block::solid`
+    // does not.** Its own doc says so — *"fixture constructors default to
+    // `GeoSource::Anon`; the IR emission paths assign real sources"* — and this
+    // IS an IR emission path. Every authored block shared ONE anonymous id until
+    // that existed, so a head-bonk on any reactive block resolved to whichever
+    // came first.
     let mut emission = RoomEmission::default();
-    emission.blocks.push(block);
+    emission
+        .blocks
+        .push(reactive_block(kind, &entity.iid, min, size));
     Ok(emission)
 }
 

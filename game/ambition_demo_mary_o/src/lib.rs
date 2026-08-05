@@ -21,6 +21,7 @@ pub mod ai_slop;
 mod binding_tests;
 pub mod bricks;
 pub mod ldtk_vocabulary;
+pub mod test_course;
 #[cfg(test)]
 mod ldtk_migration_tests;
 pub mod death;

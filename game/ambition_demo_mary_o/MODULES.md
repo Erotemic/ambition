@@ -21,8 +21,9 @@
 | [`snake`](src/snake.rs) | Mary-O's Solid Snake — the Koopa-equivalent walker, authored as pure content. |
 | [`star`](src/star.rs) | **The pocket quasar** — Mary-O's super-star. |
 | [`stomp`](src/stomp.rs) | **The ONE top/side contact authority for Mary-O's enemies.** |
+| [`test_course`](src/test_course.rs) | **A level for the TESTS to play, which nobody authors.** |
 
-_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

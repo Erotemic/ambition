@@ -51,8 +51,36 @@ pub struct MaryOSessionWorld {
     pub starting_character: StartingCharacter,
 }
 
+/// **Which room a session starts in.**
+///
+/// ⛔ the entry was hardcoded to `LEVEL_1_1_ROOM_ID`, so a test could not boot
+/// into anything else — which is why the playthrough tests had to walk the real
+/// level and went stale the moment it was authored (Jon, 2026-08-04). The
+/// source is installed as a SYSTEM and its own doc says it *"may read the
+/// provider's own resources"*, so this is the seam that was already there.
+///
+/// ⚠ absent means 1-1: a shipped game must not depend on a resource a test
+/// inserts.
+#[derive(bevy::prelude::Resource, Clone, Debug)]
+pub struct MaryOEntryRoom(pub String);
+
+impl Default for MaryOEntryRoom {
+    fn default() -> Self {
+        Self(LEVEL_1_1_ROOM_ID.to_string())
+    }
+}
+
 pub fn mary_o_session_world() -> MaryOSessionWorld {
-    let room = level_1_1();
+    mary_o_session_world_entering(LEVEL_1_1_ROOM_ID)
+}
+
+/// The same world, started in `entry`.
+pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
+    let room = if entry == crate::test_course::TEST_COURSE_ROOM_ID {
+        crate::test_course::test_course()
+    } else {
+        level_1_1()
+    };
     let geometry = ae::RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
     // TWO rooms, linked both ways. The demo could not express this until the
@@ -60,7 +88,7 @@ pub fn mary_o_session_world() -> MaryOSessionWorld {
     // lived in `ambition_app`, which no demo depends on, so a second room would
     // have been unreachable in this binary.
     let room_set = RoomSet::from_parts(
-        LEVEL_1_1_ROOM_ID,
+        entry,
         vec![room, crate::level_1_2::level_1_2()],
         vec![
             ambition_platformer2d::world::rooms::RoomLink {
@@ -409,8 +437,12 @@ impl Plugin for MaryOExperiencePlugin {
 }
 
 /// The provider's authored level 1-1 source for the shared preparation lifecycle.
-fn mary_o_prepared_session_world() -> PreparedPlatformerSource {
-    let source = mary_o_session_world();
+fn mary_o_prepared_session_world(
+    entry: Option<bevy::prelude::Res<MaryOEntryRoom>>,
+) -> PreparedPlatformerSource {
+    let source = mary_o_session_world_entering(
+        entry.as_ref().map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str()),
+    );
     PreparedPlatformerSource::new(
         MARY_O_EXPERIENCE,
         source.room_set,

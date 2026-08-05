@@ -1700,7 +1700,7 @@ impl Plugin for MaryORulesPlugin {
         // …and re-answered whenever the active room changes, which is what makes
         // a level's goal belong to that level rather than to whichever one the
         // session happened to open in.
-        app.add_systems(bevy::prelude::Update, follow_the_active_room);
+
         app.init_resource::<powerups::SpentPowerBlocks>();
         app.init_resource::<bricks::BrokenBricks>();
         // The brick overlay contributor writes the collision overlay; a full app
@@ -1753,6 +1753,27 @@ impl Plugin for MaryORulesPlugin {
         // settled tally and its clock reset is not immediately decremented.
         let rules = (
             spawn_mary_o_mode_owner,
+            // ⛔ **THIS USED TO RUN IN `Update`, and the resources it feeds are
+            // read by the two systems immediately below it in this chain.**
+            //
+            // `FlagPole` and `LevelDestination` are declared rollback-DERIVED,
+            // which is a promise that they are re-answered from rollback state
+            // before anything reads them. They were re-answered once per
+            // RENDERED frame, while ggrs resimulates many simulation ticks per
+            // rendered frame — so a rewind across a room transition restored
+            // `RoomSet` to 1-1 and then resimulated 1-1's ticks against 1-2's
+            // pole and destination. The resources corrected themselves on the
+            // next `Update`, long after the ticks that read them.
+            //
+            // The comment on the declaration claimed *"memo, resource and room
+            // all carry whatever the last tick left, together"*. Only the room
+            // did. (GPT 5.6, review through `f0f97f5`, finding 1.)
+            //
+            // Derived state has to be derived in the schedule that consumes it.
+            // The `Local` memo is still only a cache and still cannot drift: it
+            // compares against the ROOM, so a rewound room disagrees with a
+            // memo from the future and the answer is rebuilt.
+            follow_the_active_room,
             flag::run_flag_sequence,
             flag::play_victory_music,
             tick_level_clock,

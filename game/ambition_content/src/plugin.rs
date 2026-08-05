@@ -27,6 +27,14 @@ impl Plugin for AmbitionContentPlugin {
         // and independent of other Apps in the process.
         super::enemy_roster::register(app);
 
+        // Declare, per actor, which of Ambition's cast may stop thinking. The
+        // engine attaches no distance rule to anything (dormancy is "not
+        // something that should be inherent"), so a crate that stages bosses,
+        // arena mobs, a duel and 144 Hall characters and says nothing leaves
+        // "always awake" indistinguishable from "nobody chose". See
+        // `dormancy` for the per-class reasoning and the radius derivation.
+        super::dormancy::register(app);
+
         // Register every named projectile look (player kit, apple rain,
         // lasersword, glider) into the reusable, empty-by-default projectile
         // visual catalog. Sim-scoped (not presentation-only) so the lasersword's

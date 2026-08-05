@@ -522,11 +522,8 @@ fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
     // would silently become a different character the next time somebody edits
     // `SMASH_ROSTER`, which is the list Jon asked to be easy to edit.
     //
-    // ⚠ **the robot stand-ins specifically**, and that is a recorded limitation
-    // rather than a preference: `smash_george_booul` is on the grid, renders
-    // correctly, and CANNOT BE SEATED — a roster containing him produces zero
-    // bodies with no refusal recorded. See the queue row; picking him here would
-    // make this test fail for a reason that has nothing to do with the stage.
+    // ⚠ and seat 0 deliberately takes a fighter that is NOT the stage's
+    // starting character — see below.
     let index_of = |app: &bevy::prelude::App, id: &str| -> usize {
         app.world()
             .resource::<SmashRoster>()
@@ -534,7 +531,11 @@ fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
             .position(|candidate| candidate == id)
             .unwrap_or_else(|| panic!("`{id}` is not on this composition's grid"))
     };
-    let first = index_of(app, ambition_demo_smash::SMASH_CHARACTER_ID);
+    // ⭐ **seat 0 takes GEORGE BOOUL, not the stage's starting character.** That
+    // combination seated NOBODY until 2026-08-05 — seating adopts the primary
+    // body and returned from the whole system when the ids disagreed — so this
+    // is the case, not an arbitrary pick.
+    let first = index_of(app, ambition_demo_smash::SMASH_GEORGE_BOOUL);
     let second = index_of(app, ambition_demo_smash::SMASH_OPPONENT_ID);
     {
         let mut select = app.world_mut().resource_mut::<SmashSelect>();

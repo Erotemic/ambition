@@ -615,6 +615,55 @@ fn return_to_the_select_screen_when_the_match_ends(
     }
 }
 
+/// **Dress the player as the fighter they picked.**
+///
+/// ⛔ **without this, player one could only ever be the stage's starting
+/// character, and picking anybody else seated NOBODY.** Seating ADOPTS the
+/// primary player's existing body rather than spawning a second one — which is
+/// right, and is what stopped two Mary-Os appearing in the arena — and it
+/// refuses to re-dress that body itself, saying so in its own comment: *"that is
+/// `WornCharacter`'s job, and a stage that wants a different fighter should say
+/// so in its `StartingCharacter`."*
+///
+/// A `StartingCharacter` is decided when the stage is PREPARED. A character
+/// select screen decides seat 0's fighter afterwards, so the only place that can
+/// reconcile them is here, and the reconciliation is exactly the one the engine
+/// names: re-dress the body.
+///
+/// ⚠ **the symptom was silence.** The roster published, the route reached the
+/// stage, no `MatchSeatingRefused` was recorded, and the stage came up empty —
+/// because that seating check `return`s from the whole system, so one seat
+/// disagreeing seats every other participant too. The engine says so out loud
+/// now; this is the other half.
+fn dress_the_primary_player_as_their_own_pick(
+    roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
+    mut player: bevy::prelude::Query<
+        &mut ambition_platformer2d::character::WornCharacter,
+        ambition_platformer2d::actor::PrimaryPlayerOnly,
+    >,
+) {
+    let Some(roster) = roster else {
+        return;
+    };
+    if !roster.is_published_by(SMASH_EXPERIENCE) {
+        return;
+    }
+    // Seat 0 is the one seating adopts; every other seat is spawned wearing
+    // whatever the roster named, and needs nothing from here.
+    let Some(wanted) = roster
+        .participants
+        .first()
+        .map(|seat| seat.character.as_str())
+    else {
+        return;
+    };
+    for mut worn in &mut player {
+        if worn.id() != wanted {
+            *worn = ambition_platformer2d::character::WornCharacter::new(wanted);
+        }
+    }
+}
+
 /// Say who won, once.
 fn announce_the_winner(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
@@ -771,6 +820,7 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     select_screen::place_the_screen,
                     select_screen::update_the_select_screen,
                     start_the_battle_when_asked,
+                    dress_the_primary_player_as_their_own_pick,
                     return_to_the_select_screen_when_the_match_ends,
                 )),
                 SmashSelectSet,

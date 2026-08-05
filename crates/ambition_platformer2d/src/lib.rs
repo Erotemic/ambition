@@ -205,6 +205,9 @@ pub use ambition_vfx as vfx;
 pub mod actor {
     /// Who the body is.
     pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
+    /// The query filter for "the body this player already has", which a game
+    /// needs to re-dress it — see `WornCharacter` and the seating contract.
+    pub use ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly;
 
     /// **Which seat of the match a body is.**
     ///

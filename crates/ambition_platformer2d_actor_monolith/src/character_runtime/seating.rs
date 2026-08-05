@@ -609,6 +609,9 @@ pub fn seat_match_participants(
         ),
         crate::actor::PrimaryPlayerOnly,
     >,
+    // The last (worn, wanted) pair this system complained about, so a retry that
+    // runs every tick says it once rather than every frame.
+    mut reported: Local<Option<(String, String)>>,
 ) {
     if active.is_some() {
         return;
@@ -704,6 +707,9 @@ pub fn seat_match_participants(
                     // read-only item, which is what keeps RESOLVE pure. The
                     // `single_mut()` that actually writes lives in COMMIT.
                     let Ok((body, .., worn)) = player.single() else {
+                        // No primary body yet. Seating retries next tick, and
+                        // this is the ordinary case on the frame a stage opens
+                        // — quiet on purpose.
                         return;
                     };
                     if worn.id() != character {
@@ -712,6 +718,36 @@ pub fn seat_match_participants(
                         // `WornCharacter`'s job, and a stage that wants a
                         // different fighter should say so in its
                         // `StartingCharacter`.
+                        //
+                        // ⛔ **BUT IT SAYS SO NOW, and it cost hours not to.**
+                        // This `return` leaves the whole system, so ONE seat
+                        // disagreeing seats NOBODY — including every other
+                        // participant — silently, every tick, forever. A
+                        // character-select screen decides seat 0's fighter at
+                        // runtime, which is exactly the case this predates: the
+                        // symptom was a match that opened onto an empty stage
+                        // with a published roster, a correct route, and no
+                        // `MatchSeatingRefused` to read.
+                        //
+                        // Three lines below, an unknown brain profile refuses
+                        // the roster OUT LOUD with a recorded reason, and its
+                        // comment explains why: *"the per-seat `debug_assert!`
+                        // this replaced was invisible in release."* Same class,
+                        // same fix — throttled to once per (worn, wanted) pair
+                        // so a retry loop does not become a log flood.
+                        if reported.replace((worn.id().to_string(), character.to_string()))
+                            != Some((worn.id().to_string(), character.to_string()))
+                        {
+                            bevy::log::warn!(
+                                target: "ambition_platformer2d::seating",
+                                "match seating is waiting: seat {index} asks for \
+                                 `{character}` and the primary player's body wears \
+                                 `{}`. NOBODY seats until they agree — re-dress the \
+                                 body (`WornCharacter`) or name that fighter in the \
+                                 stage's `StartingCharacter`.",
+                                worn.id(),
+                            );
+                        }
                         return;
                     }
                     SeatPlan::Adopt {

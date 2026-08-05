@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`select`](src/select.rs) | **Character select: where a match is DECIDED before it is seated.** |
-| [`select_ui`](src/select_ui.rs) | **What the select screen LOOKS like.** |
+| [`select_screen`](src/select_screen.rs) | **What the select screen LOOKS like, and how a cursor works it.** |
 
 _2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

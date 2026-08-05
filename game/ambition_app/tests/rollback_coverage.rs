@@ -1234,6 +1234,18 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
     ),
     (
+        "ambition_demo_smash::select::SmashRoster",
+        "WHICH fighters the character-select grid can offer in this composition.          Assembled once in `Startup` from the catalog — the demo's own four plus          every row tagged `smash` — and never written again; the only mutable          reference in the workspace is that one assembler. Composition identity,          decided before any session exists, and the MATCH reads the          `MatchParticipantRoster` this eventually produces rather than this",
+    ),
+    (
+        "ambition_demo_smash::select_screen::StartRequested",
+        "whether somebody clicked START on the select screen. Written by          `drive_the_cursor` and cleared on arrival at the screen, both in `Update`          on a route that has no session; read once by the hand-off. ⚠ read to its          readers rather than waived as \"menu state\": a latch that says \"go\" is          exactly the shape that would matter if it ever survived into a match, and          the reason it cannot is that arriving at the screen resets it",
+    ),
+    (
+        "ambition_demo_smash::select_screen::cursor::SelectCursor",
+        "where the select screen's pointer is and what is in its hand. Written          only by `drive_the_cursor`, which is gated on the select ROUTE being          active, so it cannot run while a session simulates; a rewind of a pointer          position would also be meaningless, since the position is re-derived from          the device on the next frame either way",
+    ),
+    (
         "ambition_encounter::spec::EncounterWaveBook",
         "the authored encounter wave timelines, keyed by trigger id. Inserted ONCE at          plugin build from the prepared content pack and never taken mutably          anywhere in the workspace, so it cannot differ between two timelines of one          session. ⚠ it appeared in this sweep the day it stopped being a          process-global `OnceLock` — which is the sweep working: a value nobody          owned was invisible to it, and an App resource is not",
     ),

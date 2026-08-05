@@ -11,7 +11,7 @@
 	"iid": "ambition-mary-o-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 106920,
+	"nextUid": 106926,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -8837,6 +8837,156 @@
 								"id": "V_String",
 								"params": ["goal_pole"]
 							}] }]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [28,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 452,
+							"__worldY": 1256,
+							"iid": "PickupSpawn-106920",
+							"width": 24,
+							"height": 24,
+							"defUid": 2015,
+							"px": [452,232],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "cavern_coin_0", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cavern_coin_0"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [30,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 484,
+							"__worldY": 1256,
+							"iid": "PickupSpawn-106921",
+							"width": 24,
+							"height": 24,
+							"defUid": 2015,
+							"px": [484,232],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "cavern_coin_1", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cavern_coin_1"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [32,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 516,
+							"__worldY": 1256,
+							"iid": "PickupSpawn-106922",
+							"width": 24,
+							"height": 24,
+							"defUid": 2015,
+							"px": [516,232],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "cavern_coin_2", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cavern_coin_2"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [34,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 548,
+							"__worldY": 1256,
+							"iid": "PickupSpawn-106923",
+							"width": 24,
+							"height": 24,
+							"defUid": 2015,
+							"px": [548,232],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "cavern_coin_3", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cavern_coin_3"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [36,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 580,
+							"__worldY": 1256,
+							"iid": "PickupSpawn-106924",
+							"width": 24,
+							"height": 24,
+							"defUid": 2015,
+							"px": [580,232],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "cavern_coin_4", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cavern_coin_4"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "PickupSpawn",
+							"__grid": [38,14],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#8AFF80",
+							"__worldX": 612,
+							"__worldY": 1256,
+							"iid": "PickupSpawn-106925",
+							"width": 24,
+							"height": 24,
+							"defUid": 2015,
+							"px": [612,232],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "cavern_coin_5", "__tile": null, "defUid": 3039, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["cavern_coin_5"]
+								}] },
+								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["currency:1"]
+								}] }
+							]
 						}
 					]
 				},

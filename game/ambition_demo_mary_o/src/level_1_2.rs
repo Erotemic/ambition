@@ -210,6 +210,75 @@ mod tests {
         );
     }
 
+    /// **The coin shelf has coins on it, and they rest ON it.**
+    ///
+    /// ⛔ **it was bare, and only the module doc said otherwise.** This level's
+    /// own grammar calls the shelf *"a short raised run with coins on it, so the
+    /// first thing the room teaches is that its ceiling is low enough to
+    /// matter"* — and the Rust version never authored a single one, so the beat
+    /// it describes did not exist. A doc comment claiming content is the easiest
+    /// kind of claim to leave untrue, because nothing reads it.
+    ///
+    /// ⚠ **the rest position is the assertion that matters.** A coin floating
+    /// above the shelf or sunk into it still "exists" and still collects; what
+    /// it stops being is the thing the shelf teaches, which is that this run is
+    /// worth the jump. So this checks they sit on its top edge, not merely that
+    /// some placements are present.
+    #[test]
+    fn the_coin_shelf_carries_coins_that_rest_on_it() {
+        let room = level_1_2();
+        // ⚠ identified STRUCTURALLY, not by a constant. `floor_top()` went away
+        // when the level became authored, and re-deriving it here would put a
+        // second copy of the room's geometry in a test of the room. The shelf is
+        // the only SOLID that touches no edge of the world: the roof, the floor
+        // runs and both walls each meet one.
+        let size = room.world.size;
+        let shelf = room
+            .world
+            .blocks
+            .iter()
+            .find(|block| {
+                matches!(block.kind, ae::BlockKind::Solid)
+                    && block.aabb.min.x > 0.0
+                    && block.aabb.min.y > 0.0
+                    && block.aabb.max.x < size.x
+                    && block.aabb.max.y < size.y
+            })
+            .expect("1-2 authors a raised shelf that stands clear of every wall");
+
+        let coins: Vec<_> = room
+            .placements
+            .iter()
+            .filter(|placement| placement.name.starts_with("cavern_coin"))
+            .collect();
+        assert!(
+            coins.len() >= 4,
+            "the shelf is a RUN of coins — one or two reads as decoration, not as \
+             a reason to jump. found {}",
+            coins.len()
+        );
+
+        for coin in &coins {
+            assert!(
+                (coin.aabb.max.y - shelf.aabb.min.y).abs() < 1.0,
+                "`{}` does not rest on the shelf: its bottom is {} and the shelf \
+                 top is {}",
+                coin.name,
+                coin.aabb.max.y,
+                shelf.aabb.min.y
+            );
+            assert!(
+                coin.aabb.min.x >= shelf.aabb.min.x && coin.aabb.max.x <= shelf.aabb.max.x,
+                "`{}` hangs off the shelf horizontally ({}..{} against {}..{})",
+                coin.name,
+                coin.aabb.min.x,
+                coin.aabb.max.x,
+                shelf.aabb.min.x,
+                shelf.aabb.max.x
+            );
+        }
+    }
+
     #[test]
     fn the_room_is_closed_and_underground() {
         let room = level_1_2();

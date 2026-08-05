@@ -9,9 +9,10 @@
 //!
 //! ## The seam, and why no engine change was needed
 //!
-//! `install_ldtk_entity_converters` lets a game register converters for its own
-//! entity identifiers. It has existed, documented and tested, with **no users**.
-//! Mary-O is the first.
+//! `LdtkVocabulary` lets a game hand its own entity converters to a conversion.
+//! That seam has existed, documented and tested, with **no users**; Mary-O is
+//! the first, and being its first real user is what turned up that it was a
+//! process-global `OnceLock` rather than a parameter.
 //!
 //! A converter's only output is `RoomEmission`, whose channels are engine-owned
 //! types — so a game-specific PAYLOAD still has nowhere typed to land, and the

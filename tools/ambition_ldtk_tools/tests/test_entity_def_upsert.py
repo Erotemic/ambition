@@ -119,7 +119,12 @@ def test_an_upsert_keeps_the_uids_every_placement_references():
     kind = next(f for f in after["fieldDefs"] if f["identifier"] == "kind")
     assert kind["uid"] == kind_uid, changes
     assert kind["defaultOverride"] == {"id": "V_String", "params": ["Brick"]}
-    assert [f["identifier"] for f in after["fieldDefs"]] == ["kind", "respawns"]
+    # ⚠ the manifest's OWN fields plus the one this test appends — read off the
+    # spec rather than spelled out, because spelling them out is what went stale:
+    # `contents` landed an hour after this assertion was written and the list
+    # said `["kind", "respawns"]` from then on.
+    expected = [f["name"] for f in manifest["entities"][0]["fields"]]
+    assert [f["identifier"] for f in after["fieldDefs"]] == expected
     assert all(inst["defUid"] == entity_uid for inst in block_instances(project))
 
 

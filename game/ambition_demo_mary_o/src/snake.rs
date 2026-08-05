@@ -374,10 +374,40 @@ pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
 /// this. Everything else about its size is READ OFF THE ART — including the fact
 /// that stomping it shrinks its box, which is the whole point.
 ///
-/// `0.5` draws the 128px frame two tiles across, which puts the walker at about
-/// 1.8 tiles long and the kickable box at about three quarters of a tile: a
-/// snake you jump on, and a shell you kick down a line of them.
-const SNAKE_WORLD_PER_PIXEL: f32 = 0.5;
+/// > `0.5` draws the 128px frame two tiles across, which puts the walker at
+/// > about 1.8 tiles long and the kickable box at about three quarters of a
+/// > tile: a snake you jump on, and a shell you kick down a line of them.
+///
+/// (The paragraph above is the ORIGINAL, kept because its intent is right.)
+///
+/// ⚠ **`0.5` did not deliver 1.8 tiles.** Jon, from play, 2026-08-05: *"the
+/// scale of solid snake increased a lot for some reason in the ldtk transition,
+/// they need to be a bit smaller in game."* It did not increase in the
+/// migration — until the enemies got their sheets back that same day they drew
+/// as 28px placeholder boxes, so this size had never actually been on screen.
+///
+/// ⛔ **and my first measurement of it was WRONG.** I colour-sampled "green" out
+/// of a capture and got 213x57 px, called the snake 5.8 tiles long, and wrote
+/// that number into this comment as fact. Mary-O's world is full of green warp
+/// PIPES; the sample had swallowed one. Halving the constant on that basis
+/// produced a snake visibly smaller than the crate beside it — which is what
+/// LOOKING at the render showed immediately and the arithmetic never would have.
+/// A colour filter is not an instrument for "how big is that thing" in a scene
+/// containing other things of that colour.
+///
+/// ⚠ **and the SECOND measurement was no better.** A snake has two bodies — the
+/// sprawled walker and the withdrawn box — and captures taken at different
+/// moments catch different ones, so "how long is the snake on screen" answered
+/// 213px, then 53px, then 230px across three runs at three different constants.
+/// None of those comparisons was like-for-like. (It also means the tan crates
+/// visible beside the snakes in every Mary-O capture are BOXED SNAKES, not
+/// scenery and not bricks — I reported them as bricks drawing with a wooden
+/// texture, and that was wrong.)
+///
+/// So `0.35` is chosen by ARITHMETIC, honestly labelled: it is a 30% reduction
+/// on the value Jon asked to shrink, and nothing more. Turning this knob again
+/// is a taste call best made by whoever is looking at the running game.
+const SNAKE_WORLD_PER_PIXEL: f32 = 0.35;
 
 /// **Ensure the `solid_snake` sheet is drawable**, keyed by BOTH its catalog id
 /// and its display name, so the enemy render's `npc_asset_for_name` finds it

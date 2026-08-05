@@ -124,6 +124,34 @@ pub fn exit_zone() -> LoadingZone {
     }
 }
 
+/// Tile column of 1-2's goal, past the chasm and short of the exit alcove.
+const POLE_COLUMN: f32 = WIDTH_TILES - 8.0;
+/// The same half-tile thickness 1-1's pole uses — the grab band is derived from
+/// it, and a band narrower than the shaft is a level that cannot be finished.
+const POLE_WIDTH: f32 = T * 0.5;
+/// How much shaft stands above the floor. Shorter than 1-1's nine tiles because
+/// the corridor is ten tall and a pole through the ceiling reads as a mistake.
+const POLE_TILES: f32 = 6.0;
+
+/// **1-2's goal.**
+///
+/// ⭐ **the level had an exit but no END.** The alcove at the far wall returns
+/// you to the surface, which is the shortcut's other mouth — walking into it is
+/// leaving, not finishing. Jon: *"The end of 1-2 should transition back to
+/// 1-1."* Finishing is grabbing a pole, the same verb 1-1 ends with, and where
+/// that leads is [`crate::exit_for_room`]'s answer rather than this room's.
+///
+/// ⚠ it stands SHORT of the exit alcove on purpose, so the two affordances do
+/// not overlap: a body walking the last stretch meets the pole first.
+pub fn goal_pole() -> crate::flag::FlagPole {
+    crate::flag::FlagPole {
+        x: POLE_COLUMN * T + POLE_WIDTH * 0.5,
+        top_y: floor_top() - POLE_TILES * T,
+        base_y: floor_top(),
+        half_width: POLE_WIDTH * 0.5,
+    }
+}
+
 pub fn level_1_2() -> RoomSpec {
     let mut blocks = Vec::new();
 
@@ -170,6 +198,15 @@ pub fn level_1_2() -> RoomSpec {
         )
         .with_art_color(UNDERGROUND_STONE),
     );
+
+    // The goal. ONE-WAY for the reason 1-1's is: a flagpole you can walk into is
+    // a wall, and a wall parks the body half a width away from the pole's centre
+    // — permanently outside a grab band measured from that centre.
+    blocks.push(ae::Block::one_way(
+        "goal_pole",
+        ae::Vec2::new(POLE_COLUMN * T, floor_top() - POLE_TILES * T),
+        ae::Vec2::new(POLE_WIDTH, POLE_TILES * T),
+    ));
 
     // Spawn sits under the arrival shaft, on the near floor. A body that somehow
     // reaches this room without a transition still starts somewhere sane.

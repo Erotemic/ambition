@@ -606,8 +606,53 @@ const POLE_COLUMN: f32 = 98.0;
 pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
     if room_id == test_course::TEST_COURSE_ROOM_ID {
         test_course::course_pole()
+    } else if room_id == level_1_2::LEVEL_1_2_ROOM_ID {
+        level_1_2::goal_pole()
     } else {
         goal_pole()
+    }
+}
+
+/// **Where a level goes when its goal is reached.**
+///
+/// ⛔ **the goal used to have exactly one answer, and it was compiled in.**
+/// `cycle_level_on_flag_tally` wrote `RoomReplayRequested` unconditionally —
+/// *"the next level is the same level"*, the classic arcade loop — so a level
+/// physically could not lead anywhere. Jon, 2026-08-04: *"we need to build a
+/// real world 1-2 that you go to when you complete world 1-1. So the end goal
+/// needs to be able to specify where the level transitions to. The end of 1-2
+/// should transition back to 1-1."*
+///
+/// ⭐ **`Replay` stays a first-class answer rather than becoming a special
+/// case.** A level with no successor genuinely does loop — the fixture course
+/// does, and so did every Mary-O level until this existed — so "loops" and
+/// "leads to 1-2" are two destinations, not a feature and its absence.
+#[derive(bevy::prelude::Resource, Clone, Debug, PartialEq, Eq)]
+pub enum LevelDestination {
+    /// Restart this room in place: the arcade loop.
+    Replay,
+    /// Load another room in this world.
+    Room(String),
+}
+
+/// Where each room's goal leads.
+///
+/// ⚠ **a room that names a destination it does not have is a WARNING, not a
+/// crash** — see `cycle_level_on_flag_tally`. Answering here is a content
+/// decision; whether the world contains the room is a question only the loaded
+/// `RoomSet` can settle.
+pub fn exit_for_room(room_id: &str) -> LevelDestination {
+    if room_id == LEVEL_1_1_ROOM_ID {
+        // 1-1 → 1-2: what Jon asked for, and the reason this seam exists.
+        LevelDestination::Room(level_1_2::LEVEL_1_2_ROOM_ID.to_string())
+    } else if room_id == level_1_2::LEVEL_1_2_ROOM_ID {
+        // ⭐ and 1-2 back to 1-1, which closes the loop into a CIRCUIT rather
+        // than a dead end. Jon: *"The end of 1-2 should transition back to
+        // 1-1."*
+        LevelDestination::Room(LEVEL_1_1_ROOM_ID.to_string())
+    } else {
+        // The fixture course, and anything else: loop in place.
+        LevelDestination::Replay
     }
 }
 
@@ -621,11 +666,14 @@ fn install_goal_pole(
     mut commands: bevy::prelude::Commands,
     entry: Option<bevy::prelude::Res<provider::MaryOEntryRoom>>,
 ) {
-    commands.insert_resource(pole_for_room(
-        entry
-            .as_ref()
-            .map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str()),
-    ));
+    let room = entry
+        .as_ref()
+        .map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str());
+    commands.insert_resource(pole_for_room(room));
+    // ⚠ the pole and where it LEADS are answered together, off the same room id,
+    // because a goal you can reach in a room whose exit belongs to another one is
+    // the shape of bug that took a whole session to find the first time.
+    commands.insert_resource(exit_for_room(room));
 }
 
 /// **Mary-O Classic's movement profile, authored ONCE.**
@@ -1322,6 +1370,12 @@ impl Plugin for MaryORulesPlugin {
         // engine registers it too (`NewGameResetPlugin`), but a thin host
         // may not, and `add_message` is idempotent — a no-op when already present.
         app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
+        // ⚠ **and the TRANSITION**, because a level's goal names where it leads
+        // now and `cycle_level_on_flag_tally` writes one whichever answer it
+        // gets. An unregistered message fails parameter validation rather than
+        // being ignored, so a fixture that never transitions still has to
+        // declare that it could.
+        app.add_message::<ambition_platformer2d::world::rooms::RoomTransitionRequested>();
         // ⚠ declared HERE as well as engine-side, because a channel's EMITTER
         // owes its existence: a composition that installs this demo without the
         // full sim-core resources (every one of this crate's own test apps) still
@@ -1836,23 +1890,41 @@ fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
         && body.max.y > mouth.min.y
 }
 
-/// **Cyclic level completion.** Once the flag tally has settled, restart the
-/// level — "the next level is the same level," the classic arcade loop.
+/// **Level completion goes where the level SAYS it goes.**
 ///
-/// Emitting the engine's generic [`RoomReplayRequested`] restarts the ACTIVE room
-/// in place (player warped back to spawn, room-scoped state rebuilt); it is the
-/// exact "replay the current room" seam a "try again" beat uses, and "next level
-/// = same level" maps straight onto it with no new message type. Resetting the
-/// sequence to `Idle` and the clock to [`STARTING_TIME`] here is what arms the
+/// ⛔ **this always replayed, and the comment that stood here said so proudly:**
+/// *"the next level is the same level," the classic arcade loop.* That was true
+/// of Mary-O and false of the engine seam underneath it — a level could not lead
+/// anywhere, because the destination was a compiled-in choice of message rather
+/// than something a level states. [`LevelDestination`] is that statement now,
+/// and `Replay` is one of its answers rather than the only behaviour.
+///
+/// `RoomReplayRequested` restarts the ACTIVE room in place (player warped back
+/// to spawn, room-scoped state rebuilt) — the same seam a "try again" beat uses.
+/// A named room instead emits a `RoomTransitionRequested` carrying a SYNTHETIC
+/// `Door` zone, following the shrine's checkpoint resume: `Door` is the
+/// activation that never fires on its own, so a transition minted here cannot be
+/// re-triggered by the body happening to stand somewhere.
+///
+/// Resetting the sequence to `Idle` and the clock to [`STARTING_TIME`] arms the
 /// next lap so the tally does not re-fire every frame. The walk-off has already
-/// carried the body clear of the pole's grab band, so the freshly-`Idle` sequence
-/// cannot immediately re-grab in the one frame before the host warps the body home.
+/// carried the body clear of the pole's grab band, so the freshly-`Idle`
+/// sequence cannot immediately re-grab in the one frame before the host acts.
 ///
 /// [`RoomReplayRequested`]: ambition_platformer2d::actors::session::reset::RoomReplayRequested
 fn cycle_level_on_flag_tally(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut dwell: bevy::prelude::Local<f32>,
     mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
+    destination: Option<bevy::prelude::Res<LevelDestination>>,
+    room_set: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >,
+    >,
+    mut transitions: bevy::prelude::MessageWriter<
+        ambition_platformer2d::world::rooms::RoomTransitionRequested,
+    >,
     mut replay: bevy::prelude::MessageWriter<
         ambition_platformer2d::actors::session::reset::RoomReplayRequested,
     >,
@@ -1879,7 +1951,53 @@ fn cycle_level_on_flag_tally(
     *sequence = flag::FlagSequence::default();
     level.time_remaining = STARTING_TIME;
     level.intro_card = INTRO_CARD_SECONDS;
-    replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+
+    // Absent means loop, for the reason `MaryOEntryRoom`'s doc gives about its
+    // own absence: a shipped game must not depend on a resource only some hosts
+    // insert, and looping is what every Mary-O level did before this existed.
+    let destination = destination
+        .as_deref()
+        .cloned()
+        .unwrap_or(LevelDestination::Replay);
+    let LevelDestination::Room(target) = destination else {
+        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        return;
+    };
+    // ⚠ **naming a room this world does not have is a WARNING and a REPLAY, not
+    // a crash and not silence.** Following the shrine's checkpoint resume, which
+    // reasons the same way about a save that names a room since removed: the
+    // level still ends, the player still goes somewhere, and the log says what
+    // was asked for.
+    let set = room_set.as_deref();
+    let target_index = set.and_then(|set| set.rooms.iter().position(|room| room.id == target));
+    let Some((set, target_index)) = set.zip(target_index) else {
+        bevy::log::warn!(
+            target: "ambition_demo_mary_o",
+            "the goal names room `{target}`, which this world does not contain; \
+             replaying the current room instead"
+        );
+        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        return;
+    };
+    let arrival = set.rooms[target_index].world.spawn;
+    transitions.write(
+        ambition_platformer2d::world::rooms::RoomTransitionRequested::new(
+            ambition_platformer2d::world::rooms::RoomTransition {
+                // A synthetic zone: nobody walked through a door to finish a
+                // level, and `Door` is the activation that never fires on its
+                // own — so this cannot be re-triggered by proximity.
+                zone: ambition_platformer2d::world::rooms::LoadingZone {
+                    id: "mary_o_level_complete".to_string(),
+                    name: "Level complete".to_string(),
+                    activation: ambition_platformer2d::world::rooms::LoadingZoneActivation::Door,
+                    aabb: ae::Aabb::new(arrival, ae::Vec2::ONE),
+                },
+                target_room: target_index,
+                arrival,
+            },
+            None,
+        ),
+    );
 }
 
 /// Install the Mary-O demo content layer into an engine app.
@@ -3065,6 +3183,91 @@ mod tests {
         assert_eq!(
             remaining, STARTING_TIME,
             "the new lap starts with a full clock"
+        );
+    }
+
+    /// **Every level's goal names where it goes, and 1-1 and 1-2 point at each
+    /// other.**
+    ///
+    /// ⛔ **the destination was compiled in**, so a level physically could not
+    /// lead anywhere: completion wrote `RoomReplayRequested` unconditionally.
+    /// Jon, 2026-08-04: *"we need to build a real world 1-2 that you go to when
+    /// you complete world 1-1 … The end of 1-2 should transition back to 1-1."*
+    ///
+    /// ⚠ this asserts the WIRING — that each room names the other, and that
+    /// `Replay` is still what an unnamed room gets — rather than driving a
+    /// playthrough. The end-to-end run belongs to the fixture course, and the
+    /// course deliberately loops, so the transition case has no route to ride.
+    #[test]
+    fn the_two_levels_name_each_other_and_anything_else_still_loops() {
+        assert_eq!(
+            exit_for_room(LEVEL_1_1_ROOM_ID),
+            LevelDestination::Room(level_1_2::LEVEL_1_2_ROOM_ID.to_string()),
+            "finishing 1-1 goes to 1-2"
+        );
+        assert_eq!(
+            exit_for_room(level_1_2::LEVEL_1_2_ROOM_ID),
+            LevelDestination::Room(LEVEL_1_1_ROOM_ID.to_string()),
+            "and finishing 1-2 comes back to 1-1, which makes it a circuit \
+             rather than a dead end"
+        );
+        assert_eq!(
+            exit_for_room(test_course::TEST_COURSE_ROOM_ID),
+            LevelDestination::Replay,
+            "a level with no successor still loops — `Replay` is an answer, not \
+             the absence of one"
+        );
+
+        // ⭐ **and every named destination is a room this world actually has.**
+        // A goal pointing at a room nobody built degrades to a replay with a
+        // warning, which is deliberate but is not something to ship: it would
+        // read as "the flag is broken" to a player and to nobody as a typo.
+        let world = mary_o_session_world();
+        for room in &world.room_set.rooms {
+            if let LevelDestination::Room(target) = exit_for_room(&room.id) {
+                assert!(
+                    world.room_set.rooms.iter().any(|r| r.id == target),
+                    "room `{}` sends its goal to `{target}`, which this world \
+                     does not contain",
+                    room.id
+                );
+            }
+        }
+    }
+
+    /// **1-2 has a goal to reach, and it is a real block in the room.**
+    ///
+    /// ⚠ the level had an EXIT — an alcove that walks you back to the surface —
+    /// and no END. Those are different affordances: leaving is not finishing,
+    /// and only one of them can name a destination.
+    #[test]
+    fn level_one_two_authors_the_pole_its_resource_describes() {
+        let room = level_1_2::level_1_2();
+        let pole = level_1_2::goal_pole();
+        let block = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == "goal_pole")
+            .expect("1-2 authors a goal pole");
+        let centre = (block.aabb.min.x + block.aabb.max.x) * 0.5;
+        assert!(
+            (centre - pole.x).abs() < 0.001,
+            "the pole resource and the authored shaft are the same object: \
+             block centre {centre}, resource x {}",
+            pole.x
+        );
+        assert!(
+            matches!(block.kind, ae::BlockKind::OneWay),
+            "the pole is ONE-WAY: a flagpole you can walk into is a wall, and a \
+             wall parks the body outside its own grab band"
+        );
+        // It must stand clear of the exit alcove, or the two affordances race.
+        let exit = level_1_2::exit_zone();
+        assert!(
+            pole.x + pole.half_width < exit.aabb.min.x,
+            "the goal stands short of the exit alcove, so a body walking the \
+             last stretch meets the pole first"
         );
     }
 }

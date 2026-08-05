@@ -378,6 +378,22 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # the suite. Every other check in that file is fatal.
         jobs.append(Job("agent KB (doc contracts + inline-test review)",
                         [sys.executable, "scripts/check_agent_kb.py"]))
+        # ⭐ **AND THE FOURTH AND FIFTH, found by asking the question the third
+        # one raised instead of waiting to trip over them.** Cross-referencing
+        # `ls scripts/check_*.py` against this plan AND against `scripts/tests/`
+        # (several checkers run through a pytest wrapper rather than directly, so
+        # absence from this list is not proof) left exactly two orphans:
+        #   * `check_doc_links.py` — 0.5s, dead links in the ACTIVE knowledge base
+        #     (archives keep stale paths on purpose and are excluded);
+        #   * `check_roadmap_evidence.py` — 10s, re-derives each roadmap
+        #     `**Status …**` claim from SOURCE. Its own docstring records three
+        #     stale claims found that way on 2026-07-27; prose does not rot loudly.
+        # Both were already green, so wiring them in adds 10.7s and no red — the
+        # value is the regression they now catch rather than anything they say today.
+        jobs.append(Job("doc links (active KB)",
+                        [sys.executable, "scripts/check_doc_links.py"]))
+        jobs.append(Job("roadmap claims match source",
+                        [sys.executable, "scripts/check_roadmap_evidence.py"]))
         # The LDtk AUTHORING toolchain, which is the path every room in the
         # game is built through and was the second Python suite nothing ran.
         # Found 2026-07-28 with 11 of 149 RED, all of them pointing at asset

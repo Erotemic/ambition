@@ -47,8 +47,12 @@ entities:
 ```
 
 The tool:
-1. Refuses to overwrite an existing entity identifier (use a different
-   identifier or delete the def by hand first).
+1. Refuses an entity identifier the project already has. That refusal is the
+   command's meaning — *I believe this noun is new; tell me if I am wrong* —
+   and it is deliberately not overridable here. To make an EXISTING definition
+   match a spec, use `def upsert-entity`, which preserves the uids every
+   placement in every level references; deleting the def and registering it
+   again parses fine and empties the level.
 2. Allocates a fresh `uid` from the project's `nextUid` for both the
    entity def and each field def.
 3. Synthesizes the LDtk editor-roundtrip metadata (`__type`, `type`
@@ -181,6 +185,30 @@ def field_def(name: str, human_type: str, default, project: dict) -> dict:
         "exportToToc": False,
         "searchable": True,
     }
+
+
+def repair_and_validate(target: Path, schema: Path | None) -> int:
+    """The post-pass every definition edit owes the file it just wrote.
+
+    Editing `defs` desynchronizes the instances that reference them —
+    `realEditorValues` records go stale the moment a default moves, and a
+    freshly-minted field def has no matching `defUid` anywhere. `repair` is the
+    tool that already knows how to derive all of that, so a definition editor's
+    job ends at the definitions and this hands the rest to it.
+
+    Three commands owed this and each had written its own copy; the third one
+    (`upsert-entity`) is what made a shared seam cheaper than a fourth.
+    """
+    cmd = [sys.executable, "-m", "ambition_ldtk_tools.repair", str(target), "--in-place"]
+    print("$ " + " ".join(cmd))
+    rc = subprocess.run(cmd).returncode
+    if rc != 0:
+        return rc
+    cmd = [sys.executable, "-m", "ambition_ldtk_tools.validate", str(target)]
+    if schema and schema.exists():
+        cmd.extend(["--schema", str(schema), "--require-schema"])
+    print("$ " + " ".join(cmd))
+    return subprocess.run(cmd).returncode
 
 
 def _default_override(human_type: str, value):
@@ -414,22 +442,7 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [
-        sys.executable,
-        "-m",
-        "ambition_ldtk_tools.repair",
-        str(target),
-        "--in-place",
-    ]
-    print("$ " + " ".join(cmd))
-    r = subprocess.run(cmd)
-    if r.returncode != 0:
-        return r.returncode
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.validate", str(target)]
-    if args.schema and args.schema.exists():
-        cmd.extend(["--schema", str(args.schema), "--require-schema"])
-    print("$ " + " ".join(cmd))
-    return subprocess.run(cmd).returncode
+    return repair_and_validate(target, args.schema)
 
 
 def _fail(msg: str) -> int:

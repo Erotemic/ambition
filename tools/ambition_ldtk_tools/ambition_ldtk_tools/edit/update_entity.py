@@ -41,11 +41,14 @@ The tool:
 4. Runs the standard `repair --in-place` + `validate
    --require-schema` post-pass (`--no-repair` skips).
 
-It does NOT (today): remove fields, rename fields, change field
-types, or update the validator / runtime identifier lists (those
-are tied to entity identifier, not field identifier). Add those
-as `--remove-field` / `--rename-field` flags when the use case
-lands.
+It does NOT remove fields, rename fields, or change field types.
+`def upsert-entity` does all three, driven by a whole manifest
+rather than one flag at a time, and it refuses the two that
+destroy authored values unless the operator names them — which is
+the reason those never landed here as `--remove-field` /
+`--rename-field`. Nor does either tool touch the validator /
+runtime identifier lists from a field edit: those are tied to the
+entity identifier, not the field identifier.
 """
 
 from __future__ import annotations
@@ -65,6 +68,7 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 from ambition_ldtk_tools.edit.defs import (  # noqa: E402
     HUMAN_TO_INTERNAL,
     field_def as _new_field_def,
+    repair_and_validate,
 )
 
 
@@ -204,22 +208,7 @@ def main(argv=None) -> int:
     if args.no_repair:
         return 0
 
-    cmd = [
-        sys.executable,
-        "-m",
-        "ambition_ldtk_tools.repair",
-        str(target),
-        "--in-place",
-    ]
-    print("$ " + " ".join(cmd))
-    rc = subprocess.run(cmd).returncode
-    if rc != 0:
-        return rc
-    cmd = [sys.executable, "-m", "ambition_ldtk_tools.validate", str(target)]
-    if args.schema and args.schema.exists():
-        cmd.extend(["--schema", str(args.schema), "--require-schema"])
-    print("$ " + " ".join(cmd))
-    return subprocess.run(cmd).returncode
+    return repair_and_validate(target, args.schema)
 
 
 def _fail(msg: str) -> int:

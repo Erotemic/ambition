@@ -46,6 +46,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     layer apply-entity-rules       Set LDtk tag filters so entities are only placeable on intended layers.
 
     def register-entity <spec>     Register a new entity definition.
+    def upsert-entity <spec>       Reconcile entity defs with a declared manifest (uid-preserving).
     def update-entity <id> <ldtk>  Add new fields to an existing entity def.
 
     tileset add <ldtk> <png> <grid> Register a tileset def from a PNG.
@@ -257,6 +258,8 @@ def cmd_entity(args, rest):
 def cmd_def(args, rest):
     if args.def_action == "register-entity":
         return _delegate("ambition_ldtk_tools.edit.defs", rest)
+    if args.def_action == "upsert-entity":
+        return _delegate("ambition_ldtk_tools.edit.upsert_entity", rest)
     if args.def_action == "update-entity":
         # update_entity's argparse owns its surface; prepend the
         # action verb so the existing per-tool parser sees it
@@ -623,10 +626,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sp_entity.set_defaults(func=cmd_entity)
 
-    # def {register-entity, update-entity}
+    # def {register-entity, upsert-entity, update-entity}
     sp_def = sub.add_parser("def", help="Definition edits")
     def_sub = sp_def.add_subparsers(dest="def_action", required=True)
     def_sub.add_parser("register-entity", help="Register a new entity definition")
+    def_sub.add_parser(
+        "upsert-entity",
+        help=(
+            "Reconcile entity defs with a declared manifest, preserving uids and "
+            "instance values. Usage: def upsert-entity <spec> --ldtk <ldtk> "
+            "(--in-place | --output PATH | --dry-run). Destroying an authored "
+            "value needs --drop-instance-values ENTITY.FIELD per field."
+        ),
+    )
     def_sub.add_parser(
         "update-entity",
         help=(

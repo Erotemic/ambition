@@ -41,6 +41,19 @@ def default_worlds_dir(anchor: Path | None = None) -> Path:
     return default_content_assets_dir(anchor) / "worlds"
 
 
+def default_game_worlds_dir(game: str, anchor: Path | None = None) -> Path:
+    """Return a GAME's own LDtk world directory, e.g. `ambition_demo_mary_o`.
+
+    Durable shared content lives under `ambition_content`; a demo that owns its
+    world keeps it beside its own crate instead, and three of them now do. The
+    spelling belongs here for the same reason the shared one does — Mary-O's
+    entity manifest has already moved once, from the demo's `tools/` to a
+    sidecar beside the world file, and every copy of a path is a copy that has
+    not gone stale yet.
+    """
+    return _repo_root(anchor) / "game" / game / "assets" / "worlds"
+
+
 def default_sandbox_ldtk(anchor: Path | None = None) -> Path:
     """Return the authoritative sandbox LDtk path for this checkout."""
     return default_worlds_dir(anchor) / "sandbox.ldtk"

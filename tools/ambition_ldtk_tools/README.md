@@ -53,6 +53,17 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools def register-
   tools/ambition_ldtk_tools/specs/encounter_and_switch_entities.yaml \
   --in-place
 
+# Once a noun EXISTS, `register-entity` refuses it — that refusal is what stops
+# an accidental clobber. To make its definition match a spec again (new field,
+# moved default, wider box) use `upsert-entity`: it keeps the entity's uid and
+# each field's uid, which is what every placement in every level points at, so
+# the authored values survive. Retiring or retyping a field the level still
+# uses is refused until you name it with --drop-instance-values ENTITY.FIELD.
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools def upsert-entity \
+  game/ambition_demo_mary_o/assets/worlds/mary_o.entities.json \
+  --ldtk game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk \
+  --game-owned --dry-run
+
 # Author a LINKED portal pair in one command. Two ends share a `link` id (the
 # explicit pairing model); a link that is not exactly two members is closed in
 # game. NORMAL = the surface the portal sits ON: up=floor, down=ceiling,

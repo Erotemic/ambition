@@ -21,6 +21,8 @@ use bevy::prelude::*;
 use ambition_demo_mary_o::flag::{FlagPhase, FlagSequence};
 use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
 use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
+use ambition_platformer2d::actors::actor::PrimaryPlayer;
+use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::world::rooms::RoomSet;
 
 /// How many frames a transition may take to commit before we call it wedged.
@@ -64,6 +66,95 @@ fn finish_the_level(app: &mut App, from: &str) -> String {
         }
     }
     panic!("finishing `{from}` never changed the room within {COMMIT_CAP} frames");
+}
+
+/// **Walk into the pole the LEVEL authors, and leave the level.**
+///
+/// ⛔ **this seam had no test at all, and it is the seam that broke.** Jon,
+/// 2026-08-05: *"you can keep playing after you hit the flag instead of
+/// transitioning to the next level."* Coverage was two tests either side of the
+/// defect: `course_playthrough` drives a REAL grab, but on the fixture course
+/// whose destination is `Replay`; `finishing_each_level_carries_you_to_the_other_one`
+/// below drives a REAL transition, but PLANTS `FlagPhase::Tallied`. Both halves
+/// green, the join untested, and the join is where a one-shot request met a
+/// transaction that assumes its producer re-asks.
+///
+/// ⚠ **it PLACES the body at the pole rather than walking to it.** The two tests
+/// that walked 1-1 for real are `#[ignore]`d — *"route tuned to 1-1's old
+/// arrangement"* — which is the honest fate of a route test: it rots every time
+/// the level moves, and then it is switched off and covers nothing. What must
+/// not rot is that touching the authored pole ends the level, so the pole's
+/// position is read from the level and only the arrival is faked.
+#[test]
+fn grabbing_the_authored_pole_carries_you_out_of_the_level() {
+    let mut app = ambition_demo_mary_o_app::build_demo_app();
+    for _ in 0..300 {
+        app.update();
+    }
+    let from = room_id(&mut app).expect("the session opens in a room");
+    assert_eq!(from, LEVEL_1_1_ROOM_ID);
+
+    // The pole 1-1 actually authors — not a constant this test carries.
+    let pole = ambition_demo_mary_o::pole_for_room(&from);
+    {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&mut ae::BodyKinematics, With<PrimaryPlayer>>();
+        let world = app.world_mut();
+        let mut body = q.iter_mut(world).next().expect("she is in the level");
+        body.pos = ae::Vec2::new(pole.x, pole.base_y - 8.0);
+    }
+
+    let mut grabbed = false;
+    let mut released_before_leaving = false;
+    for _ in 0..COMMIT_CAP {
+        app.update();
+        // ⚠ **the ROOM is read first, and that ordering is the test.** Arriving
+        // rearms the sequence to `Idle` on purpose — that is the next lap being
+        // armed, not a release. Checking `Idle` before the room flagged the
+        // arrival frame itself and failed against the CORRECT behaviour. Only an
+        // Idle sequence while still standing in the old room is the defect.
+        if let Some(id) = room_id(&mut app) {
+            if id != from {
+                assert!(
+                    grabbed,
+                    "the room changed without the flag sequence ever leaving Idle — \
+                     something other than the goal moved her"
+                );
+                assert!(
+                    !released_before_leaving,
+                    "she got control back BEFORE the level ended: the flag sequence \
+                     returned to Idle while still standing in `{from}`. That is Jon's \
+                     'you can keep playing after you hit the flag' -- the room \
+                     changing afterwards only hides it when nothing drops the request."
+                );
+                assert_eq!(id, LEVEL_1_2_ROOM_ID, "1-1's goal names 1-2");
+                return;
+            }
+        }
+        let idle = {
+            let mut q = app.world_mut().query::<&FlagSequence>();
+            q.iter(app.world())
+                .next()
+                .is_some_and(|sequence| matches!(sequence.phase, FlagPhase::Idle))
+        };
+        // ⭐ **THE DISCRIMINATING OBSERVATION.** Reaching 1-2 is not enough: with
+        // a host present the transition commits either way, so "the room changed"
+        // passes against the defect too. What was actually wrong is that the
+        // sequence rearmed to `Idle` the instant it asked to leave — and an Idle
+        // sequence is `run_flag_sequence` releasing `ScriptedControl`, which is
+        // the player being handed a level they already finished. Watch for that
+        // window, not for the destination.
+        if grabbed && idle {
+            released_before_leaving = true;
+        }
+        grabbed |= !idle;
+    }
+    panic!(
+        "touching 1-1's authored pole never left the level within {COMMIT_CAP} \
+         frames (flag sequence started: {grabbed}). If the sequence started and \
+         the room never changed, the level-end transition was dropped."
+    );
 }
 
 /// **The circuit.** Finish 1-1, arrive in 1-2; finish 1-2, arrive back in 1-1.

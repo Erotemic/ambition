@@ -145,6 +145,21 @@ fn main() {
         at,
     });
     app.add_systems(Startup, setup_capture_target);
+    // ⚠ **the placement runs in the SIM schedule, not beside the other capture
+    // systems.** It calls `transit_body`, which writes `MotionModel` — rollback
+    // state — and `scripts/check_rollback_mutators_run_in_sim.py` catches
+    // rollback state mutated outside the rewinding schedule. It caught this one.
+    //
+    // A waiver would have been the easy answer ("a capture binary has no peer to
+    // desync from"), and it would have been the kind of waiver that is true
+    // today and quietly wrong later. Relocating a body IS a simulation event, so
+    // it goes where simulation events go, and the contacts it invalidates are
+    // re-acquired by the very next sim tick.
+    {
+        use ambition_platformer2d::platformer::schedule::SimScheduleExt;
+        let sim = app.sim_schedule();
+        app.add_systems(sim, place_before_the_shutter);
+    }
     // ⛔ **the synthetic input must be written BEFORE the frame collects it.**
     // These sat in `Update` with no edge to `ambition_platformer2d::input::InputSet::Collect`,
     // which is also in `Update` — so whether a press written here was seen by
@@ -155,7 +170,6 @@ fn main() {
         Update,
         (
             adopt_cameras_into_capture_target,
-            place_before_the_shutter,
             hold_right_while_walking,
             shoot_when_warm,
             finish_after_capture,

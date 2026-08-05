@@ -152,9 +152,19 @@ def test_retiring_a_field_the_level_still_uses_is_reported_not_done():
 
     losses = plan_losses(project, manifest["entities"])
 
-    assert [loss.path for loss in losses] == ["MaryOBlock.kind"]
+    # ⚠ `contents` joined `kind` here on 2026-08-05, when 1-1 first AUTHORED a
+    # cammo block (a Brick holding a quasar). The field had existed on the def
+    # for a while and no placement had ever set it, so retiring it lost nothing
+    # and this assertion listed one path. Using a capability changes what
+    # retiring it would cost — which is exactly what this tool is for.
+    assert [loss.path for loss in losses] == [
+        "MaryOBlock.kind",
+        "MaryOBlock.contents",
+    ]
     assert losses[0].count == len(kind_values(project))
-    assert set(losses[0].values) == {"'Power'", "'Quasar'", "'Brick'"}
+    # `Question` and `Hidden` joined the set when 1-2 was given a block row of
+    # its own, including the demo's first invisible block.
+    assert set(losses[0].values) == {"'Power'", "'Quasar'", "'Brick'", "'Question'", "'Hidden'"}
 
 
 def test_retyping_a_field_the_level_still_uses_is_reported_not_done():
@@ -263,6 +273,10 @@ def test_the_synced_file_still_opens_and_re_running_is_a_no_op(staged):
         "--in-place",
         "--drop-instance-values",
         "MaryOBlock.kind",
+        # `contents` carries authored values now too (the cammo blocks), so
+        # retiring the whole field list costs two fields rather than one.
+        "--drop-instance-values",
+        "MaryOBlock.contents",
     ]
 
     assert upsert_main(argv) == 0
@@ -271,7 +285,7 @@ def test_the_synced_file_still_opens_and_re_running_is_a_no_op(staged):
 
     synced = staged.read_bytes()
     # The opt-in is spent now, so the re-run is the bare command.
-    assert upsert_main(argv[:-2]) == 0
+    assert upsert_main(argv[:-4]) == 0
     assert staged.read_bytes() == synced
 
 

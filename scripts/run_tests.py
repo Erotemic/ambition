@@ -363,6 +363,21 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # build's diagnostics instead. See the script's docstring.
         jobs.append(Job("no warnings (cargo check --all-targets)",
                         [sys.executable, "scripts/check_no_warnings.py"]))
+        # ⭐ **THE THIRD CHECKER NOTHING RAN**, and the pattern is now a habit
+        # worth naming: the two jobs above were both added for exactly this
+        # reason. `check_agent_kb.py` owns the doc-navigation contracts -- dead
+        # links between agent docs, stale planning evidence, ADR implications,
+        # and the inline-test review markers that keep a 200+ line test module
+        # from escaping review. Nothing invoked it, so all of that was advisory
+        # in the sense of "true only if somebody remembered".
+        # ⚠ it caught a live regression the day it was wired in: two inline test
+        # modules had crossed the 200-line proxy that morning with no marker.
+        # ⚠ its AGENTS.md SIZE finding is a warning rather than an error, because
+        # that overage is queue F6's open maintainer decision and a suite
+        # permanently red on a decision nobody has made teaches people to ignore
+        # the suite. Every other check in that file is fatal.
+        jobs.append(Job("agent KB (doc contracts + inline-test review)",
+                        [sys.executable, "scripts/check_agent_kb.py"]))
         # The LDtk AUTHORING toolchain, which is the path every room in the
         # game is built through and was the second Python suite nothing ran.
         # Found 2026-07-28 with 11 of 149 RED, all of them pointing at asset

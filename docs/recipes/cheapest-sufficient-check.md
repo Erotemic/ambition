@@ -106,6 +106,14 @@ cd /home/agent/code/ambition-workahead && python3 scripts/mirror_assets_for_work
 
 - **Write ahead in the worktree** while `main` is mid-build. Next feature, next
   refactor — whatever the running job would have blocked.
+- ⭐ **in an agent run this means SPAWNING ONE, not remembering to type faster.**
+  Launch the long job, then immediately hand a subagent an independent task with
+  `isolation: "worktree"`, and integrate its report when the job lands. ⚠ give it
+  work that does NOT touch the files you are editing, and say so in its prompt —
+  two writers on one file is worse than waiting. ⚠ `cd` to the repo ROOT before
+  launching: a worktree is created from the repo containing the shell's cwd, and
+  `tools/ambition_sprite2d_renderer` is a nested repo that silently hands the
+  agent a tree containing none of `crates/`, `game/` or `docs/`.
 - **Integrate, build and test on `main`.** Merge the worktree's branch when main
   is clean, start the next job, and go back to writing.
 - ⛔ **Do NOT build in the worktree.** A second `target/` cannot be shared (they

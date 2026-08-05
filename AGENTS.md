@@ -116,24 +116,15 @@ Three of its facts belong in your face rather than behind a link:
   catches a registration or dependency edge landing in the wrong place. ⚠ and
   `python3 scripts/check_absence_contracts.py` **exits 0 while printing
   `2 of 25 violated`**; enforcement needs `--check`.
-- ⛔ **NEVER SIT AND WATCH A BUILD. Spawn a subagent into the write-ahead
-  worktree instead** (Jon, 2026-08-03, restated 2026-08-05: *"Make sure you are
-  spawning subagents to work on the workahead branch so we don't just wait and
-  stall during test and compiles."*). Every job reads the LIVE tree, so a suite
-  running on `main` freezes editing for its whole duration — 6 to 25 minutes,
-  repeatedly, across a long run. That time is free if somebody else is using it.
-  - launch the long job, then **immediately** hand a subagent an independent task
-    with `isolation: "worktree"`; integrate its report when the job lands.
-  - ⚠ **`cd` to the repo ROOT before launching one.** A worktree is created from
-    the repository containing the shell's cwd, and `tools/ambition_sprite2d_renderer`
-    is a NESTED git repo — from inside it, the agent silently gets a worktree of
-    the renderer and none of `crates/`, `game/` or `docs/`.
-  - ⚠ give it work that does not touch the files you are editing, and say so in
-    the prompt. Two writers on one file is worse than waiting.
-  - ⚠ this survives compaction only because it is written HERE. A summarised
-    conversation loses it; `AGENTS.md` is re-read.
-  - the mechanics (the `git worktree add`, the asset mirror, and ⛔ **do not
-    BUILD in the worktree**) are in the recipe linked above.
+- ⛔ **NEVER SIT AND WATCH A BUILD — spawn a subagent into the write-ahead
+  worktree** (Jon, 2026-08-03, restated 08-05: *"so we don't just wait and stall
+  during test and compiles"*). Every job reads the LIVE tree, so a suite on `main`
+  freezes editing for its whole 6–25 minutes. Launch the job, then IMMEDIATELY
+  hand a subagent independent work with `isolation: "worktree"`.
+  ⚠ **`cd` to the repo ROOT first** — a worktree comes from the repo containing
+  the shell's cwd, and `tools/ambition_sprite2d_renderer` is a NESTED repo that
+  silently yields a tree with no `crates/`, `game/` or `docs/`. Rest of the
+  mechanics, and the ⛔ against BUILDING in the worktree, are in the recipe above.
 - ⛔ **the exhaustive plan is `--run-everything-you-probably-dont-need-this`, and
   the name is the instruction.** 4× the default sweep, no CI to satisfy, and Jon
   sweeps it himself. Reach for it only when a row in the recipe names your change

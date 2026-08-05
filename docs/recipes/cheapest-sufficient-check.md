@@ -207,3 +207,28 @@ for both.
   with `pgrep -f <script>`: the polling shell's own command line contains the
   pattern, so it matches ITSELF and the loop sleeps forever (seven stranded,
   2026-07-31). Better still, don't poll — a backgrounded command reports its exit.
+
+### When the suite REFUSES on headroom (2026-08-05)
+
+`check_disk_headroom.py` blocks a run below 40 GB free, and it has fired four
+times across three long runs. `cargo clean` is the obvious answer and the
+expensive one — a full cold rebuild of everything.
+
+⭐ **Delete the EXTERNAL CONSUMER target first.** `fixtures/external_consumer`
+has its own `.cargo/config.toml` pointing at
+`/home/joncrall/ambition-target/outlander`, which reached **44 GB** — the single
+largest freeable object that is not the workspace's own `debug/deps` (327 GB, and
+pruning that by hand is how you lose an afternoon).
+
+```
+rm -rf /home/joncrall/ambition-target/outlander     # 44 GB, ~105s to rebuild
+```
+
+It is pure build output (no sources — check with `find … -name '*.rs'` before
+deleting anything under a target dir), and only the `external consumer: outlander`
+job needs it, which runs only under the exhaustive plan.
+
+⚠ **the cause is usually a worktree agent.** One `cargo test` in a second
+checkout links against whatever `main` is mid-edit; recovering from that means
+touching the workspace, which rebuilds it, which is a fresh copy of the graph.
+That is the other reason the write-ahead worktree must not BUILD.

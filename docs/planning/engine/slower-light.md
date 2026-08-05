@@ -19,7 +19,7 @@
 
 ## Relationship to TwinTrack
 
-TwinTrack implements flat-spacetime clocks, interval classification, observer velocity transforms, and an exact Minkowski test provider in 2D. Slower Light is a later **3D** game centered on observer optics and finite signal propagation. It should reuse those foundations, but it is not the same demo and is not ready while the engine lacks a 3D game surface.
+TwinTrack implements flat-spacetime clocks, event transforms, exact null-signal propagation, local Doppler measurements, bounded worldlines, and an exact Minkowski provider in 2D. Slower Light is a later **3D** game centered on observer optics, retarded nearby-world presentation, and richer finite-signal propagation. It should reuse those foundations, but it is not the same demo and is not ready while the engine lacks a 3D game surface.
 
 ## Feasibility
 

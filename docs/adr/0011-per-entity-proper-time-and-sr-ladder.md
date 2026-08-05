@@ -35,3 +35,14 @@ For one player, slowing the world and boosting the player's proper time can feel
 ## 2026-08-04 implementation amendment
 
 TwinTrack supplies the concrete mechanic that this ADR previously required before infrastructure work: a player chooses a high-speed worldline and reunites with a stationary clock. The SR implementation is intentionally the flat provider behind a spacetime interface, so future GR work can retain the clocks, observer utilities, rollback state, and Minkowski regression tests without making a global inertial frame an engine assumption.
+
+## 2026-08-05 signal-system amendment
+
+TwinTrack's second slice makes the SR foundation operational beyond clock
+comparison. Canonical emission events produce analytic null signals; receivers
+measure frequency in their own local inertial frame; coherent retroreflection
+preserves packet identity; transmitter cooldown advances in proper time; and
+bounded worldline/event telemetry supports both rollback diagnostics and a
+spacetime instrument. The movement kernel remains authoritative for bodies.
+These event, observer, and photon-measurement concepts are intended to remain
+valid when Minkowski is replaced by a curved spacetime provider.

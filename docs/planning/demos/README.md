@@ -5,7 +5,7 @@ acceptance suite ([`../vision.md`](../vision.md) §4–5). The original four are
 stone — [Sanic](sanic.md), [Super Mary-O](super-mary-o.md),
 [Super Smash Siblings](super-smash-siblings.md),
 [Hollow Lite](hollow-lite.md) — with later matrix tiers gaining docs when
-their tier opens. [TwinTrack](twintrack.md) is the executable SR/relativity acceptance demo added in 2026-08. **Parody names are policy** (Q28, Jon 2026-07-06): every
+their tier opens. [TwinTrack](twintrack.md) is the executable SR signal/relativity acceptance demo added in 2026-08. **Parody names are policy** (Q28, Jon 2026-07-06): every
 demo name, character, and asset is a parody-original — homage in grammar,
 never a copy. Each demo doc carries a **Consumes (by role) / Owns** section:
 "consumes" lists engine crates by their [role handles]

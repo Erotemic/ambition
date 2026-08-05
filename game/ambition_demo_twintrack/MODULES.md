@@ -2,7 +2,7 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_demo_twintrack** — TwinTrack — a complete, compact special-relativity game.
+**ambition_demo_twintrack** — TwinTrack — a compact special-relativity signal course.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

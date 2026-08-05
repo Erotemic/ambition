@@ -6,8 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`signals`](src/signals.rs) | Analytic Minkowski light signals, local emitters/receivers, and arrival events. |
+| [`telemetry`](src/telemetry.rs) | Bounded rollback-aware worldline telemetry for relativity instruments. |
 
-_0 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

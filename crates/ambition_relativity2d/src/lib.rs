@@ -22,6 +22,21 @@ use ambition_relativity::{ClockRateResult, IntervalKind, InvariantSpeed};
 use ambition_time::{ProperTimeScale, WorldTime};
 use bevy::prelude::*;
 
+mod signals;
+mod telemetry;
+
+pub use signals::{
+    LightEmissionRequest2d, LightEmitter2d, LightEmitterObservation2d, LightReceiver2d,
+    LightReceiverMode2d, LightReceiverObservation2d, LightSignal2d,
+    LightSignalObservation2d, LightSignalPoolSlot2d, ProperTimeCooldown2d,
+    RelativitySignalView2d, SignalArrival2d, SignalArrivalHistory2d,
+    SignalArrivalRecord2d, SpacetimeCoordinateTime2d,
+};
+pub use telemetry::{
+    WorldlineHistoryView2d, WorldlineSample2d, WorldlineTracked2d,
+    DEFAULT_WORLDLINE_HISTORY_SAMPLES,
+};
+
 /// A 2D spacetime provider sampled by engine entities.
 ///
 /// Proper-time measurement is intentionally the first narrow contract. Curved
@@ -279,7 +294,9 @@ pub struct RelativityClockView2d {
 
 #[derive(SystemSet, Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Relativity2dSet {
+    AdvanceCoordinateTime,
     ResolveClocks,
+    AdvanceProperCooldowns,
     PublishView,
 }
 
@@ -329,12 +346,15 @@ impl Plugin for Relativity2dPlugin {
         );
 
         let sim = app.sim_schedule();
+        signals::install_signal_systems(app, sim);
+        telemetry::install_telemetry_systems(app, sim);
         app.add_systems(
             sim,
             resolve_and_advance_clocks
                 .run_if(spacetime_is_active)
                 .in_set(Relativity2dSet::ResolveClocks)
-                .in_set(WorldPrepSet::BeforeIntegrate),
+                .in_set(WorldPrepSet::BeforeIntegrate)
+                .after(Relativity2dSet::AdvanceCoordinateTime),
         )
         .add_systems(
             sim,
@@ -347,7 +367,7 @@ impl Plugin for Relativity2dPlugin {
     }
 }
 
-fn spacetime_is_active(spacetime: Query<(), (With<ActiveSpacetime2d>, With<SessionRoot>)>) -> bool {
+pub(crate) fn spacetime_is_active(spacetime: Query<(), (With<ActiveSpacetime2d>, With<SessionRoot>)>) -> bool {
     !spacetime.is_empty()
 }
 

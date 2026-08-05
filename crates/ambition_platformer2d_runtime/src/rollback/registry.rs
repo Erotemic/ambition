@@ -23,6 +23,12 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v8 (2026-08-05): the optional SR signal capability adds authoritative
+/// Minkowski coordinate time, proper-time transmitter cooldown, emitter,
+/// receiver/pool configuration, analytic null-signal state, bounded arrival
+/// history, and cleared signal-message buffers. TwinTrack rules depend on these
+/// values surviving rewind; a v7 peer does not encode them.
+///
 /// ⚠ **v7 (2026-08-04): the optional relativity capability adds authoritative
 /// f64 proper-time clocks, spacetime identity, and TwinTrack experiment state.**
 /// A host that installs it has a different snapshot contract from v6.
@@ -40,7 +46,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 7;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 8;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

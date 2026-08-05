@@ -27,8 +27,8 @@ open iteration loop).
 
 ## Relativity research lane (opened 2026-08-04)
 
-- **SR-0 / TwinTrack candidate:** dimension-independent Minkowski mathematics, an opt-in 2D spacetime provider, rollback-safe proper clocks, and a complete outbound/reunion demo. See [`engine/relativity.md`](engine/relativity.md) and [`demos/twintrack.md`](demos/twintrack.md). Compile and visible feel validation are the remaining gate for the candidate overlay.
-- **SR-1:** light signals, worldline/spacetime-diagram telemetry, and observer-frame presentation built on the same exact model.
+- **SR-1 / TwinTrack signal-course candidate:** dimension-independent Minkowski clocks/events/Doppler mathematics, an opt-in 2D spacetime provider, rollback-safe proper clocks and cooldowns, analytic null signals, ordered receiver events, bounded worldline telemetry, and a complete Doppler-lock/radar-echo/reunion course. See [`engine/relativity.md`](engine/relativity.md) and [`demos/twintrack.md`](demos/twintrack.md). Local compile and visible-feel validation remain the candidate gate.
+- **SR-2 / observer instrument:** frame-switchable worldline diagrams, simultaneity-sensitive gates, and a synthetic distant-source field for honest aberration/Doppler preview. Build on SR-1 events and photons rather than changing simulation coordinates.
 - **GR research path:** analytic curved providers first, then sampled/evolved fields. Minkowski remains the switchable flat limit and validation oracle. Do not begin dynamic numerical relativity by bypassing the spacetime-provider boundary.
 - **Slower Light:** separate future 3D game; deferred until a 3D runtime exists.
 

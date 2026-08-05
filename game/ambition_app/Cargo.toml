@@ -34,6 +34,7 @@ desktop_dev = [
 mimalloc_alloc = ["dep:mimalloc"]
 
 visible = [
+    "ambition_demo_twintrack/visible",
     "ambition_platformer2d/visible",
     "ambition_content/portal",
     "ambition_content/portal_render",
@@ -71,6 +72,7 @@ web_platform = [
 ]
 
 visible_web_base = [
+    "ambition_demo_twintrack/visible",
     "ambition_platformer2d/visible_web_base",
     "ambition_content/portal",
     "ambition_content/portal_render",

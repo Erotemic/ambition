@@ -7863,25 +7863,6 @@
 						},
 						{
 							"__identifier": "MaryOBlock",
-							"__grid": [100,18],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#E8A33D",
-							"__worldX": 1600,
-							"__worldY": 288,
-							"iid": "MaryOBlock-106889",
-							"width": 32,
-							"height": 32,
-							"defUid": 106884,
-							"px": [1600,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106883, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["Quasar"]
-							}] }]
-						},
-						{
-							"__identifier": "MaryOBlock",
 							"__grid": [140,18],
 							"__pivot": [0,0],
 							"__tags": [],
@@ -7951,10 +7932,16 @@
 							"height": 32,
 							"defUid": 106884,
 							"px": [1600,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106883, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["Brick"]
-							}] }]
+							"fieldInstances": [
+								{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106883, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Brick"]
+								}] },
+								{ "__identifier": "contents", "__type": "String", "__value": "AlwaysQuasar", "__tile": null, "defUid": 106904, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["AlwaysQuasar"]
+								}] }
+							]
 						},
 						{
 							"__identifier": "MaryOPipe",

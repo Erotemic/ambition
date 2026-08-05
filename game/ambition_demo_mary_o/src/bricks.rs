@@ -197,13 +197,24 @@ mod tests {
     use super::*;
 
     /// Two bricks the LEVEL authors — the population `break_bricks` serves.
+    ///
+    /// ⚠ **breakable bricks, not brick-LOOKING blocks**, and the difference is
+    /// now load-bearing: 1-1 authors a `Brick` holding a quasar (the folded
+    /// stack at px 1600,288), which by design does not shatter. Selecting on the
+    /// look alone picked it as a victim and this test failed the moment the
+    /// level used the feature it was written to support. The filter mirrors
+    /// `break_bricks`'s own predicate so the fixture cannot drift from it again.
     fn two_authored_bricks() -> (String, String) {
         let room = crate::level_1_1();
         let mut names: Vec<String> = room
             .world
             .blocks
             .iter()
-            .filter(|b| block_of(&b.name).is_some_and(|a| a.look == MaryOBlockLook::Brick))
+            .filter(|b| {
+                block_of(&b.name).is_some_and(|a| {
+                    a.look == MaryOBlockLook::Brick && a.contents.breaks_when_empty()
+                })
+            })
             .map(|b| b.name.clone())
             .collect();
         names.sort();

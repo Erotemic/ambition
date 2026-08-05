@@ -108,6 +108,12 @@ def test_an_upsert_keeps_the_uids_every_placement_references():
     before = block_def(project)
     entity_uid, kind_uid = before["uid"], before["fieldDefs"][0]["uid"]
 
+    # ⚠ what the manifest ALREADY declares, whatever that is today. Naming the
+    # fields would couple this test to Mary-O's live vocabulary, which is Jon's
+    # to edit — and it did: adding `contents` to `MaryOBlock` turned this red
+    # for no reason but its own literal. What is under test is that an upsert
+    # PRESERVES, not what the block happens to hold this week.
+    existing = [f["name"] for f in manifest["entities"][0]["fields"]]
     manifest["entities"][0]["fields"][0]["default"] = "Brick"
     manifest["entities"][0]["fields"].append(
         {"name": "respawns", "type": "Bool", "default": True}
@@ -119,7 +125,10 @@ def test_an_upsert_keeps_the_uids_every_placement_references():
     kind = next(f for f in after["fieldDefs"] if f["identifier"] == "kind")
     assert kind["uid"] == kind_uid, changes
     assert kind["defaultOverride"] == {"id": "V_String", "params": ["Brick"]}
-    assert [f["identifier"] for f in after["fieldDefs"]] == ["kind", "respawns"]
+    assert [f["identifier"] for f in after["fieldDefs"]] == existing + ["respawns"], (
+        "every field the manifest already declared survives, in order, with the "
+        "new one appended"
+    )
     assert all(inst["defUid"] == entity_uid for inst in block_instances(project))
 
 

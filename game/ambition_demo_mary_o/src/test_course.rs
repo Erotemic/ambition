@@ -51,6 +51,12 @@ pub const COURSE_BLOCK_COLUMN: f32 = 8.0;
 pub const COURSE_SNAKE_COLUMN: f32 = 20.0;
 /// Tile column of the goal.
 pub const COURSE_POLE_COLUMN: f32 = 34.0;
+/// How thick the goal is drawn — the same half-tile 1-1 uses, because the grab
+/// band is derived from it and a band narrower than the pole is a course that
+/// cannot be finished.
+const POLE_WIDTH: f32 = T * 0.5;
+/// How tall, likewise matching 1-1: nine tiles of shaft above the ground line.
+const POLE_TILES: f32 = 9.0;
 
 fn ground_top() -> f32 {
     SURFACE_HEIGHT - GROUND_TILES * T
@@ -62,9 +68,28 @@ pub fn course_block_aabb() -> ae::Aabb {
     ae::Aabb::new(min + ae::Vec2::splat(T * 0.5), ae::Vec2::splat(T * 0.5))
 }
 
-/// Where the goal stands.
+/// Where the goal stands — the CENTRE of its shaft, which is the number the grab
+/// band is measured from.
 pub fn course_pole_x() -> f32 {
-    COURSE_POLE_COLUMN * T
+    COURSE_POLE_COLUMN * T + POLE_WIDTH * 0.5
+}
+
+/// The course's goal, in the shape [`crate::flag`] reads it.
+///
+/// ⛔ **the pole is a RESOURCE, and it used to be 1-1's unconditionally.** The
+/// course could be entered but never finished: `run_flag_sequence` compares her
+/// position against whatever `FlagPole` says, and that said column 98 of a level
+/// this room is not. The entry-room seam now picks the pole the same way it picks
+/// the world (`crate::pole_for_room`), so "which level am I playing" is answered
+/// once rather than in two places that can disagree.
+pub fn course_pole() -> crate::flag::FlagPole {
+    let ground_top = ground_top();
+    crate::flag::FlagPole {
+        x: course_pole_x(),
+        top_y: ground_top - POLE_TILES * T,
+        base_y: ground_top,
+        half_width: POLE_WIDTH * 0.5,
+    }
 }
 
 /// The fixture course.
@@ -106,6 +131,14 @@ pub fn test_course() -> RoomSpec {
         block.min,
         block.max - block.min,
     ));
+    // The goal, ONE-WAY for the reason 1-1's is: a flagpole you can walk into is
+    // a wall, and a wall parks the body half a width away from the pole's centre
+    // — permanently outside a grab band measured from that centre.
+    blocks.push(ae::Block::one_way(
+        "goal_pole",
+        ae::Vec2::new(COURSE_POLE_COLUMN * T, ground_top - POLE_TILES * T),
+        ae::Vec2::new(POLE_WIDTH, POLE_TILES * T),
+    ));
 
     let spawn = ae::Vec2::new(2.0 * T, ground_top - 2.0 * T);
     let world = ae::World::new(
@@ -117,8 +150,17 @@ pub fn test_course() -> RoomSpec {
     let mut room = RoomSpec::new(TEST_COURSE_ROOM_ID, world);
     room.metadata.mode = Some(crate::MARY_O_MODE.to_string());
 
-    // ONE snake, authored the way the level authors its enemies so the staging
-    // reads it through the same filter.
+    // ONE snake, authored the way the level authors its enemies so it is built
+    // and recognised through exactly the paths a real level uses.
+    //
+    // ⛔ **the id used to have to be minted, and this course proved why that was
+    // wrong.** It said `"course_snake"`, which failed the old `is_snake_id`
+    // prefix test, so the tag pass never claimed it: a live patroller with no
+    // shell, un-stompable, reporting nothing. The rule then was *"every path
+    // that stages a snake must mint its id here"* — and a rule that a plain
+    // authored placement can break by being named honestly is a rule about the
+    // wrong thing. Identity is the BRAIN below now, so the id is free and this
+    // course cannot make that mistake again.
     room.enemy_spawns
         .push(ambition_platformer2d::world::rooms::Authored::new(
             "course_snake",
@@ -162,15 +204,37 @@ mod tests {
             "…and runs unbroken to the right edge"
         );
         assert!(
-            crate::ldtk_vocabulary::block_kind_of(
-                &crate::ldtk_vocabulary::encoded_name(MaryOBlockKind::Power, "course_power_block")
-            ) == Some(MaryOBlockKind::Power),
+            crate::ldtk_vocabulary::block_kind_of(&crate::ldtk_vocabulary::encoded_name(
+                MaryOBlockKind::Power,
+                "course_power_block"
+            )) == Some(MaryOBlockKind::Power),
             "the ?-block is recognised through the same vocabulary a real level uses"
         );
-        assert_eq!(room.enemy_spawns.len(), 1, "one enemy, so a stomp is unambiguous");
+        assert_eq!(
+            room.enemy_spawns.len(),
+            1,
+            "one enemy, so a stomp is unambiguous"
+        );
         assert!(
             course_pole_x() > COURSE_SNAKE_COLUMN * T,
             "the goal is past the enemy, so reaching it means getting through"
         );
+        // The read-model and the authored block are the SAME pole. 1-1 carries
+        // this oracle because the two drifting is a level that silently refuses
+        // to end, and the fixture is not exempt from the failure it exists to
+        // reproduce.
+        let pole = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == "goal_pole")
+            .expect("the course authors a goal");
+        assert_eq!(
+            course_pole().x,
+            (pole.aabb.min.x + pole.aabb.max.x) * 0.5,
+            "the grab band is centred on the shaft the course actually draws"
+        );
+        assert_eq!(course_pole().base_y, pole.aabb.max.y);
+        assert_eq!(course_pole().top_y, pole.aabb.min.y);
     }
 }

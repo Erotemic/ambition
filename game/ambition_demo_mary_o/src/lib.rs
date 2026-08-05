@@ -598,6 +598,40 @@ pub fn goal_pole() -> flag::FlagPole {
 /// after the level was lengthened by 8 tiles for the vault.
 const POLE_COLUMN: f32 = 98.0;
 
+/// **Which pole a room finishes on.**
+///
+/// ⛔ the pole was inserted at plugin build as 1-1's, unconditionally — so the
+/// entry-room seam could put a session in another room and that session had no
+/// reachable goal at all. `run_flag_sequence` compares her position against this
+/// resource and nothing else, so the failure is silent: the level simply never
+/// ends. Which room she is in already decides which world she gets
+/// ([`provider::mary_o_session_world_entering`]); it decides the goal by the same
+/// answer here.
+pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
+    if room_id == test_course::TEST_COURSE_ROOM_ID {
+        test_course::course_pole()
+    } else {
+        goal_pole()
+    }
+}
+
+/// Install the entry room's pole once the session's choice is readable.
+///
+/// Startup rather than plugin build, because [`provider::MaryOEntryRoom`] is a
+/// resource a host inserts into the built app — the same lifetime the world
+/// source reads it on. Absent means 1-1, for the reason the resource's own doc
+/// gives: a shipped game must not depend on something only a test inserts.
+fn install_goal_pole(
+    mut commands: bevy::prelude::Commands,
+    entry: Option<bevy::prelude::Res<provider::MaryOEntryRoom>>,
+) {
+    commands.insert_resource(pole_for_room(
+        entry
+            .as_ref()
+            .map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str()),
+    ));
+}
+
 /// **Mary-O Classic's movement profile, authored ONCE.**
 ///
 /// Every form she wears — small, tall, fire — must move identically; growing
@@ -1276,7 +1310,11 @@ impl Plugin for MaryORulesPlugin {
         // the room outright — loudly, which is the right failure.
         ldtk_vocabulary::install();
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        // 1-1's pole up front so nothing that reads the resource before the first
+        // frame finds it missing; `install_goal_pole` re-answers it from the entry
+        // room, which is only readable once the host has finished building.
         app.insert_resource(goal_pole());
+        app.add_systems(bevy::app::Startup, install_goal_pole);
         app.init_resource::<powerups::SpentPowerBlocks>();
         app.init_resource::<bricks::BrokenBricks>();
         // The brick overlay contributor writes the collision overlay; a full app

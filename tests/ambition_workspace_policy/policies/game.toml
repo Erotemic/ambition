@@ -161,6 +161,14 @@ allow = [
     # row leading to a game is the intended shape, not the violation this policy
     # exists to catch. (2026-07-31)
     "ambition_demo_smash",
+    # TwinTrack, the special-relativity demo, on the same footing as the rest.
+    # ⚠ **the SECOND time an overlay added a hosted game and left this list
+    # behind** — `ambition_demo_smash` did it in `14de494d1` and turned
+    # `cargo test --workspace` red until somebody noticed. A launcher row leading
+    # to a game is the intended shape; the policy exists to catch a dependency
+    # that ISN'T that, and a provider the shell already registers is not it.
+    # (2026-08-05)
+    "ambition_demo_twintrack",
     "ambition_sim_harness",
     # ⛔ **the causal instrument, and the app is where it is TURNED ON.** The
     # feature chain reached every domain recorder and NOTHING enabled it — measured

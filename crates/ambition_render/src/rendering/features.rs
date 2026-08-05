@@ -192,6 +192,33 @@ pub fn despawn_dead_dynamic_feature_visuals(
 /// that, a placeholder drawn on a frame where a family was not yet ready would
 /// lock the feature into magenta forever — the diagnosis outliving the bug it
 /// diagnosed (GPT 5.6, 2026-07-27).
+///
+/// ⛔ **and that retirement covered only HALF the population.**
+/// `spawn_dynamic_feature_visuals` walks `DynamicFeatureViews` — the
+/// dynamically-discovered features — while stand-ins are spawned here from
+/// `FeatureViewIndex`, which holds *every* feature. A stand-in drawn for an
+/// AUTHORED brick or coin appeared in the first list and never the second, so
+/// neither retirement path could reach it and it lived until the room unloaded.
+///
+/// That is what put Jon's screen black across a level change (2026-08-05): the
+/// room-transition cover holds until no `UnclaimedBodyPlaceholder` remains, and
+/// on the frame after a commit the destination room's authored features are
+/// already in the view index while `respawn_room_visuals_on_request` — which is
+/// in `Update`, with no ordering against this chain's simulation phase — has not
+/// drawn them yet. Every authored feature got a permanent stand-in, and the
+/// cover sat out its full 8-second give-up deadline. The screen was black
+/// because the diagnosis outlived the bug, exactly as the paragraph above warns,
+/// for the population that paragraph did not cover.
+///
+/// So retirement lives HERE now, beside the spawn, keyed on the same list. One
+/// system owns both halves of "is this id claimed", which is the only way the
+/// two can not disagree.
+///
+/// ⚠ the ordering hole is real and is NOT fixed here: an `.after()` from a
+/// simulation-phase set to an `Update` system is silently vacuous in Bevy, so
+/// pointing this chain at the room spawner would look like a fix and do nothing.
+/// The cost of the race is now one frame of magenta instead of eight seconds of
+/// black, and the schedule question is a ledger row.
 pub fn draw_unclaimed_feature_views(
     mut commands: Commands,
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -199,16 +226,39 @@ pub fn draw_unclaimed_feature_views(
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     views: Res<ambition_sim_view::FeatureViewIndex>,
-    existing: Query<&FeatureVisual>,
+    existing: Query<(Entity, &FeatureVisual, Has<UnclaimedBodyPlaceholder>)>,
 ) {
+    // Split the drawn ids into the REAL visuals and this system's own stand-ins,
+    // in one pass, because "claimed" and "standing in for a claim" are different
+    // answers and the old single `known` set could not tell them apart.
+    let mut known: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut stand_ins: Vec<(Entity, &str)> = Vec::new();
+    for (entity, visual, is_stand_in) in &existing {
+        if is_stand_in {
+            stand_ins.push((entity, visual.id.as_str()));
+        } else {
+            known.insert(visual.id.as_str());
+        }
+    }
+    // The real thing arrived: retire the stand-in. Before the session-scope
+    // guard below, because despawning needs no scope to spawn into — and a
+    // placeholder that outlives its session's scope resolution is exactly the
+    // one that would hold a cover open.
+    for (entity, id) in &stand_ins {
+        if known.contains(id) {
+            commands.entity(*entity).try_despawn();
+        }
+    }
+
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
         return;
     };
-    let known: std::collections::HashSet<&str> = existing.iter().map(|v| v.id.as_str()).collect();
+    let already_standing: std::collections::HashSet<&str> =
+        stand_ins.iter().map(|(_, id)| *id).collect();
     for (id, view) in views.iter() {
-        if known.contains(id) {
+        if known.contains(id) || already_standing.contains(id) {
             continue;
         }
         // Zero-sized views are read-models for things with no body (a trigger
@@ -282,10 +332,32 @@ mod tests {
             family: "probe",
             pos: ambition_platformer2d_core::Vec2::new(10.0, 10.0),
             size: ambition_platformer2d_core::Vec2::new(16.0, 24.0),
-            visual_kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
+            visual_kind:
+                ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Actor,
             fighting: false,
             sprite_key: None,
             prop_sheet: None,
+        }
+    }
+
+    fn a_view() -> ambition_sim_view::FeatureView {
+        ambition_sim_view::FeatureView {
+            pos: ambition_platformer2d_core::Vec2::new(10.0, 10.0),
+            size: ambition_platformer2d_core::Vec2::new(16.0, 24.0),
+            kind: ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind::Breakable,
+            visible: true,
+            flash: false,
+            breakable_state: None,
+            chest_opened: false,
+            fighting: false,
+            switch_on: false,
+            rotation_rad: 0.0,
+            alive: true,
+            hit_flash_secs: 0.0,
+            hp_current: 1,
+            hp_max: 1,
+            training_dummy: false,
+            sprite_offset: None,
         }
     }
 
@@ -332,6 +404,92 @@ mod tests {
         );
     }
 
+    /// **The stand-in for an AUTHORED feature was unreachable by every cleanup
+    /// path, and it held the room-transition cover for eight seconds.**
+    ///
+    /// Jon, 2026-08-05: *"When we transition from world 1-1 to 1-2 or back there
+    /// is a long time where there is just a black screen even though music
+    /// plays."* The black is the transition cover, and it is retired only once
+    /// no `UnclaimedBodyPlaceholder` remains — otherwise it holds to an
+    /// 8-second give-up deadline.
+    ///
+    /// A placeholder is SPAWNED from `FeatureViewIndex`, which holds every
+    /// feature. It was RETIRED only through `DynamicFeatureViews`, which holds
+    /// the dynamically-discovered ones. An authored coin or brick is in the
+    /// first and never the second, so a stand-in drawn for one on the frame
+    /// after a room commit — before `respawn_room_visuals_on_request` has run,
+    /// which is in `Update` with no ordering against this chain's sim phase —
+    /// could not be despawned by anything short of unloading the room.
+    ///
+    /// `the_real_visual_replaces_the_unclaimed_stand_in` above asserts exactly
+    /// this property for the DYNAMIC population and passed throughout.
+    #[test]
+    fn the_stand_in_for_an_authored_feature_is_retired_when_its_visual_arrives() {
+        let mut app = app_with_a_room();
+        // An authored feature: in the view index, never in the dynamic feed.
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+            "authored_brick".to_string(),
+            a_view(),
+        )]));
+        // The floor drew its stand-in on a frame the room's visuals were not up.
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: "authored_brick".into(),
+            },
+            DynamicFeatureVisual,
+            UnclaimedBodyPlaceholder,
+        ));
+        // ...and now the room-load spawner has caught up and drawn the real one.
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: "authored_brick".into(),
+            },
+            RoomVisual,
+        ));
+
+        app.add_systems(Update, draw_unclaimed_feature_views);
+        app.update();
+
+        let world = app.world_mut();
+        let mut placeholders = world.query::<(&FeatureVisual, &UnclaimedBodyPlaceholder)>();
+        assert_eq!(
+            placeholders
+                .iter(world)
+                .filter(|(v, _)| v.id == "authored_brick")
+                .count(),
+            0,
+            "the real visual has arrived, so the stand-in must go. While it \
+             stays, the room-transition cover holds the screen black to its \
+             8-second deadline."
+        );
+    }
+
+    /// The poison: the floor must still DRAW a stand-in for a view nothing has
+    /// claimed. A retirement rule that also stopped it spawning would pass the
+    /// test above by deleting the diagnosis instead of resolving it.
+    #[test]
+    fn a_view_with_no_visual_at_all_still_gets_its_stand_in() {
+        let mut app = app_with_a_room();
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+            "nobody_drew_me".to_string(),
+            a_view(),
+        )]));
+
+        app.add_systems(Update, draw_unclaimed_feature_views);
+        app.update();
+
+        let world = app.world_mut();
+        let mut placeholders = world.query::<(&FeatureVisual, &UnclaimedBodyPlaceholder)>();
+        assert_eq!(
+            placeholders
+                .iter(world)
+                .filter(|(v, _)| v.id == "nobody_drew_me")
+                .count(),
+            1,
+            "an unclaimed view is still a bug, and still gets its marked box"
+        );
+    }
+
     /// And the ordinary case still holds: a family that has already drawn an id
     /// is not asked to draw it twice.
     #[test]
@@ -354,7 +512,10 @@ mod tests {
         let world = app.world_mut();
         let mut visuals = world.query::<&FeatureVisual>();
         assert_eq!(
-            visuals.iter(world).filter(|v| v.id == "already_drawn").count(),
+            visuals
+                .iter(world)
+                .filter(|v| v.id == "already_drawn")
+                .count(),
             1
         );
     }

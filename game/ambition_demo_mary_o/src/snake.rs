@@ -53,7 +53,7 @@ use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 use crate::stomp::{player_touch, PlayerTouch};
-use crate::{LEVEL_1_1_ROOM_ID, T};
+use crate::LEVEL_1_1_ROOM_ID;
 
 /// The catalog `display_name` a snake renders from, and the name every snake
 /// spawn carries so its `solid_snake` sheet resolves.
@@ -438,17 +438,10 @@ pub fn register_snake_roster(app: &mut App) {
     );
 }
 
-/// Tile x-columns (level grid) each snake paces near — the flats after the pit
-/// rhythm, so the walker is a hazard on solid ground, not stranded over a pit.
-/// Ground runs are [0,20) [22,42) [45,60) [65,104) (pits [20,22) [42,45)
-/// [60,65)); these columns sit clear of the pits AND of both warp pipes, which
-/// stand three tiles wide at columns [26,29) and [35,38).
-///
-/// AMBITION_REVIEW(spatial): a sprawled snake is now about 1.8 tiles wide (its
-/// box comes from its art — see [`SNAKE_WORLD_PER_PIXEL`]), so each column needs
-/// roughly a tile of clearance either side. Every column above keeps at least
-/// three, and the nearest pipe edge is four tiles from column 31.
-const SNAKE_TILE_COLUMNS: &[f32] = &[9.0, 16.0, 31.0, 52.0, 68.0];
+// ⭐ `SNAKE_TILE_COLUMNS` is GONE. Where a snake patrols is authored.
+//
+// ⚠ its SIZE stays, and the difference is the rule: how big a snake is comes
+// from its sheet; where it patrols comes from the level.
 
 /// The half-extents a freshly staged snake spawns with.
 ///
@@ -467,17 +460,27 @@ fn snake_half_size() -> ae::Vec2 {
     })
 }
 
-/// The snake spawn requests for level 1-1, dropped at the player's standing height
-/// so gravity settles each onto the ground beneath its column.
-fn snake_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
+
+/// The snake spawn requests for a room — **one per AUTHORED placement**.
+///
+/// ⛔ `SNAKE_TILE_COLUMNS` said where they stood and the level authored none, so
+/// moving a snake meant editing Rust. The level authors them now; this mints the
+/// stable id [`is_snake_id`] reads, from the authored placement's own identity.
+fn snake_spawn_requests(spec: &ambition_platformer2d::world::rooms::RoomSpec) -> Vec<SpawnActorRequest> {
+    use ambition_platformer2d::engine_core::AabbExt;
     let half_size = snake_half_size();
-    SNAKE_TILE_COLUMNS
+    spec.enemy_spawns
         .iter()
-        .enumerate()
-        .map(|(i, col)| SpawnActorRequest {
-            id: snake_id(i),
+        .filter(|authored| {
+            matches!(
+                &authored.payload,
+                CharacterBrain::Custom(key) if key == SNAKE_BRAIN_KEY
+            )
+        })
+        .map(|authored| SpawnActorRequest {
+            id: snake_id(&authored.id),
             name: SNAKE_DISPLAY_NAME.to_string(),
-            pos: ae::Vec2::new(col * T, player_spawn.y),
+            pos: authored.aabb.center(),
             half_size,
             faction: ActorFaction::Enemy,
             grudge_against: None,
@@ -500,7 +503,7 @@ pub fn register_snake_content_staging(
             "ambition_demo_mary_o",
             "snake",
             "snake-staging.v1",
-            |spec| snake_spawn_requests(spec.world.spawn),
+            snake_spawn_requests,
         )
         .expect("snake staging registration is unique");
 }

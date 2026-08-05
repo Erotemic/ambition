@@ -11,7 +11,7 @@
 	"iid": "ambition-mary-o-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 106887,
+	"nextUid": 106904,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -5915,7 +5915,7 @@
 		},
 		{
 			"identifier": "MaryOBlock",
-			"uid": 106867,
+			"uid": 106884,
 			"tags": [],
 			"exportToToc": false,
 			"allowOutOfBounds": true,
@@ -5952,7 +5952,7 @@
 					"identifier": "kind",
 					"doc": null,
 					"__type": "String",
-					"uid": 106866,
+					"uid": 106883,
 					"type": "F_String",
 					"isArray": false,
 					"canBeNull": true,
@@ -7229,6 +7229,329 @@
 							]
 						},
 						{
+							"__identifier": "EnemySpawn",
+							"__grid": [25,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 402,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106865",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [402,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [47,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 754,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106866",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [754,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [105,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 1682,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106867",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [1682,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [139,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2226,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106868",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [2226,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [147,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2354,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106869",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [2354,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [173,16],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2770,
+							"__worldY": 256,
+							"iid": "EnemySpawn-106870",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [2770,256],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [149,20],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2386,
+							"__worldY": 320,
+							"iid": "EnemySpawn-106871",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [2386,320],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [171,18],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2738,
+							"__worldY": 288,
+							"iid": "EnemySpawn-106872",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [2738,288],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [151,18],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2418,
+							"__worldY": 288,
+							"iid": "EnemySpawn-106873",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [2418,288],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [169,20],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2706,
+							"__worldY": 320,
+							"iid": "EnemySpawn-106874",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [2706,320],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [153,16],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2450,
+							"__worldY": 256,
+							"iid": "EnemySpawn-106875",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [2450,256],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [167,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2674,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106876",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [2674,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [17,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 274,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106877",
+							"width": 28,
+							"height": 32,
+							"defUid": 2008,
+							"px": [274,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_snake", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_snake"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [31,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 498,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106878",
+							"width": 28,
+							"height": 32,
+							"defUid": 2008,
+							"px": [498,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_snake", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_snake"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [61,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 978,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106879",
+							"width": 28,
+							"height": 32,
+							"defUid": 2008,
+							"px": [978,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_snake", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_snake"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [103,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 1650,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106880",
+							"width": 28,
+							"height": 32,
+							"defUid": 2008,
+							"px": [1650,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_snake", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_snake"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [135,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2162,
+							"__worldY": 352,
+							"iid": "EnemySpawn-106881",
+							"width": 28,
+							"height": 32,
+							"defUid": 2008,
+							"px": [2162,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_snake", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_snake"]
+							}] }]
+						},
+						{
 							"__identifier": "MaryOBlock",
 							"__grid": [12,18],
 							"__pivot": [0,0],
@@ -7237,12 +7560,12 @@
 							"__smartColor": "#E8A33D",
 							"__worldX": 192,
 							"__worldY": 288,
-							"iid": "MaryOBlock-106868",
+							"iid": "MaryOBlock-106885",
 							"width": 32,
 							"height": 32,
-							"defUid": 106867,
+							"defUid": 106884,
 							"px": [192,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Power", "__tile": null, "defUid": 106866, "realEditorValues": [] }]
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Power", "__tile": null, "defUid": 106883, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "MaryOBlock",
@@ -7253,12 +7576,12 @@
 							"__smartColor": "#E8A33D",
 							"__worldX": 960,
 							"__worldY": 288,
-							"iid": "MaryOBlock-106869",
+							"iid": "MaryOBlock-106886",
 							"width": 32,
 							"height": 32,
-							"defUid": 106867,
+							"defUid": 106884,
 							"px": [960,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Power", "__tile": null, "defUid": 106866, "realEditorValues": [] }]
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Power", "__tile": null, "defUid": 106883, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "MaryOBlock",
@@ -7269,12 +7592,12 @@
 							"__smartColor": "#E8A33D",
 							"__worldX": 1920,
 							"__worldY": 288,
-							"iid": "MaryOBlock-106870",
+							"iid": "MaryOBlock-106887",
 							"width": 32,
 							"height": 32,
-							"defUid": 106867,
+							"defUid": 106884,
 							"px": [1920,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Power", "__tile": null, "defUid": 106866, "realEditorValues": [] }]
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Power", "__tile": null, "defUid": 106883, "realEditorValues": [] }]
 						},
 						{
 							"__identifier": "MaryOBlock",
@@ -7285,12 +7608,12 @@
 							"__smartColor": "#E8A33D",
 							"__worldX": 320,
 							"__worldY": 288,
-							"iid": "MaryOBlock-106871",
+							"iid": "MaryOBlock-106888",
 							"width": 32,
 							"height": 32,
-							"defUid": 106867,
+							"defUid": 106884,
 							"px": [320,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106866, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106883, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["Quasar"]
 							}] }]
@@ -7304,12 +7627,12 @@
 							"__smartColor": "#E8A33D",
 							"__worldX": 1600,
 							"__worldY": 288,
-							"iid": "MaryOBlock-106872",
+							"iid": "MaryOBlock-106889",
 							"width": 32,
 							"height": 32,
-							"defUid": 106867,
+							"defUid": 106884,
 							"px": [1600,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106866, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106883, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["Quasar"]
 							}] }]
@@ -7323,12 +7646,12 @@
 							"__smartColor": "#E8A33D",
 							"__worldX": 2240,
 							"__worldY": 288,
-							"iid": "MaryOBlock-106873",
+							"iid": "MaryOBlock-106890",
 							"width": 32,
 							"height": 32,
-							"defUid": 106867,
+							"defUid": 106884,
 							"px": [2240,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106866, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106883, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["Quasar"]
 							}] }]
@@ -7342,12 +7665,12 @@
 							"__smartColor": "#E8A33D",
 							"__worldX": 1536,
 							"__worldY": 288,
-							"iid": "MaryOBlock-106874",
+							"iid": "MaryOBlock-106891",
 							"width": 32,
 							"height": 32,
-							"defUid": 106867,
+							"defUid": 106884,
 							"px": [1536,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106866, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106883, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["Brick"]
 							}] }]
@@ -7361,12 +7684,12 @@
 							"__smartColor": "#E8A33D",
 							"__worldX": 1568,
 							"__worldY": 288,
-							"iid": "MaryOBlock-106875",
+							"iid": "MaryOBlock-106892",
 							"width": 32,
 							"height": 32,
-							"defUid": 106867,
+							"defUid": 106884,
 							"px": [1568,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106866, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106883, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["Brick"]
 							}] }]
@@ -7380,12 +7703,12 @@
 							"__smartColor": "#E8A33D",
 							"__worldX": 1600,
 							"__worldY": 288,
-							"iid": "MaryOBlock-106876",
+							"iid": "MaryOBlock-106893",
 							"width": 32,
 							"height": 32,
-							"defUid": 106867,
+							"defUid": 106884,
 							"px": [1600,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106866, "realEditorValues": [{
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106883, "realEditorValues": [{
 								"id": "V_String",
 								"params": ["Brick"]
 							}] }]
@@ -7399,7 +7722,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 832,
 							"__worldY": 352,
-							"iid": "Solid-106877",
+							"iid": "Solid-106894",
 							"width": 96,
 							"height": 64,
 							"defUid": 2001,
@@ -7418,7 +7741,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 832,
 							"__worldY": 480,
-							"iid": "Solid-106878",
+							"iid": "Solid-106895",
 							"width": 96,
 							"height": 148,
 							"defUid": 2001,
@@ -7437,7 +7760,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 1120,
 							"__worldY": 480,
-							"iid": "Solid-106879",
+							"iid": "Solid-106896",
 							"width": 96,
 							"height": 148,
 							"defUid": 2001,
@@ -7456,7 +7779,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 1120,
 							"__worldY": 352,
-							"iid": "Solid-106880",
+							"iid": "Solid-106897",
 							"width": 96,
 							"height": 64,
 							"defUid": 2001,
@@ -7475,7 +7798,7 @@
 							"__smartColor": "#A4D65E",
 							"__worldX": 3136,
 							"__worldY": 128,
-							"iid": "OneWayPlatform-106881",
+							"iid": "OneWayPlatform-106898",
 							"width": 16,
 							"height": 288,
 							"defUid": 2003,
@@ -7494,7 +7817,7 @@
 							"__smartColor": "#A4D65E",
 							"__worldX": 3136,
 							"__worldY": 112,
-							"iid": "OneWayPlatform-106882",
+							"iid": "OneWayPlatform-106899",
 							"width": 16,
 							"height": 16,
 							"defUid": 2003,
@@ -7513,7 +7836,7 @@
 							"__smartColor": "#A4D65E",
 							"__worldX": 3136,
 							"__worldY": 144,
-							"iid": "OneWayPlatform-106883",
+							"iid": "OneWayPlatform-106900",
 							"width": 16,
 							"height": 32,
 							"defUid": 2003,
@@ -7532,7 +7855,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 704,
 							"__worldY": 704,
-							"iid": "Solid-106884",
+							"iid": "Solid-106901",
 							"width": 640,
 							"height": 32,
 							"defUid": 2001,
@@ -7551,7 +7874,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 704,
 							"__worldY": 480,
-							"iid": "Solid-106885",
+							"iid": "Solid-106902",
 							"width": 32,
 							"height": 224,
 							"defUid": 2001,
@@ -7570,7 +7893,7 @@
 							"__smartColor": "#6B7280",
 							"__worldX": 1312,
 							"__worldY": 480,
-							"iid": "Solid-106886",
+							"iid": "Solid-106903",
 							"width": 32,
 							"height": 224,
 							"defUid": 2001,
@@ -7585,7 +7908,7 @@
 				{
 					"__identifier": "Climbable",
 					"__type": "IntGrid",
-					"iid": "Climbable-106865",
+					"iid": "Climbable-106882",
 					"layerDefUid": 4201,
 					"intGridCsv": [
 						0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

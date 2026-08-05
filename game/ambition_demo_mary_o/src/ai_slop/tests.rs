@@ -179,7 +179,7 @@ fn the_wake_radius_clears_the_widest_playable_view() {
 
     // And the margin is the point, not an accident: five tiles of settling room.
     assert!(
-        AI_SLOP_WAKE_RADIUS - half_width >= 5.0 * T,
+        AI_SLOP_WAKE_RADIUS - half_width >= 5.0 * crate::T,
         "the margin ({}) is what lets a slop settle onto its column before it is \
          seen; below five tiles it wakes mid-fall in view",
         AI_SLOP_WAKE_RADIUS - half_width

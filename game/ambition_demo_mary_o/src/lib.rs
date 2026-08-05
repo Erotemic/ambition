@@ -128,59 +128,19 @@ const POLE_WIDTH: f32 = T * 0.5;
 // them "for reference" is the point: a constant that still names the world is a
 // second authority waiting to disagree with the file.
 
-// ── The double stairs ──────────────────────────────────────────────────────
+// ⭐⭐ **THE DOUBLE-STAIRS CONSTANTS ARE GONE (2026-08-04)** —
+// `STAIR_FIRST_COLUMN`, `STAIR_STEPS`, `STAIR_GAP_TILES`,
+// `stair_far_first_column()` and `stair_steps()`.
 //
-// Two ascending staircases with a trench between them: the first rises TOWARD
-// the gap (its tallest step walls the near side), the second rises AWAY from it
-// (its shortest step floors the far side). Slop tumbling off either half
-// collects in the trench, which is the point — it is the crowd to run through
-// while the quasar is burning.
+// They were the ONE authority for the pyramid's columns, and their own comment
+// said why: the shape used to be inlined in `level_1_1` AND hand-copied into
+// `ai_slop.rs`, so moving the stairs left eight enemies floating where the steps
+// had been. Deriving both from one table fixed that — and the table is still a
+// Rust fact the level editor cannot read.
 //
-// ⚠ these are the ONE authority for the pyramid's columns. They used to be
-// arithmetic inlined in `level_1_1` AND a hand-copied `(column, height)` table in
-// `ai_slop.rs`, so moving the stairs silently left eight enemies floating where
-// the steps used to be. Both derive from here now.
-
-/// Tile column of the first (shortest) up step.
-pub(crate) const STAIR_FIRST_COLUMN: f32 = 74.0;
-/// Steps per half. Each half rises one tile per step.
-pub(crate) const STAIR_STEPS: u16 = 4;
-/// Tiles of open trench between the two halves.
-///
-/// Was 2, which is barely wider than a slop — they landed in it and were wedged
-/// rather than pacing (Jon: *"more space between them for the aislop to move
-/// around in"*). At 6 the trench is a place they patrol, so running through it
-/// reads as running through a crowd.
-///
-/// The level did NOT need lengthening for this: the far half lands on column
-/// {FIRST + STEPS + GAP} = 84 and the flagpole is at 98, so there is still a
-/// ten-tile run-out past the pyramid.
-pub(crate) const STAIR_GAP_TILES: f32 = 6.0;
-
-/// Tile column of the far half's tallest step — the first column past the
-/// trench.
-pub(crate) const fn stair_far_first_column() -> f32 {
-    STAIR_FIRST_COLUMN + STAIR_STEPS as f32 + STAIR_GAP_TILES
-}
-
-/// **Every step of the pyramid**, as `(tile column, height in tiles)`.
-///
-/// Both halves in one list because both callers want the same thing: the blocks
-/// to build, and the enemy to stand on top of each.
-pub(crate) fn stair_steps() -> Vec<(f32, f32)> {
-    let far = stair_far_first_column();
-    (1..=STAIR_STEPS)
-        .flat_map(move |step| {
-            let h = step as f32;
-            [
-                // Near half: rises left-to-right into the trench.
-                (STAIR_FIRST_COLUMN + h - 1.0, h),
-                // Far half: mirrored, so its SHORT step faces the trench.
-                (far + STAIR_STEPS as f32 - h, STAIR_STEPS as f32 + 1.0 - h),
-            ]
-        })
-        .collect()
-}
+// The pyramid is authored geometry now and the slop that stands on it is an
+// authored placement, so the drift they guarded against is not possible: there
+// is no second place for the shape to live.
 
 /// The SURFACE half's height — every above-ground feature is placed against
 /// this, so growing the world downward for the vault below leaves the authored
@@ -2306,46 +2266,40 @@ mod tests {
         );
     }
 
-    /// **The enemies stand on the steps the level actually built.**
+    /// **Every authored enemy has ground under it.**
     ///
-    /// The stair columns lived in two files — the block builder here and a
-    /// hand-copied table in `ai_slop.rs` — so widening the trench would have left
-    /// four slop floating over where the far half used to be. Both read
-    /// `stair_steps()` now, and this is the check that says so: every stair slop
-    /// must be standing over a real step.
+    /// ⛔ the stair columns used to live in TWO files — the block builder here and
+    /// a hand-copied table in `ai_slop.rs` — so widening the trench left four slop
+    /// floating over where the far half used to be. Both then read one
+    /// `stair_steps()`, which fixed the drift and left the shape a Rust fact.
+    ///
+    /// ⭐ **there is no second place now**: the pyramid is authored geometry and
+    /// the slop on it are authored placements, so they cannot disagree. What is
+    /// still worth checking is the thing an author can get wrong by hand —
+    /// dropping an enemy over a pit, where it falls out of the level before it is
+    /// ever seen.
     #[test]
-    fn every_stair_slop_stands_over_a_real_step() {
+    fn every_authored_enemy_has_ground_under_it() {
         let room = level_1_1();
-        let spawns = ai_slop::stair_slop_spawn_positions(room.world.spawn);
-        assert_eq!(
-            spawns.len(),
-            (STAIR_STEPS * 2) as usize,
-            "one slop per step of both halves"
+        assert!(
+            !room.enemy_spawns.is_empty(),
+            "the level authors its enemies"
         );
-        // ⚠ **the question is whether a slop has GROUND under it**, asked of the
-        // authored surface. It used to count blocks named `stair_*` and pair them
-        // with the spawn list — but the pyramid is painted into an IntGrid now,
-        // whose merged rectangles carry no step names, and "is this enemy standing
-        // on something" never needed one.
-        for pos in spawns {
-            let top = surface_top_at(&room, pos.x);
+        for spawn in &room.enemy_spawns {
+            use ae::AabbExt;
+            let at = spawn.aabb.center();
+            let ground = (0..40)
+                .map(|step| at.y + step as f32 * T)
+                .find(|y| solid_at(&room, ae::Vec2::new(at.x, *y)));
             assert!(
-                top.is_some_and(|top| pos.y < top + T),
-                "a stair slop at {pos:?} is not standing over a step — the spawn \
-                 list and the authored pyramid have drifted apart (surface here: \
-                 {top:?})"
+                ground.is_some(),
+                "`{}` is authored at {at:?} with nothing under it — it falls out of \
+                 the level before a player ever sees it",
+                spawn.id
             );
         }
     }
 
-    /// **Every authored brick is a solid the break runtime recognises**, and no
-    /// brick is mistaken for a ?-block.
-    ///
-    /// ⛔ this used to assert an INDEX round-trip — `brick_name(i)` finds a block
-    /// whose id is `brick_id(i)` whose index resolves back to `i` — which proved
-    /// the runtime agreed with a Rust column array. The array is gone and the
-    /// level is authored, so the question is no longer "is brick 2 where the
-    /// constants say" but "does the runtime recognise what the author drew".
     #[test]
     fn level_1_1_authors_the_bricks_the_break_runtime_expects() {
         use crate::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};

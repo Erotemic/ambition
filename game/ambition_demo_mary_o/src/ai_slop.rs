@@ -32,7 +32,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
 use crate::stomp::{player_touch, PlayerTouch};
-use crate::{LEVEL_1_1_ROOM_ID, T};
+use crate::LEVEL_1_1_ROOM_ID;
 
 /// The catalog `display_name` an AI Slop renders from, and the name every AI Slop
 /// spawn carries so its `ai_slop` sheet resolves.
@@ -158,81 +158,48 @@ pub fn register_ai_slop_sheet(
     }
 }
 
-/// Tile x-columns (level grid) each AI Slop paces near — interleaved with the snake
-/// columns on the same ground segments (`[0,20) [22,42) [45,60) [65,104)` after the
-/// level was lengthened for the vault), clear of the pits, the spawn, the surface
-/// exit pipe (column 45), and the stairs/flagpole.
-const AI_SLOP_TILE_COLUMNS: &[f32] = &[13.0, 24.0, 53.0, 70.0];
+// ⭐ `AI_SLOP_TILE_COLUMNS`, `ai_slop_stair_steps()` and
+// `stair_slop_spawn_positions()` are GONE. Where a slop stands is authored.
+//
+// ⚠ its SIZE stays here, and the difference is the rule: how big a slop is, is a
+// fact about the character; where it stands is a fact about the level.
 
-/// **One AI Slop on top of every stair step**, asked of the level rather than
-/// copied from it.
-///
-/// Jon asked for these to test the quasar: "put some AI slop on the top of each
-/// stairs so it goes down them and gets stuck in the bottom." They walk off
-/// their step, tumble down, and collect in the trench between the two halves — a
-/// crowd to run through while invincible, which is the only way to see that
-/// invincibility is doing anything.
-///
-/// ⚠ this used to be a hand-copied `(column, height)` table duplicating the
-/// arithmetic in `level_1_1`. Widening the trench moved the far half four
-/// columns right and would have left four of these floating in mid-air over
-/// where the steps used to be — a level edit silently breaking an enemy list in
-/// another file is exactly the drift the ground list above is written to avoid.
-fn ai_slop_stair_steps() -> Vec<(f32, f32)> {
-    crate::stair_steps()
-}
-
-/// Half-extent of an AI Slop, shared by both spawn lists.
+/// Half-extent of an AI Slop's body.
 pub(crate) const AI_SLOP_HALF: f32 = 14.0;
 
-/// Where each stair slop is dropped, for a level whose player spawns at
-/// `player_spawn`. Exposed so the level's own oracle can check they land on real
-/// steps rather than over where the steps used to be.
-pub(crate) fn stair_slop_spawn_positions(player_spawn: ae::Vec2) -> Vec<ae::Vec2> {
-    let ground_top = player_spawn.y + ae::movement::default_player_body_size().y * 0.5;
-    ai_slop_stair_steps()
-        .into_iter()
-        .map(|(col, tiles)| ae::Vec2::new(col * T, ground_top - tiles * T - AI_SLOP_HALF - 4.0))
-        .collect()
-}
-
-/// The AI Slop spawn requests for level 1-1: the ground patrol, dropped at the
-/// player's standing height so gravity settles each onto its column, plus one
-/// per stair step, dropped just above the step it belongs to.
-fn ai_slop_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
-    let half = ae::Vec2::new(AI_SLOP_HALF, AI_SLOP_HALF);
-    let request = |id: String, pos: ae::Vec2| SpawnActorRequest {
-        id,
-        name: AI_SLOP_DISPLAY_NAME.to_string(),
-        pos,
-        half_size: half,
-        faction: ActorFaction::Enemy,
-        grudge_against: None,
-        kind: SpawnActorKind::Enemy {
-            brain: CharacterBrain::Custom(AI_SLOP_BRAIN_KEY.to_string()),
-        },
-    };
-    // The ground patrol rides her spawn height directly and settles under
-    // gravity; the stair drop needs the surface line, which
-    // `stair_slop_spawn_positions` derives from the same spawn.
-    AI_SLOP_TILE_COLUMNS
+/// The AI Slop spawn requests for a room — **one per AUTHORED placement**.
+///
+/// ⛔ **this used to be a Rust column array plus a derived stair walk.** The
+/// level authored no enemies at all: `AI_SLOP_TILE_COLUMNS` said where the ground
+/// patrol stood and `stair_slop_spawn_positions` re-derived a slop per step from
+/// the pyramid's own constants, so an author could not add, move or remove one.
+///
+/// ⭐ **the id is MINTED here from the authored placement.** The engine's
+/// `EnemySpawn` converter names a placement by its LDtk iid, and
+/// [`is_ai_slop_id`] is what decides a staged actor is slop at all — so the demo
+/// takes the authored identity and wraps it in its own, which keeps
+/// "one place mints ids" true while letting LDtk own WHERE.
+fn ai_slop_spawn_requests(spec: &ambition_platformer2d::world::rooms::RoomSpec) -> Vec<SpawnActorRequest> {
+    use ambition_platformer2d::engine_core::AabbExt;
+    spec.enemy_spawns
         .iter()
-        .enumerate()
-        .map(|(i, col)| {
-            request(
-                ai_slop_id(i),
-                ae::Vec2::new(col * T, player_spawn.y),
+        .filter(|authored| {
+            matches!(
+                &authored.payload,
+                CharacterBrain::Custom(key) if key == AI_SLOP_BRAIN_KEY
             )
         })
-        .chain(
-            // The SAME positions the level's oracle checks — asking a second
-            // copy of this arithmetic would make that check agree with itself
-            // and with nothing that ships.
-            stair_slop_spawn_positions(player_spawn)
-                .into_iter()
-                .enumerate()
-                .map(|(i, pos)| request(format!("mary_o_ai_slop_stair_{i}"), pos)),
-        )
+        .map(|authored| SpawnActorRequest {
+            id: ai_slop_id(&authored.id),
+            name: AI_SLOP_DISPLAY_NAME.to_string(),
+            pos: authored.aabb.center(),
+            half_size: ae::Vec2::new(AI_SLOP_HALF, AI_SLOP_HALF),
+            faction: ActorFaction::Enemy,
+            grudge_against: None,
+            kind: SpawnActorKind::Enemy {
+                brain: CharacterBrain::Custom(AI_SLOP_BRAIN_KEY.to_string()),
+            },
+        })
         .collect()
 }
 
@@ -248,7 +215,7 @@ pub fn register_ai_slop_content_staging(
             "ambition_demo_mary_o",
             "ai_slop",
             "ai-slop-staging.v1",
-            |spec| ai_slop_spawn_requests(spec.world.spawn),
+            ai_slop_spawn_requests,
         )
         .expect("AI Slop staging registration is unique");
 }

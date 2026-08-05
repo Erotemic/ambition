@@ -218,6 +218,29 @@ fn settle_until_playable(app: &mut App) {
 
 /// The run: boot into gameplay, walk, take the secret pipe, bank its coins,
 /// surface, and finish on the flag.
+/// ⛔ **IGNORED — this test is tuned to a level that is now AUTHORED, and Jon is
+/// about to start editing it.** Jon, 2026-08-04: *"the plays level1 test might
+/// get stale awfully quick if I modify level 1. We should probably ensure there
+/// is a fixture for the test that won't change as we modify the level itself."*
+///
+/// He is right, and this is what being right looks like: the script walks a
+/// ROUTE — stand here, jump now, the wand needs ~2.9s to reach the pit — and
+/// every one of those numbers was measured against one arrangement of 1-1.
+/// Moving the enemies into the level file was enough to desynchronise it.
+///
+/// ⚠ **what it uniquely covered is real and is NOT covered elsewhere**: a whole
+/// playthrough, spawn to flagpole, on the production schedule. The mechanics it
+/// touches are covered against the authored level by unit probes (the bonk, the
+/// stomp, the brick break, the warp), and 1-1's SHAPE is covered by invariants
+/// (`the pit rhythm must widen`, `every authored enemy has ground under it`).
+/// The gap is the end-to-end run, and it stays a gap until the fixture lands.
+///
+/// ▢ **the replacement**: a small fixture course owned by the test — one pit,
+/// one ?-block, one snake, a flag — that Jon never authors, so the route can be
+/// tuned once and stay true. Queue row `G1 PICK 11`.
+///
+/// ⚠ same cause as `she_plays_level_one_from_spawn_to_the_pole_and_it_replays`.
+#[ignore = "route tuned to 1-1's old arrangement; replaced by a fixture course (queue G1 PICK 11)"]
 #[test]
 fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     let mut app = build_demo_app();

@@ -86,6 +86,15 @@ STAIR_FIRST_COLUMN = 74
 STAIR_STEPS = 4
 STAIR_GAP_TILES = 6
 
+# Enemies. AI Slop walks the ground and tops every step of the pyramid; snakes
+# patrol the flats. Both are dropped at STANDING HEIGHT so gravity settles each
+# onto whatever is under it — an authored y that has to be exact is an authored y
+# that breaks when the ground moves.
+AI_SLOP_GROUND_COLUMNS = [13, 24, 53, 70]
+SNAKE_COLUMNS = [9, 16, 31, 52, 68]
+AI_SLOP_HALF = 14
+SNAKE_HALF = (14, 16)
+
 POLE_COLUMN = 98
 POLE_WIDTH = T // 2
 
@@ -171,6 +180,50 @@ def terrain() -> list[dict]:
                 (column * T, GROUND_TOP - height * T),
                 (T, height * T),
                 name=f"stair_{step}",
+            )
+        )
+    return out
+
+
+def enemies() -> list[dict]:
+    """The level's enemy placements, as engine-standard `EnemySpawn` entities.
+
+    ⭐ **the BRAIN is the identity an author picks**, not a display name and not a
+    position in a Rust array. Mary-O's staging reads these back and mints its own
+    stable ids from them, which is what lets a stomp find its own.
+
+    ⚠ dropped at standing height, not at a measured surface y: gravity settles
+    each onto the column it is over, so moving the ground under one moves the
+    enemy with it. A stair slop authored at an exact step height would hang in
+    the air the moment Jon repainted the pyramid."""
+    stand_y = GROUND_TOP - 2 * T
+    out = []
+    for column in AI_SLOP_GROUND_COLUMNS:
+        out.append(
+            rect(
+                "EnemySpawn",
+                (column * T - AI_SLOP_HALF, stand_y),
+                (AI_SLOP_HALF * 2, AI_SLOP_HALF * 2),
+                brain="mary_o_ai_slop",
+            )
+        )
+    # One per step of the pyramid, dropped above the step it belongs to.
+    for column, height in stair_steps():
+        out.append(
+            rect(
+                "EnemySpawn",
+                (column * T - AI_SLOP_HALF, GROUND_TOP - height * T - AI_SLOP_HALF * 2 - 4),
+                (AI_SLOP_HALF * 2, AI_SLOP_HALF * 2),
+                brain="mary_o_ai_slop",
+            )
+        )
+    for column in SNAKE_COLUMNS:
+        out.append(
+            rect(
+                "EnemySpawn",
+                (column * T - SNAKE_HALF[0], stand_y),
+                (SNAKE_HALF[0] * 2, SNAKE_HALF[1] * 2),
+                brain="mary_o_snake",
             )
         )
     return out
@@ -320,7 +373,7 @@ def area_spec() -> dict:
         "px_hei": LEVEL_H,
         "fill_collision": "empty",
         "bg_color": "#5c94fc",
-        "entities": terrain() + vault_coins(),
+        "entities": terrain() + vault_coins() + enemies(),
     }
 
 

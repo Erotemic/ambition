@@ -28,7 +28,7 @@ use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, Conta
 use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 
 use crate::ldtk_vocabulary::{block_of, MaryOBlockLook};
-use crate::LEVEL_1_1_ROOM_ID;
+use ambition_platformer2d::actors::session::reset::RoomReplayRequested;
 
 /// Which bricks are broken this run, **by their authored NAME**.
 ///
@@ -145,16 +145,33 @@ pub fn break_bricks(
     }
 }
 
-/// Re-arm every brick when level 1-1 (re)loads, so a cyclic replay rebuilds the
-/// wall. Mirrors [`crate::powerups::refill_power_blocks_on_room_loaded`].
-pub fn refill_bricks_on_room_loaded(
+/// Re-arm every brick when the room (re)loads **or replays**, so the next lap —
+/// and the next LIFE — starts against a whole wall. Mirrors
+/// [`crate::powerups::rearm_power_blocks_for_a_fresh_attempt`].
+///
+/// ⛔ **A DEATH IS NOT A ROOM LOAD**, and reading only `RoomLoaded` is why Jon
+/// found every brick still broken after dying (2026-08-05). A death emits
+/// [`RoomReplayRequested`], which the host answers with `ResetRoomFeaturesEvent`;
+/// `RoomLoaded` is written from exactly one place, an actual room load. The two
+/// are different events on purpose, and per-attempt CONTENT state has to answer
+/// the replay — that is what `ContentRoomReplayResetSet` is for, and the bosses
+/// were already using it.
+///
+/// ⛔ **the `room_id == LEVEL_1_1_ROOM_ID` gate is gone too.** It predates 1-2,
+/// and it meant a wall smashed in 1-2 stayed smashed through every reload of it.
+/// Broken names are per-room authored and you can only stand in one room, so
+/// "any room boundary re-arms everything" is both simpler and correct.
+pub fn rearm_bricks_for_a_fresh_attempt(
     mut rooms: MessageReader<RoomLoaded>,
+    mut replays: MessageReader<RoomReplayRequested>,
     mut broken: ResMut<BrokenBricks>,
 ) {
-    for message in rooms.read() {
-        if message.room_id == LEVEL_1_1_ROOM_ID {
-            broken.clear();
-        }
+    // Both are drained every frame regardless of the other: a `||` would
+    // short-circuit the second reader and leave its message queued to fire again.
+    let reloaded = rooms.read().count() > 0;
+    let replayed = replays.read().count() > 0;
+    if reloaded || replayed {
+        broken.clear();
     }
 }
 
@@ -477,12 +494,13 @@ mod tests {
         broken.mark("brick_alpha");
         app.insert_resource(broken);
         app.add_message::<RoomLoaded>();
-        app.add_systems(Update, refill_bricks_on_room_loaded);
+        app.add_message::<RoomReplayRequested>();
+        app.add_systems(Update, rearm_bricks_for_a_fresh_attempt);
 
         app.world_mut()
             .resource_mut::<bevy::ecs::message::Messages<RoomLoaded>>()
             .write(RoomLoaded {
-                room_id: LEVEL_1_1_ROOM_ID.to_string(),
+                room_id: crate::LEVEL_1_1_ROOM_ID.to_string(),
             });
         app.update();
         assert_eq!(
@@ -492,6 +510,35 @@ mod tests {
                 .count(),
             0,
             "a level (re)load rebuilds the wall for the next lap"
+        );
+    }
+
+    /// **Jon, 2026-08-05: "when you die in mary-o the block state does not
+    /// reset".** A death emits `RoomReplayRequested`, and the host's replay
+    /// consumer answers it with `ResetRoomFeaturesEvent` — it does NOT emit
+    /// `RoomLoaded`, which is written from exactly one place, an actual room
+    /// load. So every brick you smashed on the last life stayed smashed.
+    #[test]
+    fn a_death_replay_rearms_the_bricks() {
+        let mut app = App::new();
+        let mut broken = BrokenBricks::default();
+        broken.mark("brick_alpha");
+        app.insert_resource(broken);
+        app.add_message::<RoomLoaded>();
+        app.add_message::<RoomReplayRequested>();
+        app.add_systems(Update, rearm_bricks_for_a_fresh_attempt);
+
+        app.world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<RoomReplayRequested>>()
+            .write(RoomReplayRequested);
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<BrokenBricks>()
+                .broken_names()
+                .count(),
+            0,
+            "a death replays the room, and the wall it rebuilds must be whole"
         );
     }
 }

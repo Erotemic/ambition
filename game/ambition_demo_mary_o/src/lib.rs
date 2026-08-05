@@ -1774,7 +1774,6 @@ impl Plugin for MaryORulesPlugin {
         // wearing the wand. The engine's `collect_world_items` (touch → equip) sits
         // between the bonk and the grow — no demo wiring for it.
         let powerups = (
-            powerups::refill_power_blocks_on_room_loaded,
             powerups::bonk_power_blocks,
             powerups::sync_grown_form,
             // The star, after the form sync: collecting the quasar converts a
@@ -1813,9 +1812,21 @@ impl Plugin for MaryORulesPlugin {
         // the render reconcile, drawing). The contribution runs AFTER the engine's
         // overlay rebuild clears that list — the same slot `contribute_encounter_lock_walls`
         // takes — so the removals survive the per-frame clean slate.
-        let bricks = (bricks::refill_bricks_on_room_loaded, bricks::break_bricks)
-            .chain()
+        let bricks = bricks::break_bricks
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::FeatureInteraction);
+        // **Mary-O's per-attempt block state, on the engine's declared slot.**
+        // Which bricks are smashed and which ?-blocks are spent is exactly the
+        // "content-named per-attempt state" `ContentRoomReplayResetSet` exists
+        // for — the host anchors it before its generic replay consumer, so a
+        // death clears them the same frame the request lands. They used to hang
+        // off the `FeatureInteraction` chains reading `RoomLoaded` alone, which
+        // a death never emits; see `rearm_bricks_for_a_fresh_attempt`. The
+        // cut-rope boss reaches this slot the same way.
+        let fresh_attempt = (
+            bricks::rearm_bricks_for_a_fresh_attempt,
+            powerups::rearm_power_blocks_for_a_fresh_attempt,
+        )
+            .in_set(ambition_platformer2d::actors::session::reset::ContentRoomReplayResetSet);
         let brick_overlay = bricks::contribute_broken_bricks_to_overlay
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
             .after(ambition_platformer2d::actors::features::FeatureWorldOverlaySet);
@@ -1852,6 +1863,10 @@ impl Plugin for MaryORulesPlugin {
                 sim,
                 brick_overlay.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
             );
+            app.add_systems(
+                sim,
+                fresh_attempt.run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
+            );
         } else {
             app.add_systems(sim, rules);
             app.add_systems(sim, pipe_input);
@@ -1861,6 +1876,7 @@ impl Plugin for MaryORulesPlugin {
             app.add_systems(sim, bricks);
             app.add_systems(sim, gait);
             app.add_systems(sim, brick_overlay);
+            app.add_systems(sim, fresh_attempt);
         }
     }
 }

@@ -902,14 +902,19 @@ pub fn dress_power_blocks(
     }
 }
 
-pub fn refill_power_blocks_on_room_loaded(
+/// Re-arm every ?-block when the room (re)loads **or replays**. The twin of
+/// [`crate::bricks::rearm_bricks_for_a_fresh_attempt`], and it had both of the
+/// same defects: a death left every block spent, and the `LEVEL_1_1_ROOM_ID` gate
+/// meant 1-2's blocks never came back at all. See that function for the reasoning.
+pub fn rearm_power_blocks_for_a_fresh_attempt(
     mut rooms: MessageReader<RoomLoaded>,
+    mut replays: MessageReader<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,
     mut spent: ResMut<SpentPowerBlocks>,
 ) {
-    for message in rooms.read() {
-        if message.room_id == crate::LEVEL_1_1_ROOM_ID {
-            spent.rearm_all();
-        }
+    let reloaded = rooms.read().count() > 0;
+    let replayed = replays.read().count() > 0;
+    if reloaded || replayed {
+        spent.rearm_all();
     }
 }
 

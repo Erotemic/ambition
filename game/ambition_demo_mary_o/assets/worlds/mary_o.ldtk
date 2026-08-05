@@ -11,7 +11,7 @@
 	"iid": "ambition-mary-o-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 106927,
+	"nextUid": 106934,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -9015,6 +9015,142 @@
 									"params": ["currency:1"]
 								}] }
 							]
+						},
+						{
+							"__identifier": "MaryOBlock",
+							"__grid": [48,16],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#E8A33D",
+							"__worldX": 768,
+							"__worldY": 1280,
+							"iid": "MaryOBlock-106927",
+							"width": 32,
+							"height": 32,
+							"defUid": 106884,
+							"px": [768,256],
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Question", "__tile": null, "defUid": 106883, "realEditorValues": [] }]
+						},
+						{
+							"__identifier": "MaryOBlock",
+							"__grid": [50,16],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#E8A33D",
+							"__worldX": 800,
+							"__worldY": 1280,
+							"iid": "MaryOBlock-106928",
+							"width": 32,
+							"height": 32,
+							"defUid": 106884,
+							"px": [800,256],
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106883, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["Brick"]
+							}] }]
+						},
+						{
+							"__identifier": "MaryOBlock",
+							"__grid": [52,16],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#E8A33D",
+							"__worldX": 832,
+							"__worldY": 1280,
+							"iid": "MaryOBlock-106929",
+							"width": 32,
+							"height": 32,
+							"defUid": 106884,
+							"px": [832,256],
+							"fieldInstances": [
+								{ "__identifier": "kind", "__type": "String", "__value": "Brick", "__tile": null, "defUid": 106883, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Brick"]
+								}] },
+								{ "__identifier": "contents", "__type": "String", "__value": "AlwaysWand", "__tile": null, "defUid": 106904, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["AlwaysWand"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "MaryOBlock",
+							"__grid": [80,16],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#E8A33D",
+							"__worldX": 1280,
+							"__worldY": 1280,
+							"iid": "MaryOBlock-106930",
+							"width": 32,
+							"height": 32,
+							"defUid": 106884,
+							"px": [1280,256],
+							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Hidden", "__tile": null, "defUid": 106883, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["Hidden"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [43,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 700,
+							"__worldY": 1376,
+							"iid": "EnemySpawn-106931",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [700,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [81,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 1300,
+							"__worldY": 1376,
+							"iid": "EnemySpawn-106932",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [1300,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_snake", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_snake"]
+							}] }]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [90,22],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 1450,
+							"__worldY": 1376,
+							"iid": "EnemySpawn-106933",
+							"width": 28,
+							"height": 28,
+							"defUid": 2008,
+							"px": [1450,352],
+							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "mary_o_ai_slop", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								"id": "V_String",
+								"params": ["mary_o_ai_slop"]
+							}] }]
 						}
 					]
 				},

@@ -236,6 +236,66 @@ mod tests {
     /// it stops being is the thing the shelf teaches, which is that this run is
     /// worth the jump. So this checks they sit on its top edge, not merely that
     /// some placements are present.
+    /// **Nothing authored into 1-2 is buried in the rock.**
+    ///
+    /// 1-2 was a corridor with six coins and a ferry — no enemies and no reactive
+    /// blocks at all — until they were placed on 2026-08-05 by reading the
+    /// IntGrid out of the file and picking coordinates, without being able to
+    /// look at the result (the demo boots into 1-1, so a capture cannot see this
+    /// room). Blind placement needs an oracle that is not a screenshot.
+    ///
+    /// A block or an enemy overlapping terrain is the failure that matters: a
+    /// buried ?-block cannot be hit, and an enemy inside the floor is either
+    /// stuck or ejected somewhere surprising.
+    #[test]
+    fn nothing_authored_in_the_cavern_is_buried_in_the_rock() {
+        let room = level_1_2();
+        let terrain: Vec<_> = room
+            .world
+            .blocks
+            .iter()
+            .filter(|block| crate::ldtk_vocabulary::block_of(&block.name).is_none())
+            .collect();
+
+        let reactive: Vec<_> = room
+            .world
+            .blocks
+            .iter()
+            .filter(|block| crate::ldtk_vocabulary::block_of(&block.name).is_some())
+            .collect();
+        assert!(
+            !reactive.is_empty(),
+            "1-2 authors reactive blocks; if it stops, this test checks nothing"
+        );
+        for block in &reactive {
+            for rock in &terrain {
+                assert!(
+                    !block.aabb.strict_intersects(rock.aabb),
+                    "reactive block `{}` at {:?} is inside terrain at {:?}",
+                    block.name,
+                    block.aabb.min,
+                    rock.aabb.min
+                );
+            }
+        }
+
+        assert!(
+            !room.enemy_spawns.is_empty(),
+            "1-2 authors enemies; if it stops, this test checks nothing"
+        );
+        for spawn in &room.enemy_spawns {
+            for rock in &terrain {
+                assert!(
+                    !spawn.aabb.strict_intersects(rock.aabb),
+                    "enemy `{}` at {:?} is inside terrain at {:?}",
+                    spawn.name,
+                    spawn.aabb.min,
+                    rock.aabb.min
+                );
+            }
+        }
+    }
+
     #[test]
     fn the_coin_shelf_carries_coins_that_rest_on_it() {
         let room = level_1_2();
@@ -244,19 +304,41 @@ mod tests {
         // second copy of the room's geometry in a test of the room. The shelf is
         // the only SOLID that touches no edge of the world: the roof, the floor
         // runs and both walls each meet one.
+        //
+        // ⛔ **and "the only solid that touches no edge" EXPIRED the moment 1-2
+        // got reactive blocks.** A `MaryOBlock` is a `BlockKind::Solid` floating
+        // in mid-air too, so `find` started returning whichever came first and
+        // this test failed claiming a coin hung off a shelf 300px away. The
+        // structural idea is still right; it just has to say TERRAIN, and
+        // `block_of` is the question that separates an authored reactive block
+        // from the room's own stone.
+        //
+        // It also `collect`s and demands exactly one, because a `find` over an
+        // ambiguous predicate answers confidently and wrongly — which is
+        // precisely what happened.
         let size = room.world.size;
-        let shelf = room
+        let shelves: Vec<_> = room
             .world
             .blocks
             .iter()
-            .find(|block| {
+            .filter(|block| {
                 matches!(block.kind, ae::BlockKind::Solid)
+                    && crate::ldtk_vocabulary::block_of(&block.name).is_none()
                     && block.aabb.min.x > 0.0
                     && block.aabb.min.y > 0.0
                     && block.aabb.max.x < size.x
                     && block.aabb.max.y < size.y
             })
-            .expect("1-2 authors a raised shelf that stands clear of every wall");
+            .collect();
+        assert_eq!(
+            shelves.len(),
+            1,
+            "1-2 authors exactly ONE raised terrain shelf clear of every wall; \
+             found {}. If a second one is intended, this test has to say which \
+             carries the coins.",
+            shelves.len()
+        );
+        let shelf = shelves[0];
 
         let coins: Vec<_> = room
             .placements

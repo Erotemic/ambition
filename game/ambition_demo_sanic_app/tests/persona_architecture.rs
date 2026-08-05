@@ -189,3 +189,52 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
         "the protagonist-only charge state is removed with its capability"
     );
 }
+
+/// **Every authored badnik declares whether it sleeps.**
+///
+/// The dormancy seam was built for Jon's Mary-O report — *"ai slop will just walk
+/// off the edge of the level before she even gets to that part of the level"* —
+/// and for a day it was wired to exactly one enemy in one game. A speedway is the
+/// case that needs it most: the level is long, the badniks are spread down its
+/// whole length, and Sanic reaches the far end seconds after the near one.
+///
+/// ⚠ **this also proves the tagger is REGISTERED**, which is the failure mode a
+/// compile cannot catch. `tag_sanic_badniks` could be perfectly written and
+/// simply never added to a schedule, and everything would still build.
+#[test]
+fn every_authored_badnik_declares_whether_it_sleeps() {
+    use ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy;
+    use ambition_platformer2d::actors::features::ActorConfig;
+
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    for _ in 0..240 {
+        app.update();
+    }
+
+    let mut q = app
+        .world_mut()
+        .query::<(&ActorConfig, Option<&DormancyPolicy>)>();
+    let badniks: Vec<bool> = q
+        .iter(app.world())
+        .filter(|(config, _)| {
+            matches!(
+                &config.brain,
+                ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(key)
+                    if key == ambition_demo_sanic::badnik::BADNIK_BRAIN_KEY
+            )
+        })
+        .map(|(_, policy)| policy.is_some())
+        .collect();
+
+    assert!(
+        !badniks.is_empty(),
+        "the speedway authors badniks; if it stops, this test checks nothing"
+    );
+    assert!(
+        badniks.iter().all(|declared| *declared),
+        "{} of {} badniks declare no DormancyPolicy — they think for the whole \
+         speedway and can walk off a ledge before Sanic arrives",
+        badniks.iter().filter(|d| !**d).count(),
+        badniks.len()
+    );
+}

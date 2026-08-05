@@ -1172,7 +1172,16 @@ impl Plugin for SanicRulesPlugin {
         // The badnik defeat runs BEFORE the engine's shared body-contact-damage
         // pass so a stomp/roll never also hurts Sanic (the rule zeroes the
         // badnik's health that frame; the contact pass skips a dead attacker).
-        let badniks = badnik::defeat_badniks
+        let badniks = (
+            // Declare dormancy before anything ticks a brain: a badnik at the far
+            // end of the speedway should not be walking off a ledge while Sanic
+            // is still at the start. Mirrors Mary-O's per-character declaration,
+            // and the radius is derived from Sanic's own top speed rather than
+            // copied from hers (see `BADNIK_WAKE_RADIUS`).
+            badnik::tag_sanic_badniks,
+            badnik::defeat_badniks,
+        )
+            .chain()
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
             .before(ambition_platformer2d::platformer::schedule::WorldPrepSet::ContactDamage);
         // The shared player resolver spends wallet armor before death and emits

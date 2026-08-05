@@ -33,6 +33,60 @@ pub const BADNIK_DISPLAY_NAME: &str = "Sanic Badnik";
 /// The roster brain key the LDtk `EnemySpawn` entities reference.
 pub const BADNIK_BRAIN_KEY: &str = "sanic_badnik";
 
+/// **How near Sanic has to be for a badnik to keep thinking.**
+///
+/// ⛔ **NOT the 720px Mary-O uses, and copying it would have been the bug.** A
+/// wake radius is not a distance, it is a LEAD TIME wearing distance's clothes:
+/// 720px in front of a Mary-O running at 300px/s is 2.4 seconds of warning, and
+/// the same 720px in front of a Sanic at his 2000px/s super top speed is **0.36
+/// seconds** — a badnik that snaps into motion in full view, which is worse than
+/// one that was walking all along.
+///
+/// So this is derived rather than borrowed: the same 2.4s of lead against
+/// Sanic's fastest tuning (`top_speed: 2000.0`).
+///
+/// ⚠ **that a fixed radius encodes an assumption about observer speed is the
+/// interesting part**, and it is the argument for the policy eventually taking
+/// SECONDS rather than pixels. Recorded here rather than acted on, because one
+/// game is not enough evidence to change an engine seam's units.
+pub const BADNIK_WAKE_RADIUS: f32 = 4800.0;
+
+/// **Badniks stop thinking when Sanic is nowhere near them.**
+///
+/// The adoption half of the dormancy seam, which was built for Jon's report
+/// about Mary-O's slop — *"ai slop will just walk off the edge of the level
+/// before she even gets to that part of the level"* — and then wired to exactly
+/// one game. A speedway is the case that needs it most: the level is long, the
+/// badniks are spread down its whole length, and Sanic reaches the far end
+/// seconds after the near one.
+///
+/// ⚠ **declared per character, never inherited.** An actor with no
+/// `DormancyPolicy` is always awake, which is what makes "not inherent" the
+/// default rather than an opt-out.
+pub fn tag_sanic_badniks(
+    mut commands: Commands,
+    fresh: Query<
+        (
+            Entity,
+            &ambition_platformer2d::actors::features::ActorConfig,
+        ),
+        Without<ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy>,
+    >,
+) {
+    for (entity, config) in &fresh {
+        if matches!(
+            &config.brain,
+            ambition_platformer2d::entity_catalog::placements::CharacterBrain::Custom(key)
+                if key == BADNIK_BRAIN_KEY
+        ) {
+            commands.entity(entity).try_insert(
+                ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy::
+                    AwakeNearObservers { radius: BADNIK_WAKE_RADIUS },
+            );
+        }
+    }
+}
+
 /// Upward speed off a stomped badnik — a lively bounce, under a full jump.
 const BOUNCE_SPEED: f32 = 460.0;
 

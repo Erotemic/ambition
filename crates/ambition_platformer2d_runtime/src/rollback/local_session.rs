@@ -32,6 +32,13 @@
 //! Matchbox/P2P session is authoritative; the owner steps aside for it, which is
 //! the same rule the observatory had and the reason `install_session` exists as a
 //! separate seam.
+//!
+//! ⛔ **and a composition may reserve the START for its caller** —
+//! [`LocalSessionPolicy::autostart`]. "Step aside for a session I did not start"
+//! is only half a rule: it cannot fire before the other session EXISTS, and a
+//! caller that has to construct a world first (`ambition_platformer2d::rollback::start`
+//! activates, settles, and only then rebases frame zero) has no session to be
+//! deferred to during exactly the window where the owner would install one.
 
 use bevy::prelude::*;
 
@@ -61,6 +68,23 @@ pub struct LocalSessionPolicy {
     pub check_distance: usize,
     /// The furthest the session may speculate ahead of confirmation.
     pub max_prediction_window: usize,
+    /// Whether the owner may start a session ITSELF once gameplay is active.
+    ///
+    /// `true` — the default — is what a shipped app wants: nothing else is
+    /// going to install one, and a GGRS host without a session never simulates.
+    ///
+    /// ⛔ **`false` means the CALLER starts it**, and it exists because
+    /// "somebody else's session outranks mine" cannot arbitrate a session that
+    /// does not exist yet. `PlatformerApp::rollback(n)` composes a host whose
+    /// session is started by `ambition_platformer2d::rollback::start` — which
+    /// activates the route and settles the world BEFORE frame zero, because
+    /// construction lands through `Commands` and a rollback cannot undo it. An
+    /// owner that installs a session the moment the gameplay world appears
+    /// preempts that sequence: the sim then advances through activation and
+    /// settling, so the same content under the two hosts no longer runs the
+    /// same timeline (measured 2026-08-05: the external consumer's rollback
+    /// host opened its gate on tick 179 against the fixed-tick host's 180).
+    pub autostart: bool,
 }
 
 impl Default for LocalSessionPolicy {
@@ -68,6 +92,7 @@ impl Default for LocalSessionPolicy {
         Self {
             check_distance: 0,
             max_prediction_window: 8,
+            autostart: true,
         }
     }
 }
@@ -117,6 +142,18 @@ pub fn maintain_local_session(world: &mut World) {
     let owned = world
         .get_resource::<LocalSessionOwnership>()
         .and_then(|state| state.started);
+    let policy = world
+        .get_resource::<LocalSessionPolicy>()
+        .copied()
+        .unwrap_or_default();
+
+    // ⛔ **THE CALLER STARTS THIS ONE.** Nothing to own, nothing to tear down —
+    // and starting one here would preempt the caller's activate/settle/rebase
+    // sequence. Once the caller's session is live the ordinary foreign-session
+    // rule below carries it, so this only covers the window before that.
+    if !policy.autostart && owned.is_none() {
+        return;
+    }
 
     if !gameplay_active {
         if owned.is_some() && session_live {
@@ -144,10 +181,6 @@ pub fn maintain_local_session(world: &mut World) {
         return;
     }
 
-    let policy = world
-        .get_resource::<LocalSessionPolicy>()
-        .copied()
-        .unwrap_or_default();
     // Already running exactly what is asked for.
     if session_live && owned == Some(policy) {
         return;

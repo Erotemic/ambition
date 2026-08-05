@@ -14,6 +14,7 @@ mod mary_o_it_sync;
 
 mod course_playthrough;
 mod death_reset_timing;
+mod level_circuit;
 mod one_placement_one_actor;
 mod exit_3;
 mod hud_placement;

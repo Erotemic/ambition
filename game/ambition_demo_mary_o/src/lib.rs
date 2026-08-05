@@ -676,6 +676,44 @@ fn install_goal_pole(
     commands.insert_resource(exit_for_room(room));
 }
 
+/// **Keep the goal pointed at the room you are actually in.**
+///
+/// ⛔ **`install_goal_pole` alone was a bug, and a probe caught it riding.**
+/// It runs at Startup off [`provider::MaryOEntryRoom`], which is the room the
+/// session STARTS in — so once 1-1's goal sent the player to 1-2, the pole and
+/// the destination were both still 1-1's. Finishing 1-2 asked to go to 1-2, and
+/// the return leg silently never happened: the level ended, nothing moved, and
+/// no message said why.
+///
+/// ⚠ **that is the exact failure `install_goal_pole`'s own comment warns about**
+/// — *"a goal you can reach in a room whose exit belongs to another one"* — and
+/// it shipped anyway, because answering the question ONCE is what makes the two
+/// halves able to disagree. Answering it every time the active room changes is
+/// the only version that cannot.
+///
+/// ⭐ **`RoomSet` is the authority, not a change-detected id.** It is the same
+/// value the transition itself resolves against, so "which room am I in" has one
+/// answer rather than two that must be kept in step.
+fn follow_the_active_room(
+    mut commands: bevy::prelude::Commands,
+    room_set: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+            ambition_platformer2d::world::rooms::RoomSet,
+        >,
+    >,
+    mut current: bevy::prelude::Local<Option<String>>,
+) {
+    let Some(active) = room_set.as_deref().map(|set| set.active_spec().id.clone()) else {
+        return;
+    };
+    if current.as_deref() == Some(active.as_str()) {
+        return;
+    }
+    commands.insert_resource(pole_for_room(&active));
+    commands.insert_resource(exit_for_room(&active));
+    *current = Some(active);
+}
+
 /// **Mary-O Classic's movement profile, authored ONCE.**
 ///
 /// Every form she wears — small, tall, fire — must move identically; growing
@@ -1360,6 +1398,10 @@ impl Plugin for MaryORulesPlugin {
         // room, which is only readable once the host has finished building.
         app.insert_resource(goal_pole());
         app.add_systems(bevy::app::Startup, install_goal_pole);
+        // …and re-answered whenever the active room changes, which is what makes
+        // a level's goal belong to that level rather than to whichever one the
+        // session happened to open in.
+        app.add_systems(bevy::prelude::Update, follow_the_active_room);
         app.init_resource::<powerups::SpentPowerBlocks>();
         app.init_resource::<bricks::BrokenBricks>();
         // The brick overlay contributor writes the collision overlay; a full app

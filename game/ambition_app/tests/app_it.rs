@@ -30,6 +30,7 @@ mod causal_explains_the_real_app;
 mod character_containment;
 mod collision_invariant_oracle;
 mod composes_through_the_sdk;
+mod content_dormancy;
 mod crouch_stability;
 mod dash_stability;
 mod declared_art_resolves;

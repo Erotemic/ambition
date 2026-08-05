@@ -12,6 +12,7 @@
 | [`character_catalog`](src/character_catalog.rs) | Ambition's character-catalog DATA + the curated playable cast — CONTENT, evicted from the engine core (R3.2, violations #3 and #10). |
 | [`content_validation`](src/content_validation.rs) | Cross-content validation for authored sandbox data. |
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
+| [`dormancy`](src/dormancy.rs) | **Which of Ambition's named cast may stop thinking — declared, per actor.** |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
 | [`encounters`](src/encounters.rs) | Content encounter customers on the GENERIC lifecycle (E13). |
 | [`enemy_roster`](src/enemy_roster.rs) | THE Ambition hostile-archetype roster — named, authored game data. |
@@ -32,7 +33,7 @@
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
 
-_25 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

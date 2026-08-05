@@ -34,6 +34,9 @@ pub const ENCOUNTER_WAVES_RON: &str =
 
 pub mod content_validation;
 pub mod dialogue;
+/// Which of Ambition's named cast may stop thinking — the per-actor dormancy
+/// stances for the bosses, the arena mobs, the duel, and the placed cast.
+pub mod dormancy;
 /// The spectator-duel exhibition fight (RoomLoaded consumer + `<<duel>>`).
 pub mod duel_arena;
 pub mod encounters;

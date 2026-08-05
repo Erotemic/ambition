@@ -65,6 +65,16 @@ pub enum MaryOBlockLook {
     /// behaves like a ?-block wearing brick art, which is exactly the classic
     /// behaviour and exactly what Jon asked for.
     Brick,
+    /// **Nothing at all, until it is struck.** Jon: *"a 'cammo' and 'hidden'
+    /// reward block where the block looks like a brick or is invisible but it
+    /// really is a reward block of some sort."* The cammo half needed no new
+    /// variant — `Brick` + non-empty contents already says it — so this is only
+    /// the invisible half.
+    ///
+    /// ⚠ **still SOLID while invisible.** That is the classic behaviour and the
+    /// reason the block is findable at all: you discover one by jumping into it.
+    /// An intangible block would be undiscoverable, not hidden.
+    Hidden,
 }
 
 impl MaryOBlockLook {
@@ -74,6 +84,7 @@ impl MaryOBlockLook {
             Self::Question => "Question",
             Self::Quasar => "Quasar",
             Self::Brick => "Brick",
+            Self::Hidden => "Hidden",
         }
     }
 
@@ -89,6 +100,7 @@ impl MaryOBlockLook {
             "question" | "power" | "power_block" | "bonus" | "?" => Some(Self::Question),
             "quasar" | "quasar_block" | "star" => Some(Self::Quasar),
             "brick" => Some(Self::Brick),
+            "hidden" | "invisible" | "cammo" => Some(Self::Hidden),
             _ => None,
         }
     }
@@ -111,6 +123,13 @@ pub enum MaryOPickup {
     /// one (Jon: *"a quasar is not part of the wand → lantern item progression.
     /// Any form of maryo should be able to get the quasar"*).
     Quasar,
+    /// A coin. ⚠ **not a rung and not an ITEM** — Jon: *"the coins don't spawn
+    /// as items, they just play an animation and your coin count goes up."*
+    /// Every other pickup here names something that pops out of the block and
+    /// has to be caught; this one is credited on the bonk. `powerups::BlockPayout`
+    /// is where that difference lives, because it is a difference in what
+    /// HAPPENS rather than in what the author writes.
+    Coin,
 }
 
 impl MaryOPickup {
@@ -119,6 +138,7 @@ impl MaryOPickup {
             Self::Wand => "Wand",
             Self::Lantern => "Lantern",
             Self::Quasar => "Quasar",
+            Self::Coin => "Coin",
         }
     }
 
@@ -127,6 +147,7 @@ impl MaryOPickup {
             "wand" | "star_wand" => Some(Self::Wand),
             "lantern" | "beacon" | "cinder_beacon" => Some(Self::Lantern),
             "quasar" => Some(Self::Quasar),
+            "coin" | "currency" => Some(Self::Coin),
             _ => None,
         }
     }
@@ -211,6 +232,9 @@ impl MaryOBlock {
             MaryOBlockLook::Question => MaryOBlockContents::Toward(MaryOPickup::Lantern),
             MaryOBlockLook::Quasar => MaryOBlockContents::Always(MaryOPickup::Quasar),
             MaryOBlockLook::Brick => MaryOBlockContents::Empty,
+            // A hidden block that held nothing would be indistinguishable from
+            // empty air, so its default is the classic one: a coin.
+            MaryOBlockLook::Hidden => MaryOBlockContents::Always(MaryOPickup::Coin),
         }
     }
 

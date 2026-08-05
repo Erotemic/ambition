@@ -402,12 +402,25 @@ pub fn bonk_power_blocks(
     mut struck: bevy::prelude::MessageWriter<
         ambition_platformer2d::platformer::block_nudge::BlockStruck,
     >,
-    players: Query<(&PlayerBodyFrameOutput, Option<&WornEquipment>), With<PrimaryPlayer>>,
+    // ⚠ **the WALLET rides the same query**, because a coin block credits the
+    // body that struck it rather than a global counter — the same component the
+    // vault's loose coins credit and the same one the HUD's COINS readout is
+    // rebuilt from. `Option` because a body without a wallet is a body that
+    // cannot be paid, not a bug.
+    mut players: Query<
+        (
+            &PlayerBodyFrameOutput,
+            Option<&WornEquipment>,
+            Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
+        ),
+        With<PrimaryPlayer>,
+    >,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
     // The room the contact happened in — a `GeoId` names a block, and only the
     // world can say WHICH block that is.
     geometry: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
 ) {
-    let Ok((frame, worn)) = players.single() else {
+    let Ok((frame, worn, mut wallet)) = players.single_mut() else {
         return;
     };
     for contact in &frame.events.contacts {
@@ -466,6 +479,29 @@ pub fn bonk_power_blocks(
         // its reward where it now sits. This used to be `power_block_min(i)`, the
         // position the constants claimed.
         let pos = (block_aabb.min + block_aabb.max) * 0.5;
+        // ⭐ **a coin block pays on the STRIKE.** Jon: *"the coins don't spawn
+        // as items, they just play an animation and your coin count goes up."*
+        // The flinch above and the cue below are the animation; the counter is
+        // the same `BodyWallet` the vault's loose coins credit, so a block coin
+        // and a floor coin are worth the same thing to the same readout.
+        let reward = match reward {
+            BlockPayout::Coins(amount) => {
+                if let Some(purse) = wallet.as_mut() {
+                    purse.add(amount);
+                }
+                // PLACEHOLDER TIMBRE, the same choice `break_bricks` makes and
+                // for the same reason: there is no `Pickup` cue in the shared
+                // vocabulary yet, and what is emitted here is the SEMANTIC event.
+                // A bespoke coin chime replaces the authored spec later without
+                // touching this call site.
+                sfx.write_from(
+                    crate::provider::MARY_O_EXPERIENCE,
+                    ambition_platformer2d::sfx::SfxMessage::Hit { pos },
+                );
+                continue;
+            }
+            BlockPayout::Item(reward) => *reward,
+        };
         let popped = spawn_moving_world_item(
             &mut commands,
             // ⭐ **it starts INSIDE the block and climbs out.** Spawned at the
@@ -513,15 +549,42 @@ pub fn bonk_power_blocks(
 /// leave that seam open)"* — a new `MaryOPickup` variant needs its reward built
 /// here and its rung placed in [`next_rung_toward`], and nothing else in the
 /// crate counts them.
-fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> PowerReward {
+/// **What a bonk actually produces.** Two shapes, because Jon asked for two:
+/// *"the coins don't spawn as items, they just play an animation and your coin
+/// count goes up."* Everything else rises out of the block and has to be caught.
+///
+/// ⭐ this is the difference the ONE-enum version could not hold. `PowerReward`
+/// describes an item — a row, a half-extent, a sprite and a motion plan — and a
+/// coin has none of those, so expressing "credit her instead" as a `PowerReward`
+/// would have meant inventing a fake item and then teaching the spawner to skip
+/// it. A block owes either a thing or a number.
+enum BlockPayout {
+    /// An item, spawned inside the block and rising out of it.
+    Item(Box<PowerReward>),
+    /// Coins, credited on the strike. No entity is spawned and nothing has to be
+    /// caught: the block flinches, the cue plays, the counter moves.
+    Coins(i32),
+}
+
+/// How much one coin block is worth. One, like the coins lying in the vault —
+/// `currency:1` in the level file.
+const COINS_PER_BLOCK: i32 = 1;
+
+fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> BlockPayout {
     match contents {
         // Already filtered out by the caller — a block holding nothing never
         // reaches a reward. Answering the quasar keeps this total without
         // inventing a "no reward" state that the bonk path deliberately does not
         // have (see the ALWAYS-ACKNOWLEDGED note above).
-        MaryOBlockContents::Empty => quasar_reward(),
-        MaryOBlockContents::Always(pickup) => pickup_reward(pickup),
-        MaryOBlockContents::Toward(pickup) => next_rung_toward(pickup, worn),
+        MaryOBlockContents::Empty => BlockPayout::Item(Box::new(quasar_reward())),
+        MaryOBlockContents::Always(MaryOPickup::Coin) => BlockPayout::Coins(COINS_PER_BLOCK),
+        MaryOBlockContents::Always(pickup) => BlockPayout::Item(Box::new(pickup_reward(pickup))),
+        // ⚠ **levelling TOWARD a coin is just a coin.** A coin is not on the
+        // ladder for the same reason the quasar is not: it is not a form.
+        MaryOBlockContents::Toward(MaryOPickup::Coin) => BlockPayout::Coins(COINS_PER_BLOCK),
+        MaryOBlockContents::Toward(pickup) => {
+            BlockPayout::Item(Box::new(next_rung_toward(pickup, worn)))
+        }
     }
 }
 
@@ -531,6 +594,11 @@ fn pickup_reward(pickup: MaryOPickup) -> PowerReward {
         MaryOPickup::Wand => wand_reward(),
         MaryOPickup::Lantern => beacon_reward(),
         MaryOPickup::Quasar => quasar_reward(),
+        // Routed to `BlockPayout::Coins` before it reaches here — a coin is not
+        // an item and has no reward to build. Answering the quasar keeps this
+        // total rather than inventing a "no reward" state the bonk path
+        // deliberately does not have.
+        MaryOPickup::Coin => quasar_reward(),
     }
 }
 
@@ -546,6 +614,8 @@ fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> PowerR
         // Levelling toward the quasar is levelling toward something off the
         // ladder, so it is just the quasar.
         MaryOPickup::Quasar => quasar_reward(),
+        // Off the ladder for the same reason, and routed away before here.
+        MaryOPickup::Coin => quasar_reward(),
         // Toward the wand: she gets the wand until she has it, then it repeats.
         MaryOPickup::Wand => wand_reward(),
         // Toward the lantern: the full classic progression.
@@ -876,26 +946,35 @@ pub fn dress_power_blocks(
         // used to ask the one enum that also decided what came out, so a brick
         // hiding a powerup would have been drawn as a ?-block — announcing the
         // secret it exists to keep.
+        use crate::ldtk_vocabulary::MaryOBlockLook;
         let look = crate::ldtk_vocabulary::block_look_of(&visual.block_name);
-        if !matches!(
-            look,
-            Some(
-                crate::ldtk_vocabulary::MaryOBlockLook::Question
-                    | crate::ldtk_vocabulary::MaryOBlockLook::Quasar
-            )
-        ) {
+        let is_spent = spent.is_spent(&visual.geo_id);
+        // ⭐ **a HIDDEN block wears nothing until it has paid.** It is drawn
+        // transparent at room build (`dress_authored_blocks`), and the only art
+        // it ever gets is the spent tile — so striking one reveals it, which is
+        // exactly the beat. A `Brick` is still not dressed at all: its look is
+        // the room's, not this dresser's.
+        let want = match look {
+            Some(MaryOBlockLook::Question | MaryOBlockLook::Quasar) => {
+                Some(BlockArt(if is_spent {
+                    EntitySprite::SpentBlockTile
+                } else {
+                    EntitySprite::BonusBlockTile
+                }))
+            }
+            Some(MaryOBlockLook::Hidden) if is_spent => {
+                Some(BlockArt(EntitySprite::SpentBlockTile))
+            }
+            _ => None,
+        };
+        let Some(want) = want else {
             continue;
-        }
+        };
         // ⚠ **a spent block gets its OWN texture, it does not fall back to the
         // kind's.** The first version removed the override and let the block
         // become plain masonry, which hides its own history — a player cannot
         // tell a used block from a wall. Jon, 2026-08-04: *"A used questionmark
         // block should get an inert texture."*
-        let want = BlockArt(if spent.is_spent(&visual.geo_id) {
-            EntitySprite::SpentBlockTile
-        } else {
-            EntitySprite::BonusBlockTile
-        });
         if art != Some(&want) {
             commands.entity(entity).insert(want);
         }
@@ -1542,6 +1621,7 @@ mod tests {
         // an unregistered message fails parameter validation rather than being
         // ignored, so even a fixture that draws nothing has to declare it.
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
             .events
@@ -1631,6 +1711,7 @@ mod tests {
             ae::RoomGeometry(world),
         ));
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
             .events
@@ -1671,6 +1752,98 @@ mod tests {
         );
     }
 
+    /// **A coin block PAYS instead of POPPING.**
+    ///
+    /// Jon, 2026-08-05: *"We also need reward blocks with coins (the coins don't
+    /// spawn as items, they just play an animation and your coin count goes
+    /// up)."* Both halves are asserted, and the second is the one that matters:
+    /// every other reward in this file spawns a `WorldItem` that has to be
+    /// caught, so "no item" is the whole difference and a payout that also
+    /// popped something would satisfy a balance-only test.
+    ///
+    /// Uses the `Hidden` look, whose default contents is a coin — so this also
+    /// pins that an invisible block with nothing authored in it still pays.
+    #[test]
+    fn a_coin_block_credits_the_wallet_and_spawns_nothing() {
+        use crate::ldtk_vocabulary::{
+            reactive_block, MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup,
+        };
+        use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
+
+        let coin_block = MaryOBlock::plain(MaryOBlockLook::Hidden);
+        assert_eq!(
+            coin_block.contents,
+            MaryOBlockContents::Always(MaryOPickup::Coin),
+            "a hidden block defaults to the classic coin"
+        );
+        let block = reactive_block(
+            coin_block,
+            "hidden_coin",
+            ae::Vec2::new(64.0, 64.0),
+            ae::Vec2::splat(32.0),
+        );
+        let struck_id = block.id.clone();
+        let world = ae::World::new(
+            "coin block fixture",
+            ae::Vec2::new(640.0, 480.0),
+            ae::Vec2::new(32.0, 400.0),
+            vec![block],
+        );
+        let mut app = App::new();
+        app.init_resource::<SpentPowerBlocks>();
+        let mut scope = ActiveSessionScope::default();
+        let session = scope.begin();
+        app.insert_resource(scope);
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ae::RoomGeometry(world),
+        ));
+        app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        let mut frame = PlayerBodyFrameOutput::default();
+        frame
+            .events
+            .contacts
+            .push(ae::collision_semantics::Contact {
+                kind: ContactKind::Head,
+                point: ae::Vec2::ZERO,
+                normal: ae::Vec2::new(0.0, 1.0),
+                toi: 0.0,
+                surface_velocity: ae::Vec2::ZERO,
+                source: ContactSource::Block {
+                    kind: ae::BlockKind::Solid,
+                    id: struck_id,
+                },
+            });
+        app.world_mut().spawn((
+            PrimaryPlayer,
+            frame,
+            ambition_platformer2d::characters::actor::BodyWallet { balance: 7 },
+        ));
+        app.add_systems(Update, bonk_power_blocks);
+        app.update();
+
+        let balance = app
+            .world_mut()
+            .query::<&ambition_platformer2d::characters::actor::BodyWallet>()
+            .iter(app.world())
+            .next()
+            .expect("she has a wallet")
+            .balance;
+        assert_eq!(balance, 8, "the coin is credited on the strike");
+        assert_eq!(
+            app.world_mut()
+                .query::<&WorldItem>()
+                .iter(app.world())
+                .count(),
+            0,
+            "a coin does not rise out of the block to be caught — that is the \
+             entire difference between it and every other reward here"
+        );
+    }
+
+    /// A head-bonk on ANY OTHER block (not a ?-block) pops nothing — the GeoId
+    /// match is specific, not "any block from below".
     /// A head-bonk on ANY OTHER block (not a ?-block) pops nothing — the GeoId
     /// match is specific, not "any block from below".
     #[test]
@@ -1681,6 +1854,7 @@ mod tests {
         // an unregistered message fails parameter validation rather than being
         // ignored, so even a fixture that draws nothing has to declare it.
         app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         let mut frame = PlayerBodyFrameOutput::default();
         frame
             .events

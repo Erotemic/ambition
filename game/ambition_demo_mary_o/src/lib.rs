@@ -629,7 +629,17 @@ pub fn authored_zone<'a>(
 /// than at construction is what lets Jon add a fourth pipe and have it dressed.
 fn dress_authored_blocks(room: &mut RoomSpec) {
     for block in &mut room.world.blocks {
-        if ldtk_vocabulary::pipe_of(&block.name).is_some()
+        // ⭐ **a HIDDEN block is drawn as nothing until it is struck.** Same
+        // seam the pipes and the pole use — the collision box stays exactly
+        // where the author put it (you find one by jumping into it, which is
+        // the whole game of a hidden block) and only the paint goes away.
+        // `dress_power_blocks` gives it the spent tile once it has paid, so it
+        // reveals itself by being used. Jon, 2026-08-05: *"a 'cammo' and
+        // 'hidden' reward block where the block looks like a brick or is
+        // invisible but it really is a reward block of some sort."*
+        if ldtk_vocabulary::block_look_of(&block.name)
+            == Some(ldtk_vocabulary::MaryOBlockLook::Hidden)
+            || ldtk_vocabulary::pipe_of(&block.name).is_some()
             || block.name.starts_with(GOAL_POLE_PREFIX)
         {
             block.art_color = Some(scenery::TRANSPARENT);

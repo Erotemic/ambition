@@ -515,13 +515,33 @@ fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
 /// readiness alone — a test that set only the decision would sit on the select
 /// route forever and blame the stage.
 fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
-    use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
+    use ambition_demo_smash::select::{SlotOccupant, SmashRoster, SmashSelect};
+
+    // **BY ID, not by grid position.** This test is about the STAGE, so it names
+    // the two fighters it wants and finds where the roster put them — an index
+    // would silently become a different character the next time somebody edits
+    // `SMASH_ROSTER`, which is the list Jon asked to be easy to edit.
+    //
+    // ⚠ **the robot stand-ins specifically**, and that is a recorded limitation
+    // rather than a preference: `smash_george_booul` is on the grid, renders
+    // correctly, and CANNOT BE SEATED — a roster containing him produces zero
+    // bodies with no refusal recorded. See the queue row; picking him here would
+    // make this test fail for a reason that has nothing to do with the stage.
+    let index_of = |app: &bevy::prelude::App, id: &str| -> usize {
+        app.world()
+            .resource::<SmashRoster>()
+            .ids()
+            .position(|candidate| candidate == id)
+            .unwrap_or_else(|| panic!("`{id}` is not on this composition's grid"))
+    };
+    let first = index_of(app, ambition_demo_smash::SMASH_CHARACTER_ID);
+    let second = index_of(app, ambition_demo_smash::SMASH_OPPONENT_ID);
     {
         let mut select = app.world_mut().resource_mut::<SmashSelect>();
         select.set_occupant(0, SlotOccupant::Controller { device: 0 });
-        select.set_pick(0, 0);
+        select.set_pick(0, first);
         select.set_occupant(1, SlotOccupant::Controller { device: 1 });
-        select.set_pick(1, 1);
+        select.set_pick(1, second);
     }
     app.world_mut()
         .resource_mut::<ambition_demo_smash::select_screen::StartRequested>()

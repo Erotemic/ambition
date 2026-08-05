@@ -43,31 +43,31 @@ pub mod seating;
 pub mod staging;
 
 pub use audit::{
-    CharacterCapabilityGap, audit_character_capabilities, character_reveal_ready,
-    unsettled_staged_characters,
+    audit_character_capabilities, character_reveal_ready, unsettled_staged_characters,
+    CharacterCapabilityGap,
 };
+#[cfg(test)]
+pub(crate) use definition::{prepare_and_finalize_against_for_test, prepare_and_finalize_for_test};
 pub use definition::{
     BodySource, CharacterBindings, CharacterCatalogGeneration, CharacterDefinition,
     CharacterDefinitionAppExt, CharacterPreparationPlugin, CharacterRegistrationError, Lineage,
     PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit, Vitals,
 };
-#[cfg(test)]
-pub(crate) use definition::{prepare_and_finalize_against_for_test, prepare_and_finalize_for_test};
 pub use hurtbox::{
-    AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
-    ResolvedHurtboxes, resolve_hurtboxes,
+    resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,
+    POSE_AIRBORNE, POSE_HITSTUN, POSE_IDLE,
 };
 pub use physical_baseline::{
     BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
 };
 pub use presentation::{
-    ProjectedCharacterKit, authorize_staged_character_presentation_sources,
-    inherit_projectile_presentation_sources, project_prepared_character_definitions,
-    provider_of_character, publish_body_presentation_sources,
+    authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
+    project_prepared_character_definitions, provider_of_character,
+    publish_body_presentation_sources, ProjectedCharacterKit,
 };
 pub use seating::{
-    ActiveMatch, MatchSeat, MatchSeatingRefused, match_participants, seat_character,
-    seat_match_participants, seat_placement,
+    match_participants, seat_character, seat_match_participants, seat_placement, ActiveMatch,
+    MatchSeat, MatchSeatingRefused,
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
@@ -525,6 +525,23 @@ fn registered_sheet_target<'a>(
         _ => token,
     };
     registry.get(id).and_then(|p| p.sheet.as_deref())
+}
+
+/// The portrait TARGET a registered definition named, if any.
+///
+/// The sibling of [`registered_sheet_target`], resolving the same token the same
+/// way — a UI asking for a character's face and the materializer asking for its
+/// body must agree about which character they are talking about.
+pub fn registered_portrait_target<'a>(
+    registry: &'a PreparedCharacterRegistry,
+    sprites: &CharacterSpriteAssets,
+    token: &str,
+) -> Option<&'a str> {
+    let id = match sprites.sheet_state(token) {
+        CharacterSheetState::Declared { character_id } => character_id,
+        _ => token,
+    };
+    registry.get(id).and_then(|p| p.portrait.as_deref())
 }
 
 /// **Declare every registered character into the sprite read model.**

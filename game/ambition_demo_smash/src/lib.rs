@@ -1139,21 +1139,27 @@ pub const SMASH_CHARACTER_ID: &str = "smash_duelist_a";
 /// The opponent.
 pub const SMASH_OPPONENT_ID: &str = "smash_duelist_b";
 
+/// The logician.
+pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
+
 // **THE ONE FIGHTER THIS DEMO ADDS TO THE CROSSOVER.**
 //
 // ⭐ he wears a sheet that ALREADY SHIPS and that no other catalog claims, which
 // is the only kind of fighter this demo may declare: the rest of the grid is
 // Ambition's own cast and the other demos' protagonists, named by ID in
-// `select::SMASH_ROSTER` rather than copied here. See that list for why a copy
-// is refused.
+// `select::SMASH_ROSTER` rather than copied here. The two robot rows below are
+// STAND-INS for the lineage the content catalog owns; see `select::STAND_INS`.
+//
+// ⚠ **he could not be SEATED for two commits and nothing on the select screen
+// said so** — he rendered perfectly, and the tell was a stage test finding no
+// stocks. Jon: *"I liked him there."* So the seating gap is the thing that got
+// fixed, not the roster.
 //
 // ⚠ **every fighter shares one kit.** See `SmashSelect::roster` — one ability
 // set, one brain, one action set. Different LOOKS and one game. Per-character
 // movement, reach and weight is the obvious next question and is deliberately
 // not this one; a roster where the choice already changed the match would have
 // made the select screen impossible to judge on its own terms.
-/// The logician.
-pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 
 /// ⚠ **this demo authors its own two fighters, and the reason is a leak worth
 /// recording.**
@@ -1200,7 +1206,12 @@ const SMASH_CATALOG_RON: &str = r#"(
     },
     characters: {
         "smash_duelist_a": (
-            display_name: "Duelist A",
+            // ⚠ NOT "Duelist A" (Jon, 2026-08-05). It wears `player_robot_v3`'s
+            // sheet and is a STAND-IN for that character in compositions that do
+            // not carry it; naming it anything else pretended it was somebody
+            // new. Distinct from the content catalog's "Player Robot v3",
+            // because the assembled catalog refuses two rows sharing a name.
+            display_name: "Robot v3",
             spritesheet: "sprites/player_robot_v3_spritesheet.png",
             manifest: "sprites/player_robot_v3_spritesheet.ron",
             tier: MainHall,
@@ -1213,7 +1224,7 @@ const SMASH_CATALOG_RON: &str = r#"(
             fallback_dialogue: ["Off the edge is the only way out."],
         ),
         "smash_duelist_b": (
-            display_name: "Duelist B",
+            display_name: "Robot v2",
             spritesheet: "sprites/player_robot_v2_spritesheet.png",
             manifest: "sprites/player_robot_v2_spritesheet.ron",
             tier: MainHall,
@@ -1284,8 +1295,8 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
         // list for one commit, and the tell was a stocks fighter that never
         // seated — not a missing sprite.
         for (id, name, sheet) in [
-            (SMASH_CHARACTER_ID, "Duelist A", "player_robot_v3"),
-            (SMASH_OPPONENT_ID, "Duelist B", "player_robot_v2"),
+            (SMASH_CHARACTER_ID, "Robot v3", "player_robot_v3"),
+            (SMASH_OPPONENT_ID, "Robot v2", "player_robot_v2"),
             (SMASH_GEORGE_BOOUL, "George Booul", "george_booul"),
         ] {
             let mut definition =

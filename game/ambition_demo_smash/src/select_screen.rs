@@ -41,8 +41,10 @@
 pub mod cursor;
 pub mod layout;
 
-use ambition_platformer2d::character::CharacterCatalog;
-use ambition_platformer2d::sprite_sheet::PortraitSheetRegistry;
+use ambition_platformer2d::character::{
+    portrait_for_declared_character, CharacterCatalog, PortraitSheetRegistry,
+    PreparedCharacterRegistry,
+};
 use bevy::prelude::*;
 
 use crate::select::{SlotOccupant, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
@@ -219,6 +221,10 @@ fn monogram(label: &str) -> String {
 pub struct ScreenArt<'w> {
     pub catalog: Res<'w, CharacterCatalog>,
     pub portraits: Option<Res<'w, PortraitSheetRegistry>>,
+    /// What providers REGISTERED, so a character that named a portrait target in
+    /// Rust gets the face it asked for rather than the one its sheet name
+    /// happens to derive. See [`portrait_art`].
+    pub declared: Option<Res<'w, PreparedCharacterRegistry>>,
     pub asset_server: Option<Res<'w, AssetServer>>,
     pub menu_font: Option<Res<'w, ambition_platformer2d::menu::render::bevy_ui::MenuFont>>,
 }
@@ -229,6 +235,7 @@ impl ScreenArt<'_> {
         portrait_art(
             &self.catalog,
             self.portraits.as_deref(),
+            self.declared.as_deref(),
             self.asset_server.as_deref(),
             id,
         )
@@ -257,10 +264,20 @@ impl ScreenArt<'_> {
 fn portrait_art(
     catalog: &CharacterCatalog,
     portraits: Option<&PortraitSheetRegistry>,
+    declared: Option<&PreparedCharacterRegistry>,
     asset_server: Option<&AssetServer>,
     id: &str,
 ) -> Option<(Handle<Image>, Option<Rect>)> {
-    let reference = catalog.portrait_ref(id)?;
+    // ⭐ **through the ENGINE's resolver, not straight to the catalog.** A
+    // character registered in Rust may name a portrait TARGET; everything that
+    // names nothing keeps the catalog's derived answer, which is how all 144 of
+    // today's portraits resolve. This screen is the first consumer of that road
+    // — Jon decided it on 2026-07-29 and nothing had reason to call it until a
+    // grid of faces existed.
+    let target = declared
+        .and_then(|registry| registry.get(id))
+        .and_then(|prepared| prepared.portrait.as_deref());
+    let reference = portrait_for_declared_character(portraits, catalog, target, id)?;
     let handle = asset_server?.load::<Image>(reference.image.clone());
     let rect = portraits
         .and_then(|registry| {

@@ -93,20 +93,47 @@ pub const MAX_SMASH_SEATS: usize = 4;
 /// on the first grid and are gone; a transformation is something that happens
 /// during a match, not a second slot on the select screen.
 pub const SMASH_ROSTER: &[&str] = &[
-    // This demo's own.
-    crate::SMASH_CHARACTER_ID,
+    // ⚠ **`player_robot_v3`, NOT this demo's `smash_duelist_a`.** Jon, 2026-08-05:
+    // *"The robot v3 should not be named dualist A. Just robot v3 is fine."*
+    // Chasing that found the reason it had a second name at all: the demo
+    // declared its OWN row on `player_robot_v3_spritesheet.png` while the
+    // content catalog already declared one, so "Duelist A" was a copy of a
+    // character that exists — the same mistake as `smash_mary_o`, and it had
+    // survived only because the display names happened to differ.
+    "player_robot_v3",
+    // This demo's own, on a sheet nobody else claims.
     crate::SMASH_GEORGE_BOOUL,
     // The other demos' protagonists — present only when a host composes them.
     "mary_o",
     "sanic",
-    "solid_snake",
     // Ambition's own cast.
+    "npc_pirate_admiral",
+    "npc_ninja_shadow_oni_leader",
     "npc_alice",
     "npc_bob",
     "npc_oiler",
     "perfect_cellular_automaton",
     "goblin",
     "npc_noether",
+    // ⚠ **THE STAND-INS, and they are LAST for a reason.** See [`STAND_INS`].
+    crate::SMASH_CHARACTER_ID,
+    crate::SMASH_OPPONENT_ID,
+];
+
+/// Stand-ins: `(the copy, the character it stands in for)`.
+///
+/// This demo declares two rows on the robot lineage's sheets — copies of
+/// characters Ambition's catalog already has. They stay selectable so the
+/// STANDALONE app is not a one-portrait grid, and [`SmashRoster::assemble`]
+/// drops each the moment the real one resolves, so a host never shows two
+/// robots side by side with one of them wearing a made-up name.
+///
+/// ⛔ this is the ONLY sanctioned duplication, and it exists because a demo that
+/// composes nothing else still has to have a cast — not because copies are
+/// acceptable. Everything else names the shared id; see [`SMASH_ROSTER`].
+const STAND_INS: &[(&str, &str)] = &[
+    (crate::SMASH_CHARACTER_ID, "player_robot_v3"),
+    (crate::SMASH_OPPONENT_ID, "player_robot_v2"),
 ];
 
 /// **The characters a slot can choose between, in this composition.**
@@ -124,7 +151,10 @@ pub struct SmashRoster(pub Vec<String>);
 
 /// The ids this demo declares itself, which is what a composition with no other
 /// providers can offer.
-pub const OWN_FIGHTERS: &[&str] = &[crate::SMASH_CHARACTER_ID, crate::SMASH_GEORGE_BOOUL];
+///
+/// ⚠ both are STAND-INS — see [`STAND_INS`]. The standalone demo needs a cast;
+/// a host carrying the real robot lineage gets that instead and never sees both.
+pub const OWN_FIGHTERS: &[&str] = &[crate::SMASH_CHARACTER_ID, crate::SMASH_OPPONENT_ID];
 
 impl Default for SmashRoster {
     fn default() -> Self {
@@ -155,10 +185,18 @@ impl SmashRoster {
     /// a grid cell for a character that cannot be spawned is a portrait a player
     /// can pick and a seat the match then refuses.
     pub fn assemble(catalog: &ambition_platformer2d::character::CharacterCatalog) -> Self {
+        let present = |id: &str| catalog.get(id).is_some();
         Self(
             SMASH_ROSTER
                 .iter()
-                .filter(|id| catalog.get(id).is_some())
+                .filter(|id| present(id))
+                .filter(|id| {
+                    // A stand-in steps aside as soon as the character it stands
+                    // in for is in the composition.
+                    !STAND_INS
+                        .iter()
+                        .any(|(copy, real)| copy == *id && present(real))
+                })
                 .map(|id| id.to_string())
                 .collect(),
         )

@@ -340,7 +340,11 @@ impl DialogChoiceWindow {
     /// The window at an explicit start, already resolved by the caller's scroll
     /// rule.
     fn at(start: usize, total: usize, capacity: usize) -> Self {
-        let start = if total <= capacity { 0 } else { start.min(total - capacity) };
+        let start = if total <= capacity {
+            0
+        } else {
+            start.min(total - capacity)
+        };
         Self {
             start,
             end: (start + capacity).min(total),
@@ -394,6 +398,11 @@ fn sync_ambition_dialog_ui(
     character_catalog: Res<CharacterCatalog>,
     portrait_catalog: Res<AmbitionDialogPortraitCatalog>,
     portrait_registry: Res<PortraitSheetRegistry>,
+    // What providers REGISTERED, so a character that named a portrait TARGET in
+    // Rust speaks with the face it asked for. `Option` because a composition
+    // that registers nothing has no registry to read, not because the authority
+    // is optional.
+    declared_characters: Option<Res<ambition_platformer2d::character::PreparedCharacterRegistry>>,
     mut portrait_playback: ResMut<AmbitionDialogPortraitPlayback>,
     asset_server: Option<Res<AssetServer>>,
     // **Where the choice window is scrolled to**, remembered across rebuilds.
@@ -478,6 +487,7 @@ fn sync_ambition_dialog_ui(
         &character_catalog,
         &portrait_catalog,
         &portrait_registry,
+        declared_characters.as_deref(),
     );
     let portrait_image_path = resolved_portrait
         .as_ref()
@@ -944,6 +954,7 @@ fn resolve_portrait_visual(
     character_catalog: &CharacterCatalog,
     portrait_catalog: &AmbitionDialogPortraitCatalog,
     portrait_registry: &PortraitSheetRegistry,
+    declared_characters: Option<&ambition_platformer2d::character::PreparedCharacterRegistry>,
 ) -> Option<ResolvedPortraitVisual> {
     let character_id = character_id?;
     if let Some(override_spec) = portrait_catalog.get(character_id) {
@@ -956,7 +967,21 @@ fn resolve_portrait_visual(
             });
     }
 
-    let portrait = character_catalog.portrait_ref(character_id)?;
+    // ⭐ **through the engine's resolver rather than straight to the catalog.**
+    // The precedence above and below is untouched — Ambition's own per-character
+    // override still wins, and the placeholder monogram still catches a miss —
+    // and in between, a character that REGISTERED a portrait target now gets it.
+    // With no target the resolver returns exactly what `portrait_ref` did, which
+    // is what keeps every existing portrait resolving unchanged.
+    let registered_target = declared_characters
+        .and_then(|registry| registry.get(character_id))
+        .and_then(|prepared| prepared.portrait.as_deref());
+    let portrait = ambition_platformer2d::character::portrait_for_declared_character(
+        Some(portrait_registry),
+        character_catalog,
+        registered_target,
+        character_id,
+    )?;
     let (clip_name, clip) = portrait_registry.resolve_clip(
         &portrait.manifest,
         requested_clip,
@@ -1096,6 +1121,7 @@ mod tests {
             &catalog,
             &overrides,
             &registry,
+            None,
         )
         .expect("stable id resolves portrait product");
         assert_eq!(visual.image_path, "sprites/alice_portraits.png");
@@ -1115,6 +1141,7 @@ mod tests {
             &catalog,
             &overrides,
             &registry,
+            None,
         )
         .expect("missing expression falls back");
         let (key, _) = visual.playback.expect("default clip resolves");
@@ -1130,10 +1157,15 @@ mod tests {
             "npc_alice",
             AmbitionDialogPortraitSpec::placeholder(Color::srgb(0.0, 0.0, 0.0)),
         );
-        assert!(
-            resolve_portrait_visual(Some("npc_alice"), None, &catalog, &overrides, &registry,)
-                .is_none()
-        );
+        assert!(resolve_portrait_visual(
+            Some("npc_alice"),
+            None,
+            &catalog,
+            &overrides,
+            &registry,
+            None
+        )
+        .is_none());
     }
 
     #[test]

@@ -60,7 +60,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use ambition_entity_catalog::{HurtboxDoc, MoveEventKind, MovesetContract};
-use ambition_platformer2d_shared_tangle::binding::{BindingLedger, BindingReport, Namespace, Resolver};
+use ambition_platformer2d_shared_tangle::binding::{
+    BindingLedger, BindingReport, Namespace, Resolver,
+};
 
 /// The cues a session authorizes. A character's authored cues resolve against
 /// this; §4.6 note — a session's authorized set is NOT merely the union over its
@@ -363,13 +365,34 @@ impl CharacterDefinition {
     }
 
     /// Author this character's movement feel, outranking the catalog row.
-    pub fn with_movement_tuning(mut self, tuning: ambition_platformer2d_core::MovementTuning) -> Self {
+    pub fn with_movement_tuning(
+        mut self,
+        tuning: ambition_platformer2d_core::MovementTuning,
+    ) -> Self {
         self.movement_tuning = Some(tuning);
         self
     }
 
     pub fn with_sheet(mut self, sheet: impl Into<String>) -> Self {
         self.sheet = Some(sheet.into());
+        self
+    }
+
+    /// **Give this character a face**, by naming a portrait TARGET.
+    ///
+    /// ⛔ **the field existed for months and was unauthorable**: there was no
+    /// builder, so `portrait: None` in the constructor was the only value it
+    /// ever held, and nothing read it either. Both halves are closed now — see
+    /// `character_sprites::assets::portrait_for_declared_character` for what a
+    /// target resolves THROUGH.
+    ///
+    /// ⚠ a NAME (`"alice"`), not a path. Paths are what the catalog derives from
+    /// the gameplay sheet's own name; a definition naming concrete paths would
+    /// be the second declaration of the same art that this field's doc forbids.
+    /// A character that authors nothing here keeps the catalog's answer, which
+    /// is how every character in the repo resolves today.
+    pub fn with_portrait(mut self, portrait: impl Into<String>) -> Self {
+        self.portrait = Some(portrait.into());
         self
     }
 
@@ -906,18 +929,20 @@ fn prepare_character(
                     if verb.as_str() != ranged_verb {
                         continue;
                     }
-                    ledger.record(ambition_platformer2d_shared_tangle::binding::UnresolvedRef {
-                        namespace: RangedPayload::NAME,
-                        id: target.clone(),
-                        declared_by: format!("{declared_by} verb `{verb}`"),
-                        // Nothing WAS available, and saying so is the whole
-                        // report: the character authored an action set and left
-                        // `ranged` empty, so there is no candidate to suggest
-                        // and no typo to find. The fix is authoring, not
-                        // spelling.
-                        available: Vec::new(),
-                        did_you_mean: None,
-                    });
+                    ledger.record(
+                        ambition_platformer2d_shared_tangle::binding::UnresolvedRef {
+                            namespace: RangedPayload::NAME,
+                            id: target.clone(),
+                            declared_by: format!("{declared_by} verb `{verb}`"),
+                            // Nothing WAS available, and saying so is the whole
+                            // report: the character authored an action set and left
+                            // `ranged` empty, so there is no candidate to suggest
+                            // and no typo to find. The fix is authoring, not
+                            // spelling.
+                            available: Vec::new(),
+                            did_you_mean: None,
+                        },
+                    );
                 }
             }
         }

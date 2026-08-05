@@ -170,12 +170,12 @@ pub use ambition_portal2d as portal;
 pub use ambition_portal2d_presentation as portal_presentation;
 #[cfg(feature = "ambition_projectiles")]
 pub use ambition_projectiles as projectiles;
-#[cfg(feature = "ambition_render")]
-pub use ambition_render as render;
 #[cfg(feature = "relativity")]
 pub use ambition_relativity as relativity;
 #[cfg(feature = "relativity")]
 pub use ambition_relativity2d as relativity2d;
+#[cfg(feature = "ambition_render")]
+pub use ambition_render as render;
 #[cfg(feature = "ambition_settings_menu")]
 pub use ambition_settings_menu as settings_menu;
 #[cfg(feature = "ambition_sfx")]
@@ -332,12 +332,23 @@ pub mod character {
     pub use ambition_characters::brain::ActionSet;
     pub use ambition_entity_catalog::placements::CharacterBrain;
 
+    /// **A character's FACE.** The portrait road, mirroring the sheet road above:
+    /// a registered definition may name a portrait TARGET, and everything that
+    /// authors nothing keeps the catalog's derived answer. Jon's 2026-07-29
+    /// decision, in the one namespace a game can reach it from.
+    pub use ambition_characters::actor::character_catalog::CharacterPortraitRef;
+    /// What a provider REGISTERED, so a screen can ask what a character
+    /// declared rather than only what a catalog derived.
+    pub use ambition_platformer2d_actor_monolith::character_runtime::definition::PreparedCharacterRegistry;
+    pub use ambition_platformer2d_actor_monolith::character_runtime::registered_portrait_target;
     /// What a character looks like, and whether its art has arrived.
     pub use ambition_platformer2d_actor_monolith::character_runtime::CharacterLoadStates;
+    pub use ambition_platformer2d_actor_monolith::character_sprites::portrait_for_declared_character;
     pub use ambition_platformer2d_actor_monolith::character_sprites::sheet_for_declared_character;
     pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
     pub use ambition_sprite_sheet::character::CharacterSheetState;
     pub use ambition_sprite_sheet::AuthoredSheetAppExt;
+    pub use ambition_sprite_sheet::{PortraitSheetRegistry, PortraitSheetRegistryPlugin};
 }
 
 /// **The simulation schedule a game joins its own systems to.**

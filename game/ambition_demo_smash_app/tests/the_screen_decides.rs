@@ -118,6 +118,25 @@ fn arrow(direction: &str) -> MenuControlFrame {
     frame
 }
 
+/// A portrait index this composition actually has.
+///
+/// ⚠ **the STANDALONE demo's grid is short**, because the crossover roster is
+/// Ambition's own cast and this app composes none of it — `SMASH_ROSTER` is
+/// filtered to what the catalog carries, and here that is the one fighter this
+/// demo declares. So these tests pick by "the nth fighter, or the last one",
+/// which keeps them about the SCREEN rather than about how many characters ship.
+/// Two slots landing on one fighter is a mirror match, which every platform
+/// fighter allows and this one should.
+fn nth_of(fighters: &SmashRoster, index: usize) -> usize {
+    index.min(fighters.len().saturating_sub(1))
+}
+
+fn nth(app: &App, index: usize) -> usize {
+    let count = app.world().resource::<SmashRoster>().len();
+    assert!(count > 0, "an empty grid is a screen that cannot be worked");
+    index.min(count - 1)
+}
+
 /// The screen's own geometry, which is what it draws AND what it hit-tests.
 ///
 /// ⚠ from the app's OWN roster, not a constant. The standalone demo offers the
@@ -194,19 +213,13 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
 
     // Pick up from the pool, drop on a portrait. Two clicks, as a pad does it.
     click(&mut app, 0, layout.token_home(0));
-    click(
-        &mut app,
-        0,
-        layout.portrait(0).expect("an authored portrait"),
-    );
+    let cell = layout.portrait(nth(&app, 0)).expect("an authored portrait");
+    click(&mut app, 0, cell);
     click(&mut app, 1, layout.token_home(1));
-    click(
-        &mut app,
-        1,
-        layout.portrait(1).expect("an authored portrait"),
-    );
-    assert_eq!(slot(&app, 0).pick, Some(0));
-    assert_eq!(slot(&app, 1).pick, Some(1));
+    let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
+    click(&mut app, 1, cell);
+    assert_eq!(slot(&app, 0).pick, Some(nth(&app, 0)));
+    assert_eq!(slot(&app, 1).pick, Some(nth(&app, 1)));
 
     // ⚠ **it must NOT have started yet.** A screen that launches the instant
     // the last token lands is the one nobody can look at.
@@ -227,11 +240,11 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     let fighters = app.world().resource::<SmashRoster>().clone();
     assert_eq!(
         roster.participants[0].character,
-        fighters.get(0).expect("a fighter")
+        fighters.get(nth_of(&fighters, 0)).expect("a fighter")
     );
     assert_eq!(
         roster.participants[1].character,
-        fighters.get(1).expect("a fighter")
+        fighters.get(nth_of(&fighters, 1)).expect("a fighter")
     );
 }
 
@@ -248,11 +261,8 @@ fn start_is_refused_until_every_participating_slot_has_a_fighter() {
     click(&mut app, 0, layout.role_button(0));
     click(&mut app, 1, layout.role_button(1));
     click(&mut app, 0, layout.token_home(0));
-    click(
-        &mut app,
-        0,
-        layout.portrait(1).expect("an authored portrait"),
-    );
+    let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
+    click(&mut app, 0, cell);
 
     click(&mut app, 0, layout.start_button());
     assert!(
@@ -281,26 +291,23 @@ fn a_token_dropped_on_empty_space_goes_back_to_the_fighter_it_had() {
 
     click(&mut app, 0, layout.role_button(0));
     click(&mut app, 0, layout.token_home(0));
-    click(
-        &mut app,
-        0,
-        layout.portrait(1).expect("an authored portrait"),
-    );
-    assert_eq!(slot(&app, 0).pick, Some(1));
+    let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
+    click(&mut app, 0, cell);
+    assert_eq!(slot(&app, 0).pick, Some(nth(&app, 1)));
 
     // Pick it back up and let go over the title bar, which is nothing.
     click(&mut app, 0, layout.token_home(0));
     click(&mut app, 0, layout.title());
     assert_eq!(
         slot(&app, 0).pick,
-        Some(1),
+        Some(nth(&app, 1)),
         "a token dropped on empty space took the player's fighter with it"
     );
 
     // And BACK while carrying does the same.
     click(&mut app, 0, layout.token_home(0));
     press(&mut app, 0, back());
-    assert_eq!(slot(&app, 0).pick, Some(1));
+    assert_eq!(slot(&app, 0).pick, Some(nth(&app, 1)));
     assert_eq!(app.world().resource::<SelectCursor>().carrying, None);
 }
 
@@ -328,18 +335,15 @@ fn the_cards_say_what_each_slot_has_decided() {
 
     click(&mut app, 0, layout.role_button(0));
     click(&mut app, 0, layout.token_home(0));
-    click(
-        &mut app,
-        0,
-        layout.portrait(0).expect("an authored portrait"),
-    );
+    let cell = layout.portrait(nth(&app, 0)).expect("an authored portrait");
+    click(&mut app, 0, cell);
     click(&mut app, 1, layout.role_button(1));
     click(&mut app, 1, layout.role_button(1)); // → CPU
 
     let decided = card_text(&mut app);
     assert_eq!(decided[0].0, "CONTROLLER 1");
     assert_eq!(
-        decided[0].1, "Duelist A",
+        decided[0].1, "George Booul",
         "the card shows `{}` rather than the fighter's display name — the \
          catalog lookup the portraits also depend on did not resolve",
         decided[0].1
@@ -414,11 +418,10 @@ fn a_player_alone_can_add_a_cpu_and_start_the_match() {
 
     for (slot_index, character) in [(0usize, 0usize), (1, 1)] {
         click(&mut app, 0, layout.token_home(slot_index));
-        click(
-            &mut app,
-            0,
-            layout.portrait(character).expect("an authored portrait"),
-        );
+        let cell = layout
+            .portrait(nth(&app, character))
+            .expect("an authored portrait");
+        click(&mut app, 0, cell);
     }
     click(&mut app, 0, layout.start_button());
 

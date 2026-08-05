@@ -30,7 +30,9 @@ use bevy::prelude::*;
 use ambition_asset_manager::AssetId;
 
 use crate::assets::platformer_assets::{ids, Platformer2dAssetCatalog};
-use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogData};
+use ambition_characters::actor::character_catalog::{
+    CharacterCatalog, CharacterCatalogData, CharacterPortraitRef,
+};
 use ambition_persistence::settings::VisualQualityBudget;
 use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::character::sheets;
@@ -39,6 +41,7 @@ use ambition_sprite_sheet::character::{
     TextureResolutionScale as SpriteTextureResolutionScale,
 };
 use ambition_sprite_sheet::BodyMetrics;
+use ambition_sprite_sheet::PortraitSheetRegistry;
 
 pub use ambition_sprite_sheet::character::CharacterSpriteAssets;
 
@@ -149,6 +152,100 @@ pub fn sheet_for_declared_character(
         .unwrap_or_default();
     sheets::try_load_spec_for_target_authored(authored, target, &tuning)
         .or_else(|| sheets::try_load_spec_for_character_id(character_id))
+}
+
+/// **Resolve a character's PORTRAIT, with the registered definition winning.**
+///
+/// The other half of [`sheet_for_declared_character`], and deliberately the same
+/// shape — Jon, 2026-07-29, deciding this: *"a character portrait for a dialog
+/// box is ubiquitous for platformer 2d games, so it makes sense the engine has a
+/// mechanism to make it easy, although like most things with the engine, it
+/// should always be possible to ignore some part of it and roll your own."*
+///
+/// ⛔ **`CharacterDefinition.portrait` was carried faithfully through preparation
+/// and read by NOTHING** for as long as it existed, because there was no
+/// target → art resolver for it to resolve through. Its own doc named the two
+/// honest ways out — build this, or delete the field — and named the third as
+/// forbidden: the definition must not become a COPY of the catalog's concrete
+/// paths, because two places declaring the same art is the split the
+/// single-registration campaign exists to remove.
+///
+/// So the roads stay separate and end at one type:
+///
+/// * a **registered target** names a portrait PRODUCT (`"alice"`), resolved
+///   through the manifests' own `target` field. A provider that registers a
+///   character in Rust can give it a face without editing anybody's catalog.
+/// * the **catalog row** derives concrete paths from the gameplay sheet's name,
+///   which is how all 144 of today's portraits resolve and will keep resolving.
+/// * a disagreement is LOGGED rather than silently resolved — same argument as
+///   the sheet road: it means two declarations of one character exist and one of
+///   them is stale.
+///
+/// ⚠ **`None` for the registry is the opt-out, not an error.** A composition that
+/// installs no `PortraitSheetRegistry` falls straight through to the catalog
+/// convention, which is what "possible to ignore" has to mean in code. An
+/// unresolved TARGET does the same rather than failing: the sheet road's answer
+/// to a target it cannot find is a named placeholder, never a panic.
+pub fn portrait_for_declared_character(
+    portraits: Option<&PortraitSheetRegistry>,
+    character_catalog: &CharacterCatalog,
+    registered_target: Option<&str>,
+    character_id: &str,
+) -> Option<CharacterPortraitRef> {
+    let from_catalog = character_catalog.portrait_ref(character_id);
+    let Some(target) = registered_target.map(str::trim).filter(|t| !t.is_empty()) else {
+        return from_catalog;
+    };
+    let Some(registry) = portraits else {
+        // A target was authored and nothing can resolve it here. Say so once —
+        // silently using the catalog would make an authored face look like a
+        // typo in the sheet name.
+        bevy::log::warn!(
+            target: "ambition_platformer2d::character_sprites",
+            "character `{character_id}` names portrait target `{target}` and this \
+             composition installs no `PortraitSheetRegistry`; falling back to the \
+             catalog's derived portrait.",
+        );
+        return from_catalog;
+    };
+    let Some((manifest_path, manifest)) = registry.manifest_for_target(target) else {
+        bevy::log::warn!(
+            target: "ambition_platformer2d::character_sprites",
+            "character `{character_id}` names portrait target `{target}`, which no \
+             baked manifest claims; falling back to the catalog's derived portrait.",
+        );
+        return from_catalog;
+    };
+    if let Some(catalog_ref) = from_catalog.as_ref() {
+        if catalog_ref.manifest != manifest_path {
+            bevy::log::warn!(
+                target: "ambition_platformer2d::character_sprites",
+                "character `{character_id}` names portrait target `{target}` \
+                 (`{manifest_path}`) in its registered definition but derives \
+                 `{}` from its catalog row; using the registered one. Two \
+                 declarations of one character disagree — delete the stale one.",
+                catalog_ref.manifest,
+            );
+        }
+    }
+    // ⛔ **the manifest's `image` is a BARE FILENAME** (`"alice_portraits.png"`)
+    // while every loader speaks asset-relative paths. Joining it to the
+    // manifest's own directory is the whole difference between a face and a
+    // silent 404 — the failure class `declared_art_resolves.rs` was written for.
+    let directory = manifest_path
+        .rsplit_once('/')
+        .map(|(head, _)| head)
+        .unwrap_or("");
+    let image = if directory.is_empty() {
+        manifest.image.clone()
+    } else {
+        format!("{directory}/{}", manifest.image)
+    };
+    Some(CharacterPortraitRef {
+        image,
+        manifest: manifest_path.to_string(),
+        default_clip: manifest.default_clip.clone(),
+    })
 }
 
 /// Resolve a sheet from the caller's assembled App-local catalog.
@@ -968,5 +1065,131 @@ mod sprite_body_collision_tests {
         assert!((derived.collision.x - expect_x).abs() < 1e-3);
         assert!((derived.collision.y - expect_y).abs() < 1e-3);
         assert!(derived.collision.x > 0.0 && derived.collision.y > 0.0);
+    }
+
+    /// A registry holding one portrait product, built the way the baked table
+    /// builds the real one.
+    fn portrait_registry() -> PortraitSheetRegistry {
+        PortraitSheetRegistry::from_baked_table(&[(
+            "sprites/borrowed_face_portraits.ron",
+            r#"(
+                target: "borrowed_face",
+                image: "borrowed_face_portraits.png",
+                frame_width: 256,
+                frame_height: 320,
+                default_clip: "default",
+                clips: {
+                    "default": (duration_ms: 0, looping: false, frames: [(x: 0, y: 0, w: 256, h: 320)]),
+                },
+            )"#,
+        )])
+    }
+
+    fn catalog_with_a_sheet() -> CharacterCatalog {
+        CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(
+                r#"(
+                    brain_presets: { "stand_still": StandStill },
+                    action_set_presets: {
+                        "peaceful": (move_style: Walk, melee: None, ranged: None, special: None),
+                    },
+                    characters: {
+                        "hero": (
+                            display_name: "Hero",
+                            spritesheet: "sprites/hero_spritesheet.png",
+                            manifest: "sprites/hero_spritesheet.ron",
+                            tier: MainHall, body_kind: Standard, composition: None,
+                            default_brain: "stand_still", default_action_set: "peaceful",
+                        ),
+                    },
+                )"#,
+            ),
+        )
+    }
+
+    /// **A character that names NOTHING keeps the catalog's answer.**
+    ///
+    /// This is the mechanical statement of Jon's *"it should always be possible
+    /// to ignore some part of it and roll your own"*: every one of the 144
+    /// portraits in the repo resolves this way and must keep doing so.
+    #[test]
+    fn a_character_with_no_portrait_target_gets_the_catalogs_derived_portrait() {
+        let catalog = catalog_with_a_sheet();
+        let resolved =
+            portrait_for_declared_character(Some(&portrait_registry()), &catalog, None, "hero")
+                .expect("the catalog derives a portrait from the sheet name");
+        assert_eq!(resolved.image, "sprites/hero_portraits.png");
+        assert_eq!(resolved.manifest, "sprites/hero_portraits.ron");
+        assert_eq!(resolved.default_clip, "default");
+    }
+
+    /// **A registered TARGET outranks the convention**, which is the whole
+    /// feature: a character registered in Rust can bring its own face without
+    /// editing anybody's catalog.
+    #[test]
+    fn a_registered_portrait_target_outranks_the_catalog_convention() {
+        let catalog = catalog_with_a_sheet();
+        let resolved = portrait_for_declared_character(
+            Some(&portrait_registry()),
+            &catalog,
+            Some("borrowed_face"),
+            "hero",
+        )
+        .expect("the named target resolves");
+        // ⛔ the manifest's own `image` is a BARE filename; the resolver joins it
+        // to the manifest's directory. Without that this reads
+        // "borrowed_face_portraits.png" and loads nothing, silently.
+        assert_eq!(resolved.image, "sprites/borrowed_face_portraits.png");
+        assert_eq!(resolved.manifest, "sprites/borrowed_face_portraits.ron");
+    }
+
+    /// **Both ways of having no resolver fall through, rather than failing.**
+    ///
+    /// A composition with no `PortraitSheetRegistry` is the opt-out, and a target
+    /// nothing claims is an authoring mistake — neither should cost a character
+    /// its face when the catalog can still answer.
+    #[test]
+    fn an_unresolvable_target_falls_back_to_the_catalog_rather_than_failing() {
+        let catalog = catalog_with_a_sheet();
+        for (registry, target) in [
+            (None, Some("borrowed_face")),
+            (Some(portrait_registry()), Some("a_target_nobody_baked")),
+        ] {
+            let resolved =
+                portrait_for_declared_character(registry.as_ref(), &catalog, target, "hero")
+                    .expect("the catalog still answers");
+            assert_eq!(resolved.image, "sprites/hero_portraits.png");
+        }
+    }
+
+    /// A character the catalog does not carry and that names no target has no
+    /// face, and says so with `None` rather than an invented path.
+    #[test]
+    fn a_character_nothing_knows_resolves_to_no_portrait() {
+        let catalog = catalog_with_a_sheet();
+        assert!(portrait_for_declared_character(
+            Some(&portrait_registry()),
+            &catalog,
+            None,
+            "nobody"
+        )
+        .is_none());
+    }
+
+    /// The registry indexes by TARGET as well as by path, which is the field it
+    /// used to read and discard.
+    #[test]
+    fn the_portrait_registry_can_be_asked_by_target() {
+        let registry = portrait_registry();
+        let (path, manifest) = registry
+            .manifest_for_target("borrowed_face")
+            .expect("the baked manifest names this target");
+        assert_eq!(path, "sprites/borrowed_face_portraits.ron");
+        assert_eq!(manifest.target, "borrowed_face");
+        assert_eq!(
+            registry.available_targets().collect::<Vec<_>>(),
+            vec!["borrowed_face"]
+        );
+        assert!(registry.manifest_for_target("nobody").is_none());
     }
 }

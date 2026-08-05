@@ -428,6 +428,33 @@ expected_files=(
     mary_o_v2_fire_portraits.png mary_o_v2_fire_portraits.ron
     mary_o_v2_tall_spritesheet.png mary_o_v2_tall_spritesheet.ron
     mary_o_v2_tall_portraits.png mary_o_v2_tall_portraits.ron
+    # The 26 orphans the 2026-08-05 census found; see `tackon_targets`.
+    admiral_grass_hopper_spritesheet.png admiral_grass_hopper_spritesheet.ron
+    anne_druid_spritesheet.png anne_druid_spritesheet.ron
+    carl_runga_spritesheet.png carl_runga_spritesheet.ron
+    carl_stargan_spritesheet.png carl_stargan_spritesheet.ron
+    data_lovelace_spritesheet.png data_lovelace_spritesheet.ron
+    davy_hylbert_spritesheet.png davy_hylbert_spritesheet.ron
+    genghis_can_spritesheet.png genghis_can_spritesheet.ron
+    genghis_cant_spritesheet.png genghis_cant_spritesheet.ron
+    georg_canter_spritesheet.png georg_canter_spritesheet.ron
+    george_booul_spritesheet.png george_booul_spritesheet.ron
+    hunny_horror_boss_spritesheet.png hunny_horror_boss_spritesheet.ron
+    hypatia_prime_spritesheet.png hypatia_prime_spritesheet.ron
+    joseph_furrier_spritesheet.png joseph_furrier_spritesheet.ron
+    le_beast_spritesheet.png le_beast_spritesheet.ron
+    leib_knives_spritesheet.png leib_knives_spritesheet.ron
+    mami_marzakhani_spritesheet.png mami_marzakhani_spritesheet.ron
+    marie_curry_spritesheet.png marie_curry_spritesheet.ron
+    martin_cutta_spritesheet.png martin_cutta_spritesheet.ron
+    neil_ongras_turfson_spritesheet.png neil_ongras_turfson_spritesheet.ron
+    paradox_barber_spritesheet.png paradox_barber_spritesheet.ron
+    paul_diracula_spritesheet.png paul_diracula_spritesheet.ron
+    player_robot_v2_spritesheet.png player_robot_v2_spritesheet.ron
+    player_robot_v3_spritesheet.png player_robot_v3_spritesheet.ron
+    python_goras_spritesheet.png python_goras_spritesheet.ron
+    richard_duckling_spritesheet.png richard_duckling_spritesheet.ron
+    yuclid_spritesheet.png yuclid_spritesheet.ron
     props/super_mary_o_star_wand.png
     props/super_mary_o_cinder_beacon.png
     props/super_mary_o_cosmic_quasar.png
@@ -973,6 +1000,49 @@ tackon_targets=(
     mary_o_v2
     mary_o_v2_fire
     mary_o_v2_tall
+    # ⛔⛔ **AND THEN THE CENSUS, 2026-08-05.** Jon, on being told George Booul
+    # does not regen: *"Are there other characters that don't regen? If there
+    # are we need to fix that."* There were TWENTY-SIX — every catalog sheet
+    # stem this script never named, cross-checked against
+    # `sprite2d_renderer list`, and all 26 are registered targets that simply
+    # nothing ran.
+    #
+    # ⭐ they are almost all ONE cast: the mathematician / scientist NPCs of the
+    # Hall. Their art has existed on developer machines for months and would
+    # have been absent from a fresh clone, which is the same defect the five
+    # rows above were added for and the same one `mary_o_v2` was.
+    #
+    # ⚠ **a hand-maintained allowlist is why this keeps happening.** Every
+    # character added since the last audit is orphaned by default, and the
+    # failure is invisible on any machine that once rendered it. The durable fix
+    # is a check that compares the assembled catalog against what this script
+    # publishes; until that exists, this list is what stands in for it.
+    admiral_grass_hopper
+    anne_druid
+    carl_runga
+    carl_stargan
+    data_lovelace
+    davy_hylbert
+    genghis_can
+    genghis_cant
+    georg_canter
+    george_booul
+    hunny_horror_boss
+    hypatia_prime
+    joseph_furrier
+    le_beast
+    leib_knives
+    mami_marzakhani
+    marie_curry
+    martin_cutta
+    neil_ongras_turfson
+    paradox_barber
+    paul_diracula
+    player_robot_v2
+    player_robot_v3
+    python_goras
+    richard_duckling
+    yuclid
 )
 # Rigged characters authored as GUI `.rig.json` documents auto-register as
 # targets named after the file stem. Include them in the same explicit batch as

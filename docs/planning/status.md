@@ -151,6 +151,7 @@ an agent is allowed to record.
 <!-- planning-evidence: inline-test path=game/ambition_demo_mary_o/src/bricks.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_render/src/rendering/features.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_demo_mary_o/src/level_1_2.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/features/ecs/dormancy.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d/src/app.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/action_scheme.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/features/ecs/autonomous_reconcile.rs kind=behavioral-local disposition=maintainer-review-pending -->

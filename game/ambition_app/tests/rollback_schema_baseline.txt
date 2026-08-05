@@ -21,6 +21,7 @@ actor.config	component-clone	ambition_platformer2d_actor_monolith::features::ecs
 actor.control	component-canonical	ambition_characters::brain::ActorControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.cooldowns	component-canonical	ambition_combat::components::actors::ActorCooldowns	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.disposition	component-canonical	ambition_combat::components::actors::ActorDisposition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.dormancy_policy	component-clone	ambition_platformer2d_actor_monolith::features::ecs::dormancy::DormancyPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.dormant	component-clone	ambition_platformer2d_actor_monolith::features::ecs::dormancy::Dormant	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.faction	component-clone	ambition_characters::actor::pose::ActorFaction	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.held_item	component-clone	ambition_combat::held_items::HeldItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

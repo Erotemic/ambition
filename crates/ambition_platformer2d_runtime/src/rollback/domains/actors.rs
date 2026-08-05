@@ -408,6 +408,47 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.dormant",
     );
+    // ⛔ **the POLICY beside the marker, and its absence was invisible until a
+    // third game used it.** `Dormant` was registered here the day dormancy
+    // landed; `DormancyPolicy` was not, because nothing in any `app_it` room
+    // carried one — Mary-O and Sanic declare theirs in their own demo binaries,
+    // which the coverage sweep does not visit. The moment `ambition_content`
+    // declared stances for its bosses and cast, seven sweep populations went red
+    // at once and named it.
+    //
+    // ⚠ it is content's DECLARATION, written once at spawn and never mutated by
+    // simulation — so a waiver could be argued. Registering is cheaper than the
+    // argument: it is a `Copy` enum, and the alternative is a waiver whose
+    // reasoning has to be re-checked every time the tagger's schedule moves.
+    // ⭐ this is the lesson the comment above already records, one level out: a
+    // family is not covered when its principal member is.
+    // ⚠ **PROBED, not presence-only, and a second guard insisted.** Registering
+    // it with `rollback_component_clone` satisfied the coverage sweep and the
+    // exit oracle immediately refused it: *"a presence probe satisfies the
+    // coverage test above while seeing nothing of the value"*. That is exactly
+    // right here — the value IS a radius, and a rewind that restored the
+    // component's presence while losing its distance would put a different world
+    // to sleep. Two guards, one shallower than the other, and the deeper one
+    // caught a registration that looked complete.
+    app.rollback_component_clone_probed::<ambition_platformer2d_actor_monolith::features::ecs::dormancy::DormancyPolicy>(
+        OWNER,
+        "actor.dormancy_policy",
+        |policy| {
+            use ambition_platformer2d_actor_monolith::features::ecs::dormancy::DormancyPolicy;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            match policy {
+                DormancyPolicy::Never => 0u8.hash(&mut hasher),
+                DormancyPolicy::AwakeNearObservers { radius } => {
+                    1u8.hash(&mut hasher);
+                    // Bit pattern: this is a checksum, not an arithmetic
+                    // comparison.
+                    radius.to_bits().hash(&mut hasher);
+                }
+            }
+            hasher.finish()
+        },
+    );
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ecs::SpawnedThisAttempt>(
         OWNER,
         "lifecycle.spawned_this_attempt",

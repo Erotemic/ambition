@@ -1584,9 +1584,21 @@ fn which_population_does_the_rollback_divergence_need() {
             Err(report) => findings.push(format!("  {variant:<12} DIVERGED — {report}")),
         }
     }
-    panic!(
-        "rollback divergence population sweep (this test always reports; read \
-         the variants):\n{}",
+    // ⛔ **THIS PANICKED UNCONDITIONALLY, and it made `--heavy` structurally
+    // red.** `run_tests.py`'s heavy pass runs `--include-ignored`, so the ONLY
+    // mode that executes ignored tests contained a guaranteed failure — which
+    // turns its output into noise, which is precisely why three rotted
+    // `#[ignore]`s sat unnoticed for weeks behind it. A suite mode nobody can
+    // read is a suite mode nobody reads.
+    //
+    // The panic was there to force output past libtest's capture. Its siblings
+    // (`list_what_every_waiver_actually_covers`, `probe_what_a_rollback_frame_costs`,
+    // `list_what_each_character_derives_for_its_body`) print and PASS, and are
+    // read with `--nocapture` — which is how you run a diagnostic on purpose
+    // anyway. This one is now the same shape as the rest.
+    println!(
+        "rollback divergence population sweep (run with --nocapture; this test \
+         reports and passes):\n{}",
         findings.join("\n")
     );
 }

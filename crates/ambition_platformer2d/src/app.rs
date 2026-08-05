@@ -1236,6 +1236,23 @@ impl PlatformerApp {
             // The declaration travels with the composition, so a restart reads
             // the count the game stated rather than re-sampling live devices.
             app.insert_resource(crate::rollback::DeclaredParticipants(participants));
+            // ⛔ **THE CALLER STARTS THE SESSION HERE, so the engine's local
+            // session owner must not.** This builder's contract is explicit —
+            // "it does not start a session, because a session rebases frame
+            // zero onto a world that has to be CONSTRUCTED first. Call
+            // `rollback::start`" — and the owner cannot defer to a session that
+            // does not exist yet. Left autostarting, it installs one the moment
+            // the gameplay world appears, so `rollback::start`'s activation and
+            // settle ticks ADVANCE THE SIMULATION and this host stops running
+            // the same timeline as the fixed-tick host built from the same
+            // content.
+            let mut policy = app
+                .world()
+                .get_resource::<ambition_platformer2d_runtime::rollback::local_session::LocalSessionPolicy>()
+                .copied()
+                .unwrap_or_default();
+            policy.autostart = false;
+            app.insert_resource(policy);
         } else {
             app.add_plugins(crate::engine::PlatformerEnginePlugins::fixed_tick());
         }

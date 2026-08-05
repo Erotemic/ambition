@@ -1272,6 +1272,76 @@ mod tests {
         );
     }
 
+    /// **A SMALL Mary-O who takes a lantern goes straight to fire.**
+    ///
+    /// ⭐ **this became reachable the day blocks got authored CONTENTS.** While
+    /// every ?-block levelled toward the lantern, the ladder guaranteed she held
+    /// the wand before a beacon could ever reach her — so "what happens if a
+    /// small Mary-O collects a lantern" was a question about a state the game
+    /// could not produce. `AlwaysLantern` produces it: an author puts a beacon
+    /// in a block and the first player to bonk it is small.
+    ///
+    /// ⚠ **no intermediate tall step, and that is the claim.** She does not grow
+    /// and then ignite over two ticks; `sync_grown_form` reads the beacon FIRST,
+    /// so one swap carries her from small to fire. A two-step version would show
+    /// as a one-frame flicker of the wrong sheet.
+    #[test]
+    fn a_small_mary_o_taking_a_lantern_becomes_fire_without_passing_through_tall() {
+        let mut app = App::new();
+        let body = app
+            .world_mut()
+            .spawn((
+                PrimaryPlayer,
+                WornCharacter(MARY_O_CHARACTER_ID.to_string()),
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(0.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: form_body_size(SMALL_SHEET_TARGET),
+                    facing: 1.0,
+                },
+            ))
+            .id();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        app.add_systems(Update, sync_grown_form);
+
+        // She is small, wearing nothing — the state an authored `AlwaysLantern`
+        // block hands a lantern to.
+        app.update();
+        assert_eq!(
+            app.world().get::<WornCharacter>(body).unwrap().0,
+            MARY_O_CHARACTER_ID,
+            "she starts small"
+        );
+
+        app.world_mut()
+            .entity_mut(body)
+            .insert(WornEquipment::new(vec![cinder_beacon()]));
+        app.update();
+        assert_eq!(
+            app.world().get::<WornCharacter>(body).unwrap().0,
+            SPARK_CHARACTER_ID,
+            "ONE tick after taking the beacon she is the fire form — not tall, \
+             and not tall-then-fire"
+        );
+
+        // ⚠ **and wearing BOTH is still fire**, which is the case the check's
+        // ORDER protects and the ordinary route to this form: the ladder gives
+        // the wand first and the beacon second, so she holds both from then on.
+        // A first probe at this test reordered the check and it stayed green —
+        // because equipping only the beacon cannot tell the two orders apart.
+        // This is the assertion that can.
+        app.world_mut()
+            .entity_mut(body)
+            .insert(WornEquipment::new(vec![star_wand(), cinder_beacon()]));
+        app.update();
+        assert_eq!(
+            app.world().get::<WornCharacter>(body).unwrap().0,
+            SPARK_CHARACTER_ID,
+            "holding the wand AND the beacon is the fire form — the beacon is \
+             the higher rung and the check has to read it first"
+        );
+    }
+
     /// **Both power states are tall, and the downgrade between them does not
     /// resize her.** Losing the spark must change what she can DO, not how big
     /// she is; only the second hit shrinks her.

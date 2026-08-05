@@ -27,6 +27,17 @@ enum AmbitionReadInputsSet {
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
 pub struct PendingLocalInput(pub ControlFrame);
 
+/// **Has the wrong-seam diagnostic fired this run?**
+///
+/// ⭐ **a finding, not just a log line.** The check below could have warned and
+/// nothing else, and its first test did what a log-only diagnostic forces a test
+/// to do: re-derive the predicate over the same resources and assert on THAT —
+/// which passes just as happily when the system is never registered. Publishing
+/// the answer makes the SYSTEM the thing under test, and lets a consumer or a
+/// harness ask the question without scraping stderr.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct InputSeamMisuse(pub bool);
+
 /// The SECONDARY seats' pending input, one per slot. (queue Y1)
 ///
 /// [`PendingLocalInput`] is seat zero's and predates local multiplayer. When the
@@ -678,7 +689,9 @@ pub(crate) fn install_session_bridge(app: &mut App) {
                 .after(ambition_input::InputSet::Collect),
         );
 
-    app.init_resource::<PendingLocalInput>()
+    app.add_systems(Update, report_input_written_to_the_wrong_seam);
+    app.init_resource::<InputSeamMisuse>()
+        .init_resource::<PendingLocalInput>()
         .init_resource::<PendingSeatInputs>()
         .init_resource::<ambition_platformer2d_shared_tangle::schedule::SimulationReplayState>()
         .init_resource::<RollbackExecutionStats>()
@@ -1644,5 +1657,142 @@ mod ac23_tests {
         };
         status.acknowledge_and_clear();
         assert_eq!(status, RollbackSessionStatus::default());
+    }
+}
+
+/// **Say something when a consumer drives the seam this host does not read.**
+///
+/// ⛔ **there are TWO input seams and which one is authoritative depends on the
+/// HOST.** A fixed-tick host consumes the [`ControlFrame`] resource. A GGRS host
+/// consumes [`PendingLocalInput`], because the frame it simulates is the one the
+/// session CONFIRMED — and [`publish_ggrs_input`] overwrites `ControlFrame` from
+/// those confirmed inputs on every simulated frame. So a consumer that writes
+/// `ControlFrame` under a rollback host has it silently clobbered: the walk
+/// loop runs, the body never moves, and nothing anywhere says why.
+///
+/// The roadmap's Task 8 records this as *"the same class of defect one level
+/// up"*, found while giving Outlander a rollback host: *"Every in-repo caller
+/// happens to be on the right side of it, so no test could notice; a consumer
+/// outside hits it immediately."* That is the definition of a defect a guard has
+/// to speak for, because no assertion in this workspace can reach it.
+///
+/// ⭐ **the predicate is exact, not a guess.** Under GGRS, `ControlFrame` is
+/// derived FROM `PendingLocalInput` by way of the session, so a neutral pending
+/// frame produces a neutral control frame. `ControlFrame` non-neutral while
+/// `PendingLocalInput` is neutral therefore means somebody else wrote it, and
+/// that write is about to be discarded. A CPU-only session (both neutral), a
+/// driven harness (both live) and an ordinary player (both live) are all
+/// silent.
+///
+/// ⚠ **sustained, and said ONCE.** A single frame can straddle the write, so it
+/// waits for `WRONG_SEAM_FRAMES` consecutive frames — long enough that a
+/// transient cannot trip it, short enough to appear in the first second of a
+/// broken consumer's run.
+///
+/// ⚠ this runs in `Update`, deliberately OUTSIDE the rollback schedule: its
+/// counter is a `Local`, a `Local` does not rewind, and a diagnostic that
+/// miscounts under resimulation would be reporting on itself. Nothing here gates
+/// behaviour — it only warns.
+fn report_input_written_to_the_wrong_seam(
+    mut reported: ResMut<InputSeamMisuse>,
+    control: Option<Res<ControlFrame>>,
+    pending: Option<Res<PendingLocalInput>>,
+    // Liveness is the PRESENCE of the session resource, which is how
+    // `local_session` asks the same question.
+    session: Option<Res<AmbitionGgrsSession>>,
+    mut consecutive: Local<u32>,
+) {
+    const WRONG_SEAM_FRAMES: u32 = 45;
+
+    let (Some(control), Some(pending)) = (control, pending) else {
+        return;
+    };
+    // Only meaningful while a rollback session is actually the authority.
+    if session.is_none() {
+        *consecutive = 0;
+        return;
+    }
+    let neutral = ControlFrame::default();
+    if *control != neutral && pending.0 == neutral {
+        *consecutive += 1;
+    } else {
+        *consecutive = 0;
+        return;
+    }
+    if *consecutive >= WRONG_SEAM_FRAMES && !reported.0 {
+        reported.0 = true;
+        bevy::log::warn!(
+            target: "ambition_platformer2d::rollback",
+            "input is being written to `ControlFrame`, but this is a ROLLBACK \
+             host and it reads `PendingLocalInput`. `publish_ggrs_input` \
+             overwrites `ControlFrame` from the session's confirmed inputs every \
+             simulated frame, so those writes are discarded and the body will \
+             never move. Write `PendingLocalInput` (or feed `ControlFrameLatch`, \
+             which the device path uses). Said once per run."
+        );
+    }
+}
+
+/// The wrong-seam diagnostic — the one defect in this file that no in-workspace
+/// caller can currently reach, which is exactly why it needs a fixture.
+#[cfg(test)]
+mod wrong_seam_tests {
+    use super::*;
+
+    /// Runs the REAL system and reads the fact it publishes. ⚠ the first version
+    /// of this helper re-derived the predicate itself and asserted on that — a
+    /// test that passes whether or not the system is registered at all.
+    fn reported(live_session: bool, drive_control: bool, drive_pending: bool) -> bool {
+        let mut app = bevy::prelude::App::new();
+        app.init_resource::<ControlFrame>();
+        app.init_resource::<PendingLocalInput>();
+        app.init_resource::<InputSeamMisuse>();
+        if live_session {
+            app.insert_resource(
+                build_sync_test_session(SyncTestSettings::for_players(1))
+                    .expect("a sync-test session builds"),
+            );
+        }
+        app.add_systems(Update, report_input_written_to_the_wrong_seam);
+
+        for _ in 0..90 {
+            if drive_control {
+                app.world_mut().resource_mut::<ControlFrame>().axis_x = 1.0;
+            }
+            if drive_pending {
+                app.world_mut().resource_mut::<PendingLocalInput>().0.axis_x = 1.0;
+            }
+            app.update();
+        }
+        app.world().resource::<InputSeamMisuse>().0
+    }
+
+    /// **The broken consumer.** Drives `ControlFrame` under a rollback host,
+    /// which reads `PendingLocalInput` — so `publish_ggrs_input` overwrites
+    /// those writes every simulated frame and the body never moves. This is the
+    /// case the roadmap records as unreachable by any in-repo test.
+    #[test]
+    fn driving_control_frame_under_a_rollback_host_is_reported() {
+        assert!(reported(true, true, false));
+    }
+
+    /// **The healthy consumer** drives the seam this host actually reads.
+    #[test]
+    fn driving_pending_local_input_is_silent() {
+        assert!(!reported(true, false, true));
+    }
+
+    /// **A fixed-tick host is not this diagnostic's business.** `ControlFrame`
+    /// IS the authority there, so the identical writes must say nothing.
+    #[test]
+    fn driving_control_frame_without_a_session_is_silent() {
+        assert!(!reported(false, true, false));
+    }
+
+    /// **The poison.** An idle rollback host must stay silent, or the check is
+    /// only asking "is a session running".
+    #[test]
+    fn an_idle_rollback_host_is_silent() {
+        assert!(!reported(true, false, false));
     }
 }

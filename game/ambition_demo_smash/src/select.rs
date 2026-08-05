@@ -3,285 +3,401 @@
 //! Jon, 2026-07-31: *"the smash demo must start with the character select screen
 //! and then start the battle when up to 4 players are locked in."*
 //!
-//! ## Why this is a state and not a menu
+//! Jon, 2026-08-05, redrawing it: *"a grid of portraits for each of the
+//! selectable characters on the top 65% of the screen. The bottom 35% of the
+//! screen should be 4 participant slot cards… Each participant slot will have a
+//! button to toggle it between a controller player (which must have a
+//! corresponding attached controller), a CPU player, or not participating."*
 //!
-//! A menu picks one thing for one person. This decides, per seat, three
-//! independent facts — whether somebody is there, who they chose, and whether
-//! they are committed — and the match cannot begin until every seat that is
-//! there has answered the third. That is a small state machine per seat and a
-//! quorum rule over the set, which is exactly the thing that goes wrong when it
-//! is written as UI callbacks: "everyone is ready" gets computed from whichever
-//! widget last fired.
+//! ## Why this is a value and not a pile of widgets
 //!
-//! So the whole decision is a pure value with no Bevy in it. The route drives it
-//! and draws it; the value decides.
+//! A menu picks one thing for one person. This decides, per slot, two
+//! independent facts — **who is there** and **what they chose** — and the match
+//! cannot begin until every slot that is there has answered the second. That is
+//! a small state machine per slot and a quorum rule over the set, which is
+//! exactly the thing that goes wrong when it is written as UI callbacks:
+//! "everyone is ready" gets computed from whichever widget last fired.
+//!
+//! So the whole decision is a pure value with no Bevy in it beyond `Resource`.
+//! [`crate::select_screen`] draws it and drives it; this decides.
 //!
 //! ## The rule, stated once
 //!
-//! **The battle starts when every JOINED seat is locked in, at least two are,
-//! and at least one of them is a person.** Each part is a different bug:
+//! **The battle starts when every PARTICIPATING slot has picked a character, at
+//! least two slots participate, and at least one of them is a person.** Each
+//! part is a different bug, and all three were found the hard way:
 //!
-//! * without "every joined seat", a player who has joined and is still browsing
-//!   gets dropped into a fight as whoever the cursor happened to be on;
-//! * without "at least two", the first player to lock in starts a match against
+//! * without "every participating slot has picked", a player who joined and is
+//!   still browsing gets dropped into a fight as whoever the cursor was over;
+//! * without "at least two", the first slot to decide starts a match against
 //!   nobody — and a stocks match with one side never ends, because
 //!   `last_side_standing` correctly refuses to call a sole survivor a winner;
 //! * without "at least one person", the second CPU somebody adds starts a match
 //!   they are not in, before they have chosen a character.
 //!
-//! ## Who is at a seat
+//! ## Who is at a slot
 //!
-//! A seat is empty, a person, or a CPU — and the third exists because the
-//! screen offered one seat per PAD, so a player alone at a keyboard could never
-//! reach the two decided seats a match needs. Down adds a CPU to the lowest
-//! empty seat; Up takes the last one back off.
+//! A slot is [`SlotOccupant::Absent`], a [`SlotOccupant::Controller`], or a
+//! [`SlotOccupant::Cpu`] — and the third exists because the screen used to offer
+//! one seat per PAD, so a player alone at a keyboard could never reach the two
+//! decided slots a match needs. (Jon, 2026-07-31: *"there seems to be no way to
+//! have player 2 be a CPU player."*)
+//!
+//! ⚠ **`Controller` carries WHICH device, and that is the whole couch bug in one
+//! field.** Two slots both meaning "a person" is ambiguous the moment there are
+//! two sources in the room; a slot that names its device cannot silently share
+//! one with its neighbour. [`SmashSelect::cycle_occupant`] refuses to make a slot
+//! a controller when no unclaimed source is left, which is Jon's *"which must
+//! have a corresponding attached controller"* enforced in the value rather than
+//! checked in the widget.
 
 use crate::{MatchParticipant, MatchParticipantRoster, STARTING_STOCKS};
 
-/// One screen, four seats — the same ceiling the versus stage carries and the
+/// One screen, four slots — the same ceiling the versus stage carries and the
 /// same one `SlotControls` holds.
 pub const MAX_SMASH_SEATS: usize = 4;
 
-/// The characters a seat can choose between.
+/// **The fighters this demo DECLARES**, by catalog id.
 ///
-/// This demo's own two duelists. A wider roster is a content question, not a
-/// select question, and the select code below does not know how many there are.
-pub const SELECTABLE: &[&str] = &[crate::SMASH_CHARACTER_ID, crate::SMASH_OPPONENT_ID];
+/// Four rows in `SMASH_CATALOG_RON`, and four is the floor rather than the
+/// roster: [`SmashRoster`] adds every character the composition around this demo
+/// has tagged for the crossover.
+pub const OWN_FIGHTERS: &[&str] = &[
+    crate::SMASH_CHARACTER_ID,
+    crate::SMASH_OPPONENT_ID,
+    crate::SMASH_MARY_O_FIRE,
+    crate::SMASH_GEORGE_BOOUL,
+];
 
-/// What one seat has decided so far.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum SeatSelection {
-    /// Nobody is at this seat. A seat that never joins is not a fighter, and is
-    /// not waited for.
-    #[default]
-    Empty,
-    /// Somebody joined and is still choosing. The match waits for this.
-    Browsing { cursor: usize },
-    /// Committed. `character` indexes [`SELECTABLE`].
-    LockedIn { character: usize },
-    /// **A seat the players ADDED rather than sat at.** `character` indexes
-    /// [`SELECTABLE`].
-    ///
-    /// ⚠ this is the difference between a demo and a demo two people have to be
-    /// in the room for. The screen offered one seat per PAD (floor one), the
-    /// match needed two decided seats, and every decided seat was a human — so
-    /// on a keyboard, alone, there was no sequence of presses that started a
-    /// match at all. Jon, 2026-07-31: *"there seems to be no way to have player
-    /// 2 be a CPU player."*
-    ///
-    /// A CPU seat is decided the moment it exists: nobody is browsing on its
-    /// behalf, and a seat waiting for input from something that has none is a
-    /// screen that never becomes ready.
-    Cpu { character: usize },
+/// **The tag a character wears to say it can fight here.**
+///
+/// ⭐ opt-IN, from the character's own catalog row. A crossover stage cannot
+/// have a hard-coded roster: the cast it can offer is a fact about the
+/// COMPOSITION, and the composition is what a multi-game host assembles.
+pub const SMASH_TAG: &str = "smash";
+
+/// **The characters a slot can choose between, in this composition.**
+///
+/// ⛔ **this used to be a `const` list and the engine refused it, correctly.**
+/// The first draft declared its own `smash_mary_o`, `smash_sanic` and
+/// `smash_solid_snake` rows on the sheets those characters already use, and the
+/// assembled catalog rejected all four:
+///
+/// ```text
+/// characters 'mary_o' and 'smash_mary_o' share display_name 'Mary-O'
+/// characters 'sanic' and 'smash_sanic' share display_name 'Sanic'
+/// characters 'smash_solid_snake' and 'solid_snake' share display_name …
+/// characters 'smash_super_sanic' and 'super_sanic' share display_name …
+/// ```
+///
+/// Which is the right answer to the wrong question. **A crossover stage does not
+/// need copies of the cast; it needs the cast.** Mary-O, Sanic and Solid Snake
+/// already exist — declared by the demos they belong to, with their own sheets,
+/// their own names and their own dialogue — and the display-name rule exists
+/// precisely to stop a second declaration of a character that is already there.
+/// (Jon's rule, recorded: characters are shared BY ID; display-name uniqueness
+/// is how that is enforced.)
+///
+/// So the roster is resolved once, at startup, from the assembled catalog: the
+/// demo's own fighters, then every character whose row carries [`SMASH_TAG`].
+///
+/// ⚠ **the default is the demo's own four**, not an empty list. A fixture with
+/// no catalog is testing the SCREEN, and a roster that collapsed to nothing
+/// there would make every one of those tests pass over an empty grid.
+#[derive(bevy::prelude::Resource, Clone, Debug, PartialEq, Eq)]
+pub struct SmashRoster(pub Vec<String>);
+
+impl Default for SmashRoster {
+    fn default() -> Self {
+        Self(OWN_FIGHTERS.iter().map(|id| id.to_string()).collect())
+    }
 }
 
-impl SeatSelection {
-    pub fn is_present(self) -> bool {
-        !matches!(self, SeatSelection::Empty)
+impl SmashRoster {
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 
-    /// The character this seat has COMMITTED to, human or otherwise. `None`
-    /// while a seat is empty or still browsing — the two states the match waits
-    /// on.
-    pub fn locked_character(self) -> Option<usize> {
-        match self {
-            SeatSelection::LockedIn { character } | SeatSelection::Cpu { character } => {
-                Some(character)
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn get(&self, index: usize) -> Option<&str> {
+        self.0.get(index).map(String::as_str)
+    }
+
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        self.0.iter().map(String::as_str)
+    }
+
+    /// **Everything this composition can offer**, own fighters first.
+    ///
+    /// ⚠ own-first and de-duplicated: a demo that tagged one of its OWN rows
+    /// would otherwise appear twice, and two grid cells for one fighter are two
+    /// cells a token can be dropped on with one of them wrong.
+    pub fn assemble(catalog: &ambition_platformer2d::character::CharacterCatalog) -> Self {
+        let mut ids: Vec<String> = OWN_FIGHTERS.iter().map(|id| id.to_string()).collect();
+        // `CharacterCatalog::iter` is a `BTreeMap` walk, so the crossover half of
+        // the grid is in id order on every machine and every run. An unordered
+        // roster would put a different fighter under the cursor's start position
+        // depending on hash seed.
+        for (id, entry) in catalog.iter() {
+            if entry.tags.iter().any(|tag| tag == SMASH_TAG) && !ids.iter().any(|kept| kept == id) {
+                ids.push(id.clone());
             }
-            _ => None,
         }
+        Self(ids)
+    }
+}
+
+/// **Who is at one slot.**
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SlotOccupant {
+    /// Not participating. A slot that never fills is not a fighter and is not
+    /// waited for.
+    #[default]
+    Absent,
+    /// A person, driving through one named local input source.
+    ///
+    /// `device` indexes the local source order — 0 is the primary source (the
+    /// keyboard on a desk, pad one on a couch). No two slots may hold the same
+    /// index; see the module doc.
+    Controller { device: usize },
+    /// The machine. Needs no device, which is the entire point of it.
+    Cpu,
+}
+
+impl SlotOccupant {
+    pub fn participates(self) -> bool {
+        !matches!(self, SlotOccupant::Absent)
     }
 
     pub fn is_cpu(self) -> bool {
-        matches!(self, SeatSelection::Cpu { .. })
+        matches!(self, SlotOccupant::Cpu)
+    }
+
+    pub fn device(self) -> Option<usize> {
+        match self {
+            SlotOccupant::Controller { device } => Some(device),
+            _ => None,
+        }
+    }
+}
+
+/// **What one slot card says.**
+///
+/// The pick SURVIVES the occupant changing, on purpose: toggling a slot from
+/// controller to CPU and back is how a player hands their character to the
+/// machine, and clearing the portrait on the way through would make that a
+/// re-pick every time.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SlotCard {
+    pub occupant: SlotOccupant,
+    /// Indexes [`SELECTABLE`]. `None` is the state the match waits on.
+    pub pick: Option<usize>,
+}
+
+impl SlotCard {
+    /// The character this slot has COMMITTED to. `None` while the slot is empty
+    /// or has not picked — the two states the match waits on.
+    ///
+    /// ⚠ an absent slot with a remembered pick answers `None`, which is what
+    /// makes [`SmashSelect::ready`] safe to write as a count.
+    pub fn locked_character(self) -> Option<usize> {
+        self.occupant.participates().then_some(self.pick).flatten()
     }
 }
 
 /// The whole screen's decision.
 #[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SmashSelect {
-    seats: [SeatSelection; MAX_SMASH_SEATS],
+    slots: [SlotCard; MAX_SMASH_SEATS],
 }
 
 impl SmashSelect {
-    pub fn seat(&self, seat: usize) -> SeatSelection {
-        self.seats.get(seat).copied().unwrap_or_default()
+    pub fn slot(&self, slot: usize) -> SlotCard {
+        self.slots.get(slot).copied().unwrap_or_default()
     }
 
-    /// **Somebody pressed confirm at an empty seat.** That is how you join —
-    /// there is no separate "press start", because pressing anything at a seat
-    /// nobody is using is unambiguous.
+    pub fn slots(&self) -> impl Iterator<Item = (usize, SlotCard)> + '_ {
+        self.slots.iter().copied().enumerate()
+    }
+
+    /// **Toggle one slot between the three things it can be.**
     ///
-    /// Joining puts the cursor at the first character rather than locking in
-    /// immediately: a join that also committed would make the fastest hand
-    /// choose for the slowest.
-    pub fn join(&mut self, seat: usize) {
-        if seat >= MAX_SMASH_SEATS {
+    /// `Absent → Controller → Cpu → Absent`, which is Jon's button. The order is
+    /// deliberate: the first press of an empty card seats the PERSON pressing
+    /// it, because somebody reaching for an empty chair almost always means
+    /// themselves, and a second press hands that chair to the machine.
+    ///
+    /// `sources` is how many local input sources exist — see
+    /// [`seats_offered_under`]. When none is free the controller rung is SKIPPED
+    /// rather than refused with a beep: a fourth card on a two-pad couch goes
+    /// straight from empty to CPU, which is the only thing it could honestly
+    /// become. That is Jon's *"which must have a corresponding attached
+    /// controller"*, and it lives here because a widget that checked it would be
+    /// checking a rule it does not own.
+    pub fn cycle_occupant(&mut self, slot: usize, sources: usize) {
+        if slot >= MAX_SMASH_SEATS {
             return;
         }
-        // A CPU's chair is takeable: sitting down at one replaces it, which is
-        // what pressing confirm at a seat a machine is holding obviously means.
-        if !matches!(self.seats[seat], SeatSelection::LockedIn { .. })
-            && !matches!(self.seats[seat], SeatSelection::Browsing { .. })
-        {
-            self.seats[seat] = SeatSelection::Browsing { cursor: 0 };
-        }
-    }
-
-    /// Move a browsing seat's cursor. Wraps, because a cursor that stops at the
-    /// end makes the last character harder to pick than the first.
-    pub fn browse(&mut self, seat: usize, delta: i32) {
-        if SELECTABLE.is_empty() || seat >= MAX_SMASH_SEATS {
-            return;
-        }
-        if let SeatSelection::Browsing { cursor } = self.seats[seat] {
-            let count = SELECTABLE.len() as i32;
-            let next = (cursor as i32 + delta).rem_euclid(count);
-            self.seats[seat] = SeatSelection::Browsing {
-                cursor: next as usize,
-            };
-        }
-    }
-
-    /// Commit a browsing seat.
-    pub fn lock_in(&mut self, seat: usize) {
-        if seat >= MAX_SMASH_SEATS {
-            return;
-        }
-        if let SeatSelection::Browsing { cursor } = self.seats[seat] {
-            self.seats[seat] = SeatSelection::LockedIn { character: cursor };
-        }
-    }
-
-    /// **Add a CPU to the lowest empty seat.**
-    ///
-    /// ⚠ **bound to DOWN, and the binding is the feature.** The first cut used
-    /// `start`, which reads well in a prompt and does not exist: on a keyboard
-    /// `Platformer2dInputActionMonolith::Start` is Escape, which opens the pause menu, so the one
-    /// press that made the demo playable alone was the one press a keyboard
-    /// could not make. Jon, 2026-07-31: *"Start does not add a CPU. And there is
-    /// no start on a keyboard."* Down/Up are the two directions this screen does
-    /// nothing else with — left/right browse characters — and they are the same
-    /// two keys/d-pad rows on every device.
-    ///
-    /// A CPU never lands on a seat somebody is at, and never on the seat of the
-    /// player who ASKED for it — `pressed_by` is still empty when a lone player
-    /// adds an opponent before sitting down, and taking that chair would answer
-    /// "give me somebody to fight" by handing their own seat to a machine.
-    ///
-    /// Its character is the seat's own default, so pressing this once from seat
-    /// 0 produces the fight the demo is about: Duelist A against Duelist B.
-    pub fn add_cpu(&mut self, pressed_by: usize) {
-        let empty = self
-            .seats
-            .iter()
-            .enumerate()
-            .position(|(seat, selection)| seat != pressed_by && *selection == SeatSelection::Empty);
-        if let Some(seat) = empty {
-            self.seats[seat] = SeatSelection::Cpu {
-                character: default_character_for(seat),
-            };
-        }
-    }
-
-    /// Take the last added CPU back off, highest seat first — the opposite of
-    /// [`Self::add_cpu`], so a press too many costs a press.
-    pub fn remove_cpu(&mut self) {
-        if let Some(seat) = self.seats.iter().rposition(|seat| seat.is_cpu()) {
-            self.seats[seat] = SeatSelection::Empty;
-        }
-    }
-
-    /// How many seats are CPUs.
-    pub fn cpus(&self) -> usize {
-        self.seats.iter().filter(|seat| seat.is_cpu()).count()
-    }
-
-    /// Back out: a locked seat returns to browsing, a browsing seat leaves.
-    ///
-    /// ⚠ **the ladder matters.** A single "cancel" that emptied the seat would
-    /// make an accidental lock-in cost you your place in the match, which is the
-    /// one thing a select screen must never do to somebody holding a controller.
-    pub fn cancel(&mut self, seat: usize) {
-        if seat >= MAX_SMASH_SEATS {
-            return;
-        }
-        self.seats[seat] = match self.seats[seat] {
-            SeatSelection::LockedIn { character } => SeatSelection::Browsing { cursor: character },
-            SeatSelection::Browsing { .. } => SeatSelection::Empty,
-            // Backing out AT a CPU's seat removes that CPU. Reachable when a pad
-            // is plugged in after the CPU was added, which is exactly when
-            // somebody wants the chair back.
-            SeatSelection::Cpu { .. } => SeatSelection::Empty,
-            SeatSelection::Empty => SeatSelection::Empty,
+        let next = match self.slots[slot].occupant {
+            SlotOccupant::Absent => match self.first_free_device(slot, sources) {
+                Some(device) => SlotOccupant::Controller { device },
+                None => SlotOccupant::Cpu,
+            },
+            SlotOccupant::Controller { .. } => SlotOccupant::Cpu,
+            SlotOccupant::Cpu => SlotOccupant::Absent,
         };
+        self.slots[slot].occupant = next;
     }
 
-    /// How many seats are occupied at all.
-    pub fn joined(&self) -> usize {
-        self.seats.iter().filter(|seat| seat.is_present()).count()
+    /// Put a slot directly into a state, for a screen that has a reason to
+    /// (the walkthrough, a test, a future "everyone in" button).
+    pub fn set_occupant(&mut self, slot: usize, occupant: SlotOccupant) {
+        if slot < MAX_SMASH_SEATS {
+            self.slots[slot].occupant = occupant;
+        }
     }
 
-    /// How many have committed.
-    pub fn locked_in(&self) -> usize {
-        self.seats
+    /// **The lowest input source no other slot is holding.**
+    ///
+    /// ⛔ This is the couch-input trap in its smallest form. Two slots that both
+    /// say "a person" and never say WHICH person is how one pad ends up driving
+    /// two fighters — the defect this repo has now found five separate times,
+    /// and every one of them was invisible with a single pad plugged in.
+    pub fn first_free_device(&self, slot: usize, sources: usize) -> Option<usize> {
+        (0..sources).find(|device| {
+            !self
+                .slots
+                .iter()
+                .enumerate()
+                .any(|(other, card)| other != slot && card.occupant.device() == Some(*device))
+        })
+    }
+
+    /// **Somebody dropped a token on a portrait.**
+    ///
+    /// ⚠ the index is not bounds-checked here, and the reason is that the only
+    /// thing that produces one is a portrait the LAYOUT drew — which the layout
+    /// only draws for a fighter in the roster. [`Self::roster`] drops a pick
+    /// with no id, so an index that somehow outlived its roster costs a seat
+    /// rather than a fighter nobody chose.
+    pub fn set_pick(&mut self, slot: usize, character: usize) {
+        if slot < MAX_SMASH_SEATS {
+            self.slots[slot].pick = Some(character);
+        }
+    }
+
+    /// The character a slot starts on when nothing has been dropped on it yet.
+    ///
+    /// Slot-indexed rather than constant, so a solo player who adds one CPU gets
+    /// Duelist A against Duelist B — the fight this demo is about — with no
+    /// dragging at all.
+    pub fn seed_pick(&mut self, slot: usize, fighters: &SmashRoster) {
+        if slot < MAX_SMASH_SEATS && self.slots[slot].pick.is_none() && !fighters.is_empty() {
+            self.slots[slot].pick = Some(slot % fighters.len());
+        }
+    }
+
+    /// How many slots participate at all.
+    pub fn participating(&self) -> usize {
+        self.slots
             .iter()
-            .filter(|seat| seat.locked_character().is_some())
+            .filter(|card| card.occupant.participates())
             .count()
     }
 
-    /// Seats a PERSON has committed to, as opposed to ones somebody added.
-    pub fn humans_locked_in(&self) -> usize {
-        self.seats
+    /// How many have a character.
+    pub fn decided(&self) -> usize {
+        self.slots
             .iter()
-            .filter(|seat| matches!(seat, SeatSelection::LockedIn { .. }))
+            .filter(|card| card.locked_character().is_some())
+            .count()
+    }
+
+    /// How many CPUs.
+    pub fn cpus(&self) -> usize {
+        self.slots
+            .iter()
+            .filter(|card| card.occupant.is_cpu())
+            .count()
+    }
+
+    /// Slots a PERSON has decided, as opposed to ones somebody added.
+    pub fn humans_decided(&self) -> usize {
+        self.slots
+            .iter()
+            .filter(|card| card.occupant.device().is_some() && card.pick.is_some())
             .count()
     }
 
     /// **Can the battle start?**
     ///
-    /// Every joined seat is locked in, at least two are, and at least one of
-    /// them is a person. See the module doc for why the first two are
-    /// load-bearing; the third arrived with CPU seats and is the same argument
-    /// one step on — two CPUs decide the moment they exist, so without it the
-    /// SECOND press of "add a CPU" started a match nobody was in, before the
-    /// player who pressed it had chosen a character.
+    /// Every participating slot has picked, at least two participate, and at
+    /// least one of them is a person. See the module doc for why each clause is
+    /// load-bearing.
     pub fn ready(&self) -> bool {
-        self.locked_in() >= 2 && self.joined() == self.locked_in() && self.humans_locked_in() >= 1
+        self.decided() >= 2 && self.participating() == self.decided() && self.humans_decided() >= 1
+    }
+
+    /// **Why the match cannot start**, in the words the screen puts under the
+    /// cards.
+    ///
+    /// ⚠ it used to read "Two players needed" and stop there, which was true and
+    /// useless: there was no press that produced a second player and the screen
+    /// did not name one. A prompt that states a requirement without naming the
+    /// action that satisfies it is a dead end with punctuation.
+    pub fn blocker(&self) -> Option<&'static str> {
+        if self.participating() < 2 {
+            Some("Two fighters needed — click a slot's button to add a controller or a CPU")
+        } else if self.participating() != self.decided() {
+            Some("Drag each slot's token onto a portrait")
+        } else if self.humans_decided() == 0 {
+            Some("At least one slot must be a controller player")
+        } else {
+            None
+        }
     }
 
     /// The match this screen decided.
     ///
     /// `None` until [`Self::ready`]. Building a roster from a half-decided
     /// screen is the failure this returns an `Option` to make impossible: a
-    /// browsing seat has a cursor, and a cursor reads exactly like a choice.
-    pub fn roster(&self) -> Option<MatchParticipantRoster> {
+    /// hovered portrait reads exactly like a choice.
+    pub fn roster(&self, fighters: &SmashRoster) -> Option<MatchParticipantRoster> {
         if !self.ready() {
             return None;
         }
         let mut roster = MatchParticipantRoster::of(Vec::<String>::new());
         roster.participants = self
-            .seats
+            .slots
             .iter()
             .enumerate()
-            .filter_map(|(seat, selection)| {
-                let character = SELECTABLE[selection.locked_character()?];
+            .filter_map(|(slot, card)| {
+                // ⚠ a pick with no id is DROPPED rather than clamped or
+                // panicked. It means the roster shrank under a decided screen —
+                // impossible today and exactly the kind of thing a hosted
+                // composition could arrange — and seating a fighter nobody
+                // chose is worse than seating one fewer.
+                let character = fighters.get(card.locked_character()?)?;
                 Some(
                     MatchParticipant::new(character)
-                        // A seat is driven by whoever the SCREEN says is at it.
-                        // Nothing is filled in on anybody's behalf: an empty
-                        // seat stays out of the match, and a CPU seat is one
+                        // A slot is driven by whoever the SCREEN says is at it.
+                        // Nothing is filled in on anybody's behalf: an absent
+                        // slot stays out of the match, and a CPU slot is one
                         // somebody asked for.
-                        .driven_by(if selection.is_cpu() {
-                            crate::ControllerBinding::Cpu {
+                        .driven_by(match card.occupant {
+                            SlotOccupant::Controller { device } => {
+                                crate::ControllerBinding::Human {
+                                    device_slot: device as u8,
+                                }
+                            }
+                            _ => crate::ControllerBinding::Cpu {
                                 brain_profile: Some(crate::SMASH_DUELIST_BRAIN.to_string()),
-                            }
-                        } else {
-                            crate::ControllerBinding::Human {
-                                device_slot: seat as u8,
-                            }
+                            },
                         })
-                        .on_team(format!("seat {}", seat + 1)),
+                        .on_team(format!("seat {}", slot + 1)),
                 )
             })
             .collect();
@@ -316,6 +432,11 @@ impl SmashSelect {
         // floor of a platform fighter: run, jump, double jump, fast fall, dash,
         // attack. WHICH verbs is a product call and this is the one place to change
         // it; that the two seats agree is not.
+        //
+        // ⭐ it is also what makes a WIDE roster honest. Eight fighters that share
+        // one kit are eight looks and one game; nobody is stronger because their
+        // sheet came from a different demo. Per-character kits are the next
+        // question, not this one.
         roster.fighter_abilities = Some(ambition_platformer2d::engine_core::AbilitySet {
             move_horizontal: true,
             jump: true,
@@ -334,25 +455,12 @@ impl SmashSelect {
     }
 }
 
-/// The character a seat starts on when nobody chose for it.
-///
-/// Seat-indexed rather than constant, so the first CPU somebody adds is the
-/// OTHER duelist: a solo player pressing one button gets Duelist A against
-/// Duelist B, which is the fight this demo is about.
-fn default_character_for(seat: usize) -> usize {
-    if SELECTABLE.is_empty() {
-        0
-    } else {
-        seat % SELECTABLE.len()
-    }
-}
-
-/// **How many seats this screen offers, from the pads that are actually
-/// plugged in.**
+/// **How many local input SOURCES this screen can hand out**, from the devices
+/// that are actually plugged in.
 ///
 /// Jon's *"up to 4 players"* is a CEILING, not a count. The floor is one,
 /// because a keyboard is player one on every other route in this game and a
-/// select screen that showed zero seats when nobody had a gamepad would be a
+/// select screen that offered zero sources when nobody had a gamepad would be a
 /// demo you cannot start.
 ///
 /// ⚠ this reads the live device order rather than a frozen topology, and that is
@@ -362,20 +470,23 @@ fn default_character_for(seat: usize) -> usize {
 /// MATCH cannot; the two answers are different on purpose, and the seam between
 /// them is the moment the roster is published.
 pub fn seats_offered(devices: &ambition_platformer2d::input::LocalDeviceOrder) -> usize {
-    seats_offered_under(devices, ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary)
+    seats_offered_under(
+        devices,
+        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary,
+    )
 }
 
-/// **How many seats the sources present can claim, under a stated policy.**
+/// **How many sources present can claim a slot, under a stated policy.**
 ///
 /// ⛔ The pad-only count above is Jon's couch milestone 2 failing:
 /// *"Keyboard joins one participant. A gamepad joins a second participant."*
-/// With one keyboard and one pad it offers ONE seat, so both sources drive
-/// player one and the pad player has nowhere to sit. The keyboard was never a
-/// row in `LocalDeviceOrder` — it holds gamepad entities — so it could not be
-/// counted, only assumed.
+/// With one keyboard and one pad it offers ONE source, so both drive player one
+/// and the pad player has nowhere to sit. The keyboard was never a row in
+/// `LocalDeviceOrder` — it holds gamepad entities — so it could not be counted,
+/// only assumed.
 ///
 /// Under [`InputAssignmentPolicy::JoinToClaim`] the keyboard is a SOURCE like any
-/// other and brings its own seat: keyboard + one pad is two players, which is
+/// other and brings its own slot: keyboard + one pad is two players, which is
 /// the whole couch flow.
 ///
 /// ⚠ [`InputAssignmentPolicy::UnifiedPrimary`] keeps the old arithmetic exactly.
@@ -389,15 +500,10 @@ pub fn seats_offered_under(
     let pads = devices.devices().len();
     let seats = match policy {
         ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary => pads,
-        // The keyboard is player one and each pad brings its own seat.
+        // The keyboard is player one and each pad brings its own slot.
         _ => pads + 1,
     };
     seats.clamp(1, MAX_SMASH_SEATS)
-}
-
-/// Which seats a player may join, given the pads present.
-pub fn joinable_seats(devices: &ambition_platformer2d::input::LocalDeviceOrder) -> std::ops::Range<usize> {
-    0..seats_offered(devices)
 }
 
 #[cfg(test)]

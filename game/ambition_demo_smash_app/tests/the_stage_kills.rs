@@ -11,8 +11,8 @@
 //! and it is exactly the class this repository keeps rediscovering: every
 //! instrument green, and green about less than it claimed.
 
-use ambition_platformer2d::engine_core::AabbExt;
 use ambition_demo_smash_app::build_demo_app;
+use ambition_platformer2d::engine_core::AabbExt;
 
 /// The stage boots and its geometry is the one the demo authored.
 ///
@@ -112,15 +112,10 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
         "a roster exists before anybody chose, so the select screen is decoration"
     );
 
-    // Two players join and commit.
-    {
-        let mut select = app.world_mut().resource_mut::<SmashSelect>();
-        select.join(0);
-        select.lock_in(0);
-        select.join(1);
-        select.browse(1, 1);
-        select.lock_in(1);
-    }
+    // Two players join and commit. ⚠ this test is about the STAGE, so it sets
+    // the decision directly and then asks for the start the screen's button
+    // would ask for. `the_screen_decides.rs` is where the button is pressed.
+    decide_a_two_player_match(&mut app);
     app.update();
 
     let roster = app
@@ -156,22 +151,15 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
 /// below the app can reach.
 #[test]
 fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
-    use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
     use ambition_demo_smash::select::SmashSelect;
+    use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
     use bevy::prelude::*;
 
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
     }
-    {
-        let mut select = app.world_mut().resource_mut::<SmashSelect>();
-        select.join(0);
-        select.lock_in(0);
-        select.join(1);
-        select.browse(1, 1);
-        select.lock_in(1);
-    }
+    decide_a_two_player_match(&mut app);
     for _ in 0..240 {
         app.update();
     }
@@ -272,7 +260,9 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
         ]));
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
-            ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
         ));
     // ⚠ the sampling window has to sit inside the fighter's LIFE. This test used
     // to sample at ticks 240 and 480, and seat 1 is eliminated around tick 400 —
@@ -286,7 +276,11 @@ fn the_fighter_brain_engages_rather_than_standing_still() {
 
     let snapshot = |app: &mut App| -> Vec<(usize, f32, f32)> {
         let world = app.world_mut();
-        let mut q = world.query::<(&MatchSeat, &ambition_platformer2d::actor::BodyKinematics, &BodyHealth)>();
+        let mut q = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::actor::BodyKinematics,
+            &BodyHealth,
+        )>();
         let mut rows: Vec<(usize, f32, f32)> = q
             .iter(world)
             .map(|(seat, kin, health)| (seat.0, kin.pos.x, health.damage_percent()))
@@ -357,7 +351,9 @@ fn an_eliminated_fighter_does_not_keep_falling_forever() {
         ]));
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
-            ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
         ));
 
     let mut peak = 0.0f32;
@@ -411,7 +407,9 @@ fn losing_a_stock_announces_a_body_restart() {
         ]));
     app.world_mut()
         .write_message(ambition_platformer2d::game_shell::ShellCommand::GoTo(
-            ambition_platformer2d::game_shell::ShellRouteId::new(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+            ambition_platformer2d::game_shell::ShellRouteId::new(
+                ambition_demo_smash::SMASH_GAMEPLAY_ROUTE,
+            ),
         ));
     for _ in 0..240 {
         app.update();
@@ -509,4 +507,23 @@ fn the_demos_cpu_roster_is_satisfiable_by_its_own_composition() {
              {problems:?}"
         );
     }
+}
+
+/// Two controller slots with a fighter each, and START asked for.
+///
+/// ⚠ **`StartRequested` as well as the picks.** The screen no longer leaves on
+/// readiness alone — a test that set only the decision would sit on the select
+/// route forever and blame the stage.
+fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
+    use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
+    {
+        let mut select = app.world_mut().resource_mut::<SmashSelect>();
+        select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+        select.set_pick(0, 0);
+        select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+        select.set_pick(1, 1);
+    }
+    app.world_mut()
+        .resource_mut::<ambition_demo_smash::select_screen::StartRequested>()
+        .0 = true;
 }

@@ -16,15 +16,17 @@
 //! this one opens character select, which is a frontend route of the provider's
 //! own, and the stage arrives only once the screen has decided.
 
+use bevy::MinimalPlugins;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
-use bevy::MinimalPlugins;
 
 use ambition_app::app::shell_host;
-use ambition_demo_smash::select::{SeatSelection, SmashSelect};
+use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
+use ambition_demo_smash::select_screen::cursor::SelectCursor;
+use ambition_demo_smash::select_screen::layout::SelectLayout;
 use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use leafwing_input_manager::prelude::Buttonlike;
 
@@ -113,16 +115,56 @@ fn tap(app: &mut App, key: KeyCode) {
     app.update();
 }
 
-/// Sit down / lock in.
+/// Click whatever the cursor is over.
 fn confirm(app: &mut App) {
     tap(app, KeyCode::Enter);
 }
 
-/// Add a CPU to the lowest empty seat. DOWN, not Start: on a keyboard
-/// `Platformer2dInputActionMonolith::Start` is Escape, which belongs to the pause menu — Jon,
-/// 2026-07-31: *"there is no start on a keyboard."*
-fn add_cpu(app: &mut App) {
-    tap(app, KeyCode::ArrowDown);
+/// **Put the cursor on something and click it.**
+///
+/// The position is written the way a MOUSE writes it; the click is a real
+/// keyboard Enter travelling the host's whole participant chain, which is what
+/// this file exists to exercise. That every widget is also REACHABLE by arrows
+/// alone is `the_screen_decides::the_arrows_alone_can_work_the_whole_screen`,
+/// where a bare demo app makes it cheap to assert.
+fn click(app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect) {
+    app.world_mut()
+        .resource_mut::<SelectCursor>()
+        .move_to(rect.center());
+    confirm(app);
+}
+
+/// The screen's own geometry — the same rectangles it draws.
+///
+/// ⚠ from the HOST's assembled roster. In this composition the grid is the
+/// crossover cast (every character tagged `smash`, plus the demo's own four),
+/// not the four a standalone demo offers — and a layout built from the wrong
+/// count puts every click one cell off.
+fn screen(app: &App) -> SelectLayout {
+    SelectLayout::for_viewport(
+        None,
+        app.world()
+            .resource::<ambition_demo_smash::select::SmashRoster>()
+            .len(),
+    )
+}
+
+/// **One person at a keyboard, against one CPU, from the buttons.**
+///
+/// Slot 1 takes the only source; slot 2 has none left, so its button skips
+/// straight to CPU. Then a fighter each, then START.
+fn decide_a_solo_match(app: &mut App) {
+    let layout = screen(app);
+    click(app, layout.role_button(0));
+    click(app, layout.role_button(1));
+    for (slot, character) in [(0usize, 0usize), (1, 1)] {
+        click(app, layout.token_home(slot));
+        click(
+            app,
+            layout.portrait(character).expect("an authored portrait"),
+        );
+    }
+    click(app, layout.start_button());
 }
 
 #[test]
@@ -144,15 +186,24 @@ fn the_title_screen_opens_character_select_and_the_screen_starts_the_match() {
         "nothing has been decided yet"
     );
 
-    // One person, one keyboard: add a CPU, sit down, lock in.
-    add_cpu(&mut app);
+    // One person, one keyboard: take a controller, add a CPU, pick two
+    // fighters, start.
+    let layout = screen(&app);
+    click(&mut app, layout.role_button(0));
+    click(&mut app, layout.role_button(1));
     assert_eq!(
-        app.world().resource::<SmashSelect>().seat(1),
-        SeatSelection::Cpu { character: 1 },
-        "a seat no controller reaches has to be able to become a CPU"
+        app.world().resource::<SmashSelect>().slot(1).occupant,
+        SlotOccupant::Cpu,
+        "a card no controller reaches has to be able to become a CPU"
     );
-    confirm(&mut app);
-    confirm(&mut app);
+    for (slot, character) in [(0usize, 0usize), (1, 1)] {
+        click(&mut app, layout.token_home(slot));
+        click(
+            &mut app,
+            layout.portrait(character).expect("an authored portrait"),
+        );
+    }
+    click(&mut app, layout.start_button());
     settle(&mut app);
 
     let roster = app
@@ -217,9 +268,7 @@ fn coming_back_to_the_select_screen_offers_a_fresh_match() {
     settle(&mut app);
 
     launch_row(&mut app, "Smash");
-    add_cpu(&mut app);
-    confirm(&mut app);
-    confirm(&mut app);
+    decide_a_solo_match(&mut app);
     for _ in 0..40 {
         app.update();
         if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
@@ -244,15 +293,20 @@ fn coming_back_to_the_select_screen_offers_a_fresh_match() {
          match is already under way and will never start another"
     );
     assert_eq!(
-        app.world().resource::<SmashSelect>().seat(0),
-        SeatSelection::Empty,
-        "every seat is still locked in from last time, so nothing can be pressed"
+        app.world().resource::<SmashSelect>().slot(0).occupant,
+        SlotOccupant::Absent,
+        "every slot is still decided from last time, so nothing can be pressed"
+    );
+    assert!(
+        !app.world()
+            .resource::<ambition_demo_smash::select_screen::StartRequested>()
+            .0,
+        "the previous START is still asked for, so the screen leaves on the \
+         frame it opens"
     );
 
     // And it really does start again.
-    add_cpu(&mut app);
-    confirm(&mut app);
-    confirm(&mut app);
+    decide_a_solo_match(&mut app);
     settle(&mut app);
     assert!(
         app.world()
@@ -351,9 +405,7 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
     settle(&mut app);
     launch_row(&mut app, "Smash");
 
-    add_cpu(&mut app);
-    confirm(&mut app);
-    confirm(&mut app);
+    decide_a_solo_match(&mut app);
     settle(&mut app);
 
     let declared = app
@@ -513,9 +565,7 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
     let mut app = shell_host_app();
     settle(&mut app);
     launch_row(&mut app, "Smash");
-    add_cpu(&mut app);
-    confirm(&mut app);
-    confirm(&mut app);
+    decide_a_solo_match(&mut app);
     settle(&mut app);
     for _ in 0..40 {
         app.update();
@@ -616,18 +666,42 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     launch_row(&mut app, "Smash");
     settle(&mut app);
 
-    // Player one joins and locks in on the KEYBOARD.
-    confirm(&mut app);
-    confirm(&mut app);
-    // Player two joins and locks in on the PAD. Confirm at an empty seat IS the
-    // join, so the same press twice sits down and then commits.
-    for _ in 0..2 {
-        pad_set(&mut app, pad, GamepadButton::South, 1.0);
+    // **BOTH SOURCES WORK THE SCREEN.** One cursor, two hands — the keyboard
+    // takes card one and the PAD takes card two, so this test still proves the
+    // pad reaches the lobby at all and not only the match.
+    //
+    // ⚠ **which slot gets which DEVICE is not decided by who pressed the
+    // button.** `first_free_device` hands out the lowest unclaimed source in
+    // card order, so card one is the keyboard (device 0) and card two is the pad
+    // (device 1) whichever hand did the clicking. That is the whole point:
+    // pressing a button is not a claim on a chair, and a screen where it was
+    // could seat two people on one device by pressing in the wrong order.
+    let layout = screen(&app);
+    let pad_click = |app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect| {
+        app.world_mut()
+            .resource_mut::<SelectCursor>()
+            .move_to(rect.center());
+        pad_set(app, pad, GamepadButton::South, 1.0);
         app.update();
-        pad_set(&mut app, pad, GamepadButton::South, 0.0);
+        pad_set(app, pad, GamepadButton::South, 0.0);
         app.update();
-        settle(&mut app);
-    }
+        settle(app);
+    };
+
+    click(&mut app, layout.role_button(0));
+    pad_click(&mut app, layout.role_button(1));
+    assert_eq!(
+        app.world().resource::<SmashSelect>().slot(1).occupant,
+        SlotOccupant::Controller { device: 1 },
+        "the pad's click did not reach the screen, or card two took the \
+         keyboard's own source"
+    );
+
+    click(&mut app, layout.token_home(0));
+    click(&mut app, layout.portrait(0).expect("an authored portrait"));
+    pad_click(&mut app, layout.token_home(1));
+    pad_click(&mut app, layout.portrait(1).expect("an authored portrait"));
+    click(&mut app, layout.start_button());
     settle(&mut app);
 
     for _ in 0..60 {
@@ -771,9 +845,7 @@ fn a_decided_match_freezes_the_local_seating() {
     let mut app = shell_host_app();
     settle(&mut app);
     launch_row(&mut app, "Smash");
-    add_cpu(&mut app);
-    confirm(&mut app);
-    confirm(&mut app);
+    decide_a_solo_match(&mut app);
     settle(&mut app);
 
     let declared = app

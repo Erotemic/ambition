@@ -16,250 +16,31 @@ be the one choosing.
 
 ---
 
-## 1. What do the world's transitions say? (queue Z′13, and it is not three doors)
-
-**What you would see.** Standing in the central hub, the door nameplates read
-`military_tower_door`, `hall_of_bosses_door`, `pirate_cove_door`. These survive a
-capture with developer overlays off, so they are not debug text — a nameplate
-renders `zone.name`, and the authored LDtk zones set `name` to the id string.
-
-⚠ **and it is not three.** Counted across every authored world: **130 of 151
-`LoadingZone`s carry an id-shaped name**, and that includes the game's OPENING
-room — a capture of `intro_wake_room` shows `wake_room_arrival` written across
-the player. So this was filed as "pick three strings" and it is not; at 130 it is
-a rule, not a naming session.
-
-**Three ways to take it, and they are genuinely different products:**
-
-* **Author them.** 130 display names, once, by hand.
-  [[feedback-entity-id-matches-label]] applies: rename the IDS to match the
-  labels in one commit across LDtk + code + tests + docs.
-* **Derive them.** A transition's label is the DESTINATION's display name — the
-  door to the Hall of Bosses says "Hall of Bosses" because that is what the room
-  is called. One rule, no per-zone authoring, and new content is named for free.
-  *This is my weak recommendation*, because 130 hand-written strings drift and a
-  derived one cannot.
-* **Show nothing** unless a zone explicitly authors a label, and let the door art
-  carry the meaning.
-
-**The engine is already ready** for any of them: `DoorNameplateSource` carries
-`id` and `label` separately, so a real label needs no code change.
-
-⚠ **and one of the 130 looks like a plain bug regardless of the naming
-decision.** `wake_room_arrival` is an ARRIVAL zone — the place you appear, not a
-thing you walk into — and its nameplate draws over the player on the first screen
-of the game. Whatever the labels end up saying, an arrival point probably should
-not be announcing itself. Say the word and I will fix that half without waiting
-for the rest.
-
-⚠ **and it is bigger than that zone** (measured 2026-07-29, queue AC12). Labels
-drawn across things you need to see is not one bad arrival zone, it is the
-placement model. The screen carries at least THREE label families — authored
-`DebugLabel` signage, actor nameplates, door nameplates — each placed by its own
-system with no knowledge of the others:
-
-* `drain_alley`: the sign `[manhole — Bob route return]` renders straight through
-  the `npc_news_board` nameplate; both texts illegible.
-* `combat_calibration_lab`: `MAP_OFFICIAL: calibration route` renders over the
-  `lab_patrol_dummy` nameplate **and** over the player.
-
-The intra-family spacer (`ambition_ldtk_tools.edit.space_debug_labels`) is
-correct and useless here — it compares signage against signage, and reports "no
-overlapping DebugLabels found" for both rooms, truthfully.
-
-**The decision I need is which family YIELDS.** The nameplate system already
-owns ranking and fade machinery, so that is where a single pass over all three
-belongs; what it cannot decide on its own is whether a permanent authored sign
-outranks a transient actor plate, or the reverse. My weak preference is that the
-PLAYER is never occluded and authored signage yields to actor plates (a sign is
-still there when you step away; an actor may not be) — but that is a
-readability judgement about your game, and the wrong choice makes the intro's
-tutorial signs disappear behind whoever is standing near them.
-
-Jon's Thoughts: 
-This doesn't feel that important right now. This is more of a debugging feature, but its 
-incredibly helpful to have as something always on, but a real game probably doesn't use it
-in this capacity. It's more like there's a door, and the player knows where it goes based on
-a map, or something. A game itself might define that it wasn't a nameplate style presentation, 
-and having engine sugar to make this easy might not be a bad idea. But again, this is extremely
-low priority. This is game polish that I don't anticipate caring about until we have really really
-good combat.
+> **Rows 1–7 were deleted 2026-08-05.** Jon answered all seven on 2026-07-29
+> and every answer is a row in [`maintainer-decisions.md`](maintainer-decisions.md)
+> — nameplates are low priority, `Interact` needs a design discussion, BUILD the
+> portrait resolver, use enemies that already exist, DI is on and Smash physics
+> is a direction for the flagship game, generic versus ends on health while Smash
+> Siblings is 3 stocks, and the reserved-surround branch is moot because there is
+> no score. ⛔ they sat here for a week wearing their answers as a "Jon's
+> Thoughts" paragraph under an open question, which is exactly what this file's
+> own header forbids: *"When one is made, it moves there and this row is
+> deleted."* **A decision file that still contains answered questions trains its
+> owner to stop reading it.**
 
 
----
+> **Rows 8, 10 and 12 were deleted 2026-08-05, and each had CLOSED IT ITSELF.**
+> #8 (which block did you stand on) says *"✔ CLOSED — not reproducible at HEAD"*;
+> #10 (does the app-local policy bind presentation) says *"RESOLVED … option (a)
+> was implemented"* in its own title; #12 (fixed timestep on the web) says
+> *"✔ DONE"* and quotes Jon's answer. All three kept their whole write-up under a
+> heading that still read as an open question. ⚠ **the numbering is left with
+> gaps on purpose** — the queue cites these by number, and renumbering would make
+> every one of those citations point at a different question.
+>
+> Their reasoning is in git. What a decision file is FOR is the list of things
+> Jon still has to rule on, and every closed row on it makes that list less true.
 
-## 2. Should a prompt advertise a verb that resolves to nothing? (queue Z′4)
-
-**What you would see.** The versus fighting stage offers `Interact (F)`. There is
-nothing on that stage to interact with.
-
-**Why the obvious fix is wrong.** `derive_action_scheme` grants Interact
-unconditionally and its comment says why: the actual prompt (Talk / Open / …)
-resolves against nearby interactables at press time. Under that design this is
-not a versus bug — it is prompt noise on EVERY stage, and gating it for fighters
-would fix the symptom where it happened to be noticed and leave it everywhere
-else.
-
-**The actual question.** How much should a control prompt promise? Two coherent
-answers:
-
-* **The prompt is a KEYMAP.** It says which buttons exist; whether a press does
-  anything is the world's business. Today's behaviour, and cheap.
-* **The prompt is an OFFER.** It shows only verbs that would do something, which
-  means it must know about nearby interactables — a real change, and it makes the
-  legend flicker as you walk past things.
-
-**Layering note for whoever takes it:** `derive_action_scheme` lives in
-`ambition_characters`, below both callers (`ambition_platformer2d_actor_monolith::action_scheme` and
-`ambition_sim_view::control_prompt`), so no match concept is visible to it. A
-per-body marker from `ambition_characters` is the only shape both callers can
-read — the route `ScriptedControl` already takes.
-
-
-Jons Thoughts: 
-
-A smash game (versus) shouldn't have the concept of "interact", in fact neither does Mary-O, or Sanic. Only Ambition has an "interact" --- well I guess maryo sort of has interact, it's like going into a pipe, but its a different mapping. The "interact" is something the ambition game might want, and its general to that game, but maybe not to the engine. There is certainly an architecture issue here, and I don't want to make a rash decision and introduce a worse abstraction. We need to have a discussion to think about what the right way to handle this is. 
-
----
-
-## 3. Portraits: build the resolver, or delete the field? (queue Y″6)
-
-**The state.** `CharacterDefinition.portrait` is carried faithfully through
-preparation and read by nothing. The CONCEPT has a real consumer —
-`ambition_content::presentation::dialog` resolves a speaker portrait through a
-`portrait_catalog` override, then `CharacterCatalog::portrait_ref`, then a clip
-from the portrait registry.
-
-**Why it cannot just be wired.** `CharacterDefinition.portrait` declares a
-portrait TARGET — a name resolved at preparation against the composition's
-vocabulary. `portrait_ref` yields concrete paths (`image`, `manifest`,
-`default_clip`). **There is no target → portrait-art resolver anywhere**, so the
-authored target has nothing to resolve through.
-
-**Two honest options:**
-
-* **Build the resolver.** The sheet path already has exactly this shape:
-  `SheetTarget` resolves a name to a manifest. This makes a registered character
-  able to bring its own portrait, which is what a character-definition seam is
-  for.
-* **Delete `CharacterDefinition.portrait`** and let the catalog own portraits
-  outright.
-
-*Weak recommendation: build the resolver*, because a character another game
-registers should be able to speak with its own face without editing our catalog —
-but that is an engine-ambition argument, and if portraits are a hub-dialogue
-feature rather than a character-authoring one, deleting is cleaner.
-
-⛔ **Not an option:** "wiring it" by copying the catalog's concrete paths onto the
-definition. That makes two places declaring the same art, which is the split this
-whole campaign has been removing.
-
-Jon's TThoughts: Yeah the resolver makes sense. The portraits are not a hub feature, 
-but different games might want to do it differently, however a character portrait for a dialog
-box is ubiquitous for platformer 2d games, so it makes sense the engine has a mechanism to 
-make it easy, although like most things with the engine, it should always be possible to 
-ignore some part of it and roll your own. This is the Bevy ECS way. 
-
----
-
-## 4. Which enemies get art first? (queue AB5)
-
-**What you would see.** `combat_calibration_lab` — the room labelled "P4: Combat
-Calibration", where the intro teaches a new player to fight — stages three
-enemies that draw as red rectangles with `lab_patrol_dummy` / `lab_spitter` /
-`lab_striker` floating above them. None is a catalog character, so none resolves
-a sheet.
-
-**This is the design working.** §4.10 is explicit that there is no fallback
-sheet, because a body borrowing the goblin's art made missing work invisible:
-*"Ambition's own enemies visibly regress until each gets art, which is the
-point."* Nothing is broken.
-
-**The call is about WHERE the debt is showing**, not whether the mechanism is
-right. It is showing in the tutorial room of the opening sequence — the
-highest-traffic square metre in the game for anyone you hand a build to. Three
-sprites would change what the first fight in Ambition looks like.
-
-**What I need:** whether those three are worth drawing now, or whether the intro
-should stage enemies that already have art (Puppy Slug, AI Slop, Goblin) and
-leave the lab dummies for later. The second option is a content edit I can make
-in one commit if you want it.
-
-Jon's Thoughts: 
-
-The lab striker was an agent invention. I asked it to just use a goblin as the enemy there
-until I decided what I wanted to do about the Nazis, which was the original idea. 
-Just replace those enemies with a real enemy that already exist. The entire intro sequence
-is unpolished slop anyway.  
-
----
-
-## 5. What is DI worth on a fighter? (queue F0-J1)
-
-**The state.** `di_adjust` — directional influence, the input that lets a
-launched fighter steer their trajectory — is landed and pure. `di_max_angle` is
-`0.0` everywhere, so DI is off. The combat-model table says outright that turning
-it on is *"a feel number **Jon sets**"*, and suggests ≈0.31 rad / 18°.
-
-**Why it matters now and did not before.** Until the blast zones landed there was
-nothing to be launched INTO, so the number could not change anything. Now a
-launch can end a stock, and DI is the difference between a knock-off that is a
-coin flip and one that is a read.
-
-**What I need:** one number (or "yes, use 18°"). The wiring is done.
-
-Jon's Feedback:
-
-In smash DI is critical! I probably want to use some smash physics in ambition itself too, because I want that game
-to feel like a cross between smash subspace emissary and hollow knight (among other things, I'm drawing inspiration from a lot of places). 
-
----
-
-## 6. Does versus end on HP or on stocks? (queue F0-J2)
-
-**The state.** `DeathPolicy::Unbounded` works and is uncalled. Leaving it uncalled
-means versus has TWO win conditions — drain the HP bars, or throw them out — and
-that is what ships today.
-
-**The choice.** Selecting `Unbounded` makes damage purely a knockback multiplier
-and the blast zone the only way to win, which is the genre this stage is
-modelled on. Keeping both is a defensible place to stand; it is just a different
-game.
-
-This is a decision about what the mode IS, not a defect, which is why nothing
-has been done to it.
-
-Jon's Feedback:
-
-For a generic "versus" fighting proof of concept I don't care. Probably use health, to make it a generic fighter.
-For Smash Siblings 3 stock, no items, final destination, fox only (that's fox only part is a joke). What I want for smash siblings is actually character select screen, ability to have 1-4 players, have them toggle between real player or cpu, use a smash like, drag an orb onto your character to select, and then the fight boots into a single 
-battlefield like 3 platform level. Its 3 stocks, and then when the game ends it goes back to the character select screen. We don't need items in a first pass.
-
----
-
-## 7. Keep or discard `wip/versus-reserved-surround`? (queue Z′10)
-
-**The branch** (`c90cff205`) reserves a top band on the versus stage and draws
-the scoreboard into it, instead of over the arena.
-
-**It was parked as unverifiable** — a screenshot could not show a viewport
-policy. **That changed:** the Mary-O route now captures with visible 4:3
-letterboxing and its SCORE/COINS/TIME/LIVES HUD drawn in the reserved surround,
-which is the same mechanism. So someone can apply the branch, capture
-`versus_gameplay`, and SEE it.
-
-**The question is about the stage, not the code:** does a reserved top band read
-better than a HUD over the arena, or does it waste fighting width?
-
-⚠ **Note what it no longer fixes.** It was written for a HUD/legend overlap that
-turned out to be two other bugs (an unresolved layout and the touch overlay
-drawing unplaced surfaces). Both are fixed on main, so this branch is now purely
-a look-and-feel proposal. If it is not wanted, discarding costs nothing.
-
-Jon's Feedback:
-
-A smash game would have a character portrait on the bottom for each character with an icon for each stock and their current percentage. There is no score, when you lose your stock you are dead. 
----
 
 ## Should DIALOGUE stop the world, or only the talker? (2026-08-01)
 
@@ -621,58 +402,6 @@ agree. This decision is about the value, not about the drift.
 
 ---
 
-## 8. Which block did you stand on? (queue 08-03 D10 / D11)
-
-> **JON, 2026-08-03 (re-checked): "verified, I can no longer stand on the broken
-> bricks."**
-
-✔ **CLOSED — not reproducible at HEAD.** The subject was the three breakable
-blocks past the pipes, and the brick path is behaving. ⚠ **no fix is attributable
-to it**: nothing in this run touched brick collision, so it was either repaired by
-adjacent work or was never what the earlier report described. Recorded as *gone*,
-not as *fixed*, so a return is treated as new evidence rather than a regression.
-⭐ the probe that said the path was correct
-(`a_broken_brick_leaves_the_collision_world_the_body_reads`) is now CORROBORATED
-rather than suspect — it and the player agree.
-
-▢ **and Jon's follow-up widens the row rather than closing it**: *"I think there
-are still a bunch of maryo things in my observations that we haven't fixed yet."*
-That is a pointer at the observations file, not at this block.
-
-> **JON, 2026-08-03: "the 3 blocks that break after the pipes. I will check if the
-> problem still exists."**
-
-◐ **Located, and Jon is re-checking whether it reproduces.** The subject is the
-three breakable blocks past the pipes — so it is the BRICK path after all, not the
-spent-`?`-block explanation this note was leaning toward. ⚠ that matters: the
-brick path was probed and found correct
-(`a_broken_brick_leaves_the_collision_world_the_body_reads`), so if it still
-reproduces there, that probe is measuring something the player is not hitting.
-Waiting on Jon's re-check before spending more.
-
-**One answer closes two rows or reopens a collision question**, which is why it is
-worth asking rather than guessing.
-
-Your report was *"I can stand on a broken brick"*. Everything downstream was
-traced and probed, and the brick path is CORRECT: break marks the bit, the bit
-becomes `removed_block_names`, `world_with_sandbox_solids` applies the
-subtraction before anything reads `solids()`, and a written probe
-(`a_broken_brick_leaves_the_collision_world_the_body_reads`) shows brick 0 gone
-from the composed world against the real level while its neighbour is untouched.
-
-⭐ **So the leading explanation is that it was a SPENT `?`-BLOCK**, and a spent
-`?`-block staying solid is correct — it is what the genre does.
-`SpentPowerBlocks` contributes nothing to `removed_block_names`, deliberately.
-
-- **(a) It shattered into pieces and I stood where it had been.** The probe is
-  wrong or incomplete and the collision path reopens.
-- **(b) It popped an item and stayed put.** Then nothing is broken and the real
-  defect is that it still LOOKS live — which is your own D11 row (*"used blocks
-  need their own texture and a nudge animation"*), and that becomes the fix.
-
-⚠ **I cannot distinguish these from the report**, and the two lead to opposite
-work: one is a physics investigation, the other is an art and animation task.
-
 ## 9. Can a flying fighter shield? (queue 08-03 F7-duel)
 
 ⚠ **NO LONGER BLOCKING ANY TEST (2026-08-03).** The two duel tests this was filed
@@ -727,50 +456,6 @@ the fighter used to write raw world x into the body-local `locomotion`, so its
 movement, closing speeds, and flight decision all changed when that was
 corrected. The tests were calibrated against the buggy movement.
 
-## 10. ~~Does `character-authority-is-app-local` bind PRESENTATION?~~ RESOLVED 2026-08-03 — no decision needed
-
-**Option (a) was implemented** (`bec8ee083`), which this note already called "more
-work and probably right". `ambition_sim_view::AttackVfxView` carries the fact;
-neither render system names the catalog. The publisher takes `Res`, not
-`Option<Res>`, so a composition without a catalog leaves the component ABSENT
-instead of laundering the absence into a `None` — which is the distinction the bug
-erased, now expressed by the type.
-
-⭐ (b) — narrowing the policy — is explicitly NOT what happened, for the reason
-stated below: it was the answer that made my own red go away.
-
-The original write-up follows.
-
-### original
-
-The workspace-policy suite was found red with 10 violations from 08-02 work
-(invisible because the failing job already had a known failure in it). Eight are
-repaired or narrowed; **two are a real break with no obviously right fix.**
-
-`slash_visuals.rs` and `unauthored_volumes.rs` take
-`Option<Res<CharacterCatalog>>`, which the policy forbids by name and by
-rationale: *"may not … silently substitute an empty catalog, make those resources
-optional"*. The concrete harm is real — an absent catalog makes `attack_vfx`
-return `None`, so `authored` is false, so a placeholder volume is drawn over
-**every** attack including characters that author their own art. Silent and
-backwards.
-
-⚠ **but making the resource required panics the headless and test compositions
-the `Option` was added for**, so the obvious repair is not available.
-
-- **(a) The read-model carries it.** *Does this character author its own attack
-  VFX* becomes a published fact beside the sprite quad the read-model already
-  carries for the same reason. Presentation stops consulting the catalog at all,
-  which is what E4 says anyway. A publisher change plus two consumers.
-- **(b) The policy does not bind presentation.** Its rationale is about
-  gameplay AUTHORITY — who decides what a character IS — and a renderer asking
-  "did you author art for this" is not that. Narrow the policy's scope with the
-  reason, as was done for the dialog policy this run.
-
-⚠ **(a) is more work and probably right; (b) is defensible and I am wary of
-choosing it**, because "narrow the rule" is the answer that makes my own red go
-away, and that is exactly when it should not be my call.
-
 ## 11. Is `bevy_material_ui` being adopted, or is it 31% of the frame for nothing?
 
 **`MaterialUiPlugin` contributes 182 systems to `Update` — 31% of the entire
@@ -813,50 +498,6 @@ layout* plugin) were wrong before the mechanical bisect found it.
 ⚠ **I am not treating "unused by grep" as "unused"** — that inference was already
 wrong once here. This is a question about your INTENT for the dependency, which no
 measurement can answer.
-
-## 12. Should the web build simulate on a fixed timestep? (2026-08-03)
-
-✔ **DONE (`1505e0d88`, and the host change that follows it).** `run_web` now sets
-`SimulationHost::Ggrs`. ⚠ two things had to be true first, and neither was:
-the ENGINE had to own the GGRS session (it was owned by a `dev_tools`-gated
-observatory, so this host outside dev tooling meant a build that never simulated),
-and **the web target had to compile at all** — it had been broken since 2026-08-01
-by a `#[cfg(feature = "ui")]` on an import whose three use sites were ungated.
-
-> **JON, 2026-08-03: "the web build is another deployment of the game so likely
-> needs ggrs if multiplayer is ever gonna be a real thing."**
-
-✔ **Answer: option (2) — Ggrs, not `Fixed60Hz` and not "leave it".** The reason
-given is the one that settles it: web is a DEPLOYMENT of the same game, not a
-demo, so it inherits the same simulation host rather than a cheaper one. ⚠ this
-also means the wasm bundle carries bevy_ggrs, which option (2) always implied and
-is now accepted deliberately.
-
-`build_visible_app` chooses `SimulationHost::Ggrs` inside
-`#[cfg(feature = "dev_tools")]`, and `dev_tools` is in the default feature set —
-so every desktop build steps the simulation at a fixed 1/60 s. `run_web` never
-calls `set_simulation_host`, and the resolver's own comment says *"Missing means
-the lightweight render-frame host"*, so the browser build steps the simulation
-**once per render frame with the real frame delta** (`refresh_world_time` reads
-the schedule-local `Res<Time>`).
-
-**A platformer's feel is a function of its timestep**, so this is not a
-performance difference — the jump arc differs between a 60 Hz and a 144 Hz
-browser, and between either and the desktop build. ADR 0023's determinism
-contract also holds only where a fixed host was chosen.
-
-Three answers, and they are not close to equivalent:
-
-1. **`Fixed60Hz` for the web entry** — one line, makes the browser match the
-   desktop's step, no netcode in wasm. Changes how the game currently feels in a
-   browser for anyone who has played it there.
-2. **Ggrs for the web entry** — matches desktop exactly, and drags bevy_ggrs and
-   the whole rollback stack into the wasm bundle.
-3. **Leave it** — correct if the browser build is a demo rather than a way people
-   actually play, in which case the answer wants writing down next to `run_web`
-   so the next person does not treat it as an oversight.
-
-⚠ I have not touched it. Which one is a call about what the web build is FOR.
 
 ## 13. Should a crawler's collision volume ORIENT with its attachment? (queue F5, 2026-08-03)
 

@@ -41,7 +41,7 @@ use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub mod select;
-pub mod select_ui;
+pub mod select_screen;
 
 /// The game-MODE tag this demo's rules gate on, so they sleep everywhere else.
 pub const SMASH_MODE: &str = "smash";
@@ -560,6 +560,61 @@ fn take_eliminated_fighters_out_of_play(
     }
 }
 
+/// How long the winner card stands before the demo goes back to choosing.
+///
+/// The banner itself asks for 3.0s; this waits a beat longer so the card is
+/// READ rather than glimpsed on the way out.
+const RETURN_TO_SELECT_AFTER: f32 = 4.5;
+
+/// **When the match ends, go back and choose again.**
+///
+/// Jon, 2026-07-29, specifying Smash Siblings: *"Its 3 stocks, and then when the
+/// game ends it goes back to the character select screen."* Recorded as a
+/// decision that day (`maintainer-decisions.md`) and never built — the banner
+/// went up, and the demo then sat on a decided stage with nothing left to
+/// decide and no way back but the pause menu.
+///
+/// ⚠ **`Update` and REAL time, not the sim schedule.** Leaving a match is shell
+/// lifecycle: the countdown must keep running while the simulation is over, and
+/// the route change is a shell command, not a rule.
+///
+/// ⚠ **armed once.** `StocksMatchDecided` is written from the sim, so a rollback
+/// can re-deliver it; re-arming on the second copy would restart the countdown
+/// and hold the players on a finished match.
+fn return_to_the_select_screen_when_the_match_ends(
+    mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    time: bevy::prelude::Res<bevy::prelude::Time>,
+    mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
+    mut countdown: bevy::prelude::Local<Option<f32>>,
+) {
+    let on_stage = router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_GAMEPLAY_ROUTE);
+    if !on_stage {
+        // Left by some other road — the pause menu, a host quitting home. The
+        // countdown belongs to THIS visit to the stage.
+        *countdown = None;
+        decided.clear();
+        return;
+    }
+    let ended = decided.read().count() > 0;
+    if ended && countdown.is_none() {
+        *countdown = Some(RETURN_TO_SELECT_AFTER);
+    }
+    let Some(remaining) = countdown.as_mut() else {
+        return;
+    };
+    *remaining -= time.delta_secs();
+    if *remaining <= 0.0 {
+        *countdown = None;
+        shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
+            ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_SELECT_ROUTE),
+        ));
+    }
+}
+
 /// Say who won, once.
 fn announce_the_winner(
     mut decided: bevy::prelude::MessageReader<ambition_platformer2d::actor::StocksMatchDecided>,
@@ -616,6 +671,22 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 SMASH_SELECT_EXPERIENCE,
             ));
         app.init_resource::<select::SmashSelect>();
+        // The pointer, and the one thing it can ask for that the value does not
+        // hold. Both live outside `SmashSelect` on purpose: where a cursor is
+        // pointing is not part of what the screen DECIDED, and a decision value
+        // that carried a screen position would change every time somebody moved
+        // the mouse.
+        app.init_resource::<select_screen::cursor::SelectCursor>();
+        app.init_resource::<select_screen::StartRequested>();
+        // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
+        //
+        // ⚠ `Startup` rather than `build`, and the ordering is the reason: the
+        // assembled `CharacterCatalog` is replaced every time ANY plugin
+        // registers a fragment, so a roster computed while plugins are still
+        // being added would see whichever cast had been registered so far. By
+        // `Startup` every provider in the composition has declared itself.
+        app.init_resource::<select::SmashRoster>();
+        app.add_systems(bevy::prelude::Startup, assemble_the_smash_roster);
         // **THE SCREEN DECLARES ITS OWN INPUT PORT.** The host fills
         // `SeatMenuFrames` when a windowed host is installed; `init_resource`
         // will not clobber one that already exists. Declaring it here means the
@@ -669,13 +740,45 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
             bevy::prelude::IntoScheduleConfigs::in_set(
                 bevy::prelude::IntoScheduleConfigs::chain((
                     present_the_select_screen,
-                    select_ui::update_select_ui,
-                    drive_the_select_screen,
-                    start_the_battle_when_everyone_is_ready,
+                    // ⚠ **DRIVE BEFORE DRAW, and the order is not cosmetic.**
+                    // The cursor hit-tests the MEASURED layout, which Bevy
+                    // computes in `PostUpdate` — so both of these read last
+                    // frame's rectangles. Drawing first would place the tokens
+                    // from a decision the click on this frame is about to
+                    // change, and a dragged token would lag the cursor by a
+                    // frame for no reason anybody could see.
+                    bevy::prelude::IntoScheduleConfigs::run_if(
+                        select_screen::drive_the_cursor,
+                        the_select_screen_owns_its_input,
+                    ),
+                    select_screen::place_the_screen,
+                    select_screen::update_the_select_screen,
+                    start_the_battle_when_asked,
+                    return_to_the_select_screen_when_the_match_ends,
                 )),
                 SmashSelectSet,
             ),
         );
+    }
+}
+
+/// **Who can be picked, in THIS composition.**
+///
+/// The demo's own fighters, plus every character whose catalog row carries the
+/// `smash` tag — so a multi-game host offers its whole crossover cast and the
+/// standalone demo offers the four it declares itself, from one rule.
+fn assemble_the_smash_roster(
+    catalog: Option<bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>>,
+    mut fighters: bevy::prelude::ResMut<select::SmashRoster>,
+) {
+    let Some(catalog) = catalog else {
+        // No catalog at all is a bare harness, and the default (this demo's own
+        // four) is the honest answer rather than an empty grid.
+        return;
+    };
+    let assembled = select::SmashRoster::assemble(&catalog);
+    if *fighters != assembled {
+        *fighters = assembled;
     }
 }
 
@@ -698,10 +801,16 @@ fn present_the_select_screen(
     // routes restores the default exactly once and never stamps over a policy
     // some other experience set.
     mut claimed_policy: bevy::prelude::Local<bool>,
-    existing: bevy::prelude::Query<(), bevy::prelude::With<select_ui::SmashSelectUiRoot>>,
+    mut pointer: bevy::prelude::ResMut<select_screen::cursor::SelectCursor>,
+    mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
+    fighters: bevy::prelude::Res<select::SmashRoster>,
+    catalog: Option<bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>>,
+    asset_server: Option<bevy::prelude::Res<bevy::prelude::AssetServer>>,
+    menu_font: Option<bevy::prelude::Res<ambition_platformer2d::menu::render::bevy_ui::MenuFont>>,
+    existing: bevy::prelude::Query<(), bevy::prelude::With<select_screen::SmashSelectUiRoot>>,
     roots: bevy::prelude::Query<
         bevy::prelude::Entity,
-        bevy::prelude::With<select_ui::SmashSelectUiRoot>,
+        bevy::prelude::With<select_screen::SmashSelectUiRoot>,
     >,
 ) {
     let on_select = router
@@ -780,6 +889,14 @@ fn present_the_select_screen(
         // in a multi-game launcher made possible.
         if existing.is_empty() {
             *select = select::SmashSelect::default();
+            // ⚠ **the CURSOR and the START request are reset with it.** They are
+            // separate resources and would otherwise be the residue that makes
+            // a rematch behave differently from a first match: a `StartRequested`
+            // left true re-publishes the roster on the frame the screen opens,
+            // which is the same "you could look at it and never leave" bug the
+            // paragraph above is about, in a second resource.
+            *pointer = select_screen::cursor::SelectCursor::default();
+            *start = select_screen::StartRequested::default();
             // THIS demo's roster. Another stage in the same host publishes its
             // own into the same global resource, and clearing "the roster" is
             // how one game deletes another's match.
@@ -787,23 +904,19 @@ fn present_the_select_screen(
                 commands.remove_resource::<MatchParticipantRoster>();
             }
         }
-        select_ui::spawn_select_ui(commands, existing);
+        select_screen::spawn_select_screen(
+            commands,
+            existing,
+            fighters,
+            catalog,
+            asset_server,
+            menu_font,
+        );
     } else {
-        select_ui::despawn_select_ui(commands, roots);
+        select_screen::despawn_select_screen(commands, roots);
     }
 }
 
-/// **Turn what each seat pressed into what each seat decided.**
-///
-/// ⚠ this is the system the screen went without, and its absence is the exact
-/// defect shape this repo keeps catching: `SmashSelect` was initialised, read by
-/// the transition below, unit-tested through every state — and NOTHING ever
-/// wrote to it. `ready()` could not become true, so the battle could not start,
-/// and every test passed because they all drove the resource directly. A state
-/// machine with no driver is a state machine that has never run.
-///
-/// Reads [`SeatMenuFrames`] rather than the global `MenuControlFrame`, because
-/// on this screen "who pressed it" is the entire question.
 /// **Claim input for the seats this screen drives, while it is up.**
 ///
 /// ⛔ without this the screen was a surface nothing arbitrated. With the
@@ -842,108 +955,37 @@ fn declare_the_select_input_context(
     }
 }
 
-fn drive_the_select_screen(
-    mut select: bevy::prelude::ResMut<select::SmashSelect>,
+/// **Is this screen the one the presses belong to?**
+///
+/// ⛔ without this the screen was a surface nothing arbitrated. With the
+/// universal pause menu open OVER it, the arrows drove BOTH — the menu's cursor
+/// and the lobby — because the two read different channels (`MenuControlFrame`
+/// and `SeatMenuFrames`) and neither could consume the other's edge.
+///
+/// ⚠ **it asks whether ANY seat still owns `SELECT_CONTEXT`, not whether seat 0
+/// does.** There is one cursor and four people may drive it, so the screen
+/// stops when the whole screen is outranked and not when player one's claim
+/// happens to be the one that lost. `None` (no resolver installed, as in a bare
+/// unit fixture) reads as owned: a test that wires no contexts is testing the
+/// screen, not the arbitration.
+fn the_select_screen_owns_its_input(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
-    frames: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatMenuFrames>>,
-    devices: Option<bevy::prelude::Res<ambition_platformer2d::input::LocalDeviceOrder>>,
     contexts: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatInputContexts>>,
-    assignment: Option<
-        bevy::prelude::Res<ambition_platformer2d::input::sources::InputAssignmentPolicy>,
-    >,
-) {
+) -> bool {
     let on_select = router
         .active
         .as_ref()
         .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
     if !on_select {
-        return;
+        return false;
     }
-    let Some(frames) = frames else { return };
-    // A keyboard-only desktop has no device rows and still has a player, so the
-    // offered seats never fall below one (the count clamps).
-    //
-    // ⛔ **the POLICY-AWARE count, the same one the seat DECLARATION uses.** This
-    // read `seats_offered` — the unified, pad-only count — while
-    // `declare_smash_lobby_seats` had already switched to
-    // `seats_offered_under(.., JoinToClaim)`. So with a keyboard and one pad the
-    // lobby declared TWO seats, spawned two participants, gave the pad to seat 1
-    // correctly, and then this loop iterated `0..1` and never read seat 1's menu
-    // frame. Seat 1 stayed `Empty` while its `ActionState` showed the confirm it
-    // had pressed — two counts of the same thing, disagreeing.
-    let policy = assignment.as_deref().copied().unwrap_or_default();
-    let offered = devices
-        .as_deref()
-        .map(|devices| select::seats_offered_under(devices, policy))
-        .unwrap_or(1);
-    for seat in 0..offered {
-        // **DOES THIS SEAT STILL OWN THE SCREEN?**
-        //
-        // A capturing claim above `SELECT` — the pause menu — closes this
-        // context and the screen stops driving, so one press moves the menu
-        // cursor and nothing else. `None` (no resolver installed, as in a bare
-        // unit fixture) reads as owned: a test that wires no contexts is testing
-        // the screen, not the arbitration.
-        let owned = contexts.as_deref().is_none_or(|c| {
-            c.for_seat(seat as u8)
+    contexts.as_deref().is_none_or(|contexts| {
+        (0..select::MAX_SMASH_SEATS as u8).any(|seat| {
+            contexts
+                .for_seat(seat)
                 .allows(ambition_platformer2d::input::SELECT_CONTEXT)
-        });
-        if !owned {
-            continue;
-        }
-        let frame = frames.for_seat(seat as u8);
-        if frame.back {
-            select.cancel(seat);
-            continue;
-        }
-        // **DOWN ADDS A CPU, UP TAKES ONE AWAY — from ANY seat, in every state.**
-        //
-        // The seats nobody holds a controller for are the ones being edited, so
-        // the press cannot come from them; it comes from whoever is here. Up and
-        // down are the two directions this screen has no other use for
-        // (left/right browse), which is what makes them free — and unlike
-        // `start`, they exist on a keyboard. `Platformer2dInputActionMonolith::Start` is ESCAPE
-        // there, and Escape opens the pause menu: the one press that made the
-        // demo playable alone was the one press a keyboard could not make.
-        if frame.down {
-            select.add_cpu(seat);
-        }
-        if frame.up {
-            select.remove_cpu();
-        }
-        match select.seat(seat) {
-            // Confirm at an empty seat IS the join. There is no separate
-            // "press start" to sit down, and a second button to learn is a
-            // second button somebody at a party does not know about.
-            select::SeatSelection::Empty => {
-                if frame.select {
-                    select.join(seat);
-                }
-            }
-            select::SeatSelection::Browsing { .. } => {
-                if frame.left {
-                    select.browse(seat, -1);
-                }
-                if frame.right {
-                    select.browse(seat, 1);
-                }
-                if frame.select {
-                    select.lock_in(seat);
-                }
-            }
-            // A locked seat listens for nothing but `back` (handled above) and
-            // the CPU keys. Ignoring `select` here is deliberate: a double-tap of
-            // confirm must not reach through to anything else.
-            select::SeatSelection::LockedIn { .. } => {}
-            // A CPU is holding this chair. Confirm sits down in it; `back` (above)
-            // sends the machine away.
-            select::SeatSelection::Cpu { .. } => {
-                if frame.select {
-                    select.join(seat);
-                }
-            }
-        }
-    }
+        })
+    })
 }
 
 /// Publish the decided roster and leave the select screen.
@@ -951,13 +993,24 @@ fn drive_the_select_screen(
 /// Runs on `Update`, not the sim schedule: choosing a fighter is shell
 /// lifecycle, and the sim is not even running yet — the stage has no session
 /// until the route this system requests actually resolves.
-fn start_the_battle_when_everyone_is_ready(
+///
+/// ⚠ **it waits for START to be CLICKED**, where the previous version left the
+/// instant `ready()` became true. Two reasons, and the second is the one that
+/// mattered: the real thing has a ready button, and a screen that launches on
+/// the frame its last token lands is a screen nobody can photograph. Every
+/// attempt to capture a decided lobby photographed the match instead.
+fn start_the_battle_when_asked(
     mut commands: bevy::prelude::Commands,
     select: bevy::prelude::Res<select::SmashSelect>,
+    asked: bevy::prelude::Res<select_screen::StartRequested>,
+    fighters: bevy::prelude::Res<select::SmashRoster>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
 ) {
+    if !asked.0 {
+        return;
+    }
     // Only from the select screen. Without this the system would re-fire during
     // the match — `ready()` stays true while the roster stands — and ask the
     // shell to re-enter the stage on every frame of the fight.
@@ -968,7 +1021,7 @@ fn start_the_battle_when_everyone_is_ready(
     if !on_select || roster.is_some() {
         return;
     }
-    let Some(decided) = select.roster() else {
+    let Some(decided) = select.roster(&fighters) else {
         return;
     };
     commands.insert_resource(decided);
@@ -1080,6 +1133,37 @@ pub const SMASH_CHARACTER_ID: &str = "smash_duelist_a";
 /// The opponent.
 pub const SMASH_OPPONENT_ID: &str = "smash_duelist_b";
 
+// **THE REST OF THE GRID.** (Jon, 2026-08-05: *"a grid of portraits for each of
+// the selectable characters"* — two portraits is not a grid.)
+//
+// ⭐ Every one of these wears a sheet that ALREADY SHIPS and that no other
+// catalog claims, which is what makes the roster free: `character_catalog.ron`
+// declares 140 characters and none of them is Mary-O, Sanic or Solid Snake,
+// because those belong to the other demos rather than to the hall. So this demo
+// can be the crossover stage its own doc says it wants to be without inventing a
+// single new asset, and without colliding on the display-name uniqueness the
+// assembled catalog enforces.
+//
+// ⚠ **they share one kit.** See `SmashSelect::roster` — eight fighters, one
+// ability set, one brain, one action set. Different LOOKS and one game. Per
+// character movement, reach and weight is the obvious next question and is
+// deliberately not this one; a roster where the choice already changed the
+// match would have made the select screen impossible to judge on its own terms.
+/// Mary-O, out of her own platformer and onto the stage.
+pub const SMASH_MARY_O: &str = "smash_mary_o";
+/// Her fire form, which is a different silhouette rather than a palette — the
+/// one exception to Jon's "no skins" line, and it is a form the game already
+/// models as its own sheet.
+pub const SMASH_MARY_O_FIRE: &str = "smash_mary_o_fire";
+/// The blue one.
+pub const SMASH_SANIC: &str = "smash_sanic";
+/// The blue one, having eaten.
+pub const SMASH_SUPER_SANIC: &str = "smash_super_sanic";
+/// Mary-O's patrolling nemesis, promoted to a fighter.
+pub const SMASH_SOLID_SNAKE: &str = "smash_solid_snake";
+/// The logician.
+pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
+
 /// ⚠ **this demo authors its own two fighters, and the reason is a leak worth
 /// recording.**
 ///
@@ -1148,6 +1232,30 @@ const SMASH_CATALOG_RON: &str = r#"(
             default_action_set: "duelist",
             tags: ["smash"],
             fallback_dialogue: ["Percent is not health. I learned that the hard way."],
+        ),
+        "smash_mary_o_fire": (
+            display_name: "Fire Mary-O",
+            spritesheet: "sprites/super_mary_o_fire_spritesheet.png",
+            manifest: "sprites/super_mary_o_fire_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "duelist",
+            default_action_set: "duelist",
+            tags: ["smash"],
+            fallback_dialogue: ["One hit and I am somebody else. Make it count."],
+        ),
+        "smash_george_booul": (
+            display_name: "George Booul",
+            spritesheet: "sprites/george_booul_spritesheet.png",
+            manifest: "sprites/george_booul_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "duelist",
+            default_action_set: "duelist",
+            tags: ["smash"],
+            fallback_dialogue: ["Either you are on the stage or you are not."],
         ),
     },
 )"#;
@@ -1702,7 +1810,7 @@ mod tests {
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {
         use ambition_platformer2d::characters::actor::character_catalog::{
-            parse_catalog, CharacterCatalog,
+            CharacterCatalog, parse_catalog,
         };
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
@@ -1742,10 +1850,10 @@ mod tests {
 mod pause_arbitration_tests {
     use super::*;
     use ambition_platformer2d::input::participant::{
-        context_priority, resolve_active_input_context, ContextClaim, ParticipantContexts,
+        ContextClaim, ParticipantContexts, context_priority, resolve_active_input_context,
     };
     use ambition_platformer2d::input::{
-        InputParticipant, MenuControlFrame, SeatInputContexts, SeatMenuFrames, PAUSE_CONTEXT,
+        InputParticipant, MenuControlFrame, PAUSE_CONTEXT, SeatInputContexts, SeatMenuFrames,
     };
     use bevy::prelude::*;
 
@@ -1756,9 +1864,24 @@ mod pause_arbitration_tests {
         app.init_resource::<SeatMenuFrames>();
         app.init_resource::<select::SmashSelect>();
         app.init_resource::<ambition_platformer2d::game_shell::ShellRouter>();
+        app.init_resource::<select_screen::cursor::SelectCursor>();
+        app.init_resource::<select_screen::StartRequested>();
+        // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
+        //
+        // ⚠ `Startup` rather than `build`, and the ordering is the reason: the
+        // assembled `CharacterCatalog` is replaced every time ANY plugin
+        // registers a fragment, so a roster computed while plugins are still
+        // being added would see whichever cast had been registered so far. By
+        // `Startup` every provider in the composition has declared itself.
+        app.init_resource::<select::SmashRoster>();
+        app.add_systems(bevy::prelude::Startup, assemble_the_smash_roster);
         app.add_systems(
             Update,
-            (resolve_active_input_context, drive_the_select_screen).chain(),
+            (
+                resolve_active_input_context,
+                select_screen::drive_the_cursor.run_if(the_select_screen_owns_its_input),
+            )
+                .chain(),
         );
 
         // On the select route, with this screen's own claim declared — the same
@@ -1797,11 +1920,26 @@ mod pause_arbitration_tests {
             prepared_session: None,
         });
 
-        // Seat 0 holds DOWN, which on this screen adds a CPU.
+        // **THE CURSOR IS ON SLOT 1's BUTTON.** No window and no `UiPlugin` here,
+        // and it does not matter: the screen's rectangles come from
+        // `select_screen::layout`, which lays out against `HEADLESS_VIEWPORT`
+        // when there is no window. That is what makes this test press a real
+        // button rather than reach into the value — and the control below is
+        // what proves the press lands at all.
+        let button = select_screen::layout::SelectLayout::for_viewport(
+            None,
+            select::SmashRoster::default().len(),
+        )
+        .role_button(0);
+        app.world_mut()
+            .resource_mut::<select_screen::cursor::SelectCursor>()
+            .move_to(button.center());
+
+        // Seat 0 presses confirm on that button, which cycles the slot.
         app.world_mut().resource_mut::<SeatMenuFrames>().set(
             0,
             MenuControlFrame {
-                down: true,
+                select: true,
                 ..Default::default()
             },
         );
@@ -1815,9 +1953,11 @@ mod pause_arbitration_tests {
         let mut app = app_with(false);
         app.update();
         assert_eq!(
-            app.world().resource::<select::SmashSelect>().cpus(),
+            app.world()
+                .resource::<select::SmashSelect>()
+                .participating(),
             1,
-            "down adds a CPU when this screen owns the seat"
+            "a click on slot 1's button did nothing while this screen owned the seat"
         );
     }
 
@@ -1838,9 +1978,11 @@ mod pause_arbitration_tests {
         let mut app = app_with(true);
         app.update();
         assert_eq!(
-            app.world().resource::<select::SmashSelect>().cpus(),
+            app.world()
+                .resource::<select::SmashSelect>()
+                .participating(),
             0,
-            "the pause menu owns the arrows; the screen underneath must not \
+            "the pause menu owns the presses; the screen underneath must not \
              also act on them"
         );
     }

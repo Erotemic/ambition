@@ -2,19 +2,28 @@
 //!
 //! `cargo run -p ambition_demo_smash_app --bin select_walkthrough`
 //!
-//! Drives the real screen with real button presses and prints what it says after
-//! each one — through `select_ui::panel_text`, the SAME function the UI panels
-//! render, so this cannot show a screen the player would not see.
+//! Drives the real screen with a real cursor and real button presses, and
+//! prints what it says after each one — through the SAME functions the cards
+//! render (`role_button_text`, `card_name_text`, `SmashSelect::blocker`), so
+//! this cannot show a screen the player would not see.
 //!
-//! It is text rather than pixels on purpose. `stage_diagram` draws geometry
-//! because geometry is what that room is; a select screen is WORDS, and a
-//! hand-rolled 5x7 font rendering them into a PNG would be a less faithful view
-//! of the same strings, not a more faithful one.
+//! ⭐ **the geometry is real too.** `select_screen::layout` is a pure function
+//! of the viewport, so a headless app lays the screen out against
+//! `HEADLESS_VIEWPORT` and the cursor lands on the same rectangles a windowed
+//! build would draw. That is what lets a text walkthrough click a BUTTON rather
+//! than reach into the decision and set the answer — reaching into the answer is
+//! how this screen once came to be fully unit-tested and completely inert.
+//!
+//! It is text rather than pixels on purpose: `capture_scene --route smash_select`
+//! photographs the real thing, and this prints what the screen BELIEVES, which a
+//! photograph cannot.
 
-use ambition_platformer2d::input::{MenuControlFrame, SeatMenuFrames};
-use ambition_demo_smash::select::{MAX_SMASH_SEATS, SmashSelect};
-use ambition_demo_smash::select_ui::{panel_text, prompt_text};
+use ambition_demo_smash::select::{MAX_SMASH_SEATS, SmashRoster, SmashSelect};
+use ambition_demo_smash::select_screen::cursor::SelectCursor;
+use ambition_demo_smash::select_screen::layout::SelectLayout;
+use ambition_demo_smash::select_screen::{StartRequested, card_name_text, role_button_text};
 use ambition_demo_smash_app::build_demo_app;
+use ambition_platformer2d::input::{MenuControlFrame, SeatMenuFrames};
 use bevy::prelude::*;
 
 fn main() {
@@ -26,29 +35,35 @@ fn main() {
     app.world_mut()
         .insert_resource(ambition_platformer2d::input::LocalDeviceOrder::from_devices(devices));
 
+    let fighters = app.world().resource::<SmashRoster>().clone();
+    let layout = SelectLayout::for_viewport(None, fighters.len());
     show(&mut app, "the screen as three people find it");
-    step(
-        &mut app,
-        0,
-        confirm(),
-        "P1 presses confirm at an empty seat",
-    );
-    step(&mut app, 0, right(), "P1 moves the cursor");
-    step(&mut app, 0, confirm(), "P1 locks in");
-    step(
-        &mut app,
-        2,
-        confirm(),
-        "P3 joins while P2 is still deciding",
-    );
-    step(&mut app, 1, confirm(), "P2 joins");
-    step(
-        &mut app,
-        1,
-        confirm(),
-        "P2 locks in — but P3 is still browsing",
-    );
-    step(&mut app, 2, confirm(), "P3 locks in");
+
+    click(&mut app, layout.role_button(0), "P1 takes a controller");
+    click(&mut app, layout.role_button(1), "P2 takes a controller");
+    click(&mut app, layout.role_button(2), "P3's card is toggled…");
+    click(&mut app, layout.role_button(2), "…and again, to a CPU");
+
+    // Each participating card's token starts in the pool; pick it up and drop
+    // it on a portrait. Two clicks, exactly as a pad does it.
+    for (slot, character) in [(0usize, 4usize), (1, 0), (2, 6)] {
+        click(
+            &mut app,
+            layout.token_home(slot),
+            &format!("P{} picks their token up", slot + 1),
+        );
+        click(
+            &mut app,
+            layout.portrait(character).expect("an authored portrait"),
+            &format!(
+                "P{} drops it on {}",
+                slot + 1,
+                fighters.get(character).unwrap_or("?")
+            ),
+        );
+    }
+
+    click(&mut app, layout.start_button(), "somebody clicks START");
 
     let started = app
         .world()
@@ -57,25 +72,22 @@ fn main() {
     println!("\nmatch published: {started}");
 }
 
-fn confirm() -> MenuControlFrame {
-    MenuControlFrame {
-        select: true,
-        ..Default::default()
-    }
-}
-
-fn right() -> MenuControlFrame {
-    MenuControlFrame {
-        right: true,
-        ..Default::default()
-    }
-}
-
-fn step(app: &mut App, seat: u8, frame: MenuControlFrame, what: &str) {
+/// Put the cursor on a rectangle and press confirm, from seat 0.
+fn click(app: &mut App, rect: ambition_demo_smash::select_screen::cursor::HitRect, what: &str) {
+    app.world_mut()
+        .resource_mut::<SelectCursor>()
+        .move_to(rect.center());
     let mut frames = app.world_mut().resource_mut::<SeatMenuFrames>();
     frames.clear();
-    frames.set(seat, frame);
+    frames.set(
+        0,
+        MenuControlFrame {
+            select: true,
+            ..Default::default()
+        },
+    );
     app.update();
+    // The edge has to fall, or the next frame reads the same press again.
     app.world_mut().resource_mut::<SeatMenuFrames>().clear();
     app.update();
     show(app, what);
@@ -83,23 +95,40 @@ fn step(app: &mut App, seat: u8, frame: MenuControlFrame, what: &str) {
 
 fn show(app: &mut App, what: &str) {
     let select = *app.world().resource::<SmashSelect>();
-    println!("\n── {what} ──");
-    println!("   ┌──────────────────────────────────┐");
-    // EVERY seat is printed, because every seat is on the real screen: the ones
-    // past the pad count cannot be joined, and can still be CPUs. `offered` is
-    // what changes the WORDS on a panel, not whether it exists.
-    let offered = app
+    let fighters = app.world().resource::<SmashRoster>().clone();
+    // The REAL catalog, so the cards print display names rather than ids —
+    // which is also the only check here that the portrait/name lookup resolves.
+    let catalog = app
         .world()
-        .get_resource::<ambition_platformer2d::input::LocalDeviceOrder>()
-        .map(ambition_demo_smash::select::seats_offered)
-        .unwrap_or(1);
-    for seat in 0..MAX_SMASH_SEATS {
+        .get_resource::<ambition_platformer2d::character::CharacterCatalog>()
+        .cloned();
+    let carrying = app.world().resource::<SelectCursor>().carrying;
+    let asked = app.world().resource::<StartRequested>().0;
+    println!("\n── {what} ──");
+    println!("   ┌────────────────────────────────────────────────┐");
+    for slot in 0..MAX_SMASH_SEATS {
+        let card = select.slot(slot);
+        let held = if carrying == Some(slot) { " ✋" } else { "" };
         println!(
-            "   │ {:<32} │",
-            panel_text(seat, select.seat(seat), seat < offered)
+            "   │ P{}  {:<14} {:<20}{:<3}│",
+            slot + 1,
+            role_button_text(card.occupant),
+            card_name_text(
+                catalog.as_ref(),
+                &fighters,
+                card.occupant.participates().then_some(card.pick).flatten()
+            ),
+            held
         );
     }
-    println!("   ├──────────────────────────────────┤");
-    println!("   │ {:<32} │", prompt_text(&select));
-    println!("   └──────────────────────────────────┘");
+    println!("   ├────────────────────────────────────────────────┤");
+    println!(
+        "   │ {:<46} │",
+        select.blocker().unwrap_or(if asked {
+            "Starting…"
+        } else {
+            "Ready — click START"
+        })
+    );
+    println!("   └────────────────────────────────────────────────┘");
 }

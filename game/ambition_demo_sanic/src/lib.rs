@@ -1672,10 +1672,23 @@ const SCATTERED_RINGS_MAX: usize = 12;
 /// Outward launch speed (px/s) a scattered ring bursts from the body with.
 ///
 /// The classic burst throws rings roughly four 16px pixels per frame; this world
-/// runs at twice that tile scale, so the faithful conversion is ~480 px/s and
-/// this sits just above it. It wants to read as an EXPLOSION you have to chase,
-/// not a spill at your feet.
-const SCATTER_BURST_SPEED: f32 = 520.0;
+/// runs at twice that tile scale, so the faithful conversion is ~480 px/s. It
+/// wants to read as an EXPLOSION you have to chase, not a spill at your feet.
+///
+/// ⛔ **520 was the faithful conversion and it was not what Jon asked for.** His
+/// report: *"The rings don't splash out nearly large enough."* MEASURED by
+/// driving the real integrator rather than by reading the arithmetic —
+/// `the_ring_splash_is_wide_enough_to_be_a_scramble` — 520 px/s produced a spray
+/// **10.3 tiles wide**, roughly a quarter of the 1200px gameplay viewport, which
+/// is a spill at your feet dressed as an explosion. 900 produces **~24 tiles**,
+/// about two thirds of the viewport.
+///
+/// ⚠ **the range is not linear in this number and the drag is why.** Ballistic
+/// range goes as v², so 520→900 is 3× on paper; the air drag that BOUNDS the
+/// scatter eats most of that, and the measured widening is 2.3×. Any future tune
+/// should re-run the measurement rather than scaling the constant by the ratio
+/// it wants.
+const SCATTER_BURST_SPEED: f32 = 900.0;
 
 /// How many rings make up one shell of the burst. Past this, the next shell
 /// launches slower, so a big purse bursts as an outer ring plus an inner one

@@ -1902,3 +1902,74 @@ fn the_act_score_pays_for_speed_and_for_rings_kept() {
 
     assert_eq!(act_time_text(83.0), "1:23");
 }
+
+/// **The splash is wide enough to be a scramble.**
+///
+/// Jon: *"The rings don't splash out nearly large enough. He needs an
+/// opportunity to recollect some of them after his hitstun wears off and before
+/// they disappear."*
+///
+/// ⭐ **this MEASURES by driving the real integrator**, rather than re-deriving
+/// the ballistics beside it. `SCATTER_BURST_SPEED`'s doc used to reason from the
+/// classic conversion (~480 px/s) and land on 520, and the arithmetic was fine
+/// while the RESULT was a spray about ten tiles across — roughly a quarter of the
+/// 1200px gameplay viewport, which reads as a spill rather than an explosion.
+///
+/// ⚠ **the floor here is deliberately below the measured value.** Pinning the
+/// exact number would make every future feel tune a test edit, and this is a feel
+/// parameter Jon owns. What it defends is the property: a lost purse throws rings
+/// far enough that getting them back is a RUN.
+#[test]
+fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
+    let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.add_systems(bevy::prelude::Update, crate::arc_scattered_rings);
+
+    // The six directions one shell launches in, at the shell's own speed.
+    let launched: Vec<bevy::prelude::Entity> = (0..6)
+        .map(|i| {
+            let t = (i as f32 + 0.5) / 6.0;
+            let angle = std::f32::consts::TAU * t;
+            let vel = ae::Vec2::new(angle.cos(), angle.sin()) * crate::SCATTER_BURST_SPEED;
+            app.world_mut()
+                .spawn((
+                    crate::ScatteredRing {
+                        vel,
+                        lock: crate::SCATTER_LOCK_S,
+                        life: crate::SCATTER_LIFE_S,
+                    },
+                    ae::CenteredAabb::from_center_size(ae::Vec2::ZERO, ae::Vec2::splat(18.0)),
+                ))
+                .id()
+        })
+        .collect();
+
+    // Run until they have fallen a tile below the launch height — with no room
+    // geometry there is nothing to land on, so "it would have hit the ground" is
+    // the honest stopping point for measuring the SPRAY rather than the drift.
+    let mut widest = 0.0f32;
+    for _ in 0..(60 * 2) {
+        app.update();
+        for entity in &launched {
+            if let Some(aabb) = app.world().get::<ae::CenteredAabb>(*entity) {
+                if aabb.center.y <= 32.0 {
+                    widest = widest.max(aabb.center.x.abs());
+                }
+            }
+        }
+    }
+
+    let tiles = widest / 32.0;
+    println!(
+        "[ring splash] half-width {widest:.1}px = {tiles:.1} tiles; full {:.1} tiles",
+        tiles * 2.0
+    );
+    assert!(
+        tiles >= 8.0,
+        "the ring spray reaches only {tiles:.1} tiles from the body, so a lost \
+         purse lands at your feet. Jon asked for a splash you have to chase."
+    );
+}

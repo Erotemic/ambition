@@ -1217,6 +1217,70 @@ mod tests {
         assert_eq!(twin_set.active_spec().id, "sanic_sandbox");
     }
 
+    /// **An author can NAME a moving platform, and gets the iid when they do
+    /// not.**
+    ///
+    /// ⛔ **this converter went straight to the iid**, alone among the ones that
+    /// take an identity: `LoadingZone`, `CameraZone`, `Portal` and `ShrineSpawn`
+    /// all read `field_string(entity, "id")` first. So a moving platform had no
+    /// stable name a room could address it by, and Mary-O's underground ferry is
+    /// found by NAME for exactly that reason — a name is presentation
+    /// (`FeatureName`'s own doc: *"human-facing … for debug overlays /
+    /// inspectors"*), and this repo has already paid twice for keying gameplay
+    /// on one.
+    ///
+    /// ⚠ **both halves, because the fallback is what keeps it additive.** No
+    /// world authors an `id` on a `MovingPlatform` today, so every existing
+    /// platform has to keep the iid it already had — a test that only checked
+    /// the new field would pass over a change that broke every current level.
+    #[test]
+    fn a_moving_platform_takes_the_authored_id_and_falls_back_to_its_iid() {
+        use crate::project::{LdtkEntityInstance, LdtkFieldInstance};
+
+        let platform = |fields: Vec<LdtkFieldInstance>| LdtkEntityInstance {
+            iid: "MovingPlatform-4242".into(),
+            identifier: "MovingPlatform".into(),
+            pivot: Vec::new(),
+            px: [64, 96],
+            width: 96,
+            height: 16,
+            field_instances: fields,
+        };
+        let named = |identifier: &str, value: &str| LdtkFieldInstance {
+            identifier: identifier.into(),
+            value: serde_json::Value::String(value.into()),
+            real_editor_values: Vec::new(),
+        };
+        let convert = |entity: &LdtkEntityInstance| {
+            let ctx = LdtkEntityCtx {
+                entity,
+                name: "Underground Ferry".to_string(),
+                min: ae::Vec2::new(64.0, 96.0),
+                size: ae::Vec2::new(96.0, 16.0),
+                offset: ae::Vec2::ZERO,
+            };
+            super::entity_converters::convert_moving_platform(&ctx)
+                .expect("a MovingPlatform converts")
+                .moving_platforms
+                .remove(0)
+        };
+
+        let authored = platform(vec![named("id", "mary_o_1_2_ferry")]);
+        assert_eq!(
+            convert(&authored).id,
+            "mary_o_1_2_ferry",
+            "the authored id wins, so a room can address the platform it means"
+        );
+
+        let anonymous = platform(Vec::new());
+        assert_eq!(
+            convert(&anonymous).id,
+            "MovingPlatform-4242",
+            "and a platform that names nothing keeps its iid — every world \
+             authored before this field existed depends on that"
+        );
+    }
+
     #[test]
     fn compact_path_name_slugifies_and_strips_path_noise() {
         assert_eq!(

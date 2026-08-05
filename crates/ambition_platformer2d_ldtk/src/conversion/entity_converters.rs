@@ -51,8 +51,9 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     let (entity, name, min, size) = ctx.parts();
     let offset = ctx.offset;
     let aabb = object_aabb(min, size);
-    let mut volume =
-        ambition_platformer2d_world::rooms::HazardVolumeSpec::new(field_i32(entity, "damage").unwrap_or(1));
+    let mut volume = ambition_platformer2d_world::rooms::HazardVolumeSpec::new(
+        field_i32(entity, "damage").unwrap_or(1),
+    );
     volume.path_id = field_string(entity, "path_id")
         .or_else(|| field_string(entity, "patrol_path_id"))
         .and_then(|value| {
@@ -412,8 +413,11 @@ pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
         pickup.sprite = Some(sprite.trim().to_string());
     }
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    let mut record =
-        ambition_platformer2d_world::placements::PlacementRecord::new(id, PlacementSchema::Pickup(pickup), aabb);
+    let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
+        id,
+        PlacementSchema::Pickup(pickup),
+        aabb,
+    );
     record.name = name;
     Ok(RoomEmission::placement(record))
 }
@@ -539,12 +543,14 @@ fn authored_id(entity: &LdtkEntityInstance) -> String {
 
 pub(super) fn convert_shrine(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    Ok(RoomEmission::shrine(ambition_platformer2d_world::rooms::ShrineSpec {
-        id: authored_id(entity),
-        name,
-        pos: min + size * 0.5,
-        half_extent: size * 0.5,
-    }))
+    Ok(RoomEmission::shrine(
+        ambition_platformer2d_world::rooms::ShrineSpec {
+            id: authored_id(entity),
+            name,
+            pos: min + size * 0.5,
+            half_extent: size * 0.5,
+        },
+    ))
 }
 
 pub(super) fn convert_gravity_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
@@ -575,8 +581,11 @@ pub(super) fn convert_chest_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
         field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
     );
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    let mut record =
-        ambition_platformer2d_world::placements::PlacementRecord::new(id, PlacementSchema::Chest(chest), aabb);
+    let mut record = ambition_platformer2d_world::placements::PlacementRecord::new(
+        id,
+        PlacementSchema::Chest(chest),
+        aabb,
+    );
     record.name = name;
     Ok(RoomEmission::placement(record))
 }
@@ -595,12 +604,9 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
         }
     }
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    let mut emission = RoomEmission::enemy_spawn(ambition_platformer2d_world::rooms::Authored::new(
-        id.clone(),
-        name,
-        aabb,
-        brain,
-    ));
+    let mut emission = RoomEmission::enemy_spawn(
+        ambition_platformer2d_world::rooms::Authored::new(id.clone(), name, aabb, brain),
+    );
     // ADR 0020: a rider EnemySpawn carrying a `mounted_on` entity-ref emits an
     // authored mount link `(rider_id, mount_id)`. The ref stores the mount's
     // LDtk `iid`; authored linked pairs carry no explicit `id` field, so the
@@ -693,7 +699,19 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
         field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"));
     Ok(RoomEmission::moving_platform(
         ambition_platformer2d_world::platforms::MovingPlatformSpec::from_authored(
-            entity.iid.clone(),
+            // ⛔ **an author could not name a platform, and every other converter
+            // lets them.** `LoadingZone`, `CameraZone`, `Portal`, `ShrineSpawn`
+            // and the rest all read `field_string(entity, "id")` and fall back to
+            // the iid; this one went straight to the iid, so a moving platform
+            // had no stable name a room could address it by. Mary-O's underground
+            // ferry is found by NAME today for exactly that reason, and a name is
+            // presentation — `FeatureName`'s own doc calls it "human-facing … for
+            // debug overlays / inspectors", which is not a thing to key gameplay
+            // on. This repo has already paid for that twice with the snake.
+            //
+            // ⭐ purely additive: nothing authors an `id` on a `MovingPlatform`
+            // today, so every existing world keeps the iid it already had.
+            field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
             name,
             start_pos,
             size,

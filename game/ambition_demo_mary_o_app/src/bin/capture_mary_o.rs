@@ -22,6 +22,7 @@
 
 use std::path::PathBuf;
 
+use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::render::capture::{
     adopt_cameras_into_capture_target, finish_after_capture, request_capture, setup_capture_target,
     CaptureProgress, CaptureSettings, CaptureTarget,
@@ -54,6 +55,15 @@ struct Warmup {
     /// same frame's `InputSet::Collect` (which the writer is now ordered before)
     /// and moves the body on the next simulation step.
     settle: u32,
+    /// Where to PUT her before the shutter, in world coordinates.
+    ///
+    /// ⭐ **because `--walk` cannot reliably reach a place.** The level's bricks
+    /// are at x≥1536 and every capture ever taken of Mary-O stopped short of
+    /// them, so nobody had actually looked at one — two separate claims about
+    /// what a brick looks like were made from screenshots that did not contain a
+    /// brick. Walking there means surviving the route; `capture_scene` takes an
+    /// X,Y for exactly this reason and Mary-O's own capture binary did not.
+    at: Option<ae::Vec2>,
 }
 
 fn main() {
@@ -63,6 +73,7 @@ fn main() {
     let mut warmup = 90u32;
     let mut include_ui = true;
     let mut walk = 0u32;
+    let mut at: Option<ae::Vec2> = None;
 
     let mut positional_seen = false;
     while let Some(arg) = args.next() {
@@ -78,6 +89,18 @@ fn main() {
                     .next()
                     .and_then(|v| v.parse().ok())
                     .unwrap_or_else(|| fail("--walk needs a frame count"));
+            }
+            "--at" => {
+                let raw = args
+                    .next()
+                    .unwrap_or_else(|| fail("--at needs X,Y in world coordinates"));
+                let Some((x, y)) = raw.split_once(',') else {
+                    fail(&format!("expected --at X,Y, got '{raw}'"));
+                };
+                let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse()) else {
+                    fail(&format!("expected --at X,Y, got '{raw}'"));
+                };
+                at = Some(ae::Vec2::new(x, y));
             }
             "--no-ui" => include_ui = false,
             other if other.starts_with("--") => fail(&format!("unknown flag '{other}'")),
@@ -119,6 +142,7 @@ fn main() {
         remaining: warmup,
         walk_right: walk,
         settle: 1,
+        at,
     });
     app.add_systems(Startup, setup_capture_target);
     // ⛔ **the synthetic input must be written BEFORE the frame collects it.**
@@ -131,6 +155,7 @@ fn main() {
         Update,
         (
             adopt_cameras_into_capture_target,
+            place_before_the_shutter,
             hold_right_while_walking,
             shoot_when_warm,
             finish_after_capture,
@@ -188,6 +213,42 @@ fn shoot_when_warm(
 /// ⚠ **written into `ButtonInput` directly**, which is what `capture_scene`
 /// does: the demo's binding layer reads the same resource a real keyboard fills,
 /// so this exercises the actual input path rather than a bypass.
+/// Put her where `--at` says, once, as soon as something is drawing.
+///
+/// ⚠ **through the movement authority**, not a bare pose write: a discrete
+/// relocation that leaves the body's contacts and collapsed sweep describing the
+/// spawn point is the defect ADR 0024's authorities exist to prevent, and a
+/// capture tool that corrupts the thing it photographs is worse than no tool.
+fn place_before_the_shutter(
+    mut warmup: ResMut<Warmup>,
+    target: Option<Res<CaptureTarget>>,
+    mut bodies: Query<
+        (
+            ae::BodyClusterQueryData,
+            &mut ambition_platformer2d::actors::features::MotionModel,
+        ),
+        ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
+    >,
+) {
+    if target.is_none_or(|target| target.adopted == 0) {
+        return;
+    }
+    let Some(pos) = warmup.at else {
+        return;
+    };
+    let Ok((mut item, mut model)) = bodies.single_mut() else {
+        return;
+    };
+    let mut clusters = item.as_clusters_mut();
+    ae::movement::transit_body(
+        &mut model,
+        &mut clusters,
+        pos,
+        ae::movement::TransitVelocity::Zero,
+    );
+    warmup.at = None;
+}
+
 fn hold_right_while_walking(
     mut keys: ResMut<ButtonInput<KeyCode>>,
     target: Option<Res<CaptureTarget>>,

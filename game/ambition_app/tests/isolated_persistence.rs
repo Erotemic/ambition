@@ -68,3 +68,41 @@ fn two_isolated_roots_in_one_process_are_different_directories() {
          binary sharing a root is the same bug as sharing the player's"
     );
 }
+
+/// **A windowless host arrives with its clock PINNED.**
+///
+/// ⛔ **the fourth landing of one defect, which is why the rule moved into the
+/// host.** Bevy's default `TimeUpdateStrategy::Automatic` advances the clock by
+/// REAL elapsed time, so `app.update()` is a unit of wall clock rather than of
+/// simulation — almost no movement on an idle machine, many fixed steps under
+/// load. `shell_host_startup` pins for this reason, `shell_host_rendered` was
+/// fixed for it, `smash_in_the_host` was written without it and failed only
+/// under concurrent load, and `dev/journals/code_smells.md` already states the
+/// lesson. Stating a lesson is what a rule does instead of enforcing it.
+///
+/// ⚠ **the same rot risk as the persistence guard above**, and the same answer:
+/// the pin is one `insert_resource` inside a `matches!` on the render mode, the
+/// Bevy default is still `Automatic`, and anything that stops taking that branch
+/// silently goes back to a wall-clock frame with every test still passing.
+///
+/// ⭐ **it asserts the DEFAULT is not what we get**, rather than a specific
+/// duration, so a host that pins a different dt on purpose stays green while a
+/// host that pins nothing does not. What matters is that `update()` means a
+/// fixed amount of simulation, not which amount.
+#[test]
+fn a_windowless_host_does_not_advance_its_clock_by_wall_clock() {
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let strategy = app
+        .world()
+        .get_resource::<bevy::time::TimeUpdateStrategy>()
+        .expect(
+            "a windowless host inserts a TimeUpdateStrategy — without one Bevy \
+             uses Automatic, and `app.update()` becomes a unit of wall clock",
+        );
+    assert!(
+        !matches!(strategy, bevy::time::TimeUpdateStrategy::Automatic),
+        "a windowless host has no display to pace against, so advancing its \
+         clock by real elapsed time makes every count-like assertion in every \
+         test depend on how busy the machine is"
+    );
+}

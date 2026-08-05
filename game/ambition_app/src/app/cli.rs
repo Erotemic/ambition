@@ -668,6 +668,29 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
         // worktree, and every concurrent session on the machine. A headless
         // acceptance run could overwrite a real save.
         app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot::isolated());
+        // ⛔ **...and the clock, for the THIRD side effect of the same kind.**
+        // Bevy's default `TimeUpdateStrategy::Automatic` advances the clock by
+        // REAL elapsed time, so `app.update()` is a unit of wall clock rather
+        // than of simulation: almost no movement on an idle machine, many fixed
+        // steps under load. A windowless host has no display to pace against, so
+        // "real time" is not a thing it is synchronising to — it is just
+        // whatever the machine was doing.
+        //
+        // ⚠ **this defect has now landed FOUR times**, and the fourth is why the
+        // rule moved here. `shell_host_startup` pins for it; `shell_host_rendered`
+        // was fixed for it; `smash_in_the_host` was written without it and failed
+        // only under concurrent load — two full `app_it` runs at once fail in
+        // BOTH processes, every time, while three sequential runs are green.
+        // `dev/journals/code_smells.md` already states the lesson, and stating a
+        // lesson is what a rule does instead of enforcing it.
+        //
+        // ⭐ **the same shape as the two above**: a non-session App must not have
+        // the side effect, so the HOST removes it once rather than 42 call sites
+        // remembering to. A test that wants a different dt still inserts its own
+        // — this is a default, not a lock.
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            std::time::Duration::from_secs_f64(1.0 / 60.0),
+        ));
     }
     // The game's OWN asset source (`game://`): the content crate's assets
     // dir in a dev checkout, the shipped `assets/` dir otherwise. The

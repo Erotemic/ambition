@@ -1105,23 +1105,58 @@ struct RouteWalk {
 }
 
 fn walk_the_combat_route(sim: &mut Platformer2dSimHarness) -> RouteWalk {
-    let mut census: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
-    let enemy_health_baseline: i32 = {
+    // The props the route must change, with their initial states CHECKED. Anything
+    // this cannot find, or finds already done, fails here — before a run that would
+    // otherwise report those objectives satisfied by the room's authoring.
+    let targets = calibrate_targets(&mut *sim);
+    // ⚠ **the vacuity guard lives HERE, not in `_with`.** It was inside the walk
+    // and I moved it out while hoisting the calibration — which would have
+    // silently dropped a fixture-health assertion, the exact failure this file
+    // is a monument to. It belongs on THIS path: the main oracle must never
+    // report a melee observation over a room with nothing alive in it. The sweep
+    // deliberately removes populations, so it takes the other entry point and
+    // owns that risk explicitly (its variant list removes props, not enemies).
+    {
         let world = sim.world_mut();
         let mut q = world
             .query_filtered::<&BodyHealth, Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
-        let total = q.iter(world).map(|body| body.health.current).sum();
+        let total: i32 = q.iter(world).map(|body| body.health.current).sum();
         assert!(
             total > 0,
             "the calibration lab booted with no live enemies — the melee-hit \
              observation would be vacuous"
         );
-        total
+    }
+    walk_the_combat_route_with(sim, targets)
+}
+
+/// The route, against targets somebody else already identified.
+///
+/// ⛔ **the population sweep could not use `walk_the_combat_route`, and that is
+/// why it could never finish.** The sweep's whole question is *"does the
+/// divergence still need this class?"*, so it DESPAWNS a class and re-runs — and
+/// the route's first act was to assert that class is present. `no_brick` removed
+/// every `BreakableFeature` and then the calibration refused to proceed with
+/// *"the calibration lab must author a breakable named `calibration_brick` …
+/// Present: []"*, which reads as a broken room and was a broken question.
+///
+/// ⭐ **the guard is right and stays** — a fixture's health belongs in its own
+/// assertion, three times over in this ledger. It just belongs BEFORE the
+/// deliberate removal, not after. So the sweep calibrates the intact world,
+/// despawns, and walks with the ids it already has; every consumer of
+/// `OracleTargets` is an `.any()` or a `.find().map()` and tolerates a target
+/// that is now gone.
+fn walk_the_combat_route_with(
+    sim: &mut Platformer2dSimHarness,
+    targets: OracleTargets,
+) -> RouteWalk {
+    let mut census: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    let enemy_health_baseline: i32 = {
+        let world = sim.world_mut();
+        let mut q = world
+            .query_filtered::<&BodyHealth, Without<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
+        q.iter(world).map(|body| body.health.current).sum()
     };
-    // The props the route must change, with their initial states CHECKED. Anything
-    // this cannot find, or finds already done, fails here — before a run that would
-    // otherwise report those objectives satisfied by the room's authoring.
-    let targets = calibrate_targets(&mut *sim);
 
     let mut events = OracleEvents {
         melee_landed: false,
@@ -1524,6 +1559,9 @@ fn which_population_does_the_rollback_divergence_need() {
         let mut sim = oracle_sim();
         wear_oracle_armor(&mut sim);
         stage_player_on_arena_floor(&mut sim);
+        // ⭐ **calibrate the INTACT world, before anything is removed.** See
+        // `walk_the_combat_route_with`.
+        let targets = calibrate_targets(&mut sim);
         {
             let world = sim.world_mut();
             let doomed: Vec<Entity> = match variant {
@@ -1568,7 +1606,7 @@ fn which_population_does_the_rollback_divergence_need() {
             frames_run,
             census,
             stalled_at,
-        } = walk_the_combat_route(&mut sim);
+        } = walk_the_combat_route_with(&mut sim, targets);
         if !census.is_empty() {
             findings.push(format!("  {variant:<12} TRANSIENT UNACCOUNTED: {census:?}"));
         }

@@ -443,7 +443,11 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
     // Ask the engine for a snake exactly as the level's staging does.
     app.world_mut()
         .write_message(ambition_platformer2d::actors::features::SpawnActorRequest {
-            id: "scripted_snake".to_string(),
+            // ⚠ **minted by the demo, not invented here.** The tag reads the
+            // stable id, so an arbitrary one produces an enemy with no shell —
+            // which is what this test caught when the id stopped being a display
+            // name. "Exactly as the level's staging does" has to include the id.
+            id: ambition_demo_mary_o::snake::snake_id("scripted"),
             name: SNAKE_DISPLAY_NAME.to_string(),
             pos: Vec2::new(600.0, 300.0),
             half_size: Vec2::new(14.0, 16.0),

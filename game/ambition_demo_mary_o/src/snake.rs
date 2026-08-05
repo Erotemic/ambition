@@ -44,7 +44,7 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::actors::combat::components::ActorFaction;
-use ambition_platformer2d::actors::features::{ActorAnimOverride, ActorConfig, FeatureId, FeatureName};
+use ambition_platformer2d::actors::features::{ActorAnimOverride, ActorConfig, FeatureId};
 use ambition_platformer2d::actors::features::{HitEvent, HitMode, HitSource, HitTarget};
 use ambition_platformer2d::actors::features::{SpawnActorKind, SpawnActorRequest};
 use ambition_platformer2d::characters::actor::BodyCombat;
@@ -475,7 +475,7 @@ fn snake_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
         .iter()
         .enumerate()
         .map(|(i, col)| SpawnActorRequest {
-            id: format!("mary_o_snake_{i}"),
+            id: snake_id(i),
             name: SNAKE_DISPLAY_NAME.to_string(),
             pos: ae::Vec2::new(col * T, player_spawn.y),
             half_size,
@@ -505,17 +505,43 @@ pub fn register_snake_content_staging(
         .expect("snake staging registration is unique");
 }
 
+/// Does this authored id belong to a snake?
+///
+/// ⛔ **identity is the `FeatureId`, never the `FeatureName`.** The tag pass used
+/// to match `name.0 == SNAKE_DISPLAY_NAME` — and `FeatureName`'s own doc says what it is:
+/// *"human-facing authored name for debug overlays / inspectors."* Renaming the
+/// character in the catalog would have silently stopped every stomp, because a
+/// presentation string was carrying gameplay identity. `FeatureId` is the stable
+/// one, and the spawn already builds it as `mary_o_snake_<n>` — the archetype key IS
+/// its prefix. (GPT 5.6's Mary-O spec: *"Do not use a human-readable display
+/// name as gameplay identity."*)
+/// Mint the authored id for one snake. **Every path that stages a snake must
+/// use this**, because [`is_snake_id`] is what decides that the thing is a snake
+/// at all — a snake spawned under some other id is a walking enemy with no
+/// shell, and nothing reports it.
+pub fn snake_id(suffix: impl std::fmt::Display) -> String {
+    format!("{SNAKE_BRAIN_KEY}_{suffix}")
+}
+
+pub fn is_snake_id(id: &str) -> bool {
+    id == SNAKE_BRAIN_KEY || id.starts_with(&format!("{SNAKE_BRAIN_KEY}_"))
+}
+
 /// Tag freshly staged snakes with `SnakeShell::Walking` (so the shell system
 /// finds its own) and with `SpritePosedBody` (so its body geometry comes from
-/// the sheet, per pose — the box a stomp shrinks). Matches `FeatureName` (the
-/// authored name), NOT `Name` (which the spawner decorates) — matching `Name` is
-/// what silently broke the old shell tag.
+/// the sheet, per pose — the box a stomp shrinks).
 pub fn tag_mary_o_snakes(
     mut commands: Commands,
-    fresh: Query<(Entity, &FeatureName), Without<SnakeShell>>,
+    fresh: Query<
+        (
+            Entity,
+            &ambition_platformer2d::actors::features::FeatureId,
+        ),
+        Without<SnakeShell>,
+    >,
 ) {
-    for (entity, name) in &fresh {
-        if name.0 == SNAKE_DISPLAY_NAME {
+    for (entity, id) in &fresh {
+        if is_snake_id(id.as_str()) {
             commands.entity(entity).try_insert((
                 SnakeShell::Walking,
                 ambition_platformer2d::actors::character_sprites::SpritePosedBody::new(

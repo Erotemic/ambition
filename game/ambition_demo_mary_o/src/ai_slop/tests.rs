@@ -130,11 +130,17 @@ fn a_staged_ai_slop_is_given_its_dormancy_policy() {
 
     let mut app = App::new();
     app.add_systems(Update, tag_mary_o_ai_slop);
+    // ⚠ spawned with the STABLE id, which is what the tag now reads — a
+    // display name is a debug label and no longer decides anything.
+    use ambition_platformer2d::actors::features::FeatureId;
     let slop = app
         .world_mut()
-        .spawn(FeatureName(AI_SLOP_DISPLAY_NAME.to_string()))
+        .spawn(FeatureId::new(format!("{AI_SLOP_BRAIN_KEY}_0")))
         .id();
-    let bystander = app.world_mut().spawn(FeatureName("Snake".to_string())).id();
+    let bystander = app
+        .world_mut()
+        .spawn(FeatureId::new(crate::snake::SNAKE_BRAIN_KEY))
+        .id();
     app.update();
 
     assert_eq!(

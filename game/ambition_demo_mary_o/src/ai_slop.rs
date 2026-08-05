@@ -26,7 +26,6 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_platformer2d::actors::combat::components::ActorFaction;
-use ambition_platformer2d::actors::features::FeatureName;
 use ambition_platformer2d::actors::features::{SpawnActorKind, SpawnActorRequest};
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::engine_core as ae;
@@ -221,7 +220,7 @@ fn ai_slop_spawn_requests(player_spawn: ae::Vec2) -> Vec<SpawnActorRequest> {
         .enumerate()
         .map(|(i, col)| {
             request(
-                format!("mary_o_ai_slop_{i}"),
+                ai_slop_id(i),
                 ae::Vec2::new(col * T, player_spawn.y),
             )
         })
@@ -254,15 +253,41 @@ pub fn register_ai_slop_content_staging(
         .expect("AI Slop staging registration is unique");
 }
 
+/// Does this authored id belong to an AI Slop?
+///
+/// ⛔ **identity is the `FeatureId`, never the `FeatureName`.** The tag pass used
+/// to match `name.0 == AI_SLOP_DISPLAY_NAME` — and `FeatureName`'s own doc says what it is:
+/// *"human-facing authored name for debug overlays / inspectors."* Renaming the
+/// character in the catalog would have silently stopped every stomp, because a
+/// presentation string was carrying gameplay identity. `FeatureId` is the stable
+/// one, and the spawn already builds it as `mary_o_ai_slop_<n>` — the archetype key IS
+/// its prefix. (GPT 5.6's Mary-O spec: *"Do not use a human-readable display
+/// name as gameplay identity."*)
+/// Mint the authored id for one AI Slop. **Every path that stages one must use
+/// this** — [`is_ai_slop_id`] is what decides it is slop at all, and one staged
+/// under another id is an enemy nothing can stomp.
+pub fn ai_slop_id(suffix: impl std::fmt::Display) -> String {
+    format!("{AI_SLOP_BRAIN_KEY}_{suffix}")
+}
+
+pub fn is_ai_slop_id(id: &str) -> bool {
+    id == AI_SLOP_BRAIN_KEY || id.starts_with(&format!("{AI_SLOP_BRAIN_KEY}_"))
+}
+
 /// Tag freshly staged AI Slop with the [`AiSlop`] marker, so the stomp rule finds
-/// its own. Matches `FeatureName` (the authored name), NOT `Name` (which the
-/// spawner decorates) — matching `Name` is what silently broke the old shell tag.
+/// its own.
 pub fn tag_mary_o_ai_slop(
     mut commands: Commands,
-    fresh: Query<(Entity, &FeatureName), Without<AiSlop>>,
+    fresh: Query<
+        (
+            Entity,
+            &ambition_platformer2d::actors::features::FeatureId,
+        ),
+        Without<AiSlop>,
+    >,
 ) {
-    for (entity, name) in &fresh {
-        if name.0 == AI_SLOP_DISPLAY_NAME {
+    for (entity, id) in &fresh {
+        if is_ai_slop_id(id.as_str()) {
             // The dormancy policy rides the same tag pass rather than the spawn
             // request, because `SpawnActorRequest` is the ENGINE's vocabulary for
             // what an actor IS and dormancy is a per-character decision the

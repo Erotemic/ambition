@@ -330,13 +330,13 @@ pub(super) fn prepare_ldtk_reload_transaction(
 ) -> Result<LdtkReloadTransaction, Vec<String>> {
     let project = ldtk_world::LdtkProject::load_from_disk_at(watch_path, catalog, manifest)
         .map_err(|error| vec![error])?;
-    let report = project.validate();
+    let report = project.validate(&crate::composed_ldtk_vocabulary());
     report.print_to_stderr();
     if !report.is_ok() {
         return Err(report.errors);
     }
 
-    let mut next_room_set = project.to_room_set(manifest)?;
+    let mut next_room_set = project.to_room_set(manifest, &crate::composed_ldtk_vocabulary())?;
     let Some(next_active) = next_room_set
         .rooms
         .iter()

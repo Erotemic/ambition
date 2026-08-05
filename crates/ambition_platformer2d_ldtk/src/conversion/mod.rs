@@ -44,26 +44,32 @@ impl LdtkProject {
     pub fn to_room_set(
         &self,
         manifest: &super::manifest::WorldManifest,
+        vocabulary: &LdtkVocabulary,
     ) -> Result<RoomSet, Vec<String>> {
         // The caller's WorldManifest names where play starts and which baked
         // `ron-room` docs join the graph.
-        self.build_room_set(&manifest.entry_room, &manifest.ron_rooms)
+        self.build_room_set(&manifest.entry_room, &manifest.ron_rooms, vocabulary)
     }
 
     /// Convert a SELF-CONTAINED project — a game crate's own embedded world
     /// file (a demo's standalone level). Play starts in the caller's
     /// `entry_room` and no manifest-registered auxiliary rooms are appended,
     /// so the conversion needs no `WorldManifest` at all.
-    pub fn to_room_set_with_entry(&self, entry_room: &str) -> Result<RoomSet, Vec<String>> {
-        self.build_room_set(entry_room, &[])
+    pub fn to_room_set_with_entry(
+        &self,
+        entry_room: &str,
+        vocabulary: &LdtkVocabulary,
+    ) -> Result<RoomSet, Vec<String>> {
+        self.build_room_set(entry_room, &[], vocabulary)
     }
 
     fn build_room_set(
         &self,
         entry_room: &str,
         ron_rooms: &[super::manifest::RonRoomSource],
+        vocabulary: &LdtkVocabulary,
     ) -> Result<RoomSet, Vec<String>> {
-        let report = self.validate();
+        let report = self.validate(vocabulary);
         if !report.is_ok() {
             return Err(report.errors);
         }
@@ -91,7 +97,7 @@ impl LdtkProject {
         let mut links = self.collect_room_links();
         let mut rooms = Vec::new();
         for (area_id, levels) in area_levels {
-            rooms.push(self.compose_runtime_area(&area_id, &levels)?);
+            rooms.push(self.compose_runtime_area(&area_id, &levels, vocabulary)?);
         }
         // Baked `ron-room` docs (W2): rooms that enter the graph as
         // serialized IR, no authoring backend behind them.
@@ -132,6 +138,7 @@ impl LdtkProject {
         &self,
         area_id: &str,
         levels: &[&LdtkLevel],
+        vocabulary: &LdtkVocabulary,
     ) -> Result<RoomSpec, Vec<String>> {
         let mut errors = Vec::new();
         let min_x = levels.iter().map(|level| level.world_x).min().unwrap_or(0) as f32;
@@ -203,7 +210,7 @@ impl LdtkProject {
             // just `"Ambition"`. A side layer like `"AmbitionCameras"`
             // holding only `CameraZone` entities is still picked up.
             for entity in level.all_entity_instances() {
-                match entity_to_runtime(entity, offset) {
+                match entity_to_runtime(entity, offset, vocabulary) {
                     Ok(emission) => {
                         if emission.ignored {
                             continue;
@@ -661,48 +668,77 @@ impl LdtkEntityCtx<'_> {
 /// authored fields (the ctx), never from ambient state.
 pub type LdtkEntityConverter = fn(&LdtkEntityCtx<'_>) -> Result<RoomEmission, String>;
 
-/// Content-installed LDtk entity converters (ADR 0009). Set once at
-/// plugin-build time; first install wins (same seam contract as
-/// other legacy content-install seams). Deliberately a process-global `OnceLock`, not a
-/// Bevy `Resource`: conversion runs from pure non-system code
-/// (`LdtkProject::to_room_set`, validators, tools) with no `World` in hand.
-static EXTRA_ENTITY_CONVERTERS: OnceLock<BTreeMap<String, LdtkEntityConverter>> = OnceLock::new();
+/// **The LDtk nouns one conversion understands**: the engine's standard
+/// vocabulary, plus whatever the caller's game adds.
+///
+/// ⛔ **this used to be a process-global `OnceLock`, and "first install wins"
+/// was the whole problem.** Two games, a game and a tool, or two test Apps in
+/// one process could not carry different vocabularies — the first one to install
+/// defined conversion for every other, and the only way to notice was an error
+/// log. The reason given for the global was real: conversion runs from pure
+/// non-system code (`to_room_set`, validators, tools) with no `World` in hand,
+/// so a Bevy `Resource` could not reach it. But "no `World`" argues for a
+/// PARAMETER, not for ambient state — and a value passed in is exactly as
+/// reachable from a tool as from a system.
+///
+/// ⭐ **the vocabulary is now part of the question.** Asking "what rooms does
+/// this project describe?" without saying which nouns you understand was always
+/// an incomplete question; it only looked complete because one answer was
+/// installed behind everyone's back.
+#[derive(Clone, Default)]
+pub struct LdtkVocabulary {
+    extensions: BTreeMap<String, LdtkEntityConverter>,
+}
 
-/// Install game-specific LDtk entity converters — the content layer calls
-/// this at plugin-build time (before any world load). Installed identifiers
-/// pass validation and convert exactly like the engine's standard vocabulary;
-/// a standard identifier cannot be overridden (the standard table wins on
-/// lookup).
-///
-/// ⛔ **"first install wins; later calls are ignored" was the whole sentence,
-/// and silence was the wrong half of it.** Two games, a game and a tool, or two
-/// test Apps in one process cannot carry different LDtk vocabularies — the
-/// first one defines conversion for all of them, saying nothing (GPT 5.6
-/// review, 2026-08-04).
-///
-/// ⚠ **the IDENTIFIERS are what conflict, not the function pointers.** Two
-/// providers registering the same ids is the normal repeated-build case and
-/// stays silent; a different id SET is a real disagreement about vocabulary and
-/// is loud. Comparing the fn pointers would flag every rebuild, since a
-/// closure's address is not stable.
-pub fn install_ldtk_entity_converters<I>(converters: I)
-where
-    I: IntoIterator<Item = (String, LdtkEntityConverter)>,
-{
-    let converters: BTreeMap<String, LdtkEntityConverter> = converters.into_iter().collect();
-    if let Err(rejected) = EXTRA_ENTITY_CONVERTERS.set(converters) {
-        let installed: Option<Vec<&String>> = EXTRA_ENTITY_CONVERTERS
-            .get()
-            .map(|map| map.keys().collect());
-        let attempted: Vec<&String> = rejected.keys().collect();
-        if installed.as_deref() != Some(attempted.as_slice()) {
-            bevy::log::error!(
-                "a SECOND, DIFFERENT set of LDtk entity converters was installed in this \
-                 process and was IGNORED: {attempted:?} vs the installed {installed:?}. \
-                 Conversion is process-global, so the first provider's vocabulary wins for \
-                 every App built here."
-            );
+impl LdtkVocabulary {
+    /// The engine's vocabulary and nothing else — the right answer for the
+    /// sandbox, for tools, and for any game that authors only standard nouns.
+    pub fn engine() -> Self {
+        Self::default()
+    }
+
+    /// The engine's vocabulary plus a game's own converters.
+    ///
+    /// ⚠ **a game cannot override a standard identifier.** The engine's table
+    /// wins on lookup, which keeps `Solid` meaning `Solid` in every world file
+    /// anyone loads. Extending the vocabulary and redefining it are different
+    /// permissions, and only the first is on offer.
+    pub fn extended_by<I>(converters: I) -> Self
+    where
+        I: IntoIterator<Item = (String, LdtkEntityConverter)>,
+    {
+        Self {
+            extensions: converters.into_iter().collect(),
         }
+    }
+
+    /// Resolve the converter for an identifier: the engine's standard
+    /// vocabulary first, then this game's extensions. `None` = an unknown
+    /// entity, which is a validation error rather than a silent skip.
+    pub(super) fn converter_for(&self, identifier: &str) -> Option<LdtkEntityConverter> {
+        standard_converters()
+            .get(identifier)
+            .or_else(|| self.extensions.get(identifier))
+            .copied()
+    }
+
+    /// Every identifier this vocabulary can convert, in canonical order — what
+    /// a validator reports against and what a tool can print.
+    pub fn identifiers(&self) -> impl Iterator<Item = &str> {
+        standard_converters()
+            .keys()
+            .copied()
+            .chain(self.extensions.keys().map(String::as_str))
+    }
+}
+
+impl std::fmt::Debug for LdtkVocabulary {
+    /// Function pointers have no useful `Debug`, and the IDENTIFIERS are what
+    /// anyone comparing two vocabularies actually means.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LdtkVocabulary")
+            .field("extensions", &self.extensions.keys().collect::<Vec<_>>())
+            .finish()
     }
 }
 
@@ -753,23 +789,10 @@ fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter>
     })
 }
 
-/// Resolve the converter for an LDtk identifier: the engine's standard
-/// vocabulary first, then content-installed extensions. `None` = unknown
-/// entity (validation error).
-pub(super) fn converter_for(identifier: &str) -> Option<LdtkEntityConverter> {
-    standard_converters()
-        .get(identifier)
-        .or_else(|| {
-            EXTRA_ENTITY_CONVERTERS
-                .get()
-                .and_then(|extra| extra.get(identifier))
-        })
-        .copied()
-}
-
 pub(super) fn entity_to_runtime(
     entity: &LdtkEntityInstance,
     offset: ae::Vec2,
+    vocabulary: &LdtkVocabulary,
 ) -> Result<RoomEmission, String> {
     let (min, size) = entity_min_size(entity, offset);
     let ctx = LdtkEntityCtx {
@@ -779,7 +802,7 @@ pub(super) fn entity_to_runtime(
         size,
         offset,
     };
-    let Some(converter) = converter_for(&entity.identifier) else {
+    let Some(converter) = vocabulary.converter_for(&entity.identifier) else {
         return Err(format!(
             "unsupported entity identifier '{}'",
             entity.identifier
@@ -883,7 +906,7 @@ mod tests {
             .field_instances
             .push(level_field("blast_margin", Value::Number(64.into())));
         let room_set = project
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes");
         assert_eq!(
             room_set.rooms[0].world.blast_margin, 64.0,
@@ -903,7 +926,7 @@ mod tests {
     #[test]
     fn a_level_that_authors_no_margin_keeps_the_engine_default() {
         let room_set = synthetic_level(Vec::new())
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes");
         assert_eq!(
             room_set.rooms[0].world.blast_margin,
@@ -927,7 +950,7 @@ mod tests {
                 .push(level_field(name, Value::Number((-32).into())));
         }
         let room = &project
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes")
             .rooms[0];
         assert_eq!(room.metadata.blast_margin, None);
@@ -951,7 +974,7 @@ mod tests {
             .field_instances
             .push(level_field("side_blast_margin", Value::Number(0.into())));
         let room = &project
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes")
             .rooms[0];
         assert_eq!(room.metadata.blast_margin, Some(0));
@@ -975,7 +998,7 @@ mod tests {
             Value::Number(96.into()),
         ));
         let room = &project
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes")
             .rooms[0];
         assert_eq!(room.world.side_blast_margin, Some(48.0));
@@ -991,7 +1014,7 @@ mod tests {
     #[test]
     fn a_level_that_declines_the_optional_zones_has_none() {
         let room = &synthetic_level(Vec::new())
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes")
             .rooms[0];
         assert_eq!(room.world.side_blast_margin, None);
@@ -1010,7 +1033,7 @@ mod tests {
             .field_instances
             .push(level_field("mode", Value::String("sanic".into())));
         let room_set = project
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("the project composes");
         assert_eq!(
             room_set.rooms[0].metadata.mode.as_deref(),
@@ -1036,7 +1059,7 @@ mod tests {
             ],
         )]);
         let room_set = project
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("hazard project composes");
         let room = &room_set.rooms[0];
         assert_eq!(
@@ -1087,7 +1110,7 @@ mod tests {
             ),
         ]);
         let room_set = project
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("pickup project composes");
         let room = &room_set.rooms[0];
         let sprite_of = |name: &str| {
@@ -1132,7 +1155,7 @@ mod tests {
             ],
         )]);
         let room_set = project
-            .to_room_set_with_entry("central_hub_complex")
+            .to_room_set_with_entry("central_hub_complex", &LdtkVocabulary::engine())
             .expect("composes");
         let room = &room_set.rooms[0];
         // Exactly one hazard placement, no typed hazard Vec (deleted).
@@ -1164,7 +1187,9 @@ mod tests {
         let manifest = crate::manifest::test_fixture_manifest();
         let project =
             LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
-        let room_set = project.to_room_set(&manifest).expect("sandbox composes");
+        let room_set = project
+            .to_room_set(&manifest, &LdtkVocabulary::engine())
+            .expect("sandbox composes");
         let sanic = room_set
             .rooms
             .iter()

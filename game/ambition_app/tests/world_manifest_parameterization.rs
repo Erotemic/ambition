@@ -49,7 +49,7 @@ fn room_ids(manifest: &WorldManifest) -> Vec<String> {
     let project = LdtkProject::load_default_for_dev(manifest)
         .unwrap_or_else(|error| panic!("manifest world should load: {error}"));
     let room_set = project
-        .to_room_set(manifest)
+        .to_room_set(manifest, &ambition_app::composed_ldtk_vocabulary())
         .unwrap_or_else(|errors| panic!("manifest world should compose: {errors:?}"));
     room_set.rooms.iter().map(|room| room.id.clone()).collect()
 }
@@ -58,7 +58,7 @@ fn start_room(manifest: &WorldManifest) -> String {
     let project = LdtkProject::load_default_for_dev(manifest)
         .unwrap_or_else(|error| panic!("manifest world should load: {error}"));
     let room_set = project
-        .to_room_set(manifest)
+        .to_room_set(manifest, &ambition_app::composed_ldtk_vocabulary())
         .unwrap_or_else(|errors| panic!("manifest world should compose: {errors:?}"));
     room_set.active_spec().id.clone()
 }

@@ -47,9 +47,7 @@ pub use bevy_runtime::*;
 // The LDtk entity-converter registry (ADR 0009): content registers
 // game-specific entity converters at plugin-build time; the engine's
 // standard vocabulary enters through the same registry.
-pub use conversion::{
-    install_ldtk_entity_converters, LdtkEntityConverter, LdtkEntityCtx, RoomEmission,
-};
+pub use conversion::{LdtkEntityConverter, LdtkEntityCtx, LdtkVocabulary, RoomEmission};
 pub use hot_reload::{poll_ldtk_file_changes, LdtkHotReloadState};
 // The WorldManifest VALUE (JD4 / K2a): a game declares its LDtk worlds +
 // entry room; the engine ships zero worlds and hardcodes no start room.
@@ -60,8 +58,8 @@ pub use ambition_platformer2d_world::ron_room::{
 };
 pub use manifest::{world_bevy_asset_path, RonRoomSource, WorldManifest, WorldSource};
 pub use project::{
-    LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
-    ActiveLdtkProject,
+    ActiveLdtkProject, LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel,
+    LdtkProject,
 };
 pub use surfaces::{
     compile_surface, LdtkSurfaceSpec, SurfaceBreakability, SurfaceCollision, SurfaceCompiled,
@@ -101,7 +99,7 @@ impl LdtkValidationReport {
 }
 
 impl LdtkProject {
-    pub fn validate(&self) -> LdtkValidationReport {
+    pub fn validate(&self, vocabulary: &conversion::LdtkVocabulary) -> LdtkValidationReport {
         let mut report = LdtkValidationReport::default();
         if self.json_version.trim().is_empty() {
             report
@@ -166,7 +164,7 @@ impl LdtkProject {
                 .collect::<Vec<_>>();
 
             for entity in &layer.entity_instances {
-                if !known_entity(&entity.identifier) {
+                if !known_entity(&entity.identifier, vocabulary) {
                     report.errors.push(format!(
                         "level '{}' has unsupported Ambition entity '{}' ({})",
                         level.identifier, entity.identifier, entity.iid

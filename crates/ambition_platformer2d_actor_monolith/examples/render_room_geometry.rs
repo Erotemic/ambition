@@ -614,12 +614,12 @@ fn main() {
     let manifest = sandbox_world_manifest();
     let project = sb::ldtk_world::LdtkProject::load_default_for_dev(&manifest)
         .expect("sandbox LDtk should load");
-    let report = project.validate();
+    let report = project.validate(&ambition_platformer2d_ldtk::LdtkVocabulary::engine());
     if !report.is_ok() {
         eprintln!("warning: LDtk validation reported issues; rendering anyway");
     }
     let room_set = project
-        .to_room_set(&manifest)
+        .to_room_set(&manifest, &ambition_platformer2d_ldtk::LdtkVocabulary::engine())
         .expect("room_set should build");
     let boss_catalog = ambition_boss_catalog();
 

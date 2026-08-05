@@ -198,7 +198,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
     // The simulation's authority, seeded from the same authored value.
     let active_tuning = ambition_platformer2d::engine_core::ActiveMovementTuning(sandbox_data.tuning);
-    let mut room_set = match ldtk_project.to_room_set(&world_manifest) {
+    let mut room_set = match ldtk_project.to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary()) {
         Ok(room_set) => room_set,
         Err(errors) => {
             eprintln!(

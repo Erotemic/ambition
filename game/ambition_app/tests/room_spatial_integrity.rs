@@ -46,7 +46,7 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
 fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest())
+        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
         .expect("room_set should build");
     assert!(
         !room_set.rooms.is_empty(),

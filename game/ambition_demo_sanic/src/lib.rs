@@ -261,7 +261,13 @@ pub fn sanic_speedway() -> RoomSpec {
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(SPEEDWAY_WORLD_JSON)
         .expect("sanic_speedway.ldtk parses (regen: game/ambition_demo_sanic/tools/author_speedway_ldtk.py)");
     let room_set = project
-        .to_room_set_with_entry(SPEEDWAY_ROOM_ID)
+        // ⭐ Sanic authors only ENGINE nouns — no game-specific converter — and
+        // saying so is now part of the call rather than something a global
+        // decided for her.
+        .to_room_set_with_entry(
+            SPEEDWAY_ROOM_ID,
+            &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine(),
+        )
         .unwrap_or_else(|errors| panic!("sanic_speedway.ldtk converts to rooms: {errors:?}"));
     let mut room = room_set
         .rooms

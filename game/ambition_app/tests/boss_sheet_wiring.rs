@@ -149,7 +149,7 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
     let project = ambition_platformer2d::actors::ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)
         .expect("the shipped LDtk project loads");
     let room_set = project
-        .to_room_set(&world_manifest)
+        .to_room_set(&world_manifest, &ambition_app::composed_ldtk_vocabulary())
         .expect("it lowers to rooms");
 
     let sheet_keys: BTreeSet<&str> = boss_catalog.authored_sheet_keys().collect();

@@ -218,12 +218,12 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
 #[test]
 fn locate_teleport_target_block() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
-    let report = project.validate();
+    let report = project.validate(&ambition_app::composed_ldtk_vocabulary());
     if !report.is_ok() {
         panic!("validation failed");
     }
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest())
+        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
         .expect("room_set");
     let arena = room_set
         .rooms
@@ -280,12 +280,12 @@ fn locate_teleport_target_block() {
 #[test]
 fn square_arena_wall_cling_full_world_does_not_teleport() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
-    let report = project.validate();
+    let report = project.validate(&ambition_app::composed_ldtk_vocabulary());
     if !report.is_ok() {
         panic!("validation failed");
     }
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest())
+        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
         .expect("room_set");
     let arena = room_set
         .rooms
@@ -350,12 +350,12 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
 #[test]
 fn square_arena_wall_cling_full_world_steps_many_times() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
-    let report = project.validate();
+    let report = project.validate(&ambition_app::composed_ldtk_vocabulary());
     if !report.is_ok() {
         panic!("validation failed");
     }
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest())
+        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
         .expect("room_set");
     let arena = room_set
         .rooms
@@ -621,7 +621,7 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
 fn goblin_encounter_full_world_lock_wall_cling_repro() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest())
+        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
         .expect("room_set");
     let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
         eprintln!("no goblin_encounter room; known rooms:");
@@ -727,7 +727,7 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
 fn goblin_encounter_real_walljump_repro() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest())
+        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
         .expect("room_set");
     let Some(room) = room_set.rooms.iter().find(|s| s.id == "goblin_encounter") else {
         return;

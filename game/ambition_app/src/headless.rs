@@ -98,7 +98,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // App-local resources by `AmbitionGameSimulationPlugin`.
     let world_manifest = ambition_content::worlds::world_manifest();
     let project = ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)?;
-    let report = project.validate();
+    let report = project.validate(&crate::composed_ldtk_vocabulary());
     if !report.is_ok() {
         report.print_to_stderr();
         return Err(format!(
@@ -106,11 +106,11 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
             report.errors.len()
         ));
     }
-    if let Err(errors) = project.to_room_set(&world_manifest) {
+    if let Err(errors) = project.to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary()) {
         return Err(errors.join("; "));
     }
     let room_count = project
-        .to_room_set(&world_manifest)
+        .to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary())
         .expect("just validated above")
         .rooms
         .len();

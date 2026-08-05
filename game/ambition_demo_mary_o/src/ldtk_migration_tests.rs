@@ -11,10 +11,11 @@ use ambition_platformer2d::engine_core as ae;
 const WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk");
 
 fn ldtk_room() -> ambition_platformer2d::world::rooms::RoomSpec {
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(WORLD_JSON)
-        .expect("mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)");
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(WORLD_JSON).expect(
+        "mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)",
+    );
     let room_set = project
-        .to_room_set_with_entry("mary_o_1_1")
+        .to_room_set_with_entry("mary_o_1_1", &crate::ldtk_vocabulary::vocabulary())
         .unwrap_or_else(|errors| panic!("mary_o.ldtk converts to rooms: {errors:?}"));
     room_set
         .rooms
@@ -116,7 +117,11 @@ fn every_named_block_the_runtime_looks_for_survives_conversion() {
         .iter()
         .filter(|b| block_kind_of(&b.name).is_some())
         .count();
-    assert_eq!(ids.len(), reactive, "every reactive block needs its own identity");
+    assert_eq!(
+        ids.len(),
+        reactive,
+        "every reactive block needs its own identity"
+    );
 
     // The pieces still addressed by NAME, because a pipe pair and the flag are
     // not `MaryOBlock`s yet.
@@ -198,4 +203,78 @@ fn print_what_the_file_authors() {
     for p in room.placements.iter().take(4) {
         println!("  {:?} center={:?}", p.id, p.aabb.center());
     }
+}
+
+/// **Two vocabularies, one process, and they disagree — correctly.**
+///
+/// ⛔ **this test could not have been written before.** The converter registry
+/// was a process-global `OnceLock` whose contract was "first install wins,
+/// later calls are ignored": whichever `App`, tool or test touched it first
+/// defined LDtk conversion for everything else in the process, and the only
+/// evidence was an error log. Two games in one binary, a game and a tool, or
+/// two test Apps in one run could not carry different vocabularies at all.
+///
+/// ⭐ **the vocabulary is a PARAMETER now**, so both answers below are true at
+/// the same time in the same process, which is the whole claim:
+///
+/// - to the ENGINE's vocabulary, `MaryOBlock` is an unknown identifier, and
+///   conversion refuses the level rather than dropping the blocks — the
+///   authored bonus quietly becoming a plain wall is exactly the failure that
+///   refusal exists to prevent;
+/// - to MARY-O's, it converts.
+///
+/// ⚠ **the engine-only conversion is asserted TWICE, and the second one is the
+/// test.** The first draft only checked it before Mary-O's vocabulary had ever
+/// been built — and a probe that re-created the old global left that draft
+/// GREEN, because nothing had installed anything yet when it ran. The claim
+/// that needs proving is that constructing hers does not CHANGE the engine's
+/// answer, so the same refusal has to hold on the far side of a successful
+/// conversion. That is the exact shape the global got wrong.
+#[test]
+fn the_same_level_reads_differently_to_two_vocabularies_in_one_process() {
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(WORLD_JSON)
+        .expect("mary_o.ldtk parses");
+
+    let engine_only = project.to_room_set_with_entry(
+        "mary_o_1_1",
+        &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine(),
+    );
+    let errors = engine_only.expect_err(
+        "the engine alone cannot convert a level that authors Mary-O's own noun — \
+         accepting it would mean silently dropping every reactive block",
+    );
+    assert!(
+        errors.iter().any(|e| e.contains("MaryOBlock")),
+        "the refusal must NAME the identifier nothing could convert: {errors:?}"
+    );
+
+    let with_hers = project
+        .to_room_set_with_entry("mary_o_1_1", &crate::ldtk_vocabulary::vocabulary())
+        .expect("her own vocabulary converts her own level, in this same process");
+    assert!(
+        with_hers.rooms.iter().any(|room| room.id == "mary_o_1_1"),
+        "and it produces the level, not an empty set"
+    );
+
+    // ⛔ **the anti-leak assertion.** Having converted the level once with her
+    // vocabulary, the ENGINE's answer must be unchanged. Under the old
+    // process-global this is the one that failed: her converter would have been
+    // installed by the call above and would still be answering for everyone.
+    let engine_again = project.to_room_set_with_entry(
+        "mary_o_1_1",
+        &ambition_platformer2d::ldtk_map::LdtkVocabulary::engine(),
+    );
+    // ⚠ matched rather than `expect_err`, which prints the whole converted
+    // `RoomSet` — hundreds of lines of blocks — as its failure message.
+    let Err(errors) = engine_again else {
+        panic!(
+            "converting WITH Mary-O's vocabulary taught it to everyone else: the \
+             engine alone converted `MaryOBlock` on the second call. A vocabulary \
+             that leaks is the process-global this replaced."
+        );
+    };
+    assert!(
+        errors.iter().any(|e| e.contains("MaryOBlock")),
+        "and it refuses for the same reason as before: {errors:?}"
+    );
 }

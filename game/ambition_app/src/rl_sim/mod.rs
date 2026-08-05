@@ -45,7 +45,7 @@ pub fn ambition_sim_composition(app: &mut App, options: &Platformer2dSimHarnessO
     // simulation plugin; validation reads the provider's manifest directly.
     let world_manifest = ambition_content::worlds::world_manifest();
     let project = ldtk_world::LdtkProject::load_default_for_dev(&world_manifest)?;
-    let report = project.validate();
+    let report = project.validate(&crate::composed_ldtk_vocabulary());
     if !report.is_ok() {
         report.print_to_stderr();
         return Err(format!(
@@ -53,7 +53,7 @@ pub fn ambition_sim_composition(app: &mut App, options: &Platformer2dSimHarnessO
             report.errors.len()
         ));
     }
-    if let Err(errors) = project.to_room_set(&world_manifest) {
+    if let Err(errors) = project.to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary()) {
         return Err(errors.join("; "));
     }
     // Programmatic start-room override: insert before AmbitionGameSimulationPlugin

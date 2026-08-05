@@ -21,6 +21,20 @@
 #[global_allocator]
 static GLOBAL_ALLOCATOR: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
+/// **The LDtk nouns THIS composition understands.**
+///
+/// ⭐ **one place, because it is a composition decision.** The sandbox authors
+/// only engine vocabulary, so today this is just the engine's. What matters is
+/// that the answer has a NAME: the eight places that read or convert a world
+/// file used to inherit whatever a process-global `OnceLock` happened to hold,
+/// and the day this app composes a game that owns LDtk nouns of its own — Mary-O
+/// already does — that becomes one edit here rather than eight scattered
+/// literals, none of which would have been findable by asking "what can this
+/// app convert?".
+pub fn composed_ldtk_vocabulary() -> ambition_platformer2d::actors::ldtk_world::LdtkVocabulary {
+    ambition_platformer2d::actors::ldtk_world::LdtkVocabulary::engine()
+}
+
 pub mod app;
 pub mod dev;
 pub mod headless;
@@ -32,8 +46,8 @@ pub mod rl_sim;
 pub use headless::{run_headless, HeadlessReport};
 #[cfg(feature = "rl_sim")]
 pub use rl_sim::{
-    AgentAction, AgentObservation, AmbitionSim, Lcg, RandomWalkPolicy, RandomWalkTuning,
-    Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AgentObservation, AmbitionSim, Lcg, Platformer2dSimHarness,
+    Platformer2dSimHarnessOptions, RandomWalkPolicy, RandomWalkTuning, TimestepMode,
 };
 
 /// Android shared-library entry point.

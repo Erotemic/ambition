@@ -13,11 +13,18 @@ use ambition_platformer2d_core as ae;
 
 use super::{LdtkEntityInstance, LdtkFieldInstance, LdtkLevel};
 
-/// True if the identifier has a registered converter — the engine's standard
-/// vocabulary plus any content-installed converters (ADR 0009), so a
+/// True if the CALLER'S vocabulary has a converter for the identifier — the
+/// engine's standard nouns plus whatever game extended them, so a
 /// game-registered entity passes validation like a built-in one.
-pub(super) fn known_entity(identifier: &str) -> bool {
-    super::conversion::converter_for(identifier).is_some()
+///
+/// ⚠ the vocabulary is a parameter because validation's answer DEPENDS on it:
+/// `MaryOBlock` is a real entity to Mary-O and an unknown one to the sandbox,
+/// and both answers are correct.
+pub(super) fn known_entity(
+    identifier: &str,
+    vocabulary: &super::conversion::LdtkVocabulary,
+) -> bool {
+    vocabulary.converter_for(identifier).is_some()
 }
 
 pub(super) fn pivot_is_top_left(entity: &LdtkEntityInstance) -> bool {
@@ -201,7 +208,9 @@ pub(super) fn parse_boss_brain(value: &str) -> ambition_entity_catalog::placemen
     }
 }
 
-pub(super) fn parse_debug_label_kind(value: &str) -> ambition_platformer2d_world::debug_label::DebugLabelKind {
+pub(super) fn parse_debug_label_kind(
+    value: &str,
+) -> ambition_platformer2d_world::debug_label::DebugLabelKind {
     match value {
         "Room" => ambition_platformer2d_world::debug_label::DebugLabelKind::Room,
         "LoadingZone" => ambition_platformer2d_world::debug_label::DebugLabelKind::LoadingZone,

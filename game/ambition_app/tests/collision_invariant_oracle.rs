@@ -365,7 +365,7 @@ fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
     let Ok(project) = load_project_for_test() else {
         return map;
     };
-    let Ok(room_set) = project.to_room_set(&ambition_content::worlds::world_manifest()) else {
+    let Ok(room_set) = project.to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary()) else {
         return map;
     };
     for room in &room_set.rooms {

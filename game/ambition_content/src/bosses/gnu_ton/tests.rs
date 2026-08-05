@@ -270,7 +270,10 @@ fn arena_spawns_the_adr0020_linked_pair() {
         .levels
         .retain(|level| level.identifier == ARENA_ROOM_NAME);
     let room_set = project
-        .to_room_set(&manifest)
+        .to_room_set(
+            &manifest,
+            &ambition_platformer2d_actor_monolith::ldtk_world::LdtkVocabulary::engine(),
+        )
         .expect("gnu_ton_arena composes");
     let arena = room_set
         .rooms

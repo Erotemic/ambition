@@ -97,12 +97,7 @@ pub fn encoded_name(kind: MaryOBlockKind, iid: &str) -> String {
 
 /// A reactive block, built the way [`convert_mary_o_block`] builds one: encoded
 /// name, and the durable placement identity that `Block::solid` does not set.
-pub fn reactive_block(
-    kind: MaryOBlockKind,
-    iid: &str,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> ae::Block {
+pub fn reactive_block(kind: MaryOBlockKind, iid: &str, min: ae::Vec2, size: ae::Vec2) -> ae::Block {
     let mut block = ae::Block::solid(encoded_name(kind, iid), min, size);
     block.id = ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0);
     block
@@ -135,7 +130,8 @@ pub fn block_kind_of(name: &str) -> Option<MaryOBlockKind> {
 /// author gets told at load which entity and what the choices are.
 pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, _name, min, size) = ctx.parts();
-    let authored = ambition_platformer2d::ldtk_map::field_string(entity, "kind").unwrap_or_default();
+    let authored =
+        ambition_platformer2d::ldtk_map::field_string(entity, "kind").unwrap_or_default();
     let Some(kind) = MaryOBlockKind::parse(&authored) else {
         return Err(format!(
             "MaryOBlock `{}` has kind {authored:?}, which is not one of Power, Quasar, Brick",
@@ -155,19 +151,28 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
     Ok(emission)
 }
 
-/// Install Mary-O's LDtk vocabulary. Called once at plugin-build time, before
-/// any world load.
+/// **Mary-O's LDtk vocabulary**: the engine's nouns plus her own.
 ///
-/// ⚠ **the registry behind this is process-global** (`OnceLock`, first install
-/// wins, a DIFFERENT second set logs loudly). That is a known interim limitation
-/// with its endpoint already written down — queue G3, and the GPT review's
-/// finding 7 — and Mary-O being its first real user is what stops it being
-/// hypothetical. It is not fixed here.
-pub fn install() {
-    ambition_platformer2d::ldtk_map::install_ldtk_entity_converters([(
+/// ⭐ **this is a VALUE now, and that is the whole change.** It used to be
+/// `install()`, writing into a process-global `OnceLock` where the first caller
+/// won and every later one was ignored with an error log — so two games, a game
+/// and a tool, or two test Apps in one process could not disagree. The reason
+/// given for the global was that conversion runs from pure non-system code with
+/// no `World` in hand, which is true and argues for a PARAMETER rather than for
+/// ambient state: a value passed in is exactly as reachable from a tool as from
+/// a system.
+///
+/// ⚠ **it still belongs to the READER, not to the plugin.** `MaryOBlock` is
+/// hers and conversion refuses an identifier it cannot convert, loudly and by
+/// design — so every test, tool and probe that loads her level has to say this,
+/// or get nine refusals. Handing it over at the load is what makes that
+/// impossible to forget, where a build-time install was something you could
+/// simply not have done yet.
+pub fn vocabulary() -> ambition_platformer2d::ldtk_map::LdtkVocabulary {
+    ambition_platformer2d::ldtk_map::LdtkVocabulary::extended_by([(
         MARY_O_BLOCK.to_string(),
         convert_mary_o_block as ambition_platformer2d::ldtk_map::LdtkEntityConverter,
-    )]);
+    )])
 }
 
 /// **Every LDtk noun Mary-O owns**, and the list [`install`] is checked against.
@@ -204,7 +209,9 @@ mod tests {
             let Some(rest) = chunk.split_once(':') else {
                 continue;
             };
-            let Some(open) = rest.1.find('"') else { continue };
+            let Some(open) = rest.1.find('"') else {
+                continue;
+            };
             let tail = &rest.1[open + 1..];
             if let Some(close) = tail.find('"') {
                 found.push(tail[..close].to_string());
@@ -290,6 +297,9 @@ mod tests {
         assert_eq!(MaryOBlockKind::parse(""), None);
         // ...and the spellings an author might reasonably reach for DO work.
         assert_eq!(MaryOBlockKind::parse("power"), Some(MaryOBlockKind::Power));
-        assert_eq!(MaryOBlockKind::parse(" Brick "), Some(MaryOBlockKind::Brick));
+        assert_eq!(
+            MaryOBlockKind::parse(" Brick "),
+            Some(MaryOBlockKind::Brick)
+        );
     }
 }

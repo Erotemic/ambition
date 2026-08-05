@@ -331,23 +331,19 @@ pub const MARY_O_WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk")
 /// player without passing the build and this crate's tests first. The moment the
 /// world is loaded from disk instead, this has to become a reported refusal.
 fn authored_room(area: &str) -> RoomSpec {
-    // ⛔ **THE READER INSTALLS THE VOCABULARY, because the file cannot be read
+    // ⛔ **THE READER SUPPLIES THE VOCABULARY, because the file cannot be read
     // without it.** `MaryOBlock` is Mary-O's own LDtk noun; conversion refuses an
     // identifier it has no converter for, loudly and by design. Doing this only
     // in `MaryORulesPlugin::build` meant every test, tool and probe that loads
     // the level directly got nine refusals — and the level is not readable
     // without its vocabulary in ANY of those contexts, so the load is where the
     // requirement belongs.
-    //
-    // ⚠ safe to call repeatedly: the registry keeps the first install and stays
-    // silent for an identical set, which is exactly the repeated case.
-    ldtk_vocabulary::install();
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(MARY_O_WORLD_JSON)
         .expect(
             "mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)",
         );
     let room_set = project
-        .to_room_set_with_entry(area)
+        .to_room_set_with_entry(area, &ldtk_vocabulary::vocabulary())
         .unwrap_or_else(|errors| panic!("mary_o.ldtk converts to rooms: {errors:?}"));
     room_set
         .rooms
@@ -1303,12 +1299,13 @@ impl MaryORulesPlugin {
 impl Plugin for MaryORulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
-        // ⛔ **BEFORE ANY WORLD LOAD.** LDtk conversion runs from pure non-system
-        // code with no `World` in hand, so the converter registry is process-wide
-        // and has to be populated at plugin-build time. Without this the level's
-        // `MaryOBlock` entities are an unknown identifier and conversion refuses
-        // the room outright — loudly, which is the right failure.
-        ldtk_vocabulary::install();
+        // ⭐ **NOTHING IS INSTALLED HERE ANY MORE, and that is the improvement.**
+        // This used to have to run before any world load, because the converter
+        // registry was process-wide: LDtk conversion runs from pure non-system
+        // code with no `World` in hand, so a plugin-build install was the only
+        // moment that reached it. The vocabulary is a value handed to the
+        // conversion now ([`ldtk_vocabulary::vocabulary`]), so a reader that
+        // forgets it cannot get a half-populated global — it does not compile.
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
         // 1-1's pole up front so nothing that reads the resource before the first
         // frame finds it missing; `install_goal_pole` re-answers it from the entry

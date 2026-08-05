@@ -83,7 +83,8 @@ pub fn validate_content_graph(
         report.push_error(format!("music registry invalid: {error}"));
     }
 
-    let ldtk_report = project.validate();
+    let ldtk_report = project
+        .validate(&ambition_platformer2d_actor_monolith::ldtk_world::LdtkVocabulary::engine());
     report.extend_errors(
         ldtk_report
             .errors

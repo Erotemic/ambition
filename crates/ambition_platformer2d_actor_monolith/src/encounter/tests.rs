@@ -374,7 +374,7 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
     let manifest = test_world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let room_set = project
-        .to_room_set(&manifest)
+        .to_room_set(&manifest, &ambition_platformer2d_ldtk::LdtkVocabulary::engine())
         .expect("goblin_encounter world composes");
     let goblin_encounter = room_set
         .rooms

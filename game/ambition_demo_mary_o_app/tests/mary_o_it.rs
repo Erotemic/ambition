@@ -10,6 +10,7 @@
 //! ⚠ `autotests = false` makes a forgotten `mod` line silently skip a whole
 //! file — `mary_o_it_sync` is the guard that turns that into a failure.
 
+mod enemy_quad_matches_its_box;
 mod mary_o_it_sync;
 
 mod course_playthrough;

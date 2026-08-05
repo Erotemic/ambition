@@ -407,7 +407,7 @@ pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
 /// So `0.35` is chosen by ARITHMETIC, honestly labelled: it is a 30% reduction
 /// on the value Jon asked to shrink, and nothing more. Turning this knob again
 /// is a taste call best made by whoever is looking at the running game.
-const SNAKE_WORLD_PER_PIXEL: f32 = 0.35;
+pub const SNAKE_WORLD_PER_PIXEL: f32 = 0.35;
 
 /// How near an observer has to be for a snake to keep thinking.
 ///

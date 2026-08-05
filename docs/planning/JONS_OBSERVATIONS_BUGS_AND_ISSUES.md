@@ -81,3 +81,26 @@ nothing is not ready; the match cannot start until every participating slot has 
 character; a cursor hovering a portrait previews it; picking up a token and
 dropping it on empty space returns it rather than clearing the slot; a controller
 slot with no attached pad cannot be set to controller.
+
+
+* ▢ **You should not be able to stand on an invisible block.** (Jon, 2026-08-05)
+  A `MaryOBlockLook::Hidden` block is drawn transparent and is still `BlockKind::Solid`,
+  so it is an invisible FLOOR — you can land on nothing. In SMB an invisible block
+  is intangible until struck from below, and then it is solid.
+  * ⚠ **the fix is a collision vocabulary the engine half has.** `BlockKind::OneWay`
+    is *"only solid when the player crosses from above"*; a hidden block needs the
+    MIRROR — solid only when struck from below — and `is_solid_for_axis` /
+    `is_support_surface` in `collision_semantics.rs` are where both live. The
+    matches there are exhaustive, so a new kind names every site that must decide.
+  * ⛔ **not "just make it non-solid"**: the bonk is a `ContactKind::Head` contact
+    from the collision system, so a block with no collision cannot be struck at
+    all. Removing solidity removes the reward.
+
+* ▢ **The snake and AI slop are still way too big visually, and the sprite might
+  not match the box for the snake.** (Jon, 2026-08-05, second report)
+  ⚠ the earlier attempt at this measured badly TWICE and is recorded as such — a
+  colour filter ate the green warp pipes, and the snake has two body states so
+  two captures compared different animals. The 0.35 that landed was arithmetic,
+  not a derivation. Jon's "the sprite might not match the box" is the lead worth
+  following: if the drawn quad and the collision box disagree, scaling one does
+  not fix the other and the visual size will keep looking wrong.

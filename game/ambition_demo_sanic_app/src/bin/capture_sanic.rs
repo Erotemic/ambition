@@ -41,6 +41,19 @@ struct Warmup {
     /// Without it the camera only ever sees the opening screen — and Sanic's
     /// whole point is what happens once he is moving.
     walk_right: u32,
+    /// Frames to let the LAST walking input actually be simulated.
+    ///
+    /// ⛔ **the walk counter was short by its final frame.** `hold_right_while_walking`
+    /// spends the last step and presses RIGHT, and `shoot_when_warm` — chained
+    /// immediately after it — requested the picture in that same `Update`. The
+    /// press is collected and simulated on a LATER frame than the one that asked
+    /// for the shot, so `--walk 1` photographed zero frames of walking and every
+    /// other count was one short (GPT 5.6, review through `f0f97f5`).
+    ///
+    /// One frame is enough: the input written this frame is collected in the
+    /// same frame's `InputSet::Collect` (which the writer is now ordered before)
+    /// and moves the body on the next simulation step.
+    settle: u32,
 }
 
 fn main() {
@@ -105,8 +118,15 @@ fn main() {
     app.insert_resource(Warmup {
         remaining: warmup,
         walk_right: walk,
+        settle: 1,
     });
     app.add_systems(Startup, setup_capture_target);
+    // ⛔ **the synthetic input must be written BEFORE the frame collects it.**
+    // These sat in `Update` with no edge to `ambition_platformer2d::input::InputSet::Collect`,
+    // which is also in `Update` — so whether a press written here was seen by
+    // the same frame or the next one was left to whatever order Bevy happened to
+    // pick. Ambiguity in a measuring instrument is worse than a known offset:
+    // the capture is supposed to be the thing that settles arguments.
     app.add_systems(
         Update,
         (
@@ -115,7 +135,8 @@ fn main() {
             shoot_when_warm,
             finish_after_capture,
         )
-            .chain(),
+            .chain()
+            .before(ambition_platformer2d::input::InputSet::Collect),
     );
     app.run();
 }
@@ -151,6 +172,12 @@ fn shoot_when_warm(
     // the departure lounge. `hold_right_while_walking` is chained BEFORE this,
     // so the frame that spends the last walking step is the frame that shoots.
     if warmup.walk_right > 0 {
+        return;
+    }
+    // The last walking frame's press was written THIS frame at the earliest; let
+    // it be collected and simulated before the shutter. See `Warmup::settle`.
+    if warmup.settle > 0 {
+        warmup.settle -= 1;
         return;
     }
     request_capture(&mut commands, &target, &mut progress);

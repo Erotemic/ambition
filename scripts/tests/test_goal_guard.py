@@ -16,29 +16,43 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-GUARD = Path(__file__).resolve().parents[1] / "goal_guard.py"
+GUARD_SOURCE = Path(__file__).resolve().parents[1] / "goal_guard.py"
 
 
 def git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
 
 
+def guard_in(repo: Path) -> Path:
+    return repo / "scripts" / "goal_guard.py"
+
+
 @pytest.fixture()
 def repo(tmp_path: Path) -> Path:
-    """A real git repo — the guard's progress oracle is HEAD, not a counter."""
+    """A real git repo — the guard's progress oracle is HEAD, not a counter.
+
+    The guard is COPIED IN at `scripts/goal_guard.py` rather than run from the
+    checkout, because the guard locates its own `.goal/` from `__file__`. Running
+    the checkout's copy against a tmp repo would aim every test in this file at
+    the REAL `.goal/` — and `test_all_checks_passing_clears_the_goal` would then
+    disarm whatever run is live. Copying it also means these tests exercise the
+    production resolution rule instead of a test-only seam.
+    """
     root = tmp_path / "repo"
-    root.mkdir()
+    (root / "scripts").mkdir(parents=True)
+    shutil.copyfile(GUARD_SOURCE, guard_in(root))
     git(root, "init", "-q")
     git(root, "config", "user.email", "guard@test")
     git(root, "config", "user.name", "guard")
     (root / "seed.txt").write_text("seed\n")
-    git(root, "add", "seed.txt")
+    git(root, "add", "seed.txt", "scripts/goal_guard.py")
     git(root, "commit", "-qm", "seed")
     return root
 
@@ -49,10 +63,10 @@ def arm(repo: Path, **goal) -> None:
     (repo / ".goal" / "active.json").write_text(json.dumps(goal))
 
 
-def run(repo: Path, *args: str, stdin: dict | None = None) -> dict:
+def run(repo: Path, *args: str, stdin: dict | None = None, cwd: Path | None = None) -> dict:
     proc = subprocess.run(
-        [sys.executable, str(GUARD), *args],
-        cwd=str(repo),
+        [sys.executable, str(guard_in(repo)), *args],
+        cwd=str(cwd or repo),
         input=json.dumps(stdin or {}),
         capture_output=True,
         text=True,
@@ -149,7 +163,7 @@ def test_a_goal_with_no_checks_cannot_be_armed(repo: Path) -> None:
     """A goal with nothing to verify IS the judged-by-vibes hook this replaces."""
     (repo / "empty.json").write_text(json.dumps({"goal": "vibes", "checks": []}))
     proc = subprocess.run(
-        [sys.executable, str(GUARD), "--arm", "empty.json"],
+        [sys.executable, str(guard_in(repo)), "--arm", "empty.json"],
         cwd=str(repo),
         capture_output=True,
         text=True,
@@ -300,3 +314,41 @@ def test_inject_restates_an_armed_goal_that_has_never_been_checked(repo: Path) -
 
 def test_inject_is_silent_when_unarmed(repo: Path) -> None:
     assert run(repo, "--inject", stdin={"hook_event_name": "SessionStart"}) == {}
+
+
+# ── Which repository is this? (the 2026-08-05 four-hour hole) ─────────────────
+
+
+def test_a_nested_git_repo_does_not_hide_the_goal(repo: Path) -> None:
+    """The one that cost 4h12m on 2026-08-05.
+
+    `repo_root()` asked `git rev-parse --show-toplevel`, under a docstring
+    claiming that made the guard work "from any cwd a hook happens to have". This
+    tree contains a nested repository (`tools/ambition_sprite2d_renderer`), so one
+    `cd` into it and the guard resolved to the SUB-repo, where `.goal/active.json`
+    does not exist. `mode_stop` then took its "not armed: ordinary sessions are
+    untouched" path and released a 72-hour run, silently, having verified nothing.
+
+    A guard that answers "no goal is armed" because of where it was standing is
+    the same failure as a judge persuaded by prose, with fewer words.
+    """
+    nested = repo / "tools" / "sub_repo"
+    nested.mkdir(parents=True)
+    git(nested, "init", "-q")
+    git(nested, "config", "user.email", "sub@test")
+    git(nested, "config", "user.name", "sub")
+    (nested / "f.txt").write_text("x\n")
+    git(nested, "add", "f.txt")
+    git(nested, "commit", "-qm", "sub seed")
+
+    arm(repo, checks=[FAIL])
+    assert run(repo, cwd=nested).get("decision") == "block", (
+        "the guard must belong to the repository it is COMMITTED IN, "
+        "not to whichever one the working directory happens to be inside"
+    )
+    # Two companions to this were written and deleted: "found from a
+    # subdirectory" and "the checks run at the root". Both passed against the OLD
+    # `git rev-parse` implementation, because from a plain subdirectory of the
+    # same repo it answered correctly — so neither could ever have caught the bug
+    # they were written for. A test that is green through its own motivating case
+    # is not coverage, it is furniture.

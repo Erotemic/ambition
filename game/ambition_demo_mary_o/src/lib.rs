@@ -476,6 +476,44 @@ pub fn vault_exit() -> ae::Aabb {
 /// `python3 game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py` only to
 /// re-derive it from scratch; ordinary layout edits belong in the LDtk editor,
 /// and the generator's constants are history the moment Jon touches it.
+/// **Give every authored enemy the display name that resolves its sheet.**
+///
+/// ⛔ **Without this every Mary-O enemy draws as a RED RECTANGLE** — Jon found
+/// all 17 of them that way on 2026-08-05. The LDtk `EnemySpawn` entities carry a
+/// position and a `brain` and nothing else, so the converter falls back to the
+/// LDtk identifier and names each one the literal string `"EnemySpawn"`. The
+/// render binder resolves art by NAME (`upgrade_actor_sprites`), finds nothing
+/// under that, and — correctly, by §4.10, there is no generic fallback sheet —
+/// leaves the fighting-actor placeholder in place. Red is just what a hostile
+/// placeholder is coloured.
+///
+/// ⚠ **I deleted the writer myself in `07f0fc7cc`.** That commit removed
+/// Mary-O's two staging closures because they built every enemy a second time,
+/// and the dedup was right — but those closures were also the only thing setting
+/// the display name, and its thesis ("the identity is the BRAIN, not a display
+/// name") is true of GAMEPLAY identity and not of render identity. Nothing
+/// replaced the writer, so the art went with the duplicate.
+///
+/// The brain → sheet mapping lives here rather than in the world file because
+/// the level authors behaviour and the demo owns presentation; Sanic's speedway
+/// names its badnik in exactly this spot, for exactly this reason.
+///
+/// ⭐ **The deeper fix is a ledger row, not this function.** Resolving art by a
+/// human-readable string means renaming a character silently un-arts every level
+/// that placed it, and both demos now carry the same hand-written workaround.
+/// Render identity belongs on the archetype (or on an `EnemySpawn.character_id`
+/// field, which `NpcSpawn` already has and `EnemySpawn` does not). Recorded in
+/// the queue as PICK 15's enemy-identity row.
+pub(crate) fn name_enemies_for_render(room: &mut RoomSpec) {
+    for spawn in &mut room.enemy_spawns {
+        if ai_slop::is_ai_slop_brain(&spawn.payload) {
+            spawn.name = ai_slop::AI_SLOP_DISPLAY_NAME.to_string();
+        } else if snake::is_snake_brain(&spawn.payload) {
+            spawn.name = snake::SNAKE_DISPLAY_NAME.to_string();
+        }
+    }
+}
+
 pub fn level_1_1() -> RoomSpec {
     let mut room = authored_room(LEVEL_1_1_ROOM_ID);
     room.metadata.mode = Some(MARY_O_MODE.to_string());
@@ -485,6 +523,7 @@ pub fn level_1_1() -> RoomSpec {
     // naming the half that is there and the partner it wants.
     let _ = pipe_tubes(&room).unwrap_or_else(|why| panic!("{why}"));
     dress_authored_blocks(&mut room);
+    name_enemies_for_render(&mut room);
     room.props.extend(scenery_for_authored_room(&room));
 
     // ⭐ **the two ends of the trip to World 1-2 are AUTHORED (2026-08-05).**

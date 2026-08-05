@@ -44,17 +44,14 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PKG_ROOT = REPO_ROOT / "tools" / "ambition_ldtk_tools"
 sys.path.insert(0, str(PKG_ROOT))
 
+from ambition_ldtk_tools.ldtk.paths import (  # noqa: E402
+    game_entity_manifest,
+    game_world_ldtk,
+)
 from ambition_ldtk_tools.validate import validate  # noqa: E402
 
-MARY_O = (
-    REPO_ROOT
-    / "game"
-    / "ambition_demo_mary_o"
-    / "assets"
-    / "worlds"
-    / "mary_o.ldtk"
-)
-MANIFEST = MARY_O.with_name("mary_o.entities.json")
+MARY_O = game_world_ldtk("ambition_demo_mary_o", "mary_o")
+MANIFEST = game_entity_manifest("ambition_demo_mary_o", "mary_o")
 
 
 def unsupported_entity_errors(errors, identifier):

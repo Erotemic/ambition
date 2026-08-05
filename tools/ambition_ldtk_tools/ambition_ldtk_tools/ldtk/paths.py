@@ -51,6 +51,36 @@ def default_hall_ldtk(anchor: Path | None = None) -> Path:
     return default_worlds_dir(anchor) / "hall_of_characters.ldtk"
 
 
+def game_worlds_dir(game: str, anchor: Path | None = None) -> Path:
+    """Return the LDtk world directory a GAME crate owns.
+
+    ``default_worlds_dir`` is durable shared content — the sandbox, the hall.
+    A game that authors its own levels keeps them in its own crate instead, so
+    that they ship and version with the game rather than with the engine's
+    content pack: ``game/<game>/assets/worlds``. Mary-O's 1-1 is the first.
+
+    It lives here for the same reason every other path does: the worlds
+    directory is built in ONE place. When the shared worlds moved out of
+    ``crates/ambition_platformer2d_actor_monolith/assets``, every command that
+    had spelled the path itself broke at once.
+    """
+    return _repo_root(anchor) / "game" / game / "assets" / "worlds"
+
+
+def game_world_ldtk(game: str, stem: str, anchor: Path | None = None) -> Path:
+    """Return one game-owned world file, e.g. ``mary_o.ldtk``."""
+    return game_worlds_dir(game, anchor) / f"{stem}.ldtk"
+
+
+def game_entity_manifest(game: str, stem: str, anchor: Path | None = None) -> Path:
+    """Return the sidecar manifest declaring a game-owned world's own entities.
+
+    The LDtk validator reads this to know which identifiers a game installs
+    converters for; see ``validate.game_entity_manifest_for``.
+    """
+    return game_worlds_dir(game, anchor) / f"{stem}.entities.json"
+
+
 def default_character_catalog(anchor: Path | None = None) -> Path:
     """Return the authoritative character-catalog path."""
     return default_content_assets_dir(anchor) / "data" / "character_catalog.ron"

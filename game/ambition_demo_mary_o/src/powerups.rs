@@ -18,6 +18,7 @@ use ambition_platformer2d::characters::equipment::{
     EquipmentGrant, EquipmentRow, ModifierOp, ModifierScope, OnHit, ParamModifier, WornEquipment,
 };
 
+use crate::ldtk_vocabulary::{MaryOBlockContents, MaryOPickup};
 use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d::actors::items::{spawn_moving_world_item, ItemMotionPlan, WorldItem};
@@ -423,18 +424,20 @@ pub fn bonk_power_blocks(
         let Some(block) = crate::authored_block_by_id(&geometry.0, id) else {
             continue;
         };
-        // TWO block families, and which one was struck decides what comes out.
-        // A quasar block yields the quasar to ANY form, because being briefly
-        // untouchable is not a rung on the power ladder (Jon: "a quasar is not
-        // part of the wand -> lantern item progression. Any form of maryo should
-        // be able to get the quasar").
-        let reward_of = match crate::ldtk_vocabulary::block_kind_of(&block.name) {
-            Some(crate::ldtk_vocabulary::MaryOBlockKind::Power) => RewardSource::PowerLadder,
-            Some(crate::ldtk_vocabulary::MaryOBlockKind::Quasar) => RewardSource::Quasar,
-            // A brick is `bricks::break_bricks`' business, and anything else is
-            // ordinary level geometry.
-            _ => continue,
+        // ⛔ **WHAT IT HOLDS, not what it looks like.** This matched the block's
+        // KIND — `Power` meant the ladder, `Quasar` meant a quasar — which made
+        // Jon's *"a block that looks like a brick but really has a powerup"*
+        // unsayable, because appearance was the only thing carrying the answer.
+        //
+        // A brick that holds something now arrives here like any other reactive
+        // block; a brick that holds nothing falls through to
+        // `bricks::break_bricks`, which is what breaks it.
+        let Some(authored) = crate::ldtk_vocabulary::block_of(&block.name) else {
+            continue;
         };
+        if authored.contents.is_empty() {
+            continue;
+        }
         let block_aabb = block.aabb;
         if spent.is_spent(id) {
             continue;
@@ -450,10 +453,7 @@ pub fn bonk_power_blocks(
         // ladder ends in the star" — and the ladder ends in the BEACON, which is
         // exactly the case that reached it. A comment asserting a branch is dead
         // is a claim, and this one was false.
-        let reward = match reward_of {
-            RewardSource::Quasar => quasar_reward(),
-            RewardSource::PowerLadder => next_power_reward(worn),
-        };
+        let reward = reward_for(authored.contents, worn);
         spent.spend(id.clone());
         // ⭐ **it FLINCHES.** Jon: blocks that are used "need a small animation
         // (probably an in-code position nudge up and back into place) when they
@@ -501,13 +501,62 @@ pub fn bonk_power_blocks(
     }
 }
 
-/// Which family of ?-block was struck, and therefore what it owes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum RewardSource {
-    /// The wand -> lantern progression: what it gives depends on what she wears.
-    PowerLadder,
-    /// A quasar block: the same answer for every form.
-    Quasar,
+/// **What a block owes, given what it holds and what she wears.**
+///
+/// ⛔ **the two-family enum this replaced could not express Jon's ask.** It was
+/// `PowerLadder | Quasar`, chosen from the block's APPEARANCE, so "always a
+/// wand" and "a brick with a lantern in it" had nowhere to live. Contents is an
+/// authored field now, and this is the one place that turns it into an item.
+///
+/// ⭐ **adding a rung is adding an arm here.** Jon: *"in the future we could
+/// level towards something else (e.g. bubble flowers or other maryo pickups, so
+/// leave that seam open)"* — a new `MaryOPickup` variant needs its reward built
+/// here and its rung placed in [`next_rung_toward`], and nothing else in the
+/// crate counts them.
+fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> PowerReward {
+    match contents {
+        // Already filtered out by the caller — a block holding nothing never
+        // reaches a reward. Answering the quasar keeps this total without
+        // inventing a "no reward" state that the bonk path deliberately does not
+        // have (see the ALWAYS-ACKNOWLEDGED note above).
+        MaryOBlockContents::Empty => quasar_reward(),
+        MaryOBlockContents::Always(pickup) => pickup_reward(pickup),
+        MaryOBlockContents::Toward(pickup) => next_rung_toward(pickup, worn),
+    }
+}
+
+/// One pickup, built exactly as it is when it comes out of a block.
+fn pickup_reward(pickup: MaryOPickup) -> PowerReward {
+    match pickup {
+        MaryOPickup::Wand => wand_reward(),
+        MaryOPickup::Lantern => beacon_reward(),
+        MaryOPickup::Quasar => quasar_reward(),
+    }
+}
+
+/// **The next rung on the way to `target`, given the form she is in.**
+///
+/// ⚠ the ladder is small and explicit rather than a table, because the rungs are
+/// not interchangeable: the quasar is not on it at all (any form takes one), and
+/// the top rung REPEATS rather than answering nothing — see [`next_power_reward`]
+/// for why that matters.
+fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> PowerReward {
+    let wears = |id: &str| worn.is_some_and(|w| w.wears(id));
+    match target {
+        // Levelling toward the quasar is levelling toward something off the
+        // ladder, so it is just the quasar.
+        MaryOPickup::Quasar => quasar_reward(),
+        // Toward the wand: she gets the wand until she has it, then it repeats.
+        MaryOPickup::Wand => wand_reward(),
+        // Toward the lantern: the full classic progression.
+        MaryOPickup::Lantern => {
+            if wears(STAR_WAND_ID) || wears(CINDER_BEACON_ID) {
+                beacon_reward()
+            } else {
+                wand_reward()
+            }
+        }
+    }
 }
 
 /// The quasar, which any Mary-O can collect at any power tier.
@@ -555,37 +604,35 @@ const QUASAR_RESTITUTION: f32 = 0.86;
 /// Reading the worn set rather than a demo flag is what makes duplicates
 /// unrepresentable: there is no state to drift out of sync with, because the
 /// question "what does she have" has exactly one answer.
-fn next_power_reward(worn: Option<&WornEquipment>) -> PowerReward {
-    let wears = |id: &str| worn.is_some_and(|w| w.wears(id));
-    let beacon = || PowerReward {
+fn wand_reward() -> PowerReward {
+    PowerReward {
+        row: star_wand(),
+        half: STAR_WAND_HALF,
+        sprite: STAR_WAND_SPRITE,
+        // The wand WALKS and turns at walls, like the mushroom.
+        motion: rises_from_a_block(ItemMotionPlan::walker(WAND_SPEED), STAR_WAND_HALF.y),
+    }
+}
+
+/// The cinder beacon.
+///
+/// ⛔ **the top rung REPEATS; it does not answer NOTHING.** Answering `None`
+/// meant a fully-powered Mary-O bonked a block and the whole hit was swallowed —
+/// no flinch, no spend, no art change (GPT 5.6's Mary-O spec, §5). A player
+/// cannot tell "you are already maxed" from "a block that does not work", and
+/// only one of those is true.
+///
+/// ⚠ another beacon is the placeholder the spec allows, not a design decision:
+/// *"spawning another lantern is acceptable unless the existing design clearly
+/// prefers score, a reserve item, or another reward."* Score or a reserve slot
+/// is the classic answer and neither exists yet.
+fn beacon_reward() -> PowerReward {
+    PowerReward {
         row: cinder_beacon(),
         half: CINDER_BEACON_HALF,
         sprite: CINDER_BEACON_SPRITE,
         // The beacon waits on its block, like the classic flower.
         motion: rises_from_a_block(ItemMotionPlan::still(), CINDER_BEACON_HALF.y),
-    };
-    if wears(CINDER_BEACON_ID) {
-        // ⛔ **THE TOP RUNG REPEATS; it does not answer NOTHING.** Returning
-        // `None` here meant a fully-powered Mary-O bonked a block and the whole
-        // hit was swallowed — no flinch, no spend, no art change (GPT 5.6's
-        // Mary-O spec, §5). A player cannot tell "you are already maxed" from "a
-        // block that does not work", and only one of those is true.
-        //
-        // ⚠ another beacon is the placeholder the spec allows, not a design
-        // decision: *"spawning another lantern is acceptable unless the existing
-        // design clearly prefers score, a reserve item, or another reward."*
-        // Score or a reserve slot is the classic answer and neither exists yet.
-        beacon()
-    } else if wears(STAR_WAND_ID) {
-        beacon()
-    } else {
-        PowerReward {
-            row: star_wand(),
-            half: STAR_WAND_HALF,
-            sprite: STAR_WAND_SPRITE,
-            // The wand WALKS and turns at walls, like the mushroom.
-            motion: rises_from_a_block(ItemMotionPlan::walker(WAND_SPEED), STAR_WAND_HALF.y),
-        }
     }
 }
 
@@ -825,12 +872,16 @@ pub fn dress_power_blocks(
         // dragged answered neither, so it drew as plain masonry however clearly
         // it was marked a ?-block. `BlockVisual` already carries the name beside
         // the id, so the dresser needs nothing new to ask the right question.
-        let kind = crate::ldtk_vocabulary::block_kind_of(&visual.block_name);
+        // ⭐ **the dresser asks what the block LOOKS LIKE, and only that.** It
+        // used to ask the one enum that also decided what came out, so a brick
+        // hiding a powerup would have been drawn as a ?-block — announcing the
+        // secret it exists to keep.
+        let look = crate::ldtk_vocabulary::block_look_of(&visual.block_name);
         if !matches!(
-            kind,
+            look,
             Some(
-                crate::ldtk_vocabulary::MaryOBlockKind::Power
-                    | crate::ldtk_vocabulary::MaryOBlockKind::Quasar
+                crate::ldtk_vocabulary::MaryOBlockLook::Question
+                    | crate::ldtk_vocabulary::MaryOBlockLook::Quasar
             )
         ) {
             continue;
@@ -976,12 +1027,12 @@ mod tests {
         // Small: the wand.
         let bare = WornEquipment::default();
         assert_eq!(
-            Some(next_power_reward(None).row.id),
+            Some(next_rung_toward(MaryOPickup::Lantern, None).row.id),
             Some(STAR_WAND_ID.to_string()),
             "small Mary-O is offered the wand"
         );
         assert_eq!(
-            Some(next_power_reward(Some(&bare)).row.id),
+            Some(next_rung_toward(MaryOPickup::Lantern, Some(&bare)).row.id),
             Some(STAR_WAND_ID.to_string()),
             "an empty worn set reads as small too"
         );
@@ -989,7 +1040,7 @@ mod tests {
         // Grown: the beacon.
         let grown = WornEquipment::new(vec![star_wand()]);
         assert_eq!(
-            Some(next_power_reward(Some(&grown)).row.id),
+            Some(next_rung_toward(MaryOPickup::Lantern, Some(&grown)).row.id),
             Some(CINDER_BEACON_ID.to_string()),
             "grown Mary-O is offered the beacon"
         );
@@ -1003,7 +1054,9 @@ mod tests {
         // to give instead.
         let sparked = WornEquipment::new(vec![cinder_beacon()]);
         assert_eq!(
-            next_power_reward(Some(&sparked)).row.id,
+            next_rung_toward(MaryOPickup::Lantern, Some(&sparked))
+                .row
+                .id,
             CINDER_BEACON_ID,
             "a fully powered Mary-O still gets an acknowledged hit"
         );
@@ -1034,25 +1087,28 @@ mod tests {
         // to build `quasar_block_id(i)` from a constant array and check the
         // lookup tables disagreed about it — a question about two Rust functions.
         // This is a question about the level.
-        use crate::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};
+        use crate::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
         let room = crate::level_1_1();
-        let of_kind = |want: MaryOBlockKind| {
+        let of_kind = |want: MaryOBlockLook| {
             room.world
                 .blocks
                 .iter()
-                .filter(|b| block_kind_of(&b.name) == Some(want))
+                .filter(|b| block_look_of(&b.name) == Some(want))
                 .count()
         };
-        assert!(of_kind(MaryOBlockKind::Quasar) > 0, "the level authors quasar blocks");
-        assert!(of_kind(MaryOBlockKind::Power) > 0, "and ?-blocks");
+        assert!(
+            of_kind(MaryOBlockLook::Quasar) > 0,
+            "the level authors quasar blocks"
+        );
+        assert!(of_kind(MaryOBlockLook::Question) > 0, "and ?-blocks");
         for block in &room.world.blocks {
             let kinds = [
-                MaryOBlockKind::Power,
-                MaryOBlockKind::Quasar,
-                MaryOBlockKind::Brick,
+                MaryOBlockLook::Question,
+                MaryOBlockLook::Quasar,
+                MaryOBlockLook::Brick,
             ]
             .into_iter()
-            .filter(|k| block_kind_of(&block.name) == Some(*k))
+            .filter(|k| block_look_of(&block.name) == Some(*k))
             .count();
             assert!(
                 kinds <= 1,
@@ -1391,8 +1447,8 @@ mod tests {
             .blocks
             .iter()
             .find(|b| {
-                crate::ldtk_vocabulary::block_kind_of(&b.name)
-                    == Some(crate::ldtk_vocabulary::MaryOBlockKind::Power)
+                crate::ldtk_vocabulary::block_look_of(&b.name)
+                    == Some(crate::ldtk_vocabulary::MaryOBlockLook::Question)
             })
             .expect("the level authors a ?-block")
             .id
@@ -1440,6 +1496,104 @@ mod tests {
         // The same contact next frame must not re-pop: the block is spent.
         app.update();
         assert_eq!(wand(&mut app), 1, "a spent ?-block yields no more wand");
+    }
+
+    /// **A block that LOOKS like a brick but HOLDS a powerup pops it.**
+    ///
+    /// ⭐ Jon, 2026-08-04: *"It should be possible to spawn a block that looks
+    /// like a brick but really has a powerup. We should also allow for bricks to
+    /// have explicit items. E.g. always a wand, always a lantern, or a
+    /// level-towards lantern powerup."* This is that, and it is the case that
+    /// forced appearance and contents apart — with one enum answering both, a
+    /// brick could only ever hold nothing.
+    ///
+    /// ⚠ **and it must NOT break.** A brick that shattered would take the
+    /// powerup with it, which is why `MaryOBlockContents::breaks_when_empty`
+    /// derives breakability from the contents rather than making the author keep
+    /// two fields consistent.
+    #[test]
+    fn a_brick_that_hides_a_lantern_pops_a_lantern_and_is_not_breakable() {
+        use crate::ldtk_vocabulary::{
+            block_of, reactive_block, MaryOBlock, MaryOBlockContents, MaryOBlockLook, MaryOPickup,
+        };
+        use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
+
+        // Brick art, lantern inside — the two fields set independently.
+        let hidden = MaryOBlock::new(
+            MaryOBlockLook::Brick,
+            MaryOBlockContents::Always(MaryOPickup::Lantern),
+        );
+        let block = reactive_block(
+            hidden,
+            "hidden_lantern_brick",
+            ae::Vec2::new(64.0, 64.0),
+            ae::Vec2::splat(32.0),
+        );
+        let struck_id = block.id.clone();
+        assert_eq!(
+            block_of(&block.name),
+            Some(hidden),
+            "the block carries BOTH fields through its name"
+        );
+        assert!(
+            !hidden.contents.breaks_when_empty(),
+            "a loaded brick is not breakable — the item would have nowhere to come from"
+        );
+
+        let world = ae::World::new(
+            "hidden brick fixture",
+            ae::Vec2::new(640.0, 480.0),
+            ae::Vec2::new(32.0, 400.0),
+            vec![block],
+        );
+        let mut app = App::new();
+        app.init_resource::<SpentPowerBlocks>();
+        let mut scope = ActiveSessionScope::default();
+        let session = scope.begin();
+        app.insert_resource(scope);
+        app.world_mut().spawn((
+            ambition_platformer2d::platformer::lifecycle::SessionRoot(session),
+            ae::RoomGeometry(world),
+        ));
+        app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+        let mut frame = PlayerBodyFrameOutput::default();
+        frame
+            .events
+            .contacts
+            .push(ae::collision_semantics::Contact {
+                kind: ContactKind::Head,
+                point: ae::Vec2::ZERO,
+                normal: ae::Vec2::new(0.0, 1.0),
+                toi: 0.0,
+                surface_velocity: ae::Vec2::ZERO,
+                source: ContactSource::Block {
+                    kind: ae::BlockKind::Solid,
+                    id: struck_id,
+                },
+            });
+        // ⚠ SMALL Mary-O, wearing nothing. `Always` means always: the whole
+        // difference from `Toward` is that the ladder does not get a vote, and a
+        // test run at full power could not tell the two apart.
+        app.world_mut().spawn((PrimaryPlayer, frame));
+        app.add_systems(Update, bonk_power_blocks);
+        app.update();
+
+        let popped: Vec<String> = app
+            .world_mut()
+            .query::<&WorldItem>()
+            .iter(app.world())
+            .map(|item| match &item.payload {
+                ambition_platformer2d::actors::items::WorldItemPayload::Equip(row) => {
+                    row.id.clone()
+                }
+            })
+            .collect();
+        assert_eq!(
+            popped,
+            vec![CINDER_BEACON_ID.to_string()],
+            "a brick holding `AlwaysLantern` pops the lantern, to a form the \
+             ladder would have given the wand"
+        );
     }
 
     /// A head-bonk on ANY OTHER block (not a ?-block) pops nothing — the GeoId

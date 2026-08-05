@@ -5,12 +5,17 @@
       "color": "#E8A33D",
       "width": 32,
       "height": 32,
-      "docs": "One of Mary-O's REACTIVE blocks \u2014 the ones that answer a head-bonk from below.\n\n`kind` decides what it does:\n\n  Power   a ?-block: pops the next rung of the wand -> lantern ladder. What comes out depends on her CURRENT form, which is Mary-O's rule and not something the level authors.\n  Quasar  the pocket quasar. Any form can take one and be briefly untouchable \u2014 it is not a rung on the ladder, which is why it has its own kind rather than being the ladder's top.\n  Brick   breakable masonry: a bonk from a grown body removes it.\n\nOne tile, floating at bonk height over ground she can stand on. The block's collision and art come from this entity; nothing else has to be authored for it to work.\n\nAn unknown kind is REFUSED at load rather than becoming a plain wall \u2014 a block that silently stopped being special still stops the player, so the level would look whole with one bonus quietly gone.",
+      "docs": "One of Mary-O's REACTIVE blocks \u2014 the ones that answer a head-bonk from below.\n\nWhat it LOOKS like and what it HOLDS are separate fields, on purpose: a block that looks like a brick but really has a powerup is a thing you should be able to author.\n\n`kind` \u2014 what it looks like:\n\n  Question  a ?-block. Wears its own texture, and an inert one once spent.\n  Quasar    the pocket-quasar block, which wears its own texture too.\n  Brick     masonry. Breakable ONLY when it holds nothing \u2014 a loaded brick behaves like a ?-block wearing brick art, which is the classic behaviour.\n\n`contents` \u2014 what it holds. Leave it BLANK for the sensible default for that look (a Question levels toward the lantern, a Quasar always gives a quasar, a Brick holds nothing), or say:\n\n  Empty           nothing. A Brick that holds nothing is the one that breaks.\n  AlwaysWand      always the star wand, whatever form she is in.\n  AlwaysLantern   always the cinder beacon.\n  AlwaysQuasar    always a pocket quasar.\n  TowardWand      the next rung on the way to the wand.\n  TowardLantern   the next rung on the way to the lantern \u2014 small gets the wand, tall gets the lantern. This is what every ?-block in 1-1 does.\n\nOne tile, floating at bonk height over ground she can stand on. The block's collision and art come from this entity; nothing else has to be authored for it to work.\n\nAn unknown kind or an unknown contents is REFUSED at load rather than becoming a plain wall \u2014 a block that silently stopped being special still stops the player, so the level would look whole with one bonus quietly gone.",
       "fields": [
         {
           "name": "kind",
           "type": "String",
-          "default": "Power"
+          "default": "Question"
+        },
+        {
+          "name": "contents",
+          "type": "String",
+          "default": ""
         }
       ]
     }

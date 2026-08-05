@@ -31,7 +31,7 @@
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
-use crate::ldtk_vocabulary::{reactive_block, MaryOBlockKind};
+use crate::ldtk_vocabulary::{reactive_block, MaryOBlock, MaryOBlockLook};
 
 /// Room id of the fixture course.
 pub const TEST_COURSE_ROOM_ID: &str = "mary_o_test_course";
@@ -126,7 +126,7 @@ pub fn test_course() -> RoomSpec {
     // runtime recognises it through the same path a real level uses.
     let block = course_block_aabb();
     blocks.push(reactive_block(
-        MaryOBlockKind::Power,
+        MaryOBlock::plain(MaryOBlockLook::Question),
         "course_power_block",
         block.min,
         block.max - block.min,
@@ -203,12 +203,19 @@ mod tests {
             WIDTH_TILES * T,
             "…and runs unbroken to the right edge"
         );
+        // ⚠ asked of the block the COURSE actually built, not of a name this
+        // test re-encoded — the second form is a round-trip of the encoder with
+        // itself and would stay green if the fixture stopped building one.
+        let question = room
+            .world
+            .blocks
+            .iter()
+            .filter_map(|b| crate::ldtk_vocabulary::block_of(&b.name))
+            .find(|b| b.look == MaryOBlockLook::Question)
+            .expect("the course builds one ?-block, recognised through the real vocabulary");
         assert!(
-            crate::ldtk_vocabulary::block_kind_of(&crate::ldtk_vocabulary::encoded_name(
-                MaryOBlockKind::Power,
-                "course_power_block"
-            )) == Some(MaryOBlockKind::Power),
-            "the ?-block is recognised through the same vocabulary a real level uses"
+            !question.contents.is_empty(),
+            "and it HOLDS something, or the playthrough's bonk beat has nothing to take"
         );
         assert_eq!(
             room.enemy_spawns.len(),

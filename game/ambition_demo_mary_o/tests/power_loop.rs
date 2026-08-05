@@ -79,8 +79,8 @@ impl Loop {
             .blocks
             .iter()
             .find(|b| {
-                ambition_demo_mary_o::ldtk_vocabulary::block_kind_of(&b.name)
-                    == Some(ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockKind::Power)
+                ambition_demo_mary_o::ldtk_vocabulary::block_look_of(&b.name)
+                    == Some(ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockLook::Question)
             })
             .expect("the level authors a ?-block")
             .id

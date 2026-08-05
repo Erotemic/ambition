@@ -18,7 +18,7 @@
 use bevy::prelude::*;
 
 use ambition_demo_mary_o::flag::{FlagPhase, FlagSequence};
-use ambition_demo_mary_o::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};
+use ambition_demo_mary_o::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
 use ambition_demo_mary_o::powerups::{SpentPowerBlocks, STAR_WAND_ID};
 use ambition_demo_mary_o::snake::SnakeShell;
 use ambition_demo_mary_o::test_course::{
@@ -255,7 +255,7 @@ fn course_power_block() -> ae::world::Block {
         .world
         .blocks
         .iter()
-        .find(|block| block_kind_of(&block.name) == Some(MaryOBlockKind::Power))
+        .find(|block| block_look_of(&block.name) == Some(MaryOBlockLook::Question))
         .expect("the course authors one ?-block")
         .clone()
 }

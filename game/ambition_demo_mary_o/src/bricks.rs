@@ -27,7 +27,7 @@ use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, Conta
 
 use ambition_platformer2d::platformer::lifecycle::SessionWorldRef;
 
-use crate::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};
+use crate::ldtk_vocabulary::{block_of, MaryOBlockLook};
 use crate::LEVEL_1_1_ROOM_ID;
 
 /// Which bricks are broken this run, **by their authored NAME**.
@@ -103,7 +103,15 @@ pub fn break_bricks(
         let Some(block) = crate::authored_block_by_id(&geometry.0, id) else {
             continue;
         };
-        if block_kind_of(&block.name) != Some(MaryOBlockKind::Brick) {
+        // ⛔ **a brick BREAKS only when it holds nothing.** Jon asked for *"a
+        // block that looks like a brick but really has a powerup"*, and a brick
+        // that shattered would take the powerup with it — so breakability is
+        // derived from the contents rather than from the look, and a loaded
+        // brick falls through to `bonk_power_blocks` like any other reactive
+        // block. See `MaryOBlockContents::breaks_when_empty`.
+        if !block_of(&block.name).is_some_and(|authored| {
+            authored.look == MaryOBlockLook::Brick && authored.contents.breaks_when_empty()
+        }) {
             continue;
         }
         let center = (block.aabb.min + block.aabb.max) * 0.5;
@@ -178,11 +186,14 @@ mod tests {
             .world
             .blocks
             .iter()
-            .filter(|b| block_kind_of(&b.name) == Some(MaryOBlockKind::Brick))
+            .filter(|b| block_of(&b.name).is_some_and(|a| a.look == MaryOBlockLook::Brick))
             .map(|b| b.name.clone())
             .collect();
         names.sort();
-        assert!(names.len() >= 2, "the level authors a brick wall: {names:?}");
+        assert!(
+            names.len() >= 2,
+            "the level authors a brick wall: {names:?}"
+        );
         (names[0].clone(), names[1].clone())
     }
 
@@ -271,6 +282,87 @@ mod tests {
         );
     }
 
+    /// **A LOADED brick does not break.**
+    ///
+    /// ⛔ **this is the other half of Jon's hidden-powerup brick**, and the half
+    /// that would be easy to get wrong silently. A brick holding a lantern that
+    /// also shattered would destroy the block the lantern has to rise out of —
+    /// the player would see masonry burst and no reward, which reads as a bug in
+    /// the powerup rather than in the brick.
+    ///
+    /// ⭐ **breakability is DERIVED from the contents**
+    /// (`MaryOBlockContents::breaks_when_empty`), so the author never has to
+    /// keep two fields agreeing. `bonk_power_blocks` takes the loaded brick and
+    /// `break_bricks` declines it, off the same authored field.
+    #[test]
+    fn a_brick_with_something_in_it_is_not_broken_by_a_bonk() {
+        use crate::ldtk_vocabulary::{reactive_block, MaryOBlock, MaryOBlockContents, MaryOPickup};
+
+        let loaded = reactive_block(
+            MaryOBlock::new(
+                MaryOBlockLook::Brick,
+                MaryOBlockContents::Always(MaryOPickup::Lantern),
+            ),
+            "loaded_brick",
+            ae::Vec2::new(64.0, 64.0),
+            ae::Vec2::splat(32.0),
+        );
+        let empty = reactive_block(
+            MaryOBlock::new(MaryOBlockLook::Brick, MaryOBlockContents::Empty),
+            "empty_brick",
+            ae::Vec2::new(128.0, 64.0),
+            ae::Vec2::splat(32.0),
+        );
+        let (loaded_id, empty_id) = (loaded.id.clone(), empty.id.clone());
+        let (loaded_name, empty_name) = (loaded.name.clone(), empty.name.clone());
+
+        let mut app = App::new();
+        app.init_resource::<BrokenBricks>();
+        app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ae::RoomGeometry(ae::World::new(
+                "loaded brick fixture",
+                ae::Vec2::new(640.0, 480.0),
+                ae::Vec2::new(32.0, 400.0),
+                vec![loaded, empty],
+            )),
+        );
+        app.add_systems(Update, break_bricks);
+
+        // ⚠ ONE player, whose contact is rewritten between frames.  Spawning a
+        // second `PrimaryPlayer` makes `break_bricks`' `players.single()` fail
+        // and the system silently do nothing — which is how the control case
+        // below first "passed" as a failure.
+        let player = app
+            .world_mut()
+            .spawn((PrimaryPlayer, head_bonk_frame(loaded_id)))
+            .id();
+        app.update();
+        assert!(
+            !app.world()
+                .resource::<BrokenBricks>()
+                .is_broken(&loaded_name),
+            "a brick that holds a lantern must survive the bonk that pops it"
+        );
+
+        // ⚠ **and the empty one still breaks**, in the same world and off the
+        // same code path — without this the test would pass over a
+        // `break_bricks` that had simply stopped working at all.
+        *app.world_mut()
+            .entity_mut(player)
+            .get_mut::<PlayerBodyFrameOutput>()
+            .expect("the player carries its frame") = head_bonk_frame(empty_id);
+        app.update();
+        assert!(
+            app.world()
+                .resource::<BrokenBricks>()
+                .is_broken(&empty_name),
+            "an empty brick is still ordinary breakable masonry"
+        );
+    }
+
     #[test]
     fn a_head_bonk_on_a_non_brick_breaks_nothing() {
         let mut app = break_app();
@@ -308,7 +400,7 @@ mod tests {
             .world
             .blocks
             .iter()
-            .filter(|b| block_kind_of(&b.name) == Some(MaryOBlockKind::Brick))
+            .filter(|b| block_of(&b.name).is_some_and(|a| a.look == MaryOBlockLook::Brick))
             .map(|b| b.name.clone())
             .collect();
         assert!(

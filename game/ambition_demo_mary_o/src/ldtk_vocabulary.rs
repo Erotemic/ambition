@@ -22,7 +22,7 @@
 //!
 //! ⭐ **so the name convention did not go away — it stopped being something a
 //! HUMAN types.** The author picks `kind: Power` from a dropdown; this converter
-//! encodes it; [`block_kind_of`] decodes it. A convention two pieces of Mary-O
+//! encodes it; [`block_look_of`] decodes it. A convention two pieces of Mary-O
 //! share is an implementation detail. A convention an author has to spell
 //! correctly is a trap.
 //!
@@ -42,28 +42,36 @@
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::ldtk_map::{LdtkEntityCtx, RoomEmission};
 
-/// What one of Mary-O's reactive blocks DOES when struck from below.
+/// **What one of Mary-O's reactive blocks LOOKS LIKE.**
+///
+/// ⛔ **this used to decide what the block DID as well, and that was the bug.**
+/// Jon, 2026-08-04: *"It should be possible to spawn a block that looks like a
+/// brick but really has a powerup."* With one enum answering both questions that
+/// was unsayable — `Brick` meant masonry art AND breaks AND holds nothing, all
+/// at once. Appearance and contents are separate fields now, and the classic
+/// hidden-powerup brick is the case that proves they had to be.
 ///
 /// ⚠ deliberately Mary-O's enum and not an engine one. The spec is explicit that
 /// the engine must not interpret Mary-O's progression: LDtk authors WHICH block
 /// and WHERE, and this crate decides what that means.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MaryOBlockKind {
-    /// The ?-block: pops the next rung of the wand → lantern ladder.
-    Power,
-    /// The pocket quasar — any form can take one and be briefly untouchable.
-    /// Not a rung: gating invincibility behind two powerups would mean a small
-    /// Mary-O could never have it.
+pub enum MaryOBlockLook {
+    /// The ?-block. Wears its own texture, and an inert one once spent.
+    Question,
+    /// The pocket-quasar block, which wears its own texture too.
     Quasar,
-    /// Breakable masonry: a bonk from a grown body removes it.
+    /// Masonry. ⭐ **breakable only when it holds NOTHING** — see
+    /// [`MaryOBlockContents::breaks_when_empty`]. A brick with something in it
+    /// behaves like a ?-block wearing brick art, which is exactly the classic
+    /// behaviour and exactly what Jon asked for.
     Brick,
 }
 
-impl MaryOBlockKind {
+impl MaryOBlockLook {
     /// The word an author picks in the editor.
     pub fn authored(self) -> &'static str {
         match self {
-            Self::Power => "Power",
+            Self::Question => "Question",
             Self::Quasar => "Quasar",
             Self::Brick => "Brick",
         }
@@ -72,12 +80,147 @@ impl MaryOBlockKind {
     fn parse(value: &str) -> Option<Self> {
         // Case-insensitive because an author typing into a free-text field is a
         // real possibility until the enum def lands in the project.
+        //
+        // ⚠ `power` and `power_block` still parse. The field was called `kind`
+        // with a `Power` value in every block the shipped level authors, and
+        // renaming a concept must not silently invalidate a file Jon has already
+        // edited by hand.
         match value.trim().to_ascii_lowercase().as_str() {
-            "power" | "power_block" | "bonus" => Some(Self::Power),
+            "question" | "power" | "power_block" | "bonus" | "?" => Some(Self::Question),
             "quasar" | "quasar_block" | "star" => Some(Self::Quasar),
             "brick" => Some(Self::Brick),
             _ => None,
         }
+    }
+}
+
+/// **A thing a block can hold.**
+///
+/// ⭐ **open on purpose.** Jon: *"In the future we could level towards something
+/// else (e.g. bubble flowers or other maryo pickups, so leave that seam open)."*
+/// Adding a rung is adding a variant and the one match arm that builds its
+/// reward — no other code in this file knows how many there are.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MaryOPickup {
+    /// The star wand: small → tall.
+    Wand,
+    /// The cinder beacon: tall → fire.
+    Lantern,
+    /// The pocket quasar. ⚠ **not a rung** — gating invincibility behind two
+    /// powerups would mean a small Mary-O could never have it, so any form takes
+    /// one (Jon: *"a quasar is not part of the wand → lantern item progression.
+    /// Any form of maryo should be able to get the quasar"*).
+    Quasar,
+}
+
+impl MaryOPickup {
+    pub fn authored(self) -> &'static str {
+        match self {
+            Self::Wand => "Wand",
+            Self::Lantern => "Lantern",
+            Self::Quasar => "Quasar",
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "wand" | "star_wand" => Some(Self::Wand),
+            "lantern" | "beacon" | "cinder_beacon" => Some(Self::Lantern),
+            "quasar" => Some(Self::Quasar),
+            _ => None,
+        }
+    }
+}
+
+/// **What a block holds**, independent of what it looks like.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MaryOBlockContents {
+    /// Nothing. A `Brick` that holds nothing is the one that BREAKS.
+    Empty,
+    /// This exact pickup, whatever form she is in. *"E.g. always a wand, always
+    /// a lantern"* — and it is how the quasar block is expressed now, rather
+    /// than by being its own kind of block.
+    Always(MaryOPickup),
+    /// The next rung TOWARD this pickup, given the form she is in. *"or a
+    /// level-towards lantern powerup"* — a small Mary-O gets the wand, a tall
+    /// one gets the lantern. This is what every ?-block in 1-1 does.
+    Toward(MaryOPickup),
+}
+
+impl MaryOBlockContents {
+    /// The word an author picks, round-tripped by [`Self::parse`].
+    pub fn authored(self) -> String {
+        match self {
+            Self::Empty => "Empty".to_string(),
+            Self::Always(p) => format!("Always{}", p.authored()),
+            Self::Toward(p) => format!("Toward{}", p.authored()),
+        }
+    }
+
+    fn parse(value: &str) -> Option<Self> {
+        let value = value.trim();
+        if value.eq_ignore_ascii_case("empty") || value.is_empty() {
+            return Some(Self::Empty);
+        }
+        // Both `AlwaysWand` and the friendlier `always wand` / `always=wand`.
+        let lower = value.to_ascii_lowercase();
+        for (prefix, wrap) in [
+            ("always", Self::Always as fn(MaryOPickup) -> Self),
+            ("toward", Self::Toward as fn(MaryOPickup) -> Self),
+        ] {
+            if let Some(rest) = lower.strip_prefix(prefix) {
+                let rest = rest.trim_start_matches([' ', '=', '_', '-']);
+                return MaryOPickup::parse(rest).map(wrap);
+            }
+        }
+        None
+    }
+
+    /// Nothing pops out of this block.
+    pub fn is_empty(self) -> bool {
+        matches!(self, Self::Empty)
+    }
+
+    /// ⭐ **breakability is DERIVED, not authored.** A brick with something in
+    /// it must not shatter — the item would have nowhere to come from — so the
+    /// author never has to keep two fields consistent. This is the rule that
+    /// makes "a block that looks like a brick but really has a powerup" work
+    /// without a third field to get wrong.
+    pub fn breaks_when_empty(self) -> bool {
+        self.is_empty()
+    }
+}
+
+/// One authored reactive block: what it looks like, and what it holds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MaryOBlock {
+    pub look: MaryOBlockLook,
+    pub contents: MaryOBlockContents,
+}
+
+impl MaryOBlock {
+    /// What a block of this look holds when the author says nothing.
+    ///
+    /// ⚠ **these defaults are chosen to leave the SHIPPED LEVEL unchanged.**
+    /// Every block in `mary_o.ldtk` today authors a `kind` and no `contents`, so
+    /// the field has to be optional and its default has to reproduce exactly
+    /// what that block did before the split — a ?-block levels toward the
+    /// lantern, a quasar block always yields a quasar, a brick is empty.
+    pub fn default_contents(look: MaryOBlockLook) -> MaryOBlockContents {
+        match look {
+            MaryOBlockLook::Question => MaryOBlockContents::Toward(MaryOPickup::Lantern),
+            MaryOBlockLook::Quasar => MaryOBlockContents::Always(MaryOPickup::Quasar),
+            MaryOBlockLook::Brick => MaryOBlockContents::Empty,
+        }
+    }
+
+    pub fn new(look: MaryOBlockLook, contents: MaryOBlockContents) -> Self {
+        Self { look, contents }
+    }
+
+    /// A block of this look, holding whatever that look holds by default.
+    pub fn plain(look: MaryOBlockLook) -> Self {
+        Self::new(look, Self::default_contents(look))
     }
 }
 
@@ -87,40 +230,60 @@ pub const MARY_O_BLOCK: &str = "MaryOBlock";
 /// The prefix every converted block name carries.
 const ENCODED_PREFIX: &str = "maryo_block:";
 
-/// Encode one authored block's identity into the only channel a `Block` has.
+/// Encode one authored block into the only channel a `Block` has.
+///
+/// ```text
+/// maryo_block:<look>:<contents>:<iid>
+/// ```
+///
+/// ⚠ **three fields now, and the iid stays LAST** so it keeps being the only
+/// part that may contain anything. [`decode`] splits from the front exactly
+/// twice for the same reason.
 ///
 /// Public so a FIXTURE course can build the same blocks the converter does —
 /// a test course that spelled its own names would be testing a vocabulary
 /// nothing else speaks.
-pub fn encoded_name(kind: MaryOBlockKind, iid: &str) -> String {
-    format!("{ENCODED_PREFIX}{}:{iid}", kind.authored())
+pub fn encoded_name(block: MaryOBlock, iid: &str) -> String {
+    format!(
+        "{ENCODED_PREFIX}{}:{}:{iid}",
+        block.look.authored(),
+        block.contents.authored()
+    )
 }
 
 /// A reactive block, built the way [`convert_mary_o_block`] builds one: encoded
 /// name, and the durable placement identity that `Block::solid` does not set.
-pub fn reactive_block(kind: MaryOBlockKind, iid: &str, min: ae::Vec2, size: ae::Vec2) -> ae::Block {
-    let mut block = ae::Block::solid(encoded_name(kind, iid), min, size);
-    block.id = ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0);
-    block
+pub fn reactive_block(block: MaryOBlock, iid: &str, min: ae::Vec2, size: ae::Vec2) -> ae::Block {
+    let mut solid = ae::Block::solid(encoded_name(block, iid), min, size);
+    solid.id = ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0);
+    solid
 }
 
-/// The kind of block this authored NAME describes, or `None` when the name did
-/// not come from [`convert_mary_o_block`].
+/// The block this authored NAME describes, or `None` when the name did not come
+/// from [`convert_mary_o_block`].
 ///
 /// This is the whole decode side: every Mary-O system that used to ask
 /// `power_block_index_for(id) -> Option<usize>` asks this instead, which is a
 /// question about the block rather than about its position in a Rust array.
-pub fn block_kind_of(name: &str) -> Option<MaryOBlockKind> {
-    if let Some(rest) = name.strip_prefix(ENCODED_PREFIX) {
-        let (kind, _iid) = rest.split_once(':')?;
-        return MaryOBlockKind::parse(kind);
-    }
-    // ⚠ **the BOOTSTRAP arm is GONE.** While the generated file still authored
-    // `power_block_0` and friends, this also decoded those prefixes so the
-    // runtime could move to kinds before the level was regenerated — scaffolding
-    // with an expiry, and the expiry has arrived: the shipped file authors
-    // `MaryOBlock` throughout.
-    None
+pub fn block_of(name: &str) -> Option<MaryOBlock> {
+    let rest = name.strip_prefix(ENCODED_PREFIX)?;
+    let (look, rest) = rest.split_once(':')?;
+    let look = MaryOBlockLook::parse(look)?;
+    // ⚠ **a name with only two fields is the OLD encoding**, and it decodes to
+    // this look's default contents rather than to `None`. Nothing shipped writes
+    // one — but a `RoomGeometry` restored from a snapshot taken before the split
+    // would, and answering `None` there would turn every reactive block in that
+    // save into a plain wall.
+    let Some((contents, _iid)) = rest.split_once(':') else {
+        return Some(MaryOBlock::plain(look));
+    };
+    Some(MaryOBlock::new(look, MaryOBlockContents::parse(contents)?))
+}
+
+/// What this authored name LOOKS like — the common question, since most callers
+/// only care whether to draw a ?-block.
+pub fn block_look_of(name: &str) -> Option<MaryOBlockLook> {
+    block_of(name).map(|block| block.look)
 }
 
 /// `MaryOBlock` → a one-tile solid carrying its kind in its name.
@@ -133,12 +296,30 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
     let (entity, _name, min, size) = ctx.parts();
     let authored =
         ambition_platformer2d::ldtk_map::field_string(entity, "kind").unwrap_or_default();
-    let Some(kind) = MaryOBlockKind::parse(&authored) else {
+    let Some(look) = MaryOBlockLook::parse(&authored) else {
         return Err(format!(
-            "MaryOBlock `{}` has kind {authored:?}, which is not one of Power, Quasar, Brick",
+            "MaryOBlock `{}` has kind {authored:?}, which is not one of Question, Quasar, Brick",
             entity.iid
         ));
     };
+    // ⚠ **`contents` is OPTIONAL and its default depends on the look**, which is
+    // what lets the shipped level — every block of which authors a `kind` and no
+    // `contents` — keep behaving exactly as it did before the split. An author
+    // opts in to a hidden powerup; nobody has to migrate.
+    let contents = match ambition_platformer2d::ldtk_map::field_string(entity, "contents") {
+        Some(authored) if !authored.trim().is_empty() => {
+            let Some(contents) = MaryOBlockContents::parse(&authored) else {
+                return Err(format!(
+                    "MaryOBlock `{}` has contents {authored:?}. Say `Empty`, or `Always<Pickup>` \
+                     or `Toward<Pickup>` where Pickup is Wand, Lantern or Quasar",
+                    entity.iid
+                ));
+            };
+            contents
+        }
+        _ => MaryOBlock::default_contents(look),
+    };
+    let block = MaryOBlock::new(look, contents);
     // ⚠ **`reactive_block` stamps the durable identity, because `Block::solid`
     // does not.** Its own doc says so — *"fixture constructors default to
     // `GeoSource::Anon`; the IR emission paths assign real sources"* — and this
@@ -148,7 +329,7 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
     let mut emission = RoomEmission::default();
     emission
         .blocks
-        .push(reactive_block(kind, &entity.iid, min, size));
+        .push(reactive_block(block, &entity.iid, min, size));
     Ok(emission)
 }
 
@@ -268,17 +449,32 @@ mod tests {
     /// disagreement makes an authored bonus block into a plain wall.
     #[test]
     fn every_kind_survives_the_name_it_is_encoded_into() {
-        for kind in [
-            MaryOBlockKind::Power,
-            MaryOBlockKind::Quasar,
-            MaryOBlockKind::Brick,
+        for look in [
+            MaryOBlockLook::Question,
+            MaryOBlockLook::Quasar,
+            MaryOBlockLook::Brick,
         ] {
-            let name = encoded_name(kind, "Solid-1234");
-            assert_eq!(
-                block_kind_of(&name),
-                Some(kind),
-                "`{name}` must decode back to the kind it was encoded from"
-            );
+            // ⭐ **every look crossed with every contents**, because the whole
+            // point of the split is that the two are independent — and a
+            // round-trip that only ever tried a look with its own default would
+            // be green over an encoder that dropped the contents field entirely.
+            for contents in [
+                MaryOBlockContents::Empty,
+                MaryOBlockContents::Always(MaryOPickup::Wand),
+                MaryOBlockContents::Always(MaryOPickup::Lantern),
+                MaryOBlockContents::Always(MaryOPickup::Quasar),
+                MaryOBlockContents::Toward(MaryOPickup::Wand),
+                MaryOBlockContents::Toward(MaryOPickup::Lantern),
+                MaryOBlockContents::Toward(MaryOPickup::Quasar),
+            ] {
+                let block = MaryOBlock::new(look, contents);
+                let name = encoded_name(block, "Solid-1234");
+                assert_eq!(
+                    block_of(&name),
+                    Some(block),
+                    "`{name}` must decode back to the block it was encoded from"
+                );
+            }
         }
     }
 
@@ -287,20 +483,23 @@ mod tests {
     #[test]
     fn an_ordinary_block_name_is_not_a_mary_o_block() {
         for name in ["ldtk solid", "goal_pole", "vault_floor", "maryo_block:", ""] {
-            assert_eq!(block_kind_of(name), None, "`{name}` is not a Mary-O block");
+            assert_eq!(block_look_of(name), None, "`{name}` is not a Mary-O block");
         }
     }
 
     /// An author's typo has to be REFUSED at load rather than becoming a wall.
     #[test]
     fn an_unknown_kind_is_not_silently_a_plain_block() {
-        assert_eq!(MaryOBlockKind::parse("Powr"), None);
-        assert_eq!(MaryOBlockKind::parse(""), None);
+        assert_eq!(MaryOBlockLook::parse("Powr"), None);
+        assert_eq!(MaryOBlockLook::parse(""), None);
         // ...and the spellings an author might reasonably reach for DO work.
-        assert_eq!(MaryOBlockKind::parse("power"), Some(MaryOBlockKind::Power));
         assert_eq!(
-            MaryOBlockKind::parse(" Brick "),
-            Some(MaryOBlockKind::Brick)
+            MaryOBlockLook::parse("power"),
+            Some(MaryOBlockLook::Question)
+        );
+        assert_eq!(
+            MaryOBlockLook::parse(" Brick "),
+            Some(MaryOBlockLook::Brick)
         );
     }
 }

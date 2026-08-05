@@ -570,7 +570,7 @@ fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::G
 // spent or broken.
 //
 // What replaced them is [`authored_block_by_id`] plus
-// [`ldtk_vocabulary::block_kind_of`]: ask the ROOM which block was struck, then
+// [`ldtk_vocabulary::block_look_of`]: ask the ROOM which block was struck, then
 // ask the BLOCK what kind it is. Position comes from the block's own `aabb`, so a
 // block dragged in the editor pops its reward where it now sits.
 
@@ -2346,13 +2346,13 @@ mod tests {
 
     #[test]
     fn level_1_1_authors_the_bricks_the_break_runtime_expects() {
-        use crate::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};
+        use crate::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
         let room = level_1_1();
         let bricks: Vec<&ae::Block> = room
             .world
             .blocks
             .iter()
-            .filter(|b| block_kind_of(&b.name) == Some(MaryOBlockKind::Brick))
+            .filter(|b| block_look_of(&b.name) == Some(MaryOBlockLook::Brick))
             .collect();
         assert!(!bricks.is_empty(), "the level authors a brick wall");
         for brick in bricks {
@@ -2362,8 +2362,8 @@ mod tests {
                 brick.name
             );
             assert_ne!(
-                block_kind_of(&brick.name),
-                Some(MaryOBlockKind::Power),
+                block_look_of(&brick.name),
+                Some(MaryOBlockLook::Question),
                 "`{}` must not read as a ?-block as well",
                 brick.name
             );

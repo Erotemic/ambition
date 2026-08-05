@@ -339,8 +339,8 @@ fn first_power_block() -> ae::world::Block {
         .blocks
         .iter()
         .find(|b| {
-            ambition_demo_mary_o::ldtk_vocabulary::block_kind_of(&b.name)
-                == Some(ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockKind::Power)
+            ambition_demo_mary_o::ldtk_vocabulary::block_look_of(&b.name)
+                == Some(ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockLook::Question)
         })
         .expect("level 1-1 authors a ?-block")
         .clone()

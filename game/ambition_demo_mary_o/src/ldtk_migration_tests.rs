@@ -85,17 +85,17 @@ fn the_ldtk_room_is_the_room_the_constants_built() {
 /// the pieces addressed by name still are.
 #[test]
 fn every_named_block_the_runtime_looks_for_survives_conversion() {
-    use crate::ldtk_vocabulary::{block_kind_of, MaryOBlockKind};
+    use crate::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
     let room = ldtk_room();
     let names: Vec<&str> = room.world.blocks.iter().map(|b| b.name.as_str()).collect();
 
     for kind in [
-        MaryOBlockKind::Power,
-        MaryOBlockKind::Quasar,
-        MaryOBlockKind::Brick,
+        MaryOBlockLook::Question,
+        MaryOBlockLook::Quasar,
+        MaryOBlockLook::Brick,
     ] {
         assert!(
-            names.iter().any(|n| block_kind_of(n) == Some(kind)),
+            names.iter().any(|n| block_look_of(n) == Some(kind)),
             "no block converts to {kind:?}; the level authors one of each"
         );
     }
@@ -108,14 +108,14 @@ fn every_named_block_the_runtime_looks_for_survives_conversion() {
         .world
         .blocks
         .iter()
-        .filter(|b| block_kind_of(&b.name).is_some())
+        .filter(|b| block_look_of(&b.name).is_some())
         .map(|b| format!("{:?}", b.id))
         .collect();
     let reactive = room
         .world
         .blocks
         .iter()
-        .filter(|b| block_kind_of(&b.name).is_some())
+        .filter(|b| block_look_of(&b.name).is_some())
         .count();
     assert_eq!(
         ids.len(),

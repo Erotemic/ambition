@@ -44,6 +44,25 @@ INDENT = "\t"
 _FLOAT_HINT_RE = re.compile(r"^[-0-9.]+f$")
 
 
+def editor_safe_string(v: str) -> str:
+    """What a string BECOMES once the editor's serializer has written it.
+
+    ``JsonPretty`` emits strings by hand and collapses newlines, carriage
+    returns and tabs to spaces, so a `.ldtk` file physically cannot store a
+    paragraph — a doc string written with blank lines comes back as one run-on
+    line. That is LDtk's behaviour, faithfully ported, and not something a tool
+    gets to opt out of.
+
+    It is exposed because a tool that RECONCILES a file against a source
+    outside it has to compare like with like. `def upsert-entity` reads a
+    manifest whose `docs` is genuinely multi-line; comparing that against the
+    flattened text already in the project reports a difference on every run,
+    forever, and the command stops converging. Normalizing the incoming string
+    through here first makes "already matches" true when it is true.
+    """
+    return v.replace("\n", " ").replace("\r", "").replace("\t", " ")
+
+
 def _typeof(v) -> str:
     # bool must be checked before int (Python bool is an int subclass).
     if v is None:
@@ -134,12 +153,7 @@ class _Printer:
                 sf = _float_str(float(v[:-1]))
                 self.buf.append(sf if name is None else f'"{name}": {sf}')
             else:
-                s = (
-                    v.replace("\n", " ")
-                    .replace("\r", "")
-                    .replace("\t", " ")
-                    .replace('"', '\\"')
-                )
+                s = editor_safe_string(v).replace('"', '\\"')
                 self.buf.append(f'"{s}"' if name is None else f'"{name}": "{s}"')
         elif t == "array":
             self.add_array(name, v, force_multilines)

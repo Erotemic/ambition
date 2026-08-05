@@ -56,13 +56,15 @@ def game_worlds_dir(game: str, anchor: Path | None = None) -> Path:
 
     ``default_worlds_dir`` is durable shared content — the sandbox, the hall.
     A game that authors its own levels keeps them in its own crate instead, so
-    that they ship and version with the game rather than with the engine's
-    content pack: ``game/<game>/assets/worlds``. Mary-O's 1-1 is the first.
+    they ship and version with the game rather than with the engine's content
+    pack: ``game/<game>/assets/worlds``. Three demos do this now.
 
     It lives here for the same reason every other path does: the worlds
     directory is built in ONE place. When the shared worlds moved out of
     ``crates/ambition_platformer2d_actor_monolith/assets``, every command that
-    had spelled the path itself broke at once.
+    had spelled the path itself broke at once — and Mary-O's entity manifest
+    has already moved once too, from the demo's ``tools/`` to a sidecar beside
+    the world file. Every copy of a path is a copy that has not gone stale yet.
     """
     return _repo_root(anchor) / "game" / game / "assets" / "worlds"
 

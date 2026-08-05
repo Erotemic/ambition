@@ -1,47 +1,117 @@
 {
-  "generated_at": "2026-07-27T04:04:40.185711+00:00",
   "schema": "llm-resource-tally/v3",
-  "ledger_rows": 1411,
-  "commits_accounted": 1152,
-  "turns": 74836,
+  "through": "2026-08-03T16:21:04.873748+00:00",
+  "ledger_rows": 2478,
+  "commits_accounted": 2196,
+  "turns": 98481,
   "tokens": {
-    "input": 29997298,
-    "cache_write": 226972117,
-    "cache_read": 26180800685,
-    "output": 81723831,
-    "billable_input": 26437770100
+    "input": 30363689,
+    "cache_write": 278730455,
+    "cache_read": 37255173066,
+    "output": 96686028,
+    "billable_input": 37564267210
   },
-  "output_tokens_by_model": {
-    "claude-opus-4-8": 66458447,
-    "claude-fable-5": 11009848,
-    "<synthetic>": 0,
-    "claude-sonnet-4-6": 107211,
-    "gpt-5.5": 965691,
-    "gpt-5.4-mini": 833268,
-    "claude-opus-5": 2349366
+  "by_model": {
+    "claude-opus-4-8": {
+      "input": 6458796,
+      "cache_write": 181324657,
+      "cache_read": 20347330505,
+      "output": 66469030
+    },
+    "claude-fable-5": {
+      "input": 1812071,
+      "cache_write": 38085893,
+      "cache_read": 4223255222,
+      "output": 11256175
+    },
+    "<synthetic>": {
+      "input": 0,
+      "cache_write": 0,
+      "cache_read": 0,
+      "output": 0
+    },
+    "claude-sonnet-4-6": {
+      "input": 243,
+      "cache_write": 445075,
+      "cache_read": 16798008,
+      "output": 107211
+    },
+    "gpt-5.5": {
+      "input": 14416312,
+      "cache_write": 0,
+      "cache_read": 355784960,
+      "output": 987452
+    },
+    "gpt-5.4-mini": {
+      "input": 7612152,
+      "cache_write": 0,
+      "cache_read": 179945344,
+      "output": 833268
+    },
+    "claude-opus-5": {
+      "input": 64115,
+      "cache_write": 58874830,
+      "cache_read": 12132059027,
+      "output": 17032892
+    }
   },
-  "output_tokens_by_activity": {
-    "unlabeled": 35995722,
-    "backfill": 45165737,
-    "implementation": 559976,
-    "test-organization-campaign": 1779,
-    "review-followup": 617
+  "by_activity": {
+    "unlabeled": {
+      "input": 8207271,
+      "cache_write": 150897792,
+      "cache_read": 22704030012,
+      "output": 50925575
+    },
+    "backfill": {
+      "input": 21552517,
+      "cache_write": 126385114,
+      "cache_read": 14395460841,
+      "output": 45165737
+    },
+    "implementation": {
+      "input": 603895,
+      "cache_write": 1444180,
+      "cache_read": 154200940,
+      "output": 592320
+    },
+    "test-organization-campaign": {
+      "input": 4,
+      "cache_write": 2072,
+      "cache_read": 752383,
+      "output": 1779
+    },
+    "review-followup": {
+      "input": 2,
+      "cache_write": 1297,
+      "cache_read": 728890,
+      "output": 617
+    }
   },
-  "output_tokens_by_agent": {
-    "claude-code": 79924872,
-    "codex": 1798959
+  "by_agent": {
+    "claude-code": {
+      "input": 8335225,
+      "cache_write": 278730455,
+      "cache_read": 36719442762,
+      "output": 94865308
+    },
+    "codex": {
+      "input": 22028464,
+      "cache_write": 0,
+      "cache_read": 535730304,
+      "output": 1820720
+    }
   },
   "server_tool_calls": {
     "web_search": 0,
     "web_fetch": 0
   },
   "time": {
-    "wall_clock_s": 5232470.7
+    "wall_clock_s": 6091090.0
   },
   "compaction_signals": {
-    "events": 131,
-    "peak_context_tokens": 79405048,
-    "summary_chars": 2254718
+    "events": 150,
+    "peak_context_tokens": 95562146,
+    "summary_chars": 2564063
   },
-  "modeled_post_hoc": "inference_seconds, energy_kwh, carbon_gco2e — derived from the measurements above by a separate pass; not stored here."
+  "modeled_post_hoc": "inference_seconds, energy_kwh, carbon_gco2e, usd — derived from the measurements above by `estimate`; not stored here."
 }

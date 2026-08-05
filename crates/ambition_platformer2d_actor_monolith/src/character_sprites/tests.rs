@@ -497,3 +497,73 @@ fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
     assert_eq!(spec.resolve_anim(CharacterAnim::Fly), CharacterAnim::Idle);
     assert_eq!(spec.resolve_anim(CharacterAnim::Jump), CharacterAnim::Idle);
 }
+
+/// **AUDIT LISTING: which characters have a derivable body height, and what it
+/// comes out as.** Prints; asserts nothing. Read it, do not gate on it.
+///
+/// ```text
+/// cargo test -p ambition_platformer2d_actor_monolith \
+///     list_what_each_character_derives_for_its_body -- --ignored --nocapture
+/// ```
+///
+/// ⭐ **queue D4 asks for exactly this** — *"a way to tell whether a given
+/// character has been done"* — and it has to run the REAL derivation rather than
+/// restate its arithmetic. A Python reimplementation of
+/// `sprite_body_collision_for_character_id_from_data` would be a second copy of
+/// the rule, free to drift from the one the game uses, which is the mistake this
+/// row is already recovering from one level down.
+///
+/// ⚠ **the question is narrower than "is it the right size".** A height applies
+/// only when the sheet publishes `body_metrics.body_pixel_bbox`; without one the
+/// derivation returns `None` and the LDtk spawn box decides, whatever the
+/// catalog says. So the useful column is not the number — it is whether there IS
+/// one.
+///
+/// ⚠ **and `collision_scale` is IRRELEVANT on this path**, which is worth seeing
+/// rather than being told: when a standing height applies, `render` is rebuilt
+/// from `height / body_h` and the hand-tuned scale never enters. Two `Standard`
+/// characters whose sheets disagree about `collision_scale` still land on the
+/// same body height.
+#[test]
+#[ignore = "audit listing: prints what each character derives; read it, do not assert on it"]
+fn list_what_each_character_derives_for_its_body() {
+    use super::assets::sprite_body_collision_for_character_id_in;
+
+    let catalog = test_catalog();
+    let sheets = Default::default();
+    // The box a Hall NPC is authored with, so the legacy path has its real input.
+    let ldtk = ambition_platformer2d_core::Vec2::new(28.0, 46.0);
+
+    let mut derived = 0usize;
+    let mut no_body = Vec::new();
+    let mut heights: Vec<(String, f32, f32)> = Vec::new();
+    let mut ids: Vec<&String> = catalog.data().characters.keys().collect();
+    ids.sort();
+    for id in ids {
+        match sprite_body_collision_for_character_id_in(&sheets, &catalog, id, ldtk) {
+            Some(body) => {
+                derived += 1;
+                heights.push((id.clone(), body.collision.y, body.render_size.y));
+            }
+            None => no_body.push(id.clone()),
+        }
+    }
+
+    println!(
+        "\n{} of {} characters derive a body; {} publish no body box and fall back to the LDtk spawn box\n",
+        derived,
+        derived + no_body.len(),
+        no_body.len()
+    );
+    heights.sort_by(|a, b| a.1.total_cmp(&b.1));
+    println!("  {:<44} {:>8} {:>10}", "character", "body h", "render h");
+    for (id, body_h, render_h) in &heights {
+        println!("  {id:<44} {body_h:>8.2} {render_h:>10.2}");
+    }
+    if !no_body.is_empty() {
+        println!("\n  NO BODY BOX — a stated height cannot reach these:");
+        for id in &no_body {
+            println!("    {id}");
+        }
+    }
+}

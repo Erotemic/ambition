@@ -5,7 +5,9 @@
 //! the exploding-mite death blast, and the dividing-mite split. Sibling of
 //! `damage/` (which owns hit application) and `damage_predicates`.
 
-use ambition_platformer2d_shared_tangle::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
+use ambition_platformer2d_shared_tangle::lifecycle::{
+    RoomScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use bevy::prelude::{Commands, Entity};
 
 use super::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, PickupFeature};
@@ -44,6 +46,19 @@ pub fn drop_currency_coin(
                 format!("coin:{id}"),
                 ambition_interaction::PickupKind::Currency { amount },
             )),
+            // ⛔ **A DROP BELONGS TO THE ROOM IT FELL IN.** These were only
+            // SESSION-scoped, so a coin lying on 1-1's floor survived the room
+            // change while its VISUAL — a `RoomVisual`, and therefore
+            // room-scoped — did not. The sim kept publishing a Pickup view for
+            // an entity nothing was drawing, so `draw_unclaimed_feature_views`
+            // spawned a stand-in for it in the NEW room, every transition,
+            // forever. Jon's log, 2026-08-05: eight of
+            // `no render family claimed \`coin:EnemySpawn-…\`` per transition,
+            // repeating — and those stand-ins are what the room-transition cover
+            // waits on, so his screen stayed black for the full 8-second
+            // deadline. Two lifetimes for one thing is the bug; the entity and
+            // its picture now share one.
+            RoomScopedEntity,
             super::reset::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             // It stopped being an engine default (Jon: coins and rings must not
@@ -156,6 +171,8 @@ pub fn drop_health_pickup(
                 format!("heart:{id}"),
                 ambition_interaction::PickupKind::Health { amount },
             )),
+            // Room-scoped for the same reason as the coin above.
+            RoomScopedEntity,
             super::reset::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             // It stopped being an engine default (Jon: coins and rings must not

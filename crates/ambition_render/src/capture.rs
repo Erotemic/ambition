@@ -64,16 +64,21 @@ pub struct CaptureProgress {
     pub failed: bool,
 }
 
-/// Build the offscreen texture and point the cameras at it.
+/// Build the offscreen texture the cameras will be pointed at.
 ///
 /// Run this once, after the presentation has built its cameras — the caller owns
 /// that ordering because it owns the schedule the cameras appear in.
+///
+/// ⚠ **it does NOT touch cameras**, despite what its name and its old doc said.
+/// Adopting them moved to [`adopt_cameras_into_capture_target`] when it turned
+/// out a demo builds its cameras well after `Startup`, and the two camera
+/// queries were left behind here — unused, and warning only under `--features
+/// capture`, which the workspace no-warnings gate does not build. So they sat
+/// unread until a capture fix made someone compile this path on purpose.
 pub fn setup_capture_target(
     mut commands: Commands,
     settings: Res<CaptureSettings>,
     mut images: ResMut<Assets<Image>>,
-    mut main_cameras: Query<(Entity, &mut Camera), With<MainCamera>>,
-    mut hud_cameras: Query<(Entity, &mut Camera), (With<FrontHudCamera>, Without<MainCamera>)>,
 ) {
     if let Some(parent) = settings
         .output
@@ -98,9 +103,9 @@ pub fn setup_capture_target(
     );
     capture_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     let image = images.add(capture_image);
-    let target =
-        bevy::camera::RenderTarget::Image(bevy::camera::ImageRenderTarget::from(image.clone()));
-
+    // ⚠ the `RenderTarget` built here was the LAST piece of the old one-shot
+    // adoption, left behind with the queries when that moved out. Building it is
+    // `adopt_cameras_into_capture_target`'s job now, once per camera it finds.
     commands.insert_resource(CaptureTarget { image, adopted: 0 });
 }
 

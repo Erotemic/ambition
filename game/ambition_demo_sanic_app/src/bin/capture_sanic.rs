@@ -144,6 +144,15 @@ fn shoot_when_warm(
         warmup.remaining -= 1;
         return;
     }
+    // ⛔ **AND the walk has to finish.** This shot as soon as the warmup ran
+    // out, whatever `--walk` said — so `--warmup 10 --walk 300` took the picture
+    // on frame 10 with 290 frames of travel still owed, and the capture showed
+    // the spawn point. The flag asked for a journey and the tool photographed
+    // the departure lounge. `hold_right_while_walking` is chained BEFORE this,
+    // so the frame that spends the last walking step is the frame that shoots.
+    if warmup.walk_right > 0 {
+        return;
+    }
     request_capture(&mut commands, &target, &mut progress);
 }
 

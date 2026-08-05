@@ -969,3 +969,56 @@ calls:
 ⚠ **the acceptance test stays RED until this is answered**, and that is now a
 faithful red: everything upstream of the collection is proven working in the same
 run (`SpentPowerBlocks` records the strike, the item exists at a known position).
+
+---
+
+## Does the world FREEZE during a death beat? (raised 2026-08-05)
+
+**This is the same decision as the dialogue one above, wearing different
+clothes** — decide them together or the answers will disagree.
+
+**Your report** (`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`): *"When maryo-dies the
+enemies seem to reset before the death animation is finished. The level reset
+needs to happen all at once at a time that is easy to express in the game
+code."*
+
+**What is measured, not guessed.**
+`death_reset_timing::the_room_resets_no_earlier_than_the_death_beat_ends` asserts
+the ordering and it holds: the reset is correctly gated behind the beat. But the
+same test records that the world never HOLDS STILL — the non-player bodies move
+on essentially every frame of the ~0.55s dwell (signature drifting 37188 → 37131
+across f163..f195) and then snap on the single frame after it ends. To a player
+that reads exactly as *"the enemies reset before the animation finished"*: they
+were walking the whole time, and then jumped. So the ordering was never the
+defect; the absence of a freeze is.
+
+**The mechanism already exists and is the one to reuse.**
+`GameMode::{Paused, Dialogue, RoomTransition, Cutscene}` suspend gameplay through
+`apply_suspended_time_scale_system`, which sets `ClockState::time_scale = 0.0`
+under the `gameplay_suspended` run condition. A suspended world still advances
+its TIMELINE — ticks count, so hashes and recorded input frames stay aligned —
+but moves zero sim seconds. That is rollback-safe by construction and needs no
+new concept: a death beat is a world-stopping beat in the same family as a
+cutscene.
+
+**The decision:**
+
+* **freeze it** — the death beat suspends gameplay like a cutscene does. The
+  enemies hold, the reset lands on the frame the beat ends, and "all at once at a
+  time that is easy to express" becomes literally true: one mode, one clock.
+  ⚠ **but on a couch, one player dying freezes the other mid-jump** — which is
+  the identical objection the dialogue row above is stuck on, and the reason
+  these two must be answered together.
+* **freeze only the ACTORS** — reuse `DormancyPolicy`'s machinery rather than the
+  clock: the beat puts non-player brains to sleep and clears their control frames
+  (which is exactly what dormancy already does, and why a sleeping actor stops
+  rather than drifting). Physics still runs, so a falling enemy still falls, and
+  the other player keeps playing. Costs a beat-scoped trigger on a seam that
+  exists for a distance-scoped one.
+* **leave it** — accept that the world keeps living while you die, and the snap
+  is the cost. Cheapest, and the honest reason to pick it is that neither of the
+  above is free on a sofa.
+
+⚠ **the test deliberately does NOT assert either way**, and should stay that
+way until this is answered: pinning today's behaviour would be a regression test
+over unpolished behaviour. It prints the measurement instead.

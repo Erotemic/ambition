@@ -649,6 +649,33 @@ pub(crate) fn install_session_bridge(app: &mut App) {
             Update,
             super::local_session::maintain_local_session
                 .in_set(super::local_session::LocalSessionSet::Maintain),
+        )
+        // ⛔ **THE SESSION IS SIZED AFTER THE ROSTER HAS SPOKEN, not before.**
+        // `freeze_local_seating_for_the_decided_match` runs in
+        // `InputSet::Collect` and publishes the topology a decided match
+        // declares; this maintainer captures one from connected DEVICES if it
+        // finds none. Both are in `Update` and nothing ordered them, so which
+        // authority sized the ggrs session was a race — and it resolved
+        // DIFFERENTLY on the two shipped routes: measured, versus took the pad
+        // count and smash took the roster's. The session is never resized
+        // afterwards (see the note in `maintain_local_session` for why
+        // detect-and-restart is worse), so whichever won, won for the whole
+        // match.
+        //
+        // ⚠ **same schedule, so this is a REAL edge.** A cross-schedule `.after`
+        // is silently vacuous in Bevy and this repo has been bitten by one; both
+        // sets live in `Update`, which is what makes the constraint bite.
+        //
+        // ⚠ it narrows the race rather than removing the possibility: a session
+        // that starts before any roster is published still sizes itself from
+        // devices, which is correct for a host with no match to decide and wrong
+        // for one whose roster arrives a frame later. Closing that needs the
+        // maintainer to know a roster is COMING, which nothing currently tells
+        // it — queue G1 PICK 17 part 3.
+        .configure_sets(
+            Update,
+            super::local_session::LocalSessionSet::Maintain
+                .after(ambition_input::InputSet::Collect),
         );
 
     app.init_resource::<PendingLocalInput>()

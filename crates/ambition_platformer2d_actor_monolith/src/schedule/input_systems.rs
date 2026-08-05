@@ -1500,7 +1500,22 @@ pub fn freeze_local_seating_for_the_decided_match(
     {
         return;
     }
-    let mut topology = ambition_input::LocalSeatTopology::default();
+    // ⛔ **CARRY THE GENERATION FORWARD, do not restart it.** This built a fresh
+    // `LocalSeatTopology::default()`, so its counter began at 0 and reached 1 on
+    // capture — colliding with the generation the session maintainer had already
+    // published from its own device-derived capture. `generation` exists so a
+    // consumer can notice a rebuild *"rather than compare vectors"*, and two
+    // independent topologies both calling themselves generation 1 is exactly the
+    // thing it cannot then notice.
+    //
+    // ⚠ that collision was LOAD-BEARING until a moment ago:
+    // `reconcile_roster_with_frozen_topology` early-returns when the roster's
+    // recorded generation matches, and the equal generations were the only thing
+    // stopping it rebuilding versus' roster from a seat count that then meant
+    // participants. It means HUMANS now — which is what `versus_roster_from`'s
+    // own parameter is called — so the rebuild it was suppressing produces the
+    // right answer, and suppressing it is no longer doing anyone a favour.
+    let mut topology = existing.as_deref().cloned().unwrap_or_default();
     topology.capture_for_roster(&order, seats);
     commands.insert_resource(topology);
 }

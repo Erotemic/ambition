@@ -1360,3 +1360,55 @@ mod local_seat_topology_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod generation_tests {
+    use super::*;
+
+    /// **A rebuild advances the generation, whoever rebuilds.**
+    ///
+    /// ⛔ **two topologies used to call themselves generation 1.** The session
+    /// maintainer captures one from connected devices; the decided-match freeze
+    /// built a `LocalSeatTopology::default()` and captured into that, so its
+    /// counter restarted at 0 and reached 1 — the number the maintainer had
+    /// already published. `generation` exists so a consumer can notice a rebuild
+    /// *"rather than compare vectors"*, and two independent rebuilds sharing a
+    /// number is exactly what it cannot notice.
+    ///
+    /// ⚠ that collision was LOAD-BEARING while `declared_seats` counted CPUs:
+    /// `reconcile_roster_with_frozen_topology` early-returns on a matching
+    /// generation, and the match was the only thing stopping it rebuilding
+    /// versus' roster as two HUMAN seats against a one-handle session. It counts
+    /// humans now, so the rebuild it suppressed produces the right answer.
+    #[test]
+    fn capturing_twice_advances_the_generation_rather_than_repeating_it() {
+        let order = LocalDeviceOrder::from_devices(Vec::new());
+        let mut topology = LocalSeatTopology::default();
+        assert_eq!(
+            topology.generation(),
+            0,
+            "a fresh topology has captured nothing"
+        );
+
+        topology.capture(&order);
+        let device_generation = topology.generation();
+        assert!(
+            device_generation > 0,
+            "a device capture is a rebuild and has to say so"
+        );
+
+        // The roster then declares a different answer, on top of the SAME
+        // topology — which is the fix: seeding from the existing one rather than
+        // from `default()` is what keeps the counter moving.
+        topology.capture_for_roster(&order, 2);
+        assert!(
+            topology.generation() > device_generation,
+            "the roster's capture must advance past the device capture ({} vs {}) \
+             — a consumer keyed on the generation cannot see a rebuild that reuses \
+             the number",
+            topology.generation(),
+            device_generation
+        );
+        assert_eq!(topology.declared_seats(), Some(2));
+    }
+}

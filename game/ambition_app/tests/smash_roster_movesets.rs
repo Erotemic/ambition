@@ -101,10 +101,71 @@ fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
         unarmed,
         known,
         "the set of grid fighters with NO melee has changed.\n{}\n\n\
-         A fighter with no melee arrives on a platform-fighter stage unable to \
-         hit anybody — the match runs and nobody can win it. Either author the \
-         moveset (an `action_set_presets` row and a `default_action_set` on the \
-         character), or take them off `SMASH_ROSTER`.",
+         A fighter with no melee in its CATALOG row is fine — the match arms \
+         it, see below — but this list is the record of who needs a real kit, \
+         and it has changed.",
         report.join("\n"),
     );
+}
+
+/// **And the MATCH arms every one of them.**
+///
+/// The catalog gap above is real and stays real: a Hall NPC's `peaceful` row is
+/// correct where they live, and the crossover stage is the one place allowed to
+/// say otherwise. `MatchParticipant::action_set` is where it says it — so this
+/// asserts the thing that actually reaches a body, rather than the row it came
+/// from.
+///
+/// ⚠ **the seam, not the numbers.** One kit for everybody is a FLOOR and is
+/// honestly a levelling; per-character kits are the content job. What must not
+/// regress is that a fighter reaches the stage able to hit somebody.
+#[test]
+fn the_match_gives_every_seat_a_kit_that_can_hit() {
+    use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
+
+    let app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let catalog = app
+        .world()
+        .get_resource::<CharacterCatalog>()
+        .expect("the composed host has an assembled character catalog");
+    let grid = SmashRoster::assemble(catalog);
+    assert!(grid.len() >= 8, "the grid is too short to be the host's");
+
+    // Two seats, and deliberately the two whose CATALOG rows are peaceful —
+    // picking armed characters would prove nothing.
+    let unarmed: Vec<usize> = grid
+        .ids()
+        .enumerate()
+        .filter(|(_, id)| {
+            catalog
+                .build_default_action_set(id)
+                .and_then(|set| set.melee)
+                .is_none()
+        })
+        .map(|(index, _)| index)
+        .collect();
+    assert!(
+        unarmed.len() >= 2,
+        "fewer than two peaceful rows on the grid, so this test is picking          characters that were already armed and proving nothing"
+    );
+
+    let mut select = SmashSelect::default();
+    select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+    select.set_pick(0, unarmed[0]);
+    select.set_occupant(1, SlotOccupant::Cpu);
+    select.set_pick(1, unarmed[1]);
+
+    let roster = select.roster(&grid).expect("two decided seats are a match");
+    for participant in &roster.participants {
+        let kit = participant
+            .action_set
+            .as_ref()
+            .unwrap_or_else(|| panic!("seat wearing `{}` got no kit", participant.character));
+        assert!(
+            kit.melee.is_some(),
+            "seat wearing `{}` reaches the stage unable to hit anybody",
+            participant.character
+        );
+    }
 }

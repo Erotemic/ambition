@@ -369,6 +369,8 @@ pub fn apply_worn_character_overlay(
     combat_kit: Option<&mut crate::combat::components::CombatKit>,
     character_id: &str,
     base_abilities: ambition_platformer2d_core::AbilitySet,
+    // See `MatchParticipant::action_set`.
+    match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
     // NAME. A known row supplies a display name; an unknown id becomes its own
     // label — deterministic and never stale, and a legible diagnostic that a body
@@ -399,7 +401,22 @@ pub fn apply_worn_character_overlay(
         combat_kit,
         character_id,
         base_abilities,
+        match_kit,
     )
+}
+
+/// **The kit this body's MATCH gave it**, if it is in one.
+///
+/// A body with no `MatchSeat` is not in a match and keeps its authored persona,
+/// which is every other body in every game. ⚠ keyed by SEAT rather than by
+/// character id, because a mirror match is legal: two seats may wear one
+/// character and a per-character lookup would give them the same kit by
+/// accident rather than by decision.
+fn match_kit_for_seat<'a>(
+    roster: Option<&'a crate::character_runtime::MatchParticipantRoster>,
+    seat: Option<&crate::character_runtime::MatchSeat>,
+) -> Option<&'a ActionSet> {
+    roster?.participants.get(seat?.0)?.action_set.as_ref()
 }
 
 /// Refresh only the action/moveset portion of a playable persona.
@@ -420,6 +437,9 @@ fn apply_worn_character_kit(
     combat_kit: Option<&mut crate::combat::components::CombatKit>,
     character_id: &str,
     base_abilities: ambition_platformer2d_core::AbilitySet,
+    // **What the MATCH says this fighter fights with**, if a match said anything.
+    // See `MatchParticipant::action_set`.
+    match_kit: Option<&ActionSet>,
 ) -> RangedExecution {
     let prepared = registry.and_then(|registry| registry.get(character_id));
 
@@ -435,50 +455,72 @@ fn apply_worn_character_kit(
     // The catalog arm below is not a fallback for a prepared character. It serves
     // ids that are in the catalog and were never registered — most of the legacy
     // cast — which have no prepared value to disagree with.
-    let (set, derived, execution) = match prepared.map(|prepared| &prepared.kit) {
-        Some(crate::character_runtime::PreparedKit::Authored {
-            action_set,
-            moveset,
-        }) => (
-            action_set.clone(),
-            moveset.clone(),
-            // The charge mechanic is the CODE-SIDE compat kit's, and a character
-            // whose capabilities content decided is not wearing that kit.
-            RangedExecution::MovesetVerb,
-        ),
-        Some(crate::character_runtime::PreparedKit::HostCode { authored_moveset }) => {
-            let set = crate::avatar::bundles::default_player_action_set(base_abilities);
-            let execution = RangedExecution::HostCharge;
-            let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
-            (set, derived, execution)
-        }
-        None => {
-            let source = catalog.playable_kit_source(character_id);
-            let authored = catalog.build_default_action_set(character_id);
-            if matches!(
+    // ⭐ **A MATCH OUTRANKS THE PERSONA, and only a match.** Checked first rather
+    // than folded, because the roster is not another opinion about who the
+    // character IS — it is a rule of the stage they are standing on, exactly like
+    // `fighter_abilities`. A crossover grid borrows Alice, whose row says
+    // `peaceful` and is RIGHT about her: she was authored to stand in a room and
+    // talk. The stage is the only thing that may say otherwise, and it may not
+    // say it by editing her row.
+    //
+    // ⚠ still ONE writer, and it falls through to the SAME publication below.
+    // Seating deliberately does not author moves — its own comment says *"that is
+    // `WornCharacter`'s job… seating must not author a second opinion about
+    // them"* — so the override is consulted here, where the persona is derived,
+    // and the identity baseline, the moveset and the durable combat kit are still
+    // built together by the one path that knows they have to agree.
+    let (set, derived, execution) =
+        if let Some(kit) = match_kit {
+            let execution = RangedExecution::MovesetVerb;
+            let derived = derive_persona_moveset(kit, execution, None);
+            (kit.clone(), derived, execution)
+        } else {
+            match prepared.map(|prepared| &prepared.kit) {
+                Some(crate::character_runtime::PreparedKit::Authored {
+                    action_set,
+                    moveset,
+                }) => (
+                    action_set.clone(),
+                    moveset.clone(),
+                    // The charge mechanic is the CODE-SIDE compat kit's, and a character
+                    // whose capabilities content decided is not wearing that kit.
+                    RangedExecution::MovesetVerb,
+                ),
+                Some(crate::character_runtime::PreparedKit::HostCode { authored_moveset }) => {
+                    let set = crate::avatar::bundles::default_player_action_set(base_abilities);
+                    let execution = RangedExecution::HostCharge;
+                    let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
+                    (set, derived, execution)
+                }
+                None => {
+                    let source = catalog.playable_kit_source(character_id);
+                    let authored = catalog.build_default_action_set(character_id);
+                    if matches!(
                 source,
                 Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
             ) && authored.is_none()
-            {
-                bevy::log::error!(
+                    {
+                        bevy::log::error!(
                     "worn character '{character_id}' declares an Authored playable kit but its \
                      default_action_set does not resolve; installing a safe peaceful kit"
                 );
-            } else if source.is_none() {
-                bevy::log::warn_once!(
+                    } else if source.is_none() {
+                        bevy::log::warn_once!(
                     "worn character id '{character_id}' is not in the catalog; wearing the \
                      code-side compatibility kit and showing the id as the display name"
                 );
+                    }
+                    // ONE call for both kits now. The two arms this replaced differed
+                    // only in which presets they folded and whether they stamped the
+                    // blade SFX — which is precisely what `RangedExecution` decides, so
+                    // they were the same call written twice with the answer inlined.
+                    let (set, execution) =
+                        resolve_playable_action_set(source, authored, base_abilities);
+                    let derived = derive_persona_moveset(&set, execution, None);
+                    (set, derived, execution)
+                }
             }
-            // ONE call for both kits now. The two arms this replaced differed
-            // only in which presets they folded and whether they stamped the
-            // blade SFX — which is precisely what `RangedExecution` decides, so
-            // they were the same call written twice with the answer inlined.
-            let (set, execution) = resolve_playable_action_set(source, authored, base_abilities);
-            let derived = derive_persona_moveset(&set, execution, None);
-            (set, derived, execution)
-        }
-    };
+        };
     // Publish what IDENTITY alone derived, before any equipment overlay. This is
     // the baseline `reconcile_equipment_grants` re-derives the live kit from, which
     // is what makes a granted verb revocable: without it, a consumed or downgraded
@@ -550,6 +592,10 @@ pub fn apply_worn_character_gameplay(
     // Optional, like every other reader of it: a composition with no registered
     // characters is the ordinary case and must not require the resource.
     registry: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    // **What the MATCH decided**, when one is running. `Option` because most
+    // compositions are not a match, which is the ordinary case rather than a
+    // degraded one.
+    roster: Option<Res<crate::character_runtime::MatchParticipantRoster>>,
     mut commands: Commands,
     mut worn: Query<(
         Entity,
@@ -581,6 +627,8 @@ pub fn apply_worn_character_gameplay(
         // the change-detection filter that used to live here could not see a
         // cast replacement, because a replacement changes nothing on a body.
         Option<&PersonaBaseline>,
+        // Which seat this body holds, if it is in a match at all.
+        Option<&crate::character_runtime::MatchSeat>,
     )>,
 ) {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
@@ -599,6 +647,7 @@ pub fn apply_worn_character_gameplay(
         mass,
         has_projectile_state,
         baseline,
+        seat,
     ) in &mut worn
     {
         let id = character.id();
@@ -624,6 +673,10 @@ pub fn apply_worn_character_gameplay(
                 combat_kit.as_deref_mut(),
                 id,
                 abilities.abilities,
+                // **The kit this MATCH gave the seat**, when this body is in one.
+                // A body with no `MatchSeat` is not in a match and keeps its
+                // authored persona, which is every other body in every game.
+                match_kit_for_seat(roster.as_deref(), seat),
             );
             sync_charge_projectile_capability(
                 &mut commands,
@@ -739,6 +792,7 @@ pub fn apply_worn_character_gameplay(
                     combat_kit.as_deref_mut(),
                     id,
                     abilities.abilities,
+                    match_kit_for_seat(roster.as_deref(), seat),
                 );
                 sync_charge_projectile_capability(
                     &mut commands,

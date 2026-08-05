@@ -331,6 +331,9 @@ pub mod character {
         CharacterDefinition, CharacterDefinitionAppExt,
     };
 
+    /// The pieces a match needs to author a fighter's kit — see
+    /// `MatchParticipant::action_set`.
+    pub use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
     /// What a character can do, and how it decides.
     pub use ambition_characters::brain::ActionSet;
     pub use ambition_entity_catalog::placements::CharacterBrain;

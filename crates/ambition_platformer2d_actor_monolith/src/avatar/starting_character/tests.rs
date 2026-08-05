@@ -650,7 +650,10 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
     let gated = &app.world().get::<ActorControl>(entity).unwrap().0;
     assert!(!gated.melee_pressed);
     assert!(!gated.pogo_pressed);
-    assert_eq!(gated.attack_axis, ambition_platformer2d_core::LocalAxes::ZERO);
+    assert_eq!(
+        gated.attack_axis,
+        ambition_platformer2d_core::LocalAxes::ZERO
+    );
     assert!(gated.fire.is_none());
     assert!(!gated.shield_held);
     assert!(!gated.projectile_pressed);
@@ -921,6 +924,8 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         None,
         "hero",
         ambition_platformer2d_core::AbilitySet::default(),
+        // No match: this fixture is testing the AUTHORED persona.
+        None,
     );
 
     assert!(
@@ -959,6 +964,8 @@ fn a_registered_characters_moveset_becomes_the_identity_baseline() {
         None,
         "monk",
         ambition_platformer2d_core::AbilitySet::default(),
+        // No match: this fixture is testing the AUTHORED persona.
+        None,
     );
     assert!(
         !moveset.0.moves.iter().any(|m| m.id == "swat"),
@@ -1034,6 +1041,8 @@ fn wear(
         None,
         id,
         ambition_platformer2d_core::AbilitySet::default(),
+        // No match: this fixture is testing the AUTHORED persona.
+        None,
     );
     assert_eq!(
         identity.action_set, action_set,
@@ -1573,7 +1582,10 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
     let action_set = crate::avatar::bundles::default_player_action_set(abilities);
 
     let spawned = crate::avatar::PlayerSimulationBundle::from_scratch(
-        crate::avatar::primary_player_scratch(ambition_platformer2d_core::Vec2::new(0.0, 0.0), abilities),
+        crate::avatar::primary_player_scratch(
+            ambition_platformer2d_core::Vec2::new(0.0, 0.0),
+            abilities,
+        ),
         ambition_characters::actor::Health::new(10),
     );
     let rewarn = crate::avatar::starting_character::derive_persona_moveset(

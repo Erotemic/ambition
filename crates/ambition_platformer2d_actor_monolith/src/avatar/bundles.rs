@@ -257,6 +257,10 @@ impl PlayerSimulationBundle {
             None,
             character_id,
             base_abilities,
+            // A from-scratch bundle predates the match as well as the world: if
+            // this body is later seated, the per-frame derivation reaches it
+            // with the roster's kit on its first tick.
+            None,
         );
         bundle
             .motion_model

@@ -450,6 +450,26 @@ impl SmashSelect {
                                 brain_profile: Some(crate::SMASH_DUELIST_BRAIN.to_string()),
                             },
                         })
+                        // **THE KIT THIS MATCH GIVES THEM.**
+                        //
+                        // ⛔ measured 2026-08-05: SEVEN of the twelve grid
+                        // fighters had no melee at all. They are Ambition's Hall
+                        // cast, and a Hall NPC's row says `peaceful` because
+                        // standing in a room and talking is what they were
+                        // authored for — which is CORRECT where they live. A
+                        // crossover stage is the one place allowed to say
+                        // otherwise, and `MatchParticipant::action_set` is how it
+                        // says it without editing a row that belongs to another
+                        // game.
+                        //
+                        // ⚠ **one kit for everybody is a FLOOR, not the design.**
+                        // It makes the grid playable and it is honestly a
+                        // levelling — the same levelling `fighter_abilities`
+                        // does, one rung lower, where it costs more. Per
+                        // character kits are the content job (Jon, 2026-08-05:
+                        // *"we might need to generate real smash movesets"*) and
+                        // this is the seam they land in.
+                        .with_action_set(smash_fighter_kit())
                         .on_team(format!("seat {}", slot + 1)),
                 )
             })
@@ -557,6 +577,27 @@ pub fn seats_offered_under(
         _ => pads + 1,
     };
     seats.clamp(1, MAX_SMASH_SEATS)
+}
+
+/// **What every fighter on this stage swings.**
+///
+/// The demo's `duelist` preset, in Rust rather than by catalog reference,
+/// because the roster hands the kit to characters whose OWN rows this demo does
+/// not own and must not edit. Numbers match `SMASH_CATALOG_RON`'s `duelist`
+/// action set — a real swipe, because the whole point of the stage is that a hit
+/// LAUNCHES and a fighter with no melee cannot knock anybody off anything.
+fn smash_fighter_kit() -> ambition_platformer2d::character::ActionSet {
+    let mut kit = ambition_platformer2d::character::ActionSet::default();
+    kit.melee = Some(ambition_platformer2d::character::MeleeActionSpec::Swipe(
+        ambition_platformer2d::character::SwipeSpec {
+            windup_s: 0.22,
+            active_s: 0.08,
+            damage: 4,
+            reach_px: 34.0,
+            recover_s: 0.26,
+        },
+    ));
+    kit
 }
 
 #[cfg(test)]

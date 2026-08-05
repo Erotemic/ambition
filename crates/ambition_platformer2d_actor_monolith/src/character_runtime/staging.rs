@@ -59,7 +59,10 @@ impl StagesCharacters for RoomStagingPlan {
 /// One seat in a match. Control assignment lives HERE, not on the character
 /// definition (§4.7): a definition describes a body, and who drives it is a
 /// session binding.
-#[derive(Debug, Clone, PartialEq, Eq)]
+// ⚠ `Eq` dropped when `action_set` arrived: an `ActionSet` carries reach and
+// timing in `f32`, so equality on it is `PartialEq` by construction. Nothing
+// compares rosters for total equality; `PartialEq` is what the tests use.
+#[derive(Debug, Clone, PartialEq)]
 pub struct MatchParticipant {
     /// The stable `CharacterDefinitionId` this seat wears.
     pub character: String,
@@ -71,6 +74,26 @@ pub struct MatchParticipant {
     /// exists so this type is usable as the real roster rather than a stub that
     /// gets replaced.
     pub team: Option<String>,
+    /// **The kit this MATCH gives this fighter**, outranking the character's own
+    /// catalog row.
+    ///
+    /// `None` keeps the authored persona, which is every existing roster and the
+    /// right answer for a scripted encounter or a boss.
+    ///
+    /// ⛔ **it exists because a crossover stage borrows a cast.** A Hall NPC's
+    /// row says `peaceful` and that is CORRECT where they live — Alice was
+    /// authored to stand in a room and talk. Measured 2026-08-05, seven of the
+    /// twelve fighters on the smash grid had no melee at all and would have
+    /// reached a platform-fighter stage unable to hit anybody.
+    ///
+    /// ⚠ **per SEAT, where `fighter_abilities` is per MATCH, and the difference
+    /// is the whole point.** An ability is *may this body attack* and levelling
+    /// it is fairness; a moveset is *what the attack IS* and levelling it would
+    /// erase the character. The roster is the one place that can say "on THIS
+    /// stage, this character fights like this" without editing the row that
+    /// belongs to the game they came from — which is the duplication the
+    /// single-registration campaign exists to remove.
+    pub action_set: Option<ambition_characters::brain::ActionSet>,
 }
 
 impl MatchParticipant {
@@ -79,7 +102,15 @@ impl MatchParticipant {
             character: character.into(),
             controller: ControllerBinding::Human { device_slot: 0 },
             team: None,
+            action_set: None,
         }
+    }
+
+    /// Give this seat a kit for the duration of the match. See
+    /// [`MatchParticipant::action_set`].
+    pub fn with_action_set(mut self, action_set: ambition_characters::brain::ActionSet) -> Self {
+        self.action_set = Some(action_set);
+        self
     }
 
     pub fn driven_by(mut self, controller: ControllerBinding) -> Self {
@@ -177,7 +208,7 @@ impl NormalizedEffort {
 /// A `Resource` because a match's roster is SESSION state: it is what the seating
 /// pass reads to turn participants into bodies (C4), and what the load projection
 /// reads to demand their art. Both are per-session facts with one owner.
-#[derive(Resource, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Resource, Debug, Clone, Default, PartialEq)]
 pub struct MatchParticipantRoster {
     pub participants: Vec<MatchParticipant>,
     /// **Whether a seated fighter may act on the tick it appears.**
@@ -577,11 +608,9 @@ mod roster_validation_tests {
             .driven_by(ControllerBinding::Cpu {
                 brain_profile: Some("duelist".into()),
             });
-        assert!(
-            roster
-                .unsatisfiable_seats(&archetypes(&["combatant", "duelist"]))
-                .is_empty()
-        );
+        assert!(roster
+            .unsatisfiable_seats(&archetypes(&["combatant", "duelist"]))
+            .is_empty());
     }
 
     /// A HUMAN seat asks the archetype table for nothing, so it cannot be

@@ -62,7 +62,16 @@ pub fn default_weight() -> f32 {
     1.0
 }
 
+// ⛔ **`deny_unknown_fields` is the CONTRACT, not a nicety.**
+// `ContentSchemaHandler::check`'s own doc: *"a handler MUST report an authored
+// field it does not consume … rolling your own field walk and forgetting is how
+// a typo becomes a mechanic that silently never fires."* This type had no such
+// guard, and an audit measured the consequence by authoring
+// `favourite_snack: "worms"` into a real file: the pack compiled CLEAN, and the
+// field reached neither the runtime nor the fingerprint. A misspelled tuning
+// value is exactly that shape, and it looks identical to authoring nothing.
 #[derive(Clone, Debug, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ArchetypeSpec {
     /// Optional parent archetype id to inherit movement tuning from. The resolver
     /// folds `BASELINE ← parent (resolved) ← this row's `movement` patch`, so an

@@ -28,6 +28,7 @@ pub use crate::brain::BossEncounterPhase;
 
 /// Authored thresholds + timings driving phase transitions.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BossEncounterSpec {
     pub id: String,
     /// Boss display name. HUD shows this above the health bar.

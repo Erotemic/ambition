@@ -134,7 +134,7 @@ impl ContentSchemaHandler for PulseSchema {
             ));
             return;
         }
-        for profile in &file.profiles {
+        for (index, profile) in file.profiles.iter().enumerate() {
             let id = facet.content_id(&profile.name);
             // A zero radius is a pulse that reaches nothing and a zero cooldown
             // is one that fires every tick. Both are almost certainly a typo,
@@ -154,9 +154,28 @@ impl ContentSchemaHandler for PulseSchema {
                         .fix("a pulse with no radius pushes nothing; give it one or delete it"),
                 );
             }
+            // ⛔ **THE INDEX IS PART OF THE CANONICAL FORM, because this file is
+            // POSITIONAL.** `PulseProfiles::from_prepared` pins `active: 0`, so
+            // the FIRST profile is the one the mechanic runs — and the pack
+            // fingerprint sorts definitions by content id, so a row canonical
+            // keyed only by name made SWAPPING two whole profiles a no-op for
+            // identity while changing the live pulse's radius, force and
+            // cooldown. Measured, not argued: two packs differing only in
+            // profile order produced byte-identical canonical bytes and
+            // fingerprint `e060c5b64b5a0b78`, with `active` reading `gentle`
+            // in one and `cannon` in the other.
+            //
+            // ⭐ **the rule, since this is the THIRD time**: if the lowered
+            // artifact is a sequence and the runtime reads it BY POSITION, the
+            // position is part of the canonical form. Music track order and the
+            // item catalog's slot were the first two, and both were fixed
+            // exactly this way.
             out.define(
                 id,
-                ron::ser::to_string(profile).unwrap_or_else(|e| format!("<{e}>")),
+                format!(
+                    "index={index}\n{}",
+                    ron::ser::to_string(profile).unwrap_or_else(|e| format!("<{e}>"))
+                ),
             );
         }
         if !out.failed() {

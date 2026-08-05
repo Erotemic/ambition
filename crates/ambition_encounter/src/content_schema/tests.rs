@@ -127,13 +127,9 @@ fn changing_a_wave_moves_the_pack_fingerprint() {
         .replace("\\\n               ", "")
     };
     let fingerprint = |name: &str, delay: &str| {
-        compile(
-            &draft(name, &book(delay)),
-            &registry(),
-            &AssetsUnchecked,
-        )
-        .expect("a well-formed book compiles")
-        .fingerprint
+        compile(&draft(name, &book(delay)), &registry(), &AssetsUnchecked)
+            .expect("a well-formed book compiles")
+            .fingerprint
     };
     assert_ne!(
         fingerprint("delay_zero", "0.0"),
@@ -147,5 +143,53 @@ fn changing_a_wave_moves_the_pack_fingerprint() {
         fingerprint("same_a", "0.0"),
         fingerprint("same_b", "0.0"),
         "identical content must keep one identity"
+    );
+}
+
+/// **A field nobody consumes is a REFUSAL, not a shrug.**
+///
+/// ⛔ **it was a shrug, and an audit measured it.** `EncounterWaveSpec` and
+/// `EncounterMobSpec` had no `deny_unknown_fields`, so authoring
+/// `favourite_snack: "worms"` into a real wave file compiled CLEAN — the field
+/// reached neither the runtime nor the pack's fingerprint. That is the exact
+/// shape `ContentSchemaHandler::check`'s own doc forbids: *"a handler MUST
+/// report an authored field it does not consume … rolling your own field walk
+/// and forgetting is how a typo becomes a mechanic that silently never fires."*
+///
+/// ⚠ **a misspelling looks identical to authoring nothing**, which is what makes
+/// it worth a test rather than a comment: `dely: 2.0` for `delay` gives a mob
+/// that spawns instantly, an author who is sure they set it, and nothing
+/// anywhere that says otherwise.
+#[test]
+fn a_field_the_schema_does_not_know_is_refused_at_every_level() {
+    // On the MOB, the innermost authored shape.
+    let failure = refuse(
+        "unknown_mob_field",
+        r#"{"goblin_encounter": [(label: "first", mobs: [(kind: "medium_striker", spawn: (1180.0, 580.0), size: (22.0, 38.0), delay: 0.0, favourite_snack: "worms")])]}"#,
+    );
+    assert!(
+        failure
+            .diagnostics
+            .iter()
+            .any(|d| d.code == DiagnosticCode::UnknownField),
+        "a mob field nothing reads must be reported as unknown: {}",
+        failure.render()
+    );
+
+    // And on the WAVE, because the two types are guarded separately and one of
+    // them being right is how the other stays wrong.
+    let failure = refuse(
+        "unknown_wave_field",
+        &format!(
+            r#"{{"goblin_encounter": [(label: "first", mobs: [{ONE_MOB}], favourite_snack: "worms")]}}"#
+        ),
+    );
+    assert!(
+        failure
+            .diagnostics
+            .iter()
+            .any(|d| d.code == DiagnosticCode::UnknownField),
+        "a wave field nothing reads must be reported as unknown: {}",
+        failure.render()
     );
 }

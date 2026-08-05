@@ -6,8 +6,8 @@
 use super::*;
 use ambition_causal::{CausalRecording, FactValue, RecordingPolicy, SubjectKey};
 use ambition_content_pack::{
-    AssetsUnchecked, ContentPackDraft, ContentPackManifest, ModuleNamespace, PackId, PackVersion,
-    SchemaId, SchemaRegistry, SourceDeclaration, compile,
+    compile, AssetsUnchecked, ContentPackDraft, ContentPackManifest, ModuleNamespace, PackId,
+    PackVersion, SchemaId, SchemaRegistry, SourceDeclaration,
 };
 use ambition_platformer2d_core::Vec2;
 
@@ -388,13 +388,11 @@ fn a_composition_that_forgets_the_rollback_state_is_told_which_and_why() {
         BODY_ROLLBACK_STATE,
         |body| body.vel.x.to_bits() as u64,
     );
-    assert!(
-        complete
-            .world()
-            .resource::<RollbackRegistry>()
-            .missing_required_state(REQUIRED_ROLLBACK)
-            .is_empty()
-    );
+    assert!(complete
+        .world()
+        .resource::<RollbackRegistry>()
+        .missing_required_state(REQUIRED_ROLLBACK)
+        .is_empty());
 }
 
 /// ⚠ **the OWNER is part of the requirement.** Two capabilities may both
@@ -763,4 +761,57 @@ fn every_piece_of_authoritative_pulse_state_is_in_the_contract() {
             req.why
         );
     }
+}
+
+/// **Reordering the profiles changes the pack's identity, because it changes
+/// which pulse the game fires.**
+///
+/// ⛔ **it did not, and that was measured rather than reasoned about.** Two packs
+/// differing only in profile ORDER produced byte-identical canonical bytes and
+/// the same fingerprint `e060c5b64b5a0b78`, while `PulseProfiles::active()`
+/// returned `gentle` in one and `cannon` in the other — different radius, force
+/// and cooldown for every pulse the game fires. A fingerprint that cannot tell
+/// those two packs apart is useless for the four things it exists for: cache
+/// invalidation, packaging, session compatibility, and telling two peers apart.
+///
+/// The cause is that this file is POSITIONAL — `from_prepared` pins `active: 0`
+/// — while `define` was keyed only by name, and the pack sorts definitions by
+/// content id.
+///
+/// ⭐ **the rule, since this shape has now produced the bug three times**: if
+/// the lowered artifact is a sequence and the runtime reads it BY POSITION, the
+/// position is part of the canonical form. Music track order and the item
+/// catalog's slot were the first two; both were fixed exactly this way.
+#[test]
+fn swapping_two_profiles_moves_the_fingerprint() {
+    const SWAPPED: &str = r#"(
+    profiles: [
+        (name: "cannon", radius: 200.0, force: 900.0, cooldown_ticks: 90),
+        (name: "gentle", radius: 64.0, force: 100.0, cooldown_ticks: 30),
+    ],
+)"#;
+    let original = compile_pack("order_original", PROFILES).expect("compiles");
+    let swapped = compile_pack("order_swapped", SWAPPED).expect("compiles");
+
+    // The runtime really does read a different profile — without this the test
+    // could pass over two packs that behave identically, which would make the
+    // fingerprint claim meaningless.
+    let live = |pack: &ambition_content_pack::PreparedContentPack| {
+        let profiles: &Vec<PulseProfile> = pack
+            .lowered(&SchemaId::new(PULSE_SCHEMA))
+            .expect("the schema lowered its profiles");
+        PulseProfiles::from_prepared(profiles.clone()).active()
+    };
+    assert_ne!(
+        live(&original).name,
+        live(&swapped).name,
+        "the two packs must actually run different pulses, or this proves nothing"
+    );
+
+    assert_ne!(
+        original.fingerprint, swapped.fingerprint,
+        "two packs that fire different pulses report the same identity:\n--- original ---\n{}\n--- swapped ---\n{}",
+        original.canonical_bytes(),
+        swapped.canonical_bytes()
+    );
 }

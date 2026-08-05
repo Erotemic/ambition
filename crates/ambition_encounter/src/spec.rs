@@ -46,7 +46,16 @@ pub fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
 }
 
 /// One mob to spawn during a wave.
+// ⛔ **`deny_unknown_fields` is the CONTRACT, not a nicety.**
+// `ContentSchemaHandler::check`'s own doc: *"a handler MUST report an authored
+// field it does not consume … rolling your own field walk and forgetting is how
+// a typo becomes a mechanic that silently never fires."* This type had no such
+// guard, and an audit measured the consequence by authoring
+// `favourite_snack: "worms"` into a real file: the pack compiled CLEAN, and the
+// field reached neither the runtime nor the fingerprint. A misspelled tuning
+// value is exactly that shape, and it looks identical to authoring nothing.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EncounterMobSpec {
     /// `CharacterBrain::Custom(kind)` payload — picks the archetype
     /// (`small_skitter`, `medium_striker`, `large_brute`, ...).
@@ -84,6 +93,7 @@ impl EncounterMobSpec {
 
 /// One wave of mobs.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct EncounterWaveSpec {
     pub label: String,
     pub mobs: Vec<EncounterMobSpec>,

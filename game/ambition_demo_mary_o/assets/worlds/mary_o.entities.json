@@ -18,6 +18,30 @@
           "default": ""
         }
       ]
+    },
+    {
+      "identifier": "MaryOPipe",
+      "color": "#3FA34D",
+      "width": 96,
+      "height": 64,
+      "docs": "One half of a WARP TUBE \u2014 the green pipe you press into and come out of somewhere else.\n\nTwo halves that share a `link` are ONE tube. That is the whole pairing, and it is explicit: nothing about where a pipe sits, what it is called, or what order it was drawn in decides who its partner is. A link with only one half is REFUSED at load, naming the pipe and the partner it is missing \u2014 which is exactly what the old `warp_pipe_<link>_<up|down>` naming convention could not do, because a typo simply produced a green box that had quietly stopped being a pipe.\n\n`link` \u2014 the pair id. Any word you like; both halves must spell it the same. 1-1 uses `descent` (surface down into the vault) and `ascent` (vault back up to the surface).\n\n`mouth` \u2014 which way this half's OPEN FACE points:\n\n  Up    the lip is on TOP. You stand on it and press DOWN to enter; you arrive standing on it.\n  Down  the lip is UNDERNEATH \u2014 a pipe hanging from a ceiling. You stand under it and press UP to enter; you arrive falling out of it.\n\nA pipe answers UP or DOWN and never a generic Interact, so the mouth is what decides the press. It also decides which end wears the lip art, and the lip is mirrored for a Down mouth so a hanging pipe reads as hanging.\n\n`role` \u2014 which end of the trip this is. Each link needs exactly one of each:\n\n  Entrance  the mouth you press into.\n  Exit      the mouth you come out of.\n\nA tube is directed, unlike a portal pair: 1-1's two vault halves are identical boxes hanging in the same ceiling, and `role` is the only thing that says which one you may press UP into. Author a two-way route as two links, the way 1-1 does.\n\nDrag the box to the pipe's real size \u2014 the collision, the mouth you touch and the lip/shaft art are all derived from it, so a pipe moved in the editor takes its warp with it.",
+      "fields": [
+        {
+          "name": "link",
+          "type": "String",
+          "default": ""
+        },
+        {
+          "name": "mouth",
+          "type": "String",
+          "default": "Up"
+        },
+        {
+          "name": "role",
+          "type": "String",
+          "default": "Entrance"
+        }
+      ]
     }
   ]
 }

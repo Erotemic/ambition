@@ -45,6 +45,7 @@ pub use provider::{
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::prelude::*;
 use ambition_platformer2d::world::rooms::{PropSpec, RoomSpec};
+use ldtk_vocabulary::{MaryOPipeMouth, MaryOPipeRole};
 
 /// Stable room id for level 1-1.
 pub const LEVEL_1_1_ROOM_ID: &str = "mary_o_1_1";
@@ -107,11 +108,13 @@ pub const POWER_BLOCK_PREFIX: &str = "power_block_";
 pub const QUASAR_BLOCK_PREFIX: &str = "quasar_block_";
 /// Breakable masonry: a bonk from a grown body removes it.
 pub const BRICK_PREFIX: &str = "brick_";
-/// One half of a warp tube. Two halves sharing a `<link>` are a PAIR.
-pub const WARP_PIPE_PREFIX: &str = "warp_pipe_";
-/// The suffix that says a pipe's mouth points DOWN — you fall out of it, or rise
-/// into it. Anything else is mouth-up: you press DOWN on it.
-pub const PIPE_MOUTH_DOWN_SUFFIX: &str = "_down";
+// ⭐⭐ **`WARP_PIPE_PREFIX` AND `PIPE_MOUTH_DOWN_SUFFIX` ARE GONE (2026-08-04)**,
+// and so is the naming convention they spelled. A pipe half is a `MaryOPipe`
+// entity now, carrying an explicit `link`, `mouth` and `role` as authored
+// FIELDS — see [`ldtk_vocabulary`] for the schema and why `PlacementSchema`
+// could not carry it. The prefix and the suffix survive only as the encoding
+// [`ldtk_vocabulary::pipe_of`] decodes, which is a convention two pieces of
+// Mary-O share rather than one a human has to type correctly.
 /// The flag: shaft, finial and banner, all the same width and column.
 pub const GOAL_POLE_PREFIX: &str = "goal_pole";
 /// The secret chamber's stone — `vault_floor` and `vault_wall_<n>`.
@@ -151,25 +154,27 @@ const SURFACE_HEIGHT: f32 = 15.0 * T;
 /// How far below the ground slab the secret vault's floor sits.
 const VAULT_DEPTH_TILES: f32 = 9.0;
 
-/// The four halves of Mary-O's two warp tubes, by their AUTHORED names.
+/// Mary-O's two warp tubes, by the LINK ID their halves are authored with.
 ///
-/// ⛔ **`pipe_halves()` — a four-element Rust table of positions, sizes and a
-/// `mouth_down` flag — is GONE (2026-08-04), and with it `PIPE_COLUMN`,
-/// `EXIT_PIPE_COLUMN`, `PIPE_WIDTH_TILES`, `PIPE_HEIGHT_TILES`,
-/// `surface_pipe_min/size`, `vault_pipe_min/size` and `vault_pipe_clearance`.**
-/// Nine constants and five functions computing where a pipe was, in a language
-/// the level editor could not read — and the descent/ascent PAIRING was the
-/// order of the tuples. A pipe is authored now; these names are how the runtime
-/// finds the one it means.
+/// ⛔ **`PIPE_NAME`, `VAULT_ENTRY_PIPE_NAME`, `EXIT_PIPE_NAME` and
+/// `SURFACE_EXIT_PIPE_NAME` are GONE (2026-08-04)** — four Rust constants
+/// spelling `warp_pipe_<link>_<up|down>`, which was the pairing. The comment
+/// that stood here said what was wrong with it: *"a typo pairs nothing and only
+/// a load-time check can catch it."*
 ///
-/// ⚠ **the pairing is still the NAME**, `warp_pipe_<link>_<up|down>`, which is
-/// the weakest part of the authored vocabulary: a typo pairs nothing and only a
-/// load-time check can catch it. `a_pipe_you_enter_always_has_a_pipe_you_come_
-/// out_of` is that check.
-const PIPE_NAME: &str = "warp_pipe_descent_up";
-const VAULT_ENTRY_PIPE_NAME: &str = "warp_pipe_descent_down";
-const EXIT_PIPE_NAME: &str = "warp_pipe_ascent_down";
-const SURFACE_EXIT_PIPE_NAME: &str = "warp_pipe_ascent_up";
+/// ⭐ **a link is not a name.** These two are still Rust strings, and that is
+/// fine and different: a link is the authored PAIRING KEY, so asking for the
+/// `descent` tube is asking the level a question it answers — exactly how
+/// `convert_portal` finds a portal's partner. Whether the tube exists, whether
+/// it has both halves, where they are and which way they open are all read off
+/// the file. Nothing about a half's spelling, position or draw order matters.
+///
+/// ⚠ 1-1 is a two-way route made of two ONE-WAY tubes: you go down `descent`
+/// and come back up `ascent`, arriving twelve tiles further along. That is the
+/// classic shape, and it is why a half authors a `role` where a portal — which
+/// is symmetric — needs nothing.
+const DESCENT_LINK: &str = "descent";
+const ASCENT_LINK: &str = "ascent";
 
 /// The stone the secret chamber is cut from — the one thing about the vault the
 /// LDtk file cannot say, since a block carries no authored colour.
@@ -208,50 +213,215 @@ const MOUTH_SLACK: f32 = 0.5 * T;
 /// YOU STAND ON, which is right for a pipe you stand on top of and wrong for one
 /// hanging overhead — it put the ascent trigger on the vault floor, several tiles
 /// below the pipe, so pressing UP worked anywhere in the pipe's column of air.
-fn mouth_band(min: ae::Vec2, size: ae::Vec2, mouth_down: bool) -> ae::Aabb {
-    let face = if mouth_down { min.y + size.y } else { min.y };
+fn mouth_band(aabb: ae::Aabb, mouth: MaryOPipeMouth) -> ae::Aabb {
+    let (min, size) = (aabb.min, aabb.max - aabb.min);
+    let face = match mouth {
+        MaryOPipeMouth::Down => min.y + size.y,
+        MaryOPipeMouth::Up => min.y,
+    };
     let band = ae::Vec2::new(size.x, 2.0 * MOUTH_SLACK);
     let corner = ae::Vec2::new(min.x, face - MOUTH_SLACK);
     ae::Aabb::new(corner + band * 0.5, band * 0.5)
 }
 
-/// The mouth of the AUTHORED pipe half called `name`.
+/// **One authored half of a warp tube**, as the runtime uses it: the block Jon
+/// drew, plus the three answers the `MaryOPipe` entity carries.
+#[derive(Clone, Debug)]
+pub struct PipeHalf {
+    /// The encoded block name, so a refusal can name the pipe an author sees.
+    pub name: String,
+    /// The block's own box — where the pipe IS. Everything below derives from it.
+    pub aabb: ae::Aabb,
+    /// Which way its open face points.
+    pub mouth: MaryOPipeMouth,
+}
+
+impl PipeHalf {
+    /// **This half's mouth is its OPEN FACE** — the band you have to be touching.
+    pub fn mouth_band(&self) -> ae::Aabb {
+        mouth_band(self.aabb, self.mouth)
+    }
+
+    /// The press that ENTERS this mouth: down into an up-facing lip, up into a
+    /// down-facing one. **This is Jon's rule** — a pipe answers a direction, and
+    /// a generic Interact (neither `down` nor `up`) enters nothing.
+    fn entered_by(&self, down: bool, up: bool) -> bool {
+        match self.mouth {
+            MaryOPipeMouth::Up => down,
+            MaryOPipeMouth::Down => up,
+        }
+    }
+
+    /// Where a body coming OUT of this half stands.
+    ///
+    /// Derived from the mouth, not authored: out of a lip that hangs overhead
+    /// you fall, just clear of the face; out of one you stand on you arrive on
+    /// top. The two used to be separate hand-written functions
+    /// (`vault_arrival`, `pipe_arrival`) that happened to differ by this.
+    fn arrival(&self) -> ae::Vec2 {
+        let x = (self.aabb.min.x + self.aabb.max.x) * 0.5;
+        match self.mouth {
+            MaryOPipeMouth::Down => ae::Vec2::new(x, self.aabb.max.y + 0.5 * T),
+            MaryOPipeMouth::Up => ae::Vec2::new(x, self.aabb.min.y - T),
+        }
+    }
+
+    /// The direction of travel INTO this mouth, in world space. Both of 1-1's
+    /// tubes are vertical, so it is the press direction itself.
+    fn travel_axis(&self) -> ae::Vec2 {
+        match self.mouth {
+            MaryOPipeMouth::Up => ae::DEFAULT_GRAVITY_DIR,
+            MaryOPipeMouth::Down => -ae::DEFAULT_GRAVITY_DIR,
+        }
+    }
+}
+
+/// **A whole warp tube**: the mouth you press into and the mouth you come out of,
+/// paired by their authored `link` and by nothing else.
+#[derive(Clone, Debug)]
+pub struct PipeTube {
+    pub link: String,
+    pub entrance: PipeHalf,
+    pub exit: PipeHalf,
+}
+
+/// Every `MaryOPipe` half in `room`, decoded.
+fn pipe_halves_of(room: &RoomSpec) -> Vec<(PipeHalf, ldtk_vocabulary::MaryOPipe)> {
+    let mut halves: Vec<_> = room
+        .world
+        .blocks
+        .iter()
+        .filter_map(|block| {
+            let pipe = ldtk_vocabulary::pipe_of(&block.name)?;
+            Some((
+                PipeHalf {
+                    name: block.name.clone(),
+                    aabb: block.aabb,
+                    mouth: pipe.mouth,
+                },
+                pipe,
+            ))
+        })
+        .collect();
+    // Sorted so what a level produces does not depend on block order.
+    halves.sort_by(|a, b| a.0.name.cmp(&b.0.name));
+    halves
+}
+
+/// **THE LOAD-TIME CHECK: a pipe you enter has a pipe you come out of.**
 ///
-/// ⛔ this used to read `pipe_halves()`, a four-element Rust table — so the warp
-/// trigger sat where the constants said a pipe was, and moving the pipe in the
-/// editor would have left the trigger behind. It reads the block Jon drew.
-fn mouth_of(name: &str) -> ae::Aabb {
-    let (_, aabb) = authored_named_blocks()
-        .get(name)
-        .unwrap_or_else(|| panic!("the level authors a `{name}` pipe half"));
-    mouth_band(
-        aabb.min,
-        aabb.max - aabb.min,
-        name.ends_with(PIPE_MOUTH_DOWN_SUFFIX),
-    )
+/// ⛔ this is the whole reason the pairing became a field. The name convention
+/// it replaced could not be checked at all — `warp_pipe_dscent_down` converted
+/// fine, stood there solid, and had silently stopped being half of a tube; the
+/// only thing that ever noticed was a Rust test naming all four halves, which
+/// meant a FIFTH pipe Jon drew was unpaired with nobody to say so.
+///
+/// A link now has to have exactly one `Entrance` and one `Exit`. Anything else
+/// names the half that is there and the partner it wants, because the author's
+/// next question is always *"which one did I typo?"*.
+fn pipe_tubes(room: &RoomSpec) -> Result<Vec<PipeTube>, String> {
+    let mut by_link: std::collections::BTreeMap<String, Vec<(PipeHalf, MaryOPipeRole)>> =
+        std::collections::BTreeMap::new();
+    for (half, pipe) in pipe_halves_of(room) {
+        by_link
+            .entry(pipe.link.clone())
+            .or_default()
+            .push((half, pipe.role));
+    }
+    let mut tubes = Vec::new();
+    // ⚠ every broken link, not the first — an author who mis-spelled one half
+    // has TWO orphans (the link that lost a half and the one the typo invented),
+    // and seeing them side by side is the whole diagnosis.
+    let mut refusals = Vec::new();
+    for (link, halves) in by_link {
+        let of_role = |want: MaryOPipeRole| {
+            halves
+                .iter()
+                .filter(|(_, role)| *role == want)
+                .map(|(half, _)| half)
+                .collect::<Vec<_>>()
+        };
+        let (entrances, exits) = (
+            of_role(MaryOPipeRole::Entrance),
+            of_role(MaryOPipeRole::Exit),
+        );
+        let named = |halves: &[&PipeHalf]| {
+            halves
+                .iter()
+                .map(|half| format!("`{}` at {:?}", half.name, half.aabb.min))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        match (entrances.as_slice(), exits.as_slice()) {
+            ([entrance], [exit]) => tubes.push(PipeTube {
+                link: link.clone(),
+                entrance: (*entrance).clone(),
+                exit: (*exit).clone(),
+            }),
+            (entrances, exits) => refusals.push(format!(
+                "the `{link}` warp tube has {} Entrance(s) [{}] and {} Exit(s) [{}]",
+                entrances.len(),
+                named(entrances),
+                exits.len(),
+                named(exits),
+            )),
+        }
+    }
+    if !refusals.is_empty() {
+        return Err(format!(
+            "{} — a pipe you enter always has a pipe you come out of, so a link \
+             needs exactly one Entrance and one Exit. Check the `link` spelling \
+             on every MaryOPipe involved.",
+            refusals.join("; and ")
+        ));
+    }
+    Ok(tubes)
+}
+
+/// 1-1's warp tubes, read off the embedded file once.
+///
+/// ⚠ a process-global `LazyLock` for the same reason `authored_named_blocks`
+/// is one: the input is fixed at COMPILE time, so there is no second value it
+/// could hold. The pairing refusal above becomes a panic here, which is the
+/// same call `authored_room` already makes about this file.
+fn authored_tubes() -> &'static [PipeTube] {
+    static TUBES: std::sync::LazyLock<Vec<PipeTube>> = std::sync::LazyLock::new(|| {
+        pipe_tubes(&authored_room(LEVEL_1_1_ROOM_ID)).unwrap_or_else(|why| panic!("{why}"))
+    });
+    &TUBES
+}
+
+/// The tube authored with this link id.
+fn authored_tube(link: &str) -> &'static PipeTube {
+    authored_tubes()
+        .iter()
+        .find(|tube| tube.link == link)
+        .unwrap_or_else(|| {
+            panic!(
+                "the level authors a warp tube linked `{link}`; it has {:?}",
+                authored_tubes()
+                    .iter()
+                    .map(|tube| tube.link.as_str())
+                    .collect::<Vec<_>>()
+            )
+        })
 }
 
 /// The mouth of the descent tube — the open top of the pipe you stand on.
 pub fn pipe_mouth() -> ae::Aabb {
-    mouth_of(PIPE_NAME)
+    authored_tube(DESCENT_LINK).entrance.mouth_band()
 }
 
 /// Where the descent tube drops you: out of its VAULT half's mouth, so you fall
 /// out of a pipe you can see rather than materializing in open stone.
 pub fn vault_arrival() -> ae::Vec2 {
-    let (_, pipe) = authored_named_blocks()
-        .get(VAULT_ENTRY_PIPE_NAME)
-        .expect("the level authors the descent tube's vault half");
-    ae::Vec2::new((pipe.min.x + pipe.max.x) * 0.5, pipe.max.y + 0.5 * T)
+    authored_tube(DESCENT_LINK).exit.arrival()
 }
 
 /// Where the ascent tube puts you: on top of its SURFACE half, directly above the
 /// vault pipe you entered — twelve tiles further into the level than you went down.
 pub fn pipe_arrival() -> ae::Vec2 {
-    let (_, pipe) = authored_named_blocks()
-        .get(SURFACE_EXIT_PIPE_NAME)
-        .expect("the level authors the ascent tube's surface half");
-    ae::Vec2::new((pipe.min.x + pipe.max.x) * 0.5, pipe.min.y - T)
+    authored_tube(ASCENT_LINK).exit.arrival()
 }
 
 /// The ascent tube's mouth — the open BOTTOM of the pipe hanging from the vault
@@ -262,9 +432,9 @@ pub fn pipe_arrival() -> ae::Vec2 {
 /// trigger that far from the thing it triggers reads as loose no matter how tight
 /// the band is — "Mary-O can be anywhere under the pipe and press up" is what a
 /// floor band feels like when the pipe is overhead. Now the pipe hangs at head
-/// height ([`vault_pipe_clearance`]) and you have to be at its lip.
+/// height and you have to be at its lip.
 pub fn vault_exit() -> ae::Aabb {
-    mouth_of(EXIT_PIPE_NAME)
+    authored_tube(ASCENT_LINK).entrance.mouth_band()
 }
 
 /// Build Mary-O's level 1-1 through the `ambition_platformer2d` umbrella surface ONLY.
@@ -303,6 +473,11 @@ pub fn vault_exit() -> ae::Aabb {
 pub fn level_1_1() -> RoomSpec {
     let mut room = authored_room(LEVEL_1_1_ROOM_ID);
     room.metadata.mode = Some(MARY_O_MODE.to_string());
+    // ⭐ **the pipe pairing is checked HERE, on the room actually being built** —
+    // not on the static table, which a level that never warps would never touch.
+    // A `MaryOPipe` whose `link` is a typo makes building 1-1 fail, loudly,
+    // naming the half that is there and the partner it wants.
+    let _ = pipe_tubes(&room).unwrap_or_else(|why| panic!("{why}"));
     dress_authored_blocks(&mut room);
     room.props.extend(scenery_for_authored_room(&room));
 
@@ -361,7 +536,9 @@ fn authored_room(area: &str) -> RoomSpec {
 /// than at construction is what lets Jon add a fourth pipe and have it dressed.
 fn dress_authored_blocks(room: &mut RoomSpec) {
     for block in &mut room.world.blocks {
-        if block.name.starts_with(WARP_PIPE_PREFIX) || block.name.starts_with(GOAL_POLE_PREFIX) {
+        if ldtk_vocabulary::pipe_of(&block.name).is_some()
+            || block.name.starts_with(GOAL_POLE_PREFIX)
+        {
             block.art_color = Some(scenery::TRANSPARENT);
         } else if block.name.starts_with(VAULT_MASONRY_PREFIX) {
             block.art_color = Some(VAULT_STONE_COLOR);
@@ -436,8 +613,18 @@ fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
     // tile for a mouth-up half (you drop in), BOTTOM tile for a mouth-down one
     // (hanging from the ceiling, you fall out of it or rise into it), mirrored to
     // match.
-    for (name, min, size) in authored_blocks_named(room, WARP_PIPE_PREFIX) {
-        let mouth_down = name.ends_with(PIPE_MOUTH_DOWN_SUFFIX);
+    for (half, pipe) in pipe_halves_of(room) {
+        let mouth_down = half.mouth == MaryOPipeMouth::Down;
+        let (min, size) = (half.aabb.min, half.aabb.max - half.aabb.min);
+        // Named by the tube it belongs to and the end of it that it is —
+        // `pipe_descent_entrance_lip_art` — which the pairing invariant makes
+        // unique, and which a reader can find in the editor. The encoded block
+        // name would have worked and is not a thing to put in front of anyone.
+        let name = format!(
+            "pipe_{}_{}",
+            pipe.link,
+            pipe.role.authored().to_ascii_lowercase()
+        );
         // Laid FROM THE MOUTH inward, so the lip sits exactly on the open face
         // however long the half is — a pipe's length is set by where its mouth
         // has to be, not by a whole number of tiles, and only the far end (which
@@ -546,6 +733,11 @@ pub fn authored_block_by_id<'a>(world: &'a ae::World, id: &ae::GeoId) -> Option<
 /// reason a `OnceLock` fed by a provider is not: the input is fixed at COMPILE
 /// time, so there is no second value it could ever hold and no install order to
 /// get wrong.
+///
+/// ⚠ **test-only since 2026-08-04.** The runtime used to reach the pipes through
+/// it by their four spelled names; it asks [`pipe_tubes`] now, so the last
+/// callers are the tests below.
+#[cfg(test)]
 fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)> {
     static BLOCKS: std::sync::LazyLock<std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)>> =
         std::sync::LazyLock::new(|| {
@@ -1817,31 +2009,27 @@ fn warp_through_secret_pipe(
         let up = control.0.locomotion.y < -DIR_DEADZONE;
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
 
-        // Each mouth answers only its own direction: DOWN at the entry pipe, UP
-        // at the return pipe.
-        let at_entry = at_mouth(body, pipe_mouth());
-        let at_return = at_mouth(body, vault_exit());
-        let destination = warp_destination(down, up, at_entry, at_return);
-        let pressed = destination.is_some();
+        // ⭐ **every AUTHORED tube, not two hand-named ones.** Each entrance
+        // answers only its own direction — the mouth field says which — so a
+        // third tube Jon draws works with no line of Rust, and the opposite-
+        // direction ends still cannot ping-pong a held press.
+        let entered = tube_entered(body, down, up, authored_tubes());
+        let pressed = entered.is_some();
         let rising_edge = pressed && !latch.pressed;
         latch.pressed = pressed;
-        let Some(destination) = destination else {
+        let Some(tube) = entered else {
             continue;
         };
         if !rising_edge {
             continue;
         }
 
-        // The way INTO the near pipe: down the entry mouth, up the return pipe.
-        // Both tubes are vertical, so the axis is the press direction itself.
-        let axis = if at_entry {
-            ae::DEFAULT_GRAVITY_DIR
-        } else {
-            -ae::DEFAULT_GRAVITY_DIR
-        };
-        commands
-            .entity(entity)
-            .try_insert(pipe::PipeTransit::begin(kin.pos, destination, axis, T));
+        commands.entity(entity).try_insert(pipe::PipeTransit::begin(
+            kin.pos,
+            tube.exit.arrival(),
+            tube.entrance.travel_axis(),
+            T,
+        ));
         // H2: the warp is the entering BODY's — she is the one sliding down it.
         sfx.write_for(
             entity,
@@ -1853,21 +2041,26 @@ fn warp_through_secret_pipe(
     }
 }
 
-/// Where a directional pipe press sends the body, if anywhere (Jon bug #8).
+/// **The tube a directional press at `body` enters**, if any (Jon bug #8).
 ///
-/// A mouth answers ONLY its own direction: DOWN drops you in at the entry pipe,
-/// UP surfaces you at the return pipe. Pressing the wrong way — or Interact,
-/// which is neither — does nothing, which is the whole point: you no longer warp
-/// by bumping a generic button, and the opposite-direction ends can never
-/// ping-pong a held press.
-fn warp_destination(down: bool, up: bool, at_entry: bool, at_return: bool) -> Option<ae::Vec2> {
-    if down && at_entry {
-        Some(vault_arrival())
-    } else if up && at_return {
-        Some(pipe_arrival())
-    } else {
-        None
-    }
+/// A mouth answers ONLY its own direction — [`PipeHalf::entered_by`] is the
+/// rule, and it comes from the authored `mouth` field. Pressing the wrong way,
+/// or Interact (which is neither), enters nothing: you no longer warp by bumping
+/// a generic button, and two ends needing opposite directions is what stops a
+/// held press ping-ponging.
+///
+/// ⚠ only an `Entrance` is enterable. Both of the vault's pipes hang from the
+/// same ceiling with the same down-facing mouth, so geometry cannot tell the one
+/// you rise into from the one you fall out of — the authored `role` does.
+fn tube_entered<'a>(
+    body: ae::Aabb,
+    down: bool,
+    up: bool,
+    tubes: &'a [PipeTube],
+) -> Option<&'a PipeTube> {
+    tubes.iter().find(|tube| {
+        tube.entrance.entered_by(down, up) && at_mouth(body, tube.entrance.mouth_band())
+    })
 }
 
 /// Is `body` **at** `mouth` — lined up with the pipe and touching its open face?
@@ -2561,38 +2754,114 @@ mod tests {
     /// which is neither direction, or the wrong direction) no longer warps you.
     #[test]
     fn the_pipe_only_answers_the_correct_directional_press() {
-        // The intended verbs work.
+        use ambition_platformer2d::engine_core::AabbExt;
+
+        let tubes = authored_tubes();
+        // A small body sitting exactly at a mouth. ⚠ built from the AUTHORED
+        // mouth rather than from a coordinate, so this asks the level where its
+        // pipes are instead of restating it.
+        let at = |mouth: ae::Aabb| ae::Aabb::new(mouth.center(), ae::Vec2::splat(0.4 * T));
+        let on_descent = at(pipe_mouth());
+        let under_ascent = at(vault_exit());
+        let entered =
+            |body, down, up| tube_entered(body, down, up, tubes).map(|tube| tube.link.clone());
+
+        // The intended verbs work, and they reach the tube the level pairs.
         assert_eq!(
-            warp_destination(true, false, true, false),
-            Some(vault_arrival()),
-            "DOWN on the entry pipe drops into the vault"
+            entered(on_descent, true, false).as_deref(),
+            Some(DESCENT_LINK),
+            "DOWN on the entry pipe takes the descent tube"
         );
         assert_eq!(
-            warp_destination(false, true, false, true),
+            tube_entered(on_descent, true, false, tubes).map(|tube| tube.exit.arrival()),
+            Some(vault_arrival()),
+            "...and it drops you out of that tube's own exit"
+        );
+        assert_eq!(
+            entered(under_ascent, false, true).as_deref(),
+            Some(ASCENT_LINK),
+            "UP under the return pipe takes the ascent tube"
+        );
+        assert_eq!(
+            tube_entered(under_ascent, false, true, tubes).map(|tube| tube.exit.arrival()),
             Some(pipe_arrival()),
-            "UP on the return pipe surfaces"
+            "...and surfaces you on that tube's own exit"
         );
         // The bug: a generic press (Interact = no direction) used to warp. It
         // must not anymore.
         assert_eq!(
-            warp_destination(false, false, true, false),
+            entered(on_descent, false, false),
             None,
             "Interact / no direction must NOT warp at the entry"
         );
-        assert_eq!(warp_destination(false, false, false, true), None);
+        assert_eq!(entered(under_ascent, false, false), None);
         // The WRONG direction at a mouth does nothing.
         assert_eq!(
-            warp_destination(false, true, true, false),
+            entered(on_descent, false, true),
             None,
-            "pressing UP at the DOWN pipe does nothing"
+            "pressing UP at a mouth you enter by pressing DOWN does nothing"
         );
         assert_eq!(
-            warp_destination(true, false, false, true),
+            entered(under_ascent, true, false),
             None,
-            "pressing DOWN at the UP pipe does nothing"
+            "pressing DOWN at a mouth you enter by pressing UP does nothing"
+        );
+        // ⭐ and an EXIT is not an entrance. Standing on the ascent tube's
+        // surface pipe — the one you come out of — pressing DOWN enters nothing,
+        // which is the whole job of the authored `role`: that pipe is the same
+        // shape, in the same slab, with the same up-facing mouth as the descent
+        // entrance beside it.
+        let ascent_exit = &authored_tube(ASCENT_LINK).exit;
+        assert_eq!(
+            entered(at(ascent_exit.mouth_band()), true, false),
+            None,
+            "the pipe you SURFACE out of is not a second way down"
         );
         // Standing on no mouth: nothing warps whatever you press.
-        assert_eq!(warp_destination(true, true, false, false), None);
+        let nowhere = ae::Aabb::new(ae::Vec2::new(2.0 * T, 2.0 * T), ae::Vec2::splat(0.4 * T));
+        assert_eq!(entered(nowhere, true, true), None);
+    }
+
+    /// **A link with one half is refused at load, and it says which.**
+    ///
+    /// ⛔ this is the check the name convention could not have. Under
+    /// `warp_pipe_<link>_<up|down>` a typo'd half still converted and still
+    /// stood there solid — the only thing that ever noticed was a test that
+    /// spelled all four names, so a FIFTH pipe would have been unpaired with
+    /// nothing to say so. The refusal is on the LINK now, so it scales to
+    /// whatever Jon draws.
+    #[test]
+    fn a_pipe_with_no_partner_is_refused_by_name() {
+        let mut room = level_1_1();
+        // The typo an author actually makes: one half of `ascent` spelled
+        // `ascnet`. Both halves still convert; neither is half of a tube.
+        let broken = room
+            .world
+            .blocks
+            .iter_mut()
+            .find(|block| {
+                ldtk_vocabulary::pipe_of(&block.name).is_some_and(|pipe| {
+                    pipe.link == ASCENT_LINK && pipe.mouth == MaryOPipeMouth::Down
+                })
+            })
+            .expect("1-1 authors the ascent tube's vault half");
+        broken.name = broken.name.replace(ASCENT_LINK, "ascnet");
+        let typo = broken.name.clone();
+
+        let why = pipe_tubes(&room).expect_err("a link with one half is not a tube");
+        // ⚠ the LINKS, quoted as links — not merely the substrings, which the
+        // encoded pipe names below would have supplied on their own. That is
+        // what a probe caught: the first spelling of this assertion passed over
+        // a message that had stopped naming the link at all.
+        assert!(
+            why.contains("`ascnet`") && why.contains("`ascent`"),
+            "the refusal names BOTH orphaned links so the author can see the \
+             typo next to what it should have said: {why}"
+        );
+        assert!(
+            why.contains(&typo),
+            "and it names the pipe itself, not just a count: {why}"
+        );
     }
 
     #[test]
@@ -2636,13 +2905,7 @@ mod tests {
         // Leaving the vault surfaces you standing ON the SURFACE EXIT pipe past pit
         // B — a visible pipe, not mid-air. Read the block's top off the AUTHORED
         // level, never the formula it was built from.
-        let surface_exit = level_1_1()
-            .world
-            .blocks
-            .iter()
-            .find(|b| b.name == SURFACE_EXIT_PIPE_NAME)
-            .expect("the level has a visible surface exit pipe past pit B")
-            .aabb;
+        let surface_exit = authored_tube(ASCENT_LINK).exit.aabb;
         assert!(
             pipe_arrival().x > surface_exit.min.x
                 && pipe_arrival().x < surface_exit.max.x
@@ -2726,17 +2989,20 @@ mod tests {
         // where to press Interact. A warp whose mouth you cannot see is not a
         // warp, and no assertion about the ZONE would have caught it.
         let room = level_1_1();
+        let authored_pipes: Vec<_> = pipe_halves_of(&room)
+            .into_iter()
+            .map(|(half, pipe)| (pipe.link, pipe.role, half.aabb))
+            .collect();
         assert!(
-            room.world.blocks.iter().any(|b| b.name == PIPE_NAME),
-            "the entrance pipe is authored into the level"
+            authored_pipes
+                .iter()
+                .any(|(link, role, _)| link == DESCENT_LINK && *role == MaryOPipeRole::Entrance),
+            "the entrance pipe is authored into the level; got {authored_pipes:?}"
         );
-        let return_pipe = room
-            .world
-            .blocks
-            .iter()
-            .find(|b| b.name == EXIT_PIPE_NAME)
-            .expect("the vault has a VISIBLE return pipe, not just an exit zone")
-            .aabb;
+        // ⚠ the vault's return pipe is a BLOCK, asked for through the tube table
+        // rather than by name — but it is still the block, not a zone, which is
+        // the whole point of the assertion below it.
+        let return_pipe = authored_tube(ASCENT_LINK).entrance.aabb;
         // The mouth IS the pipe's open face: exactly its width, straddling its lip.
         // Not a nearby region that happens to be under it — that is the difference
         // between "press up while touching the pipe" and "press up somewhere below
@@ -2814,59 +3080,80 @@ mod tests {
         let room = level_1_1();
         let vault = vault_bounds();
         let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-        let block = |name: &str| {
-            room.world
-                .blocks
-                .iter()
-                .find(|b| b.name == name)
-                .unwrap_or_else(|| panic!("the level authors a `{name}` pipe"))
-                .aabb
-        };
+        // ⭐ **EVERY tube the level authors**, not two hand-named pairs. That is
+        // what the `link` field bought: `pipe_tubes` refuses a half whose partner
+        // is missing (so (1) can no longer be authored at all), and this loop
+        // covers a fifth pipe Jon draws without anyone editing it.
+        let tubes = pipe_tubes(&room).expect("1-1's pipes pair up");
+        assert_eq!(
+            tubes.len(),
+            2,
+            "1-1 authors the descent and the ascent; got {:?}",
+            tubes.iter().map(|t| &t.link).collect::<Vec<_>>()
+        );
+        let vault_floor = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == "vault_floor")
+            .expect("the vault has a floor")
+            .aabb
+            .min
+            .y;
+        let tall = powerups::tall_body_size().y;
 
-        // SAME-ROOM rule: these two tubes each pierce the slab inside one room, so
-        // each is one physical object and its halves must line up. A tube whose far
-        // end lived in a DIFFERENT room would be exempt — it only has to read as
-        // connected, which the arrival-at-a-mouth checks below cover.
-        for (surface_name, vault_name) in [
-            (PIPE_NAME, VAULT_ENTRY_PIPE_NAME),
-            (SURFACE_EXIT_PIPE_NAME, EXIT_PIPE_NAME),
-        ] {
-            let (surface, under) = (block(surface_name), block(vault_name));
+        for tube in &tubes {
+            let link = &tube.link;
+            let halves = [&tube.entrance, &tube.exit];
+            // SAME-ROOM rule: these two tubes each pierce the slab inside one
+            // room, so each is one physical object and its halves must line up. A
+            // tube whose far end lived in a DIFFERENT room would be exempt — it
+            // only has to read as connected, which the arrival check below covers.
+            let (surface, under) = (
+                halves
+                    .iter()
+                    .find(|half| half.mouth == MaryOPipeMouth::Up)
+                    .unwrap_or_else(|| panic!("the `{link}` tube has a surface half")),
+                halves
+                    .iter()
+                    .find(|half| half.mouth == MaryOPipeMouth::Down)
+                    .unwrap_or_else(|| panic!("the `{link}` tube has a vault half")),
+            );
             assert!(
-                (surface.min.x - under.min.x).abs() < 1.0
-                    && (surface.max.x - under.max.x).abs() < 1.0,
-                "{surface_name} and {vault_name} are two halves of ONE tube and must \
-                 share a column: {surface:?} vs {under:?}"
+                (surface.aabb.min.x - under.aabb.min.x).abs() < 1.0
+                    && (surface.aabb.max.x - under.aabb.max.x).abs() < 1.0,
+                "the `{link}` tube's two halves must share a column: {:?} vs {:?}",
+                surface.aabb,
+                under.aabb
             );
             // The surface half stands ON the ground slab...
             assert!(
-                (surface.max.y - ground_top).abs() < 1.0,
-                "{surface_name} must stand on the ground slab, not float: {surface:?}"
+                (surface.aabb.max.y - ground_top).abs() < 1.0,
+                "the `{link}` tube's surface half must stand on the ground slab, \
+                 not float: {:?}",
+                surface.aabb
             );
-            // ...and the vault half HANGS FROM THE CEILING, which is that same slab.
-            // (The bug: the return pipe sat on the vault FLOOR.)
+            // ...and the vault half HANGS FROM THE CEILING, which is that same
+            // slab. (The bug: the return pipe sat on the vault FLOOR.)
             assert!(
-                (under.min.y - vault.min.y).abs() < 1.0,
-                "{vault_name} must hang from the vault ceiling — a pipe that leads UP \
-                 cannot stand on the floor: {under:?} vs ceiling {}",
+                (under.aabb.min.y - vault.min.y).abs() < 1.0,
+                "the `{link}` tube's vault half must hang from the vault ceiling — \
+                 a pipe that leads UP cannot stand on the floor: {:?} vs ceiling {}",
+                under.aabb,
                 vault.min.y
             );
-        }
 
-        // A vault half REACHES DOWN to her, because you enter a pipe by TOUCHING its
-        // mouth. Both bounds are forced: clear her tallest form or she cannot walk
-        // under it (and so can never reach the lip at all), but stay within touching
-        // distance of that same form or the mouth floats above every reachable head
-        // and pressing UP becomes a button that works in a column of air.
-        let vault_floor = block("vault_floor").min.y;
-        let tall = powerups::tall_body_size().y;
-        for name in [VAULT_ENTRY_PIPE_NAME, EXIT_PIPE_NAME] {
-            let lip = block(name).max.y;
-            let clearance = vault_floor - lip;
+            // A vault half REACHES DOWN to her, because you enter a pipe by
+            // TOUCHING its mouth. Both bounds are forced: clear her tallest form
+            // or she cannot walk under it (and so can never reach the lip at all),
+            // but stay within touching distance of that same form or the mouth
+            // floats above every reachable head and pressing UP becomes a button
+            // that works in a column of air.
+            let clearance = vault_floor - under.aabb.max.y;
             assert!(
                 clearance > tall,
-                "{name}'s lip must clear Mary-O's TALL form ({tall}px) or she cannot \
-                 walk under it: {clearance}px"
+                "the `{link}` tube's vault lip must clear Mary-O's TALL form \
+                 ({tall}px) or she cannot walk under it: {clearance}px"
             );
             assert!(
                 clearance - tall < MOUTH_SLACK,
@@ -2875,29 +3162,31 @@ mod tests {
                  leaves a {}px gap, slack is {MOUTH_SLACK}px",
                 clearance - tall
             );
-        }
 
-        // THE UNIVERSAL RULE: each warp delivers you at a visible pipe's MOUTH, not
-        // into bare stone. This is the half that would still have to hold for a pipe
-        // whose far end is in another room entirely.
-        let dropped_out_of = block(VAULT_ENTRY_PIPE_NAME);
-        assert!(
-            vault_arrival().x > dropped_out_of.min.x
-                && vault_arrival().x < dropped_out_of.max.x
-                && vault_arrival().y >= dropped_out_of.max.y,
-            "going DOWN the descent tube must drop you out of its vault pipe's mouth: \
-             {:?} vs pipe {dropped_out_of:?}",
-            vault_arrival()
-        );
-        let rose_out_of = block(SURFACE_EXIT_PIPE_NAME);
-        assert!(
-            pipe_arrival().x > rose_out_of.min.x
-                && pipe_arrival().x < rose_out_of.max.x
-                && pipe_arrival().y <= rose_out_of.min.y,
-            "going UP the ascent tube must put you on top of its surface pipe: {:?} vs \
-             pipe {rose_out_of:?}",
-            pipe_arrival()
-        );
+            // THE UNIVERSAL RULE: each warp delivers you at a visible pipe's
+            // MOUTH, not into bare stone. This is the half that would still have
+            // to hold for a pipe whose far end is in another room entirely.
+            let (arrival, out_of) = (tube.exit.arrival(), tube.exit.aabb);
+            assert!(
+                arrival.x > out_of.min.x && arrival.x < out_of.max.x,
+                "the `{link}` tube must deliver you in its exit pipe's column: \
+                 {arrival:?} vs pipe {out_of:?}"
+            );
+            match tube.exit.mouth {
+                // A lip overhead: you fall out of it, just clear of the face.
+                MaryOPipeMouth::Down => assert!(
+                    arrival.y >= out_of.max.y,
+                    "the `{link}` tube's exit hangs mouth-down, so it must drop you \
+                     out BELOW its lip: {arrival:?} vs pipe {out_of:?}"
+                ),
+                // A lip you stand on: you arrive on top of it.
+                MaryOPipeMouth::Up => assert!(
+                    arrival.y <= out_of.min.y,
+                    "the `{link}` tube's exit opens upward, so it must put you ON \
+                     TOP of it: {arrival:?} vs pipe {out_of:?}"
+                ),
+            }
+        }
     }
 
     /// **The vault ceiling is unbroken — no surface pit punches a hole into it.**

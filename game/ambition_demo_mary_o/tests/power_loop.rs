@@ -1285,3 +1285,87 @@ fn pressing_down_on_the_pipe_slides_the_body_through_it_over_time() {
         "with her controls returned — the transit's input lock is released"
     );
 }
+
+/// **And the way BACK — the leg nothing else runs.**
+///
+/// ⛔ the two tests that walked 1-1's whole secret route (`scripted_level_run`
+/// and `level_1_acceptance`) are both `#[ignore]`d, tuned to an older
+/// arrangement — so the ASCENT was the half of the vault trip with no running
+/// coverage at all. It is also the half the authored `role` decides: both of
+/// the vault's pipes hang from the same ceiling with the same down-facing
+/// mouth, and only the field says which one you may press UP into.
+///
+/// Same real plugin, same real systems, opposite verb.
+#[test]
+fn pressing_up_under_the_vault_pipe_surfaces_her_on_the_exit_pipe() {
+    use ambition_demo_mary_o::pipe::{PipeTransit, EMERGE_S, SWALLOW_S};
+    use ambition_demo_mary_o::{pipe_arrival, vault_exit};
+    use ambition_platformer2d::characters::actor::BodyCombat;
+    use ambition_platformer2d::characters::brain::ActorControl;
+    use ambition_platformer2d::engine_core::AabbExt;
+
+    let mut app = App::new();
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
+    app.add_plugins(ambition_demo_mary_o::MaryORulesPlugin::global());
+
+    // A body with its head in the return pipe's mouth, which is where a player
+    // standing on the vault floor under it ends up.
+    let mouth = vault_exit();
+    let body = app
+        .world_mut()
+        .spawn((
+            PrimaryPlayer,
+            ambition_platformer2d::platformer::markers::PlayerEntity,
+            ae::BodyKinematics {
+                pos: mouth.center(),
+                vel: ae::Vec2::ZERO,
+                size: ae::movement::default_player_body_size(),
+                facing: 1.0,
+            },
+            ambition_platformer2d::actors::actor::AncillaryMovementBundle::from_scratch(
+                ae::BodyClusterScratch::new_with_abilities(
+                    mouth.center(),
+                    ae::AbilitySet::sandbox_all(),
+                ),
+            ),
+            ambition_platformer2d::actors::features::MotionModel::default(),
+            BodyCombat::default(),
+            ActorControl::default(),
+        ))
+        .id();
+    app.insert_resource(ambition_platformer2d::platformer::markers::ControlledSubject(Some(body)));
+    app.update();
+
+    // Press UP — the verb a down-facing mouth answers, and the one the descent
+    // tube's entrance beside it does NOT.
+    app.world_mut()
+        .get_mut::<ActorControl>(body)
+        .unwrap()
+        .0
+        .locomotion
+        .y = -1.0;
+    app.update();
+    assert!(
+        app.world().get::<PipeTransit>(body).is_some(),
+        "pressing UP at the return pipe's lip must start a transit"
+    );
+
+    let ticks = ((SWALLOW_S + EMERGE_S) / (1.0 / 60.0)).ceil() as usize + 4;
+    for _ in 0..ticks {
+        app.update();
+    }
+    assert!(
+        app.world().get::<PipeTransit>(body).is_none(),
+        "the transit ends and gives the body back"
+    );
+    assert_eq!(
+        app.world().get::<ae::BodyKinematics>(body).unwrap().pos,
+        pipe_arrival(),
+        "and she surfaces exactly on the ascent tube's own exit pipe"
+    );
+}

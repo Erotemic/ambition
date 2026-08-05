@@ -123,13 +123,16 @@ fn every_named_block_the_runtime_looks_for_survives_conversion() {
         "every reactive block needs its own identity"
     );
 
-    // The pieces still addressed by NAME, because a pipe pair and the flag are
-    // not `MaryOBlock`s yet.
+    // ⭐ **the four pipe halves are no longer on this list**, and that is the
+    // 2026-08-04 change: they were `Solid`s called `warp_pipe_<link>_<up|down>`
+    // and a test spelling all four names was the only thing that could notice a
+    // typo. They are `MaryOPipe`s pairing on an authored `link` now, and
+    // `a_pipe_with_no_partner_is_refused_by_name` checks the pairing itself
+    // rather than a list of names that a fifth pipe would not be on.
+    //
+    // The pieces still addressed by NAME, because the flag and the vault's
+    // masonry are not `MaryOBlock`s yet.
     for expected in [
-        "warp_pipe_descent_up",
-        "warp_pipe_descent_down",
-        "warp_pipe_ascent_down",
-        "warp_pipe_ascent_up",
         "goal_pole",
         "goal_pole_knob",
         "goal_pole_banner",

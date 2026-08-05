@@ -82,16 +82,29 @@ pub struct Dormant;
 
 /// Recompute [`Dormant`] for every actor that declares a policy.
 ///
-/// Runs before the brain tick, which filters `Without<Dormant>`. Observers are
-/// the same population the pickup magnet attracts toward and collection claims
-/// with — bodies marked [`PlayerEntity`](crate::actor::PlayerEntity) — so a
-/// second seat's presence wakes the world around it with no extra wiring.
+/// Runs before the brain tick, which filters `Without<Dormant>`.
+///
+/// ⭐ **An observer is a body somebody is DRIVING, not a body marked
+/// `PlayerEntity`.** This asked for `PlayerEntity` and that was wrong for the
+/// one case the distinction exists for: `markers.rs` states the rule outright —
+/// *"`PrimaryPlayer` does NOT mean 'the currently controlled body'. The
+/// controlled body is whichever entity carries `Brain::Player(PlayerSlot::…)` —
+/// during possession that is a DIFFERENT entity (the possessed actor). Input,
+/// abilities, camera, portal viewer, and the melee lifecycle derive from"* it.
+/// Dormancy belongs on that list and was not on it.
+///
+/// The symptom, found by the agent wiring `ambition_content` and correctly NOT
+/// patched around content-side: possess an actor, walk it away from the body you
+/// left parked, and the thing you are driving falls asleep — and dormancy
+/// RETRACTS its control frame, so it stops dead. The wake radius was measuring
+/// the distance to a body nobody is looking through.
+///
+/// ⚠ **`Brain::Player(_)` covers every seat**, so a second player on the couch
+/// still wakes the world around them with no extra wiring — which is what the
+/// `PlayerEntity` version bought and is preserved here.
 pub fn assess_dormancy(
     mut commands: Commands,
-    observers: Query<
-        &ae::BodyKinematics,
-        With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-    >,
+    observers: Query<(&ae::BodyKinematics, &ambition_characters::brain::Brain)>,
     mut actors: Query<(
         Entity,
         &ae::BodyKinematics,
@@ -104,7 +117,11 @@ pub fn assess_dormancy(
 ) {
     // Collected once rather than re-iterated per actor: the observer set is
     // tiny (one to four) and the actor set is not.
-    let eyes: Vec<ae::Vec2> = observers.iter().map(|body| body.pos).collect();
+    let eyes: Vec<ae::Vec2> = observers
+        .iter()
+        .filter(|(_, brain)| matches!(brain, ambition_characters::brain::Brain::Player(_)))
+        .map(|(body, _)| body.pos)
+        .collect();
 
     for (entity, body, policy, is_dormant, control) in &mut actors {
         let awake = match policy {
@@ -163,7 +180,18 @@ mod tests {
         let mut app = App::new();
         app.add_systems(Update, assess_dormancy);
         for x in observers {
-            app.world_mut().spawn((PlayerEntity, body_at(*x)));
+            // ⚠ **an observer is a body being DRIVEN**, which is why this spawns
+            // a player BRAIN and not only the `PlayerEntity` marker. The fixture
+            // used to spawn the marker alone, and it was encoding the definition
+            // this module had wrong: during possession `PlayerEntity` stays on
+            // the parked body while the brain moves to the possessed one.
+            app.world_mut().spawn((
+                PlayerEntity,
+                ambition_characters::brain::Brain::Player(
+                    ambition_characters::brain::PlayerSlot::PRIMARY,
+                ),
+                body_at(*x),
+            ));
         }
         let mut actor = app.world_mut().spawn(body_at(actor_x));
         if let Some(policy) = policy {
@@ -176,6 +204,48 @@ mod tests {
 
     fn is_dormant(app: &App, actor: Entity) -> bool {
         app.world().get::<Dormant>(actor).is_some()
+    }
+
+    /// **A POSSESSED body is the observer; the parked one is not.**
+    ///
+    /// Found while `ambition_content` adopted the seam: possess an actor, walk it
+    /// away from the body you left behind, and the thing you are DRIVING falls
+    /// asleep — and dormancy retracts its control frame, so it stops dead. The
+    /// wake radius was measuring the distance to a body nobody is looking
+    /// through.
+    ///
+    /// `markers.rs` already states the rule this test enforces: *"the controlled
+    /// body is whichever entity carries `Brain::Player(…)` — during possession
+    /// that is a DIFFERENT entity"*. Dormancy simply was not on the list of
+    /// things that derive from it.
+    #[test]
+    fn the_driven_body_is_the_observer_not_the_parked_one() {
+        let mut app = App::new();
+        app.add_systems(Update, assess_dormancy);
+        // The home avatar, parked at the origin and NOT being driven.
+        app.world_mut().spawn((PlayerEntity, body_at(0.0)));
+        // The possessed body, far away, carrying the player brain.
+        app.world_mut().spawn((
+            ambition_characters::brain::Brain::Player(
+                ambition_characters::brain::PlayerSlot::PRIMARY,
+            ),
+            body_at(5_000.0),
+        ));
+        // An actor standing next to the possessed body.
+        let actor = app
+            .world_mut()
+            .spawn((
+                body_at(5_050.0),
+                DormancyPolicy::AwakeNearObservers { radius: 400.0 },
+            ))
+            .id();
+        app.update();
+        assert!(
+            !is_dormant(&app, actor),
+            "an actor beside the body the player is DRIVING must be awake; \
+             measuring to the parked home avatar instead is what put the \
+             possessed player's own surroundings to sleep"
+        );
     }
 
     /// The default is the one that matters: an actor that declares nothing is
@@ -260,7 +330,14 @@ mod tests {
 
         let mut app = App::new();
         app.add_systems(Update, assess_dormancy);
-        app.world_mut().spawn((PlayerEntity, body_at(0.0)));
+        // Driven, not merely marked — see `app_with`.
+        app.world_mut().spawn((
+            PlayerEntity,
+            ambition_characters::brain::Brain::Player(
+                ambition_characters::brain::PlayerSlot::PRIMARY,
+            ),
+            body_at(0.0),
+        ));
 
         let mut striding = ActorControlFrame::neutral();
         striding.locomotion = LocalAxes::new(-1.0, 0.0);

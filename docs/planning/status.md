@@ -148,6 +148,7 @@ an agent is allowed to record.
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/features/transform_beat.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_content/src/player_robot_lineage.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_demo_mary_o/src/bricks.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d/src/app.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/action_scheme.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/features/ecs/autonomous_reconcile.rs kind=behavioral-local disposition=maintainer-review-pending -->
@@ -196,6 +197,6 @@ it reports. (Restored 2026-07-19: the 07-18 rewrite dropped them, which left the
 KB check red.)
 
 <!-- planning-evidence: boss-validator errors=8 warnings=10 -->
-<!-- planning-evidence: workspace-members count=59 -->
+<!-- planning-evidence: workspace-members count=63 -->
 <!-- planning-evidence: module-size waivers=0 unwaived-violations=0 stale-waivers=0 invalid-waivers=0 -->
 <!-- planning-evidence: cc3 status=ignored -->

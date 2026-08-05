@@ -342,11 +342,34 @@ def check_agents_size(errors: list[str]) -> None:
     if not path.exists():
         return
     lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    if len(lines) > AGENTS_MAX_LINES:
-        fail(
-            errors,
-            f"AGENTS.md has {len(lines)} lines; keep it <= {AGENTS_MAX_LINES} and route to docs instead",
-        )
+    if len(lines) <= AGENTS_MAX_LINES:
+        return
+    # ⭐ **REPORT THE READING COST, not only the line count.** The budget is
+    # LINE-based and this file's heaviest single item is one line of several
+    # hundred words, so "you are N over" points at a number that can be satisfied
+    # by moving the wrong things — join two short lines and the metric improves
+    # while the file gets no shorter to read. Naming the heaviest lines turns an
+    # unactionable overage into a decision somebody can actually make: route THIS
+    # paragraph into a concept doc, or waive the budget for it.
+    #
+    # ⚠ the GATE is still the line count, deliberately. Which quantity to budget
+    # is a maintainer call (queue F6), and a checker that quietly switched to
+    # words would be making it. This only stops the message hiding where the
+    # weight is.
+    heaviest = sorted(
+        ((len(line.split()), i + 1, line) for i, line in enumerate(lines)),
+        reverse=True,
+    )[:3]
+    words = sum(len(line.split()) for line in lines)
+    detail = "; ".join(
+        f"line {number} carries {count} words" for count, number, _ in heaviest if count > 40
+    )
+    fail(
+        errors,
+        f"AGENTS.md has {len(lines)} lines ({words} words); keep it <= "
+        f"{AGENTS_MAX_LINES} and route to docs instead"
+        + (f". Heaviest: {detail}" if detail else ""),
+    )
 
 
 def git_tracked_paths(pathspec: str) -> list[str]:

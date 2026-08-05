@@ -418,6 +418,16 @@ expected_files=(
     super_mary_o_spritesheet.png super_mary_o_spritesheet.ron
     super_mary_o_tall_spritesheet.png super_mary_o_tall_spritesheet.ron
     super_mary_o_fire_spritesheet.png super_mary_o_fire_spritesheet.ron
+    # Mary-O's OTHER lineage, which four surfaces name and no batch published
+    # until 2026-08-05. The portraits are listed as well as the sheets: they are
+    # what made the gap visible, and listing only the sheet would let the same
+    # half-publish pass the postcondition again.
+    mary_o_v2_spritesheet.png mary_o_v2_spritesheet.ron
+    mary_o_v2_portraits.png mary_o_v2_portraits.ron
+    mary_o_v2_fire_spritesheet.png mary_o_v2_fire_spritesheet.ron
+    mary_o_v2_fire_portraits.png mary_o_v2_fire_portraits.ron
+    mary_o_v2_tall_spritesheet.png mary_o_v2_tall_spritesheet.ron
+    mary_o_v2_tall_portraits.png mary_o_v2_tall_portraits.ron
     props/super_mary_o_star_wand.png
     props/super_mary_o_cinder_beacon.png
     props/super_mary_o_cosmic_quasar.png
@@ -949,6 +959,20 @@ tackon_targets=(
     m_leblanc
     puppy_slug_velvet
     player_robot_fable
+    # ⛔ **The same class again, found 2026-08-05.** `mary_o_v2` and its two
+    # forms were in NO batch — their sheets existed only on machines that had
+    # once rendered them by hand, exactly like the five above. FOUR surfaces
+    # name them: the Mary-O demo's three forms, `pocket_runner`,
+    # `twintrack_traveler`, and Ambition's own versus arena (`arena_duelist_close`).
+    #
+    # ⚠ how it was NOTICED is the part worth keeping: not by a clone failing,
+    # but by six blank faces in a new character-select grid. `publish` emits a
+    # target's PORTRAIT products as well as its sheet, so a target no batch
+    # publishes has neither — and the portrait half is what was visible, because
+    # `super_mary_o_portraits.png` sat next door looking like coverage.
+    mary_o_v2
+    mary_o_v2_fire
+    mary_o_v2_tall
 )
 # Rigged characters authored as GUI `.rig.json` documents auto-register as
 # targets named after the file stem. Include them in the same explicit batch as

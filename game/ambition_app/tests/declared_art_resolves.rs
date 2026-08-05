@@ -203,3 +203,138 @@ fn every_declared_music_track_path_names_a_file_that_exists() {
         missing.join("\n"),
     );
 }
+
+/// **A character's FACE, which is the fourth member of this family and the one
+/// a select screen found.**
+///
+/// `CharacterCatalog::portrait_ref` derives `sprites/<stem>_portraits.png` from
+/// the gameplay spritesheet's own name. That convention is good — a character
+/// gets a portrait for free — and it has the exact failure this file exists for:
+/// **a derived path is not a promise that the art was generated.** The path
+/// resolves, the asset server fails the load asynchronously, the `ImageNode`
+/// draws nothing, and every layer below is silent.
+///
+/// ⛔ found on 2026-08-05 by LOOKING at the new smash character-select screen:
+/// Mary-O's cell was a hole. `inspect_hall_portraits.py` existed the whole time
+/// and could not have caught it — it reads ONE catalog file and filters to rows
+/// with a `hall_dialogue_id`, so a character outside the Hall, or declared by a
+/// demo's own Rust fragment, was never in its population. This asks the
+/// ASSEMBLED catalog, which is the same object the UI asks.
+#[test]
+fn every_catalog_character_that_derives_a_portrait_has_the_art() {
+    use ambition_platformer2d::character::CharacterCatalog;
+
+    /// **Characters whose portrait art was never generated.**
+    ///
+    /// ⭐ **EMPTY, and it was six on the morning of 2026-08-05.** Every one of
+    /// them wore the `mary_o_v2` sheet family, and FOUR separate surfaces drew
+    /// from it: the Mary-O demo's three forms, Pocket's runner, TwinTrack's
+    /// traveller, and Ambition's own versus arena. One missing generator target,
+    /// six blank faces, no error anywhere.
+    ///
+    /// It closed in one command per form —
+    /// `sprite2d_renderer portraits mary_o_v2{,_fire,_tall}`. The renderer
+    /// declared both products for those targets all along (`portrait-files`
+    /// answers with them) and had simply never been RUN for them, while
+    /// `super_mary_o_portraits.png` sat next door looking like coverage. The
+    /// sheet name diverged; the pipeline never broke.
+    ///
+    /// ⚠ **asserted as a SET, so it holds in both directions.** A new character
+    /// with no art fails here, and so does an entry left behind after its art
+    /// arrives — the same staleness the rollback resource ratchet had to grow a
+    /// second assert to prevent.
+    ///
+    /// ⚠ **a hand-rolled census over the catalog SOURCE found five of the six
+    /// and missed `arena_duelist_close`**, which is declared in Rust inside
+    /// `ambition_app` rather than in any catalog RON. Asking the ASSEMBLED
+    /// resource is why this one is right; the regex was reading the places I
+    /// already knew to look.
+    const KNOWN_MISSING: &[&str] = &[];
+
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let roots = asset_roots();
+    assert!(!roots.is_empty(), "no asset root resolved");
+
+    let catalog = app
+        .world()
+        .get_resource::<CharacterCatalog>()
+        .expect("the composed host has an assembled character catalog");
+    assert!(
+        catalog.len() > 100,
+        "the assembled catalog holds only {} characters — this composition is \
+         not the shipped one and the check would be about almost nothing",
+        catalog.len()
+    );
+
+    let ids: Vec<String> = catalog.iter().map(|(id, _)| id.clone()).collect();
+    let mut missing: Vec<String> = ids
+        .iter()
+        .filter_map(|id| catalog.portrait_ref(id).map(|portrait| (id, portrait)))
+        .filter(|(_, portrait)| !resolves(&portrait.image, &roots))
+        .map(|(id, _)| id.clone())
+        .collect();
+    missing.sort();
+
+    let known: Vec<String> = KNOWN_MISSING.iter().map(|id| id.to_string()).collect();
+    assert_eq!(
+        missing,
+        known,
+        "the set of characters with no portrait art has CHANGED.\n\
+         If it grew: a character now derives a portrait path with no file behind \
+         it, and any UI that draws a face — the dialogue box, the smash select \
+         grid — will show a blank where that character should be, silently.\n\
+         If it shrank: the art arrived. Update KNOWN_MISSING, or this list \
+         becomes a confident description of a shape that has moved."
+    );
+}
+
+/// **The SHEET, which is the stronger form of the question above.**
+///
+/// A portrait is a face; the spritesheet is the character. `regen_sprites.sh`
+/// publishes an EXPLICIT list of targets, and its own comments record the last
+/// time this went wrong — five Hall characters *"that previously depended on
+/// manually generated local assets and therefore disappeared on a fresh
+/// clone"*. Generated art is gitignored, so a sheet nobody's batch produces
+/// exists only on the machine that once rendered it, and the failure shows up
+/// as a clone with no character in it.
+///
+/// ⚠ **and it CANNOT answer the fresh-clone question, which is the one that
+/// bites.** Generated art is gitignored, so this test sees whatever the machine
+/// running it happens to have rendered — a sheet that no batch publishes but
+/// that was made by hand a year ago passes here and is absent on a clone. What
+/// it does catch is a catalog row naming art that is nowhere at all, which is
+/// the typo case. The fresh-clone question is answered by `regen_sprites.sh`'s
+/// own `expected_files` postcondition; the fix for `mary_o_v2` on 2026-08-05
+/// went THERE, and this is its cheap companion.
+#[test]
+fn every_catalog_character_names_a_spritesheet_that_exists() {
+    use ambition_platformer2d::character::CharacterCatalog;
+
+    /// Characters whose spritesheet no regen batch produces.
+    const KNOWN_MISSING: &[&str] = &[];
+
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let roots = asset_roots();
+    assert!(!roots.is_empty(), "no asset root resolved");
+
+    let catalog = app
+        .world()
+        .get_resource::<CharacterCatalog>()
+        .expect("the composed host has an assembled character catalog");
+    let mut missing: Vec<String> = catalog
+        .iter()
+        .filter(|(_, entry)| !resolves(&entry.spritesheet, &roots))
+        .map(|(id, _)| id.clone())
+        .collect();
+    missing.sort();
+    missing.dedup();
+
+    let known: Vec<String> = KNOWN_MISSING.iter().map(|id| id.to_string()).collect();
+    assert_eq!(
+        missing, known,
+        "the set of characters with no spritesheet has CHANGED. A character \
+         whose sheet no `regen_sprites.sh` batch publishes exists only on a \
+         machine that once rendered it by hand — generated art is gitignored, \
+         so a fresh clone gets a character with no body."
+    );
+}

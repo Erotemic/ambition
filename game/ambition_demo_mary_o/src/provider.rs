@@ -87,25 +87,17 @@ pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
     // room-transition transaction became engine-side (2026-07-25): its consumer
     // lived in `ambition_app`, which no demo depends on, so a second room would
     // have been unreachable in this binary.
+    //
+    // ⭐ **the LINKS are read, not written (2026-08-05).** They were two
+    // `RoomLink`s spelled out here, and the reason was structural rather than
+    // lazy: a link needs both ends, and 1-2 was a Rust room that no world file
+    // contained, so its half could not be authored. Both levels are areas of
+    // `mary_o.ldtk` now and every zone names its partner in
+    // `target_room`/`target_zone`, so retargeting the shaft is an editor edit.
     let room_set = RoomSet::from_parts(
         entry,
         vec![room, crate::level_1_2::level_1_2()],
-        vec![
-            ambition_platformer2d::world::rooms::RoomLink {
-                from_room: LEVEL_1_1_ROOM_ID.to_string(),
-                from_zone: crate::level_1_2::DESCENT_ZONE_ID.to_string(),
-                to_room: crate::level_1_2::LEVEL_1_2_ROOM_ID.to_string(),
-                to_zone: crate::level_1_2::ARRIVAL_ZONE_ID.to_string(),
-                bidirectional: false,
-            },
-            ambition_platformer2d::world::rooms::RoomLink {
-                from_room: crate::level_1_2::LEVEL_1_2_ROOM_ID.to_string(),
-                from_zone: crate::level_1_2::EXIT_ZONE_ID.to_string(),
-                to_room: LEVEL_1_1_ROOM_ID.to_string(),
-                to_zone: crate::level_1_2::SURFACE_RETURN_ZONE_ID.to_string(),
-                bidirectional: false,
-            },
-        ],
+        crate::authored_room_links(),
     );
     MaryOSessionWorld {
         geometry,
@@ -441,7 +433,9 @@ fn mary_o_prepared_session_world(
     entry: Option<bevy::prelude::Res<MaryOEntryRoom>>,
 ) -> PreparedPlatformerSource {
     let source = mary_o_session_world_entering(
-        entry.as_ref().map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str()),
+        entry
+            .as_ref()
+            .map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str()),
     );
     PreparedPlatformerSource::new(
         MARY_O_EXPERIENCE,

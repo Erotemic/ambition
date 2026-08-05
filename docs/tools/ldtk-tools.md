@@ -46,6 +46,25 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
 - Do not reintroduce retired top-level scripts such as the retired validate_ambition_ldtk.py script or the retired author_ldtk_area.py script.
 
 
+## A LoadingZone is an EXIT or a LANDING PAD
+
+A zone names **both** `target_room` and `target_zone` (an exit), or **neither**
+(the arrival end of a one-way trip). Half of a target is an error, and so is a
+landing pad that nothing arrives through — that is the typo the old
+"every zone needs a target" rule was really catching.
+
+⚠ **do not give a landing pad a target "for symmetry".** The body arrives
+standing inside the zone it arrived through (`door_arrival` puts it at the zone's
+centre, 26px off its floor), so a pad with an outgoing edge fires the moment the
+0.16s transition cooldown lapses and bounces the player straight back where they
+came from. A two-way route is authored as two exits at *different* places — the
+way Mary-O's vault does it with one shaft down and one alcove back up — not as
+one pair of zones pointing at each other.
+
+Both validators enforce this identically: `ambition_ldtk_tools validate` for
+authoring, and `LdtkProject::validate` at load.
+
+
 ## World auto-layout
 
 For non-GridVania sandbox worlds, use `world auto-layout` to reduce editor

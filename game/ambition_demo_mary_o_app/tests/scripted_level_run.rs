@@ -359,8 +359,8 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // balance is read from the same `PlayerHudFacts` the HUD's COINS readout
     // draws — so this covers the whole chain from placement to screen.
     // Walk only as far as the COINS. The vault's far end is not a wall: a
-    // walk-activated `descent_to_1_2` shaft sits on its floor at
-    // `vault.max.x - 1.5T`, and holding right for a flat 240 frames walked her
+    // walk-activated descent shaft sits on its floor near `vault.max.x`,
+    // and holding right for a flat 240 frames walked her
     // straight through it into World 1-2 around frame 135. The wallet assertion
     // below still passed (the coins are collected long before the shaft), so the
     // run went green here and failed three beats later in a room where
@@ -371,7 +371,12 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // cannot drift out of agreement with the room: walk until she is one body-width
     // short of its near face. The eight coins all sit well left of it.
     let before = wallet(&mut app);
-    let shaft = ambition_demo_mary_o::descent_to_1_2().aabb;
+    let surface = ambition_demo_mary_o::level_1_1();
+    let shaft = ambition_demo_mary_o::authored_zone(
+        &surface,
+        ambition_demo_mary_o::level_1_2::DESCENT_ZONE_ID,
+    )
+    .aabb;
     let stop_x = shaft.min.x - player_size(&mut app).x;
     for _ in 0..240 {
         if player_pos(&mut app).x >= stop_x {

@@ -75,6 +75,12 @@ pub const LEVEL_CYCLE_DWELL: f32 = 2.0;
 pub(crate) const T: f32 = 32.0;
 
 /// Ground thickness, in tiles.
+///
+/// ⚠ **test-only since 2026-08-05.** Its last two runtime readers were the pole
+/// and the surface-return zone, and both are read off the authored file now.
+/// What is left are 1-1's own assertions, which still measure against the slab —
+/// deriving those from the room is the next thing this constant is waiting on.
+#[cfg(test)]
 const GROUND_TILES: f32 = 2.0;
 
 // ⭐ **THE COLUMN TABLES ARE GONE (2026-08-04)** — `POWER_BLOCK_COLUMNS`,
@@ -120,11 +126,11 @@ pub const GOAL_POLE_PREFIX: &str = "goal_pole";
 /// The secret chamber's stone — `vault_floor` and `vault_wall_<n>`.
 pub const VAULT_MASONRY_PREFIX: &str = "vault_";
 
-/// How thick the goal pole is drawn. Half a tile — a pole, not a pillar. Named
-/// because [`goal_pole`] must derive the grab band from the SAME number
-/// [`level_1_1`] draws the block with; a band narrower than the pole is a level
-/// that cannot be finished.
-const POLE_WIDTH: f32 = T * 0.5;
+// ⭐ **`POLE_WIDTH` IS GONE (2026-08-05)**, and so is `POLE_COLUMN`. They were
+// the one number [`goal_pole`] and the `goal_pole` BLOCK both had to agree on —
+// which is exactly the agreement that stops being needed once the pole is read
+// off the block. [`authored_pole`] derives the whole grab band from the authored
+// shaft, for both levels, so a pole dragged in the editor takes its band with it.
 
 // ⭐ `LEVEL_WIDTH` / `LEVEL_HEIGHT` are GONE (2026-08-04). They were the level's
 // size as a Rust fact, and the level's size is now whatever Jon drew — read it
@@ -481,26 +487,15 @@ pub fn level_1_1() -> RoomSpec {
     dress_authored_blocks(&mut room);
     room.props.extend(scenery_for_authored_room(&room));
 
-    // The two ends of the trip to World 1-2. Walk-in zones, not a third pipe:
-    // the vault's own pipes answer a directional press (Jon's rule), and a
-    // shaft in the floor is a different affordance rather than a competing one.
-    //
-    // ▢ these still derive from `vault_bounds()`. They are the last constant in
-    // 1-1, and moving them is BLOCKED on 1-2 rather than merely undone.
-    //
-    // ⛔ **tried, measured, reverted (2026-08-05).** Authoring them as
-    // `LoadingZone` entities places them fine — but the LDtk validator requires
-    // a zone to name `target_room` and `target_zone`, and 1-2 is a Rust room
-    // (`level_1_2.rs`) that no world file contains. So an authored zone here can
-    // only point at a room the file cannot see, and the level fails validation:
-    // two errors, and `mary_o.ldtk` was restored byte-identical.
-    //
-    // ⭐ **that is the coupling worth knowing**: the LINK is authored data too.
-    // It lives in `provider.rs` as a pair of `RoomLink`s precisely because one
-    // end is Rust, and it stops being Rust the moment 1-2 is authored — not
-    // before. Authoring 1-2 buys this row as well as its own.
-    room.loading_zones
-        .extend([descent_to_1_2(), surface_return_from_1_2()]);
+    // ⭐ **the two ends of the trip to World 1-2 are AUTHORED (2026-08-05).**
+    // They were built here from `vault_bounds()` and a ground constant — the
+    // last coordinates in 1-1 an editor could not move. A previous attempt to
+    // author them was reverted because the LDtk validator demands that every
+    // zone name a `target_room`/`target_zone` and 1-2 was a Rust room no world
+    // file contained. Both halves of that are fixed: 1-2 is an area in
+    // `mary_o.ldtk`, and the validator understands that the ARRIVAL end of a
+    // one-way trip names nothing (a zone that did would fire on the body that
+    // just landed on it).
     room
 }
 
@@ -517,25 +512,62 @@ pub const MARY_O_WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk")
 /// player without passing the build and this crate's tests first. The moment the
 /// world is loaded from disk instead, this has to become a reported refusal.
 fn authored_room(area: &str) -> RoomSpec {
-    // ⛔ **THE READER SUPPLIES THE VOCABULARY, because the file cannot be read
-    // without it.** `MaryOBlock` is Mary-O's own LDtk noun; conversion refuses an
-    // identifier it has no converter for, loudly and by design. Doing this only
-    // in `MaryORulesPlugin::build` meant every test, tool and probe that loads
-    // the level directly got nine refusals — and the level is not readable
-    // without its vocabulary in ANY of those contexts, so the load is where the
-    // requirement belongs.
-    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(MARY_O_WORLD_JSON)
-        .expect(
-            "mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)",
-        );
-    let room_set = project
-        .to_room_set_with_entry(area, &ldtk_vocabulary::vocabulary())
-        .unwrap_or_else(|errors| panic!("mary_o.ldtk converts to rooms: {errors:?}"));
-    room_set
+    authored_world()
         .rooms
         .into_iter()
         .find(|room| room.id == area)
         .unwrap_or_else(|| panic!("mary_o.ldtk authors the `{area}` area"))
+}
+
+/// **Every authored area, and the graph between them.**
+///
+/// ⛔ **THE READER SUPPLIES THE VOCABULARY, because the file cannot be read
+/// without it.** `MaryOBlock` is Mary-O's own LDtk noun; conversion refuses an
+/// identifier it has no converter for, loudly and by design. Doing this only in
+/// `MaryORulesPlugin::build` meant every test, tool and probe that loads the
+/// level directly got nine refusals — and the level is not readable without its
+/// vocabulary in ANY of those contexts, so the load is where the requirement
+/// belongs.
+fn authored_world() -> ambition_platformer2d::runtime::demo_fixture::RoomSet {
+    let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(MARY_O_WORLD_JSON)
+        .expect(
+            "mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)",
+        );
+    project
+        .to_room_set_with_entry(LEVEL_1_1_ROOM_ID, &ldtk_vocabulary::vocabulary())
+        .unwrap_or_else(|errors| panic!("mary_o.ldtk converts to rooms: {errors:?}"))
+}
+
+/// **The room graph, as the file declares it.**
+///
+/// ⛔ **these two links were written in Rust** (`provider.rs`), and the comment
+/// there said why: a link needs both ends, and one end was a room no world file
+/// contained. Every `LoadingZone` names its partner in `target_room` /
+/// `target_zone`, so with both levels authored the LINK is authored data like
+/// everything else — an editor can retarget the shaft without a line of Rust.
+///
+/// ⚠ a zone that names NO target contributes no link on purpose: it is the
+/// landing pad half of a one-way trip, and a pad with an outgoing edge fires on
+/// the body that just arrived on it.
+pub fn authored_room_links() -> Vec<ambition_platformer2d::world::rooms::RoomLink> {
+    authored_world().canonical_links()
+}
+
+/// The authored loading zone a room calls `id`.
+pub fn authored_zone<'a>(
+    room: &'a RoomSpec,
+    id: &str,
+) -> &'a ambition_platformer2d::world::rooms::LoadingZone {
+    room.loading_zones
+        .iter()
+        .find(|zone| zone.id == id)
+        .unwrap_or_else(|| {
+            let known: Vec<&str> = room.loading_zones.iter().map(|z| z.id.as_str()).collect();
+            panic!(
+                "room `{}` authors no loading zone `{id}` (has {known:?})",
+                room.id
+            )
+        })
 }
 
 /// Paint the authored blocks that wear something other than their kind's art.
@@ -677,38 +709,13 @@ fn scenery_for_authored_room(room: &RoomSpec) -> Vec<PropSpec> {
     props
 }
 
-/// The open shaft at the vault's far end that drops into World 1-2.
-///
-/// It sits ON the vault floor. The return pipe shipped floating 48px clear of
-/// its own band (`cbc6902d2`) and its test passed anyway by probing a point
-/// inside solid rock, so "does this thing meet the floor" is now something both
-/// rooms assert.
-pub fn descent_to_1_2() -> ambition_platformer2d::world::rooms::LoadingZone {
-    let vault = vault_bounds();
-    let size = ae::Vec2::new(T, 1.5 * T);
-    let center = ae::Vec2::new(vault.max.x - 1.5 * T, vault.max.y - size.y * 0.5);
-    ambition_platformer2d::world::rooms::LoadingZone {
-        id: level_1_2::DESCENT_ZONE_ID.to_string(),
-        name: "Down to 1-2".to_string(),
-        activation: ambition_platformer2d::world::rooms::LoadingZoneActivation::Walk,
-        aabb: ae::Aabb::new(center, size * 0.5),
-    }
-}
-
-/// Where 1-2 puts you back on the surface: past pit B, on the long run before
-/// the stair pyramid. Going underground is a SHORTCUT — you skip two pits — so
-/// the route competes with the surface run instead of merely detouring from it.
-pub fn surface_return_from_1_2() -> ambition_platformer2d::world::rooms::LoadingZone {
-    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
-    let size = ae::Vec2::new(T, 1.5 * T);
-    let center = ae::Vec2::new(57.0 * T, ground_top - size.y * 0.5);
-    ambition_platformer2d::world::rooms::LoadingZone {
-        id: level_1_2::SURFACE_RETURN_ZONE_ID.to_string(),
-        name: "Back to the surface".to_string(),
-        activation: ambition_platformer2d::world::rooms::LoadingZoneActivation::Walk,
-        aabb: ae::Aabb::new(center, size * 0.5),
-    }
-}
+// ⭐⭐ **`descent_to_1_2` AND `surface_return_from_1_2` ARE GONE (2026-08-05).**
+//
+// They BUILT 1-1's two zones to World 1-2 out of `vault_bounds()` and a ground
+// constant, and they were the last coordinates in the level that nothing Jon did
+// in an editor could move. Both are `LoadingZone` entities in `mary_o.ldtk` now,
+// reached through [`authored_zone`] — and so is the link between the rooms, which
+// [`authored_room_links`] reads out of the same file.
 // ── The authored blocks, resolved by NAME ──────────────────────────────────
 //
 // ⛔ **These used to CONSTRUCT ids from constants; they now LOOK THEM UP in the
@@ -738,29 +745,11 @@ pub fn authored_block_by_id<'a>(world: &'a ae::World, id: &ae::GeoId) -> Option<
     world.blocks.iter().find(|block| block.id == *id)
 }
 
-/// Every authored block in the embedded world file, by name.
-///
-/// ⚠ a process-global `LazyLock` over a `const &str`, which is safe for the
-/// reason a `OnceLock` fed by a provider is not: the input is fixed at COMPILE
-/// time, so there is no second value it could ever hold and no install order to
-/// get wrong.
-///
-/// ⚠ **test-only since 2026-08-04.** The runtime used to reach the pipes through
-/// it by their four spelled names; it asks [`pipe_tubes`] now, so the last
-/// callers are the tests below.
-#[cfg(test)]
-fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)> {
-    static BLOCKS: std::sync::LazyLock<std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)>> =
-        std::sync::LazyLock::new(|| {
-            authored_room(LEVEL_1_1_ROOM_ID)
-                .world
-                .blocks
-                .iter()
-                .map(|block| (block.name.clone(), (block.id.clone(), block.aabb)))
-                .collect()
-        });
-    &BLOCKS
-}
+// ⭐ **`authored_named_blocks` IS GONE (2026-08-05).** It was a by-name index of
+// every authored block, kept test-only since the runtime stopped reaching the
+// pipes through it; its last reader was the pole oracle, and the pole is read off
+// its own block now. A cached index nothing indexes is a `LazyLock` waiting to be
+// the reason someone asks whether it is rollback state.
 
 // ⭐⭐ **THE INDEX HELPERS ARE GONE (2026-08-04)** — `power_block_id`,
 // `power_block_min`, `power_block_index_for` and their quasar and brick twins,
@@ -777,25 +766,37 @@ fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::G
 // ask the BLOCK what kind it is. Position comes from the block's own `aabb`, so a
 // block dragged in the editor pops its reward where it now sits.
 
-/// The pole's geometry, derived from the SAME constants [`level_1_1`] builds the
-/// `goal_pole` block out of. A second source of truth for where the flag is would
-/// be a bug that only surfaces after someone moves the level.
-pub fn goal_pole() -> flag::FlagPole {
-    let ground_top = SURFACE_HEIGHT - GROUND_TILES * T;
+/// **A room's flag, read off the shaft it is drawn as.**
+///
+/// ⛔ **this used to be a pair of constants per level** — a column, a width, a
+/// height — that the `goal_pole` BLOCK was also built from, and the pole oracle
+/// existed to catch the two drifting apart. Once the block is authored there is
+/// nothing to keep in agreement: the block IS the pole, and the grab band is its
+/// own box. Both levels answer through here, so 1-2 did not need a second copy
+/// of the rule when it was authored.
+///
+/// ⚠ the shaft is the block named exactly `goal_pole`; the finial and the banner
+/// wear suffixes and are decoration hung off it.
+pub fn authored_pole(room: &RoomSpec) -> flag::FlagPole {
+    let aabb = room
+        .world
+        .blocks
+        .iter()
+        .find(|block| block.name == GOAL_POLE_PREFIX)
+        .unwrap_or_else(|| panic!("room `{}` authors no `{GOAL_POLE_PREFIX}` block", room.id))
+        .aabb;
     flag::FlagPole {
-        // `Block::one_way` takes a MIN corner; the pole is `POLE_WIDTH` wide.
-        x: POLE_COLUMN * T + POLE_WIDTH * 0.5,
-        top_y: ground_top - 9.0 * T,
-        base_y: ground_top,
-        half_width: POLE_WIDTH * 0.5,
+        x: (aabb.min.x + aabb.max.x) * 0.5,
+        top_y: aabb.min.y,
+        base_y: aabb.max.y,
+        half_width: (aabb.max.x - aabb.min.x) * 0.5,
     }
 }
 
-/// The goal pole's tile column — ONE source of truth shared by [`goal_pole`] and
-/// the `goal_pole` block in [`level_1_1`], so moving the level can never leave the
-/// flag's read-model behind (the drift the pole oracle guards against). Column 98
-/// after the level was lengthened by 8 tiles for the vault.
-const POLE_COLUMN: f32 = 98.0;
+/// World 1-1's flag.
+pub fn goal_pole() -> flag::FlagPole {
+    authored_pole(&authored_room(LEVEL_1_1_ROOM_ID))
+}
 
 /// **Which pole a room finishes on.**
 ///
@@ -3673,7 +3674,7 @@ mod tests {
              wall parks the body outside its own grab band"
         );
         // It must stand clear of the exit alcove, or the two affordances race.
-        let exit = level_1_2::exit_zone();
+        let exit = authored_zone(&room, level_1_2::EXIT_ZONE_ID);
         assert!(
             pole.x + pole.half_width < exit.aabb.min.x,
             "the goal stands short of the exit alcove, so a body walking the \
@@ -3686,24 +3687,44 @@ mod tests {
 mod flag_geometry_oracle {
     use super::*;
 
-    /// [`goal_pole`] and the authored `goal_pole` block are the SAME object. This is
-    /// the test that catches someone moving the level and leaving the flag behind.
-    #[test]
-    fn the_pole_resource_is_the_authored_block() {
-        let room = level_1_1();
-        let block = room
-            .world
-            .blocks
-            .iter()
-            .find(|b| b.name == "goal_pole")
-            .expect("the level authors a goal pole");
-        let aabb = block.aabb;
-        let pole = goal_pole();
+    // ⭐⭐ **`the_pole_resource_is_the_authored_block` IS GONE (2026-08-05), and
+    // deleting it is the point of the change it was watching.** It compared
+    // `goal_pole()` — built from `POLE_COLUMN` and `POLE_WIDTH` — against the
+    // authored `goal_pole` block, because two descriptions of one flag can
+    // drift. [`authored_pole`] reads the block, so there is one description now
+    // and the comparison is `x == x`: a test that cannot fail, which is worse
+    // than no test because it reads like coverage.
 
-        let center_x = (aabb.min.x + aabb.max.x) * 0.5;
-        assert!((pole.x - center_x).abs() < 1.0e-3, "pole is centered");
-        assert_eq!(pole.top_y, aabb.min.y, "top of the pole");
-        assert_eq!(pole.base_y, aabb.max.y, "base of the pole");
+    /// **Each room's goal is ITS OWN**, which is what survived the deletion
+    /// above and is the failure that actually shipped: the pole resource was
+    /// installed once from the entry room, so finishing 1-2 was measured
+    /// against a flag standing in 1-1 (`install_goal_pole` warns about exactly
+    /// this). Two rooms, two poles, no shared answer.
+    #[test]
+    fn every_room_finishes_on_the_pole_that_stands_in_it() {
+        let one_one = pole_for_room(LEVEL_1_1_ROOM_ID);
+        let one_two = pole_for_room(level_1_2::LEVEL_1_2_ROOM_ID);
+        assert!(
+            (one_one.x - one_two.x).abs() > T,
+            "1-1 and 1-2 report the same flag at x={}; a goal you can reach in a \
+             room whose pole belongs to another one never fires",
+            one_one.x
+        );
+        for (room, pole) in [(level_1_1(), one_one), (level_1_2::level_1_2(), one_two)] {
+            let shaft = room
+                .world
+                .blocks
+                .iter()
+                .find(|block| block.name == GOAL_POLE_PREFIX)
+                .unwrap_or_else(|| panic!("`{}` authors no goal pole", room.id));
+            assert!(
+                shaft.aabb.min.x <= pole.x && pole.x <= shaft.aabb.max.x,
+                "`{}`'s pole is reported at x={} and its shaft is at {:?}",
+                room.id,
+                pole.x,
+                shaft.aabb
+            );
+        }
     }
 
     /// The grab band is narrower than the pole is tall, and the pole spans a real

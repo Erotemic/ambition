@@ -20,19 +20,32 @@
 //!    once, the same rule 1-1's stepping stone follows.
 //! 4. **The way out** — a walk-in alcove that returns you to 1-1's surface,
 //!    past the pits you skipped. Going down is a shortcut, not a detour.
+//! 5. **The goal** — a pole short of that alcove, so a body walking the last
+//!    stretch meets the END before it meets the exit. Where finishing LEADS is
+//!    [`crate::exit_for_room`]'s answer rather than this room's.
 //!
-//! The platform is authored as an ordinary [`MovingPlatformState`] sweep. Riding
-//! it is engine behavior — the platform advance runs once per frame before the
-//! body tick and the ride/ledge-carry logic reads its delta — so this level adds
-//! no movement code of its own.
+//! ⛔ **THE LEVEL IS `assets/worlds/mary_o.ldtk` NOW, not this file (2026-08-05).**
+//! It used to build every block from constants here, which meant Jon could lay
+//! out one of his two levels and not the other. `mary_o_1_2` is a second AREA in
+//! the same file 1-1 lives in — bootstrapped once by
+//! `tools/author_mary_o_1_2_ldtk.py`, and edited in LDtk from here on.
+//!
+//! ⭐ **authoring it bought 1-1's last two coordinates as well as its own.** The
+//! descent shaft and the surface return were built in Rust because a
+//! `LoadingZone` has to name a `target_room`, and 1-2 was a room no world file
+//! contained. Both zones and the LINKS between the rooms are authored now.
+//!
+//! The platform is authored as an ordinary `MovingPlatform` entity. Riding it is
+//! engine behavior — the platform advance runs once per frame before the body
+//! tick and the ride/ledge-carry logic reads its delta — so this level adds no
+//! movement code of its own.
 
-use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::world::platforms::MovingPlatformState;
-use ambition_platformer2d::world::rooms::{LoadingZone, LoadingZoneActivation, RoomSpec};
+use ambition_platformer2d::world::rooms::RoomSpec;
 
-use crate::{MARY_O_MODE, T};
+use crate::MARY_O_MODE;
 
-pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_level_1_2";
+/// The authored area id, and the room id the runtime knows it by.
+pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_1_2";
 
 /// The zone in 1-1's vault that drops you into 1-2, and its partner in 1-2.
 ///
@@ -40,205 +53,128 @@ pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_level_1_2";
 /// stay directional presses (Jon's rule — a pipe answers UP or DOWN, never a
 /// generic Interact); this is a different affordance on purpose, an open shaft
 /// in the vault floor rather than a third tube competing with them.
+///
+/// ⚠ **only two of these four name a target.** `DESCENT` and `EXIT` are exits;
+/// `ARRIVAL` and `SURFACE_RETURN` are landing pads, and a landing pad that named
+/// a target would fire on the body that just arrived on it.
 pub const DESCENT_ZONE_ID: &str = "mary_o_1_1_descent";
 pub const ARRIVAL_ZONE_ID: &str = "mary_o_1_2_arrival";
 /// The way back up: 1-2's exit alcove, and where it puts you on the surface.
 pub const EXIT_ZONE_ID: &str = "mary_o_1_2_exit";
 pub const SURFACE_RETURN_ZONE_ID: &str = "mary_o_1_1_surface_return";
 
-const WIDTH_TILES: f32 = 56.0;
-const HEIGHT_TILES: f32 = 14.0;
-/// How thick the roof and floor slabs are. Two tiles each, so the playable
-/// corridor is ten tiles tall — enough to jump in, low enough to feel enclosed.
-const SLAB_TILES: f32 = 2.0;
-const CHASM: (f32, f32) = (28.0, 33.0);
+/// The ferry's authored display name — its runtime id is the LDtk iid, so this
+/// is what names it to a reader.
+pub const FERRY_NAME: &str = "Underground Ferry";
 
+/// The stone the cavern is cut from. The one thing about 1-2 the LDtk file
+/// cannot say, since a block carries no authored colour — the same reason 1-1
+/// paints its vault masonry from Rust.
 const UNDERGROUND_STONE: [f32; 4] = [0.20, 0.17, 0.28, 1.0];
-
-fn floor_top() -> f32 {
-    (HEIGHT_TILES - SLAB_TILES) * T
-}
-
-/// Where the ceiling slab ENDS — the headroom the room's tests measure against.
-/// Only the tests need it: the slab itself is placed from its top edge.
-#[cfg(test)]
-fn ceiling_bottom() -> f32 {
-    SLAB_TILES * T
-}
-
-fn slab(blocks: &mut Vec<ae::Block>, name: &str, idx: u16, from: f32, to: f32, top: f32) {
-    blocks.push(
-        ae::Block::solid_tiled(
-            name,
-            ae::Vec2::new(from * T, top),
-            ae::Vec2::new((to - from) * T, SLAB_TILES * T),
-            "mary_o_ground",
-            idx,
-        )
-        .with_art_color(UNDERGROUND_STONE),
-    );
-}
-
-/// Where the moving platform starts, and how far it sweeps.
-///
-/// It starts on the near lip so the ride is always available rather than
-/// something you wait for on the wrong side of a gap you cannot cross.
-fn platform_sweep() -> (ae::Vec2, ae::Vec2, f32) {
-    let size = ae::Vec2::new(3.0 * T, 0.5 * T);
-    let start = ae::Vec2::new(CHASM.0 * T + size.x * 0.5, floor_top() - 3.0 * T);
-    let sweep = (CHASM.1 - CHASM.0) * T - size.x;
-    (start, size, sweep)
-}
-
-pub fn moving_platform() -> MovingPlatformState {
-    let (start, size, sweep) = platform_sweep();
-    MovingPlatformState::from_sweep(
-        "mary_o_1_2_ferry",
-        "Underground Ferry",
-        start,
-        size,
-        sweep,
-        90.0,
-    )
-}
-
-/// The shaft you arrive out of, at the left end of the corridor.
-pub fn arrival_zone() -> LoadingZone {
-    let pos = ae::Vec2::new(3.0 * T, floor_top() - 1.5 * T);
-    LoadingZone {
-        id: ARRIVAL_ZONE_ID.to_string(),
-        name: "From the vault".to_string(),
-        activation: LoadingZoneActivation::Walk,
-        aabb: ae::Aabb::new(pos, ae::Vec2::new(T, 1.5 * T)),
-    }
-}
-
-/// The alcove at the far end that returns you to the surface.
-pub fn exit_zone() -> LoadingZone {
-    let pos = ae::Vec2::new((WIDTH_TILES - 3.0) * T, floor_top() - 1.5 * T);
-    LoadingZone {
-        id: EXIT_ZONE_ID.to_string(),
-        name: "Up to the surface".to_string(),
-        activation: LoadingZoneActivation::Walk,
-        aabb: ae::Aabb::new(pos, ae::Vec2::new(T, 1.5 * T)),
-    }
-}
-
-/// Tile column of 1-2's goal, past the chasm and short of the exit alcove.
-const POLE_COLUMN: f32 = WIDTH_TILES - 8.0;
-/// The same half-tile thickness 1-1's pole uses — the grab band is derived from
-/// it, and a band narrower than the shaft is a level that cannot be finished.
-const POLE_WIDTH: f32 = T * 0.5;
-/// How much shaft stands above the floor. Shorter than 1-1's nine tiles because
-/// the corridor is ten tall and a pole through the ceiling reads as a mistake.
-const POLE_TILES: f32 = 6.0;
 
 /// **1-2's goal.**
 ///
 /// ⭐ **the level had an exit but no END.** The alcove at the far wall returns
 /// you to the surface, which is the shortcut's other mouth — walking into it is
 /// leaving, not finishing. Jon: *"The end of 1-2 should transition back to
-/// 1-1."* Finishing is grabbing a pole, the same verb 1-1 ends with, and where
-/// that leads is [`crate::exit_for_room`]'s answer rather than this room's.
-///
-/// ⚠ it stands SHORT of the exit alcove on purpose, so the two affordances do
-/// not overlap: a body walking the last stretch meets the pole first.
+/// 1-1."* Finishing is grabbing a pole, the same verb 1-1 ends with, and the
+/// pole is read off the authored shaft by the same rule 1-1's is
+/// ([`crate::authored_pole`]).
 pub fn goal_pole() -> crate::flag::FlagPole {
-    crate::flag::FlagPole {
-        x: POLE_COLUMN * T + POLE_WIDTH * 0.5,
-        top_y: floor_top() - POLE_TILES * T,
-        base_y: floor_top(),
-        half_width: POLE_WIDTH * 0.5,
-    }
+    crate::authored_pole(&level_1_2())
 }
 
 pub fn level_1_2() -> RoomSpec {
-    let mut blocks = Vec::new();
-
-    // Roof, unbroken: this is what makes it underground.
-    slab(&mut blocks, "cavern_roof", 0, 0.0, WIDTH_TILES, 0.0);
-    // Floor, in two runs with the chasm between them.
-    slab(
-        &mut blocks,
-        "cavern_floor_near",
-        1,
-        0.0,
-        CHASM.0,
-        floor_top(),
-    );
-    slab(
-        &mut blocks,
-        "cavern_floor_far",
-        2,
-        CHASM.1,
-        WIDTH_TILES,
-        floor_top(),
-    );
-    // End walls, so the room is closed rather than trailing off into space.
-    for (idx, x) in [(3u16, -SLAB_TILES), (4, WIDTH_TILES)] {
-        blocks.push(
-            ae::Block::solid_tiled(
-                "cavern_wall",
-                ae::Vec2::new(x * T, 0.0),
-                ae::Vec2::new(SLAB_TILES * T, HEIGHT_TILES * T),
-                "mary_o_ground",
-                idx,
-            )
-            .with_art_color(UNDERGROUND_STONE),
-        );
-    }
-    // The coin shelf: one raised run, reachable with an ordinary jump.
-    blocks.push(
-        ae::Block::solid_tiled(
-            "coin_shelf",
-            ae::Vec2::new(12.0 * T, floor_top() - 4.0 * T),
-            ae::Vec2::new(6.0 * T, T),
-            "mary_o_ground",
-            5,
-        )
-        .with_art_color(UNDERGROUND_STONE),
-    );
-
-    // The goal. ONE-WAY for the reason 1-1's is: a flagpole you can walk into is
-    // a wall, and a wall parks the body half a width away from the pole's centre
-    // — permanently outside a grab band measured from that centre.
-    blocks.push(ae::Block::one_way(
-        "goal_pole",
-        ae::Vec2::new(POLE_COLUMN * T, floor_top() - POLE_TILES * T),
-        ae::Vec2::new(POLE_WIDTH, POLE_TILES * T),
-    ));
-
-    // Spawn sits under the arrival shaft, on the near floor. A body that somehow
-    // reaches this room without a transition still starts somewhere sane.
-    let spawn = ae::Vec2::new(3.0 * T, floor_top() - 2.0 * T);
-    let world = ae::World::new(
-        "Mary-O 1-2",
-        ae::Vec2::new(WIDTH_TILES * T, HEIGHT_TILES * T),
-        spawn,
-        blocks,
-    );
-
-    let mut room = RoomSpec::new(LEVEL_1_2_ROOM_ID, world);
+    let mut room = crate::authored_room(LEVEL_1_2_ROOM_ID);
     room.metadata.mode = Some(MARY_O_MODE.to_string());
-    room.loading_zones = vec![arrival_zone(), exit_zone()];
-    room.moving_platforms = vec![moving_platform()];
+    // The cavern is cut from ONE stone, so the colour goes on before the
+    // by-name dressing rather than instead of it: `dress_authored_blocks` then
+    // takes the pole back out again (its look is the prop laid over it).
+    for block in &mut room.world.blocks {
+        block.art_color = Some(UNDERGROUND_STONE);
+    }
+    crate::dress_authored_blocks(&mut room);
+    room.props.extend(crate::scenery_for_authored_room(&room));
     room
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_platformer2d::engine_core as ae;
     use ambition_platformer2d::engine_core::AabbExt;
+
+    /// One tile, which is the only measurement these tests still carry: it is
+    /// the grid Jon draws on, not a fact about where anything is.
+    const T: f32 = crate::T;
+
+    /// The IntGrid cell — half a tile, and the smallest hole an author can make.
+    ///
+    /// ⛔ **the sweeps below step by CELL, not by tile, and that is not fussiness.**
+    /// The first draft walked in whole tiles and probed with a quarter-tile box,
+    /// which leaves 16px of every tile unexamined: a probe that erased one roof
+    /// cell left the test GREEN, because the box straddled the cell next to the
+    /// hole. A check whose resolution is coarser than the thing it checks is a
+    /// check that passes for the wrong reason.
+    const CELL: f32 = T * 0.5;
+
+    /// Is anything solid in this cell?
+    fn solid_in_cell(room: &RoomSpec, min: ae::Vec2) -> bool {
+        let probe = ae::Aabb::new(
+            min + ae::Vec2::splat(CELL * 0.5),
+            ae::Vec2::splat(CELL * 0.25),
+        );
+        room.world
+            .blocks
+            .iter()
+            .any(|block| block.aabb.strict_intersects(probe))
+    }
+
+    /// **The floor's gap, measured off the room rather than named.**
+    ///
+    /// ⛔ this was a `CHASM: (f32, f32)` constant, which made the test a
+    /// restatement of the number the level was built from. Probing the floor
+    /// slab for the run of columns with nothing under them asks the LEVEL where
+    /// its hole is, so dragging the far floor run in the editor moves the
+    /// assertion with it.
+    fn floor_gap(room: &RoomSpec) -> (f32, f32) {
+        let depth = room.world.size.y - CELL;
+        let mut runs: Vec<(f32, f32)> = Vec::new();
+        let mut column = 0.0;
+        while column < room.world.size.x {
+            if !solid_in_cell(room, ae::Vec2::new(column, depth)) {
+                match runs.last_mut() {
+                    Some(run) if (run.1 - column).abs() < 0.5 => run.1 = column + CELL,
+                    _ => runs.push((column, column + CELL)),
+                }
+            }
+            column += CELL;
+        }
+        assert_eq!(
+            runs.len(),
+            1,
+            "1-2's floor has {} gaps in it; the room's one new verb is the ferry \
+             over ONE chasm, and a second hole is either a second crossing or a \
+             pit that kills",
+            runs.len()
+        );
+        runs[0]
+    }
 
     #[test]
     fn the_chasm_is_only_crossable_by_the_platform() {
         let room = level_1_2();
-        let (start, size, sweep) = platform_sweep();
+        let (start, end) = floor_gap(&room);
+        assert!(
+            end - start >= 4.0 * T,
+            "a {}px gap is a stride, not a chasm",
+            end - start
+        );
 
         // Nothing stands in the gap: no stepping stone, no floor.
         let gap = ae::Aabb::new(
-            ae::Vec2::new((CHASM.0 + CHASM.1) * 0.5 * T, floor_top() + T),
-            ae::Vec2::new((CHASM.1 - CHASM.0) * 0.5 * T - 1.0, T),
+            ae::Vec2::new((start + end) * 0.5, room.world.size.y - 2.0 * T),
+            ae::Vec2::new((end - start) * 0.5 - 1.0, T),
         );
         assert!(
             !room
@@ -249,27 +185,50 @@ mod tests {
             "the chasm has something standing in it, so the ferry is decoration",
         );
 
-        // And the ferry spans it: near lip to far lip, both ends reachable.
-        assert!(start.x - size.x * 0.5 <= CHASM.0 * T + 1.0);
-        assert!(start.x + sweep + size.x * 0.5 >= CHASM.1 * T - 1.0);
+        // And the ferry spans it, lip to lip. RIDDEN rather than read: the sweep
+        // range is the platform's own business, so the reach is measured by
+        // advancing it until it has been everywhere it goes.
+        let mut ferry = room
+            .moving_platforms
+            .iter()
+            .find(|platform| platform.name == FERRY_NAME)
+            .cloned()
+            .expect("1-2 authors its ferry");
+        let (mut left, mut right) = (f32::MAX, f32::MIN);
+        for _ in 0..200 {
+            left = left.min(ferry.pos.x - ferry.size.x * 0.5);
+            right = right.max(ferry.pos.x + ferry.size.x * 0.5);
+            ferry.update(1.0 / 60.0);
+        }
+        assert!(
+            left <= start + 1.0,
+            "the ferry never reaches the near lip: {left} vs {start}"
+        );
+        assert!(
+            right >= end - 1.0,
+            "the ferry never reaches the far lip: {right} vs {end}"
+        );
     }
 
     #[test]
     fn the_room_is_closed_and_underground() {
         let room = level_1_2();
-        // A roof over every column of the corridor — the difference between an
-        // underground level and a pit.
-        for column in 1..(WIDTH_TILES as i32 - 1) {
-            let probe = ae::Aabb::new(
-                ae::Vec2::new(column as f32 * T + T * 0.5, ceiling_bottom() - T * 0.5),
-                ae::Vec2::splat(T * 0.25),
-            );
+        // A roof over EVERY cell — the difference between an underground level
+        // and a pit. The end columns count: a wall is a roof as far as "can she
+        // leave through the top" is concerned.
+        let mut column = 0.0;
+        while column < room.world.size.x {
             assert!(
-                room.world
-                    .blocks
-                    .iter()
-                    .any(|b| b.aabb.strict_intersects(probe)),
-                "column {column} has no roof",
+                solid_in_cell(&room, ae::Vec2::new(column, 0.0)),
+                "the cell at x={column} has no roof over it",
+            );
+            column += CELL;
+        }
+        // And closed at both ends, or the corridor trails off into space.
+        for (label, x) in [("left", 0.0), ("right", room.world.size.x - CELL)] {
+            assert!(
+                solid_in_cell(&room, ae::Vec2::new(x, room.world.size.y * 0.5)),
+                "the {label} end of the corridor is open",
             );
         }
     }
@@ -277,21 +236,19 @@ mod tests {
     #[test]
     fn both_ends_of_the_room_are_ways_out() {
         let room = level_1_2();
-        let ids: Vec<&str> = room
-            .loading_zones
-            .iter()
-            .map(|zone| zone.id.as_str())
-            .collect();
-        assert!(ids.contains(&ARRIVAL_ZONE_ID));
-        assert!(ids.contains(&EXIT_ZONE_ID));
-        // Both stand ON the floor, not floating in it — the bug the 1-1 vault's
-        // return pipe shipped with (`cbc6902d2`).
-        for zone in &room.loading_zones {
+        for id in [ARRIVAL_ZONE_ID, EXIT_ZONE_ID] {
+            let zone = crate::authored_zone(&room, id);
+            // Both stand ON the floor, not floating in it — the bug the 1-1
+            // vault's return pipe shipped with (`cbc6902d2`). Asked of the
+            // BLOCK under the zone rather than of a floor constant.
             let feet = zone.aabb.max.y;
             assert!(
-                (feet - floor_top()).abs() <= T * 0.5,
-                "zone '{}' does not meet the floor",
-                zone.id,
+                room.world.blocks.iter().any(|block| {
+                    (block.aabb.min.y - feet).abs() <= 1.0
+                        && block.aabb.min.x <= zone.aabb.min.x
+                        && block.aabb.max.x >= zone.aabb.max.x
+                }),
+                "zone '{id}' does not stand on anything",
             );
         }
     }

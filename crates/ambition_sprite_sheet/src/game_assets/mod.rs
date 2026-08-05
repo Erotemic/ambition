@@ -390,6 +390,18 @@ pub fn load_entity_sprites(
     quality: Option<&VisualQualityBudget>,
 ) -> EntitySpriteSet {
     let mut handles = HashMap::with_capacity(EntitySprite::ALL.len());
+    // ⛔ **an unresolved sprite used to `continue` in silence.** The feature it
+    // belongs to then draws as a colour fallback or as nothing at all, and the
+    // only way to learn which one went missing was to notice the picture. That
+    // is the same failure mode as an unclaimed feature view, and this layer had
+    // no equivalent of the floor's warning.
+    //
+    // ⚠ **a TALLY, not a warning per key.** `character_sprites` already reports
+    // this way — *"5/5 catalog entries declared, 0 decoded at startup"* — and it
+    // is the right shape: a headless fixture with no asset root misses every
+    // sprite, and forty separate warnings would train everyone to filter the
+    // channel that is supposed to carry this.
+    let mut missing: Vec<String> = Vec::new();
     for &key in EntitySprite::ALL {
         let id = entity_sprite_asset_id(key);
         let Some(path) = quality
@@ -402,9 +414,30 @@ pub fn load_entity_sprites(
             })
             .or_else(|| catalog.try_path_for_load(&id))
         else {
+            missing.push(id.to_string());
             continue;
         };
         handles.insert(key, asset_server.load(path));
+    }
+    // ⚠ **what this catches, precisely — measured, and narrower than my first
+    // wording claimed.** `try_path_for_load` returns `None` when the CATALOG
+    // refuses an id (no manifest entry, or a quality profile that excludes it).
+    // It does NOT catch a manifest entry whose FILE is missing: probed by
+    // renaming an asset id to `chest_open_PROBE_MISSING`, and the catalog
+    // happily synthesized a path from the new name, so nothing was reported
+    // here — the asset server complains later, about a load, in its own words.
+    // Two different failures, and this is the one that had no voice at all.
+    if !missing.is_empty() {
+        bevy::log::warn!(
+            target: "ambition_sprite_sheet::entity_sprites",
+            "entity sprites: {}/{} resolved; the catalog refused {} of them, so \
+             the features that use them draw as a colour fallback or not at all: \
+             {:?}",
+            handles.len(),
+            EntitySprite::ALL.len(),
+            missing.len(),
+            missing
+        );
     }
     EntitySpriteSet { handles }
 }

@@ -145,6 +145,7 @@ dependencies = [
  "ambition_demo_pocket",
  "ambition_demo_sanic",
  "ambition_demo_smash",
+ "ambition_demo_twintrack",
  "ambition_menu_kaleidoscope",
  "ambition_platformer2d",
  "ambition_sim_harness",
@@ -385,6 +386,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_demo_twintrack"
+version = "0.1.0"
+dependencies = [
+ "ambition_platformer2d",
+ "bevy",
+]
+
+[[package]]
+name = "ambition_demo_twintrack_app"
+version = "0.1.0"
+dependencies = [
+ "ambition_demo_twintrack",
+ "ambition_platformer2d",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_dev_tools"
 version = "0.1.0"
 dependencies = [
@@ -592,6 +610,8 @@ dependencies = [
  "ambition_portal2d",
  "ambition_portal2d_presentation",
  "ambition_projectiles",
+ "ambition_relativity",
+ "ambition_relativity2d",
  "ambition_render",
  "ambition_settings_menu",
  "ambition_sfx",
@@ -833,6 +853,22 @@ dependencies = [
  "ambition_vfx",
  "bevy",
  "serde",
+]
+
+[[package]]
+name = "ambition_relativity"
+version = "0.1.0"
+
+[[package]]
+name = "ambition_relativity2d"
+version = "0.1.0"
+dependencies = [
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_runtime",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_relativity",
+ "ambition_time",
+ "bevy",
 ]
 
 [[package]]

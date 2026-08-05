@@ -31,3 +31,6 @@ pub use crate::persistence;
 pub use crate::projectiles;
 #[cfg(feature = "ambition_render")]
 pub use crate::render;
+
+#[cfg(feature = "relativity")]
+pub use crate::{relativity, relativity2d};

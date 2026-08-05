@@ -1,6 +1,8 @@
-# Slower Light — the reduced-speed-of-light mechanic (stretch, seams now)
+# Slower Light — future 3D observer-relativity game
 
-> **Status: Jon's directive (2026-07-05), design note by fable.** Jon:
+> **Status: deferred until Ambition has a 3D game/runtime surface. TwinTrack is the separate 2D SR foundation, not a reduced version of this game.**
+>
+> Original directive (2026-07-05): Jon:
 > *"I would also like to add a 'slower speed of light' mechanic where you can
 > lower the speed of light. I'm not sure how feasible this is in 2D but I
 > think we could use shaders to modify light — the trick is how to warp
@@ -15,7 +17,11 @@
 > [`frame-awareness.md`](frame-awareness.md) ("future relativity-inspired
 > mechanics") and the north star ("every biome a math world model").
 
-## Feasibility (short answer: yes, and 2D is mostly EASIER)
+## Relationship to TwinTrack
+
+TwinTrack implements flat-spacetime clocks, interval classification, observer velocity transforms, and an exact Minkowski test provider in 2D. Slower Light is a later **3D** game centered on observer optics and finite signal propagation. It should reuse those foundations, but it is not the same demo and is not ready while the engine lacks a 3D game surface.
+
+## Feasibility
 
 Prior art exists: MIT Game Lab's *A Slower Speed of Light* / OpenRelativity
 does this in 3D with vertex + fragment shaders. Every piece maps to 2D, and
@@ -133,7 +139,7 @@ while the drama (warp, Doppler, contraction) is presentation.
 
 - No sim-side space warping, no per-observer collision geometry, no
   light-cone causality in the SIM. One honest world; observers see it bent.
-- No general-relativity (curved-space) mechanics — gravity zones already
+- No general-relativity (curved-spacetime) mechanics in this game — gravity zones already
   cover the gameplay want there; if a curved-space biome ever matters it is
   its own manifesto.
 - Multiplayer + finite c interactions (whose observer frame wins?) —

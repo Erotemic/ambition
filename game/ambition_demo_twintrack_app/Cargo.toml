@@ -1,0 +1,31 @@
+[package]
+name = "ambition_demo_twintrack_app"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Standalone shell and acceptance tests for the TwinTrack SR demo."
+publish = false
+
+[[bin]]
+name = "twintrack_demo"
+path = "src/main.rs"
+test = false
+bench = false
+
+[features]
+default = []
+visible = [
+    "ambition_platformer2d/visible",
+    "ambition_platformer2d/basic_shell_presentation",
+    "ambition_platformer2d/input",
+]
+
+[dependencies]
+ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "relativity"] }
+ambition_demo_twintrack = { path = "../ambition_demo_twintrack" }
+bevy = { version = "0.18.1", default-features = false }
+
+[[test]]
+name = "twintrack_it"
+path = "tests/twintrack_it.rs"

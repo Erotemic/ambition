@@ -25,6 +25,13 @@ fable-specced] execution; the falling-sand solver correctness pass
 the engine"); boss-fight *quality* grammar beyond validation (boss-design.md's
 open iteration loop).
 
+## Relativity research lane (opened 2026-08-04)
+
+- **SR-0 / TwinTrack candidate:** dimension-independent Minkowski mathematics, an opt-in 2D spacetime provider, rollback-safe proper clocks, and a complete outbound/reunion demo. See [`engine/relativity.md`](engine/relativity.md) and [`demos/twintrack.md`](demos/twintrack.md). Compile and visible feel validation are the remaining gate for the candidate overlay.
+- **SR-1:** light signals, worldline/spacetime-diagram telemetry, and observer-frame presentation built on the same exact model.
+- **GR research path:** analytic curved providers first, then sampled/evolved fields. Minkowski remains the switchable flat limit and validation oracle. Do not begin dynamic numerical relativity by bypassing the spacetime-provider boundary.
+- **Slower Light:** separate future 3D game; deferred until a 3D runtime exists.
+
 ## Hardest UNBLOCKED work, ranked (survey 2026-07-23)
 
 One list, so choosing the next big push never requires re-deriving it. Ranked

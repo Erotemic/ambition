@@ -172,6 +172,10 @@ pub use ambition_portal2d_presentation as portal_presentation;
 pub use ambition_projectiles as projectiles;
 #[cfg(feature = "ambition_render")]
 pub use ambition_render as render;
+#[cfg(feature = "relativity")]
+pub use ambition_relativity as relativity;
+#[cfg(feature = "relativity")]
+pub use ambition_relativity2d as relativity2d;
 #[cfg(feature = "ambition_settings_menu")]
 pub use ambition_settings_menu as settings_menu;
 #[cfg(feature = "ambition_sfx")]

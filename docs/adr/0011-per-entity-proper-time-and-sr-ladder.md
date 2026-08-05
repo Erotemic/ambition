@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted research direction; current gameplay implementation is partial.
+Accepted. The TwinTrack slice provides the first concrete SR producer and game acceptance surface.
 
 ## Decision
 
@@ -12,7 +12,9 @@ The long-term ladder is:
 
 1. Galilean/single-clock gameplay for current simple mechanics.
 2. Per-entity local clocks for coherent multi-observer slow/fast effects.
-3. More relativistic or non-Euclidean time rules only when a concrete mechanic needs them.
+3. Minkowski spacetime as the exact SR model (`ambition_relativity` + the opt-in 2D adapter).
+4. Prescribed curved-spacetime providers, geodesics, and observer optics when a concrete game needs them.
+5. Research numerical-GR providers only behind the same sampling boundary.
 
 ## Context
 
@@ -29,3 +31,7 @@ For one player, slowing the world and boosting the player's proper time can feel
 - Do not implement speculative relativity infrastructure without a concrete gameplay use.
 - Do not delete the vocabulary just because the full ladder is not landed.
 - When adding time-affecting mechanics, say whether it is global sim time, entity proper time, presentation-only time, or wall-clock behavior.
+
+## 2026-08-04 implementation amendment
+
+TwinTrack supplies the concrete mechanic that this ADR previously required before infrastructure work: a player chooses a high-speed worldline and reunites with a stationary clock. The SR implementation is intentionally the flat provider behind a spacetime interface, so future GR work can retain the clocks, observer utilities, rollback state, and Minkowski regression tests without making a global inertial frame an engine assumption.

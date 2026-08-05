@@ -385,15 +385,6 @@ fn pits() -> Vec<(f32, f32)> {
         })
         .expect("the level has ground");
     let row = (widest.aabb.min.y + widest.aabb.max.y) * 0.5;
-    let solid_at = |x: f32| {
-        room.world.blocks.iter().any(|b| {
-            !matches!(b.kind, ae::world::BlockKind::Hazard)
-                && b.aabb.min.x <= x
-                && b.aabb.max.x >= x
-                && b.aabb.min.y <= row
-                && b.aabb.max.y >= row
-        })
-    };
     // ⛔ **exact spans, not samples.** A 32px sampler reports the first EMPTY
     // sample as the lip, so every pit's left edge came back 32px late — and this
     // list is what the scripted run uses to time its jumps, so she jumped late

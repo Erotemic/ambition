@@ -23,6 +23,10 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v7 (2026-08-04): the optional relativity capability adds authoritative
+/// f64 proper-time clocks, spacetime identity, and TwinTrack experiment state.**
+/// A host that installs it has a different snapshot contract from v6.
+///
 /// ⚠ **v6 (2026-07-31): `BodyHealth` carries its damage METER and DEATH POLICY
 /// on the wire.** It had gained both when the stocks loop landed and encoded
 /// neither, so every rewind restored a fighter at 0% under `HpDepleted` — a
@@ -36,7 +40,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 6;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 7;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

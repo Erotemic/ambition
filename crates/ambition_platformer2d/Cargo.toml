@@ -47,6 +47,7 @@ default = ["all_capabilities"]
 # Every optional edge on: the facade exactly as it was when every edge was
 # unconditional.
 all_capabilities = [
+    "relativity",
     "ambition_cutscene",
     "ambition_dialog",
     "ambition_encounter",
@@ -116,6 +117,7 @@ audio = [
 ui = ["ambition_platformer2d_actor_monolith/ui"]
 bevy_ui_menu = ["ambition_platformer2d_actor_monolith/bevy_ui_menu", "ambition_menu/bevy_ui_menu"]
 kaleidoscope_menu = ["ambition_platformer2d_actor_monolith/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
+relativity = ["dep:ambition_relativity", "dep:ambition_relativity2d"]
 basic_shell_presentation = [
     "ambition_game_shell/basic_presentation",
     "ambition_load_presentation/basic_presentation",
@@ -150,6 +152,8 @@ ambition_platformer2d_provider = { path = "../ambition_platformer2d_provider" }
 ambition_portal2d = { path = "../ambition_portal2d", optional = true }
 ambition_portal2d_presentation = { path = "../ambition_portal2d_presentation", optional = true }
 ambition_projectiles = { path = "../ambition_projectiles", optional = true }
+ambition_relativity = { path = "../ambition_relativity", optional = true }
+ambition_relativity2d = { path = "../ambition_relativity2d", optional = true }
 ambition_render = { path = "../ambition_render", optional = true }
 ambition_causal = { path = "../ambition_causal", features = ["bevy"], optional = true }
 ambition_platformer2d_runtime = { path = "../ambition_platformer2d_runtime" }

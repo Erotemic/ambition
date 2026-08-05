@@ -5,8 +5,8 @@
 //! required acceptance sequence:
 //!
 //! ```text
-//! launcher → Sanic → launcher → Mary-O → launcher → Ambition → launcher
-//!          → Sanic (fresh) → launcher → Exit
+//! launcher → Sanic → launcher → Mary-O → launcher → Pocket → launcher
+//!          → TwinTrack → launcher → Ambition → launcher → Sanic (fresh) → launcher → Exit
 //! ```
 //!
 //! At every home visit it asserts the zero-state contract (no session, no
@@ -192,7 +192,7 @@ fn assert_home(app: &mut App, context: &str) {
 }
 
 /// Select the launcher entry at `index` (registration order:
-/// Ambition, Sanic, Mary-O, Pocket, Exit) and confirm it.
+/// Ambition, Sanic, Mary-O, Pocket, TwinTrack, Smash, Versus, Exit) and confirm it.
 /// Launcher rows = registered experience entries + built-in host actions (the
 /// Exit row, when the host shows it). Derived, never a literal.
 fn launcher_row_count(app: &App) -> usize {
@@ -415,7 +415,7 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         .collect();
     assert_eq!(
         entries,
-        vec!["Ambition", "Sanic", "Mary-O", "Pocket", "Smash", "Versus"],
+        vec!["Ambition", "Sanic", "Mary-O", "Pocket", "TwinTrack", "Smash", "Versus"],
         "launcher entries derive from the registered experiences. `Versus` is the \
          app-composed crossover stage (C4): its fighters belong to two different \
          provider plugins, so the multi-game host is the only composition where \
@@ -527,6 +527,29 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
     assert_home(&mut app, "after pocket");
+
+    // ── TwinTrack SR provider ─────────────────────────────────────────
+    launch_entry(&mut app, 4);
+    let scope = assert_in_game(
+        &mut app,
+        ambition_demo_twintrack::TWINTRACK_GAMEPLAY_ROUTE,
+        ambition_demo_twintrack::TWINTRACK_EXPERIENCE,
+        Some(ambition_demo_twintrack::TWINTRACK_CHARACTER_ID),
+        ambition_demo_twintrack::TWINTRACK_EXPERIENCE,
+        "twintrack",
+    );
+    fresh(scope, "twintrack");
+    {
+        let mut query = app.world_mut().query::<&ambition_platformer2d::relativity2d::ActiveSpacetime2d>();
+        assert_eq!(query.iter(app.world()).count(), 1, "TwinTrack owns one session-scoped spacetime provider");
+    }
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert_home(&mut app, "after twintrack");
+    {
+        let mut query = app.world_mut().query::<&ambition_platformer2d::relativity2d::ActiveSpacetime2d>();
+        assert_eq!(query.iter(app.world()).count(), 0, "TwinTrack spacetime leaves with its session");
+    }
 
     // ── Ambition ───────────────────────────────────────────────────────
     launch_entry(&mut app, 0);

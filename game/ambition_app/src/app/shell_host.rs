@@ -4,7 +4,7 @@
 //! `compose_ambition_shell_host` turns the visible Ambition app into a
 //! shell-routed host: `./run_game.sh` boots into the Ambition launcher
 //! (title screen), whose entries derive from registered experience providers
-//! (Ambition, Sanic, Mary-O, Pocket, Smash, Versus — plus Exit). Selecting an
+//! (Ambition, Sanic, Mary-O, Pocket, TwinTrack, Smash, Versus — plus Exit). Selecting an
 //! entry activates that provider's gameplay session through the shared
 //! shell/session/load lifecycle; `QuitToHome` retires the exact session and
 //! resumes the launcher; Exit leaves the process.
@@ -103,6 +103,7 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         ambition_demo_sanic::SanicExperiencePlugin,
         ambition_demo_mary_o::MaryOExperiencePlugin,
         ambition_demo_pocket::PocketExperiencePlugin,
+        ambition_demo_twintrack::TwinTrackExperiencePlugin,
         // The stocks demo. It is the first provider whose launcher row does NOT
         // open its gameplay route: "Smash" opens CHARACTER SELECT, which the
         // demo registers as a frontend route of its own and which then asks the

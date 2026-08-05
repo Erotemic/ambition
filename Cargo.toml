@@ -1,11 +1,15 @@
 [workspace]
 members = [
     "crates/ambition_platformer2d",
+    "crates/ambition_relativity",
+    "crates/ambition_relativity2d",
     "crates/ambition_characters",
     "game/ambition_app",
     "game/ambition_app_tools",
     "game/ambition_demo_mary_o",
     "game/ambition_demo_mary_o_app",
+    "game/ambition_demo_twintrack",
+    "game/ambition_demo_twintrack_app",
     "game/ambition_demo_sanic",
     "game/ambition_demo_smash",
     "game/ambition_demo_smash_app",

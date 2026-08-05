@@ -44,3 +44,40 @@
 
 
 * The current player V3 collision / hurt box  is larger than the player sprite. It needs to be slightly inset from the visible parts of the player. It should be under the main head, and well within the player arms. The player hitbox needs to be very forgiving to the player.
+
+---
+
+## ◐ HEADLINE FEATURE, 2026-08-05: the smash character select screen
+
+*Jon's spec, kept verbatim at his instruction ("Copy this spec into my observations
+file so we don't lose the verbatim text in case we compact"). Anything below this
+line that is not in the blockquote is agent commentary and can be edited freely;
+the blockquote cannot.*
+
+> I want you to make a new headline feature for this next push, which is a better
+> smash character select screen. It should be a new UI that lives in the smash demo
+> game. Nothing in the engine needs to support it if it doesn't make sense. There
+> might be minor engine helpers that do make sense (e.g. portraits). What it should
+> have is a grid of portraits for each of the selectable characters on the top 65%
+> of the screen. The bottom 35% of the screen should be 4 participant slot cards. In
+> this UI the arrows or game stick or mouse should move a cursor that can click on
+> elements. Each participant slot will have a button to toggle it between a
+> controller player (which must have a corresponding attached controller), a CPU
+> player, or not participating. Each participating card gets a corresponding sphere
+> icon on the character grid that the cursor can pick up and drag to select a
+> character. The selected portrait should appear on the participants bottom card.
+> Effectively this should work just like how the real smash character select screen
+> works, which should help you fill in details that I didn't write down explicitly
+> here. The main out of scope features are, we will not have different character
+> colorings or skins yet. There will be no match options, it will always be a 3stock
+> round. The main purpose is to have a nice UI for selecting characeters to prove we
+> can do it.
+
+**Explicitly out of scope:** alternate costumes/colours; match options (always a
+3-stock round).
+
+**Read "just like the real one" as licence to fill in:** a slot that has picked
+nothing is not ready; the match cannot start until every participating slot has a
+character; a cursor hovering a portrait previews it; picking up a token and
+dropping it on empty space returns it rather than clearing the slot; a controller
+slot with no attached pad cannot be set to controller.

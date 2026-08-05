@@ -22,11 +22,15 @@
 //! Registered BEFORE `AssetPlugin` is built — Bevy seals its sources when the
 //! plugin builds, so this cannot be a plugin added later:
 //!
-//! ```ignore
+//! ```
+//! use bevy::app::App;
+//! use bevy::asset::AssetApp;
+//!
+//! let mut app = App::new();
 //! app.register_asset_source(
 //!     "game",
 //!     ambition_asset_manager::consumer_source::layered_asset_source(
-//!         my_game::my_asset_root(),                       // authored HERE
+//!         "assets/my_game",                                    // authored HERE
 //!         ambition_asset_manager::actors_desktop_asset_root(), // engine's tree
 //!     ),
 //! );

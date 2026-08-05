@@ -361,6 +361,34 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         app.add_systems(
             Update,
             (
+                // ⭐ **THE ROOM'S OWN VISUALS FIRST.** This was registered on
+                // its own, in bare `Update`, in no set and with no edges at all
+                // — so "the destination room's visuals exist" and "the floor
+                // checks whether anything is undrawn" had no ordering between
+                // them, and the spawner's `Commands` might or might not be
+                // flushed before the floor read. After a room-transition commit
+                // the destination's authored features are already in
+                // `FeatureViewIndex` while their visuals sit unflushed, so the
+                // floor drew a stand-in for every one of them; those stand-ins
+                // then held the transition cover to its 8-second deadline and
+                // Jon's screen was black (2026-08-05).
+                //
+                // ⛔ **I claimed in `632ecf1b4` that an edge here would be a
+                // vacuous cross-schedule `.after`. That was wrong.**
+                // `PresentationVisualSync` is a sim-phase-NAMED set that is
+                // configured and populated in `Update` (see `configure_sets`
+                // above), and this system was in `Update` too — one schedule,
+                // ordinary edge. I read the set's NAME instead of where its
+                // members were registered, and the warning I left in the ledger
+                // pointed the next person away from the actual fix.
+                //
+                // Head of the chain, beside the other spawner, because the room
+                // has to be drawn before `sync_visuals` reads positions for it —
+                // not merely before the floor. The dependency also earns an
+                // auto-inserted `ApplyDeferred` (`Update` keeps Bevy's default
+                // build settings), which is the part that makes the spawns
+                // VISIBLE rather than merely earlier.
+                world::respawn_room_visuals_on_request,
                 // Spawn visual entities for encounter-spawned enemies
                 // BEFORE sync_visuals reads positions for them, and retire the
                 // ones whose sim feature is gone (an expired loot drop) so a
@@ -437,12 +465,99 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 .run_if(session_presentation_is_ready),
         );
 
-        // Rebuild the active room's static visuals + parallax when the sim asks
-        // for it (sandbox reset). The sim emits `RespawnRoomVisualsRequested`; we
-        // own the actual spawn here so the sim never imports the render layer.
-        app.add_systems(
-            Update,
-            world::respawn_room_visuals_on_request.run_if(session_presentation_is_ready),
+        // (The room's static-visual respawn is the head of the chain above. The
+        // sim emits `RespawnRoomVisualsRequested`; we own the actual spawn here
+        // so the sim never imports the render layer.)
+    }
+}
+
+#[cfg(test)]
+mod schedule_tests {
+    use super::*;
+
+    /// **The room's visuals must be SPAWNED inside the ordered visual chain**,
+    /// not floating unordered in `Update`.
+    ///
+    /// ⛔ this pins a fix whose first diagnosis was wrong in a way that would
+    /// have stopped anyone else fixing it. `632ecf1b4` recorded that an ordering
+    /// edge here would be a vacuous cross-schedule `.after` — reasoning from the
+    /// SET'S NAME (`Platformer2dSimulationPhaseMonolith::PresentationVisualSync`
+    /// reads like a simulation phase) instead of from where its members are
+    /// registered. They are registered in `Update`, the set is configured in
+    /// `Update`, and the respawn was in `Update`: one schedule, ordinary edge.
+    ///
+    /// Membership is the assertion because membership is exactly what changed —
+    /// the system was in NO set and had NO edges, so it could be scheduled
+    /// before or after the floor that counts undrawn features, and its
+    /// `Commands` might not be flushed when the floor read. That is how a room
+    /// transition left every authored feature wearing a stand-in.
+    #[test]
+    fn the_room_visual_respawn_is_inside_the_presentation_chain() {
+        use bevy::ecs::schedule::{Schedules, SystemSet};
+        use bevy::prelude::{App, Update};
+
+        // ⚠ the plugin installs a `Material2dPlugin`, so a bare `App` panics
+        // inside `bevy_asset`. Minimal + asset infrastructure is enough to build
+        // the schedule, which is all this test reads.
+        let mut app = App::new();
+        app.add_plugins((bevy::MinimalPlugins, bevy::asset::AssetPlugin::default()));
+        app.add_plugins(PresentationVisualAnimationPlugin);
+
+        // ⚠ **systems cannot be identified by NAME here.** Bevy compiles system
+        // names out unless its `debug` feature is on, so every one of them
+        // reports `<Enable the debug feature to see the name>`; a name-matching
+        // pin silently matches nothing. (My first draft also looked them up
+        // AFTER `initialize`, where they have been moved out of the graph
+        // entirely — 21 members, 0 resolvable, an assertion that could not pass.
+        // The mirror image of a check that cannot fail, and just as worthless.)
+        //
+        // So the assertion is a COUNT, and it is the better one anyway: every
+        // system this plugin puts in `Update` must be inside the ordered set.
+        // That is the actual invariant — an unordered visual system in this
+        // plugin is the defect class, whichever system it happens to be — and it
+        // survives people adding more systems to the chain.
+        let total = {
+            let schedules = app.world().resource::<Schedules>();
+            schedules
+                .get(Update)
+                .expect("Update exists")
+                .graph()
+                .systems
+                .len()
+        };
+        // The graph answers `systems_in_set` only once it has been BUILT — an
+        // unbuilt one reports `Uninitialized` rather than an empty set, which is
+        // the good failure direction. Build it without running anything.
+        app.world_mut()
+            .resource_scope(|world, mut schedules: bevy::prelude::Mut<Schedules>| {
+                schedules
+                    .get_mut(Update)
+                    .expect("the plugin registers systems in Update")
+                    .initialize(world)
+                    .expect("the Update schedule builds");
+            });
+        let schedules = app.world().resource::<Schedules>();
+        let ordered = schedules
+            .get(Update)
+            .expect("Update exists")
+            .graph()
+            .systems_in_set(
+                ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync
+                    .intern(),
+            )
+            .expect("the chain registers that set in Update")
+            .len();
+        assert!(total > 0, "the plugin registers systems in Update at all");
+        assert_eq!(
+            ordered, total,
+            "{} of this plugin's {total} `Update` systems are inside \
+             PresentationVisualSync. The stragglers have no ordering and no \
+             flush point against `draw_unclaimed_feature_views`, so whatever \
+             they spawn may not be visible when the floor asks what is undrawn \
+             — which draws a stand-in for every authored feature and holds the \
+             room-transition cover black for its full deadline. \
+             `respawn_room_visuals_on_request` was the straggler.",
+            ordered
         );
     }
 }

@@ -129,6 +129,23 @@ fn grabbing_the_authored_pole_carries_you_out_of_the_level() {
                      changing afterwards only hides it when nothing drops the request."
                 );
                 assert_eq!(id, LEVEL_1_2_ROOM_ID, "1-1's goal names 1-2");
+                // ⛔ **AND IT HAS TO STAY THERE.** The first version of the
+                // keep-asking fix remembered only THAT it had asked, not WHERE,
+                // so the arrival test compared the active room against a
+                // destination re-derived this tick — which, on arriving in 1-2,
+                // is already 1-2's own exit back to 1-1. It never saw itself
+                // arrive and asked to leave again immediately: Jon's log caught
+                // three transitions in 45ms, 1-1→1-2→1-1→1-2, which is a level
+                // that never settles and a screen that never stops covering.
+                for _ in 0..240 {
+                    app.update();
+                    assert_eq!(
+                        room_id(&mut app).as_deref(),
+                        Some(LEVEL_1_2_ROOM_ID),
+                        "arriving in 1-2 must SETTLE there; the level bounced \
+                         straight back out"
+                    );
+                }
                 return;
             }
         }

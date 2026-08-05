@@ -2294,10 +2294,19 @@ fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
 fn cycle_level_on_flag_tally(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut dwell: bevy::prelude::Local<f32>,
-    // Has this departure already been banked and asked for? The tally phase now
-    // survives the request, so without this the score would be re-added every
-    // frame she spends waiting for the room to change.
-    mut asked: bevy::prelude::Local<bool>,
+    // ⛔ **THE ROOM SHE IS TRAVELLING TO, not a bare "already asked" flag.**
+    //
+    // The first version of this was a `bool`, and it made the level PING-PONG:
+    // Jon's log showed three transitions in 45ms, 1-1→1-2, 1-2→1-1, 1-1→1-2.
+    // The arrival test compared the active room against the destination
+    // RE-DERIVED THIS TICK — and arriving in 1-2 re-derives the destination to
+    // 1-2's own exit, which is 1-1. So "am I there yet" asked about the NEXT
+    // trip, never saw itself arrive, and immediately asked to leave again.
+    //
+    // Remembering the target makes the question answerable: she has arrived when
+    // she is standing in the room she ASKED for, which no later re-derivation
+    // can change.
+    mut departing: bevy::prelude::Local<Option<String>>,
     mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
     destination: Option<bevy::prelude::Res<LevelDestination>>,
     room_set: Option<
@@ -2314,12 +2323,12 @@ fn cycle_level_on_flag_tally(
 ) {
     let Ok((mut sequence, mut level)) = owners.single_mut() else {
         *dwell = 0.0;
-        *asked = false;
+        *departing = None;
         return;
     };
     if !matches!(sequence.phase, flag::FlagPhase::Tallied { .. }) {
         *dwell = 0.0;
-        *asked = false;
+        *departing = None;
         return;
     }
     // Let the tally sit a beat before the level loops.
@@ -2346,7 +2355,7 @@ fn cycle_level_on_flag_tally(
         .unwrap_or(LevelDestination::Replay);
     let LevelDestination::Room(target) = destination else {
         *dwell = 0.0;
-        *asked = false;
+        *departing = None;
         if let Some(grabbed) = sequence.score() {
             level.score = level.score.saturating_add(grabbed);
         }
@@ -2354,6 +2363,11 @@ fn cycle_level_on_flag_tally(
         replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
         return;
     };
+    // ⭐ **once she is EN ROUTE, the remembered target wins over the resource.**
+    // `LevelDestination` is re-derived from the ACTIVE room every tick, so the
+    // moment the transition commits it describes the next leg rather than this
+    // one. Asking it again mid-trip is what made the level ping-pong.
+    let target = departing.clone().unwrap_or(target);
     // ⚠ **naming a room this world does not have is a WARNING and a REPLAY, not
     // a crash and not silence.** Following the shrine's checkpoint resume, which
     // reasons the same way about a save that names a room since removed: the
@@ -2368,7 +2382,7 @@ fn cycle_level_on_flag_tally(
              replaying the current room instead"
         );
         *dwell = 0.0;
-        *asked = false;
+        *departing = None;
         if let Some(grabbed) = sequence.score() {
             level.score = level.score.saturating_add(grabbed);
         }
@@ -2382,7 +2396,7 @@ fn cycle_level_on_flag_tally(
     // `run_flag_sequence` release her.
     if set.rooms[set.active].id == target {
         *dwell = 0.0;
-        *asked = false;
+        *departing = None;
         rearm_for_the_next_lap(&mut sequence, &mut level);
         return;
     }
@@ -2404,11 +2418,11 @@ fn cycle_level_on_flag_tally(
     // Staying `Tallied` is also the right LOOK: a tallied sequence holds her
     // still at the pole, which is what finishing a level should look like while
     // the next one loads.
-    if !*asked {
+    if departing.is_none() {
         if let Some(grabbed) = sequence.score() {
             level.score = level.score.saturating_add(grabbed);
         }
-        *asked = true;
+        *departing = Some(target.clone());
     }
     // ...but not forever. A destination that never arrives would freeze her at
     // the pole, and a silent freeze is only a better bug than a silent
@@ -2423,7 +2437,7 @@ fn cycle_level_on_flag_tally(
              a BEGIN with no retirement."
         );
         *dwell = 0.0;
-        *asked = false;
+        *departing = None;
         rearm_for_the_next_lap(&mut sequence, &mut level);
         replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
         return;

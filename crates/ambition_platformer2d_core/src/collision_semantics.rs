@@ -94,6 +94,11 @@ pub fn moving_toward_feet(delta: Vec2, gravity_dir: Vec2) -> bool {
 }
 
 /// Surfaces a body can rest on: full solids, blink walls, and one-ways.
+///
+/// ⛔ **`BonkOnly` is deliberately absent, and that absence IS the feature.** It
+/// is solid only against a head coming up into it, so nothing ever rests on one
+/// — a hidden block that supported a body would be an invisible floor, which is
+/// the bug it was added to remove.
 pub fn is_support_surface(kind: BlockKind) -> bool {
     matches!(
         kind,
@@ -115,7 +120,11 @@ pub fn is_full_collision_surface(kind: BlockKind) -> bool {
 pub fn is_solid_for_axis(kind: BlockKind, axis: Axis, gravity_dir: Vec2) -> bool {
     match kind {
         BlockKind::Solid | BlockKind::BlinkWall { .. } => true,
-        BlockKind::OneWay => axis_role(axis, gravity_dir) == AxisRole::Gravity,
+        // Both directional kinds are collision surfaces on the GRAVITY axis
+        // only; which way each one blocks is decided by its own landing rule.
+        BlockKind::OneWay | BlockKind::BonkOnly => {
+            axis_role(axis, gravity_dir) == AxisRole::Gravity
+        }
         BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => false,
     }
 }
@@ -196,6 +205,29 @@ pub fn one_way_landing_from_previous_feet(
     }
     moving_toward_feet(delta, gravity_dir)
         && prev_feet_coord <= block.head_coord(gravity_dir) + ONE_WAY_CROSSING_SLOP
+        && perpendicular_overlap(body, block, gravity_dir)
+}
+
+/// **The mirror of [`one_way_landing_from_previous_feet`]: does this body's HEAD
+/// come up into the block?**
+///
+/// A `BonkOnly` block is solid in exactly this case and in no other, so a body
+/// walks through it, falls through it, and stands where it is as if it were not
+/// there — until it jumps into it from underneath.
+///
+/// ⚠ **`drop_through` is not consulted**, and the asymmetry is real rather than
+/// an omission: dropping through is a request to stop being held UP, and nothing
+/// is holding you up here. The one-way rule needs it; this one has nothing to
+/// waive.
+pub fn bonk_strike_from_head(body: Aabb, block: Aabb, delta: Vec2, gravity_dir: Vec2) -> bool {
+    if gravity_dir == Vec2::ZERO {
+        return false;
+    }
+    // Moving AGAINST gravity — toward the head — and the head was still below
+    // the block's underside before this step, so the block is being entered
+    // from beneath rather than already overlapped.
+    delta.dot(gravity_dir) < -MOTION_EPS
+        && body.head_coord(gravity_dir) >= block.feet_coord(gravity_dir) - ONE_WAY_CROSSING_SLOP
         && perpendicular_overlap(body, block, gravity_dir)
 }
 

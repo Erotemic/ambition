@@ -29,9 +29,9 @@ use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::{AabbExt, RoomGeometry};
 use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::{session_world_exists, SessionWorldRef};
-use ambition_sim_view::{BodyPoseView, FeatureViewIndex};
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
+use ambition_sim_view::{BodyPoseView, FeatureViewIndex};
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -378,6 +378,9 @@ pub fn draw_world_blocks(gizmos: &mut Gizmos, world: &ae::World, developer_tools
                 tier: ae::BlinkWallTier::Hard,
             } => red(),
             ae::BlockKind::OneWay => blue(),
+            // Developer overlay: a hidden block is exactly what you want drawn
+            // when you have turned the overlay on.
+            ae::BlockKind::BonkOnly => green(),
             ae::BlockKind::Hazard => red(),
             ae::BlockKind::PogoOrb => green(),
             ae::BlockKind::Rebound { .. } => orange(),
@@ -478,17 +481,21 @@ impl Plugin for DebugVizPlugin {
     fn build(&self, app: &mut App) {
         // Thin-host safety: the shared sim stack normally owns these, but the
         // plugin must not panic in a host that draws without it.
-        app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>();
+        app.add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>(
+        );
         app.init_resource::<DeveloperRuntimeState>();
         app.init_resource::<DeveloperTools>();
         app.init_resource::<FeatureViewIndex>();
         app.init_resource::<MovingPlatformSet>();
         let start_enabled = self.start_enabled;
-        app.add_systems(Startup, move |mut dev_state: ResMut<DeveloperRuntimeState>| {
-            // Shared state defaults clean for every game; an embedding host
-            // may still opt in explicitly for a dedicated diagnostic build.
-            dev_state.debug = start_enabled;
-        });
+        app.add_systems(
+            Startup,
+            move |mut dev_state: ResMut<DeveloperRuntimeState>| {
+                // Shared state defaults clean for every game; an embedding host
+                // may still opt in explicitly for a dedicated diagnostic build.
+                dev_state.debug = start_enabled;
+            },
+        );
         // `.after(PresentedPoseSet)`: the overlay draws bodies and features at
         // their PRESENTED positions, so the resample must have happened first.
         //
@@ -517,7 +524,9 @@ impl Plugin for DebugVizPlugin {
 /// F1 flips the shared debug flag — the same seam the sandbox's hotkeys and
 /// the portal debug overlay bridge read.
 pub fn toggle_debug_viz(
-    mut actions: MessageReader<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>,
+    mut actions: MessageReader<
+        ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
+    >,
     mut dev_state: ResMut<DeveloperRuntimeState>,
 ) {
     if actions.read().any(|action| {
@@ -561,7 +570,9 @@ pub fn draw_debug_viz(
         draw_blast_zones(
             &mut gizmos,
             world,
-            ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(gravity.as_deref()),
+            ambition_platformer2d_shared_tangle::gravity::gravity_dir_or_default(
+                gravity.as_deref(),
+            ),
         );
     }
     if developer_tools.show_world_blocks {

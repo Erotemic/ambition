@@ -15,6 +15,7 @@ pub(super) fn block_kind_label(kind: ae::BlockKind) -> &'static str {
         ae::BlockKind::Solid => "solid",
         ae::BlockKind::BlinkWall { .. } => "blink wall",
         ae::BlockKind::OneWay => "one-way platform",
+        ae::BlockKind::BonkOnly => "bonk-only block",
         ae::BlockKind::Hazard => "hazard",
         ae::BlockKind::PogoOrb => "pogo orb",
         ae::BlockKind::Rebound { .. } => "rebound pad",

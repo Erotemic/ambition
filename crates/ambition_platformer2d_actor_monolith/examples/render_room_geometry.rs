@@ -105,8 +105,11 @@ fn color_for(kind: &ae::BlockKind) -> Rgba<u8> {
         ae::BlockKind::Solid => Rgba([120, 124, 132, 255]), // gray
         ae::BlockKind::BlinkWall { .. } => Rgba([150, 90, 200, 255]), // purple
         ae::BlockKind::OneWay => Rgba([70, 120, 210, 255]), // blue
-        ae::BlockKind::Hazard => Rgba([210, 70, 70, 255]),  // red
-        ae::BlockKind::PogoOrb => Rgba([240, 200, 60, 255]), // gold
+        // A geometry DIAGRAM shows what is there; hiding a hidden block here
+        // would hide it from the one view whose job is to say where things are.
+        ae::BlockKind::BonkOnly => Rgba([70, 210, 200, 255]), // cyan
+        ae::BlockKind::Hazard => Rgba([210, 70, 70, 255]),    // red
+        ae::BlockKind::PogoOrb => Rgba([240, 200, 60, 255]),  // gold
         ae::BlockKind::Rebound { .. } => Rgba([70, 200, 160, 255]), // teal
     }
 }
@@ -619,7 +622,10 @@ fn main() {
         eprintln!("warning: LDtk validation reported issues; rendering anyway");
     }
     let room_set = project
-        .to_room_set(&manifest, &ambition_platformer2d_ldtk::LdtkVocabulary::engine())
+        .to_room_set(
+            &manifest,
+            &ambition_platformer2d_ldtk::LdtkVocabulary::engine(),
+        )
         .expect("room_set should build");
     let boss_catalog = ambition_boss_catalog();
 

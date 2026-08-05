@@ -241,3 +241,73 @@ fn feet_snap_and_separation_are_gravity_relative() {
     let snap = snap_feet_to_surface(body, floor, dir);
     assert!((snap.y - 2.0).abs() < 1e-3 && snap.x.abs() < 1e-6);
 }
+
+/// **An invisible block is not a floor.** (Jon, 2026-08-05: *"you should not be
+/// able to stand on an invisible block."*)
+///
+/// The whole reason `BonkOnly` exists, stated where the predicate lives: a body
+/// resting exactly on its head face is NOT supported, where the same body on the
+/// same rectangle marked `Solid` or `OneWay` is.
+#[test]
+fn nothing_ever_rests_on_a_bonk_only_block() {
+    let block = aabb_from_min_size(Vec2::new(0.0, 100.0), Vec2::new(32.0, 32.0));
+    let body = Aabb::new(Vec2::new(16.0, 90.0), Vec2::new(10.0, 10.0));
+    let down = Vec2::new(0.0, 1.0);
+
+    // The control: this body IS resting, and both other kinds say so.
+    for kind in [BlockKind::Solid, BlockKind::OneWay] {
+        assert!(
+            surface_supports_body_at_rest(kind, body, block, down, false),
+            "the fixture is wrong: a {kind:?} does not support this body either, \
+             so the assertion below proves nothing"
+        );
+    }
+    assert!(
+        !surface_supports_body_at_rest(BlockKind::BonkOnly, body, block, down, false),
+        "a bonk-only block held a body up — which is an invisible floor, the \
+         exact thing the kind was added to stop"
+    );
+    assert!(!is_support_surface(BlockKind::BonkOnly));
+}
+
+/// **And it IS solid to a head coming up into it**, or the reward it hides can
+/// never be struck.
+#[test]
+fn a_bonk_only_block_is_struck_from_below_and_only_from_below() {
+    let block = aabb_from_min_size(Vec2::new(0.0, 100.0), Vec2::new(32.0, 32.0));
+    let down = Vec2::new(0.0, 1.0);
+    // A body just under the block, moving UP into it.
+    let rising = Aabb::new(Vec2::new(16.0, 142.0), Vec2::new(10.0, 10.0));
+    assert!(
+        bonk_strike_from_head(rising, block, Vec2::new(0.0, -6.0), down),
+        "a head rising into the block did not strike it, so the reward is \
+         unreachable"
+    );
+    // The same body FALLING through the same space strikes nothing.
+    assert!(
+        !bonk_strike_from_head(rising, block, Vec2::new(0.0, 6.0), down),
+        "falling through counted as a strike"
+    );
+    // Walking sideways past it strikes nothing.
+    assert!(
+        !bonk_strike_from_head(rising, block, Vec2::new(6.0, 0.0), down),
+        "walking past counted as a strike"
+    );
+    // And a body nowhere near it, rising, strikes nothing.
+    let elsewhere = Aabb::new(Vec2::new(300.0, 142.0), Vec2::new(10.0, 10.0));
+    assert!(!bonk_strike_from_head(
+        elsewhere,
+        block,
+        Vec2::new(0.0, -6.0),
+        down
+    ));
+}
+
+/// It is a collision surface on the gravity axis only — the same statement
+/// `OneWay` makes, so a body never clips its SIDES either.
+#[test]
+fn a_bonk_only_block_never_blocks_a_side_axis() {
+    let down = Vec2::new(0.0, 1.0);
+    assert!(is_solid_for_axis(BlockKind::BonkOnly, Axis::Y, down));
+    assert!(!is_solid_for_axis(BlockKind::BonkOnly, Axis::X, down));
+}

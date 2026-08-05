@@ -278,9 +278,23 @@ pub fn encoded_name(block: MaryOBlock, iid: &str) -> String {
 /// A reactive block, built the way [`convert_mary_o_block`] builds one: encoded
 /// name, and the durable placement identity that `Block::solid` does not set.
 pub fn reactive_block(block: MaryOBlock, iid: &str, min: ae::Vec2, size: ae::Vec2) -> ae::Block {
-    let mut solid = ae::Block::solid(encoded_name(block, iid), min, size);
-    solid.id = ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0);
-    solid
+    let mut lowered = ae::Block::solid(encoded_name(block, iid), min, size);
+    lowered.id = ae::GeoId::placement(ae::PlacementId::new(iid.to_string()), 0);
+    // ⛔ **A HIDDEN BLOCK IS NOT A FLOOR.** (Jon, 2026-08-05: *"you should not
+    // be able to stand on an invisible block."*) It was lowered `Solid` and
+    // merely drawn transparent, so it held her up before she had found it —
+    // invisible and intangible are different claims and only one of them was
+    // being made.
+    //
+    // ⚠ **not "no collision"**: the bonk is a `ContactKind::Head` contact the
+    // collision system produces, so a block with nothing to hit cannot be struck
+    // and the reward disappears with the floor. `BlockKind::BonkOnly` is the
+    // mirror of `OneWay` — solid ONLY against a head coming up into it — which
+    // keeps the strike and removes the ledge.
+    if block.look == MaryOBlockLook::Hidden {
+        lowered.kind = ae::BlockKind::BonkOnly;
+    }
+    lowered
 }
 
 /// The block this authored NAME describes, or `None` when the name did not come
@@ -634,6 +648,42 @@ pub const MARY_O_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[MARY_O_BLOCK, MARY_O_PIPE]
 /// looking for a file that moved.
 #[cfg(test)]
 const MARY_O_ENTITY_MANIFEST: &str = include_str!("../assets/worlds/mary_o.entities.json");
+
+/// **Only the HIDDEN look loses its floor.** (Jon, 2026-08-05: *"you should not
+/// be able to stand on an invisible block."*)
+///
+/// ⚠ the control is the point: a ?-block, a quasar block and a brick are all
+/// still `Solid`, so this pins the DIFFERENCE rather than asserting that some
+/// block somewhere is pass-through.
+#[test]
+fn a_hidden_block_is_the_only_one_that_is_not_a_floor() {
+    for look in [
+        MaryOBlockLook::Question,
+        MaryOBlockLook::Quasar,
+        MaryOBlockLook::Brick,
+    ] {
+        let block = reactive_block(
+            MaryOBlock::plain(look),
+            "iid",
+            ae::Vec2::ZERO,
+            ae::Vec2::splat(32.0),
+        );
+        assert!(
+            matches!(block.kind, ae::BlockKind::Solid),
+            "{look:?} stopped being a floor, and only Hidden should have"
+        );
+    }
+    let hidden = reactive_block(
+        MaryOBlock::plain(MaryOBlockLook::Hidden),
+        "iid",
+        ae::Vec2::ZERO,
+        ae::Vec2::splat(32.0),
+    );
+    assert!(
+        matches!(hidden.kind, ae::BlockKind::BonkOnly),
+        "a hidden block is still a floor you cannot see"
+    );
+}
 
 #[cfg(test)]
 mod tests {

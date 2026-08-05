@@ -150,6 +150,10 @@ pub fn block_color(kind: ae::BlockKind) -> Color {
             tier: ae::BlinkWallTier::Hard,
         } => Color::srgba(0.52, 0.14, 0.80, 0.96),
         ae::BlockKind::OneWay => Color::srgba(0.36, 0.43, 0.62, 0.92),
+        // ⚠ FULLY TRANSPARENT: this is the in-game fill, and a hidden block that
+        // tinted itself would announce the secret it exists to keep. A game that
+        // wants it seen once found dresses it (Mary-O swaps to the spent tile).
+        ae::BlockKind::BonkOnly => Color::srgba(0.0, 0.0, 0.0, 0.0),
         ae::BlockKind::Hazard => Color::srgba(0.96, 0.18, 0.26, 0.92),
         ae::BlockKind::PogoOrb => Color::srgba(0.30, 0.95, 0.64, 0.95),
         ae::BlockKind::Rebound { .. } => Color::srgba(1.0, 0.60, 0.20, 0.95),

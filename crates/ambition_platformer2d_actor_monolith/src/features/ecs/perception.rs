@@ -526,7 +526,11 @@ fn perceived_solid_kind(kind: ae::BlockKind) -> Option<SolidKind> {
         ae::BlockKind::BlinkWall { .. } => Some(SolidKind::BlinkWall),
         ae::BlockKind::OneWay => Some(SolidKind::OneWay),
         ae::BlockKind::Hazard => Some(SolidKind::Hazard),
-        ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } => None,
+        // ⚠ **a bonk-only block is not terrain to a brain.** It blocks neither
+        // sight nor a straight path — nothing can walk into it or stand on it —
+        // so perceiving it as ground would route a patrol over a surface that
+        // will not hold it.
+        ae::BlockKind::BonkOnly | ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } => None,
     }
 }
 

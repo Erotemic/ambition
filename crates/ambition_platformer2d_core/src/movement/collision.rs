@@ -287,6 +287,17 @@ pub(super) fn sweep_player_axis_clusters(
                 drop_through,
             );
         }
+        // ⛔ **the MIRROR, and without it a `BonkOnly` block is solid from every
+        // side** — which is the invisible floor it exists to stop being. It
+        // blocks a head coming up into it and nothing else.
+        if matches!(block.kind, BlockKind::BonkOnly) {
+            return crate::collision_semantics::bonk_strike_from_head(
+                start_body,
+                block.aabb,
+                delta,
+                gravity_dir,
+            );
+        }
         if role == AxisRole::Gravity && body_is_nested_along(start_body, block.aabb, axis) {
             return false;
         }
@@ -298,7 +309,13 @@ pub(super) fn sweep_player_axis_clusters(
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         kinematics.pos += axis_vec(axis, delta_along * toi_fraction);
         let body = kinematics.aabb_oriented(gravity_dir);
-        if matches!(hit.block.kind, BlockKind::OneWay)
+        // ⚠ a `BonkOnly` hit is never a LANDING — the body was moving away from
+        // its feet to reach it — so it must not take the feet-snap arm. It falls
+        // through to the ordinary face resolution below, which is what produces
+        // the head contact the bonk reads.
+        if matches!(hit.block.kind, BlockKind::BonkOnly) {
+            // deliberately not the landing arm; see above.
+        } else if matches!(hit.block.kind, BlockKind::OneWay)
             || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
         {
             let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);

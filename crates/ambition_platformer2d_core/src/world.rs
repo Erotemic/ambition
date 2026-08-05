@@ -26,6 +26,20 @@ pub enum BlockKind {
     BlinkWall { tier: BlinkWallTier },
     /// Landing platform: only solid when the player crosses from above.
     OneWay,
+    /// **The mirror of [`BlockKind::OneWay`]: only solid when struck from
+    /// BELOW.** A body falls through it, walks through it, and stands where it
+    /// is as if it were not there — and a head that comes up into it hits it.
+    ///
+    /// ⛔ **it exists because "invisible" and "intangible" are different
+    /// claims.** Mary-O's hidden reward blocks were drawn transparent and left
+    /// `Solid`, so they were invisible FLOORS: she could land on nothing. (Jon,
+    /// 2026-08-05: *"you should not be able to stand on an invisible block."*)
+    ///
+    /// ⚠ **and it is not "no collision".** A head-bonk is a CONTACT the
+    /// collision system produces, so a block with no collision cannot be struck
+    /// at all and the reward would vanish with the floor. One-sided solidity is
+    /// the only shape that keeps both.
+    BonkOnly,
     /// Reset surface. Hitting this returns the player to spawn.
     Hazard,
     /// Pogo target that refreshes movement resources when struck downward.

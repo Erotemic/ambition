@@ -59,7 +59,9 @@ pub fn entity_sprite_for_pickup(
     Some(pickup_sprite(&pickup.kind))
 }
 
-pub fn entity_sprite_for_chest(_chest: &ambition_platformer2d_world::rooms::ChestSpec) -> Option<EntitySprite> {
+pub fn entity_sprite_for_chest(
+    _chest: &ambition_platformer2d_world::rooms::ChestSpec,
+) -> Option<EntitySprite> {
     Some(EntitySprite::ChestClosed)
 }
 
@@ -140,9 +142,15 @@ pub fn entity_sprite_for_boss(
 
 fn pickup_sprite(kind: &ambition_platformer2d_world::rooms::PickupKindSpec) -> EntitySprite {
     match kind {
-        ambition_platformer2d_world::rooms::PickupKindSpec::Health { .. } => EntitySprite::PickupHealth,
-        ambition_platformer2d_world::rooms::PickupKindSpec::Currency { .. } => EntitySprite::PickupCurrency,
-        ambition_platformer2d_world::rooms::PickupKindSpec::Ability { .. } => EntitySprite::PickupAbility,
+        ambition_platformer2d_world::rooms::PickupKindSpec::Health { .. } => {
+            EntitySprite::PickupHealth
+        }
+        ambition_platformer2d_world::rooms::PickupKindSpec::Currency { .. } => {
+            EntitySprite::PickupCurrency
+        }
+        ambition_platformer2d_world::rooms::PickupKindSpec::Ability { .. } => {
+            EntitySprite::PickupAbility
+        }
         // StoryFlag and Custom fall back to the ability look until they
         // get dedicated art.
         _ => EntitySprite::PickupAbility,
@@ -173,6 +181,11 @@ pub fn block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     match kind {
         ae::BlockKind::Solid => Some(EntitySprite::SolidBlock),
         ae::BlockKind::OneWay => Some(EntitySprite::OneWayPlatform),
+        // ⚠ **`None`, and that is the kind's whole point.** A bonk-only block is
+        // hidden until it has been struck; whatever a game wants it to look like
+        // once found is that game's own dresser's decision, and a default here
+        // would draw the secret.
+        ae::BlockKind::BonkOnly => None,
         ae::BlockKind::Hazard => Some(EntitySprite::HazardSpikes),
         ae::BlockKind::PogoOrb => Some(EntitySprite::PogoOrb),
         ae::BlockKind::Rebound { .. } => Some(EntitySprite::ReboundPad),

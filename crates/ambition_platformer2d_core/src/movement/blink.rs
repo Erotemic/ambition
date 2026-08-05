@@ -162,9 +162,14 @@ fn blink_path_blocker_abilities(abilities: &crate::abilities::AbilitySet, kind: 
     match kind {
         BlockKind::Solid => true,
         BlockKind::BlinkWall { tier } => !abilities_can_blink_through(abilities, tier),
-        BlockKind::OneWay | BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => {
-            false
-        }
+        // Neither directional kind blocks a blink PATH: a one-way is not a wall
+        // and a bonk-only block is not there at all unless a head is coming up
+        // into it, which a blink is not.
+        BlockKind::OneWay
+        | BlockKind::BonkOnly
+        | BlockKind::Hazard
+        | BlockKind::PogoOrb
+        | BlockKind::Rebound { .. } => false,
     }
 }
 
@@ -222,7 +227,7 @@ fn blink_collision_abilities(
                     return BlinkCollision::Blocked;
                 }
             }
-            BlockKind::OneWay => pass_through = true,
+            BlockKind::OneWay | BlockKind::BonkOnly => pass_through = true,
             BlockKind::Hazard | BlockKind::PogoOrb | BlockKind::Rebound { .. } => {}
         }
     }

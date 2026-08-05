@@ -20,12 +20,11 @@ pub mod ai_slop;
 #[cfg(test)]
 mod binding_tests;
 pub mod bricks;
-pub mod ldtk_vocabulary;
-pub mod test_course;
-#[cfg(test)]
-mod ldtk_migration_tests;
 pub mod death;
 pub mod flag;
+#[cfg(test)]
+mod ldtk_migration_tests;
+pub mod ldtk_vocabulary;
 pub mod level_1_2;
 pub mod movement;
 pub mod pipe;
@@ -36,6 +35,7 @@ pub mod scenery;
 pub mod snake;
 pub mod star;
 pub mod stomp;
+pub mod test_course;
 
 pub use provider::{
     mary_o_session_world, MaryOExperiencePlugin, MaryOSessionWorld, MARY_O_CHARACTER_ID,
@@ -150,7 +150,6 @@ const SURFACE_HEIGHT: f32 = 15.0 * T;
 
 /// How far below the ground slab the secret vault's floor sits.
 const VAULT_DEPTH_TILES: f32 = 9.0;
-
 
 /// The four halves of Mary-O's two warp tubes, by their AUTHORED names.
 ///
@@ -344,7 +343,9 @@ fn authored_room(area: &str) -> RoomSpec {
     // silent for an identical set, which is exactly the repeated case.
     ldtk_vocabulary::install();
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(MARY_O_WORLD_JSON)
-        .expect("mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)");
+        .expect(
+            "mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)",
+        );
     let room_set = project
         .to_room_set_with_entry(area)
         .unwrap_or_else(|errors| panic!("mary_o.ldtk converts to rooms: {errors:?}"));
@@ -550,16 +551,15 @@ pub fn authored_block_by_id<'a>(world: &'a ae::World, id: &ae::GeoId) -> Option<
 /// time, so there is no second value it could ever hold and no install order to
 /// get wrong.
 fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)> {
-    static BLOCKS: std::sync::LazyLock<
-        std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)>,
-    > = std::sync::LazyLock::new(|| {
-        authored_room(LEVEL_1_1_ROOM_ID)
-            .world
-            .blocks
-            .iter()
-            .map(|block| (block.name.clone(), (block.id.clone(), block.aabb)))
-            .collect()
-    });
+    static BLOCKS: std::sync::LazyLock<std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)>> =
+        std::sync::LazyLock::new(|| {
+            authored_room(LEVEL_1_1_ROOM_ID)
+                .world
+                .blocks
+                .iter()
+                .map(|block| (block.name.clone(), (block.id.clone(), block.aabb)))
+                .collect()
+        });
     &BLOCKS
 }
 
@@ -577,7 +577,6 @@ fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::G
 // [`ldtk_vocabulary::block_kind_of`]: ask the ROOM which block was struck, then
 // ask the BLOCK what kind it is. Position comes from the block's own `aabb`, so a
 // block dragged in the editor pops its reward where it now sits.
-
 
 /// The pole's geometry, derived from the SAME constants [`level_1_1`] builds the
 /// `goal_pole` block out of. A second source of truth for where the flag is would
@@ -598,6 +597,40 @@ pub fn goal_pole() -> flag::FlagPole {
 /// flag's read-model behind (the drift the pole oracle guards against). Column 98
 /// after the level was lengthened by 8 tiles for the vault.
 const POLE_COLUMN: f32 = 98.0;
+
+/// **Which pole a room finishes on.**
+///
+/// ⛔ the pole was inserted at plugin build as 1-1's, unconditionally — so the
+/// entry-room seam could put a session in another room and that session had no
+/// reachable goal at all. `run_flag_sequence` compares her position against this
+/// resource and nothing else, so the failure is silent: the level simply never
+/// ends. Which room she is in already decides which world she gets
+/// ([`provider::mary_o_session_world_entering`]); it decides the goal by the same
+/// answer here.
+pub fn pole_for_room(room_id: &str) -> flag::FlagPole {
+    if room_id == test_course::TEST_COURSE_ROOM_ID {
+        test_course::course_pole()
+    } else {
+        goal_pole()
+    }
+}
+
+/// Install the entry room's pole once the session's choice is readable.
+///
+/// Startup rather than plugin build, because [`provider::MaryOEntryRoom`] is a
+/// resource a host inserts into the built app — the same lifetime the world
+/// source reads it on. Absent means 1-1, for the reason the resource's own doc
+/// gives: a shipped game must not depend on something only a test inserts.
+fn install_goal_pole(
+    mut commands: bevy::prelude::Commands,
+    entry: Option<bevy::prelude::Res<provider::MaryOEntryRoom>>,
+) {
+    commands.insert_resource(pole_for_room(
+        entry
+            .as_ref()
+            .map_or(LEVEL_1_1_ROOM_ID, |room| room.0.as_str()),
+    ));
+}
 
 /// **Mary-O Classic's movement profile, authored ONCE.**
 ///
@@ -1268,7 +1301,11 @@ impl Plugin for MaryORulesPlugin {
         // the room outright — loudly, which is the right failure.
         ldtk_vocabulary::install();
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        // 1-1's pole up front so nothing that reads the resource before the first
+        // frame finds it missing; `install_goal_pole` re-answers it from the entry
+        // room, which is only readable once the host has finished building.
         app.insert_resource(goal_pole());
+        app.add_systems(bevy::app::Startup, install_goal_pole);
         app.init_resource::<powerups::SpentPowerBlocks>();
         app.init_resource::<bricks::BrokenBricks>();
         // The brick overlay contributor writes the collision overlay; a full app

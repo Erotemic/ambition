@@ -2613,16 +2613,46 @@ mod tests {
             widest.1
         );
 
-        // ⚠ every platform in the level is one-way: you rise through them and never
-        // get stuck under one. Stated over the whole population rather than over two
-        // names, so a platform Jon adds is held to the same rule.
+        // ⚠ every FLOATING platform in the level is one-way: you rise through
+        // them and never get stuck under one. Stated over the whole population
+        // rather than over two names, so a platform Jon adds is held to it.
+        //
+        // ⛔ **this filter excluded EVERYTHING and the assertion never ran.** It
+        // ended `!authored_named_blocks().contains_key(&b.name)`, and that map
+        // is keyed by the name of EVERY block in the room — so the predicate was
+        // false for all of them and the loop body was unreachable. A check that
+        // cannot fail, sitting inside a test that passed.
+        //
+        // ⭐ **two things it was conflating, now separated.** A thin block high
+        // in the level is not automatically a platform:
+        //
+        // - a REACTIVE block is a placement this demo owns and is deliberately
+        //   SOLID — you bonk it from below, which is the opposite of admitting
+        //   you. Excluded by source, not by name.
+        // - a STAIR TOP is thin and high and solid, and correctly so: it has the
+        //   pyramid under it. Excluded by FLOATING, which is the property the
+        //   rule was always about — "you get stuck under one" can only happen to
+        //   something with air beneath it.
+        //
+        // Measured on the authored level: of seventeen thin high blocks, nine
+        // are reactive, two are the pole, and of the six terrain blocks left
+        // every floating one is already one-way and every solid one is a stair.
         let platform_top = SURFACE_HEIGHT - GROUND_TILES * T - 2.0 * T;
+        let floats = |block: &ae::Block| {
+            !room.world.blocks.iter().any(|other| {
+                other.aabb.min.x < block.aabb.max.x
+                    && other.aabb.max.x > block.aabb.min.x
+                    && (other.aabb.min.y - block.aabb.max.y).abs() < 1.0
+            })
+        };
+        let mut checked = 0usize;
         for block in room.world.blocks.iter().filter(|b| {
             b.aabb.min.y < platform_top
                 && b.aabb.max.y - b.aabb.min.y <= T
-                && !b.name.starts_with(GOAL_POLE_PREFIX)
-                && !authored_named_blocks().contains_key(&b.name)
+                && matches!(b.id.source, ae::GeoSource::TileLayer { .. })
+                && floats(b)
         }) {
+            checked += 1;
             assert!(
                 matches!(block.kind, ae::BlockKind::OneWay),
                 "`{}` floats at jump height and is not a one-way — this grammar's \
@@ -2630,6 +2660,15 @@ mod tests {
                 block.name
             );
         }
+        // ⛔ **and the loop has to have RUN.** The defect this replaces was an
+        // empty loop, so a rule stated over "the whole population" has to say out
+        // loud that the population is not empty — otherwise the same failure
+        // returns the next time someone tightens the filter.
+        assert!(
+            checked > 0,
+            "no floating terrain platform was checked, so this rule proved \
+             nothing — the filter excludes everything again"
+        );
 
         // The pyramid ascends, then descends, and the goal is past both halves.
         let pole = authored_named(&room, "goal_pole");

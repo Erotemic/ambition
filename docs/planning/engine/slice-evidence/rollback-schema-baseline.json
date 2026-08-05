@@ -45,6 +45,7 @@
     "actor.control",
     "actor.cooldowns",
     "actor.disposition",
+    "actor.dormancy_policy",
     "actor.dormant",
     "actor.faction",
     "actor.held_item",

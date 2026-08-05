@@ -151,7 +151,6 @@ fn the_demo_opens_on_select_and_the_battle_starts_when_players_lock_in() {
 /// below the app can reach.
 #[test]
 fn a_launched_fighter_is_taken_by_the_world_and_spends_a_stock() {
-    use ambition_demo_smash::select::SmashSelect;
     use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
     use bevy::prelude::*;
 

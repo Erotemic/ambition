@@ -120,6 +120,24 @@ impl RowPress {
         (!cancelled && armed == Some(index)).then_some(index)
     }
 
+    /// The pointer LEFT this row without coming up.
+    ///
+    /// ⛔ **a leave is not a release, and the two are the same Bevy signal.**
+    /// `Interaction::None` is raised both when a finger lifts and when a held
+    /// pointer stops covering the row, and [`Self::release`] cannot tell them
+    /// apart — its only guards are the drag threshold and the row index, so a
+    /// press that slides a few pixels off a short row would activate under a
+    /// finger that never came up. The caller decides which event it is from the
+    /// live button/touch state and calls this one for a leave.
+    ///
+    /// Only the armed row can be left, so a sibling row going `None` in the same
+    /// frame does not take the arm down with it.
+    pub fn left(&mut self, index: usize) {
+        if self.index == Some(index) {
+            self.clear();
+        }
+    }
+
     /// Abandon the press without activating — the row went away, the menu
     /// closed, the finger left the control.
     pub fn clear(&mut self) {

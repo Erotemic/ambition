@@ -10,8 +10,8 @@ use ambition_platformer2d::platformer::lifecycle::{SessionRoot, SessionScopedEnt
 use ambition_platformer2d::platformer::schedule::{SimScheduleExt, WorldPrepSet};
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
 use ambition_platformer2d::relativity2d::{
-    ActiveSpacetime2d, ProperTimeElapsed, Relativity2dPlugin, Relativity2dSet,
-    RelativityClockLabel, RelativityClockView2d, RelativisticClock2d,
+    ActiveSpacetime2d, ProperTimeElapsed, RelativisticClock2d, Relativity2dPlugin, Relativity2dSet,
+    RelativityClockLabel, RelativityClockView2d,
 };
 use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
@@ -235,10 +235,7 @@ impl Plugin for TwinTrackExperiencePlugin {
             "ambition_demo_twintrack",
             "twintrack.experiment",
         )
-        .rollback_component_clone::<TravelerTwin>(
-            "ambition_demo_twintrack",
-            "twintrack.traveler",
-        )
+        .rollback_component_clone::<TravelerTwin>("ambition_demo_twintrack", "twintrack.traveler")
         .rollback_component_clone::<LaboratoryTwin>(
             "ambition_demo_twintrack",
             "twintrack.laboratory",
@@ -280,21 +277,26 @@ impl Plugin for TwinTrackExperiencePlugin {
         app.add_systems(
             sim,
             install_twintrack_session
-                .run_if(ambition_platformer2d::runtime::in_mode(TWINTRACK_EXPERIENCE))
+                .run_if(ambition_platformer2d::runtime::in_mode(
+                    TWINTRACK_EXPERIENCE,
+                ))
                 .before(Relativity2dSet::ResolveClocks)
                 .in_set(WorldPrepSet::BeforeIntegrate),
         )
         .add_systems(
             sim,
             update_twintrack_experiment
-                .run_if(ambition_platformer2d::runtime::in_mode(TWINTRACK_EXPERIENCE))
+                .run_if(ambition_platformer2d::runtime::in_mode(
+                    TWINTRACK_EXPERIENCE,
+                ))
                 .after(Relativity2dSet::ResolveClocks)
                 .in_set(WorldPrepSet::BeforeIntegrate),
         )
         .add_systems(
             Update,
-            publish_twintrack_hud
-                .run_if(ambition_platformer2d::runtime::in_mode(TWINTRACK_EXPERIENCE)),
+            publish_twintrack_hud.run_if(ambition_platformer2d::runtime::in_mode(
+                TWINTRACK_EXPERIENCE,
+            )),
         );
     }
 }
@@ -368,23 +370,41 @@ fn install_twintrack_session(
 
 fn update_twintrack_experiment(
     time: Res<WorldTime>,
+    // ⭐ **the whole cluster, not just `BodyKinematics`.** The experiment
+    // RELOCATES the traveler at the end of the hold, and a discrete relocation
+    // is `transit_body`'s job — it needs the motion model and the sibling
+    // clusters to invalidate the contacts, attachment and collapsed sweep that
+    // were only true at the reunion point. See the reset below.
     mut traveler: Query<
-        (&mut ae::BodyKinematics, &mut ProperTimeElapsed),
+        (
+            ae::BodyClusterQueryData,
+            &mut ambition_platformer2d::actors::features::MotionModel,
+            &mut ProperTimeElapsed,
+        ),
         (With<TravelerTwin>, Without<LaboratoryTwin>),
     >,
     mut lab: Query<
         (&mut ProperTimeElapsed, &mut TwinTrackExperiment),
         (With<LaboratoryTwin>, Without<TravelerTwin>),
     >,
-    relativity: Query<
-        &ambition_platformer2d::relativity2d::RelativityState2d,
-        With<TravelerTwin>,
-    >,
+    relativity: Query<&ambition_platformer2d::relativity2d::RelativityState2d, With<TravelerTwin>>,
 ) {
-    let (Ok((mut body, mut traveler_clock)), Ok((mut lab_clock, mut experiment))) =
-        (traveler.single_mut(), lab.single_mut())
+    let (
+        Ok((mut cluster_item, mut motion_model, mut traveler_clock)),
+        Ok((mut lab_clock, mut experiment)),
+    ) = (traveler.single_mut(), lab.single_mut())
     else {
         return;
+    };
+    let mut clusters = cluster_item.as_clusters_mut();
+    // Read the pose ONCE, up front. The phase machine only ever asks where the
+    // traveler is and which way it is going; every WRITE below goes through
+    // `transit_body`, which needs `&mut clusters` and so cannot coexist with a
+    // long-lived borrow of one member.
+    let body = ae::BodyKinematics {
+        pos: clusters.kinematics.pos,
+        vel: clusters.kinematics.vel,
+        ..*clusters.kinematics
     };
 
     let beta = relativity
@@ -414,14 +434,36 @@ fn update_twintrack_experiment(
                 experiment.result_traveler_time = traveler_clock.seconds;
                 experiment.complete_elapsed = 0.0;
                 experiment.phase = TwinTrackPhase::Complete;
-                body.vel = Vec2::ZERO;
+                // The traveler stops dead at the reunion. Through the authority
+                // even though the position does not change: a bare `vel = ZERO`
+                // leaves the collapsed §3.1 sweep still describing the inbound
+                // run, and a stationary body whose motion record says otherwise
+                // is the same two-facts-one-body split `arrive_body_in_room`
+                // documents inside itself.
+                ae::movement::transit_body(
+                    &mut motion_model,
+                    &mut clusters,
+                    body.pos,
+                    ae::movement::TransitVelocity::Zero,
+                );
             }
         }
         TwinTrackPhase::Complete => {
             experiment.complete_elapsed += time.sim_dt();
             if experiment.complete_elapsed >= COMPLETE_HOLD_SECONDS {
-                body.pos = Vec2::new(LAB_X, FLOOR_TOP - 64.0);
-                body.vel = Vec2::ZERO;
+                // ⛔ **this wrote `pos` and `vel` on `BodyKinematics` directly**,
+                // which is a discrete relocation performed outside the movement
+                // authority (GPT 5.6, review through f0f97f5). Everything else
+                // the body knows about where it was — contacts, ledge grab,
+                // model-private attachment, and the collapsed sweep sample —
+                // kept describing the reunion point, so the next movement pass
+                // could see a sweep spanning the whole course.
+                ae::movement::transit_body(
+                    &mut motion_model,
+                    &mut clusters,
+                    Vec2::new(LAB_X, FLOOR_TOP - 64.0),
+                    ae::movement::TransitVelocity::Zero,
+                );
                 traveler_clock.reset();
                 lab_clock.reset();
                 *experiment = TwinTrackExperiment::default();
@@ -507,8 +549,8 @@ mod tests {
 
     #[test]
     fn target_speed_is_timelike_and_visibly_dilated() {
-        let c = ambition_platformer2d::relativity::InvariantSpeed::new(INVARIANT_SPEED as f64)
-            .unwrap();
+        let c =
+            ambition_platformer2d::relativity::InvariantSpeed::new(INVARIANT_SPEED as f64).unwrap();
         let result = ambition_platformer2d::relativity::minkowski_clock_rate(
             (TARGET_SPEED * TARGET_SPEED) as f64,
             c,

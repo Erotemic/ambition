@@ -2412,6 +2412,19 @@ forbid = [
     "kin.pos = ", "kin.pos += ", "kin.pos -= ",
     "kinematics.pos = ", "kinematics.pos += ", "kinematics.pos -= ",
     "kin.pos.x = ", "kin.pos.y = ", "kinematics.pos.x = ", "kinematics.pos.y = ",
+    # ⛔ `body.` TOO. This rule matches the RECEIVER'S NAME, not its type, so a
+    # `BodyKinematics` bound to any other identifier is invisible to it. The
+    # TwinTrack demo bound one as `body` and relocated the traveler with a bare
+    # `body.pos = ` for two days; a human reviewer found it, this did not.
+    # `body` is the one other name actually in use — every non-test hit is
+    # already inside a sanctioned skip path below — but see the rationale: the
+    # blind spot is the shape of the check, and closing one name is not closing it.
+    # ⚠ LEADING SPACE, deliberately. Bare `body.pos` also matches the TAIL of
+    # `player_body.pos`, which is how `camera_snapshot.rs` — writing a SimView
+    # snapshot, not a body — turned up as two violations on the first run. An
+    # indented statement always has whitespace before it; a suffix never does.
+    " body.pos = ", " body.pos += ", " body.pos -= ",
+    " body.pos.x = ", " body.pos.y = ",
 ]
 skip_paths = [
     # The authorities themselves + kernel-internal solvers.
@@ -2502,7 +2515,7 @@ scope = "engine"
 kind = "forbidden-source-reference"
 owners = ["ambition_platformer2d_core", "ambition_platformer2d_actor_monolith"]
 watch_paths = ["crates", "game"]
-rationale = "ADR 0024 authority model: body VELOCITY writes go through the kernel, transit_body, an impulse seam, or a sanctioned domain integrator — never a bare field write. The pose half was enforced; this is the half that was not."
+rationale = "ADR 0024 authority model: body VELOCITY writes go through the kernel, transit_body, an impulse seam, or a sanctioned domain integrator — never a bare field write. The pose half was enforced; this is the half that was not. KNOWN BLIND SPOT: matching is by receiver NAME (kin/kinematics/body), not by type, so a BodyKinematics bound to a fourth identifier passes unseen — which is how the TwinTrack demo relocated a body outside the authority for two days."
 source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
 severity = "error"
 production_only = true
@@ -2512,6 +2525,10 @@ forbid = [
     "kin.vel = ", "kin.vel += ", "kin.vel -= ",
     "kinematics.vel = ", "kinematics.vel += ", "kinematics.vel -= ",
     "kin.vel.x = ", "kin.vel.y = ", "kinematics.vel.x = ", "kinematics.vel.y = ",
+    # See the pose rule: this matches a NAME, and TwinTrack's traveler was bound
+    # as `body`. Both halves of the authority had the same hole.
+    " body.vel = ", " body.vel += ", " body.vel -= ",
+    " body.vel.x = ", " body.vel.y = ",
 ]
 skip_paths = [
     # The authorities themselves + kernel-internal solvers.

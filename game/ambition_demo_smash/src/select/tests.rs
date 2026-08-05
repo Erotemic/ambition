@@ -1,8 +1,18 @@
 use super::*;
 
-/// The demo's own four, which is what a fixture with no catalog offers.
+/// **A roster with room in it**, so a test about the DECISION is not also a
+/// test of how many fighters ship today.
+///
+/// ⚠ six invented ids rather than `SmashRoster::default()`: the real default is
+/// whatever this demo declares itself, and a decision test that picked index 3
+/// would then start failing the day somebody edited [`SMASH_ROSTER`] — which is
+/// exactly the list Jon asked to be easy to edit.
 fn fighters() -> SmashRoster {
-    SmashRoster::default()
+    SmashRoster(
+        (0..6)
+            .map(|index| format!("fighter_{index}"))
+            .collect::<Vec<_>>(),
+    )
 }
 
 /// Two people, two characters — the smallest thing that is a match.
@@ -244,67 +254,79 @@ fn every_own_fighter_is_declared_by_this_demo() {
     for id in OWN_FIGHTERS {
         assert!(
             crate::SMASH_CATALOG_RON.contains(&format!("\"{id}\":")),
-            "'{id}' is on the character grid and no catalog row declares it"
+            "'{id}' is one of this demo's own fighters and no catalog row declares it"
+        );
+        assert!(
+            SMASH_ROSTER.contains(id),
+            "'{id}' is declared and then left off the grid"
         );
     }
-    assert!(
-        OWN_FIGHTERS.len() >= 4,
-        "the grid is the feature; a standalone roster this short is not one"
-    );
 }
 
-/// **A character opts IN to the crossover with a tag, and is never duplicated.**
+/// **The grid is the ROSTER LIST, filtered to what this composition carries.**
 ///
 /// ⛔ the first draft declared its own copies of Mary-O, Sanic and Solid Snake
 /// and the assembled catalog rejected every one on display-name uniqueness. The
-/// cast is shared by ID; this is the rule that replaced the copies.
+/// cast is shared by ID; this is the rule that replaced the copies, and the
+/// filter is what lets one list serve a standalone demo and a multi-game host.
 #[test]
-fn a_tagged_character_joins_the_grid_exactly_once() {
-    use ambition_platformer2d::character::{CharacterCatalog, parse_catalog};
+fn the_grid_is_the_roster_list_filtered_to_what_the_composition_carries() {
+    use ambition_platformer2d::character::{parse_catalog, CharacterCatalog};
 
-    let catalog = CharacterCatalog::from_data(parse_catalog(
+    // A composition carrying exactly ONE of the roster's ids, plus a character
+    // the roster does not name.
+    let present = SMASH_ROSTER
+        .iter()
+        .find(|id| !OWN_FIGHTERS.contains(id))
+        .expect("the roster names fighters beyond this demo's own");
+    let catalog = CharacterCatalog::from_data(parse_catalog(&format!(
         r#"(
-            brain_presets: {
-                "stand_still": StandStill,
-            },
-            action_set_presets: {
+            brain_presets: {{ "stand_still": StandStill }},
+            action_set_presets: {{
                 "peaceful": (move_style: Walk, melee: None, ranged: None, special: None),
-            },
-            characters: {
-                "guest": (
+            }},
+            characters: {{
+                "{present}": (
                     display_name: "A Guest",
                     spritesheet: "sprites/guest_spritesheet.png",
                     manifest: "sprites/guest_spritesheet.ron",
-                    tier: MainHall,
-                    body_kind: Standard,
-                    composition: None,
-                    default_brain: "stand_still",
-                    default_action_set: "peaceful",
-                    tags: ["smash"],
+                    tier: MainHall, body_kind: Standard, composition: None,
+                    default_brain: "stand_still", default_action_set: "peaceful",
                 ),
-                "stranger": (
+                "stranger_the_roster_does_not_name": (
                     display_name: "A Stranger",
                     spritesheet: "sprites/stranger_spritesheet.png",
                     manifest: "sprites/stranger_spritesheet.ron",
-                    tier: MainHall,
-                    body_kind: Standard,
-                    composition: None,
-                    default_brain: "stand_still",
-                    default_action_set: "peaceful",
-                    tags: ["not_this_one"],
+                    tier: MainHall, body_kind: Standard, composition: None,
+                    default_brain: "stand_still", default_action_set: "peaceful",
                 ),
-            },
-        )"#,
-    ));
+            }},
+        )"#
+    )));
+
     let assembled = SmashRoster::assemble(&catalog);
     assert_eq!(
         assembled.ids().collect::<Vec<_>>(),
-        {
-            let mut expected: Vec<&str> = OWN_FIGHTERS.to_vec();
-            expected.push("guest");
-            expected
-        },
-        "the tagged guest is missing, duplicated, or the untagged stranger got in"
+        vec![*present],
+        "the grid dropped a fighter the composition HAS, kept one it does not, \
+         or let in a character the roster never named"
+    );
+}
+
+/// **The roster list is a list of DISTINCT characters.**
+///
+/// ⚠ a duplicate id is two cells for one fighter, and a token dropped on the
+/// second one picks a character whose cell is not the one that lit up.
+#[test]
+fn the_roster_names_no_character_twice() {
+    let mut seen: Vec<&str> = SMASH_ROSTER.to_vec();
+    seen.sort_unstable();
+    let before = seen.len();
+    seen.dedup();
+    assert_eq!(before, seen.len(), "the roster names a character twice");
+    assert!(
+        SMASH_ROSTER.len() >= 4,
+        "the grid is the feature; a roster this short is not one"
     );
 }
 

@@ -1102,8 +1102,7 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             // underneath can take.
             max_health: Some(1),
             playable_kit: Authored,
-            // ⭐ opts INTO the crossover stage; see `select::SMASH_TAG`.
-            tags: ["player", "smash"],
+            tags: ["player"],
             barks: (
                 hall: ["I solve masonry disputes from below.", "One jump. No second opinions, no insurance.", "Every pipe is hiding something."],
             ),
@@ -1187,8 +1186,7 @@ const MARY_O_CATALOG_RON_TEMPLATE: &str = r#"(
             body_kind: Standard,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // Mary-O's nemesis, promoted to a fighter on the crossover stage.
-            tags: ["enemy", "smash"],
+            tags: ["enemy"],
             fallback_dialogue: [
                 "The shell is load-bearing. Please stop.",
                 "I was told there would be a corridor.",

@@ -57,31 +57,25 @@ use crate::{MatchParticipant, MatchParticipantRoster, STARTING_STOCKS};
 /// same one `SlotControls` holds.
 pub const MAX_SMASH_SEATS: usize = 4;
 
-/// **The fighters this demo DECLARES**, by catalog id.
+/// **THE GRID. Edit this list.**
 ///
-/// Four rows in `SMASH_CATALOG_RON`, and four is the floor rather than the
-/// roster: [`SmashRoster`] adds every character the composition around this demo
-/// has tagged for the crossover.
-pub const OWN_FIGHTERS: &[&str] = &[
-    crate::SMASH_CHARACTER_ID,
-    crate::SMASH_OPPONENT_ID,
-    crate::SMASH_MARY_O_FIRE,
-    crate::SMASH_GEORGE_BOOUL,
-];
-
-/// **The tag a character wears to say it can fight here.**
+/// Jon, 2026-08-05: *"we will probably tweak which characters will be in the
+/// game in the future, so make it easy to have the exact number of characters
+/// configurable. We may go more than 8."* This is that list, and it is the only
+/// place a fighter is named — the grid reads its column count from the length,
+/// the layout balances the rows around it, and nothing else has an opinion about
+/// how many there are.
 ///
-/// ⭐ opt-IN, from the character's own catalog row. A crossover stage cannot
-/// have a hard-coded roster: the cast it can offer is a fact about the
-/// COMPOSITION, and the composition is what a multi-game host assembles.
-pub const SMASH_TAG: &str = "smash";
-
-/// **The characters a slot can choose between, in this composition.**
+/// ⚠ **it is a WISH LIST, not a guarantee.** Ids the composition around this
+/// demo does not carry are dropped by [`SmashRoster::assemble`] — Mary-O, Sanic
+/// and Solid Snake are declared by the demos they belong to, so the standalone
+/// smash app offers only the fighters it declares itself, and the multi-game
+/// host offers the whole crossover cast. Order is preserved.
 ///
-/// ⛔ **this used to be a `const` list and the engine refused it, correctly.**
-/// The first draft declared its own `smash_mary_o`, `smash_sanic` and
-/// `smash_solid_snake` rows on the sheets those characters already use, and the
-/// assembled catalog rejected all four:
+/// ⛔ **do not add a fighter by declaring a COPY of it here.** The first draft
+/// did exactly that — its own `smash_mary_o`, `smash_sanic`, `smash_solid_snake`
+/// and `smash_super_sanic` on the sheets those characters already use — and the
+/// assembled catalog refused all four:
 ///
 /// ```text
 /// characters 'mary_o' and 'smash_mary_o' share display_name 'Mary-O'
@@ -90,22 +84,47 @@ pub const SMASH_TAG: &str = "smash";
 /// characters 'smash_super_sanic' and 'super_sanic' share display_name …
 /// ```
 ///
-/// Which is the right answer to the wrong question. **A crossover stage does not
-/// need copies of the cast; it needs the cast.** Mary-O, Sanic and Solid Snake
-/// already exist — declared by the demos they belong to, with their own sheets,
-/// their own names and their own dialogue — and the display-name rule exists
-/// precisely to stop a second declaration of a character that is already there.
-/// (Jon's rule, recorded: characters are shared BY ID; display-name uniqueness
-/// is how that is enforced.)
+/// Which is the right answer to the wrong question: a crossover stage does not
+/// need copies of the cast, it needs the cast. Characters are shared BY ID, and
+/// display-name uniqueness is how that rule is enforced.
 ///
-/// So the roster is resolved once, at startup, from the assembled catalog: the
-/// demo's own fighters, then every character whose row carries [`SMASH_TAG`].
+/// ⚠ **no two entries are FORMS of one character** (Jon, 2026-08-05: *"I don't
+/// want copies of different character forms"*). Fire Mary-O and Super Sanic were
+/// on the first grid and are gone; a transformation is something that happens
+/// during a match, not a second slot on the select screen.
+pub const SMASH_ROSTER: &[&str] = &[
+    // This demo's own.
+    crate::SMASH_CHARACTER_ID,
+    crate::SMASH_GEORGE_BOOUL,
+    // The other demos' protagonists — present only when a host composes them.
+    "mary_o",
+    "sanic",
+    "solid_snake",
+    // Ambition's own cast.
+    "npc_alice",
+    "npc_bob",
+    "npc_oiler",
+    "perfect_cellular_automaton",
+    "goblin",
+    "npc_noether",
+];
+
+/// **The characters a slot can choose between, in this composition.**
 ///
-/// ⚠ **the default is the demo's own four**, not an empty list. A fixture with
-/// no catalog is testing the SCREEN, and a roster that collapsed to nothing
+/// [`SMASH_ROSTER`] filtered to the ids the assembled catalog actually carries,
+/// in the order it names them. Resolved once at `Startup`, because which cast is
+/// present is a fact about the COMPOSITION and a multi-game host is what
+/// assembles one.
+///
+/// ⚠ **the default is this demo's own fighters**, not an empty list. A fixture
+/// with no catalog is testing the SCREEN, and a roster that collapsed to nothing
 /// there would make every one of those tests pass over an empty grid.
 #[derive(bevy::prelude::Resource, Clone, Debug, PartialEq, Eq)]
 pub struct SmashRoster(pub Vec<String>);
+
+/// The ids this demo declares itself, which is what a composition with no other
+/// providers can offer.
+pub const OWN_FIGHTERS: &[&str] = &[crate::SMASH_CHARACTER_ID, crate::SMASH_GEORGE_BOOUL];
 
 impl Default for SmashRoster {
     fn default() -> Self {
@@ -130,23 +149,19 @@ impl SmashRoster {
         self.0.iter().map(String::as_str)
     }
 
-    /// **Everything this composition can offer**, own fighters first.
+    /// **[`SMASH_ROSTER`] ∩ what this composition carries**, in roster order.
     ///
-    /// ⚠ own-first and de-duplicated: a demo that tagged one of its OWN rows
-    /// would otherwise appear twice, and two grid cells for one fighter are two
-    /// cells a token can be dropped on with one of them wrong.
+    /// ⚠ an id the catalog does not have is DROPPED rather than kept as a hole:
+    /// a grid cell for a character that cannot be spawned is a portrait a player
+    /// can pick and a seat the match then refuses.
     pub fn assemble(catalog: &ambition_platformer2d::character::CharacterCatalog) -> Self {
-        let mut ids: Vec<String> = OWN_FIGHTERS.iter().map(|id| id.to_string()).collect();
-        // `CharacterCatalog::iter` is a `BTreeMap` walk, so the crossover half of
-        // the grid is in id order on every machine and every run. An unordered
-        // roster would put a different fighter under the cursor's start position
-        // depending on hash seed.
-        for (id, entry) in catalog.iter() {
-            if entry.tags.iter().any(|tag| tag == SMASH_TAG) && !ids.iter().any(|kept| kept == id) {
-                ids.push(id.clone());
-            }
-        }
-        Self(ids)
+        Self(
+            SMASH_ROSTER
+                .iter()
+                .filter(|id| catalog.get(id).is_some())
+                .map(|id| id.to_string())
+                .collect(),
+        )
     }
 }
 

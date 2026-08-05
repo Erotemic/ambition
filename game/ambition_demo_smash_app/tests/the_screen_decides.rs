@@ -11,7 +11,7 @@
 //! `select_screen::layout`, a pure function of the viewport, so a headless app
 //! clicks exactly where a windowed one draws.
 
-use ambition_demo_smash::select::{MAX_SMASH_SEATS, SlotOccupant, SmashRoster, SmashSelect};
+use ambition_demo_smash::select::{SlotOccupant, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
 use ambition_demo_smash::select_screen::cursor::{HitRect, SelectCursor};
 use ambition_demo_smash::select_screen::layout::SelectLayout;
 use ambition_demo_smash::select_screen::{CardName, RoleButtonLabel, SlotToken};
@@ -197,16 +197,16 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     click(
         &mut app,
         0,
-        layout.portrait(2).expect("an authored portrait"),
+        layout.portrait(0).expect("an authored portrait"),
     );
     click(&mut app, 1, layout.token_home(1));
     click(
         &mut app,
         1,
-        layout.portrait(3).expect("an authored portrait"),
+        layout.portrait(1).expect("an authored portrait"),
     );
-    assert_eq!(slot(&app, 0).pick, Some(2));
-    assert_eq!(slot(&app, 1).pick, Some(3));
+    assert_eq!(slot(&app, 0).pick, Some(0));
+    assert_eq!(slot(&app, 1).pick, Some(1));
 
     // ⚠ **it must NOT have started yet.** A screen that launches the instant
     // the last token lands is the one nobody can look at.
@@ -227,11 +227,11 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     let fighters = app.world().resource::<SmashRoster>().clone();
     assert_eq!(
         roster.participants[0].character,
-        fighters.get(2).expect("a fighter")
+        fighters.get(0).expect("a fighter")
     );
     assert_eq!(
         roster.participants[1].character,
-        fighters.get(3).expect("a fighter")
+        fighters.get(1).expect("a fighter")
     );
 }
 
@@ -284,23 +284,23 @@ fn a_token_dropped_on_empty_space_goes_back_to_the_fighter_it_had() {
     click(
         &mut app,
         0,
-        layout.portrait(3).expect("an authored portrait"),
+        layout.portrait(1).expect("an authored portrait"),
     );
-    assert_eq!(slot(&app, 0).pick, Some(3));
+    assert_eq!(slot(&app, 0).pick, Some(1));
 
     // Pick it back up and let go over the title bar, which is nothing.
     click(&mut app, 0, layout.token_home(0));
     click(&mut app, 0, layout.title());
     assert_eq!(
         slot(&app, 0).pick,
-        Some(3),
+        Some(1),
         "a token dropped on empty space took the player's fighter with it"
     );
 
     // And BACK while carrying does the same.
     click(&mut app, 0, layout.token_home(0));
     press(&mut app, 0, back());
-    assert_eq!(slot(&app, 0).pick, Some(3));
+    assert_eq!(slot(&app, 0).pick, Some(1));
     assert_eq!(app.world().resource::<SelectCursor>().carrying, None);
 }
 
@@ -331,7 +331,7 @@ fn the_cards_say_what_each_slot_has_decided() {
     click(
         &mut app,
         0,
-        layout.portrait(2).expect("an authored portrait"),
+        layout.portrait(0).expect("an authored portrait"),
     );
     click(&mut app, 1, layout.role_button(1));
     click(&mut app, 1, layout.role_button(1)); // → CPU
@@ -339,7 +339,7 @@ fn the_cards_say_what_each_slot_has_decided() {
     let decided = card_text(&mut app);
     assert_eq!(decided[0].0, "CONTROLLER 1");
     assert_eq!(
-        decided[0].1, "Fire Mary-O",
+        decided[0].1, "Duelist A",
         "the card shows `{}` rather than the fighter's display name — the \
          catalog lookup the portraits also depend on did not resolve",
         decided[0].1

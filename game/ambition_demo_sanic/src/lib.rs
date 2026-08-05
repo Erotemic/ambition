@@ -470,11 +470,7 @@ const SANIC_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            // ⭐ opts INTO the crossover stage. `ambition_demo_smash` builds its
-            // grid from this tag rather than declaring its own copy of him —
-            // a second "Sanic" row is exactly what the catalog's display-name
-            // rule refuses, and it is right to.
-            tags: ["player", "smash"],
+            tags: ["player"],
             // The MOVEMENT identity that makes this a Sanic demo: the worn home
             // box opts into `MotionModel::SurfaceMomentum` (rides the speedway +
             // loop), which is also what `ball_dash` requires to charge/launch.
@@ -505,7 +501,7 @@ const SANIC_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            tags: ["player", "super", "transformation", "smash"],
+            tags: ["player", "super", "transformation"],
             // The SUPER form is a real transformation, not a palette swap: the
             // boosted movement is authored ON the identity row (classic Super
             // Sonic ratios over the base row — ~2x accel, ~5/3 top speed,

@@ -42,11 +42,12 @@ pub mod cursor;
 pub mod layout;
 
 use ambition_platformer2d::character::CharacterCatalog;
+use ambition_platformer2d::sprite_sheet::PortraitSheetRegistry;
 use bevy::prelude::*;
 
-use crate::select::{MAX_SMASH_SEATS, SlotOccupant, SmashRoster, SmashSelect};
+use crate::select::{SlotOccupant, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
 use cursor::{CursorTarget, HitRect, SelectCursor};
-use layout::{CURSOR_PX, SelectLayout, TOKEN_PX};
+use layout::{SelectLayout, CURSOR_PX, TOKEN_PX};
 
 /// The screen's UI root. One marker, so teardown is `despawn` on a query
 /// filtered by THIS owner rather than a sweep of every node — a shared marker's
@@ -208,6 +209,75 @@ fn monogram(label: &str) -> String {
     }
 }
 
+/// **Everything needed to draw a character**, as one parameter.
+///
+/// ⚠ four separate `Res` arguments pushed `present_the_select_screen` past
+/// Bevy's system-parameter tuple ceiling. Grouping them is not only a workaround:
+/// a portrait is *catalog + manifest + asset server*, and the three arriving
+/// together is what stops one of them being forgotten at a second call site.
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct ScreenArt<'w> {
+    pub catalog: Res<'w, CharacterCatalog>,
+    pub portraits: Option<Res<'w, PortraitSheetRegistry>>,
+    pub asset_server: Option<Res<'w, AssetServer>>,
+    pub menu_font: Option<Res<'w, ambition_platformer2d::menu::render::bevy_ui::MenuFont>>,
+}
+
+impl ScreenArt<'_> {
+    /// This character's face and the rectangle to take out of it.
+    pub fn portrait(&self, id: &str) -> Option<(Handle<Image>, Option<Rect>)> {
+        portrait_art(
+            &self.catalog,
+            self.portraits.as_deref(),
+            self.asset_server.as_deref(),
+            id,
+        )
+    }
+
+    pub fn display_name(&self, id: &str) -> String {
+        display_name(Some(&self.catalog), id)
+    }
+}
+
+/// **A character's face, as an image AND the rectangle to take out of it.**
+///
+/// ⛔ **found by LOOKING, 2026-08-05.** The first version loaded the derived PNG
+/// whole. Most portrait sheets are one 256x320 frame, so most cells were right —
+/// and `alice_portraits.png` and `oiler_portraits.png` are **2048x320**, eight
+/// frames of a `default` / `speaking` / `focused` clip set, which drew as a
+/// strip of eight tiny Alices. **A portrait sheet is a SHEET**, and the manifest
+/// beside it has said so all along.
+///
+/// ⚠ the registry is `Option` because the standalone smash app does not install
+/// `PortraitSheetRegistryPlugin` unless this screen asks for it, and a
+/// composition without one should still draw a face rather than nothing. With no
+/// registry the whole image is used, which is exactly right for the single-frame
+/// sheets that are the majority and visibly wrong for the rest — so the fallback
+/// reports the missing plugin instead of hiding it.
+fn portrait_art(
+    catalog: &CharacterCatalog,
+    portraits: Option<&PortraitSheetRegistry>,
+    asset_server: Option<&AssetServer>,
+    id: &str,
+) -> Option<(Handle<Image>, Option<Rect>)> {
+    let reference = catalog.portrait_ref(id)?;
+    let handle = asset_server?.load::<Image>(reference.image.clone());
+    let rect = portraits
+        .and_then(|registry| {
+            registry.resolve_clip(&reference.manifest, None, &reference.default_clip)
+        })
+        .and_then(|(_, clip)| clip.frames.first().copied())
+        .map(|frame| {
+            Rect::new(
+                frame.x as f32,
+                frame.y as f32,
+                (frame.x + frame.w) as f32,
+                (frame.y + frame.h) as f32,
+            )
+        });
+    Some((handle, rect))
+}
+
 /// The viewport this screen is laid out for, or `None` where there is no window.
 fn viewport(windows: &Query<&Window>) -> Option<Vec2> {
     windows
@@ -231,15 +301,20 @@ pub fn spawn_select_screen(
     mut commands: Commands,
     existing: Query<(), With<SmashSelectUiRoot>>,
     fighters: Res<SmashRoster>,
-    catalog: Option<Res<CharacterCatalog>>,
-    asset_server: Option<Res<AssetServer>>,
-    menu_font: Option<Res<ambition_platformer2d::menu::render::bevy_ui::MenuFont>>,
+    // ⛔ **the catalog inside is REQUIRED, not `Option`.**
+    // `engine.character-authority-is-app-local` forbids making it optional by
+    // name, and the reason is this screen's exact failure mode: an absent
+    // catalog would draw a grid of nameless plates that looks like missing ART
+    // rather than like a composition with no cast. Every composition that
+    // reaches this route has one, because this demo registers its own fragment.
+    art: ScreenArt,
 ) {
     if !existing.is_empty() {
         return;
     }
-    let catalog = catalog.as_deref();
-    let font = menu_font
+    let catalog = Some(&*art.catalog);
+    let font = art
+        .menu_font
         .as_deref()
         .and_then(|font| font.0.clone())
         .unwrap_or_default();
@@ -248,12 +323,7 @@ pub fn spawn_select_screen(
         font_size: size,
         ..default()
     };
-    let portrait = |id: &str| {
-        catalog
-            .and_then(|catalog| catalog.portrait_image_path(id))
-            .zip(asset_server.as_deref())
-            .map(|(path, server)| server.load::<Image>(path))
-    };
+    let portrait = |id: &str| art.portrait(id);
     // Everything the layout places is absolute; `place_the_screen` fills in the
     // numbers on the same frame, before anything is presented.
     let anchored = |anchor: Anchored| {
@@ -328,7 +398,7 @@ pub fn spawn_select_screen(
                     // grid, and it costs nothing when the art is there.
                     let art = portrait(id);
                     cell.spawn((
-                        PortraitMonogram(art.clone()),
+                        PortraitMonogram(art.as_ref().map(|(handle, _)| handle.clone())),
                         Node {
                             position_type: PositionType::Absolute,
                             left: Val::Px(0.0),
@@ -348,9 +418,11 @@ pub fn spawn_select_screen(
                         ));
                     });
                     match art {
-                        Some(handle) => {
+                        Some((handle, rect)) => {
+                            let mut image = ImageNode::new(handle);
+                            image.rect = rect;
                             cell.spawn((
-                                ImageNode::new(handle),
+                                image,
                                 Node {
                                     flex_grow: 1.0,
                                     width: Val::Percent(100.0),
@@ -767,8 +839,8 @@ pub fn update_the_select_screen(
     select: Res<SmashSelect>,
     pointer: Res<SelectCursor>,
     fighters: Res<SmashRoster>,
-    catalog: Option<Res<CharacterCatalog>>,
-    asset_server: Option<Res<AssetServer>>,
+    // Required for the same reason `spawn_select_screen`'s is; see there.
+    art: ScreenArt,
     windows: Query<&Window>,
     mut cells: Query<
         (&PortraitCell, &mut BorderColor),
@@ -810,7 +882,7 @@ pub fn update_the_select_screen(
     mut tokens: Query<(&SlotToken, &mut Node, &mut Visibility), Without<CardPortrait>>,
     mut cursor_node: Query<&mut Node, (With<CursorNode>, Without<SlotToken>)>,
 ) {
-    let catalog = catalog.as_deref();
+    let catalog = Some(&*art.catalog);
     let layout = current_layout(&windows, &fighters);
 
     // A cell wears the colour of whoever chose it, so the grid answers "who
@@ -866,13 +938,14 @@ pub fn update_the_select_screen(
             .then_some(card.pick)
             .flatten()
             .and_then(|index| fighters.get(index))
-            .and_then(|id| catalog.and_then(|catalog| catalog.portrait_image_path(id)))
-            .zip(asset_server.as_deref())
-            .map(|(path, server)| server.load::<Image>(path));
+            .and_then(|id| art.portrait(id));
         match shown {
-            Some(handle) => {
+            Some((handle, rect)) => {
                 if image.image != handle {
                     image.image = handle;
+                }
+                if image.rect != rect {
+                    image.rect = rect;
                 }
                 set_visibility(&mut visibility, Visibility::Inherited);
             }
@@ -886,7 +959,7 @@ pub fn update_the_select_screen(
     // showed THROUGH the portraits, which have transparent backgrounds — a
     // ghostly "DB" behind Duelist B. Found by looking at the capture.
     for (mono, mut visibility) in &mut monograms {
-        let missing = match (&mono.0, asset_server.as_deref()) {
+        let missing = match (&mono.0, art.asset_server.as_deref()) {
             (None, _) => true,
             (Some(handle), Some(server)) => server
                 .get_load_state(handle.id())
@@ -897,7 +970,11 @@ pub fn update_the_select_screen(
         };
         set_visibility(
             &mut visibility,
-            if missing { Visibility::Inherited } else { Visibility::Hidden },
+            if missing {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            },
         );
     }
 
@@ -941,7 +1018,10 @@ pub fn update_the_select_screen(
         } else {
             home.unwrap_or(layout.viewport * 0.5)
         };
-        set_rect(&mut node, HitRect::from_center_size(at, Vec2::splat(CURSOR_PX)));
+        set_rect(
+            &mut node,
+            HitRect::from_center_size(at, Vec2::splat(CURSOR_PX)),
+        );
     }
 }
 

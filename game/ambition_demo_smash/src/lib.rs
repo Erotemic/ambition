@@ -687,6 +687,23 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
         // `Startup` every provider in the composition has declared itself.
         app.init_resource::<select::SmashRoster>();
         app.add_systems(bevy::prelude::Startup, assemble_the_smash_roster);
+        // **THE PORTRAIT SHEETS' OWN MANIFESTS, so a face is one FRAME.**
+        //
+        // ⛔ without this the grid drew each portrait PNG whole, which is right
+        // for the single-frame sheets that are most of them and visibly wrong
+        // for `alice` and `oiler` — 2048x320 each, eight frames of a
+        // default/speaking/focused clip set, drawn as a strip of eight tiny
+        // Alices. Found by looking at a capture.
+        //
+        // ⚠ **guarded, because Ambition's dialogue box installs the same plugin**
+        // and Bevy panics on a duplicate. This demo is composed both standalone
+        // and inside that host; whichever gets there first wins and the registry
+        // is the same baked table either way.
+        if !app
+            .is_plugin_added::<ambition_platformer2d::sprite_sheet::PortraitSheetRegistryPlugin>()
+        {
+            app.add_plugins(ambition_platformer2d::sprite_sheet::PortraitSheetRegistryPlugin);
+        }
         // **THE SCREEN DECLARES ITS OWN INPUT PORT.** The host fills
         // `SeatMenuFrames` when a windowed host is installed; `init_resource`
         // will not clobber one that already exists. Declaring it here means the
@@ -764,18 +781,13 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
 
 /// **Who can be picked, in THIS composition.**
 ///
-/// The demo's own fighters, plus every character whose catalog row carries the
-/// `smash` tag — so a multi-game host offers its whole crossover cast and the
-/// standalone demo offers the four it declares itself, from one rule.
+/// `select::SMASH_ROSTER` filtered to the ids the assembled catalog carries — so
+/// a multi-game host offers the whole crossover cast and the standalone demo
+/// offers the fighters it declares itself, from one list.
 fn assemble_the_smash_roster(
-    catalog: Option<bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>>,
+    catalog: bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>,
     mut fighters: bevy::prelude::ResMut<select::SmashRoster>,
 ) {
-    let Some(catalog) = catalog else {
-        // No catalog at all is a bare harness, and the default (this demo's own
-        // four) is the honest answer rather than an empty grid.
-        return;
-    };
     let assembled = select::SmashRoster::assemble(&catalog);
     if *fighters != assembled {
         *fighters = assembled;
@@ -804,9 +816,10 @@ fn present_the_select_screen(
     mut pointer: bevy::prelude::ResMut<select_screen::cursor::SelectCursor>,
     mut start: bevy::prelude::ResMut<select_screen::StartRequested>,
     fighters: bevy::prelude::Res<select::SmashRoster>,
-    catalog: Option<bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>>,
-    asset_server: Option<bevy::prelude::Res<bevy::prelude::AssetServer>>,
-    menu_font: Option<bevy::prelude::Res<ambition_platformer2d::menu::render::bevy_ui::MenuFont>>,
+    // ⚠ ONE parameter, not four. See `select_screen::ScreenArt` — four separate
+    // `Res` arguments pushed this system past Bevy's parameter tuple ceiling,
+    // and the three that make a portrait belong together anyway.
+    art: select_screen::ScreenArt,
     existing: bevy::prelude::Query<(), bevy::prelude::With<select_screen::SmashSelectUiRoot>>,
     roots: bevy::prelude::Query<
         bevy::prelude::Entity,
@@ -904,14 +917,7 @@ fn present_the_select_screen(
                 commands.remove_resource::<MatchParticipantRoster>();
             }
         }
-        select_screen::spawn_select_screen(
-            commands,
-            existing,
-            fighters,
-            catalog,
-            asset_server,
-            menu_font,
-        );
+        select_screen::spawn_select_screen(commands, existing, fighters, art);
     } else {
         select_screen::despawn_select_screen(commands, roots);
     }
@@ -1133,34 +1139,19 @@ pub const SMASH_CHARACTER_ID: &str = "smash_duelist_a";
 /// The opponent.
 pub const SMASH_OPPONENT_ID: &str = "smash_duelist_b";
 
-// **THE REST OF THE GRID.** (Jon, 2026-08-05: *"a grid of portraits for each of
-// the selectable characters"* — two portraits is not a grid.)
+// **THE ONE FIGHTER THIS DEMO ADDS TO THE CROSSOVER.**
 //
-// ⭐ Every one of these wears a sheet that ALREADY SHIPS and that no other
-// catalog claims, which is what makes the roster free: `character_catalog.ron`
-// declares 140 characters and none of them is Mary-O, Sanic or Solid Snake,
-// because those belong to the other demos rather than to the hall. So this demo
-// can be the crossover stage its own doc says it wants to be without inventing a
-// single new asset, and without colliding on the display-name uniqueness the
-// assembled catalog enforces.
+// ⭐ he wears a sheet that ALREADY SHIPS and that no other catalog claims, which
+// is the only kind of fighter this demo may declare: the rest of the grid is
+// Ambition's own cast and the other demos' protagonists, named by ID in
+// `select::SMASH_ROSTER` rather than copied here. See that list for why a copy
+// is refused.
 //
-// ⚠ **they share one kit.** See `SmashSelect::roster` — eight fighters, one
-// ability set, one brain, one action set. Different LOOKS and one game. Per
-// character movement, reach and weight is the obvious next question and is
-// deliberately not this one; a roster where the choice already changed the
-// match would have made the select screen impossible to judge on its own terms.
-/// Mary-O, out of her own platformer and onto the stage.
-pub const SMASH_MARY_O: &str = "smash_mary_o";
-/// Her fire form, which is a different silhouette rather than a palette — the
-/// one exception to Jon's "no skins" line, and it is a form the game already
-/// models as its own sheet.
-pub const SMASH_MARY_O_FIRE: &str = "smash_mary_o_fire";
-/// The blue one.
-pub const SMASH_SANIC: &str = "smash_sanic";
-/// The blue one, having eaten.
-pub const SMASH_SUPER_SANIC: &str = "smash_super_sanic";
-/// Mary-O's patrolling nemesis, promoted to a fighter.
-pub const SMASH_SOLID_SNAKE: &str = "smash_solid_snake";
+// ⚠ **every fighter shares one kit.** See `SmashSelect::roster` — one ability
+// set, one brain, one action set. Different LOOKS and one game. Per-character
+// movement, reach and weight is the obvious next question and is deliberately
+// not this one; a roster where the choice already changed the match would have
+// made the select screen impossible to judge on its own terms.
 /// The logician.
 pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 
@@ -1233,18 +1224,6 @@ const SMASH_CATALOG_RON: &str = r#"(
             tags: ["smash"],
             fallback_dialogue: ["Percent is not health. I learned that the hard way."],
         ),
-        "smash_mary_o_fire": (
-            display_name: "Fire Mary-O",
-            spritesheet: "sprites/super_mary_o_fire_spritesheet.png",
-            manifest: "sprites/super_mary_o_fire_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "duelist",
-            default_action_set: "duelist",
-            tags: ["smash"],
-            fallback_dialogue: ["One hit and I am somebody else. Make it count."],
-        ),
         "smash_george_booul": (
             display_name: "George Booul",
             spritesheet: "sprites/george_booul_spritesheet.png",
@@ -1298,9 +1277,16 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
         use ambition_platformer2d::actors::character_runtime::{
             CharacterDefinition, CharacterDefinitionAppExt,
         };
+        // ⛔ **EVERY id this demo can SEAT, not just the two it opens with.**
+        // A catalog row declares what a character IS; registration is what makes
+        // it spawnable, and the comment above says what a catalog-only character
+        // draws. `smash_george_booul` was added to the grid and left off this
+        // list for one commit, and the tell was a stocks fighter that never
+        // seated — not a missing sprite.
         for (id, name, sheet) in [
             (SMASH_CHARACTER_ID, "Duelist A", "player_robot_v3"),
             (SMASH_OPPONENT_ID, "Duelist B", "player_robot_v2"),
+            (SMASH_GEORGE_BOOUL, "George Booul", "george_booul"),
         ] {
             let mut definition =
                 CharacterDefinition::new(id, name, SMASH_EXPERIENCE).with_sheet(sheet);
@@ -1810,7 +1796,7 @@ mod tests {
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {
         use ambition_platformer2d::characters::actor::character_catalog::{
-            CharacterCatalog, parse_catalog,
+            parse_catalog, CharacterCatalog,
         };
 
         let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
@@ -1850,10 +1836,10 @@ mod tests {
 mod pause_arbitration_tests {
     use super::*;
     use ambition_platformer2d::input::participant::{
-        ContextClaim, ParticipantContexts, context_priority, resolve_active_input_context,
+        context_priority, resolve_active_input_context, ContextClaim, ParticipantContexts,
     };
     use ambition_platformer2d::input::{
-        InputParticipant, MenuControlFrame, PAUSE_CONTEXT, SeatInputContexts, SeatMenuFrames,
+        InputParticipant, MenuControlFrame, SeatInputContexts, SeatMenuFrames, PAUSE_CONTEXT,
     };
     use bevy::prelude::*;
 
@@ -1866,15 +1852,11 @@ mod pause_arbitration_tests {
         app.init_resource::<ambition_platformer2d::game_shell::ShellRouter>();
         app.init_resource::<select_screen::cursor::SelectCursor>();
         app.init_resource::<select_screen::StartRequested>();
-        // **THE ROSTER IS A COMPOSITION FACT, so it is resolved once, late.**
-        //
-        // ⚠ `Startup` rather than `build`, and the ordering is the reason: the
-        // assembled `CharacterCatalog` is replaced every time ANY plugin
-        // registers a fragment, so a roster computed while plugins are still
-        // being added would see whichever cast had been registered so far. By
-        // `Startup` every provider in the composition has declared itself.
+        // ⚠ the DEFAULT roster (this demo's own fighters), not an assembled one:
+        // there is no catalog in this fixture and none is needed. What is under
+        // test is the arbitration, and the roster only has to be non-empty so
+        // the layout has a grid to put a cursor on.
         app.init_resource::<select::SmashRoster>();
-        app.add_systems(bevy::prelude::Startup, assemble_the_smash_roster);
         app.add_systems(
             Update,
             (

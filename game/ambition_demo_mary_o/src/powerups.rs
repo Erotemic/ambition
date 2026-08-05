@@ -485,7 +485,13 @@ pub fn bonk_power_blocks(
         // the same `BodyWallet` the vault's loose coins credit, so a block coin
         // and a floor coin are worth the same thing to the same readout.
         let reward = match reward {
-            BlockPayout::Coins(amount) => {
+            // ⛔ **`None` still ACKNOWLEDGES**, which is the whole point of the
+            // comment above: the block has already spent, flinched and changed
+            // its art by the time we get here. A block that owes nothing owes
+            // nothing — it does not go unresponsive, and it does not answer with
+            // a quasar to avoid admitting it.
+            None => continue,
+            Some(BlockPayout::Coins(amount)) => {
                 if let Some(purse) = wallet.as_mut() {
                     purse.add(amount);
                 }
@@ -500,7 +506,7 @@ pub fn bonk_power_blocks(
                 );
                 continue;
             }
-            BlockPayout::Item(reward) => *reward,
+            Some(BlockPayout::Item(reward)) => *reward,
         };
         let popped = spawn_moving_world_item(
             &mut commands,
@@ -570,35 +576,119 @@ enum BlockPayout {
 /// `currency:1` in the level file.
 const COINS_PER_BLOCK: i32 = 1;
 
-fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> BlockPayout {
-    match contents {
-        // Already filtered out by the caller — a block holding nothing never
-        // reaches a reward. Answering the quasar keeps this total without
-        // inventing a "no reward" state that the bonk path deliberately does not
-        // have (see the ALWAYS-ACKNOWLEDGED note above).
-        MaryOBlockContents::Empty => BlockPayout::Item(Box::new(quasar_reward())),
-        MaryOBlockContents::Always(MaryOPickup::Coin) => BlockPayout::Coins(COINS_PER_BLOCK),
-        MaryOBlockContents::Always(pickup) => BlockPayout::Item(Box::new(pickup_reward(pickup))),
-        // ⚠ **levelling TOWARD a coin is just a coin.** A coin is not on the
-        // ladder for the same reason the quasar is not: it is not a form.
-        MaryOBlockContents::Toward(MaryOPickup::Coin) => BlockPayout::Coins(COINS_PER_BLOCK),
-        MaryOBlockContents::Toward(pickup) => {
-            BlockPayout::Item(Box::new(next_rung_toward(pickup, worn)))
-        }
+/// **How strong a form this equipment row is.** Small is 0 and wears nothing.
+///
+/// ⛔ **the ladder is a Mary-O rule and lives in Mary-O.** (GPT 5.6, 2026-08-05:
+/// *"This rule belongs in Mary-O game code, not in the generic equipment
+/// engine."* Right.) The engine's exclusive-slot replacement is correct and
+/// general — a new row in a slot replaces the old one — and "a weaker form may
+/// not replace a stronger one" is a statement about THIS game's progression, not
+/// about equipment.
+fn form_rank(row_id: &str) -> u8 {
+    match row_id {
+        id if id == CINDER_BEACON_ID => 2,
+        id if id == STAR_WAND_ID => 1,
+        _ => 0,
     }
 }
 
+/// The rank of the form she is in now.
+fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
+    let Some(worn) = worn else {
+        return 0;
+    };
+    if worn.wears(CINDER_BEACON_ID) {
+        2
+    } else if worn.wears(STAR_WAND_ID) {
+        1
+    } else {
+        0
+    }
+}
+
+/// **A pickup never makes her weaker.**
+///
+/// ⛔ **1-2 authors a `Brick` holding `AlwaysWand`, and fire Mary-O bonking it
+/// became TALL.** The wand and the beacon share one exclusive slot, so generic
+/// replacement did exactly what it says on the tin and the form went down a
+/// rung. (GPT 5.6, 2026-08-05.)
+///
+/// The rule, monotonic in both directions:
+///
+/// ```text
+/// small + wand    -> tall      small + lantern -> fire
+/// tall  + wand    -> tall      tall  + lantern -> fire
+/// fire  + wand    -> fire      fire  + lantern -> fire
+/// ```
+///
+/// ⚠ **a redundant pickup is still CONSUMED and still pays.** The block spends,
+/// flinches, wears its used art and hands over coins — it does not go
+/// unresponsive, which is the failure the always-acknowledge rule above exists
+/// to prevent.
+fn without_downgrading(reward: PowerReward, worn: Option<&WornEquipment>) -> BlockPayout {
+    let is_form = reward
+        .row
+        .exclusive_slot
+        .as_deref()
+        .is_some_and(|slot| slot == FORM_SLOT);
+    if is_form && form_rank(&reward.row.id) <= worn_form_rank(worn) {
+        return BlockPayout::Coins(COINS_PER_BLOCK);
+    }
+    BlockPayout::Item(Box::new(reward))
+}
+
+/// The payout a block with these contents owes her, or `None` when it owes
+/// nothing at all.
+///
+/// ⛔ **`Empty` used to answer a QUASAR** — the third instance of the same
+/// mistake in this file, with the same argument attached: *"answering the quasar
+/// keeps this total without inventing a 'no reward' state."* An empty block
+/// genuinely owes nothing; a caller that forgot to filter got the strongest
+/// reward in the game.
+fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Option<BlockPayout> {
+    Some(match contents {
+        // A block holding nothing owes nothing. The caller filters these out
+        // (a Brick with no contents BREAKS rather than paying), and saying so
+        // here means a caller that forgets gets no reward instead of the best one.
+        MaryOBlockContents::Empty => return None,
+        // ⭐ **ONE routing, from the absence itself.** Both arms used to
+        // special-case `MaryOPickup::Coin` before calling a function whose own
+        // coin branch then answered a quasar — the impossibility was filtered in
+        // two places and mishandled in a third. Now the reward builders say
+        // `None` for a coin and this is the single place that turns that into
+        // coins. ⚠ **levelling TOWARD a coin is still just a coin**: a coin is
+        // not on the ladder for the same reason the quasar is not — it is not a
+        // form.
+        MaryOBlockContents::Always(pickup) => match pickup_reward(pickup) {
+            Some(reward) => without_downgrading(reward, worn),
+            None => BlockPayout::Coins(COINS_PER_BLOCK),
+        },
+        MaryOBlockContents::Toward(pickup) => match next_rung_toward(pickup, worn) {
+            Some(reward) => without_downgrading(reward, worn),
+            None => BlockPayout::Coins(COINS_PER_BLOCK),
+        },
+    })
+}
+
 /// One pickup, built exactly as it is when it comes out of a block.
-fn pickup_reward(pickup: MaryOPickup) -> PowerReward {
+///
+/// ⛔ **`None` for a coin, and the previous answer was a QUASAR.** (GPT 5.6,
+/// 2026-08-05: *"Do not use a quasar as a fallback error value."* Correct.) The
+/// old comment argued that answering the quasar "keeps this total rather than
+/// inventing a 'no reward' state" — which is the totality argument used to hide
+/// an impossibility. A coin genuinely has no ITEM to build, and a caller that
+/// forgot the routing above got the most powerful reward in the game, silently.
+///
+/// ⭐ making the absence real also deleted the duplicated routing: the two call
+/// sites used to special-case `Coin` themselves before calling this, and now
+/// they read the `None` it returns.
+fn pickup_reward(pickup: MaryOPickup) -> Option<PowerReward> {
     match pickup {
-        MaryOPickup::Wand => wand_reward(),
-        MaryOPickup::Lantern => beacon_reward(),
-        MaryOPickup::Quasar => quasar_reward(),
-        // Routed to `BlockPayout::Coins` before it reaches here — a coin is not
-        // an item and has no reward to build. Answering the quasar keeps this
-        // total rather than inventing a "no reward" state the bonk path
-        // deliberately does not have.
-        MaryOPickup::Coin => quasar_reward(),
+        MaryOPickup::Wand => Some(wand_reward()),
+        MaryOPickup::Lantern => Some(beacon_reward()),
+        MaryOPickup::Quasar => Some(quasar_reward()),
+        // A coin is not an item. The caller turns this into `BlockPayout::Coins`.
+        MaryOPickup::Coin => None,
     }
 }
 
@@ -608,24 +698,25 @@ fn pickup_reward(pickup: MaryOPickup) -> PowerReward {
 /// not interchangeable: the quasar is not on it at all (any form takes one), and
 /// the top rung REPEATS rather than answering nothing — see [`next_power_reward`]
 /// for why that matters.
-fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> PowerReward {
+fn next_rung_toward(target: MaryOPickup, worn: Option<&WornEquipment>) -> Option<PowerReward> {
     let wears = |id: &str| worn.is_some_and(|w| w.wears(id));
     match target {
         // Levelling toward the quasar is levelling toward something off the
         // ladder, so it is just the quasar.
-        MaryOPickup::Quasar => quasar_reward(),
-        // Off the ladder for the same reason, and routed away before here.
-        MaryOPickup::Coin => quasar_reward(),
+        MaryOPickup::Quasar => Some(quasar_reward()),
+        // ⛔ **`None`, not a quasar.** Same fix as `pickup_reward`: a coin is off
+        // the ladder and has no rung to answer with, and answering the strongest
+        // reward in the game for an impossible branch hides the caller's bug
+        // instead of surfacing it.
+        MaryOPickup::Coin => None,
         // Toward the wand: she gets the wand until she has it, then it repeats.
-        MaryOPickup::Wand => wand_reward(),
+        MaryOPickup::Wand => Some(wand_reward()),
         // Toward the lantern: the full classic progression.
-        MaryOPickup::Lantern => {
-            if wears(STAR_WAND_ID) || wears(CINDER_BEACON_ID) {
-                beacon_reward()
-            } else {
-                wand_reward()
-            }
-        }
+        MaryOPickup::Lantern => Some(if wears(STAR_WAND_ID) || wears(CINDER_BEACON_ID) {
+            beacon_reward()
+        } else {
+            wand_reward()
+        }),
     }
 }
 
@@ -1128,22 +1219,27 @@ mod tests {
     fn the_power_block_reward_climbs_the_ladder_and_never_duplicates() {
         // Small: the wand.
         let bare = WornEquipment::default();
+        // ⚠ the `Option` here is the COIN case and nothing else — a rung toward a
+        // lantern always exists. `expect` rather than a match, so a `None` that
+        // ever appears on this road is a failure with a name.
+        let rung = |worn| {
+            next_rung_toward(MaryOPickup::Lantern, worn)
+                .expect("a lantern always has a next rung")
+                .row
+                .id
+        };
+        assert_eq!(rung(None), STAR_WAND_ID, "small Mary-O is offered the wand");
         assert_eq!(
-            Some(next_rung_toward(MaryOPickup::Lantern, None).row.id),
-            Some(STAR_WAND_ID.to_string()),
-            "small Mary-O is offered the wand"
-        );
-        assert_eq!(
-            Some(next_rung_toward(MaryOPickup::Lantern, Some(&bare)).row.id),
-            Some(STAR_WAND_ID.to_string()),
+            rung(Some(&bare)),
+            STAR_WAND_ID,
             "an empty worn set reads as small too"
         );
 
         // Grown: the beacon.
         let grown = WornEquipment::new(vec![star_wand()]);
         assert_eq!(
-            Some(next_rung_toward(MaryOPickup::Lantern, Some(&grown)).row.id),
-            Some(CINDER_BEACON_ID.to_string()),
+            rung(Some(&grown)),
+            CINDER_BEACON_ID,
             "grown Mary-O is offered the beacon"
         );
 
@@ -1156,9 +1252,7 @@ mod tests {
         // to give instead.
         let sparked = WornEquipment::new(vec![cinder_beacon()]);
         assert_eq!(
-            next_rung_toward(MaryOPickup::Lantern, Some(&sparked))
-                .row
-                .id,
+            rung(Some(&sparked)),
             CINDER_BEACON_ID,
             "a fully powered Mary-O still gets an acknowledged hit"
         );
@@ -1897,5 +1991,88 @@ mod tests {
             .iter(app.world())
             .count();
         assert_eq!(count, 0, "a plain block is not a ?-block");
+    }
+
+    /// **The whole downgrade table, both authoring moods.**
+    ///
+    /// ⛔ 1-2 authors `MaryOBlock { kind: Brick, contents: AlwaysWand }`, and a
+    /// FIRE Mary-O who bonked it came out TALL. The wand and the beacon share
+    /// one exclusive slot, so the engine's replacement rule did exactly what it
+    /// promises and the form went down a rung. (GPT 5.6, 2026-08-05.)
+    ///
+    /// ⚠ **the redundant case still PAYS.** `Coins` here is not "nothing" — the
+    /// caller has already spent the block, flinched it and changed its art by
+    /// the time it reads this, and coins are what it hands over instead. A
+    /// `None` would be the unresponsive-block bug this file already fixed once.
+    #[test]
+    fn a_pickup_never_downgrades_the_form_she_is_already_in() {
+        let small: Option<&WornEquipment> = None;
+        let tall = WornEquipment::new(vec![star_wand()]);
+        let fire = WornEquipment::new(vec![cinder_beacon()]);
+
+        // Each row: the form she is in, the pickup authored, what it must pay.
+        let wand = MaryOBlockContents::Always(MaryOPickup::Wand);
+        let lantern = MaryOBlockContents::Always(MaryOPickup::Lantern);
+        let coins = BlockPayout::Coins(COINS_PER_BLOCK);
+
+        let paid = |contents, worn| match reward_for(contents, worn) {
+            Some(BlockPayout::Item(reward)) => reward.row.id.clone(),
+            Some(BlockPayout::Coins(amount)) => format!("coins:{amount}"),
+            None => "nothing".to_string(),
+        };
+        let coins_label = match &coins {
+            BlockPayout::Coins(amount) => format!("coins:{amount}"),
+            BlockPayout::Item(_) => unreachable!(),
+        };
+
+        // Climbing is untouched: a weaker form takes what it is given.
+        assert_eq!(paid(wand, small), STAR_WAND_ID, "small + wand -> tall");
+        assert_eq!(
+            paid(lantern, small),
+            CINDER_BEACON_ID,
+            "small + lantern -> fire"
+        );
+        assert_eq!(
+            paid(lantern, Some(&tall)),
+            CINDER_BEACON_ID,
+            "tall + lantern -> fire"
+        );
+
+        // Sideways and downward pay coins instead of undressing her.
+        assert_eq!(
+            paid(wand, Some(&tall)),
+            coins_label,
+            "tall + wand stays tall"
+        );
+        assert_eq!(
+            paid(wand, Some(&fire)),
+            coins_label,
+            "⛔ fire + wand STAYS FIRE"
+        );
+        assert_eq!(
+            paid(lantern, Some(&fire)),
+            coins_label,
+            "fire + lantern stays fire"
+        );
+
+        // ⭐ the quasar is not on the ladder, so it is never a downgrade: any
+        // form takes one. It wears no exclusive form slot, which is what the
+        // rule keys on rather than a list of ids it would have to be kept in
+        // step with.
+        let quasar = MaryOBlockContents::Always(MaryOPickup::Quasar);
+        assert_eq!(
+            paid(quasar, Some(&fire)),
+            crate::star::POCKET_QUASAR_ID,
+            "fire + quasar -> quasar"
+        );
+
+        // And a coin block is coins from every form, by the routing above
+        // rather than by three call sites each remembering to check.
+        let coin = MaryOBlockContents::Always(MaryOPickup::Coin);
+        assert_eq!(paid(coin, Some(&fire)), coins_label);
+        assert_eq!(paid(coin, small), coins_label);
+
+        // An empty block owes NOTHING, which is a different answer from coins.
+        assert_eq!(paid(MaryOBlockContents::Empty, small), "nothing");
     }
 }

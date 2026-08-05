@@ -70,6 +70,17 @@ const INTRO_CARD_SECONDS: f32 = 2.0;
 /// level is the same level": completing the flagpole restarts 1-1, cyclically.
 pub const LEVEL_CYCLE_DWELL: f32 = 2.0;
 
+/// How long the flag keeps ASKING to leave before it gives up and loops instead.
+///
+/// The level-end transition is a request to a transaction with several failure
+/// paths, all of which stop silently and trust the producer to ask again (that is
+/// the loading-zone contract every other producer follows). Mary-O now follows it
+/// too — but an unbounded ask would freeze her at the pole forever if the
+/// destination genuinely cannot be reached. Generous, because a covered
+/// transition legitimately takes seconds; bounded, because a level that will not
+/// end has to end anyway.
+pub const LEVEL_DEPART_GIVE_UP: f32 = 8.0;
+
 /// One tile. The whole level is authored on this grid, because the 1-1 grammar IS
 /// a grid grammar: a jump clears a few tiles, a pit is two or three wide.
 pub(crate) const T: f32 = 32.0;
@@ -2252,6 +2263,10 @@ fn at_mouth(body: ae::Aabb, mouth: ae::Aabb) -> bool {
 fn cycle_level_on_flag_tally(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
     mut dwell: bevy::prelude::Local<f32>,
+    // Has this departure already been banked and asked for? The tally phase now
+    // survives the request, so without this the score would be re-added every
+    // frame she spends waiting for the room to change.
+    mut asked: bevy::prelude::Local<bool>,
     mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
     destination: Option<bevy::prelude::Res<LevelDestination>>,
     room_set: Option<
@@ -2268,10 +2283,12 @@ fn cycle_level_on_flag_tally(
 ) {
     let Ok((mut sequence, mut level)) = owners.single_mut() else {
         *dwell = 0.0;
+        *asked = false;
         return;
     };
     if !matches!(sequence.phase, flag::FlagPhase::Tallied { .. }) {
         *dwell = 0.0;
+        *asked = false;
         return;
     }
     // Let the tally sit a beat before the level loops.
@@ -2279,15 +2296,15 @@ fn cycle_level_on_flag_tally(
     if *dwell < LEVEL_CYCLE_DWELL {
         return;
     }
-    *dwell = 0.0;
-    // Bank this grab before the sequence resets — `score()` reads the phase
-    // that is about to be cleared.
-    if let Some(grabbed) = sequence.score() {
-        level.score = level.score.saturating_add(grabbed);
-    }
-    *sequence = flag::FlagSequence::default();
-    level.time_remaining = STARTING_TIME;
-    level.intro_card = INTRO_CARD_SECONDS;
+    // Bank this grab exactly once — `score()` reads the Tallied phase, which now
+    // SURVIVES the request (see below), so an unguarded read would re-bank it
+    // every frame she spends departing.
+    let rearm_for_the_next_lap = |sequence: &mut flag::FlagSequence,
+                                  level: &mut MaryOLevelState| {
+        *sequence = flag::FlagSequence::default();
+        level.time_remaining = STARTING_TIME;
+        level.intro_card = INTRO_CARD_SECONDS;
+    };
 
     // Absent means loop, for the reason `MaryOEntryRoom`'s doc gives about its
     // own absence: a shipped game must not depend on a resource only some hosts
@@ -2297,6 +2314,12 @@ fn cycle_level_on_flag_tally(
         .cloned()
         .unwrap_or(LevelDestination::Replay);
     let LevelDestination::Room(target) = destination else {
+        *dwell = 0.0;
+        *asked = false;
+        if let Some(grabbed) = sequence.score() {
+            level.score = level.score.saturating_add(grabbed);
+        }
+        rearm_for_the_next_lap(&mut sequence, &mut level);
         replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
         return;
     };
@@ -2313,9 +2336,67 @@ fn cycle_level_on_flag_tally(
             "the goal names room `{target}`, which this world does not contain; \
              replaying the current room instead"
         );
+        *dwell = 0.0;
+        *asked = false;
+        if let Some(grabbed) = sequence.score() {
+            level.score = level.score.saturating_add(grabbed);
+        }
+        rearm_for_the_next_lap(&mut sequence, &mut level);
         replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
         return;
     };
+
+    // ⭐ **ARRIVED.** The room the goal named is the room she is standing in, so
+    // the trip is over: bank nothing more, rearm for the next lap, and let
+    // `run_flag_sequence` release her.
+    if set.rooms[set.active].id == target {
+        *dwell = 0.0;
+        *asked = false;
+        rearm_for_the_next_lap(&mut sequence, &mut level);
+        return;
+    }
+
+    // ⛔ **NOT arrived, so KEEP ASKING — and do not hand control back.**
+    //
+    // This used to reset the sequence to `Idle` and write the request once, in
+    // that order. `run_flag_sequence` releases `ScriptedControl` the moment the
+    // phase is `Idle`, so from the next frame the player was playing again and
+    // the single request was the only thing that could still move them. Every
+    // other producer of `RoomTransitionRequested` is a loading zone that
+    // re-emits every tick while the body overlaps it, and the transaction is
+    // built around exactly that — it dedupes by destination (*"trigger noise is
+    // not a new request"*) and every one of its failure paths simply stops,
+    // trusting the producer to ask again. The flag never asked again, so a
+    // dropped request read as the flag doing nothing at all: Jon's *"you can
+    // keep playing after you hit the flag"* (2026-08-05).
+    //
+    // Staying `Tallied` is also the right LOOK: a tallied sequence holds her
+    // still at the pole, which is what finishing a level should look like while
+    // the next one loads.
+    if !*asked {
+        if let Some(grabbed) = sequence.score() {
+            level.score = level.score.saturating_add(grabbed);
+        }
+        *asked = true;
+    }
+    // ...but not forever. A destination that never arrives would freeze her at
+    // the pole, and a silent freeze is only a better bug than a silent
+    // non-transition because it is visible. Say so and fall back to the loop
+    // every Mary-O level had before destinations existed.
+    if *dwell >= LEVEL_CYCLE_DWELL + LEVEL_DEPART_GIVE_UP {
+        bevy::log::warn!(
+            target: "ambition_demo_mary_o",
+            "asked to leave for room `{target}` for {LEVEL_DEPART_GIVE_UP}s and \
+             never arrived; replaying this room instead. The transition was \
+             dropped — check the `ambition_platformer2d::room_transition` log for \
+             a BEGIN with no retirement."
+        );
+        *dwell = 0.0;
+        *asked = false;
+        rearm_for_the_next_lap(&mut sequence, &mut level);
+        replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+        return;
+    }
     let arrival = set.rooms[target_index].world.spawn;
     transitions.write(
         ambition_platformer2d::world::rooms::RoomTransitionRequested::new(
@@ -3597,6 +3678,77 @@ mod tests {
     /// and the clock refills — that reset is what the cycle emitter does on the
     /// same line it writes `RoomReplayRequested` (so observing the reset proves the
     /// emit ran), and it must NOT fire early or the tally would never be seen.
+    /// **The level-end transition is a REQUEST, and a request can be dropped.**
+    ///
+    /// Jon, 2026-08-05: *"if you get to the end of a level with a quasar — or
+    /// maybe that you get to it in a weird way — you can keep playing after you
+    /// hit the flag instead of transitioning to the next level."*
+    ///
+    /// Every other producer of `RoomTransitionRequested` is a loading zone that
+    /// re-emits every tick while the body overlaps it, and the transaction says
+    /// so in as many words — *"Zone overlap may emit every tick until the
+    /// eventual commit moves the body"* — deduping by destination. Its recovery
+    /// model IS the producer asking again. The flag asked once, reset itself to
+    /// `Idle` in the same call, and `run_flag_sequence` then handed control back
+    /// on the very next frame. Any of the transaction's several silent drop
+    /// paths therefore reads, from the couch, as the flag doing nothing.
+    ///
+    /// This test is that drop: a bare app with no host to commit a transition.
+    /// She must stay held at the pole, still asking.
+    #[test]
+    fn a_dropped_level_transition_does_not_hand_control_back() {
+        use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+
+        let mut app = App::new();
+        ambition_platformer2d::engine::add_headless_foundation(&mut app);
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ActiveRoomMetadata(RoomMetadata::default()),
+        );
+        ambition_platformer2d::platformer::lifecycle::insert_session_world_component(
+            app.world_mut(),
+            ambition_platformer2d::world::rooms::RoomSet::from_parts(
+                LEVEL_1_1_ROOM_ID,
+                vec![level_1_1(), level_1_2::level_1_2()],
+                Vec::new(),
+            ),
+        );
+        app.insert_resource(LevelDestination::Room(
+            level_1_2::LEVEL_1_2_ROOM_ID.to_string(),
+        ));
+        app.insert_resource(ambition_platformer2d::time::WorldTime {
+            scaled_dt: LEVEL_CYCLE_DWELL * 0.5,
+            ..Default::default()
+        });
+        app.add_plugins(MaryORulesPlugin::global());
+
+        app.update();
+        {
+            let mut q = app
+                .world_mut()
+                .query::<(&mut flag::FlagSequence, &mut MaryOLevelState)>();
+            let world = app.world_mut();
+            let (mut seq, _) = q.iter_mut(world).next().expect("owner spawned");
+            seq.phase = flag::FlagPhase::Tallied { score: 800 };
+        }
+
+        // Two halves of the dwell, then one more frame: the request has been
+        // written and NOTHING has consumed it, because this app has no host.
+        app.update();
+        app.update();
+        app.update();
+
+        let mut q = app.world_mut().query::<&flag::FlagSequence>();
+        let phase = q.iter(app.world()).next().expect("owner").phase;
+        assert!(
+            !matches!(phase, flag::FlagPhase::Idle),
+            "the transition was dropped and the room never changed, so the flag \
+             sequence must NOT have rearmed to Idle — an Idle sequence is \
+             `run_flag_sequence` releasing ScriptedControl, which is the player \
+             walking away from a level they already finished. Phase was {phase:?}"
+        );
+    }
+
     #[test]
     fn a_settled_tally_rearms_the_level_after_a_dwell() {
         use ambition_platformer2d::world::rooms::{ActiveRoomMetadata, RoomMetadata};

@@ -486,8 +486,19 @@ pub fn level_1_1() -> RoomSpec {
     // shaft in the floor is a different affordance rather than a competing one.
     //
     // ▢ these still derive from `vault_bounds()`. They are the last constant in
-    // 1-1 and they want to be authored `LoadingZone` entities like everything
-    // else; leaving them is deliberate scope, not an oversight.
+    // 1-1, and moving them is BLOCKED on 1-2 rather than merely undone.
+    //
+    // ⛔ **tried, measured, reverted (2026-08-05).** Authoring them as
+    // `LoadingZone` entities places them fine — but the LDtk validator requires
+    // a zone to name `target_room` and `target_zone`, and 1-2 is a Rust room
+    // (`level_1_2.rs`) that no world file contains. So an authored zone here can
+    // only point at a room the file cannot see, and the level fails validation:
+    // two errors, and `mary_o.ldtk` was restored byte-identical.
+    //
+    // ⭐ **that is the coupling worth knowing**: the LINK is authored data too.
+    // It lives in `provider.rs` as a pair of `RoomLink`s precisely because one
+    // end is Rust, and it stops being Rust the moment 1-2 is authored — not
+    // before. Authoring 1-2 buys this row as well as its own.
     room.loading_zones
         .extend([descent_to_1_2(), surface_return_from_1_2()]);
     room

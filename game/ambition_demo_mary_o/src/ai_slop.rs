@@ -25,14 +25,12 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_platformer2d::actors::combat::components::ActorFaction;
-use ambition_platformer2d::actors::features::{SpawnActorKind, SpawnActorRequest};
+use ambition_platformer2d::actors::features::{ActorConfig, CenteredAabb};
 use ambition_platformer2d::characters::actor::BodyHealth;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 
 use crate::stomp::{player_touch, PlayerTouch};
-use crate::LEVEL_1_1_ROOM_ID;
 
 /// The catalog `display_name` an AI Slop renders from, and the name every AI Slop
 /// spawn carries so its `ai_slop` sheet resolves.
@@ -167,94 +165,40 @@ pub fn register_ai_slop_sheet(
 /// Half-extent of an AI Slop's body.
 pub(crate) const AI_SLOP_HALF: f32 = 14.0;
 
-/// The AI Slop spawn requests for a room — **one per AUTHORED placement**.
+/// **Is this actor an AI Slop?**
 ///
-/// ⛔ **this used to be a Rust column array plus a derived stair walk.** The
-/// level authored no enemies at all: `AI_SLOP_TILE_COLUMNS` said where the ground
-/// patrol stood and `stair_slop_spawn_positions` re-derived a slop per step from
-/// the pyramid's own constants, so an author could not add, move or remove one.
+/// ⛔ **identity is the ARCHETYPE, not a name and not an id prefix** — see
+/// [`crate::snake::is_snake_brain`] for the two ways this was wrong before and
+/// why `ActorConfig.brain` is the answer. Both mobs made the same mistake twice,
+/// so the reasoning is written once.
 ///
-/// ⭐ **the id is MINTED here from the authored placement.** The engine's
-/// `EnemySpawn` converter names a placement by its LDtk iid, and
-/// [`is_ai_slop_id`] is what decides a staged actor is slop at all — so the demo
-/// takes the authored identity and wraps it in its own, which keeps
-/// "one place mints ids" true while letting LDtk own WHERE.
-fn ai_slop_spawn_requests(spec: &ambition_platformer2d::world::rooms::RoomSpec) -> Vec<SpawnActorRequest> {
-    use ambition_platformer2d::engine_core::AabbExt;
-    spec.enemy_spawns
-        .iter()
-        .filter(|authored| {
-            matches!(
-                &authored.payload,
-                CharacterBrain::Custom(key) if key == AI_SLOP_BRAIN_KEY
-            )
-        })
-        .map(|authored| SpawnActorRequest {
-            id: ai_slop_id(&authored.id),
-            name: AI_SLOP_DISPLAY_NAME.to_string(),
-            pos: authored.aabb.center(),
-            half_size: ae::Vec2::new(AI_SLOP_HALF, AI_SLOP_HALF),
-            faction: ActorFaction::Enemy,
-            grudge_against: None,
-            kind: SpawnActorKind::Enemy {
-                brain: CharacterBrain::Custom(AI_SLOP_BRAIN_KEY.to_string()),
-            },
-        })
-        .collect()
-}
-
-/// Register the walkers as level 1-1's content staging: whenever the level's
-/// contents are staged (initial load, every cyclic replay — the walkers
-/// `respawn: OnRoomReenter` — and a snapshot restore), the walkers stage with them.
-pub fn register_ai_slop_content_staging(
-    registry: &mut ambition_platformer2d::actors::features::RoomContentStagingRegistry,
-) {
-    registry
-        .register(
-            LEVEL_1_1_ROOM_ID,
-            "ambition_demo_mary_o",
-            "ai_slop",
-            "ai-slop-staging.v1",
-            ai_slop_spawn_requests,
-        )
-        .expect("AI Slop staging registration is unique");
-}
-
-/// Does this authored id belong to an AI Slop?
-///
-/// ⛔ **identity is the `FeatureId`, never the `FeatureName`.** The tag pass used
-/// to match `name.0 == AI_SLOP_DISPLAY_NAME` — and `FeatureName`'s own doc says what it is:
-/// *"human-facing authored name for debug overlays / inspectors."* Renaming the
-/// character in the catalog would have silently stopped every stomp, because a
-/// presentation string was carrying gameplay identity. `FeatureId` is the stable
-/// one, and the spawn already builds it as `mary_o_ai_slop_<n>` — the archetype key IS
-/// its prefix. (GPT 5.6's Mary-O spec: *"Do not use a human-readable display
-/// name as gameplay identity."*)
-/// Mint the authored id for one AI Slop. **Every path that stages one must use
-/// this** — [`is_ai_slop_id`] is what decides it is slop at all, and one staged
-/// under another id is an enemy nothing can stomp.
-pub fn ai_slop_id(suffix: impl std::fmt::Display) -> String {
-    format!("{AI_SLOP_BRAIN_KEY}_{suffix}")
-}
-
-pub fn is_ai_slop_id(id: &str) -> bool {
-    id == AI_SLOP_BRAIN_KEY || id.starts_with(&format!("{AI_SLOP_BRAIN_KEY}_"))
+/// What it replaced here specifically: `AI_SLOP_TILE_COLUMNS` said where the
+/// ground patrol stood and `stair_slop_spawn_positions` re-derived a slop per
+/// step from the pyramid's own constants, so an author could not add, move or
+/// remove one. The level authors them now, and the engine's own authored-enemy
+/// construction builds them — this crate no longer stages a second copy.
+pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
+    matches!(brain, CharacterBrain::Custom(key) if key == AI_SLOP_BRAIN_KEY)
 }
 
 /// Tag freshly staged AI Slop with the [`AiSlop`] marker, so the stomp rule finds
-/// its own.
+/// its own, and hold it to [`AI_SLOP_HALF`].
+///
+/// ⭐ **an enemy's authored rectangle says WHERE, not HOW BIG.** The engine
+/// spawns an authored body at the rect the level draws, which is right for
+/// geometry and wrong for a character: how big a slop is, is a fact about the
+/// slop. The snake makes the same statement one step further along — its size
+/// comes from its sheet, and `SpritePosedBody` overwrites the authored rect
+/// within a few frames whatever the level says. Doing it here too means the two
+/// mobs answer "how big" the same way, and an author moving or resizing a
+/// placement in LDtk gets a predictable answer instead of two different ones.
 pub fn tag_mary_o_ai_slop(
     mut commands: Commands,
-    fresh: Query<
-        (
-            Entity,
-            &ambition_platformer2d::actors::features::FeatureId,
-        ),
-        Without<AiSlop>,
-    >,
+    mut fresh: Query<(Entity, &ActorConfig, &mut CenteredAabb), Without<AiSlop>>,
 ) {
-    for (entity, id) in &fresh {
-        if is_ai_slop_id(id.as_str()) {
+    for (entity, config, mut body) in &mut fresh {
+        if is_ai_slop_brain(&config.brain) {
+            body.half_size = ae::Vec2::splat(AI_SLOP_HALF);
             // The dormancy policy rides the same tag pass rather than the spawn
             // request, because `SpawnActorRequest` is the ENGINE's vocabulary for
             // what an actor IS and dormancy is a per-character decision the

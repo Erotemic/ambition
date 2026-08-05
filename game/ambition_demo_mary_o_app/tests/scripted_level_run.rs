@@ -41,10 +41,10 @@
 //! `app_it::participant_input` already owns it.
 #![cfg(not(feature = "input"))]
 
-use ambition_platformer2d::input::ControlFrame;
-use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_demo_mary_o::MaryOLevelState;
 use ambition_demo_mary_o_app::build_demo_app;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::*;
 
 /// The scripted stick. Republished every frame in `PreUpdate`, because Bevy
@@ -91,7 +91,8 @@ fn press_up() -> ControlFrame {
 fn player_size(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>(
+        );
     query
         .iter(app.world())
         .next()
@@ -102,7 +103,8 @@ fn player_size(app: &mut App) -> Vec2 {
 fn player_pos(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>(
+        );
     query
         .iter(app.world())
         .next()
@@ -466,11 +468,12 @@ fn a_spawned_snake_is_tagged_by_the_demo_that_owns_its_shell() {
     // Ask the engine for a snake exactly as the level's staging does.
     app.world_mut()
         .write_message(ambition_platformer2d::actors::features::SpawnActorRequest {
-            // ⚠ **minted by the demo, not invented here.** The tag reads the
-            // stable id, so an arbitrary one produces an enemy with no shell —
-            // which is what this test caught when the id stopped being a display
-            // name. "Exactly as the level's staging does" has to include the id.
-            id: ambition_demo_mary_o::snake::snake_id("scripted"),
+            // ⭐ **the id is free now, and that is the point.** It used to have
+            // to be minted by the demo, because the tag pass read an id PREFIX
+            // and an arbitrary id produced an enemy with no shell. The tag reads
+            // `ActorConfig.brain` now — the archetype this request already names
+            // below — so any unique id spawns a real snake.
+            id: "scripted_snake".to_string(),
             name: SNAKE_DISPLAY_NAME.to_string(),
             pos: Vec2::new(600.0, 300.0),
             half_size: Vec2::new(14.0, 16.0),

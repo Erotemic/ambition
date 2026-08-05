@@ -120,43 +120,20 @@ fn the_stomp_never_squashes_a_non_ai_slop() {
 
 // ── Dormancy (D1's content half) ───────────────────────────────────────────
 
-/// The tag pass is where an AI Slop learns it may sleep, so this is the link that
-/// would silently not exist: the engine's policy component is opt-in, and an actor
-/// that never receives one is awake across the whole level forever — which is
-/// exactly the reported bug, and it looks identical to "the feature is not built".
-#[test]
-fn a_staged_ai_slop_is_given_its_dormancy_policy() {
-    use ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy;
-
-    let mut app = App::new();
-    app.add_systems(Update, tag_mary_o_ai_slop);
-    // ⚠ spawned with the STABLE id, which is what the tag now reads — a
-    // display name is a debug label and no longer decides anything.
-    use ambition_platformer2d::actors::features::FeatureId;
-    let slop = app
-        .world_mut()
-        .spawn(FeatureId::new(format!("{AI_SLOP_BRAIN_KEY}_0")))
-        .id();
-    let bystander = app
-        .world_mut()
-        .spawn(FeatureId::new(crate::snake::SNAKE_BRAIN_KEY))
-        .id();
-    app.update();
-
-    assert_eq!(
-        app.world().get::<DormancyPolicy>(slop).copied(),
-        Some(DormancyPolicy::AwakeNearObservers {
-            radius: AI_SLOP_WAKE_RADIUS
-        }),
-        "a staged AI Slop declares the policy, or it thinks for the whole level"
-    );
-    assert!(
-        app.world().get::<DormancyPolicy>(bystander).is_none(),
-        "and the pass touches only its own kind — dormancy is per-character, so \
-         handing it to everything named in this room would be the same mistake as \
-         the engine assuming a distance"
-    );
-}
+// ⛔ **`a_staged_ai_slop_is_given_its_dormancy_policy` MOVED, it did not go
+// away.** It lives in `ambition_demo_mary_o_app`'s `one_placement_one_actor`
+// now, and the move was forced rather than chosen: the tag pass reads
+// `ActorConfig.brain`, and a game crate cannot BUILD an `ActorConfig`. It has no
+// `Default`, its `tuning`/`brain_spec` come from an `ArchetypeSpec`, and
+// `ArchetypeSpec` is not re-exported through the `ambition_platformer2d`
+// umbrella — which is the E9 oracle, so reaching past it is not an option.
+//
+// ⭐ **the replacement is stronger anyway**, and that is the part worth keeping
+// in mind before someone re-adds a synthetic one. The old fixture spawned a bare
+// `FeatureId` on an `App::new()` and asserted the pass answered it: it could only
+// ever prove the pass reacts to something a test invented. The integration
+// version asserts every slop the REAL construction path builds, from the real
+// authored level, gets its policy — and that nothing else does.
 
 /// ⭐ **The radius is DERIVED, and this is what makes that claim checkable.**
 ///

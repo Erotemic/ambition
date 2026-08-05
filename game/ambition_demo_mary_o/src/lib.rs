@@ -20,12 +20,11 @@ pub mod ai_slop;
 #[cfg(test)]
 mod binding_tests;
 pub mod bricks;
-pub mod ldtk_vocabulary;
-pub mod test_course;
-#[cfg(test)]
-mod ldtk_migration_tests;
 pub mod death;
 pub mod flag;
+#[cfg(test)]
+mod ldtk_migration_tests;
+pub mod ldtk_vocabulary;
 pub mod level_1_2;
 pub mod movement;
 pub mod pipe;
@@ -36,6 +35,7 @@ pub mod scenery;
 pub mod snake;
 pub mod star;
 pub mod stomp;
+pub mod test_course;
 
 pub use provider::{
     mary_o_session_world, MaryOExperiencePlugin, MaryOSessionWorld, MARY_O_CHARACTER_ID,
@@ -150,7 +150,6 @@ const SURFACE_HEIGHT: f32 = 15.0 * T;
 
 /// How far below the ground slab the secret vault's floor sits.
 const VAULT_DEPTH_TILES: f32 = 9.0;
-
 
 /// The four halves of Mary-O's two warp tubes, by their AUTHORED names.
 ///
@@ -344,7 +343,9 @@ fn authored_room(area: &str) -> RoomSpec {
     // silent for an identical set, which is exactly the repeated case.
     ldtk_vocabulary::install();
     let project = ambition_platformer2d::ldtk_map::LdtkProject::from_json_str(MARY_O_WORLD_JSON)
-        .expect("mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)");
+        .expect(
+            "mary_o.ldtk parses (regen: game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py)",
+        );
     let room_set = project
         .to_room_set_with_entry(area)
         .unwrap_or_else(|errors| panic!("mary_o.ldtk converts to rooms: {errors:?}"));
@@ -550,16 +551,15 @@ pub fn authored_block_by_id<'a>(world: &'a ae::World, id: &ae::GeoId) -> Option<
 /// time, so there is no second value it could ever hold and no install order to
 /// get wrong.
 fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)> {
-    static BLOCKS: std::sync::LazyLock<
-        std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)>,
-    > = std::sync::LazyLock::new(|| {
-        authored_room(LEVEL_1_1_ROOM_ID)
-            .world
-            .blocks
-            .iter()
-            .map(|block| (block.name.clone(), (block.id.clone(), block.aabb)))
-            .collect()
-    });
+    static BLOCKS: std::sync::LazyLock<std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)>> =
+        std::sync::LazyLock::new(|| {
+            authored_room(LEVEL_1_1_ROOM_ID)
+                .world
+                .blocks
+                .iter()
+                .map(|block| (block.name.clone(), (block.id.clone(), block.aabb)))
+                .collect()
+        });
     &BLOCKS
 }
 
@@ -577,7 +577,6 @@ fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::G
 // [`ldtk_vocabulary::block_kind_of`]: ask the ROOM which block was struck, then
 // ask the BLOCK what kind it is. Position comes from the block's own `aabb`, so a
 // block dragged in the editor pops its reward where it now sits.
-
 
 /// The pole's geometry, derived from the SAME constants [`level_1_1`] builds the
 /// `goal_pole` block out of. A second source of truth for where the flag is would
@@ -954,15 +953,24 @@ pub fn install_mary_o_content(app: &mut App) {
             .expect("Mary-O enemy roster should be valid"),
         );
     }
+    // ⛔ **Mary-O stages NO enemies of her own, and must not.** She used to
+    // register two `RoomContentStagingRegistry` closures that walked
+    // `room.enemy_spawns` and minted a `SpawnActorRequest` per matching brain.
+    // That was correct while the level authored no enemies — but once 1-1 moved
+    // into LDtk and DID author them, the engine's `authored_actor_requests`
+    // built one actor per placement and these closures built a second under a
+    // prefixed id. Seventeen placements, thirty-four actors, and only the
+    // prefixed half carried `SnakeShell` / `AiSlop`, so half of 1-1's enemies
+    // were un-stompable lookalikes. The ids differed, so the construction plan's
+    // duplicate-id check could not see it.
+    //
+    // ⭐ **one authored placement, one root.** The engine builds every authored
+    // enemy; this crate only decides what its own archetypes MEAN, in the tag
+    // passes, keyed off `ActorConfig.brain`. The staging registry itself is
+    // untouched and still right for content a room does not author (the duel
+    // arena uses it exactly that way) — Mary-O's enemies are simply not that
+    // anymore.
     app.init_resource::<ambition_platformer2d::actors::features::RoomContentStagingRegistry>();
-    {
-        let mut registry = app
-            .world_mut()
-            .resource_mut::<ambition_platformer2d::actors::features::RoomContentStagingRegistry>(
-        );
-        snake::register_snake_content_staging(&mut registry);
-        ai_slop::register_ai_slop_content_staging(&mut registry);
-    }
     // The flagpole + warp-pipe LOOK: load the construction sheets into
     // `GameAssets.props` so the decorative props authored on the level resolve to
     // real art instead of the placeholder quad. Presentation-only, so it rides the

@@ -48,10 +48,10 @@
 
 #![cfg(not(feature = "input"))]
 
+use ambition_demo_mary_o_app::build_demo_app;
 use ambition_platformer2d::engine_core::{self as ae, AabbExt};
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_demo_mary_o_app::build_demo_app;
 use bevy::prelude::*;
 
 /// `mary_o_tall`'s id is private to the demo's `powerups` module; the demo's own
@@ -688,7 +688,6 @@ fn she_plays_level_one_from_spawn_to_the_pole_and_it_replays() {
             .map(|spent| spent.is_spent(&first_power_block().id))
     );
 
-
     // Back off left so she can mount the block from beside it.
     drive(&mut app, 60, |b| {
         Some(move_x(
@@ -1050,7 +1049,9 @@ fn snake_by_id(
 /// ⛔ these tests named `"mary_o_snake_0"`, which was the id the old Rust column
 /// table minted. A snake's placement is authored now, so its id carries the LDtk
 /// iid — and there is no numbering to guess. What the tests actually need is *a*
-/// snake, which is what `is_snake_id` answers.
+/// snake, and `SnakeShell` is that: only the tag pass attaches it, and it does so
+/// off the actor's brain. The id-prefix filter that used to be here went away
+/// with the second construction path that minted the prefix.
 fn some_snake(
     app: &mut App,
 ) -> Option<(String, ae::Aabb, ambition_demo_mary_o::snake::SnakeShell)> {
@@ -1061,9 +1062,6 @@ fn some_snake(
     )>();
     let mut found: Vec<_> = q
         .iter(app.world())
-        .filter(|(feature_id, ..)| {
-            ambition_demo_mary_o::snake::is_snake_id(feature_id.as_str())
-        })
         .map(|(feature_id, aabb, shell)| (feature_id.as_str().to_string(), aabb.aabb(), *shell))
         .collect();
     // Sorted so a test that picks "the first" picks the same one every run.

@@ -43,17 +43,16 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_platformer2d::actors::combat::components::ActorFaction;
-use ambition_platformer2d::actors::features::{ActorAnimOverride, ActorConfig, FeatureId};
+use ambition_platformer2d::actors::features::{
+    ActorAnimOverride, ActorConfig, CenteredAabb, FeatureId,
+};
 use ambition_platformer2d::actors::features::{HitEvent, HitMode, HitSource, HitTarget};
-use ambition_platformer2d::actors::features::{SpawnActorKind, SpawnActorRequest};
 use ambition_platformer2d::characters::actor::BodyCombat;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 use crate::stomp::{player_touch, PlayerTouch};
-use crate::LEVEL_1_1_ROOM_ID;
 
 /// The catalog `display_name` a snake renders from, and the name every snake
 /// spawn carries so its `solid_snake` sheet resolves.
@@ -406,13 +405,15 @@ pub fn register_solid_snake_sheet(
     if config.no_assets || game_assets.characters.sheet(SNAKE_DISPLAY_NAME).is_some() {
         return;
     }
-    if let Some(asset) = ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
-        &asset_server,
-        &mut layouts,
-        &config.sprite_folder,
-        SNAKE_SHEET_TARGET,
-        &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
-    ) {
+    if let Some(asset) =
+        ambition_platformer2d::actors::character_sprites::load_prop_sheet_for_target(
+            &asset_server,
+            &mut layouts,
+            &config.sprite_folder,
+            SNAKE_SHEET_TARGET,
+            &ambition_platformer2d::sprite_sheet::character::SheetTuning::new(1.0, 0),
+        )
+    {
         // Double-keyed exactly like the eager loader: the render resolves an actor
         // by its display name, and other seams by the catalog id.
         game_assets
@@ -460,91 +461,61 @@ fn snake_half_size() -> ae::Vec2 {
     })
 }
 
-
-/// The snake spawn requests for a room — **one per AUTHORED placement**.
+/// **Is this actor a snake?** The one question every snake system asks.
 ///
-/// ⛔ `SNAKE_TILE_COLUMNS` said where they stood and the level authored none, so
-/// moving a snake meant editing Rust. The level authors them now; this mints the
-/// stable id [`is_snake_id`] reads, from the authored placement's own identity.
-fn snake_spawn_requests(spec: &ambition_platformer2d::world::rooms::RoomSpec) -> Vec<SpawnActorRequest> {
-    use ambition_platformer2d::engine_core::AabbExt;
-    let half_size = snake_half_size();
-    spec.enemy_spawns
-        .iter()
-        .filter(|authored| {
-            matches!(
-                &authored.payload,
-                CharacterBrain::Custom(key) if key == SNAKE_BRAIN_KEY
-            )
-        })
-        .map(|authored| SpawnActorRequest {
-            id: snake_id(&authored.id),
-            name: SNAKE_DISPLAY_NAME.to_string(),
-            pos: authored.aabb.center(),
-            half_size,
-            faction: ActorFaction::Enemy,
-            grudge_against: None,
-            kind: SpawnActorKind::Enemy {
-                brain: CharacterBrain::Custom(SNAKE_BRAIN_KEY.to_string()),
-            },
-        })
-        .collect()
-}
-
-/// Register the walkers as level 1-1's content staging: whenever the level's
-/// contents are staged (initial load, every cyclic replay — the snakes
-/// `respawn: OnRoomReenter` — and a snapshot restore), the walkers stage with them.
-pub fn register_snake_content_staging(
-    registry: &mut ambition_platformer2d::actors::features::RoomContentStagingRegistry,
-) {
-    registry
-        .register(
-            LEVEL_1_1_ROOM_ID,
-            "ambition_demo_mary_o",
-            "snake",
-            "snake-staging.v1",
-            snake_spawn_requests,
-        )
-        .expect("snake staging registration is unique");
-}
-
-/// Does this authored id belong to a snake?
+/// ⛔ **identity is the ARCHETYPE, not a name and not an id prefix.** This
+/// answer has now been wrong twice, each time because it was reading something
+/// that merely correlated with being a snake.
 ///
-/// ⛔ **identity is the `FeatureId`, never the `FeatureName`.** The tag pass used
-/// to match `name.0 == SNAKE_DISPLAY_NAME` — and `FeatureName`'s own doc says what it is:
-/// *"human-facing authored name for debug overlays / inspectors."* Renaming the
-/// character in the catalog would have silently stopped every stomp, because a
-/// presentation string was carrying gameplay identity. `FeatureId` is the stable
-/// one, and the spawn already builds it as `mary_o_snake_<n>` — the archetype key IS
-/// its prefix. (GPT 5.6's Mary-O spec: *"Do not use a human-readable display
-/// name as gameplay identity."*)
-/// Mint the authored id for one snake. **Every path that stages a snake must
-/// use this**, because [`is_snake_id`] is what decides that the thing is a snake
-/// at all — a snake spawned under some other id is a walking enemy with no
-/// shell, and nothing reports it.
-pub fn snake_id(suffix: impl std::fmt::Display) -> String {
-    format!("{SNAKE_BRAIN_KEY}_{suffix}")
-}
-
-pub fn is_snake_id(id: &str) -> bool {
-    id == SNAKE_BRAIN_KEY || id.starts_with(&format!("{SNAKE_BRAIN_KEY}_"))
+/// The first version matched `name.0 == SNAKE_DISPLAY_NAME`, and `FeatureName`'s
+/// own doc says what that is: *"human-facing authored name for debug overlays /
+/// inspectors."* Renaming the character in the catalog would have silently
+/// stopped every stomp.
+///
+/// The second matched a `FeatureId` PREFIX — `mary_o_snake_<n>` — which was
+/// stable, but only because this crate minted the id itself in a staging
+/// closure. That closure was a SECOND construction path over the same authored
+/// placements, and when the level moved into LDtk the engine's own
+/// `authored_actor_requests` began building them too. Every snake existed
+/// twice: one under the raw placement id with no shell and no stomp, one under
+/// the prefixed id with both. A prefix is only identity while you control who
+/// mints it, and by then nobody did.
+///
+/// `ActorConfig.brain` is the authored placement's `CharacterBrain` carried onto
+/// the entity verbatim, whichever path built it. That is the archetype key
+/// itself rather than a string that happens to contain it.
+///
+/// ⚠ **it is a read-model, not an authority.** `ActorConfig`'s doc calls it a
+/// projection, and the reconcile paths in `autonomous_reconcile.rs` do write it
+/// back — but only for actors carrying a `BrainBinding`, which the peaceful-NPC
+/// and provocation paths attach and authored enemies never get. True today,
+/// unprotected structurally, and worth knowing if a snake is ever provoked into
+/// a rebuilt brain.
+pub fn is_snake_brain(brain: &CharacterBrain) -> bool {
+    matches!(brain, CharacterBrain::Custom(key) if key == SNAKE_BRAIN_KEY)
 }
 
 /// Tag freshly staged snakes with `SnakeShell::Walking` (so the shell system
 /// finds its own) and with `SpritePosedBody` (so its body geometry comes from
 /// the sheet, per pose — the box a stomp shrinks).
+///
+/// ⚠ **and give it the sheet's box on the spot**, which is not redundant with
+/// `SpritePosedBody`. The authored placement's rectangle is what the engine
+/// spawns a body at, and a snake's LDtk rect is one tile-ish while its sheet
+/// body is more than twice as wide. `SpritePosedBody` corrects that — measured,
+/// on the THIRD frame — so without this the level opens with two frames of
+/// half-width snake. The staging path this replaced never showed it, because it
+/// spawned the request at [`snake_half_size`] directly.
+///
+/// ⭐ **the rule is unchanged**: how big a snake is comes from its sheet, where
+/// it patrols comes from the level. This is only the sheet answering sooner.
 pub fn tag_mary_o_snakes(
     mut commands: Commands,
-    fresh: Query<
-        (
-            Entity,
-            &ambition_platformer2d::actors::features::FeatureId,
-        ),
-        Without<SnakeShell>,
-    >,
+    mut fresh: Query<(Entity, &ActorConfig, &mut CenteredAabb), Without<SnakeShell>>,
 ) {
-    for (entity, id) in &fresh {
-        if is_snake_id(id.as_str()) {
+    for (entity, config, mut body) in &mut fresh {
+        if is_snake_brain(&config.brain) {
+            body.half_size = snake_half_size();
             commands.entity(entity).try_insert((
                 SnakeShell::Walking,
                 ambition_platformer2d::actors::character_sprites::SpritePosedBody::new(
@@ -690,9 +661,10 @@ pub fn run_snake_shells(
             // session — a Mary-O sound stays Mary-O's even when the stomper is
             // gone by the time the effect resolves.
             match stomper {
-                Some(stomper) => {
-                    sfx.write_for(stomper, ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos })
-                }
+                Some(stomper) => sfx.write_for(
+                    stomper,
+                    ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos },
+                ),
                 None => sfx.write_from(
                     crate::provider::MARY_O_EXPERIENCE,
                     ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos },
@@ -702,9 +674,10 @@ pub fn run_snake_shells(
         if fx.just_kicked {
             let kicker = players.single().ok().map(|(entity, _)| entity);
             match kicker {
-                Some(kicker) => {
-                    sfx.write_for(kicker, ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos })
-                }
+                Some(kicker) => sfx.write_for(
+                    kicker,
+                    ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos },
+                ),
                 None => sfx.write_from(
                     crate::provider::MARY_O_EXPERIENCE,
                     ambition_platformer2d::sfx::SfxMessage::Pogo { pos: kin.pos },

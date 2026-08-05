@@ -1126,6 +1126,35 @@ pub fn install_mary_o_content(app: &mut App) {
         // engine's rollback anchors reach it, and a registered-but-unanchored
         // component silently never snapshots (found by the behavioral restore
         // test: a dirty score survived a GGRS rollback).
+        // ⭐ **the pole and where it LEADS are DERIVED from the active room**, and
+        // the rollback sweep is what made that explicit. Both are re-answered by
+        // `follow_the_active_room` whenever the active room id changes, out of
+        // `RoomSet` — so a rewind that crosses a room transition restores the
+        // room, and the next tick restores these from it. Snapshotting them
+        // would store a second copy of an answer the room already holds.
+        //
+        // ⚠ **the `Local` memo inside that system is a cache, NOT a gate on
+        // behaviour** — the distinction this repo has been bitten by. It
+        // suppresses only a write that would be a no-op, and it cannot go out of
+        // step with the resources because none of the three rewinds: memo,
+        // resource and room all carry whatever the last tick left, together.
+        //
+        // ⚠ `FlagPole` used to be WAIVED, with the reason "immutable after room
+        // load, so there is nothing to rewind". That was true when it was
+        // written once at Startup — and wrong for every room but the first,
+        // which is the bug this system exists to fix. Derived is the honest
+        // answer now, and it stops the waiver's text from quietly describing
+        // code that no longer behaves that way.
+        app.declare_rollback_derived_resource::<LevelDestination>(
+            "ambition_demo_mary_o",
+            "content.level_destination",
+            "where the ACTIVE room's goal leads; re-derived from RoomSet on every room change",
+        )
+        .declare_rollback_derived_resource::<flag::FlagPole>(
+            "ambition_demo_mary_o",
+            "content.flag_pole",
+            "the ACTIVE room's goal geometry, mirroring its authored block; re-derived from RoomSet on every room change",
+        );
         app.require_rollback::<MaryOLevelState>("ambition_demo_mary_o", "entity:mary_o_mode_owner")
             .rollback_component_clone::<MaryOLevelState>(
                 "ambition_demo_mary_o",

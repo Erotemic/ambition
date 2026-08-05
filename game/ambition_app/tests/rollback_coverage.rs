@@ -1234,10 +1234,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
     ),
     (
-        "ambition_demo_mary_o::flag::FlagPole",
-        "pure GEOMETRY — the pole's x, top, base and half-width, mirroring the          authored block, immutable after room load, so there is nothing to rewind.          ⚠ it reads like `SpentPowerBlocks` from its NAME alone, which is exactly          why the name was not enough and it was read",
-    ),
-    (
         "ambition_demo_sanic::ball_dash::BallDashTuning",
         "authored dash numbers. Every production reference is `Res<>`; nothing          takes it mutably anywhere in the workspace, so it cannot differ between          two timelines of one session",
     ),

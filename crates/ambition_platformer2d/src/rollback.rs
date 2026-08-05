@@ -155,20 +155,26 @@ pub struct DeclaredParticipants(pub usize);
 /// only "failed" would send them into `crates/`, which is the failure ADR
 /// 0031's blind-agent gate measures.
 ///
-/// ⚠ **A fifth variant was written and deleted before this shipped.**
-/// `ParticipantsDisagree` compared the declared count against
-/// `LocalSeatTopology` and refused when they differed. It had a good story —
-/// the shipped host reads the seat topology, a consumer declaring
-/// "single-player" states something the engine cannot check — and it could
-/// never fire: a probe found that on a host composed through
-/// `PlatformerApp::rollback`, `LocalSeatTopology` is never inserted at all.
-/// The resource is populated by the dev observatory's own session path, not by
-/// the builder.
+/// ⚠ **A fifth variant was written and deleted before this shipped, and its
+/// PREMISE HAS SINCE EXPIRED.** `ParticipantsDisagree` compared the declared
+/// count against `LocalSeatTopology` and refused when they differed. It was
+/// deleted as unreachable: a probe found that on a host composed through
+/// `PlatformerApp::rollback`, `LocalSeatTopology` was never inserted at all,
+/// being populated only by the dev observatory's own session path.
 ///
-/// It was deleted rather than kept as harmless. An unreachable refusal reads
-/// as protection, and the property it claimed to defend is enforced by
-/// something real instead: the count is not passable per session, so there is
-/// no second value to disagree with.
+/// ⛔ **that is no longer true.** `freeze_local_seating_for_the_decided_match`
+/// is registered by `PlatformerHostPlugins`, which this builder adds
+/// unconditionally, so a topology IS frozen here the moment a match publishes a
+/// roster — which is precisely the situation the refusal was about. The reason
+/// for deleting it has expired even though the deletion may still be right.
+///
+/// ⚠ **so this is a live question, not a settled one**, and it is recorded
+/// rather than acted on: restoring a refusal is a design decision, and the
+/// original argument for removing it ("an unreachable refusal reads as
+/// protection") no longer applies to a reachable one. What has NOT changed is
+/// the other half of that argument — the count is not passable per session, so
+/// there is still no second value for a consumer to disagree with. Which of
+/// those two facts governs is the thing to decide.
 #[derive(Clone, Debug)]
 pub enum RollbackRefused {
     /// The host was not composed for rollback.

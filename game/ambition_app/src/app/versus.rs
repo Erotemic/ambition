@@ -363,11 +363,20 @@ fn reconcile_roster_with_frozen_topology(
     // one fighter — Jon, 2026-08-01: *"even when we add a CPU player in smash
     // there is only ever one player that shows up in game."*
     //
-    // ⚠ it only bites where a topology is actually FROZEN, which today is a
-    // `dev_tools` build (the rollback observatory is the only thing that freezes
-    // one — queue S35). That is why the headless host test passes: `MinimalPlugins`
-    // never freezes one, so this returned early and Smash's roster survived. The
-    // test proves the composition no player runs.
+    // ⚠ it only bites where a topology is actually FROZEN — and that is EVERY
+    // build now, not a `dev_tools` one.
+    //
+    // ⛔ **this comment used to say the rollback observatory was the only thing
+    // that froze a topology (queue S35), and that stopped being true when
+    // `freeze_local_seating_for_the_decided_match` shipped**: it is registered
+    // by `PlatformerHostPlugins`, which every host adds, and the ggrs session
+    // maintainer captures one of its own besides. So the reconciler below runs
+    // in a shipped build, which is what makes the two-writer problem reachable
+    // rather than theoretical (queue G1 PICK 17).
+    //
+    // The headless host test still passes for the reason it always did:
+    // `MinimalPlugins` installs no host, so nothing freezes and this returns
+    // early. That test proves the composition no player runs.
     if !roster.is_published_by(VERSUS_EXPERIENCE) {
         return;
     }

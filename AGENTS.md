@@ -121,10 +121,16 @@ Three of its facts belong in your face rather than behind a link:
   during test and compiles"*). Every job reads the LIVE tree, so a suite on `main`
   freezes editing for its whole 6–25 minutes. Launch the job, then IMMEDIATELY
   hand a subagent independent work with `isolation: "worktree"`.
+  ⛔ **TELL IT NOT TO BUILD.** Every checkout shares ONE target dir
+  (`.cargo/config.toml`), so a worktree `cargo test` links rlibs from whatever
+  `main` is mid-edit and reports errors that exist in neither tree — observed
+  2026-08-05, recovered only by touching 1350 files, which cost `main` a full
+  rebuild too. ⚠ a second target dir is not the escape: that volume runs at 92%.
+  **The worktree WRITES; `main` VERIFIES.** Say so in the prompt, and expect the
+  work back unverified.
   ⚠ **`cd` to the repo ROOT first** — a worktree comes from the repo containing
   the shell's cwd, and `tools/ambition_sprite2d_renderer` is a NESTED repo that
-  silently yields a tree with no `crates/`, `game/` or `docs/`. Rest of the
-  mechanics, and the ⛔ against BUILDING in the worktree, are in the recipe above.
+  silently yields a tree with no `crates/`, `game/` or `docs/`.
 - ⛔ **the exhaustive plan is `--run-everything-you-probably-dont-need-this`, and
   the name is the instruction.** 4× the default sweep, no CI to satisfy, and Jon
   sweeps it himself. Reach for it only when a row in the recipe names your change

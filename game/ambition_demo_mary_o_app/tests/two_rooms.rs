@@ -32,13 +32,13 @@
 //! by construction rather than by composition luck, so this proof holds under
 //! `-p` and `--workspace` alike.
 
+use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
+use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
+use ambition_demo_mary_o_app::build_demo_app;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use ambition_platformer2d::world::rooms::RoomSet;
-use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
-use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
-use ambition_demo_mary_o_app::build_demo_app;
 use bevy::prelude::*;
 
 #[derive(Resource, Clone, Copy, Default)]
@@ -95,7 +95,8 @@ fn press_down() -> ControlFrame {
 fn player_pos(app: &mut App) -> Vec2 {
     let mut query = app
         .world_mut()
-        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>();
+        .query_filtered::<&ambition_platformer2d::engine_core::BodyKinematics, With<PrimaryPlayer>>(
+        );
     query
         .iter(app.world())
         .next()
@@ -272,6 +273,11 @@ fn a_body_standing_on_the_ferry_is_carried_by_it() {
 }
 
 /// Where the 1-2 ferry is right now, out of the live platform set.
+///
+/// ⚠ found by its authored NAME, not by an id. The ferry is a `MovingPlatform`
+/// entity in `mary_o.ldtk` now and the converter keys a platform's runtime id to
+/// the LDtk iid — a value the file mints, so nothing outside the file can spell
+/// it. The name is what an author types and what a reader recognises.
 fn ferry(app: &mut App) -> (Vec2, Vec2) {
     let set = app
         .world()
@@ -279,7 +285,7 @@ fn ferry(app: &mut App) -> (Vec2, Vec2) {
     let platform = set
         .0
         .iter()
-        .find(|platform| platform.id == "mary_o_1_2_ferry")
+        .find(|platform| platform.name == ambition_demo_mary_o::level_1_2::FERRY_NAME)
         .expect("1-2's ferry is in the live platform set");
     (platform.pos, platform.size)
 }

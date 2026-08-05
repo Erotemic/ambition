@@ -114,6 +114,10 @@ impl LdtkProject {
         let mut level_ids = BTreeSet::new();
         let mut player_starts_by_area: BTreeMap<String, usize> = BTreeMap::new();
         let mut level_count_by_area: BTreeMap<String, usize> = BTreeMap::new();
+        // Zones that name NO target: the landing pad half of a one-way trip.
+        // `(area, zone id, iid)` — see the `LoadingZone` arm for why they are
+        // legal and what still has to hold for them.
+        let mut landing_pads: Vec<(String, String, String)> = Vec::new();
 
         for level in &self.levels {
             if !level_ids.insert(level.identifier.clone()) {
@@ -209,11 +213,33 @@ impl LdtkProject {
                                 entity.iid
                             ));
                         }
-                        if field_string(entity, "target_room").is_none()
-                            || field_string(entity, "target_zone").is_none()
-                        {
+                        // ⛔ **A ZONE IS EITHER AN EXIT OR A LANDING PAD**, and
+                        // this used to demand that every one of them be an exit.
+                        // Conversion has always had both shapes — a zone with no
+                        // target contributes no `RoomLink`, and
+                        // `transition_from_zone` only fires on a zone with an
+                        // outgoing edge — so the arrival end of a one-way trip
+                        // was expressible at runtime and unauthorable in a file.
+                        //
+                        // ⚠ **a landing pad that names a target is a BOUNCE.**
+                        // The body arrives standing inside the zone it arrived
+                        // through (`door_arrival` = zone centre, 26px off its
+                        // floor), so the moment the transition cooldown lapses
+                        // that zone fires and sends it straight back.
+                        let has_target_room = field_string(entity, "target_room")
+                            .is_some_and(|value| !value.trim().is_empty());
+                        let has_target_zone = field_string(entity, "target_zone")
+                            .is_some_and(|value| !value.trim().is_empty());
+                        if !has_target_room && !has_target_zone {
+                            landing_pads.push((
+                                active_area.clone(),
+                                field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
+                                entity.iid.clone(),
+                            ));
+                        } else if !(has_target_room && has_target_zone) {
                             report.errors.push(format!(
-                                "LoadingZone {} requires target_room and target_zone fields",
+                                "LoadingZone {} names half a target; an exit needs both \
+                                 target_room and target_zone, a landing pad needs neither",
                                 entity.iid
                             ));
                         }
@@ -272,6 +298,26 @@ impl LdtkProject {
                 // so flagging it would treat the editor's own output as a
                 // problem and break the contract that a file the LDtk editor
                 // writes must run unchanged.
+            }
+        }
+
+        // ⭐ **the typo the blanket rule used to catch, kept.** A landing pad
+        // nothing arrives through is dead geometry, and an exit whose target
+        // fields were never filled in reads exactly like one.
+        if !landing_pads.is_empty() {
+            let arrivals: BTreeSet<(String, String)> = self
+                .collect_room_links()
+                .into_iter()
+                .map(|link| (link.to_room, link.to_zone))
+                .collect();
+            for (area, zone_id, iid) in landing_pads {
+                if !arrivals.contains(&(area.clone(), zone_id.clone())) {
+                    report.errors.push(format!(
+                        "LoadingZone {iid} ('{zone_id}' in area '{area}') names no target and \
+                         nothing arrives through it; give it a target_room/target_zone or point \
+                         a zone at it"
+                    ));
+                }
             }
         }
 

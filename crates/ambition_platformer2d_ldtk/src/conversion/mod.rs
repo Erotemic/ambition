@@ -108,7 +108,7 @@ impl LdtkProject {
         Ok(RoomSet::from_parts(start_room, rooms, links))
     }
 
-    fn collect_room_links(&self) -> Vec<RoomLink> {
+    pub(crate) fn collect_room_links(&self) -> Vec<RoomLink> {
         let mut links = Vec::new();
         for level in &self.levels {
             let from_room = level.active_area();

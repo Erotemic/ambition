@@ -914,6 +914,9 @@ def validate(
     levels_by_area = defaultdict(list)
     zones_by_area = defaultdict(set)
     requested_links = []
+    # Zones that name NO target: the landing pad half of a one-way trip. See
+    # the LoadingZone branch below for why these are legal.
+    arrival_only_zones = []
     area_bounds = {}
     area_zones = defaultdict(dict)
     area_solids = defaultdict(list)
@@ -1119,9 +1122,32 @@ def validate(
                                 f"EdgeExit LoadingZone {entity.get('iid')} in {identifier!r} overlaps solid {entity_name(solid)}; "
                                 "split the wall or move the zone so the exit is physically reachable"
                             )
-                if target_room is None or target_zone is None:
+                # ⛔ **A ZONE IS EITHER AN EXIT OR A LANDING PAD, and this used
+                # to demand that every one of them be an exit.** The runtime has
+                # always had both shapes — `collect_room_links` skips a zone that
+                # names no target, and `transition_from_zone` only fires on a
+                # zone with an outgoing edge — but a level file could not SAY the
+                # second one, so the arrival end of every one-way trip had to be
+                # built in Rust. That is exactly what kept Mary-O's two 1-1 zones
+                # out of `mary_o.ldtk`.
+                #
+                # ⚠ **and a landing pad that names a target is not merely
+                # redundant, it is a bounce.** The body arrives standing INSIDE
+                # the target zone (`door_arrival` = zone centre, 26px off its
+                # floor), so the moment the 0.16s transition cooldown lapses the
+                # zone it landed on fires and sends it back. Measured, not
+                # reasoned: `transition_for_player` on a freshly-landed body
+                # returns `None` for a targetless pad and a transition for a
+                # targeted one.
+                has_room = target_room is not None and str(target_room).strip()
+                has_zone = target_zone is not None and str(target_zone).strip()
+                if not has_room and not has_zone:
+                    arrival_only_zones.append((identifier, area, str(zone_id)))
+                elif not (has_room and has_zone):
                     errors.append(
-                        f"LoadingZone {entity.get('iid')} requires target_room and target_zone"
+                        f"LoadingZone {entity.get('iid')} names half a target "
+                        f"(target_room={target_room!r}, target_zone={target_zone!r}); "
+                        "an exit needs both, a landing pad needs neither"
                     )
                 else:
                     requested_links.append(
@@ -1292,6 +1318,19 @@ def validate(
                     f"in target area {target_room!r}; move the target zone or split collision around it"
                 )
                 break
+
+    # ⭐ **the typo check the blanket rule used to buy, kept.** A zone that names
+    # no target is a landing pad, and a landing pad nothing arrives through is
+    # dead geometry — an exit whose fields were never filled in reads exactly
+    # like one, so this is where that mistake still gets caught.
+    arrived_through = {(room, zone) for _, _, _, room, zone in requested_links}
+    for source_level, area, zone_id in arrival_only_zones:
+        if (area, zone_id) not in arrived_through:
+            errors.append(
+                f"LoadingZone {zone_id!r} in {source_level!r} names no target and "
+                "nothing arrives through it; give it a target_room/target_zone or "
+                "point a zone at it"
+            )
 
     for area, level_names in levels_by_area.items():
         count = starts_by_area[area]

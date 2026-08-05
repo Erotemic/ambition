@@ -19,7 +19,9 @@
 use bevy::prelude::*;
 
 use ambition_demo_mary_o::flag::{FlagPhase, FlagSequence};
-use ambition_platformer2d::engine_core::RoomGeometry;
+use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
+use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
+use ambition_platformer2d::world::rooms::RoomSet;
 
 /// How many frames a transition may take to commit before we call it wedged.
 ///
@@ -28,9 +30,18 @@ use ambition_platformer2d::engine_core::RoomGeometry;
 /// WHICH room, never about when. Measured at ~180 frames; this is generous.
 const COMMIT_CAP: usize = 600;
 
-fn room_name(app: &mut App) -> Option<String> {
-    let mut q = app.world_mut().query::<&RoomGeometry>();
-    q.iter(app.world()).next().map(|geo| geo.0.name.clone())
+/// The id of the room that is AUTHORITATIVE right now.
+///
+/// ⚠ this used to read `RoomGeometry`'s display NAME and match a substring of
+/// it, which worked only while 1-2 was a Rust room that could call itself
+/// "Mary-O 1-2". Both levels are authored areas now and the composer names a
+/// world after its area id (`"Ambition: mary o 1 2"`), so the substring stopped
+/// meaning anything. The ROOM ID is the fact the transition changes; ask for it.
+fn room_id(app: &mut App) -> Option<String> {
+    let mut q = app.world_mut().query::<&RoomSet>();
+    q.iter(app.world())
+        .next()
+        .map(|set| set.rooms[set.active].id.clone())
 }
 
 /// Drop a settled tally on the level owner — the state reaching the goal
@@ -47,8 +58,8 @@ fn finish_the_level(app: &mut App, from: &str) -> String {
     }
     for _ in 0..COMMIT_CAP {
         app.update();
-        match room_name(app) {
-            Some(name) if name != from => return name,
+        match room_id(app) {
+            Some(id) if id != from => return id,
             _ => {}
         }
     }
@@ -62,24 +73,20 @@ fn finishing_each_level_carries_you_to_the_other_one() {
     for _ in 0..300 {
         app.update();
     }
-    let first = room_name(&mut app).expect("the session opens in a room");
-    assert!(
-        first.contains("1 1"),
-        "the shipped entry is 1-1, or this test is about something else: {first}"
+    let first = room_id(&mut app).expect("the session opens in a room");
+    assert_eq!(
+        first, LEVEL_1_1_ROOM_ID,
+        "the shipped entry is 1-1, or this test is about something else"
     );
 
     let second = finish_the_level(&mut app, &first);
-    assert!(
-        second.contains("1-2"),
-        "finishing 1-1 goes to 1-2, not to {second}"
-    );
+    assert_eq!(second, LEVEL_1_2_ROOM_ID, "finishing 1-1 goes to 1-2");
 
     // ⭐ the leg that was broken. Without it this test would have passed over a
     // session that could reach 1-2 and never leave it.
     let third = finish_the_level(&mut app, &second);
-    assert!(
-        third.contains("1 1"),
-        "finishing 1-2 comes back to 1-1, not to {third} — a circuit, not a \
-         dead end"
+    assert_eq!(
+        third, LEVEL_1_1_ROOM_ID,
+        "finishing 1-2 comes back to 1-1 — a circuit, not a dead end"
     );
 }

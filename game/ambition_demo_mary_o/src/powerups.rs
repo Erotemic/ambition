@@ -965,6 +965,24 @@ pub fn dress_power_blocks(
             Some(MaryOBlockLook::Hidden) if is_spent => {
                 Some(BlockArt(EntitySprite::SpentBlockTile))
             }
+            // ⭐ **A BRICK WEARS THE LEVEL'S MASONRY.** Jon: *"the breakable
+            // bricks should use the same brick texture as the level bricks."*
+            //
+            // It drew as `EntitySprite::SolidBlock` — the generic dark slab with
+            // a 2x2 cross — because an unclaimed block falls back to its
+            // `BlockKind`, and this dresser only ever handled `Question` and
+            // `Quasar`. Meanwhile the level's own solid surfaces, which come
+            // from the IntGrid rather than from an entity, already draw
+            // `SolidTile`: the seamless brick pattern. Two spawn paths, one
+            // `BlockKind::Solid`, two different textures — that asymmetry IS the
+            // bug, and no new art was needed to fix it.
+            //
+            // ⚠ **the same texture whether or not it has paid.** A loaded brick
+            // is Jon's cammo block, and the whole point is that it looks like
+            // masonry; giving a spent one the used-block plate would announce
+            // afterwards which brick had been the special one. It cannot be
+            // bonked twice regardless — `spent` already gates that.
+            Some(MaryOBlockLook::Brick) => Some(BlockArt(EntitySprite::SolidTile)),
             _ => None,
         };
         let Some(want) = want else {

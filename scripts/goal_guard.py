@@ -23,6 +23,13 @@ the files those commands read. The honest claim is narrower: it converts
 thing to do and leaves a diff. Write checks that name a TEST, not a doc marker,
 and the bar goes up again.
 
+And every word of that assumes the guard RAN. Nothing in this file can establish
+that — a guard that is never invoked is indistinguishable, from inside, from a
+guard whose checks all passed. Both failures found on 2026-08-05 were of exactly
+that kind and neither was visible in the checks: the wiring could not find the
+script, and `repo_root()` found the wrong repository. The one symptom available
+to a human is `.goal/state.json` going stale while the session works on.
+
 ## The four ways out, none of which needs the repository to be healthy
 
 A guard that can wedge a session is worse than no guard, and this one has had
@@ -45,14 +52,27 @@ hatches are therefore listed here rather than inferred from the code:
 
 Every one of those says out loud that the goal was NOT met when it fires.
 
-## Wiring (`.claude/settings.json`)
+## Wiring (`.claude/settings.json`) — and why the command is not one word long
 
-    "hooks": {
-      "Stop": [{"hooks": [{"type": "command", "timeout": 900,
-                "command": "python3 scripts/goal_guard.py"}]}],
-      "SessionStart": [{"hooks": [{"type": "command", "timeout": 15,
-                "command": "python3 scripts/goal_guard.py --inject"}]}]
-    }
+⛔ **The hook command must not contain a RELATIVE path.** A hook inherits the
+session's working directory, which follows the agent around: one `cd` into a
+subdirectory and `python3 scripts/goal_guard.py` resolves to nothing. The
+runtime treats a hook script it cannot find as NON-BLOCKING and says so only in
+a suggestion-level note, so the guard does not fail — it silently ceases to
+exist. That released a 72-hour run on 2026-08-05 and the session idled 4h12m.
+
+So the command walks UP from the working directory to find the guard, and, if it
+cannot, emits a block of its own rather than vanishing:
+
+    d="${CLAUDE_PROJECT_DIR:-$PWD}"
+    until [ -f "$d/scripts/goal_guard.py" ] || [ "$d" = / ]; do d=$(dirname "$d"); done
+    if [ -f "$d/scripts/goal_guard.py" ]; then exec python3 "$d/scripts/goal_guard.py"
+    else echo '{"decision":"block","reason":"the guard could not be located..."}'; fi
+
+`$CLAUDE_PROJECT_DIR` is preferred when the runtime sets it; the walk is the
+fallback that does not depend on a variable this file cannot verify. The
+SessionStart copy is the same finder with `--inject`, and stays SILENT when the
+walk fails — blocking startup is the one thing that can lock you out (see below).
 
 Only the Stop hook runs the checks, and only the Stop hook gets a long timeout.
 `--inject` reads `.goal/state.json` and returns immediately: SessionStart blocks
@@ -191,19 +211,22 @@ def as_float(value, fallback: float) -> float:
 
 
 def repo_root() -> Path:
-    """The git root, so the guard works from any cwd a hook happens to have."""
-    try:
-        out = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        if out.returncode == 0 and out.stdout.strip():
-            return Path(out.stdout.strip())
-    except (OSError, subprocess.SubprocessError):
-        pass
-    return Path.cwd()
+    """The root of the repository THIS FILE lives in — never the one cwd is in.
+
+    This asked `git rev-parse --show-toplevel`, and its docstring claimed that
+    made the guard work "from any cwd a hook happens to have". It did not. A hook
+    inherits the session's working directory, and this tree contains a NESTED git
+    repository (`tools/ambition_sprite2d_renderer`). One `cd` into it and
+    `--show-toplevel` answered with the sub-repo, where `.goal/active.json` does
+    not exist — so `mode_stop` took its "not armed: ordinary sessions are
+    untouched" path and released a 72-hour run (2026-08-05, 4h12m idle).
+
+    `git` was never the right authority for this. The guard is armed relative to
+    the repo it is COMMITTED IN, and `__file__` says which one that is without
+    asking anybody. A worktree gets its own copy and so resolves to itself, which
+    is also correct.
+    """
+    return Path(__file__).resolve().parent.parent
 
 
 def goal_dir(root: Path) -> Path:
@@ -696,6 +719,15 @@ def mode_status(root: Path) -> int:
     state = load_json(state_path(root)) or {}
     if state:
         print(f"blocks so far: {state.get('blocks', 0)}, stalled: {state.get('stalled', 0)}")
+        # The only symptom of a guard that is not running at all. Every other
+        # line here is about whether the WORK is done; this one is about whether
+        # the instrument is plugged in, which is the failure that costs hours
+        # because nothing else reports it.
+        last = parse_deadline(state.get("last_block_at"))
+        if last:
+            idle_h = (now_utc() - last).total_seconds() / 3600.0
+            note = "  ⚠ THE GUARD MAY NOT BE RUNNING" if idle_h >= 1.0 else ""
+            print(f"last Stop check: {idle_h:.1f}h ago{note}")
     return 0 if results and all(r.ok for r in results) else 1
 
 

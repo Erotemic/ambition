@@ -409,6 +409,13 @@ pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
 /// is a taste call best made by whoever is looking at the running game.
 const SNAKE_WORLD_PER_PIXEL: f32 = 0.35;
 
+/// How near an observer has to be for a snake to keep thinking.
+///
+/// The same distance the AI Slop uses. They share a level and a job — patrol
+/// until somebody arrives — so a snake waking at a different range from a slop
+/// standing beside it would be a difference with no reason behind it.
+pub const SNAKE_WAKE_RADIUS: f32 = crate::ai_slop::AI_SLOP_WAKE_RADIUS;
+
 /// **Ensure the `solid_snake` sheet is drawable**, keyed by BOTH its catalog id
 /// and its display name, so the enemy render's `npc_asset_for_name` finds it
 /// instead of falling back to the generic goblin sheet.
@@ -552,6 +559,20 @@ pub fn tag_mary_o_snakes(
                     SNAKE_SHEET_TARGET,
                     SNAKE_WORLD_PER_PIXEL,
                 ),
+                // ⛔ **the snake had no dormancy policy and the slop did.** Jon
+                // named the slop — *"ai slop will just walk off the edge of the
+                // level before she even gets to that part of the level"* — the
+                // engine seam was built, the slop was wired, and the OTHER
+                // patrolling enemy in the same level was left thinking for the
+                // whole course. A family is not migrated when one member is.
+                //
+                // ⚠ **a kicked shell is unaffected, which is why this is safe.**
+                // Dormancy sleeps the BRAIN and clears the control frame;
+                // `run_snake_shells` propels a slide by writing the body's
+                // horizontal velocity directly, on a different channel. A shell
+                // you kick still leaves the screen, as it should.
+                ambition_platformer2d::actors::features::ecs::dormancy::DormancyPolicy::
+                    AwakeNearObservers { radius: SNAKE_WAKE_RADIUS },
             ));
         }
     }

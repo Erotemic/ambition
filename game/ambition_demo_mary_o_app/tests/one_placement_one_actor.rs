@@ -145,14 +145,29 @@ fn no_enemy_is_left_without_the_mechanics_its_brain_promises() {
 /// so handing it to everything in the room would be the same mistake as the
 /// engine assuming a distance.
 #[test]
-fn every_ai_slop_declares_its_dormancy_and_no_one_else_inherits_it() {
+fn every_authored_enemy_declares_whether_it_sleeps() {
     let mut app = booted();
-    let slop_ids: Vec<String> = mary_o_enemies(&mut app)
+    // ⛔ **this test used to assert that ONLY the slop declares dormancy**, and
+    // that assertion is why the snake went a day without a policy. Jon named the
+    // slop — *"ai slop will just walk off the edge of the level"* — so the seam
+    // was built, the slop was wired, and the test pinned the state of the fix
+    // rather than the property being fixed. The other patrolling enemy in the
+    // same level thought for the whole course, and the guard positioned to
+    // notice was instead defending its absence.
+    //
+    // The property is: every authored enemy in Mary-O declares a dormancy
+    // policy, because every one of them patrols and none of them is worth
+    // simulating on the far side of the level. A character that genuinely must
+    // keep thinking says so with `DormancyPolicy::Never`, which still satisfies
+    // this and is findable by a reader.
+    let enemy_ids: Vec<String> = mary_o_enemies(&mut app)
         .into_iter()
-        .filter(|(_, snake)| !snake)
         .map(|(id, _)| id)
         .collect();
-    assert!(!slop_ids.is_empty(), "1-1 authors AI Slop");
+    assert!(
+        !enemy_ids.is_empty(),
+        "1-1 authors enemies; if it stops, this test checks nothing"
+    );
 
     let mut q = app
         .world_mut()
@@ -162,18 +177,13 @@ fn every_ai_slop_declares_its_dormancy_and_no_one_else_inherits_it() {
         .filter_map(|(id, policy)| policy.is_some().then(|| id.0.clone()))
         .collect();
 
-    for id in &slop_ids {
-        assert!(
-            policied.contains(id),
-            "slop {id} has no DormancyPolicy — it will think for the whole level"
-        );
-    }
-    let strays: Vec<&String> = policied
+    let undeclared: Vec<&String> = enemy_ids
         .iter()
-        .filter(|id| !slop_ids.contains(id))
+        .filter(|id| !policied.contains(id))
         .collect();
     assert!(
-        strays.is_empty(),
-        "only Mary-O's slop declares dormancy, but these also carry a policy: {strays:?}"
+        undeclared.is_empty(),
+        "these authored enemies declare no DormancyPolicy, so they think for the \
+         whole level and can walk off a ledge before anyone arrives: {undeclared:?}"
     );
 }

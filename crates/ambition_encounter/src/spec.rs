@@ -10,39 +10,57 @@ use serde::{Deserialize, Serialize};
 
 use ambition_platformer2d_core as ae;
 
-/// Content-installed encounter wave timelines, keyed by trigger id.
+/// **Authored encounter wave timelines, keyed by trigger id — an App RESOURCE.**
 ///
-/// The LDtk adapter asks this crate for an authored multi-wave sequence before
-/// falling back to marker-derived enemy spawns. Keeping the install seam here
-/// makes the wave book part of the reusable encounter vocabulary instead of an
-/// actor-crate facade; it still names no specific encounter content.
-static ENCOUNTER_WAVE_BOOK: std::sync::OnceLock<HashMap<String, Vec<EncounterWaveSpec>>> =
-    std::sync::OnceLock::new();
+/// The LDtk adapter asks for an authored multi-wave sequence before falling back
+/// to marker-derived enemy spawns. Keeping the vocabulary here rather than in an
+/// actor-crate facade is unchanged; what changed is WHO OWNS THE VALUE.
+///
+/// ⛔ **it was a process-global `OnceLock` and "first install wins".** A second,
+/// DIFFERENT wave book was swallowed with an error log, so the first provider in
+/// a process defined encounters for every App built after it — two games, or a
+/// game and a tool, silently sharing one game's content. The seam looked
+/// provider-local and was not.
+///
+/// ⭐ **and unlike the item catalog, this one was CHEAP to fix.** That row says
+/// the two are "the same shape" and they are not: `Item::display_name` and its
+/// siblings are methods on a plain enum returning `&'static str` — a borrow only
+/// possible BECAUSE the storage is global — consumed at 59 sites. This book has
+/// ONE reader, it already returns an owned `Vec`, and that reader's production
+/// caller is a Bevy system with a `World` in hand. Measuring the read surface is
+/// what separated them; assuming the shape would have left this one global too.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
+pub struct EncounterWaveBook(pub HashMap<String, Vec<EncounterWaveSpec>>);
+
+impl EncounterWaveBook {
+    /// The authored timeline for a trigger id, if this book has one.
+    pub fn waves(&self, id: &str) -> Option<Vec<EncounterWaveSpec>> {
+        self.0.get(id).cloned()
+    }
+}
 
 /// Install authored encounter wave timelines. Content crates call this during
 /// plugin build, before the LDtk adapter populates the live encounter registry.
-pub fn install_encounter_waves(book: HashMap<String, Vec<EncounterWaveSpec>>) {
-    // ⛔ see `install_item_catalog`: a second, DIFFERENT wave book was swallowed,
-    // so the first provider in the process defined encounters for every later
-    // App. Identical re-installation is normal and silent; a conflict is loud.
-    if let Err(rejected) = ENCOUNTER_WAVE_BOOK.set(book) {
-        if ENCOUNTER_WAVE_BOOK.get() != Some(&rejected) {
-            bevy::log::error!(
-                "a SECOND, DIFFERENT encounter wave book was installed in this process and \
-                 was IGNORED — the first provider's waves win for every App built here."
-            );
-        }
-    }
+pub fn install_encounter_waves(
+    app: &mut bevy::prelude::App,
+    book: HashMap<String, Vec<EncounterWaveSpec>>,
+) {
+    // ⭐ **the App owns it now**, so two Apps in one process carry two books and
+    // neither has to win. The loud "a SECOND, DIFFERENT wave book was installed
+    // and was IGNORED" error this replaced was the best a process-global could
+    // do: report the collision it could not avoid.
+    app.insert_resource(EncounterWaveBook(book));
 }
 
 /// Look up an authored multi-wave timeline for a trigger id.
 ///
 /// `None` means the adapter should fall back to one wave assembled from the
 /// level's own spawn markers.
-pub fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
-    ENCOUNTER_WAVE_BOOK
-        .get()
-        .and_then(|book| book.get(id).cloned())
+pub fn authored_encounter_waves(
+    book: Option<&EncounterWaveBook>,
+    id: &str,
+) -> Option<Vec<EncounterWaveSpec>> {
+    book.and_then(|book| book.waves(id))
 }
 
 /// One mob to spawn during a wave.
@@ -197,5 +215,65 @@ mod tests {
         let bb = lw.aabb();
         assert_eq!(bb.min, ae::Vec2::new(10.0, 20.0));
         assert_eq!(bb.max, ae::Vec2::new(40.0, 60.0));
+    }
+}
+
+#[cfg(test)]
+mod wave_book_tests {
+    use super::*;
+
+    fn book(trigger: &str) -> EncounterWaveBook {
+        let mut map = HashMap::new();
+        map.insert(
+            trigger.to_string(),
+            vec![EncounterWaveSpec {
+                label: "only".into(),
+                mobs: Vec::new(),
+            }],
+        );
+        EncounterWaveBook(map)
+    }
+
+    /// **Two Apps in one process carry two different wave books.**
+    ///
+    /// ⛔ **this test could not have been written before.** The book was a
+    /// process-global `OnceLock` whose contract was "first install wins": a
+    /// second, DIFFERENT book was rejected with an error log, so the first
+    /// provider built in a process defined encounters for every App after it.
+    /// Two games, or a game and a tool, in one binary silently shared one game's
+    /// content — and a test binary builds Apps constantly.
+    ///
+    /// ⭐ **and unlike the item catalog, this was CHEAP.** The carried row calls
+    /// them "the same shape" and they are not: `Item::display_name` and its
+    /// siblings are methods on a plain enum returning `&'static str` — a borrow
+    /// only possible BECAUSE the storage is global — consumed at 59 sites. This
+    /// book had ONE reader, already returned an owned `Vec`, and its production
+    /// caller is a Bevy system. Measuring the read surface is what separated
+    /// them; assuming the shape would have left this global too.
+    #[test]
+    fn two_apps_in_one_process_carry_different_wave_books() {
+        let mut first = bevy::prelude::App::new();
+        install_encounter_waves(&mut first, book("goblins").0);
+        let mut second = bevy::prelude::App::new();
+        install_encounter_waves(&mut second, book("wolves").0);
+
+        let of = |app: &bevy::prelude::App, id: &str| {
+            authored_encounter_waves(app.world().get_resource::<EncounterWaveBook>(), id).is_some()
+        };
+        assert!(of(&first, "goblins"), "the first App has its own book");
+        assert!(of(&second, "wolves"), "and the second has its own");
+        assert!(
+            !of(&first, "wolves") && !of(&second, "goblins"),
+            "neither App can see the other's encounters — which is exactly what \
+             the process-global made impossible, and it reported the collision \
+             with an error log because that was the best it could do"
+        );
+    }
+
+    /// A composition with no authored encounters is an empty answer, not a
+    /// panic — the fallback to a level's own spawn markers depends on it.
+    #[test]
+    fn no_book_at_all_falls_back_rather_than_failing() {
+        assert!(authored_encounter_waves(None, "goblins").is_none());
     }
 }

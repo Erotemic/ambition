@@ -1234,6 +1234,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "the character-select screen's per-seat choices. All three readers are the          screen itself — present it, drive it, and hand off — and what the MATCH          reads is the `MatchParticipantRoster` it publishes, which is a different          resource with its own owner. Frontend state, decided before a session          exists. ⚠ read to its readers rather than waived by category: this repo          has been bitten repeatedly around rosters and seats, so \"it is only the          menu\" is a claim that has to be checked",
     ),
     (
+        "ambition_encounter::spec::EncounterWaveBook",
+        "the authored encounter wave timelines, keyed by trigger id. Inserted ONCE at          plugin build from the prepared content pack and never taken mutably          anywhere in the workspace, so it cannot differ between two timelines of one          session. ⚠ it appeared in this sweep the day it stopped being a          process-global `OnceLock` — which is the sweep working: a value nobody          owned was invisible to it, and an App resource is not",
+    ),
+    (
         "ambition_demo_sanic::ball_dash::BallDashTuning",
         "authored dash numbers. Every production reference is `Res<>`; nothing          takes it mutably anywhere in the workspace, so it cannot differ between          two timelines of one session",
     ),

@@ -111,6 +111,7 @@ impl Plugin for AmbitionContentPlugin {
         // check refuses things a parse accepts: an encounter with zero waves, a
         // wave with no mobs, a trigger id the verbatim lookup can never match.
         ambition_encounter::install_encounter_waves(
+            app,
             ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
                 .cloned()
                 .expect("the encounter schema lowers its book for every pack that compiles"),

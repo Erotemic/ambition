@@ -47,6 +47,12 @@ pub fn populate_encounter_registry(
     // LDtk project — that's an empty encounter set, not an error. (W4 will
     // route encounter loading through RoomEmission instead of the project.)
     project: Option<Res<crate::ldtk_world::ActiveLdtkProject>>,
+    // ⭐ **the App's authored wave book.** Optional for the same reason the
+    // project is: a composition with no authored encounters is an empty set, not
+    // an error. It used to be read out of a process-global inside the loader,
+    // which meant the first provider built in a process defined encounters for
+    // every App after it.
+    waves: Option<Res<ambition_encounter::EncounterWaveBook>>,
 ) {
     if registry.specs_loaded {
         return;
@@ -62,7 +68,7 @@ pub fn populate_encounter_registry(
         registry.specs_loaded = true;
         return;
     };
-    let entries = load_encounter_specs_from_ldtk(&project.0, save.data());
+    let entries = load_encounter_specs_from_ldtk(&project.0, save.data(), waves.as_deref());
     let count = entries.len();
     for (id, spec, persisted) in entries {
         let mut lifecycle = EncounterLifecycle::with_intro(spec.intro_seconds);

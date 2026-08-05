@@ -340,7 +340,7 @@ fn load_encounter_specs_picks_up_goblin_encounter() {
     let manifest = test_world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    let entries = load_encounter_specs_from_ldtk(&project, &save);
+    let entries = load_encounter_specs_from_ldtk(&project, &save, None);
     let goblin_encounter = entries
         .iter()
         .find(|(id, _, _)| id == "goblin_encounter")
@@ -356,7 +356,7 @@ fn load_encounter_specs_respects_persisted_cleared() {
     let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let mut save = ambition_persistence::save_data::AmbitionGameSaveData::default();
     save.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
-    let entries = load_encounter_specs_from_ldtk(&project, &save);
+    let entries = load_encounter_specs_from_ldtk(&project, &save, None);
     let (_, _, state) = entries
         .iter()
         .find(|(id, _, _)| id == "goblin_encounter")
@@ -412,7 +412,7 @@ fn goblin_encounter_loaded_spec_has_three_waves_lockwall_and_intro() {
     let manifest = test_world_manifest();
     let project = LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
     let save = ambition_persistence::save_data::AmbitionGameSaveData::default();
-    let entries = load_encounter_specs_from_ldtk(&project, &save);
+    let entries = load_encounter_specs_from_ldtk(&project, &save, None);
     let (_, spec, _) = entries
         .iter()
         .find(|(id, _, _)| id == "goblin_encounter")

@@ -415,10 +415,19 @@ fn validate_quest_conditions(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
 
+    // ⚠ **the same book the plugin installs**, read from the prepared pack rather
+    // than from a process-global the validator happens to share with whatever
+    // App ran first. That sharing is exactly what made the old seam look
+    // provider-local while not being.
+    let waves =
+        ambition_encounter::content_schema::lowered_encounter_waves(crate::pack::prepared())
+            .cloned()
+            .map(ambition_encounter::EncounterWaveBook);
     let loaded_encounters =
         ambition_platformer2d_actor_monolith::encounter::load_encounter_specs_from_ldtk(
             project,
             &ambition_persistence::save_data::AmbitionGameSaveData::default(),
+            waves.as_ref(),
         );
     for (id, spec, _) in loaded_encounters {
         // Exactly-empty, matching `encounter/systems.rs`'s own

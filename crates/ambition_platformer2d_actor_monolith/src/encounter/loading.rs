@@ -31,8 +31,11 @@ static ENCOUNTER_WAVE_BOOK_FIXTURE: std::sync::LazyLock<HashMap<String, Vec<Enco
 /// one wave from the level's LDtk `EnemySpawn` markers. Production reads the
 /// content-installed encounter wave book in `ambition_encounter`; lib tests
 /// fall back to content's authored RON fixture when no book is installed.
-fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
-    if let Some(waves) = ambition_encounter::authored_encounter_waves(id) {
+fn authored_encounter_waves(
+    book: Option<&ambition_encounter::EncounterWaveBook>,
+    id: &str,
+) -> Option<Vec<EncounterWaveSpec>> {
+    if let Some(waves) = ambition_encounter::authored_encounter_waves(book, id) {
         return Some(waves);
     }
     #[cfg(test)]
@@ -55,6 +58,12 @@ fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
 pub fn load_encounter_specs_from_ldtk(
     project: &LdtkProject,
     save: &ambition_persistence::save_data::AmbitionGameSaveData,
+    // ⭐ **the App's book, passed in.** This used to be read out of a
+    // process-global, which made a loader that looks pure depend on install
+    // order — see `EncounterWaveBook`. `None` is a composition with no authored
+    // encounters, which falls back to the level's own spawn markers exactly as
+    // an unrecognised trigger id always did.
+    waves: Option<&ambition_encounter::EncounterWaveBook>,
 ) -> Vec<(String, EncounterSpec, PersistedEncounterState)> {
     let mut out = Vec::new();
     for level in &project.levels {
@@ -85,7 +94,7 @@ pub fn load_encounter_specs_from_ldtk(
         // trigger id); any encounter without an authored timeline falls back to
         // one wave assembled from its LDtk EnemySpawn markers. The engine names
         // no specific encounter.
-        let authored = authored_encounter_waves(&trigger_id);
+        let authored = authored_encounter_waves(waves, &trigger_id);
         let waves = authored
             .clone()
             .unwrap_or_else(|| fallback_waves_from_enemy_spawns(level));
@@ -148,7 +157,7 @@ mod loading_tests {
 
     #[test]
     fn goblin_waves_escalate_and_spawn_past_the_trigger() {
-        let waves = authored_encounter_waves("goblin_encounter")
+        let waves = authored_encounter_waves(None, "goblin_encounter")
             .expect("goblin_encounter has an authored wave book entry");
         assert_eq!(waves.len(), 3, "three authored waves");
 

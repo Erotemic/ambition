@@ -444,7 +444,7 @@ def main() -> None:
         run_tool(
             "def",
             "register-entity",
-            str(Path(__file__).resolve().parent / "mary_o_entities.json"),
+            str(TARGET.with_name("mary_o.entities.json")),
             "--ldtk",
             str(TARGET),
             "--in-place",

@@ -614,12 +614,60 @@ def normalize_project_for_editor(project):
     return changes
 
 
+GAME_ENTITY_MANIFEST_SUFFIX = ".entities.json"
+
+
+def game_entity_manifest_for(path: Path) -> Path:
+    """The sidecar manifest a world file is validated against, by convention.
+
+    `foo.ldtk` declares its game-owned nouns in `foo.entities.json` beside it.
+    """
+    return path.with_suffix("").with_name(path.stem + GAME_ENTITY_MANIFEST_SUFFIX)
+
+
+def read_game_entity_manifest(manifest_path: Path) -> tuple[set[str], list[str]]:
+    """Identifiers a game declares its own converters handle, and any errors.
+
+    The file is the same shape `def register-entity --spec` consumes, so ONE
+    file is both what the editor definitions are generated from and what
+    validation trusts.
+    """
+    try:
+        spec = json.loads(manifest_path.read_text())
+    except Exception as ex:  # noqa: BLE001 - the operator needs the parser's own words
+        return set(), [f"failed to parse game entity manifest {manifest_path}: {ex}"]
+    entities = spec.get("entities")
+    if not isinstance(entities, list):
+        return set(), [
+            f"game entity manifest {manifest_path} has no 'entities' list"
+        ]
+    identifiers = set()
+    errors = []
+    for entry in entities:
+        identifier = (entry or {}).get("identifier")
+        if not identifier:
+            errors.append(
+                f"game entity manifest {manifest_path} has an entry with no 'identifier'"
+            )
+            continue
+        if identifier in KNOWN_ENTITIES:
+            errors.append(
+                f"game entity manifest {manifest_path} redeclares {identifier!r}, "
+                "which is an ENGINE entity — a game may extend the vocabulary, "
+                "never shadow it"
+            )
+            continue
+        identifiers.add(identifier)
+    return identifiers, errors
+
+
 def validate(
     path: Path,
     schema_path: Path | None = None,
     require_schema: bool = False,
     secondary_worlds: list[Path] | None = None,
     include_authoring_hygiene: bool = True,
+    game_entity_manifests: list[Path] | None = None,
 ):
     errors = []
     warnings = []
@@ -627,6 +675,33 @@ def validate(
         project = json.loads(path.read_text())
     except Exception as ex:  # noqa: BLE001 - command line validator should print parser details
         return [f"failed to parse JSON: {ex}"], []
+
+    # ⭐ **THE GAME'S VOCABULARY IS DECLARED, NEVER INFERRED.** A game registers
+    # nouns of its own through `install_ldtk_entity_converters`, and validation
+    # has to know about them or every Mary-O level is "unsupported". The first
+    # attempt read them out of the project's own `defs.entities` — which is
+    # WRONG, and reproducibly so: a `BogusEntity` definition plus an instance of
+    # it passed validation with no converter anywhere in the engine or the game.
+    # An editor definition is not evidence that anything can convert it, and
+    # `defs` is written by the same generator that writes the instances, so the
+    # check was comparing a file against itself.
+    #
+    # The manifest is the game's own declaration, and the game's Rust side pins
+    # it against the converters it actually installs — so neither half is
+    # derived from the other and a lie in either one is a failure.
+    supported_entities = set(KNOWN_ENTITIES)
+    manifests = list(game_entity_manifests or [])
+    if not manifests:
+        sidecar = game_entity_manifest_for(path)
+        if sidecar.exists():
+            manifests.append(sidecar)
+    for manifest_path in manifests:
+        if not manifest_path.exists():
+            errors.append(f"game entity manifest {manifest_path} does not exist")
+            continue
+        declared, manifest_errors = read_game_entity_manifest(manifest_path)
+        supported_entities |= declared
+        errors.extend(manifest_errors)
 
     # Build a `(activeArea, zone_id)` index over secondary world files so
     # cross-file `LoadingZone.target_room` references don't false-positive.
@@ -916,21 +991,14 @@ def validate(
 
         for entity in layer.get("entityInstances") or []:
             ident = entity.get("__identifier")
-            # ⭐ **A PROJECT THAT DEFINES AN ENTITY HAS DECLARED IT.**
-            # `KNOWN_ENTITIES` is the ENGINE's vocabulary, and it is checked two
-            # ways: every project must define all of it, and no instance may fall
-            # outside it. Together those made a game-owned noun impossible —
-            # adding `MaryOBlock` to the set forced every OTHER world to define a
-            # block only Mary-O has, and leaving it out made her own level
-            # unsupported.
-            #
-            # A game registers its own nouns through
-            # `install_ldtk_entity_converters`, and the project's own `defs` is
-            # where that vocabulary is visible to tooling. So an identifier this
-            # project defines is supported here, whoever owns the converter.
-            if ident not in KNOWN_ENTITIES and ident not in entity_defs:
+            # `KNOWN_ENTITIES` is the ENGINE's vocabulary and `supported_entities`
+            # adds whatever the game DECLARED in its manifest — see the note
+            # where it is built for why "the project defines it" was not good
+            # enough to stand in for "something can convert it".
+            if ident not in supported_entities:
                 errors.append(
-                    f"level {identifier!r} has unsupported entity {ident!r} ({entity.get('iid')})"
+                    f"level {identifier!r} has unsupported entity {ident!r} ({entity.get('iid')}) — "
+                    "the engine does not know it and no game entity manifest declares it"
                 )
             # NOTE: `width`/`height` further down still refer to the LEVEL
             # dimensions captured above (the per-level loop). Per-entity
@@ -1253,6 +1321,7 @@ def validate_issues(
     schema_path: Path | None = None,
     require_schema: bool = False,
     secondary_worlds: list[Path] | None = None,
+    game_entity_manifests: list[Path] | None = None,
 ) -> list[Issue]:
     """Return Ambition LDtk validation diagnostics as shared Issue objects.
 
@@ -1266,6 +1335,7 @@ def validate_issues(
         require_schema,
         secondary_worlds=secondary_worlds,
         include_authoring_hygiene=False,
+        game_entity_manifests=game_entity_manifests,
     )
     issues = issues_from_messages(errors, warnings)
     if not errors or path.exists():
@@ -1318,6 +1388,20 @@ def main(argv=None):
         ),
     )
     parser.add_argument(
+        "--game-entities",
+        action="append",
+        type=Path,
+        default=[],
+        metavar="PATH",
+        help=(
+            "A game's declared LDtk entity manifest — the same JSON `def register-entity "
+            "--spec` consumes. Identifiers listed there are accepted in addition to the "
+            "engine's own vocabulary, because a game may install converters of its own. "
+            "Defaults to the sidecar `<world>.entities.json` beside PATH when it exists. "
+            "May be passed multiple times."
+        ),
+    )
+    parser.add_argument(
         "--format",
         choices=("text", "json"),
         default="text",
@@ -1351,6 +1435,7 @@ def main(argv=None):
         args.schema,
         args.require_schema,
         secondary_worlds=args.secondary_world,
+        game_entity_manifests=args.game_entities,
     )
     if args.format == "json":
         print(json.dumps([issue.as_dict() for issue in issues], indent=2, sort_keys=True))

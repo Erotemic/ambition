@@ -170,9 +170,88 @@ pub fn install() {
     )]);
 }
 
+/// **Every LDtk noun Mary-O owns**, and the list [`install`] is checked against.
+///
+/// ⭐ **this exists so the AUTHORING TOOLS can be told the truth.** The Python
+/// validator cannot run Rust, so it reads a declared manifest —
+/// `assets/worlds/mary_o.entities.json` — to know that `MaryOBlock` is
+/// convertible. A declaration nobody checks is just a wish, so this slice and
+/// that manifest are pinned against each other by a test below. Neither is
+/// derived from the other, which is the whole point: the first attempt let
+/// validation accept anything the project DEFINED, and a `BogusEntity`
+/// definition with no converter anywhere passed.
+pub const MARY_O_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[MARY_O_BLOCK];
+
+/// The manifest the LDtk tooling reads, compiled in so the pin below cannot go
+/// looking for a file that moved.
+#[cfg(test)]
+const MARY_O_ENTITY_MANIFEST: &str = include_str!("../assets/worlds/mary_o.entities.json");
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every `"identifier": "..."` in the tooling manifest.
+    ///
+    /// ⚠ **a hand-rolled scan, on purpose.** This crate's manifest is
+    /// deliberately two dependencies wide — its own comment: *"a downstream game
+    /// names `ambition_platformer2d` + `bevy`, and NOTHING ELSE"* — and pulling
+    /// in a JSON parser to read one list of strings would spend that claim on a
+    /// test. The file's shape is fixed and we own it.
+    fn manifest_identifiers(json: &str) -> Vec<String> {
+        let mut found = Vec::new();
+        for chunk in json.split("\"identifier\"").skip(1) {
+            let Some(rest) = chunk.split_once(':') else {
+                continue;
+            };
+            let Some(open) = rest.1.find('"') else { continue };
+            let tail = &rest.1[open + 1..];
+            if let Some(close) = tail.find('"') {
+                found.push(tail[..close].to_string());
+            }
+        }
+        found
+    }
+
+    /// **What the tools are told Mary-O owns is what Mary-O installs.**
+    ///
+    /// ⛔ **this is the half that makes the LDtk validator's vocabulary honest.**
+    /// The validator cannot run Rust, so it trusts
+    /// `assets/worlds/mary_o.entities.json` when it sees a `MaryOBlock`. Its
+    /// first version instead trusted the project's own `defs.entities` — and a
+    /// GPT 5.6 review reproduced the hole that opens: a `BogusEntity` definition
+    /// plus an instance of it validated clean with no converter anywhere,
+    /// because `defs` is written by the same generator that writes the
+    /// instances. The file was being compared against itself.
+    ///
+    /// ⭐ **so the manifest is a DECLARATION and this is the audit.** A noun
+    /// declared here with no converter behind it fails here; a converter
+    /// installed without being declared makes every level using it fail
+    /// validation. Neither list is derived from the other, so a lie in either
+    /// one is a red test rather than a level that quietly loads wrong.
+    #[test]
+    fn the_declared_manifest_matches_the_converters_actually_installed() {
+        let mut declared = manifest_identifiers(MARY_O_ENTITY_MANIFEST);
+        declared.sort();
+        let mut installed: Vec<String> = MARY_O_LDTK_ENTITY_IDENTIFIERS
+            .iter()
+            .map(|id| (*id).to_string())
+            .collect();
+        installed.sort();
+        assert_eq!(
+            declared, installed,
+            "assets/worlds/mary_o.entities.json declares {declared:?} but \
+             MARY_O_LDTK_ENTITY_IDENTIFIERS installs {installed:?} — the LDtk \
+             validator believes the manifest, so a difference here is either a \
+             noun the tools accept that nothing can convert, or a converter no \
+             authored level is allowed to use"
+        );
+        assert!(
+            !declared.is_empty(),
+            "the scan found no identifiers at all, which would make this test \
+             pass by finding nothing on both sides"
+        );
+    }
 
     /// Round-trip: what the converter encodes, the runtime decodes.
     ///

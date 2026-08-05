@@ -1022,3 +1022,48 @@ cutscene.
 ⚠ **the test deliberately does NOT assert either way**, and should stay that
 way until this is answered: pinning today's behaviour would be a regression test
 over unpolished behaviour. It prints the measurement instead.
+
+---
+
+## Hitstun keeps ATTACK and strips RECOVERY — is that right for a body knocked OFF the stage? (raised 2026-08-05, investigated 07-31…08-04)
+
+**The symptom you reported** was the ladder losing all three stocks. It is not a
+brain bug and it is not a physics bug; both were measured and cleared. It is this
+gate, and the numbers are exact.
+
+`apply_post_hit_input_gates` — whose own doc says it applies to *"ANY body's
+FINAL `InputState`"* — runs two windows after a hit:
+
+| window | duration | what the body may do |
+|---|---|---|
+| recoil lock | **0.12 s** | nothing: axes zeroed, Jump/Dash/Blink/FastFall all `Edge::NONE` |
+| hitstun | **0.24 s** (enemy) / **0.36 s** (boss) | movement at `hitstun_control_scale` **0.18**, attack PRESERVED, **Jump/Dash/Blink still `Edge::NONE`** |
+
+So a knocked fighter has **no recovery verb at all for 0.36 s after an enemy hit
+and 0.48 s after a boss hit**, while carrying the full launch velocity. The brain
+picks `Recover` at weight 1.00 and `Recover`'s emit presses jump; the gate sets
+that press to `Edge::NONE`. It was never a question of which verb the brain chose,
+and two earlier investigations died proving that.
+
+**The shape is the interesting part.** Hitstun keeps ATTACK and strips RECOVERY,
+which is deliberate and documented — *"you can fight back … the instant the
+recoil lock ends"*. That is right for a body knocked around ON the stage and
+exactly backwards for the case that loses stocks: a fighter launched off the edge
+has nothing to attack and one thing to do. **The gate cannot currently tell those
+two situations apart**, and that — not a duration — is the thing to decide.
+
+**The decision:**
+
+* **(a) let the recovery verbs through during hitstun**, keeping only the 0.12s
+  recoil lock as a hard window. Smallest change. ⚠ **it changes on-stage combat
+  feel too** — a juggled fighter gets its jump back mid-combo — which is the
+  trade worth stating rather than discovering in playtest.
+* **(b) make the strip depend on whether the body is over the stage**, which is
+  the distinction the gate is missing. Most correct, and it introduces "over the
+  stage" as a concept the gate has to be able to ask about.
+* **(c) shorten hitstun for launches that leave the stage.** A tuning answer to a
+  structural question; cheapest to try and the easiest to get subtly wrong,
+  because it makes the fix a number rather than a rule.
+
+⚠ **this is a FEEL decision and belongs to you.** All three are small to
+implement; none is small to judge.

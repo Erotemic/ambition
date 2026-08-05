@@ -738,29 +738,12 @@ pub fn authored_block_by_id<'a>(world: &'a ae::World, id: &ae::GeoId) -> Option<
     world.blocks.iter().find(|block| block.id == *id)
 }
 
-/// Every authored block in the embedded world file, by name.
-///
-/// ⚠ a process-global `LazyLock` over a `const &str`, which is safe for the
-/// reason a `OnceLock` fed by a provider is not: the input is fixed at COMPILE
-/// time, so there is no second value it could ever hold and no install order to
-/// get wrong.
-///
-/// ⚠ **test-only since 2026-08-04.** The runtime used to reach the pipes through
-/// it by their four spelled names; it asks [`pipe_tubes`] now, so the last
-/// callers are the tests below.
-#[cfg(test)]
-fn authored_named_blocks() -> &'static std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)> {
-    static BLOCKS: std::sync::LazyLock<std::collections::BTreeMap<String, (ae::GeoId, ae::Aabb)>> =
-        std::sync::LazyLock::new(|| {
-            authored_room(LEVEL_1_1_ROOM_ID)
-                .world
-                .blocks
-                .iter()
-                .map(|block| (block.name.clone(), (block.id.clone(), block.aabb)))
-                .collect()
-        });
-    &BLOCKS
-}
+// ⭐ **`authored_named_blocks` is GONE (2026-08-05)** — a name→(id, aabb) map
+// over every block in the world file. The runtime reached the pipes through it
+// by their four spelled names until they became authored `MaryOPipe` entities;
+// its last caller after that was a filter in the one-way platform rule, and that
+// filter was the reason the rule never ran (the map is keyed by EVERY block's
+// name, so "is this block named" was true for all of them).
 
 // ⭐⭐ **THE INDEX HELPERS ARE GONE (2026-08-04)** — `power_block_id`,
 // `power_block_min`, `power_block_index_for` and their quasar and brick twins,

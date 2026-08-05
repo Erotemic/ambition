@@ -23,9 +23,9 @@ use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
 use bevy::MinimalPlugins;
 
-use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use ambition_app::app::shell_host;
 use ambition_demo_smash::select::{SeatSelection, SmashSelect};
+use ambition_platformer2d::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
 use leafwing_input_manager::prelude::Buttonlike;
 
 /// The real shell-host composition PLUS the real host input stack, headless —
@@ -300,7 +300,8 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
     // are the fact, the same trap the select screen's own tests carry a note
     // about.
     for _ in 0..2 {
-        app.world_mut().spawn(bevy::input::gamepad::Gamepad::default());
+        app.world_mut()
+            .spawn(bevy::input::gamepad::Gamepad::default());
     }
     settle(&mut app);
     settle(&mut app);
@@ -315,7 +316,9 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
     );
 
     assert!(
-        !app.world().resource::<ambition_platformer2d::game_shell::ShellPauseMenu>().open,
+        !app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellPauseMenu>()
+            .open,
         "nothing is paused before anybody presses anything"
     );
 
@@ -324,7 +327,9 @@ fn two_participants_start_a_match_and_can_still_pause_it() {
     settle(&mut app);
 
     assert!(
-        app.world().resource::<ambition_platformer2d::game_shell::ShellPauseMenu>().open,
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellPauseMenu>()
+            .open,
         "with two participants seated, Escape must still reach the pause menu — a couch \
          game you can start together and cannot pause is the regression this pins"
     );
@@ -399,7 +404,11 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
                     .map(|info| info.name().shortname().to_string())
                     .collect();
                 names.sort();
-                format!("seat {seat}: {} components [{}]", names.len(), names.join(", "))
+                format!(
+                    "seat {seat}: {} components [{}]",
+                    names.len(),
+                    names.join(", ")
+                )
             })
             .collect()
     };
@@ -462,7 +471,6 @@ fn a_two_participant_roster_actually_seats_two_bodies() {
         "the census above is the useful output; this pins the premise"
     );
 }
-
 
 /// **An ADOPTED seat and a SPAWNED seat must agree on everything the ROSTER
 /// declares.**
@@ -568,8 +576,6 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
         );
     }
 }
-
-
 
 /// **Jon's couch milestones 1, 2 and 5**: a keyboard player and a gamepad player
 /// take different seats and drive different fighters.
@@ -740,6 +746,24 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
 /// This asserts the thing none of them did: that a decided match leaves a frozen
 /// topology behind, sized by the ROSTER rather than by how many pads happen to be
 /// plugged in.
+///
+/// ⛔ **and it counts HUMANS, which it did not.** It asserted
+/// `declared_seats == roster.participants.len()`, CPUs included — and
+/// `declared_seats` is read for two things that both mean *how many people are
+/// playing on this machine*: it sizes the ggrs session's local handles, and it
+/// picks solo-vs-couch in `assign_local_seat_devices`, where `players < 2` means
+/// "leave leafwing's any-pad behaviour alone". So this one-human-one-CPU match
+/// built a two-handle session whose second handle nothing ever wrote, and put a
+/// solo player on the COUCH branch, which assigns pads positionally — fine while
+/// their pad is at index 0 and nothing at all the moment it is not.
+///
+/// ⚠ **what this fixture can no longer distinguish, said plainly.** With one
+/// human and no pads the roster's human count and the device count are both 1,
+/// so "the roster wins over the devices" is not separable here any more. The
+/// case that separates them is two humans on one keyboard, and
+/// `a_keyboard_player_and_a_pad_player_drive_different_fighters` is the test
+/// that builds it. What is left here is the claim that only this fixture makes:
+/// a CPU does not buy a seat at the input table.
 #[test]
 fn a_decided_match_freezes_the_local_seating() {
     use ambition_platformer2d::input::LocalSeatTopology;
@@ -778,13 +802,38 @@ fn a_decided_match_freezes_the_local_seating() {
             "a decided match left no frozen seating — the mechanism that stops the \
              roster and the session disagreeing is not installed in this build",
         );
-    assert!(topology.is_frozen(), "the topology exists but was never captured");
+    assert!(
+        topology.is_frozen(),
+        "the topology exists but was never captured"
+    );
+    let humans = app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .expect("the screen decided a match")
+        .participants
+        .iter()
+        .filter(|p| {
+            matches!(
+                p.controller,
+                ambition_platformer2d::actor::ControllerBinding::Human { .. }
+            )
+        })
+        .count();
+    assert_eq!(
+        humans, 1,
+        "one human and one CPU is this test's premise — if the screen stopped \
+         adding a CPU this proves nothing"
+    );
+    assert!(
+        humans < declared,
+        "…and the two counts must DIFFER, or the assertion below cannot tell \
+         'counts humans' from 'counts participants'"
+    );
     assert_eq!(
         topology.declared_seats(),
-        Some(declared),
-        "the seating was frozen from the DEVICE count, not the roster's — which is \
-         the two-authority conflict S34 records, with a spare controller inflating \
-         the match and a keyboard player deflating it"
+        Some(humans),
+        "the frozen seating counts the people playing, not the roster's rows: a \
+         CPU needs a body and a brain, never a device or a rollback handle"
     );
-    assert_eq!(topology.players(), declared);
+    assert_eq!(topology.players(), humans);
 }

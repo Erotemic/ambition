@@ -71,11 +71,33 @@ explicit answer rather than a default nobody chose.
 - **Who barks — the interrupted party, the one who broke it, or both?** An NPC
   barking when the player falls away is the case Jon described; a player-side
   bark is a different feature.
-- **Is station-keeping a suspension or an ABILITY being exercised?** Holding a
-  hovering body still by zeroing its gravity is a lie that will show up the first
-  time something else reads its velocity. Exercising the hover the body already
-  has is the honest version, and it is also what makes "capable of" a real query
-  rather than a flag.
+- ✔ **Is station-keeping a suspension or an ABILITY being exercised?**
+  **ANSWERED 2026-08-06, from the code rather than from taste.** Exercising the
+  real thing — and the tree already does it, so no new mechanism is needed.
+  `integrate_flight_clusters` drives a flying body toward
+  `local_stick * terminal_speed`, so a flying body given NEUTRAL input decays to
+  rest and hovers. Zeroing gravity would have been a lie that shows up the first
+  time something reads velocity; this is the body doing what it can do.
+
+  ⭐ **and that collapses the whole hold into one rule: a conversation zeroes its
+  participants' movement INTENT.** All three of Jon's cases fall out of it,
+  symmetrically, with no per-case branch:
+  - a grounded body given no intent stands still — it holds station;
+  - a flying body given no intent hovers — it holds station;
+  - a falling body with no flight has no intent to zero, keeps falling, leaves
+    reach, and the conversation breaks — which is the parrot case, correct by
+    omission rather than by a rule about parrots.
+
+  So `can_hold_station` is a PREDICTION of what neutral intent produces, not a
+  thing anybody enforces. Nothing has to force `fly_enabled` on and restore it
+  afterwards — which matters, because that would be a memo with a restore
+  obligation, and a memo is rollback state.
+
+  ⚠ **half of this is already true.** The TALKER's intent is already neutral:
+  `DIALOGUE_CONTEXT` captures their input, so their `ControlFrame` is default.
+  What is left is the other participant — an NPC whose brain may still be
+  steering it mid-sentence. Measure that before building anything; a brain that
+  already idles during dialogue means this row is finished.
 - **Multi-participant.** Everything above is written for two. A third actor
   joining or leaving is not addressed and should not be invented yet.
 

@@ -118,13 +118,46 @@
 //!     veto more cautious, not less — so it cannot be the mechanism, and the
 //!     stale paragraph above had the sign backwards.
 //!
-//!   ⛔ **still not a licence to change the veto**, and the numbers above are
-//!   from READING the two models, not from running them against each other. The
-//!   measurement this wants is the one `the_hit_response_is_the_authoritative_kernel_not_an_imitation`
-//!   already does for strikes: step the shadow and the real kernel from the same
-//!   post-dash state and compare where each stops. That is a unit test, it is
-//!   cheaper than the per-decision trace, and it answers the question the trace
-//!   was being asked to answer.
+//! ## ✅ ANSWERED 2026-08-06 — and it was the missing friction
+//!
+//! `ShadowTuning` gained `ground_coast_decel` (7600) and `air_coast_decel`
+//! (650), and the grounded `Hold` arm stopped zeroing lateral velocity outright.
+//! Nothing about the veto changed. **Over 7 seeds:**
+//!
+//! ```text
+//!   1      2.5s to first self-KO   3 stocks lost
+//!   3      4.3s                    3
+//!   5      >60s  no self-KO        0
+//!   6      >60s  no self-KO        0
+//!   9      >60s  no self-KO        0
+//!   9/d0   6.2s                    1
+//!   9/d12  >60s  no self-KO        0
+//! ```
+//!
+//! Against the evening-of-07-31 table above — every rung losing all three stocks
+//! inside ~10 s, and `9/d12` dying at 2.7 s against `9/d0`'s 5.2 s — three things
+//! changed at once and all of them are the same fact:
+//!
+//! * **levels 5, 6 and 9 stop killing themselves entirely.** The self-KO was the
+//!   fighter dashing off a lip the rollout had scored as safe, because a shadow
+//!   that stopped dead under-predicted where the dash ended.
+//! * **the A/B REVERSES.** `9/d12` now survives the whole minute while `9/d0`
+//!   loses a stock at 6.2 s. That is the first honest evidence in this repository
+//!   that the rollout buys something, and it arrived by making the model it rolls
+//!   over less wrong rather than by touching the veto.
+//! * **the level-1/3 deaths are unchanged**, which is the control: those rungs
+//!   carry `rollout_depth: 0`, so a fix to what the rollout SEES cannot help them
+//!   and did not.
+//!
+//! ⚠ **this is still a probe.** One scenario, one opponent that cannot attack.
+//! `l3_earns_its_depth` wants §8's suite and survival/damage ratios; what this
+//! establishes is that the gate is now worth authoring, which it demonstrably
+//! was not while the number said the rollout made things worse.
+//!
+//! ⛔ **and the earlier reading was still not a licence to change the veto** —
+//! the numbers in the paragraph above it came from reading two models rather
+//! than running them, and what confirmed the mechanism was making the shadow
+//! faithful and watching the deaths stop, not the argument.
 //!
 //! ⚠ this is a PROBE, not the ladder rig. It runs one scenario, one opponent,
 //! no repeats — enough to say whether depth changes behaviour at all, and not

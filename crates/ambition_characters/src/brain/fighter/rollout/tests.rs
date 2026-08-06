@@ -272,7 +272,27 @@ fn a_lunge_reaches_past_its_static_reach_because_the_body_travels() {
         "the lunge travels ~{}px over the move and connects: {events:?}",
         600.0 * swing.total_s
     );
-    // And the impulse dies with the move: the first idle Hold eats it.
+    // And the impulse dies with the move — but at a RATE, not instantly.
+    //
+    // ⛔ **this asserted `vel.x == 0.0` after five Hold steps, and that was
+    // pinning the imitation** (fixed 2026-08-06). The shadow's grounded `Hold`
+    // used to zero lateral velocity outright; the real kernel coasts at
+    // `GROUND_FRICTION` 7600 px/s², which sheds ~127 px/s per 60Hz step. The old
+    // assertion was true of the model and false of the game — the definition of
+    // an imitation — and the
+    // under-predicted stopping distance is the direction that lets the movement
+    // veto approve a dash that really leaves the stage (`ladder_probe`'s open
+    // question, whose stated mechanism had the sign backwards).
+    run(&mut s, 5, &ShadowIntent::Hold, &tuning);
+    let after_five_steps = s.me.vel.x;
+    assert!(
+        after_five_steps > 100.0 && after_five_steps < 300.0,
+        "five 60Hz steps of 7600 px/s² friction should leave this lunge around \
+         220 px/s; it left {after_five_steps}. ⚠ the BAND is the assertion — an \
+         exact number here would pin whatever the model does rather than the \
+         fact that it coasts"
+    );
+    // ⭐ and it DOES stop — the rate is a rate, not a leak.
     run(&mut s, 5, &ShadowIntent::Hold, &tuning);
     assert_eq!(s.me.vel.x, 0.0, "ground friction ends the lunge");
 }

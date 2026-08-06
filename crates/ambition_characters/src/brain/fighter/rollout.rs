@@ -66,6 +66,29 @@ pub struct ShadowTuning {
     pub dash_time: f32,
     /// Instant rise speed a predicted jump imparts, units/s.
     pub jump_speed: f32,
+    /// **How fast a GROUNDED body that stopped driving loses its speed**, px/s².
+    ///
+    /// ⛔ **the shadow had no friction term at all until 2026-08-06** — the
+    /// grounded `Hold` arm zeroed lateral velocity INSTANTLY, so a body leaving a
+    /// dash at `dash_speed` stopped dead in the model and coasted ~38px in the
+    /// game. That is an UNDER-prediction of travel, which is the direction that
+    /// lets the movement veto approve a dash it should refuse — and
+    /// `ladder_probe`'s open question had it as an air-side over-prediction,
+    /// which is the opposite sign.
+    ///
+    /// `ae::GROUND_FRICTION`, restated here for the same reason `dash_speed` is:
+    /// the constant lives above this crate and is public knowledge rather than
+    /// hidden state.
+    pub ground_coast_decel: f32,
+    /// **How fast an AIRBORNE body bleeds lateral speed**, px/s².
+    ///
+    /// ⚠ the shadow's comment said *"an airborne body is ballistic and keeps
+    /// everything"*, which is a real approximation and the SAFE direction — it
+    /// over-predicts travel and makes the veto more cautious. It is still wrong,
+    /// and modelling both sides costs one multiply.
+    ///
+    /// `ae::AIR_FRICTION`.
+    pub air_coast_decel: f32,
     /// **What a SWING costs the body, backwards.** (`ae::SLASH_RECOIL`)
     ///
     /// Every melee press shoves the attacker along `-facing` by this much. It
@@ -111,6 +134,8 @@ impl Default for ShadowTuning {
             dash_speed: 760.0,
             dash_time: 0.115,
             jump_speed: 420.0,
+            ground_coast_decel: 7600.0,
+            air_coast_decel: 650.0,
             // `ae::SLASH_RECOIL`, restated for the same reason as the dash
             // numbers above.
             slash_recoil: 110.0,
@@ -390,9 +415,13 @@ pub fn shadow_step(
 
     // 2 — intents (only an Idle body has authority), then integration.
     let toward_foe = (s.foe.pos - s.me.pos).dot(frame.side).signum();
-    apply_intent(&mut s.me, my_intent, toward_foe, frame.side, down, tuning);
+    apply_intent(
+        &mut s.me, my_intent, toward_foe, frame.side, down, tuning, dt,
+    );
     let toward_me = -toward_foe;
-    apply_intent(&mut s.foe, foe_intent, toward_me, frame.side, down, tuning);
+    apply_intent(
+        &mut s.foe, foe_intent, toward_me, frame.side, down, tuning, dt,
+    );
     integrate(&mut s.me, dt, down, tuning);
     integrate(&mut s.foe, dt, down, tuning);
 
@@ -534,6 +563,9 @@ fn apply_intent(
     side: ae::Vec2,
     down: ae::Vec2,
     tuning: &ShadowTuning,
+    // The step's timestep. Coasting is a RATE now, so an intent that sheds
+    // speed needs to know how much time it is shedding it over.
+    dt: f32,
 ) {
     if f.koed || !matches!(f.phase, ShadowPhase::Idle) {
         return;
@@ -545,9 +577,20 @@ fn apply_intent(
         // ignored while committed), then the first idle Hold eats it. An
         // airborne body is ballistic and keeps everything.
         ShadowIntent::Hold => {
-            if f.on_ground {
-                f.vel -= side * f.vel.dot(side);
-            }
+            // ⭐ **a RATE, not an instant stop** (2026-08-06). Both were wrong
+            // and in opposite directions: grounded stopped dead where the game
+            // coasts ~38px out of a dash, airborne kept everything where the
+            // game bleeds 650 px/s². The first is the dangerous one — an
+            // under-predicted stopping distance is a veto approving a dash that
+            // really leaves the stage.
+            let decel = if f.on_ground {
+                tuning.ground_coast_decel
+            } else {
+                tuning.air_coast_decel
+            };
+            let along = f.vel.dot(side);
+            let shed = (decel * dt).min(along.abs());
+            f.vel -= side * shed * along.signum();
         }
         ShadowIntent::Drive { lateral } => {
             let lateral = lateral.clamp(-1.0, 1.0);
@@ -1003,7 +1046,8 @@ fn rollout_value(
             toward,
             frame.side,
             s.gravity_down.normalize_or_zero(),
-            tuning,
+            &tuning,
+            dt,
         );
     }
     let mut ko_me = false;

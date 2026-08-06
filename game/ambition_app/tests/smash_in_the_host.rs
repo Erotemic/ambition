@@ -962,3 +962,150 @@ fn every_smash_roster_id_resolves_in_the_shipped_host() {
         SMASH_ROSTER.len()
     );
 }
+
+/// **A fighter you picked in Smash does not follow you into Ambition.**
+///
+/// Jon's report, reproduced end to end: select Shadow Oni Leader, start the
+/// match, quit to the title, enter Ambition — and the body you control is still
+/// the Oni Leader, while the Oni Leader NPC standing in the room is a second
+/// copy of the same character.
+///
+/// Two independent causes, and both are fixed here:
+///
+/// * `MatchParticipantRoster` is a global resource with no lifetime, so a roster
+///   Smash published outlived every Smash route.
+/// * `dress_the_primary_player_as_their_own_pick` runs in the plain `Update`
+///   schedule gated on nothing but that roster, so it redressed whatever body
+///   the next experience put the player in.
+///
+/// ⚠ the assertion is the CHARACTER, not the resource. A test that only checked
+/// the roster was gone would pass against a fix that released it one frame after
+/// the body had already been redressed.
+#[test]
+fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
+    let mut app = shell_host_app();
+    settle(&mut app);
+
+    launch_row(&mut app, "Smash");
+    pick_and_start(&mut app, ONI_LEADER);
+    for _ in 0..40 {
+        app.update();
+        if active_route(&app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+            break;
+        }
+    }
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+        "the decided match never reached the stage, so this is not testing the leak"
+    );
+    // The premise: in Smash the pick IS the controlled body. Without this the
+    // test could pass because the dressing never worked at all.
+    assert_eq!(
+        primary_player_character(&mut app).as_deref(),
+        Some(ONI_LEADER),
+        "the fighter the lobby picked never reached the body, so there is no \
+         redressing to leak"
+    );
+
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert!(
+        app.world()
+            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+            .is_none(),
+        "the roster Smash published outlived every Smash route"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource>(),
+        &ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource::Devices,
+        "the seat count Smash decided outlived the match, so the next \
+         experience's session is sized by a match that has ended"
+    );
+
+    launch_row(&mut app, "Ambition");
+    for _ in 0..60 {
+        app.update();
+        if active_route(&app).as_deref()
+            == Some(ambition_content::provider::AMBITION_GAMEPLAY_ROUTE)
+        {
+            break;
+        }
+    }
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some(ambition_content::provider::AMBITION_GAMEPLAY_ROUTE),
+        "Ambition never opened, so nothing here is about what the player controls"
+    );
+    settle(&mut app);
+
+    let controlled = primary_player_character(&mut app);
+    assert_eq!(
+        controlled.as_deref(),
+        Some(ambition_content::character_catalog::PLAYABLE_ROSTER[0]),
+        "the body Ambition constructed is wearing {controlled:?} — the fighter \
+         the Smash lobby picked, not the character Ambition's provider starts \
+         with"
+    );
+
+    // **AND THE NPC IS STILL SOMEBODY ELSE.** The visible half of the report was
+    // a duplicate: a controlled body wearing the same character as the NPC
+    // standing in the room. Whatever Ambition staged, exactly one body may be
+    // the player's.
+    let oni_bodies = bodies_wearing(&mut app, ONI_LEADER);
+    assert!(
+        oni_bodies <= 1,
+        "{oni_bodies} bodies are wearing {ONI_LEADER} in Ambition, so the room's \
+         NPC has a copy of itself walking around under the player's control"
+    );
+}
+
+const ONI_LEADER: &str = "npc_ninja_shadow_oni_leader";
+
+/// Pick `character_id` for slot 0, a CPU for slot 1, and press START.
+///
+/// By ID through the assembled roster, never by grid index: the crossover cast
+/// is whatever the host composed, so a literal index silently becomes a
+/// different fighter the day a provider is added.
+fn pick_and_start(app: &mut App, character_id: &str) {
+    let index = app
+        .world()
+        .resource::<ambition_demo_smash::select::SmashRoster>()
+        .0
+        .iter()
+        .position(|id| id == character_id)
+        .unwrap_or_else(|| panic!("{character_id} is not in this host's smash roster"));
+    let layout = screen(app);
+    click(app, layout.role_button(0));
+    click(app, layout.role_button(1));
+    click(app, layout.token_home(0));
+    click(
+        app,
+        layout
+            .portrait(index)
+            .unwrap_or_else(|| panic!("no portrait cell for {character_id}")),
+    );
+    click(app, layout.token_home(1));
+    click(app, layout.portrait(0).expect("an authored portrait"));
+    click(app, layout.start_button());
+    settle(app);
+}
+
+/// What the PRIMARY player's body is wearing, if there is one.
+fn primary_player_character(app: &mut App) -> Option<String> {
+    app.world_mut()
+        .query_filtered::<&ambition_platformer2d::character::WornCharacter, ambition_platformer2d::actor::PrimaryPlayerOnly>()
+        .iter(app.world())
+        .next()
+        .map(|worn| worn.id().to_owned())
+}
+
+/// How many bodies — of any kind — are wearing `character_id`.
+fn bodies_wearing(app: &mut App, character_id: &str) -> usize {
+    app.world_mut()
+        .query::<&ambition_platformer2d::character::WornCharacter>()
+        .iter(app.world())
+        .filter(|worn| worn.id() == character_id)
+        .count()
+}

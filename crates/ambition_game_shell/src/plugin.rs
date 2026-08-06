@@ -41,7 +41,8 @@ impl Plugin for AmbitionGameShellPlugin {
             .init_resource::<ShellFailureLog>()
             .add_message::<ShellCommand>()
             .add_message::<ShellEvent>()
-            .add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>()
+            .add_message::<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>(
+            )
             .configure_sets(
                 Update,
                 (
@@ -68,7 +69,17 @@ impl Plugin for AmbitionGameShellPlugin {
             )
             .add_systems(
                 Update,
-                (cleanup_scoped_entities, log_shell_routing_failures)
+                (
+                    cleanup_scoped_entities,
+                    // The RESOURCE half of the same rule the line above is the
+                    // entity half of: state a provider published lives exactly
+                    // as long as its stay on its own routes. In `Cleanup`
+                    // because `active` and `pending` are both settled for this
+                    // frame by the end of `Pending`.
+                    crate::scope::release_departed_experience_state,
+                    log_shell_routing_failures,
+                )
+                    .chain()
                     .in_set(AmbitionGameShellSet::Cleanup),
             );
     }
@@ -203,7 +214,9 @@ fn initialize_shell(
 }
 
 fn quit_active_session_from_developer_action(
-    mut actions: MessageReader<ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction>,
+    mut actions: MessageReader<
+        ambition_platformer2d_shared_tangle::developer_hotkeys::DeveloperAction,
+    >,
     active: Option<Res<ActiveGameplaySession>>,
     mut shell: MessageWriter<ShellCommand>,
 ) {
@@ -356,7 +369,10 @@ fn log_shell_routing_failures(
 /// teach readers to ignore it, which is how a guard becomes decoration.
 fn describe_rejection(rejection: &ShellCommandRejection) -> Option<String> {
     match rejection {
-        ShellCommandRejection::LoadFailed { readiness, failures } => {
+        ShellCommandRejection::LoadFailed {
+            readiness,
+            failures,
+        } => {
             if failures.is_empty() {
                 return None;
             }

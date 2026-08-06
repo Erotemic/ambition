@@ -662,15 +662,19 @@ fn track_versus_roster(
             // decoded sheet draws a placeholder, and the whole point of a visible
             // slice is that it looks like the two characters it says it is.
             roster.project_demand(&mut demand);
-            // ⭐ **THE SEAT COUNT THIS MATCH DECIDED, published with the roster.**
-            // The local session maintainer freezes its topology from connected
-            // DEVICES otherwise — and devices are not participants: a keyboard
-            // seat has no controller entity, a spare pad may not be playing, a
-            // CPU seat has none at all. Saying the number here is what lets the
-            // session be sized from the match rather than from what is plugged
-            // in. (GPT 5.6 through `32eb27a`, finding 7.)
+            // ⭐ **THE SEAT COUNT THIS MATCH DECIDED, published with the roster
+            // and under this experience's name.** The local session maintainer
+            // freezes its topology from connected DEVICES otherwise — and
+            // devices are not participants: a keyboard seat has no controller
+            // entity, a spare pad may not be playing, a CPU seat has none at
+            // all.
+            //
+            // ⚠ the claim is OWNED, and that is what makes it releasable: this
+            // route's scope hands it back on the way out, so the next
+            // experience's session is not sized by a match that has ended.
             commands.insert_resource(
-                ambition_platformer2d::runtime::rollback::local_session::DecidedSeatCount(
+                ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource::decided(
+                    VERSUS_EXPERIENCE,
                     roster.participants.len(),
                 ),
             );
@@ -712,26 +716,12 @@ fn track_versus_roster(
             // route change that skips the teardown still starts clean.
             *match_state = super::versus_rules::VersusMatch::opening();
         }
-        (false, true) => {
-            commands.remove_resource::<MatchParticipantRoster>();
-            // The match ends WITH its route. An activation that outlives its
-            // match is the next game inheriting somebody else's fighters.
-            commands
-                .remove_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>();
-            // DROP THE DECLARATION, which is the whole exit. A match rule that
-            // outlives its match is a rule the next game silently inherits, and
-            // "your allies can now shoot you" is a bad surprise to bring into a
-            // co-op level.
-            //
-            // ⚠ there is nothing to put back, and that is the point. The old
-            // exit wrote values into two global resources, which had to be the
-            // BORROWED ones rather than the engine defaults — writing the
-            // defaults reads as a restore and is not one, and for a while it was
-            // what this did: an experience that authored `di_max_angle = 0.12`
-            // got `0.0` handed back merely because the route was visited. No
-            // baseline is written now, so it cannot be written wrong.
-            commands.remove_resource::<ambition_platformer2d::combat::rules::DeclaredCombatRules>();
-        }
+        // ⭐ **THE EXIT IS A DECLARATION, not a branch.** Everything this route
+        // published leaves with the experience — see the scope in
+        // [`compose_versus_experience`]. It used to be a `(false, true)` arm
+        // here, which could only fire while `track_versus_roster` was still
+        // installed and still running, and which named "the roster exists" as
+        // its trigger rather than "my experience ended".
         _ => {}
     }
 }
@@ -951,8 +941,54 @@ pub fn compose_versus_experience(app: &mut App) {
             // decided before the session froze its seating.
             reconcile_roster_with_frozen_topology,
         )
-            .chain(),
+            .chain()
+            // ⛔ **BEFORE THE SESSION IS SIZED, and stated rather than hoped.**
+            // The maintainer freezes a topology from connected DEVICES when
+            // nothing has claimed roster-driven seating, and the session is
+            // never resized afterwards — so a maintainer that ran first on the
+            // frame this route opens sized the whole match from what was
+            // plugged in. Same schedule, so this is a real edge; a cross-
+            // schedule `.after` would be silently vacuous.
+            .before(
+                ambition_platformer2d::runtime::rollback::local_session::LocalSessionSet::Maintain,
+            ),
     );
+
+    // **WHAT THIS EXPERIENCE OWNS, AND WHAT LEAVES WITH IT.**
+    //
+    // A match's roster, its activation, its combat declaration and the seat
+    // count it decided are all global resources with the lifetime of one route
+    // visit. Declaring them here means the exit is one list rather than a
+    // teardown arm inside the system that also builds them — and a teardown that
+    // lives inside the thing it tears down can only ever run while it is not
+    // needed.
+    {
+        use ambition_platformer2d::game_shell::ShellExperienceScopeAppExt;
+        app.experience_owns(VERSUS_EXPERIENCE)
+            // Shared with every other experience that stages a cast, so it is
+            // released by OWNER: removing it by type would be one game deleting
+            // another's match.
+            .releasing_owned::<MatchParticipantRoster>(|roster, owner| {
+                roster.is_published_by(owner.as_str())
+            })
+            // The match ends WITH its route. An activation that outlives its
+            // match is the next game inheriting somebody else's fighters.
+            .releasing::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            // DROP THE DECLARATION. A match rule that outlives its match is a
+            // rule the next game silently inherits, and "your allies can now
+            // shoot you" is a bad surprise to bring into a co-op level.
+            //
+            // ⚠ there is nothing to put back, and that is the point: writing the
+            // engine defaults reads as a restore and is not one.
+            .releasing::<ambition_platformer2d::combat::rules::DeclaredCombatRules>()
+            .releasing_with("SessionSeatingSource", |world, owner| {
+                if let Some(mut seating) = world.get_resource_mut::<
+                    ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource,
+                >() {
+                    seating.release(owner.as_str());
+                }
+            });
+    }
 }
 
 #[cfg(test)]

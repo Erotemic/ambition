@@ -14,6 +14,7 @@ mod launcher;
 mod plugin;
 mod preparation;
 mod router;
+mod scope;
 mod sequence;
 mod session;
 
@@ -35,6 +36,10 @@ pub use plugin::{
 };
 pub use preparation::*;
 pub use router::*;
+pub use scope::{
+    shell_experience_is_active, ExperienceScope, ExperienceScopeBuilder,
+    ShellExperienceScopeAppExt, ShellExperienceScopes,
+};
 pub use sequence::*;
 pub use session::*;
 

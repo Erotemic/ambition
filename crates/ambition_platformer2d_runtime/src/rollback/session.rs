@@ -663,6 +663,11 @@ pub(crate) fn install_session_bridge(app: &mut App) {
     // `local_session`.
     app.init_resource::<super::local_session::LocalSessionPolicy>()
         .init_resource::<super::local_session::LocalSessionOwnership>()
+        // Present from boot so "where do this session's seats come from" always
+        // has an answer to read and an owner to release. The default —
+        // `Devices` — is what every composition that never decides a match
+        // wants.
+        .init_resource::<super::local_session::SessionSeatingSource>()
         .add_systems(
             Update,
             super::local_session::maintain_local_session

@@ -680,6 +680,17 @@ fn return_to_the_select_screen_when_the_match_ends(
 /// because that seating check `return`s from the whole system, so one seat
 /// disagreeing seats every other participant too. The engine says so out loud
 /// now; this is the other half.
+/// ⛔ **AND IT MUST NOT RUN OFF THIS EXPERIENCE'S ROUTES.** `MatchParticipantRoster`
+/// is global and outlived the routes that published it, so picking Oni Leader
+/// here and then quitting to the title left a smash-published roster standing —
+/// and this system, which is in the plain `Update` schedule and was gated on
+/// nothing but that roster, redressed AMBITION's controlled body as Oni Leader
+/// on the frame that game opened. The NPC of the same character then had a
+/// duplicate walking around wearing it.
+///
+/// Two independent repairs, and both are needed: this is gated on the smash
+/// gameplay experience owning the active route, and the roster leaves with the
+/// experience (see the scope in [`SmashExperiencePlugin`]).
 fn dress_the_primary_player_as_their_own_pick(
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
     mut player: bevy::prelude::Query<
@@ -865,7 +876,15 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     select_screen::place_the_screen,
                     select_screen::update_the_select_screen,
                     start_the_battle_when_asked,
-                    dress_the_primary_player_as_their_own_pick,
+                    // ⛔ ONLY while this experience owns the route. See the
+                    // system's own note: unscoped, it redressed another game's
+                    // controlled body from a roster smash had left behind.
+                    bevy::prelude::IntoScheduleConfigs::run_if(
+                        dress_the_primary_player_as_their_own_pick,
+                        ambition_platformer2d::game_shell::shell_experience_is_active(
+                            SMASH_EXPERIENCE,
+                        ),
+                    ),
                     return_to_the_select_screen_when_the_match_ends,
                 )),
                 SmashSelectSet,
@@ -1011,6 +1030,17 @@ fn present_the_select_screen(
             if roster.is_some_and(|roster| roster.is_published_by(SMASH_EXPERIENCE)) {
                 commands.remove_resource::<MatchParticipantRoster>();
             }
+            // ⭐ **AND THE SEATING IS THIS EXPERIENCE'S TO DECIDE, from now
+            // until it leaves.** Claimed the moment the question opens rather
+            // than when it is answered: a session that started in this window
+            // would freeze a topology from connected DEVICES, and it is never
+            // resized afterwards, so the lobby's answer would arrive too late to
+            // matter. `start_the_battle_when_asked` turns this into a decision.
+            commands.insert_resource(
+                ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource::pending(
+                    SMASH_EXPERIENCE,
+                ),
+            );
         }
         select_screen::spawn_select_screen(commands, existing, fighters, art);
     } else {
@@ -1125,6 +1155,19 @@ fn start_the_battle_when_asked(
     let Some(decided) = select.roster(&fighters) else {
         return;
     };
+    // ⭐ **THE SEAT COUNT THIS MATCH DECIDED, published with the roster and
+    // under this experience's name.** Devices are not participants — a keyboard
+    // seat has no controller entity, a spare pad may not be playing, a CPU seat
+    // has none at all — so a session sized from what is plugged in is sized
+    // wrong for every lobby that seats a CPU. Both land in the same flush that
+    // asks for the route, so the session, which is built at least a frame later,
+    // has never seen a smash gameplay world without them.
+    commands.insert_resource(
+        ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource::decided(
+            SMASH_EXPERIENCE,
+            decided.participants.len(),
+        ),
+    );
     commands.insert_resource(decided);
     shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
@@ -1202,6 +1245,47 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         )
         .install(app, smash_prepared_session_world);
         app.add_plugins(SmashRulesPlugin::hosted());
+
+        // **WHAT THIS EXPERIENCE OWNS, AND WHAT LEAVES WITH IT.**
+        //
+        // ⛔ the roster is what the reported regression was made of: pick Oni
+        // Leader, quit to the title, enter Ambition, and the body you control is
+        // still Oni Leader. A global resource with no lifetime is inherited by
+        // whoever comes next.
+        //
+        // ⚠ **`covering` the select screen is load-bearing.** The lobby and the
+        // match are two shell experiences of one provider, and the lobby
+        // publishes the roster FOR the match — a scope that named only the
+        // gameplay id would delete it on the way in.
+        {
+            use ambition_platformer2d::game_shell::ShellExperienceScopeAppExt;
+            app.experience_owns(SMASH_EXPERIENCE)
+                .covering(SMASH_SELECT_EXPERIENCE)
+                // By OWNER: another game stages its own cast into this same
+                // resource, and removing it by type would delete their match.
+                .releasing_owned::<MatchParticipantRoster>(|roster, owner| {
+                    roster.is_published_by(owner.as_str())
+                })
+                // A match that ended with the route it ran on. Left standing, it
+                // is the next game's seating refusing to run because a match is
+                // already "live".
+                .releasing::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+                // A RESTART IS FRESH. `resetting`, never `releasing`: the
+                // screen's systems take these as plain `ResMut`, so REMOVING
+                // them panics the app on the frame the experience ends — which
+                // is what the first draft did, and what the reproduction caught.
+                // They must exist and must not carry the last match's answer.
+                .resetting::<select::SmashSelect>()
+                .resetting::<select_screen::StartRequested>()
+                .resetting::<select_screen::cursor::SelectCursor>()
+                .releasing_with("SessionSeatingSource", |world, owner| {
+                    if let Some(mut seating) = world.get_resource_mut::<
+                        ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource,
+                    >() {
+                        seating.release(owner.as_str());
+                    }
+                });
+        }
     }
 }
 

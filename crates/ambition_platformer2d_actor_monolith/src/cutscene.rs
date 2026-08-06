@@ -15,8 +15,8 @@
 use bevy::prelude::*;
 
 use ambition_cutscene::{
-    ActiveCutscene, CutsceneAdvanceRequest, CutsceneBeat, CutsceneEvent, CutsceneLibrary,
-    CutsceneRuntime, RoomCutsceneBindings,
+    ActiveCutscene, CutsceneAdvanceRequest, CutsceneEvent, CutsceneLibrary, CutsceneRuntime,
+    RoomCutsceneBindings,
 };
 
 use crate::cutscene_trigger::CutsceneTriggerQueue;

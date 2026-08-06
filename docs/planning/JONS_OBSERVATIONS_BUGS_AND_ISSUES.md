@@ -186,3 +186,25 @@ slot with no attached pad cannot be set to controller.
   not a derivation. Jon's "the sprite might not match the box" is the lead worth
   following: if the drawn quad and the collision box disagree, scaling one does
   not fix the other and the visual size will keep looking wrong.
+  ⭐ **MEASURED 2026-08-06** — `enemy_body_scale`, in SHEET PIXELS (the unit the
+  generator works in), asking `posed_body_geometry` rather than a capture:
+
+  ```text
+             target     collision        render   x_vs_p   y_vs_p
+    player_robot_v3     57x91        224x224       1.00x    1.00x
+        solid_snake    117x52        128x128       2.05x    0.57x
+            ai_slop    257x167       271x232       4.51x    1.84x
+  ```
+
+  ⛔ **"way too big" is in the COLLISION BOX, not only the paint.** AI Slop's
+  authored body is **four and a half times the player's width** and nearly twice
+  its height. Scaling the art alone would leave a stomp that connects from half a
+  screen away.
+  ⭐ **and Jon's second clause is confirmed and quantified**: the snake's box is
+  long and low (117x52) under a SQUARE 128x128 quad — 1.09x horizontally against
+  2.46x vertically. A great deal of vertical empty space over a serpent that is
+  barely half the player's height, which is exactly "the sprite might not match
+  the box".
+  ▢ **what this does NOT decide**: what the numbers should BE. The instrument
+  asserts no ratio on purpose — what counts as too big is Jon's call, and a limit
+  written by a test would be a taxonomy nobody chose.

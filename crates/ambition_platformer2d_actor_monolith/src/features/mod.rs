@@ -724,6 +724,11 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 // read. Both use the same `strict_intersects` reach, so a
                 // conversation cannot begin and immediately break.
                 break_dialogue_on_hit_or_separation,
+                // The release runs AFTER, in the same chain: whatever ended the
+                // conversation — this frame's break, the runner finishing, a
+                // room swap — a body still wearing the hold must lose it on the
+                // same frame, or it is a permanently frozen NPC.
+                ecs::release_conversation_hold,
                 open_ecs_chests,
                 update_ecs_breakables,
                 update_ecs_falling_chests,

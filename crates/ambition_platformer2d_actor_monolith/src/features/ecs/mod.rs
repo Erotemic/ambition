@@ -141,7 +141,10 @@ pub use hitbox::{
     apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
     HitboxKnockback, HitboxLifetime,
 };
-pub use interact::{break_dialogue_on_hit_or_separation, interact_ecs_actors_and_switches};
+pub use interact::{
+    break_dialogue_on_hit_or_separation, interact_ecs_actors_and_switches,
+    release_conversation_hold, HeldByConversation,
+};
 pub use mount::{
     enforce_mount_rider_link, steer_mount_from_rider, sync_riders_to_mounts, CanPilot,
     ControlGrant, Mass, MountClass, MountDeathImpact, MountDied, MountRiderLinkEnforced, MountSlot,

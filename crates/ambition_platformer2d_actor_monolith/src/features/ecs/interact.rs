@@ -7,6 +7,8 @@
 
 use super::*;
 
+use ambition_characters::brain::ScriptedControl;
+
 /// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
 /// `open_ecs_chests` because they have their own reward/persistence path.
 ///
@@ -285,8 +287,10 @@ mod tests;
 /// A conversation with fewer than two in-world participants (scripted dialogue,
 /// a system-started box) cannot be walked away from, and is left alone.
 pub fn break_dialogue_on_hit_or_separation(
+    mut commands: Commands,
     mut dialogue: ResMut<ambition_dialog::DialogState>,
     bodies: Query<(&CenteredAabb, Option<&BodyCombat>)>,
+    held: Query<(), With<HeldByConversation>>,
 ) {
     use ambition_dialog::DialogueBreak;
 
@@ -323,5 +327,77 @@ pub fn break_dialogue_on_hit_or_separation(
         // anything, so the reason is computed and dropped here rather than
         // pretending a silent break is the finished behaviour.
         dialogue.close();
+        return;
+    }
+
+    // **THE HOLD.** A conversation asks its participants to stay where they are,
+    // and the rule is one line: their movement INTENT goes to zero. Everything
+    // Jon described falls out of that with no case analysis — a grounded body
+    // stands, a flying body hovers (`integrate_flight_clusters` drives toward
+    // `local_stick * terminal_speed`, so neutral input decays to rest), and a
+    // falling body with no flight has no intent to zero, keeps falling, leaves
+    // reach, and breaks the conversation on the branch above. That is the parrot
+    // case, correct by omission rather than by a rule about parrots.
+    //
+    // ⚠ **two mechanisms, one effect, and that is not player-centrism.** The
+    // TALKER's intent is already neutral — `DIALOGUE_CONTEXT` captured their
+    // input, so their `ControlFrame` is default. The other participant takes its
+    // intent from a BRAIN, which nothing has captured, so it needs
+    // `ScriptedControl`. The rule is symmetric ("every participant's intent is
+    // neutral"); the two halves differ only because the two bodies are driven
+    // from different places.
+    //
+    // ⭐ `ScriptedControl`'s own doc says a blanked frame "is not a frozen body,
+    // and gravity will happily walk an undriven one out from under its pose",
+    // and names that as the inserter's problem. Here it is the DESIGN: a body
+    // gravity walks away is a body that could not hold station, and the break
+    // above is what happens next.
+    if let Some(brained) = dialogue.speaker_entity() {
+        // ⚠ **`HeldByConversation` is the CLAIMANT `ScriptedControl`'s doc asks
+        // for.** It warns that consumers remove the marker without checking who
+        // put it there, and that a second concurrent sequence needs a claimant
+        // rather than two owners racing. All five existing owners mark the
+        // PLAYER's driven body (death, flagpole, act clear, versus, seating)
+        // while this marks the NPC, so they do not collide today — but the
+        // discipline is cheap and this system removes only what it added.
+        if held.get(brained).is_err() {
+            commands
+                .entity(brained)
+                .try_insert((ScriptedControl, HeldByConversation));
+        }
+    }
+}
+
+/// This system's claim on a body it blanked for a conversation.
+///
+/// See the hold in [`break_dialogue_on_hit_or_separation`]: it exists so the
+/// release removes only markers this system placed, rather than stomping a
+/// death beat's.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct HeldByConversation;
+
+/// Release every body a conversation was holding, once it is no longer holding
+/// one.
+///
+/// ⛔ **a stranded `ScriptedControl` is a permanently frozen NPC**, and the ways
+/// a conversation ends are not one place: the break rule, the player walking the
+/// Yarn runner to its end, a room swap, a session teardown. So the release does
+/// not try to be a mirror of the insert — it asks the only question that is
+/// always true, "is this body still being held by a live conversation", and
+/// answers from the dialogue state rather than from remembering.
+pub fn release_conversation_hold(
+    mut commands: Commands,
+    dialogue: Res<ambition_dialog::DialogState>,
+    held: Query<Entity, With<HeldByConversation>>,
+) {
+    let talking = dialogue.active();
+    let still_talking = talking.then(|| dialogue.speaker_entity()).flatten();
+    for entity in &held {
+        if Some(entity) == still_talking {
+            continue;
+        }
+        commands
+            .entity(entity)
+            .try_remove::<(ScriptedControl, HeldByConversation)>();
     }
 }

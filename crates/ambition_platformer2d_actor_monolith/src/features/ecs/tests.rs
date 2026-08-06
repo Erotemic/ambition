@@ -499,3 +499,77 @@ fn a_conversation_breaks_on_knockback_or_on_the_bodies_separating() {
         "being hurt without being MOVED does not interrupt a conversation"
     );
 }
+
+/// **A conversation holds the body it is talking to, and lets go afterwards.**
+///
+/// The hold is one rule — a participant's movement INTENT goes to zero — and the
+/// two participants reach it by different routes because they are driven from
+/// different places: the talker's input is captured by `DIALOGUE_CONTEXT`, the
+/// NPC's brain is blanked by `ScriptedControl`.
+///
+/// ⛔ the release is the half that bites: a stranded `ScriptedControl` is a
+/// permanently frozen NPC, and a conversation can end in more ways than the
+/// break rule (the Yarn runner finishing, a room swap, a teardown). So the
+/// release asks the dialogue state rather than remembering what it inserted.
+#[test]
+fn a_conversation_blanks_the_npcs_brain_and_releases_it_when_it_ends() {
+    use ambition_characters::actor::BodyCombat;
+    use ambition_characters::brain::ScriptedControl;
+    use ambition_dialog::{DialogState, DialogueContext};
+
+    let mut app = App::new();
+    app.insert_resource(DialogState::default());
+    app.add_systems(
+        Update,
+        (
+            super::break_dialogue_on_hit_or_separation,
+            super::release_conversation_hold,
+        )
+            .chain(),
+    );
+    let here = ae::Vec2::new(100.0, 100.0);
+    let size = ae::Vec2::new(24.0, 24.0);
+    let initiator = app
+        .world_mut()
+        .spawn((
+            CenteredAabb::from_center_size(here, size),
+            BodyCombat::default(),
+        ))
+        .id();
+    let npc = app
+        .world_mut()
+        .spawn((
+            CenteredAabb::from_center_size(here, size),
+            BodyCombat::default(),
+        ))
+        .id();
+    let mut dialogue = app.world_mut().resource_mut::<DialogState>();
+    dialogue.start("chat", "Someone", DialogueContext::default());
+    dialogue.set_initiator_entity(initiator);
+    dialogue.set_speaker_entity(npc);
+    drop(dialogue);
+
+    app.update();
+    assert!(
+        app.world().get::<ScriptedControl>(npc).is_some(),
+        "the NPC stops answering its brain while it is talking — otherwise it \
+         wanders off mid-sentence now that the world keeps running"
+    );
+    assert!(
+        app.world().get::<ScriptedControl>(initiator).is_none(),
+        "the TALKER is not marked: `DIALOGUE_CONTEXT` already neutralised their \
+         input, and a second mechanism on the same body would race the death beat"
+    );
+
+    // The conversation ends by any route — here, the runner finishing.
+    app.world_mut().resource_mut::<DialogState>().close();
+    app.update();
+    assert!(
+        app.world().get::<ScriptedControl>(npc).is_none(),
+        "and it gets its brain back; a stranded marker is a frozen NPC forever"
+    );
+    assert!(
+        app.world().get::<super::HeldByConversation>(npc).is_none(),
+        "the claim is released with the marker it claimed"
+    );
+}

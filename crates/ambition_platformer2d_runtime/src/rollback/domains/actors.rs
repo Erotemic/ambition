@@ -80,6 +80,16 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "entity:gravity_flip_switch",
     );
+    // ⚠ **the heal shrine, for the same reason as the portal gun pickup**
+    // (2026-08-06, K2b edit 2). It carries `SimId`, `SpawnOrigin` and
+    // `TransactionId`, had no anchor, and so those registrations were inert on
+    // it. Its own component is waived as authored geometry — the heal reads it
+    // and never writes it — but the anchor is not about the shrine's data; it is
+    // about whether GGRS reproduces the ENTITY on a resimulated timeline.
+    app.require_rollback::<ambition_platformer2d_actor_monolith::shrine::HealShrine>(
+        OWNER,
+        "entity:heal_shrine",
+    );
     app.rollback_component_clone_checksum::<ambition_platformer2d_actor_monolith::rooms::RoomSet>(
         OWNER,
         "root.room_set",

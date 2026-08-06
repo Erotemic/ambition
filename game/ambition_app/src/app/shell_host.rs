@@ -74,6 +74,42 @@ pub use ambition_content::provider::{
 /// caller say so, and lets a test build BOTH paths and compare their worlds,
 /// which is the evidence the deletion stage needs. `compose_ambition_shell_host`
 /// keeps its launcher default, so nothing that exists today changes.
+/// **The ONE way to compose a playable Ambition, in three ordered steps.**
+///
+/// ⭐ **K2b edit 2 landed on top of this.** There used to be two ways to start a
+/// game: a shell activation, and a `SessionRoot` published at PLUGIN-BUILD time
+/// by `publish_direct_prepared_session_root`. Seven test files and two headless
+/// entry points each spelled the second one out by hand, so "how Ambition
+/// composes" was a recipe copied nine times rather than a function. Deleting the
+/// build-time root turned every copy into a failure at once, which is what this
+/// exists to answer.
+///
+/// ⚠ **the ORDER is load-bearing and not obvious**, which is the other reason
+/// for a function:
+/// 1. [`AmbitionShellHosted`] goes in FIRST. Composing without it left the app
+///    carrying the build-time root AND the activation's — two canonical roots,
+///    and a panic on the first read.
+/// 2. The simulation plugin comes BEFORE the shell. The shell is an ADAPTER over
+///    a composed game, not a composition of one: `settle_versus_round` requires
+///    `Res<WorldTime>`, which the sim plugin installs, so the reverse order
+///    panics inside parameter validation naming a system the caller never heard
+///    of.
+/// 3. Only then the shell, booted to the gameplay route.
+///
+/// The caller still supplies its own foundation (`add_headless_foundation`,
+/// `MinimalPlugins`, or a windowed one) — that is a real choice and this does not
+/// make it. What it removes is the part nobody should be choosing.
+///
+/// ⚠ this does NOT settle. Activation is asynchronous — a load barrier and eight
+/// preparation work items — so a caller that needs a live world calls
+/// `settle_until_session_world` after. Folding the settle in would hide a wait
+/// from callers that legitimately want to inspect the pre-activation frames.
+pub fn compose_ambition_gameplay_host(app: &mut App) {
+    app.insert_resource(AmbitionShellHosted);
+    app.add_plugins(crate::app::AmbitionGameSimulationPlugin);
+    compose_ambition_shell_host_booting_to(app, AMBITION_GAMEPLAY_ROUTE);
+}
+
 pub fn compose_ambition_shell_host_booting_to(app: &mut App, initial_route: &str) {
     compose_ambition_shell_host_inner(app, initial_route);
 }

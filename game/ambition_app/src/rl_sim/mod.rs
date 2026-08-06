@@ -23,7 +23,7 @@
 
 use bevy::prelude::App;
 
-use crate::app::{AmbitionGameSimulationPlugin, StartRoomOverride};
+use crate::app::StartRoomOverride;
 
 pub use ambition_sim_harness::{
     reward, AgentAction, AgentObservation, EnemyObs, Lcg, PickupObs, RandomWalkPolicy,
@@ -61,7 +61,17 @@ pub fn ambition_sim_composition(app: &mut App, options: &Platformer2dSimHarnessO
     if let Some(room_id) = options.start_room.clone() {
         app.insert_resource(StartRoomOverride(room_id));
     }
-    app.add_plugins(AmbitionGameSimulationPlugin);
+    // ⭐ **K2b edit 2: the harness composes the SHELL, like every other entry.**
+    // It used to add the simulation plugin alone and inherit the `SessionRoot`
+    // that plugin published at BUILD time — the second way to start a game this
+    // row exists to delete. Composing the shell and booting straight to the
+    // gameplay route makes an RL episode run the host a player runs.
+    //
+    // ⚠ the resource goes in BEFORE the plugin builds. It is what stopped
+    // `publish_direct_prepared_session_root` publishing a root, and now that the
+    // publisher is gone it is what tells the rest of the app which composition
+    // this is.
+    crate::app::shell_host::compose_ambition_gameplay_host(app);
     Ok(())
 }
 

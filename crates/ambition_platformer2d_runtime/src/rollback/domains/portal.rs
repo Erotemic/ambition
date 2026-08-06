@@ -25,6 +25,22 @@ const OWNER: &str = "ambition_platformer2d_runtime";
 /// Register everything the portal domain needs rewound.
 pub(in crate::rollback) fn register(app: &mut App) {
     app.require_rollback::<ambition_portal2d::PlacedPortal>(OWNER, "entity:placed_portal");
+    // ⚠ **the PICKUP, not just the placed portal** (2026-08-06, K2b edit 2).
+    // The gun pickup carries `SimId`, `SpawnOrigin` and `TransactionId` — all
+    // rollback-registered state — and had no anchor, so every one of those
+    // registrations was INERT on it: the registry listed them, the coverage
+    // sweep counted them as accounted, and nothing restored them.
+    //
+    // ⭐ **it was invisible because the entity was outside the swept
+    // population.** Direct entry built its world UNSCOPED, so the pickup carried
+    // no `SessionScopedEntity` and the sweep never looked at it. Deleting the
+    // build-time root put the whole authored room inside a session scope, which
+    // is what made this visible — the same class as `WorldItem`, found the same
+    // way, one composition later.
+    app.require_rollback::<ambition_portal2d::PortalGunPickup>(
+        OWNER,
+        "entity:portal_gun_pickup",
+    );
     app.rollback_resource_clone::<ambition_portal2d::PortalFrameHistory>(
         OWNER,
         "resource.portal_frame_history",

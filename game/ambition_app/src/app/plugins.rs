@@ -122,7 +122,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // All construction/snapshot registries are now installed. Publish the
     // direct-entry session root from the same immutable prepared-content path
     // used by shell activation.
-    super::resources::publish_direct_prepared_session_root(app);
+    // PROBE-K2B-EDIT2: deleted
 }
 
 /// The app-LOCAL per-frame systems, pinned into the ordering SLOTS the engine

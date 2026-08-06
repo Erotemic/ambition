@@ -8,16 +8,37 @@ use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::sfx::SfxMessage;
 use bevy::ecs::message::Messages;
 
+/// ⭐ **K2b edit 2: the ONE composition, shell and all.**
+///
+/// This used to add the simulation plugin by itself and take the `SessionRoot`
+/// it published at plugin-build time. That root is gone, so the fixture composes
+/// what a player runs: the shell host, booted straight to the gameplay route.
 fn sandbox_sim_app() -> App {
     let mut app = App::new();
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
-    app.add_plugins(crate::app::AmbitionGameSimulationPlugin);
+    crate::app::shell_host::compose_ambition_gameplay_host(&mut app);
     app
 }
 
+/// ⚠ **one `update()` is no longer enough, and that is the whole shape of K2b.**
+/// A build-time root exists before the first frame; a shell activation reaches
+/// `Ready` over a load barrier and eight preparation work items. The settle
+/// helper waits for the session world rather than guessing a frame count, and
+/// PANICS with the budget when it does not arrive — a fixture that silently
+/// returned an un-activated App would make every test using it fail somewhere
+/// less informative.
 fn initialized_sandbox_sim_app() -> App {
     let mut app = sandbox_sim_app();
-    app.update();
+    ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
+        &mut app,
+        ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
+    )
+    .unwrap_or_else(|budget| {
+        panic!(
+            "the shell-composed sandbox produced no session world in {budget} frames, \
+             so every test built on this fixture would fail against an empty world"
+        )
+    });
     app
 }
 

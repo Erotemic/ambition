@@ -117,6 +117,24 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_runtime::session_world::PlatformerSessionCatalogs",
         "which providers this session composed; fixed at activation",
     ),
+    // ⭐ **arrived with K2b edit 2, and it belongs to the group above it.**
+    // The build-time root spawned four things — `SessionRoot`, the live world,
+    // prepared content and its identity — and never stamped an epoch, because a
+    // root that exists before tick 0 has no activation to be a generation OF.
+    // A shell activation does stamp one, so deleting the build-time publisher
+    // put it on the census.
+    //
+    // ⚠ **measured, not assumed**: it sits on the SESSION ROOT, in the same
+    // archetype as `PreparedContent`, `PreparedContentIdentity` and
+    // `PlatformerSessionCatalogs`, all waived here for this reason already. An
+    // epoch changing mid-session does not mean "rewind it" — it means the
+    // session is a different one, which invalidates the session rather than
+    // moving inside it.
+    (
+        "ambition_platformer2d_core::content_epoch::ContentEpoch",
+        "which committed activation this session IS; a change invalidates the \
+         session rather than moving inside it",
+    ),
     (
         "ambition_platformer2d_actor_monolith::avatar::starting_character::StartingCharacter",
         "session activation input, resolved once at player spawn",
@@ -1280,6 +1298,10 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "ambition_platformer2d_shared_tangle::lifecycle::session::ActiveSessionScope",
         "the SESSION scope and its deterministic allocator — and unlike its          sibling `ActiveRoundScope`, which WAS a real desync, its sole writer          (`translate_shell_session_lifecycle`) is registered in literal `Update`.          A rewind cannot re-run it, so the allocator cannot mint differently on a          resimulated timeline. ⚠ this waiver goes stale the moment that system          moves into `app.sim_schedule()` — and the round scope is the proof that          such a move happens: somebody moved the score system into the sim and          the scope it wrote did not follow",
+    ),
+    (
+        "ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopeRetired",
+        "the announcement that a session scope ENDED — the same authority and the          same writer as `ActiveSessionScope` above (`translate_shell_session_lifecycle`,          registered in literal `Update`, verified 2026-08-06), so a rewind cannot          re-run it. It arrived on the census with K2b edit 2: a build-time root          never retired a scope because it never had an activation to retire.          ⚠ this waiver goes stale with its sibling's, and for the same reason — if          that system ever moves into `app.sim_schedule()`, BOTH arguments fail          together",
     ),
     (
         "ambition_platformer2d_runtime::rollback::local_session::",

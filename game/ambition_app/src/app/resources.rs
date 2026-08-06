@@ -366,36 +366,20 @@ pub fn init_sandbox_resources(app: &mut App) {
     }
 }
 
-/// Publish direct-entry gameplay only after all engine/content plugins have
-/// installed their snapshot and construction registries. This gives direct
-/// development the same immutable prepared-content authority as shell
-/// activation instead of constructing an un-fingerprinted live world early.
-pub(super) fn publish_direct_prepared_session_root(app: &mut App) {
-    if app
-        .world()
-        .contains_resource::<super::shell_host::AmbitionShellHosted>()
-    {
-        return;
-    }
-
-    let source = app
-        .world()
-        .resource::<ambition_content::provider::AmbitionPreparedWorld>()
-        .prepared_source();
-    let content = ambition_platformer2d::provider::prepare_platformer_content_for_app(
-        app,
-        source,
-        &ambition_content::provider::ambition_authored_catalogs(),
-    )
-    .expect("direct Ambition prepared-content assembly must succeed");
-    let identity = content.identity();
-    let live_world = content.source().instantiate_live();
-    app.world_mut().spawn((
-        ambition_platformer2d::platformer::lifecycle::SessionRoot(
-            ambition_platformer2d::platformer::lifecycle::SessionScopeId(0),
-        ),
-        live_world,
-        content,
-        identity,
-    ));
-}
+// **`publish_direct_prepared_session_root` was deleted 2026-08-06 (K2b edit 2).**
+//
+// It spawned a `SessionRoot(SessionScopeId(0))` with a live world, prepared
+// content and an identity at PLUGIN-BUILD time, before tick 0 — a second way to
+// start a game, whose activation path nothing else exercised. `tracks.md`'s
+// oracle for this row was one line: *"the hand-built `SessionRoot` is deleted."*
+//
+// ⭐ what replaced it is `shell_host::compose_ambition_gameplay_host`: the shell
+// host booted straight to the gameplay route, which is what direct entry was
+// always supposed to be. Nine call sites spelled the old recipe out by hand;
+// deleting the publisher turned every one into a failure at once, which is how
+// the blast radius got measured instead of estimated.
+//
+// ⚠ `SessionScopeId(0)` went with it. It was a placeholder minted because a
+// build-time root has no activation to mint one from, and `session_world_entity`
+// panicked with "more than one canonical SessionRoot exists" whenever a
+// composition managed to have both.

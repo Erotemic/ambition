@@ -15,7 +15,6 @@ use std::fmt;
 
 use bevy::prelude::*;
 
-use crate::app::AmbitionGameSimulationPlugin;
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms::RoomSet;
 
@@ -130,12 +129,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     //
     // ⚠ inserted BEFORE the plugin builds: it is what stops
     // `publish_direct_prepared_session_root` publishing a second canonical root.
-    app.insert_resource(crate::app::shell_host::AmbitionShellHosted);
-    app.add_plugins(AmbitionGameSimulationPlugin);
-    crate::app::shell_host::compose_ambition_shell_host_booting_to(
-        &mut app,
-        crate::app::shell_host::AMBITION_GAMEPLAY_ROUTE,
-    );
+    crate::app::shell_host::compose_ambition_gameplay_host(&mut app);
 
     // ⭐ **settle BEFORE counting ticks** (K2b.1). Direct entry spawns its root
     // at plugin-build time, so this returns `Ok(0)` and the loop below is

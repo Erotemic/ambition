@@ -15,7 +15,7 @@ use ambition_platformer2d::portal_presentation::{
     PortalCameraContinuityState, PortalWorldFrame,
 };
 use ambition_platformer2d::render::rendering::{camera_follow, CameraViewState};
-use ambition_app::app::{Platformer2dSimulationPhaseMonolith, AmbitionGameSimulationPlugin, StartRoomOverride};
+use ambition_app::app::{Platformer2dSimulationPhaseMonolith, StartRoomOverride};
 use ambition_app::AgentAction;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
@@ -56,7 +56,20 @@ impl HeadlessCameraHarness {
         app.insert_resource(TimeUpdateStrategy::ManualDuration(
             std::time::Duration::from_secs_f32(1.0 / 60.0),
         ));
-        app.add_plugins(AmbitionGameSimulationPlugin);
+        // ⭐ **K2b edit 2: the shell host, booted to gameplay.** This composed the
+        // simulation plugin alone and inherited the `SessionRoot` it published at
+        // plugin-build time; that publisher is gone. `StartRoomOverride` survives
+        // the change — it is consumed while the prepared content is assembled, so
+        // the activation lands in `portal_lab` the same way it always did
+        // (measured: 2 frames).
+        ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
+        ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
+            &mut app,
+            ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
+        )
+        .unwrap_or_else(|budget| {
+            panic!("the portal harness produced no session world in {budget} frames")
+        });
         app.init_resource::<PortalWorldFrame>();
         app.init_resource::<PortalCameraContinuitySelection>();
         app.init_resource::<PortalCameraContinuityConfig>();

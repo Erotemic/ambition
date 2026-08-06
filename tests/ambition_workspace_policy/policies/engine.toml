@@ -1702,7 +1702,18 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # no domain types and no content. The runtime owns the host-side half of
     # causal recording (the frame stamp, the execution-identity fact), so the
     # edge is downward and in the same direction as `ambition_platformer2d_core`.
-    "ambition_causal"]
+    "ambition_causal",
+    # A cutscene is a MECHANIC, and the manifest proves it: `ambition_cutscene`'s
+    # only workspace dependency is `ambition_platformer2d_core` — the same shape
+    # as `ambition_dialog` and `ambition_items`, no content, no host, no render.
+    # The runtime owns its rollback domain (`ActiveCutscene` is optional-canonical
+    # session state), so the edge is downward and fits the rationale above.
+    #
+    # ⛔ this list lagged the decision AGAIN — the dependency landed in
+    # `ab3a931be` and the gate has been red since, which is the second time the
+    # note above describes. The lesson is not about cutscenes: adding a runtime
+    # dependency means editing TWO files, and the second one is here.
+    "ambition_cutscene"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]

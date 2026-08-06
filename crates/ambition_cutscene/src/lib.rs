@@ -397,3 +397,245 @@ mod tests {
         assert_eq!(script.seen_flag.as_deref(), Some("test_seen"));
     }
 }
+
+/// **The rollback wire format for playback state.**
+///
+/// ⛔ **`ActiveCutscene` is not presentation, and `rollback_coverage` waives the
+/// whole `ambition_cutscene::` namespace as if it were.** `is_playing()` drives a
+/// CAPTURING input-context claim, so while a cutscene plays the participant's
+/// gameplay input is suppressed — whether the player can act is gameplay truth.
+/// A rewind into a playing frame that did not restore this would let the
+/// resimulation act through beats the original could not.
+///
+/// ⚠ **the SCRIPT is encoded, not looked up.** `SnapshotState::decode` has no
+/// world, so resolving an id against `CutsceneLibrary` would need a follow-up
+/// system — and "an authority that needs a second call" is a shape this repo has
+/// been bitten by. A script is a handful of beats with short strings; paying
+/// those bytes per snapshot buys a decode that is total.
+mod snapshot {
+    use super::*;
+    use ambition_platformer2d_core::snapshot::{
+        put_bool, put_f32, put_str, put_u32, Reader, SnapshotState,
+    };
+
+    const WAIT: u32 = 0;
+    const DIALOGUE: u32 = 1;
+    const CAMERA_PAN: u32 = 2;
+    const FADE: u32 = 3;
+    const SET_FLAG: u32 = 4;
+    const BANNER: u32 = 5;
+
+    impl SnapshotState for CutsceneBeat {
+        fn encode(&self, out: &mut Vec<u8>) {
+            match self {
+                Self::Wait { seconds } => {
+                    put_u32(out, WAIT);
+                    put_f32(out, *seconds);
+                }
+                Self::Dialogue { speaker, text } => {
+                    put_u32(out, DIALOGUE);
+                    put_str(out, speaker);
+                    put_str(out, text);
+                }
+                Self::CameraPan { target, seconds } => {
+                    put_u32(out, CAMERA_PAN);
+                    put_f32(out, target[0]);
+                    put_f32(out, target[1]);
+                    put_f32(out, *seconds);
+                }
+                Self::Fade { to_alpha, seconds } => {
+                    put_u32(out, FADE);
+                    put_f32(out, *to_alpha);
+                    put_f32(out, *seconds);
+                }
+                Self::SetFlag { id, on } => {
+                    put_u32(out, SET_FLAG);
+                    put_str(out, id);
+                    put_bool(out, *on);
+                }
+                Self::Banner { text, seconds } => {
+                    put_u32(out, BANNER);
+                    put_str(out, text);
+                    put_f32(out, *seconds);
+                }
+            }
+        }
+
+        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+            Some(match reader.u32()? {
+                WAIT => Self::Wait {
+                    seconds: reader.f32()?,
+                },
+                DIALOGUE => Self::Dialogue {
+                    speaker: reader.str()?.to_owned(),
+                    text: reader.str()?.to_owned(),
+                },
+                CAMERA_PAN => Self::CameraPan {
+                    target: [reader.f32()?, reader.f32()?],
+                    seconds: reader.f32()?,
+                },
+                FADE => Self::Fade {
+                    to_alpha: reader.f32()?,
+                    seconds: reader.f32()?,
+                },
+                SET_FLAG => Self::SetFlag {
+                    id: reader.str()?.to_owned(),
+                    on: reader.bool()?,
+                },
+                BANNER => Self::Banner {
+                    text: reader.str()?.to_owned(),
+                    seconds: reader.f32()?,
+                },
+                // ⚠ an unknown tag is a REFUSAL, not a default beat: a snapshot
+                // written by a different build must not decode into a cutscene
+                // that plays something else.
+                _ => return None,
+            })
+        }
+    }
+
+    impl SnapshotState for CutsceneScript {
+        fn encode(&self, out: &mut Vec<u8>) {
+            put_str(out, &self.id);
+            match &self.seen_flag {
+                Some(flag) => {
+                    put_bool(out, true);
+                    put_str(out, flag);
+                }
+                None => put_bool(out, false),
+            }
+            put_u32(out, self.beats.len() as u32);
+            for beat in &self.beats {
+                beat.encode(out);
+            }
+        }
+
+        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+            let id = reader.str()?.to_owned();
+            let seen_flag = reader.bool()?.then(|| reader.str().map(str::to_owned))?;
+            let count = reader.u32()?;
+            let mut beats = Vec::with_capacity(count as usize);
+            for _ in 0..count {
+                beats.push(CutsceneBeat::decode(reader)?);
+            }
+            Some(Self {
+                id,
+                beats,
+                seen_flag,
+            })
+        }
+    }
+
+    impl SnapshotState for ActiveCutscene {
+        fn encode(&self, out: &mut Vec<u8>) {
+            match &self.runtime {
+                None => put_bool(out, false),
+                Some(runtime) => {
+                    put_bool(out, true);
+                    runtime.script.encode(out);
+                    put_u32(out, runtime.beat_index as u32);
+                    put_f32(out, runtime.elapsed);
+                    put_bool(out, runtime.finished);
+                }
+            }
+        }
+
+        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+            // ⭐ **only `runtime` crosses, and the rest is DERIVED.** The
+            // dialogue line, banner, camera target and fade alpha are what the
+            // current beat has emitted — presentation the tick re-publishes as
+            // beats enter. Encoding them would put four copies of the same fact
+            // in every snapshot and invite them to disagree with the beat index
+            // that produced them.
+            if !reader.bool()? {
+                return Some(Self::default());
+            }
+            let script = CutsceneScript::decode(reader)?;
+            Some(Self {
+                runtime: Some(CutsceneRuntime {
+                    script,
+                    beat_index: reader.u32()? as usize,
+                    elapsed: reader.f32()?,
+                    finished: reader.bool()?,
+                }),
+                ..Self::default()
+            })
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn round_trip(before: &ActiveCutscene) -> ActiveCutscene {
+            let mut bytes = Vec::new();
+            before.encode(&mut bytes);
+            let mut reader = Reader::new(&bytes);
+            ActiveCutscene::decode(&mut reader).expect("a snapshot this crate wrote decodes")
+        }
+
+        /// **Every beat variant survives**, because a codec that silently loses
+        /// one plays a different cutscene after a rewind.
+        #[test]
+        fn a_playing_cutscene_survives_the_wire() {
+            let script = CutsceneScript::new(
+                "intro",
+                vec![
+                    CutsceneBeat::Wait { seconds: 0.5 },
+                    CutsceneBeat::Dialogue {
+                        speaker: "Creator".into(),
+                        text: "Wait.".into(),
+                    },
+                    CutsceneBeat::CameraPan {
+                        target: [12.0, -3.5],
+                        seconds: 1.25,
+                    },
+                    CutsceneBeat::Fade {
+                        to_alpha: 1.0,
+                        seconds: 0.4,
+                    },
+                    CutsceneBeat::SetFlag {
+                        id: "seen_intro".into(),
+                        on: true,
+                    },
+                    CutsceneBeat::Banner {
+                        text: "Three years later…".into(),
+                        seconds: 2.0,
+                    },
+                ],
+            )
+            .with_seen_flag("seen_intro");
+            let mut runtime = CutsceneRuntime::new(script);
+            runtime.beat_index = 3;
+            runtime.elapsed = 0.125;
+            let before = ActiveCutscene {
+                runtime: Some(runtime),
+                ..ActiveCutscene::default()
+            };
+            let after = round_trip(&before);
+            assert_eq!(after.runtime, before.runtime);
+        }
+
+        /// The absent case, which is what most frames encode.
+        #[test]
+        fn no_cutscene_survives_the_wire() {
+            let before = ActiveCutscene::default();
+            assert!(round_trip(&before).runtime.is_none());
+        }
+
+        /// ⛔ **an unknown beat tag REFUSES.** A snapshot from a build with a
+        /// seventh variant must not decode into a cutscene that plays something
+        /// else; `None` makes the mismatch visible instead of plausible.
+        #[test]
+        fn an_unknown_beat_tag_is_refused_rather_than_defaulted() {
+            let mut bytes = Vec::new();
+            put_bool(&mut bytes, true);
+            put_str(&mut bytes, "intro");
+            put_bool(&mut bytes, false);
+            put_u32(&mut bytes, 1);
+            put_u32(&mut bytes, 99);
+            let mut reader = Reader::new(&bytes);
+            assert!(ActiveCutscene::decode(&mut reader).is_none());
+        }
+    }
+}

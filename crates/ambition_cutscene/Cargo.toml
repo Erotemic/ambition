@@ -11,6 +11,11 @@ crate-type = ["rlib"]
 
 [dependencies]
 serde = { workspace = true }
+# The rollback wire format. ⭐ the impls live HERE, with the types they encode:
+# `SnapshotState` moved to the floor precisely so a crate can encode its own
+# state instead of a central file collecting foreign impls by orphan-rule
+# accident.
+ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
 # The live playback-state Resources (ActiveCutscene / CutsceneAdvanceRequest) +
 # Vec2. The format/stepper is bevy-free; only the running state needs the ECS.
 bevy = { version = "0.18.1", default-features = false }

@@ -14,6 +14,7 @@
 | [`level_1_2`](src/level_1_2.rs) | **World 1-2** — the underground level, and the demo's first SECOND ROOM. |
 | [`movement`](src/movement.rs) | Mary-O Classic presentation/control glue. |
 | [`pipe`](src/pipe.rs) | **The pipe transit** — the scripted slide into one tube and out of the other. |
+| [`plane`](src/plane.rs) | **Snakes on a plane: the flying-swarm enemy archetypes.** |
 | [`powerups`](src/powerups.rs) | Super Mary-O's powerups — the M1 equipment chain, authored as A3 data. |
 | [`provider`](src/provider.rs) | The Mary-O experience provider. |
 | [`quasar_shader`](src/quasar_shader.rs) | Mary-O's invincible rainbow-quasar presentation pass. |
@@ -23,7 +24,7 @@
 | [`stomp`](src/stomp.rs) | **The ONE top/side contact authority for Mary-O's enemies.** |
 | [`test_course`](src/test_course.rs) | **A level for the TESTS to play, which nobody authors.** |
 
-_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

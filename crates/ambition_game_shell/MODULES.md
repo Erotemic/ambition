@@ -16,10 +16,11 @@
 | [`plugin`](src/plugin.rs) | Bevy plugins that drive shell routing, sequences, and launcher commands. |
 | [`preparation`](src/preparation.rs) | Provider-authored fresh preparation plans and exact prepared-session identity. |
 | [`router`](src/router.rs) | Host-relative top-level route lifecycle, pending loads, focus, and scoped cleanup. |
+| [`scope`](src/scope.rs) | **State that lives exactly as long as one experience's stay on its routes.** |
 | [`sequence`](src/sequence.rs) | Neutral ordered presentation-sequence data and runtime. |
 | [`session`](src/session.rs) | Shell-to-gameplay-session lifecycle bridge. |
 
-_12 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_13 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

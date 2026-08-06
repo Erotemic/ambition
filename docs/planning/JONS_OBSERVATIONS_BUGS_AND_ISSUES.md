@@ -5,14 +5,28 @@
 
 * When SANIC is hit, there it seems like he is given no iframes. He should also have some hitstun and be knocked back a bit, and then have a few second of recovery iframes. The rings don't splash out nearly large enough. He needs an opportunity to recollect some of them after his hitstun wears off and before they disappear.
 
-* ◐ **The patent clerk: you are making one right now.** During this run
-  `patent_clerk.py` appeared in the sprite renderer and `patent_clerk` went into
-  `regen_sprites.sh`'s batch; the target declares `special_patent_clerk` /
-  "Patent Clerk". ⚠ **it has no catalog row yet**, so once it renders the sheet
-  exists and nothing loads it — and no test says so, because the orphan check
-  only asks the other direction (a catalog character with no art). Five other
-  rendered identities are in the same gap: busy beaver, charley beagle, niels
-  boar, pirate heavy, vera ruin. Tell me the tier and I will write the rows.
+* ◐ **The patent clerk: HE IS IN THE GAME** (2026-08-06). You said "patent clerk
+  is new: note we want to use the svg clerk not the older one", so:
+  `special_patent_clerk` has a catalog row spliced from the target's own
+  `ACTOR_METADATA` — your coy-Einstein authoring note, the gameplay note, and
+  all twelve authored lines — plus a Hall pedestal from
+  `generate_hall_of_characters`. The waiver that excused him in
+  `rendered_identities_are_registered.rs` is deleted, so the check now enforces
+  him. ⚠ **the older clerk is untouched**: `npc_manifest_clerk` is a different
+  character (an intro bit part still borrowing the architect sheet), and giving
+  it this art would put the same distinctive face on two pedestals — say the
+  word if you did mean to replace it.
+  ▢ **his art cannot currently be re-rendered.** `./regen_sprites.sh --target
+  patent_clerk` dies in your own live rig work: `SVG view 'Patent Clerk - Side
+  Left' does not have one-to-one drawable ownership: multiply_assigned={'path1115':
+  ['torso', 'neck']}`. The sheets in the tree came from your 13:58 render and were
+  installed from `generated/`, so the game is fine today and a fresh clone is not.
+  ⭐ that failure is now VISIBLE: `patent_clerk` was in the render batch and
+  missing from the postcondition list, so a run that failed to draw him still
+  reported every expected output present.
+  ⭐ **the five others in this gap are down to one, and it is a ruling of yours**:
+  busy beaver, charley beagle, niels boar and vera ruin were cast on 2026-08-05,
+  and `npc_pirate_heavy` is a family rather than a character by your own answer.
 
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 

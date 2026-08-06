@@ -493,6 +493,12 @@ expected_files=(
     martin_cutta_spritesheet.png martin_cutta_spritesheet.ron
     neil_ongras_turfson_spritesheet.png neil_ongras_turfson_spritesheet.ron
     paradox_barber_spritesheet.png paradox_barber_spritesheet.ron
+    # ⚠ **`patent_clerk` was in the render batch and NOT in this postcondition**
+    # — added to `tackon_targets` on 2026-08-05 and never listed here, so a run
+    # whose patent-clerk render failed still reported every expected output
+    # present. That is the exact half-publish the mary_o_v2 rows above were
+    # added for, one list apart.
+    patent_clerk_spritesheet.png patent_clerk_spritesheet.ron
     paul_diracula_spritesheet.png paul_diracula_spritesheet.ron
     player_robot_v2_spritesheet.png player_robot_v2_spritesheet.ron
     player_robot_v3_spritesheet.png player_robot_v3_spritesheet.ron

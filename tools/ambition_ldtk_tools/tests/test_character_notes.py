@@ -47,6 +47,36 @@ def test_suggested_barks_lead_the_fallback_pool():
     assert pool == ("Careful.", "Let it simmer.", "A longer conversational line.")
 
 
+def test_an_unrecognized_dialogue_key_is_carried_not_dropped():
+    """⛔ **the regression that shipped mute lines.** `fallback_pool` read three
+    hard-coded spellings while `flatten_prose`, one function above it, already
+    carried unknown keys through. `patent_clerk.py` and `python_goras.py` spell
+    theirs `fallback_lines`, so six authored lines each were read as nothing —
+    and because both targets also author `barks`, the pool came back non-empty
+    and `missing_fields` reported no gap. Silence, not a failure.
+
+    The probe is a spelling nobody has used, so it cannot pass by being added to
+    a list.
+    """
+    pool = fallback_pool(
+        {
+            "barks": ["Short."],
+            "fallback_lines": ["The spelling two targets actually use."],
+            "utterly_novel_key": ["Carried anyway."],
+        }
+    )
+    assert pool == (
+        "Short.",
+        "The spelling two targets actually use.",
+        "Carried anyway.",
+    )
+
+
+def test_the_dialogue_pool_does_not_depend_on_key_insertion_order():
+    hints = {"z_late": ["z"], "barks": ["b"], "a_early": ["a"]}
+    assert fallback_pool(hints) == fallback_pool(dict(reversed(list(hints.items()))))
+
+
 def test_missing_fields_are_named_not_defaulted():
     notes = notes_from_actor_metadata(
         {"actor": {"character_id": "npc_quiet", "display_name": "Quiet"}}

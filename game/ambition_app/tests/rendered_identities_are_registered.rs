@@ -42,23 +42,120 @@ fn target_dir() -> PathBuf {
 ///
 /// ⛔ **the check's population is "targets that SPELL an id out", not
 /// "targets"** — and that distinction hid two characters. The snakes-on-planes
-/// family declares `spec.character_id` from a `PlaneSpec` table, so no literal
-/// exists to find; both sheets were drawn, published and named by nothing for
-/// however long, and this guard could not have said so.
+/// family was read as declaring only `spec.character_id`, so no literal seemed
+/// to exist; both sheets were drawn, published and named by nothing for however
+/// long, and this guard could not have said so.
 ///
 /// ⚠ **a ratchet rather than a fix.** Teaching the scan to evaluate spec
 /// constructors means teaching it every new spec SHAPE, which is a maintenance
 /// tail nobody asked for. Pinning the count instead means the next family built
 /// this way fails here and somebody LOOKS — at which point they can decide
 /// whether that family needs rows, which is the actual question.
-const COMPUTED_ID_TARGETS: usize = 9;
-
-/// `<target stem> -> <declared character_id>` for every target that names one.
 ///
-/// Returns `(literal ids, stems whose id is computed)`.
-fn declared_identities(dir: &Path) -> (BTreeMap<String, String>, Vec<String>) {
+/// ⭐ **9 → 7 on 2026-08-06, and the two that left were never computed at all.**
+/// `_genghis_pair_common` and `_snakes_on_planes_common` DO spell their ids out
+/// — as keyword arguments to the spec constructor, four literals between them —
+/// and the scan could not see a bare key. So the paragraph above was true of the
+/// scanner and not of the targets: the snakes were readable the whole time, and
+/// the ratchet was pinning the reader's blind spot rather than the authors'
+/// cleverness. `carl_runga` and `martin_cutta` left for the same reason.
+const COMPUTED_ID_TARGETS: usize = 7;
+
+/// Every `character_id` VALUE spelled out in one target's source, in file order.
+///
+/// ⛔ **the COLON is load-bearing.** Splitting on the key alone and taking the
+/// next quoted string reported nine bogus ids on the first run: `display_name`
+/// (from targets that list the key names before the values) and
+/// `pc_{form.target_name}` (from an f-string that builds ids per form). Both are
+/// the same mistake — reading the next string in the file rather than this key's
+/// VALUE.
+///
+/// ⛔ **and so is the QUOTE, which is how this check went blind for a week.**
+/// The first version matched `"character_id"` literally, and Python does not
+/// care which quote you write: `robot_heavy`, `bear_mauler`, `carl_stargan` and
+/// `patent_clerk` all spell theirs with apostrophes because they were emitted by
+/// a formatter rather than typed. So four targets declared ids this scan could
+/// not see — and one of them, `npc_robot_heavy`, is a genuine unregistered
+/// identity that the guard existed to find and reported nothing about.
+///
+/// ⚠ **the failure was worse than silence: it read as a FIX.** The stale
+/// `special_patent_clerk` waiver went red for the "no target declares this"
+/// reason, and the queue recorded the cause as Jon's single quotes — correctly —
+/// but as a fact about ONE row rather than about the scanner. Deleting that
+/// waiver turned the check green while three ids stayed invisible.
+fn character_id_literals(text: &str) -> std::vec::IntoIter<String> {
+    const KEY: &str = "character_id";
+    let bytes = text.as_bytes();
+    let mut out = Vec::new();
+    for (at, _) in text.match_indices(KEY) {
+        if at == 0 {
+            continue;
+        }
+        // Three ways a target names this key, and the scan reads all three
+        // because Python offers all three and the authors used them:
+        //
+        //   "character_id": "npc_x"   a dict key, double-quoted
+        //   'character_id': 'npc_x'   the same dict, formatter-quoted
+        //    character_id="npc_x"     a KEYWORD ARGUMENT to a spec constructor
+        //
+        // ⚠ the third is not a stylistic variant of the first two — `carl_runga`
+        // and `martin_cutta` build their metadata by CALL, so nothing in their
+        // source is a quoted key at all, and both sat in the "id is computed"
+        // bucket where no assertion reaches them.
+        //
+        // ⛔ `spec.character_id` must NOT match: that one really is computed
+        // (the snakes-on-planes pair), and reading the next string after it is
+        // the exact bug the colon rule above was written for.
+        let before = bytes[at - 1];
+        let quoted_key =
+            (before == b'"' || before == b'\'') && bytes.get(at + KEY.len()) == Some(&before);
+        let bare_key = !before.is_ascii_alphanumeric() && before != b'_' && before != b'.';
+        if !quoted_key && !bare_key {
+            continue;
+        }
+        let mut i = at + KEY.len() + usize::from(quoted_key);
+        while bytes.get(i).is_some_and(u8::is_ascii_whitespace) {
+            i += 1;
+        }
+        let separator = if quoted_key { b':' } else { b'=' };
+        if bytes.get(i) != Some(&separator) {
+            continue;
+        }
+        i += 1;
+        // `character_id == "npc_x"` is a comparison, not a declaration.
+        if !quoted_key && bytes.get(i) == Some(&b'=') {
+            continue;
+        }
+        while bytes.get(i).is_some_and(u8::is_ascii_whitespace) {
+            i += 1;
+        }
+        let Some(&quote) = bytes.get(i).filter(|q| **q == b'"' || **q == b'\'') else {
+            continue;
+        };
+        i += 1;
+        let Some(end) = text[i..].find(quote as char).map(|off| i + off) else {
+            continue;
+        };
+        let literal = &text[i..end];
+        // An interpolated id is not one id; those targets name a family.
+        if !literal.is_empty() && !literal.contains('{') {
+            out.push(literal.to_string());
+        }
+    }
+    out.into_iter()
+}
+
+/// Returns `(stem -> every id it declares, stems whose id is computed)`.
+///
+/// ⭐ **every id, not the first one.** A target file can name a whole family —
+/// `_genghis_pair_common` declares `npc_genghis_can` AND `npc_genghis_cant`,
+/// `_snakes_on_planes_common` both planes — and taking only the first would
+/// check one of each pair while the other stayed exactly as unwatched as it was
+/// when the ids were unreadable. Hiding a second character behind a first is the
+/// same failure as hiding it behind a spec table, one line further along.
+fn declared_identities(dir: &Path) -> (BTreeMap<String, Vec<String>>, Vec<String>) {
     let mut computed = Vec::new();
-    let mut out = BTreeMap::new();
+    let mut out: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let Ok(entries) = std::fs::read_dir(dir) else {
         return (out, computed);
     };
@@ -70,36 +167,22 @@ fn declared_identities(dir: &Path) -> (BTreeMap<String, String>, Vec<String>) {
         let Ok(text) = std::fs::read_to_string(&path) else {
             continue;
         };
-        // `"character_id": "npc_whoever",` — the renderer's own metadata block.
-        //
-        // ⛔ **the COLON is load-bearing.** Splitting on the key alone and taking
-        // the next quoted string reported nine bogus ids on the first run:
-        // `display_name` (from targets that list the key names before the
-        // values) and `pc_{form.target_name}` (from an f-string that builds ids
-        // per form). Both are the same mistake — reading the next string in the
-        // file rather than this key's VALUE.
-        let Some(id) = text.split("\"character_id\"").skip(1).find_map(|rest| {
-            let value = rest.trim_start().strip_prefix(':')?.trim_start();
-            let literal = value.strip_prefix('"')?.split('"').next()?;
-            // An interpolated id is not one id; those targets name a family.
-            (!literal.is_empty() && !literal.contains('{')).then(|| literal.to_string())
-        }) else {
-            if text.contains("\"character_id\"") {
-                computed.push(
-                    path.file_stem()
-                        .and_then(|stem| stem.to_str())
-                        .unwrap_or_default()
-                        .to_string(),
-                );
-            }
-            continue;
-        };
+        let mut seen = std::collections::BTreeSet::new();
+        let ids: Vec<String> = character_id_literals(&text)
+            .filter(|id| seen.insert(id.clone()))
+            .collect();
         let stem = path
             .file_stem()
             .and_then(|stem| stem.to_str())
             .unwrap_or_default()
             .to_string();
-        out.insert(stem, id.to_string());
+        if ids.is_empty() {
+            if text.contains("character_id") {
+                computed.push(stem);
+            }
+            continue;
+        }
+        out.insert(stem, ids);
     }
     computed.sort();
     (out, computed)
@@ -124,6 +207,15 @@ const WAIVED: &[(&str, &str)] = &[
         "npc_sanic",
         "provider-owned; the demo registers this body under a different id",
     ),
+    // ⭐ **the SECOND id in `sanic.py`, and it took reading past the first to
+    // find it.** `ambition_demo_sanic` registers the super form as `super_sanic`
+    // (`SUPER_SANIC_CHARACTER_ID`), so it is in the game and only its renderer
+    // metadata disagrees — the same story as the row above, invisible until the
+    // scan stopped stopping at one id per file.
+    (
+        "npc_super_sanic",
+        "provider-owned; the demo registers it as `super_sanic`",
+    ),
     (
         "npc_solid_snake",
         "provider-owned; registered under a different id",
@@ -138,15 +230,12 @@ const WAIVED: &[(&str, &str)] = &[
         "npc_george_booul",
         "a character DRAFT; drafts are not assembled into the catalog",
     ),
-    // ⭐ **live work, 2026-08-05.** Jon added `patent_clerk.py` and its
-    // `regen_sprites.sh` target during a run, having asked earlier the same day
-    // whether a patent clerk existed. It has no row yet — this waiver is the
-    // note saying which half is missing, and it should be DELETED the moment
-    // the row lands.
-    (
-        "special_patent_clerk",
-        "art in flight; the catalog row is not written yet (Jon, 2026-08-05)",
-    ),
+    // ⭐ **`special_patent_clerk` used to sit here and is GONE, as designed.**
+    // The waiver was written on 2026-08-05 saying "delete this the moment the
+    // row lands"; the row landed on 2026-08-06 under that exact key, so the
+    // check now enforces it rather than excusing it. This paragraph is the
+    // receipt — a waiver that disappears without one reads as a check that got
+    // quietly weakened.
     // ⭐ **`pirate_heavy` is a FAMILY, not a character**, and this is a decision
     // Jon already made: `regen_sprites.sh` records that the catalog dropped its
     // bare `npc_pirate_heavy` entry on 2026-05-24 rather than shoehorning a
@@ -165,6 +254,23 @@ const WAIVED: &[(&str, &str)] = &[
     (
         "npc_pirate_heavy",
         "a multi-variant family target; the NAMED heavies are the characters (Jon, 2026-08-05)",
+    ),
+    // ⚠ **`npc_robot_heavy` is NOT the settled case above, and this waiver is a
+    // placeholder for a question, not an answer.** The scanner started seeing it
+    // on 2026-08-06 (single-quoted, see `character_id_literals`), and it is the
+    // one real orphan that blindness was hiding. It LOOKS like `pirate_heavy` —
+    // one target, a bare family id, three named variants (Bastion Bruiser,
+    // Foundry Ram, Volt Crusher) — but the resemblance stops where it matters:
+    // Jon's ruling cast the named pirate heavies, and NONE of the three named
+    // robot heavies is in the catalog either. So the family reading would leave
+    // all four unregistered, which is not what "the named ones are the
+    // characters" means anywhere else.
+    //
+    // ⛔ do not resolve this by casting them on a guess — the question is in
+    // `docs/planning/awaiting-maintainer-decision.md`.
+    (
+        "npc_robot_heavy",
+        "a family id whose three named variants are ALSO uncast; awaiting Jon (2026-08-06)",
     ),
 ];
 
@@ -204,14 +310,16 @@ fn every_rendered_identity_is_a_character_the_game_can_show() {
 
     let mut orphans: Vec<String> = Vec::new();
     let mut stale_waivers: Vec<String> = Vec::new();
-    for (stem, id) in &declared {
-        let known = registered.contains(id.as_str());
-        match (known, waived(id)) {
-            (false, None) => orphans.push(format!("{stem} declares `{id}`")),
-            (true, Some(reason)) => stale_waivers.push(format!(
-                "{id} is registered now, but is waived as: {reason}"
-            )),
-            _ => {}
+    for (stem, ids) in &declared {
+        for id in ids {
+            let known = registered.contains(id.as_str());
+            match (known, waived(id)) {
+                (false, None) => orphans.push(format!("{stem} declares `{id}`")),
+                (true, Some(reason)) => stale_waivers.push(format!(
+                    "{id} is registered now, but is waived as: {reason}"
+                )),
+                _ => {}
+            }
         }
     }
 
@@ -235,7 +343,7 @@ fn every_rendered_identity_is_a_character_the_game_can_show() {
     // table only answers questions it is asked, and an entry for a renamed or
     // deleted target would never be asked again.
     let declared_ids: std::collections::BTreeSet<&str> =
-        declared.values().map(|id| id.as_str()).collect();
+        declared.values().flatten().map(|id| id.as_str()).collect();
     let unasked: Vec<&str> = WAIVED
         .iter()
         .map(|(id, _)| *id)
@@ -273,8 +381,13 @@ fn the_identity_scan_would_notice_an_unregistered_id() {
         waived("a_character_nobody_ever_drew").is_none(),
         "the waiver table answers ids it was never given, so nothing can fail"
     );
+    // ⚠ **name a waiver that is a DECISION, not a pending one.** This asserted
+    // `special_patent_clerk` until his row landed on 2026-08-06, at which point
+    // the poison failed for the one reason a poison must never fail: the thing
+    // it watches got FIXED. `npc_pirate_heavy` is a ruling of Jon's rather than
+    // a queue item, so it is a stable thing to be answered about.
     assert!(
-        waived("special_patent_clerk").is_some(),
-        "and it does answer the one that is genuinely pending"
+        waived("npc_pirate_heavy").is_some(),
+        "and it does answer one it was given"
     );
 }

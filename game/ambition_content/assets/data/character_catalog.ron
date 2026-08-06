@@ -2291,6 +2291,16 @@
                 "Mind the angle.",
                 "The serpent agrees.",
                 "You stand at the wrong vertex.",
+                // ⭐ **restored 2026-08-06**, not written today: these four are
+                // `python_goras.py`'s `FALLBACK_DIALOGUE_LINES`, which the
+                // splice read as nothing because it spells the key
+                // `fallback_lines` and `character_notes.fallback_pool` knew
+                // three other spellings. His five barks came through, so the row
+                // looked finished.
+                "I seek the hidden ratios beneath ordinary things.",
+                "Most people remember the triangle. Fewer remember the cult.",
+                "The python is not symbolic. He simply chose to stay.",
+                "Harmony, number, and a clean right angle can solve more than people think.",
             ],
             hall_dialogue_id: Some("hall_npc_python_goras"),
         ),
@@ -2393,6 +2403,33 @@
             provoked: ["Then let us see what you kept."],
         ),
         hall_dialogue_id: Some("hall_player_robot_v2"),
+        ),
+        "special_patent_clerk": (
+            display_name: "Patent Clerk",
+            spritesheet: "sprites/patent_clerk_spritesheet.png",
+            manifest: "sprites/patent_clerk_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "patrol_peaceful",
+            default_action_set: "striker_swipe",
+            tags: ["special_character", "humanoid", "patent_clerk", "reference_frame_controller", "classification_fighter", "playable_candidate", "svg_rigged"],
+            authoring_description: "Patent Clerk is a coy parody of Albert Einstein, designed around his patent-office period, iconic unruly hair, moustache, relativity thought experiments, clock synchronization, reference frames, and mass-energy equivalence. The public character never confirms the identity: recognition is carried by silhouette, mechanics, and restrained bureaucratic dialogue. The combat classifications and administrative stamps are deliberate game inventions rather than biographical claims.",
+            gameplay_description: "A high-mastery heavyweight controller who classifies bodies as MASS, ENERGY, MOVING, or AT REST; manipulates relative velocity and local reference frames; and turns careful observation into unusually strong parries and finishers. His recovery uses an accelerating elevator frame, his stage control uses synchronized clocks, and his super resolves several quiet office observations into one inevitable conversion.",
+            fallback_dialogue: [
+                "Your application has several interesting assumptions.",
+                "Please remain in your chosen frame.",
+                "The distinction is useful—for now.",
+                "Your timing was local.",
+                "Approved.",
+                "No, I am only a clerk.",
+                "A clock is reliable until you ask where it has been.",
+                "Common sense is often a local regulation.",
+                "You may call yourself stationary. Courtesy permits it.",
+                "The office prefers inventions. I find assumptions more interesting.",
+                "There are many patent clerks.",
+                "Not required in this field.",
+            ],
         ),
         "npc_carl_stargan": (
             display_name: "Carl Stargan",

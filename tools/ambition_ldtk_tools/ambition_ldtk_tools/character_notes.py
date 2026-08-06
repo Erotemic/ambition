@@ -20,8 +20,9 @@ The targets do not agree on a shape, because each was authored separately:
     set varying between dict-shaped ones;
   - ``gameplay_description`` is a dict of ``role`` / ``signature_moves`` /
     ... , or absent entirely;
-  - dialogue lives under ``dialogue_hints`` as ``suggested_barks`` and/or
-    ``fallback_dialogue``, or is missing.
+  - dialogue lives under ``dialogue_hints``, whose own keys vary
+    (``suggested_barks``, ``barks``, ``fallback_dialogue``, ``fallback_lines``),
+    or is missing.
 
 Rejecting the variation would mean rewriting every target; silently accepting it
 would mean a character whose notes quietly flatten to `""`. So this flattens
@@ -30,8 +31,10 @@ description is a reported fact rather than an invisible one.
 
 ## What the suggested barks become
 
-Both ``suggested_barks`` and ``dialogue_hints.fallback_dialogue`` fold into the
-catalog's single ``fallback_dialogue`` pool, barks first. That pool is what
+EVERY key under ``dialogue_hints`` folds into the catalog's single
+``fallback_dialogue`` pool, barks first — not a fixed list of spellings, because
+a fixed list dropped six authored lines from two characters without saying so.
+That pool is what
 `CharacterCatalogEntry::bark` reaches for when a situation has no authored pool,
 so a freshly generated character speaks in its own voice on hit, when provoked,
 idling, and on its Hall pedestal without anyone writing four pools by hand.
@@ -192,7 +195,24 @@ def fallback_pool(dialogue_hints: Any) -> tuple[str, ...]:
     # `barks` is the key `publish_character_notes` writes into sheet manifests;
     # `suggested_barks` is what the targets actually author. Accept both rather
     # than making a character mute over a key name.
-    for key in ("suggested_barks", "barks", "fallback_dialogue"):
+    #
+    # ⛔ **the allowlist was the bug it was written to prevent.** That comment
+    # names the failure exactly — "mute over a key name" — and then hard-codes
+    # three spellings, so `patent_clerk.py` and `python_goras.py`, which spell it
+    # `fallback_lines`, had six lines each read as nothing. Nothing reported it:
+    # both targets also author `barks`, so the pool came back non-empty and the
+    # gap report stayed quiet. A silent partial read is worse than the mute
+    # character this was guarding against, because mute is visible.
+    #
+    # ⭐ so the rule is now the CAPABILITY, not the name: everything under
+    # `dialogue_hints` is dialogue by construction, so every key is read. The
+    # known spellings lead, in the authored precedence (short barks before
+    # longer fallback prose); anything new follows in sorted order, which keeps
+    # the pool deterministic without anyone having to come back here.
+    known = ("suggested_barks", "barks", "fallback_dialogue", "fallback_lines")
+    for key in known:
+        lines.extend(_clean_lines(dialogue_hints.get(key)))
+    for key in sorted(k for k in dialogue_hints if k not in known):
         lines.extend(_clean_lines(dialogue_hints.get(key)))
     seen: set[str] = set()
     unique = []

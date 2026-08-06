@@ -718,3 +718,55 @@ two situations apart**, and that — not a duration — is the thing to decide.
 
 ⚠ **this is a FEEL decision and belongs to you.** All three are small to
 implement; none is small to judge.
+
+---
+
+## Are the three named robot heavies characters, or is `robot_heavy` variant art? (raised 2026-08-06)
+
+**Why it surfaced now, and why it is not a bug report.** The
+`rendered_identities_are_registered` check reads every renderer target's declared
+`character_id` and requires a catalog row. It matched the key `"character_id"`
+literally — with double quotes — and four targets spell theirs with apostrophes
+because a formatter wrote them. `carl_stargan`, `bear_mauler` and
+`special_patent_clerk` turned out to be registered anyway. `npc_robot_heavy` is
+the one real orphan the blindness was hiding, and it is a question rather than a
+fix.
+
+**What the target actually is.** `robot_heavy.py` declares the bare id
+`npc_robot_heavy` / "Robot Heavy" and then three fully-specified variants —
+**Bastion Bruiser** (red, maul, shoulder pods), **Foundry Ram** (orange, furnace
+backpack, pile driver), **Volt Crusher** (blue, electrical). Each is a complete
+`VariantSpec`: its own palette, silhouette scales, head, weapon and backpack.
+They are drawn as three different robots, not three tints of one.
+
+**What is true today.** None of the four is in the catalog. `regen_sprites.sh`
+skips the target entirely with the note *"multi-variant rig whose publisher
+doesn't install (renders only to `generated/`) … Catalog entry was dropped along
+with the publisher work"*, so no sheet ships either. This is the only rendered
+identity in the tree that is uncast in BOTH directions.
+
+**Why it is not the `pirate_heavy` case, which you already ruled on.** Your
+answer there was *"the named pirate heavies are the pirate heavies"* — the bare
+family id has no row because broadside_bess, iron_mary and salt_annet are the
+characters and all three ARE cast. Applying the same words here would leave all
+four robot heavies uncast, which is the opposite outcome from the same sentence.
+
+**The decision:**
+
+* **(a) cast the three named ones**, exactly as the pirate heavies were: a row
+  each from the target's own metadata, three Hall pedestals. Needs the publisher
+  work the regen note describes (the target installs nothing today), so it is the
+  most expensive answer and the one that puts three new robots in the game.
+* **(b) cast the bare `npc_robot_heavy`** as one enemy archetype and treat the
+  three specs as its palette variants. Cheapest, and it matches how the target is
+  currently *skipped* rather than how it is *written* — the variants have
+  distinct silhouettes, so this discards authored difference.
+* **(c) it is variant art, not characters** — keep the waiver and say so once, so
+  nobody re-raises it. Free, and it means the render cost stays paid for art
+  nothing loads.
+
+⚠ **weak recommendation: (a), but only if these robots have a place to be.** The
+art is already drawn and specified; the missing half is a publisher, which is
+mechanical. But casting three enemies nobody has a room for is content debt, and
+you are the one who knows whether the robot heavies belong to a faction that is
+going to exist.

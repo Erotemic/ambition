@@ -551,9 +551,31 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   It advances on `WorldTime::sim_dt` now, which is also SCALED: a cutscene under
   slow motion slows with the scene instead of running at wall speed over a world
   in treacle.
-  ▢ still open, and still design-first: advance/skip as EDGES through participant
-  input (hold-to-skip stays a local accumulator, only the completed edge crosses),
-  and the derived-presentation split.
+  ✔ **the EDGE half is already correct** — checked rather than assumed.
+  `update_cutscene_request_from_menu` treats advance as an edge (`menu_frame.select`)
+  and accumulates the skip hold locally, letting only the completed threshold set
+  `skip_cutscene`. That is what the row prescribes, already built.
+  ⛔ **but the SPLIT is wrong, and this is the row's real content.** The whole
+  `ambition_cutscene::` namespace is waived in `rollback_coverage` as *"scripted
+  presentation sequence state"* — and it is not. `ActiveCutscene::is_playing()`
+  drives a CAPTURING input-context claim (`CUTSCENE_CONTEXT`, priority
+  `context_priority::CUTSCENE`), so while a cutscene plays the participant's
+  gameplay input is suppressed. **Whether the player can act is gameplay truth.**
+  A rewind into a frame where a cutscene was playing does not restore
+  `ActiveCutscene`, so the resimulation can let the player act through beats they
+  could not — a desync class the waiver's own wording hides.
+  ⭐ **the shape, then:**
+  * **SIM (registered, rewound):** `beat_index`, `elapsed` (already on the sim
+    clock as of 2026-08-06), `finished`, and the identity of the playing script.
+    These decide input capture and when the world resumes.
+  * **PRESENTATION (derived, never rewound):** which portrait is drawn, fades,
+    letterboxing, the partially-held skip accumulator — `skip_hold_seconds`
+    belongs here and is currently on the crossing request struct.
+  * **the crossing is two EDGES only:** "advance" and "skip completed". Both
+    already exist; what does not exist is the registration of the first bullet.
+  ▢ implement: register the semantic half, narrow the blanket
+  `ambition_cutscene::` waiver to the presentation half, and move
+  `skip_hold_seconds` off the shared request.
 - ▢ Cutscene authority (model 1): write the semantic-playback state shape
   (beat index, deterministic elapsed, advance/skip edges through
   participant input) vs derived presentation FIRST; hold-to-skip stays a

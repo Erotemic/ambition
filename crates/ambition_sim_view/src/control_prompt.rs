@@ -164,6 +164,10 @@ pub fn rebuild_control_prompt(
     // because a headless sim installs no input stack; absent, entries carry no
     // glyph rather than a stale one.
     bindings: Option<Res<ambition_input::SeatBindings>>,
+    // Which pad the seat is holding, so a binding is SPELLED in that pad's
+    // vocabulary: "Cross" on a DualSense where an Xbox pad says "A". Absent, the
+    // labels take the documented Xbox-style default rather than guessing.
+    devices: Option<Res<ambition_input::SeatActiveDevices>>,
     controlled: Option<Res<ControlledSubject>>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     authorities: Query<(
@@ -180,9 +184,10 @@ pub fn rebuild_control_prompt(
     // `is_changed()` on an `Option<Res<T>>` can only speak while the resource
     // is `Some`: a removal contributes nothing to `inputs_changed`, so without
     // the bits a quiet-frame removal of `SeatInputContexts` / `ActiveUiCues` /
-    // `ControlledSubject` / `SeatBindings` would be skipped and the prompt would
-    // keep describing a context that no longer exists.
-    mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 4])>>,
+    // `ControlledSubject` / `SeatBindings` / `SeatActiveDevices` would be
+    // skipped and the prompt would keep describing a context that no longer
+    // exists.
+    mut last: Local<Option<(Option<Entity>, [bool; 3], [bool; 5])>>,
 ) {
     // A frontend context (startup cards, launcher) owns the participant's
     // actions: its provider (`publish_frontend_context_prompt`) writes the
@@ -216,7 +221,12 @@ pub fn rebuild_control_prompt(
         // keep the glyph they were built with and the player is told to press
         // the old key — which is the precise staleness the binding projection
         // exists to make impossible, reintroduced one layer up by a cache.
-        || bindings.as_ref().is_some_and(|r| r.is_changed());
+        || bindings.as_ref().is_some_and(|r| r.is_changed())
+        // ⚠ AND PICKING UP A DIFFERENT PAD MUST TOO. The binding did not move,
+        // so `SeatBindings` is quiet — only the SPELLING changed, and a cache
+        // keyed on the binding alone would keep telling a DualSense player to
+        // press A. Same defect as the line above, one authority further out.
+        || devices.as_ref().is_some_and(|r| r.is_changed());
     // Presence is tracked separately from change: an `Option<Res<T>>` that went
     // `Some -> None` reports no change at all (see `last`'s doc).
     let resources = [
@@ -224,6 +234,7 @@ pub fn rebuild_control_prompt(
         controlled.is_some(),
         cues.is_some(),
         bindings.is_some(),
+        devices.is_some(),
     ];
 
     // Menu / dialogue own input: no gameplay scheme. Publish an explicit context
@@ -289,7 +300,11 @@ pub fn rebuild_control_prompt(
             label: action.display(),
             visual: action.visual.clone(),
             binding: bindings.as_deref().and_then(|seats| {
-                seats.label_for_slot(ambition_input::ParticipantId::PRIMARY.slot(), action.slot)
+                seats.label_for_slot(
+                    ambition_input::ParticipantId::PRIMARY.slot(),
+                    action.slot,
+                    devices.as_deref(),
+                )
             }),
         })
         .collect();
@@ -455,6 +470,69 @@ mod tests {
             Some("F13"),
             "the prompt followed the rebind — a cache that skipped this would tell the player \
              to press a key that does nothing"
+        );
+    }
+
+    /// **The prompt spells the button the way the seat's own pad does.**
+    ///
+    /// ⚠ and picking up a different pad has to reach it. The BINDING does not
+    /// move when a player swaps a DualSense for an Xbox pad, so the projection
+    /// stays quiet and a cache keyed on it alone keeps saying "Cross" to
+    /// somebody holding a pad with an A on it. Same defect as a prompt cached
+    /// past a rebind, one authority further out — which is why the device fact
+    /// is in the change gate and not only in the derive.
+    #[test]
+    fn the_prompt_spells_a_button_in_the_seats_own_vocabulary() {
+        use ambition_input::{
+            ActiveDevice, GamepadStyle, KeyboardPreset, SeatActiveDevices, SeatBindings,
+        };
+
+        let mut app = app();
+        app.init_resource::<SeatBindings>();
+        app.init_resource::<SeatActiveDevices>();
+        app.add_systems(
+            Update,
+            ambition_input::publish_seat_bindings.before(rebuild_control_prompt),
+        );
+        // A gamepad-only seat, so the FIRST binding for Jump — the one a prompt
+        // prints — is a pad button rather than a key.
+        app.world_mut().spawn((
+            ambition_input::InputParticipant::primary(),
+            KeyboardPreset::gamepad_only_map(),
+        ));
+        let body = app
+            .world_mut()
+            .spawn((PlayerEntity, PrimaryPlayer, authorities(true, Some("swat"))))
+            .id();
+        app.world_mut().resource_mut::<ControlledSubject>().0 = Some(body);
+
+        let binding_for = |app: &App, slot: ControlSlot| -> Option<String> {
+            app.world()
+                .resource::<ControlPrompt>()
+                .entries
+                .iter()
+                .find(|entry| entry.slot == slot)
+                .and_then(|entry| entry.binding.clone())
+        };
+
+        app.world_mut()
+            .resource_mut::<SeatActiveDevices>()
+            .mark_primary(ActiveDevice::Gamepad(GamepadStyle::XboxLike));
+        app.update();
+        assert_eq!(
+            binding_for(&app, ControlSlot::Jump).as_deref(),
+            Some("A"),
+            "an Xbox pad jumps with A"
+        );
+
+        app.world_mut()
+            .resource_mut::<SeatActiveDevices>()
+            .mark_primary(ActiveDevice::Gamepad(GamepadStyle::PlayStation));
+        app.update();
+        assert_eq!(
+            binding_for(&app, ControlSlot::Jump).as_deref(),
+            Some("Cross"),
+            "the same binding, spelled by the pad now in the player's hands"
         );
     }
 

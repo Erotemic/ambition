@@ -331,8 +331,23 @@ impl ActionBindings {
 
     /// The label a prompt should show — the FIRST binding, which is the one a
     /// preset lists first and therefore the one the author considered primary.
+    ///
+    /// Gamepad buttons come out Xbox-style. A caller that knows which pad the
+    /// seat is holding should say so with [`Self::label_for`].
     pub fn label(&self, action: &Platformer2dInputActionMonolith) -> Option<String> {
         self.controls(action).first().map(PhysicalControl::label)
+    }
+
+    /// The same label, in the vocabulary of the pad this seat is actually
+    /// holding — so a DualSense reads "Cross" where an Xbox pad reads "A".
+    pub fn label_for(
+        &self,
+        action: &Platformer2dInputActionMonolith,
+        style: crate::GamepadStyle,
+    ) -> Option<String> {
+        self.controls(action)
+            .first()
+            .map(|control| control.label_for(style))
     }
 
     /// Every bound action and its controls, in canonical order. For a help
@@ -404,12 +419,24 @@ impl SeatBindings {
 
     /// The label for an ability SLOT — what a prompt actually wants to ask.
     /// Composes [`action_for_slot`] rather than carrying its own table.
+    ///
+    /// ⚠ **`devices` is a PARAMETER, not a second call.** The seat's pad decides
+    /// whether its jump button reads "A" or "Cross", so a caller that asked for
+    /// the label and then re-spelled it from the device fact would be two steps
+    /// where one is correct — and the second step is the one a new caller
+    /// forgets. `None` (a headless sim with no device tracking) spells gamepad
+    /// buttons Xbox-style, which is the documented default and not a guess about
+    /// this seat.
     pub fn label_for_slot(
         &self,
         seat: u8,
         slot: ambition_entity_catalog::action_scheme::ControlSlot,
+        devices: Option<&crate::SeatActiveDevices>,
     ) -> Option<String> {
-        self.label(seat, &action_for_slot(slot)?)
+        let style =
+            devices.map_or_else(Default::default, |devices| devices.gamepad_style_for(seat));
+        self.for_seat(seat)
+            .label_for(&action_for_slot(slot)?, style)
     }
 
     pub fn seats(&self) -> impl Iterator<Item = (u8, &ActionBindings)> {

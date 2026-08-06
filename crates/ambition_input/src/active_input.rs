@@ -174,6 +174,19 @@ impl SeatActiveDevices {
     pub fn mark_primary(&mut self, device: ActiveDevice) {
         self.mark(crate::participant::ParticipantId::PRIMARY.slot(), device);
     }
+
+    /// How this seat's gamepad buttons should be SPELLED.
+    ///
+    /// A seat that is not on a pad right now answers the default (Xbox-style),
+    /// which is what a label has to say when nothing better is known — the same
+    /// rule [`GamepadStyle::Generic`] follows. It is not a claim that the seat
+    /// holds an Xbox pad.
+    pub fn gamepad_style_for(&self, slot: u8) -> GamepadStyle {
+        match self.for_seat(slot) {
+            ActiveDevice::Gamepad(style) => style,
+            _ => GamepadStyle::default(),
+        }
+    }
 }
 
 /// Detect the most recent genuine input per seat.

@@ -250,6 +250,87 @@ pub fn rev_tier_id(charge: f32) -> &'static str {
 /// ear measure the same positions instead of drifting as the speedway changes.
 pub const SPEED_MARKER_XS: [f32; 5] = [808.0, 1608.0, 2600.0, 3608.0, 5000.0];
 
+/// The signage id of the speedway's control legend — the sign at the start
+/// line that tells a player which buttons do what.
+///
+/// ⚠ **two layers prefix it**, so a reader matches the SUFFIX rather than the
+/// whole string: the room prefixes its authored label ids with `sanic_`, and the
+/// renderer prefixes the spawned entity's `owner_id` with `signage:{index}:`.
+/// No other sign on the speedway ends this way (the others are `loop`, `finish`
+/// and `marker_N`).
+const LEGEND_LABEL_ID: &str = "start";
+
+/// **The legend, written from whatever is actually bound.**
+///
+/// ⭐ a legend written as a literal cannot help but drift from the controls
+/// beside it, and this one did. `bindings` is the seat's LIVE projection when
+/// there is a seat; `None` is room generation, which has no settings and no
+/// participant and can only speak for the default preset.
+fn control_legend(
+    bindings: Option<&ambition_platformer2d::input::ActionBindings>,
+    style: ambition_platformer2d::input::GamepadStyle,
+) -> String {
+    use ambition_platformer2d::input::Platformer2dInputActionMonolith as Action;
+
+    let default_keys = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().actions;
+    let name = ambition_platformer2d::input::key_name;
+    let label = |action: Action, fallback: bevy::prelude::KeyCode| {
+        bindings
+            .and_then(|bound| bound.label_for(&action, style))
+            .unwrap_or_else(|| name(fallback).to_string())
+    };
+    format!(
+        "START   {}: JUMP   DOWN+{}: REV   RELEASE DOWN: DASH   {}: SUPER",
+        label(Action::Jump, default_keys.jump),
+        label(Action::Attack, default_keys.attack),
+        label(Action::Special, default_keys.special),
+    )
+}
+
+/// Rewrite the speedway's legend from the seat's live bindings.
+///
+/// ⚠ **presentation-time, because generation-time cannot know.** The sign is
+/// baked into the room, and a room is built before any settings are read — so a
+/// player on a non-default preset, or one who has remapped a single key, was
+/// told to press a key that does nothing. That is the same staleness
+/// `SeatBindings` exists to make impossible, reintroduced by an authored string.
+///
+/// Cheap on a quiet frame: it only asks for the text when the bindings or the
+/// seat's pad actually change, and it writes only when the text differs — so a
+/// label nobody rebound costs one changed-resource check.
+fn refresh_sanic_control_legend(
+    bindings: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatBindings>>,
+    devices: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatActiveDevices>>,
+    mut labels: bevy::prelude::Query<(
+        &ambition_platformer2d::render::rendering::WorldLabel,
+        &mut bevy::prelude::Text2d,
+    )>,
+    // The label is spawned by the room load, which happens long after the
+    // bindings first publish — so "nothing changed" must still write the FIRST
+    // time a sign exists.
+    mut written: bevy::prelude::Local<bool>,
+) {
+    use bevy::prelude::DetectChanges;
+
+    let Some(bindings) = bindings else { return };
+    let moved = bindings.is_changed() || devices.as_ref().is_some_and(|d| d.is_changed());
+    if *written && !moved {
+        return;
+    }
+    let seat = ambition_platformer2d::input::ParticipantId::PRIMARY.slot();
+    let style = devices.map_or_else(Default::default, |devices| devices.gamepad_style_for(seat));
+    let wanted = control_legend(Some(bindings.for_seat(seat)), style);
+    for (label, mut text) in &mut labels {
+        if !label.owner_id.ends_with(LEGEND_LABEL_ID) {
+            continue;
+        }
+        *written = true;
+        if text.0 != wanted {
+            text.0 = wanted.clone();
+        }
+    }
+}
+
 /// Build the Sanic showcase room: parse the demo's own LDtk world (hills,
 /// pit, springs, platforms, monitors, badniks — everything spatial), then
 /// graft the code-generated loop route onto it. The loop stays code-side
@@ -306,31 +387,19 @@ pub fn sanic_speedway() -> RoomSpec {
     // debug labels rendered by the generic presentation face, not app-local UI.
     let mut labels = vec![
         (
-            "start".to_string(),
-            {
-                // ⛔ **this was a hardcoded string, and it named a key nothing
-                // binds.** It read `"… D: SUPER"` while the preset binds jump Z,
-                // attack X, dash C, special G — no `D` at all. Jon reported it
-                // as *"in sanic the button text doesn't match what the controls
-                // really are"*, and that is two separate bugs: the touch button
-                // labels (queue D17) and this legend.
-                //
-                // ⭐ **a legend written as a literal cannot help but drift from
-                // the preset beside it.** Read the SAME table the bindings do,
-                // so a rebind moves the sign with it.
-                // ⚠ preset 0 is PINNED: this runs at room GENERATION, which has
-                // no settings access, so a non-default preset still drifts. The
-                // drift-free shape is a presentation-time label fed by
-                // `SeatBindings` (PA4's cue contract), not more plumbing here.
-                let keys = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().actions;
-                let name = ambition_platformer2d::input::key_name;
-                format!(
-                    "START   {}: JUMP   DOWN+{}: REV   RELEASE DOWN: DASH   {}: SUPER",
-                    name(keys.jump),
-                    name(keys.attack),
-                    name(keys.special),
-                )
-            },
+            LEGEND_LABEL_ID.to_string(),
+            // ⛔ **this was a hardcoded string, and it named a key nothing
+            // binds.** It read `"… D: SUPER"` while the preset binds jump Z,
+            // attack X, dash C, special G — no `D` at all. Jon reported it as
+            // *"in sanic the button text doesn't match what the controls really
+            // are"*, and that is two separate bugs: the touch button labels
+            // (queue D17) and this legend.
+            //
+            // What room GENERATION can say is the DEFAULT preset's answer: it
+            // has no settings and no seat. [`refresh_sanic_control_legend`]
+            // replaces this the moment a seat's real bindings exist, so a
+            // non-default preset or a remap moves the sign.
+            control_legend(None, Default::default()),
             ae::Vec2::new(300.0, FLOOR_TOP - 230.0),
         ),
         (
@@ -667,6 +736,10 @@ pub fn install_sanic_content(app: &mut App) {
     // Ambition's own intro-prop loader (a per-frame "insert if missing" GameAssets
     // mutation) rather than the catalog-fragment path — see smell #19.
     app.add_systems(bevy::prelude::Update, register_sanic_ring_prop_sheet);
+    // The start-line legend names the buttons, so it belongs to the bindings and
+    // not to the room file it is baked into. Registered with the CONTENT because
+    // it is a fact about this room's signage, not about the rules.
+    app.add_systems(bevy::prelude::Update, refresh_sanic_control_legend);
 
     // Sanic's mutable sim state joins the rollback contract through the same
     // seam engine crates use — here, before either construction path

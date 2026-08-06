@@ -1976,3 +1976,80 @@ fn the_ring_splash_is_wide_enough_to_be_a_scramble() {
          purse lands at your feet. Jon asked for a splash you have to chase."
     );
 }
+
+/// **The sign at the start line names the keys the player actually has.**
+///
+/// ⛔ it did not. The legend is baked into the room at GENERATION, which has no
+/// settings and no participant, so it could only ever name the default preset —
+/// and Jon's report was exactly that: *"in sanic the button text doesn't match
+/// what the controls really are"*. The generated text is the honest default; the
+/// presentation pass replaces it once a seat exists.
+#[test]
+fn the_start_line_legend_follows_the_seats_real_bindings() {
+    use ambition_platformer2d::bevy::ecs::system::RunSystemOnce as _;
+    use ambition_platformer2d::input::{
+        ActionBindings, InputParticipant, KeyboardPreset, SeatBindings,
+    };
+    use ambition_platformer2d::render::rendering::{WorldLabel, WorldLabelFamily};
+
+    // The text the room really ships with — read from the built room rather
+    // than restated, so this cannot pass against a legend that moved.
+    let room = crate::sanic_speedway();
+    let baked = room
+        .debug_labels
+        .iter()
+        .find(|label| label.id.ends_with(crate::LEGEND_LABEL_ID))
+        .map(|label| label.payload.text.clone())
+        .expect("the speedway signs its start line");
+
+    let mut app = App::new();
+    app.init_resource::<SeatBindings>();
+    let sign = app
+        .world_mut()
+        .spawn((
+            bevy::prelude::Text2d::new(baked.clone()),
+            // The owner id the renderer really builds: `signage:{index}:{id}`
+            // over the room's already-prefixed authored id.
+            WorldLabel::new(
+                format!(
+                    "signage:0:{}",
+                    room.debug_labels
+                        .iter()
+                        .find(|label| label.id.ends_with(crate::LEGEND_LABEL_ID))
+                        .map(|label| label.id.clone())
+                        .expect("the speedway signs its start line")
+                ),
+                WorldLabelFamily::Signage,
+                bevy::prelude::Vec3::ZERO,
+            ),
+        ))
+        .id();
+    // A seat on a preset that is NOT the one generation could see.
+    let wasd = KeyboardPreset::wasd_jkl();
+    app.world_mut()
+        .spawn((InputParticipant::primary(), wasd.input_map()));
+    app.world_mut()
+        .run_system_once(ambition_platformer2d::input::publish_seat_bindings)
+        .expect("the projection runs");
+    app.world_mut()
+        .run_system_once(crate::refresh_sanic_control_legend)
+        .expect("the legend refresh runs");
+
+    let shown = app
+        .world()
+        .get::<bevy::prelude::Text2d>(sign)
+        .unwrap()
+        .0
+        .clone();
+    assert_ne!(
+        shown, baked,
+        "the sign still shows the preset room generation guessed at"
+    );
+    let jump = ActionBindings::from_map(&wasd.input_map())
+        .label(&ambition_platformer2d::input::Platformer2dInputActionMonolith::Jump)
+        .expect("wasd binds Jump");
+    assert!(
+        shown.contains(&format!("{jump}: JUMP")),
+        "the sign names the key this seat jumps with ({jump}), got: {shown}"
+    );
+}

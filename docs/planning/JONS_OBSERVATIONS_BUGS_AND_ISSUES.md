@@ -205,6 +205,31 @@ slot with no attached pad cannot be set to controller.
   2.46x vertically. A great deal of vertical empty space over a serpent that is
   barely half the player's height, which is exactly "the sprite might not match
   the box".
+  ⭐⭐ **AND IN WORLD UNITS — which is what Jon is actually looking at — the two
+  enemies are sized by two different mechanisms and NEITHER is a derivation:**
+
+  | body | world size | how it is decided |
+  |---|---|---|
+  | Mary-O | 48 tall | **DERIVED**: `MARY_O_STANDING_HEIGHT / sheet_height`, re-measured every regen |
+  | Solid Snake | **40.9 × 18.2** | `SNAKE_WORLD_PER_PIXEL = 0.35`, a constant whose own doc calls it a taste call |
+  | AI Slop | **28 × 28** | `AI_SLOP_HALF = 14.0`, splatted — a forced SQUARE that ignores the sheet |
+
+  ⛔ **the snake is 40.9 world units WIDE against Mary-O's 48 TALL.** It is nearly
+  as wide as she is tall and barely a third of her height — a 2.25:1 creature
+  sprawled across the corridor. That is the "way too big", and it is a WIDTH
+  problem, which is why every previous attempt (all of which scaled by height)
+  left it looking wrong.
+  ⛔ **AI Slop's box does not match its sprite EITHER, and worse than the
+  snake's.** The sheet is 1.54:1; `AI_SLOP_HALF` splats a 1:1 square over it. So
+  Jon's *"the sprite might not match the box"* is true of BOTH enemies, and on
+  the slop it is not a scale mismatch at all — the box has the wrong SHAPE.
+  ⭐ **the fix Mary-O already demonstrates, in the same crate**: state the world
+  size you want and divide by the measured sheet, so a regen that moves the crop
+  by a pixel does not silently resize the creature. Her own comment says why —
+  *"a scale pinned to today's pixel count silently changes her height the first
+  time a crop moves"* — and both enemies are pinned to today's pixel count.
   ▢ **what this does NOT decide**: what the numbers should BE. The instrument
   asserts no ratio on purpose — what counts as too big is Jon's call, and a limit
-  written by a test would be a taxonomy nobody chose.
+  written by a test would be a taxonomy nobody chose. What it does say is that
+  the snake should be stated as a WIDTH (or a height with the sheet's aspect
+  respected) and the slop should stop being a square.

@@ -465,6 +465,10 @@ pub(crate) fn grid_menu_nav(
     mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
     mode: Res<State<ambition_platformer2d::platformer::schedule::GameMode>>,
     mut next_mode: ResMut<NextState<ambition_platformer2d::platformer::schedule::GameMode>>,
+    // The ONE activation event. A controller/keyboard submit publishes the same
+    // message the renderer's pointer bridge does, so `grid_menu_action_activated`
+    // is the single place a chosen action is dispatched.
+    mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
     mut fx: MenuDispatchParams,
 ) {
     // Read the backend from `fx.system` (it owns the resource); a separate `Res`
@@ -562,38 +566,24 @@ pub(crate) fn grid_menu_nav(
                 return;
             }
             if menu.select {
+                // ⭐ **PUBLISH, do not dispatch.** A controller submit and a tap
+                // are the same event — "the player chose this control" — and
+                // this branch used to say it a second way: it resolved the
+                // action and called `dispatch_menu_action` inline, beside a
+                // pointer path that published `MenuActionActivated` for a
+                // consumer to dispatch. Two spellings of one event is how the
+                // re-pin, the republish invalidation and the close handling
+                // came to exist twice, and how they drift.
+                //
+                // The ERROR bark stays here because it is NOT an activation:
+                // an empty cell has no action to publish, and the consumer
+                // could not tell "nothing there" from "nobody pressed".
                 let idx = cursor.focus().item_index();
-                if let Some(action) = owned_item_action(&fx.owned, idx) {
-                    let mut close_menu = false;
-                    crate::menu::dispatch::dispatch_menu_action(
-                        action,
-                        &mut pages,
-                        &mut system_nav,
-                        &mut cursor,
-                        &mut fx.owned,
-                        &mut fx.settings,
-                        &mut fx.quality_confirm,
-                        &mut close_menu,
-                        &mut fx.commands,
-                        &mut fx.players,
-                        &mut fx.mana_q,
-                        &mut fx.heals,
-                        &mut fx.sfx,
-                        &mut fx.system,
-                    );
-                    // `dispatch_menu_action`'s `ChangePage` could move us off Items;
-                    // re-pin to the active tab so the cube's page-turn semantics don't
-                    // leak into the flat tabs.
-                    pages.active = Some(active_page);
-                    // Fix 3: force the next republish so the new state (e.g. the equip
-                    // checkmark) shows immediately, without waiting for a cursor move.
-                    tab_state.last_key = None;
-                    if close_menu {
-                        fx.quality_confirm.cancel();
-                        close_grid_unified_menu(&mut overlay, mode.get(), &mut next_mode);
+                match owned_item_action(&fx.owned, idx) {
+                    Some(action) => {
+                        activated.write(MenuActionActivated { action });
                     }
-                } else {
-                    play_ui(&mut fx.sfx, grid_sfx::ERROR);
+                    None => play_ui(&mut fx.sfx, grid_sfx::ERROR),
                 }
             }
         }
@@ -1115,6 +1105,15 @@ pub fn install_grid_unified_menu(app: &mut App) {
         // also inits it, but init here too so the Grid backend is self-sufficient
         // (`init_resource` is idempotent).
         .init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
+    // ⚠ **registered HERE, beside the system that publishes it**, not only in the
+    // `install_bevy_ui_menu_actions` block below. `grid_menu_nav` now writes this
+    // message, so a composition that installs nav without the pointer bridge
+    // (every `grid_app()` test fixture) would panic on an uninitialised
+    // `MessageWriter` — and the fix for that panic is NOT to wrap the parameter in
+    // `Option`, which answers "may this be absent" when the real question is
+    // "who owns registering it". `add_message` is a no-op when already present.
+    #[cfg(feature = "input")]
+    app.add_message::<MenuActionActivated<MenuPageAction>>();
     #[cfg(feature = "input")]
     app.add_systems(
         Update,
@@ -1186,6 +1185,13 @@ pub fn install_grid_unified_menu(app: &mut App) {
             )
                 .run_if(grid_backend_active)
                 .after(BevyUiMenuInteractionSet)
+                // ⚠ **AND after nav, which now publishes activations too.** Without
+                // this the two sets are unordered siblings in `Update`, so a
+                // controller submit would be dispatched a frame late — breaking the
+                // `InputSet` contract that an edge produced this frame is consumed
+                // this frame. `sync_menu_page_across_backend_switch` already pins
+                // itself here for the same same-frame reason.
+                .after(ambition_platformer2d::actors::schedule::MenuNavConsume)
                 .before(grid_menu_republish_view),
         );
     }

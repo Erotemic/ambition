@@ -80,7 +80,17 @@ fn grid_app() -> App {
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
     app.add_observer(grid_menu_pointer_hover);
+    // ⚠ nav PUBLISHES activations now, so a harness that registers nav without
+    // the consumer would silently swallow every keyboard select — the exact
+    // failure the one-event convergence exists to make impossible. Chained, so
+    // an activation published this frame is dispatched this frame.
+    app.add_message::<ambition_platformer2d::menu::MenuActionActivated<MenuPageAction>>();
     app.add_systems(Update, (grid_menu_open_routing, grid_menu_nav).chain());
+    // ⛔ registered ONCE, here, and pinned by ORDER rather than by chaining —
+    // `render_app` builds on this harness, and re-registering the consumer there
+    // gave the message two independent readers. Both dispatched, so a pointer
+    // click equipped and then unequipped the same item and the test read `None`.
+    app.add_systems(Update, grid_menu_action_activated.after(grid_menu_nav));
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::Grid;
     app.world_mut().spawn((
         PlayerEntity,
@@ -234,6 +244,43 @@ fn selecting_an_item_dispatches_equip() {
         app.world().resource::<OwnedItems>().equipped(),
         Some(axe),
         "selecting the item equipped it through dispatch_menu_action"
+    );
+}
+
+/// **A controller submit and a tap are ONE event, not two code paths.**
+///
+/// `selecting_an_item_dispatches_equip` above proves the keyboard route still
+/// reaches the dispatcher — it passed before this convergence and after it,
+/// because both spellings ended at `dispatch_menu_action`. What it cannot see is
+/// WHICH spelling ran. This asserts the event itself: a keyboard select
+/// publishes the same `MenuActionActivated` the renderer's pointer bridge
+/// publishes, so the re-pin, the republish invalidation and the close handling
+/// exist once instead of twice.
+#[test]
+fn a_keyboard_select_publishes_the_same_activation_a_tap_does() {
+    use ambition_platformer2d::menu::MenuActionActivated;
+
+    let mut app = grid_app();
+    let axe = Item::from_index(1).unwrap();
+    app.world_mut().resource_mut::<OwnedItems>().grant(axe, 1);
+    set_frame(&mut app, |f| f.inventory = true);
+    app.update();
+    app.world_mut()
+        .resource_mut::<KaleidoscopeCursor>()
+        .mark_keyboard(MenuFocus::Item(1));
+    set_frame(&mut app, |f| f.select = true);
+    app.update();
+
+    let published: Vec<MenuPageAction> = app
+        .world_mut()
+        .resource_mut::<bevy::ecs::message::Messages<MenuActionActivated<MenuPageAction>>>()
+        .drain()
+        .map(|activation| activation.action)
+        .collect();
+    assert_eq!(
+        published,
+        vec![MenuPageAction::Equip(axe)],
+        "the keyboard route announced the choice instead of acting on it privately"
     );
 }
 
@@ -580,10 +627,22 @@ fn render_app() -> App {
     let mut app = grid_app();
     install_bevy_ui_menu_actions::<MenuPageAction>(&mut app);
     install_bevy_ui_menu_tabs(&mut app);
-    app.add_systems(Update, grid_menu_republish_view);
+    // ⚠ ONE registration each. The action consumer is already registered by
+    // `grid_app`, so it gets the pointer path's ordering PINS here rather than a
+    // second copy of the system — the bridge publishes in
+    // `BevyUiMenuInteractionSet`, so it has to run first or a click is dispatched
+    // a frame late.
+    app.configure_sets(
+        Update,
+        BevyUiMenuInteractionSet.before(grid_menu_action_activated),
+    );
     app.add_systems(
         Update,
-        (grid_menu_action_activated, grid_menu_tab_activated)
+        grid_menu_republish_view.after(grid_menu_action_activated),
+    );
+    app.add_systems(
+        Update,
+        grid_menu_tab_activated
             .after(BevyUiMenuInteractionSet)
             .before(grid_menu_republish_view),
     );

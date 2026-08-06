@@ -24,10 +24,10 @@ pub use round::{
 pub use session::{
     despawn_retired_session_entities, insert_session_world_component, session_world_component,
     session_world_component_mut, session_world_entity, session_world_exists,
-    settle_until_session_world, simulation_authorized, ActiveSessionScope,
-    InitialGameplayReadiness, SessionCommands, SessionGatedSimulation, SessionRoot, SessionScopeId,
-    SessionScopePlugin, SessionScopeRetired, SessionScopeSet, SessionScopedEntity,
-    SessionSpawnScope, SessionWorldMut, SessionWorldRef, SpawnSessionScopedExt,
-    SESSION_SETTLE_FRAMES,
+    settle_until_controlled_subject, settle_until_session_world, simulation_authorized,
+    ActiveSessionScope, InitialGameplayReadiness, SessionCommands, SessionGatedSimulation,
+    SessionRoot, SessionScopeId, SessionScopePlugin, SessionScopeRetired, SessionScopeSet,
+    SessionScopedEntity, SessionSpawnScope, SessionWorldMut, SessionWorldRef,
+    SpawnSessionScopedExt, SESSION_SETTLE_FRAMES,
 };
 pub use spawn_ext::SpawnScopedExt;

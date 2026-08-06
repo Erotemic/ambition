@@ -345,6 +345,34 @@ pub fn settle_until_session_world(app: &mut App, max_frames: u32) -> Result<u32,
     Err(max_frames)
 }
 
+/// **Advance until the session has a CONTROLLED SUBJECT, not just a world.**
+///
+/// ⛔ **a world and a body are two different arrivals**, and a harness whose
+/// callers immediately drive an actor needs the second one. Settling on the
+/// world alone and then reading
+/// `ControlledSubject` is how the desync canary reported *"the sandbox session
+/// has a controlled subject"* as a panic when the sim harness was first pointed
+/// at a shell-routed host: the root was there, the body was not, and one frame
+/// separated them.
+///
+/// ⚠ **it does not replace [`settle_until_session_world`].** A caller that only
+/// inspects room geometry should wait for the cheaper fact; requiring a body
+/// would make a world-only fixture hang for a reason it does not care about.
+pub fn settle_until_controlled_subject(app: &mut App, max_frames: u32) -> Result<u32, u32> {
+    for frame in 0..=max_frames {
+        let seated = session_world_entity(app.world()).is_some()
+            && app
+                .world()
+                .get_resource::<crate::markers::ControlledSubject>()
+                .is_some_and(|subject| subject.0.is_some());
+        if seated {
+            return Ok(frame);
+        }
+        app.update();
+    }
+    Err(max_frames)
+}
+
 /// Frames a shell activation is given to produce its world before a caller
 /// gives up.
 ///

@@ -124,6 +124,23 @@ impl Platformer2dSimHarness {
         // session root and exact content identity exist.
         app.update();
 
+        // ⚠ **the SUBJECT, not just the world.** Every caller of this
+        // constructor drives a body on the next line; a world without one is a
+        // world they cannot use, and the desync canary reported exactly that as
+        // `"the sandbox session has a controlled subject"` the first time the
+        // harness met a shell-routed host.
+        if let Err(budget) =
+            ambition_platformer2d::platformer::lifecycle::settle_until_controlled_subject(
+                &mut app,
+                ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
+            )
+        {
+            bevy::log::debug!(
+                "sim harness: no session world after {budget} frames; the caller's \
+                 first world read will be the one that reports it"
+            );
+        }
+
         if let RollbackMode::SyncTest {
             check_distance,
             max_prediction_window,
@@ -159,18 +176,6 @@ impl Platformer2dSimHarness {
         // later frame under rollback. It becomes a hard error in K2b.2, when the
         // build-time root is deleted and "no world" stops being a possible
         // steady state.
-        if let Err(budget) =
-            ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
-                &mut app,
-                ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
-            )
-        {
-            bevy::log::debug!(
-                "sim harness: no session world after {budget} frames; the caller's \
-                 first world read will be the one that reports it"
-            );
-        }
-
         Ok(Self {
             app,
             tick: 0,

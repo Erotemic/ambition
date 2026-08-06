@@ -453,6 +453,29 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   root left by a RETIRED activation satisfied the old check while every reader
   in the engine correctly saw no world, so the warning stayed silent for exactly
   the case it exists to catch. Both roads ask the same question now.
+  ◐ **ATTEMPT TWO (2026-08-06): two of the three families are FIXED, and the
+  third says the shape is wrong.**
+  * ✔ *the subject family* — `settle_until_controlled_subject` waits for a
+    seated body as well as a world, because every harness caller drives an actor
+    on the next line. The `"the sandbox session has a controlled subject"` panic
+    is gone.
+  * ✔ *the checksum family* — and the cause was ORDERING, not the shell: the
+    settle sat AFTER `start_sync_test_session` in `Platformer2dSimHarness::build`,
+    so the session still opened over an activating world. Moved above it; all 8
+    `desync_canary` tests pass with the harness composing the shell.
+  * ⛔ *a THIRD family the plan never named, and it is the blocker*: composing
+    the shell drags in EVERY PROVIDER, and providers register RENDER material
+    state. `rollback_coverage` starts reporting
+    `bevy_render::…PreparedMaterial2d<MaryOQuasarMaterial>` and
+    `EntitiesNeedingSpecialization<…>` as unrewound resources in the harness
+    world, plus an inert-registration failure. Waiving render materials into a
+    rollback census would be lying about what a headless RL/oracle harness is.
+  ⭐ **so the remaining work is a HEADLESS SHELL COMPOSITION** — routing and
+  activation without the provider presentation — which does not exist yet.
+  `compose_ambition_shell_host` is already headless in the sense that visuals
+  are separate (`install_ambition_shell_visuals`), but the PROVIDER plugins it
+  adds are not. That is the next design step, and it is a smaller and much more
+  precise question than "migrate the harness".
   ▢ **edits 2-4 remain BLOCKED, and now for a measured reason.**
   The build-time root is not dead: `run_headless` and
   `Platformer2dSimHarness::build` compose `AmbitionGameSimulationPlugin`

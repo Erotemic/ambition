@@ -7856,10 +7856,13 @@
 							"height": 32,
 							"defUid": 106884,
 							"px": [320,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106883, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["Quasar"]
-							}] }]
+							"fieldInstances": [
+								{ "__identifier": "kind", "__type": "String", "__value": "Question", "__tile": null, "defUid": 106883, "realEditorValues": [] },
+								{ "__identifier": "contents", "__type": "String", "__value": "AlwaysQuasar", "__tile": null, "defUid": 106904, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["AlwaysQuasar"]
+								}] }
+							]
 						},
 						{
 							"__identifier": "MaryOBlock",
@@ -7875,10 +7878,13 @@
 							"height": 32,
 							"defUid": 106884,
 							"px": [2240,288],
-							"fieldInstances": [{ "__identifier": "kind", "__type": "String", "__value": "Quasar", "__tile": null, "defUid": 106883, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["Quasar"]
-							}] }]
+							"fieldInstances": [
+								{ "__identifier": "kind", "__type": "String", "__value": "Question", "__tile": null, "defUid": 106883, "realEditorValues": [] },
+								{ "__identifier": "contents", "__type": "String", "__value": "AlwaysQuasar", "__tile": null, "defUid": 106904, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["AlwaysQuasar"]
+								}] }
+							]
 						},
 						{
 							"__identifier": "MaryOBlock",

@@ -54,12 +54,20 @@ use ambition_platformer2d::ldtk_map::{LdtkEntityCtx, RoomEmission};
 /// ⚠ deliberately Mary-O's enum and not an engine one. The spec is explicit that
 /// the engine must not interpret Mary-O's progression: LDtk authors WHICH block
 /// and WHERE, and this crate decides what that means.
+///
+/// ⛔ **`Quasar` was a LOOK that named its CONTENTS, and it is gone** (GPT 5.6,
+/// 2026-08-05: *"keep block appearance independent from what the block
+/// contains"*). It was the split's own counter-example surviving inside the
+/// split: it dressed to `BonusBlockTile`, exactly like `Question`, so the ONLY
+/// thing it said that `Question` did not was what came out — which is the other
+/// field's whole job. The two blocks that authored it now say
+/// `kind: Question, contents: AlwaysQuasar` and look identical because they
+/// always did. A level still saying `Quasar` is REFUSED at load with that
+/// replacement named, rather than quietly becoming a wall.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MaryOBlockLook {
     /// The ?-block. Wears its own texture, and an inert one once spent.
     Question,
-    /// The pocket-quasar block, which wears its own texture too.
-    Quasar,
     /// Masonry. ⭐ **breakable only when it holds NOTHING** — see
     /// [`MaryOBlockContents::breaks_when_empty`]. A brick with something in it
     /// behaves like a ?-block wearing brick art, which is exactly the classic
@@ -82,7 +90,6 @@ impl MaryOBlockLook {
     pub fn authored(self) -> &'static str {
         match self {
             Self::Question => "Question",
-            Self::Quasar => "Quasar",
             Self::Brick => "Brick",
             Self::Hidden => "Hidden",
         }
@@ -98,7 +105,6 @@ impl MaryOBlockLook {
         // edited by hand.
         match value.trim().to_ascii_lowercase().as_str() {
             "question" | "power" | "power_block" | "bonus" | "?" => Some(Self::Question),
-            "quasar" | "quasar_block" | "star" => Some(Self::Quasar),
             "brick" => Some(Self::Brick),
             "hidden" | "invisible" | "cammo" => Some(Self::Hidden),
             _ => None,
@@ -230,7 +236,6 @@ impl MaryOBlock {
     pub fn default_contents(look: MaryOBlockLook) -> MaryOBlockContents {
         match look {
             MaryOBlockLook::Question => MaryOBlockContents::Toward(MaryOPickup::Lantern),
-            MaryOBlockLook::Quasar => MaryOBlockContents::Always(MaryOPickup::Quasar),
             MaryOBlockLook::Brick => MaryOBlockContents::Empty,
             // A hidden block that held nothing would be indistinguishable from
             // empty air, so its default is the classic one: a coin.
@@ -335,8 +340,18 @@ pub fn convert_mary_o_block(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, Str
     let authored =
         ambition_platformer2d::ldtk_map::field_string(entity, "kind").unwrap_or_default();
     let Some(look) = MaryOBlockLook::parse(&authored) else {
+        // ⭐ **the retired word gets its own sentence.** `Quasar` was a real
+        // authored value in this very file until 2026-08-05, so an author who
+        // reaches for it is remembering correctly and needs the replacement
+        // rather than a list they have to diff against their memory.
+        let hint = if authored.trim().eq_ignore_ascii_case("quasar") {
+            ". `Quasar` was retired: a look may not name its contents. Say \
+             kind `Question` with contents `AlwaysQuasar`"
+        } else {
+            ""
+        };
         return Err(format!(
-            "MaryOBlock `{}` has kind {authored:?}, which is not one of Question, Quasar, Brick",
+            "MaryOBlock `{}` has kind {authored:?}, which is not one of Question, Brick, Hidden{hint}",
             entity.iid
         ));
     };
@@ -649,19 +664,32 @@ pub const MARY_O_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[MARY_O_BLOCK, MARY_O_PIPE]
 #[cfg(test)]
 const MARY_O_ENTITY_MANIFEST: &str = include_str!("../assets/worlds/mary_o.entities.json");
 
+/// **The word is gone from every road that could have answered it.**
+#[test]
+fn the_retired_quasar_look_resolves_to_nothing_at_all() {
+    // Neither road answers it: not the author's word, and not an encoded name
+    // left over in a saved room.
+    assert_eq!(MaryOBlockLook::parse("Quasar"), None);
+    assert_eq!(MaryOBlockLook::parse("quasar_block"), None);
+    assert_eq!(block_of("maryo_block:Quasar:Solid-1"), None);
+    // ⚠ and the words it was NOT: `quasar` still names a PICKUP, which is the
+    // whole point of the split. Deleting both would have been the easy mistake.
+    assert_eq!(MaryOPickup::parse("quasar"), Some(MaryOPickup::Quasar));
+    assert_eq!(
+        MaryOBlockContents::parse("AlwaysQuasar"),
+        Some(MaryOBlockContents::Always(MaryOPickup::Quasar))
+    );
+}
+
 /// **Only the HIDDEN look loses its floor.** (Jon, 2026-08-05: *"you should not
 /// be able to stand on an invisible block."*)
 ///
-/// ⚠ the control is the point: a ?-block, a quasar block and a brick are all
-/// still `Solid`, so this pins the DIFFERENCE rather than asserting that some
-/// block somewhere is pass-through.
+/// ⚠ the control is the point: a ?-block and a brick are both still `Solid`, so
+/// this pins the DIFFERENCE rather than asserting that some block somewhere is
+/// pass-through.
 #[test]
 fn a_hidden_block_is_the_only_one_that_is_not_a_floor() {
-    for look in [
-        MaryOBlockLook::Question,
-        MaryOBlockLook::Quasar,
-        MaryOBlockLook::Brick,
-    ] {
+    for look in [MaryOBlockLook::Question, MaryOBlockLook::Brick] {
         let block = reactive_block(
             MaryOBlock::plain(look),
             "iid",
@@ -762,8 +790,8 @@ mod tests {
     fn every_kind_survives_the_name_it_is_encoded_into() {
         for look in [
             MaryOBlockLook::Question,
-            MaryOBlockLook::Quasar,
             MaryOBlockLook::Brick,
+            MaryOBlockLook::Hidden,
         ] {
             // ⭐ **every look crossed with every contents**, because the whole
             // point of the split is that the two are independent — and a

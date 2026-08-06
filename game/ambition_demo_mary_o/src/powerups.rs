@@ -1046,13 +1046,11 @@ pub fn dress_power_blocks(
         // exactly the beat. A `Brick` is still not dressed at all: its look is
         // the room's, not this dresser's.
         let want = match look {
-            Some(MaryOBlockLook::Question | MaryOBlockLook::Quasar) => {
-                Some(BlockArt(if is_spent {
-                    EntitySprite::SpentBlockTile
-                } else {
-                    EntitySprite::BonusBlockTile
-                }))
-            }
+            Some(MaryOBlockLook::Question) => Some(BlockArt(if is_spent {
+                EntitySprite::SpentBlockTile
+            } else {
+                EntitySprite::BonusBlockTile
+            })),
             Some(MaryOBlockLook::Hidden) if is_spent => {
                 Some(BlockArt(EntitySprite::SpentBlockTile))
             }
@@ -1293,15 +1291,14 @@ mod tests {
                 .count()
         };
         assert!(
-            of_kind(MaryOBlockLook::Quasar) > 0,
-            "the level authors quasar blocks"
+            of_kind(MaryOBlockLook::Question) > 0,
+            "the level authors ?-blocks"
         );
-        assert!(of_kind(MaryOBlockLook::Question) > 0, "and ?-blocks");
         for block in &room.world.blocks {
             let kinds = [
                 MaryOBlockLook::Question,
-                MaryOBlockLook::Quasar,
                 MaryOBlockLook::Brick,
+                MaryOBlockLook::Hidden,
             ]
             .into_iter()
             .filter(|k| block_look_of(&block.name) == Some(*k))

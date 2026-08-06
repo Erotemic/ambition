@@ -89,11 +89,17 @@ fn every_named_block_the_runtime_looks_for_survives_conversion() {
     let room = ldtk_room();
     let names: Vec<&str> = room.world.blocks.iter().map(|b| b.name.as_str()).collect();
 
-    for kind in [
-        MaryOBlockLook::Question,
-        MaryOBlockLook::Quasar,
-        MaryOBlockLook::Brick,
-    ] {
+    // ⭐ **the quasar moved from the LOOK column to the CONTENTS column**, so
+    // what the level must still author is a block that PAYS one — checked
+    // below — rather than a look with that name. Asserting on the look would
+    // have gone green forever the moment the variant was deleted.
+    use crate::ldtk_vocabulary::{block_of, MaryOBlockContents, MaryOPickup};
+    assert!(
+        names.iter().any(|n| block_of(n).map(|b| b.contents)
+            == Some(MaryOBlockContents::Always(MaryOPickup::Quasar))),
+        "no block in the level pays a quasar any more"
+    );
+    for kind in [MaryOBlockLook::Question, MaryOBlockLook::Brick] {
         assert!(
             names.iter().any(|n| block_look_of(n) == Some(kind)),
             "no block converts to {kind:?}; the level authors one of each"

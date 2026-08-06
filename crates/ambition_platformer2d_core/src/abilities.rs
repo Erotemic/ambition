@@ -138,6 +138,31 @@ pub struct AbilitySet {
     pub interact: bool,
 }
 
+/// **Can this body STAY WHERE IT IS, without being carried off?**
+///
+/// The authority Jon's dialogue-continuity design needs
+/// (`docs/planning/engine/dialogue-continuity.md`): a conversation asks its
+/// participants to hold a conversational stance, they comply if they can, and
+/// the ones that cannot are carried away by ordinary physics — at which point
+/// the conversation breaks.
+///
+/// ⭐ **derived, not a new flag.** Holding station is not a capability anybody
+/// authors; it is what being grounded OR being able to fly already means. A body
+/// standing on a floor holds station by standing still, and a body that can fly
+/// holds station by hovering. Adding a `can_hover` bool beside `fly` would be a
+/// second authority for one fact, and content would eventually set them
+/// disagreeing.
+///
+/// ⚠ **symmetric on purpose.** Jon: *"if both character are capable of flying
+/// and hoverying and you stop to talk, then both characters should hover so they
+/// can have the dialog."* This takes a body's own facts and knows nothing about
+/// players — the flying parrot and the flying player answer it the same way, and
+/// a caller that asks it of only one of them has reintroduced the
+/// player-centrism the design is written against.
+pub fn can_hold_station(abilities: &AbilitySet, grounded: bool) -> bool {
+    grounded || abilities.fly
+}
+
 impl AbilitySet {
     /// Minimal movement for a first-room player.
     pub const fn basic() -> Self {
@@ -684,6 +709,36 @@ mod tests {
         assert!(
             kit.compatibility_warnings().is_empty(),
             "the composed platformer kit is internally consistent"
+        );
+    }
+
+    /// **A grounded body and a flying body both hold station; a falling one
+    /// does not.**
+    ///
+    /// The three cases Jon's parrot example names: talk to it standing on the
+    /// ground and the conversation holds; talk to it while you are BOTH able to
+    /// hover and it holds; talk to it while you are falling past and it breaks.
+    #[test]
+    fn holding_station_is_being_grounded_or_being_able_to_fly() {
+        let grounded_walker = AbilitySet::basic();
+        assert!(!grounded_walker.fly, "precondition: this body cannot fly");
+        assert!(
+            can_hold_station(&grounded_walker, true),
+            "standing on a floor is how a body with no wings holds still"
+        );
+        assert!(
+            !can_hold_station(&grounded_walker, false),
+            "and falling past somebody is not a conversation either of them can hold"
+        );
+
+        let flier = AbilitySet {
+            fly: true,
+            ..AbilitySet::basic()
+        };
+        assert!(
+            can_hold_station(&flier, false),
+            "a body that can fly holds station in the air — the parrot, and \
+             equally the player who can also fly"
         );
     }
 }

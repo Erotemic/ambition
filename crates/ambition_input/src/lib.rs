@@ -29,6 +29,8 @@ mod menu;
 mod motion_input;
 pub mod participant;
 mod presets;
+#[cfg(feature = "input")]
+mod rebind;
 pub mod semantic;
 pub mod settings;
 pub mod sources;
@@ -125,6 +127,8 @@ pub use participant::{
     DEBUG_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT, INVENTORY_CONTEXT, LAUNCHER_CONTEXT,
     PAUSE_CONTEXT, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
+#[cfg(feature = "input")]
+pub use rebind::{also_bound_to, bindable, capture};
 pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDeviceClass};
 // ⚠ `key_name` joins this list rather than the module being opened: the crate
 // exposes a chosen surface, and a HUD legend needs exactly one function from it.

@@ -98,6 +98,34 @@
 //!   paralysis that read as a 3× improvement and a fix that made the number
 //!   worse.
 //!
+//!   ⚠ **SHARPENED BY READING, 2026-08-06 — and the paragraph above is stale in
+//!   a way that matters.** `ShadowIntent::Hold` already guards on `f.on_ground`
+//!   and its comment says *"an airborne body is ballistic and keeps
+//!   everything"*, so the airborne half is not a mismatch the shadow is unaware
+//!   of. What IS true, and is the sharper statement:
+//!
+//!   * **`ShadowTuning` has no friction field at all** — `gravity`,
+//!     `ground_speed`, `dash_speed`, `dash_time`, `jump_speed`, and nothing
+//!     else. So the divergence is a MISSING PARAMETER, not a mistuned one, and
+//!     the seam where it would go is that struct.
+//!   * on the ground the shadow stops **instantly**; the real kernel coasts at
+//!     `GROUND_FRICTION` 7600 px/s², so a body leaving a dash at 760 px/s
+//!     travels ~38px the shadow does not predict. That is an UNDER-prediction of
+//!     travel, which is the direction that lets a veto approve a dash it should
+//!     refuse.
+//!   * in the air the shadow keeps everything; the real kernel bleeds at
+//!     `AIR_FRICTION` 650 px/s². That is an OVER-prediction, which makes the
+//!     veto more cautious, not less — so it cannot be the mechanism, and the
+//!     stale paragraph above had the sign backwards.
+//!
+//!   ⛔ **still not a licence to change the veto**, and the numbers above are
+//!   from READING the two models, not from running them against each other. The
+//!   measurement this wants is the one `the_hit_response_is_the_authoritative_kernel_not_an_imitation`
+//!   already does for strikes: step the shadow and the real kernel from the same
+//!   post-dash state and compare where each stops. That is a unit test, it is
+//!   cheaper than the per-decision trace, and it answers the question the trace
+//!   was being asked to answer.
+//!
 //! ⚠ this is a PROBE, not the ladder rig. It runs one scenario, one opponent,
 //! no repeats — enough to say whether depth changes behaviour at all, and not
 //! enough to author a row from. §8's scenario suite and the survival/damage

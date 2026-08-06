@@ -233,6 +233,54 @@ mod tests {
         }
     }
 
+    /// **No exact key is hiding an alias that would steal it.**
+    ///
+    /// ⛔ **`exact` is consulted BEFORE `aliases`, so an exact key silently masks
+    /// a collision.** If one cue's alias is a substring of another cue's
+    /// authored name, the authored name still resolves correctly — through the
+    /// exact map — while every *undeclared* speaker label shaped like it goes to
+    /// the wrong voice. `every_authored_key_resolves_to_its_declared_cue` cannot
+    /// see that: it only ever asks about keys the exact map already answers.
+    ///
+    /// So this asks the same question with the exact map REMOVED. Every key must
+    /// still land on its own cue through aliases alone.
+    ///
+    /// ⚠ **a failure here does not mean "add an exact key"** — that is what
+    /// hides it. It means two cues have overlapping alias vocabulary, and one of
+    /// them needs a longer alias.
+    #[test]
+    fn no_exact_key_is_masking_an_alias_that_would_steal_it() {
+        let mut app = App::new();
+        for voiceprint in VOICEPRINTS {
+            app.register_dialogue_voiceprint(voiceprint.cue, &[], voiceprint.aliases);
+        }
+        let alias_only = app
+            .world_mut()
+            .remove_resource::<DialogueVoiceCatalog>()
+            .unwrap();
+
+        let mut masked: Vec<String> = Vec::new();
+        for voiceprint in VOICEPRINTS {
+            for exact in voiceprint.exact {
+                match alias_only.resolve(exact, "") {
+                    Some(cue) if cue == voiceprint.cue => {}
+                    other => masked.push(format!(
+                        "{exact:?} is authored for {:?} but aliases alone answer {other:?}",
+                        voiceprint.cue
+                    )),
+                }
+            }
+        }
+        assert!(
+            masked.is_empty(),
+            "{} exact key(s) are the only thing routing a name correctly, which \
+             means an alias belonging to another cue matches them — every \
+             UNDECLARED speaker shaped like these goes to the wrong voice:\n  {}",
+            masked.len(),
+            masked.join("\n  ")
+        );
+    }
+
     #[test]
     fn registration_is_idempotent_for_repeated_content_plugin_installation() {
         let mut app = App::new();

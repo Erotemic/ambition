@@ -220,21 +220,42 @@ pub const SKIP_HOLD_THRESHOLD_SECS: f32 = 1.2;
 
 /// The input layer's advance/skip signal for the active cutscene (kept off the
 /// gameplay `ControlFrame` so the sim half doesn't import keyboard state).
+/// ⭐ **TWO EDGES, and nothing else crosses.** Each field is a decision the
+/// participant made this frame, consumed by the sim with `mem::take`. The
+/// partially-held skip lives in [`CutsceneSkipHold`] instead: it is an
+/// accumulator the INPUT layer keeps and the HUD draws, and the sim never reads
+/// it. Keeping it here made the crossing structure carry presentation state, and
+/// a rewind that ever registered this request would have rewound a half-pressed
+/// button along with the decisions.
 #[derive(Resource, Default)]
 pub struct CutsceneAdvanceRequest {
     pub dismiss_dialogue: bool,
     pub skip_cutscene: bool,
-    pub skip_hold_seconds: f32,
 }
 
-impl CutsceneAdvanceRequest {
+/// **How long the skip button has been held — input-local, never simulation.**
+///
+/// ⛔ this was a field on [`CutsceneAdvanceRequest`], the structure that crosses
+/// into the sim. It is not a decision: it is the accumulation on the way to one,
+/// which the HUD draws as a progress ring and which the sim has never read. The
+/// cutscene-authority split (`tracks.md`) puts the completed EDGE on the
+/// crossing and the accumulator on this side of it.
+///
+/// ⚠ it accumulates WALL time on purpose. A player holding a button for 1.2
+/// seconds means 1.2 seconds of their life, not of a slow-motion world's.
+#[derive(Resource, Default)]
+pub struct CutsceneSkipHold {
+    pub seconds: f32,
+}
+
+impl CutsceneSkipHold {
     /// Fraction of the way through the skip-hold window. Useful for HUD progress
     /// bars; clamped to `[0, 1]`.
-    pub fn skip_progress(&self) -> f32 {
+    pub fn progress(&self) -> f32 {
         if SKIP_HOLD_THRESHOLD_SECS <= 0.0 {
             return 1.0;
         }
-        (self.skip_hold_seconds / SKIP_HOLD_THRESHOLD_SECS).clamp(0.0, 1.0)
+        (self.seconds / SKIP_HOLD_THRESHOLD_SECS).clamp(0.0, 1.0)
     }
 }
 

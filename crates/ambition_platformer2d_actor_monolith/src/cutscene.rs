@@ -189,6 +189,9 @@ impl Plugin for CutsceneSchedulePlugin {
         app.init_resource::<CutsceneTriggerQueue>();
         app.init_resource::<ActiveCutscene>();
         app.init_resource::<CutsceneAdvanceRequest>();
+        // The input-local half of the skip: an accumulator the HUD draws and the
+        // sim never reads. See `CutsceneSkipHold`.
+        app.init_resource::<ambition_cutscene::CutsceneSkipHold>();
         app.add_systems(
             sim,
             (

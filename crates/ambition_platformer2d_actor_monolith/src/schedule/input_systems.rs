@@ -717,6 +717,7 @@ pub fn apply_menu_frame_to_cutscene_request(
     menu_frame: Res<MenuControlFrame>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
     mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
+    mut skip_hold: ResMut<ambition_cutscene::CutsceneSkipHold>,
 ) {
     let wall_dt = world_time.as_deref().map_or(0.0, |time| time.wall_dt());
     update_cutscene_request_from_menu(
@@ -724,6 +725,7 @@ pub fn apply_menu_frame_to_cutscene_request(
         wall_dt,
         cutscene.is_playing(),
         &mut cutscene_request,
+        &mut skip_hold,
     );
 }
 
@@ -732,11 +734,15 @@ fn update_cutscene_request_from_menu(
     wall_dt: f32,
     is_playing: bool,
     request: &mut ambition_cutscene::CutsceneAdvanceRequest,
+    // ⭐ **the accumulator is INPUT-LOCAL and the request is the crossing.** Only
+    // the completed edge (`skip_cutscene`) reaches the sim; the partial hold
+    // stays here and is drawn by the HUD. See `CutsceneSkipHold`.
+    hold: &mut ambition_cutscene::CutsceneSkipHold,
 ) {
     if !is_playing {
         // A partial hold belongs to the cutscene that accumulated it; never
         // let it leak into the next script.
-        request.skip_hold_seconds = 0.0;
+        hold.seconds = 0.0;
         return;
     }
     // Advance is an EDGE. A held confirm must not burn through several beats
@@ -745,13 +751,13 @@ fn update_cutscene_request_from_menu(
         request.dismiss_dialogue = true;
     }
     if menu_frame.back_held {
-        request.skip_hold_seconds += wall_dt;
-        if request.skip_hold_seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS {
+        hold.seconds += wall_dt;
+        if hold.seconds >= ambition_cutscene::SKIP_HOLD_THRESHOLD_SECS {
             request.skip_cutscene = true;
-            request.skip_hold_seconds = 0.0;
+            hold.seconds = 0.0;
         }
     } else {
-        request.skip_hold_seconds = 0.0;
+        hold.seconds = 0.0;
     }
 }
 
@@ -1307,6 +1313,10 @@ mod focus_gate_tests {
     #[test]
     fn cutscene_confirm_is_edge_driven_and_skip_hold_resets_on_release() {
         let mut request = ambition_cutscene::CutsceneAdvanceRequest::default();
+        // ⭐ the accumulator is a SEPARATE resource now: only the completed edge
+        // crosses into the sim, and a half-held button is input-local state the
+        // HUD draws.
+        let mut hold = ambition_cutscene::CutsceneSkipHold::default();
 
         update_cutscene_request_from_menu(
             &MenuControlFrame {
@@ -1316,6 +1326,7 @@ mod focus_gate_tests {
             0.25,
             true,
             &mut request,
+            &mut hold,
         );
         assert!(
             !request.dismiss_dialogue,
@@ -1331,13 +1342,24 @@ mod focus_gate_tests {
             0.25,
             true,
             &mut request,
+            &mut hold,
         );
         assert!(request.dismiss_dialogue);
-        assert_eq!(request.skip_hold_seconds, 0.25);
+        assert_eq!(hold.seconds, 0.25);
+        assert!(
+            !request.skip_cutscene,
+            "a quarter second is not the completed edge, and only the edge crosses"
+        );
 
-        update_cutscene_request_from_menu(&MenuControlFrame::default(), 0.25, true, &mut request);
+        update_cutscene_request_from_menu(
+            &MenuControlFrame::default(),
+            0.25,
+            true,
+            &mut request,
+            &mut hold,
+        );
         assert_eq!(
-            request.skip_hold_seconds, 0.0,
+            hold.seconds, 0.0,
             "releasing back resets the hold instead of banking it"
         );
     }

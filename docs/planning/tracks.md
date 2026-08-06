@@ -586,8 +586,13 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   its run condition named three of the four collections its systems use, while
   the module's own doc claims it names *"exactly"* them. Found by the
   shipped-composition resource sweep, not by me.
-  ▢ still open: move `skip_hold_seconds` off the crossing request struct onto
-  the input layer, which is the last piece of the presentation/sim split.
+  ✔ **the split is COMPLETE (2026-08-06).** `skip_hold_seconds` left
+  `CutsceneAdvanceRequest` for its own `CutsceneSkipHold` resource: the request
+  now carries two EDGES and nothing else, and the accumulator on the way to one
+  is input-local state the HUD draws and the sim never reads. ⚠ it accumulates
+  WALL time deliberately — a player holding a button for 1.2 seconds means 1.2
+  seconds of their life, not of a slow-motion world's, which is the opposite of
+  the `elapsed` decision one bullet up and the reason the two live apart.
 - ▢ Cutscene authority (model 1): write the semantic-playback state shape
   (beat index, deterministic elapsed, advance/skip edges through
   participant input) vs derived presentation FIRST; hold-to-skip stays a

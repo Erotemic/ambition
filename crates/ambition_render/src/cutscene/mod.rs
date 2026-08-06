@@ -10,7 +10,7 @@
 //! This module is presentation only: it reads `ActiveCutscene` and draws the
 //! screen-space overlay (banner / dialogue cards + skip-hold progress bar).
 
-use ambition_cutscene::{ActiveCutscene, CutsceneAdvanceRequest};
+use ambition_cutscene::ActiveCutscene;
 use bevy::prelude::*;
 
 // ─────────────────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ pub struct CutsceneOverlayRoot;
 pub fn sync_cutscene_ui(
     mut commands: Commands,
     active: Res<ActiveCutscene>,
-    request: Res<CutsceneAdvanceRequest>,
+    skip_hold: Res<ambition_cutscene::CutsceneSkipHold>,
     overlays: Query<Entity, With<CutsceneOverlayRoot>>,
     ui_fonts: Option<Res<crate::ui_fonts::UiFonts>>,
     presentation: Option<
@@ -86,7 +86,7 @@ pub fn sync_cutscene_ui(
 
     let banner = active.current_banner.as_ref();
     let dialogue = active.current_dialogue.as_ref();
-    let skip_progress = request.skip_progress();
+    let skip_progress = skip_hold.progress();
 
     // Bail out early on a fully-empty cutscene state (e.g. between
     // beats during a Fade or CameraPan). The overlay only spawns when

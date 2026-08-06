@@ -214,15 +214,24 @@ slot with no attached pad cannot be set to controller.
   | Solid Snake | **40.9 × 18.2** | `SNAKE_WORLD_PER_PIXEL = 0.35`, a constant whose own doc calls it a taste call |
   | AI Slop | **28 × 28** | `AI_SLOP_HALF = 14.0`, splatted — a forced SQUARE that ignores the sheet |
 
-  ⛔ **the snake is 40.9 world units WIDE against Mary-O's 48 TALL.** It is nearly
-  as wide as she is tall and barely a third of her height — a 2.25:1 creature
-  sprawled across the corridor. That is the "way too big", and it is a WIDTH
-  problem, which is why every previous attempt (all of which scaled by height)
-  left it looking wrong.
-  ⛔ **AI Slop's box does not match its sprite EITHER, and worse than the
-  snake's.** The sheet is 1.54:1; `AI_SLOP_HALF` splats a 1:1 square over it. So
-  Jon's *"the sprite might not match the box"* is true of BOTH enemies, and on
-  the slop it is not a scale mismatch at all — the box has the wrong SHAPE.
+  ⚠ **the SNAKE half of this was already known** — `enemy_quad_matches_its_box`
+  (2026-08-05) records 117x52 in a 128x128 frame, 41x18 world at 0.35, and
+  ratchets the 2.47x overhang, with the two fixes named (*"an art-pipeline crop
+  or sizing the quad from the body"*). Re-measuring it found the same numbers,
+  which is a good sign about both instruments and NOT a new finding. What the
+  re-measurement adds is the ruler: that test reads against a 32-unit TILE, and
+  against the PLAYER the snake is **2.05x his width**.
+  ⛔⛔ **AI SLOP HAS NO SUCH TEST AND IS WORSE, and this part IS new.**
+  `enemy_quad_matches_its_box` covers the snake only. The slop's sheet publishes
+  **257x167** — a 1.54:1 animal, and **4.51x the player's width** — while
+  `AI_SLOP_HALF: f32 = 14.0` is *splatted*, forcing a 28x28 **SQUARE** body that
+  ignores the sheet entirely. So on the slop *"the sprite might not match the
+  box"* is not a scale mismatch at all: the box has the wrong SHAPE, and no value
+  of any scale knob can make a square describe a 1.54:1 creature.
+  ▢ **so the slop wants the snake's test**, ratcheting its own quad/box
+  disagreement — and it is the one enemy where the disagreement is fixable
+  without touching the art pipeline, because the square is a hardcoded splat
+  rather than a measured crop.
   ⭐ **the fix Mary-O already demonstrates, in the same crate**: state the world
   size you want and divide by the measured sheet, so a regen that moves the crop
   by a pixel does not silently resize the creature. Her own comment says why —

@@ -243,6 +243,13 @@ pub struct ShadowFighter {
     /// airborne fighter can DO, and it was the one thing the model could not
     /// represent.
     pub air_jumps: u8,
+    /// **This body began the rollout outside the stage envelope.**
+    ///
+    /// It is RECOVERING, so the crossing that would have killed it already
+    /// happened before the search began — and pricing it as a fresh KO makes
+    /// every option score identically. Cleared the moment it gets back inside,
+    /// after which a new crossing is a real death again.
+    pub started_offstage: bool,
     /// Seconds left of an in-progress dash. Set when a dash line begins; ticked
     /// down by the integrator.
     pub dash_remaining: f32,
@@ -339,6 +346,8 @@ pub enum ShadowIntent {
 fn fighter_from_self(view: &SelfView, gravity_down: ae::Vec2) -> ShadowFighter {
     let down = gravity_down.normalize_or_zero();
     ShadowFighter {
+        // Set by `ShadowState::from_perceived`, which is where the stage is known.
+        started_offstage: false,
         pos: view.pos,
         vel: view.vel,
         facing: if view.facing < 0.0 { -1.0 } else { 1.0 },
@@ -362,6 +371,7 @@ fn fighter_from_self(view: &SelfView, gravity_down: ae::Vec2) -> ShadowFighter {
 fn fighter_from_actor(actor: &PerceivedActor, gravity_down: ae::Vec2) -> ShadowFighter {
     let down = gravity_down.normalize_or_zero();
     ShadowFighter {
+        started_offstage: false,
         pos: actor.pos,
         vel: actor.vel,
         facing: if actor.facing < 0.0 { -1.0 } else { 1.0 },
@@ -425,9 +435,17 @@ impl ShadowState {
         });
         let mut me = fighter_from_self(&view.self_view, gravity_down);
         me.ground_span = ground_span;
+        // ⭐ **who is already out.** A body outside the envelope when the search
+        // begins is RECOVERING; the crossing that would have killed it happened
+        // before this rollout, and pricing it as a fresh KO makes every option
+        // score the same. See the KO block in `shadow_step`.
+        let already_out = |pos: ae::Vec2| view.stage.is_known() && view.stage.offstage(pos);
+        me.started_offstage = already_out(me.pos);
+        let mut foe_body = fighter_from_actor(foe, gravity_down);
+        foe_body.started_offstage = already_out(foe_body.pos);
         Some(Self {
             me,
-            foe: fighter_from_actor(foe, gravity_down),
+            foe: foe_body,
             projectiles: view
                 .projectiles
                 .iter()
@@ -542,10 +560,30 @@ pub fn shadow_step(
     //     match rules delete you there whether you were launched or simply
     //     strolled off. Requiring hitstun made a shadow body's own walk-off free,
     //     so no rollout could ever price it.
+    //   * ⛔ **and a body that STARTS outside is RECOVERING, not dead.** Being
+    //     offstage is a STATE; dying is an EVENT — the crossing. This block
+    //     tested the state, so a fighter knocked above or beside the stage was
+    //     KO'd on the first shadow step of every rollout, every option scored
+    //     identically, and the search could not tell a recovery from a suicide.
+    //     `ladder_rig --scenarios` showed it as an INVERSION: in the recovery
+    //     quadrants the rung WITH a rollout lasted less long than the rung
+    //     without, because its search was returning noise. That is the whole
+    //     premise of §8's four recovery fixtures, and none of them could be
+    //     scored. Measured 2026-08-06 by
+    //     `a_body_recovering_from_offstage_is_not_scored_as_already_dead`.
+    //
+    //     ⚠ a body that never comes back is priced by `distance_to_edge` and by
+    //     never landing a hit — not by a KO event it cannot earn. Pricing it as
+    //     an immediate KO is what removed the discrimination in the first place.
     for (fighter, of_me) in [(&mut s.me, true), (&mut s.foe, false)] {
-        if !fighter.koed && s.stage.is_known() && s.stage.offstage(fighter.pos) {
+        let outside = s.stage.is_known() && s.stage.offstage(fighter.pos);
+        if !fighter.koed && outside && !fighter.started_offstage {
             fighter.koed = true;
             events.push(ShadowEvent::Ko { of_me });
+        }
+        // Back inside: it recovered, and from here a fresh crossing IS a death.
+        if fighter.started_offstage && !outside {
+            fighter.started_offstage = false;
         }
     }
 

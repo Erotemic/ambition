@@ -715,3 +715,48 @@ fn a_shadow_body_that_jumps_while_driving_lands_where_it_drifted_to() {
         s.me.pos.x
     );
 }
+
+/// **A body ALREADY offstage is not already dead, and the shadow says it is.**
+///
+/// ⛔ `shadow_step` KOs anything outside the stage envelope on the tick it looks,
+/// on the argument that *"on a platform stage the envelope IS the blast zone"*.
+/// That is right for a body walking off and wrong for one RECOVERING: a fighter
+/// knocked above or beside the stage starts outside the envelope and has to come
+/// back, which is the whole premise of §8's four recovery quadrants.
+///
+/// The consequence is not a slightly wrong score — it is NO score. Every option
+/// rolls out to "I am dead", so the rollout cannot tell a recovery from a
+/// suicide, and the rung that uses it does worse than the rung that does not.
+/// `ladder_rig --scenarios` shows exactly that: `recovery_above 9v6` inverts.
+#[test]
+fn a_body_recovering_from_offstage_is_not_scored_as_already_dead() {
+    let tuning = ShadowTuning::default();
+    let mut view = view_with(400.0, 500.0);
+    // ABOVE the stage — where a fighter knocked upward has to recover from.
+    view.self_view.pos = ae::Vec2::new(400.0, -40.0);
+    view.self_view.on_ground = false;
+    let mut s =
+        ShadowState::from_perceived(Perceived::cheating(&view)).expect("a hostile is in view");
+    assert!(
+        !s.me.koed,
+        "the body is dead before a single step, so nothing below can discriminate"
+    );
+
+    // One step of doing nothing.
+    let events = shadow_step(
+        &mut s,
+        DT,
+        &ShadowIntent::Hold,
+        &ShadowIntent::Hold,
+        &tuning,
+    );
+    let died = events
+        .iter()
+        .any(|e| matches!(e, ShadowEvent::Ko { of_me: true }));
+    assert!(
+        !died,
+        "a body recovering from above was KO'd on its first shadow step, so every \
+         option it could roll scores identically and the rollout is blind exactly \
+         where §8 says it should matter most"
+    );
+}

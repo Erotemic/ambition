@@ -179,8 +179,44 @@ run_renderer_python() {
         fi
         return "$rc"
     else
-        (cd "$renderer_dir" && "$python_bin" "$@")
+        # ⭐ **every renderer subprocess is TIMED**, profiler or not.
+        #
+        # ⛔ this script's own cleanups have twice been argued from an unmeasured
+        # cost: twenty-one orphan targets were removed on 2026-08-05 because they
+        # "waste minutes per run", and nobody could say how many minutes, or
+        # whether the hand-maintained tackon list is the expensive part or a
+        # rounding error. A number costs one `date` call per subprocess and turns
+        # both questions into arithmetic.
+        local started_at finished_at rc
+        started_at="$(date +%s)"
+        if (cd "$renderer_dir" && "$python_bin" "$@"); then
+            rc=0
+        else
+            rc=$?
+        fi
+        finished_at="$(date +%s)"
+        regen_timings+=("$((finished_at - started_at)) $label")
+        return "$rc"
     fi
+}
+
+# `<seconds> <label>` for every renderer subprocess this run has finished.
+regen_timings=()
+
+# What the run COST, slowest first. Printed at the end of a full batch and after
+# `--target`, so a one-target check answers the same question a full run does.
+print_regen_timings() {
+    [ "${#regen_timings[@]}" -eq 0 ] && return 0
+    local total=0 entry seconds
+    for entry in "${regen_timings[@]}"; do
+        seconds="${entry%% *}"
+        total=$((total + seconds))
+    done
+    echo ""
+    echo "==> render cost: ${#regen_timings[@]} subprocess(es), ${total}s total"
+    printf '%s\n' "${regen_timings[@]}" | sort -rn | head -12 | while read -r seconds label; do
+        printf '    %5ss  %s\n' "$seconds" "$label"
+    done
 }
 
 
@@ -296,6 +332,7 @@ if [ "${#target_names[@]}" -gt 0 ]; then
     for one in "${target_names[@]}"; do
         regen_one_target "$one"
     done
+    print_regen_timings
     exit 0
 fi
 

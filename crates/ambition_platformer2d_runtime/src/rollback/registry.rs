@@ -23,6 +23,17 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v10 (2026-08-05): the optional SR causal-pursuit capability adds a
+/// canonical target declaration, while TwinTrack extends its canonical experiment
+/// state with observer-local aim, view mode, pursuit timing, and hit results. A v9
+/// peer cannot reconstruct which worldline is an intercept target or the same game
+/// phase after rewind.
+///
+/// ⚠ **v9 (2026-08-05): the optional SR observer capability adds canonical
+/// optical-source and controlled-observer declarations. The observer optical
+/// view remains derived, but a v8 peer cannot restore which entities authored
+/// those declarations.
+///
 /// ⚠ **v8 (2026-08-05): the optional SR signal capability adds authoritative
 /// Minkowski coordinate time, proper-time transmitter cooldown, emitter,
 /// receiver/pool configuration, analytic null-signal state, bounded arrival
@@ -46,7 +57,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 8;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 10;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

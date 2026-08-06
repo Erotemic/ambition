@@ -2,12 +2,14 @@
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_demo_twintrack** — TwinTrack — a compact special-relativity signal course.
+**ambition_demo_twintrack** — TwinTrack — a compact special-relativity signal observatory.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`chase_beacon`](src/chase_beacon.rs) | The chase beacon's PRESCRIBED worldline — content geometry, not a body move. |
+| [`observatory`](src/observatory.rs) | Visible TwinTrack observatory: an observer-local sky plus spacetime strip. |
 
-_0 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

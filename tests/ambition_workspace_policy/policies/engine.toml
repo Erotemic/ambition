@@ -2442,6 +2442,17 @@ skip_paths = [
     "ambition_platformer2d_actor_monolith/src/items/pickup/",
     # Dev tooling body-profile resize (feet-planted recenter).
     "ambition_dev_tools/src/dev_tools/editable.rs",
+    # ⚠ A PRESCRIBED CONTENT WORLDLINE, and the one file that is allowed to be
+    # one. TwinTrack's chase beacon is a marker + `BodyKinematics` + `SimId`: no
+    # `MotionModel`, no contact clusters, so there is nothing for `transit_body`
+    # to reconcile and it cannot be called on the entity at all. Its position is
+    # evaluated analytically from the pursuit's start event because the optics
+    # solver's null tolerance is a measurement OF THE SOLVER only while the
+    # worldline is exactly the line the solver assumes.
+    # ⛔ scoped to this file rather than to the demo ON PURPOSE: `lib.rs` moves
+    # the TRAVELER, a full actor, and has lost its `transit_body` fix twice to
+    # successive SR overlays. It stays covered.
+    "ambition_demo_twintrack/src/chase_beacon.rs",
 ]
 
 # ⛔ A SECOND DOC COMMENT THAT CLAIMED ENFORCEMENT AND HAD NONE (2026-08-02).
@@ -2564,6 +2575,10 @@ skip_paths = [
     # fails and has to argue for itself.
     "ambition_demo_mary_o/src/snake.rs",
     "ambition_demo_sanic/src/ball_dash.rs",
+    # The same prescribed content worldline the pose rule above waives, and for
+    # the same reason: a clusterless beacon whose velocity IS the authored fact
+    # the pursuit is about. Its file, not its demo.
+    "ambition_demo_twintrack/src/chase_beacon.rs",
 ]
 
 # ADR 0024 frame law: body-relative MECHANICS consume the body's per-tick

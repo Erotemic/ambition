@@ -19,7 +19,9 @@
     "\u26a0 S4 (2026-07-30) added five entries, and they are a JOIN rather than a drift: FighterStocks and FighterEliminated are the stocks loop's own state \u2014 a stock count that is not rollback state UN-SPENDS itself on a rewind, so a fighter loses the same stock twice or never loses it at all \u2014 plus message.body_knocked_out and message.fighter_stock_spent, which must be CLEARED on load or a rewound KO is re-read and spends a second stock. derived.resolved_combat_tuning is AE6's projection, declared derived rather than registered as state on purpose: restoring it independently of the declaration that produced it is the borrow the seam removed.",
     "\u26a0 S4's match-end half (2026-07-31) joins two more: StocksMatchSettled is the 'already announced' latch, registered as STATE rather than left a Local because a rewind across the deciding frame must be able to UN-decide the match \u2014 a latch that survived it would swallow the re-announcement on the replay and the ruleset would never hear the match end. message.stocks_match_decided is cleared on load for the same reason.",
     "\u26a0 SR-0 (2026-08-04) adds rollback encodings for accumulated proper time and the derived 2D relativity sample; TwinTrack is the concrete acceptance game.",
-    "\u26a0 SR-1 (2026-08-05) adds canonical coordinate time, proper-time cooldown, emitter, receiver/pool configuration, analytic light-signal, and bounded arrival-history encodings. The joins are deliberate: course rules depend on emission identity, passbands, deterministic slot allocation, cooldown state, and event history surviving rewind."
+    "\u26a0 SR-1 (2026-08-05) adds canonical coordinate time, proper-time cooldown, emitter, receiver/pool configuration, analytic light-signal, and bounded arrival-history encodings. The joins are deliberate: course rules depend on emission identity, passbands, deterministic slot allocation, cooldown state, and event history surviving rewind.",
+    "\u26a0 SR-2 (2026-08-05) adds canonical optical-source and observer declarations while keeping the optical view and worldline reconstruction derived.",
+    "\u26a0 SR-3 (2026-08-05) adds the canonical RelativisticTarget2d declaration used by exact constant-velocity null-intercept targeting. TwinTrack aim, view mode, pursuit timing, and hit results are carried inside its existing canonical experiment component and require rollback schema v10."
   ],
   "measured_on": "2026-08-05",
   "stable_schema_names": [
@@ -359,7 +361,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 334,
+  "stable_schema_name_count": 335,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",
@@ -427,8 +429,11 @@
     "ambition_relativity2d::LightReceiver2d",
     "ambition_relativity2d::LightSignal2d",
     "ambition_relativity2d::LightSignalPoolSlot2d",
+    "ambition_relativity2d::OpticalSource2d",
     "ambition_relativity2d::ProperTimeCooldown2d",
     "ambition_relativity2d::ProperTimeElapsed",
+    "ambition_relativity2d::RelativisticObserver2d",
+    "ambition_relativity2d::RelativisticTarget2d",
     "ambition_relativity2d::RelativityState2d",
     "ambition_relativity2d::SignalArrivalHistory2d",
     "ambition_relativity2d::SpacetimeCoordinateTime2d",
@@ -437,7 +442,7 @@
     "ambition_time::SimTick",
     "ambition_time::WorldTime"
   ],
-  "encoded_type_count": 75,
+  "encoded_type_count": 78,
   "encoding_crates": [
     "ambition_characters",
     "ambition_combat",

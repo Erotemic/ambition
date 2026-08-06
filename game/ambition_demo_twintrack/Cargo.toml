@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "TwinTrack: a 2D special-relativity signal-course proof of concept."
+description = "TwinTrack: a 2D special-relativity observatory and causal-pursuit proof of concept."
 publish = false
 
 [lib]
@@ -12,7 +12,12 @@ crate-type = ["rlib"]
 
 [features]
 default = []
-visible = ["bevy/bevy_gizmos"]
+visible = [
+    "bevy/bevy_gizmos",
+    "bevy/2d_bevy_render",
+    "bevy/bevy_text",
+    "bevy/bevy_window",
+]
 
 [dependencies]
 ambition_platformer2d = { path = "../../crates/ambition_platformer2d", default-features = false, features = ["all_capabilities", "relativity"] }

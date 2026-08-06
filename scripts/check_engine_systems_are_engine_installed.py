@@ -154,6 +154,17 @@ WAIVERS: dict[str, str] = {
     "sync_boss_health_bar_overlay": (
         "a boss HUD is Ambition's, and no other composition ships a boss."
     ),
+    "setup_capture_target": (
+        "a CAPTURE BINARY's own render target. Building one is the tool's whole "
+        "point, and no shipped composition should ever install it — the engine "
+        "owning this would mean every game allocated a screenshot texture. "
+        "⚠ AND IT IS THE GUARD'S BLIND SPOT, which is why it is written down "
+        "rather than sidestepped: `capture_sanic` and `capture_mary_o` register "
+        "the SAME system and neither is reported, because they import the name "
+        "and this script only recognises a qualified `a::b::c` path. "
+        "`capture_twintrack` spelled the path out and was caught. The class was "
+        "always here; only the spelling decided whether anyone saw it."
+    ),
     "apply_placeholder_sprites_override": (
         "dev tool. The app owns its dev overlay and its hotkeys."
     ),

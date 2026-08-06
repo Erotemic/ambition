@@ -81,7 +81,6 @@ pub struct MinkowskiEvent {
     pub position: [f64; 3],
 }
 
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct MinkowskiInterval {
     /// Signed interval squared with the `(+---)` convention.
@@ -102,9 +101,8 @@ pub fn minkowski_interval(
     if !displacement.coordinate_time.is_finite() || !finite3(displacement.position) {
         return None;
     }
-    let temporal = invariant_speed.squared()
-        * displacement.coordinate_time
-        * displacement.coordinate_time;
+    let temporal =
+        invariant_speed.squared() * displacement.coordinate_time * displacement.coordinate_time;
     let spatial = dot3(displacement.position, displacement.position);
     let squared = temporal - spatial;
     if !squared.is_finite() {
@@ -183,10 +181,7 @@ pub fn lorentz_boost_event(
     frame_velocity: [f64; 3],
     invariant_speed: InvariantSpeed,
 ) -> Option<MinkowskiEvent> {
-    if !event.coordinate_time.is_finite()
-        || !finite3(event.position)
-        || !finite3(frame_velocity)
-    {
+    if !event.coordinate_time.is_finite() || !finite3(event.position) || !finite3(frame_velocity) {
         return None;
     }
     let speed_squared = dot3(frame_velocity, frame_velocity);
@@ -196,8 +191,7 @@ pub fn lorentz_boost_event(
     let rate = minkowski_clock_rate(speed_squared, invariant_speed);
     let gamma = rate.lorentz_factor?;
     let velocity_dot_position = dot3(frame_velocity, event.position);
-    let time = gamma
-        * (event.coordinate_time - velocity_dot_position / invariant_speed.squared());
+    let time = gamma * (event.coordinate_time - velocity_dot_position / invariant_speed.squared());
     let parallel_scale =
         (gamma - 1.0) * velocity_dot_position / speed_squared - gamma * event.coordinate_time;
     let position = add3(event.position, scale3(frame_velocity, parallel_scale));
@@ -225,8 +219,7 @@ pub fn coordinate_frequency_from_emitter(
     let direction = normalize3(photon_direction)?;
     let gamma = minkowski_clock_rate(dot3(emitter_velocity, emitter_velocity), invariant_speed)
         .lorentz_factor?;
-    let denominator = gamma
-        * (1.0 - dot3(direction, emitter_velocity) / invariant_speed.get());
+    let denominator = gamma * (1.0 - dot3(direction, emitter_velocity) / invariant_speed.get());
     if !denominator.is_finite() || denominator <= 0.0 {
         return None;
     }
@@ -281,6 +274,192 @@ pub fn minkowski_doppler_measurement(
     })
 }
 
+/// Photon direction and spectral measurement in one observer's local inertial frame.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PhotonObservation {
+    /// Unit photon propagation direction in the observer frame.
+    pub propagation_direction: [f64; 3],
+    /// Direction from the observer toward the apparent source.
+    pub apparent_source_direction: [f64; 3],
+    /// `observed_frequency / coordinate_frequency` for this observer.
+    pub doppler_factor: f64,
+    /// A documented point-source beaming proxy, `doppler_factor^3`.
+    pub beaming_factor: f64,
+}
+
+/// Transform a coordinate-chart photon direction into a moving observer's
+/// local inertial frame.
+///
+/// This is the velocity-addition law evaluated for a null ray. The returned
+/// vector is normalized and always represents photon propagation; the apparent
+/// source direction is its negation.
+pub fn observe_photon_direction(
+    photon_direction: [f64; 3],
+    observer_velocity: [f64; 3],
+    invariant_speed: InvariantSpeed,
+) -> Option<PhotonObservation> {
+    let direction = normalize3(photon_direction)?;
+    if !finite3(observer_velocity) {
+        return None;
+    }
+    let speed_squared = dot3(observer_velocity, observer_velocity);
+    if speed_squared == 0.0 {
+        return Some(PhotonObservation {
+            propagation_direction: direction,
+            apparent_source_direction: scale3(direction, -1.0),
+            doppler_factor: 1.0,
+            beaming_factor: 1.0,
+        });
+    }
+    let gamma = minkowski_clock_rate(speed_squared, invariant_speed).lorentz_factor?;
+    let c = invariant_speed.get();
+    let beta_dot_n = dot3(direction, observer_velocity) / c;
+    let denominator = 1.0 - beta_dot_n;
+    if !denominator.is_finite() || denominator <= 0.0 {
+        return None;
+    }
+
+    let speed = speed_squared.sqrt();
+    let boost_direction = scale3(observer_velocity, 1.0 / speed);
+    let parallel_magnitude = dot3(direction, boost_direction);
+    let parallel = scale3(boost_direction, parallel_magnitude);
+    let transverse = add3(direction, scale3(parallel, -1.0));
+    let transformed_parallel = scale3(
+        boost_direction,
+        (parallel_magnitude - speed / c) / denominator,
+    );
+    let transformed_transverse = scale3(transverse, 1.0 / (gamma * denominator));
+    let propagation_direction = normalize3(add3(transformed_parallel, transformed_transverse))?;
+    let doppler_factor = gamma * denominator;
+    let beaming_factor = doppler_factor * doppler_factor * doppler_factor;
+    (doppler_factor.is_finite() && doppler_factor > 0.0 && beaming_factor.is_finite()).then_some(
+        PhotonObservation {
+            propagation_direction,
+            apparent_source_direction: scale3(propagation_direction, -1.0),
+            doppler_factor,
+            beaming_factor,
+        },
+    )
+}
+
+/// Transform a photon propagation direction from one observer's local inertial
+/// frame back into the selected Minkowski coordinate chart.
+///
+/// This is the inverse of [`observe_photon_direction`] for the same observer
+/// velocity. It lets controller-local optical aim become an authoritative chart
+/// direction without treating the laboratory axes as the observer's own frame.
+pub fn coordinate_photon_direction_from_observer(
+    observer_local_direction: [f64; 3],
+    observer_velocity: [f64; 3],
+    invariant_speed: InvariantSpeed,
+) -> Option<[f64; 3]> {
+    observe_photon_direction(
+        observer_local_direction,
+        scale3(observer_velocity, -1.0),
+        invariant_speed,
+    )
+    .map(|observation| observation.propagation_direction)
+}
+
+/// Convert a spatial proper velocity `w = gamma * v` into coordinate velocity.
+///
+/// This algebraic form uses only `sqrt`, stays strictly subluminal for every
+/// finite input, and is therefore suitable for a future deterministic
+/// relativistic movement authority without relying on `tanh`.
+pub fn coordinate_velocity_from_proper_velocity(
+    proper_velocity: [f64; 3],
+    invariant_speed: InvariantSpeed,
+) -> Option<[f64; 3]> {
+    if !finite3(proper_velocity) {
+        return None;
+    }
+    let denominator =
+        (1.0 + dot3(proper_velocity, proper_velocity) / invariant_speed.squared()).sqrt();
+    (denominator.is_finite() && denominator > 0.0)
+        .then_some(scale3(proper_velocity, 1.0 / denominator))
+}
+
+/// Convert a timelike coordinate velocity into spatial proper velocity.
+pub fn proper_velocity_from_coordinate_velocity(
+    coordinate_velocity: [f64; 3],
+    invariant_speed: InvariantSpeed,
+) -> Option<[f64; 3]> {
+    if !finite3(coordinate_velocity) {
+        return None;
+    }
+    let gamma = minkowski_clock_rate(
+        dot3(coordinate_velocity, coordinate_velocity),
+        invariant_speed,
+    )
+    .lorentz_factor?;
+    Some(scale3(coordinate_velocity, gamma))
+}
+
+/// Earliest future intersection between a null ray emitted now and a target
+/// continuing at constant coordinate velocity in one Minkowski chart.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct NullIntercept {
+    pub coordinate_time_to_intercept: f64,
+    pub emission_direction: [f64; 3],
+    pub intercept_position: [f64; 3],
+}
+
+/// Solve `|relative_position + target_velocity * t| = c * t`.
+///
+/// The emitter is the origin at coordinate time zero. The target is assumed to
+/// continue at constant coordinate velocity. The earliest finite non-negative
+/// root is returned; spacelike targets and degenerate coincident events return
+/// `None` rather than producing an invalid direction.
+pub fn solve_null_intercept_constant_velocity(
+    relative_position: [f64; 3],
+    target_velocity: [f64; 3],
+    invariant_speed: InvariantSpeed,
+) -> Option<NullIntercept> {
+    if !finite3(relative_position) || !finite3(target_velocity) {
+        return None;
+    }
+    let distance_squared = dot3(relative_position, relative_position);
+    if !distance_squared.is_finite() || distance_squared <= 0.0 {
+        return None;
+    }
+    let target_speed_squared = dot3(target_velocity, target_velocity);
+    if target_speed_squared >= invariant_speed.squared() {
+        return None;
+    }
+
+    let a = target_speed_squared - invariant_speed.squared();
+    let b = 2.0 * dot3(relative_position, target_velocity);
+    let discriminant = b * b - 4.0 * a * distance_squared;
+    if !discriminant.is_finite() || discriminant < 0.0 {
+        return None;
+    }
+    let root = discriminant.sqrt();
+    let denominator = 2.0 * a;
+    let mut time = f64::INFINITY;
+    for candidate in [(-b - root) / denominator, (-b + root) / denominator] {
+        if candidate.is_finite() && candidate > 0.0 && candidate < time {
+            time = candidate;
+        }
+    }
+    if !time.is_finite() {
+        return None;
+    }
+
+    let intercept_position = add3(relative_position, scale3(target_velocity, time));
+    let emission_direction = normalize3(intercept_position)?;
+    let light_distance = invariant_speed.get() * time;
+    let intercept_distance = dot3(intercept_position, intercept_position).sqrt();
+    let tolerance = 128.0 * f64::EPSILON * light_distance.max(intercept_distance).max(1.0);
+    if (light_distance - intercept_distance).abs() > tolerance {
+        return None;
+    }
+    Some(NullIntercept {
+        coordinate_time_to_intercept: time,
+        emission_direction,
+        intercept_position,
+    })
+}
+
 /// Rapidity corresponding to one signed collinear velocity.
 ///
 /// ⚠ **`atanh`/`tanh` are libm, and libm is not bit-identical across
@@ -289,10 +468,7 @@ pub fn minkowski_doppler_measurement(
 /// which IEEE-754 pins exactly. If a future mechanic composes velocities inside
 /// the sim, this becomes a determinism decision under ADR 0023 rather than a
 /// free function call.
-pub fn rapidity_from_velocity(
-    velocity: f64,
-    invariant_speed: InvariantSpeed,
-) -> Option<f64> {
+pub fn rapidity_from_velocity(velocity: f64, invariant_speed: InvariantSpeed) -> Option<f64> {
     let beta = velocity / invariant_speed.get();
     (beta.is_finite() && beta.abs() < 1.0).then(|| beta.atanh())
 }
@@ -348,7 +524,10 @@ mod tests {
     #[test]
     fn stationary_clock_matches_coordinate_time() {
         let c = InvariantSpeed::new(10.0).unwrap();
-        assert_eq!(minkowski_clock_rate(0.0, c).proper_time_rate, ProperTimeRate::ONE);
+        assert_eq!(
+            minkowski_clock_rate(0.0, c).proper_time_rate,
+            ProperTimeRate::ONE
+        );
     }
 
     #[test]
@@ -426,6 +605,64 @@ mod tests {
         let after = minkowski_interval(boosted, c).unwrap();
         assert_eq!(before.kind, after.kind);
         assert!((before.squared - after.squared).abs() < 1.0e-10);
+    }
+
+    #[test]
+    fn observer_aberration_and_doppler_are_finite_and_directional() {
+        let c = InvariantSpeed::new(1.0).unwrap();
+        // Photon travels from a forward source toward an observer moving toward it.
+        let observed = observe_photon_direction([-1.0, 0.0, 0.0], [0.8, 0.0, 0.0], c).unwrap();
+        assert!(observed.doppler_factor > 1.0);
+        assert!(observed.beaming_factor > observed.doppler_factor);
+        assert!((observed.propagation_direction[0] + 1.0).abs() < 1.0e-12);
+        assert!((observed.apparent_source_direction[0] - 1.0).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn observer_local_photon_direction_round_trips_to_the_chart() {
+        let c = InvariantSpeed::new(1.0).unwrap();
+        let chart = normalize3([0.6, 0.8, 0.0]).unwrap();
+        let velocity = [0.72, 0.0, 0.0];
+        let local = observe_photon_direction(chart, velocity, c)
+            .unwrap()
+            .propagation_direction;
+        let recovered = coordinate_photon_direction_from_observer(local, velocity, c).unwrap();
+        for axis in 0..3 {
+            assert!((chart[axis] - recovered[axis]).abs() < 1.0e-12);
+        }
+    }
+
+    #[test]
+    fn proper_velocity_round_trip_is_subluminal_and_reversible() {
+        let c = InvariantSpeed::new(10.0).unwrap();
+        let proper = [90.0, 12.0, 0.0];
+        let coordinate = coordinate_velocity_from_proper_velocity(proper, c).unwrap();
+        assert!(dot3(coordinate, coordinate) < c.squared());
+        let recovered = proper_velocity_from_coordinate_velocity(coordinate, c).unwrap();
+        for axis in 0..3 {
+            assert!((proper[axis] - recovered[axis]).abs() < 1.0e-10);
+        }
+    }
+
+    #[test]
+    fn null_intercept_leads_a_moving_target() {
+        let c = InvariantSpeed::new(10.0).unwrap();
+        let solution =
+            solve_null_intercept_constant_velocity([30.0, 0.0, 0.0], [0.0, 6.0, 0.0], c).unwrap();
+        assert!(solution.coordinate_time_to_intercept > 3.0);
+        assert!(solution.emission_direction[1] > 0.0);
+        let light_distance = c.get() * solution.coordinate_time_to_intercept;
+        let target_distance = dot3(solution.intercept_position, solution.intercept_position).sqrt();
+        assert!((light_distance - target_distance).abs() < 1.0e-10);
+    }
+
+    #[test]
+    fn null_intercept_rejects_spacelike_targets() {
+        let c = InvariantSpeed::new(10.0).unwrap();
+        assert!(
+            solve_null_intercept_constant_velocity([30.0, 0.0, 0.0], [10.0, 0.0, 0.0], c,)
+                .is_none()
+        );
     }
 
     #[test]

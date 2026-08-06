@@ -1,6 +1,6 @@
 # Relativity capability
 
-> **Status (2026-08-05): SR clocks, Lorentz events, analytic null signals, Doppler receivers, and bounded worldline telemetry are implemented for the TwinTrack prototype; local Rust compile validation remains.**
+> **Status (2026-08-05): SR-3 adds observer-local causal targeting and TwinTrack's retarded-image pursuit challenge on top of the SR-2 observatory; local Rust compile and visible-feel validation remain.**
 
 Ambition treats special relativity as the first exact spacetime model, not as a
 bag of visual effects. The reusable boundary is:
@@ -22,12 +22,13 @@ Minkowski now; analytic/sampled/evolved GR later
 - `ambition_relativity2d` reads canonical 2D body kinematics, samples a
   session-owned spacetime provider, writes the existing `ProperTimeScale`,
   accumulates f64 proper time, propagates analytic null signals, measures local
-  receiver frequency, records bounded arrival/worldline telemetry, and
-  publishes presentation read models.
+  receiver frequency, records bounded arrival/worldline telemetry, solves
+  retarded compact-source events, and publishes observer-specific presentation
+  read models.
 - A provider owns the selected spacetime model and coordinate-time epoch.
   TwinTrack selects Minkowski with an authored invariant speed.
-- Relativity observes the movement kernel. It does not become a second pose or
-  velocity authority.
+- Relativity observes movement authorities. It does not become a pose or
+  velocity writer; TwinTrack's prescribed target worldline remains game-owned content.
 
 ## Current SR systems
 
@@ -79,6 +80,49 @@ may depend on which packet reached which receiver and when. Receiver passbands
 and deterministic signal-pool slots are canonical too, while transient emission
 and arrival message buffers are cleared on rollback before resimulation.
 
+### Observer past-light-cone views
+
+`RelativisticObserver2d` selects one canonical body as an observer without
+changing the simulation chart. `OpticalSource2d` marks compact emitters whose
+bounded worldlines may be intersected with the observer event's past light
+cone. The solver brackets the null intersection in recorded samples and uses a
+fixed bisection count, making the derived answer deterministic.
+
+The SR kernel then transforms the arriving photon direction into the observer's
+local inertial frame and reports exact flat-spacetime aberration and Doppler
+measurements. A documented `D^3` point-source beaming proxy is presentation
+policy, not a claim of full radiative transfer. The resulting
+`RelativisticOpticalView2d` is derived state rebuilt after rewind.
+
+
+### Causal targeting
+
+`RelativisticTarget2d` opts one compact body into an observer-relative targeting
+read model. For each active observer, the adapter solves the earliest future
+constant-velocity intersection between a newly emitted null ray and the target
+worldline. It publishes four deliberately separate facts:
+
+- the target's retarded apparent direction from the optical view;
+- the direction to its current coordinate position;
+- the exact chart direction to the future intercept event;
+- that firing direction transformed into the observer's local inertial frame.
+
+The pure solver evaluates `|r + vt| = ct`, accepts only finite timelike target
+velocities, and validates the returned root against the null distance. Controller
+aim is stored in the observer-local frame and transformed back to the chart only
+when an emission request is authored. Targeting is a derived view; it never
+steers an actor, moves a target, or mutates a signal. This is the same separation
+a future GR implementation needs, although curved providers will replace the
+closed-form Minkowski intercept with null-geodesic boundary-value solving.
+
+### Proper-velocity foundation
+
+The pure crate exposes algebraic conversions between coordinate velocity and
+spatial proper velocity (`w = gamma v`). They guarantee subluminal coordinate
+velocity for every finite proper-velocity input and provide the mathematical
+seam for a future relativistic movement authority. SR-3 does not install that
+authority: ordinary Ambition movement remains the only body pose writer.
+
 ## Cost contract
 
 Games that do not enable the facade's `relativity` feature do not link either
@@ -91,10 +135,14 @@ Costs are proportional only to opted-in data:
 - active signals: analytic position plus swept tests against registered
   receivers;
 - tracked worldlines: one bounded sample per marked track per tick;
-- presentation: rebuild only when a live spacetime exists.
+- optical sources: one bounded-history light-cone solve per marked source and active observer;
+- causal targets: one closed-form quadratic null-intercept plus one local-frame
+  transform per marked target and active observer;
+- presentation: observer views rebuild only when a live spacetime exists.
 
 There is no universal shader, global history buffer, velocity clamp, or
-relativity scan over ordinary bodies.
+relativity scan over ordinary bodies. TwinTrack alone opts into a second
+presentation camera and a small synthetic star field.
 
 ## GR growth path
 
@@ -118,7 +166,8 @@ commitment to physical 2+1-dimensional gravity.
 - curved metrics and timelike/null geodesic solvers;
 - dynamic spacetime or backreaction;
 - general relativistic collision response;
-- retarded rendering of nearby geometry;
-- Doppler/aberration full-screen shaders;
+- retarded rendering of arbitrary extended/tile geometry;
+- Doppler/aberration full-screen shaders or full radiative transfer;
 - a relativistic movement authority or global speed clamp;
+- accelerated-target or curved-spacetime intercept solvers;
 - the future 3D Slower Light game.

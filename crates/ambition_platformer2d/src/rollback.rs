@@ -15,7 +15,7 @@
 //!
 //! | Property | How this module keeps it |
 //! |---|---|
-//! | frozen schema | `rollback-wire-format-is-frozen` in `check_absence_contracts.py`; 75 encoded types across 10 crates, and a type joining or leaving is a ratchet failure |
+//! | frozen schema | `rollback-wire-format-is-frozen` in `check_absence_contracts.py`; 78 encoded types across 10 crates, and a type joining or leaving is a ratchet failure |
 //! | complete authoritative baseline | [`start`] refuses a host whose registry is empty — see [`RollbackRefused::NoAuthoritativeState`] |
 //! | stable participants | the count is declared at COMPOSITION and cannot be passed per-session, so a restart reuses it — see [`crate::app::PlatformerApp::rollback`] |
 //! | deterministic activation | [`start`] drives the host to `Running` itself; a consumer cannot begin before construction finishes |

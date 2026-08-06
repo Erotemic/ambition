@@ -1,5 +1,4 @@
 # ADR 0011: Per-entity proper time and the Galilean-to-SR ladder
-
 ## Status
 
 Accepted. The TwinTrack slice provides the first concrete SR producer and game acceptance surface.
@@ -46,3 +45,24 @@ bounded worldline/event telemetry supports both rollback diagnostics and a
 spacetime instrument. The movement kernel remains authoritative for bodies.
 These event, observer, and photon-measurement concepts are intended to remain
 valid when Minkowski is replaced by a curved spacetime provider.
+
+## 2026-08-05 observer-optics amendment
+
+TwinTrack's SR-2 slice adds a derived observer pipeline without changing the
+authoritative Minkowski chart. Opt-in compact sources record bounded
+worldlines; a fixed-iteration solver intersects them with the controlled
+observer's past light cone; the local SR kernel then measures photon direction,
+Doppler factor, and a documented point-source beaming proxy. The laboratory
+viewport remains coordinate truth while a private-layer camera renders only
+observer-derived stars, source proxies, signals, and spacetime traces. This is
+the intended growth shape for GR: a future metric/geodesic provider may replace
+worldline and photon propagation underneath while preserving observer-local
+consumers.
+
+## 2026-08-05 causal-pursuit amendment
+
+TwinTrack's SR-3 causal-pursuit slice makes observer relativity mechanically
+consequential: the apparent retarded source direction is not the direction that
+a newly emitted signal must follow. A separate derived targeting view solves the
+future null intercept and exposes observer-local aim, while ordinary control,
+body movement, and signal propagation retain their existing authorities.

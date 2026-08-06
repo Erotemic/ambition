@@ -569,6 +569,8 @@ impl SnapshotState for SignalArrivalHistory2d {
 #[derive(Clone, Debug, PartialEq)]
 pub struct LightSignalObservation2d {
     pub packet_id: u64,
+    pub emission_time: f64,
+    pub emission_position: Vec2,
     pub position: Vec2,
     pub direction: Vec2,
     pub coordinate_frequency: f64,
@@ -1036,6 +1038,8 @@ fn publish_signal_view(
         if signal.active {
             view.active_signals.push(LightSignalObservation2d {
                 packet_id: signal.packet_id,
+                emission_time: signal.emission_time,
+                emission_position: signal.emission_position,
                 position: signal.position,
                 direction: signal.direction,
                 coordinate_frequency: signal.coordinate_frequency,

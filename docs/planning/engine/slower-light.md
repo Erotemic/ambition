@@ -1,6 +1,6 @@
 # Slower Light — future 3D observer-relativity game
 
-> **Status: deferred until Ambition has a 3D game/runtime surface. TwinTrack is the separate 2D SR foundation, not a reduced version of this game.**
+> **Status: deferred until Ambition has a 3D game/runtime surface. TwinTrack is the separate 2D SR foundation and observer laboratory, not a reduced version of this game.**
 >
 > Original directive (2026-07-05): Jon:
 > *"I would also like to add a 'slower speed of light' mechanic where you can
@@ -19,7 +19,7 @@
 
 ## Relationship to TwinTrack
 
-TwinTrack implements flat-spacetime clocks, event transforms, exact null-signal propagation, local Doppler measurements, bounded worldlines, and an exact Minkowski provider in 2D. Slower Light is a later **3D** game centered on observer optics, retarded nearby-world presentation, and richer finite-signal propagation. It should reuse those foundations, but it is not the same demo and is not ready while the engine lacks a 3D game surface.
+TwinTrack implements flat-spacetime clocks, event transforms, exact null-signal propagation, local Doppler measurements, bounded worldlines, a past-light-cone solver for compact emitters, an exact aberrated/Doppler-shifted point-source observatory, and observer-local causal interception of a moving compact target in 2D. Slower Light is a later **3D** game centered on retarded presentation of extended nearby geometry, full-field observer optics, and richer finite-signal gameplay. It should reuse those foundations, but it is not the same demo and is not ready while the engine lacks a 3D game surface.
 
 ## Feasibility
 

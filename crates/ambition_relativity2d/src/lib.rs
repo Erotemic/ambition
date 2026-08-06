@@ -22,15 +22,24 @@ use ambition_relativity::{ClockRateResult, IntervalKind, InvariantSpeed};
 use ambition_time::{ProperTimeScale, WorldTime};
 use bevy::prelude::*;
 
+mod optics;
 mod signals;
+mod targeting;
 mod telemetry;
 
+pub use optics::{
+    solve_retarded_source_event, OpticalObserverObservation2d, OpticalSource2d,
+    OpticalSourceObservation2d, RelativisticObserver2d, RelativisticOpticalView2d,
+    RetardedSourceEvent2d,
+};
 pub use signals::{
     LightEmissionRequest2d, LightEmitter2d, LightEmitterObservation2d, LightReceiver2d,
-    LightReceiverMode2d, LightReceiverObservation2d, LightSignal2d,
-    LightSignalObservation2d, LightSignalPoolSlot2d, ProperTimeCooldown2d,
-    RelativitySignalView2d, SignalArrival2d, SignalArrivalHistory2d,
-    SignalArrivalRecord2d, SpacetimeCoordinateTime2d,
+    LightReceiverMode2d, LightReceiverObservation2d, LightSignal2d, LightSignalObservation2d,
+    LightSignalPoolSlot2d, ProperTimeCooldown2d, RelativitySignalView2d, SignalArrival2d,
+    SignalArrivalHistory2d, SignalArrivalRecord2d, SpacetimeCoordinateTime2d,
+};
+pub use targeting::{
+    RelativisticTarget2d, RelativisticTargetObservation2d, RelativisticTargetingView2d,
 };
 pub use telemetry::{
     WorldlineHistoryView2d, WorldlineSample2d, WorldlineTracked2d,
@@ -47,6 +56,15 @@ pub trait SpacetimeMetric2d: Send + Sync + 'static {
     fn invariant_speed(&self) -> InvariantSpeed;
     fn deterministic_fingerprint(&self) -> u64;
     fn measure_clock(&self, position: Vec2, coordinate_velocity: Vec2) -> ClockMeasurement2d;
+
+    /// Return the invariant speed only when this provider exposes one global
+    /// Minkowski chart in which straight analytic null rays and global Lorentz
+    /// boosts are exact. Curved providers keep the default `None` and add their
+    /// own geodesic/tetrad optical capability rather than inheriting flat optics
+    /// accidentally.
+    fn minkowski_optics_invariant_speed(&self) -> Option<InvariantSpeed> {
+        None
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -101,9 +119,7 @@ pub struct MinkowskiSpacetime2d {
 }
 
 impl MinkowskiSpacetime2d {
-    pub fn new(
-        invariant_speed: f64,
-    ) -> Result<Self, ambition_relativity::InvariantSpeedError> {
+    pub fn new(invariant_speed: f64) -> Result<Self, ambition_relativity::InvariantSpeedError> {
         Ok(Self {
             invariant_speed: InvariantSpeed::new(invariant_speed)?,
         })
@@ -134,6 +150,10 @@ impl SpacetimeMetric2d for MinkowskiSpacetime2d {
                 self.invariant_speed,
             ),
         }
+    }
+
+    fn minkowski_optics_invariant_speed(&self) -> Option<InvariantSpeed> {
+        Some(self.invariant_speed)
     }
 }
 
@@ -298,6 +318,8 @@ pub enum Relativity2dSet {
     ResolveClocks,
     AdvanceProperCooldowns,
     PublishView,
+    PublishOptics,
+    PublishTargeting,
 }
 
 pub struct Relativity2dPlugin;
@@ -348,6 +370,8 @@ impl Plugin for Relativity2dPlugin {
         let sim = app.sim_schedule();
         signals::install_signal_systems(app, sim);
         telemetry::install_telemetry_systems(app, sim);
+        optics::install_optics_systems(app, sim);
+        targeting::install_targeting_systems(app, sim);
         app.add_systems(
             sim,
             resolve_and_advance_clocks
@@ -367,19 +391,24 @@ impl Plugin for Relativity2dPlugin {
     }
 }
 
-pub(crate) fn spacetime_is_active(spacetime: Query<(), (With<ActiveSpacetime2d>, With<SessionRoot>)>) -> bool {
+pub(crate) fn spacetime_is_active(
+    spacetime: Query<(), (With<ActiveSpacetime2d>, With<SessionRoot>)>,
+) -> bool {
     !spacetime.is_empty()
 }
 
 fn resolve_and_advance_clocks(
     time: Res<WorldTime>,
     spacetime: Query<&ActiveSpacetime2d, With<SessionRoot>>,
-    mut clocks: Query<(
-        &BodyKinematics,
-        &mut ProperTimeScale,
-        &mut ProperTimeElapsed,
-        &mut RelativityState2d,
-    ), With<RelativisticClock2d>>,
+    mut clocks: Query<
+        (
+            &BodyKinematics,
+            &mut ProperTimeScale,
+            &mut ProperTimeElapsed,
+            &mut RelativityState2d,
+        ),
+        With<RelativisticClock2d>,
+    >,
 ) {
     let Ok(spacetime) = spacetime.single() else {
         return;
@@ -406,13 +435,16 @@ fn resolve_and_advance_clocks(
 
 fn publish_clock_view(
     spacetime: Query<&ActiveSpacetime2d, With<SessionRoot>>,
-    clocks: Query<(
-        Entity,
-        &RelativityClockLabel,
-        &BodyKinematics,
-        &ProperTimeElapsed,
-        &RelativityState2d,
-    ), With<RelativisticClock2d>>,
+    clocks: Query<
+        (
+            Entity,
+            &RelativityClockLabel,
+            &BodyKinematics,
+            &ProperTimeElapsed,
+            &RelativityState2d,
+        ),
+        With<RelativisticClock2d>,
+    >,
     mut view: ResMut<RelativityClockView2d>,
 ) {
     view.clocks.clear();
@@ -456,12 +488,8 @@ mod tests {
     #[test]
     fn observer_velocity_transform_is_lorentzian() {
         let c = InvariantSpeed::new(100.0).unwrap();
-        let transformed = minkowski_relative_velocity_2d(
-            Vec2::new(80.0, 0.0),
-            Vec2::new(50.0, 0.0),
-            c,
-        )
-        .unwrap();
+        let transformed =
+            minkowski_relative_velocity_2d(Vec2::new(80.0, 0.0), Vec2::new(50.0, 0.0), c).unwrap();
         assert!((transformed.x - 50.0).abs() < 1.0e-4);
         assert!(transformed.y.abs() < 1.0e-5);
     }

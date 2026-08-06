@@ -68,7 +68,12 @@
 
 ---
 
-◐ **DONE 2026-08-05 except the two you marked iffy** — 21 rows removed from the
+◐ **DONE 2026-08-05 except the two you marked iffy** — and per your follow-up
+(*"only the ones I named in my observations should be removed"*), **nothing else
+was cut**: every other uncast character was treated as belonging, and the four
+that had art but no row were CAST rather than removed.
+
+◐ — 21 rows removed from the
 catalog, their hall pedestals and hall dialogue with them; `npc_creator_final`
 folded into `npc_creator` (they already shared one spritesheet, so it really was
 one character wearing two ids — the intro's raid corridor still plays the

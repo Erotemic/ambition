@@ -130,7 +130,15 @@ const WAIVED: &[(&str, &str)] = &[
     // ⚠ the other four that sat here — busy beaver, charley beagle, niels boar,
     // vera ruin — were CAST on 2026-08-05 when Jon answered "cast them", so
     // their entries are gone rather than reworded.
-    ("npc_pirate_heavy", "a multi-variant family target; its variants are the characters, and they are cast"),
+    // Jon, 2026-08-05, asked directly: *"the named pirate heavies are the pirate
+    // heavies."* broadside_bess, iron_mary and salt_annet ARE the characters;
+    // the rest of what this target renders is variant art, not more people. The
+    // bare id was dropped from the catalog on 2026-05-24 for the same reason and
+    // there is no flat `pirate_heavy_spritesheet.png` to hang a row on.
+    (
+        "npc_pirate_heavy",
+        "a multi-variant family target; the NAMED heavies are the characters (Jon, 2026-08-05)",
+    ),
 ];
 
 fn waived(id: &str) -> Option<&'static str> {

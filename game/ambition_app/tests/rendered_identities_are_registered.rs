@@ -38,11 +38,29 @@ fn target_dir() -> PathBuf {
     )
 }
 
+/// Targets that carry a `character_id` key whose value this scan cannot read.
+///
+/// ⛔ **the check's population is "targets that SPELL an id out", not
+/// "targets"** — and that distinction hid two characters. The snakes-on-planes
+/// family declares `spec.character_id` from a `PlaneSpec` table, so no literal
+/// exists to find; both sheets were drawn, published and named by nothing for
+/// however long, and this guard could not have said so.
+///
+/// ⚠ **a ratchet rather than a fix.** Teaching the scan to evaluate spec
+/// constructors means teaching it every new spec SHAPE, which is a maintenance
+/// tail nobody asked for. Pinning the count instead means the next family built
+/// this way fails here and somebody LOOKS — at which point they can decide
+/// whether that family needs rows, which is the actual question.
+const COMPUTED_ID_TARGETS: usize = 9;
+
 /// `<target stem> -> <declared character_id>` for every target that names one.
-fn declared_identities(dir: &Path) -> BTreeMap<String, String> {
+///
+/// Returns `(literal ids, stems whose id is computed)`.
+fn declared_identities(dir: &Path) -> (BTreeMap<String, String>, Vec<String>) {
+    let mut computed = Vec::new();
     let mut out = BTreeMap::new();
     let Ok(entries) = std::fs::read_dir(dir) else {
-        return out;
+        return (out, computed);
     };
     for entry in entries.flatten() {
         let path = entry.path();
@@ -66,6 +84,14 @@ fn declared_identities(dir: &Path) -> BTreeMap<String, String> {
             // An interpolated id is not one id; those targets name a family.
             (!literal.is_empty() && !literal.contains('{')).then(|| literal.to_string())
         }) else {
+            if text.contains("\"character_id\"") {
+                computed.push(
+                    path.file_stem()
+                        .and_then(|stem| stem.to_str())
+                        .unwrap_or_default()
+                        .to_string(),
+                );
+            }
             continue;
         };
         let stem = path
@@ -75,7 +101,8 @@ fn declared_identities(dir: &Path) -> BTreeMap<String, String> {
             .to_string();
         out.insert(stem, id.to_string());
     }
-    out
+    computed.sort();
+    (out, computed)
 }
 
 /// Declared ids this check deliberately does not require, each with its reason.
@@ -151,7 +178,7 @@ fn waived(id: &str) -> Option<&'static str> {
 #[test]
 fn every_rendered_identity_is_a_character_the_game_can_show() {
     let dir = target_dir();
-    let declared = declared_identities(&dir);
+    let (declared, computed) = declared_identities(&dir);
     if declared.is_empty() {
         eprintln!(
             "[skip] no sprite-renderer targets under {} — the nested checkout is \
@@ -219,6 +246,18 @@ fn every_rendered_identity_is_a_character_the_game_can_show() {
         "no renderer target declares these waived id(s) any more, so their \
          excuses can never be tested: {unasked:?}"
     );
+
+    // The blind spot, pinned. See [`COMPUTED_ID_TARGETS`].
+    assert_eq!(
+        computed.len(),
+        COMPUTED_ID_TARGETS,
+        "the number of targets whose character id this scan CANNOT read has \
+         changed: {computed:?}. Each one is outside every assertion above — if a \
+         family was added, check by hand whether its characters have rows (the \
+         snakes-on-planes pair did not, and nothing here could say so); if one \
+         was removed or now spells its id out, lower this number in the same \
+         commit."
+    );
 }
 
 /// **The poison.** A guard whose scan silently stops finding targets reports the
@@ -226,7 +265,7 @@ fn every_rendered_identity_is_a_character_the_game_can_show() {
 /// invisible while a portrait checker sat beside it.
 #[test]
 fn the_identity_scan_would_notice_an_unregistered_id() {
-    let declared = declared_identities(&target_dir());
+    let (declared, _) = declared_identities(&target_dir());
     if declared.is_empty() {
         return;
     }

@@ -111,6 +111,36 @@ pub struct ShadowTuning {
     pub assumed_foe_active_s: f32,
 }
 
+/// ⛔⛔ **NOTHING DERIVES A `ShadowTuning` FROM THE BODY IT MODELS** — measured
+/// 2026-08-06, and it is the structural version of the missing-friction bug one
+/// level up.
+///
+/// `ShadowTuning::default()` is the ONLY construction in the tree
+/// (`FighterCfg::new` calls it and nobody overrides), so every fighter's rollout
+/// predicts a body with these numbers. The duelist archetypes a smash CPU
+/// actually wears author no movement override, so they inherit the engine
+/// baseline — and three of these disagree with it:
+///
+/// | term | this model | the body | direction of the error |
+/// |---|---|---|---|
+/// | `gravity` | 1400 | `ae::GRAVITY` 2250 | longer airtime → OVER-predicts travel (cautious) |
+/// | `ground_speed` | 160 | `MAX_RUN_SPEED` 270 | UNDER-predicts travel (dangerous) |
+/// | `jump_speed` | 420 | `JUMP_SPEED` 630 | shorter arc → UNDER-predicts (dangerous) |
+///
+/// ⚠ **and correcting all three changes NOTHING measurable**, which is why they
+/// are still here. Probed 2026-08-06 over 7 seeds: every `ladder_probe` column
+/// is byte-identical with 2250/270/630 substituted. The reason is instructive —
+/// the only rungs that still die are levels 1 and 3, which carry
+/// `rollout_depth: 0` and therefore never run a rollout at all. **The one
+/// scenario available cannot see this gap.**
+///
+/// ⭐ **so the fix is not different constants, it is DERIVATION.** These should
+/// come from the body's real `MovementTuning` the way `BrainSnapshot.attack_kit`
+/// comes from its real `ActorMoveset` — body-derived truth filled in the
+/// world-in port. Re-hardcoding a second set of numbers would leave the same
+/// structural hole, and this one is currently unmeasurable, so a change here
+/// would be a guess with no instrument. §8's scenario suite is what would make
+/// it measurable.
 impl Default for ShadowTuning {
     fn default() -> Self {
         Self {

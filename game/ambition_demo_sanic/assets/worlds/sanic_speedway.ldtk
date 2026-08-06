@@ -11,7 +11,7 @@
 	"iid": "ambition-sanic-speedway-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 106902,
+	"nextUid": 106903,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -3025,6 +3025,43 @@
 					"allowedRefsEntityUid": null,
 					"allowedRefTags": [],
 					"tilesetUid": null
+				},
+				{
+					"identifier": "sprite",
+					"doc": null,
+					"__type": "String",
+					"uid": 106902,
+					"type": "F_String",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "RefLinkBetweenCenters",
+					"editorDisplayPos": "Above",
+					"editorDisplayScale": 1.0,
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorCutLongValues": true,
+					"editorShowInWorld": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"editorLinkStyle": "CurvedArrow",
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"tilesetUid": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"exportToToc": false,
+					"searchable": true
 				}
 			]
 		},
@@ -7503,6 +7540,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7528,6 +7569,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7553,6 +7598,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7578,6 +7627,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7603,6 +7656,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7628,6 +7685,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7653,6 +7714,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7678,6 +7743,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7703,6 +7772,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7728,6 +7801,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7753,6 +7830,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7778,6 +7859,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7803,6 +7888,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7828,6 +7917,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7853,6 +7946,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7878,6 +7975,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7903,6 +8004,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7928,6 +8033,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7953,6 +8062,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -7978,6 +8091,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8003,6 +8120,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8028,6 +8149,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8053,6 +8178,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8078,6 +8207,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8103,6 +8236,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8128,6 +8265,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8153,6 +8294,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8178,6 +8323,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8203,6 +8352,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8228,6 +8381,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8253,6 +8410,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8278,6 +8439,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8303,6 +8468,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8328,6 +8497,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},
@@ -8353,6 +8526,10 @@
 								{ "__identifier": "kind", "__type": "String", "__value": "currency:1", "__tile": null, "defUid": 3040, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["currency:1"]
+								}] },
+								{ "__identifier": "sprite", "__type": "String", "__value": "sanic_ring_prop", "__tile": null, "defUid": 106902, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_ring_prop"]
 								}] }
 							]
 						},

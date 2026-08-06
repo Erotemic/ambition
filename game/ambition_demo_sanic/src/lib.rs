@@ -282,19 +282,17 @@ pub fn sanic_speedway() -> RoomSpec {
     // to say which character an enemy wears. `EnemySpawn` authors a
     // `character_id` as of 2026-08-06, so the speedway states its own cast and
     // the demo stopped patching it — see `EnemySpawnSpec`.
-    // Rings lower as generic `currency` pickups (LDtk owns their spatial layout);
-    // the demo still supplies their render identity here, which is the same
-    // workaround one family over and the next candidate for the same fix.
-    for record in &mut room.placements {
-        if is_ring_placement(record) {
-            if let ambition_platformer2d::entity_catalog::placements::PlacementSchema::Pickup(
-                pickup,
-            ) = &mut record.schema
-            {
-                pickup.sprite = Some(RING_SPRITE_KIND.to_string());
-            }
-        }
-    }
+    // ⭐ **and the rings do too.** The same loop lived here for them: find every
+    // `currency` pickup named `"ring"` and set `pickup.sprite`. The converter
+    // has read an authored `sprite` field the whole time — the speedway's
+    // `PickupSpawn`s simply never carried one, so a Rust pass supplied it after
+    // the fact. They author `sprite: sanic_ring_prop` now.
+    // ⚠ **the DROPPED rings still name their sprite in code, and correctly so.**
+    // `scatter_rings_on_hit` mints them at runtime from a hit event — there is
+    // no authored entity to carry a field, so `RING_SPRITE_KIND` there is the
+    // spawn site stating its own identity rather than a pass repairing one.
+    // That is the line between the two: patching what a file already describes
+    // is the workaround; naming what only exists at runtime is not.
     room.metadata.mode = Some(SANIC_MODE.to_string());
     // Borrow Ambition's generated skybridge stack. The visible shell loads the
     // shared `GameAssets`; if those optional images are absent the renderer keeps

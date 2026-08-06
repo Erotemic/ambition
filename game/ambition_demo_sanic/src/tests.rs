@@ -1307,9 +1307,12 @@ fn the_speedway_tags_every_ring_with_the_animated_sprite() {
         "expected a field of rings; got {}",
         rings.len()
     );
-    // The demo assigns the render identity in code (like the badnik name), so the
-    // pickup renderer binds the spinning `sanic_ring_prop` sheet instead of the
-    // static coin.
+    // ⭐ **the speedway AUTHORS this now** (2026-08-06). The demo used to walk
+    // the converted room and set `pickup.sprite` on every ring, the same shape
+    // of pass that renamed the badniks — even though the converter had read an
+    // authored `sprite` field the whole time and the world file simply carried
+    // none. So this assertion is unchanged and now checks the world file rather
+    // than a Rust loop that could not fail to satisfy it.
     for record in rings {
         let PlacementSchema::Pickup(pickup) = &record.schema else {
             unreachable!("is_ring_placement guarantees a pickup");

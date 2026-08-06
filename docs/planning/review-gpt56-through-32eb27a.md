@@ -332,3 +332,36 @@ Verdicts are recorded here as each is reached.
   responsive would leave a commit that fixes nothing and claims otherwise.
   ⭐ their closing advice is accepted regardless and was already the standing
   rule: *"do not add another census or ratchet for duplicated lines."*
+
+- ✔ **P6 roster-before-session — ACCEPTED and FIXED** (`b5b8f90d1`). The code had
+  already named the missing piece: the comment beside the `InputSet::Collect`
+  ordering said it *"narrows the race rather than removing the possibility...
+  Closing that needs the maintainer to know a roster is COMING, which nothing
+  currently tells it."* `SeatingComesFromARoster` is a host declaring intent and
+  `DecidedSeatCount` is the number the match decided; the maintainer waits for
+  the second while the first is present. The versus stage publishes both with its
+  roster.
+  ⚠ **opt-IN, which is what keeps it safe.** A single-player composition, a
+  headless oracle and a roster-less demo all reach that line and are RIGHT to
+  seat from devices — a gate that stalled them would be worse than the race. That
+  case is the first assertion in the test.
+  ⭐ a decided seating still FREEZES and records the roster's count on the
+  topology, so the handle count, the per-seat latches and the roster cite one
+  number rather than agreeing by coincidence.
+
+## Summary of this triage
+
+Seven priorities: **five fixed** (P1, P2, P3, P4, P6), **one reduced to a named
+product decision** (P5), **one refused with evidence** (P7).
+
+⭐ **the review's two correctness findings were both real, and finding them was
+worth more than the fixes**: chasing P1's missing projection turned up a SHIPPED
+codec bug the review had not seen — `CutsceneScript::decode` refused every script
+without a seen flag, because `bool::then(..)?` returns `None` from the function
+when the bool is false. Every fixture in that module called `.with_seen_flag(..)`,
+so the false branch of the only branch in the codec had never been decoded.
+
+⚠ **two findings were partly wrong in instructive ways.** P5's suggested `SimId`
+key would have silently dropped TwinTrack's traveler and passband, which are
+demo-spawned without one — so P4 kept a string and made it a separate typed value
+instead. And P7 does not reproduce at all.

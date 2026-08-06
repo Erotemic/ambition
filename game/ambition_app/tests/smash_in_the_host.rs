@@ -16,12 +16,12 @@
 //! this one opens character select, which is a frontend route of the provider's
 //! own, and the stage arrives only once the screen has decided.
 
-use bevy::MinimalPlugins;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
+use bevy::MinimalPlugins;
 
 use ambition_app::app::shell_host;
 use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
@@ -908,4 +908,57 @@ fn a_decided_match_freezes_the_local_seating() {
          CPU needs a body and a brain, never a device or a rollback handle"
     );
     assert_eq!(topology.players(), humans);
+}
+
+/// **Every fighter `SMASH_ROSTER` names actually exists in the shipped host.**
+///
+/// ⚠ **`SmashRoster::assemble` FILTERS to what the catalog carries, and that is
+/// correct behaviour** — a host that composes only some providers shows only the
+/// fighters it has, which is what lets the bare smash app run at all. It also
+/// means a misspelled id is indistinguishable from an absent provider: the grid
+/// silently comes up one fighter short and the screen still looks fine.
+///
+/// Jon set that roster explicitly (*"we may go more than 8"*), so a dropped
+/// fighter is a fighter he asked for and did not get. The SHIPPED host is where
+/// the distinction is decidable: it composes every provider, so nothing there is
+/// legitimately absent and anything filtered out is a typo.
+///
+/// ⭐ **this is the fifth hand-made PAIRING in the content, and it is checked
+/// against the ASSEMBLED catalog rather than by grepping the RON** — the other
+/// four are a pedestal's dialogue id to its Yarn node, that node's speaker to
+/// the character's name, a character row to the map it lives in, and a row's
+/// spritesheet to its manifest. Each was written after the pairing had already
+/// gone wrong once.
+#[test]
+fn every_smash_roster_id_resolves_in_the_shipped_host() {
+    use ambition_demo_smash::select::SMASH_ROSTER;
+
+    let mut app = shell_host_app();
+    settle(&mut app);
+    let catalog = app
+        .world()
+        .resource::<ambition_platformer2d::character::CharacterCatalog>();
+
+    let missing: Vec<&str> = SMASH_ROSTER
+        .iter()
+        .copied()
+        .filter(|id| catalog.get(id).is_none())
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "the smash roster names {} fighter(s) the SHIPPED host's assembled \
+         catalog does not carry: {missing:?}. `SmashRoster::assemble` drops them \
+         silently — the select grid comes up short and looks fine — so this is \
+         either a typo or a provider that stopped registering the character.",
+        missing.len()
+    );
+    // ⛔ and the roster must not be empty for a different reason than the one
+    // above: an import that resolved to an empty slice would satisfy every
+    // assertion here while proving nothing.
+    assert!(
+        SMASH_ROSTER.len() >= 8,
+        "the smash roster is down to {} entries, which is fewer than the eight \
+         Jon set it at — this check would pass over almost nothing",
+        SMASH_ROSTER.len()
+    );
 }

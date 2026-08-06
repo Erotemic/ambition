@@ -79,9 +79,19 @@ pub enum MaryOBlockLook {
     /// variant — `Brick` + non-empty contents already says it — so this is only
     /// the invisible half.
     ///
-    /// ⚠ **still SOLID while invisible.** That is the classic behaviour and the
-    /// reason the block is findable at all: you discover one by jumping into it.
-    /// An intangible block would be undiscoverable, not hidden.
+    /// ⚠ **NOT a floor, and only a rising HEAD collides.** `reactive_block`
+    /// emits `BlockKind::BonkOnly` for this look: she cannot stand on it and
+    /// cannot bump it from the side, which is Jon's *"you should not be able to
+    /// stand on an invisible block."*
+    ///
+    /// ⛔ this comment said *"still SOLID while invisible"* for a day after the
+    /// conversion stopped being true — a doc describing the behaviour it
+    /// replaced. (GPT 5.6, `d46a0f7`.)
+    ///
+    /// ▢ **the classic block becomes a visible solid once struck, and that is
+    /// NOT implemented.** It stays pass-through forever today; the transition
+    /// needs runtime geometry mutation, which is rollback-relevant. Documented
+    /// as missing rather than as finished.
     Hidden,
 }
 

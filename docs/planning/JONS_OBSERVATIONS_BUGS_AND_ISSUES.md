@@ -3,7 +3,7 @@
 # attempt doesn't work.
 
 
-* When SANIC is hit, there it seems like he is given no iframes. He should also have some hitstun and be knocked back a bit, and then have a few second of recovery iframes. The rings don't splash out nearly large enough. He needs an opportunity to recollect some of them after his hitstun wears off and before they disappear. 
+* When SANIC is hit, there it seems like he is given no iframes. He should also have some hitstun and be knocked back a bit, and then have a few second of recovery iframes. The rings don't splash out nearly large enough. He needs an opportunity to recollect some of them after his hitstun wears off and before they disappear.
 
 * ◐ **The patent clerk: you are making one right now.** During this run
   `patent_clerk.py` appeared in the sprite renderer and `patent_clerk` went into
@@ -37,7 +37,7 @@
 
 * Maryo world 1-2 needs moving platforms that move vertically down and up like an elevator. When they go OOB (far enough so they are off screen of the player in normal gameplay) they can teleport to the top / bottom of the screen to make an infinite elevator effect.
 
-* The maryo world 1-2 needs to happen after she wins world 1-1, she doesn't just get to go there in the middle of 1-1 and come back. It should be a new level. When she beats world 1-2 we should cycle back to world 1-1 for the demo. World 1-2 also needs to be built out a lot more, its very plain, and there are no enemies. I would like to add the flying snakes on a plane as enemies in this world. 
+* The maryo world 1-2 needs to happen after she wins world 1-1, she doesn't just get to go there in the middle of 1-1 and come back. It should be a new level. When she beats world 1-2 we should cycle back to world 1-1 for the demo. World 1-2 also needs to be built out a lot more, its very plain, and there are no enemies. I would like to add the flying snakes on a plane as enemies in this world.
 
 * ◐ **MEASURED 2026-08-05 — the number is now available, the taxonomy is still yours.**
   `cargo test -p ambition_app --test app_it print_how_tall -- --ignored --nocapture`
@@ -67,7 +67,7 @@
   * *(your words, kept)* We probably need an engine concept that allows actors to be dormant. This is important for maryo because ai slop will just walk off the edge of the level before she even gets to that part of the level, so we need to wake or sleep their brain depending on how close she is to them. This sort of optimization will likely be generally important for any game using the engine, although it's not something that should be inherent. There might be characters that don't go dormant off screen, this matters a lot for split screen or network multiplayer games. It also might matter in other cases. Not 100% sure how its elegantly expressed though.
 
 * ~~In mary-o blocks that are used need a new texture so they are visually distinguishable. They also need a small animation (probably an in-code position nudge up and back into place) when they are hit.~~ **BOTH DONE.** A spent block wears `EntitySprite::SpentBlockTile` — its OWN inert texture rather than falling back to plain masonry, which would have hidden its history — chosen in `dress_power_blocks` from `SpentPowerBlocks` every frame rather than from the bonk EVENT, because that set is rollback state and art driven by the event would keep the used look through a rewind that undid the strike. The nudge is `BlockStruck`, emitted by the bonk and consumed by the render layer (`rendering/world.rs`): the block's own position is never moved, exactly as you guessed it should not be — moving it would lift a body standing on it.
-  * ⭐ **and a related asymmetry fixed 2026-08-05**: a BRICK drew as the generic dark slab while the level's own solid surfaces drew `SolidTile`, the seamless brick pattern. Same `BlockKind::Solid`, two textures, decided by whether the block came from the IntGrid or from an entity. Bricks wear the masonry now (`c6a7034a3`). 
+  * ⭐ **and a related asymmetry fixed 2026-08-05**: a BRICK drew as the generic dark slab while the level's own solid surfaces drew `SolidTile`, the seamless brick pattern. Same `BlockKind::Solid`, two textures, decided by whether the block came from the IntGrid or from an entity. Bricks wear the masonry now (`c6a7034a3`).
 
 * **[agent-found, next long run] The couch-input smash test fails only in a full-binary run.** `app_it::smash_in_the_host::a_keyboard_player_and_a_pad_player_drive_different_fighters` passes in isolation and fails when the whole `app_it` binary runs (measured both ways, 2026-08-02, and confirmed identical on a clean worktree at the previous commit — it is not a regression from the Mary-O geometry or contact-harm work). So it is order- or parallelism-dependent: something earlier in the binary leaves seat/pad state that this test then reads. That is a real defect and not merely a flaky test — a keyboard participant and a pad participant driving the same fighter is exactly the couch bug class that has bitten repeatedly, and the isolated pass is what makes it invisible. Worth finding what the shared state is rather than adding a serial-test attribute over it.
 
@@ -98,14 +98,14 @@ I want to remove some of the clone characters, that I don't find interesting, sp
 
 Robot Caster, Robot Engineer, Robot Archivist, Robot Diver, Robot Guardian,
 Robot Medic, Player Combat Review, Player Extended, Player Social Review,
-Player Traversal Review, Robot Miner, Robot Runner, Sandbag Full Review, Sandbag Armored Review, 
+Player Traversal Review, Robot Miner, Robot Runner, Sandbag Full Review, Sandbag Armored Review,
 
 Goblin Frost Sword, Goblin Shaman Staff, Goblin Desert Bow, Goblin FOrest
 Spear, Skirmisher, Goblin Cave Digger, Goblin Brute Hammer
 
 Exploding Mite and Dividing Mite are iffy
 
-Creator Final should not be a different character than creator. 
+Creator Final should not be a different character than creator.
 
 "Robot" should be named to "Robot V1".
 

@@ -122,7 +122,7 @@ fn two_human_roster() -> MatchParticipantRoster {
         // Not suspended: an opening hold would keep both fighters still and let
         // every assertion below pass for the wrong reason.
         opens_suspended: false,
-        seat_topology: None,
+        seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_stocks: None,
         published_by: None,

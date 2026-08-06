@@ -29,14 +29,14 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::character_runtime::{
-    ControllerBinding, MatchParticipant, MatchParticipantRoster, StagesCharacters,
+    ControllerBinding, MatchParticipant, MatchParticipantRoster, RosterSeating, StagesCharacters,
 };
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
-use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
+use ambition_platformer2d::runtime::PreparedPlatformerSource;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
 pub const VERSUS_EXPERIENCE: &str = "ambition_versus";
@@ -234,15 +234,21 @@ const VERSUS_ROSTER_RON: &str = r#"{
     ),
 }"#;
 
+/// **The roster the route PROPOSES on entry**, built from live device discovery
+/// before any session has decided its seating.
+///
+/// ⭐ **proposed, not activated** (2026-08-06). Nothing seats from this until
+/// [`activate_versus_roster`] agrees, because the route builds it from devices
+/// and the rollback session freezes its topology afterwards — so a roster built
+/// here can describe a different match than the session will run. Seating used
+/// to happen from it anyway and the disagreement was reported after the fact,
+/// which is what `status.md` means by *"MECHANISMS DONE, ACTIVATION OPEN"*.
 pub fn versus_roster(local_players: usize) -> MatchParticipantRoster {
-    versus_roster_from(local_players, None)
+    versus_roster_from(local_players, RosterSeating::Proposed)
 }
 
-/// The same, recording which frozen topology decided the seat count.
-pub fn versus_roster_from(
-    local_players: usize,
-    seat_topology: Option<u64>,
-) -> MatchParticipantRoster {
+/// The same, in a stated seating lifecycle.
+pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> MatchParticipantRoster {
     // Two seats minimum (there is always an opponent, human or not) and four
     // maximum (the arena is one screen wide, and `SlotControls` holds four).
     let seats = local_players.clamp(2, MAX_VERSUS_SEATS);
@@ -289,7 +295,7 @@ pub fn versus_roster_from(
         // fighter to `DeathPolicy::Unbounded`, which is the pair that has to
         // travel together.
         fighter_stocks: None,
-        seat_topology,
+        seating,
         // **WHOSE MATCH THIS IS.** The exit rule below removes the roster it
         // finds; with a second stage in the same host publishing one from its
         // own route, "the roster" stopped meaning "mine".
@@ -380,12 +386,29 @@ fn reconcile_roster_with_frozen_topology(
     if !roster.is_published_by(VERSUS_EXPERIENCE) {
         return;
     }
-    if !topology.is_frozen() || roster.seat_topology == Some(topology.generation()) {
+    // ⭐ **NOTHING FROZE, so nothing has an opinion — activate as-is.**
+    //
+    // This arm used to `return`, and with seating refusing a `Proposed` roster
+    // that would have stranded every composition where no rollback session ever
+    // starts: the headless host, the shell's non-rollback routes, a
+    // `MinimalPlugins` test. A roster nobody can disagree with is not a roster
+    // awaiting confirmation, and leaving it `Proposed` forever would turn a
+    // lifecycle into a deadlock.
+    if !topology.is_frozen() {
+        if !roster.seating.may_seat() {
+            roster.activate(None);
+        }
+        return;
+    }
+    if roster.seat_topology() == Some(topology.generation()) {
         return;
     }
     // What the frozen topology WOULD seat. Before activation this replaces the
     // roster; after it, it is the thing the live roster is compared against.
-    let rebuilt = versus_roster_from(topology.players(), Some(topology.generation()));
+    let rebuilt = versus_roster_from(
+        topology.players(),
+        RosterSeating::activated_at(topology.generation()),
+    );
     if let Some(mut active) = active_match {
         // The match is LIVE and these are its bodies. Reseating them underneath
         // the round is worse than the disagreement — so the question is whether
@@ -410,7 +433,7 @@ fn reconcile_roster_with_frozen_topology(
             // Correcting a record is a repair. This is the half of Y′9 that was
             // left as "reported rather than repaired", and it turns the warning
             // below into a signal instead of startup noise.
-            roster.seat_topology = Some(topology.generation());
+            roster.activate(Some(topology.generation()));
             active.adopt_seat_topology(topology.generation());
             return;
         }
@@ -420,7 +443,7 @@ fn reconcile_roster_with_frozen_topology(
              across {} body/bodies already on the stage. The match is already seated, so it \
              is left alone — reseating bodies mid-match would be the worse bug.",
             roster.participants.len(),
-            roster.seat_topology,
+            roster.seat_topology(),
             topology.generation(),
             topology.players(),
             rebuilt.participants.len(),
@@ -431,6 +454,14 @@ fn reconcile_roster_with_frozen_topology(
     // NOT activated — but possibly half seated. When the cast agrees, replacing
     // the roster is inert with respect to the bodies (same characters, same seat
     // indices) and all it does is stamp the generation, so it is safe either way.
+    //
+    // ⭐ **and a PROPOSED roster is never half seated, which is the point of the
+    // lifecycle.** Seating refuses one, so a disagreement discovered here has no
+    // bodies to be inconsistent with and falls through to the replacement below
+    // — repaired instead of reported. The warning survives for the case it was
+    // written for: a roster that was ALREADY activated (nothing froze when the
+    // route entered, so it was activated as-is) and then met a session that
+    // froze a topology seating somebody else.
     if rebuilt.participants != roster.participants && !seated.is_empty() {
         bevy::log::warn_once!(
             "the versus roster seats {} fighter(s) from seat topology {:?} and the session \
@@ -439,10 +470,9 @@ fn reconcile_roster_with_frozen_topology(
              match has not activated yet. The roster is left alone: swapping it now would \
              leave those bodies seated under definitions they were not built from, which \
              is a match assembled from two rosters and is worse than a seat count that \
-             disagrees with the handle count. The real fix is atomic match activation \
-             before the session starts.",
+             disagrees with the handle count.",
             roster.participants.len(),
-            roster.seat_topology,
+            roster.seat_topology(),
             topology.generation(),
             topology.players(),
             rebuilt.participants.len(),
@@ -514,7 +544,15 @@ fn track_versus_roster(
                 frozen
                     .map(|topology| topology.players())
                     .unwrap_or_else(|| devices.devices().len().max(1)),
-                frozen.map(|topology| topology.generation()),
+                // ⭐ **frozen means ACTIVATED, unfrozen means PROPOSED.** The
+                // seat count above already comes from the frozen topology when
+                // one exists, so when it does, the session has already agreed
+                // and there is nothing left to reconcile. When it does not, this
+                // is a guess from live devices — which is precisely the roster
+                // that must not seat until somebody confirms it.
+                frozen
+                    .map(|topology| RosterSeating::activated_at(topology.generation()))
+                    .unwrap_or(RosterSeating::Proposed),
             );
             // Demand the art before the bodies exist: a fighter seated with no
             // decoded sheet draws a placeholder, and the whole point of a visible
@@ -523,7 +561,8 @@ fn track_versus_roster(
             commands.insert_resource(roster);
             // A NEW roster is not yet a match. Activation is seating's to
             // publish, once every participant has a body.
-            commands.remove_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>();
+            commands
+                .remove_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>();
             // NO global free-for-all. The fighters are on declared TEAMS
             // (`blue` / `red`), and `MatchTeam` outranks faction for "may this
             // land" — which is what the roster's teams were for since §7.8 and
@@ -561,7 +600,8 @@ fn track_versus_roster(
             commands.remove_resource::<MatchParticipantRoster>();
             // The match ends WITH its route. An activation that outlives its
             // match is the next game inheriting somebody else's fighters.
-            commands.remove_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>();
+            commands
+                .remove_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>();
             // DROP THE DECLARATION, which is the whole exit. A match rule that
             // outlives its match is a rule the next game silently inherits, and
             // "your allies can now shoot you" is a bad surprise to bring into a
@@ -606,7 +646,9 @@ pub fn compose_versus_experience(app: &mut App) {
     // catalog above, and the one `ControllerBinding::Cpu { brain_profile }`
     // actually consults.
     {
-        use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
+        use ambition_platformer2d::actors::features::{
+            CharacterRosterAppExt, CharacterRosterFragment,
+        };
         app.register_character_roster_fragment(
             CharacterRosterFragment::from_ron(VERSUS_EXPERIENCE, None::<String>, VERSUS_ROSTER_RON)
                 .expect("the versus archetype roster is valid"),
@@ -649,10 +691,12 @@ pub fn compose_versus_experience(app: &mut App) {
             );
         }
         hud.slot(
-            ambition_platformer2d::presentation::HudSlotSpec::new(super::versus_rules::ROUNDS_HUD_SLOT)
-                .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
-                .with_font_size(16.0)
-                .with_color([0.75, 0.8, 0.95, 1.0]),
+            ambition_platformer2d::presentation::HudSlotSpec::new(
+                super::versus_rules::ROUNDS_HUD_SLOT,
+            )
+            .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
+            .with_font_size(16.0)
+            .with_color([0.75, 0.8, 0.95, 1.0]),
         )
         // The announce line: the round-start COUNTDOWN ("ROUND 2", then "FIGHT")
         // and the KO / match card. One slot for both because they are the same
@@ -665,10 +709,12 @@ pub fn compose_versus_experience(app: &mut App) {
         // `publish_versus_hud` clears the slot explicitly on `Fighting`. Without
         // that the word FIGHT would sit over the whole round.
         .slot(
-            ambition_platformer2d::presentation::HudSlotSpec::new(super::versus_rules::ANNOUNCE_HUD_SLOT)
-                .centered()
-                .with_font_size(34.0)
-                .with_color([1.0, 0.85, 0.3, 1.0]),
+            ambition_platformer2d::presentation::HudSlotSpec::new(
+                super::versus_rules::ANNOUNCE_HUD_SLOT,
+            )
+            .centered()
+            .with_font_size(34.0)
+            .with_color([1.0, 0.85, 0.3, 1.0]),
         )
     })
     .install(app, versus_prepared_session_world);
@@ -771,7 +817,8 @@ mod stage_rule_tests {
         app.init_resource::<Platformer2dFeelTuningMonolith>();
         app.init_resource::<ambition_platformer2d::combat::targeting::FriendlyFire>();
         app.init_resource::<super::super::versus_rules::VersusMatch>();
-        app.init_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>();
+        app.init_resource::<ambition_platformer2d::actors::character_runtime::CharacterLoadDemand>(
+        );
         app.init_resource::<ambition_platformer2d::input::LocalDeviceOrder>();
         app.insert_resource(ambition_platformer2d::game_shell::ShellRouter::default());
         // The projection normally runs in `Platformer2dSimulationPhaseMonolith::WorldPrep`; here it runs
@@ -802,7 +849,9 @@ mod stage_rule_tests {
             .active = Some(ambition_platformer2d::game_shell::ActiveShellExperience {
             activation_id: ambition_platformer2d::game_shell::ShellActivationId(1),
             route_id: ambition_platformer2d::game_shell::ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE),
-            experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new(VERSUS_EXPERIENCE),
+            experience_id: ambition_platformer2d::game_shell::ShellExperienceId::new(
+                VERSUS_EXPERIENCE,
+            ),
             parameters: Default::default(),
             load_authorization: None,
             prepared_session: None,
@@ -852,7 +901,9 @@ mod stage_rule_tests {
             "the fighting stage must author its DI budget"
         );
         assert_eq!(
-            app.world().resource::<Platformer2dFeelTuningMonolith>().di_max_angle,
+            app.world()
+                .resource::<Platformer2dFeelTuningMonolith>()
+                .di_max_angle,
             0.0,
             "the stage reached its DI budget by WRITING the world's tuning \
              again — the borrow AE6 removed"
@@ -905,7 +956,9 @@ mod stage_rule_tests {
 
         let authored_is_intact = |app: &App, when: &str| {
             assert_eq!(
-                app.world().resource::<Platformer2dFeelTuningMonolith>().di_max_angle,
+                app.world()
+                    .resource::<Platformer2dFeelTuningMonolith>()
+                    .di_max_angle,
                 PRIOR_DI,
                 "{when}: the versus route wrote another experience's authored DI \
                  budget. It must DECLARE its rules, never borrow the world's."
@@ -1002,7 +1055,7 @@ mod roster_topology_tests {
     /// no player runs.
     #[test]
     fn a_roster_published_by_another_experience_is_left_alone() {
-        let mut foreign = versus_roster_from(2, None);
+        let mut foreign = versus_roster_from(2, RosterSeating::Proposed);
         foreign.published_by = Some("ambition_smash".to_owned());
         let before = foreign.clone();
 
@@ -1020,7 +1073,7 @@ mod roster_topology_tests {
             "versus reseated another experience's fighters"
         );
         assert_eq!(
-            after.seat_topology, before.seat_topology,
+            after.seating, before.seating,
             "versus restamped another experience's roster with its own topology"
         );
     }
@@ -1028,17 +1081,16 @@ mod roster_topology_tests {
     /// The reconciler still does its job for a roster that IS versus's.
     #[test]
     fn its_own_roster_is_still_reconciled() {
-        let mut mine = versus_roster_from(2, None);
+        let mut mine = versus_roster_from(2, RosterSeating::Proposed);
         mine.published_by = Some(VERSUS_EXPERIENCE.to_owned());
         let mut app = app_with(mine, 1, false);
         app.update();
         let after = app.world().resource::<MatchParticipantRoster>();
         assert!(
-            after.seat_topology.is_some(),
+            after.seat_topology().is_some(),
             "a versus roster meeting a frozen topology should be stamped with it"
         );
     }
-
 
     /// **A roster decided before the session froze its seating is rebuilt.**
     ///
@@ -1050,7 +1102,7 @@ mod roster_topology_tests {
     /// an intention and rebuilding it costs nothing.
     #[test]
     fn a_roster_built_before_the_freeze_is_rebuilt_against_it() {
-        let mut app = app_with(versus_roster_from(2, None), 3, false);
+        let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 3, false);
         app.update();
         let roster = app.world().resource::<MatchParticipantRoster>();
         assert_eq!(
@@ -1060,7 +1112,7 @@ mod roster_topology_tests {
              the session had already frozen a different one"
         );
         assert_eq!(
-            roster.seat_topology,
+            roster.seat_topology(),
             Some(app.world().resource::<LocalSeatTopology>().generation()),
             "a rebuilt roster must record WHICH topology it agreed with, or the \
              next tick rebuilds it again forever"
@@ -1081,11 +1133,13 @@ mod roster_topology_tests {
     /// 2026-07-30).
     #[test]
     fn a_half_seated_match_is_not_handed_a_different_roster() {
-        let mut app = app_with(versus_roster_from(2, None), 3, false);
+        let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 3, false);
         // One fighter is already standing on the stage; the other has not seated
         // yet, so `ActiveMatch` is absent — the exact window.
         app.world_mut()
-            .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(0));
+            .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(
+                0,
+            ));
         app.update();
         let roster = app.world().resource::<MatchParticipantRoster>();
         assert_eq!(
@@ -1096,7 +1150,8 @@ mod roster_topology_tests {
              skip it as occupied"
         );
         assert_eq!(
-            roster.seat_topology, None,
+            roster.seat_topology(),
+            None,
             "and the stamp must NOT be corrected either — a roster that records \
              agreement with a topology it does not implement is the disagreement \
              made invisible"
@@ -1109,17 +1164,19 @@ mod roster_topology_tests {
     #[test]
     fn a_half_seated_match_whose_cast_agrees_still_gets_its_stamp() {
         let topology = topology_of(2);
-        let mut app = app_with(versus_roster_from(2, None), 2, false);
+        let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 2, false);
         app.world_mut()
-            .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(0));
+            .spawn(ambition_platformer2d::actors::character_runtime::MatchSeat(
+                0,
+            ));
         app.update();
         let roster = app.world().resource::<MatchParticipantRoster>();
         assert_eq!(
             roster.participants,
-            versus_roster_from(2, None).participants
+            versus_roster_from(2, RosterSeating::Proposed).participants
         );
         assert_eq!(
-            roster.seat_topology,
+            roster.seat_topology(),
             Some(topology.generation()),
             "same fighters, same seats — replacing the roster here changes \
              nothing about the bodies and is how the reconciler stops re-running"
@@ -1132,7 +1189,11 @@ mod roster_topology_tests {
     #[test]
     fn an_agreeing_roster_is_not_touched() {
         let topology = topology_of(2);
-        let mut app = app_with(versus_roster_from(2, Some(topology.generation())), 2, false);
+        let mut app = app_with(
+            versus_roster_from(2, RosterSeating::activated_at(topology.generation())),
+            2,
+            false,
+        );
         let before = app.world().resource::<MatchParticipantRoster>().clone();
         app.update();
         assert_eq!(*app.world().resource::<MatchParticipantRoster>(), before);
@@ -1149,7 +1210,7 @@ mod roster_topology_tests {
     #[test]
     fn an_unfrozen_topology_does_not_overrule_the_roster() {
         let mut app = App::new();
-        app.insert_resource(versus_roster_from(4, None));
+        app.insert_resource(versus_roster_from(4, RosterSeating::Proposed));
         app.insert_resource(LocalSeatTopology::default());
         app.init_resource::<CharacterLoadDemand>();
         app.add_systems(Update, reconcile_roster_with_frozen_topology);
@@ -1179,7 +1240,7 @@ mod roster_topology_tests {
     /// repairable half is what makes the remaining report mean something.
     #[test]
     fn a_live_match_that_agrees_with_its_session_adopts_its_topology() {
-        let mut app = app_with(versus_roster_from(1, None), 1, true);
+        let mut app = app_with(versus_roster_from(1, RosterSeating::Proposed), 1, true);
         let generation = app.world().resource::<LocalSeatTopology>().generation();
         let fighters = app
             .world()
@@ -1196,7 +1257,7 @@ mod roster_topology_tests {
              of which topology decided them"
         );
         assert_eq!(
-            roster.seat_topology,
+            roster.seat_topology(),
             Some(generation),
             "the roster and the session agree about the fighters and the roster \
              still records no topology, so the reconciler warns about a stage \
@@ -1218,7 +1279,7 @@ mod roster_topology_tests {
     /// hide the reason that work is still open.
     #[test]
     fn a_seated_match_is_never_reseated_underneath_itself() {
-        let mut app = app_with(versus_roster_from(2, None), 3, true);
+        let mut app = app_with(versus_roster_from(2, RosterSeating::Proposed), 3, true);
         app.update();
         assert_eq!(
             app.world()

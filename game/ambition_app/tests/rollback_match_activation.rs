@@ -99,7 +99,7 @@ fn two_cpu_roster() -> MatchParticipantRoster {
             cpu("player_robot_v2", "red"),
         ],
         opens_suspended: true,
-        seat_topology: Some(11),
+        seating: ambition_platformer2d::actor::RosterSeating::activated_at(11),
         fighter_abilities: None,
         fighter_stocks: None,
         // A fixture's roster has no publisher: nothing else in this App claims
@@ -597,7 +597,7 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         // opening hold would keep both fighters still and pass for the wrong
         // reason.
         opens_suspended: false,
-        seat_topology: None,
+        seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_stocks: None,
         published_by: None,
@@ -708,7 +708,7 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
             })
             .collect(),
         opens_suspended: false,
-        seat_topology: None,
+        seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_stocks: None,
         published_by: None,

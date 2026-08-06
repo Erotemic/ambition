@@ -228,18 +228,9 @@ pub struct MatchParticipantRoster {
     /// Taken off by whoever put the countdown up — for versus, the `Starting`
     /// arm reaching zero, which is the one place a round goes live.
     pub opens_suspended: bool,
-    /// **Which frozen seat topology this roster was built from.**
-    ///
-    /// `None` means it was built from live device discovery because no session
-    /// had decided its seating yet — the ordinary case, since a route is entered
-    /// before its rollback session starts.
-    ///
-    /// The roster, the GGRS handle count and the per-seat latches must agree
-    /// about how many people are playing, and freezing the topology made them
-    /// agree by construction ONLY for consumers that read it. This roster is
-    /// built first, so the stamp is what turns "they should match" into a
-    /// question the code can ask (GPT 5.6, 2026-07-29).
-    pub seat_topology: Option<u64>,
+    /// **Whether anybody has agreed to seat this roster yet.** See
+    /// [`RosterSeating`].
+    pub seating: RosterSeating,
     /// **What every fighter in this match may do, physically.**
     ///
     /// `None` leaves each body with whatever it already had — the right answer
@@ -292,7 +283,102 @@ pub struct MatchParticipantRoster {
     pub published_by: Option<String>,
 }
 
+/// **Whether anybody has agreed to seat a [`MatchParticipantRoster`].**
+///
+/// ⛔ **this replaced `seat_topology: Option<u64>`, which meant two things.**
+/// `None` was both *"no device discovery went into this roster"* — a fixture, a
+/// scripted encounter, a boss, where a frozen topology has nothing to disagree
+/// WITH — and *"built from live device discovery on route entry, before any
+/// session decided its seating"*, which is a claim awaiting confirmation. One
+/// field, two meanings, and the difference is exactly whether a session is
+/// allowed to have an opinion.
+///
+/// The reconciler compensated by gating on `published_by`. That check is still
+/// needed and still right — rebuilding somebody else's roster transfers
+/// ownership, which cost Smash its second fighter on 2026-08-01 — but it is an
+/// OWNERSHIP field, and it was standing in for a lifecycle nobody had written
+/// down.
+///
+/// ⭐ **`Default` is `Activated`, and that is the load-bearing choice.** Every
+/// fixture, every `MatchParticipantRoster::of(..)`, every scripted encounter
+/// keeps seating exactly as it does today without naming this type at all. Only
+/// a route that builds a roster from live devices opts into [`Self::Proposed`],
+/// and only that route pays for the extra step.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RosterSeating {
+    /// **Nobody has agreed to seat this roster.** `seat_match_participants`
+    /// refuses it, so the route that proposed it must activate it first.
+    ///
+    /// This is what closes the window `status.md` calls *"MECHANISMS DONE,
+    /// ACTIVATION OPEN"*. It is not a race: seating runs on the SIM schedule and
+    /// a route's reconciliation runs in `Update`, and the frame order is
+    /// `PreUpdate` → Fixed → `Update`, so a reconciler is structurally incapable
+    /// of arriving before the bodies. Refusing is the only way to be first.
+    Proposed,
+    /// **This roster may seat.** `seat_topology` records which frozen seat
+    /// topology agreed to it, when one did.
+    ///
+    /// `None` there is an honest `None`: nothing had an opinion. The roster, the
+    /// GGRS handle count and the per-seat latches must agree about how many
+    /// people are playing, and this is the stamp that turns "they should match"
+    /// into a question the code can ask (GPT 5.6, 2026-07-29).
+    Activated { seat_topology: Option<u64> },
+}
+
+impl Default for RosterSeating {
+    /// ⭐ **`Activated`, and the reason is in [`RosterSeating`]'s own doc.**
+    /// Every roster that existed before this type did seats on publication, and
+    /// a `Proposed` default would have made all of them stop.
+    fn default() -> Self {
+        Self::Activated {
+            seat_topology: None,
+        }
+    }
+}
+
+impl RosterSeating {
+    /// A roster a session's frozen topology agreed to, at `generation`.
+    pub fn activated_at(generation: u64) -> Self {
+        Self::Activated {
+            seat_topology: Some(generation),
+        }
+    }
+
+    /// May a seating pass build bodies from this roster?
+    pub fn may_seat(self) -> bool {
+        matches!(self, Self::Activated { .. })
+    }
+
+    /// The frozen topology generation this roster was agreed under, if any.
+    ///
+    /// ⚠ a `Proposed` roster answers `None`, and so does an activated one that
+    /// nothing had an opinion about. A caller that needs to tell those apart is
+    /// asking about the LIFECYCLE and should match on the variant.
+    pub fn seat_topology(self) -> Option<u64> {
+        match self {
+            Self::Proposed => None,
+            Self::Activated { seat_topology } => seat_topology,
+        }
+    }
+}
+
 impl MatchParticipantRoster {
+    /// Which frozen topology generation this roster was agreed under, if any.
+    pub fn seat_topology(&self) -> Option<u64> {
+        self.seating.seat_topology()
+    }
+
+    /// **Agree to seat this roster**, recording the frozen topology that decided
+    /// it (`None` when nothing had an opinion).
+    ///
+    /// ⭐ one call, not a stamp applied after a separate "allow it" step —
+    /// activation IS the agreement, and splitting them would leave a window
+    /// where a roster is seatable and unstamped, which is the shape this type
+    /// exists to remove.
+    pub fn activate(&mut self, seat_topology: Option<u64>) {
+        self.seating = RosterSeating::Activated { seat_topology };
+    }
+
     pub fn of<I, S>(characters: I) -> Self
     where
         I: IntoIterator<Item = S>,

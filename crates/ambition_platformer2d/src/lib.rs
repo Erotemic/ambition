@@ -248,7 +248,7 @@ pub mod actor {
     /// the entire argument for keeping one.
     pub use ambition_platformer2d_actor_monolith::character_runtime::{
         ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeatingRefused,
-        RosterProblem,
+        RosterProblem, RosterSeating,
     };
 
     /// **The stocks economy**: the count on a body, the fact that it is out, and

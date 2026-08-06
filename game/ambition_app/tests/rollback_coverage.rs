@@ -736,7 +736,7 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
             cpu("player_robot_v2", "red"),
         ],
         opens_suspended: true,
-        seat_topology: Some(7),
+        seating: ambition_platformer2d::actor::RosterSeating::activated_at(7),
         fighter_abilities: None,
         fighter_stocks: None,
         // A fixture's roster has no publisher: nothing else in this App claims

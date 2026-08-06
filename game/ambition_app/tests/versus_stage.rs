@@ -2750,8 +2750,13 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
         for participant in &mut roster.participants {
             participant.character = format!("{}_impostor", participant.character);
         }
-        roster.seat_topology = None;
-        (roster.participants.clone(), roster.seat_topology)
+        // ⚠ **`activate(None)`, not `Proposed`.** The match is LIVE — these
+        // bodies are on the stage — so the roster stays activated and only the
+        // record of which topology decided it is cleared. Making it `Proposed`
+        // would describe a match nobody has agreed to while its fighters are
+        // mid-round, which is not a state the route can produce.
+        roster.activate(None);
+        (roster.participants.clone(), roster.seat_topology())
     };
     assert!(
         stamped_generation.is_none(),
@@ -2771,7 +2776,7 @@ fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
          the worse bug"
     );
     assert!(
-        roster.seat_topology.is_none(),
+        roster.seat_topology().is_none(),
         "the disagreement was stamped as agreed. The stamp is the difference \
          between the two arms: correcting it claims the session and the roster \
          describe the same match, and here they do not"

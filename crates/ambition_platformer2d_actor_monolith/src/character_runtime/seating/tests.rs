@@ -263,7 +263,7 @@ fn a_human_seat_does_not_redress_a_player_wearing_someone_else() {
     ));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         ..Default::default()
     });
@@ -360,7 +360,7 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 }),
+            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 })
         ],
         ..Default::default()
     });
@@ -392,7 +392,7 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
 /// asked to do.
 #[test]
 fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
-    use crate::combat::targeting::{FriendlyFire, MatchTeam, damage_lands_between};
+    use crate::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
 
     let mut app = seating_app();
     for id in ["alpha", "beta", "gamma", "delta"] {
@@ -506,8 +506,8 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
 /// ranged fighter stands there holding a gun it does not believe in.
 #[test]
 fn a_seated_fighter_receives_its_definitions_action_set() {
-    use ambition_characters::brain::ActionSet;
     use ambition_characters::brain::action_set::{RangedActionSpec, RangedStyle};
+    use ambition_characters::brain::ActionSet;
 
     let mut app = seating_app();
     // The projection is the system that actually serves a seated body.
@@ -738,7 +738,7 @@ fn an_adopted_seat_is_also_suspended_on_the_tick_it_joins() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         opens_suspended: true,
         ..Default::default()
@@ -859,7 +859,7 @@ fn an_adopted_seat_gets_the_same_body_facts_as_a_spawned_one() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("heavy").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("heavy").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         ..Default::default()
     });
@@ -931,7 +931,7 @@ fn an_ordinary_roster_seats_fighters_that_can_act() {
 /// resolved value rather than re-deriving one it has no catalog to derive from.
 #[test]
 fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
-    use ambition_characters::actor::character_catalog::{CharacterCatalog, parse_catalog};
+    use ambition_characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
 
     const CATALOG: &str = r#"(
         brain_presets: { "stand_still": StandStill },
@@ -1007,8 +1007,8 @@ fn a_seated_fighter_inherits_the_kit_its_catalog_row_authors() {
 /// while wearing the retired cast's moves, and no later pass will revisit it.
 #[test]
 fn a_new_cast_generation_refreshes_a_seated_fighters_kit() {
-    use ambition_characters::brain::ActionSet;
     use ambition_characters::brain::action_set::{MeleeActionSpec, SwipeSpec};
+    use ambition_characters::brain::ActionSet;
 
     fn swiping(damage: i32) -> ActionSet {
         ActionSet {
@@ -1119,7 +1119,7 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("tank").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("tank").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         ..Default::default()
     });
@@ -1171,7 +1171,7 @@ fn an_adopted_seat_fights_with_the_same_abilities_as_a_spawned_one() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 })
         ],
         fighter_abilities: Some(ambition_platformer2d_core::AbilitySet::basic()),
         ..Default::default()
@@ -1317,6 +1317,83 @@ fn a_roster_with_an_unseatable_participant_never_latches() {
 /// session after seating could only be REPORTED and not repaired (queue Y′9).
 ///
 /// It also has to be published in ONE insert, on the tick the last seat fills.
+/// **A PROPOSED roster does not seat, and an activated one does.**
+///
+/// The activation authority `status.md` calls for: *"validate every participant,
+/// activate the roster atomically, publish it, start the countdown from that.
+/// Until it exists, a roster that has ALREADY seated and then disagrees with the
+/// session is reported rather than repaired."*
+///
+/// A route builds its roster from live device discovery on entry; the rollback
+/// session freezes its topology afterwards. Seating used to run from whatever was
+/// published, so the bodies existed before anything could ask whether the session
+/// agreed — and it could not be fixed by reordering, because seating runs on the
+/// SIM schedule and a route's reconciliation runs in `Update`
+/// (`PreUpdate` → Fixed → `Update`). Refusing is the only way to be first.
+///
+/// ⚠ **the two halves are ONE test on purpose.** A refusal test alone passes
+/// against a seating pass that is simply broken; an activation test alone passes
+/// against one that ignores the lifecycle. What has to be true is that the same
+/// app, the same roster and the same participants seat when and only when the
+/// roster has been agreed to.
+#[test]
+fn a_proposed_roster_waits_and_the_same_roster_activated_seats() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("alpha", "Alpha", "demo"));
+    app.register_character(CharacterDefinition::new("beta", "Beta", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("alpha"), cpu("beta")],
+        seating: crate::character_runtime::RosterSeating::Proposed,
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    assert_eq!(
+        app.world_mut()
+            .query::<&MatchSeat>()
+            .iter(app.world())
+            .count(),
+        0,
+        "a PROPOSED roster seated bodies. Nothing has agreed to this match yet, \
+         and once the bodies exist the disagreement can only be reported"
+    );
+    assert!(
+        app.world().get_resource::<ActiveMatch>().is_none(),
+        "a match activated from a roster nobody agreed to seat"
+    );
+    // ⭐ and NOT because the composition cannot seat it — that would be a
+    // different refusal with a different meaning, and a consumer shows it to a
+    // human. A proposal is a wait, not a problem.
+    assert!(
+        app.world()
+            .get_resource::<crate::character_runtime::MatchSeatingRefused>()
+            .is_none(),
+        "waiting for activation was reported as an unsatisfiable roster, which \
+         would put a refusal on screen on every ordinary route entry"
+    );
+
+    // Same app, same participants — agreed to now.
+    app.world_mut()
+        .resource_mut::<MatchParticipantRoster>()
+        .activate(Some(7));
+    finalize_and_update(&mut app);
+
+    assert_eq!(
+        app.world_mut()
+            .query::<&MatchSeat>()
+            .iter(app.world())
+            .count(),
+        2,
+        "an ACTIVATED roster did not seat, so the refusal above proved nothing"
+    );
+    let active = app
+        .world()
+        .get_resource::<ActiveMatch>()
+        .expect("an activated roster that seats fully must activate the match");
+    assert_eq!(active.seat_topology(), Some(7));
+}
+
 /// A roster that seats over several ticks — the ordinary case, since seating
 /// retries — must not activate partially: the countdown gates on this, and a
 /// half-built match releasing it is the defect the gate exists for.
@@ -1327,7 +1404,7 @@ fn activation_publishes_every_seated_body_in_seat_order() {
     app.register_character(CharacterDefinition::new("beta", "Beta", "demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("alpha"), cpu("beta")],
-        seat_topology: Some(7),
+        seating: crate::character_runtime::RosterSeating::activated_at(7),
         ..Default::default()
     });
 
@@ -1604,7 +1681,10 @@ mod activation_transaction {
             .id()
     }
 
-    fn body_state(app: &App, body: Entity) -> (i32, i32, f32, f32, ambition_platformer2d_core::Vec2) {
+    fn body_state(
+        app: &App,
+        body: Entity,
+    ) -> (i32, i32, f32, f32, ambition_platformer2d_core::Vec2) {
         let health = app
             .world()
             .get::<ambition_characters::actor::BodyHealth>(body)

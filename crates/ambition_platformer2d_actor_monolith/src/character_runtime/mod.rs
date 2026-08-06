@@ -71,7 +71,7 @@ pub use seating::{
 };
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
-    NormalizedEffort, RoomStagingPlan, RosterProblem, StagesCharacters,
+    NormalizedEffort, RoomStagingPlan, RosterProblem, RosterSeating, StagesCharacters,
 };
 
 use std::collections::{BTreeMap, BTreeSet};

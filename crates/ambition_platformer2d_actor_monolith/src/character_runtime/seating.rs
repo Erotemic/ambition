@@ -628,6 +628,27 @@ pub fn seat_match_participants(
     if roster.participants.is_empty() {
         return;
     }
+    // ⛔ **A PROPOSED ROSTER DOES NOT SEAT.** This is the whole activation
+    // authority in one line, and it is here rather than in a route because the
+    // schedule makes every other position too late: seating runs on the SIM
+    // schedule and a route's reconciliation runs in `Update`, and the frame
+    // order is `PreUpdate` → Fixed → `Update`. A reconciler is structurally
+    // incapable of arriving before the bodies, so it could only ever report a
+    // disagreement it had no way to prevent — which is exactly what
+    // `status.md`'s *"MECHANISMS DONE, ACTIVATION OPEN"* row describes.
+    //
+    // ⚠ **not a refusal in the `MatchSeatingRefused` sense.** That resource says
+    // "this composition CANNOT seat this roster" and a consumer shows it to a
+    // human. A proposed roster is one nobody has agreed to YET; it is a wait,
+    // not a problem, and publishing a refusal for it would cry wolf on every
+    // ordinary route entry.
+    //
+    // ⭐ the default is `Activated`, so every fixture, scripted encounter and
+    // `MatchParticipantRoster::of(..)` passes straight through. Only a route
+    // that builds from live device discovery opts into the extra step.
+    if !roster.seating.may_seat() {
+        return;
+    }
     // No active session means no owner for the bodies. Seating waits rather
     // than spawning orphans; the roster is still there next tick.
     let Some(session_scope) =
@@ -1127,7 +1148,7 @@ pub fn seat_match_participants(
         by_seat.extend(seated_this_pass);
         commands.insert_resource(ActiveMatch {
             seats: by_seat.len(),
-            seat_topology: roster.seat_topology,
+            seat_topology: roster.seat_topology(),
         });
     }
 }

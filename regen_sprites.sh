@@ -1409,6 +1409,29 @@ else
     echo "  (skipped — sprite renderer or ambition_ldtk_tools not importable)"
 fi
 
+# --- LDtk editor art (the engine's own tiles, in the editor) -------------
+# Rebuild the per-world atlas that `asset editor-art` composes out of the
+# engine's entity sprites, so a fresh clone opens the world with masonry and
+# blocks rather than grey cells. The WIRING (auto-layer rules, entity
+# tileRects) is committed in the .ldtk; only the atlas PNG is gitignored, and
+# re-running is a no-op on the .ldtk when nothing about the art moved.
+echo "==> LDtk editor art:"
+if ambition_python_exists "$ldtk_python" && \
+    "$ldtk_python" \
+        -c "import ambition_ldtk_tools" 2>/dev/null
+then
+    for world_ldtk in \
+        "$repo_root/game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk"
+    do
+        [ -f "$world_ldtk" ] || continue
+        "$ldtk_python" \
+            -m ambition_ldtk_tools asset editor-art "$world_ldtk" --in-place \
+            2>&1 | sed 's/^/  /' || true
+    done
+else
+    echo "  (skipped — ambition_ldtk_tools not importable from $ldtk_python)"
+fi
+
 # --- Write fingerprint on success ----------------------------------------
 mkdir -p "$cache_dir"
 echo "$current_fingerprint" > "$fingerprint_file"

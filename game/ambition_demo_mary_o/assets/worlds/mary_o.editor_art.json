@@ -1,0 +1,22 @@
+{
+  "_doc": [
+    "Mary-O's own half of `asset editor-art`: the nouns this game invented, and",
+    "the engine art they should wear in the LDtk editor. Everything shared with",
+    "the rest of Ambition (Solid, OneWayPlatform, PickupSpawn, the IntGrid",
+    "values) is mapped by the tool itself — this file only says what the tool",
+    "cannot know.",
+    "",
+    "A bare name is an engine entity sprite (assets/sprites/entities/<name>.png);",
+    "anything with a slash is a path under the sprite folder. Re-run after",
+    "editing:",
+    "",
+    "  PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools \\",
+    "      asset editor-art game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk --in-place"
+  ],
+  "atlas_identifier": "EngineArt",
+  "entity_art": {
+    "MaryOBlock": "bonus_block_tile",
+    "MaryOPipe": "props/mary_o_pipe_top",
+    "PickupSpawn": "pickup_currency"
+  }
+}

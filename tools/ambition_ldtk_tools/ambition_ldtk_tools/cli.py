@@ -28,6 +28,7 @@ Subcommands (those marked [TODO] are not yet wired and will print a hint):
     asset link-entity-tile <ldtk> Point an entity def at a registered tileset tile.
     asset generate-editor-icons   Create placeholder editor icon PNGs.
     asset register-entity-icons   Generate the editor-icon atlas + wire every entity def's icon (one shot).
+    asset editor-art <ldtk>       Dress the editor in the art the engine draws (IntGrid auto-rules + entity tiles).
     asset suggest/apply/validate-manifest
                                   Scaffold and apply visual manifests.
 
@@ -198,6 +199,10 @@ def cmd_asset(args, rest):
         "preview-manifest",
     }:
         return _delegate("ambition_ldtk_tools.edit.assets", [args.asset_action, *rest])
+    if args.asset_action == "editor-art":
+        return _delegate(
+            "ambition_ldtk_tools.edit.editor_art", [args.asset_action, *rest]
+        )
     return _todo(f"asset {args.asset_action}")
 
 
@@ -501,6 +506,10 @@ def build_parser() -> argparse.ArgumentParser:
     asset_sub.add_parser("apply-manifest", help="Register tilesets and entity editor icons from a visual manifest")
     asset_sub.add_parser("validate-manifest", help="Validate LDtk visual refs against a manifest")
     asset_sub.add_parser("preview-manifest", help="Render a visual manifest HTML preview")
+    asset_sub.add_parser(
+        "editor-art",
+        help="Dress a world's editor visuals in the art the engine actually draws",
+    )
     sp_asset.set_defaults(func=cmd_asset)
 
     # door free-spots / door snap

@@ -253,6 +253,37 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset validat
 `diff semantic` reports `entity_def_visual` changes so generated visual updates
 are reviewable without raw JSON diffs.
 
+## Editor art: showing the level the engine will draw
+
+`asset editor-art` is the one-command version of the above for a world that
+wants to look like itself. It composes an atlas out of the ENGINE's own sprite
+folder, registers it, gives every IntGrid value auto-layer rules and every
+1:1 entity def a `tileRect` — so painting `Solid` draws masonry in the editor,
+and a `ChestSpawn` looks like the chest.
+
+```bash
+PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset editor-art \
+  game/ambition_demo_mary_o/assets/worlds/mary_o.ldtk --in-place --preview /tmp/mary_o.png
+```
+
+- The art comes from `assets/sprites/entities/*.png` — the same textures the
+  renderer binds — so an editor cell cannot drift from the block that spawns
+  under it. Tile art is 32px against a 16px collision grid, so each texture is
+  four cells and four `Single` rules phased by `xModulo`/`yModulo`.
+- **Nothing is baked into the levels.** The rules are evaluated live by LDtk, so
+  a repaint can never leave stale art behind — the failure mode `tileset paint`
+  has.
+- A world's own nouns go in `<world>.editor_art.json` beside the `.ldtk`
+  (`{"entity_art": {"MaryOPipe": "props/mary_o_pipe_top"}}`); a character icon is
+  `{"sheet": "ai_slop", "animation": "idle", "frame": 0}`, whose rect is read
+  from the sheet's sidecar — ⛔ never computed from `frame_width`, which is the
+  design size and not the packing pitch of a packed sheet.
+- The atlas PNG is generated and gitignored with the sprites it is made of;
+  `regen_sprites.sh` rebuilds it. The WIRING is committed in the `.ldtk`.
+- `--preview` renders the level as the rules will draw it. It proves the art,
+  the rects and the tile ids; it cannot prove LDtk agrees about the rule fields,
+  which only opening the editor can.
+
 ## Internal architecture notes
 
 The LDtk editor JSON stays as plain Python dictionaries, but low-level mechanics

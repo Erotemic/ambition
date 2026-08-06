@@ -2358,7 +2358,7 @@
         hall_dialogue_id: Some("hall_npc_anne_druid"),
         ),
         "npc_richard_duckling": (
-            display_name: "Richard Duckling, the Selfish Meme",
+            display_name: "Richard Duckling",
             spritesheet: "sprites/richard_duckling_spritesheet.png",
             manifest: "sprites/richard_duckling_spritesheet.ron",
             tier: MainHall,

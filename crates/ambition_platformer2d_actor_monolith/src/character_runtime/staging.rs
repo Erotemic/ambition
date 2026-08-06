@@ -375,8 +375,45 @@ impl MatchParticipantRoster {
     /// activation IS the agreement, and splitting them would leave a window
     /// where a roster is seatable and unstamped, which is the shape this type
     /// exists to remove.
+    ///
+    /// ⚠ **unvalidated.** Use [`Self::activate_if_seatable`] where an archetype
+    /// table is in hand; this exists for the callers that have none (a rebuild
+    /// carrying a decision already made, a test).
     pub fn activate(&mut self, seat_topology: Option<u64>) {
         self.seating = RosterSeating::Activated { seat_topology };
+    }
+
+    /// **Validate every participant AND activate, or neither.**
+    ///
+    /// `status.md`'s activation row asks for *"validate every participant,
+    /// activate the roster atomically, publish it, start the countdown from
+    /// that"*. The validation existed
+    /// ([`Self::unsatisfiable_seats`]) and the caller that mattered was
+    /// `seat_match_participants` — so the check ran one step AFTER the roster
+    /// was live, and a route could activate a match its own composition cannot
+    /// fill. Seating then refuses, publishes `MatchSeatingRefused`, and the
+    /// stage sits on a roster that will never seat.
+    ///
+    /// ⭐ **the validation is INSIDE the activation, not a call before it.**
+    /// [[an authority that needs a follow-up call]]: a separate
+    /// `check_then_activate` leaves a window where a caller did the second half
+    /// and not the first, and this repo has paid for that shape more than once.
+    /// A caller cannot activate without validating because there is no argument
+    /// order in which it can.
+    ///
+    /// Returns the problems on refusal, so a caller can say something true
+    /// instead of retrying forever.
+    pub fn activate_if_seatable(
+        &mut self,
+        archetypes: &crate::features::CharacterRoster,
+        seat_topology: Option<u64>,
+    ) -> Result<(), Vec<RosterProblem>> {
+        let problems = self.unsatisfiable_seats(archetypes);
+        if !problems.is_empty() {
+            return Err(problems);
+        }
+        self.activate(seat_topology);
+        Ok(())
     }
 
     pub fn of<I, S>(characters: I) -> Self

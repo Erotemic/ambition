@@ -353,6 +353,11 @@ fn reconcile_roster_with_frozen_topology(
     // Bodies that are ALREADY seated, latch or no latch. This is the fact the
     // `ActiveMatch` check was standing in for, and the two are not the same fact.
     seated: Query<&ambition_platformer2d::actors::character_runtime::MatchSeat>,
+    // The archetype table a seated CPU consults — the authority activation
+    // validates against. OPTIONAL because a composition legitimately has none
+    // (an engine App with no content), and `engine.character-authority-is-app-local`
+    // means "not part of this composition" is a real answer rather than a fault.
+    archetypes: Option<Res<ambition_platformer2d::actors::features::CharacterRoster>>,
 ) {
     let (Some(topology), Some(mut roster)) = (topology, roster) else {
         return;
@@ -396,7 +401,34 @@ fn reconcile_roster_with_frozen_topology(
     // lifecycle into a deadlock.
     if !topology.is_frozen() {
         if !roster.seating.may_seat() {
-            roster.activate(None);
+            // ⭐ **validate as PART of activating.** `status.md`'s activation row
+            // asks for exactly this, and the validation already existed — its
+            // only caller was `seat_match_participants`, which runs one step
+            // AFTER the roster is live. So a route could activate a match its
+            // own composition cannot fill, seating would refuse it, and the
+            // stage would sit on a roster that never seats.
+            let validated = match archetypes.as_deref() {
+                Some(archetypes) => roster.activate_if_seatable(archetypes, None),
+                // No archetype table to validate against. Activating unvalidated
+                // is what happened before this check existed, and refusing here
+                // would strand every content-free composition instead.
+                None => {
+                    roster.activate(None);
+                    Ok(())
+                }
+            };
+            if let Err(problems) = validated {
+                bevy::log::warn_once!(
+                    "the versus roster is not activated because this composition \
+                     cannot seat it: {}. The stage stays on its proposal rather \
+                     than publishing a match that would be refused a tick later.",
+                    problems
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join("; "),
+                );
+            }
         }
         return;
     }
@@ -433,6 +465,10 @@ fn reconcile_roster_with_frozen_topology(
             // Correcting a record is a repair. This is the half of Y′9 that was
             // left as "reported rather than repaired", and it turns the warning
             // below into a signal instead of startup noise.
+            // Already seated: these bodies exist, so this is correcting a record
+            // rather than deciding a match, and re-validating what is already on
+            // the stage would be asking a question whose answer cannot change
+            // anything.
             roster.activate(Some(topology.generation()));
             active.adopt_seat_topology(topology.generation());
             return;
@@ -1037,6 +1073,78 @@ mod roster_topology_tests {
         app.init_resource::<CharacterLoadDemand>();
         app.add_systems(Update, reconcile_roster_with_frozen_topology);
         app
+    }
+
+    /// **Activation VALIDATES, and a roster this composition cannot fill is not
+    /// activated.**
+    ///
+    /// `status.md`'s activation row asks for *"validate every participant,
+    /// activate the roster atomically"*. The validation existed —
+    /// `unsatisfiable_seats` — and its caller was `seat_match_participants`,
+    /// which runs one step AFTER the roster is live. So a route could activate a
+    /// match naming a brain profile its own `CharacterRoster` has never heard
+    /// of, seating would refuse it every tick, and the stage would sit forever on
+    /// a match that publishes a refusal instead of fighters. That is not
+    /// hypothetical: the versus stage named `medium_striker` and the smash demo
+    /// named `duelist` before either composition registered one, on 2026-07-31,
+    /// and both shipped looking composed.
+    ///
+    /// ⚠ **the fixture registers an EMPTY archetype table, not none.** Absent is
+    /// a different answer — a content-free composition legitimately has no
+    /// archetypes and activating unvalidated is the right behaviour there, since
+    /// refusing would strand it. Empty means "this composition has a table and
+    /// your profile is not in it", which is the failure being caught.
+    #[test]
+    fn a_roster_this_composition_cannot_seat_is_not_activated() {
+        let mut app = App::new();
+        // ⚠ **ONE local player, and that is not a detail.** `versus_roster_from`
+        // makes seat `n` human only while `n < local_players`, so a two-player
+        // roster is two humans and has no brain profile to validate at all —
+        // this test passed for that reason first time out.
+        app.insert_resource(versus_roster_from(1, RosterSeating::Proposed));
+        // Not frozen: this is the entry-time arm, where the route activates its
+        // own proposal because no session has an opinion.
+        app.insert_resource(LocalSeatTopology::default());
+        app.init_resource::<CharacterLoadDemand>();
+        app.init_resource::<ambition_platformer2d::actors::features::CharacterRoster>();
+        app.add_systems(Update, reconcile_roster_with_frozen_topology);
+        app.update();
+
+        let roster = app.world().resource::<MatchParticipantRoster>();
+        assert!(
+            !roster.seating.may_seat(),
+            "a roster naming brain profile `{VERSUS_CPU_BRAIN}`, which this \
+             composition's CharacterRoster does not have, was activated anyway. \
+             Seating will refuse it every tick and the stage will never open"
+        );
+
+        // ⭐ and the SAME roster activates once the composition can answer for it,
+        // or the refusal above would pass against a route that never activates.
+        // ⚠ assembled from the stage's OWN roster RON, not a hand-built table:
+        // that file is what a shipped composition registers, so this half also
+        // asserts `VERSUS_CPU_BRAIN` is actually in it — the exact thing that was
+        // false on 2026-07-31 when the stage named `medium_striker`.
+        let mut fragments =
+            ambition_platformer2d::actors::features::CharacterRosterRegistry::default();
+        fragments
+            .register(
+                ambition_platformer2d::actors::features::CharacterRosterFragment::from_ron(
+                    VERSUS_EXPERIENCE,
+                    None::<String>,
+                    VERSUS_ROSTER_RON,
+                )
+                .expect("the versus archetype roster is valid"),
+            )
+            .expect("one fragment registers");
+        app.insert_resource(fragments.assemble().expect("the versus roster assembles"));
+        app.update();
+        assert!(
+            app.world()
+                .resource::<MatchParticipantRoster>()
+                .seating
+                .may_seat(),
+            "a roster this composition CAN seat was still refused"
+        );
     }
 
     /// ⛔ **Another game's roster is not this one's to rebuild.**

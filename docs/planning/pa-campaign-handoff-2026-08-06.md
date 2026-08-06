@@ -7,8 +7,10 @@ Jon, verbatim: **"Yes do the architecture task PA1-PA4."** The spec is
 is the operational record: what landed, what is left, and which forks are
 decisions rather than work.
 
-**Status: PA1–PA4 are landed except for five decision-blocked items and one
-unstarted half of PA3.** Everything owed is listed under "What is left".
+**Status: PA1–PA4 are landed. Every decision is closed as of 2026-08-06.** What
+remains is ordinary work: PA3's submit/directional halves (Jon's pick for next),
+plus the three rulings below that turned into work rather than closing items —
+per-pad filtering, dialogue going per-seat, and any-seat pause.
 
 ## What landed (verify with `git log`, don't re-derive)
 
@@ -126,13 +128,19 @@ them cue-driven would be generalizing without a consumer.
 
 ## What is left
 
-**PA1 — per-seat presets for secondary seats.** Couch seats are hardcoded
-`GamepadOnly`. The recipe is the seam and is ready; the product half is **D2**.
+**PA1 — closed by D2, not built.** Couch seats stay `GamepadOnly` with
+machine-wide bindings. What D2 DID buy is separate work: filtering keyed to the
+pad, so player two's controller stops running on player one's deadzone.
 
-**PA2 — two decision-blocked migrations.** `GameMode::Paused`'s own derivation
-needs **D5**; the dialogue world-stop needs **D4**. Loading/retry stays
-deliberately unmigrated: moving its raw read into `Consume` creates a schedule
-cycle through load-presentation + shell sequence sets (spec §8).
+**PA2 — two migrations, now unblocked and owed.**
+- Dialogue leaves the suspend set and routes through `DIALOGUE_CONTEXT` alone
+  (D4). ⚠ this changes how every existing scene plays and wants looking at, not
+  just compiling.
+- Pause becomes per-seat: any seat opens it, that seat drives it (D5). The
+  channel (`SeatMenuFrames`) exists; the new state is menu ownership.
+- Loading/retry stays deliberately unmigrated: moving its raw read into
+  `Consume` creates a schedule cycle through load-presentation + shell sequence
+  sets (spec §8).
 
 **PA3 — the submit and directional halves, not started.**
 - One semantic activation event covering controller submit and virtual-touch
@@ -148,20 +156,32 @@ cycle through load-presentation + shell sequence sets (spec §8).
 
 - **D1 (technical) — RESOLVED as recommended.** Overrides persist through
   `bevy_input`'s `serialize` feature. See PA1 above.
-- **D2 (product): per-seat settings.** Do couch seats get their own persisted
-  preset/overrides/deadzones (profiles picked at the select screen?), or do
-  machine-wide settings apply to every seat? Blocks the per-seat-presets half of
-  PA1 only.
+**All five are now closed.** Full wording and reasoning in
+`maintainer-decisions.md`; summarised here so this file stands alone.
+
+- **D1 (technical) — RESOLVED as recommended.** Overrides persist through
+  `bevy_input`'s `serialize` feature.
+- **D2 (product) — RESOLVED 2026-08-06: filtering per PAD, bindings shared.**
+  Deadzones and trigger thresholds follow the controller (the calibration tables
+  already exist on `ControllerProfileId`); presets and binding overrides stay
+  machine-wide. PA1's "per-seat presets" item is answered by narrowing, not by
+  building.
 - **D3 (sequencing) — proceeding as proposed.** The P5 rebind-capture UI comes
   after PA3's menu module, so the rebind rows are built ON it rather than twice.
-  The model it needs is landed.
-- **D4 (product, filed): dialogue world-stop default** —
-  `awaiting-maintainer-decision.md`. Per-seat contexts exist; on a couch one
-  player talking freezes everyone. Keep world-stop / go per-seat / policy per
-  experience.
-- **D5 (product): couch pause semantics.** Who may pause, and who navigates the
-  pause menu. Today: any seat pauses, the world stops, the primary navigates —
-  and a migration that preserves that is available without the decision.
+  The model it needs is landed. ⭐ Jon confirmed the order 2026-08-06 by picking
+  PA3's remaining halves as the next work.
+- **D4 (product) — RESOLVED 2026-08-06: dialogue goes PER-SEAT by default.**
+  ⚠ this was NOT the recommended option. `GameMode::Dialogue` leaves the suspend
+  set and `DIALOGUE_CONTEXT` becomes the whole gate, so every existing scene
+  keeps ticking during a conversation. The per-experience opt-in to stop the
+  world stays, per his 2026-08-03 ruling that both must be expressible.
+  `RoomTransition` and `Cutscene` are explicitly not the same question.
+- **D5 (product) — RESOLVED 2026-08-06: any seat pauses, and that seat
+  navigates.** ⚠ this file previously described today's behaviour wrongly: the
+  pause menu reads `MenuControlFrame`, which is filled from the PRIMARY seat
+  alone, so player two can neither open it nor move its cursor. `SeatMenuFrames`
+  already exists. The world still stops for everyone; the new state is which
+  seat owns the open menu.
 
 ## Traps this campaign hit (so the next one doesn't)
 

@@ -42,10 +42,20 @@ be the one choosing.
 > Jon still has to rule on, and every closed row on it makes that list less true.
 
 
-## Should DIALOGUE stop the world, or only the talker? (2026-08-01)
+## Should DIALOGUE stop the world, or only the talker? (2026-08-01) — ✔ CLOSED
 
 > **JON, 2026-08-03: "dialogue should have the option to stop the world. I'm not
 > decided on what I want it to do in game."**
+>
+> ✔ **JON, 2026-08-06 — the default is decided: SPLIT IT.** Asked to choose
+> between building the policy with today's stop-the-world default, defaulting to
+> per-seat, or leaving it, he picked *"Build it, default to per-seat"* — over the
+> recommendation, which was the conservative default. So dialogue claims only the
+> TALKER's input, NPCs keep patrolling through a conversation, and a couch seat
+> is no longer frozen by somebody else talking. The per-experience opt-in to stop
+> the world stays, because his 2026-08-03 ruling made both expressible a
+> requirement. Recorded in `maintainer-decisions.md`; the section below is kept
+> for the mechanism it documents, not as an open question.
 
 ✔ **The ENGINE answer is settled: both must be expressible.** "Stop the world" is
 a capability the dialogue system owes, not a behaviour it picks — so this is a

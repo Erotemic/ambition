@@ -17,9 +17,59 @@ use crate::{ActiveSpacetime2d, ProperTimeElapsed, Relativity2dSet, SpacetimeCoor
 
 pub const DEFAULT_WORLDLINE_HISTORY_SAMPLES: usize = 720;
 
+/// **A track's stable identity — never displayed.**
+///
+/// ⛔ **the history used to be keyed by the DISPLAY LABEL**, and the warning
+/// beside the duplicate check said so in as many words: *"a label is a display
+/// name, not an identity"* — while the label remained the map key. Four things
+/// followed, and three of them are gone with this type: two entities could not
+/// legitimately share a display name; renaming a label moved its authoritative
+/// history to a different address; and a duplicate silently received no
+/// telemetry at all. (GPT 5.6 through `32eb27a`, finding 5 — correct, and
+/// correct that requiring `WorldlineTracked2d` on an optical source was only a
+/// partial repair.)
+///
+/// ⚠ **still a `String`, and deliberately.** The reviewer suggested `SimId`; not
+/// every tracked body has one (TwinTrack's traveler and passband are demo-spawned
+/// without), so keying on it would silently drop tracks. What matters is that
+/// this is a SEPARATE authored value that nothing draws — so a label may change
+/// freely, and two bodies colliding here is a genuine identity clash rather than
+/// two people choosing the same caption.
+#[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct WorldlineTrackId(pub String);
+
+impl WorldlineTrackId {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// Opt one body into bounded worldline telemetry.
+///
+/// ⚠ `label` is PRESENTATION and nothing keys on it. See [`WorldlineTrackId`].
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
-pub struct WorldlineTracked2d(pub String);
+pub struct WorldlineTracked2d {
+    pub track: WorldlineTrackId,
+    pub label: String,
+}
+
+impl WorldlineTracked2d {
+    /// The common case: a body whose caption and its identity are the same
+    /// string TODAY. They are still two values — renaming the caption later is
+    /// a one-field edit that does not move the history.
+    pub fn new(id_and_label: impl Into<String>) -> Self {
+        let value: String = id_and_label.into();
+        Self {
+            track: WorldlineTrackId(value.clone()),
+            label: value,
+        }
+    }
+
+    pub fn with_label(mut self, label: impl Into<String>) -> Self {
+        self.label = label.into();
+        self
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WorldlineSample2d {
@@ -37,7 +87,7 @@ pub struct WorldlineSample2d {
 pub struct WorldlineHistoryView2d {
     pub capacity_per_track: usize,
     pub coordinate_epoch: Option<u64>,
-    pub tracks: BTreeMap<String, VecDeque<WorldlineSample2d>>,
+    pub tracks: BTreeMap<WorldlineTrackId, VecDeque<WorldlineSample2d>>,
 }
 
 impl Default for WorldlineHistoryView2d {
@@ -85,7 +135,7 @@ pub(crate) fn install_telemetry_systems(app: &mut App, sim: InternedScheduleLabe
     app.rollback_component_clone_probed::<WorldlineTracked2d>(
         "ambition_relativity2d",
         "relativity.worldline_tracked_2d",
-        |tracked| hash_label(&tracked.0),
+        |tracked| hash_label(tracked.track.as_str()),
     );
 
     app.add_systems(
@@ -129,25 +179,32 @@ fn publish_worldline_history(
     // deterministically-wrong shape this repo has been bitten by before, here
     // producing one entity's past light cone attributed to another.
     //
-    // ⭐ the first claimant by (label, entity) owns the track and the rest are
+    // ⭐ the first claimant by (track id, entity) owns the track and the rest are
     // refused. Sorted, so the owner is the same on every peer and every replay
     // rather than the same only by luck.
+    //
+    // ⚠ **this now sorts by the TRACK ID, not the label** — which is what makes
+    // the refusal below a real collision report rather than a complaint about
+    // two bodies sharing a caption.
     let mut rows: Vec<_> = tracked.iter().collect();
     rows.sort_by(|(lhs_entity, lhs, ..), (rhs_entity, rhs, ..)| {
-        lhs.0.cmp(&rhs.0).then_with(|| lhs_entity.cmp(rhs_entity))
+        lhs.track
+            .cmp(&rhs.track)
+            .then_with(|| lhs_entity.cmp(rhs_entity))
     });
     let mut claimed: std::collections::BTreeSet<&str> = Default::default();
-    for (entity, label, body, proper_time) in rows {
-        if !claimed.insert(label.0.as_str()) {
+    for (entity, tracked, body, proper_time) in rows {
+        if !claimed.insert(tracked.track.as_str()) {
             bevy::log::warn_once!(
-                "worldline label {:?} is claimed by more than one entity ({entity:?} is not the \
-                 owner); its samples are refused rather than overwriting the owner's. A label is \
-                 a display name, not an identity.",
-                label.0
+                "worldline TRACK ID {:?} is claimed by more than one entity ({entity:?} is not \
+                 the owner); its samples are refused rather than overwriting the owner's. Two \
+                 bodies may share a display label ({:?}) — they may not share an identity.",
+                tracked.track,
+                tracked.label
             );
             continue;
         }
-        let samples = history.tracks.entry(label.0.clone()).or_default();
+        let samples = history.tracks.entry(tracked.track.clone()).or_default();
         while samples
             .back()
             .is_some_and(|sample| sample.sim_tick >= current_tick)
@@ -179,6 +236,57 @@ fn clear_worldlines_without_live_spacetime(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **Renaming what a body is CALLED does not move its history.**
+    ///
+    /// ⛔ it did. `WorldlineTracked2d` was a bare `String` and the history was a
+    /// `BTreeMap<String, _>` keyed by it, so the display caption WAS the
+    /// authoritative address: renaming a body on screen re-pointed its history
+    /// at a track nobody had written, and two bodies could not legitimately
+    /// share a caption. The duplicate warning said *"a label is a display name,
+    /// not an identity"* while the label was the identity. (GPT 5.6 through
+    /// `32eb27a`, finding 5.)
+    #[test]
+    fn a_label_is_presentation_and_the_track_id_is_the_address() {
+        let before = WorldlineTracked2d::new("traveler");
+        assert_eq!(before.track, WorldlineTrackId("traveler".into()));
+        assert_eq!(before.label, "traveler");
+
+        let renamed = before.clone().with_label("The Traveller (ship clock)");
+        assert_eq!(
+            renamed.track, before.track,
+            "renaming the caption moved the track identity, so the body's history \
+             is now addressed somewhere nothing has written"
+        );
+        assert_ne!(renamed.label, before.label);
+    }
+
+    /// **Two bodies may share a caption; they may not share an identity.**
+    ///
+    /// The first was a real limitation of the string-keyed map — one of the two
+    /// silently received no telemetry at all — and it is the one that should
+    /// never have been a limitation.
+    #[test]
+    fn two_bodies_may_share_a_caption() {
+        let one = WorldlineTracked2d::new("clock_a").with_label("Clock");
+        let two = WorldlineTracked2d::new("clock_b").with_label("Clock");
+        assert_eq!(one.label, two.label);
+        assert_ne!(
+            one.track, two.track,
+            "two distinctly-identified bodies collided, which is the case the \
+             ownership refusal is FOR — it should not be reachable by captioning"
+        );
+
+        let mut tracks: BTreeMap<WorldlineTrackId, VecDeque<WorldlineSample2d>> =
+            Default::default();
+        tracks.entry(one.track.clone()).or_default();
+        tracks.entry(two.track.clone()).or_default();
+        assert_eq!(
+            tracks.len(),
+            2,
+            "the two bodies shared one history because they shared a caption"
+        );
+    }
 
     #[test]
     fn default_history_is_bounded() {

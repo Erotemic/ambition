@@ -61,8 +61,15 @@ fn provider_installs_clocks_signals_worldlines_and_minkowski_spacetime() {
     assert_eq!(signal_view.emitters.len(), 1);
 
     let worldline_view = app.world().resource::<WorldlineHistoryView2d>();
-    assert!(worldline_view.tracks.contains_key("traveler"));
-    assert!(worldline_view.tracks.contains_key("laboratory"));
+    // ⚠ keyed by TRACK ID since 2026-08-06 — the history stopped being addressed
+    // by a display caption, so a rename cannot move it.
+    use ambition_platformer2d::relativity2d::WorldlineTrackId;
+    assert!(worldline_view
+        .tracks
+        .contains_key(&WorldlineTrackId("traveler".to_string())));
+    assert!(worldline_view
+        .tracks
+        .contains_key(&WorldlineTrackId("laboratory".to_string())));
 
     let targeting = app.world().resource::<RelativisticTargetingView2d>();
     let target = targeting

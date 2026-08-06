@@ -42,7 +42,7 @@ pub use targeting::{
     RelativisticTarget2d, RelativisticTargetObservation2d, RelativisticTargetingView2d,
 };
 pub use telemetry::{
-    WorldlineHistoryView2d, WorldlineSample2d, WorldlineTracked2d,
+    WorldlineHistoryView2d, WorldlineSample2d, WorldlineTrackId, WorldlineTracked2d,
     DEFAULT_WORLDLINE_HISTORY_SAMPLES,
 };
 

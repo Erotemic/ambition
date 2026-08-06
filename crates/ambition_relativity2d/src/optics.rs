@@ -217,7 +217,7 @@ fn publish_optical_view(
     let mut source_rows: Vec<_> = sources.iter().collect();
     source_rows.sort_by(|(_, lhs, _), (_, rhs, _)| lhs.label.cmp(&rhs.label));
     for (entity, source, tracked) in source_rows {
-        let Some(samples) = worldlines.tracks.get(&tracked.0) else {
+        let Some(samples) = worldlines.tracks.get(&tracked.track) else {
             view.missed_sources += 1;
             continue;
         };

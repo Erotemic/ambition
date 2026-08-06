@@ -670,11 +670,14 @@ fn update_observatory_trace(
         return;
     };
     let mut points = Vec::new();
-    for (label, samples) in &worldlines.tracks {
-        if label != "traveler" && label != "laboratory" && label != "chase_beacon" {
+    // ⚠ **these are TRACK IDS, not captions.** The history is keyed by identity
+    // since 2026-08-06, so an observatory that drew by label would have gone
+    // blank the first time somebody renamed one on screen.
+    for (track, samples) in &worldlines.tracks {
+        if !matches!(track.as_str(), "traveler" | "laboratory" | "chase_beacon") {
             continue;
         }
-        let color = match label.as_str() {
+        let color = match track.as_str() {
             "traveler" => Color::srgb(0.22, 1.0, 0.46),
             "laboratory" => Color::srgb(1.0, 0.80, 0.16),
             _ => Color::srgb(1.0, 0.30, 0.72),

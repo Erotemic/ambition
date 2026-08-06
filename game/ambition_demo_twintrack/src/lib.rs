@@ -542,7 +542,7 @@ fn install_twintrack_session(
         TravelerTwin,
         RelativisticClock2d,
         RelativityClockLabel("traveler".to_owned()),
-        WorldlineTracked2d("traveler".to_owned()),
+        WorldlineTracked2d::new("traveler"),
         RelativisticObserver2d("traveler".to_owned()),
         LightEmitter2d::new(
             TRANSMITTER_LABEL,
@@ -563,7 +563,7 @@ fn install_twintrack_session(
         LaboratoryTwin,
         RelativisticClock2d,
         RelativityClockLabel("laboratory".to_owned()),
-        WorldlineTracked2d("laboratory".to_owned()),
+        WorldlineTracked2d::new("laboratory"),
         OpticalSource2d::new("laboratory", 180.0, 1.0, 15.0),
         ProperTimeElapsed::ZERO,
         TwinTrackExperiment::default(),
@@ -578,7 +578,7 @@ fn install_twintrack_session(
     ));
     commands.spawn((
         RelativisticClock2d,
-        WorldlineTracked2d("doppler_passband".to_owned()),
+        WorldlineTracked2d::new("doppler_passband"),
         OpticalSource2d::new("doppler_passband", 260.0, 1.15, 18.0),
         LightReceiver2d::observer(
             "doppler_passband",
@@ -597,7 +597,7 @@ fn install_twintrack_session(
     ));
     commands.spawn((
         RelativisticClock2d,
-        WorldlineTracked2d("radar_reflector".to_owned()),
+        WorldlineTracked2d::new("radar_reflector"),
         OpticalSource2d::new("radar_reflector", 120.0, 1.35, 21.0),
         LightReceiver2d::reflector(
             "radar_reflector",
@@ -615,7 +615,7 @@ fn install_twintrack_session(
     ));
     commands.spawn((
         TwinTrackChaseBeacon,
-        WorldlineTracked2d("chase_beacon".to_owned()),
+        WorldlineTracked2d::new("chase_beacon"),
         OpticalSource2d::new("chase_beacon", 210.0, 1.55, 20.0),
         RelativisticTarget2d("chase_beacon".to_owned()),
         LightReceiver2d::observer(
@@ -1256,8 +1256,9 @@ fn draw_twintrack_sr_course(
     }
 
     let window = 8.0;
-    for (label, samples) in &worldlines.tracks {
-        let color = if label == "traveler" {
+    // Keyed by TRACK ID, not caption — see `observatory.rs`.
+    for (track, samples) in &worldlines.tracks {
+        let color = if track.as_str() == "traveler" {
             Color::srgb(0.25, 1.0, 0.38)
         } else {
             Color::srgb(1.0, 0.82, 0.22)

@@ -24,15 +24,6 @@ fn keyboard_preset_presets_returns_four_unique_ids() {
     }
 }
 
-#[test]
-fn keyboard_preset_movement_label_matches_id_family() {
-    // Both Arrows variants produce "Arrow keys"; both WASD variants
-    // produce "WASD".
-    assert_eq!(KeyboardPreset::arrows_zxc().movement_label(), "Arrow keys");
-    assert_eq!(KeyboardPreset::arrows_qwer().movement_label(), "Arrow keys");
-    assert_eq!(KeyboardPreset::wasd_jkl().movement_label(), "WASD");
-    assert_eq!(KeyboardPreset::wasd_uipo().movement_label(), "WASD");
-}
 
 #[test]
 fn analog_to_dir_picks_dominant_axis() {

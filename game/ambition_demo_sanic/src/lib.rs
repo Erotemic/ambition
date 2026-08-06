@@ -318,6 +318,10 @@ pub fn sanic_speedway() -> RoomSpec {
                 // ⭐ **a legend written as a literal cannot help but drift from
                 // the preset beside it.** Read the SAME table the bindings do,
                 // so a rebind moves the sign with it.
+                // ⚠ preset 0 is PINNED: this runs at room GENERATION, which has
+                // no settings access, so a non-default preset still drifts. The
+                // drift-free shape is a presentation-time label fed by
+                // `SeatBindings` (PA4's cue contract), not more plumbing here.
                 let keys = ambition_platformer2d::input::KeyboardPreset::arrows_zxc().actions;
                 let name = ambition_platformer2d::input::key_name;
                 format!(

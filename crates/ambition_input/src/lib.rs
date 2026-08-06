@@ -127,7 +127,7 @@ pub use participant::{
 };
 // ⚠ `key_name` joins this list rather than the module being opened: the crate
 // exposes a chosen surface, and a HUD legend needs exactly one function from it.
-pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId, GAMEPAD_MAP};
+pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId};
 pub use semantic::{
     ActionConflict, ActionControlKind, ActionRegistry, InstalledActions, SemanticActionDef,
     SemanticActionId, ENGINE_ACTIONS, ENGINE_CAPABILITY,

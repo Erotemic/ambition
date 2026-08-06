@@ -1,6 +1,6 @@
 //! Default binding presets: the selectable keyboard layouts (`PresetId` /
-//! `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad map
-//! (`GAMEPAD_MAP`) that seed leafwing's input map for `Platformer2dInputActionMonolith`.
+//! `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad
+//! bindings that seed leafwing's input map for `Platformer2dInputActionMonolith`.
 
 use super::*;
 
@@ -50,7 +50,7 @@ pub struct ActionKeys {
     pub pause: KeyCode,
     pub select_reset: KeyCode,
     /// Optional dedicated pogo key. When `None`, pogo falls back to
-    /// the down+attack combo and `action_label` shows "Pogo Down+Attack".
+    /// the down+attack combo and the glyph path shows "D+X".
     pub dedicated_pogo: Option<KeyCode>,
 }
 
@@ -242,13 +242,6 @@ impl KeyboardPreset {
                 select_reset: KeyCode::Delete,
                 dedicated_pogo: None,
             },
-        }
-    }
-
-    pub fn movement_label(&self) -> &'static str {
-        match self.id {
-            PresetId::ArrowsZxc | PresetId::ArrowsQwer => "Arrow keys",
-            PresetId::WasdJkl | PresetId::WasdUipo => "WASD",
         }
     }
 
@@ -610,50 +603,6 @@ fn insert_gamepad_bindings(map: &mut InputMap<Platformer2dInputActionMonolith>) 
         GamepadControlAxis::RIGHT_Z,
     );
 }
-
-impl KeyboardPreset {
-    pub fn action_label(&self) -> String {
-        let mut parts = vec![
-            format!("Jump {}", key_name(self.actions.jump)),
-            format!("Attack {}", key_name(self.actions.attack)),
-            format!("Dash {}", key_name(self.actions.dash)),
-        ];
-        if let Some(k) = self.actions.dedicated_pogo {
-            parts.push(format!("Pogo {}", key_name(k)));
-        } else {
-            parts.push("Pogo Down+Attack".to_string());
-        }
-        for (label, key) in [
-            ("Blink", self.actions.secondary),
-            ("Quick", self.actions.quick_action),
-            ("Interact", self.actions.interact),
-            ("Modifier", self.actions.modifier),
-            ("Fly", self.actions.utility),
-            ("Fireball", self.actions.projectile),
-            ("Trail", self.actions.trail_toggle),
-            ("Map", self.actions.map),
-            ("Inventory", self.actions.inventory),
-            ("Select", self.actions.select_reset),
-        ] {
-            parts.push(format!("{} {}", label, key_name(key)));
-        }
-        parts.join("  |  ")
-    }
-}
-
-pub const GAMEPAD_MAP: &[(&str, &str)] = &[
-    ("L-stick / D-pad", "movement / aim"),
-    ("A / Cross", "jump / confirm"),
-    ("X / Square", "primary attack"),
-    ("RT / R2", "dash"),
-    ("B / Circle", "blink / special"),
-    ("RB / R1", "interact / quick action"),
-    ("LT / L2", "modifier placeholder"),
-    ("Y / Triangle", "fly toggle / utility"),
-    ("LB / L1", "map placeholder"),
-    ("Back / Touchpad", "inventory or sandbox reset"),
-    ("Start / Options", "pause / menu"),
-];
 
 #[cfg(feature = "input")]
 fn insert_optional(

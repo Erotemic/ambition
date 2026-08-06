@@ -142,7 +142,7 @@ fn gamepad_glyph(
         return Cow::Borrowed("R-Stick");
     }
     match bound_control(bindings, action, false) {
-        Some(PhysicalControl::Button(button)) => Cow::Borrowed(vendor_label(*button, style)),
+        Some(PhysicalControl::Button(button)) => Cow::Borrowed(button_label(*button, style)),
         // Bound to no gamepad control. Empty — and it stops being empty the
         // day somebody binds it, which is exactly what `Special` is waiting
         // for.
@@ -152,7 +152,13 @@ fn gamepad_glyph(
 
 /// How this pad's vendor draws a button. Presentation only — WHICH button is
 /// pressed is the binding's answer, not this function's.
-fn vendor_label(button: GamepadButton, style: GamepadStyle) -> &'static str {
+///
+/// THE one gamepad-button label table. `PhysicalControl::label` renders
+/// through it too (Xbox style when no seat style is known) — it used to have
+/// its own vendor-blind copy, and the two disagreed: the prompt said
+/// "Select" where the touch glyph said "Back", for one physical button on
+/// one frame.
+pub(crate) fn button_label(button: GamepadButton, style: GamepadStyle) -> &'static str {
     match button {
         GamepadButton::South => match style {
             GamepadStyle::PlayStation => "Cross",
@@ -202,6 +208,7 @@ fn vendor_label(button: GamepadButton, style: GamepadStyle) -> &'static str {
             GamepadStyle::Switch => "+",
             _ => "Start",
         },
+        GamepadButton::Mode => "Home",
         GamepadButton::LeftThumb => "L3",
         GamepadButton::RightThumb => "R3",
         GamepadButton::DPadUp => "D-Up",

@@ -150,11 +150,20 @@ pub enum PhysicalControl {
 }
 
 impl PhysicalControl {
-    /// What to print. Short, because it goes on a button.
+    /// What to print. Short, because it goes on a button. Gamepad buttons are
+    /// spelled Xbox-style; a caller that knows the seat's pad uses
+    /// [`Self::label_for`].
     pub fn label(&self) -> String {
+        self.label_for(crate::GamepadStyle::XboxLike)
+    }
+
+    /// What to print, in the vocabulary of the seat's own pad — the SAME
+    /// table the glyph path draws from, so a prompt and a glyph can never
+    /// name one physical button two ways on one frame.
+    pub fn label_for(&self, style: crate::GamepadStyle) -> String {
         match self {
             Self::Key(key) => key_label(*key),
-            Self::Button(button) => button_label(*button).to_string(),
+            Self::Button(button) => crate::glyphs::button_label(*button, style).to_string(),
             Self::Other(raw) => raw.clone(),
         }
     }
@@ -322,31 +331,6 @@ fn classify(input: &dyn leafwing_input_manager::prelude::Buttonlike) -> Physical
         return PhysicalControl::Button(*button);
     }
     PhysicalControl::Other(format!("{input:?}"))
-}
-
-fn button_label(button: GamepadButton) -> &'static str {
-    match button {
-        GamepadButton::South => "A",
-        GamepadButton::East => "B",
-        GamepadButton::North => "Y",
-        GamepadButton::West => "X",
-        GamepadButton::LeftTrigger => "LB",
-        GamepadButton::LeftTrigger2 => "LT",
-        GamepadButton::RightTrigger => "RB",
-        GamepadButton::RightTrigger2 => "RT",
-        GamepadButton::Select => "Select",
-        GamepadButton::Start => "Start",
-        GamepadButton::Mode => "Home",
-        GamepadButton::LeftThumb => "L3",
-        GamepadButton::RightThumb => "R3",
-        GamepadButton::DPadUp => "D-Up",
-        GamepadButton::DPadDown => "D-Down",
-        GamepadButton::DPadLeft => "D-Left",
-        GamepadButton::DPadRight => "D-Right",
-        // Deliberately not `unreachable!`: a Bevy upgrade adding a variant must
-        // print something odd, not panic a HUD. Same rule `key_label` follows.
-        _ => "Button",
-    }
 }
 
 /// ⚠ **`presets::key_name` returns `"?"` for a key it does not list**, which on

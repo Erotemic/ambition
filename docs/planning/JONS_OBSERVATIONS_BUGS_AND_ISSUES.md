@@ -241,6 +241,17 @@ slot with no attached pad cannot be set to controller.
   box, not the drawn sprite, so a capture would look identical. Jon's complaint
   has two halves and this is the one that was a defect; the other is a size, and
   a size is his call.
+  ✅ **AND THE SNAKE IS SHRUNK — a BLIND DRAW, `1bff9c14d`, rejectable in one
+  line.** Mary-O measures **25.6 x 48** world (height authored, width measured);
+  the snake was **41.0** wide — 1.6x her width while barely a third of her
+  height. `snake_body_width()` is now her width, so a snake occupies the corridor
+  a Koopa does beside Mario. **41.0 → 25.6, a 38% reduction.**
+  ⭐ **why the two previous answers did not settle it**: neither had a
+  DENOMINATOR. A pixel scale cannot express "too big" — that is a comparison, and
+  there was nothing to compare against. `mary_o_body_width()` is the denominator
+  and it is a measurement, so it stays right through a regen.
+  ⭐ looked at it: `capture_mary_o` of 1-1 shows the walking snake at about a
+  tile, beside the tan crate that is a boxed one.
   ▢ **what is left, stated as the choice it is:**
   * the SNAKE's quad/box disagreement is an art-pipeline crop or a quad sized
     from the body (`enemy_quad_matches_its_box` ratchets it at 2.47x);

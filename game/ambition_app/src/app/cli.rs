@@ -613,8 +613,14 @@ pub enum VisibleRenderMode {
 }
 
 /// Assemble the visible Ambition app — the ONE composition the desktop binary
-/// runs and the rendered ownership tests drive. `shell_hosted` selects the
-/// multi-game title-screen host (the default) or direct gameplay entry.
+/// runs and the rendered ownership tests drive.
+///
+/// ⚠ **`shell_hosted` no longer means what its name says, and the name is kept
+/// on purpose.** Since K2b both arms ARE shell-hosted; the flag only chooses the
+/// INITIAL ROUTE — `true` boots the multi-game launcher, `false` boots straight
+/// to gameplay, which is what `--direct` and every `--start-room` alias mean.
+/// Renaming it would touch 33 call sites to restate a boolean whose two values
+/// are unchanged, which is churn rather than clarity; this sentence is the fix.
 ///
 /// Desktop-only: it reaches the filesystem asset root and the `game://` source
 /// builder (both `not(wasm32)`) and disables the terminal Ctrl-C handler. Every

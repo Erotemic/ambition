@@ -48,11 +48,12 @@ pub const AMBITION_LAUNCHER_ROUTE: &str = "ambition_launcher";
 #[derive(Resource, Default, Debug, Clone, Copy)]
 pub struct AmbitionShellHosted;
 
-/// Bevy run condition: this App boots straight into gameplay (the pre-shell
-/// path). True whenever [`AmbitionShellHosted`] is absent.
-pub fn direct_entry(hosted: Option<Res<AmbitionShellHosted>>) -> bool {
-    hosted.is_none()
-}
+// **`direct_entry` was deleted with the path it gated (K2b edit 3).**
+//
+// It answered "is `AmbitionShellHosted` absent", and every composition inserts
+// it now — so the run condition was permanently false and the four startup
+// systems behind it were dead code that looked live. That is the more dangerous
+// kind: it invites somebody to re-wire a second way to start a game.
 
 /// Ambition's gameplay implementation is a reusable provider crate. The host
 /// re-exports its public identities for compatibility while owning only home,

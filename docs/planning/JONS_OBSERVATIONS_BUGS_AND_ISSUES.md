@@ -5,6 +5,15 @@
 
 * When SANIC is hit, there it seems like he is given no iframes. He should also have some hitstun and be knocked back a bit, and then have a few second of recovery iframes. The rings don't splash out nearly large enough. He needs an opportunity to recollect some of them after his hitstun wears off and before they disappear. 
 
+* ◐ **The patent clerk: you are making one right now.** During this run
+  `patent_clerk.py` appeared in the sprite renderer and `patent_clerk` went into
+  `regen_sprites.sh`'s batch; the target declares `special_patent_clerk` /
+  "Patent Clerk". ⚠ **it has no catalog row yet**, so once it renders the sheet
+  exists and nothing loads it — and no test says so, because the orphan check
+  only asks the other direction (a catalog character with no art). Five other
+  rendered identities are in the same gap: busy beaver, charley beagle, niels
+  boar, pirate heavy, vera ruin. Tell me the tier and I will write the rows.
+
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 
 * ▢ **still open next door**: `maryo flashes when her fireball hits an enemy` (below) is a separate item and was not touched by this.

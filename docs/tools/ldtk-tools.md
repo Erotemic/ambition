@@ -282,12 +282,23 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset editor-
   `EntityTile`, so `MaryOBlock` draws a `?`-plate or masonry per placement
   according to its `kind`. The enum itself is declared in the world's entity
   manifest (`"type": "Enum"`, `"enum"`, `"values"`) — the vocabulary owns which
-  words are sayable, this owns what they look like. ⚠ it only fits a field the
-  runtime already CLOSES: `EnemySpawn.brain` accepts `Patrol:<path>` and
-  `Guard:<radius>`, so a dropdown would make most of it unauthorable.
-- **Nothing is baked into the levels.** The rules are evaluated live by LDtk, so
-  a repaint can never leave stale art behind — the failure mode `tileset paint`
-  has.
+  words are sayable, this owns what they look like. A field on an ENGINE def
+  that no per-world manifest declares can name its enum in the sidecar instead
+  (`{"enum": …, "values": {…}}`), which is how Mary-O's `EnemySpawn.brain` shows
+  a slop as a slop and a snake as a snake. ⚠ closing a field is refused when the
+  level already authors a value the enum cannot spell, and it costs whatever the
+  runtime allowed beyond the list — `parse_enemy_brain` also takes
+  `Patrol:<path>` and `Guard:<radius>`, which a dropdown cannot say.
+- **`field_display`** puts a field's value beside its entity
+  (`"MaryOBlock.contents": "NameAndValue"`). The game never reads
+  `editorDisplayMode`, so this is how the editor can show what a block HOLDS
+  without the block announcing it in play.
+- ⛔ **the tiles ARE baked into `autoLayerTiles`, because LDtk does not
+  re-evaluate an auto-layer when it opens a file.** It renders its own cache, so
+  a generated layer that leaves the cache empty draws nothing however right its
+  rules are — which is what shipped first, and what a flat grey slab in the
+  editor looks like. LDtk recomputes and overwrites on the first edit to the
+  source, and the cache is a pure function of cells the file already carries.
 - A world's own nouns go in `<world>.editor_art.json` beside the `.ldtk`
   (`{"entity_art": {"MaryOPipe": "props/mary_o_pipe_top"}}`); a character icon is
   `{"sheet": "ai_slop", "animation": "idle", "frame": 0}`, whose rect is read

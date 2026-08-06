@@ -183,3 +183,62 @@ def test_closing_a_string_into_an_enum_refuses_a_value_it_cannot_spell():
     assert _stale_field_names(project_with("Brick"), spec) == {}
     refused = _stale_field_names(project_with("Quasar"), spec)
     assert "kind" in refused and "'Quasar'" in refused["kind"]
+
+
+def test_the_art_layer_arrives_with_its_tiles_already_in_it():
+    """⛔ LDtk does NOT re-evaluate an auto-layer's rules when it opens a file.
+
+    The rules can be perfect and the layer still draw nothing, because the
+    editor renders `autoLayerTiles` — its own cache — and a generated layer
+    arrives with whatever the generator put there. Jon opened the first version
+    to a flat grey slab for exactly this reason. The cache is a pure function of
+    cells the file already carries, so writing it is safe; leaving it empty is
+    the same as not shipping the art at all.
+    """
+    art = editor_art.Placement("solid_tile", x=0, y=0, w=32, h=32)
+    collision = {
+        "identifier": "Collision",
+        "type": "IntGrid",
+        "uid": 10,
+        "gridSize": 16,
+        "intGridValues": [{"identifier": "Solid", "value": 1}],
+        "autoRuleGroups": [],
+        "tilesetDefUid": None,
+        "displayOpacity": 1.0,
+        "inactiveOpacity": 0.6,
+    }
+    level = {
+        "uid": 1,
+        "layerInstances": [
+            {
+                "layerDefUid": 10,
+                "__cWid": 2,
+                "__cHei": 2,
+                # one solid cell, bottom-left
+                "intGridCsv": [0, 0, 1, 0],
+            }
+        ],
+    }
+    project = {
+        "nextUid": 100,
+        "defs": {
+            "layers": [collision],
+            "tilesets": [{"uid": 7, "tileGridSize": 16, "__cWid": editor_art.ATLAS_COLS}],
+        },
+        "levels": [level],
+    }
+
+    editor_art.apply_auto_rules(project, 7, {"Solid": "solid_tile"}, {"solid_tile": art})
+
+    art_layer = next(
+        layer for layer in project["defs"]["layers"] if layer["identifier"] == "CollisionArt"
+    )
+    baked = next(
+        inst
+        for inst in level["layerInstances"]
+        if inst["layerDefUid"] == art_layer["uid"]
+    )["autoLayerTiles"]
+    assert len(baked) == 1, "the one painted cell is the one baked tile"
+    assert baked[0]["px"] == [0, 16], "at the cell it came from"
+    # cell (0,1) is the texture's BOTTOM-left quadrant, one atlas row down.
+    assert baked[0]["src"] == [0, 16]

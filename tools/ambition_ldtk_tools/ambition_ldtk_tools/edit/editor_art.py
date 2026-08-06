@@ -16,12 +16,13 @@ sprite folder — so an editor cell cannot drift from the block the simulation
 spawns underneath it. Three halves, which is one more than a half allows:
 
 * **Every IntGrid layer gets a sibling AutoLayer that draws it.** Painting
-  `Solid` shows masonry immediately and keeps showing it as the author edits,
-  because LDtk evaluates the rules live from the cells themselves. Nothing is
-  baked, so a repaint can never leave stale art behind — the failure mode of a
-  painted Tiles layer (`tileset paint`). ⛔ the art is on its OWN layer because
-  the first version put the rules on the collision layer itself and thereby hid
-  the collision; see `COLLISION_OPACITY`.
+  `Solid` shows masonry and keeps showing it as the author edits, because LDtk
+  re-evaluates the rules from the cells whenever they change. ⛔ the art is on
+  its OWN layer because the first version put the rules on the collision layer
+  itself and thereby hid the collision (see `COLLISION_OPACITY`), and the tiles
+  are BAKED because LDtk does not re-evaluate on open (see
+  `build_art_layer_instance`) — two ways to ship a level that renders nothing
+  but a grey slab.
 * **Entity defs get a `tileRect`.** A `ChestSpawn` looks like the chest, a
   `MovingPlatform` like the platform.
 * **A field can decide the picture, per placement.** `field_art` points an enum
@@ -359,10 +360,19 @@ def collect_sources(
     intgrid_art.update(sidecar.get("intgrid_art") or {})
     entity_art: dict[str, str] = dict(ENGINE_ENTITY_ART)
     entity_art.update(sidecar.get("entity_art") or {})
-    field_art: dict[str, dict[str, Any]] = {
-        str(path): dict(values or {})
-        for path, values in (sidecar.get("field_art") or {}).items()
-    }
+    # A field_art entry is either `{value: art}` or `{"enum": name, "values":
+    # {value: art}}` — the second form for a field with no vocabulary manifest
+    # to declare its enum. Normalise to the second shape.
+    field_art: dict[str, dict[str, Any]] = {}
+    for path, entry in (sidecar.get("field_art") or {}).items():
+        entry = dict(entry or {})
+        if "values" in entry:
+            field_art[str(path)] = {
+                "enum": entry.get("enum"),
+                "values": dict(entry["values"] or {}),
+            }
+        else:
+            field_art[str(path)] = {"enum": None, "values": entry}
 
     present_values = {
         str(value.get("identifier"))
@@ -381,8 +391,13 @@ def collect_sources(
     }
 
     used_fields = {
-        path: {value: art_key(reference) for value, reference in values.items()}
-        for path, values in field_art.items()
+        path: {
+            "enum": entry["enum"],
+            "values": {
+                value: art_key(reference) for value, reference in entry["values"].items()
+            },
+        }
+        for path, entry in field_art.items()
         if path.partition(".")[0] in present_entities
     }
 
@@ -390,10 +405,10 @@ def collect_sources(
     for name, reference in list(intgrid_art.items()) + list(entity_art.items()):
         if name in present_values or name in present_entities:
             references[art_key(reference)] = reference
-    for path, values in field_art.items():
+    for path, entry in field_art.items():
         if path.partition(".")[0] not in present_entities:
             continue
-        for reference in values.values():
+        for reference in entry["values"].values():
             references[art_key(reference)] = reference
     sources = [
         resolve_art(references[key], sprites_dir, ldtk) for key in sorted(references)
@@ -609,9 +624,15 @@ def build_art_layer_instance(
         "optionalRules": [],
         "seed": level.get("uid", 0),
         "overrideTilesetUid": None,
-        # Empty on purpose: LDtk fills these from the rules when it opens the
-        # project. Baking them here would be a second copy of the collision,
-        # and a second copy is a copy that can go stale.
+        # ⛔ **filled in, because LDtk does NOT re-evaluate rules on open.** The
+        # first version left this empty on the theory that a cache is a second
+        # copy that can go stale — and Jon opened the project to a flat grey
+        # slab: the rules were right, the layer was right, and the editor drew
+        # the cache it was given, which was nothing. `autoLayerTiles` is the
+        # editor's own cache format; writing it is how a generated auto-layer
+        # arrives visible. LDtk recomputes and overwrites the moment the source
+        # is edited, so the staleness window is "until the first edit", and the
+        # tiles are a pure function of cells the file already carries.
         "autoLayerTiles": [],
         # ⚠ required by the schema on EVERY layer instance whatever its type —
         # an AutoLayer holds no cells, tiles or entities of its own and still
@@ -621,6 +642,92 @@ def build_art_layer_instance(
         "gridTiles": [],
         "entityInstances": [],
     }
+
+
+def rule_matches(rule: dict[str, Any], value: int, cx: int, cy: int) -> bool:
+    """Does this single-cell rule fire on a cell? LDtk's own test, in Python."""
+    if int(rule.get("size", 1)) != 1:
+        return False
+    pattern = rule.get("pattern") or []
+    if len(pattern) != 1 or int(pattern[0]) != value:
+        return False
+    x_mod = max(1, int(rule.get("xModulo", 1)))
+    y_mod = max(1, int(rule.get("yModulo", 1)))
+    return (cx - int(rule.get("xOffset", 0))) % x_mod == 0 and (
+        cy - int(rule.get("yOffset", 0))
+    ) % y_mod == 0
+
+
+def bake_auto_layer_tiles(
+    project: dict[str, Any], source: dict[str, Any], layer: dict[str, Any]
+) -> int:
+    """Write what the rules produce into the art layer's tile cache.
+
+    See `build_art_layer_instance` for why this is written rather than left for
+    the editor. The shape is LDtk's: `px` is the tile's top-left in level
+    pixels, `src` its top-left in the tileset, `d` the debug pair
+    `[ruleUid, coordId]` and `f` the flip bits (never set — a rule that needed a
+    flip would carry a flipped tile in the atlas instead).
+    """
+    rules = [
+        rule
+        for group in layer.get("autoRuleGroups") or []
+        if group.get("active", True)
+        for rule in group.get("rules") or []
+        if rule.get("active", True)
+    ]
+    tileset = next(
+        (
+            candidate
+            for candidate in project.get("defs", {}).get("tilesets", [])
+            if int(candidate.get("uid", -1)) == int(layer.get("tilesetDefUid", -1))
+        ),
+        None,
+    )
+    if tileset is None or not rules:
+        return 0
+    grid = int(tileset.get("tileGridSize") or CELL)
+    columns = max(1, int(tileset.get("__cWid") or 1))
+    cell = int(layer.get("gridSize") or CELL)
+    baked = 0
+    for level in project.get("levels", []):
+        instances = level.get("layerInstances") or []
+        art = next(
+            (i for i in instances if i.get("layerDefUid") == layer.get("uid")), None
+        )
+        source_instance = next(
+            (i for i in instances if i.get("layerDefUid") == source.get("uid")), None
+        )
+        if art is None or source_instance is None:
+            continue
+        width = int(source_instance.get("__cWid") or 0)
+        tiles: list[dict[str, Any]] = []
+        for index, value in enumerate(source_instance.get("intGridCsv") or []):
+            if not value or not width:
+                continue
+            cx, cy = index % width, index // width
+            for rule in rules:
+                if not rule_matches(rule, int(value), cx, cy):
+                    continue
+                rects = rule.get("tileRectsIds") or []
+                if not rects or not rects[0]:
+                    break
+                tile_id = int(rects[0][0])
+                tiles.append(
+                    {
+                        "px": [cx * cell, cy * cell],
+                        "src": [(tile_id % columns) * grid, (tile_id // columns) * grid],
+                        "f": 0,
+                        "t": tile_id,
+                        "d": [int(rule["uid"]), index],
+                        "a": 1.0,
+                    }
+                )
+                if rule.get("breakOnMatch", True):
+                    break
+        art["autoLayerTiles"] = tiles
+        baked += len(tiles)
+    return baked
 
 
 def dim_source_layer(source: dict[str, Any]) -> None:
@@ -721,7 +828,102 @@ def apply_auto_rules(
                 "requiredBiomeValues": [],
             }
         ]
-        messages.append(f"{identifier}: {len(rules)} rules on {source['identifier']}")
+        baked = bake_auto_layer_tiles(project, source, layer)
+        messages.append(
+            f"{identifier}: {len(rules)} rules on {source['identifier']}, {baked} tiles baked"
+        )
+    return messages
+
+
+def authored_field_values(project: dict[str, Any], entity_id: str, field_name: str) -> set[str]:
+    """Every non-null value placements of `entity_id` carry for one field."""
+    return {
+        str(field["__value"])
+        for level in project.get("levels") or []
+        for layer in level.get("layerInstances") or []
+        for instance in layer.get("entityInstances") or []
+        if instance.get("__identifier") == entity_id
+        for field in instance.get("fieldInstances") or []
+        if field.get("__identifier") == field_name and field.get("__value") is not None
+    }
+
+
+def close_field_into_enum(
+    project: dict[str, Any], entity_id: str, field: dict[str, Any], spec: dict[str, Any]
+) -> tuple[dict[str, Any], int] | str:
+    """Turn a String field into a local enum, or say why it must stay open.
+
+    ⛔ **an enum holds only what it spells.** A placement carrying a value the
+    enum does not list would lose it, so the values already in the level are the
+    gate — the same one `def upsert-entity` applies when a vocabulary manifest
+    closes a field. Returns the reason as a string when it refuses.
+    """
+    from ambition_ldtk_tools.edit.defs import ensure_enum_def
+
+    values = list(spec.get("values") or {})
+    authored = authored_field_values(project, entity_id, field["identifier"])
+    missing = sorted(authored - set(values))
+    if missing:
+        return (
+            f"the level authors {', '.join(repr(value) for value in missing)}, which "
+            f"enum {spec['enum']} does not spell"
+        )
+    enum = ensure_enum_def(project, str(spec["enum"]), values)
+    human = f"LocalEnum.{enum['identifier']}"
+    field["__type"] = human
+    field["type"] = f"F_Enum({enum['uid']})"
+    retyped = 0
+    for level in project.get("levels") or []:
+        for layer in level.get("layerInstances") or []:
+            for instance in layer.get("entityInstances") or []:
+                if instance.get("__identifier") != entity_id:
+                    continue
+                for held in instance.get("fieldInstances") or []:
+                    if held.get("__identifier") != field["identifier"]:
+                        continue
+                    if held.get("__type") != human:
+                        held["__type"] = human
+                        retyped += 1
+    return enum, retyped
+
+
+def apply_field_display(
+    project: dict[str, Any], field_display: dict[str, str]
+) -> list[str]:
+    """**Say a field's VALUE out loud in the editor.**
+
+    Jon: *"I can't tell what power up is in the block."* He cannot, and in the
+    game he is not meant to — a block's look never announces its contents, which
+    is the whole point of the split. But an AUTHOR is not a player: the editor
+    is where you need to see that this brick is the one with the quasar in it.
+    LDtk prints a field beside its entity when the field says so, which costs
+    the game nothing because the game never reads `editorDisplayMode`.
+    """
+    messages: list[str] = []
+    for path, mode in sorted(field_display.items()):
+        entity_id, _, field_name = path.partition(".")
+        entity = next(
+            (
+                ent
+                for ent in project.get("defs", {}).get("entities", [])
+                if ent.get("identifier") == entity_id
+            ),
+            None,
+        )
+        field = next(
+            (
+                f
+                for f in (entity or {}).get("fieldDefs") or []
+                if f.get("identifier") == field_name
+            ),
+            None,
+        )
+        if field is None:
+            messages.append(f"skipped field display for missing field {path}")
+            continue
+        field["editorDisplayMode"] = str(mode)
+        field["editorAlwaysShow"] = True
+        messages.append(f"{path}: shown as {mode}")
     return messages
 
 
@@ -752,8 +954,9 @@ def apply_field_art(
     the enum; this only fills in each value's picture.
     """
     messages: list[str] = []
-    enums = project.get("defs", {}).get("enums") or []
-    for path, art_by_value in sorted(field_art.items()):
+    for path, spec in sorted(field_art.items()):
+        enums = project.get("defs", {}).setdefault("enums", [])
+        art_by_value = spec["values"]
         entity_id, _, field_name = path.partition(".")
         entity = next(
             (
@@ -775,10 +978,32 @@ def apply_field_art(
             continue
         enum_identifier = str(field.get("__type") or "").removeprefix("LocalEnum.")
         enum = next((e for e in enums if e.get("identifier") == enum_identifier), None)
+        if enum is None and spec.get("enum"):
+            # ⭐ **a field with no vocabulary manifest can declare its enum
+            # here.** `MaryOBlock.kind` is owned by `mary_o.entities.json`,
+            # which is where a GAME's own noun belongs; `EnemySpawn.brain` is an
+            # ENGINE def that no per-world manifest declares, and its useful
+            # values are this world's roster. So the sidecar may say what the
+            # words are when nothing else does — and pays the same price for it.
+            outcome = close_field_into_enum(project, entity_id, field, spec)
+            if isinstance(outcome, str):
+                messages.append(f"REFUSED field art for {path}: {outcome}")
+                continue
+            enum, retyped = outcome
+            enum_identifier = enum["identifier"]
+            messages.append(
+                f"{path}: closed into enum {enum_identifier} ({retyped} instances retyped)"
+            )
         if enum is None:
             messages.append(
                 f"skipped field art for {path}: its type is {field.get('__type')!r}, "
                 "not a local enum — declare it as an Enum in the entity manifest first"
+            )
+            continue
+        if spec.get("enum") and spec["enum"] != enum_identifier:
+            messages.append(
+                f"skipped field art for {path}: the sidecar names enum "
+                f"{spec['enum']!r} but the field is {enum_identifier!r}"
             )
             continue
         painted = 0
@@ -882,6 +1107,7 @@ def dress(
         tileset["relPath"] = f"../sprites/{atlas_path.name}"
     messages += apply_entity_icons(project, manifest)
     messages += apply_field_art(project, int(tileset["uid"]), field_art, by_key)
+    messages += apply_field_display(project, sidecar.get("field_display") or {})
     messages += apply_auto_rules(project, int(tileset["uid"]), intgrid_art, by_key)
     messages += prune_unused_tilesets(project)
     for message in messages:

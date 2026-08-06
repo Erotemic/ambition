@@ -273,6 +273,15 @@ fn main() {
     );
     app.insert_resource(config);
     app.insert_resource(SceneCaptureRuntime::default());
+    // ⭐ **K2b edit 5: the SHELL host, booted to gameplay.** This composed the
+    // simulation plugin alone and took the `SessionRoot` it published at
+    // plugin-build time. That publisher is deleted, so a capture composed the
+    // old way photographs a world with no session in it — and this tool's worst
+    // failure mode is writing a valid PNG of the wrong thing and exiting 0.
+    //
+    // ⚠ inserted BEFORE the plugins build, for the same reason everywhere else:
+    // it is what the rest of the app reads to know which composition this is.
+    app.insert_resource(ambition_app::app::shell_host::AmbitionShellHosted);
     app.add_plugins((
         AmbitionGameSimulationPlugin,
         AmbitionGameLdtkRuntimePlugin,
@@ -289,6 +298,12 @@ fn main() {
         // A capture that cannot show a layout is worse than no capture, because
         // it shows a DIFFERENT layout convincingly.
     ));
+    // The shell, once the simulation it adapts is composed — that order is
+    // load-bearing (`compose_ambition_gameplay_host` explains why).
+    ambition_app::app::shell_host::compose_ambition_shell_host_booting_to(
+        &mut app,
+        ambition_app::app::shell_host::AMBITION_GAMEPLAY_ROUTE,
+    );
     // The layout resolver, if this composition does not already have it. Guarded
     // because the two capture modes build their apps differently and only one of
     // them goes through `build_visible_app`.

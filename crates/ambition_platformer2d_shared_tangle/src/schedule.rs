@@ -548,8 +548,17 @@ pub fn gameplay_allowed(mode: Res<State<GameMode>>) -> bool {
 ///
 /// Use this to gate the small set of systems that should only run while
 /// gameplay is suspended, such as forcing world time to zero.
-pub fn gameplay_suspended(mode: Res<State<GameMode>>) -> bool {
-    !mode.get().allows_gameplay()
+/// ⚠ **this asks [`GameMode::stops_the_world`], not `allows_gameplay`.** It used
+/// to ask the latter, which meant a conversation froze every body in the level
+/// including the ones nobody was talking to. On a couch that is player two
+/// stopped mid-jump because player one walked into an NPC; in single player it
+/// is every NPC and hazard in the room holding still for a text box.
+pub fn gameplay_suspended(
+    mode: Res<State<GameMode>>,
+    dialogue_policy: Option<Res<DialogueStopsTheWorld>>,
+) -> bool {
+    mode.get()
+        .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
 }
 
 /// Coarse gameplay/session mode shared by runtime, input, host, and render.
@@ -578,9 +587,45 @@ pub enum GameMode {
     Cutscene,
 }
 
+/// **Does a conversation stop the world?**
+///
+/// Jon, 2026-08-03: *"dialogue should have the option to stop the world. I'm not
+/// decided on what I want it to do in game."* So both are expressible and this
+/// is the policy; Jon decided the DEFAULT on 2026-08-06, and it is per-seat —
+/// a conversation claims the talker's input and leaves the world running.
+///
+/// An experience that wants the old modal beat back sets this to `true` and gets
+/// exactly the previous behaviour. Nothing else has to change, because the
+/// world-stop and the input claim were already two different mechanisms wearing
+/// one switch.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct DialogueStopsTheWorld(pub bool);
+
 impl GameMode {
+    /// Whether GAMEPLAY INPUT may route this frame.
+    ///
+    /// ⚠ **not the same question as whether the world is running** — see
+    /// [`Self::stops_the_world`]. They were one predicate until 2026-08-06, and
+    /// that conflation is what made "a conversation the world keeps running
+    /// through" inexpressible.
     pub fn allows_gameplay(self) -> bool {
         matches!(self, Self::Playing)
+    }
+
+    /// Whether the SIM CLOCK freezes in this mode.
+    ///
+    /// `Paused` is the pause. `RoomTransition` and `Cutscene` are genuinely
+    /// global — a room is loading, or a scripted beat owns the screen — and are
+    /// explicitly NOT the same question as dialogue.
+    ///
+    /// Dialogue answers `false` by default and defers to
+    /// [`DialogueStopsTheWorld`] when an experience has an opinion.
+    pub fn stops_the_world(self, dialogue_policy: DialogueStopsTheWorld) -> bool {
+        match self {
+            Self::Playing => false,
+            Self::Dialogue => dialogue_policy.0,
+            Self::Paused | Self::RoomTransition | Self::Cutscene => true,
+        }
     }
 
     pub fn label(self) -> &'static str {

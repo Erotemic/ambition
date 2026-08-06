@@ -30,7 +30,7 @@ use ambition_input::{
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot,
 };
-use ambition_platformer2d_shared_tangle::schedule::GameMode;
+use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameMode};
 
 /// Item 3 (optional guard): whether input should be SUPPRESSED this frame because
 /// the "Pause input when window unfocused" setting is ON and the OS window is not
@@ -399,6 +399,8 @@ pub fn toggle_player_trail_emission_from_actions(
 #[cfg(feature = "input")]
 pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
+    // See `populate_secondary_slot_controls`: the world-stop is a policy now.
+    dialogue_policy: Option<Res<DialogueStopsTheWorld>>,
     active_context: Res<SeatInputContexts>,
     player_input: Query<(
         &InputParticipant,
@@ -464,7 +466,13 @@ pub fn populate_control_frame_from_actions(
         .map(|(_, actions)| actions);
     *frame = match action_state {
         Some(action_state) => {
-            if mode.get().allows_gameplay() {
+            // ⚠ `stops_the_world`, not `allows_gameplay` — the same split as the
+            // secondary router. This seat already proved it OWNS gameplay above;
+            // what is left to ask is whether the world is running.
+            if !mode
+                .get()
+                .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default())
+            {
                 // The PRIMARY seat reads the settings screen's own sliders —
                 // they are the sliders of whoever is sitting at that screen.
                 let (next_frame, next_state) = read_gameplay_control_frame_with_settings(
@@ -526,6 +534,9 @@ pub struct SeatDashTriggerState(pub crate::persistence::settings::TriggerEdgeSta
 #[cfg(feature = "input")]
 pub fn populate_secondary_slot_controls(
     mode: Res<State<GameMode>>,
+    // Whether a conversation stops the world for everybody. Default `false`
+    // (Jon, 2026-08-06); an experience that wants the modal beat sets it.
+    dialogue_policy: Option<Res<DialogueStopsTheWorld>>,
     active_context: Res<SeatInputContexts>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     // Which pad each seat is holding, so its FILTERING is that pad's. Optional
@@ -548,7 +559,14 @@ pub fn populate_secondary_slot_controls(
     // could not reach this router, and seat 0 declaring one silently took
     // gameplay away from everybody else. `mode` stays global on purpose — the
     // world being paused is not a per-seat fact.
-    let world_running = mode.get().allows_gameplay();
+    // ⚠ **`stops_the_world`, not `allows_gameplay`.** Whether this seat's input
+    // routes is the CONTEXT's answer, checked per seat below; this asks only
+    // whether the world is running at all. They were one predicate until
+    // 2026-08-06, and the conflation is why a conversation froze every body in
+    // the level — including the ones nobody was talking to.
+    let world_running = !mode
+        .get()
+        .stops_the_world(dialogue_policy.map(|p| *p).unwrap_or_default());
     for (participant, actions, mut dash) in &mut seats {
         if participant.id == ambition_input::ParticipantId::PRIMARY {
             continue;
@@ -1210,7 +1228,7 @@ mod focus_gate_tests {
         use ambition_characters::brain::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT, LAUNCHER_CONTEXT};
-        use ambition_platformer2d_shared_tangle::schedule::GameMode;
+        use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameMode};
 
         fn seat(slot: u8, context: ambition_input::InputContextId, priority: i32) -> impl Bundle {
             let mut contexts = ParticipantContexts::default();
@@ -1293,7 +1311,7 @@ mod focus_gate_tests {
         use ambition_characters::brain::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT};
-        use ambition_platformer2d_shared_tangle::schedule::GameMode;
+        use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameMode};
         use bevy::ecs::system::RunSystemOnce;
 
         fn seat(slot: u8) -> impl Bundle {
@@ -1414,27 +1432,23 @@ mod focus_gate_tests {
         );
     }
 
-    /// ⛔ **The split is HALF done, and this is the half that is left.**
+    /// ✔ **The split is DONE, and this is the half that was left.**
     ///
-    /// `GameMode::Dialogue` still answers two questions with one switch: *the
-    /// world is stopped* and *this seat's input belongs to a surface*. The
-    /// context claim now carries the second. The first is still
-    /// `allows_gameplay()`, and it OVERRIDES — so a per-seat dialogue declarer,
-    /// which is the next step, would still find every seat suppressed.
+    /// `GameMode::Dialogue` used to answer two questions with one switch — *the
+    /// world is stopped* and *this seat's input belongs to a surface* — and the
+    /// first OVERRODE the second, so a seat nobody was talking to was frozen
+    /// anyway. The context claim carries ownership; `stops_the_world` carries
+    /// the clock; and dialogue now says only the first (Jon, 2026-08-06).
     ///
-    /// Pinned as a test rather than left as prose because the failure mode is
-    /// somebody building the per-seat declarer, seeing no effect, and concluding
-    /// the context seam does not work. It does; this does not, yet.
-    ///
-    /// ⚠ the repair is NOT "delete the `allows_gameplay` gate". Pausing must
-    /// keep stopping everybody. It is to stop `Dialogue` claiming to stop the
-    /// world when what it wants is one participant's attention.
+    /// ⚠ the repair was NOT "delete the mode gate". Pausing must keep stopping
+    /// everybody, and it does — `Paused`, `RoomTransition` and `Cutscene` still
+    /// answer `stops_the_world`, which the second half of this test pins.
     #[test]
-    fn dialogue_still_stops_the_world_as_well_as_claiming_the_input() {
+    fn dialogue_claims_the_talker_while_a_pause_still_stops_everybody() {
         use ambition_characters::brain::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT};
-        use ambition_platformer2d_shared_tangle::schedule::GameMode;
+        use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameMode};
 
         let mut contexts = ParticipantContexts::default();
         contexts.declare(ContextClaim::capturing(
@@ -1475,12 +1489,44 @@ mod focus_gate_tests {
             "this seat's CONTEXT is gameplay — no surface claimed it"
         );
         assert!(
+            app.world()
+                .resource::<SlotControls>()
+                .get(PlayerSlot(1))
+                .jump_held,
+            "and it KEEPS PLAYING: a conversation claims the talker's attention, not the \
+             world's clock. This assertion was inverted until 2026-08-06."
+        );
+
+        // ⛔ the half that must NOT move. A pause stops everybody, including a
+        // seat with an untouched gameplay context — otherwise this change would
+        // have deleted the pause instead of narrowing dialogue.
+        app.world_mut()
+            .resource_mut::<NextState<GameMode>>()
+            .set(GameMode::Paused);
+        app.update();
+        assert!(
             !app.world()
                 .resource::<SlotControls>()
                 .get(PlayerSlot(1))
                 .jump_held,
-            "and it is suppressed anyway, because `GameMode::Dialogue` still says the world is \
-             stopped. That is the remaining half of the split, not a bug in the context seam."
+            "a PAUSE still stops the world for every seat"
+        );
+
+        // And the per-experience opt-in restores the modal beat exactly.
+        app.world_mut()
+            .resource_mut::<NextState<GameMode>>()
+            .set(GameMode::Dialogue);
+        app.insert_resource(
+            ambition_platformer2d_shared_tangle::schedule::DialogueStopsTheWorld(true),
+        );
+        app.update();
+        assert!(
+            !app.world()
+                .resource::<SlotControls>()
+                .get(PlayerSlot(1))
+                .jump_held,
+            "an experience that asks for a world-stopping conversation gets the old behaviour \
+             back — Jon's 2026-08-03 ruling was that BOTH must be expressible"
         );
     }
 

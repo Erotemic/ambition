@@ -426,6 +426,14 @@ fn resolve_axis_repair(
         {
             continue;
         }
+        // ⛔ **a hidden block never pushes a body out of itself.** Repair asked
+        // only `is_solid_for_axis`, which says yes on the gravity axis, so a body
+        // that ended a tick overlapping a `BonkOnly` block was depenetrated and
+        // could be left standing on it — the invisible floor the kind exists to
+        // remove, reached by the one road the swept fix did not cover.
+        if crate::collision_semantics::blocks_only_a_rising_head(block.kind) {
+            continue;
+        }
         if matches!(block.kind, BlockKind::OneWay) {
             if role != AxisRole::Gravity {
                 continue;

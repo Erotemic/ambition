@@ -129,6 +129,24 @@ pub fn is_solid_for_axis(kind: BlockKind, axis: Axis, gravity_dir: Vec2) -> bool
     }
 }
 
+/// **Kinds whose ONLY solidity is a rising head strike — air to everything else.**
+///
+/// ⛔ **`is_solid_for_axis` is not enough on its own, and that gap shipped.**
+/// `BonkOnly` answers `true` there on the gravity axis, because a head coming up
+/// into one must be stopped — so every OTHER query that filters candidates with
+/// that predicate and then forgets to ask [`bonk_strike_from_head`] treats a
+/// hidden block as an ordinary floor. Two did: the controlled body's
+/// penetration REPAIR, and the generic kinematic sweep enemies use. The result
+/// was one block kind meaning different things depending on which movement
+/// engine drove the body (GPT 5.6, review through `d46a0f7` — correct).
+///
+/// ⭐ **so the rule is stated once, here, and every path that is not the swept
+/// head-strike test skips these outright.** A query that genuinely handles the
+/// strike (`movement::collision`'s sweep) asks `bonk_strike_from_head` instead.
+pub fn blocks_only_a_rising_head(kind: BlockKind) -> bool {
+    matches!(kind, BlockKind::BonkOnly)
+}
+
 /// Signed separation between the body's feet face and the surface's head face
 /// along the gravity axis. Zero at perfect rest; positive when the feet are
 /// past (penetrating) the support face.

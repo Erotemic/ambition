@@ -276,23 +276,36 @@ fn sweep_axis(
     let delta = axis_delta(axis, delta_amount);
     let start_body = body.aabb();
     // CC1: body-vs-world sweeps route through the one `cast` entry point.
-    if let Some(hit) = ambition_platformer2d_core::cast::body_sweep(world, start_body, delta, |block| {
-        if !is_solid_for_axis(block.kind, axis, gravity_dir) {
-            return false;
-        }
-        if matches!(block.kind, BlockKind::OneWay) {
-            return one_way_landing_from_previous_feet(
-                start_body,
-                block.aabb,
-                delta,
-                gravity_dir,
-                drop_through,
-                prev_feet_coord,
-            );
-        }
-        // Pre-existing penetration is repaired by resolve_axis / resolve_penetration.
-        !start_body.strict_intersects(block.aabb)
-    }) {
+    if let Some(hit) =
+        ambition_platformer2d_core::cast::body_sweep(world, start_body, delta, |block| {
+            if !is_solid_for_axis(block.kind, axis, gravity_dir) {
+                return false;
+            }
+            // ⛔ **a hidden block is AIR to a generic body.** The head-strike rule
+            // that makes `BonkOnly` solid lives in the controlled body's swept path;
+            // this sweep only knew about `OneWay`, so an enemy could land on an
+            // invisible block the player falls straight through. One kind, two
+            // meanings, decided by which engine drove the body. Probed: without the
+            // skip, a falling body comes to rest on the block at y=92.
+            if ambition_platformer2d_core::collision_semantics::blocks_only_a_rising_head(
+                block.kind,
+            ) {
+                return false;
+            }
+            if matches!(block.kind, BlockKind::OneWay) {
+                return one_way_landing_from_previous_feet(
+                    start_body,
+                    block.aabb,
+                    delta,
+                    gravity_dir,
+                    drop_through,
+                    prev_feet_coord,
+                );
+            }
+            // Pre-existing penetration is repaired by resolve_axis / resolve_penetration.
+            !start_body.strict_intersects(block.aabb)
+        })
+    {
         let toi = hit.time_of_impact.clamp(0.0, 1.0);
         add_axis(&mut body.pos, axis, delta_amount * toi);
         if matches!(hit.block.kind, BlockKind::OneWay)
@@ -382,6 +395,10 @@ fn resolve_axis(
 ) {
     for block in &world.blocks {
         if !is_solid_for_axis(block.kind, axis, gravity_dir) {
+            continue;
+        }
+        // Air here too — the repair half of the same rule.
+        if ambition_platformer2d_core::collision_semantics::blocks_only_a_rising_head(block.kind) {
             continue;
         }
         let aabb = body.aabb();

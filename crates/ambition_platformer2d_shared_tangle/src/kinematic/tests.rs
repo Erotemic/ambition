@@ -798,3 +798,56 @@ fn rising_through_one_way_does_not_get_stuck() {
         min_y
     );
 }
+
+/// **A hidden block is air to a generic body — falling, resting and repairing.**
+///
+/// ⛔ this path special-cased `OneWay` and nothing else, so `BonkOnly` — which
+/// `is_solid_for_axis` calls solid on the gravity axis, because a controlled
+/// body's HEAD must be stopped by one — became an ordinary landing surface for
+/// every enemy. The player fell through the same block. One kind, two meanings,
+/// decided by which movement engine drove the body (GPT 5.6, `d46a0f7`).
+#[test]
+fn a_generic_body_falls_straight_through_a_bonk_only_block() {
+    use ambition_platformer2d_core::{Aabb, Block, BlockKind, Vec2, World};
+
+    let hidden = Block {
+        kind: BlockKind::BonkOnly,
+        ..Block::solid("hidden", Vec2::new(0.0, 100.0), Vec2::new(64.0, 16.0))
+    };
+    let world = World::new("t", Vec2::new(400.0, 400.0), Vec2::ZERO, vec![hidden]);
+
+    let mut body = KinematicBody::new(Vec2::new(32.0, 40.0), Vec2::new(16.0, 16.0));
+    body.vel = Vec2::new(0.0, 400.0);
+    let tuning = KinematicTuning {
+        gravity: 1200.0,
+        max_fall_speed: 800.0,
+        gravity_dir: Vec2::new(0.0, 1.0),
+    };
+    for _ in 0..12 {
+        step_kinematic(&mut body, &world, tuning, KinematicInputs::default(), 1.0 / 60.0);
+    }
+    assert!(
+        !body.on_ground,
+        "a generic body came to rest on an invisible block at {:?}",
+        body.pos
+    );
+    assert!(
+        body.pos.y > 140.0,
+        "it should have fallen PAST the hidden block; stopped at {:?}",
+        body.pos
+    );
+
+    // …and the control: the same block as an ordinary solid does catch it.
+    let solid = Block::solid("floor", Vec2::new(0.0, 100.0), Vec2::new(64.0, 16.0));
+    let world = World::new("t", Vec2::new(400.0, 400.0), Vec2::ZERO, vec![solid]);
+    let mut body = KinematicBody::new(Vec2::new(32.0, 40.0), Vec2::new(16.0, 16.0));
+    body.vel = Vec2::new(0.0, 400.0);
+    for _ in 0..12 {
+        step_kinematic(&mut body, &world, tuning, KinematicInputs::default(), 1.0 / 60.0);
+    }
+    assert!(
+        body.on_ground,
+        "the control failed: a real floor did not catch the body either, so the \
+         assertion above proves nothing"
+    );
+}

@@ -150,6 +150,10 @@ pub fn tick_player_brains(
             // Player brain emits an already-normalized stick; capability is
             // applied on the player integration side, so this is don't-care here.
             max_run_speed: 0.0,
+            // The player brain does not predict; it translates a stick. Nothing
+            // on this path reads a movement law, and claiming one would be a
+            // fact the avatar path never resolved.
+            movement_tuning: None,
             attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,

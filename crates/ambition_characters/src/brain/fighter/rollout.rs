@@ -151,7 +151,32 @@ pub struct ShadowTuning {
 /// would be a guess with no instrument. §8's scenario suite is what would make
 /// it measurable.
 impl Default for ShadowTuning {
+    /// The engine's canonical movement defaults, plus the foe assumptions the
+    /// perception view genuinely cannot supply.
     fn default() -> Self {
+        Self::for_body(&ae::MovementTuning::default())
+    }
+}
+
+impl ShadowTuning {
+    /// **Predict THIS body, using the movement law it plays under.**
+    ///
+    /// ⛔ **every movement number here used to be a hand-copied constant, and
+    /// three of them were wrong at once.** `gravity` was 1400 against the
+    /// engine's 2250, `ground_speed` 160 against 270, `jump_speed` 420 against
+    /// 630 — a model that thought a body hangs, walks slow and jumps short, so
+    /// every offstage rollout priced a longer airtime than exists. Nobody
+    /// noticed for weeks because a second table looks maintained.
+    ///
+    /// ⚠ **and a correct copy would still have been wrong**, because a
+    /// character may author its own [`ae::MovementTuning`]: a heavier fighter's
+    /// gravity or a faster one's run speed changed the body and not the model.
+    /// The predictor reads the same value the integrator does.
+    ///
+    /// The `assumed_foe_*` fields are NOT body-derived and stay assumptions: the
+    /// view names the opponent's phase and its clock, never its move, so their
+    /// range and damage are a stated model premise.
+    pub fn for_body(movement: &ae::MovementTuning) -> Self {
         Self {
             response: HitResponseTuning {
                 knockback_x: 220.0,
@@ -159,35 +184,6 @@ impl Default for ShadowTuning {
                 hitstun_time: 0.35,
                 di_max_angle: 0.0,
             },
-            // ⛔ **1400 against the engine's `ae::GRAVITY` 2250 until 2026-08-06.**
-            // A shadow that thinks gravity is 62% of real thinks a body HANGS —
-            // so it plans recoveries the body cannot make, and every rollout
-            // decision offstage was priced against a longer airtime than exists.
-            gravity: 2250.0,
-            // `MAX_RUN_SPEED`. 160 was a third short, so the model under-priced
-            // how far a walk covers — the same under-prediction direction the
-            // missing friction had.
-            ground_speed: 270.0,
-            // `ae::DASH_SPEED` / `ae::DASH_TIME`, restated here for the same
-            // reason the foe's swing timings are: those constants live above
-            // this crate, and they are public knowledge rather than hidden state.
-            //
-            // ⚠ the shadow used to model `Dash` as `Drive` — a 160 px/s GROUNDED
-            // walk against a 760 px/s impulse that works in mid-air. 4.75x, in
-            // the direction that matters: `ladder_probe` traced a level-9 fighter
-            // that survived six seconds of veto-guarded walking, then dashed off
-            // the right edge at 530 px/s while the rollout scored it as a stroll.
-            dash_speed: 760.0,
-            dash_time: 0.115,
-            // `ae::JUMP_SPEED`. 420 was two thirds of it, which is the
-            // dangerous direction for a ledge: a shorter modelled arc makes a
-            // jump look safer than it is.
-            jump_speed: 630.0,
-            ground_coast_decel: 7600.0,
-            air_coast_decel: 650.0,
-            // `ae::SLASH_RECOIL`, restated for the same reason as the dash
-            // numbers above.
-            slash_recoil: 110.0,
             assumed_foe_reach: 60.0,
             assumed_foe_damage: 5,
             // The engine's standard enemy swing timings (combat events
@@ -195,6 +191,55 @@ impl Default for ShadowTuning {
             // this crate, and they are public knowledge, not hidden state.
             assumed_foe_startup_s: 0.36,
             assumed_foe_active_s: 0.20,
+            ..Self::from_movement_only(movement)
+        }
+    }
+
+    /// Re-derive the movement half from `movement`, keeping every assumption.
+    ///
+    /// The fold a decision uses: a config may carry authored foe assumptions or
+    /// a tuned hit response, and only the body's own motion is replaced.
+    pub fn with_movement(self, movement: &ae::MovementTuning) -> Self {
+        Self {
+            response: self.response,
+            assumed_foe_reach: self.assumed_foe_reach,
+            assumed_foe_damage: self.assumed_foe_damage,
+            assumed_foe_startup_s: self.assumed_foe_startup_s,
+            assumed_foe_active_s: self.assumed_foe_active_s,
+            ..Self::from_movement_only(movement)
+        }
+    }
+
+    /// The movement half alone. The assumption fields are placeholders here and
+    /// are always overwritten by the two callers above — this exists so the
+    /// mapping from a body's tuning onto the shadow's fields is written ONCE.
+    fn from_movement_only(movement: &ae::MovementTuning) -> Self {
+        Self {
+            response: HitResponseTuning {
+                knockback_x: 0.0,
+                knockback_y: 0.0,
+                hitstun_time: 0.0,
+                di_max_angle: 0.0,
+            },
+            gravity: movement.gravity,
+            ground_speed: movement.max_run_speed,
+            // ⚠ the dash SETS velocity outright and works airborne, so it is not
+            // a faster walk — the model used to run it as `Drive` at the ground
+            // speed, a 4.75x under-prediction in the direction that matters.
+            dash_speed: movement.dash_speed,
+            dash_time: movement.dash_time,
+            jump_speed: movement.jump_speed,
+            ground_coast_decel: movement.ground_friction,
+            air_coast_decel: movement.air_friction,
+            // Every melee press shoves the attacker along `-facing` by this
+            // much, and the brain presses an attack on most decisions, so the
+            // recoils RATCHET. It is the single biggest force acting on a
+            // fighter's body and the model had no term for it at all.
+            slash_recoil: movement.slash_recoil,
+            assumed_foe_reach: 0.0,
+            assumed_foe_damage: 0,
+            assumed_foe_startup_s: 0.0,
+            assumed_foe_active_s: 0.0,
         }
     }
 }

@@ -760,3 +760,77 @@ fn a_body_recovering_from_offstage_is_not_scored_as_already_dead() {
          where §8 says it should matter most"
     );
 }
+
+/// **The shadow's movement numbers ARE the engine's, not a copy of them.**
+///
+/// ⛔ they were a copy, and three of the seven were wrong at once: gravity 1400
+/// against 2250, ground speed 160 against 270, jump 420 against 630. A second
+/// table looks maintained, which is why nobody checked it for weeks. This
+/// asserts the identity rather than the values — a table that drifts cannot
+/// drift past it.
+#[test]
+fn the_default_shadow_is_the_engines_own_movement_law() {
+    let engine = ae::MovementTuning::default();
+    let shadow = ShadowTuning::default();
+    assert_eq!(shadow.gravity, engine.gravity);
+    assert_eq!(shadow.ground_speed, engine.max_run_speed);
+    assert_eq!(shadow.jump_speed, engine.jump_speed);
+    assert_eq!(shadow.dash_speed, engine.dash_speed);
+    assert_eq!(shadow.dash_time, engine.dash_time);
+    assert_eq!(shadow.ground_coast_decel, engine.ground_friction);
+    assert_eq!(shadow.air_coast_decel, engine.air_friction);
+    assert_eq!(shadow.slash_recoil, engine.slash_recoil);
+}
+
+/// **A body that authors its own movement is PREDICTED as that body.**
+///
+/// The reason a copied table would still have been wrong even if every number
+/// had been right: a heavier fighter's gravity or a faster one's run speed
+/// changed the body and not the model, so the rollout kept planning arcs the
+/// body could not fly.
+///
+/// ⚠ and the foe assumptions survive the fold, because they are NOT body-derived
+/// — the view names an opponent's phase and its clock, never its move.
+#[test]
+fn an_authored_body_is_predicted_with_its_own_movement_law() {
+    let mut heavy = ae::MovementTuning::default();
+    heavy.gravity *= 2.0;
+    heavy.jump_speed *= 0.5;
+    heavy.max_run_speed *= 0.5;
+
+    let mut authored = ShadowTuning::default();
+    authored.assumed_foe_reach = 999.0;
+    authored.response.hitstun_time = 1.25;
+
+    let folded = authored.clone().with_movement(&heavy);
+    assert_eq!(folded.gravity, heavy.gravity);
+    assert_eq!(folded.jump_speed, heavy.jump_speed);
+    assert_eq!(folded.ground_speed, heavy.max_run_speed);
+    assert_ne!(
+        folded.gravity, authored.gravity,
+        "the body's own gravity did not reach the predictor, so the rollout is \
+         planning arcs for somebody else"
+    );
+    assert_eq!(
+        folded.assumed_foe_reach, 999.0,
+        "the fold overwrote an assumption the body cannot supply"
+    );
+    assert_eq!(folded.response.hitstun_time, 1.25);
+}
+
+/// **And it arrives through the world-in port**, which is the only channel the
+/// brain has. A snapshot that carries no law leaves the config's tuning alone.
+#[test]
+fn a_snapshot_without_a_movement_law_changes_nothing() {
+    let cfg = ShadowTuning::default();
+    let snapshot = crate::brain::BrainSnapshot::idle();
+    assert!(
+        snapshot.movement_tuning.is_none(),
+        "an idle snapshot claims a movement law it never resolved"
+    );
+    let resolved = match snapshot.movement_tuning.as_ref() {
+        Some(movement) => cfg.clone().with_movement(movement),
+        None => cfg.clone(),
+    };
+    assert_eq!(resolved, cfg);
+}

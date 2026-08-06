@@ -127,6 +127,28 @@ pub struct BrainSnapshot {
     /// write an already-normalized stick and ignore this.
     pub max_run_speed: f32,
 
+    /// **The movement law this body actually plays under**, for brains that
+    /// PREDICT rather than steer.
+    ///
+    /// A rollout has to simulate the body forward, and a shadow model that
+    /// restates the engine's default constants predicts the wrong body the
+    /// moment a character authors its own: `ShadowTuning` carried a hand-copied
+    /// gravity of 1400 against the engine's 2250 for weeks, which made every
+    /// offstage rollout price a longer airtime than exists. Body-derived truth
+    /// arriving through the world-in port, exactly like [`Self::actor_aerial`]
+    /// and [`Self::attack_kit`].
+    ///
+    /// ⚠ **this is NOT a second [`Self::max_run_speed`]**, and the two answer
+    /// different questions. `max_run_speed` is the throttle scale the caller
+    /// wants this body's locomotion intent expressed against — deliberately `0`
+    /// for a body whose integrator ignores it, and a boss's flight speed for a
+    /// body that flies. This is what the body's own tuning says, for predicting
+    /// where it will BE.
+    ///
+    /// `None` — the default — means "no authored law reached this snapshot", and
+    /// a predictor falls back to the engine's canonical defaults.
+    pub movement_tuning: Option<ae::MovementTuning>,
+
     // --- Combat timers ---
     /// Cooldown remaining before this actor may begin another attack.
     pub attack_cooldown_remaining: f32,
@@ -202,6 +224,7 @@ impl BrainSnapshot {
             sim_time: 0.0,
             dt: 1.0 / 60.0,
             max_run_speed: 120.0,
+            movement_tuning: None,
             attack_cooldown_remaining: 0.0,
             attack_windup_remaining: 0.0,
             attack_active_remaining: 0.0,

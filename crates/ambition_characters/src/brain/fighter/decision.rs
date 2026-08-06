@@ -339,6 +339,17 @@ fn decide(
         &cfg.profile.utility_weights,
     );
 
+    // ⭐ **THE ROLLOUT PREDICTS THE BODY IT IS IN, not a default one.** The
+    // config's tuning carries the foe assumptions and the hit response; the
+    // MOVEMENT half comes from the body's own authored `MovementTuning` when the
+    // snapshot carries it. Without this a character that authors its own gravity
+    // or run speed is predicted as somebody else — and the shadow's copied
+    // constants were three-for-three wrong for weeks under exactly that shape.
+    let tuning = match snapshot.movement_tuning.as_ref() {
+        Some(movement) => cfg.tuning.clone().with_movement(movement),
+        None => cfg.tuning.clone(),
+    };
+
     // L3 refines L2's ranking when the profile pays for rollouts. `None` means
     // this profile does not, or there was nothing to refine.
     let refined = refine_by_rollout(
@@ -347,7 +358,7 @@ fn decide(
         &options,
         &state.habits,
         &cfg.profile,
-        &cfg.tuning,
+        &tuning,
         cfg.tick_hz,
         // How long this body is COMMITTED to whatever it decides: exactly until
         // it decides again.

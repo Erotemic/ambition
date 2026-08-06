@@ -1179,10 +1179,9 @@ pub fn integrate_sim_bodies(
             &world.0,
             &mut clusters,
             combat,
-            health.map_or_else(
-                ambition_characters::actor::Invulnerability::none,
-                |h| h.health.invulnerable,
-            ),
+            health.map_or_else(ambition_characters::actor::Invulnerability::none, |h| {
+                h.health.invulnerable
+            }),
             motion_facts.dodge_rolling,
             &mut hurtbox,
             &mut frame_out,
@@ -1678,6 +1677,23 @@ fn build_enemy_brain_snapshot(
         sim_time,
         dt,
         max_run_speed: em.config.tuning.max_run_speed,
+        // **THE MOVEMENT LAW THIS BODY PLAYS UNDER**, for the brains that
+        // predict rather than steer. The line above takes one number out of the
+        // same tuning as a throttle scale; a rollout has to step the body
+        // forward, so it needs the law and not one field of it.
+        //
+        // `body_tuning` is the same projection the rich integration path takes,
+        // so the predictor and the integrator read one source — which is the
+        // whole point. A shadow model that restates the engine's constants
+        // predicts the wrong body the moment an archetype authors its own
+        // gravity or jump, and it was silently predicting the wrong body even
+        // before that.
+        movement_tuning: Some(
+            em.config
+                .tuning
+                .movement
+                .body_tuning(em.config.tuning.max_run_speed),
+        ),
         attack_cooldown_remaining: em.attack.cooldown,
         attack_windup_remaining: em.attack.windup_remaining(),
         attack_active_remaining: em.attack.active_remaining(),

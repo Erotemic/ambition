@@ -60,6 +60,34 @@ fn resolves(declared: &str, roots: &[PathBuf]) -> bool {
     roots.iter().any(|root| root.join(relative).is_file())
 }
 
+/// **The poison.** Every check in this file spells its success as "the set of
+/// unresolved paths is EMPTY", which is the strongest assertion available and
+/// also the one that goes green forever the moment `resolves` starts answering
+/// `true` unconditionally — a one-character edit, or an asset root that grows a
+/// catch-all. Nothing here would notice.
+///
+/// ⚠ every other census in this repo grew a poison after being caught measuring
+/// nothing: the regen orphan scan, the catalog placement scan, the hall pedestal
+/// pairing. This file's checks are older than that lesson.
+#[test]
+fn the_resolver_can_actually_report_a_missing_file() {
+    let roots = asset_roots();
+    assert!(!roots.is_empty(), "no asset root resolved");
+    assert!(
+        !resolves("sprites/a_file_nobody_ever_drew.png", &roots),
+        "the resolver answers YES for a path that does not exist, so every          emptiness assertion in this file is green by construction"
+    );
+    assert!(
+        !resolves("game://sprites/a_file_nobody_ever_drew.png", &roots),
+        "…and the same through the `game://` road, which is the one content          actually declares"
+    );
+    // …and it says yes to something real, so it is not simply always false.
+    assert!(
+        resolves("sprites/alice_spritesheet.png", &roots),
+        "the resolver cannot find a sheet that is definitely there — the roots          are wrong and these checks are measuring the wrong tree"
+    );
+}
+
 #[test]
 fn every_declared_world_item_art_path_names_a_file_that_exists() {
     use ambition_platformer2d::platformer::world_item_art::WorldItemArtManifest;
@@ -112,7 +140,9 @@ fn every_declared_world_item_art_path_names_a_file_that_exists() {
 /// ones name no file by construction.
 #[test]
 fn every_declared_projectile_image_names_a_file_that_exists() {
-    use ambition_platformer2d::projectiles::visual::{ProjectileArtSource, ProjectileVisualCatalog};
+    use ambition_platformer2d::projectiles::visual::{
+        ProjectileArtSource, ProjectileVisualCatalog,
+    };
 
     let app = build_visible_app(VisibleRenderMode::NoWindow, true);
     let roots = asset_roots();
@@ -277,8 +307,7 @@ fn every_catalog_character_that_derives_a_portrait_has_the_art() {
 
     let known: Vec<String> = KNOWN_MISSING.iter().map(|id| id.to_string()).collect();
     assert_eq!(
-        missing,
-        known,
+        missing, known,
         "the set of characters with no portrait art has CHANGED.\n\
          If it grew: a character now derives a portrait path with no file behind \
          it, and any UI that draws a face — the dialogue box, the smash select \

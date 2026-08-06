@@ -76,7 +76,7 @@ fn the_snakes_picture_and_its_body_describe_the_same_animal() {
         "the snake is DRAWN {:.1} world tall and COLLIDES {:.1} world tall — \
          {overhang:.2}x. Its sheet body is {:?} px inside a {:?} px frame, and \
          the quad is the whole frame, so the picture is square while the animal \
-         is long and flat.\n\nScaling `SNAKE_BODY_WIDTH` cannot fix this: \
+         is long and flat.\n\nScaling `snake_body_width` cannot fix this: \
          the knob multiplies both numbers, so the disagreement survives every \
          value — which is why two previous attempts at Jon's report did not \
          land. Either the sheet frame is cropped to the animal, or the quad is \

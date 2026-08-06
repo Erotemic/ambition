@@ -350,6 +350,27 @@ pub(crate) fn mary_o_world_per_pixel() -> f32 {
     }
 }
 
+/// **How WIDE Mary-O's small form stands, in world units** — the ruler every
+/// other body in this demo is sized against.
+///
+/// Her HEIGHT is the authored number ([`MARY_O_STANDING_HEIGHT`]); her width
+/// follows from the sheet, so this is a measurement rather than a second claim
+/// and the two cannot drift apart.
+///
+/// ⭐ **it exists because "too big" is a comparison and needed a denominator.**
+/// Jon reported the snake and the AI Slop as *"way too big"* twice, and every
+/// attempt before this expressed the answer as a pixel scale — a unit in which
+/// the comparison cannot be stated at all.
+pub(crate) fn mary_o_body_width() -> Option<f32> {
+    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+        SMALL_SHEET_TARGET,
+        CharacterAnim::Idle,
+        1.0,
+    )
+    .filter(|geometry| geometry.collision.x > 0.0 && geometry.collision.y > 0.0)
+    .map(|geometry| geometry.collision.x * (MARY_O_STANDING_HEIGHT / geometry.collision.y))
+}
+
 /// The small form's body rectangle height in SHEET PIXELS, or `None` when no
 /// record is baked. Separated so a test can ask whether the art resolved at all
 /// — the scale above cannot report that, since its fallback is a real number.

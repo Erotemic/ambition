@@ -410,7 +410,7 @@ pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
 /// ⭐ **it is no longer the knob** (2026-08-06). Turning a pixel scale is a taste
 /// call expressed in the wrong unit: nobody looking at the running game thinks
 /// *"that should be 0.31 world units per sheet pixel"*, they think *"that is too
-/// wide"*. [`SNAKE_BODY_WIDTH`] is that sentence, and this is derived from it —
+/// wide"*. [`snake_body_width`] is that sentence, and this is derived from it —
 /// so the taste call is a one-line edit in the unit the complaint arrives in,
 /// and a regen that moves the crop by a pixel no longer resizes the creature.
 pub fn snake_world_per_pixel() -> f32 {
@@ -424,7 +424,7 @@ pub fn snake_world_per_pixel() -> f32 {
     )
     .map(|sheet| sheet.collision.x)
     .filter(|width| *width > 0.0)
-    .map_or(NO_SHEET, |sheet_width| SNAKE_BODY_WIDTH / sheet_width)
+    .map_or(NO_SHEET, |sheet_width| snake_body_width() / sheet_width)
 }
 
 /// **How WIDE a Solid Snake is, in world units** — the one authored number, and
@@ -437,10 +437,25 @@ pub fn snake_world_per_pixel() -> f32 {
 /// dimensions together, which is why *"still way too big"* survived three of
 /// them — the offending dimension was never the one being reasoned about.
 ///
-/// `41.0` preserves the size `0.35` produced to within a tenth of a world unit,
-/// so this change is a restatement and not a resize. Shrinking the snake is one
-/// edit here.
-pub const SNAKE_BODY_WIDTH: f32 = 41.0;
+/// ⭐⭐ **AND IT IS DERIVED FROM MARY-O, not chosen** (2026-08-06). A snake
+/// occupies the same corridor width she does — which is what a Koopa does beside
+/// Mario, and the answer stays right when either sheet is regenerated.
+///
+/// **Before this it was 41.0 world units against her 25.6 — 1.6x her width**,
+/// while being barely a third of her height. That is the *"way too big"* Jon
+/// reported twice, and it is why the two previous answers (a 30% cut, then a
+/// restatement) did not settle it: neither had a denominator, so "too big"
+/// could not be checked, only re-guessed.
+///
+/// ⚠ **a blind draw, in its own commit.** Jon asked for smaller twice and is not
+/// here to look; this is a 37% reduction with a stated reason, which is a thing
+/// he can reject in one line rather than a number he has to re-derive.
+pub fn snake_body_width() -> f32 {
+    // The value this replaced, for a composition with no baked art — so a
+    // headless fixture keeps the size it had rather than acquiring Mary-O's.
+    const NO_SHEET: f32 = 41.0;
+    crate::powerups::mary_o_body_width().unwrap_or(NO_SHEET)
+}
 
 /// How near an observer has to be for a snake to keep thinking.
 ///

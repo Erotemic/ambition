@@ -33,7 +33,7 @@ use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 const REFERENCE: &str = "player_robot_v3";
 
 /// The sheet targets Jon named, plus the reference.
-const SUBJECTS: &[&str] = &["player_robot_v3", "solid_snake", "ai_slop"];
+const SUBJECTS: &[&str] = &["player_robot_v3", "solid_snake", "ai_slop", "mary_o_v2"];
 
 fn measured(target: &str) -> Option<(f32, f32, f32, f32)> {
     let g = posed_body_geometry(target, CharacterAnim::Idle, 1.0)?;

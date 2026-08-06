@@ -119,6 +119,69 @@ fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
 /// ⚠ **the seam, not the numbers.** One kit for everybody is a FLOOR and is
 /// honestly a levelling; per-character kits are the content job. What must not
 /// regress is that a fighter reaches the stage able to hit somebody.
+/// **Every id on the wish list is a character somebody can actually pick.**
+///
+/// ⛔ `SmashRoster::assemble` FILTERS to what the composition carries, which is
+/// correct — the other demos' protagonists are only there when a host composes
+/// them — and it means a MISSPELLED id is indistinguishable from an absent one.
+/// The grid silently comes back one fighter short and the screen looks fine.
+/// Jon set this roster by hand and expects to keep editing it (*"we may go more
+/// than 8"*), so a typo dropping a fighter he asked for is the likely mistake.
+///
+/// ⚠ **the SHIPPED composition is the population**, so ids that are genuinely
+/// composition-dependent must be named below rather than assumed present.
+#[test]
+fn every_id_on_the_smash_wish_list_names_a_real_character() {
+    /// Ids the shipped host legitimately does not carry.
+    ///
+    /// ⭐ empty today, and that is the finding: `ambition_app` composes Mary-O
+    /// and Sanic, so every name on the list resolves in the real game. An entry
+    /// here would mean "this fighter only exists in some other host", which is a
+    /// claim worth making explicitly rather than by silence.
+    const COMPOSITION_DEPENDENT: &[&str] = &[];
+
+    let app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    let catalog = app
+        .world()
+        .get_resource::<CharacterCatalog>()
+        .expect("the composed host has an assembled character catalog");
+
+    let wish_list = ambition_demo_smash::select::SMASH_ROSTER;
+    assert!(
+        wish_list.len() >= 8,
+        "the wish list has shrunk to {} — Jon sized this grid by hand",
+        wish_list.len()
+    );
+
+    let mut absent: Vec<&str> = wish_list
+        .iter()
+        .copied()
+        .filter(|id| catalog.get(id).is_none())
+        .filter(|id| !COMPOSITION_DEPENDENT.contains(id))
+        .collect();
+    absent.sort_unstable();
+    assert!(
+        absent.is_empty(),
+        "smash roster id(s) name no character in the shipped composition, so the \
+         grid silently comes back short and the screen still looks correct: \
+         {absent:?}. Either the id is misspelled, or the character really is \
+         composition-dependent and belongs in COMPOSITION_DEPENDENT with a \
+         reason."
+    );
+
+    let stale: Vec<&str> = COMPOSITION_DEPENDENT
+        .iter()
+        .copied()
+        .filter(|id| catalog.get(id).is_some())
+        .collect();
+    assert!(
+        stale.is_empty(),
+        "these ids are waived as composition-dependent and the shipped host \
+         carries them: {stale:?}"
+    );
+}
+
 #[test]
 fn the_match_gives_every_seat_a_kit_that_can_hit() {
     use ambition_demo_smash::select::{SlotOccupant, SmashSelect};

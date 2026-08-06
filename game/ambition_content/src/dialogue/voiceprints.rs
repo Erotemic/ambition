@@ -54,12 +54,23 @@ const VOICEPRINTS: &[VoiceprintDef] = &[
     },
     VoiceprintDef {
         cue: CREATOR,
-        exact: &[
-            "creator",
-            "creator_final",
-            "hall_npc_creator",
-            "hall_npc_creator_final",
-        ],
+        // ⛔ **`creator_final` and `hall_npc_creator_final` are GONE with the id.**
+        // Creator Final shared `npc_creator`'s spritesheet and manifest exactly,
+        // so the two ids were one person; the row was folded in on 2026-08-05
+        // and its hall node deleted with it. What still exists is the raid
+        // scene, whose node is `creator_final_normal` and whose speaker line
+        // reads `Creator:` — caught by the `creator` key on the speaker, and by
+        // the `creator` ALIAS on the dialogue id, which matches as a substring.
+        // Keeping the dead keys would have left two lines naming a character
+        // nobody can find.
+        //
+        // ⚠ **the tests here cannot tell**: a probe that deleted the `creator`
+        // EXACT key as well left all three voiceprint tests green, because the
+        // `creator` alias matches any key CONTAINING it. So for this cast the
+        // exact keys are largely redundant with the alias, and nothing would
+        // notice one being wrong — worth knowing before trusting a green run
+        // over this table.
+        exact: &["creator", "hall_npc_creator"],
         aliases: &["creator"],
     },
     VoiceprintDef {

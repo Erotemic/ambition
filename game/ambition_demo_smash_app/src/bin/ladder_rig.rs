@@ -261,19 +261,35 @@ fn stage_bounds(app: &mut bevy::app::App) -> Option<ae::Aabb> {
 /// Returns `false` until both seats are present, so the caller keeps trying
 /// rather than placing one body and calling it a scenario.
 fn place_at(app: &mut bevy::app::App, me: ae::Vec2, foe: ae::Vec2) -> bool {
-    use ambition_platformer2d::platformer::body::BodyKinematics;
+    use ambition_platformer2d::actor::{transit_body, BodyClusterQueryData, TransitVelocity};
     let world = app.world_mut();
-    let mut q = world.query::<(&MatchSeat, &mut BodyKinematics)>();
-    let seats: Vec<usize> = q.iter(world).map(|(seat, _)| seat.0).collect();
+    let mut q = world.query::<(
+        &MatchSeat,
+        BodyClusterQueryData,
+        &mut ambition_platformer2d::actors::features::MotionModel,
+    )>();
+    let seats: Vec<usize> = q.iter(world).map(|(seat, ..)| seat.0).collect();
     if !seats.contains(&0) || !seats.contains(&1) {
         return false;
     }
-    for (seat, mut body) in q.iter_mut(world) {
+    for (seat, mut cluster_item, mut model) in q.iter_mut(world) {
         let target = if seat.0 == 0 { me } else { foe };
-        body.pos = target;
-        // ⚠ zero the velocity too. A body carrying the spawn's fall speed into a
+        let mut clusters = cluster_item.as_clusters_mut();
+        // ⛔ **`transit_body`, not `body.pos = ..`.** ADR 0024 routes every pose
+        // and velocity write through the movement authority, and
+        // `engine.pose-writes-are-authority-only` caught the bare version of
+        // this — with a rationale naming the TwinTrack demo, which *"relocated a
+        // body outside the authority for two days"*.
+        //
+        // ⭐ and it is not only a rule: `transit_body` calls `reconcile_transit`,
+        // which the field write skipped — so a body teleported to a ledge kept
+        // whatever surface and frame state it had at the spawn point, and the
+        // scenario measured a fighter standing in a premise its motion model did
+        // not agree with.
+        //
+        // ⚠ `Zero`, because a body carrying the spawn's fall speed into a
         // "standing at the ledge" premise is not in that premise.
-        body.vel = ae::Vec2::ZERO;
+        transit_body(&mut model, &mut clusters, target, TransitVelocity::Zero);
     }
     true
 }

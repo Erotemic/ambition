@@ -466,7 +466,7 @@ mod dispatch_parity {
         app.init_resource::<InventoryUiState>();
         app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
-        app.init_resource::<ambition_platformer2d::input::ActiveInputKind>();
+        app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();

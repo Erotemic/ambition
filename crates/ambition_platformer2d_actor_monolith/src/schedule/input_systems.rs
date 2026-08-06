@@ -63,7 +63,7 @@ fn input_suppressed_by_unfocus(
 /// ⚠ TWO members, and the second one is the argument. `populate_seat_menu_frames`
 /// is the per-seat companion, chained immediately after the global populate, and
 /// it writes `SeatMenuFrames` and NOTHING else — not `MenuControlFrame`, not
-/// `ActiveInputKind`. A gesture adapter pinning `.after` this set therefore lands
+/// `SeatActiveDevices`. A gesture adapter pinning `.after` this set therefore lands
 /// in exactly the same observable position as pinning the global populate alone;
 /// it shares no mutable state with the extra member it now waits for. That was
 /// checked at both signatures rather than assumed from the names.

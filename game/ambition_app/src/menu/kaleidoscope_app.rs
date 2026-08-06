@@ -65,10 +65,10 @@ pub fn install_unified_menu_shared(app: &mut App) {
     app.init_resource::<InventoryUiBackend>()
         .init_resource::<ActiveMenuPages<MenuPage, MenuPageAction>>()
         .init_resource::<KaleidoscopeCursor>()
-        // The pointer-hover handlers read `ActiveInputKind`. The input plugin
+        // The pointer-hover handlers read `SeatActiveDevices`. The input plugin
         // also inits it; init here too so the menu remains self-sufficient
         // (`init_resource` is idempotent).
-        .init_resource::<ambition_platformer2d::input::ActiveInputKind>()
+        .init_resource::<ambition_platformer2d::input::SeatActiveDevices>()
         .init_resource::<KaleidoscopeSystemNav>()
         .init_resource::<CachedSystemMenu>()
         .init_resource::<VisualQualityConfirmState>()

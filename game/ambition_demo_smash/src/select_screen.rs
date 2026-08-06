@@ -676,8 +676,9 @@ pub fn drive_the_cursor(
     // ── the mouse ────────────────────────────────────────────────────────
     // ⚠ only a MOVE counts. A stationary mouse reporting the same position
     // every frame must not fight the arrow keys for the cursor — that is the
-    // snap-back bug `ActiveInputKind` exists for, and here it is the difference
-    // between a pad being able to drive this screen and not.
+    // snap-back bug `SeatActiveDevices` exists for. Local rather than read
+    // from that resource because this screen needs the POSITION of the move,
+    // not just the fact of it.
     if let Some(position) = windows.iter().next().and_then(Window::cursor_position) {
         if last_mouse.is_none_or(|previous| previous.distance_squared(position) > 0.01) {
             pointer.move_to(position);

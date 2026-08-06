@@ -1135,10 +1135,6 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::developer_hotkeys::DeveloperAction",
         "developer hotkey message",
     ),
-    (
-        "::affordances::devices::ActiveInputMethod",
-        "last-used input device; drives prompt glyphs, not simulation",
-    ),
     // Deliberate rollback exclusions, each with an in-code guard.
     (
         "::falling_sand_sim::",

@@ -75,7 +75,7 @@ fn grid_app() -> App {
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<GridMenuTabState>();
-    app.init_resource::<ambition_platformer2d::input::ActiveInputKind>();
+    app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
     app.add_message::<PlayerHealRequested>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
@@ -835,11 +835,11 @@ fn hover_control(app: &mut App, action: MenuPageAction) {
 /// Bug 1 (snap-back): `grid_menu_pointer_hover` must IGNORE a `Pointer<Over>`
 /// (the event a republish fires under a stationary mouse) while the active
 /// input source is NOT the mouse, and HONOR it once a genuine mouse move has
-/// set `ActiveInputKind = Mouse`. Without the gate, every arrow-key move
+/// mark `Mouse`. Without the gate, every arrow-key move
 /// rebuilt the menu → fired `Over` → snapped the cursor back to the mouse.
 #[test]
 fn hover_is_gated_on_active_input_being_mouse() {
-    use ambition_platformer2d::input::ActiveInputKind;
+    use ambition_platformer2d::input::{ActiveDevice, SeatActiveDevices};
     use ambition_platformer2d::items::Item;
 
     let mut app = grid_app();
@@ -853,7 +853,9 @@ fn hover_is_gated_on_active_input_being_mouse() {
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
         .mark_keyboard(parked);
-    *app.world_mut().resource_mut::<ActiveInputKind>() = ActiveInputKind::Keyboard;
+    app.world_mut()
+        .resource_mut::<SeatActiveDevices>()
+        .mark_primary(ActiveDevice::Keyboard);
 
     // A republish-style `Over` on a DIFFERENT item must NOT move the cursor.
     let other = Item::ALL[1];
@@ -866,7 +868,9 @@ fn hover_is_gated_on_active_input_being_mouse() {
 
     // Now a GENUINE mouse move would set active=Mouse; the same Over then
     // takes ownership and moves the cursor onto the hovered item.
-    *app.world_mut().resource_mut::<ActiveInputKind>() = ActiveInputKind::Mouse;
+    app.world_mut()
+        .resource_mut::<SeatActiveDevices>()
+        .mark_primary(ActiveDevice::Mouse);
     hover_control(&mut app, MenuPageAction::Equip(other));
     assert_eq!(
         app.world().resource::<KaleidoscopeCursor>().focus(),
@@ -1007,9 +1011,9 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
 
     // A hover (cursor-follow) moves the CURSOR but, with the override set, the
     // EFFECTIVE window stays at the override — hovering does not scroll the list.
-    *app.world_mut()
-        .resource_mut::<ambition_platformer2d::input::ActiveInputKind>() =
-        ambition_platformer2d::input::ActiveInputKind::Mouse;
+    app.world_mut()
+        .resource_mut::<ambition_platformer2d::input::SeatActiveDevices>()
+        .mark_primary(ambition_platformer2d::input::ActiveDevice::Mouse);
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
         .mark_keyboard(MenuFocus::System(0));

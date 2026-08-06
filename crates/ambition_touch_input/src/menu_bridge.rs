@@ -9,7 +9,7 @@
 //!   [`MenuControlFrame::scroll_y`], the same lane the mouse wheel uses
 //!   (`populate_menu_control_frame_from_actions` adds wheel scroll; this
 //!   system adds drag scroll after it);
-//! - genuine touch activity marks [`ActiveInputKind::Touch`], the symmetric
+//! - genuine touch activity marks the primary seat [`ActiveDevice::Touch`], the symmetric
 //!   counterpart of the keyboard/mouse/gamepad detector.
 
 use bevy::input::mouse::MouseButton;
@@ -18,10 +18,10 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
-use ambition_input::{ActiveInputKind, MenuControlFrame};
+use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices};
 
 /// Fold non-control touch drags into menu scroll, and mark touch as the
-/// active input source while a finger is genuinely driving the game.
+/// active input source while the overlay is genuinely driving the game.
 ///
 /// Runs after `populate_menu_control_frame_from_actions` (which rebuilds the
 /// frame from the participant's actions each frame) and before
@@ -37,13 +37,15 @@ pub fn fold_touch_gestures(
     placement: Res<crate::placement::TouchControlPlacement>,
     mut gesture: ResMut<MenuTouchGestureState>,
     mut frame: ResMut<MenuControlFrame>,
-    mut active_input: ResMut<ActiveInputKind>,
+    mut devices: ResMut<SeatActiveDevices>,
 ) {
     // The on-screen joystick / touch buttons are a FIRST-CLASS input source:
-    // any genuine touch input this frame marks `ActiveInputKind = Touch`,
-    // which keeps the mouse hover-gate from being the active source while a
-    // finger drives a menu. A motionless stick + no buttons leaves the
-    // marker untouched (last-writer-wins), so it does not stomp
+    // any genuine overlay input this frame marks the primary seat's device
+    // `Touch`, which keeps the mouse hover-gate from being the active source
+    // while a finger drives a menu. The central detector already marks raw
+    // `Touches`; this covers the overlay's virtual controls, which a MOUSE
+    // can drive without any finger existing. A motionless stick + no buttons
+    // leaves the marker untouched (last-writer-wins), so it does not stomp
     // keyboard/gamepad.
     let touch = state.0;
     let stick_mag = (touch.move_x * touch.move_x + touch.move_y * touch.move_y).sqrt();
@@ -63,7 +65,7 @@ pub fn fold_touch_gestures(
     .iter()
     .any(|button| button.held || button.pressed_this_frame);
     if stick_mag > user_settings.controls.left_stick_deadzone || any_button_active {
-        active_input.mark(ActiveInputKind::Touch);
+        devices.mark_primary(ActiveDevice::Touch);
     }
 
     let Ok(window) = windows.single() else {

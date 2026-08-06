@@ -22,6 +22,8 @@ mod bindings;
 mod control;
 pub mod cues;
 #[cfg(feature = "input")]
+mod glyphs;
+#[cfg(feature = "input")]
 mod local_seats;
 mod menu;
 mod motion_input;
@@ -45,7 +47,11 @@ pub use motion_input::{
 
 #[cfg(feature = "input")]
 pub use actions::Platformer2dInputActionMonolith;
-pub use active_input::{update_active_input_kind, ActiveInputKind};
+pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};
+#[cfg(feature = "input")]
+pub use active_input::update_seat_active_devices;
+#[cfg(feature = "input")]
+pub use glyphs::glyph_for;
 pub use ambition_platformer2d_core::ControlFrame;
 pub use control::PlayerDashTriggerState;
 #[cfg(feature = "input")]

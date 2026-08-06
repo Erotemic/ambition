@@ -243,7 +243,7 @@ impl Plugin for HostInputBindingsPlugin {
             .init_resource::<MenuControlFrame>()
             .init_resource::<ambition_input::SeatMenuFrames>()
             .init_resource::<PlayerDashTriggerState>()
-            .init_resource::<ambition_input::ActiveInputKind>()
+            .init_resource::<ambition_input::SeatActiveDevices>()
             .add_plugins(InputManagerPlugin::<Platformer2dInputActionMonolith>::default())
             .add_systems(
                 bevy::app::PreUpdate,
@@ -262,18 +262,20 @@ impl Plugin for HostInputBindingsPlugin {
                 leafwing_input_manager::plugin::InputManagerSystem::Tick
                     .before(leafwing_input_manager::plugin::InputManagerSystem::Unify),
             )
-            // Track which input source is CURRENTLY active (last to produce
-            // GENUINE input). This gates the menu mouse-hover handlers so a
-            // rebuild-induced `Pointer<Over>` under a stationary mouse can't
-            // snap the cursor back while the player navigates with the
-            // keyboard / gamepad / touch. Runs in the input populate set so
-            // the value is fresh before this frame's menu consumers + before
-            // the hover observers fire on rebuilt controls. The detector
-            // covers keyboard / mouse / gamepad; the touch virtual-device /
-            // gesture adapter marks `Touch` itself.
+            // Track which input device each SEAT most recently produced
+            // GENUINE input with (and, via `machine()`, the newest overall —
+            // which gates the menu mouse-hover handlers so a rebuild-induced
+            // `Pointer<Over>` under a stationary mouse can't snap the cursor
+            // back while a player navigates with keyboard / gamepad / touch).
+            // Runs in the input populate set so the value is fresh before
+            // this frame's menu consumers + before the hover observers fire
+            // on rebuilt controls. The detector covers keyboard / mouse /
+            // gamepad / raw touch; the touch virtual-device gesture adapter
+            // additionally marks `Touch` for overlay input a mouse can drive.
             .add_systems(
                 Update,
-                ambition_input::update_active_input_kind.in_set(ambition_input::InputSet::Route),
+                ambition_input::update_seat_active_devices
+                    .in_set(ambition_input::InputSet::Route),
             )
             // The persistent participant spawns ONCE at boot — before any
             // route, session, or gameplay actor exists — and is never

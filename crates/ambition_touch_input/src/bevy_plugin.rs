@@ -342,8 +342,11 @@ impl Plugin for TouchControlsPlugin {
                     // The STICK, on the same rule, after the root sync so it
                     // wins over the blanket setting mirror rather than racing it.
                     sync_touch_stick_visibility_from_context.after(sync_touch_ui_visibility),
-                    update_button_glyph_from_active_input
-                        .after(ambition_platformer2d_actor_monolith::affordances::AffordancesSystemSet::Compute),
+                    // After `Route`, where `update_seat_active_devices` runs —
+                    // so the glyph reflects THIS frame's device flip. The old
+                    // pin (`AffordancesSystemSet::Compute`) ordered it against
+                    // a detector that no longer exists there.
+                    update_button_glyph_from_active_input.after(ambition_input::InputSet::Route),
                     update_button_pressed_from_actions
                         .after(ambition_platformer2d_actor_monolith::affordances::AffordancesSystemSet::Compute),
                     render_touch_button_text
@@ -1313,8 +1316,8 @@ pub fn render_touch_button_text(
     }
 }
 
-/// Per-device glyph subtitle (Phase 2). Updated each frame from
-/// [`ActiveInputMethod`] + the active [`KeyboardPreset`].
+/// Per-device glyph subtitle. Updated each frame from the primary seat's
+/// active device (`SeatActiveDevices`) + the active [`KeyboardPreset`].
 ///
 /// Today the active preset is sourced from a default
 /// (`KeyboardPreset::arrows_zxc()`) because the sandbox does not yet
@@ -1363,11 +1366,11 @@ fn touch_action_to_sandbox_action(
 }
 
 /// Per-frame: write each button's glyph from the active input
-/// device. Reads [`ActiveInputMethod`] + the player's selected
-/// [`KeyboardPreset`] (from settings), so HUD glyphs follow a rebind
-/// instead of always showing the out-of-the-box Z/X/C keys.
+/// device. Reads the primary seat's device from `SeatActiveDevices` + the
+/// player's selected [`KeyboardPreset`] (from settings), so HUD glyphs
+/// follow a rebind instead of always showing the out-of-the-box Z/X/C keys.
 pub fn update_button_glyph_from_active_input(
-    active: Res<ambition_platformer2d_actor_monolith::affordances::ActiveInputMethod>,
+    devices: Res<ambition_input::SeatActiveDevices>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     seat_bindings: Option<Res<ambition_input::SeatBindings>>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonGlyph)>,
@@ -1390,8 +1393,11 @@ pub fn update_button_glyph_from_active_input(
         let Some(sa) = touch_action_to_sandbox_action(*touch_action) else {
             continue;
         };
-        let next = ambition_platformer2d_actor_monolith::affordances::glyph_for(
-            sa, &preset, bound, active.0,
+        let next = ambition_input::glyph_for(
+            sa,
+            &preset,
+            bound,
+            devices.for_seat(ambition_input::ParticipantId::PRIMARY.slot()),
         );
         if glyph.0 != next {
             glyph.0 = next;

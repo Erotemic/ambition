@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use crate::runtime::DialogState;
 use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker, DialogueVoiceCatalog};
 #[cfg(feature = "input")]
-use ambition_input::{ActiveInputKind, MenuControlFrame};
+use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices};
 #[cfg(feature = "input")]
 use ambition_persistence::settings::{MenuTapMode, UserSettings};
 use ambition_sfx::{SfxMessage, SfxWriter};
@@ -84,7 +84,7 @@ pub fn dialog_pointer_input(
     windows: Query<&Window, With<PrimaryWindow>>,
     choices: Query<(&Interaction, &DialogChoiceSlot), Changed<Interaction>>,
     settings: Option<Res<UserSettings>>,
-    active_input: Option<Res<ActiveInputKind>>,
+    devices: Option<Res<SeatActiveDevices>>,
     touches: Option<Res<Touches>>,
     mouse_buttons: Option<Res<ButtonInput<MouseButton>>>,
 ) {
@@ -96,16 +96,16 @@ pub fn dialog_pointer_input(
         .as_deref()
         .map(|settings| settings.controls.menu_tap_mode)
         .unwrap_or_default();
-    // `ActiveInputKind` is the shared last-genuine-input policy, while the
+    // `SeatActiveDevices::machine` is the shared last-genuine-input policy, while the
     // live touch resource closes the same-frame ordering gap for a finger that
     // presses a row before the touch fold has published `Touch`.
     let direct_touch_active = touches
         .as_deref()
         .is_some_and(|touches| touches.iter().next().is_some());
     let pointer_input = if direct_touch_active {
-        Some(ActiveInputKind::Touch)
+        Some(ActiveDevice::Touch)
     } else {
-        active_input.as_deref().copied()
+        devices.as_deref().map(SeatActiveDevices::machine)
     };
     let tap_mode = effective_dialog_tap_mode(configured_tap_mode, pointer_input);
 
@@ -145,9 +145,9 @@ pub fn dialog_pointer_input(
                 // cursor. Only genuine mouse motion owns hover selection; touch,
                 // keyboard, physical gamepad, and the touch gamepad keep their
                 // newer semantic selection until the mouse actually moves.
-                if active_input
+                if devices
                     .as_deref()
-                    .is_some_and(|kind| *kind != ActiveInputKind::Mouse)
+                    .is_some_and(|devices| devices.machine() != ActiveDevice::Mouse)
                 {
                     continue;
                 }
@@ -338,7 +338,7 @@ fn resolve_pointer_up(
 #[cfg(feature = "input")]
 fn effective_dialog_tap_mode(
     configured: MenuTapMode,
-    _active_input: Option<ActiveInputKind>,
+    _active_input: Option<ActiveDevice>,
 ) -> MenuTapMode {
     // ⛔ **the touch PROMOTION is gone (2026-08-04).** This used to upgrade
     // `SingleTapWithDestructiveGuard` to `TapToSelectThenConfirm` whenever the
@@ -741,7 +741,7 @@ mod tests {
     /// promotion cannot quietly remove the safety with it.
     #[test]
     fn touch_keeps_its_configured_tap_policy_and_a_drag_still_cannot_activate() {
-        for kind in [ActiveInputKind::Touch, ActiveInputKind::Mouse] {
+        for kind in [ActiveDevice::Touch, ActiveDevice::Mouse] {
             for configured in [
                 MenuTapMode::SingleTapWithDestructiveGuard,
                 MenuTapMode::SingleTap,

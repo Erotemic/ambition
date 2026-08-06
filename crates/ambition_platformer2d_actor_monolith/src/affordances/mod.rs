@@ -38,16 +38,12 @@ use ambition_platformer2d_shared_tangle::markers::ControlledSubject;
 use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
-pub mod devices;
 pub mod intent;
 pub mod interactable_proximity;
 pub mod pogo_proximity;
 pub mod resolvers;
 pub mod variants;
 
-pub use devices::{
-    detect_active_input_method, glyph_for, ActiveInputMethod, GamepadKind, InputMethod,
-};
 pub use intent::{compute_aim, compute_controlled_actor_intent, Aim, PlayerIntent};
 pub use interactable_proximity::{update_nearest_interactable, NearestInteractable};
 pub use pogo_proximity::{update_pogo_target_below, PogoTargetBelow};
@@ -193,7 +189,6 @@ impl Plugin for AffordancesPlugin {
             .init_resource::<NearestInteractable>()
             .init_resource::<PogoTargetBelow>()
             .init_resource::<PlayerAffordances>()
-            .init_resource::<ActiveInputMethod>()
             .add_systems(
                 sim,
                 (
@@ -211,15 +206,13 @@ impl Plugin for AffordancesPlugin {
                     // the publish) so the intent reflects this frame's input.
                     .after(crate::control::sync_local_player_input_frame)
                     .in_set(AffordancesSystemSet::Compute),
-            )
-            // Active-input-method detection runs unchained because it
-            // only reads input resources and writes its own resource —
-            // no ordering dependency on the affordance compute chain.
-            // HUD systems that consume both `PlayerAffordances` and
-            // `ActiveInputMethod` should pin `.after(AffordancesSystemSet::Compute)`
-            // (which transitively orders after detection too, since
-            // Bevy's scheduler is allowed to reorder within a frame).
-            .add_systems(Update, detect_active_input_method);
+            );
+        // The device-presentation half that lived here (`ActiveInputMethod`,
+        // `detect_active_input_method`, `glyph_for`) moved to
+        // `ambition_input`: the per-seat `SeatActiveDevices` is the one
+        // active-device authority, and `ambition_input::glyph_for` draws from
+        // it. Every input those items took was input-crate vocabulary; the
+        // touch overlay no longer names this crate for glyphs.
     }
 }
 

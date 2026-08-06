@@ -16,10 +16,9 @@ fn build_test_app() -> (App, Entity) {
     use ambition_input::ControlFrame;
 
     let mut app = App::new();
-    // `detect_active_input_method` reads `Res<ButtonInput<KeyCode>>`
-    // and `Res<Touches>`; Bevy normally creates them via
-    // `InputPlugin`. Initialise them directly so the test app
-    // doesn't depend on the full input plugin graph. `ControlFrame`
+    // Bevy normally creates the input resources via `InputPlugin`.
+    // Initialise them directly so the test app doesn't depend on the
+    // full input plugin graph. `ControlFrame`
     // is no longer read by the compute chain (it reads the controlled
     // body's slot frame from `SlotControls`), but keep it so the
     // harness still mirrors the production resource set.

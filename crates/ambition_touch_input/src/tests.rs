@@ -192,7 +192,7 @@ mod virtual_device_tests {
 fn genuine_touch_activity_marks_touch_active() {
     use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
     use super::menu_bridge::fold_touch_gestures;
-    use ambition_input::{ActiveInputKind, MenuControlFrame};
+    use ambition_input::{ActiveDevice, MenuControlFrame, SeatActiveDevices};
     use bevy::input::touch::Touches;
     use bevy::input::ButtonInput;
     use bevy::prelude::*;
@@ -205,22 +205,22 @@ fn genuine_touch_activity_marks_touch_active() {
     app.init_resource::<super::placement::TouchControlPlacement>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_persistence::settings::UserSettings>();
-    app.insert_resource(ActiveInputKind::Keyboard);
+    app.init_resource::<SeatActiveDevices>();
     app.add_systems(Update, fold_touch_gestures);
 
     // Idle overlay: the marker is untouched.
     app.update();
     assert_eq!(
-        *app.world().resource::<ActiveInputKind>(),
-        ActiveInputKind::Keyboard
+        app.world().resource::<SeatActiveDevices>().machine(),
+        ActiveDevice::Keyboard
     );
 
     // A genuine stick drag flips it to Touch.
     app.world_mut().resource_mut::<MobileTouchState>().0.move_y = 1.0;
     app.update();
     assert_eq!(
-        *app.world().resource::<ActiveInputKind>(),
-        ActiveInputKind::Touch,
+        app.world().resource::<SeatActiveDevices>().machine(),
+        ActiveDevice::Touch,
         "using the touch joystick marks Touch as the active input source"
     );
 }

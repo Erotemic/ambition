@@ -1056,20 +1056,20 @@ pub(crate) fn grid_menu_tab_activated(
 
 /// Hover: move the cursor onto the hovered control (so keyboard + pointer agree).
 ///
-/// Gated on `ActiveInputKind == Mouse`: the menu republishes (despawn +
+/// Gated on the machine's active device being `Mouse`: the menu republishes (despawn +
 /// respawn its controls) on every cursor move, and a fresh control spawning
 /// under a STATIONARY mouse makes `bevy_ui` picking fire a `Pointer<Over>`. If
 /// this handler reacted to that while the player was on the keyboard / gamepad /
 /// touch, it would snap the cursor straight back to the mouse on every
 /// directional move (the recurring "can't move away from the hovered option"
-/// bug). A GENUINE mouse move sets `ActiveInputKind = Mouse` first (see
-/// `update_active_input_kind`), so real hovering still works; only the
+/// bug). A GENUINE mouse move marks `Mouse` first (see
+/// `update_seat_active_devices`), so real hovering still works; only the
 /// rebuild-induced `Over` is ignored. Activation itself comes from Bevy UI's
 /// shared `Interaction` bridge and is independent of this hover ownership gate.
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
     overlay: Res<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    active_input: Res<ambition_platformer2d::input::ActiveInputKind>,
+    devices: Res<ambition_platformer2d::input::SeatActiveDevices>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
@@ -1085,7 +1085,7 @@ pub(crate) fn grid_menu_pointer_hover(
     }
     // Only a genuine mouse move (which set active=Mouse) may move the cursor;
     // a rebuild-induced `Over` while on keyboard/gamepad/touch is ignored.
-    if *active_input != ambition_platformer2d::input::ActiveInputKind::Mouse {
+    if devices.machine() != ambition_platformer2d::input::ActiveDevice::Mouse {
         return;
     }
     let Ok(ctrl) = controls.get(over.entity) else {
@@ -1111,10 +1111,10 @@ pub(crate) fn grid_menu_pointer_hover(
 /// Bevy-UI tree, picking observers, or scroll systems.
 pub fn install_grid_unified_menu(app: &mut App) {
     app.init_resource::<GridMenuTabState>()
-        // The pointer-hover observer reads `ActiveInputKind`; the input plugin
+        // The pointer-hover observer reads `SeatActiveDevices`; the input plugin
         // also inits it, but init here too so the Grid backend is self-sufficient
         // (`init_resource` is idempotent).
-        .init_resource::<ambition_platformer2d::input::ActiveInputKind>();
+        .init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
     #[cfg(feature = "input")]
     app.add_systems(
         Update,

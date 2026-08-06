@@ -146,6 +146,31 @@ impl Platformer2dSimHarness {
             app.update();
         }
 
+        // ⭐ **K2b.1: settle before handing the harness back.** Every caller of
+        // this constructor then reads the world immediately — `room_ids()`, an
+        // observation, a `RoomSet` — which works today only because direct entry
+        // spawns its root at PLUGIN-BUILD time. A shell-composed host activates
+        // asynchronously, so the same read would find nothing until the load
+        // barrier reaches `Ready`.
+        //
+        // ⚠ **best-effort, deliberately, while the build-time root still
+        // exists.** It returns `Ok(0)` on every path today, so this changes
+        // nothing and cannot break a harness whose world genuinely arrives on a
+        // later frame under rollback. It becomes a hard error in K2b.2, when the
+        // build-time root is deleted and "no world" stops being a possible
+        // steady state.
+        if let Err(budget) =
+            ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
+                &mut app,
+                ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
+            )
+        {
+            bevy::log::debug!(
+                "sim harness: no session world after {budget} frames; the caller's \
+                 first world read will be the one that reports it"
+            );
+        }
+
         Ok(Self {
             app,
             tick: 0,

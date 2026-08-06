@@ -377,9 +377,18 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   caller changes nothing and the migration is stageable exactly as this row
   planned. Three tests pin the three cases: immediate, late, and never (an
   `Err(budget)` rather than a panic three lines later about a missing
-  `RoomSet`). ▢ still to migrate: `rl_sim/mod.rs:64` and
-  `bin/capture_scene.rs:143`, then the ~35 integration files behind
-  `tests/common/mod.rs`.
+  `RoomSet`).
+  ✔ `run_headless` and `Platformer2dSimHarness::build` both settle now — the
+  harness one matters most, because every caller reads the world IMMEDIATELY
+  after construction (`room_ids()`, an observation, a `RoomSet`), which works
+  today only because the root is there at build time. Best-effort while the
+  build-time root still exists, a hard error in K2b.2.
+  ⭐ `bin/capture_scene.rs` needs NOTHING: checked rather than assumed — it
+  names no `session_world*` and holds no `.expect`, because it already waits
+  through its own warmup and camera-adoption gate. The row listed it because it
+  composes the plugin, and composing is not the same as reading.
+  ▢ still to migrate: the ~35 integration files behind `tests/common/mod.rs`,
+  which is the bulk of risk 1.
 
   **Suggested staging:** (K2b.1) land the settle helper + migrate
   `headless`/`rl_sim`/`capture_scene` to compose the shell and settle, keeping

@@ -312,3 +312,23 @@ Verdicts are recorded here as each is reached.
   assembly can then reject a contradiction instead of picking a winner. Eight
   authored rows and the spec type. The OR alone cannot express the PCA's answer
   either way, which is why it went back.
+
+- ⛔ **P7 duplicate code — REFUSED: it does not reproduce.** Checked each
+  specific, because a finding stated this concretely deserves a concrete answer
+  rather than a tidy-up that looks responsive:
+  * `args = parser.parse_args(argv)` appears **once** in `editor_art.py`
+    (line 620), not twice.
+  * the `raise SystemExit`s in the sheet lookup are **four distinct checks** — no
+    sidecar, no such animation, frame out of range, no PNG — and none is
+    unreachable.
+  * `editor_art.py` has **zero** consecutive duplicate lines over 12 characters.
+  * the Mary-O block dresser has **zero** repeated comment lines over 25
+    characters within 7KB of it. The only consecutive duplicates in
+    `mary_o/src/lib.rs` are four `app.update();` pairs in tests, which step two
+    frames on purpose.
+  ⚠ **not a criticism of the reviewer** — they said outright they could not run
+  anything, and a duplicated-looking line is exactly what a careful reader
+  reports. But the tree does not contain it, and making a cosmetic edit to appear
+  responsive would leave a commit that fixes nothing and claims otherwise.
+  ⭐ their closing advice is accepted regardless and was already the standing
+  rule: *"do not add another census or ratchet for duplicated lines."*

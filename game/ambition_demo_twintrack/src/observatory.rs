@@ -757,8 +757,16 @@ fn cleanup_observatory_when_inactive(
     }
 }
 
+/// One `(world x, age)` pair placed inside the spacetime strip.
+///
+/// ⛔ **the x fraction used to clamp to `-0.2 ..= 1.2`**, so every line this
+/// function places was allowed to run a fifth of the strip's width past its own
+/// backing rectangle on each side — the past-light-cone rays crossed the panel
+/// edge and kept going. The age already clamped to `0 ..= 1`, so the overflow
+/// was horizontal only, which is why it read as a drawing bug rather than as a
+/// window. A bounded strip that draws outside its bounds is not bounded.
 fn diagram_position(world_x: f32, age: f64) -> Vec2 {
-    let x = DIAGRAM_MIN.x + (world_x / 1_680.0).clamp(-0.2, 1.2) * (DIAGRAM_MAX.x - DIAGRAM_MIN.x);
+    let x = DIAGRAM_MIN.x + (world_x / 1_680.0).clamp(0.0, 1.0) * (DIAGRAM_MAX.x - DIAGRAM_MIN.x);
     let y = DIAGRAM_MAX.y
         - (age / TRACE_WINDOW_SECONDS).clamp(0.0, 1.0) as f32 * (DIAGRAM_MAX.y - DIAGRAM_MIN.y);
     Vec2::new(x, y)

@@ -10,7 +10,10 @@
 > game can use without writing keyboard, gamepad, mouse, or touch glue.
 >
 > **ACTIVE (2026-08-06):** Jon approved execution verbatim — "Yes do the
-> architecture task PA1-PA4" — executed by Fable 5. PA1 is largely landed
+> architecture task PA1-PA4" — executed by Fable 5. **The operational handoff
+> (how to finish, and which forks are decisions) is
+> [`../pa-campaign-handoff-2026-08-06.md`](../pa-campaign-handoff-2026-08-06.md).**
+> PA1 is largely landed
 > (recipe-based map rebuild 746a95e25; per-seat device fact + glyph move
 > cf868687e; one gamepad label table 8839e9fc7): see the dated §9 PA1
 > annotations for exactly what landed and what PA1 still owes.

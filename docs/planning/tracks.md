@@ -361,6 +361,25 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   No new API; `PlatformerExperienceAuthoring::install` already registers the
   preparation plan.
 
+  **All five edits landed 2026-08-06.** 3 deleted 265 lines of the entry path
+  (`spawn_ldtk_world_root`, both feature arms of `setup_presentation_system`,
+  and the private chain under them — `presentation_world`,
+  `presentation_world_inner`, `session_presentation`, `PresentationSetup`,
+  `SessionPresentationSetup`), plus the `direct_entry` run condition itself.
+  4 deleted the direct audio branch. 5 composed the shell in `headless.rs`,
+  `rl_sim/mod.rs` and `bin/capture_scene.rs`.
+  ⭐ **verified by CAPTURE, twice, because both deletions are silent-failure
+  classes.** A deleted presentation builder passes every test and draws nothing;
+  a deleted audio selection passes every test and plays nothing. The 640x360
+  `--include-ui` capture of `central_hub_complex` is BYTE-IDENTICAL before and
+  after edit 3, and reports `first owned SFX play attempt
+  (owner=Some(Gameplay(0)))` after edit 4 — `Gameplay(0)`, not `Direct`, which
+  is what makes deleting the other selection safe rather than merely compiling.
+  ⚠ **`build_visible_app`'s `shell_hosted` parameter is KEPT, name and all.**
+  Both arms are shell-hosted now and it only picks the initial route; renaming
+  it would touch 33 call sites to restate a boolean whose two values are
+  unchanged. The doc says so instead.
+
   **The edits** (in order):
   1. `app/cli.rs:790-818` — stop using `AmbitionShellHosted` as the
      discriminator; always compose the shell host + visuals, and in direct mode

@@ -365,3 +365,20 @@ so the false branch of the only branch in the codec had never been decoded.
 key would have silently dropped TwinTrack's traveler and passband, which are
 demo-spawned without one — so P4 kept a string and made it a separate typed value
 instead. And P7 does not reproduce at all.
+
+## ⛔ What needs Jon, in one place
+
+1. **P5 — does the Perfect Cellular Automaton fly when it fights?** Its catalog
+   row says `body_kind: Floating`, so it floats placed as an NPC and walks placed
+   as an enemy, and the duel arena places it as a fighter. Unifying the two
+   authorities makes it fly on both paths and turns `actor_phase_split`'s two
+   tests red — they spawn a PCA and assert grounded `locomotion.x`. There is no
+   behaviour-preserving unification: a plain `bool` cannot distinguish *"this
+   archetype says grounded"* from *"this archetype is silent"*, which is why the
+   review asks for `Option<bool>` and a rejected contradiction. **The rule is
+   ready; the answer is a product call.**
+2. **The snake shrink was a BLIND DRAW** (`1bff9c14d`), rejectable in one line:
+   `snake_body_width()` is now Mary-O's own body width, taking a Solid Snake from
+   41.0 to 25.6 world units — a 38% reduction. The reasoning is that a Koopa
+   occupies the corridor Mario does; if that is too small, the edit is one
+   function.

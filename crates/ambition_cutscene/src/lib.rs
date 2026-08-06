@@ -40,6 +40,83 @@ pub enum CutsceneBeat {
     Banner { text: String, seconds: f32 },
 }
 
+/// **Everything a cutscene is SHOWING right now, derived from where it is.**
+///
+/// ⛔⛔ **this exists because "derived" was a claim nobody implemented.**
+/// `ActiveCutscene` carried four presentation fields, its rollback snapshot
+/// encoded none of them, and the doc said the next simulation tick would
+/// republish. It could not: `CutsceneRuntime::tick` emits `BeatEntered` only
+/// when `elapsed == 0.0`, so a rollback landing MID-BEAT never saw the entry
+/// event again and the banner, the camera target and the fade were gone for the
+/// rest of that beat. (GPT 5.6, review through `32eb27a`, finding 1 — correct.)
+///
+/// ⛔ **and the same shape was visible without any rollback at all.** The fields
+/// were mutated one at a time by whichever beat happened to use them, so a
+/// `CameraPan` following a dialogue set `camera_target` and left
+/// `current_dialogue` standing — the overlay kept showing a line nobody was
+/// saying. (Finding 2.) A projection cannot do that: it is one beat's whole
+/// answer, replaced every tick, so *dialogue from beat 3 during beat 4* stopped
+/// being representable rather than stopping by convention.
+///
+/// ⭐ **it is a pure function of `(script, beat_index, elapsed)`**, which is
+/// exactly the state the snapshot already carries. That is what makes the
+/// snapshot honest rather than lucky.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CutscenePresentation {
+    /// `(speaker, text)` while a dialogue beat is current.
+    pub dialogue: Option<(String, String)>,
+    /// `(text, seconds_remaining)` while a banner beat is current.
+    ///
+    /// ⭐ the countdown is `authored − elapsed`, not a separately ticked timer.
+    /// A timer would be a second authority on the same clock and is precisely
+    /// what could not survive a restore.
+    pub banner: Option<(String, f32)>,
+    /// Where a camera-pan beat is pointing.
+    pub camera_target: Option<[f32; 2]>,
+    /// The fade a fade beat is holding, `0.0` when no fade beat is current.
+    pub fade_alpha: f32,
+}
+
+impl CutsceneRuntime {
+    /// **What this cutscene is showing, from where it is.** See
+    /// [`CutscenePresentation`].
+    ///
+    /// ⚠ a FINISHED runtime shows nothing, and so does one whose index has run
+    /// off the end — both are "no beat is current", which is a state the caller
+    /// reaches by advancing rather than by an event it might have missed.
+    pub fn presentation(&self) -> CutscenePresentation {
+        if self.finished {
+            return CutscenePresentation::default();
+        }
+        let Some(beat) = self.script.beats.get(self.beat_index) else {
+            return CutscenePresentation::default();
+        };
+        match beat {
+            CutsceneBeat::Dialogue { speaker, text } => CutscenePresentation {
+                dialogue: Some((speaker.clone(), text.clone())),
+                ..Default::default()
+            },
+            CutsceneBeat::Banner { text, seconds } => CutscenePresentation {
+                banner: Some((text.clone(), (seconds - self.elapsed).max(0.0))),
+                ..Default::default()
+            },
+            CutsceneBeat::CameraPan { target, .. } => CutscenePresentation {
+                camera_target: Some(*target),
+                ..Default::default()
+            },
+            CutsceneBeat::Fade { to_alpha, .. } => CutscenePresentation {
+                fade_alpha: to_alpha.clamp(0.0, 1.0),
+                ..Default::default()
+            },
+            // A wait or a flag write shows nothing — and says so, rather than
+            // leaving the previous beat's picture up.
+            CutsceneBeat::Wait { .. } | CutsceneBeat::SetFlag { .. } => {
+                CutscenePresentation::default()
+            }
+        }
+    }
+}
+
 impl CutsceneBeat {
     /// Whether the beat self-times (the runtime auto-advances after
     /// `seconds`) or whether it waits for a player dismiss
@@ -190,17 +267,23 @@ pub enum CutsceneEvent {
 // and gameplay/HUD systems read. Kept here so the cutscene runtime is one crate.
 
 /// Live cutscene playback state. `runtime` is `Some` while a cutscene is running.
+///
+/// ⭐ **ONE authoritative field.** `runtime` is the whole state; everything a
+/// consumer draws is [`CutsceneRuntime::presentation`], recomputed from it. The
+/// four presentation fields that used to live here were mutated one at a time by
+/// whichever beat used them and dropped entirely by the rollback snapshot, which
+/// made *"derived, republished next tick"* a claim rather than a mechanism — see
+/// [`CutscenePresentation`] for the two ways that failed.
 #[derive(Resource, Default)]
 pub struct ActiveCutscene {
     pub runtime: Option<CutsceneRuntime>,
-    /// Last-seen dialogue line. Cleared when the beat advances.
-    pub current_dialogue: Option<(String, String)>,
-    /// Last-seen banner line + remaining seconds.
-    pub current_banner: Option<(String, f32)>,
-    /// Camera pan target (world coords) while a CameraPan beat is active.
-    pub camera_target: Option<Vec2>,
-    /// Fade overlay alpha [0, 1].
-    pub fade_alpha: f32,
+    /// The current beat's whole picture, republished every tick from `runtime`.
+    ///
+    /// ⚠ **stored rather than computed on read for ONE reason**: consumers are
+    /// Bevy systems that take `Res<ActiveCutscene>` and cannot allocate a
+    /// projection per reader per frame. It is a cache of a pure function, and
+    /// the tick that advances `runtime` is the only writer.
+    pub presentation: CutscenePresentation,
 }
 
 impl ActiveCutscene {
@@ -533,7 +616,22 @@ mod snapshot {
 
         fn decode(reader: &mut Reader<'_>) -> Option<Self> {
             let id = reader.str()?.to_owned();
-            let seen_flag = reader.bool()?.then(|| reader.str().map(str::to_owned))?;
+            // ⛔⛔ **this was `reader.bool()?.then(|| reader.str().map(str::to_owned))?`,
+            // and it REFUSED every script without a seen flag.** `bool::then`
+            // yields `None` when the bool is false, and the trailing `?` returns
+            // that `None` from `decode` — so "this script has no seen flag"
+            // decoded as "this snapshot is corrupt", and the whole cutscene was
+            // dropped on restore rather than the flag being absent.
+            //
+            // ⚠ **found by writing the test the review asked for, not by the
+            // review.** Every existing snapshot fixture happened to call
+            // `.with_seen_flag(..)`, so the false branch had never been decoded
+            // — a codec whose only tests exercise one side of its only branch.
+            let seen_flag = if reader.bool()? {
+                Some(reader.str()?.to_owned())
+            } else {
+                None
+            };
             let count = reader.u32()?;
             let mut beats = Vec::with_capacity(count as usize);
             for _ in 0..count {
@@ -593,6 +691,149 @@ mod snapshot {
             before.encode(&mut bytes);
             let mut reader = Reader::new(&bytes);
             ActiveCutscene::decode(&mut reader).expect("a snapshot this crate wrote decodes")
+        }
+
+        /// **A script with NO seen flag decodes.**
+        ///
+        /// ⛔ **it did not, and the bug shipped.** `decode` read the flag as
+        /// `reader.bool()?.then(|| reader.str().map(str::to_owned))?` —
+        /// `bool::then` yields `None` when the bool is false and the trailing `?`
+        /// returns it from the function, so *"this script has no seen flag"* was
+        /// indistinguishable from *"this snapshot is corrupt"* and the whole
+        /// cutscene was dropped on restore.
+        ///
+        /// ⚠ **every other fixture in this module calls `.with_seen_flag(..)`**,
+        /// so the false branch of the only branch in this codec had never once
+        /// been decoded. That is the shape to look for elsewhere: a test suite
+        /// that exercises one side of a two-sided decision.
+        #[test]
+        fn a_script_without_a_seen_flag_still_decodes() {
+            let script = CutsceneScript::new("no_flag", vec![CutsceneBeat::Wait { seconds: 0.25 }]);
+            assert!(
+                script.seen_flag.is_none(),
+                "the fixture must have NO seen flag or it tests the branch that worked"
+            );
+            let before = ActiveCutscene {
+                runtime: Some(CutsceneRuntime::new(script)),
+                ..ActiveCutscene::default()
+            };
+            let after = round_trip(&before);
+            assert_eq!(
+                after.runtime, before.runtime,
+                "a flagless script did not survive the wire, so every cutscene \
+                 that does not write a save flag is dropped by any rollback"
+            );
+        }
+
+        /// **A rollback into the MIDDLE of a beat restores its picture.**
+        ///
+        /// ⛔ **this is the test that was missing, and its absence let a false
+        /// claim ship.** The snapshot encodes `runtime` only, and the four
+        /// presentation fields it dropped were documented as *"derived, the next
+        /// simulation tick republishes them"*. It could not:
+        /// `CutsceneRuntime::tick` emits `BeatEntered` only when
+        /// `elapsed == 0.0`, so a restore landing mid-beat never saw the entry
+        /// event again — the banner, the camera target and the fade were gone
+        /// for the rest of that beat. The old test round-tripped `runtime` and
+        /// proved exactly that much. (GPT 5.6 through `32eb27a`, finding 1.)
+        ///
+        /// ⭐ **so this asserts the DERIVATION, not the encoding**: rebuild the
+        /// picture from the decoded state and require it to equal the original's,
+        /// mid-beat, where the event-driven version could not.
+        #[test]
+        fn a_restore_mid_beat_restores_the_picture_it_was_showing() {
+            let script = CutsceneScript::new(
+                "banner_scene",
+                vec![
+                    CutsceneBeat::Banner {
+                        text: "CHAPTER ONE".into(),
+                        seconds: 4.0,
+                    },
+                    CutsceneBeat::CameraPan {
+                        target: [120.0, 340.0],
+                        seconds: 2.0,
+                    },
+                ],
+            );
+            let mut runtime = CutsceneRuntime::new(script);
+            // Two ticks in: PAST the entry frame, which is the whole point.
+            runtime.tick(1.0, false);
+            runtime.tick(0.5, false);
+            assert!(
+                runtime.elapsed > 0.0,
+                "the fixture must be mid-beat or it tests the case that already worked"
+            );
+
+            let before = ActiveCutscene {
+                presentation: runtime.presentation(),
+                runtime: Some(runtime),
+            };
+            assert!(
+                before.presentation.banner.is_some(),
+                "the fixture is not showing anything, so restoring it proves nothing"
+            );
+
+            let after = round_trip(&before);
+            let restored = after
+                .runtime
+                .as_ref()
+                .expect("the runtime round-trips")
+                .presentation();
+            assert_eq!(
+                restored, before.presentation,
+                "the picture did not survive a mid-beat restore. This is the \
+                 failure the old snapshot could not see: `runtime` round-tripped \
+                 and the banner did not come back, because `BeatEntered` only \
+                 fires on the tick a beat begins"
+            );
+            // ⚠ and the countdown is DERIVED, not a separately ticked timer —
+            // 4.0 authored minus 1.5 elapsed. A timer would be a second
+            // authority on the same clock and is exactly what could not survive.
+            let (_, remaining) = restored.banner.expect("a banner beat is current");
+            assert!(
+                (remaining - 2.5).abs() < 1e-4,
+                "the restored banner has {remaining}s left, not the 2.5 its \
+                 authored duration minus its elapsed time says"
+            );
+        }
+
+        /// **A beat that shows nothing does not leave the last beat's picture up.**
+        ///
+        /// ⛔ finding 2, and it needed no rollback to see: the presentation
+        /// fields were mutated one at a time by whichever beat used them, so a
+        /// `CameraPan` following a `Dialogue` set `camera_target` and left
+        /// `dialogue` standing — the overlay kept showing a line nobody was
+        /// saying. A projection cannot: it is one beat's whole answer.
+        #[test]
+        fn advancing_off_a_dialogue_takes_the_dialogue_with_it() {
+            let script = CutsceneScript::new(
+                "talk_then_pan",
+                vec![
+                    CutsceneBeat::Dialogue {
+                        speaker: "Alice".into(),
+                        text: "Look at that.".into(),
+                    },
+                    CutsceneBeat::CameraPan {
+                        target: [10.0, 20.0],
+                        seconds: 1.0,
+                    },
+                ],
+            );
+            let mut runtime = CutsceneRuntime::new(script);
+            runtime.tick(0.0, false);
+            assert!(
+                runtime.presentation().dialogue.is_some(),
+                "the dialogue beat is not current, so the advance proves nothing"
+            );
+            // Dismiss it: dialogue does not auto-advance.
+            runtime.tick(0.016, true);
+            let after = runtime.presentation();
+            assert!(
+                after.dialogue.is_none(),
+                "the dialogue survived into the camera beat — the overlay would \
+                 keep showing a line nobody is saying"
+            );
+            assert_eq!(after.camera_target, Some([10.0, 20.0]));
         }
 
         /// **Every beat variant survives**, because a codec that silently loses

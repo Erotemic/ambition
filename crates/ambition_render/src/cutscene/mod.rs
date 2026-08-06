@@ -84,8 +84,8 @@ pub fn sync_cutscene_ui(
             })
     };
 
-    let banner = active.current_banner.as_ref();
-    let dialogue = active.current_dialogue.as_ref();
+    let banner = active.presentation.banner.as_ref();
+    let dialogue = active.presentation.dialogue.as_ref();
     let skip_progress = skip_hold.progress();
 
     // Bail out early on a fully-empty cutscene state (e.g. between

@@ -176,9 +176,9 @@ pub(super) fn update_hud(
     // can correlate skip-hold state with the floating overlay; the
     // detailed beat content stays out of the debug text line.
     let cutscene_line = if let Some(rt) = cutscene.runtime.as_ref() {
-        let beat_label = match cutscene.current_dialogue.as_ref() {
+        let beat_label = match cutscene.presentation.dialogue.as_ref() {
             Some((speaker, _)) => format!("dialogue @ {speaker}"),
-            None => match cutscene.current_banner.as_ref() {
+            None => match cutscene.presentation.banner.as_ref() {
                 Some((_, remaining)) => format!("banner ({remaining:.1}s)"),
                 None => format!("beat {}", rt.beat_index),
             },

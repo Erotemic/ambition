@@ -67,11 +67,11 @@ pub fn drain_cutscene_triggers(
                 continue;
             }
         }
-        active.runtime = Some(CutsceneRuntime::new(script.clone()));
-        active.current_dialogue = None;
-        active.current_banner = None;
-        active.camera_target = None;
-        active.fade_alpha = 0.0;
+        let runtime = CutsceneRuntime::new(script.clone());
+        // The first beat's picture, before any tick — so a cutscene that starts
+        // and is snapshotted in the same frame is not blank.
+        active.presentation = runtime.presentation();
+        active.runtime = Some(runtime);
         break;
     }
 }
@@ -113,10 +113,7 @@ pub fn tick_active_cutscene(
             save.data_mut().set_flag(seen, true);
         }
         active.runtime = None;
-        active.current_dialogue = None;
-        active.current_banner = None;
-        active.camera_target = None;
-        active.fade_alpha = 0.0;
+        active.presentation = Default::default();
         return;
     }
 
@@ -124,23 +121,15 @@ pub fn tick_active_cutscene(
     let mut completed = false;
     for event in events {
         match event {
-            CutsceneEvent::BeatEntered { beat, .. } => match beat {
-                CutsceneBeat::Dialogue { speaker, text } => {
-                    active.current_dialogue = Some((speaker, text));
-                    active.current_banner = None;
-                }
-                CutsceneBeat::Banner { text, seconds } => {
-                    active.current_dialogue = None;
-                    active.current_banner = Some((text, seconds));
-                }
-                CutsceneBeat::CameraPan { target, .. } => {
-                    active.camera_target = Some(Vec2::new(target[0], target[1]));
-                }
-                CutsceneBeat::Fade { to_alpha, .. } => {
-                    active.fade_alpha = to_alpha.clamp(0.0, 1.0);
-                }
-                _ => {}
-            },
+            // ⛔ **`BeatEntered` no longer decides what is on screen**, and that
+            // is the whole fix. It fires only on the tick a beat begins
+            // (`elapsed == 0.0`), so a rollback landing MID-BEAT never saw it
+            // again and the banner, camera target and fade were gone for the
+            // rest of that beat — while the snapshot's doc claimed the next tick
+            // would republish them. It also mutated one field at a time, so a
+            // camera beat following a dialogue left the dialogue on screen.
+            // (GPT 5.6 through `32eb27a`, findings 1 and 2.)
+            CutsceneEvent::BeatEntered { .. } => {}
             CutsceneEvent::FlagWritten { id, on } => {
                 save.data_mut().set_flag(id, on);
             }
@@ -148,10 +137,6 @@ pub fn tick_active_cutscene(
                 completed = true;
             }
         }
-    }
-    // Banner countdown — purely presentational so the HUD can fade out.
-    if let Some((_, remaining)) = active.current_banner.as_mut() {
-        *remaining = (*remaining - dt).max(0.0);
     }
 
     if completed {
@@ -161,11 +146,19 @@ pub fn tick_active_cutscene(
             }
         }
         active.runtime = None;
-        active.current_dialogue = None;
-        active.current_banner = None;
-        active.camera_target = None;
-        active.fade_alpha = 0.0;
+        active.presentation = Default::default();
+        return;
     }
+
+    // ⭐ **THE WHOLE PICTURE, REPLACED, from the state the snapshot carries.**
+    // A pure function of `(script, beat_index, elapsed)` — so restoring mid-beat
+    // restores the picture with it, and no beat can leave another's fields
+    // standing because there are no individual fields to leave.
+    active.presentation = active
+        .runtime
+        .as_ref()
+        .map(|runtime| runtime.presentation())
+        .unwrap_or_default();
 }
 
 /// Module-local Bevy plugin: schedules the cutscene chain

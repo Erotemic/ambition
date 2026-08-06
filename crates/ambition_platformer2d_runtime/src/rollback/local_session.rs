@@ -177,6 +177,56 @@ fn maintained_settings(world: &World) -> Option<super::session::SyncTestSettings
 /// Exclusive-world because starting and stopping a GGRS session is a whole-world
 /// operation (it rebases snapshot storage), which is also why this cannot be an
 /// ordinary system with resource params.
+/// **This host will decide its seats from a ROSTER, not from what is plugged in.**
+///
+/// Inserted by a composition that publishes a participant roster. While it is
+/// present and no [`DecidedSeatCount`] has been published, the local session
+/// maintainer WAITS rather than freezing a topology from connected devices.
+///
+/// ⚠ **absence is a real answer, not a missing one.** A single-player game, a
+/// headless oracle, a demo with no match — none of them has a roster and all of
+/// them are correct to seat from devices. Making this opt-IN is what keeps the
+/// gate from stalling every composition that never intended to publish anything.
+#[derive(bevy::prelude::Resource, Debug, Default, Clone, Copy)]
+pub struct SeatingComesFromARoster;
+
+/// **How many seats the decided roster asked for.** Published by whoever decides
+/// the match, and the number the session is sized from when
+/// [`SeatingComesFromARoster`] is present.
+#[derive(bevy::prelude::Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecidedSeatCount(pub usize);
+
+/// The seat count this session installs with: the roster's when one was decided,
+/// the connected devices' otherwise.
+///
+/// ⚠ it FREEZES either way. The topology is what every later reconstruction
+/// reads, so a session that skipped the freeze would resample live devices on a
+/// hot reload — the bug the freeze exists for.
+fn decided_or_device_seating(world: &mut World) -> usize {
+    let decided = world.get_resource::<DecidedSeatCount>().copied();
+    let frozen = freeze_local_seating(world);
+    match decided {
+        Some(DecidedSeatCount(seats)) => {
+            // Record the roster's count ON the topology, so the handle count,
+            // the per-seat latches and the roster all cite one number rather
+            // than agreeing by coincidence.
+            let order = ambition_input::LocalDeviceOrder::from_devices(
+                world
+                    .get_resource::<ambition_input::LocalDeviceOrder>()
+                    .map(|order| order.devices().to_vec())
+                    .unwrap_or_default(),
+            );
+            if let Some(mut topology) =
+                world.get_resource_mut::<ambition_input::LocalSeatTopology>()
+            {
+                topology.capture_for_roster(&order, seats);
+            }
+            seats.max(1)
+        }
+        None => frozen.players(),
+    }
+}
+
 pub fn maintain_local_session(world: &mut World) {
     let gameplay_active =
         ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_some();
@@ -294,7 +344,30 @@ pub fn maintain_local_session(world: &mut World) {
     // lasts — a policy change restarts the GGRS session but must NOT recapture,
     // or the topology would be stable only per sub-session, which is not the
     // lifetime anything else uses.
-    let players = freeze_local_seating(world).players();
+    // ⛔ **A HOST THAT WILL DECIDE A ROSTER MUST SAY SO, AND WAIT.**
+    //
+    // `freeze_local_seating` captures from connected DEVICES, and devices are
+    // not participants: a keyboard seat has no controller entity, a spare pad may
+    // not be playing, a CPU seat has no device at all. That is the right answer
+    // for a host with no match to decide and the wrong one for a host whose
+    // roster arrives a frame later — and the maintainer had no way to tell those
+    // apart. Ordering it after `InputSet::Collect` narrowed the race; it could
+    // not remove it, because *"usually published in the same Update"* is not an
+    // initialization contract. (GPT 5.6 through `32eb27a`, finding 7 — correct,
+    // and the comment beside that `configure_sets` already said the missing
+    // piece was "the maintainer knowing a roster is COMING".)
+    //
+    // ⭐ **the declaration is the fix, not a heuristic.** A host that intends to
+    // publish a roster inserts [`SeatingComesFromARoster`]; until that roster
+    // exists, this returns and tries again next frame. A host that says nothing
+    // keeps device-derived seating, which is what every single-player
+    // composition wants and what the tests rely on.
+    if world.contains_resource::<SeatingComesFromARoster>()
+        && !world.contains_resource::<DecidedSeatCount>()
+    {
+        return;
+    }
+    let players = decided_or_device_seating(world);
     let settings = SyncTestSettings {
         check_distance: policy.check_distance,
         max_prediction_window: policy.max_prediction_window,
@@ -335,4 +408,60 @@ fn freeze_local_seating(world: &mut World) -> ambition_input::LocalSeatTopology 
         world.get_resource_or_insert_with(ambition_input::LocalSeatTopology::default);
     topology.capture(&order);
     topology.clone()
+}
+
+#[cfg(test)]
+mod seating_readiness_tests {
+    use super::*;
+    use bevy::prelude::World;
+
+    /// **A host that says nothing seats from devices — the common case.**
+    ///
+    /// ⚠ this is asserted FIRST because it is what the gate must not break.
+    /// Every single-player composition, headless oracle and roster-less demo
+    /// reaches this line, and a readiness check that stalled them would be a
+    /// worse bug than the race it closes.
+    #[test]
+    fn a_host_with_no_roster_declaration_is_not_gated() {
+        let mut world = World::new();
+        world.init_resource::<ambition_input::LocalSeatTopology>();
+        world.init_resource::<ambition_input::LocalDeviceOrder>();
+        assert!(
+            !world.contains_resource::<SeatingComesFromARoster>(),
+            "the fixture declared a roster, so it is not testing the ungated path"
+        );
+        // Device-derived: no devices connected, so the floor of one seat.
+        assert_eq!(decided_or_device_seating(&mut world), 1);
+    }
+
+    /// **A DECIDED seat count wins over what is plugged in.**
+    ///
+    /// ⛔ devices are not participants: a keyboard seat has no controller
+    /// entity, a spare pad may not be playing, a CPU seat has none at all. A
+    /// two-fighter match against one connected pad is the ordinary case, and
+    /// freezing from devices sized that session for one.
+    #[test]
+    fn a_decided_roster_sizes_the_session_not_the_devices() {
+        let mut world = World::new();
+        world.init_resource::<ambition_input::LocalSeatTopology>();
+        world.init_resource::<ambition_input::LocalDeviceOrder>();
+        world.insert_resource(DecidedSeatCount(2));
+
+        assert_eq!(
+            decided_or_device_seating(&mut world),
+            2,
+            "the session was sized from connected devices while a roster had \
+             decided two seats"
+        );
+        // ⭐ and the TOPOLOGY carries it too, so the handle count, the per-seat
+        // latches and the roster all cite one number rather than agreeing by
+        // coincidence.
+        let topology = world.resource::<ambition_input::LocalSeatTopology>();
+        assert_eq!(topology.declared_seats(), Some(2));
+        assert!(
+            topology.is_frozen(),
+            "a decided seating must still FREEZE, or a hot reload resamples live \
+             devices — which is the bug the freeze exists for"
+        );
+    }
 }

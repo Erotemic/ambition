@@ -662,6 +662,18 @@ fn track_versus_roster(
             // decoded sheet draws a placeholder, and the whole point of a visible
             // slice is that it looks like the two characters it says it is.
             roster.project_demand(&mut demand);
+            // ⭐ **THE SEAT COUNT THIS MATCH DECIDED, published with the roster.**
+            // The local session maintainer freezes its topology from connected
+            // DEVICES otherwise — and devices are not participants: a keyboard
+            // seat has no controller entity, a spare pad may not be playing, a
+            // CPU seat has none at all. Saying the number here is what lets the
+            // session be sized from the match rather than from what is plugged
+            // in. (GPT 5.6 through `32eb27a`, finding 7.)
+            commands.insert_resource(
+                ambition_platformer2d::runtime::rollback::local_session::DecidedSeatCount(
+                    roster.participants.len(),
+                ),
+            );
             commands.insert_resource(roster);
             // A NEW roster is not yet a match. Activation is seating's to
             // publish, once every participant has a body.

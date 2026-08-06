@@ -73,6 +73,7 @@ mod possession_end_to_end;
 mod presentation_ui_lifecycle;
 mod projectile_portal_transit;
 mod registered_character_art_resolves;
+mod rendered_identities_are_registered;
 mod replay_fixture_regression;
 mod repro_walls;
 mod resolved_combat_tuning;

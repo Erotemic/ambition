@@ -15,7 +15,6 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use ambition_platformer2d::actors::rooms::RoomSet;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::actors::session::data::{MusicRegistry, SfxRegistry};
-use ambition_platformer2d::actors::world::physics::PhysicsSandboxSettings;
 use ambition_platformer2d::actors::world::platforms;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::asset_manager::platformer_assets::{ids, Platformer2dAssetCatalog};
@@ -24,57 +23,10 @@ use ambition_platformer2d::audio::library::AudioLibrary;
 #[cfg(feature = "audio")]
 use ambition_platformer2d::audio::SfxBankResource;
 use ambition_platformer2d::engine_core::RoomGeometry;
-use ambition_platformer2d::render::rendering::{
-    spawn_parallax_layers, spawn_room_visuals, HudText, QuestPanelText,
-};
+use ambition_platformer2d::render::rendering::{HudText, QuestPanelText};
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
 use ambition_platformer2d::sfx::BankProvider;
-use ambition_platformer2d::sprite_sheet::game_assets::GameAssets;
-
-/// Borrowed inputs for `presentation_world`.
-pub struct PresentationSetup<'a> {
-    pub world: &'a RoomGeometry,
-    pub room_set: &'a RoomSet,
-    pub physics_settings: PhysicsSandboxSettings,
-    pub game_assets: &'a GameAssets,
-    pub quality: Option<&'a ambition_platformer2d::render::quality::ResolvedVisualQuality>,
-    #[cfg(feature = "audio")]
-    pub music_registry: &'a MusicRegistry,
-    #[cfg(feature = "audio")]
-    pub sfx_registry: &'a SfxRegistry,
-    #[cfg(feature = "audio")]
-    pub ui_fonts: Option<&'a UiFonts>,
-}
-
-/// Spawn presentation-only entities (Camera2d, sprites, HUD text) and
-/// presentation-only resources (`AudioLibrary`). Adds the player's `Sprite`
-/// to the entity returned by `simulation_world`.
-///
-/// Skipped entirely in headless builds. With the `audio` feature off
-/// the `KiraAudioSource` asset registry doesn't exist; the audio_sources
-/// parameter is gated out and the audio library / music state inserts
-/// are skipped.
-#[cfg(feature = "audio")]
-pub fn presentation_world(
-    commands: &mut Commands,
-    audio_sources: &mut Assets<KiraAudioSource>,
-    asset_server: &AssetServer,
-    catalog: &Platformer2dAssetCatalog,
-    params: PresentationSetup<'_>,
-) {
-    let music_registry = params.music_registry;
-    let sfx_registry = params.sfx_registry;
-    presentation_world_inner(commands, params);
-    install_audio_library(
-        commands,
-        audio_sources,
-        asset_server,
-        catalog,
-        music_registry,
-        sfx_registry,
-    );
-}
 
 /// Build and insert the host-resident audio library (packed SFX bank +
 /// catalog-resolved music assets) and its playback state. An asset CACHE —
@@ -94,9 +46,9 @@ pub fn install_audio_library(
     // library stores catalog-blessed paths (the generic library takes a
     // resolver closure instead of naming the catalog type).
     let resolve_track_path = |id: &str| {
-        catalog.path_for(&ambition_platformer2d::asset_manager::platformer_assets::ids::music_track(
-            id,
-        ))
+        catalog.path_for(
+            &ambition_platformer2d::asset_manager::platformer_assets::ids::music_track(id),
+        )
     };
     let (mut audio_library, music_state) = AudioLibrary::new_with_playback_state(
         audio_sources,
@@ -125,11 +77,6 @@ pub fn install_audio_library(
             .expect("initial Ambition SFX bank registration should be unique");
         commands.insert_resource(banks);
     }
-}
-
-#[cfg(not(feature = "audio"))]
-pub fn presentation_world(commands: &mut Commands, params: PresentationSetup<'_>) {
-    presentation_world_inner(commands, params);
 }
 
 /// Load a statically packed SFX bank.
@@ -246,36 +193,6 @@ fn load_bank_from_path(path: &std::path::Path) -> Option<BankProvider> {
     }
 }
 
-fn presentation_world_inner(commands: &mut Commands, params: PresentationSetup<'_>) {
-    #[cfg(feature = "audio")]
-    let ui_fonts = params.ui_fonts;
-    #[cfg(not(feature = "audio"))]
-    let ui_fonts: Option<&UiFonts> = None;
-    host_presentation_scaffold(commands);
-    session_presentation(
-        commands,
-        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
-        SessionPresentationSetup {
-            world: params.world,
-            room_set: params.room_set,
-            physics_settings: params.physics_settings,
-            game_assets: params.game_assets,
-            quality: params.quality,
-            ui_fonts,
-        },
-    );
-}
-
-/// Borrowed inputs for the per-session half of the presentation scene.
-pub struct SessionPresentationSetup<'a> {
-    pub world: &'a RoomGeometry,
-    pub room_set: &'a RoomSet,
-    pub physics_settings: PhysicsSandboxSettings,
-    pub game_assets: &'a GameAssets,
-    pub quality: Option<&'a ambition_platformer2d::render::quality::ResolvedVisualQuality>,
-    pub ui_fonts: Option<&'a UiFonts>,
-}
-
 /// HOST-resident presentation scaffolding: the main + front-HUD cameras. Spawned
 /// once at startup and never owned by a gameplay session — the launcher/title
 /// route renders through the same cameras a session does.
@@ -291,8 +208,8 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
         .with(ambition_platformer2d::platformer::camera_layers::PARALLAX_BACKGROUND_LAYER);
     #[cfg(feature = "portal_render")]
     {
-        main_camera_layers =
-            main_camera_layers.with(ambition_platformer2d::portal_presentation::PORTAL_WINDOW_RENDER_LAYER);
+        main_camera_layers = main_camera_layers
+            .with(ambition_platformer2d::portal_presentation::PORTAL_WINDOW_RENDER_LAYER);
     }
     let main_camera = commands
         .spawn((
@@ -332,63 +249,8 @@ pub fn host_presentation_scaffold(commands: &mut Commands) {
         Name::new("Front HUD Camera"),
     ));
 
-    commands.insert_resource(ambition_platformer2d::platformer::camera_layers::MainCameraEntity(
-        main_camera,
-    ));
-}
-
-/// SESSION-owned presentation: parallax, static room visuals, moving
-/// platforms, and the marker-tagged HUD/quest text widgets.
-/// The direct-entry path calls it `UNSCOPED` at startup (process-resident,
-/// the pre-shell behavior); the shell host calls it with the activation's
-/// captured scope so the generic session sweep retires all of it.
-pub fn session_presentation(
-    commands: &mut Commands,
-    scope: ambition_platformer2d::platformer::lifecycle::SessionSpawnScope,
-    params: SessionPresentationSetup<'_>,
-) {
-    let world = params.world;
-    let room_set = params.room_set;
-    let physics_settings = params.physics_settings;
-    let game_assets = params.game_assets;
-    let quality = params.quality;
-
-    // `Instant::now()` is unsupported under `wasm32-unknown-unknown`
-    // (panics with "time not implemented on this platform"). Gate the
-    // per-step wall-clock breakdown on non-wasm; the wasm build
-    // measures via browser devtools.
-    #[cfg(not(target_arch = "wasm32"))]
-    let t_room = std::time::Instant::now();
-    spawn_parallax_layers(
-        commands,
-        scope,
-        &world.0,
-        &room_set.active_spec().metadata,
-        Some(game_assets),
-        quality.map(|q| &q.budget.parallax),
-    );
-    spawn_room_visuals(
-        commands,
-        scope,
-        room_set.active_spec(),
-        physics_settings,
-        Some(game_assets),
-    );
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let t_room_ms = t_room.elapsed().as_secs_f32() * 1000.0;
-        eprintln!(
-            "[startup]   presentation_world breakdown: spawn_room_visuals={t_room_ms:.1}ms (active room only)"
-        );
-    }
-    session_gameplay_dressing(
-        commands,
-        scope,
-        SessionDressingSetup {
-            world,
-            room_set,
-            ui_fonts: params.ui_fonts,
-        },
+    commands.insert_resource(
+        ambition_platformer2d::platformer::camera_layers::MainCameraEntity(main_camera),
     );
 }
 

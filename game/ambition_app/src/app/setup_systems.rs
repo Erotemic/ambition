@@ -9,11 +9,9 @@ use ambition_platformer2d::actors::assets::loading;
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::rooms;
 use ambition_platformer2d::actors::session::{data, setup};
-use ambition_platformer2d::actors::world::physics;
 use ambition_platformer2d::dev_tools::dev_tools::EditableAbilitySet;
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::persistence::settings::TextureResolutionScale;
-use ambition_platformer2d::render::ui_fonts;
 use ambition_platformer2d::sprite_sheet::game_assets::{self, GameAssetConfig};
 
 use super::scene_setup;
@@ -23,13 +21,15 @@ use super::scene_setup;
 /// implementation limit while preserving explicit authority.
 #[derive(SystemParam)]
 pub(crate) struct PresentationCatalogs<'w> {
-    characters: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
+    characters:
+        Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     /// Provider-authored sheets (U1). Grouped with the catalogs because it is
     /// the same question — what did this app's providers declare — asked about
     /// art instead of identity.
     sheets: Res<'w, ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
     bosses: Res<'w, ambition_platformer2d::actors::boss_encounter::BossCatalog>,
-    assets: Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
+    assets:
+        Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
 }
 
 /// The three App-installed authorities room construction reads: how authored
@@ -38,7 +38,8 @@ pub(crate) struct PresentationCatalogs<'w> {
 /// Bevy's system-parameter limit — and they belong together anyway.
 #[derive(SystemParam)]
 pub(crate) struct RoomConstructionAuthorities<'w> {
-    placement_lowering: Res<'w, ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
+    placement_lowering:
+        Res<'w, ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
     content_staging: Res<'w, ambition_platformer2d::actors::features::RoomContentStagingRegistry>,
     recipes: Res<'w, ambition_platformer2d::actors::construction::ActorConstructionRegistry>,
 }
@@ -55,7 +56,9 @@ pub(crate) struct CharacterAuthorities<'w> {
     catalog: Res<'w, ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
     /// `None` for a composition that registers no characters — the ordinary
     /// case, not a degraded one.
-    prepared: Option<Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>>,
+    prepared: Option<
+        Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
+    >,
     sheets: Res<'w, ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
     roster: Res<'w, ambition_platformer2d::actors::features::CharacterRoster>,
 }
@@ -72,7 +75,9 @@ pub(super) fn setup_simulation_system(
     sandbox_data_asset: Option<Res<data::Platformer2dGameplayDefaultsHandle>>,
     sandbox_asset_collection: Option<Res<loading::Platformer2dStartupAssets>>,
     asset_server: Res<AssetServer>,
-    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ldtk_world::LdtkRuntimeIndex>,
+    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ldtk_world::LdtkRuntimeIndex,
+    >,
     active_tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     starting_character: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
@@ -113,109 +118,13 @@ pub(super) fn setup_simulation_system(
             asset_server: &asset_server,
         },
     );
-    platform_set.0 =
-        ambition_platformer2d::actors::world::platforms::moving_platforms_for_room(room_set.active_spec());
+    platform_set.0 = ambition_platformer2d::actors::world::platforms::moving_platforms_for_room(
+        room_set.active_spec(),
+    );
     // `PlayerSafetyState::last_safe_pos` is initialized by the player
     // bundle to the player's spawn position (which is `world.0.spawn`),
     // so we don't need to overwrite it here. See
     // `ambition_platformer2d::actors::avatar::PlayerSimulationBundle::new`.
-}
-
-/// Presentation startup. Runs after `setup_simulation_system` so the home
-/// avatar (its `PrimaryPlayer` marker) is queryable. Adds the player's Sprite,
-/// spawns Camera2d, room visuals, and the marker-tagged HUD/quest text, plus the
-/// generated Kira audio library.
-#[cfg(feature = "audio")]
-pub(crate) fn setup_presentation_system(
-    mut commands: Commands,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
-    music_registry: Res<data::MusicRegistry>,
-    sfx_registry: Res<data::SfxRegistry>,
-    catalogs: PresentationCatalogs,
-    physics_settings: Res<physics::PhysicsSandboxSettings>,
-    mut audio_sources: ResMut<Assets<KiraAudioSource>>,
-    asset_server: Res<AssetServer>,
-    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    asset_config: Res<GameAssetConfig>,
-    ui_fonts: Option<Res<ui_fonts::UiFonts>>,
-    quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
-    mut profiler: ResMut<ambition_platformer2d::dev_tools::profiling::StartupProfiler>,
-) {
-    // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
-    // with "time not implemented on this platform". Gate the per-step
-    // wall-clock breakdown on non-wasm; the wasm build profiles via
-    // browser devtools (see docs/recipes/web-build.md).
-    #[cfg(not(target_arch = "wasm32"))]
-    let t0 = std::time::Instant::now();
-    let game_assets = actor_game_assets::load_game_assets(
-        &asset_config,
-        &catalogs.characters,
-        &catalogs.sheets,
-        &catalogs.bosses,
-        &catalogs.assets,
-        &asset_server,
-        &mut atlas_layouts,
-        &room_set.active_spec().metadata,
-        quality.as_deref().map(|q| &q.budget),
-    );
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let t_assets = t0.elapsed().as_secs_f32() * 1000.0;
-        profiler.marks.push((
-            "setup_presentation::load_game_assets",
-            std::time::Instant::now(),
-        ));
-        let t1 = std::time::Instant::now();
-        scene_setup::presentation_world(
-            &mut commands,
-            &mut audio_sources,
-            &asset_server,
-            &catalogs.assets,
-            scene_setup::PresentationSetup {
-                world: &world,
-                room_set: &room_set,
-                physics_settings: *physics_settings,
-                game_assets: &game_assets,
-                quality: quality.as_deref(),
-                music_registry: &music_registry,
-                sfx_registry: &sfx_registry,
-                ui_fonts: ui_fonts.as_deref(),
-            },
-        );
-        let t_present = t1.elapsed().as_secs_f32() * 1000.0;
-        eprintln!(
-            "[startup]   setup_presentation breakdown: load_game_assets={t_assets:.1}ms presentation_world={t_present:.1}ms"
-        );
-        profiler.marks.push((
-            "setup_presentation::presentation_world",
-            std::time::Instant::now(),
-        ));
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        // Wasm path: no per-step timing, no profiler marks (the
-        // wasm `StartupProfiler` doesn't take Instants — see
-        // `ambition_platformer2d::actors::profiling`). The presentation world still spawns.
-        let _ = &profiler; // silence unused-resource warning
-        scene_setup::presentation_world(
-            &mut commands,
-            &mut audio_sources,
-            &asset_server,
-            &catalogs.assets,
-            scene_setup::PresentationSetup {
-                world: &world,
-                room_set: &room_set,
-                physics_settings: *physics_settings,
-                game_assets: &game_assets,
-                quality: quality.as_deref(),
-                music_registry: &music_registry,
-                sfx_registry: &sfx_registry,
-                ui_fonts: ui_fonts.as_deref(),
-            },
-        );
-    }
-    commands.insert_resource(game_assets);
 }
 
 /// HOST-mode presentation startup: cameras, `GameAssets`, and the audio library.
@@ -440,40 +349,4 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
         &room_set.active_spec().metadata,
         Some(&quality.budget),
     );
-}
-
-#[cfg(not(feature = "audio"))]
-pub(crate) fn setup_presentation_system(
-    mut commands: Commands,
-    world: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomGeometry>,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
-    catalogs: PresentationCatalogs,
-    physics_settings: Res<physics::PhysicsSandboxSettings>,
-    asset_server: Res<AssetServer>,
-    mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    asset_config: Res<GameAssetConfig>,
-    quality: Option<Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>>,
-) {
-    let game_assets = actor_game_assets::load_game_assets(
-        &asset_config,
-        &catalogs.characters,
-        &catalogs.sheets,
-        &catalogs.bosses,
-        &catalogs.assets,
-        &asset_server,
-        &mut atlas_layouts,
-        &room_set.active_spec().metadata,
-        quality.as_deref().map(|q| &q.budget),
-    );
-    scene_setup::presentation_world(
-        &mut commands,
-        scene_setup::PresentationSetup {
-            world: &world,
-            room_set: &room_set,
-            physics_settings: *physics_settings,
-            game_assets: &game_assets,
-            quality: quality.as_deref(),
-        },
-    );
-    commands.insert_resource(game_assets);
 }

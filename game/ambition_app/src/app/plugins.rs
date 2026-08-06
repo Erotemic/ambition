@@ -40,7 +40,7 @@ use super::player_tick::{apply_home_reset_policy, sync_player_presentation};
 use super::resources::init_sandbox_resources;
 use super::setup_systems::{
     reload_visual_quality_assets_on_scale_change, setup_host_presentation_system,
-    setup_presentation_system, setup_simulation_system,
+    setup_simulation_system,
 };
 use super::sim_systems::apply_player_reset_input_system;
 
@@ -256,14 +256,12 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
         .add_plugins(ldtk_world::AmbitionLdtkRegistrationPlugin)
         .add_systems(
             Startup,
-            (
-                ldtk_world::load_ldtk_asset_handle,
-                // Direct entry constructs the world spine at boot; the shell
-                // host spawns SESSION-scoped roots per activation instead.
-                spawn_ldtk_world_root
-                    .after(setup_simulation_system)
-                    .run_if(super::shell_host::direct_entry),
-            ),
+            // ⭐ **K2b edit 3: the direct-entry world-spine spawn is GONE.**
+            // It ran only when `AmbitionShellHosted` was absent, and every
+            // composition inserts it now — so it was dead code that looked
+            // live. The shell spawns SESSION-scoped roots per activation
+            // (`spawn_ldtk_world_roots_scoped`), which is the only path.
+            ldtk_world::load_ldtk_asset_handle,
         )
         .add_systems(
             Update,
@@ -277,32 +275,6 @@ pub fn add_ldtk_runtime_plugin(app: &mut App) {
             )
                 .run_if(ambition_platformer2d::platformer::lifecycle::session_world_exists),
         );
-}
-
-/// Spawn the `LdtkWorldBundle` entity. Runs in `add_ldtk_runtime_plugin`
-/// (visible binary only) after `setup_simulation_system` so the
-/// `LdtkRuntimeIndex` session component is available.
-pub(super) fn spawn_ldtk_world_root(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    ldtk_index: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ldtk_world::LdtkRuntimeIndex,
-    >,
-    room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<rooms::RoomSet>,
-    world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
-    sandbox_asset_collection: Option<Res<loading::Platformer2dStartupAssets>>,
-    world_manifest: Res<ldtk_world::WorldManifest>,
-) {
-    spawn_ldtk_world_roots_scoped(
-        &mut commands,
-        ambition_platformer2d::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
-        &asset_server,
-        &ldtk_index,
-        &room_set,
-        world_assets.as_deref(),
-        sandbox_asset_collection.as_deref(),
-        &world_manifest,
-    );
 }
 
 /// The LdtkWorldBundle spawn shared by direct startup (`UNSCOPED`,
@@ -518,20 +490,13 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 // this slot: audio init (and any future machinery startup
                 // work) orders `.after(the set)` instead of naming this
                 // app system.
-                setup_presentation_system
-                    .in_set(PresentationSetupSet)
-                    .run_if(super::shell_host::direct_entry),
-                setup_host_presentation_system
-                    .in_set(PresentationSetupSet)
-                    .run_if(
-                        bevy::ecs::schedule::common_conditions::resource_exists::<
-                            super::shell_host::AmbitionShellHosted,
-                        >,
-                    ),
+                // K2b edit 3: the direct-entry presentation startup is gone
+                // with its entry path; the host one is UNCONDITIONAL now,
+                // because there is no longer a composition without the marker
+                // it was testing for.
+                setup_host_presentation_system.in_set(PresentationSetupSet),
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_setup_presentation"),
                 ambition_platformer2d::actors::menu::map::populate_map_rooms,
-                ambition_platformer2d::actors::menu::map::spawn_map_menu
-                    .run_if(super::shell_host::direct_entry),
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()

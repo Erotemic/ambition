@@ -15,9 +15,7 @@
 
 use bevy::prelude::*;
 
-use super::setup_systems::setup_simulation_system;
 use ambition_platformer2d::actors::session::data;
-use ambition_platformer2d::platformer::schedule::SimulationSetupSet;
 
 pub struct AmbitionGameSimulationSetupPlugin;
 
@@ -39,9 +37,6 @@ impl Plugin for AmbitionGameSimulationSetupPlugin {
                 // Direct entry constructs the simulation world at boot; the
                 // shell host constructs a SESSION-scoped world per activation
                 // (`shell_host::ambition_activate_session`).
-                setup_simulation_system
-                    .in_set(SimulationSetupSet)
-                    .run_if(super::shell_host::direct_entry),
                 ambition_platformer2d::dev_tools::profiling::phase_mark("after_setup_simulation"),
             )
                 .chain(),

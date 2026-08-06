@@ -41,6 +41,27 @@
 
 ---
 
+I want to remove some of the clone characters, that I don't find interesting, specificly:
+
+Robot Caster, Robot Engineer, Robot Archivist, Robot Diver, Robot Guardian,
+Robot Medic, Player Combat Review, Player Extended, Player Social Review,
+Player Traversal Review, Robot Miner, Robot Runner, Sandbag Full Review, Sandbag Armored Review, 
+
+Goblin Frost Sword, Goblin Shaman Staff, Goblin Desert Bow, Goblin FOrest
+Spear, Skirmisher, Goblin Cave Digger, Goblin Brute Hammer
+
+Exploding Mite and Dividing Mite are iffy
+
+Creator Final should not be a different character than creator. 
+
+"Robot" should be named to "Robot V1".
+
+In the hall of characters we should prevent the characters from overlapping the
+door. Currently robot v3 overlaps the door.
+
+
+---
+
 ## ◐ HEADLINE FEATURE, 2026-08-05: the smash character select screen
 
 *Jon's spec, kept verbatim at his instruction ("Copy this spec into my observations

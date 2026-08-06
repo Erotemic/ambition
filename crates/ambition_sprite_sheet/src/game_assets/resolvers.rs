@@ -176,34 +176,45 @@ pub fn chest_state_sprite(opened: bool) -> EntitySprite {
     }
 }
 
-/// Block-kind sprites. `BlockKind::Hazard` reuses the hazard-spikes art.
-pub fn block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
+/// **Art for a block that is a POINT, not a surface** — one whose box is its
+/// art's own shape, so drawing the art across the box distorts nothing.
+///
+/// ⛔ **this used to answer for every kind, and that was the bug.** It was
+/// `block_sprite`, the renderer reached for it whenever a block was not
+/// IntGrid-derived, and its answers are ~92×78 props with a 4px TRANSPARENT
+/// BORDER. Stretched across an authored surface — Smash's 420×32 stage — the
+/// border stretches too, so the platform collides about 18px further than it can
+/// be seen at each end: an invisible floor you stand on and an invisible wall you
+/// hit. A surface's art has to REPEAT, and [`block_tile_sprite`] is the one that
+/// repeats, so the renderer asks that first and only lands here for a kind with
+/// no tile texture at all.
+///
+/// ⚠ **so a new surface kind must bring a tile texture, not a prop.** The
+/// contract is pinned by `every_surface_kind_has_a_tile_texture`; adding a kind
+/// here instead is how the invisible edge comes back.
+pub fn point_block_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     match kind {
-        ae::BlockKind::Solid => Some(EntitySprite::SolidBlock),
-        ae::BlockKind::OneWay => Some(EntitySprite::OneWayPlatform),
+        ae::BlockKind::PogoOrb => Some(EntitySprite::PogoOrb),
+        ae::BlockKind::Rebound { .. } => Some(EntitySprite::ReboundPad),
         // ⚠ **`None`, and that is the kind's whole point.** A bonk-only block is
         // hidden until it has been struck; whatever a game wants it to look like
         // once found is that game's own dresser's decision, and a default here
         // would draw the secret.
         ae::BlockKind::BonkOnly => None,
-        ae::BlockKind::Hazard => Some(EntitySprite::HazardSpikes),
-        ae::BlockKind::PogoOrb => Some(EntitySprite::PogoOrb),
-        ae::BlockKind::Rebound { .. } => Some(EntitySprite::ReboundPad),
-        ae::BlockKind::BlinkWall {
-            tier: ae::BlinkWallTier::Soft,
-        } => Some(EntitySprite::SoftBlinkWall),
-        ae::BlockKind::BlinkWall {
-            tier: ae::BlinkWallTier::Hard,
-        } => Some(EntitySprite::HardBlinkWall),
+        // Every remaining kind is a SURFACE and is drawn by repeating its tile
+        // texture. Listed rather than wildcarded so a new kind has to choose.
+        ae::BlockKind::Solid
+        | ae::BlockKind::OneWay
+        | ae::BlockKind::Hazard
+        | ae::BlockKind::BlinkWall { .. } => None,
     }
 }
 
-/// Tile-sprite variant of `block_sprite` for IntGrid-derived blocks.
-/// Returns the seamless 32×32 tile texture that the renderer should
-/// REPEAT (via `Sprite::image_mode = Tiled`) across the block's
-/// arbitrary aspect ratio. Returns `None` for kinds that don't have
-/// a tile generator yet (PogoOrb / Rebound — those are point-shaped
-/// authored entities, not tiled surfaces).
+/// **The seamless texture a SURFACE repeats** — the one the renderer asks for
+/// first, whatever the block's provenance, because repeating at native pixel
+/// scale is the only way art of one size honestly covers a box of another.
+/// Returns `None` for the point-shaped kinds, which have no surface to tile
+/// (PogoOrb / Rebound) and fall through to [`point_block_sprite`].
 pub fn block_tile_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
     match kind {
         ae::BlockKind::Solid => Some(EntitySprite::SolidTile),
@@ -215,11 +226,26 @@ pub fn block_tile_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
         ae::BlockKind::BlinkWall {
             tier: ae::BlinkWallTier::Hard,
         } => Some(EntitySprite::HardBlinkTile),
-        // PogoOrb / Rebound stay on the entity-art path because they
-        // are point objects, not tiled surfaces. Authored as single
-        // entities with fixed-aspect art.
-        _ => None,
+        // PogoOrb / Rebound are point objects, not tiled surfaces, and
+        // BonkOnly deliberately draws nothing until it is found. Listed
+        // rather than wildcarded so a new kind has to answer this question.
+        ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } | ae::BlockKind::BonkOnly => {
+            None
+        }
     }
+}
+
+/// **Is this kind a POINT rather than a surface** — its box IS its art's shape,
+/// so nothing about it can be stretched into a lie?
+///
+/// The list exists to be short. Everything else is a shape an author drags to
+/// whatever size the level wants, and art that does not repeat cannot honestly
+/// cover it.
+pub fn is_point_block_kind(kind: ae::BlockKind) -> bool {
+    matches!(
+        kind,
+        ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } | ae::BlockKind::BonkOnly
+    )
 }
 
 /// Loading-zone sprites — cosmetic, the actual zone behavior comes from
@@ -259,5 +285,59 @@ pub fn entity_sprite_for_kind(kind: FeatureVisualKind) -> Option<EntitySprite> {
         // than a static entity sprite — see `feature_color` and
         // `switch_on_color` in `rendering.rs`.
         FeatureVisualKind::Switch => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Every kind an author can DRAG has art that repeats.**
+    ///
+    /// ⛔ the invariant a stretched prop broke: art of one size covers a box of
+    /// another only by repeating. When it stretches instead, the transparent
+    /// border every prop is generated with stretches too, and the block collides
+    /// where nothing is drawn — Smash's stage was solid about 18px past each
+    /// visible end. A new surface kind that arrives with a prop and no tile
+    /// texture brings that back, silently, so the contract is stated here rather
+    /// than in a comment somebody has to find.
+    #[test]
+    fn every_surface_kind_has_a_tile_texture() {
+        let kinds = [
+            ae::BlockKind::Solid,
+            ae::BlockKind::OneWay,
+            ae::BlockKind::Hazard,
+            ae::BlockKind::BonkOnly,
+            ae::BlockKind::PogoOrb,
+            ae::BlockKind::Rebound { impulse: ae::Vec2::ZERO },
+            ae::BlockKind::BlinkWall {
+                tier: ae::BlinkWallTier::Soft,
+            },
+            ae::BlockKind::BlinkWall {
+                tier: ae::BlinkWallTier::Hard,
+            },
+        ];
+        for kind in kinds {
+            if is_point_block_kind(kind) {
+                continue;
+            }
+            assert!(
+                block_tile_sprite(kind).is_some(),
+                "{kind:?} is a surface an author sizes freely, so its art has to \
+                 repeat: give it a tile texture, or say it is a point in \
+                 `is_point_block_kind`"
+            );
+        }
+    }
+
+    /// The prop path is now reachable ONLY for points — which is what stops a
+    /// surface from ever being drawn by stretching again.
+    #[test]
+    fn only_point_kinds_answer_with_prop_art() {
+        assert!(point_block_sprite(ae::BlockKind::Solid).is_none());
+        assert!(point_block_sprite(ae::BlockKind::OneWay).is_none());
+        assert!(point_block_sprite(ae::BlockKind::Hazard).is_none());
+        assert!(point_block_sprite(ae::BlockKind::PogoOrb).is_some());
+        assert!(point_block_sprite(ae::BlockKind::Rebound { impulse: ae::Vec2::ZERO }).is_some());
     }
 }

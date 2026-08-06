@@ -39,6 +39,22 @@ the query first. (Same failure class: an `Option<Res<T>>` that is `None` in
 production because an `insert_resource` was missed — catalog-authority
 resources must be non-optional in prod.)
 
+### A surface's art REPEATS; stretching one moves the collision off the picture
+
+Every generated entity prop (`assets/sprites/entities/solid_block.png` and its
+kin) carries a **4px fully transparent border**. Stretch one across a block that
+is a different shape — Smash's 420×32 stage, Mary-O's 640×32 vault floor — and
+the border stretches with it, so the block is solid for ~18–28px past each end of
+anything you can see: an invisible floor you stand on and an invisible wall you
+hit in mid-air. Since 2026-08-06 the renderer draws every block by REPEATING its
+kind's seamless `*_Tile` texture at native scale, whatever the block's
+provenance, and the four stretch-only props (`SolidBlock`, `OneWayPlatform`,
+`SoftBlinkWall`, `HardBlinkWall`) are deleted so the path cannot come back by
+autocomplete. A new `BlockKind` must bring a tile texture or declare itself a
+point in `is_point_block_kind` — pinned by
+`every_surface_kind_has_a_tile_texture`. If art ever must be stretched again, it
+may not have transparent edges, or the collision stops being visible.
+
 ## Documented elsewhere (pointers)
 
 - **Bevy `Query` iteration order is not stable** — sort by `SimId`/stable key

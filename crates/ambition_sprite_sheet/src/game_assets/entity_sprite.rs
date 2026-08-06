@@ -37,10 +37,15 @@ pub enum EntitySprite {
     SwitchArmed,
     SwitchDisabled,
     // Blocks / surfaces
-    SolidBlock,
-    OneWayPlatform,
-    SoftBlinkWall,
-    HardBlinkWall,
+    //
+    // ⛔ **`SolidBlock`, `OneWayPlatform`, `SoftBlinkWall` and `HardBlinkWall`
+    // are GONE (2026-08-06).** They were single ~92×78 props that the renderer
+    // stretched across whatever footprint a block had, and every one of them is
+    // generated with a 4px transparent border — so a stretched surface collided
+    // further than it could be seen (Smash's 420×32 stage was solid ~18px past
+    // each visible end). A surface repeats its tile texture now, whatever way it
+    // was authored, and these have no caller left. Do not reintroduce one: the
+    // art that covers a box of any size is the seamless `*_Tile` below.
     PogoOrb,
     ReboundPad,
     MovingPlatform,
@@ -100,10 +105,6 @@ impl EntitySprite {
             Self::SandbagDummy => "entities/sandbag_dummy.png",
             Self::SwitchArmed => "entities/switch_armed.png",
             Self::SwitchDisabled => "entities/switch_disabled.png",
-            Self::SolidBlock => "entities/solid_block.png",
-            Self::OneWayPlatform => "entities/one_way_platform.png",
-            Self::SoftBlinkWall => "entities/soft_blink_wall.png",
-            Self::HardBlinkWall => "entities/hard_blink_wall.png",
             Self::PogoOrb => "entities/pogo_orb.png",
             Self::ReboundPad => "entities/rebound_pad.png",
             Self::MovingPlatform => "entities/moving_platform.png",
@@ -136,10 +137,6 @@ impl EntitySprite {
         Self::SandbagDummy,
         Self::SwitchArmed,
         Self::SwitchDisabled,
-        Self::SolidBlock,
-        Self::OneWayPlatform,
-        Self::SoftBlinkWall,
-        Self::HardBlinkWall,
         Self::PogoOrb,
         Self::ReboundPad,
         Self::MovingPlatform,
@@ -180,10 +177,6 @@ pub fn entity_sprite_asset_id(key: EntitySprite) -> AssetId {
         EntitySprite::SandbagDummy => "sandbag_dummy",
         EntitySprite::SwitchArmed => "switch_armed",
         EntitySprite::SwitchDisabled => "switch_disabled",
-        EntitySprite::SolidBlock => "solid_block",
-        EntitySprite::OneWayPlatform => "one_way_platform",
-        EntitySprite::SoftBlinkWall => "soft_blink_wall",
-        EntitySprite::HardBlinkWall => "hard_blink_wall",
         EntitySprite::PogoOrb => "pogo_orb",
         EntitySprite::ReboundPad => "rebound_pad",
         EntitySprite::MovingPlatform => "moving_platform",

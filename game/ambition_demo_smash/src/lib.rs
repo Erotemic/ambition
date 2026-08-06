@@ -260,7 +260,17 @@ pub const SMASH_STAGE_ROOM_ID: &str = "smash_stage";
 /// any stage holds for a broken one.
 const STAGE_SIZE: Vec2 = Vec2::new(640.0, 480.0);
 const PLATFORM_TOP: f32 = 300.0;
-const PLATFORM_WIDTH: f32 = 420.0;
+/// **Thirteen tiles wide, and that is why it is not 420.**
+///
+/// The floor is drawn by REPEATING a 32px texture (every block is, since
+/// 2026-08-06 — see `spawn_block`), so a width off the tile grid ends the
+/// platform on a sliced brick at its right edge and nowhere else, which reads as
+/// a rendering fault rather than as a stage. 416 is 13 whole tiles.
+///
+/// ⚠ this is 4px narrower than the number the stage diagram was drawn against
+/// (2px per side, on a stage whose blast margin is 120px). Nothing measures it —
+/// change the constant back if a fighter ever feels the difference.
+const PLATFORM_WIDTH: f32 = 416.0;
 
 /// **How far past the stage a body may travel before the world takes it.**
 ///

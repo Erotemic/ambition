@@ -676,33 +676,45 @@ pub fn spawn_block(
 ) {
     let size = block.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
-    // IntGrid-derived blocks (`GeoSource::TileLayer` provenance)
-    // can be arbitrary aspect ratios (1904×32 floors, 48×240 pillars, …).
-    // Stretching the single 128-px entity-art textures across those
-    // smears the texture's internal structure into a false repeat.
-    // Solution: tiled 32×32 textures (one per BlockKind) repeated via
-    // `Sprite::image_mode = Tiled` so the texture renders at native
-    // pixel scale and TILES to fill `custom_size` — exactly what a
-    // long stone floor or tall pillar wants.
+    // ⛔ **A SURFACE IS DRAWN BY REPEATING ITS TEXTURE, NEVER BY STRETCHING ONE.**
     //
-    // Falls back to a colored quad when the tile asset is missing
-    // (no-asset mode, missing file). Authored entity-derived blocks
-    // (e.g. authored Solid rectangles outside the IntGrid layer) keep
-    // the entity-art path because their footprints match the texture
-    // aspect ratio.
-    // Provenance, not a name sniff (W2): the IR emission stamps tile-derived
-    // geometry with `GeoSource::TileLayer`; `name` is a display label only.
-    let is_intgrid_block = matches!(block.id.source, ae::GeoSource::TileLayer { .. });
+    // This used to branch on PROVENANCE — IntGrid-derived blocks tiled a 32×32
+    // texture, and everything else stretched a single ~92×78 prop across
+    // whatever footprint it had — on the stated assumption that authored blocks'
+    // "footprints match the texture aspect ratio". They do not. Smash's stage is
+    // one authored 420×32 platform, and the stretch was visible from orbit.
+    //
+    // ⚠ **and it was not only ugly, it MOVED THE COLLISION AWAY FROM THE ART.**
+    // Every entity prop is generated with a 4px fully transparent border. Stretch
+    // 92px of art across 420px and that border becomes ~18px of platform at each
+    // end that is solid and invisible — an edge you stand on with nothing under
+    // your feet, and a wall you bump into in mid-air. Jon, 2026-08-06: *"it also
+    // extends the alpha so there is an invisible wall or floor, on parts of the
+    // edge, so that is unintuitive."*
+    //
+    // So the kind's TILE texture wins wherever one exists, however the block was
+    // authored: it repeats at native pixel scale, it is opaque to the edge of
+    // every cell, and what you can see is exactly what you collide with. The
+    // prop path survives only for kinds with no tile texture — PogoOrb and
+    // Rebound, which are point objects whose box IS their art's shape (see
+    // `point_block_sprite`, whose name is the contract).
+    //
+    // ⭐ this also deletes a fork the repo had already called a bug once: two
+    // spawn paths for one `BlockKind::Solid` drew two different textures, so a
+    // brick built from cells and a brick built from an entity did not match. See
+    // `mary_o::powerups::dress_authored_blocks`, which worked around it.
+    //
+    // Falls back to a coloured quad when the tile asset is missing (no-asset
+    // mode, missing file).
+    //
     // ⚠ the KIND's art is the DEFAULT, not the last word: a game that has its own
     // name for this block's art attaches `BlockArt` and `apply_block_art` takes
     // over from here. Spawn deliberately does not consult it — the art a block
     // wears changes mid-play (a bonus block becomes a used one), so a value read
     // once at spawn could never be right for long.
-    let sprite_key = if is_intgrid_block {
-        game_assets::block_tile_sprite(block.kind)
-    } else {
-        game_assets::block_sprite(block.kind)
-    };
+    let tile_key = game_assets::block_tile_sprite(block.kind);
+    let is_tiled_surface = tile_key.is_some();
+    let sprite_key = tile_key.or_else(|| game_assets::point_block_sprite(block.kind));
     // An authored placeholder colour wins over every art path: content has said
     // this shape has no sprite yet, and a flat quad is the honest way to draw it.
     // Taken BEFORE the art lookup so no texture is bound at all — the block keeps
@@ -717,7 +729,7 @@ pub fn spawn_block(
     };
     let sprite = if let Some(flat) = placeholder {
         flat
-    } else if is_intgrid_block {
+    } else if is_tiled_surface {
         let tile_handle = assets
             .and_then(|a| sprite_key.and_then(|key| a.entities.get(key)))
             .cloned();

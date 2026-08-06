@@ -454,81 +454,25 @@ pub fn vault_exit() -> ae::Aabb {
     authored_tube(ASCENT_LINK).entrance.mouth_band()
 }
 
-/// Build Mary-O's level 1-1 through the `ambition_platformer2d` umbrella surface ONLY.
+/// **The art identity is AUTHORED now, and this function is gone.**
 ///
-/// The grammar, left to right:
+/// It used to walk a converted room and rewrite each enemy's `name` to a catalog
+/// display name, because the render binder resolved art by matching that name
+/// against the catalog and the world file had no other way to say which
+/// character an enemy wears. Sanic's speedway carried the identical pass, and a
+/// third was about to be written for a new enemy.
 ///
-/// 1. **Open teach** — a long flat run with nothing on it. You learn to move.
-/// 2. **The first platform** — a lone ledge at jump height over SAFE ground.
-///    Missing it costs nothing. This is where a player learns the jump ARC.
-/// 3. **Pit rhythm** — pits of 2, then 3, then 5 tiles. Each charges more for the
-///    previous one's lesson. The widest has a stepping stone in it: the arc you
-///    practised over safe ground at step 2 is now load-bearing, exactly once.
-/// 4. **The stair pyramid** — four steps up, a gap, four down. Your run-up decides
-///    the landing.
-/// 5. **The goal** — a tall pole. Its geometry is here; the SEQUENCE that plays
-///    when you grab it is [`flag`], and [`goal_pole`] is the one place both agree
-///    on where it stands.
-/// **World 1-1, as Jon authors it.**
+/// `EnemySpawn` authors a `character_id` as of 2026-08-06, so the level says
+/// which character it placed and the join no longer runs through a
+/// human-readable string. `name` went back to meaning only what it says — the
+/// label — and is authored in the world file beside the id.
 ///
-/// ⛔ **The level is `assets/worlds/mary_o.ldtk` now, not this function.** It used
-/// to build ~330 lines of blocks from constants, and every runtime that cared
-/// about a specific block re-derived its position from those same constants — so
-/// the geometry was the shadow of the code rather than the other way round, and
-/// nothing Jon could do in an editor would have moved it. He asked for the
-/// opposite (2026-08-04): *"I would like to make maryo an ldtk level so I can
-/// manually play with it and lay it out."*
-///
-/// What is left here is what LDtk has no vocabulary for, and each piece is
-/// DERIVED FROM THE LOADED ROOM rather than from a constant — dressing the
-/// authored blocks in their art, and the two walk-in zones to World 1-2.
-///
-/// ⚠ regenerate the file with
-/// `python3 game/ambition_demo_mary_o/tools/author_mary_o_ldtk.py` only to
-/// re-derive it from scratch; ordinary layout edits belong in the LDtk editor,
-/// and the generator's constants are history the moment Jon touches it.
-/// **Give every authored enemy the display name that resolves its sheet.**
-///
-/// ⛔ **Without this every Mary-O enemy draws as a RED RECTANGLE** — Jon found
-/// all 17 of them that way on 2026-08-05. The LDtk `EnemySpawn` entities carry a
-/// position and a `brain` and nothing else, so the converter falls back to the
-/// LDtk identifier and names each one the literal string `"EnemySpawn"`. The
-/// render binder resolves art by NAME (`upgrade_actor_sprites`), finds nothing
-/// under that, and — correctly, by §4.10, there is no generic fallback sheet —
-/// leaves the fighting-actor placeholder in place. Red is just what a hostile
-/// placeholder is coloured.
-///
-/// ⚠ **I deleted the writer myself in `07f0fc7cc`.** That commit removed
-/// Mary-O's two staging closures because they built every enemy a second time,
-/// and the dedup was right — but those closures were also the only thing setting
-/// the display name, and its thesis ("the identity is the BRAIN, not a display
-/// name") is true of GAMEPLAY identity and not of render identity. Nothing
-/// replaced the writer, so the art went with the duplicate.
-///
-/// The brain → sheet mapping lives here rather than in the world file because
-/// the level authors behaviour and the demo owns presentation; Sanic's speedway
-/// names its badnik in exactly this spot, for exactly this reason.
-///
-/// ⭐ **The deeper fix is a ledger row, not this function.** Resolving art by a
-/// human-readable string means renaming a character silently un-arts every level
-/// that placed it, and both demos now carry the same hand-written workaround.
-/// Render identity belongs on the archetype (or on an `EnemySpawn.character_id`
-/// field, which `NpcSpawn` already has and `EnemySpawn` does not).
-///
-/// ⛔ **this comment claimed the queue recorded that, and it did not** — checked
-/// 2026-08-05, no such row existed. The row is written now ("The enemy-identity
-/// seam" in `docs/planning/queue-72h-2026-08-03.md`), so the pointer is finally
-/// true. A comment that cites a record nobody made is the same trap as a doc
-/// claiming an enforcement nobody wrote.
-pub(crate) fn name_enemies_for_render(room: &mut RoomSpec) {
-    for spawn in &mut room.enemy_spawns {
-        if ai_slop::is_ai_slop_brain(&spawn.payload) {
-            spawn.name = ai_slop::AI_SLOP_DISPLAY_NAME.to_string();
-        } else if snake::is_snake_brain(&spawn.payload) {
-            spawn.name = snake::SNAKE_DISPLAY_NAME.to_string();
-        }
-    }
-}
+/// ⚠ **kept as a doc comment on purpose.** The history is the argument: I
+/// deleted the original writer in `07f0fc7cc` on the thesis that *"the identity
+/// is the BRAIN, not a display name"*, which is true of GAMEPLAY identity and
+/// false of render identity, and every enemy in the demo lost its art. Anyone
+/// who reaches for a post-conversion patch pass again should read that first.
+const _ENEMY_ART_IS_AUTHORED_NOT_PATCHED: () = ();
 
 pub fn level_1_1() -> RoomSpec {
     let mut room = authored_room(LEVEL_1_1_ROOM_ID);
@@ -539,7 +483,6 @@ pub fn level_1_1() -> RoomSpec {
     // naming the half that is there and the partner it wants.
     let _ = pipe_tubes(&room).unwrap_or_else(|why| panic!("{why}"));
     dress_authored_blocks(&mut room);
-    name_enemies_for_render(&mut room);
     room.props.extend(scenery_for_authored_room(&room));
 
     // ⭐ **the two ends of the trip to World 1-2 are AUTHORED (2026-08-05).**
@@ -2978,6 +2921,55 @@ mod tests {
                  the level before a player ever sees it",
                 spawn.id
             );
+        }
+    }
+
+    /// **Every enemy in the demo names the character it wears.**
+    ///
+    /// The art used to be patched on after conversion by `name_enemies_for_render`,
+    /// which walked the room and rewrote each enemy's `name` to a catalog display
+    /// name. That pass is gone: `EnemySpawn` authors a `character_id`, so the
+    /// world file states its own cast.
+    ///
+    /// ⛔ **this exists because the failure is SILENT.** An enemy whose identity
+    /// resolves to nothing does not error — it draws the fighting-actor
+    /// placeholder, which is a red rectangle, and a red rectangle is what a
+    /// hostile placeholder is supposed to look like. That is how every enemy in
+    /// this demo lost its art once already (`07f0fc7cc`) and stayed that way. So
+    /// the check is on the AUTHORING, where the answer is unambiguous, rather
+    /// than on a picture.
+    ///
+    /// ⚠ it asserts against the catalog ids, not against a count: a level that
+    /// adds an enemy and forgets the field fails, and so does one that authors an
+    /// id nothing in the demo's roster publishes.
+    #[test]
+    fn every_authored_enemy_names_the_character_it_wears() {
+        for (label, room) in [("1-1", level_1_1()), ("1-2", level_1_2::level_1_2())] {
+            assert!(
+                !room.enemy_spawns.is_empty(),
+                "{label} authors no enemies, so this check would pass by finding \
+                 nothing to check"
+            );
+            for spawn in &room.enemy_spawns {
+                let character_id = spawn.payload.character_id.as_deref().unwrap_or_else(|| {
+                    panic!(
+                        "{label}'s enemy `{}` authors no character_id, so its art \
+                         resolves through its display name — the join this field \
+                         exists to replace",
+                        spawn.id
+                    )
+                });
+                assert!(
+                    matches!(
+                        character_id,
+                        ai_slop::AI_SLOP_SHEET_TARGET | snake::SNAKE_SHEET_TARGET
+                    ),
+                    "{label}'s enemy `{}` wears `{character_id}`, which is not one \
+                     of the two characters this demo publishes sheets for — it \
+                     will draw the placeholder",
+                    spawn.id
+                );
+            }
         }
     }
 

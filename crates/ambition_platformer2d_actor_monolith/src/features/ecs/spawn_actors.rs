@@ -892,7 +892,8 @@ pub(crate) fn spawn_boss_with_overrides_into(
     let boss_anim_frame = crate::boss_encounter::sprites::BossAnimFrame::new(
         boss_catalog.sheet_for_key(&boss_sheet_key),
     );
-    let combat_tuning = crate::time::feel::Platformer2dFeelTuningMonolith::default().feature_combat_tuning();
+    let combat_tuning =
+        crate::time::feel::Platformer2dFeelTuningMonolith::default().feature_combat_tuning();
     let cycle_attack_active = boss
         .config
         .behavior
@@ -1165,6 +1166,7 @@ pub(crate) fn spawn_runtime_minion_into(
         roster,
         id.clone(),
         name.clone(),
+        None,
         aabb,
         brain,
         &[],
@@ -1220,19 +1222,20 @@ pub(crate) fn spawn_enemy_with_faction_into(
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     faction: super::ActorFaction,
 ) {
-    let spec = roster.spec_for_brain(&authored.payload);
+    let spec = roster.spec_for_brain(&authored.payload.brain);
     let enemy = super::actor_clusters::ActorClusterSeed::new_in(
         authored_sheets,
         catalog,
         roster,
         authored.id.clone(),
         authored.name.clone(),
+        Some(authored.payload.art_identity(&authored.name)),
         authored.aabb,
-        authored.payload.clone(),
+        authored.payload.brain.clone(),
         paths,
     );
     spawn_solo_enemy_into(
@@ -1264,7 +1267,7 @@ pub(crate) fn populate_giant_host_into(
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     faction: super::ActorFaction,
 ) {
@@ -1296,7 +1299,7 @@ pub(crate) fn populate_giant_hand_into(
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
 ) {
     let enemy = super::actor_clusters::ActorClusterSeed::new_in(
         authored_sheets,
@@ -1304,8 +1307,9 @@ pub(crate) fn populate_giant_hand_into(
         roster,
         authored.id.clone(),
         authored.name.clone(),
+        Some(authored.payload.art_identity(&authored.name)),
         authored.aabb,
-        authored.payload.clone(),
+        authored.payload.brain.clone(),
         &[],
     );
     spawn_solo_enemy_into(
@@ -1477,7 +1481,7 @@ pub(super) fn spawn_solo_enemy_into(
     session_scope: SessionSpawnScope,
     entity: bevy::ecs::entity::Entity,
     enemy: super::actor_clusters::ActorClusterSeed,
-    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
     faction: super::ActorFaction,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
@@ -1631,6 +1635,7 @@ pub(super) fn spawn_encounter_mob(
         roster,
         id.clone(),
         id.clone(),
+        None,
         aabb,
         brain,
         &[],

@@ -458,26 +458,37 @@ impl ActorClusterSeed {
     /// Build an actor seed while resolving authored character identity from the
     /// caller's App-local catalog. Content-free tests pass an explicit empty
     /// catalog, so production construction never has a hidden fallback.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_in(
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         roster: &CharacterRoster,
         id: impl Into<String>,
         name: impl Into<String>,
+        // **The ART identity, when the caller knows one that is not the label.**
+        // `None` means *resolve from `name`*, which is what every caller did
+        // before this parameter existed and what every level authored before
+        // `EnemySpawnSpec::character_id` existed. It is not a default so much as
+        // the older of two roads, and both stay open on purpose — see
+        // `ambition_platformer2d_world::rooms::EnemySpawnSpec`.
+        art_identity: Option<&str>,
         aabb: ae::Aabb,
         brain: ambition_entity_catalog::placements::CharacterBrain,
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
         let spec = roster.spec_for_brain(&brain);
         let name: String = name.into();
-        // Resolve this enemy's uniform sprite identity from its display name
-        // (the same name → sheet join presentation does). `None` for a generic
-        // enemy whose name isn't a catalog character.
+        // Resolve this enemy's uniform sprite identity from the AUTHORED art
+        // identity when one was given, and from its display name otherwise (the
+        // same name → sheet join presentation does). `None` for a generic enemy
+        // whose identity isn't a catalog character.
         // ⭐ **id first, display name second.** An authored placement that names
         // a `character_id` resolves directly and survives a rename; one that
         // carries a display name (every level today) keeps working through the
         // fallback. See `CharacterCatalog::id_for_authored_identity`.
-        let sprite_character_id = catalog.id_for_authored_identity(&name).map(String::from);
+        let sprite_character_id = catalog
+            .id_for_authored_identity(art_identity.unwrap_or(name.as_str()))
+            .map(String::from);
         let hurt_feedback = actor_hurt_feedback(catalog, sprite_character_id.as_deref());
         let motion = match &brain {
             ambition_entity_catalog::placements::CharacterBrain::Patrol {
@@ -833,6 +844,7 @@ impl ActorClusterSeed {
             &super::super::enemies::test_roster(),
             id,
             name,
+            None,
             aabb,
             brain,
             paths,

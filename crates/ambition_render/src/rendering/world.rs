@@ -199,7 +199,7 @@ pub fn spawn_room_visuals(
             &enemy.name,
             enemy.aabb,
             kind,
-            game_assets::entity_sprite_for_enemy(&enemy.payload),
+            game_assets::entity_sprite_for_enemy(&enemy.payload.brain),
             assets,
         );
     }

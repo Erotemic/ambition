@@ -105,7 +105,6 @@ pub fn level_1_2() -> RoomSpec {
         block.art_color = Some(UNDERGROUND_STONE);
     }
     crate::dress_authored_blocks(&mut room);
-    crate::name_enemies_for_render(&mut room);
     room.props.extend(crate::scenery_for_authored_room(&room));
     room
 }

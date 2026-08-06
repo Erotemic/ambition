@@ -296,7 +296,7 @@ fn arena_spawns_the_adr0020_linked_pair() {
         .find(|e| &e.id == mount_id)
         .expect("mount-link target resolves to an authored EnemySpawn");
     assert!(
-        matches!(&mount.payload, CharacterBrain::Custom(id) if id == "giant_gnu"),
+        matches!(&mount.payload.brain, CharacterBrain::Custom(id) if id == "giant_gnu"),
         "the mount is the giant_gnu archetype, got {:?}",
         mount.payload
     );

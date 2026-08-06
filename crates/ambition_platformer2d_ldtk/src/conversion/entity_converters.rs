@@ -604,8 +604,22 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
         }
     }
     let (id, name, aabb) = authored_triple(entity, name, min, size);
+    // **The ART identity, authored separately from the label.** `name` is what a
+    // level calls this enemy; `character_id` is which catalog character it wears.
+    // They were the same string until 2026-08-06, which meant renaming a
+    // character silently un-arted every level that placed it and two demos
+    // carried a hand-written pass to patch the name back in after conversion.
+    // Absent (the state of every level authored before the field existed) leaves
+    // the display-name join intact — see `EnemySpawnSpec`.
+    let mut payload = ambition_platformer2d_world::rooms::EnemySpawnSpec::new(brain);
+    if let Some(character_id) = field_string(entity, "character_id") {
+        let character_id = character_id.trim();
+        if !character_id.is_empty() {
+            payload.character_id = Some(character_id.to_string());
+        }
+    }
     let mut emission = RoomEmission::enemy_spawn(
-        ambition_platformer2d_world::rooms::Authored::new(id.clone(), name, aabb, brain),
+        ambition_platformer2d_world::rooms::Authored::new(id.clone(), name, aabb, payload),
     );
     // ADR 0020: a rider EnemySpawn carrying a `mounted_on` entity-ref emits an
     // authored mount link `(rider_id, mount_id)`. The ref stores the mount's

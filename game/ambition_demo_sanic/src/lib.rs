@@ -276,15 +276,15 @@ pub fn sanic_speedway() -> RoomSpec {
         .expect("the world file authors the sanic_speedway area");
 
     let loop_center = graft_loop_route(&mut room.world);
-    // The LDtk EnemySpawn entities carry positions and the roster brain key;
-    // the demo supplies the render identity (the catalog display name that
-    // resolves the badnik sheet).
-    for spawn in &mut room.enemy_spawns {
-        spawn.name = badnik::BADNIK_DISPLAY_NAME.to_string();
-    }
+    // ⭐ **the badniks name themselves now.** This used to rewrite every enemy's
+    // `name` to the catalog display name after conversion, because the render
+    // binder resolved art by matching that string and the world file had no way
+    // to say which character an enemy wears. `EnemySpawn` authors a
+    // `character_id` as of 2026-08-06, so the speedway states its own cast and
+    // the demo stopped patching it — see `EnemySpawnSpec`.
     // Rings lower as generic `currency` pickups (LDtk owns their spatial layout);
-    // the demo supplies their render identity here, the same way it names the
-    // badnik above — the pickup renderer then binds the animated ring sheet.
+    // the demo still supplies their render identity here, which is the same
+    // workaround one family over and the next candidate for the same fix.
     for record in &mut room.placements {
         if is_ring_placement(record) {
             if let ambition_platformer2d::entity_catalog::placements::PlacementSchema::Pickup(

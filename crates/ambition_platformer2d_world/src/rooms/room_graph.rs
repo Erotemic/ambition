@@ -35,7 +35,7 @@ pub struct RoomSpec {
     // All authored entity families (hazards, interactables, pickups, chests,
     // breakables, portals) lower through the single `placements` channel
     // (fable audit F9.2 arc exit) -- there are no typed per-family Vecs.
-    pub enemy_spawns: Vec<Authored<ambition_entity_catalog::placements::CharacterBrain>>,
+    pub enemy_spawns: Vec<Authored<crate::rooms::EnemySpawnSpec>>,
     pub boss_spawns: Vec<Authored<ambition_entity_catalog::placements::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
     /// ADR 0020 authored mount links: `(rider_id, mount_id)` pairs. A rider

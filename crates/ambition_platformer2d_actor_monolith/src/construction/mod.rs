@@ -32,13 +32,13 @@
 //!   It now takes a proper `SimId::spawned` under its summoner and states its
 //!   parent in [`SpawnOrigin::Dynamic`] rather than implying it by spelling.
 
+use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 use ambition_platformer2d_shared_tangle::construction::{
     ConstructionDomain, ConstructionExecCtx, ConstructionPlan, ConstructionRegistrationError,
     ConstructionRegistry, ConstructionRequest, ConstructionRoot, RecipeDispatch, RecipeId,
     RelationCheck, RelationDispatch, RelationKind, RelationOps, SpawnOrigin,
 };
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 use bevy::prelude::{Entity, World};
 
 use crate::boss_encounter::BossCatalog;
@@ -181,14 +181,14 @@ pub enum ActorConstructionParams {
     /// they used to be minted inside the enemy spawn helper as authoritative
     /// roots no plan named (the last legacy family).
     GiantHost {
-        authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+        authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
         faction: crate::features::ActorFaction,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     },
     /// One hand of a giant host. The body is built here; its `Limb` component and
     /// the host's rig entry are installed by the `ambition.limb` relation.
     GiantHand {
-        authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+        authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
     },
     /// An ordinary authored enemy, planned because an authored mount link names
     /// it as rider or mount. Built by the SAME populate function the enemy
@@ -196,7 +196,7 @@ pub enum ActorConstructionParams {
     /// so being planned changes WHO wires its relations, not what it is. The
     /// rest of the enemy family stays on the loop until Phase 4 migrates it.
     AuthoredEnemy {
-        authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+        authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
         paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     },
     /// An authored boss, planned because an authored mount link names it as the
@@ -438,10 +438,7 @@ pub enum ActorConstructionError {
     UnknownHeldItem(Box<ambition_platformer2d_shared_tangle::binding::UnresolvedRef>),
     /// One limb declares two hosts. A limb is a part OF a body; two hosts is not
     /// a configuration with a degraded meaning, it is a contradiction.
-    LimbHasTwoHosts {
-        limb: SimId,
-        hosts: Vec<SimId>,
-    },
+    LimbHasTwoHosts { limb: SimId, hosts: Vec<SimId> },
     /// Two limbs claim the same slot of the same host. The rig is keyed by slot,
     /// so committing this would silently drop one of them.
     LimbSlotTaken {
@@ -450,21 +447,13 @@ pub enum ActorConstructionError {
         limbs: Vec<SimId>,
     },
     /// One rider declares two mounts.
-    RiderOnTwoMounts {
-        rider: SimId,
-        mounts: Vec<SimId>,
-    },
+    RiderOnTwoMounts { rider: SimId, mounts: Vec<SimId> },
     /// Two riders claim the same mount. `MountSlot` holds ONE rider, so
     /// committing this would leave whichever lost pointing at a mount that
     /// points at the other.
-    MountHasTwoRiders {
-        mount: SimId,
-        riders: Vec<SimId>,
-    },
+    MountHasTwoRiders { mount: SimId, riders: Vec<SimId> },
     /// An entity declares itself its own mount.
-    SelfMount {
-        rider: SimId,
-    },
+    SelfMount { rider: SimId },
     /// A relation endpoint names a row whose construction family cannot hold
     /// that end of the relation — a ground item cannot be a mount.
     WrongFamilyForRelation {
@@ -1253,7 +1242,7 @@ pub fn mount_capabilities_of(
         // A giant host is a mount (its archetype carries `mount_class`); its hands
         // are neither mount nor pilot.
         ActorConstructionParams::GiantHost { authored, .. } => {
-            let spec = roster.spec_for_brain(&authored.payload);
+            let spec = roster.spec_for_brain(&authored.payload.brain);
             PlannedMountCapabilities {
                 mount_class: spec.mount_class.clone(),
                 pilots: spec.pilotable_mount_classes.clone(),
@@ -1261,7 +1250,7 @@ pub fn mount_capabilities_of(
         }
         ActorConstructionParams::GiantHand { .. } => PlannedMountCapabilities::default(),
         ActorConstructionParams::AuthoredEnemy { authored, .. } => {
-            let spec = roster.spec_for_brain(&authored.payload);
+            let spec = roster.spec_for_brain(&authored.payload.brain);
             PlannedMountCapabilities {
                 mount_class: spec.mount_class.clone(),
                 pilots: spec.pilotable_mount_classes.clone(),
@@ -1471,11 +1460,12 @@ pub fn authored_ground_item_requests(
     // Built once for the room, and only when it has ground items at all: this is
     // the registry the refusal below is measured against, and the list it names
     // when the reference misses.
-    let registry = (!room.ground_items.is_empty()).then(|| {
-        ambition_platformer2d_shared_tangle::binding::Resolver::<crate::rooms::binding::HeldItemId>::new(
-            ambition_characters::brain::held_item_ids(),
-        )
-    });
+    let registry =
+        (!room.ground_items.is_empty()).then(|| {
+            ambition_platformer2d_shared_tangle::binding::Resolver::<
+                crate::rooms::binding::HeldItemId,
+            >::new(ambition_characters::brain::held_item_ids())
+        });
     room.ground_items
         .iter()
         .map(|spec| {
@@ -1607,7 +1597,7 @@ pub fn authored_actor_requests(
 ) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for enemy in &room.enemy_spawns {
-        let spec = roster.spec_for_brain(&enemy.payload);
+        let spec = roster.spec_for_brain(&enemy.payload.brain);
         if crate::features::spec_is_limbed_host(&spec) {
             let giant_sim = SimId::placement(&enemy.id);
             let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb, &spec);
@@ -1678,7 +1668,7 @@ pub fn authored_actor_requests(
 #[allow(clippy::too_many_arguments)]
 fn giant_cluster_rows(
     host_sim: SimId,
-    host_authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    host_authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
     faction: crate::features::ActorFaction,
     paths: Vec<(String, ambition_platformer2d_core::KinematicPath)>,
     hands: Vec<crate::features::GiantHandPlan>,
@@ -1700,14 +1690,14 @@ fn giant_cluster_rows(
             sim_id: SimId::spawned(&host_sim, hand.ordinal),
             origin: hand_origin(hand),
             parameters: ActorConstructionParams::GiantHand {
-                authored: crate::rooms::Authored {
-                    id: hand.feature_id.clone(),
-                    name: "Giant GNU Hand".to_string(),
-                    aabb: hand.aabb,
-                    payload: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                authored: crate::rooms::Authored::new(
+                    hand.feature_id.clone(),
+                    "Giant GNU Hand",
+                    hand.aabb,
+                    ambition_entity_catalog::placements::CharacterBrain::Custom(
                         "giant_gnu_hands".into(),
                     ),
-                },
+                ),
             },
             relations: vec![
                 ambition_platformer2d_shared_tangle::construction::RelationRequest {
@@ -1733,7 +1723,7 @@ pub fn planned_giant_host_ids(
     room.enemy_spawns
         .iter()
         .filter(|enemy| {
-            crate::features::spec_is_limbed_host(&roster.spec_for_brain(&enemy.payload))
+            crate::features::spec_is_limbed_host(&roster.spec_for_brain(&enemy.payload.brain))
         })
         .map(|enemy| enemy.id.clone())
         .collect()

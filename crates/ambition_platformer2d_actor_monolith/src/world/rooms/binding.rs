@@ -110,7 +110,7 @@ impl RoomBindings {
         ledger.note_duplicates(&paths, format!("room `{}` paths", room.id));
 
         for enemy in &room.enemy_spawns {
-            match &enemy.payload {
+            match &enemy.payload.brain {
                 ambition_entity_catalog::placements::CharacterBrain::Patrol {
                     path_id: Some(path_id),
                 } => {

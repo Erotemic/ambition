@@ -11,7 +11,7 @@
 	"iid": "ambition-sanic-speedway-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 106901,
+	"nextUid": 106902,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -1536,6 +1536,43 @@
 					"allowedRefsEntityUid": null,
 					"allowedRefTags": [],
 					"tilesetUid": null
+				},
+				{
+					"identifier": "character_id",
+					"doc": null,
+					"__type": "String",
+					"uid": 106901,
+					"type": "F_String",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "RefLinkBetweenCenters",
+					"editorDisplayPos": "Above",
+					"editorDisplayScale": 1.0,
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorCutLongValues": true,
+					"editorShowInWorld": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"editorLinkStyle": "CurvedArrow",
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"tilesetUid": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"exportToToc": false,
+					"searchable": true
 				}
 			]
 		},
@@ -7342,10 +7379,20 @@
 							"height": 32,
 							"defUid": 2008,
 							"px": [3136,640],
-							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 3019, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["sanic_badnik"]
-							}] }]
+							"fieldInstances": [
+								{ "__identifier": "brain", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 3019, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_badnik"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Sanic Badnik", "__tile": null, "defUid": 3018, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Sanic Badnik"]
+								}] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 106901, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_badnik"]
+								}] }
+							]
 						},
 						{
 							"__identifier": "EnemySpawn",
@@ -7361,10 +7408,20 @@
 							"height": 32,
 							"defUid": 2008,
 							"px": [3552,640],
-							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 3019, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["sanic_badnik"]
-							}] }]
+							"fieldInstances": [
+								{ "__identifier": "brain", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 3019, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_badnik"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Sanic Badnik", "__tile": null, "defUid": 3018, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Sanic Badnik"]
+								}] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 106901, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_badnik"]
+								}] }
+							]
 						},
 						{
 							"__identifier": "EnemySpawn",
@@ -7380,10 +7437,20 @@
 							"height": 32,
 							"defUid": 2008,
 							"px": [5056,640],
-							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 3019, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["sanic_badnik"]
-							}] }]
+							"fieldInstances": [
+								{ "__identifier": "brain", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 3019, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_badnik"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Sanic Badnik", "__tile": null, "defUid": 3018, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Sanic Badnik"]
+								}] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 106901, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_badnik"]
+								}] }
+							]
 						},
 						{
 							"__identifier": "EnemySpawn",
@@ -7399,10 +7466,20 @@
 							"height": 32,
 							"defUid": 2008,
 							"px": [5760,640],
-							"fieldInstances": [{ "__identifier": "brain", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 3019, "realEditorValues": [{
-								"id": "V_String",
-								"params": ["sanic_badnik"]
-							}] }]
+							"fieldInstances": [
+								{ "__identifier": "brain", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 3019, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_badnik"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Sanic Badnik", "__tile": null, "defUid": 3018, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Sanic Badnik"]
+								}] },
+								{ "__identifier": "character_id", "__type": "String", "__value": "sanic_badnik", "__tile": null, "defUid": 106901, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["sanic_badnik"]
+								}] }
+							]
 						},
 						{
 							"__identifier": "PickupSpawn",

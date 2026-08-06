@@ -209,13 +209,85 @@ pub struct Authored<T> {
 }
 
 impl<T> Authored<T> {
-    pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: ae::Aabb, payload: T) -> Self {
+    /// ⭐ **`impl Into<T>`, not `T`.** Every existing call passes the payload
+    /// exactly, and the blanket `impl From<T> for T` keeps those compiling — but
+    /// it also lets a family GROW its payload from a bare value into a struct
+    /// without rewriting two dozen call sites. [`EnemySpawnSpec`] is the first to
+    /// use that: it wraps the `CharacterBrain` every caller used to pass.
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        payload: impl Into<T>,
+    ) -> Self {
         Self {
             id: id.into(),
             name: name.into(),
             aabb,
-            payload,
+            payload: payload.into(),
         }
+    }
+}
+
+/// **An authored enemy's BEHAVIOUR and its ART are two different identities.**
+///
+/// Before this existed the payload was a bare `CharacterBrain` and the art was
+/// joined by matching `Authored::name` — a human-readable display name — against
+/// the character catalog. That join has a documented, silent failure: renaming a
+/// character un-arts every level that placed it, because nothing connects the two
+/// but a string a human typed twice. Two demos carried a hand-written
+/// `name_enemies_for_render` pass to patch the name back in after conversion, and
+/// a third was about to be written.
+///
+/// ⭐ **the shape is borrowed from next door.** `NpcSpawn` already authors a
+/// `character_id`, and `MovingPlatform` was given an authored `id` on 2026-08-05
+/// for the same reason — *a name is presentation, and this repo has twice paid
+/// for keying gameplay on one*. `EnemySpawn` was the remaining placement that
+/// takes an identity and does not read one.
+///
+/// ⚠ **`character_id` is OPTIONAL, and that is not laziness.** Every level in the
+/// tree authors a display name today and resolves through
+/// `CharacterCatalog::id_for_authored_identity`, which tries an id first and a
+/// display name second. Making the field required would break every existing
+/// world file to fix a hazard none of them has hit yet. Both roads must keep
+/// working, so both roads are tested.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct EnemySpawnSpec {
+    /// What it DOES: the roster brain key the archetype is selected by.
+    pub brain: ambition_entity_catalog::placements::CharacterBrain,
+    /// What it LOOKS LIKE: a catalog character id. `None` falls back to matching
+    /// [`Authored::name`] against display names, which is what every level
+    /// authored before this field existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub character_id: Option<String>,
+}
+
+impl EnemySpawnSpec {
+    pub fn new(brain: ambition_entity_catalog::placements::CharacterBrain) -> Self {
+        Self {
+            brain,
+            character_id: None,
+        }
+    }
+
+    /// The art identity this spawn wears, preferring the authored id.
+    ///
+    /// `name` is the caller's [`Authored::name`]. Returning the name unchanged
+    /// when no id is authored keeps the display-name road intact — the resolver
+    /// downstream (`id_for_authored_identity`) accepts either form.
+    pub fn art_identity<'a>(&'a self, name: &'a str) -> &'a str {
+        self.character_id.as_deref().unwrap_or(name)
+    }
+
+    pub fn with_character_id(mut self, character_id: impl Into<String>) -> Self {
+        self.character_id = Some(character_id.into());
+        self
+    }
+}
+
+impl From<ambition_entity_catalog::placements::CharacterBrain> for EnemySpawnSpec {
+    fn from(brain: ambition_entity_catalog::placements::CharacterBrain) -> Self {
+        Self::new(brain)
     }
 }
 

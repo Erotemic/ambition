@@ -170,6 +170,12 @@ pub fn seat_prepared_character(
         roster,
         character_id.to_string(),
         prepared.display_name.clone(),
+        // ⭐ **the id, not the display name.** A seated fighter has always KNOWN
+        // its catalog id — it is the first argument — and resolved its art by
+        // round-tripping the display name back through the catalog anyway. Two
+        // characters may legitimately share a display name; only the id is
+        // unique, so this is the identity to hand the resolver.
+        Some(character_id),
         aabb,
         brain,
         &[],

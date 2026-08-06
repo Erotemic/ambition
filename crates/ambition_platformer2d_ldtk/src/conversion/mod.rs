@@ -171,7 +171,7 @@ impl LdtkProject {
             Vec::new();
         let mut enemy_spawns: Vec<
             ambition_platformer2d_world::rooms::Authored<
-                ambition_entity_catalog::placements::CharacterBrain,
+                ambition_platformer2d_world::rooms::EnemySpawnSpec,
             >,
         > = Vec::new();
         let mut boss_spawns: Vec<
@@ -389,7 +389,7 @@ pub struct RoomEmission {
     // interactables migrated to the `placements` channel (fable audit F9.2).
     pub enemy_spawns: Vec<
         ambition_platformer2d_world::rooms::Authored<
-            ambition_entity_catalog::placements::CharacterBrain,
+            ambition_platformer2d_world::rooms::EnemySpawnSpec,
         >,
     >,
     pub boss_spawns: Vec<
@@ -554,7 +554,7 @@ impl RoomEmission {
 
     pub fn enemy_spawn(
         authored: ambition_platformer2d_world::rooms::Authored<
-            ambition_entity_catalog::placements::CharacterBrain,
+            ambition_platformer2d_world::rooms::EnemySpawnSpec,
         >,
     ) -> Self {
         Self {
@@ -1278,6 +1278,98 @@ mod tests {
             "MovingPlatform-4242",
             "and a platform that names nothing keeps its iid — every world \
              authored before this field existed depends on that"
+        );
+    }
+
+    /// **An enemy's BEHAVIOUR and its ART are authored separately — both roads.**
+    ///
+    /// `EnemySpawn` gained `character_id` on 2026-08-06 so a level can say which
+    /// catalog character an enemy wears instead of having the art joined by
+    /// matching a human-readable display name. The hazard being retired is that
+    /// renaming a character silently un-arts every level that placed it; two
+    /// demos carried a hand-written pass to patch the name back in after
+    /// conversion, and a third was about to be written.
+    ///
+    /// ⚠ **the ABSENT case is the one that matters.** Every world authored
+    /// before the field existed names no `character_id`, and a test that only
+    /// checked the new field would sail past a change that broke all of them —
+    /// the lesson the sibling `MovingPlatform` id row wrote down. So both roads
+    /// are asserted, and the fallback is asserted to be the NAME rather than
+    /// merely "not the id".
+    #[test]
+    fn an_enemy_authors_its_art_identity_and_falls_back_to_its_name() {
+        let enemy = |fields: Vec<LdtkFieldInstance>| LdtkEntityInstance {
+            iid: "EnemySpawn-8080".into(),
+            identifier: "EnemySpawn".into(),
+            pivot: Vec::new(),
+            px: [32, 48],
+            width: 16,
+            height: 16,
+            field_instances: fields,
+        };
+        let named = |identifier: &str, value: &str| LdtkFieldInstance {
+            identifier: identifier.into(),
+            value: serde_json::Value::String(value.into()),
+            real_editor_values: Vec::new(),
+        };
+        let convert = |entity: &LdtkEntityInstance| {
+            let ctx = LdtkEntityCtx {
+                entity,
+                name: "Solid Snake".to_string(),
+                min: ae::Vec2::new(32.0, 48.0),
+                size: ae::Vec2::new(16.0, 16.0),
+                offset: ae::Vec2::ZERO,
+            };
+            super::entity_converters::convert_enemy_spawn(&ctx)
+                .expect("an EnemySpawn converts")
+                .enemy_spawns
+                .remove(0)
+        };
+
+        let authored = convert(&enemy(vec![
+            named("brain", "mary_o_snake"),
+            named("character_id", "solid_snake"),
+        ]));
+        assert_eq!(
+            authored.payload.character_id.as_deref(),
+            Some("solid_snake"),
+            "the authored art identity did not survive conversion"
+        );
+        assert_eq!(
+            authored.payload.art_identity(&authored.name),
+            "solid_snake",
+            "the id must win over the display name — that is the whole point of \
+             the field, and a rename must not be able to un-art the level"
+        );
+        assert_eq!(
+            authored.name, "Solid Snake",
+            "the label is still the label; the id did not swallow it"
+        );
+
+        let legacy = convert(&enemy(vec![named("brain", "mary_o_snake")]));
+        assert!(
+            legacy.payload.character_id.is_none(),
+            "a level that authors nothing must not acquire an identity from \
+             somewhere else"
+        );
+        assert_eq!(
+            legacy.payload.art_identity(&legacy.name),
+            "Solid Snake",
+            "the display-name road closed. Every world authored before this \
+             field existed resolves art exactly this way"
+        );
+
+        // ⚠ an authored-but-BLANK field is what the LDtk editor writes for a
+        // field a human tabbed through, and it must read as absent rather than
+        // as an identity nothing in the catalog can match.
+        let blank = convert(&enemy(vec![
+            named("brain", "mary_o_snake"),
+            named("character_id", "   "),
+        ]));
+        assert!(
+            blank.payload.character_id.is_none(),
+            "a whitespace-only field became an art identity, which resolves to \
+             no character and draws a placeholder"
         );
     }
 

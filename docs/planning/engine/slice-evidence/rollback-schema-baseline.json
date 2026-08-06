@@ -22,7 +22,7 @@
     "⚠ SR-1 (2026-08-05) adds canonical coordinate time, proper-time cooldown, emitter, receiver/pool configuration, analytic light-signal, and bounded arrival-history encodings. The joins are deliberate: course rules depend on emission identity, passbands, deterministic slot allocation, cooldown state, and event history surviving rewind.",
     "⚠ SR-2 (2026-08-05) adds canonical optical-source and observer declarations while keeping the optical view and worldline reconstruction derived.",
     "⚠ SR-3 (2026-08-05) adds the canonical RelativisticTarget2d declaration used by exact constant-velocity null-intercept targeting. TwinTrack aim, view mode, pursuit timing, and hit results are carried inside its existing canonical experiment component and require rollback schema v10.",
-    "⚠ Cutscene playback joins the wire format (2026-08-06). ActiveCutscene::is_playing() drives a CAPTURING input-context claim, so whether the participant can act is gameplay truth rather than the \"scripted presentation sequence state\" the rollback_coverage waiver calls it — a rewind into a playing frame that did not restore it would let the resimulation act through beats the original could not. The codec encodes the SEMANTIC half only (script, beat index, elapsed, finished); dialogue line, banner, camera target and fade alpha are derived and re-published by the tick. ▢ REGISTRATION is the next step: the impls exist, nothing calls rollback_resource_canonical yet, and the blanket ambition_cutscene:: coverage waiver still has to be narrowed."
+    "⚠ Cutscene playback joins the wire format (2026-08-06). ActiveCutscene::is_playing() drives a CAPTURING input-context claim, so whether the participant can act is gameplay truth rather than the \"scripted presentation sequence state\" the rollback_coverage waiver calls it — a rewind into a playing frame that did not restore it would let the resimulation act through beats the original could not. The codec encodes the SEMANTIC half only (script, beat index, elapsed, finished); dialogue line, banner, camera target and fade alpha are derived and re-published by the tick. ✔ REGISTERED 2026-08-06 as `cutscene.playback`, OPTIONAL-canonical because a composition without cutscenes carries no ActiveCutscene and the plain form's checksum system panics on a missing resource. Schema v10 -> v11: a v10 peer cannot reconstruct whether the participant was allowed to act."
   ],
   "measured_on": "2026-08-05",
   "stable_schema_names": [
@@ -127,6 +127,7 @@
     "component.boss_anim_frame",
     "component.construction_transaction_id",
     "component.projectile_owner",
+    "cutscene.playback",
     "derived.actor_action_scheme",
     "derived.actor_steering",
     "derived.body_environment_contact",
@@ -362,7 +363,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 335,
+  "stable_schema_name_count": 336,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

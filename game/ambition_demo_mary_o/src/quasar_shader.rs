@@ -134,7 +134,16 @@ pub fn install(app: &mut App) {
             // overlay to be drawn on.
             .run_if(resource_exists::<Assets<Mesh>>)
             .run_if(resource_exists::<Assets<Image>>)
-            .run_if(resource_exists::<Assets<TextureAtlasLayout>>),
+            .run_if(resource_exists::<Assets<TextureAtlasLayout>>)
+            // ⛔ **the MATERIAL collection too, and leaving it out was a real
+            // panic.** `Material2dPlugin` is what creates
+            // `Assets<MaryOQuasarMaterial>`, and gating that plugin on a render
+            // app (2026-08-06) made the collection genuinely absent in headless
+            // compositions — where `attach_quasar_overlays` then failed
+            // parameter validation in the shipped-composition resource sweep.
+            // The doc above says this condition names *"exactly the collections
+            // the systems take"*; it named three of the four.
+            .run_if(resource_exists::<Assets<MaryOQuasarMaterial>>),
     );
 }
 

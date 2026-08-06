@@ -26,6 +26,7 @@ pub(super) mod characters;
 pub(super) mod combat;
 pub(super) mod encounter;
 pub(super) mod items;
+pub(super) mod cutscene;
 pub(super) mod lifecycle;
 pub(super) mod portal;
 pub(super) mod primitives;

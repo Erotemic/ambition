@@ -209,6 +209,7 @@ pub fn register_engine_rollback_state(app: &mut App) {
     domains::vfx::register(app);
     domains::items::register(app);
     domains::portal::register(app);
+    domains::cutscene::register(app);
     domains::projectiles::register(app);
     domains::lifecycle::register(app);
     // Rollback participation. These anchors cover the canonical session root,

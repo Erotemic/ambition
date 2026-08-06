@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v10
+ggrs-rollback-schema-v11
 actor.action_set	component-clone	ambition_characters::brain::action_set::ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.aggression	component-clone-cursor	ambition_combat::components::actors::ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.anim_override	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -112,6 +112,7 @@ content.overfit_volley_state	component-canonical	ambition_content::bosses::speci
 content.overflow_state	component-canonical	ambition_content::bosses::specials::overflow_flood::OverflowState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.saddle_point_state	component-clone-cursor	ambition_content::bosses::specials::gradient_sentinel::SaddlePointState	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.seismic_stomp_state	component-canonical	ambition_content::bosses::specials::seismic_stomp::SeismicStompState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+cutscene.playback	resource-canonical	ambition_cutscene::ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 derived.actor_action_scheme	derived	ambition_characters::action_scheme::ActorActionScheme	reconciled from abilities, moveset, and action set
 derived.actor_steering	derived	ambition_platformer2d_actor_monolith::features::ecs::actors::update::ActorSteering	rebuilt from the authoritative actor population before movement
 derived.body_environment_contact	derived	ambition_platformer2d_core::body_clusters::BodyEnvironmentContact	rewritten every movement step from body geometry and the live world

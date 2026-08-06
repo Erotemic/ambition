@@ -23,6 +23,10 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v11 (2026-08-06): cutscene PLAYBACK becomes canonical state.**
+/// `ActiveCutscene::is_playing()` drives a capturing input-context claim, so a
+/// v10 peer cannot reconstruct whether the participant was allowed to act — it
+/// would resimulate a cutscene frame with gameplay input live.
 /// ⚠ **v10 (2026-08-05): the optional SR causal-pursuit capability adds a
 /// canonical target declaration, while TwinTrack extends its canonical experiment
 /// state with observer-local aim, view mode, pursuit timing, and hit results. A v9
@@ -57,7 +61,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 10;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 11;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

@@ -573,9 +573,21 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     belongs here and is currently on the crossing request struct.
   * **the crossing is two EDGES only:** "advance" and "skip completed". Both
     already exist; what does not exist is the registration of the first bullet.
-  ▢ implement: register the semantic half, narrow the blanket
-  `ambition_cutscene::` waiver to the presentation half, and move
-  `skip_hold_seconds` off the shared request.
+  ✔ **IMPLEMENTED 2026-08-06.** `ActiveCutscene` is registered as
+  `cutscene.playback`, OPTIONAL-canonical (a composition without cutscenes
+  carries no such resource, and the plain form's checksum system panics on a
+  missing one — the lifecycle domain next door learned that by turning eight
+  oracle tests red). Schema v10 → v11: a v10 peer cannot reconstruct whether the
+  participant was allowed to act. The blanket `ambition_cutscene::` waiver is
+  now inert for this type because registration wins over it.
+  ⭐ **and registering it caught a regression I had shipped an hour earlier.**
+  Gating `Material2dPlugin` on a render app made `Assets<MaryOQuasarMaterial>`
+  genuinely absent headless, and `attach_quasar_overlays` took it as `ResMut` —
+  its run condition named three of the four collections its systems use, while
+  the module's own doc claims it names *"exactly"* them. Found by the
+  shipped-composition resource sweep, not by me.
+  ▢ still open: move `skip_hold_seconds` off the crossing request struct onto
+  the input layer, which is the last piece of the presentation/sim split.
 - ▢ Cutscene authority (model 1): write the semantic-playback state shape
   (beat index, deterministic elapsed, advance/skip edges through
   participant input) vs derived presentation FIRST; hold-to-skip stays a

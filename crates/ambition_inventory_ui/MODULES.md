@@ -6,9 +6,10 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`context`](src/context.rs) | **An open inventory OWNS the input, and says so.** |
 | [`model`](src/model.rs) | Inventory-screen UI state model: [`InventoryUiState`] (visible/selected/tab/ scroll/focus) + the [`InventoryTab`] enum (Items / Map / Quests). |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

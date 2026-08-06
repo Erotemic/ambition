@@ -87,7 +87,8 @@ impl Plugin for HostInputBindingsPlugin {
             populate_menu_control_frame_from_actions, populate_seat_menu_frames,
             populate_secondary_slot_controls, publish_latched_slot_controls,
             seat_input_participants_for_roster, spawn_primary_input_participant,
-            toggle_player_trail_emission_from_actions, MenuFrameCutsceneSkip, MenuFramePopulate,
+            sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions,
+            MenuFrameCutsceneSkip, MenuFramePopulate,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -295,6 +296,22 @@ impl Plugin for HostInputBindingsPlugin {
                 (
                     freeze_local_seating_for_the_decided_match,
                     seat_input_participants_for_roster,
+                )
+                    .chain()
+                    .in_set(ambition_input::InputSet::Collect),
+            )
+            // A participant's map is BUILT from its declared recipe: the
+            // persisted preset reaches the primary's recipe, and any recipe
+            // change rebuilds that seat's map — every seat, in every
+            // composition, not one seat in one app. `Collect` so the rebuilt
+            // map is what `ResolveActions` projects into `SeatBindings` the
+            // same frame (a preset change may not leave prompts showing the
+            // old keys for a frame).
+            .add_systems(
+                Update,
+                (
+                    sync_primary_recipe_from_settings,
+                    ambition_input::rebuild_maps_from_recipes,
                 )
                     .chain()
                     .in_set(ambition_input::InputSet::Collect),

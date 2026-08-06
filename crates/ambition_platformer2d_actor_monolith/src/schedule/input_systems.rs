@@ -123,12 +123,51 @@ pub fn spawn_primary_input_participant(
         return;
     }
     let preset = KeyboardPreset::by_index(settings.map_or(0, |s| s.controls.keyboard_preset_index));
+    let recipe = ambition_input::BindingRecipe::preset(preset.id);
     commands.spawn((
         InputParticipant::primary(),
         ParticipantContexts::default(),
         ActionState::<Platformer2dInputActionMonolith>::default(),
-        preset.input_map(),
+        recipe.build(),
+        recipe,
     ));
+}
+
+/// Keep the PRIMARY participant's [`ambition_input::BindingRecipe`] in step
+/// with the persisted keyboard preset.
+///
+/// The settings menu writes `UserSettings.controls.keyboard_preset_index` —
+/// the ONE preset authority — and this is the engine-owned bridge from that
+/// number to the seat's declared recipe;
+/// `ambition_input::rebuild_maps_from_recipes` then rebuilds the map. The
+/// app-side system this replaces (`sync_preset_input_map`) read its
+/// participant with `single_mut()`, so a second seat made a preset change
+/// reach nobody — and it shipped only in Ambition's own app, so no demo
+/// composition had a rebuild path at all.
+///
+/// Only the primary: couch seats are gamepad-only recipes, and what preset
+/// the keyboard player picked is not a fact about their pad.
+#[cfg(feature = "input")]
+pub fn sync_primary_recipe_from_settings(
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    mut participants: Query<(&InputParticipant, &mut ambition_input::BindingRecipe)>,
+) {
+    let Some(settings) = settings else { return };
+    if !settings.is_changed() {
+        return;
+    }
+    let id = KeyboardPreset::by_index(settings.controls.keyboard_preset_index).id;
+    for (participant, mut recipe) in &mut participants {
+        if participant.id != ambition_input::ParticipantId::PRIMARY {
+            continue;
+        }
+        let wanted = ambition_input::BindingRecipe::preset(id);
+        // Write only on a real change: `Res<UserSettings>` is marked changed
+        // by every settings edit, and most of them are not this field.
+        if *recipe != wanted {
+            *recipe = wanted;
+        }
+    }
 }
 
 /// Give every HUMAN seat the roster declares an input participant, and take
@@ -196,11 +235,13 @@ pub fn seat_input_participants_for_roster(
         if existing.iter().any(|(_, participant)| participant.id == id) {
             continue;
         }
+        let recipe = ambition_input::BindingRecipe::gamepad_only();
         commands.spawn((
             InputParticipant::with_id(id),
             ParticipantContexts::default(),
             ActionState::<Platformer2dInputActionMonolith>::default(),
-            KeyboardPreset::gamepad_only_map(),
+            recipe.build(),
+            recipe,
             SeatDashTriggerState::default(),
         ));
     }
@@ -803,6 +844,76 @@ mod focus_gate_tests {
                 .contains::<InputMap<Platformer2dInputActionMonolith>>(),
             "the participant owns the active input map"
         );
+    }
+
+    /// A preset change reaches EVERY seat's recipe-derived map, not "the" seat.
+    ///
+    /// The app-side resync this replaced read its participant with
+    /// `single_mut()`, so the moment a second seat existed a preset change
+    /// silently reached nobody. The engine path is per-recipe: the primary's
+    /// map follows the persisted preset, and a couch seat's gamepad-only map
+    /// is not touched by what the keyboard player picked.
+    #[test]
+    fn a_preset_change_reaches_the_primary_beside_a_second_seat() {
+        use crate::character_runtime::{
+            ControllerBinding, MatchParticipant, MatchParticipantRoster,
+        };
+        use ambition_input::{ActionBindings, PhysicalControl};
+
+        let mut app = App::new();
+        app.insert_resource(UserSettings::default());
+        app.add_systems(
+            Update,
+            (
+                spawn_primary_input_participant,
+                super::seat_input_participants_for_roster,
+                super::sync_primary_recipe_from_settings,
+                ambition_input::rebuild_maps_from_recipes,
+            )
+                .chain(),
+        );
+        app.world_mut().insert_resource(MatchParticipantRoster {
+            participants: vec![
+                MatchParticipant::new("mary_o")
+                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
+                MatchParticipant::new("sanic")
+                    .driven_by(ControllerBinding::Human { device_slot: 1 }),
+            ],
+            ..Default::default()
+        });
+        app.update();
+        app.update();
+        assert_eq!(seat_slots(&mut app), vec![0, 1], "two seats exist");
+
+        app.world_mut()
+            .resource_mut::<UserSettings>()
+            .controls
+            .keyboard_preset_index = 1; // wasd_jkl
+        app.update();
+
+        let mut maps =
+            app.world_mut()
+                .query::<(&InputParticipant, &InputMap<Platformer2dInputActionMonolith>)>();
+        for (participant, map) in maps.iter(app.world()) {
+            let bindings = ActionBindings::from_map(map);
+            if participant.id == ParticipantId::PRIMARY {
+                assert_eq!(
+                    bindings
+                        .label(&Platformer2dInputActionMonolith::Jump)
+                        .as_deref(),
+                    Some("Space"),
+                    "the primary's live map follows the preset (WASD binds Jump to Space)"
+                );
+            } else {
+                assert!(
+                    !bindings
+                        .controls(&Platformer2dInputActionMonolith::Jump)
+                        .iter()
+                        .any(|control| matches!(control, PhysicalControl::Key(_))),
+                    "a couch seat's map binds no key, whatever preset the keyboard player picked"
+                );
+            }
+        }
     }
 
     /// The roster is the authority on how many people are playing.

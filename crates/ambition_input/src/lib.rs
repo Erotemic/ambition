@@ -105,7 +105,8 @@ pub enum InputSet {
 }
 #[cfg(feature = "input")]
 pub use bindings::{
-    action_for_slot, publish_seat_bindings, ActionBindings, PhysicalControl, SeatBindings,
+    action_for_slot, publish_seat_bindings, rebuild_maps_from_recipes, ActionBindings,
+    BindingBase, BindingRecipe, PhysicalControl, SeatBindings,
 };
 pub use cues::{ActiveUiCues, UiCue};
 pub use menu::{

@@ -1,8 +1,5 @@
 use bevy::prelude::*;
 
-#[cfg(feature = "input")]
-use leafwing_input_manager::prelude::{ActionState, InputMap};
-
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_platformer2d::actors::rooms;
@@ -11,8 +8,6 @@ use ambition_platformer2d::dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer2d::dev_tools::DeveloperRuntimeState;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::RoomGeometry;
-#[cfg(feature = "input")]
-use ambition_platformer2d::input::{KeyboardPreset, Platformer2dInputActionMonolith};
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
 use ambition_platformer2d::render::rendering::spawn_room_visuals;
 
@@ -48,33 +43,11 @@ pub(super) fn handle_debug_hotkeys(
     }
 }
 
-/// When the persisted keyboard preset changes (the settings menu writes
-/// `UserSettings.controls.keyboard_preset_index` — the ONE preset authority),
-/// sync leafwing's `InputMap` on the persistent input participant so the
-/// next-frame inputs reflect the new preset. Gated behind `input` because it
-/// owns leafwing components.
-#[cfg(feature = "input")]
-pub(super) fn sync_preset_input_map(
-    settings: Res<ambition_platformer2d::persistence::settings::UserSettings>,
-    mut last_preset: Local<Option<usize>>,
-    mut player_input: Query<
-        (
-            &mut ActionState<Platformer2dInputActionMonolith>,
-            &mut InputMap<Platformer2dInputActionMonolith>,
-        ),
-        With<ambition_platformer2d::input::InputParticipant>,
-    >,
-) {
-    let current = settings.controls.keyboard_preset_index;
-    if *last_preset == Some(current) {
-        return;
-    }
-    if let Ok((mut action_state, mut input_map)) = player_input.single_mut() {
-        *input_map = KeyboardPreset::by_index(current).input_map();
-        action_state.reset_all();
-    }
-    *last_preset = Some(current);
-}
+// `sync_preset_input_map` lived here until 2026-08-06. It is replaced by the
+// engine-owned `sync_primary_recipe_from_settings` +
+// `ambition_input::rebuild_maps_from_recipes` (host input pipeline): the local
+// version reached its participant with `single_mut()`, so a second couch seat
+// made a preset change reach nobody, and no demo app had any resync at all.
 
 fn local_ggrs_restart_policy(
     ownership: Option<ambition_platformer2d::runtime::rollback::RollbackSessionOwnership>,

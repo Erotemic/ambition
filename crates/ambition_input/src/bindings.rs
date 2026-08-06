@@ -31,9 +31,109 @@
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-use leafwing_input_manager::prelude::InputMap;
+use leafwing_input_manager::prelude::{ActionState, InputMap};
 
+use crate::presets::{KeyboardPreset, PresetId};
 use crate::{InputParticipant, Platformer2dInputActionMonolith};
+
+/// What a participant's `InputMap` is BUILT from.
+///
+/// The map itself is WORKING STATE, not a source: the seat-device pass
+/// restricts it to one pad, the touch overlay inserts its virtual controls,
+/// and a remap will mutate it live. None of that can be re-derived from the
+/// map alone — which is why "apply the new preset" used to be a wholesale
+/// replacement that exactly one caller (one app, one seat) knew how to
+/// perform. The recipe is the declared starting point every rebuild returns
+/// to; the layers on top re-apply themselves through their own
+/// `Changed<InputMap>` hooks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BindingBase {
+    /// A keyboard-and-gamepad preset — the primary seat's shape.
+    Preset(PresetId),
+    /// Gamepad bindings only. A second player on the same keyboard as the
+    /// first is not a second player, so extra seats start here.
+    GamepadOnly,
+}
+
+/// The declared source of one participant's `InputMap`.
+///
+/// Lives on the participant entity beside the map so a rebuild is a fact
+/// about ONE seat: the settings menu changes the primary's recipe and the
+/// primary's map follows; a couch seat's gamepad-only recipe does not care
+/// what preset the keyboard player picked.
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BindingRecipe {
+    pub base: BindingBase,
+}
+
+impl BindingRecipe {
+    pub fn preset(id: PresetId) -> Self {
+        Self {
+            base: BindingBase::Preset(id),
+        }
+    }
+
+    pub fn gamepad_only() -> Self {
+        Self {
+            base: BindingBase::GamepadOnly,
+        }
+    }
+
+    /// The map this recipe declares. Pure, so a spawn site and the rebuild
+    /// system cannot drift: both call this.
+    pub fn build(&self) -> InputMap<Platformer2dInputActionMonolith> {
+        match self.base {
+            BindingBase::Preset(id) => KeyboardPreset::of(id).input_map(),
+            BindingBase::GamepadOnly => KeyboardPreset::gamepad_only_map(),
+        }
+    }
+}
+
+/// Rebuild a participant's `InputMap` when its [`BindingRecipe`] changes.
+///
+/// Every seat, not "the" seat: the app-side system this replaces read its
+/// participant with `single_mut()`, so the moment a second seat existed a
+/// preset change silently reached nobody — and it existed only in Ambition's
+/// own app, so no demo composition had a rebuild path at all.
+///
+/// Two properties the replacement preserves on purpose:
+/// * **the seat's controller survives.** The seat-device pass owns WHICH pad
+///   this map answers; a recipe change re-decides the bindings, never the
+///   seat's controller — so the current gamepad association is carried into
+///   the rebuilt map rather than dropping to leafwing's any-pad fallback for
+///   a frame.
+/// * **edges do not leak across bindings.** `ActionState` is reset when the
+///   map actually changes: a press latched under the old bindings is not a
+///   press under the new ones.
+///
+/// Touch virtual controls are NOT re-added here — the touch crate's
+/// `Changed<InputMap>` hook re-binds them the same frame, exactly as it does
+/// for every other wholesale map write.
+pub fn rebuild_maps_from_recipes(
+    mut participants: Query<
+        (
+            &BindingRecipe,
+            &mut InputMap<Platformer2dInputActionMonolith>,
+            &mut ActionState<Platformer2dInputActionMonolith>,
+        ),
+        Changed<BindingRecipe>,
+    >,
+) {
+    for (recipe, mut map, mut actions) in &mut participants {
+        let mut built = recipe.build();
+        if let Some(pad) = map.gamepad() {
+            built.set_gamepad(pad);
+        }
+        // `Changed` includes `Added`, and on the spawn frame the map IS the
+        // recipe's output — comparing before writing keeps that frame from
+        // resetting a fresh `ActionState` and from marking the map changed
+        // for the touch re-bind hook over nothing.
+        if *map != built {
+            *map = built;
+            actions.reset_all();
+        }
+    }
+}
 
 /// A physical control, named well enough to draw.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -374,6 +474,49 @@ mod tests {
         let bindings = app.world().resource::<SeatBindings>();
         assert!(bindings.for_seat(2).is_empty());
         assert_eq!(bindings.label(2, &Platformer2dInputActionMonolith::Jump), None);
+    }
+
+    #[test]
+    fn a_recipe_change_rebuilds_the_map_and_keeps_the_seats_pad() {
+        let mut app = App::new();
+        app.add_systems(Update, rebuild_maps_from_recipes);
+        let pad = app.world_mut().spawn_empty().id();
+        let recipe = BindingRecipe::preset(PresetId::ArrowsZxc);
+        let mut map = recipe.build();
+        map.set_gamepad(pad);
+        let seat = app
+            .world_mut()
+            .spawn((
+                InputParticipant::with_id(crate::ParticipantId(0)),
+                recipe,
+                map,
+                ActionState::<Platformer2dInputActionMonolith>::default(),
+            ))
+            .id();
+        app.update();
+
+        app.world_mut()
+            .entity_mut(seat)
+            .insert(BindingRecipe::preset(PresetId::WasdJkl));
+        app.update();
+
+        let map = app
+            .world()
+            .entity(seat)
+            .get::<InputMap<Platformer2dInputActionMonolith>>()
+            .expect("the participant keeps its map");
+        assert_eq!(
+            ActionBindings::from_map(map)
+                .label(&Platformer2dInputActionMonolith::Jump)
+                .as_deref(),
+            Some("Space"),
+            "the rebuilt map is the new preset's (WASD binds Jump to Space)"
+        );
+        assert_eq!(
+            map.gamepad(),
+            Some(pad),
+            "a recipe change re-decides bindings, never the seat's controller"
+        );
     }
 
     #[test]

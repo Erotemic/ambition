@@ -81,6 +81,15 @@ impl KeyboardPreset {
         presets.get(index).copied().unwrap_or(presets[0])
     }
 
+    /// The preset carrying this id. Total — every `PresetId` is one of the
+    /// four rows `presets()` returns.
+    pub fn of(id: PresetId) -> Self {
+        Self::presets()
+            .into_iter()
+            .find(|preset| preset.id == id)
+            .expect("every PresetId names a preset in presets()")
+    }
+
     pub fn arrows_zxc() -> Self {
         Self {
             id: PresetId::ArrowsZxc,

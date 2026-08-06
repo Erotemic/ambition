@@ -42,7 +42,10 @@
 //!
 //! ## The census that motivated it (2026-08-03, B7)
 //!
-//! Nine non-test `.before(…CoreSimulation)` pins exist. By schedule:
+//! Nine non-test `.before(…CoreSimulation)` pins existed at the census; the
+//! `sync_preset_input_map` row was deleted with its system on 2026-08-06 (the
+//! preset resync is engine-owned now, in the host's `InputSet::Collect`
+//! pipeline, which never names `CoreSimulation`). By schedule:
 //!
 //! | site | schedule | verdict |
 //! |---|---|---|
@@ -53,11 +56,10 @@
 //! | `actor_monolith/gravity/plugin.rs:76` (`FrameResolveSet`) | `sim` | real everywhere |
 //! | `platformer2d_runtime/rollback/session.rs:621` (`publish_ggrs_input`) | `GgrsSchedule` | real — that schedule only runs under the host where it IS the sim schedule |
 //! | `platformer2d_host/lib.rs:371` (device control write) | literal `Update` | conditional, and ALREADY says so in a comment |
-//! | `ambition_app/app/plugins.rs:423` (`sync_preset_input_map`) | literal `Update` | conditional — annotated by B7 |
 //! | `ambition_app/menu/grid_backend.rs:1141` (grid menu nav) | literal `Update` | conditional — annotated by B7 |
 //!
-//! So six of nine are unconditionally real, one is real by host exclusivity, and
-//! the three literal-`Update` pins are the whole of what #11 was pointing at —
+//! So six of eight are unconditionally real, one is real by host exclusivity,
+//! and the literal-`Update` pins are the whole of what #11 was pointing at —
 //! none of which should be deleted, because `RenderFrame` is the default host.
 
 use bevy::ecs::schedule::{ScheduleLabel, Schedules, SystemSet};
@@ -122,10 +124,10 @@ fn the_shipped_apps_core_simulation_is_in_the_ggrs_schedule_and_update_holds_an_
     assert_eq!(
         in_update,
         Some(0),
-        "`Update` should hold a CoreSimulation node with NO members — the husk that the three \
+        "`Update` should hold a CoreSimulation node with NO members — the husk that the \
          literal-`Update` `.before(CoreSimulation)` pins create by naming the set. Getting \
          `None` means even those pins are gone; getting a positive count means the sim moved \
-         into `Update` and those three pins JUST BECAME LOAD-BEARING — go read them, they were \
+         into `Update` and those pins JUST BECAME LOAD-BEARING — go read them, they were \
          written when they constrained nothing."
     );
 }

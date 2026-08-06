@@ -15,7 +15,8 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "tools" / "ambition_ldtk_tools"))
 
-from ambition_ldtk_tools.generate_hall_of_characters import (  # noqa: E402
+from ambition_ldtk_tools.generate_hall_of_characters import (
+    DOOR_RESERVED_SLOTS,  # noqa: E402
     BASEMENT_SLOTS_PER_ROW,
     BASEMENT_SLOT_HEIGHT_PX,
     BASEMENT_SLOT_WIDTH_PX,
@@ -42,16 +43,33 @@ def test_slot_widths_tile_the_hall():
 
 def test_floors_and_rows_grow_to_fit_any_count():
     """The hall sizes its floors/rows to the roster — ceil-divide, min 1 — so
-    ANY number of characters is accommodated without a capacity cap."""
-    # Exact multiples.
-    assert main_floors_for(96) == 6
-    assert main_floors_for(16) == 1
-    assert basement_rows_for(12) == 3
-    # Partial floors/rows round UP so trailing characters still get a slot.
-    assert main_floors_for(97) == 7
-    assert main_floors_for(106) == 7
-    assert basement_rows_for(11) == 3
-    assert basement_rows_for(13) == 4
+    ANY number of characters is accommodated without a capacity cap.
+
+    ⚠ **the door's reserved columns count against the main hall.** They occupy
+    real slots on the entry floor, so the main-hall arithmetic is
+    `ceil((count + DOOR_RESERVED_SLOTS) / MAIN_SLOTS_PER_FLOOR)` and a roster
+    that used to exactly fill its last floor now needs one more. This test
+    asserted the pre-door numbers (96 → 6) and went red when the door landed;
+    it is written against the CONSTANTS now, so the next change to either one
+    moves the expectation with it instead of leaving a stale literal behind.
+    The basement has no door and keeps the plain ceil-divide.
+    """
+    # A main-hall count that exactly fills N floors, reserved slots included.
+    exact = 6 * MAIN_SLOTS_PER_FLOOR - DOOR_RESERVED_SLOTS
+    assert main_floors_for(exact) == 6
+    assert main_floors_for(MAIN_SLOTS_PER_FLOOR - DOOR_RESERVED_SLOTS) == 1
+    assert basement_rows_for(3 * BASEMENT_SLOTS_PER_ROW) == 3
+    # One past a full floor/row rounds UP so trailing characters still get a slot.
+    assert main_floors_for(exact + 1) == 7
+    assert basement_rows_for(3 * BASEMENT_SLOTS_PER_ROW - 1) == 3
+    assert basement_rows_for(3 * BASEMENT_SLOTS_PER_ROW + 1) == 4
+    # ⭐ the reserved slots are the whole reason this is not a plain ceil-divide,
+    # so assert the boundary they move rather than trusting the arithmetic above
+    # to have exercised it.
+    assert main_floors_for(exact + DOOR_RESERVED_SLOTS) == 7, (
+        "a roster that exactly fills the floors WITHOUT the door still fits — "
+        "the reserved columns are not being counted"
+    )
     # Empty sections still yield one floor/row (the hub-entry / terminal floor).
     assert main_floors_for(0) == 1
     assert basement_rows_for(0) == 1

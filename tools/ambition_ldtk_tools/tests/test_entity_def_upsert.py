@@ -14,8 +14,15 @@ that an LDtk file is a graph held together by uids. Every `entityInstance`
 points at its definition by `defUid` and every `fieldInstance` points at its
 field definition the same way, so the naive fix — delete the def, register it
 again — parses fine and empties the level. So these pin the uids, and they pin
-the values that hang off them: a `MaryOBlock` authored as `Quasar` is still
-`Quasar` after the block grows a field.
+the values that hang off them: a `MaryOBlock` authored as a `Brick` is still a
+`Brick` after the block grows a field.
+
+⚠ **the assertions here are derived from the level, not spelled out.** Three
+literals in this file have gone stale as Mary-O's block vocabulary changed
+underneath them — `contents` arriving, `Question`/`Hidden` arriving, and
+`Quasar` leaving to become a `contents` value. Each red cost a triage that found
+nothing wrong with the tool. What the tool owes is a property; which kinds a
+level authors is the level's business.
 
 The other half is what the tool must NOT do quietly. Retiring a field and
 changing a field's type both delete the `fieldInstance` records that carried
@@ -132,10 +139,22 @@ def test_an_upsert_keeps_the_uids_every_placement_references():
 
 
 def test_a_compatible_change_leaves_the_authored_values_alone():
-    """`Quasar` is authored data; a schema edit is not allowed to forget it."""
+    """An authored block kind is data; a schema edit is not allowed to forget it.
+
+    ⚠ **this named `Quasar` and went red when `Quasar` stopped being a kind.**
+    It became `contents: AlwaysQuasar` on an ordinary Brick when the block
+    vocabulary was normalized (2026-08-06), and the assertion had been pinning
+    the level's content rather than the tool's behaviour. That is the second
+    stale literal in this file — `contents` was the first — so the fixture check
+    now asks the question it actually means: *does the level author enough
+    distinct kinds for a preservation test to be meaningful?*
+    """
     project, manifest = load_mary_o()
     original = kind_values(project)
-    assert "Quasar" in original, "the fixture no longer exercises what it claims"
+    assert len(set(original)) > 1, (
+        "the fixture no longer exercises what it claims: every block authors the "
+        "same kind, so an upsert that collapsed them all would still pass"
+    )
 
     manifest["entities"][0]["width"] = 48
     manifest["entities"][0]["fields"][0]["default"] = "Brick"
@@ -162,16 +181,23 @@ def test_retiring_a_field_the_level_still_uses_is_reported_not_done():
         "MaryOBlock.contents",
     ]
     assert losses[0].count == len(kind_values(project))
-    # `Question` and `Hidden` joined the set when 1-2 was given a block row of
-    # its own, including the demo's first invisible block.
-    assert set(losses[0].values) == {"'Power'", "'Quasar'", "'Brick'", "'Question'", "'Hidden'"}
+    # ⭐ **derived from the level, not spelled out.** The literal set here has
+    # gone stale twice — `Question`/`Hidden` joined when 1-2 got its own block
+    # row, and `Quasar` LEFT when it became a `contents` value on a Brick. What
+    # the tool owes is that it reports every distinct authored value, quoted;
+    # which values a level happens to author is the level's business.
+    assert set(losses[0].values) == {f"'{value}'" for value in set(kind_values(project))}
+    assert len(set(losses[0].values)) > 1, (
+        "one distinct value means this assertion cannot tell a tool that reports "
+        "all of them from one that reports the first"
+    )
 
 
 def test_retyping_a_field_the_level_still_uses_is_reported_not_done():
     """A type change is the other way a `fieldInstance` stops being valid.
 
-    Nothing coerces `"Quasar"` into an `Int`, and inventing a value would be
-    worse than saying so.
+    Nothing coerces an authored kind string into an `Int`, and inventing a value
+    would be worse than saying so.
     """
     project, manifest = load_mary_o()
     manifest["entities"][0]["fields"][0]["type"] = "Int"
@@ -208,7 +234,7 @@ def test_an_authorized_retype_keeps_the_uid_and_drops_the_records():
 
     The field def survives with its uid — it is the same field, differently
     typed — and the stale `fieldInstance` records are gone rather than left to
-    claim an `Int` that reads `"Quasar"`.
+    claim an `Int` that reads a kind string.
     """
     project, manifest = load_mary_o()
     kind_uid = block_def(project)["fieldDefs"][0]["uid"]

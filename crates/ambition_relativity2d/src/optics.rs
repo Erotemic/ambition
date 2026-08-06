@@ -18,6 +18,7 @@ use ambition_relativity::{
 use bevy::ecs::schedule::InternedScheduleLabel;
 use bevy::prelude::*;
 
+use crate::telemetry::WorldlineTracked2d;
 use crate::{
     ActiveSpacetime2d, ProperTimeElapsed, Relativity2dSet, SpacetimeCoordinateTime2d,
     WorldlineHistoryView2d, WorldlineSample2d,
@@ -175,7 +176,17 @@ fn publish_optical_view(
         &BodyKinematics,
         Option<&ProperTimeElapsed>,
     )>,
-    sources: Query<(Entity, &OpticalSource2d)>,
+    // ⛔ **`&WorldlineTracked2d` IS the join, and it used to be a string.** The
+    // source's own `label` was looked up in the history map, so an optical
+    // source and the worldline it reads were two independently typed names: a
+    // typo silently produced a missing source, and a DUPLICATE let one entity
+    // borrow another's past light cone. Requiring the tracked component means a
+    // source reads the history of the entity it IS — the relationship cannot be
+    // omitted or mistyped, because it is not written down twice.
+    //
+    // ⚠ a source with no tracked worldline is now unqueryable rather than
+    // "missed": it has no history to reconstruct from, which was always true.
+    sources: Query<(Entity, &OpticalSource2d, &WorldlineTracked2d)>,
     worldlines: Res<WorldlineHistoryView2d>,
     mut view: ResMut<RelativisticOpticalView2d>,
 ) {
@@ -204,9 +215,9 @@ fn publish_optical_view(
     });
 
     let mut source_rows: Vec<_> = sources.iter().collect();
-    source_rows.sort_by(|(_, lhs), (_, rhs)| lhs.label.cmp(&rhs.label));
-    for (entity, source) in source_rows {
-        let Some(samples) = worldlines.tracks.get(&source.label) else {
+    source_rows.sort_by(|(_, lhs, _), (_, rhs, _)| lhs.label.cmp(&rhs.label));
+    for (entity, source, tracked) in source_rows {
+        let Some(samples) = worldlines.tracks.get(&tracked.0) else {
             view.missed_sources += 1;
             continue;
         };

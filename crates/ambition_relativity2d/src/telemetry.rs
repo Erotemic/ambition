@@ -7,14 +7,13 @@ use ambition_platformer2d_runtime::rollback::AmbitionRollbackApp;
 use ambition_platformer2d_shared_tangle::lifecycle::SessionRoot;
 use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_time::SimTick;
+use bevy::ecs::entity::Entity;
 use bevy::ecs::schedule::InternedScheduleLabel;
 use bevy::prelude::{
     App, Component, IntoScheduleConfigs, Query, Res, ResMut, Resource, Update, Vec2, With,
 };
 
-use crate::{
-    ActiveSpacetime2d, ProperTimeElapsed, Relativity2dSet, SpacetimeCoordinateTime2d,
-};
+use crate::{ActiveSpacetime2d, ProperTimeElapsed, Relativity2dSet, SpacetimeCoordinateTime2d};
 
 pub const DEFAULT_WORLDLINE_HISTORY_SAMPLES: usize = 720;
 
@@ -87,6 +86,7 @@ fn publish_worldline_history(
         (With<ActiveSpacetime2d>, With<SessionRoot>),
     >,
     tracked: Query<(
+        Entity,
         &WorldlineTracked2d,
         &BodyKinematics,
         Option<&ProperTimeElapsed>,
@@ -103,7 +103,31 @@ fn publish_worldline_history(
     }
     let capacity = history.capacity_per_track.max(2);
 
-    for (label, body, proper_time) in &tracked {
+    // ⛔ **A TRACK HAS ONE OWNER, and it used to have whoever ran last.** Two
+    // entities sharing a label wrote into one history: the same-tick rewind
+    // below pops the previous writer's sample and replaces it, so which body's
+    // worldline survived was decided by QUERY ITERATION ORDER — the
+    // deterministically-wrong shape this repo has been bitten by before, here
+    // producing one entity's past light cone attributed to another.
+    //
+    // ⭐ the first claimant by (label, entity) owns the track and the rest are
+    // refused. Sorted, so the owner is the same on every peer and every replay
+    // rather than the same only by luck.
+    let mut rows: Vec<_> = tracked.iter().collect();
+    rows.sort_by(|(lhs_entity, lhs, ..), (rhs_entity, rhs, ..)| {
+        lhs.0.cmp(&rhs.0).then_with(|| lhs_entity.cmp(rhs_entity))
+    });
+    let mut claimed: std::collections::BTreeSet<&str> = Default::default();
+    for (entity, label, body, proper_time) in rows {
+        if !claimed.insert(label.0.as_str()) {
+            bevy::log::warn_once!(
+                "worldline label {:?} is claimed by more than one entity ({entity:?} is not the \
+                 owner); its samples are refused rather than overwriting the owner's. A label is \
+                 a display name, not an identity.",
+                label.0
+            );
+            continue;
+        }
         let samples = history.tracks.entry(label.0.clone()).or_default();
         while samples
             .back()

@@ -413,7 +413,27 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   unconditionally (before the sim plugins, per the collision above), so
   `publish_direct_prepared_session_root` never runs in a CLI-built app. 300 app
   tests green.
-  ▢ **edits 2-4 are BLOCKED on one thing, and it is not what the row assumed.**
+  ✔ **`run_headless` MIGRATED (2026-08-06)** — it composes the shell and boots
+  to the gameplay route, so the headless report now runs the same activation a
+  player does instead of a second way to start a game. 14 headless tests green.
+  ⛔ **the HARNESS flip was TRIED and REVERTED, and the measurement is the
+  scope.** Composing the shell inside `ambition_sim_composition` turns risk 2
+  from prose into eight red tests, in two distinct families:
+  * **the subject vanishes** — `desync_canary` panics at
+    `the sandbox session has a controlled subject`. Under
+    `SessionGatedSimulation` the root must belong to the ACTIVE scope, and the
+    harness's first read happens against an activation that has not seated a
+    body yet;
+  * **the rewind stops agreeing** —
+    `GGRS sync-test checksum mismatch at frames [2, 3, 4]`, plus
+    `effect_quarantine`'s pair. A shell activation performs work DURING the
+    frames the sync test is comparing, so the two runs diverge on activation
+    rather than on gameplay.
+  ⭐ **that second family is the real content of K2b.3**, and it is not a
+  test-fixture problem: it says a rollback session must not begin until
+  activation has settled, which is a rule the engine does not state today. Write
+  that rule before flipping the harness.
+  ▢ **edits 2-4 remain BLOCKED, and now for a measured reason.**
   The build-time root is not dead: `run_headless` and
   `Platformer2dSimHarness::build` compose `AmbitionGameSimulationPlugin`
   WITHOUT the CLI, so they never insert `AmbitionShellHosted` and still get

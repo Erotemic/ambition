@@ -244,3 +244,35 @@ two cutscene findings are correctness, and the rest are authority seams that get
 cheaper once the first two stop moving.
 
 Verdicts are recorded here as each is reached.
+
+- ✔ **P1 cutscene snapshot/projection — ACCEPTED and FIXED** (`91016a22e`). Both
+  findings 1 and 2 were exactly as described, and one change answers both:
+  `CutsceneRuntime::presentation()` is a pure function of
+  `(script, beat_index, elapsed)` — the state the snapshot already carries — and
+  the tick replaces the WHOLE picture from it. Dialogue surviving into a camera
+  beat stopped being representable rather than stopping by convention, and the
+  banner countdown is `authored − elapsed` instead of a second timer on the same
+  clock.
+  ⛔⛔ **writing the test the review asked for found a shipped codec bug the
+  review did not.** `CutsceneScript::decode` read its optional seen flag as
+  `reader.bool()?.then(|| reader.str().map(str::to_owned))?` — `bool::then`
+  yields `None` when the bool is false and the trailing `?` returns it from the
+  function, so *"this script has no seen flag"* decoded as *"this snapshot is
+  corrupt"* and the whole cutscene was dropped on restore. **Every existing
+  fixture called `.with_seen_flag(..)`**, so the false branch of the only branch
+  in that codec had never once been decoded. ⭐ that is the shape to look for
+  elsewhere: a suite that exercises one side of a two-sided decision.
+  ✔ **the unfinished-beat half accepted too** (`78c60b0f9`): nothing in the tree
+  reads `camera_target` or `fade_alpha`, so `CameraPan` and `Fade` are marked
+  UNFINISHED on both the fields and the beat variants rather than removed — they
+  are authored in scripts, and deleting them would make the projection lie the
+  other way.
+- ✔ **P2 room-entry triggers — ACCEPTED and FIXED** (`43bd33638`). The trigger is
+  on the SIM schedule and remembered its room in a `Local`, which is not rewound;
+  the waiver's "seen flags dedup re-fires" assumed a re-fire that could not
+  happen. `ambition_cutscene::LastCutsceneRoom`, registered as
+  `cutscene.last_room` (schema v14). The waiver's wrong reason is corrected IN
+  PLACE rather than deleted, because the wrong version is the part worth reading.
+  ⭐ that also makes the transient trigger queue legitimately transient — its
+  contents are regenerated from rollback state on the restored timeline, which is
+  the condition the old waiver assumed rather than met.

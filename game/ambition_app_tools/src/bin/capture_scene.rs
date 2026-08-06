@@ -50,6 +50,19 @@ struct SceneCaptureConfig {
     warmup_frames: u32,
     include_ui: bool,
     show_window: bool,
+    /// **Frame the whole ROOM instead of a point** (`--fit-room`).
+    ///
+    /// ⭐ the focus positional answers *"what is happening here"*; this answers
+    /// *"what does this room LOOK like"*, which is a different question and the
+    /// one a scale problem is visible in. Jon's *"the humanoid characters are all
+    /// dramatically out of scale with each other"* is obvious in one framed hall
+    /// and invisible in any single focused shot — a measurement can rank them,
+    /// but only a picture shows the cast standing together.
+    ///
+    /// ⚠ it BYPASSES the camera snapshot rather than feeding it a wider focus:
+    /// that resolver clamps to the room and to camera zones, which is exactly
+    /// right for gameplay and exactly wrong for a portrait of the room.
+    fit_room: bool,
     /// Optional `character_catalog.ron` id to spawn the player AS (its sprite +
     /// moveset). `None` = the default protagonist. Behind `--character <id>`.
     character: Option<String>,
@@ -416,6 +429,7 @@ impl SceneCaptureConfig {
         let mut dev_overlays = false;
         let mut combat_overlay = false;
         let mut show_window = false;
+        let mut fit_room = false;
         let mut character: Option<String> = None;
         let mut route: Option<String> = None;
         let mut press: Vec<PressStep> = Vec::new();
@@ -457,6 +471,10 @@ impl SceneCaptureConfig {
                 }
                 "--include-ui" => {
                     include_ui = true;
+                    1
+                }
+                "--fit-room" => {
+                    fit_room = true;
                     1
                 }
                 "--show-window" => {
@@ -568,6 +586,7 @@ impl SceneCaptureConfig {
                 // an empty clear colour and call it the launcher.
                 include_ui: true,
                 show_window,
+                fit_room,
                 character,
                 follow_player: false,
                 dev_overlays,
@@ -609,6 +628,7 @@ impl SceneCaptureConfig {
             warmup_frames,
             include_ui,
             show_window,
+            fit_room,
             character,
             dev_overlays,
             combat_overlay,
@@ -1081,6 +1101,31 @@ fn apply_capture_snapshot(
     } else {
         config.focus
     };
+    // `--fit-room`: the whole room, centred, scaled to fit. Nothing else here
+    // can produce this — the resolver below clamps to the room and to camera
+    // zones, so asking it for a wide shot gives back a gameplay shot.
+    if config.fit_room {
+        // ⛔ **the projection's own SCALING MODE, not a multiplier on the base
+        // view.** The first version computed `scale = max(room / base_view)` and
+        // framed the hall at about a fifth of the image: `scale` multiplies an
+        // extent that depends on the mode and on the viewport's aspect, so the
+        // arithmetic only holds when those agree. Asking for a FIXED extent of
+        // exactly the room's size is the same request with nothing to get wrong.
+        for (mut transform, mut projection) in &mut cameras {
+            if let Projection::Orthographic(orthographic) = &mut *projection {
+                orthographic.scale = 1.0;
+                orthographic.scaling_mode = bevy::camera::ScalingMode::AutoMin {
+                    min_width: world.0.size.x,
+                    min_height: world.0.size.y,
+                };
+            }
+            transform.translation.x = 0.0;
+            transform.translation.y = 0.0;
+            transform.rotation = Quat::IDENTITY;
+        }
+        return;
+    }
+
     let snapshot = resolve_follow_camera_snapshot(
         CameraSnapshotResolveInput {
             world: &world.0,

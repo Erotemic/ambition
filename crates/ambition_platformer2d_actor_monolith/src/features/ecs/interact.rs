@@ -153,6 +153,11 @@ pub fn interact_ecs_actors_and_switches(
         // Record which actor we're talking to so dialogue commands like
         // `<<challenge>>` can provoke THIS NPC into a fight.
         dialogue.state.set_speaker_entity(actor_entity);
+        // ⭐ and the OTHER participant, symmetrically. A conversation that the
+        // world keeps running through has to be able to ask about both bodies —
+        // how far apart they are, whether either can hold station, whether
+        // either was hit — and none of that can be asked of a character id.
+        dialogue.state.set_initiator_entity(subject);
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
         quest_advance.write(QuestAdvanceRequested(
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),

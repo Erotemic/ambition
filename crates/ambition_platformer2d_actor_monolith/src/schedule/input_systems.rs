@@ -1228,7 +1228,7 @@ mod focus_gate_tests {
         use ambition_characters::brain::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT, LAUNCHER_CONTEXT};
-        use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameMode};
+        use ambition_platformer2d_shared_tangle::schedule::GameMode;
 
         fn seat(slot: u8, context: ambition_input::InputContextId, priority: i32) -> impl Bundle {
             let mut contexts = ParticipantContexts::default();
@@ -1311,7 +1311,7 @@ mod focus_gate_tests {
         use ambition_characters::brain::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT};
-        use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameMode};
+        use ambition_platformer2d_shared_tangle::schedule::GameMode;
         use bevy::ecs::system::RunSystemOnce;
 
         fn seat(slot: u8) -> impl Bundle {
@@ -1448,7 +1448,7 @@ mod focus_gate_tests {
         use ambition_characters::brain::{PlayerSlot, SlotControls};
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, GAMEPLAY_CONTEXT};
-        use ambition_platformer2d_shared_tangle::schedule::{DialogueStopsTheWorld, GameMode};
+        use ambition_platformer2d_shared_tangle::schedule::GameMode;
 
         let mut contexts = ParticipantContexts::default();
         contexts.declare(ContextClaim::capturing(

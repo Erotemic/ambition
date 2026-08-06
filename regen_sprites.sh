@@ -522,6 +522,20 @@ expected_files=(
     # targets/characters/rigged/*.rig.json.
     noether_spritesheet.png noether_spritesheet.ron
     # Boss subdirectories (custom install paths).
+    #
+    # ⚠ **NOT DEAD, and no string search can tell you that.** A 2026-08-05
+    # census of "sheets no catalog names" flagged `gnu_ton_boss_body` and
+    # `gnu_ton_boss_hands`, because nothing anywhere spells those stems: the
+    # boss assembles part paths by SUFFIX at load, and the encounter reads the
+    # sibling `giant_gnu_*` family by literal. Both families really are
+    # published into this directory and both are read.
+    #
+    # ⛔ the same census nearly cost the powerup pickups: `super_mary_o` looks
+    # superseded because its three form sheets are, and the SAME target
+    # publishes `super_mary_o_star_wand`, `_cinder_beacon` and `_cosmic_quasar`,
+    # which Mary-O's live code names. **A target is not its sheets, and a sheet
+    # nobody spells is not unused.** Ask the code that BUILDS names before
+    # cutting anything here.
     gnu_ton_boss/gnu_ton_boss_spritesheet.png
     gnu_ton_boss/gnu_ton_boss_body_spritesheet.png
     gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png

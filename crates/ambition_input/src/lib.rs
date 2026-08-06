@@ -125,7 +125,7 @@ pub use participant::{
     DEBUG_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT, INVENTORY_CONTEXT, LAUNCHER_CONTEXT,
     PAUSE_CONTEXT, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
-pub use settings::{BindingOverride, OverrideControl, OverrideDeviceClass};
+pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDeviceClass};
 // ⚠ `key_name` joins this list rather than the module being opened: the crate
 // exposes a chosen surface, and a HUD legend needs exactly one function from it.
 pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId};

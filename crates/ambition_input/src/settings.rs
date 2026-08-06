@@ -274,6 +274,85 @@ impl ControllerProfileId {
     }
 }
 
+/// **The values the DEVICE READER filters with.**
+///
+/// The calibration half of [`ControlSettings`], split out because it is the half
+/// that belongs to the PAD rather than to the machine. Jon, 2026-08-06:
+/// *filtering per pad, bindings shared.*
+///
+/// ⛔ **every seat used to read the one global blob**, so player two's drifty
+/// Xbox 360 pad ran on whatever deadzone player one had tuned for a DualSense —
+/// and player two cannot reach the settings screen to fix it, because the
+/// settings screen is the primary's. A deadzone is a fact about the stick in
+/// somebody's hands, not about the person holding it.
+///
+/// `Copy` on purpose: this is rebuilt per seat per frame, and cloning
+/// `ControlSettings` would allocate its binding-override `Vec` every time.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ControlFilters {
+    pub left_stick_deadzone: f32,
+    pub right_stick_deadzone: f32,
+    pub trigger_release_threshold: f32,
+    pub trigger_press_threshold: f32,
+    /// ⚠ a PREFERENCE, not a calibration — which trigger or button means dash is
+    /// a choice about the person, so it stays machine-wide even per pad.
+    pub dash_input_mode: DashInputMode,
+    /// Also a preference. Inverted aim is a habit, not a hardware property.
+    pub invert_aim_y: bool,
+}
+
+impl ControlFilters {
+    /// The machine-wide values, exactly as the settings screen tuned them. What
+    /// the PRIMARY seat uses — those sliders are theirs.
+    pub fn from_settings(settings: &ControlSettings) -> Self {
+        Self {
+            left_stick_deadzone: settings.left_stick_deadzone,
+            right_stick_deadzone: settings.right_stick_deadzone,
+            trigger_release_threshold: settings.trigger_release_threshold,
+            trigger_press_threshold: settings.trigger_press_threshold,
+            dash_input_mode: settings.dash_input_mode,
+            invert_aim_y: settings.invert_aim_y,
+        }
+    }
+
+    /// Calibrated for a pad of this vendor style, keeping the machine-wide
+    /// PREFERENCES.
+    ///
+    /// ⚠ **an explicit profile choice still wins.** If somebody picked a
+    /// controller profile in the settings, that is a decision and detection does
+    /// not get to overrule it; only `Default` — "nobody said" — defers to the
+    /// pad. That keeps the settings screen meaningful instead of making it a
+    /// value the game silently rewrites.
+    pub fn for_pad(settings: &ControlSettings, style: crate::GamepadStyle) -> Self {
+        let mut filters = Self::from_settings(settings);
+        if settings.controller_profile != ControllerProfileId::Default {
+            return filters;
+        }
+        let calibrated = profile_for_pad(style).filter_defaults();
+        filters.left_stick_deadzone = calibrated.left_stick_deadzone;
+        filters.right_stick_deadzone = calibrated.right_stick_deadzone;
+        filters.trigger_release_threshold = calibrated.trigger_release_threshold;
+        filters.trigger_press_threshold = calibrated.trigger_press_threshold;
+        filters
+    }
+}
+
+/// Which calibration table a DETECTED pad style gets.
+///
+/// ⚠ **`Xbox360` is deliberately unreachable from detection.** Its table is the
+/// drifty-stick / worn-trigger one, and `gamepad_style_of` reads Microsoft's
+/// vendor id — which a 360 pad and a Series controller share. Guessing "old and
+/// worn" from a vendor id would widen the deadzone on a brand-new pad. That
+/// table stays available as an explicit settings choice, which is the only place
+/// the information exists.
+fn profile_for_pad(style: crate::GamepadStyle) -> ControllerProfileId {
+    match style {
+        crate::GamepadStyle::PlayStation => ControllerProfileId::PlayStation,
+        crate::GamepadStyle::XboxLike => ControllerProfileId::XboxOne,
+        crate::GamepadStyle::Switch | crate::GamepadStyle::Generic => ControllerProfileId::Generic,
+    }
+}
+
 /// A control an override can NAME.
 ///
 /// ⚠ **deliberately not `PhysicalControl`**, which the binding projection uses,
@@ -652,6 +731,59 @@ mod tests {
         // baseline (release lower, press higher).
         assert!(xbox360.trigger_release_threshold < baseline.trigger_release_threshold);
         assert!(xbox360.trigger_press_threshold > baseline.trigger_press_threshold);
+    }
+
+    /// **A seat's deadzone follows the pad in its hands, not the machine.**
+    ///
+    /// ⛔ every seat used to read the one global blob, and a couch seat cannot
+    /// reach the settings screen to correct it — that screen belongs to the
+    /// primary. So player two's pad ran on player one's calibration.
+    #[test]
+    fn a_seats_filtering_follows_its_own_pad() {
+        let mut settings = ControlSettings::default();
+        // The primary has hand-tuned their sticks wide open.
+        settings.left_stick_deadzone = 0.40;
+        settings.right_stick_deadzone = 0.40;
+
+        let primary = ControlFilters::from_settings(&settings);
+        assert_eq!(
+            primary.left_stick_deadzone, 0.40,
+            "the settings sliders are the primary's own, untouched"
+        );
+
+        let couch = ControlFilters::for_pad(&settings, crate::GamepadStyle::PlayStation);
+        assert_ne!(
+            couch.left_stick_deadzone, primary.left_stick_deadzone,
+            "a DualSense on seat two does not inherit the primary's 0.40"
+        );
+        assert_eq!(
+            couch.left_stick_deadzone,
+            ControllerProfileId::PlayStation
+                .filter_defaults()
+                .left_stick_deadzone,
+            "it gets the calibration table for the pad it actually is"
+        );
+        assert_eq!(
+            couch.dash_input_mode, primary.dash_input_mode,
+            "PREFERENCES stay machine-wide — which button dashes is about the \
+             person, not the hardware"
+        );
+    }
+
+    /// ⚠ a profile somebody CHOSE outranks one the game detected.
+    #[test]
+    fn an_explicit_controller_profile_is_not_overruled_by_detection() {
+        let mut settings = ControlSettings::default();
+        settings.controller_profile = ControllerProfileId::Xbox360;
+        settings.apply_profile_defaults();
+        let chosen = settings.left_stick_deadzone;
+
+        let filters = ControlFilters::for_pad(&settings, crate::GamepadStyle::PlayStation);
+        assert_eq!(
+            filters.left_stick_deadzone, chosen,
+            "the pad reads as a DualSense, but somebody picked the 360 table and \
+             a settings screen the game silently rewrites is not a settings screen"
+        );
     }
 
     #[test]

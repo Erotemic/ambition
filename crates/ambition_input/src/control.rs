@@ -27,7 +27,7 @@ use crate::actions::Platformer2dInputActionMonolith;
 #[cfg(feature = "input")]
 pub fn read_gameplay_control_frame_with_settings(
     actions: &ActionState<Platformer2dInputActionMonolith>,
-    controls: &crate::settings::ControlSettings,
+    controls: crate::settings::ControlFilters,
     dash_state: crate::settings::TriggerEdgeState,
 ) -> (ControlFrame, crate::settings::TriggerEdgeState) {
     let raw_move = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::Move);
@@ -139,9 +139,10 @@ pub fn read_gameplay_control_frame_with_settings(
 /// control settings and a fresh trigger state.
 #[cfg(feature = "input")]
 pub fn read_gameplay_control_frame(actions: &ActionState<Platformer2dInputActionMonolith>) -> ControlFrame {
+    let defaults = crate::settings::ControlSettings::default();
     let (frame, _) = read_gameplay_control_frame_with_settings(
         actions,
-        &crate::settings::ControlSettings::default(),
+        crate::settings::ControlFilters::from_settings(&defaults),
         crate::settings::TriggerEdgeState::default(),
     );
     frame

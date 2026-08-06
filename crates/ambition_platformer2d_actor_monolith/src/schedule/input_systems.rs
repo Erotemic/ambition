@@ -465,9 +465,11 @@ pub fn populate_control_frame_from_actions(
     *frame = match action_state {
         Some(action_state) => {
             if mode.get().allows_gameplay() {
+                // The PRIMARY seat reads the settings screen's own sliders —
+                // they are the sliders of whoever is sitting at that screen.
                 let (next_frame, next_state) = read_gameplay_control_frame_with_settings(
                     action_state,
-                    &user_settings.controls,
+                    ambition_input::ControlFilters::from_settings(&user_settings.controls),
                     dash_state.edge,
                 );
                 dash_state.edge = next_state;
@@ -526,6 +528,11 @@ pub fn populate_secondary_slot_controls(
     mode: Res<State<GameMode>>,
     active_context: Res<SeatInputContexts>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
+    // Which pad each seat is holding, so its FILTERING is that pad's. Optional
+    // for the same reason every device resource here is: a headless fixture
+    // installs no detector, and absent, every seat falls back to the
+    // machine-wide values — which is what it did for all of them before.
+    devices: Option<Res<ambition_input::SeatActiveDevices>>,
     mut seats: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
@@ -561,8 +568,21 @@ pub fn populate_secondary_slot_controls(
             }
             continue;
         }
-        let (frame, next) =
-            read_gameplay_control_frame_with_settings(actions, &user_settings.controls, dash.0);
+        // ⛔ **NOT the machine-wide sliders.** A couch seat cannot reach the
+        // settings screen — it belongs to the primary — so reading their
+        // hand-tuned deadzone here meant player two's drifty 360 pad ran on
+        // whatever suited player one's DualSense. A deadzone is a fact about the
+        // stick in somebody's hands. (Jon, 2026-08-06: filtering per pad,
+        // bindings shared.) The PREFERENCES inside `ControlFilters` — dash mode,
+        // inverted aim — stay machine-wide, because those are about the person.
+        let filters = match devices.as_deref() {
+            Some(devices) => ambition_input::ControlFilters::for_pad(
+                &user_settings.controls,
+                devices.gamepad_style_for(participant.id.slot()),
+            ),
+            None => ambition_input::ControlFilters::from_settings(&user_settings.controls),
+        };
+        let (frame, next) = read_gameplay_control_frame_with_settings(actions, filters, dash.0);
         dash.0 = next;
         match latches.as_deref_mut() {
             // Fixed tick: fold this device sample in and let the tick drain it.

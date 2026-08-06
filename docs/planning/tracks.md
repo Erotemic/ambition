@@ -431,8 +431,17 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     rather than on gameplay.
   ⭐ **that second family is the real content of K2b.3**, and it is not a
   test-fixture problem: it says a rollback session must not begin until
-  activation has settled, which is a rule the engine does not state today. Write
-  that rule before flipping the harness.
+  activation has settled.
+  ✔ **the rule is STATED now (2026-08-06)**: `RollbackRefused::NoSessionWorld`,
+  checked in `rollback::start` after activation and settle. A session opened
+  over a world that does not exist yet is measuring CONSTRUCTION, and its
+  checksum mismatch reads as a desync in the game — so refusing is the honest
+  answer and the message names the helper to wait with. ⚠ it had no teeth to
+  grow before: with a build-time root "the world exists" was true before frame
+  one, so nothing could notice the rule was missing. 46 rollback tests green.
+  ▢ the harness's own `start_sync_test_session` road (the lower-level runtime
+  entry) still has no such check — it is the one the sim harness calls, and it
+  is where the rule has to bite when the harness flips.
   ▢ **edits 2-4 remain BLOCKED, and now for a measured reason.**
   The build-time root is not dead: `run_headless` and
   `Platformer2dSimHarness::build` compose `AmbitionGameSimulationPlugin`

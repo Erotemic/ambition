@@ -195,6 +195,30 @@ pub enum RollbackRefused {
     /// instrument that measures nothing and reports the success condition, and
     /// it is worth a refusal rather than a green run.
     NoAuthoritativeState,
+    /// Activation never produced a session world.
+    ///
+    /// ⛔ **a rollback session must not begin before activation has settled**,
+    /// and until 2026-08-06 nothing said so — because nothing could notice. A
+    /// direct-entry host spawns its session root at PLUGIN-BUILD time, so
+    /// "the world exists" was true before the first frame and the rule had no
+    /// teeth to grow.
+    ///
+    /// Under a shell-routed host it is not true: the root arrives several frames
+    /// in, behind a load barrier and eight preparation work items. A sync test
+    /// started before then compares frames containing ACTIVATION work, and the
+    /// two runs diverge on the world being built rather than on gameplay —
+    /// measured, when the sim harness was pointed at the shell: *"GGRS sync-test
+    /// checksum mismatch at frames [2, 3, 4]"*, with the desync canary reporting
+    /// no controlled subject beside it.
+    ///
+    /// ⭐ **so the fix is not a longer budget, it is a stated precondition.** A
+    /// session that begins over a world that does not exist yet is measuring
+    /// construction; refusing is the honest answer, and it names the thing to
+    /// wait for.
+    NoSessionWorld {
+        /// Ticks spent activating before the check.
+        ticks: usize,
+    },
     /// GGRS rejected the session.
     SessionRejected(String),
 }
@@ -219,6 +243,14 @@ impl core::fmt::Display for RollbackRefused {
                 "nothing registered authoritative state, so a session would \
                  save, rewind and compare nothing and pass. Register with \
                  `rollback_component_canonical` (or a sibling) before starting"
+            ),
+            Self::NoSessionWorld { ticks } => write!(
+                f,
+                "the host reached Running in {ticks} ticks but no session world \
+                 exists yet, so a session opened here would compare ACTIVATION \
+                 rather than gameplay and its checksum mismatch would read as a \
+                 desync in the game. Wait for the activation to produce a world \
+                 — `settle_until_session_world` is the helper — before starting"
             ),
             Self::SessionRejected(why) => write!(f, "GGRS refused the session: {why}"),
         }
@@ -458,6 +490,16 @@ pub fn start(app: &mut App, plan: RollbackPlan) -> Result<RollbackSession, Rollb
     // quiet.
     for _ in 0..plan.settle_ticks {
         app.update();
+    }
+
+    // ⛔ **the world must EXIST before the session does.** See
+    // [`RollbackRefused::NoSessionWorld`]: a rollback session opened over an
+    // unbuilt world compares activation rather than gameplay, and the checksum
+    // mismatch that produces reads as a desync in the game.
+    if ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(app.world()).is_none() {
+        return Err(RollbackRefused::NoSessionWorld {
+            ticks: ticks_to_activation + plan.settle_ticks,
+        });
     }
 
     let encoded_types = app

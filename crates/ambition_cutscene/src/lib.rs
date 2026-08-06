@@ -27,9 +27,13 @@ pub enum CutsceneBeat {
     Dialogue { speaker: String, text: String },
     /// Pan the camera to a world-space point over `seconds`. The
     /// presentation layer applies easing.
+    /// ⛔ **UNFINISHED**: advances its timer, moves no camera. Nothing consumes
+    /// [`CutscenePresentation::camera_target`]. See that field.
     CameraPan { target: [f32; 2], seconds: f32 },
     /// Fade screen to `alpha` (0.0 = clear, 1.0 = solid black) over
     /// `seconds`.
+    /// ⛔ **UNFINISHED**: advances its timer, draws no fade. Nothing consumes
+    /// [`CutscenePresentation::fade_alpha`]. See that field.
     Fade { to_alpha: f32, seconds: f32 },
     /// Set a save-game world flag. Useful for one-shot triggers
     /// (`seen_intro_cutscene = true`) and for tying cutscenes to the
@@ -72,8 +76,23 @@ pub struct CutscenePresentation {
     /// what could not survive a restore.
     pub banner: Option<(String, f32)>,
     /// Where a camera-pan beat is pointing.
+    ///
+    /// ⛔ **NOTHING READS THIS, and `CameraPan` is therefore UNFINISHED.**
+    /// Grepped 2026-08-06: the only `camera_target` in the tree outside this
+    /// file is `ambition_sim_view`'s unrelated `clamp_camera_target`. A
+    /// `CameraPan` beat advances its timer and the camera does not move.
+    /// (GPT 5.6 through `32eb27a`, finding 2 — correct.)
+    ///
+    /// ⚠ **stated here rather than removed**, because the beat is authored in
+    /// scripts and deleting the field would make the projection lie in the other
+    /// direction. What is wrong is claiming it works; a reader looking for why
+    /// their pan does nothing should find this line.
     pub camera_target: Option<[f32; 2]>,
     /// The fade a fade beat is holding, `0.0` when no fade beat is current.
+    ///
+    /// ⛔ **NOTHING READS THIS EITHER — `Fade` is UNFINISHED.** Same grep, same
+    /// date. The overlay draws dialogue and banners and nothing else, so a fade
+    /// beat is a wait with a number attached.
     pub fade_alpha: f32,
 }
 

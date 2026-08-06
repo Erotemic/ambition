@@ -111,9 +111,13 @@ pub struct ShadowTuning {
     pub assumed_foe_active_s: f32,
 }
 
-/// ⛔⛔ **NOTHING DERIVES A `ShadowTuning` FROM THE BODY IT MODELS** — measured
+/// ⛔ **NOTHING DERIVES A `ShadowTuning` FROM THE BODY IT MODELS** — measured
 /// 2026-08-06, and it is the structural version of the missing-friction bug one
 /// level up.
+///
+/// ⭐ **the three divergent NUMBERS are corrected as of 2026-08-06** (gravity
+/// 1400→2250, ground speed 160→270, jump 420→630) — see each field. The table
+/// below is kept because it records what they were and why nobody noticed.
 ///
 /// `ShadowTuning::default()` is the ONLY construction in the tree
 /// (`FighterCfg::new` calls it and nobody overrides), so every fighter's rollout
@@ -127,12 +131,17 @@ pub struct ShadowTuning {
 /// | `ground_speed` | 160 | `MAX_RUN_SPEED` 270 | UNDER-predicts travel (dangerous) |
 /// | `jump_speed` | 420 | `JUMP_SPEED` 630 | shorter arc → UNDER-predicts (dangerous) |
 ///
-/// ⚠ **and correcting all three changes NOTHING measurable**, which is why they
-/// are still here. Probed 2026-08-06 over 7 seeds: every `ladder_probe` column
-/// is byte-identical with 2250/270/630 substituted. The reason is instructive —
-/// the only rungs that still die are levels 1 and 3, which carry
-/// `rollout_depth: 0` and therefore never run a rollout at all. **The one
-/// scenario available cannot see this gap.**
+/// ⚠ **`ladder_probe` could not see this gap and said so for half a day.** Every
+/// column there is byte-identical with 2250/270/630 substituted, because the only
+/// rungs still dying under it carry `rollout_depth: 0` and never run a rollout.
+///
+/// ⭐ **`ladder_rig --scenarios` could.** Over §8's suite, 3 seeds, the rollout
+/// rungs INVERTED in three recovery quadrants — a fighter with a rollout
+/// recovering worse than one without. Correcting these three numbers removed two
+/// of the three: `recovery_left 9v6` and `recovery_right 9v6` fall back inside
+/// the seeds' spread, and only `recovery_above` still inverts. **Recovery is
+/// where a wrong gravity has to show, and nothing had ever put a fighter
+/// offstage.**
 ///
 /// ⭐ **so the fix is not different constants, it is DERIVATION.** These should
 /// come from the body's real `MovementTuning` the way `BrainSnapshot.attack_kit`
@@ -150,8 +159,15 @@ impl Default for ShadowTuning {
                 hitstun_time: 0.35,
                 di_max_angle: 0.0,
             },
-            gravity: 1400.0,
-            ground_speed: 160.0,
+            // ⛔ **1400 against the engine's `ae::GRAVITY` 2250 until 2026-08-06.**
+            // A shadow that thinks gravity is 62% of real thinks a body HANGS —
+            // so it plans recoveries the body cannot make, and every rollout
+            // decision offstage was priced against a longer airtime than exists.
+            gravity: 2250.0,
+            // `MAX_RUN_SPEED`. 160 was a third short, so the model under-priced
+            // how far a walk covers — the same under-prediction direction the
+            // missing friction had.
+            ground_speed: 270.0,
             // `ae::DASH_SPEED` / `ae::DASH_TIME`, restated here for the same
             // reason the foe's swing timings are: those constants live above
             // this crate, and they are public knowledge rather than hidden state.
@@ -163,7 +179,10 @@ impl Default for ShadowTuning {
             // the right edge at 530 px/s while the rollout scored it as a stroll.
             dash_speed: 760.0,
             dash_time: 0.115,
-            jump_speed: 420.0,
+            // `ae::JUMP_SPEED`. 420 was two thirds of it, which is the
+            // dangerous direction for a ledge: a shorter modelled arc makes a
+            // jump look safer than it is.
+            jump_speed: 630.0,
             ground_coast_decel: 7600.0,
             air_coast_decel: 650.0,
             // `ae::SLASH_RECOIL`, restated for the same reason as the dash

@@ -577,10 +577,18 @@ fn the_same_walk_ends_in_a_ko_and_the_old_infinite_plane_never_does() {
     // 160 px/s) and fall the 284 px to the bottom of the envelope; SHORT enough
     // that a body strolling at platform height reaches only x=640, well inside
     // the envelope's x=800 wall. So the KO below can only have come from falling.
+    // ⚠ **60 ticks, not 90, and the number is load-bearing.** A one-second walk
+    // at `ground_speed` covers 270px from x=400, which stays inside the 800-wide
+    // fixture stage; ninety ticks covers 405 and leaves it, so the INFINITE-plane
+    // control KO'd on the horizontal blastzone and the test reported *"the
+    // walk-off died even without a floor"* about a fixture that had stopped
+    // isolating the floor. It went unnoticed while `ground_speed` was 160 —
+    // 240px, comfortably inside — and surfaced the moment that was corrected to
+    // the engine's 270.
     let mut walked_off = build();
     let events = run(
         &mut walked_off,
-        90,
+        60,
         &ShadowIntent::Drive { lateral: 1.0 },
         &tuning,
     );
@@ -599,7 +607,7 @@ fn the_same_walk_ends_in_a_ko_and_the_old_infinite_plane_never_does() {
     infinite_plane.me.ground_span = None;
     let events = run(
         &mut infinite_plane,
-        90,
+        60,
         &ShadowIntent::Drive { lateral: 1.0 },
         &tuning,
     );

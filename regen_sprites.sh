@@ -317,8 +317,9 @@ expected_files=(
     player_robot_spritesheet.png player_robot_spritesheet.yaml player_robot_spritesheet.ron
     robot_spritesheet.png robot_spritesheet.yaml robot_spritesheet.ron
     sandbag_spritesheet.png sandbag_spritesheet.yaml sandbag_spritesheet.ron
-    # Sandbox combat-variety enemies (draw-all): the kiter + the two volatile mites.
-    ranged_skirmisher_spritesheet.png ranged_skirmisher_spritesheet.yaml ranged_skirmisher_spritesheet.ron
+    # Sandbox combat-variety enemies (draw-all). ⚠ the kiter — `ranged_skirmisher`
+    # — left with the 2026-08-05 clone cut; the two volatile mites stayed, because
+    # Jon marked them "iffy" rather than cut.
     exploding_mite_spritesheet.png exploding_mite_spritesheet.yaml exploding_mite_spritesheet.ron
     dividing_mite_spritesheet.png dividing_mite_spritesheet.yaml dividing_mite_spritesheet.ron
     # Review-config NPCs (draw-review → copied).
@@ -379,21 +380,17 @@ expected_files=(
     galwah_spritesheet.png galwah_spritesheet.ron
     ghoul_skulker_spritesheet.png ghoul_skulker_spritesheet.ron
     girdle_spritesheet.png girdle_spritesheet.ron
-    goblin_forest_spear_spritesheet.png goblin_forest_spear_spritesheet.ron
     hand_saint_spritesheet.png hand_saint_spritesheet.ron
     helpful_liar_spritesheet.png helpful_liar_spritesheet.ron
     mantis_lancer_spritesheet.png mantis_lancer_spritesheet.ron
     ninja_heavy_spritesheet.png ninja_heavy_spritesheet.ron
     pirate_cutlass_viper_spritesheet.png pirate_cutlass_viper_spritesheet.ron
-    player_extended_spritesheet.png player_extended_spritesheet.ron
     president_portrait_spritesheet.png president_portrait_spritesheet.ron
     puppy_slug_variant2_spritesheet.png puppy_slug_variant2_spritesheet.ron
     raptor_stalker_spritesheet.png raptor_stalker_spritesheet.ron
-    robot_guardian_spritesheet.png robot_guardian_spritesheet.ron
     # robot_heavy publishes as variants (bastion/arsenal/...); main
     # spritesheet doesn't ship until a publisher like pirate_heavy
     # lands. Catalog entry falls back to colored rectangle.
-    robot_runner_spritesheet.png robot_runner_spritesheet.ron
     smart_house_spritesheet.png smart_house_spritesheet.ron
     spaghetti_event_spritesheet.png spaghetti_event_spritesheet.ron
     synthetic_friend_spritesheet.png synthetic_friend_spritesheet.ron
@@ -474,22 +471,6 @@ expected_files=(
     stochastic_parrot_v2_spritesheet.png stochastic_parrot_v2_spritesheet.ron
     imperfect_cellular_automaton_spritesheet.png imperfect_cellular_automaton_spritesheet.ron
     # Review-config NPCs added to review_cues for full hall coverage.
-    goblin_brute_hammer_spritesheet.png goblin_brute_hammer_spritesheet.ron
-    goblin_cave_dagger_spritesheet.png goblin_cave_dagger_spritesheet.ron
-    goblin_desert_bow_spritesheet.png goblin_desert_bow_spritesheet.ron
-    goblin_frost_sword_spritesheet.png goblin_frost_sword_spritesheet.ron
-    goblin_shaman_staff_spritesheet.png goblin_shaman_staff_spritesheet.ron
-    player_combat_review_spritesheet.png player_combat_review_spritesheet.ron
-    player_social_review_spritesheet.png player_social_review_spritesheet.ron
-    player_traversal_review_spritesheet.png player_traversal_review_spritesheet.ron
-    robot_archivist_spritesheet.png robot_archivist_spritesheet.ron
-    robot_caster_spritesheet.png robot_caster_spritesheet.ron
-    robot_diver_spritesheet.png robot_diver_spritesheet.ron
-    robot_engineer_spritesheet.png robot_engineer_spritesheet.ron
-    robot_medic_spritesheet.png robot_medic_spritesheet.ron
-    robot_miner_spritesheet.png robot_miner_spritesheet.ron
-    sandbag_armored_review_spritesheet.png sandbag_armored_review_spritesheet.ron
-    sandbag_full_review_spritesheet.png sandbag_full_review_spritesheet.ron
     # Rigged (bone-toolkit) characters auto-discovered under
     # targets/characters/rigged/*.rig.json.
     noether_spritesheet.png noether_spritesheet.ron
@@ -787,12 +768,6 @@ review_cues=(
     # Phase 6 + bonus follow-up: every review config is now an
     # actual catalog character. Install the rest so the Hall of
     # Characters has a sprite for each.
-    goblin_brute_hammer goblin_cave_dagger goblin_desert_bow
-    goblin_frost_sword goblin_shaman_staff
-    player_combat_review player_social_review player_traversal_review
-    robot_archivist robot_caster robot_diver robot_engineer
-    robot_medic robot_miner
-    sandbag_armored_review sandbag_full_review
 )
 # `ron` is included because the sandbox SheetRegistry parses RON at
 # startup (see `presentation::character_sprites::registry`). Without
@@ -949,22 +924,18 @@ tackon_targets=(
     galwah
     ghoul_skulker
     girdle
-    goblin_forest_spear
     hand_saint
     helpful_liar
     mantis_lancer
     ninja_heavy
     pirate_cutlass_viper
-    player_extended
     president_portrait
     puppy_slug_variant2
     raptor_stalker
-    robot_guardian
     # robot_heavy is a multi-variant rig whose publisher doesn't
     # install (renders only to generated/, no install method).
     # Skipping it here keeps the working tree clean. Catalog
     # entry was dropped along with the publisher work.
-    robot_runner
     smart_house
     spaghetti_event
     synthetic_friend

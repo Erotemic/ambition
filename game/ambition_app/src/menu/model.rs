@@ -569,6 +569,9 @@ pub fn system_rows_with_quality_prompt(
                     .iter()
                     .map(|r| SystemRow::Option(SystemOptionId::Dev(r.id)))
                     .collect(),
+                SystemMenuTarget::Rebind(rows) => (0..rows.len())
+                    .map(|index| SystemRow::Option(SystemOptionId::Rebind(index)))
+                    .collect(),
                 // An Action entry never opens a screen; defensively empty.
                 SystemMenuTarget::Action(_) => Vec::new(),
             };
@@ -658,6 +661,24 @@ fn system_option_label(model: &SystemMenuModel, opt: SystemOptionId) -> String {
             })
             .map(|r| format!("{}: {}  < >", r.label, r.value_label))
             .unwrap_or_else(|| id.label().to_string()),
+        // ⚠ the BINDING comes from the row the IR built from the seat's live
+        // projection, never from a table this function keeps. A rebind row that
+        // printed a remembered control is the exact staleness `SeatBindings`
+        // exists to make impossible.
+        SystemOptionId::Rebind(index) => model
+            .entry(SystemMenuEntryId::Rebind)
+            .and_then(|e| match &e.target {
+                SystemMenuTarget::Rebind(rows) => rows.get(index),
+                _ => None,
+            })
+            .map(|row| {
+                if row.binding.is_empty() {
+                    format!("{}: —", row.label)
+                } else {
+                    format!("{}: {}", row.label, row.binding)
+                }
+            })
+            .unwrap_or_else(|| "Rebind".to_string()),
     }
 }
 
@@ -675,6 +696,9 @@ fn system_option_description(opt: SystemOptionId) -> String {
             }
         }
         SystemOptionId::Dev(id) => id.description().to_string(),
+        SystemOptionId::Rebind(_) => {
+            "Press to rebind, then press the key or button you want.".to_string()
+        }
     }
 }
 

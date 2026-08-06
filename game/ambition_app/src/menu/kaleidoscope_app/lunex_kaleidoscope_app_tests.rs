@@ -58,6 +58,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<KaleidoscopeScroll>();
     app.init_resource::<CachedSystemMenu>();
     app.init_resource::<KaleidoscopePointerPress>();
+    app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
@@ -919,6 +920,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<KaleidoscopeScroll>();
     app.init_resource::<CachedSystemMenu>();
     app.init_resource::<KaleidoscopePointerPress>();
+    app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_platformer2d::dev_tools::DeveloperRuntimeState>();
@@ -1832,6 +1834,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_resource::<KaleidoscopeScroll>();
     app.init_resource::<CachedSystemMenu>();
     app.init_resource::<KaleidoscopePointerPress>();
+    app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     let mut owned = OwnedItems::default();
     owned.grant(owned_item, 1);
     app.insert_resource(owned);
@@ -2440,5 +2443,89 @@ fn game_cube_configuration_overlays_the_live_world_camera() {
     assert!(
         !config.camera_starts_active,
         "the host gate still owns when the cube camera becomes active"
+    );
+}
+
+/// **A rebind row arms, then the NEXT press becomes the binding.**
+///
+/// ⛔ the trap this pins: selecting the row is itself a key press, and it is
+/// still in `get_just_pressed` when the capture runs later the same frame. The
+/// first version ran the capture after the dispatch and called that the fix — it
+/// is not, because a just-pressed set is a fact about the FRAME, not about where
+/// in the frame you read it. Without `settle`, confirming a rebind row binds
+/// that action to the confirm key, and every action in the list ends up on it.
+#[test]
+fn arming_a_rebind_does_not_capture_the_key_that_armed_it() {
+    use ambition_platformer2d::input::{InputParticipant, KeyboardPreset, SeatBindings};
+    use bevy::input::ButtonInput;
+    use bevy::prelude::KeyCode;
+
+    let mut app = App::new();
+    app.init_resource::<RebindCapture>();
+    app.init_resource::<SeatBindings>();
+    app.init_resource::<UserSettings>();
+    app.init_resource::<ButtonInput<KeyCode>>();
+    app.add_systems(
+        Update,
+        (
+            ambition_platformer2d::input::publish_seat_bindings,
+            super::capture_armed_rebind,
+        )
+            .chain(),
+    );
+    app.world_mut().spawn((
+        InputParticipant::primary(),
+        KeyboardPreset::arrows_zxc().input_map(),
+    ));
+    app.update();
+
+    // The row order is the projection's canonical order, which is what the
+    // screen was built from.
+    let (row, action) = {
+        let bindings = app.world().resource::<SeatBindings>();
+        let seat = ambition_platformer2d::input::ParticipantId::PRIMARY.slot();
+        let (index, (name, _)) = bindings
+            .for_seat(seat)
+            .all()
+            .enumerate()
+            .find(|(_, (name, _))| *name == "Jump")
+            .expect("Jump is bound");
+        (index, name.to_string())
+    };
+
+    // Arm the row WITH the confirm key still down, exactly as a real select does.
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::Enter);
+    app.world_mut().resource_mut::<RebindCapture>().arm(row);
+    app.update();
+    assert!(
+        app.world()
+            .resource::<UserSettings>()
+            .controls
+            .binding_overrides
+            .is_empty(),
+        "the key that armed the row is not the new binding"
+    );
+
+    // The NEXT frame's press is.
+    {
+        let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+        keys.clear();
+        keys.press(KeyCode::F13);
+    }
+    app.update();
+    let settings = app.world().resource::<UserSettings>();
+    let overrides = &settings.controls.binding_overrides;
+    assert_eq!(overrides.len(), 1, "one press, one override");
+    assert_eq!(overrides[0].action, action);
+    assert_eq!(
+        overrides[0].control,
+        ambition_platformer2d::input::OverrideControl::Key(KeyCode::F13),
+        "and it is the key the player actually pressed"
+    );
+    assert!(
+        app.world().resource::<RebindCapture>().armed().is_none(),
+        "the arm is consumed, so the next key press is not a second rebind"
     );
 }

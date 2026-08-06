@@ -230,7 +230,8 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
     if !app.world().contains_resource::<KaleidoscopeMenuConfig>() {
         app.insert_resource(game_kaleidoscope_config());
     }
-    app.init_resource::<KaleidoscopeScroll>()
+    app.init_resource::<RebindCapture>()
+        .init_resource::<KaleidoscopeScroll>()
         .init_resource::<KaleidoscopePointerPress>()
         .add_plugins(KaleidoscopeMenuPlugin::<MenuPage, MenuPageAction>::default());
     // Gate only the cube's render sets: closed menus can still open and manage
@@ -289,6 +290,13 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 // dispatches it. Running it after republish would draw the menu a
                 // frame before the equip it just performed.
                 kaleidoscope_menu_action_activated.run_if(kaleidoscope_menu_visible),
+                // After the dispatch that arms it, so an arm and its capture
+                // cannot be a frame apart in the wrong direction. ⚠ the ORDER is
+                // not what stops the confirm key becoming the binding —
+                // `RebindCapture::settle` is, because a just-pressed set is a
+                // fact about the frame rather than about where in it you read.
+                #[cfg(feature = "input")]
+                capture_armed_rebind.run_if(kaleidoscope_menu_visible),
                 // Scroll the System window independently of selection before republish.
                 kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
@@ -405,6 +413,122 @@ pub(crate) struct KaleidoscopePointerPress(
     pub(crate) ambition_platformer2d::ui_nav::PressArm<MenuPageAction>,
 );
 
+/// **A rebind row is armed, waiting for the next physical press.**
+///
+/// ⚠ **the capture cannot happen where the row is selected.** Selecting runs
+/// inside the menu's own dispatch, and the whole point of a rebind is to see a
+/// control the menu's bindings do not route — a key no preset uses reaches no
+/// action and therefore no dispatch. So selection arms, and a separate system
+/// reading raw device state resolves it.
+///
+/// The row is identified by its INDEX into the screen's `RebindRow` list, the
+/// same row identity `ambition_ui_nav::PressArm` documents: a windowed list can
+/// rebuild between the arm and the press, and an index into a canonically
+/// ordered list survives that where an entity would not.
+#[derive(Resource, Default)]
+pub(crate) struct RebindCapture {
+    armed_row: Option<usize>,
+    /// ⛔ **the frame that ARMED it must not also capture it.** Selecting a row
+    /// is itself a key press, and it is still in `get_just_pressed` when the
+    /// capture runs later the same frame — so without this, confirming a rebind
+    /// row would bind that action to the confirm key, and every action in the
+    /// list would end up on Enter.
+    ///
+    /// ⚠ ordering does NOT fix this. Running the capture after the dispatch was
+    /// the first attempt and it is wrong: a just-pressed set is a fact about the
+    /// frame, not about where in the frame you read it.
+    armed_this_frame: bool,
+}
+
+impl RebindCapture {
+    pub(crate) fn arm(&mut self, row: usize) {
+        self.armed_row = Some(row);
+        self.armed_this_frame = true;
+    }
+
+    /// Let one frame pass before a press can be captured. Returns whether the
+    /// caller should wait.
+    pub(crate) fn settle(&mut self) -> bool {
+        let waiting = self.armed_this_frame;
+        self.armed_this_frame = false;
+        waiting
+    }
+
+    pub(crate) fn armed(&self) -> Option<usize> {
+        self.armed_row
+    }
+
+    /// Take the arm — a capture resolves once, whatever it produced.
+    pub(crate) fn take(&mut self) -> Option<usize> {
+        self.armed_row.take()
+    }
+}
+
+/// **Resolve an armed rebind: the next physical press becomes the binding.**
+///
+/// ⛔ **this cannot live in the menu's dispatch**, which is why arming and
+/// capturing are two steps. Dispatch runs off routed ACTIONS, and the whole
+/// point of a rebind is to bind a control that routes to nothing — a key no
+/// preset uses reaches no action and therefore no dispatch. So the capture reads
+/// raw device state (`ambition_input::pressed_controls_this_frame`).
+///
+/// ⭐ the armed ROW INDEX resolves against the same canonical order the screen
+/// was built from — `ActionBindings::all()` sorts by action name — so the index
+/// and the row cannot disagree without a second table existing to disagree
+/// through.
+///
+/// Writing the override into `UserSettings` is the whole of the wiring: the
+/// recipe sync picks it up, `rebuild_maps_from_recipes` rebuilds the map, and
+/// behaviour, glyphs and the touch overlay follow in the same frame.
+#[cfg(feature = "input")]
+pub(crate) fn capture_armed_rebind(
+    mut capture: ResMut<RebindCapture>,
+    keys: Option<Res<bevy::input::ButtonInput<bevy::prelude::KeyCode>>>,
+    pads: Query<&bevy::prelude::Gamepad>,
+    bindings: Option<Res<ambition_platformer2d::input::SeatBindings>>,
+    mut settings: ResMut<UserSettings>,
+) {
+    let Some(row) = capture.armed() else {
+        return;
+    };
+    // ⛔ the press that ARMED this row is still just-pressed. Capturing it would
+    // bind the action to the confirm key.
+    if capture.settle() {
+        return;
+    }
+    let Some(bindings) = bindings else {
+        // No projection, so no rows were built and nothing can resolve. Drop the
+        // arm rather than leaving the menu waiting on a press that can never
+        // land.
+        capture.take();
+        return;
+    };
+    let pressed = ambition_platformer2d::input::pressed_controls_this_frame(
+        keys.as_deref(),
+        pads.iter().flat_map(|pad| pad.get_just_pressed().copied()),
+    );
+    if pressed.is_empty() {
+        return;
+    }
+    let seat = ambition_platformer2d::input::ParticipantId::PRIMARY.slot();
+    let Some(action) = bindings
+        .for_seat(seat)
+        .all()
+        .nth(row)
+        .and_then(|(name, _)| ambition_platformer2d::input::action_named(name))
+    else {
+        capture.take();
+        return;
+    };
+    // A frame of only-unbindable presses captures nothing and LEAVES THE ARM —
+    // the player pressed something the game cannot store, so the row keeps
+    // waiting rather than pretending it stored it.
+    if let Some(override_) = ambition_platformer2d::input::capture(&action, pressed) {
+        settings.controls.set_binding_override(override_);
+        capture.take();
+    }
+}
+
 /// Host-owned, SELECTION-INDEPENDENT scroll position for the System face's windowed
 /// list (Features C/D). `None` = the window follows the keyboard/pointer cursor
 /// (the historical behaviour); `Some(start)` = an explicit scroll override set by a
@@ -450,6 +574,8 @@ pub(crate) struct SystemMenuParams<'w> {
     // B0002-safe and fixtures without the resource render the row as "n/a".
     base_gravity: Option<ResMut<'w, ambition_platformer2d::actors::physics::BaseGravity>>,
     reset: ResMut<'w, ambition_platformer2d::actors::session::reset::NewGameResetRequested>,
+    // Selecting a rebind row ARMS this; the capture system reads it.
+    rebind_capture: ResMut<'w, RebindCapture>,
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
     // defaults (mirrors the pause menu's `ResetAllSettings`).
@@ -560,6 +686,15 @@ impl SystemMenuParams<'_> {
                 } else {
                     ambition_platformer2d::sfx::ids::UI_TOGGLE_ON
                 }
+            }
+            // ⚠ selecting a rebind row ARMS a capture; it does not rebind.
+            // The next physical press is the binding, and that press cannot be
+            // read here — this runs inside a menu dispatch, and the whole point
+            // of the capture is to see a control the menu's own bindings do not
+            // route. `RebindCapture` is the state the capture system reads.
+            SystemOptionId::Rebind(index) => {
+                self.rebind_capture.arm(index);
+                ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT
             }
         }
     }

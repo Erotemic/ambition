@@ -177,6 +177,7 @@ const ALL_SYSTEM_MENU_ENTRY_IDS: &[SystemMenuEntryId] = &[
     SystemMenuEntryId::Quit,
     SystemMenuEntryId::Developer,
     SystemMenuEntryId::ResetNewGame,
+    SystemMenuEntryId::Rebind,
 ];
 
 #[allow(dead_code)]
@@ -192,7 +193,8 @@ fn assert_all_system_menu_entry_ids_listed(id: SystemMenuEntryId) {
         | SystemMenuEntryId::QuitToHome
         | SystemMenuEntryId::Quit
         | SystemMenuEntryId::Developer
-        | SystemMenuEntryId::ResetNewGame => {}
+        | SystemMenuEntryId::ResetNewGame
+        | SystemMenuEntryId::Rebind => {}
     }
 }
 
@@ -258,6 +260,17 @@ fn every_system_menu_entry_is_surfaced_by_the_system_model() {
                     "{id:?} is dev-build gated: present iff the dev_tools feature is on"
                 );
             }
+            // DOCUMENTED EXCLUSION: Rebind is ATTACHED, not built. It appears
+            // only where a composition supplies the seat's bindings
+            // (`SystemMenuModel::with_rebind`), because a build with no input
+            // stack has nothing to rebind and should show no row rather than an
+            // empty screen. `build` alone must therefore NOT surface it — and
+            // the sibling test below pins that attaching does.
+            SystemMenuEntryId::Rebind => assert!(
+                !surfaced.contains(id),
+                "Rebind is attached by `with_rebind`, never built — a bare \
+                 `build` surfacing it means the capability gate was lost"
+            ),
             _ => assert!(
                 surfaced.contains(id),
                 "{id:?} is not surfaced by SystemMenuModel::build — add it to the model \
@@ -265,6 +278,67 @@ fn every_system_menu_entry_is_surfaced_by_the_system_model() {
             ),
         }
     }
+}
+
+/// **The Rebind screen appears only where there is something to rebind.**
+///
+/// ⭐ the capability gate, pinned from both sides. `build` alone must not
+/// surface it (the sibling assertion above), and attaching rows must — because
+/// a composition with no input stack has no bindings and should show no row
+/// rather than an empty screen, while one that HAS them must not hide the
+/// feature. The override model shipped reachable only by hand-editing a
+/// settings file; a screen that silently fails to attach would be the same
+/// gap wearing a different hat.
+#[test]
+fn the_rebind_screen_attaches_only_when_a_seat_supplies_bindings() {
+    use ambition_platformer2d::settings_menu::system::RebindRow;
+
+    let bare = SystemMenuModel::build(
+        &UserSettings::default(),
+        &RadioSnapshot::default(),
+        &DevSnapshot::default(),
+    );
+    assert!(
+        bare.entry(SystemMenuEntryId::Rebind).is_none(),
+        "no bindings supplied, so no screen"
+    );
+
+    let attached = SystemMenuModel::build(
+        &UserSettings::default(),
+        &RadioSnapshot::default(),
+        &DevSnapshot::default(),
+    )
+    .with_rebind(vec![RebindRow {
+        action: "Jump".to_string(),
+        label: "Jump".to_string(),
+        binding: "Z".to_string(),
+        also: Vec::new(),
+    }]);
+    let entry = attached
+        .entry(SystemMenuEntryId::Rebind)
+        .expect("bindings supplied, so the screen exists");
+    assert!(matches!(entry.target, SystemMenuTarget::Rebind(ref rows) if rows.len() == 1));
+
+    // And it sits where a player looks for it: straight after Controls.
+    let ids: Vec<_> = attached.entries.iter().map(|e| e.id).collect();
+    let controls = ids
+        .iter()
+        .position(|id| *id == SystemMenuEntryId::Controls)
+        .expect("Controls exists");
+    assert_eq!(
+        ids[controls + 1],
+        SystemMenuEntryId::Rebind,
+        "Rebind belongs beside Controls, not at the end of the list"
+    );
+
+    // An EMPTY row list is the same as no bindings: nothing to show.
+    let empty = SystemMenuModel::build(
+        &UserSettings::default(),
+        &RadioSnapshot::default(),
+        &DevSnapshot::default(),
+    )
+    .with_rebind(Vec::new());
+    assert!(empty.entry(SystemMenuEntryId::Rebind).is_none());
 }
 
 /// No-drift: every `SettingsOptionId` is not just in the IR but actually
@@ -455,6 +529,7 @@ mod dispatch_parity {
         app.init_resource::<KaleidoscopeCursor>();
         app.init_resource::<KaleidoscopeSystemNav>();
         app.init_resource::<KaleidoscopePointerPress>();
+        app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
         app.init_resource::<GridMenuTabState>();
         app.init_resource::<OwnedItems>();
         app.init_resource::<ambition_platformer2d::dev_tools::dev_tools::DeveloperTools>();

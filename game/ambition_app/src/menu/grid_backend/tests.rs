@@ -75,6 +75,7 @@ fn grid_app() -> App {
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<GridMenuTabState>();
+    app.init_resource::<crate::menu::kaleidoscope_app::RebindCapture>();
     app.init_resource::<ambition_platformer2d::input::SeatActiveDevices>();
     app.add_message::<PlayerHealRequested>();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();

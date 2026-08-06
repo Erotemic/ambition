@@ -269,6 +269,14 @@ pub enum SystemMenuEntryId {
     Developer,
     /// Dev-build only.
     ResetNewGame,
+    /// Per-action key/button rebinding.
+    ///
+    /// ⚠ **a screen, not a settings category.** It appears only where a
+    /// composition supplies the bindings to rebind
+    /// ([`SystemMenuModel::with_rebind`]), which is why it is not in
+    /// `curated_options`: a build with no input stack has nothing to list and
+    /// should show no row rather than an empty one.
+    Rebind,
 }
 
 impl SystemMenuEntryId {
@@ -278,6 +286,7 @@ impl SystemMenuEntryId {
             Self::Video => "Video",
             Self::Audio => "Audio",
             Self::Controls => "Controls",
+            Self::Rebind => "Rebind Controls",
             Self::Gameplay => "Gameplay",
             Self::Language => "Language",
             Self::ResetAllSettings => "Reset All Settings",
@@ -294,6 +303,7 @@ impl SystemMenuEntryId {
             Self::Video => "Display, FPS, camera zoom, and the shader / post-process stack.",
             Self::Audio => "Master / music / SFX volume and mute.",
             Self::Controls => "Touch overlay, dash input, and stick deadzone.",
+            Self::Rebind => "Put an action on a different key or button.",
             Self::Gameplay => "Debug and quest HUD overlays.",
             Self::Language => "Interface language (English only for now).",
             Self::ResetAllSettings => "Restore every setting and developer tool to its default.",
@@ -315,6 +325,15 @@ pub enum SystemOptionId {
     Locale(LocaleId),
     /// Toggle/cycle a developer tool.
     Dev(DevToggleId),
+    /// Arm the rebind capture for the row at this INDEX into the screen's
+    /// [`RebindRow`] list.
+    ///
+    /// ⚠ an index, not the action name, because this id is `Copy` and an action
+    /// name is a `String`. That is the same row-identity choice
+    /// `ambition_ui_nav::RowPress` documents: within one screen build the order
+    /// is canonical (`ActionBindings` sorts), so the index resolves back to the
+    /// row the player is looking at.
+    Rebind(usize),
 }
 
 /// A momentary, screen-less SYSTEM action.
@@ -347,8 +366,33 @@ pub enum SystemMenuTarget {
     Language(Vec<LocaleRow>),
     /// Drill into the developer toggles.
     Developer(Vec<DevRow>),
+    /// Drill into the per-action rebind list.
+    Rebind(Vec<RebindRow>),
     /// Fire an immediate action (no screen).
     Action(SystemMenuAction),
+}
+
+/// One rebindable action in the Rebind screen.
+///
+/// ⚠ **not a [`SettingsOption`], and that is the shape decision.** The settings
+/// IR is one option per settings FIELD; there are twenty-odd rebindable actions
+/// and they are not fields. They are rows over the seat's LIVE map, which is why
+/// `binding` is a rendered label rather than a value the row owns — a rebind
+/// that did not follow the projection would be the hand-maintained table
+/// `SeatBindings` exists to delete.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RebindRow {
+    /// The action's stable name — the string the projection publishes and a
+    /// settings file stores, so a row, a trace line and an override all agree.
+    pub action: String,
+    /// What to call it on screen.
+    pub label: String,
+    /// The control it is on now, already spelled in the seat's own pad
+    /// vocabulary. Empty when nothing binds it.
+    pub binding: String,
+    /// Other actions this control also drives. Reported, never refused — Escape
+    /// is deliberately both `Start` and `MenuBack`.
+    pub also: Vec<String>,
 }
 
 /// One radio station row in the Radio screen.
@@ -513,6 +557,38 @@ impl SystemMenuModel {
     /// docs); pass defaults where those subsystems are absent (audio-less / non-dev
     /// builds). Developer + Reset Sandbox are included only in dev builds
     /// ([`DEV_BUILD`]).
+    /// Attach the per-action REBIND screen, built from a seat's live bindings.
+    ///
+    /// ⭐ **attached rather than a fourth `build` parameter, and the reason is
+    /// not churn.** `build` has forty-odd call sites and every one of them would
+    /// have had to name a snapshot it does not have — but more than that, a
+    /// composition with no input stack has no bindings to rebind and should show
+    /// no row rather than an empty screen. Attaching makes the screen's presence
+    /// FOLLOW the capability instead of being asserted beside it.
+    ///
+    /// Placed immediately after `Controls`, because that is where a player looks
+    /// for it; appended if this build has no Controls entry.
+    pub fn with_rebind(mut self, rows: Vec<RebindRow>) -> Self {
+        if rows.is_empty() {
+            return self;
+        }
+        let entry = SystemMenuEntry {
+            id: SystemMenuEntryId::Rebind,
+            label: SystemMenuEntryId::Rebind.label().to_string(),
+            description: SystemMenuEntryId::Rebind.description().to_string(),
+            target: SystemMenuTarget::Rebind(rows),
+        };
+        match self
+            .entries
+            .iter()
+            .position(|e| e.id == SystemMenuEntryId::Controls)
+        {
+            Some(index) => self.entries.insert(index + 1, entry),
+            None => self.entries.push(entry),
+        }
+        self
+    }
+
     pub fn build(settings: &UserSettings, radio: &RadioSnapshot, dev: &DevSnapshot) -> Self {
         let model = settings_menu_model(settings);
         let settings_entry = |id: SystemMenuEntryId| -> SystemMenuEntry {

@@ -25,9 +25,12 @@
   invented — plus hall pedestals and conversations, so they exist as characters
   and their art resolves.
   ▢ **what is left is behaviour and placement**: a roster archetype the way
-  `solid_snake` has `mary_o_snake` (these are a FLYING swarm, which the engine
-  has no enemy shaped like yet), and an LDtk placement in 1-2. Both are Mary-O
-  work rather than engine work.
+  `solid_snake` has `mary_o_snake`, and an LDtk placement in 1-2. ⭐ **the flying
+  part is already handled** — the movement kernel has carried a flight limb all
+  along, and `body_kind: Floating` in the catalog row is the whole switch (it
+  turns gravity off and grants the fly ability at spawn). Both rows now say
+  Floating; they said Standard for an hour, which would have had a snake on a
+  paper airplane fall out of the sky.
   ⚠ **which one is the 1-2 enemy is yours to say.** The Cartesian one is the
   maths joke, the paper one is the aviation joke, and they are different
   creatures rather than two skins.

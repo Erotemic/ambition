@@ -230,7 +230,14 @@
             spritesheet: "sprites/snakes_on_a_cartesian_plane_spritesheet.png",
             manifest: "sprites/snakes_on_a_cartesian_plane_spritesheet.ron",
             tier: MainHall,
-            body_kind: Standard,
+            // ⭐ **Floating, not Standard — and that is what makes it FLY.** The chain is
+            // data all the way: `body_kind: Floating` -> `is_aerial` ->
+            // `gravity_scale: 0.0` plus the fly ability and `fly_enabled` from
+            // spawn. ⛔ both rows said `Standard` when they landed an hour
+            // earlier, which would have had a snake riding a paper plane fall
+            // out of the sky — and the ledger row above them claimed the engine
+            // had no shape for a flyer at all. It has had one the whole time.
+            body_kind: Floating,
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
@@ -252,7 +259,14 @@
             spritesheet: "sprites/snakes_on_a_paper_plane_spritesheet.png",
             manifest: "sprites/snakes_on_a_paper_plane_spritesheet.ron",
             tier: MainHall,
-            body_kind: Standard,
+            // ⭐ **Floating, not Standard — and that is what makes it FLY.** The chain is
+            // data all the way: `body_kind: Floating` -> `is_aerial` ->
+            // `gravity_scale: 0.0` plus the fly ability and `fly_enabled` from
+            // spawn. ⛔ both rows said `Standard` when they landed an hour
+            // earlier, which would have had a snake riding a paper plane fall
+            // out of the sky — and the ledger row above them claimed the engine
+            // had no shape for a flyer at all. It has had one the whole time.
+            body_kind: Floating,
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",

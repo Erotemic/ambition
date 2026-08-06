@@ -282,9 +282,27 @@ slot with no attached pad cannot be set to controller.
   and it is a measurement, so it stays right through a regen.
   ⭐ looked at it: `capture_mary_o` of 1-1 shows the walking snake at about a
   tile, beside the tan crate that is a boxed one.
+  ⭐ **AND THE TWO NAMED FIXES HAVE A THIRD, found 2026-08-06 while measuring the
+  Hall cast — the same mechanism underlies both reports.** A quad's ASPECT comes
+  from `frame_width / frame_height` (`sprite_render_size`), i.e. from the FRAME,
+  which is mostly padding: the snake's 117x52 animal sits in a 128x128 square, and
+  the Hall's "tiny" characters are figures adrift in frames. But every sheet
+  already publishes `body_metrics.body_pixel_bbox` — the animal's real rectangle.
+  Taking the aspect from the BBOX instead of the frame would make every drawn quad
+  match its figure, on the whole cast, without touching the art pipeline (which is
+  Jon's `tools/ambition_sprite2d_renderer` and off-limits to a code change anyway).
+  ⛔ **but it is NOT a one-line aspect swap, and the trap is a known one.** Changing
+  the quad's aspect while still drawing the FULL frame texture stretches the art —
+  the "stretched sprite moves the collision off the picture" failure, again. It
+  needs the drawn REGION cropped to the bbox in the same edit (a sprite sub-rect),
+  and `body_metrics.feet_anchor_norm` exists precisely because the figure sits
+  somewhere inside its frame, so the anchor is computed against the frame today and
+  would have to move with the crop. Three coupled changes, not one.
   ▢ **what is left, stated as the choice it is:**
-  * the SNAKE's quad/box disagreement is an art-pipeline crop or a quad sized
-    from the body (`enemy_quad_matches_its_box` ratchets it at 2.47x);
+  * the SNAKE's quad/box disagreement is an art-pipeline crop, a quad sized from
+    the body, or the bbox-aspect route above — which is the one that also fixes
+    the Hall cast, and the one with the anchor coupling to get right
+    (`enemy_quad_matches_its_box` ratchets it at 2.47x);
   * the SIZES themselves — the snake at 41 x 18 world and the slop at 28 x 18
     against Mary-O's 48 tall — are one number each, and both now live where
     stating a different one is a one-line edit rather than a hunt.

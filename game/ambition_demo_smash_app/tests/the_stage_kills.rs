@@ -547,3 +547,127 @@ fn decide_a_two_player_match(app: &mut bevy::prelude::App) {
         .resource_mut::<ambition_demo_smash::select_screen::StartRequested>()
         .0 = true;
 }
+
+/// **A ladder roster seats TWO fighters at two different levels.**
+///
+/// `smash_roster_at_level` puts every CPU on one rung, and `smash_roster` makes
+/// seat 0 HUMAN — so the only opponent `ladder_probe` could offer was a
+/// controller-less body that never acts. That made its number clean (*every
+/// stock lost is a self-KO*) and made a FIGHT impossible to measure, which is
+/// why FB6e's `l3_earns_its_depth` is still owed §8's suite and the
+/// survival/damage ratios.
+///
+/// ⛔ **the assertion that matters is that the two seats DIFFER.** A rig built on
+/// a roster that quietly put both fighters on the same rung would report a 50%
+/// win rate at every level and read as "the ladder is flat" rather than as a
+/// broken fixture — the most expensive kind of wrong answer, because it looks
+/// like a finding.
+///
+/// ⚠ and both profiles must be SATISFIABLE by the demo's own archetype table,
+/// for the same reason its sibling above checks: `spec_for_brain` falls back to
+/// a generic row rather than failing, so an unregistered level is a fight
+/// against a statue that reports itself as a fight.
+#[test]
+fn a_ladder_roster_seats_two_cpus_at_two_different_levels() {
+    use ambition_platformer2d::actor::ControllerBinding;
+    use ambition_platformer2d::actors::features::CharacterRoster;
+
+    let mut app = build_demo_app();
+    for _ in 0..30 {
+        app.update();
+    }
+    let archetypes = app
+        .world()
+        .get_resource::<CharacterRoster>()
+        .expect("the composition installs an archetype table")
+        .clone();
+
+    // ⛔ **THE LADDER IS SPARSE, and a rig has to know it.** `SMASH_ROSTER_RON`
+    // registers `duelist_l{1,3,5,6,9}` and nothing between — the rungs
+    // `ladder_probe` happens to run. The first draft of this test asked for
+    // level 8 and failed, which is the right outcome: `spec_for_brain` falls
+    // back to a generic row rather than erroring, so an unregistered rung fights
+    // a statue and reports a fight.
+    const RUNGS: &[u8] = &[1, 3, 5, 6, 9];
+
+    let roster = ambition_demo_smash::smash_roster_at_levels(
+        [
+            ambition_demo_smash::SMASH_CHARACTER_ID,
+            ambition_demo_smash::SMASH_OPPONENT_ID,
+        ],
+        &[9, 6],
+    );
+    assert_eq!(roster.participants.len(), 2);
+
+    let profiles: Vec<Option<String>> = roster
+        .participants
+        .iter()
+        .map(|p| match &p.controller {
+            ControllerBinding::Cpu { brain_profile } => brain_profile.clone(),
+            other => panic!("a ladder seat is not a CPU: {other:?}"),
+        })
+        .collect();
+    // ⚠ built from the CONSTANT, not spelled out. The first draft guessed
+    // `smash_duelist_l9` and the real prefix is `duelist` — a restated name is a
+    // second authority on a string, which is the mistake five other checks in
+    // this tree were written after making.
+    let expected: Vec<Option<String>> = [9, 6]
+        .iter()
+        .map(|level| {
+            Some(format!(
+                "{}_l{level}",
+                ambition_demo_smash::SMASH_DUELIST_BRAIN
+            ))
+        })
+        .collect();
+    assert_eq!(
+        profiles, expected,
+        "the two seats must sit on DIFFERENT rungs, or every measurement built \
+         on this reads 50% and looks like a flat ladder rather than a broken rig"
+    );
+    for profile in profiles.iter().flatten() {
+        assert!(
+            archetypes.has_brain_key(profile),
+            "`{profile}` is not in the demo's archetype table, so `spec_for_brain` \
+             hands back a generic row and the rung fights a statue while reporting \
+             a fight"
+        );
+    }
+    // ⭐ **every ADJACENT PAIR is satisfiable**, which is the property a ladder
+    // rig needs and the one a single spot-check would not have given: N vs N−1
+    // over the registered rungs is (3,1), (5,3), (6,5), (9,6).
+    for pair in RUNGS.windows(2) {
+        let (lower, upper) = (pair[0], pair[1]);
+        let rung = ambition_demo_smash::smash_roster_at_levels(
+            [
+                ambition_demo_smash::SMASH_CHARACTER_ID,
+                ambition_demo_smash::SMASH_OPPONENT_ID,
+            ],
+            &[upper, lower],
+        );
+        for participant in &rung.participants {
+            let ControllerBinding::Cpu { brain_profile } = &participant.controller else {
+                panic!("a ladder seat is not a CPU");
+            };
+            let profile = brain_profile
+                .as_deref()
+                .expect("a CPU seat names a profile");
+            assert!(
+                archetypes.has_brain_key(profile),
+                "rung {upper} vs {lower} asks for `{profile}`, which this \
+                 composition's archetype table does not carry"
+            );
+        }
+    }
+
+    // The ruleset is the shipped stage's, not the rig's — a measurement of a
+    // game nobody plays is worth nothing.
+    assert_eq!(
+        roster.fighter_stocks,
+        Some(ambition_demo_smash::STARTING_STOCKS)
+    );
+    assert!(
+        roster.opens_suspended,
+        "a ladder round opens on the countdown too"
+    );
+}

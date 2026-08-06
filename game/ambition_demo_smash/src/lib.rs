@@ -195,6 +195,41 @@ where
 ///
 /// The engine spends the stock and clears the meter; it refuses to place the
 /// body, because placing it needs a stage. This is that answer.
+/// **Two CPU fighters at DIFFERENT levels — the ladder's own roster.**
+///
+/// [`smash_roster_at_level`] puts every CPU seat on one rung, which is what a
+/// probe wants (*"how does level N behave"*) and not what a LADDER wants
+/// (*"does level N beat level N−1"*). And [`smash_roster`] makes seat 0 HUMAN,
+/// so the only opponent a probe could offer was a controller-less body that
+/// never acts — every stock lost was a self-KO, which made the number clean and
+/// made it impossible to measure a fight.
+///
+/// ⚠ **`opens_suspended` and the stock count are inherited deliberately.** A rig
+/// that quietly ran a different ruleset from the shipped stage would measure a
+/// game nobody plays; the ONLY difference from a real match is who is holding
+/// the controllers.
+///
+/// ⛔ **it takes one level per seat, not a base and an offset.** `N vs N−1` is
+/// the ladder's first question and not its last — `N vs N−3`, `N vs N`, and a
+/// rung against a fixed reference are all things this measures — and encoding
+/// the subtraction here would have to be undone by the second caller.
+pub fn smash_roster_at_levels<I, S>(characters: I, levels: &[u8]) -> MatchParticipantRoster
+where
+    I: IntoIterator<Item = S>,
+    S: Into<String>,
+{
+    let mut roster = smash_roster(characters);
+    for (index, participant) in roster.participants.iter_mut().enumerate() {
+        // Every seat is a CPU here, including seat 0 — which `smash_roster` made
+        // human, because a human seat is what a player expects to occupy.
+        let level = levels.get(index).copied().unwrap_or(1);
+        participant.controller = ControllerBinding::Cpu {
+            brain_profile: Some(format!("{SMASH_DUELIST_BRAIN}_l{level}")),
+        };
+    }
+    roster
+}
+
 pub fn respawn_placement(stage_centre: Vec2) -> Vec2 {
     Vec2::new(
         stage_centre.x,

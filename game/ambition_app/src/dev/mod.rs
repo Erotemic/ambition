@@ -26,8 +26,62 @@ impl Plugin for DevToolsPlugin {
         #[cfg(feature = "dev_tools")]
         app.add_plugins(rollback_observatory::RollbackObservatoryPlugin);
         install_egui_inspectors(app);
+        install_debug_input_context(app);
     }
 }
+
+/// **A developer typing into an inspector is not steering the character.**
+///
+/// egui receives the same key presses leafwing does, so editing a tuning field
+/// with the inspector open also drove the actor: typing a jump height walked
+/// the player off the ledge being measured. `DEBUG_CONTEXT` has existed for
+/// this since the claim system landed — priority 195, above every in-session
+/// surface, *"because a developer reaching for the inspector means it"* — and
+/// nothing declared it.
+///
+/// ⚠ **the condition is "egui WANTS the keyboard", not "the inspector is
+/// visible".** Watching values while playing is the normal way to use an
+/// inspector; capturing input for the whole time a panel is up would break the
+/// thing the panel is there to observe. egui already answers the narrower
+/// question, and only while a text field actually holds focus.
+///
+/// The answer is one frame old (egui resolves focus in its own pass, after
+/// this set). That is the correct frame anyway: focus is taken by a CLICK, so
+/// the first keystroke a developer types is already inside a focused field.
+#[cfg(feature = "dev_tools")]
+fn install_debug_input_context(app: &mut App) {
+    use ambition_platformer2d::input::participant::{
+        context_priority, ContextClaim, InputParticipant, ParticipantContexts, DEBUG_CONTEXT,
+    };
+    use bevy_inspector_egui::bevy_egui::{EguiContext, PrimaryEguiContext};
+
+    fn declare_debug_context(
+        mut egui: Query<&mut EguiContext, With<PrimaryEguiContext>>,
+        mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+    ) {
+        let typing = egui
+            .iter_mut()
+            .any(|mut context| context.get_mut().wants_keyboard_input());
+        for mut contexts in &mut participants {
+            // Touch the component only when the claim actually moves, so a
+            // quiet frame is not a change-detection event downstream.
+            if contexts.is_declared(DEBUG_CONTEXT) != typing {
+                contexts.sync(
+                    ContextClaim::capturing(DEBUG_CONTEXT, context_priority::DEBUG),
+                    typing,
+                );
+            }
+        }
+    }
+
+    app.add_systems(
+        Update,
+        declare_debug_context.in_set(ambition_platformer2d::input::InputSet::ResolveContext),
+    );
+}
+
+#[cfg(not(feature = "dev_tools"))]
+fn install_debug_input_context(_app: &mut App) {}
 
 /// Install the egui inspector plugins. Gated by `dev_tools` so
 /// shipping/headless builds don't pull `bevy-inspector-egui` /

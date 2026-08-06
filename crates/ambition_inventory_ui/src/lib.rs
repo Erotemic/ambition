@@ -5,6 +5,8 @@
 //! scroll / focus) driven by the unified menu. Keeping this state here lets the
 //! reusable item catalog stay below menu-navigation and presentation tiers.
 
+mod context;
 mod model;
 
+pub use self::context::{declare_inventory_input_context, InventoryInputContextPlugin};
 pub use self::model::{InventoryTab, InventoryUiState};

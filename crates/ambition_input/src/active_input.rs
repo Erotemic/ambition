@@ -46,8 +46,13 @@
 
 use std::collections::BTreeMap;
 
-use bevy::input::gamepad::Gamepad;
 use bevy::prelude::*;
+// Only `update_seat_active_devices` names these, and it is gated — a build
+// without the feature (this crate is a plain dependency of the inventory
+// surface, which needs the context vocabulary and nothing else) would warn.
+#[cfg(feature = "input")]
+use bevy::input::gamepad::Gamepad;
+#[cfg(feature = "input")]
 use bevy_window::CursorMoved;
 
 /// How a pad's vendor draws its buttons. Presentation only — WHICH button is

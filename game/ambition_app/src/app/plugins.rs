@@ -451,6 +451,12 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
 fn install_menu_setup_and_hotkeys(app: &mut App) {
     // Starter item-ownership roster (the 24-item catalog default set).
     app.add_plugins(ambition_content::items::AmbitionItemRosterPlugin);
+    // An open inventory OWNS the seat's input, declared rather than derived:
+    // every site that wanted this fact used to spell it `Paused &&
+    // inventory.visible`, which is the `GameMode` derivation the participant
+    // layer's own header forbids — and which said nothing at all in a
+    // composition that never registers `GameMode`.
+    app.add_plugins(inventory_ui::InventoryInputContextPlugin);
     app.insert_resource(inventory_ui::InventoryUiState::default())
         .init_resource::<ambition_platformer2d::actors::items::persist::InventoryRestored>()
         // Persist the inventory + wallet across save/load: restore the saved set

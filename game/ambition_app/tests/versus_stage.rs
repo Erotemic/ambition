@@ -14,10 +14,12 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
-use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteCatalog, ShellRouteId, ShellRouter};
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
-use ambition_app::app::{VisibleRenderMode, build_visible_app};
+use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_platformer2d::game_shell::{
+    ShellCommand, ShellRouteCatalog, ShellRouteId, ShellRouter,
+};
 
 /// Push a raw gamepad button value, the way the device backend would.
 fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
@@ -516,10 +518,10 @@ fn both_fighters_can_actually_hit_each_other() {
 /// the fighters come back, and that two rounds take the match.
 #[test]
 fn a_ko_wins_a_round_and_two_rounds_win_the_match() {
+    use ambition_app::app::versus_rules::ROUNDS_TO_WIN;
     use ambition_platformer2d::actors::actor::BodyKinematics;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::ROUNDS_TO_WIN;
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -776,11 +778,12 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
     // so a hand-zeroed body never invokes it and the test passes whether or not
     // the fix exists. (It did, first time round.)
     let hp = app.world().get::<BodyHealth>(seat_zero).unwrap().current();
-    let volume: ambition_platformer2d::engine_core::CombatVolume = ambition_platformer2d::engine_core::Aabb::new(
-        where_it_stood,
-        ambition_platformer2d::engine_core::Vec2::new(40.0, 40.0),
-    )
-    .into();
+    let volume: ambition_platformer2d::engine_core::CombatVolume =
+        ambition_platformer2d::engine_core::Aabb::new(
+            where_it_stood,
+            ambition_platformer2d::engine_core::Vec2::new(40.0, 40.0),
+        )
+        .into();
     app.world_mut()
         .write_message(ambition_platformer2d::combat::events::HitEvent {
             strike_sfx: None,
@@ -1067,8 +1070,8 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
 #[test]
 fn a_decided_round_takes_the_controls_away() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
-    use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::actor::control::ActorControlFrame;
+    use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::brain::{ActorControl, ScriptedControl};
 
     let mut app = versus_app();
@@ -1275,9 +1278,9 @@ fn a_round_boundary_tells_the_provider_to_reset_its_own_state() {
 /// business — which is the whole reason the fraction is what crosses the seam.
 #[test]
 fn the_versus_health_readout_is_a_gauge_that_follows_damage() {
+    use ambition_app::app::versus_rules::HEALTH_HUD_SLOTS;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::HEALTH_HUD_SLOTS;
     let (seat_0_slot, seat_1_slot) = (HEALTH_HUD_SLOTS[0], HEALTH_HUD_SLOTS[1]);
 
     let mut app = versus_app();
@@ -1376,7 +1379,10 @@ fn every_seated_fighter_has_something_on_screen() {
     // feature visual. The adopted seat is excluded by construction — it carries
     // no `FeatureId` because it is the player.
     let world = app.world_mut();
-    let mut seats = world.query::<(&MatchSeat, &ambition_platformer2d::actors::features::FeatureId)>();
+    let mut seats = world.query::<(
+        &MatchSeat,
+        &ambition_platformer2d::actors::features::FeatureId,
+    )>();
     let spawned: Vec<(usize, String)> = seats
         .iter(world)
         .map(|(seat, id)| (seat.0, id.0.clone()))
@@ -1412,7 +1418,7 @@ fn every_seated_fighter_has_something_on_screen() {
 #[test]
 fn four_controllers_make_versus_a_two_versus_two() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
-    use ambition_platformer2d::combat::targeting::{FriendlyFire, MatchTeam, damage_lands_between};
+    use ambition_platformer2d::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
 
     let mut app = versus_app();
     for _ in 0..4 {
@@ -1602,9 +1608,9 @@ fn four_pads_each_move_their_own_fighter_and_nobody_else_s() {
 /// like information.
 #[test]
 fn a_two_versus_two_shows_four_gauges_and_scores_by_team() {
+    use ambition_app::app::versus_rules::HEALTH_HUD_SLOTS;
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
     use ambition_platformer2d::characters::actor::BodyHealth;
-    use ambition_app::app::versus_rules::HEALTH_HUD_SLOTS;
 
     let mut app = versus_app();
     for _ in 0..4 {
@@ -1774,7 +1780,8 @@ fn a_round_boundary_leaves_the_last_rounds_attacks_behind() {
     app.update();
     let shot = {
         let world = app.world_mut();
-        let mut q = world.query_filtered::<Entity, With<ambition_platformer2d::projectiles::LiveProjectile>>();
+        let mut q = world
+            .query_filtered::<Entity, With<ambition_platformer2d::projectiles::LiveProjectile>>();
         q.iter(world)
             .next()
             .expect("the player pool materialized the shot this fixture fired")
@@ -1895,14 +1902,17 @@ fn no_render_only_frame_of_the_shipped_host_writes_rollback_state() {
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::ZERO));
     app.update();
 
-    let tick_before = *app.world().resource::<ambition_platformer2d::time::SimTick>();
+    let tick_before = *app
+        .world()
+        .resource::<ambition_platformer2d::time::SimTick>();
     let baseline = app.world().read_change_tick();
     for _ in 0..4 {
         app.update();
     }
     let now = app.world().read_change_tick();
     assert_eq!(
-        *app.world().resource::<ambition_platformer2d::time::SimTick>(),
+        *app.world()
+            .resource::<ambition_platformer2d::time::SimTick>(),
         tick_before,
         "the simulation kept stepping through the frames this test calls \
          render-only, so a clean result below would mean nothing"
@@ -2024,7 +2034,7 @@ fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
 /// round one.
 #[test]
 fn the_round_counter_counts_rounds_and_not_wins() {
-    use ambition_app::app::versus_rules::{ANNOUNCE_HUD_SLOT, MatchPhase, VersusMatch};
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch, ANNOUNCE_HUD_SLOT};
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2036,7 +2046,9 @@ fn the_round_counter_counts_rounds_and_not_wins() {
         if app
             .world()
             .resource::<ambition_platformer2d::presentation::HudReadouts>()
-            .get(&ambition_platformer2d::presentation::HudSlotId::from(ANNOUNCE_HUD_SLOT))
+            .get(&ambition_platformer2d::presentation::HudSlotId::from(
+                ANNOUNCE_HUD_SLOT,
+            ))
             .is_some_and(|readout| readout.text().contains("ROUND 1"))
         {
             opened_with_a_card = true;
@@ -2146,9 +2158,9 @@ fn a_seated_fighter_is_damageable_through_its_authored_hurtbox() {
     );
     let half_width = |resolved: &ResolvedHurtboxes| -> f32 {
         match resolved.volumes.first().map(|volume| &volume.shape) {
-            Some(ambition_platformer2d::entity_catalog::VolumeShape::Rect { half_extents, .. }) => {
-                half_extents.0
-            }
+            Some(ambition_platformer2d::entity_catalog::VolumeShape::Rect {
+                half_extents, ..
+            }) => half_extents.0,
             other => panic!("expected an authored rect hurtbox, got {other:?}"),
         }
     };
@@ -2539,10 +2551,12 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
         let mut cues =
             world.resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>();
         let mut reader = cues.get_cursor();
-        if reader
-            .read(&cues)
-            .any(|cue| matches!(cue.request, ambition_platformer2d::sfx::SfxMessage::Death { .. }))
-        {
+        if reader.read(&cues).any(|cue| {
+            matches!(
+                cue.request,
+                ambition_platformer2d::sfx::SfxMessage::Death { .. }
+            )
+        }) {
             heard_death = true;
         }
         cues.update();
@@ -2576,11 +2590,12 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
     };
     let where_it_stood = app.world().get::<BodyKinematics>(seat_zero).unwrap().pos;
     let hp = app.world().get::<BodyHealth>(seat_zero).unwrap().current();
-    let volume: ambition_platformer2d::engine_core::CombatVolume = ambition_platformer2d::engine_core::Aabb::new(
-        where_it_stood,
-        ambition_platformer2d::engine_core::Vec2::new(40.0, 40.0),
-    )
-    .into();
+    let volume: ambition_platformer2d::engine_core::CombatVolume =
+        ambition_platformer2d::engine_core::Aabb::new(
+            where_it_stood,
+            ambition_platformer2d::engine_core::Vec2::new(40.0, 40.0),
+        )
+        .into();
     app.world_mut()
         .write_message(ambition_platformer2d::combat::events::HitEvent {
             strike_sfx: None,
@@ -2601,10 +2616,12 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
         let mut cues =
             world.resource_mut::<bevy::ecs::message::Messages<ambition_platformer2d::sfx::OwnedSfxMessage>>();
         let mut reader = cues.get_cursor();
-        if reader
-            .read(&cues)
-            .any(|cue| matches!(cue.request, ambition_platformer2d::sfx::SfxMessage::Death { .. }))
-        {
+        if reader.read(&cues).any(|cue| {
+            matches!(
+                cue.request,
+                ambition_platformer2d::sfx::SfxMessage::Death { .. }
+            )
+        }) {
             heard_seat_zero = true;
         }
         cues.update();
@@ -2683,5 +2700,80 @@ fn a_round_boundary_culls_round_scoped_entities_the_rules_never_name() {
         app.world().get_entity(debris).is_err(),
         "a round-scoped entity outlived its round. The boundary is back to \
          enumerating families, and the one it does not name is the one that leaks"
+    );
+}
+
+/// **The disagreement path is REAL, and nothing exercised it.**
+///
+/// `reconcile_roster_with_frozen_topology` has two arms once a match is seated:
+/// correct the paperwork when the frozen topology would build the SAME fighters,
+/// and refuse to touch anything when it would not. The second arm carries a long
+/// comment explaining why reseating mid-round is the worse bug — and no test
+/// reached it. That is the shape `tracks.md` calls out about K2b: *"the coverage
+/// is all implicit, which is exactly what makes risk 1 dangerous."*
+///
+/// This drives a real seated round, then makes the live roster name fighters the
+/// frozen topology would never build, and asserts the reconciler leaves BOTH the
+/// participants and the stale stamp alone. A repair here would be a silent
+/// reseat of bodies already fighting.
+///
+/// ⚠ **it asserts the stamp stays STALE on purpose.** That is the visible
+/// difference between the two arms: agreement updates it, disagreement must not,
+/// because updating it would claim the session and the roster agree.
+#[test]
+fn a_roster_that_disagrees_with_the_frozen_topology_is_left_alone() {
+    use ambition_platformer2d::actor::MatchParticipantRoster;
+
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
+        let seated = rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID);
+        if seated {
+            break;
+        }
+    }
+    settle_into_a_live_round(&mut app);
+
+    // The match is live. Now make the roster describe a DIFFERENT fight than the
+    // frozen topology would build, exactly as a mid-session topology change
+    // would, and clear the stamp so the reconciler re-examines it.
+    let (before, stamped_generation) = {
+        let mut roster = app.world_mut().resource_mut::<MatchParticipantRoster>();
+        for participant in &mut roster.participants {
+            participant.character = format!("{}_impostor", participant.character);
+        }
+        roster.seat_topology = None;
+        (roster.participants.clone(), roster.seat_topology)
+    };
+    assert!(
+        stamped_generation.is_none(),
+        "the fixture failed to clear the stamp, so the reconciler will return early \
+         and this test would pass without reaching either arm"
+    );
+
+    for _ in 0..30 {
+        app.update();
+    }
+
+    let roster = app.world().resource::<MatchParticipantRoster>();
+    assert_eq!(
+        roster.participants, before,
+        "the reconciler REBUILT a roster whose fighters disagree with the live \
+         match — that reseats bodies already fighting, which its own comment calls \
+         the worse bug"
+    );
+    assert!(
+        roster.seat_topology.is_none(),
+        "the disagreement was stamped as agreed. The stamp is the difference \
+         between the two arms: correcting it claims the session and the roster \
+         describe the same match, and here they do not"
     );
 }

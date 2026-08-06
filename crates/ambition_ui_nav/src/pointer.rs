@@ -52,7 +52,7 @@ impl MenuFocusState {
     }
 }
 
-/// **The row a pointer went DOWN on, and where.**
+/// **What a pointer went DOWN on, and where.**
 ///
 /// ⛔ **activating on PRESS is why touch needed two taps.** A finger that
 /// presses a row and then slides — scrolling a list, moving a stick — has
@@ -68,14 +68,20 @@ impl MenuFocusState {
 /// behaviour, lifted to the shared row vocabulary so dialogue and every other
 /// selectable list get it rather than one menu (GPT 5.6 review, 2026-08-04).
 ///
-/// ⚠ **the identity is the ROW INDEX, not an entity.** A windowed list rebuilds
-/// its rows between press and release, so an entity-keyed arm would be a dangling
-/// handle by the time the finger lifts — the same reason the kaleidoscope stores
-/// the ACTION at press rather than the entity.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct RowPress {
-    /// The row index the pointer went down on.
-    pub index: Option<usize>,
+/// ⚠ **the identity is NEVER an entity.** A windowed list and a rebuilding
+/// perspective cube both respawn their controls between press and release, so
+/// an entity-keyed arm is a dangling handle by the time the finger lifts — the
+/// historical `Pointer<Click>` failure, which requires press and release to
+/// resolve to the same entity.
+///
+/// What the identity IS depends on what the surface can name stably, which is
+/// why this is generic: a flat list keys on the ROW INDEX ([`RowPress`]), and a
+/// surface whose cells have no stable ordinal keys on the ACTION the control
+/// carries. Both survive a rebuild; an entity does not.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PressArm<T> {
+    /// What the pointer went down on.
+    pub target: Option<T>,
     /// Where it went down, for the drag test. `None` when the backend could not
     /// say, in which case a drag cannot be detected and release still activates —
     /// no position is not evidence of a drag.
@@ -83,6 +89,23 @@ pub struct RowPress {
     /// The pointer travelled past the threshold: this press is dead and will not
     /// activate, however it ends.
     pub cancelled: bool,
+}
+
+/// A press armed on a flat list's row index — the original shape, and still the
+/// right one for anything with rows.
+pub type RowPress = PressArm<usize>;
+
+// Hand-written so an arm over a target that has no `Default` still has one.
+// `#[derive(Default)]` would demand `T: Default`, which a menu-action enum has
+// no reason to satisfy.
+impl<T> Default for PressArm<T> {
+    fn default() -> Self {
+        Self {
+            target: None,
+            origin: None,
+            cancelled: false,
+        }
+    }
 }
 
 /// How far a pointer may travel between press and release and still count as a
@@ -93,12 +116,22 @@ pub struct RowPress {
 /// as an unresponsive UI, the failure this whole change exists to remove.
 pub const ROW_TAP_SLOP_PX: f32 = 16.0;
 
-impl RowPress {
-    /// A pointer went down on `index` at `origin`.
-    pub fn press(&mut self, index: usize, origin: Option<Vec2>) {
-        self.index = Some(index);
+impl<T: Clone + PartialEq> PressArm<T> {
+    /// A pointer went down on `target` at `origin`.
+    pub fn press(&mut self, target: T, origin: Option<Vec2>) {
+        self.target = Some(target);
         self.origin = origin;
         self.cancelled = false;
+    }
+
+    /// Whether anything is armed.
+    pub fn is_armed(&self) -> bool {
+        self.target.is_some()
+    }
+
+    /// What is armed, if anything.
+    pub fn armed(&self) -> Option<&T> {
+        self.target.as_ref()
     }
 
     /// The pointer moved. Past [`ROW_TAP_SLOP_PX`] this press stops being a tap.
@@ -110,30 +143,45 @@ impl RowPress {
         }
     }
 
-    /// The pointer came up. Returns the row to activate, if this press survived
-    /// as a tap ON THE SAME ROW, and clears the arm either way.
-    pub fn release(&mut self, index: usize, at: Option<Vec2>) -> Option<usize> {
+    /// The pointer came up. Returns the target to activate, if this press
+    /// survived as a tap ON THE SAME TARGET, and clears the arm either way.
+    pub fn release(&mut self, target: T, at: Option<Vec2>) -> Option<T> {
         self.moved(at);
-        let armed = self.index.take();
+        let armed = self.target.take();
         let cancelled = std::mem::take(&mut self.cancelled);
         self.origin = None;
-        (!cancelled && armed == Some(index)).then_some(index)
+        (!cancelled && armed.as_ref() == Some(&target)).then_some(target)
     }
 
-    /// The pointer LEFT this row without coming up.
+    /// The pointer came up SOMEWHERE, and the surface cannot say where.
+    ///
+    /// ⚠ **weaker than [`Self::release`] on purpose, and only correct for a
+    /// surface that rebuilds under the finger.** A perspective cube respawns
+    /// its cells continuously, so "which control is under the pointer now" is
+    /// not evidence about which one the press began on — the press already
+    /// captured that. A flat list HAS that evidence and must use it, or
+    /// pressing one row and releasing on another activates the first.
+    pub fn release_anywhere(&mut self) -> Option<T> {
+        let armed = self.target.take();
+        let cancelled = std::mem::take(&mut self.cancelled);
+        self.origin = None;
+        armed.filter(|_| !cancelled)
+    }
+
+    /// The pointer LEFT this target without coming up.
     ///
     /// ⛔ **a leave is not a release, and the two are the same Bevy signal.**
     /// `Interaction::None` is raised both when a finger lifts and when a held
     /// pointer stops covering the row, and [`Self::release`] cannot tell them
-    /// apart — its only guards are the drag threshold and the row index, so a
+    /// apart — its only guards are the drag threshold and the target, so a
     /// press that slides a few pixels off a short row would activate under a
     /// finger that never came up. The caller decides which event it is from the
     /// live button/touch state and calls this one for a leave.
     ///
-    /// Only the armed row can be left, so a sibling row going `None` in the same
-    /// frame does not take the arm down with it.
-    pub fn left(&mut self, index: usize) {
-        if self.index == Some(index) {
+    /// Only the armed target can be left, so a sibling row going `None` in the
+    /// same frame does not take the arm down with it.
+    pub fn left(&mut self, target: T) {
+        if self.target.as_ref() == Some(&target) {
             self.clear();
         }
     }

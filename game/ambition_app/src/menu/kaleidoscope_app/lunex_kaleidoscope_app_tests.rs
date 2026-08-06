@@ -1700,7 +1700,11 @@ fn release_dispatch_survives_a_control_rebuild_between_press_and_release() {
     // 1. Arm a press on the Blink control.
     let pressed = arm_press(&mut app, MenuPageAction::Equip(Item::Blink));
     assert_eq!(
-        app.world().resource::<KaleidoscopePointerPress>().action,
+        app.world()
+            .resource::<KaleidoscopePointerPress>()
+            .0
+            .armed()
+            .copied(),
         Some(MenuPageAction::Equip(Item::Blink)),
         "the press armed the control's action in the guard"
     );

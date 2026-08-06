@@ -302,6 +302,7 @@ dependencies = [
 name = "ambition_menu"
 version = "0.1.0"
 dependencies = [
+ "ambition_ui_nav",
  "bevy",
 ]
 

@@ -181,8 +181,13 @@ fn startup_cards_and_launcher_run_on_the_participant_with_no_actor() {
         "the startup cue names the acknowledge verb"
     );
 
-    // Tap-anywhere: pressing the card's full-screen surface advances ONE
+    // Tap-anywhere: TAPPING the card's full-screen surface advances ONE
     // card through the same semantic command keyboard confirm uses.
+    //
+    // ⚠ a tap is down THEN up. The menu bridge activates on the way up, so a
+    // finger that lands on the card and slides away has not chosen anything —
+    // Bevy reports a pointer that comes up still over the control as a return
+    // to `Interaction::Hovered`.
     let first_segment = current_segment(&app).expect("a card is up");
     let card_surface = {
         let mut q = app
@@ -197,6 +202,15 @@ fn startup_cards_and_launcher_run_on_the_participant_with_no_actor() {
     app.world_mut()
         .entity_mut(card_surface)
         .insert(Interaction::Pressed);
+    app.update();
+    assert_eq!(
+        current_segment(&app).as_ref(),
+        Some(&first_segment),
+        "a finger resting on the card has not advanced it"
+    );
+    app.world_mut()
+        .entity_mut(card_surface)
+        .insert(Interaction::Hovered);
     app.update();
     app.update();
     let second_segment = current_segment(&app).expect("the next card is up");

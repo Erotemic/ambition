@@ -31,6 +31,11 @@ bevy = { version = "0.18.1", default-features = false, features = [
     # Only the UI *backend* (`ui_picking`) rides the `bevy_ui_menu` feature.
     "bevy_picking",
 ] }
+# `PressArm` — the release-with-drag-cancel primitive the pointer bridge
+# activates on. It lives there because dialogue and the cube menu already use
+# it, and a fourth copy of "did this press survive as a tap" is exactly the
+# drift this renderer's bridge exists to prevent.
+ambition_ui_nav = { path = "../ambition_ui_nav" }
 # The bevy_lunex cube renderer moved to the `ambition_menu_kaleidoscope`
 # extension crate (E1e); this crate is now bevy_lunex-free (the flat bevy_ui
 # grid renderer + the renderer-agnostic page model).

@@ -16,6 +16,6 @@ pub use list::apply_vertical_scroll;
 pub use list::scroll_into_view;
 pub use list::visible_window_start;
 pub use pointer::{
-    resolve_selectable_row_interaction, DialogChoiceSlot, MenuFocusOwner, MenuFocusState,
+    resolve_selectable_row_interaction, DialogChoiceSlot, MenuFocusOwner, MenuFocusState, PressArm,
     RowPointerOutcome, RowPress, ROW_TAP_SLOP_PX,
 };

@@ -600,26 +600,114 @@ fn bevy_ui_scrollbar_press_drag(
 /// perform a semantic action. This single generic bridge is the ownership seam:
 /// render rows carry [`AmbitionMenuControl<Action>`], Bevy updates
 /// [`Interaction`], and the host consumes [`crate::MenuActionActivated<Action>`].
+///
+/// ## Activation is a RELEASE, and it was a press
+///
+/// ⛔ **this bridge activated on `Interaction::Pressed`**, which made it the
+/// last holdout of the behaviour touch was promoted to two taps to survive: a
+/// finger that lands on a row and slides — to scroll the list it is in — has
+/// already activated that row. Dialogue got release-with-drag-cancel
+/// ([`ambition_ui_nav::RowPress`]) and the kaleidoscope had its own copy of the
+/// idea; everything drawn through THIS renderer — the launcher, the pause menu,
+/// the shell cards, the grid inventory — still fired on the way down. One
+/// bridge, so one edit reaches all four.
+///
+/// The transitions are read off `Interaction` alone, which already distinguishes
+/// the two endings a press can have:
+///
+/// * `Pressed` → `Hovered` on the SAME control = the pointer came up on it. That
+///   is the activation.
+/// * `Pressed` → `None` = the pointer left. A leave is not a release, and
+///   activating on it is the bug the primitive's own docs describe.
+///
+/// ⚠ **the arm survives a rebuild, because it is keyed on the ACTION and not on
+/// the entity.** Menu pages respawn their controls, so a press and its release
+/// routinely land on two different entities for one control — the historical
+/// `Pointer<Click>` failure.
+///
+/// ⛔ **surviving the rebuild takes more than an action key, and the difference
+/// is one frame.** A control respawned during `Update` has `Interaction::None`
+/// until `ui_focus_system` evaluates it in the NEXT frame's `PreUpdate` — so on
+/// the rebuild frame the armed control reads exactly like one the pointer walked
+/// off, and dropping the arm there loses every click that spans a republish.
+/// The two are told apart by the ENTITY: a control whose entity changed under
+/// the arm was rebuilt, and its `None` is "not evaluated yet". A control sitting
+/// at the same entity reading `None` really was left.
 fn publish_bevy_ui_menu_actions<Action>(
-    rows: Query<(&Interaction, &AmbitionMenuControl<Action>), With<Button>>,
+    rows: Query<(Entity, &Interaction, &AmbitionMenuControl<Action>), With<Button>>,
+    pointers: Query<&bevy::picking::pointer::PointerLocation>,
     mut activated: MessageWriter<crate::MenuActionActivated<Action>>,
-    mut press_held: Local<bool>,
+    mut arm: Local<ambition_ui_nav::PressArm<String>>,
+    // The armed control's payload and the entity that drew it when the pointer
+    // went down. Beside the arm rather than inside it because neither fact is
+    // the tap-geometry primitive's business.
+    mut armed: Local<Option<(Action, Entity)>>,
 ) where
-    Action: Clone + Send + Sync + 'static,
+    Action: Clone + std::fmt::Debug + Send + Sync + 'static,
 {
-    let mut first_pressed = None;
-    for (interaction, control) in &rows {
-        if *interaction == Interaction::Pressed {
-            first_pressed = first_pressed.or_else(|| control.action.clone());
+    // The pointer position, for the drag test. Multi-touch is approximated by
+    // the first located pointer: `PressArm` treats a missing position as "no
+    // evidence of a drag" and still activates, which is the safe direction —
+    // an unreported drag costs a stray activation, a phantom drag costs every
+    // tap on a device that reports no position at all.
+    let at = pointers
+        .iter()
+        .find_map(|p| p.location())
+        .map(|l| l.position);
+
+    let mut pressed: Option<(String, Action, Entity)> = None;
+    let mut armed_now: Option<(Entity, Interaction)> = None;
+    for (entity, interaction, control) in &rows {
+        let Some(action) = control.action.clone() else {
+            continue;
+        };
+        let key = format!("{action:?}");
+        if arm.armed() == Some(&key) {
+            armed_now = Some((entity, *interaction));
+        }
+        if *interaction == Interaction::Pressed && pressed.is_none() {
+            pressed = Some((key, action, entity));
         }
     }
-    match (first_pressed, *press_held) {
-        (Some(action), false) => {
-            *press_held = true;
-            activated.write(crate::MenuActionActivated { action });
+
+    match pressed {
+        // Still (or newly) held. A press on a DIFFERENT control replaces the
+        // arm: two fingers on two rows is one gesture as far as this bridge is
+        // concerned, and the later one is the live one.
+        Some((key, action, entity)) => {
+            if arm.armed() == Some(&key) {
+                arm.moved(at);
+                // Re-anchor: a rebuild WHILE held moves the control, and the
+                // leave test below compares against where it is now.
+                if let Some(held) = armed.as_mut() {
+                    held.1 = entity;
+                }
+            } else {
+                arm.press(key, at);
+                *armed = Some((action, entity));
+            }
         }
-        (None, _) => *press_held = false,
-        (Some(_), true) => {}
+        None if arm.is_armed() => {
+            let pressed_at = armed.as_ref().map(|(_, entity)| *entity);
+            match armed_now {
+                // Came up ON the armed control.
+                Some((_, Interaction::Hovered)) => {
+                    let survived = arm.release_anywhere().is_some();
+                    if let (true, Some((action, _))) = (survived, armed.take()) {
+                        activated.write(crate::MenuActionActivated { action });
+                    }
+                }
+                // Same entity, no longer under the pointer: it was left.
+                Some((entity, Interaction::None)) if Some(entity) == pressed_at => {
+                    arm.clear();
+                    *armed = None;
+                }
+                // Absent, or present at a NEW entity: mid-rebuild. Hold the
+                // arm — the release will find the control again.
+                _ => {}
+            }
+        }
+        None => {}
     }
 }
 
@@ -667,25 +755,68 @@ fn publish_bevy_ui_menu_previews<Action>(
     }
 }
 
-/// Translate flat-menu tab button presses into a renderer-neutral tab message.
+/// Translate flat-menu tab taps into a renderer-neutral tab message.
+///
+/// Same rule as [`publish_bevy_ui_menu_actions`], for the same reason: a tab bar
+/// is a strip of touch targets along the top of a scrollable page, so a finger
+/// that lands on one and slides is trying to move the page, not change tabs.
+/// Leaving this one activating on the way down while its neighbour in the same
+/// file activated on the way up is exactly the drift a shared renderer exists to
+/// prevent.
+///
+/// The identity here IS a row index — [`ambition_ui_nav::RowPress`] in its
+/// original shape — because a tab bar's `index` is stable across the republishes
+/// that move its entities.
 fn publish_bevy_ui_menu_tabs(
-    tabs: Query<(&Interaction, &BevyUiMenuTab), With<Button>>,
+    tabs: Query<(Entity, &Interaction, &BevyUiMenuTab), With<Button>>,
+    pointers: Query<&bevy::picking::pointer::PointerLocation>,
     mut activated: MessageWriter<crate::MenuTabActivated>,
-    mut press_held: Local<bool>,
+    mut arm: Local<ambition_ui_nav::RowPress>,
+    mut armed_entity: Local<Option<Entity>>,
 ) {
-    let mut first_pressed = None;
-    for (interaction, tab) in &tabs {
-        if *interaction == Interaction::Pressed {
-            first_pressed = first_pressed.or(Some(tab.index));
+    let at = pointers
+        .iter()
+        .find_map(|p| p.location())
+        .map(|l| l.position);
+
+    let mut pressed: Option<(usize, Entity)> = None;
+    let mut armed_now: Option<(Entity, Interaction)> = None;
+    for (entity, interaction, tab) in &tabs {
+        if arm.armed() == Some(&tab.index) {
+            armed_now = Some((entity, *interaction));
+        }
+        if *interaction == Interaction::Pressed && pressed.is_none() {
+            pressed = Some((tab.index, entity));
         }
     }
-    match (first_pressed, *press_held) {
-        (Some(index), false) => {
-            *press_held = true;
-            activated.write(crate::MenuTabActivated { index });
+
+    match pressed {
+        Some((index, entity)) => {
+            if arm.armed() == Some(&index) {
+                arm.moved(at);
+                *armed_entity = Some(entity);
+            } else {
+                arm.press(index, at);
+                *armed_entity = Some(entity);
+            }
         }
-        (None, _) => *press_held = false,
-        (Some(_), true) => {}
+        None if arm.is_armed() => match armed_now {
+            Some((_, Interaction::Hovered)) => {
+                if let Some(index) = arm.release_anywhere() {
+                    activated.write(crate::MenuTabActivated { index });
+                }
+                *armed_entity = None;
+            }
+            // Same entity, no longer under the pointer: left, not released.
+            // A DIFFERENT entity (or none) is the tab bar mid-republish, whose
+            // fresh nodes read `None` until the next frame's focus pass.
+            Some((entity, Interaction::None)) if Some(entity) == *armed_entity => {
+                arm.clear();
+                *armed_entity = None;
+            }
+            _ => {}
+        },
+        None => {}
     }
 }
 

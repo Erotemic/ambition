@@ -556,10 +556,20 @@ use crate::menu::test_support::{spawn_control, trigger_over};
 use ambition_platformer2d::menu::render::bevy_ui::BevyUiMenuTab;
 use ambition_platformer2d::menu::AmbitionMenuControl;
 
+/// A complete TAP: down, then up still over the control.
+///
+/// ⚠ two steps because the bevy_ui bridges activate on the way UP. Bevy reports
+/// a pointer that comes up still over a control as a return to
+/// `Interaction::Hovered`, which is what makes a release distinguishable from
+/// the pointer wandering off (`Interaction::None`).
 fn press_interaction(app: &mut App, entity: Entity) {
     app.world_mut()
         .entity_mut(entity)
         .insert(Interaction::Pressed);
+    app.update();
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(Interaction::Hovered);
     app.update();
 }
 

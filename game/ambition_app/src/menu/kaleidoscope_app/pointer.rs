@@ -21,14 +21,15 @@ pub(crate) fn kaleidoscope_pointer_press(
     if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {
         return;
     }
-    // Only arm the tap-guard for real controls (so a press on decoration is a no-op).
+    // Only arm the tap-guard for a control that DOES something: the arm's
+    // identity IS the action, so a press on decoration cannot arm and needs no
+    // separate "armed but actionless" state to fall through on release.
     if let Ok(control) = controls.get(press.entity) {
-        state.entity = Some(press.entity);
-        // Capture the action NOW so RELEASE can dispatch it entity-independently
-        // (survives a face rebuild between press and release).
-        state.action = control.action;
-        state.origin = press.pointer_location.position;
-        state.cancelled = false;
+        if let Some(action) = control.action {
+            // The ACTION, not the entity, so RELEASE dispatches
+            // entity-independently and survives a face rebuild in between.
+            state.0.press(action, Some(press.pointer_location.position));
+        }
     }
 }
 
@@ -61,15 +62,10 @@ pub(crate) fn kaleidoscope_pointer_move(
     mut sfx: SfxWriter,
 ) {
     // Feature E: if a press is active and the pointer has now travelled past the tap
-    // threshold, this is a DRAG — mark the press cancelled so the eventual click does
-    // not activate the control. (This drag-cancel runs regardless of the active-input
-    // gate below: a touch/pen drag must still cancel a tap.)
-    if press.entity.is_some()
-        && !press.cancelled
-        && move_.pointer_location.position.distance(press.origin) > KALEIDOSCOPE_TAP_DRAG_THRESHOLD
-    {
-        press.cancelled = true;
-    }
+    // threshold, this is a DRAG — the arm marks itself cancelled so the eventual
+    // release does not activate the control. (This drag-cancel runs regardless of the
+    // active-input gate below: a touch/pen drag must still cancel a tap.)
+    press.0.moved(Some(move_.pointer_location.position));
     // Hover-select is gated on a GENUINE mouse being the active source. A cube
     // republish respawns controls under a stationary mouse and fires `Pointer<Move>`
     // for the new control; without this gate the cursor snaps back to the mouse on
@@ -148,18 +144,14 @@ pub(crate) fn kaleidoscope_pointer_release(
         return;
     }
     // Consume the press guard (whatever happens, the next press starts fresh). A
-    // release with no armed press, a drag-away cancel, or a press on a control with
-    // no action all fall through to "no activation".
-    let armed = press.entity.is_some();
-    let cancelled = press.cancelled;
-    let action = press.action;
-    press.entity = None;
-    press.action = None;
-    press.cancelled = false;
-    if !armed || cancelled {
-        return;
-    }
-    let Some(action) = action else {
+    // release with no armed press, or a drag-away cancel, falls through to "no
+    // activation".
+    //
+    // ⚠ `release_anywhere`, not `release` — the cube respawns its cells under the
+    // finger, so which control is under the pointer NOW is not evidence about which
+    // one the press began on. The press already captured that. A flat list has that
+    // evidence and uses the stricter form.
+    let Some(action) = press.0.release_anywhere() else {
         return;
     };
     if let Some(active_page) = pages.active {

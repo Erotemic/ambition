@@ -781,12 +781,15 @@ mod tests {
     }
 
     #[test]
-    fn touch_press_on_pause_row_dispatches_that_rows_action() {
+    fn a_touch_that_comes_up_on_a_pause_row_dispatches_that_rows_action() {
         let mut app = app();
         with_live_session(&mut app);
         press_start(&mut app);
 
-        let quit_to_title = {
+        // The row is looked up again after the press frame: the menu republishes
+        // its controls, so the entity a finger lands on is routinely not the one
+        // it lifts from. The bridge is keyed on the action for that reason.
+        let row = |app: &mut App| {
             let mut q = app
                 .world_mut()
                 .query::<(Entity, &ambition_menu::AmbitionMenuControl<PauseEntry>)>();
@@ -796,9 +799,25 @@ mod tests {
                 })
                 .expect("open pause menu renders a Quit to Title row")
         };
+
+        let pressed = row(&mut app);
         app.world_mut()
-            .entity_mut(quit_to_title)
+            .entity_mut(pressed)
             .insert(Interaction::Pressed);
+        app.update();
+        assert!(
+            app.world_mut()
+                .resource_mut::<Messages<ShellCommand>>()
+                .drain()
+                .next()
+                .is_none(),
+            "a finger resting on Quit has not quit",
+        );
+
+        let released = row(&mut app);
+        app.world_mut()
+            .entity_mut(released)
+            .insert(Interaction::Hovered);
         app.update();
 
         let sent: Vec<ShellCommand> = app

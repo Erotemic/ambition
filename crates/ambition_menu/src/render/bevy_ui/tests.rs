@@ -179,63 +179,128 @@ fn controls_present_tagged_with_action_and_focus_key() {
     );
 }
 
+/// The Equip row's entity in the spawned sample page.
+fn equip_row(app: &mut App) -> Entity {
+    let mut q = app
+        .world_mut()
+        .query::<(Entity, &AmbitionMenuControl<Action>)>();
+    q.iter(app.world())
+        .find_map(|(entity, control)| (control.action == Some(Action::Equip)).then_some(entity))
+        .expect("sample page has an Equip row")
+}
+
+fn set_interaction(app: &mut App, entity: Entity, interaction: Interaction) {
+    app.world_mut().entity_mut(entity).insert(interaction);
+    app.update();
+}
+
+fn drain_activations(app: &mut App) -> Vec<crate::MenuActionActivated<Action>> {
+    app.world_mut()
+        .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
+        .drain()
+        .collect()
+}
+
 #[test]
-fn interaction_pressed_publishes_the_control_action() {
+fn a_row_activates_when_the_pointer_comes_up_on_it_not_when_it_goes_down() {
+    // ⛔ this bridge used to fire on `Pressed`, which is why a finger that
+    // lands on a row and slides to scroll had already chosen it.
     let mut app = build_app();
     install_bevy_ui_menu_actions::<Action>(&mut app);
     spawn_view(&mut app, 0, None);
+    let entity = equip_row(&mut app);
 
-    let entity = {
-        let mut q = app
-            .world_mut()
-            .query::<(Entity, &AmbitionMenuControl<Action>)>();
-        q.iter(app.world())
-            .find_map(|(entity, control)| (control.action == Some(Action::Equip)).then_some(entity))
-            .expect("sample page has an Equip row")
-    };
-    app.world_mut()
-        .entity_mut(entity)
-        .insert(Interaction::Pressed);
+    set_interaction(&mut app, entity, Interaction::Pressed);
+    assert!(
+        drain_activations(&mut app).is_empty(),
+        "going down on a row is not choosing it"
+    );
+
+    // A held touch must not fire while it is held, however many frames pass.
     app.update();
+    assert!(drain_activations(&mut app).is_empty());
 
-    let actions: Vec<_> = app
-        .world_mut()
-        .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
-        .drain()
-        .collect();
+    // Bevy reports a release OVER the control as a return to `Hovered`.
+    set_interaction(&mut app, entity, Interaction::Hovered);
     assert_eq!(
-        actions,
+        drain_activations(&mut app),
         vec![crate::MenuActionActivated {
             action: Action::Equip,
         }],
-        "one Interaction reader turns a touch/mouse press into the row's semantic action",
+        "coming up on the row is",
     );
 
-    // A held touch must not fire again if the menu republishes or another frame
-    // runs before release.
     app.update();
     assert!(
-        app.world_mut()
-            .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
-            .drain()
-            .next()
-            .is_none(),
-        "one continuous press emits exactly one semantic activation",
+        drain_activations(&mut app).is_empty(),
+        "and it fires once, not for every frame the pointer rests there"
     );
 
-    app.world_mut().entity_mut(entity).insert(Interaction::None);
+    // The next press arms again.
+    set_interaction(&mut app, entity, Interaction::Pressed);
+    set_interaction(&mut app, entity, Interaction::Hovered);
+    assert_eq!(drain_activations(&mut app).len(), 1);
+}
+
+#[test]
+fn a_press_that_leaves_the_row_activates_nothing() {
+    // ⛔ a leave and a release are the same `Interaction::None`, and treating
+    // one as the other is what made dragging on a list dangerous.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+    let entity = equip_row(&mut app);
+
+    set_interaction(&mut app, entity, Interaction::Pressed);
+    set_interaction(&mut app, entity, Interaction::None);
+    assert!(
+        drain_activations(&mut app).is_empty(),
+        "the pointer left the row; it chose nothing"
+    );
+
+    // And the abandoned arm does not fire later when the pointer wanders back.
+    set_interaction(&mut app, entity, Interaction::Hovered);
+    assert!(drain_activations(&mut app).is_empty());
+}
+
+#[test]
+fn an_arm_survives_the_page_respawning_under_the_finger() {
+    // ⚠ the reason the arm is keyed on the ACTION: a menu page rebuilds its
+    // controls, so press and release land on two different entities for one
+    // control. That is the `Pointer<Click>` failure this bridge must not have.
+    let mut app = build_app();
+    install_bevy_ui_menu_actions::<Action>(&mut app);
+    spawn_view(&mut app, 0, None);
+    let entity = equip_row(&mut app);
+    set_interaction(&mut app, entity, Interaction::Pressed);
+
+    // The page respawns: every control is a new entity, and for a frame the
+    // armed one is not in the world at all.
+    let roots: Vec<Entity> = {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<Entity, With<BevyUiMenuRoot>>();
+        q.iter(app.world()).collect()
+    };
+    for root in roots {
+        app.world_mut().entity_mut(root).despawn();
+    }
     app.update();
-    app.world_mut()
-        .entity_mut(entity)
-        .insert(Interaction::Pressed);
-    app.update();
+    assert!(
+        drain_activations(&mut app).is_empty(),
+        "a control vanishing is not a release"
+    );
+
+    spawn_view(&mut app, 0, None);
+    let respawned = equip_row(&mut app);
+    assert_ne!(respawned, entity, "the rebuild really did move the entity");
+    set_interaction(&mut app, respawned, Interaction::Hovered);
     assert_eq!(
-        app.world_mut()
-            .resource_mut::<Messages<crate::MenuActionActivated<Action>>>()
-            .drain()
-            .count(),
-        1,
-        "release re-arms the next press",
+        drain_activations(&mut app),
+        vec![crate::MenuActionActivated {
+            action: Action::Equip,
+        }],
+        "the finger came up on the control it pressed, whatever entity now draws it",
     );
 }
 
@@ -269,7 +334,11 @@ fn interaction_pressed_ignores_disabled_rows() {
 }
 
 #[test]
-fn interaction_pressed_publishes_the_tab_index() {
+fn a_tab_activates_on_the_way_up_like_every_other_control() {
+    // A tab bar is a strip of touch targets along the top of a scrollable page:
+    // a finger that lands on one and slides is moving the page. Leaving tabs on
+    // press-activate beside rows on release-activate is the drift a shared
+    // renderer exists to prevent.
     let mut app = build_app();
     install_bevy_ui_menu_tabs(&mut app);
     spawn_view(&mut app, 0, None);
@@ -280,17 +349,33 @@ fn interaction_pressed_publishes_the_tab_index() {
             .find_map(|(entity, tab)| (tab.index == 2).then_some(entity))
             .expect("sample view has tab 2")
     };
+    let drain = |app: &mut App| -> Vec<crate::MenuTabActivated> {
+        app.world_mut()
+            .resource_mut::<Messages<crate::MenuTabActivated>>()
+            .drain()
+            .collect()
+    };
+
     app.world_mut()
         .entity_mut(entity)
         .insert(Interaction::Pressed);
     app.update();
+    assert!(drain(&mut app).is_empty(), "down is not a tab change");
 
-    let tabs: Vec<_> = app
-        .world_mut()
-        .resource_mut::<Messages<crate::MenuTabActivated>>()
-        .drain()
-        .collect();
-    assert_eq!(tabs, vec![crate::MenuTabActivated { index: 2 }]);
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(Interaction::Hovered);
+    app.update();
+    assert_eq!(drain(&mut app), vec![crate::MenuTabActivated { index: 2 }]);
+
+    // A press that slides off the tab changes nothing.
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(Interaction::Pressed);
+    app.update();
+    app.world_mut().entity_mut(entity).insert(Interaction::None);
+    app.update();
+    assert!(drain(&mut app).is_empty(), "the finger left the tab");
 }
 
 #[test]

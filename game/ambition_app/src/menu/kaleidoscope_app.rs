@@ -374,32 +374,25 @@ pub(crate) struct KaleidoscopeSystemNav {
     pub(crate) open_entry: Option<SystemMenuEntryId>,
 }
 
-/// Feature E: how far (screen pixels) a pointer may travel between press and release
-/// before the press is treated as a DRAG (cancelling the would-be click). A clean tap
-/// stays under this; a press-then-drag-away exceeds it and does NOT activate. Touch is
-/// a pointer in Bevy, so this same threshold governs touch taps vs touch drags.
-const KALEIDOSCOPE_TAP_DRAG_THRESHOLD: f32 = 12.0;
-
 /// Feature E: the in-flight pointer press, so a press-then-drag-away can be CANCELLED
 /// (no activation) while a clean tap still activates. Set on `Pointer<Press>`, marked
-/// `cancelled` once the pointer travels past [`KALEIDOSCOPE_TAP_DRAG_THRESHOLD`] from
-/// the press origin (a drag, not a tap), and consumed by the click observer. Mouse OR
-/// touch — both arrive through the same pointer events, so this is mouse-testable.
+/// cancelled once the pointer travels past `ui_nav::ROW_TAP_SLOP_PX` from the press
+/// origin (a drag, not a tap), and consumed by the release observer. Mouse OR touch —
+/// both arrive through the same pointer events, so this is mouse-testable.
+///
+/// ⭐ **this used to be a private re-implementation of that primitive**, with its own
+/// 12px threshold beside dialogue's 16px — two answers to "how far may a thumb roll
+/// and still have tapped", differing by a quarter, on one machine. The arm is the
+/// shared `ui_nav::PressArm` now; what stays local is only the choice of IDENTITY.
+/// The cube keys on the ACTION rather than a row index because its cells have no
+/// stable ordinal — and, like a windowed list, it despawns and respawns them between
+/// press and release, which is the historical `Pointer<Click>` failure (press and
+/// release must resolve to the SAME entity, which a rebuilding perspective cube
+/// routinely broke).
 #[derive(Resource, Default)]
-pub(crate) struct KaleidoscopePointerPress {
-    /// The entity the active press landed on, if any.
-    entity: Option<Entity>,
-    /// The ACTION the pressed control carries, captured at press time. Dispatch on
-    /// RELEASE uses THIS (not the release entity), so a face rebuild that despawns +
-    /// respawns the control between press and release cannot drop the click — the
-    /// historical `Pointer<Click>` failure (press/release must resolve to the SAME
-    /// entity, which the rebuilding perspective cube routinely broke).
-    action: Option<MenuPageAction>,
-    /// Screen position the press started at.
-    origin: Vec2,
-    /// True once the pointer dragged past the tap threshold (cancels the click).
-    cancelled: bool,
-}
+pub(crate) struct KaleidoscopePointerPress(
+    pub(crate) ambition_platformer2d::ui_nav::PressArm<MenuPageAction>,
+);
 
 /// Host-owned, SELECTION-INDEPENDENT scroll position for the System face's windowed
 /// list (Features C/D). `None` = the window follows the keyboard/pointer cursor

@@ -1004,24 +1004,39 @@ mod semantic_input_tests {
             "confirm on a card with no acknowledgement requirement skips it"
         );
 
-        // The tap path: the card surface's Interaction::Pressed flows through
-        // the shared bridge into the SAME consumer command.
+        // The tap path: the card surface's pointer press flows through the
+        // shared bridge into the SAME consumer command.
+        //
+        // ⚠ press THEN release. The bridge activates on the way up, so a tap is
+        // two `Interaction` states — `Pressed`, then the `Hovered` Bevy reports
+        // when a pointer comes up still over the control.
         with_active_card(&mut app);
         install_bevy_ui_menu_actions::<ShellCardAction>(&mut app);
         app.add_systems(Update, basic_shell_card_tap.after(BevyUiMenuInteractionSet));
-        app.world_mut().spawn((
-            Button,
-            Interaction::Pressed,
-            AmbitionMenuControl::<ShellCardAction> {
-                kind: MenuControlKind::Action,
-                action: Some(ShellCardAction),
-                focus: MenuFocusKey {
-                    row: 0,
-                    col: 0,
-                    order: 0,
+        let card = app
+            .world_mut()
+            .spawn((
+                Button,
+                Interaction::Pressed,
+                AmbitionMenuControl::<ShellCardAction> {
+                    kind: MenuControlKind::Action,
+                    action: Some(ShellCardAction),
+                    focus: MenuFocusKey {
+                        row: 0,
+                        col: 0,
+                        order: 0,
+                    },
                 },
-            },
-        ));
+            ))
+            .id();
+        app.update();
+        assert!(
+            drained_sequence(&mut app).is_empty(),
+            "the finger going down on a card has not advanced it yet"
+        );
+        app.world_mut()
+            .entity_mut(card)
+            .insert(Interaction::Hovered);
         app.update();
         let tapped = drained_sequence(&mut app);
         assert_eq!(

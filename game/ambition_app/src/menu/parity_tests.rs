@@ -493,6 +493,10 @@ mod dispatch_parity {
         app
     }
 
+    /// Both backends activate on the pointer coming UP, so both arms are two
+    /// steps. They differ only in the signal that carries them: the grid rides
+    /// Bevy's `Interaction` (a release over the control reads as `Hovered`
+    /// again), the cube its own pointer observers.
     fn activate(app: &mut App, backend: InventoryUiBackend, action: MenuPageAction) {
         let entity = spawn_control(app, action);
         match backend {
@@ -500,6 +504,10 @@ mod dispatch_parity {
                 app.world_mut()
                     .entity_mut(entity)
                     .insert(Interaction::Pressed);
+                app.update();
+                app.world_mut()
+                    .entity_mut(entity)
+                    .insert(Interaction::Hovered);
             }
             InventoryUiBackend::LunexKaleidoscope => {
                 trigger_press(app, entity);

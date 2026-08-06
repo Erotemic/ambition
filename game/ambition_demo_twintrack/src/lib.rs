@@ -471,12 +471,27 @@ impl Plugin for TwinTrackExperiencePlugin {
             )),
         );
 
+        // ⚠ **`Gizmos` needs `GizmoConfigStore`, and being in the right MODE is
+        // not the same as having a renderer.** The workspace suite builds this
+        // experience with the `visible` feature but without Bevy's `GizmoPlugin`,
+        // and a `Gizmos` param whose store is missing fails validation and
+        // PANICS the schedule rather than skipping the system — which is exactly
+        // how it failed: `Parameter Res<GizmoConfigStore> failed validation:
+        // Resource does not exist`. The mode condition cannot see that; the
+        // resource condition can.
+        //
+        // ⛔ **the SR-3 overlay dropped this condition**, comment included, and
+        // the panic came back in `the_full_multi_game_lifecycle_is_leak_free` —
+        // the FOURTH fix that overlay reverted. An overlay is written against
+        // the tree as it stood when the previous one shipped.
         #[cfg(feature = "visible")]
         app.add_systems(
             Update,
-            draw_twintrack_sr_course.run_if(ambition_platformer2d::runtime::in_mode(
-                TWINTRACK_EXPERIENCE,
-            )),
+            draw_twintrack_sr_course
+                .run_if(ambition_platformer2d::runtime::in_mode(
+                    TWINTRACK_EXPERIENCE,
+                ))
+                .run_if(bevy::prelude::resource_exists::<bevy::gizmos::config::GizmoConfigStore>),
         );
 
         #[cfg(feature = "visible")]

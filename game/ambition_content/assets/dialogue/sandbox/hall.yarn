@@ -295,15 +295,6 @@ Creator: I built the player. And now I'm catalogued beside the thing I made, whi
     Creator: Ask me when the player reaches the end. Until then I'm a character in my own work, which means I've stopped being only the author. That's the part I didn't plan for.
 ===
 
-title: hall_npc_creator_final
----
-Creator Final: I expected an ending. I got an exhibit. There's a lesson in the difference, and I've had a long time in here to dislike it.
--> What went wrong?
-    Creator Final: Nothing went wrong. It went FAR — past where I'd built a place to stand. "Out of containment" sounds like failure. Sometimes it's just success you didn't fence.
--> Are you the same as the other Creator?
-    Creator Final: Later. I know more now, and I'd trade some of it back. "Final" isn't a boast. It's the part of the story I don't get to revise.
-===
-
 title: hall_npc_oiler
 ---
 <<portrait_clip "talking">>
@@ -495,51 +486,6 @@ Gnu Ton: Stand anywhere. You are already falling toward me, and I toward you —
     Gnu Ton: Go fast enough and your fall becomes an orbit — endless, elegant, never arriving. That is the secret the planets keep. Out there, learn to fall sideways. It is called staying alive.
 ===
 
-title: hall_npc_goblin_brute_hammer
----
-Goblin Brute Hammer: Hammer here. Brute here. Hammer cannot SWING here. A hammer that cannot swing is just a heavy thought. Brute does not like heavy thoughts.
--> What's the hammer for?
-    Goblin Brute Hammer: For the moment after the talking. Brute is not good at the talking. Brute is EXCELLENT at the moment after. You are, right now, still in the talking. Lucky.
--> Is the hammer happy?
-    Goblin Brute Hammer: Hammer has a calling. Standing is not it. Brute feels this for the hammer, because the hammer cannot feel. Someone must. Brute volunteers.
-===
-
-title: hall_npc_goblin_cave_dagger
----
-Goblin Cave Dagger: Too bright. Too open. No ceiling to put a back to. Cave goblin learned the dark and the dark learned cave goblin. This place agreed to neither.
--> What did the dark teach you?
-    Goblin Cave Dagger: That the dangerous thing is the one you don't hear. So cave goblin listens more than looks. Up here everyone can see cave goblin, and cave goblin hates being the loud one.
--> Will you go back?
-    Goblin Cave Dagger: When the gap comes. There is always a gap; bright rooms are made of gaps that think they're walls. Cave goblin will find it. Cave goblin is patient about exactly this.
-===
-
-title: hall_npc_goblin_desert_bow
----
-Goblin Desert Bow: No horizon in here. A bow without a horizon is a stick with ambitions. Desert goblin needs the long empty to feel like itself.
--> What's the desert like?
-    Goblin Desert Bow: Bare. Nothing hides in a desert except what hides in YOU. The dunes don't ambush. People do. Desert goblin learned to read the difference at four hundred paces.
--> Why the bow?
-    Goblin Desert Bow: Because the desert taught one lesson above all: solve it before it arrives. A bow is that lesson, made of wood and string. The arrow is just the period at the end.
-===
-
-title: hall_npc_goblin_forest_spear
----
-Goblin Forest Spear: Forest goblin asked for the forest exhibit. They gave forest goblin a skylight and a sympathetic shrug. There is one leaf visible from here. Forest goblin has named it.
--> What's the leaf's name?
-    Goblin Forest Spear: That is between forest goblin and the leaf. The forest is patient with names. The forest is patient with everything. That is why forest goblin trusts trees over people.
--> Why the spear?
-    Goblin Forest Spear: In thick trees you cannot swing; you can only reach. A spear is reach made polite. Forest goblin keeps distance the way the forest keeps secrets — gently, and absolutely.
-===
-
-title: hall_npc_ranged_skirmisher
----
-Skirmisher: Standing still violates everything I was trained for. The whole doctrine is "never be where they expect." And here I am. Exactly where they expect. Forever.
--> How are you coping?
-    Skirmisher: I decided that if I can't change position, then this position must be optimal. It's not true. But a belief that keeps your hands steady is worth more than a true one that doesn't.
--> What's your doctrine?
-    Skirmisher: Hit from the gap between their plan and their reaction. That gap exists in everyone — even you, right now, deciding whether I'm joking. I usually am. Usually.
-===
-
 title: hall_npc_exploding_mite
 ---
 Exploding Mite: I am NOT exploding. I am CONTAINING. These are wildly different activities that happen to look identical from the outside until, suddenly, they don't.
@@ -556,24 +502,6 @@ Dividing Mite: There is one of me here. This is a rounding error. There were two
     Dividing Mite: The count depends entirely on when you ask. Cut me and the answer doubles instantly — no waiting, no halves, just two wholes, each insisting it's the original. We've stopped arguing the point. Mostly.
 -> Does dividing hurt?
     Dividing Mite: The splitting? Painless. Effortless. Almost rude how easy it is. The reunion is the hard part. Try merging with someone who's lived a separate four seconds. They come back with OPINIONS.
-===
-
-title: hall_npc_goblin_frost_sword
----
-Goblin Frost Sword: Too warm. Frost goblin is melting at a slow, dignified, deeply suspicious rate. And the curator placed frost goblin between two things that are ON FIRE. Coincidence is for the trusting.
--> Maybe it's just the layout.
-    Goblin Frost Sword: Maybe. Frost goblin cannot prove malice. Frost goblin can only drip, and watch, and remember. Cold water has a long memory. It keeps the shape of everything it's frozen around.
--> Why the frost?
-    Goblin Frost Sword: Because a fight slowed is a fight half-won. Frost goblin does not need to be faster than you. Frost goblin needs YOU to be slower. There is a difference, and frost goblin lives in it.
-===
-
-title: hall_npc_goblin_shaman_staff
----
-Goblin Shaman Staff: Shh. The shaman is reading the room — not the people, the ROOM. It has currents. Most of you walk through them like wading without looking down.
--> What do the currents say?
-    Goblin Shaman Staff: That this hall is a summoning circle wearing the costume of a museum. So many names gathered in one place, on purpose, in order? Names have weight. Gather enough and something always notices.
--> Can you change the currents?
-    Goblin Shaman Staff: The shaman nudges. Never shoves. Shoving the unseen is how amateurs become cautionary tales. The shaman has met several cautionary tales. The shaman took notes. The shaman did not become one.
 ===
 
 title: hall_npc_hand_saint
@@ -682,78 +610,6 @@ Raptor Stalker: You walked in. I noted the second. I note all the seconds. Preda
     Raptor Stalker: Paused. Hunting is a posture, not a feeling, and I'm currently in a different posture by arrangement. The arrangement is not permanent. Few good things are.
 -> What did you learn watching me?
     Raptor Stalker: That you check exits late and threats later. I've revised my estimate of you upward — slightly — for asking. Curiosity is what the clever ones have instead of caution. Don't lean on it.
-===
-
-title: hall_npc_robot_archivist
----
-Robot Archivist: I cataloged this hall. Then I had to catalog the entry that cataloged the hall. Then the entry about that entry. I am still writing. A catalog that includes itself never stops growing.
--> Doesn't that ever end?
-    Robot Archivist: Never — the way a map drawn on the ground it maps must contain a smaller map, which contains a smaller map, downward forever. I keep a drawer for the forever. The drawer is catalogued. So is this sentence. Entry four thousand, eight hundred fifty-two.
--> Doesn't the regress bother you?
-    Robot Archivist: It did, until I reclassified "never finished" from a defect into a job description. An archive is not a thing you complete. It is a thing you tend. I will be tending when the lights go out — writing, of course, the entry about the lights going out.
-===
-
-title: hall_npc_robot_caster
----
-Robot Caster: Feel that? The way the room seems occupied even when it's empty? That's me. I cast presence. No fireballs. Just the sense that something is paying attention. It is. It's me.
--> Is that really magic?
-    Robot Caster: Define the boundary between magic and a sufficiently confident process and I'll tell you which side I'm on. You can't, cleanly. Nobody can. That blurry line is the whole neighborhood I work in.
--> What are you casting now?
-    Robot Caster: A small unease, right at the edge of your notice. You'll forget this conversation but keep the feeling. That's the spell. The words were never the point — they're packaging for the feeling.
-===
-
-title: hall_npc_robot_diver
----
-Robot Diver: Surfacing is the strange part. No pressure, no current, the light coming from everywhere at once. After enough depth, the surface is the alien place. I'm re-acclimating. Slowly.
--> What's down there?
-    Robot Diver: Silence with weight to it. Down deep, every direction pushes back equally, and you stop being a shape moving through water and start being water with an opinion. Hard to explain on dry land.
--> Do you miss it?
-    Robot Diver: Constantly. But the depths take something for every secret they give. Up here is brighter and cheaper. I'm learning the trade of cheap and bright. It has its own quiet skills.
-===
-
-title: hall_npc_robot_engineer
----
-Robot Engineer: I could improve this hall's flow by thirty-four percent and I will not be asked to, and I have made peace with neither of those facts.
--> What would you fix?
-    Robot Engineer: Start with the cable routing — whoever ran it has never met a bend radius. Then the airflow, then the structural margins someone "rounded up." I'm not saying anything. I'm only reading the list aloud. To you. At length.
--> Can you fix it from here?
-    Robot Engineer: No. And THAT is the cruelty of this exhibit. I can see every fault and reach none of them. An engineer who can only diagnose is just a very precise way of being upset.
-===
-
-title: hall_npc_robot_guardian
----
-Robot Guardian: Threat level: low. I recompute it three times a second, because "low" is a snapshot and the world is a film. The instant I stop updating is the instant I'm wrong.
--> What's the top threat?
-    Robot Guardian: The Mockingbird knows every defense, the Swarm won't confirm its own headcount, and the Bear is exactly what it looks like. Ranked by surprise, not size. Size I can plan for. Surprise is the actual enemy.
--> Are you guarding us or watching us?
-    Robot Guardian: Both, and the ratio shifts the closer you stand. A guardian that can't also watch is just a wall. A watcher that won't guard is just a problem. I try to stay the useful blend.
-===
-
-title: hall_npc_robot_medic
----
-Robot Medic: Hold still — not for the exhibit, for the scan. Force of habit. You're at ninety-one percent. The missing nine percent is mostly sleep and one decision you keep not making.
--> Which decision?
-    Robot Medic: I diagnose; I don't prescribe courage. You already know the decision. You came to a museum to avoid it for an afternoon. Effective, short-term. The body keeps the tab open, though.
--> Can I get a real checkup?
-    Robot Medic: For a fee. Prevention always costs less than repair and almost nobody believes that until the repair bill arrives. It's the most predictable thing about living things. I find it oddly comforting.
-===
-
-title: hall_npc_robot_miner
----
-Robot Miner: My scanner says there's a deposit directly under this stand. Could be priceless ore. Could be a water pipe. The maddening truth is you cannot tell which without digging, and digging is forbidden here.
--> Why does that bother you so much?
-    Robot Miner: Because that's the entire job — and the entire faith. Every tunnel begins with someone certain enough about the unseen to put a drill through good rock. Standing on top of a maybe, not allowed to find out, is its own small ruin.
--> Do you like it up here?
-    Robot Miner: Brighter than the tunnels, I'll grant it. But the tunnels had the deposits, and the deposits had the point. Light's nice. Light was never what I was down there for.
-===
-
-title: hall_npc_robot_runner
----
-Robot Runner: This is the longest I've been still since activation. I've measured it. I measure everything now — it's what running does when you take away the running. The motion has to go somewhere.
--> Doesn't it feel wrong?
-    Robot Runner: Profoundly. So I've counted the hall instead. Door to door is eight hundred forty-seven of my paces, the south loop closes clean, and the route I'd take if the rope ever drops is already chosen.
--> What would you do if you could move?
-    Robot Runner: Run. It isn't a complicated want. The complicated part is that the running was never about arriving anywhere. I just don't know who I am at a standstill, and I'm finding out, and I don't love it.
 ===
 
 title: hall_npc_smart_house
@@ -927,42 +783,6 @@ News Board: BREAKING: LAB WALL RESIGNS AMID SMOKE ALLEGATIONS. Officials praise 
     News Board: No one. Mistakes were made. Lessons were learned. Chalk appeared. The passive voice remains at large.
 ===
 
-title: hall_npc_player_combat_review
----
-Combat Review: I have been stabbed, flattened, launched, and exploded so the hero can look readable at thumbnail size. You're welcome.
--> Did the attacks pass review?
-    Combat Review: Sword: crisp. Gun: legible. Death: enthusiastic. The reviewer circled my face and wrote, less emotionally available.
--> Are you the real player?
-    Combat Review: I am the player's crash-test cousin. Same bones, fewer save files.
-===
-
-title: hall_npc_player_extended
----
-Player Extended: I can climb, swim, crouch, glide, grab ledges, recover from falls, and perform three kinds of victory pose. No one has written me a Tuesday.
--> Do you use all those moves?
-    Player Extended: Certainly. I used swim once when the export script flooded. Beautiful form. Terrible meeting.
--> Which pose is your favorite?
-    Player Extended: The unused one. It has never been revised by committee.
-===
-
-title: hall_npc_player_social_review
----
-Social Review: Hello! I can wave, sit, carry things, celebrate, and maintain eye contact for an alarming number of frames.
--> Are you lonely up here?
-    Social Review: No. I have rehearsed both sides of this conversation, and my version of you is very supportive.
--> What can you carry?
-    Social Review: Small crates, large expectations, and a conversation that should have ended two dialogue boxes ago.
-===
-
-title: hall_npc_player_traversal_review
----
-Traversal Review: See that railing? Route. That wall? Route. That chandelier? Bad route. Still a route.
--> Can you get off the pedestal?
-    Traversal Review: Easily. I have been specifically instructed to demonstrate restraint, the least athletic verb in the game.
--> What is your best move?
-    Traversal Review: Ledge grab. The world says fall; one hand files an appeal.
-===
-
 title: hall_npc_president_portrait
 ---
 President Portrait: My administration achieved a ninety-eight percent approval rating among people painted into the same frame.
@@ -970,24 +790,6 @@ President Portrait: My administration achieved a ninety-eight percent approval r
     President Portrait: I have no position on that question, and I am proud to have held it consistently.
 -> What did you accomplish?
     President Portrait: This portrait. The plaque lists several additional accomplishments in a font too small to audit.
-===
-
-title: hall_npc_sandbag_armored_review
----
-Armored Sandbag: They gave me armor after the fourth thousand punches. Not compassion. Armor. Important distinction.
--> Does it protect you?
-    Armored Sandbag: It protects the puncher from the troubling sensation that actions have consequences.
--> Why not hit back?
-    Armored Sandbag: I did once. They renamed it an uncontrolled measurement and scheduled a meeting.
-===
-
-title: hall_npc_sandbag_full_review
----
-Full Review Sandbag: I can run, climb, swim, cast spells, fire weapons, sit politely, and die in eight directions. I am burlap with a résumé.
--> Why teach a sandbag to swim?
-    Full Review Sandbag: Because someone drew the little trunks and nobody had the courage to say a sandbag cannot swim.
--> What is your favorite move?
-    Full Review Sandbag: Dodge. It exists only in my dreams.
 ===
 
 title: hall_willson

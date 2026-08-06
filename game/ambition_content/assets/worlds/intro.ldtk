@@ -6601,9 +6601,9 @@
 							"defUid": 2006,
 							"px": [780,432],
 							"fieldInstances": [
-								{ "__identifier": "character_id", "__type": "String", "__value": "npc_creator_final", "__tile": null, "defUid": 3012, "realEditorValues": [{
+								{ "__identifier": "character_id", "__type": "String", "__value": "npc_creator", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["npc_creator_final"]
+									"params": ["npc_creator"]
 								}] },
 								{ "__identifier": "prompt", "__type": "String", "__value": "Hear the Creator's last words", "__tile": null, "defUid": 3013, "realEditorValues": [{
 									"id": "V_String",

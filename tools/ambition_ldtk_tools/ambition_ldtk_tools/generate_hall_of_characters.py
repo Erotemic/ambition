@@ -118,10 +118,27 @@ HALL_WORLD_X = 40000  # to the right of every existing level (rightmost is x=390
 HALL_WORLD_Y = 0
 
 
+#: Slots the DOOR owns, at the start of the hub-entry floor.
+#:
+#: ⛔ Jon, 2026-08-05: *"In the hall of characters we should prevent the
+#: characters from overlapping the door. Currently robot v3 overlaps the door."*
+#: He is exactly right and the arithmetic says why: the door is a 48px zone at
+#: x=24, and slot 0 centres a 32px NPC at x=64 — so the first pedestal on the
+#: entry floor stood in the doorway, whoever the catalog happened to list first.
+#: The whole first column is reserved rather than the pedestal being nudged,
+#: because a nudge is a number that has to be re-checked every time the door,
+#: the spawn point or the slot width moves.
+DOOR_RESERVED_SLOTS = 1
+
+
 def main_floors_for(main_count: int) -> int:
     """Main-hall floors needed to seat `main_count` pedestals — ceil-divide by
-    the per-floor slot count. At least 1 so the hub-entry floor always exists."""
-    return max(1, -(-main_count // MAIN_SLOTS_PER_FLOOR))
+    the per-floor slot count. At least 1 so the hub-entry floor always exists.
+
+    ⚠ the door's reserved slots count against the total: they occupy real
+    columns, so a roster that exactly filled the last floor before now needs one
+    more."""
+    return max(1, -(-(main_count + DOOR_RESERVED_SLOTS) // MAIN_SLOTS_PER_FLOOR))
 
 
 def basement_rows_for(basement_count: int) -> int:
@@ -477,7 +494,9 @@ def build_spec(
     # No capacity cap: `main_floors` was sized to hold every entry, so the hall
     # grows to fit the roster rather than dropping trailing characters.
     for slot_index, cid in enumerate(main_ids):
-        x, y, w, h = main_slot_world_xy(slot_index)
+        # ⭐ **shifted past the door's reserved column**, so the first character
+        # in the catalog stands beside the doorway rather than in it.
+        x, y, w, h = main_slot_world_xy(slot_index + DOOR_RESERVED_SLOTS)
         center_x = x + w // 2
         foot_y = y + h
         npc_w, npc_h = 32, 48

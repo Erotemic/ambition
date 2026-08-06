@@ -41,6 +41,15 @@
 
 ---
 
+◐ **DONE 2026-08-05 except the two you marked iffy** — 21 rows removed from the
+catalog, their hall pedestals and hall dialogue with them; `npc_creator_final`
+folded into `npc_creator` (they already shared one spritesheet, so it really was
+one character wearing two ids — the intro's raid corridor still plays the
+`creator_final_normal` scene, because the SCENE is what differed); "Robot" is now
+"Robot V1"; and the hall reserves the doorway column so no pedestal can stand in
+the door. ⚠ **Exploding Mite and Dividing Mite are still here** — "iffy" is not a
+decision and they are yours to make.
+
 I want to remove some of the clone characters, that I don't find interesting, specificly:
 
 Robot Caster, Robot Engineer, Robot Archivist, Robot Diver, Robot Guardian,

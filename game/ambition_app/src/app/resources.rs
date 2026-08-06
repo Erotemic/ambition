@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 
+use ambition_content::content_validation;
 use ambition_platformer2d::actors::ldtk_world;
 use ambition_platformer2d::actors::session::data;
 use ambition_platformer2d::actors::time::feel::Platformer2dFeelTuningMonolith;
@@ -9,7 +10,6 @@ use ambition_platformer2d::dev_tools::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
 };
 use ambition_platformer2d::input::ControlFrame;
-use ambition_content::content_validation;
 
 use super::cli::cli_start_room_arg;
 
@@ -92,33 +92,18 @@ pub fn init_sandbox_resources(app: &mut App) {
                 .clone(),
         )
     };
-    // Direct-entry host: this process runs exactly one provider (Ambition), so
-    // the active audio authority is selected statically at composition. The
-    // shell-routed host instead selects one exact frontend/gameplay audio
-    // context through the shell bridge. The title may own its theme and menu
-    // cues; retired gameplay contexts may not leak work into it.
-    if !app
-        .world()
-        .contains_resource::<super::shell_host::AmbitionShellHosted>()
-    {
-        // Bank ids are folded in by `publish_resident_sfx_bank_authority` once
-        // the resident bank finishes loading; the cues are authorized here.
-        app.insert_resource(
-            ambition_platformer2d::audio::selection::ActiveAudioSelection::selected_direct(
-                ambition_content::AMBITION_CONTENT_PROVIDER,
-                Some(music_registry.clone()),
-                Some(sfx_registry.clone()),
-                std::collections::BTreeSet::new(),
-            ),
-        );
-        app.insert_resource(ambition_platformer2d::sfx::SfxEmissionContext::default());
-        app.world_mut()
-            .resource_mut::<ambition_platformer2d::sfx::SfxEmissionContext>()
-            .set(
-                ambition_platformer2d::sfx::AudioContextOwner::Direct,
-                ambition_content::AMBITION_CONTENT_PROVIDER,
-            );
-    }
+    // ⭐ **K2b edit 4: the direct-entry AUDIO branch is gone with its host.**
+    //
+    // It selected the active audio authority statically at composition, on the
+    // argument that a direct-entry process runs exactly one provider. There is
+    // no direct-entry process any more: `select_shell_audio_context`
+    // (`game_shell/src/session.rs`) owns selection AND `SfxEmissionContext` on
+    // activation, and it did even while this branch existed — the branch simply
+    // ran first in a composition the shell never touched.
+    //
+    // ⚠ the registries above are still read here, and still needed: they are
+    // what the provider's audio fragment is published FROM. Only the static
+    // selection went.
     let character_catalog = app
         .world()
         .resource::<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>()
@@ -146,21 +131,22 @@ pub fn init_sandbox_resources(app: &mut App) {
         .get_resource::<ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig>()
         .cloned()
         .unwrap_or_default();
-    let sandbox_catalog = ambition_platformer2d::actors::assets::platformer_assets::build_sandbox_catalog_with(
-        &asset_config,
-        &character_catalog,
-        &boss_catalog,
-        &music_registry,
-        &world_manifest,
-        |manifest| {
-            ambition_content::intro::sprites::extend_with_intro_sprite_entries(
-                manifest,
-                &asset_config.sprite_folder,
-                &authored_sheets,
-                &character_catalog,
-            );
-        },
-    );
+    let sandbox_catalog =
+        ambition_platformer2d::actors::assets::platformer_assets::build_sandbox_catalog_with(
+            &asset_config,
+            &character_catalog,
+            &boss_catalog,
+            &music_registry,
+            &world_manifest,
+            |manifest| {
+                ambition_content::intro::sprites::extend_with_intro_sprite_entries(
+                    manifest,
+                    &asset_config.sprite_folder,
+                    &authored_sheets,
+                    &character_catalog,
+                );
+            },
+        );
     #[cfg(feature = "audio")]
     let sfx_bank_asset_path = sandbox_catalog
         .path_for(&ambition_platformer2d::asset_manager::platformer_assets::ids::sfx_bank())
@@ -197,19 +183,21 @@ pub fn init_sandbox_resources(app: &mut App) {
     let editable_abilities = EditableAbilitySet::from(sandbox_data.abilities);
     let editable_tuning = EditableMovementTuning::from(sandbox_data.tuning);
     // The simulation's authority, seeded from the same authored value.
-    let active_tuning = ambition_platformer2d::engine_core::ActiveMovementTuning(sandbox_data.tuning);
-    let mut room_set = match ldtk_project.to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary()) {
-        Ok(room_set) => room_set,
-        Err(errors) => {
-            eprintln!(
-                "sandbox LDtk world failed validation; fix the configured map before running:"
-            );
-            for error in &errors {
-                eprintln!("  - {error}");
+    let active_tuning =
+        ambition_platformer2d::engine_core::ActiveMovementTuning(sandbox_data.tuning);
+    let mut room_set =
+        match ldtk_project.to_room_set(&world_manifest, &crate::composed_ldtk_vocabulary()) {
+            Ok(room_set) => room_set,
+            Err(errors) => {
+                eprintln!(
+                    "sandbox LDtk world failed validation; fix the configured map before running:"
+                );
+                for error in &errors {
+                    eprintln!("  - {error}");
+                }
+                sandbox_init_failed();
             }
-            sandbox_init_failed();
-        }
-    };
+        };
     // Programmatic override (Platformer2dSimHarness / library callers) takes
     // precedence over the CLI flag. Either one resolving by id wins;
     // the other is silently ignored. If neither matches, the LDtk

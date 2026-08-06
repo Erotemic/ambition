@@ -494,6 +494,70 @@ pub fn refuse_a_weaker_form_pickup(
 /// grows her, grown gets the beacon, and a Mary-O who already has the beacon
 /// gets nothing rather than a duplicate form row. There is no separate progress
 /// flag to keep in sync — the equipment IS the progress.
+/// **A DISCOVERED hidden block becomes a real solid.**
+///
+/// ⛔ **struck was VISIBLE and still intangible, which is half a mechanic.**
+/// `BlockKind::BonkOnly` is the right answer before discovery — air to feet, air
+/// sideways, solid only against a rising head — and the wrong one after it. The
+/// renderer swapped in the spent tile, so the room showed a block Mary-O falls
+/// through, enemies walk through, and nothing can stand on. In SMB discovery
+/// turns an invisible block into an ordinary solid; that is the point of finding
+/// one. (GPT 5.6 through `32eb27a`, finding 4 — correct.)
+///
+/// ⭐ **no engine change was needed, and that is worth noticing.**
+/// `FeatureEcsWorldOverlay` already carries `removed_block_names` AND `blocks`,
+/// so "stop being the authored BonkOnly, start being a Solid at the same box" is
+/// two pushes into a seam `contribute_broken_bricks_to_overlay` has used for
+/// removal alone. The reviewer's own narrow endpoint — *"a rollback-owned
+/// dynamic solid placed at the authored block AABB"* — turned out to already
+/// exist.
+///
+/// ⚠ **`SpentPowerBlocks` is the authority for BOTH art and collision**, which
+/// is the property the review asked for: it is rollback-registered with an
+/// order-independent checksum, so a rewind that un-spends a block takes its
+/// solidity with its tile rather than leaving one behind.
+///
+/// ⚠ **HIDDEN blocks only.** A spent Question or Brick was always solid and
+/// stays authored; re-adding it here would double it.
+pub fn contribute_discovered_hidden_blocks_to_overlay(
+    spent: Res<SpentPowerBlocks>,
+    geometry: Option<
+        ambition_platformer2d::platformer::lifecycle::SessionWorldRef<ae::RoomGeometry>,
+    >,
+    mut overlay: ResMut<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>,
+) {
+    let Some(geometry) = geometry else {
+        return;
+    };
+    for block in &geometry.0.blocks {
+        if let Some(solid) = discovered_solid(&spent, block) {
+            overlay.removed_block_names.push(block.name.clone());
+            overlay.blocks.push(solid);
+        }
+    }
+}
+
+/// **The whole decision, as a function**: what a discovered block becomes.
+///
+/// `Some(solid)` means *remove the authored block by name and add this in its
+/// place*; `None` means leave it alone.
+///
+/// ⚠ **extracted so the test can call THIS.** A test that re-derived the same
+/// answer beside the system would be green against a system that did nothing —
+/// a guard passing through its own arithmetic rather than through the code, and
+/// this file's sibling made exactly that mistake earlier today.
+pub fn discovered_solid(spent: &SpentPowerBlocks, block: &ae::Block) -> Option<ae::Block> {
+    // ⚠ HIDDEN only. A spent Question or Brick was always authored solid, and
+    // re-adding it would put two blocks in one place.
+    if block.kind != ae::BlockKind::BonkOnly || !spent.is_spent(&block.id) {
+        return None;
+    }
+    Some(ae::Block {
+        kind: ae::BlockKind::Solid,
+        ..block.clone()
+    })
+}
+
 pub fn bonk_power_blocks(
     mut commands: Commands,
     mut spent: ResMut<SpentPowerBlocks>,
@@ -2239,6 +2303,80 @@ mod loose_form_tests {
             app.world().get_entity(item).is_ok(),
             "small Mary-O's wand was eaten; the rule must only refuse a WEAKER \
              form, not every form"
+        );
+    }
+}
+
+#[cfg(test)]
+mod discovery_tests {
+    use super::*;
+
+    fn block(kind: ae::BlockKind, id: ae::GeoId, name: &str) -> ae::Block {
+        ae::Block {
+            id,
+            name: name.to_string(),
+            aabb: ae::Aabb::new(ae::Vec2::new(48.0, 96.0), ae::Vec2::splat(8.0)),
+            kind,
+            art_color: None,
+            velocity: ae::Vec2::ZERO,
+        }
+    }
+
+    /// **Discovery turns an invisible block into a real solid — both halves.**
+    ///
+    /// ⛔ struck was VISIBLE and still intangible: the renderer swapped in the
+    /// spent tile while the geometry stayed `BonkOnly`, so the room showed a
+    /// block Mary-O falls through, enemies walk through, and nothing can stand
+    /// on. In SMB, finding one is the point. (GPT 5.6 through `32eb27a`,
+    /// finding 4.)
+    ///
+    /// ⚠ **the BEFORE case is asserted too, and it is the half a careless guard
+    /// would drop.** Solidifying every hidden block on sight passes "it is solid
+    /// after" while deleting the mechanic: you would stand on blocks you have
+    /// never found.
+    #[test]
+    fn a_hidden_block_is_air_until_it_is_struck_and_solid_after() {
+        let id = ae::GeoId::anon();
+        let hidden = block(ae::BlockKind::BonkOnly, id.clone(), "hidden_coin_1");
+
+        assert!(
+            discovered_solid(&SpentPowerBlocks::default(), &hidden).is_none(),
+            "an unstruck hidden block was solidified, which deletes the mechanic: \
+             you would stand on blocks you have never found"
+        );
+
+        let mut spent = SpentPowerBlocks::default();
+        spent.spend(id);
+        let solid =
+            discovered_solid(&spent, &hidden).expect("a struck hidden block becomes something");
+        assert_eq!(
+            solid.kind,
+            ae::BlockKind::Solid,
+            "a discovered block must be an ORDINARY solid — supports Mary-O, \
+             supports enemies, blocks sideways"
+        );
+        assert_eq!(
+            solid.aabb, hidden.aabb,
+            "the solid must sit exactly where the authored block did"
+        );
+        assert_eq!(
+            solid.name, hidden.name,
+            "it keeps its name, because the overlay removes the authored block \
+             BY name and a rename would leave both in the room"
+        );
+    }
+
+    /// A spent QUESTION or BRICK is already authored solid; re-adding it would
+    /// put two blocks in one place.
+    #[test]
+    fn only_hidden_blocks_are_upgraded() {
+        let id = ae::GeoId::anon();
+        let question = block(ae::BlockKind::Solid, id.clone(), "question_1");
+        let mut spent = SpentPowerBlocks::default();
+        spent.spend(id);
+        assert!(
+            discovered_solid(&spent, &question).is_none(),
+            "a spent Question was re-added, doubling an already-solid block"
         );
     }
 }

@@ -1897,7 +1897,12 @@ impl Plugin for MaryORulesPlugin {
             powerups::rearm_power_blocks_for_a_fresh_attempt,
         )
             .in_set(ambition_platformer2d::actors::session::reset::ContentRoomReplayResetSet);
-        let brick_overlay = bricks::contribute_broken_bricks_to_overlay
+        let brick_overlay = (
+            bricks::contribute_broken_bricks_to_overlay,
+            // A struck hidden block stops being pass-through in the SAME slot a
+            // broken brick stops being solid — one overlay, both directions.
+            powerups::contribute_discovered_hidden_blocks_to_overlay,
+        )
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep)
             .after(ambition_platformer2d::actors::features::FeatureWorldOverlaySet);
         if self.hosted {

@@ -2900,7 +2900,7 @@ mod tests {
             .map(|p| p[1] - p[0])
             .fold(0.0f32, f32::max)
             - T;
-        let slop_width = ai_slop::AI_SLOP_HALF * 2.0;
+        let slop_width = ai_slop::AI_SLOP_BODY_WIDTH;
         assert!(
             trench >= slop_width * 4.0,
             "the trench is {trench} wide and a slop is {slop_width} — it needs \

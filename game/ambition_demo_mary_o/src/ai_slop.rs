@@ -162,8 +162,50 @@ pub fn register_ai_slop_sheet(
 // ⚠ its SIZE stays here, and the difference is the rule: how big a slop is, is a
 // fact about the character; where it stands is a fact about the level.
 
-/// Half-extent of an AI Slop's body.
-pub(crate) const AI_SLOP_HALF: f32 = 14.0;
+/// **How WIDE an AI Slop is, in world units.** The one authored number; its
+/// height follows from the art.
+///
+/// ⛔ **this used to be `AI_SLOP_HALF`, splatted into a SQUARE.** The sheet
+/// publishes a body of **257 x 167 px** — a 1.54:1 animal — and
+/// `Vec2::splat(14.0)` laid a 1:1 box over it, so the collision was 28 tall where
+/// the creature is 18. That is Jon's *"the sprite might not match the box"* on
+/// the slop, and unlike the snake's it is not a scale mismatch at all: no value
+/// of any scale knob can make a square describe a 1.54:1 creature.
+///
+/// ⭐ **WIDTH is the anchor because width is what the level sees.** A slop
+/// patrols a corridor; how much of it it occupies is the fact a room is authored
+/// against, and 28 is what it occupied before — so this change costs no level a
+/// re-author. The height stops being a claim and becomes a measurement.
+///
+/// ⚠ this function's own doc already said the snake was *"one step further along
+/// — its size comes from its sheet"*. This is the slop taking that step.
+pub const AI_SLOP_BODY_WIDTH: f32 = 28.0;
+
+/// World units per sheet pixel, derived so the body is [`AI_SLOP_BODY_WIDTH`]
+/// wide and the art's own aspect decides the rest.
+///
+/// ⚠ **derived per call rather than pinned**, exactly like
+/// `mary_o_world_per_pixel`: the sheets are regenerated regularly and every
+/// regeneration re-measures the alpha bbox, so a scale pinned to today's pixel
+/// count silently resizes the creature the first time a crop moves by a pixel.
+pub fn ai_slop_half_size() -> ae::Vec2 {
+    // No baked art (a headless fixture, `--no-assets`): fall back to the square
+    // this replaced, so a composition with no sheets behaves exactly as before
+    // rather than acquiring a differently-wrong body.
+    let fallback = ae::Vec2::splat(AI_SLOP_BODY_WIDTH * 0.5);
+    let Some(sheet) = ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+        AI_SLOP_SHEET_TARGET,
+        ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
+        1.0,
+    ) else {
+        return fallback;
+    };
+    if sheet.collision.x <= 0.0 || sheet.collision.y <= 0.0 {
+        return fallback;
+    }
+    let world_per_pixel = AI_SLOP_BODY_WIDTH / sheet.collision.x;
+    sheet.collision * world_per_pixel * 0.5
+}
 
 /// **Is this actor an AI Slop?**
 ///
@@ -182,7 +224,7 @@ pub fn is_ai_slop_brain(brain: &CharacterBrain) -> bool {
 }
 
 /// Tag freshly staged AI Slop with the [`AiSlop`] marker, so the stomp rule finds
-/// its own, and hold it to [`AI_SLOP_HALF`].
+/// its own, and hold it to the size its sheet describes.
 ///
 /// ⭐ **an enemy's authored rectangle says WHERE, not HOW BIG.** The engine
 /// spawns an authored body at the rect the level draws, which is right for
@@ -198,7 +240,7 @@ pub fn tag_mary_o_ai_slop(
 ) {
     for (entity, config, mut body) in &mut fresh {
         if is_ai_slop_brain(&config.brain) {
-            body.half_size = ae::Vec2::splat(AI_SLOP_HALF);
+            body.half_size = ai_slop_half_size();
             // The dormancy policy rides the same tag pass rather than the spawn
             // request, because `SpawnActorRequest` is the ENGINE's vocabulary for
             // what an actor IS and dormancy is a per-character decision the

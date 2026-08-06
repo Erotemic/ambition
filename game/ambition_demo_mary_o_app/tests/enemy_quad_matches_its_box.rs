@@ -87,3 +87,62 @@ fn the_snakes_picture_and_its_body_describe_the_same_animal() {
         walking.render,
     );
 }
+
+/// **The AI Slop's BOX now has its sheet's shape — the half that was fixable.**
+///
+/// Its sibling above ratchets a disagreement it cannot fix: the snake's quad is
+/// the whole 128x128 sheet FRAME, so closing that gap needs an art-pipeline crop
+/// or a quad sized from the body. The slop's was different in kind — the sheet
+/// published a 1.54:1 body and `AI_SLOP_HALF` splatted a 1:1 SQUARE over it, so
+/// the box was 28 tall where the creature is 18, and no value of any scale knob
+/// could have fixed a shape.
+///
+/// ⭐ **width is the anchor and the height is now a measurement.** A slop patrols
+/// a corridor; how much of it it occupies is what a room is authored against, and
+/// 28 is what it occupied before — so this cost no level a re-author while the
+/// height stopped being a claim.
+///
+/// ⚠ **this asserts the SHAPE, not the size**, exactly like the snake's. How big
+/// a slop should be is a taste call for whoever is looking at the running game;
+/// that its box and its picture describe the same animal is not.
+#[test]
+fn the_ai_slops_box_has_the_shape_its_sheet_publishes() {
+    let sheet = posed_body_geometry(
+        ambition_demo_mary_o::ai_slop::AI_SLOP_SHEET_TARGET,
+        CharacterAnim::Idle,
+        1.0,
+    )
+    .expect("the AI Slop's sheet publishes body metrics");
+    let sheet_aspect = sheet.collision.x / sheet.collision.y;
+    assert!(
+        sheet_aspect > 1.2,
+        "this test exists because the slop is WIDER than it is tall ({sheet_aspect:.2}:1); \
+         if the art became square the square box was never the bug"
+    );
+
+    // ⛔ **ask the SIZING FUNCTION, not the sheet.** The first draft of this
+    // recomputed the height from `sheet.collision` itself and was therefore green
+    // against the splat it exists to prevent — a guard passing through its own
+    // arithmetic rather than through the code. Probed: stubbing
+    // `ai_slop_half_size` back to the square now fails here.
+    let half = ambition_demo_mary_o::ai_slop::ai_slop_half_size();
+    let (width, height) = (half.x * 2.0, half.y * 2.0);
+    assert!(
+        (width - ambition_demo_mary_o::ai_slop::AI_SLOP_BODY_WIDTH).abs() < 0.01,
+        "the derived body is {width:.1} wide, not the {:.1} it authors — width is \
+         the anchor and every level is placed against it",
+        ambition_demo_mary_o::ai_slop::AI_SLOP_BODY_WIDTH
+    );
+    assert!(
+        (height - width).abs() > TILE * 0.25,
+        "the derived body came out near-square ({width:.1} x {height:.1}), which \
+         means the derivation is not doing anything and the splat could come back \
+         unnoticed"
+    );
+    // ⭐ the number this replaced, stated so the change is legible: the splat put
+    // 28 x 28 on a creature whose art is 28 x ~18.
+    assert!(
+        height < width,
+        "an AI Slop is a wide low blob; its box measured {width:.1} x {height:.1}"
+    );
+}

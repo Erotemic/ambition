@@ -1264,3 +1264,21 @@ Vera Ruin: The edges of a spiral turn as fast as the middle. They should not. So
 -> What is it made of?
     Vera Ruin: Not us. That is the whole of what I can defend. I did not find the dark; I found the grip it has, and the grip is the only honest thing to find.
 ===
+
+title: hall_npc_snakes_on_a_cartesian_plane
+---
+Snakes on a Cartesian Plane: We have coordinates for your location. All four quadrants, in fact. You are somewhere in there.
+-> That's not how coordinates work.
+    Snakes on a Cartesian Plane: It is exactly how coordinates work, and the axes agree with us. Our domain is all real snakes. The range is wherever you were standing.
+-> Why a grid?
+    Snakes on a Cartesian Plane: Because a plane is a plane. You people hear the word once and picture an aeroplane; we heard it and picked the one with axes. Stay on the positive side and nobody has to be plotted.
+===
+
+title: hall_npc_snakes_on_a_paper_plane
+---
+Snakes on a Paper Plane: This flight is hiss-class only. Please keep your scales inside the aircraft.
+-> Is this thing airworthy?
+    Snakes on a Paper Plane: It is a single sheet, folded twice, and carrying nine of us. Airworthy is a strong word. Airborne is the one we can defend.
+-> What happened on the last flight?
+    Snakes on a Paper Plane: We folded under pressure. Then we unfolded, which was worse, and then somebody creased the nose and we were a glider again. Aviation is mostly recovery.
+===

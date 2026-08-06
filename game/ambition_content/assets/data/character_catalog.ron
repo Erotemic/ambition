@@ -218,6 +218,55 @@
         ),
         hall_dialogue_id: Some("hall_npc_niels_boar"),
         ),
+        // ⭐ **the art was drawn before the enemy was wired**, and Jon's own
+        // observations ask for it: *"I would like to add the flying snakes on a
+        // plane as enemies in this world"* (Mary-O 1-2). Its id, name, traits and
+        // barks are all authored in the renderer's `_snakes_on_planes_common`
+        // spec, so this row DERIVES them rather than inventing a character.
+        // ⚠ identity only — no behaviour. A flying swarm needs a roster
+        // archetype and a placement the way `solid_snake` has `mary_o_snake`.
+        "npc_snakes_on_a_cartesian_plane": (
+            display_name: "Snakes on a Cartesian Plane",
+            spritesheet: "sprites/snakes_on_a_cartesian_plane_spritesheet.png",
+            manifest: "sprites/snakes_on_a_cartesian_plane_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy", "flying", "snake_swarm", "cartesian_plane", "math_pun"],
+            fallback_dialogue: [
+                "We have coordinates for your location.",
+                "Stay on the positive side.",
+                "Our domain is all real snakes.",
+            ],
+        barks: (
+            hall: ["We have coordinates for your location.", "Stay on the positive side.", "Our domain is all real snakes."],
+        ),
+        hall_dialogue_id: Some("hall_npc_snakes_on_a_cartesian_plane"),
+        ),
+        // The other half of the same drawn-but-unwired pair; see the Cartesian
+        // row above for why this exists as identity only.
+        "npc_snakes_on_a_paper_plane": (
+            display_name: "Snakes on a Paper Plane",
+            spritesheet: "sprites/snakes_on_a_paper_plane_spritesheet.png",
+            manifest: "sprites/snakes_on_a_paper_plane_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["enemy", "flying", "snake_swarm", "paper_airplane", "plane_pun"],
+            fallback_dialogue: [
+                "This flight is hiss-class only.",
+                "Please keep your scales inside the aircraft.",
+                "We folded under pressure.",
+            ],
+        barks: (
+            hall: ["This flight is hiss-class only.", "Please keep your scales inside the aircraft.", "We folded under pressure."],
+        ),
+        hall_dialogue_id: Some("hall_npc_snakes_on_a_paper_plane"),
+        ),
         "npc_vera_ruin": (
             display_name: "Vera Ruin",
             spritesheet: "sprites/vera_ruin_spritesheet.png",

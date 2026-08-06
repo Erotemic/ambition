@@ -18,10 +18,19 @@
 
 * ▢ **still open next door**: `maryo flashes when her fireball hits an enemy` (below) is a separate item and was not touched by this.
 
-* ⭐ **The snakes-on-a-plane art already EXISTS.** Your 1-2 request mentions
-  flying snakes on a plane; `snakes_on_a_cartesian_plane` and
-  `snakes_on_a_paper_plane` are both drawn and published by the regen batch, and
-  no code names either one. So that enemy is a wiring job, not an art job.
+* ◐ **The snakes-on-a-plane art already EXISTS, and half the wiring is now in.**
+  Both `snakes_on_a_cartesian_plane` and `snakes_on_a_paper_plane` were drawn,
+  published, and named by nothing. They have IDENTITY rows now — id, display
+  name, traits and barks all DERIVED from the renderer's own spec rather than
+  invented — plus hall pedestals and conversations, so they exist as characters
+  and their art resolves.
+  ▢ **what is left is behaviour and placement**: a roster archetype the way
+  `solid_snake` has `mary_o_snake` (these are a FLYING swarm, which the engine
+  has no enemy shaped like yet), and an LDtk placement in 1-2. Both are Mary-O
+  work rather than engine work.
+  ⚠ **which one is the 1-2 enemy is yours to say.** The Cartesian one is the
+  maths joke, the paper one is the aviation joke, and they are different
+  creatures rather than two skins.
 
 * Maryo world 1-2 needs moving platforms that move vertically down and up like an elevator. When they go OOB (far enough so they are off screen of the player in normal gameplay) they can teleport to the top / bottom of the screen to make an infinite elevator effect.
 

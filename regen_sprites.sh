@@ -414,6 +414,8 @@ expected_files=(
     colonial_statesman_spritesheet.png colonial_statesman_spritesheet.ron
     dark_lord_spritesheet.png dark_lord_spritesheet.ron
     flying_spaghetti_monster_boss_spritesheet.png flying_spaghetti_monster_boss_spritesheet.ron
+    snakes_on_a_cartesian_plane_spritesheet.png snakes_on_a_cartesian_plane_spritesheet.ron
+    snakes_on_a_paper_plane_spritesheet.png snakes_on_a_paper_plane_spritesheet.ron
     busy_beaver_spritesheet.png busy_beaver_spritesheet.ron
     busy_beaver_portraits.png busy_beaver_portraits.ron
     charley_beagle_svg_spritesheet.png charley_beagle_svg_spritesheet.ron

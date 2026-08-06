@@ -17,9 +17,9 @@
 //! - tuning/brain_spec/brain/spawn baseline/sprite override/id/name → [`ActorConfig`]
 //! - patrol path             → [`ActorMotionPath`]
 
+use crate::features::enemies::ArchetypeSpecExt;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
-use crate::features::enemies::ArchetypeSpecExt;
 
 /// Content-driven animation PIN for an actor.
 ///
@@ -39,9 +39,7 @@ use crate::features::enemies::ArchetypeSpecExt;
 pub struct ActorAnimOverride(pub ambition_sprite_sheet::character::CharacterAnim);
 
 use super::super::components::BodyMelee;
-use super::super::enemies::{
-    ActorSpawnState, ActorSurfaceState, ArchetypeSpec, CharacterRoster,
-};
+use super::super::enemies::{ActorSpawnState, ActorSurfaceState, ArchetypeSpec, CharacterRoster};
 use super::super::path_motion::PathMotion;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
@@ -418,7 +416,7 @@ pub fn sprite_render_size_for_name_in(
     ldtk_fallback: ae::Vec2,
 ) -> Option<ae::Vec2> {
     catalog
-        .id_for_display_name(name)
+        .id_for_authored_identity(name)
         .and_then(|cid| {
             crate::character_sprites::sprite_body_collision_for_character_id_in(
                 authored,
@@ -475,7 +473,11 @@ impl ActorClusterSeed {
         // Resolve this enemy's uniform sprite identity from its display name
         // (the same name → sheet join presentation does). `None` for a generic
         // enemy whose name isn't a catalog character.
-        let sprite_character_id = catalog.id_for_display_name(&name).map(String::from);
+        // ⭐ **id first, display name second.** An authored placement that names
+        // a `character_id` resolves directly and survives a rename; one that
+        // carries a display name (every level today) keeps working through the
+        // fallback. See `CharacterCatalog::id_for_authored_identity`.
+        let sprite_character_id = catalog.id_for_authored_identity(&name).map(String::from);
         let hurt_feedback = actor_hurt_feedback(catalog, sprite_character_id.as_deref());
         let motion = match &brain {
             ambition_entity_catalog::placements::CharacterBrain::Patrol {

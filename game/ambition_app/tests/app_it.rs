@@ -105,3 +105,5 @@ mod update_schedule_census;
 mod versus_stage;
 mod versus_through_the_sdk;
 mod world_manifest_parameterization;
+
+mod enemy_body_scale;

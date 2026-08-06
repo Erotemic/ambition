@@ -281,7 +281,16 @@ writing; this page previously said "assert on this", which is true and
 unusable.
 
 `RollbackRefused` names the fix, not just the fault: `NotComposedForRollback`,
-`NeverActivated`, `NoAuthoritativeState`, `SessionRejected`.
+`NeverActivated`, `NoAuthoritativeState`, `NoSessionWorld`, `SessionRejected`.
+
+⚠ **`NoSessionWorld` is the one you will hit under a shell-routed host.** The
+host reached `Running`, but activation has not produced a session world yet — and
+a session opened there rebases frame zero onto an EMPTY world, so the frames that
+build the room mismatch on every resimulation and GGRS reports it only as a
+checksum difference. It reads as a desync in your game and it is not one. Wait
+for the world (`settle_until_session_world`) and then start. A direct host whose
+root is built at plugin-build time never sees this, which is why the precondition
+went unstated until 2026-08-06.
 
 ### Is it still running?
 

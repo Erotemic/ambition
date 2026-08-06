@@ -26,7 +26,9 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 /// the new room has a binding and the cutscene hasn't been seen.
 pub fn auto_trigger_room_cutscenes(
     bindings: Res<RoomCutsceneBindings>,
-    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<crate::rooms::RoomSet>,
+    room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        crate::rooms::RoomSet,
+    >,
     mut queue: ResMut<CutsceneTriggerQueue>,
     mut last_room: Local<Option<String>>,
 ) {
@@ -74,15 +76,32 @@ pub fn drain_cutscene_triggers(
     }
 }
 
+/// Advance the playing cutscene by one SIMULATION step.
+///
+/// ⛔ **this read `Res<Time>`, which is the wrong clock in two ways.** This
+/// system runs in the sim schedule, and `sim_schedule()` IS `Update` under the
+/// `RenderFrame` host — so a cutscene's beat timings depended on how fast the
+/// machine drew frames, and two replays of the same input stream could enter
+/// different beats. Under a fixed or GGRS host the frame clock happens to be
+/// deterministic, which is exactly the kind of accident that makes a bug
+/// invisible in the tests that would catch it.
+///
+/// ⚠ **and `WorldTime::sim_dt` is SCALED**, which the frame clock is not. A
+/// cutscene playing under slow motion now slows with the scene it accompanies
+/// instead of running at wall speed over a world in treacle.
+///
+/// ⭐ this is the "deterministic elapsed" half of the cutscene-authority row in
+/// `tracks.md`: playback state advances on the sim clock, and only presentation
+/// reads the wall clock (`PresentationTime::wall_dt`).
 pub fn tick_active_cutscene(
-    time: Res<Time>,
+    time: Res<ambition_time::WorldTime>,
     mut active: ResMut<ActiveCutscene>,
     mut request: ResMut<CutsceneAdvanceRequest>,
     mut save: ResMut<ambition_persistence::save::AmbitionGameSave>,
 ) {
     let dismiss = std::mem::take(&mut request.dismiss_dialogue);
     let skip = std::mem::take(&mut request.skip_cutscene);
-    let dt = time.delta_secs();
+    let dt = time.sim_dt();
 
     let Some(runtime) = active.runtime.as_mut() else {
         return;

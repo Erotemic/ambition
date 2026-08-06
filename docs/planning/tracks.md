@@ -541,6 +541,19 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   writer+validator; `run_source_analysis.sh`; reviews README) — then STOP.
 
 **Design-before-code**
+- ◐ **Cutscene authority — the DETERMINISTIC ELAPSED half landed 2026-08-06.**
+  `tick_active_cutscene` read `Res<Time>`, which is the wrong clock twice over:
+  the system runs in the sim schedule, and `sim_schedule()` IS `Update` under the
+  `RenderFrame` host — so beat timings depended on how fast the machine drew
+  frames, and two replays of one input stream could enter different beats. Under
+  a fixed or GGRS host the frame clock happens to be deterministic, which is
+  precisely the accident that hides a bug from the tests that would catch it.
+  It advances on `WorldTime::sim_dt` now, which is also SCALED: a cutscene under
+  slow motion slows with the scene instead of running at wall speed over a world
+  in treacle.
+  ▢ still open, and still design-first: advance/skip as EDGES through participant
+  input (hold-to-skip stays a local accumulator, only the completed edge crosses),
+  and the derived-presentation split.
 - ▢ Cutscene authority (model 1): write the semantic-playback state shape
   (beat index, deterministic elapsed, advance/skip edges through
   participant input) vs derived presentation FIRST; hold-to-skip stays a

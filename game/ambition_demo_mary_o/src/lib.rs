@@ -1859,6 +1859,18 @@ impl Plugin for MaryORulesPlugin {
         // (re)load, pop wand on a head-bonk, and keep the tall form in sync with
         // wearing the wand. The engine's `collect_world_items` (touch → equip) sits
         // between the bonk and the grow — no demo wiring for it.
+        // ⛔ **BEFORE the engine's collector**, which is the whole point: it
+        // equips whatever a body touches, so the only way a Mary-O rule reaches a
+        // loose form item is to consume the redundant one first. Registered on
+        // `Update` beside `collect_world_items` rather than in the sim set, so
+        // the ordering edge is real (a cross-schedule `.before` is silently
+        // vacuous).
+        app.add_systems(
+            bevy::prelude::Update,
+            powerups::refuse_a_weaker_form_pickup
+                .before(ambition_platformer2d::actors::items::collect_world_items)
+                .run_if(ambition_platformer2d::runtime::in_mode(MARY_O_MODE)),
+        );
         let powerups = (
             powerups::bonk_power_blocks,
             powerups::sync_grown_form,

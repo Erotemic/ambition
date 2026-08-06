@@ -386,6 +386,67 @@ pub(crate) fn tall_body_size() -> ae::Vec2 {
     form_body_size(TALL_SHEET_TARGET)
 }
 
+/// **A weaker form on the FLOOR is refused too, not just one from a block.**
+///
+/// ⛔ **`without_downgrading` guards the BLOCK PAYOUT and nothing else**, and the
+/// comment on it claimed the broader rule: *"A pickup never makes her weaker."*
+/// The engine's `collect_world_items` equips any `WorldItem` a body touches, so a
+/// wand authored directly into a level — or dropped, or spawned by anything that
+/// is not a `?`-block — still replaced the beacon in the shared FORM slot and
+/// demoted fire Mary-O to tall. (GPT 5.6, review through `d46a0f7`. Correct, and
+/// the overreach was in my prose rather than in the engine.)
+///
+/// ⭐ **so the rule moves to the COLLECTION, which is the one thing every road
+/// passes through.** This runs before the engine's collector and consumes a
+/// redundant form item itself: she keeps the stronger form, the pickup still
+/// disappears, and the coins are the acknowledgement — the same trade the block
+/// payout makes, for the same reason.
+///
+/// ⚠ the ranking stays Mary-O's. The engine's exclusive-slot replacement is
+/// correct and general; *"a weaker form may not replace a stronger one"* is a
+/// statement about this game's progression.
+pub fn refuse_a_weaker_form_pickup(
+    mut commands: Commands,
+    items: Query<(Entity, &ambition_platformer2d::actors::items::WorldItem)>,
+    mut players: Query<
+        (
+            &ae::BodyKinematics,
+            Option<&WornEquipment>,
+            Option<&mut ambition_platformer2d::characters::actor::BodyWallet>,
+        ),
+        With<PrimaryPlayer>,
+    >,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
+) {
+    let Ok((body, worn, mut wallet)) = players.single_mut() else {
+        return;
+    };
+    use ae::AabbExt as _;
+    let body_aabb = ae::Aabb::new(body.pos, body.size * 0.5);
+    let rank = worn_form_rank(worn);
+    for (entity, item) in &items {
+        if !body_aabb.strict_intersects(item.aabb()) {
+            continue;
+        }
+        let ambition_platformer2d::actors::items::WorldItemPayload::Equip(row) = &item.payload;
+        let is_form = row
+            .exclusive_slot
+            .as_deref()
+            .is_some_and(|slot| slot == FORM_SLOT);
+        if !is_form || form_rank(&row.id) > rank {
+            continue;
+        }
+        if let Some(purse) = wallet.as_mut() {
+            purse.add(COINS_PER_BLOCK);
+        }
+        sfx.write_from(
+            crate::provider::MARY_O_EXPERIENCE,
+            ambition_platformer2d::sfx::SfxMessage::Hit { pos: item.pos },
+        );
+        commands.entity(entity).despawn();
+    }
+}
+
 /// **The ?-block bonk.** A head contact (`ContactKind::Head`) against a ?-block —
 /// identified by the durable `GeoId` the engine now carries on
 /// `ContactSource::Block`, NOT by point-matching — pops a `WorldItem` out on top
@@ -625,6 +686,12 @@ fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
 /// flinches, wears its used art and hands over coins — it does not go
 /// unresponsive, which is the failure the always-acknowledge rule above exists
 /// to prevent.
+///
+/// ⚠ **this function guards the BLOCK PAYOUT only**, and for a day its comment
+/// claimed the whole rule. The floor is guarded by
+/// [`refuse_a_weaker_form_pickup`], which runs before the engine's collector;
+/// between them the invariant is true of every road a form item can arrive on.
+/// (GPT 5.6, `d46a0f7`, spotted the gap in the prose before it was in the code.)
 fn without_downgrading(reward: PowerReward, worn: Option<&WornEquipment>) -> BlockPayout {
     let is_form = reward
         .row
@@ -2071,5 +2138,70 @@ mod tests {
 
         // An empty block owes NOTHING, which is a different answer from coins.
         assert_eq!(paid(MaryOBlockContents::Empty, small), "nothing");
+    }
+}
+
+#[cfg(test)]
+mod loose_form_tests {
+    use super::*;
+    use ambition_platformer2d::actors::items::WorldItem;
+    use ambition_platformer2d::characters::equipment::WornEquipment;
+
+    /// **A wand lying on the floor cannot demote fire Mary-O.**
+    ///
+    /// ⛔ the block payout was guarded and the FLOOR was not, so a wand authored
+    /// straight into a level — or dropped by anything that is not a `?`-block —
+    /// still replaced the beacon in the shared form slot. The doc on
+    /// `without_downgrading` claimed the broader rule the whole time.
+    #[test]
+    fn a_loose_wand_is_consumed_rather_than_demoting_her() {
+        let mut app = App::new();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        let at = ae::Vec2::new(100.0, 100.0);
+        let item = app
+            .world_mut()
+            .spawn(WorldItem::equipping(star_wand(), at, ae::Vec2::splat(8.0)))
+            .id();
+        app.world_mut().spawn((
+            PrimaryPlayer,
+            ae::BodyKinematics {
+                pos: at,
+                size: ae::Vec2::new(30.0, 48.0),
+                ..Default::default()
+            },
+            WornEquipment::new(vec![cinder_beacon()]),
+        ));
+        app.add_systems(Update, refuse_a_weaker_form_pickup);
+        app.update();
+
+        assert!(
+            app.world().get_entity(item).is_err(),
+            "the redundant wand was left on the floor for the engine's collector \
+             to equip, which is the demotion this rule exists to stop"
+        );
+
+        // …and the control: SMALL Mary-O keeps it, so the rule is not "refuse
+        // every wand".
+        let mut app = App::new();
+        app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+        let item = app
+            .world_mut()
+            .spawn(WorldItem::equipping(star_wand(), at, ae::Vec2::splat(8.0)))
+            .id();
+        app.world_mut().spawn((
+            PrimaryPlayer,
+            ae::BodyKinematics {
+                pos: at,
+                size: ae::Vec2::new(30.0, 48.0),
+                ..Default::default()
+            },
+        ));
+        app.add_systems(Update, refuse_a_weaker_form_pickup);
+        app.update();
+        assert!(
+            app.world().get_entity(item).is_ok(),
+            "small Mary-O's wand was eaten; the rule must only refuse a WEAKER \
+             form, not every form"
+        );
     }
 }

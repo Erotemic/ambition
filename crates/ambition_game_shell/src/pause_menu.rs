@@ -146,6 +146,41 @@ fn audio_value(
 pub struct ShellPauseMenu {
     pub open: bool,
     cursor: usize,
+    /// **WHICH SEAT opened it, and therefore whose presses drive it.**
+    ///
+    /// ⛔ before this, player two could neither pause nor navigate: the menu
+    /// read `MenuControlFrame`, which `populate_menu_control_frame_from_actions`
+    /// fills from the PRIMARY seat alone. On a couch that reads as the Start
+    /// button being broken.
+    ///
+    /// Jon's ruling (2026-08-06): any seat may pause, and the seat that paused
+    /// drives the menu. Not "the primary navigates" — you pressed the button, so
+    /// the cursor answers to you.
+    ///
+    /// ⚠ the world still stops for EVERYONE. Pausing is a `GameMode` transition
+    /// and that is global; what is per-seat is who the menu is FOR. `None` while
+    /// closed, and while open in a composition with no per-seat frames at all.
+    owner: Option<u8>,
+}
+
+impl ShellPauseMenu {
+    /// The seat currently driving the pause menu, if one owns it.
+    pub fn owner(&self) -> Option<u8> {
+        self.owner
+    }
+
+    /// Fold the menu shut.
+    ///
+    /// ⚠ **releasing the owner is IN here, not beside it.** There are four
+    /// places that close this menu — the suppression yield and three of the
+    /// entries — and a seat left owning a closed menu would silently keep the
+    /// next player from opening one. A second step somebody has to remember is
+    /// the failure; this is the first step containing it.
+    pub fn close(&mut self) {
+        self.open = false;
+        self.cursor = 0;
+        self.owner = None;
+    }
 }
 
 /// Host-set gate: when `true`, the shell pause menu yields to the active
@@ -250,6 +285,10 @@ fn drive_shell_pause_menu(
     // touch-fed) in every windowed host, which is what lets the on-screen
     // "Menu" button open this menu on a phone.
     menu_frame: Option<Res<ambition_input::MenuControlFrame>>,
+    // The PER-SEAT frames, so any seat can pause and the seat that paused drives
+    // the menu. Optional: a standalone demo composes this shell without the
+    // participant pipeline, and there the global frame above is the only seat.
+    seat_frames: Option<Res<ambition_input::SeatMenuFrames>>,
     session: Res<ActiveGameplaySession>,
     suppressed: Res<ShellPauseMenuSuppressed>,
     mut menu: ResMut<ShellPauseMenu>,
@@ -271,8 +310,7 @@ fn drive_shell_pause_menu(
     // "how do I mute this" gets asked (2026-07-28).
     if suppressed.0 {
         if menu.open {
-            menu.open = false;
-            menu.cursor = 0;
+            menu.close();
             resume_sim(&game_mode, &mut next_mode);
         }
         return;
@@ -280,13 +318,43 @@ fn drive_shell_pause_menu(
     let in_session = session.0.is_some();
     let rows = PauseEntry::rows(in_session);
 
-    let edges = shell_action_edges(menu_frame.as_deref());
+    // **Whose presses is this menu reading?**
+    //
+    // Open: the seat that opened it, and only that seat — you pressed the
+    // button, so the cursor answers to you. Closed: EVERY seat is a candidate,
+    // because any of them may pause. The first seat in slot order that pressed
+    // Start wins the frame, which makes a simultaneous press deterministic
+    // rather than dependent on iteration luck.
+    //
+    // ⚠ `seat_frames` is optional and the global frame is the fallback, for the
+    // same reason it is optional everywhere else in this crate: a standalone
+    // demo composes the shell without the participant pipeline, and there the
+    // one global frame IS the only seat.
+    let (edges, presser) = match seat_frames.as_deref() {
+        Some(frames) => match menu.owner {
+            Some(owner) => (shell_action_edges(Some(&frames.for_seat(owner))), None),
+            None => {
+                let opener = frames
+                    .seats()
+                    .find(|(_, frame)| shell_action_edges(Some(frame)).pause)
+                    .map(|(slot, _)| slot);
+                (
+                    opener
+                        .map(|slot| shell_action_edges(Some(&frames.for_seat(slot))))
+                        .unwrap_or_default(),
+                    opener,
+                )
+            }
+        },
+        None => (shell_action_edges(menu_frame.as_deref()), None),
+    };
     // Escape / Start toggle; the controller B (`back`) also closes an open menu.
     let toggle = edges.pause || (menu.open && edges.back);
 
     if toggle {
         menu.open = !menu.open;
         menu.cursor = 0;
+        menu.owner = menu.open.then_some(presser).flatten();
         if menu.open {
             // Pausing is a no-op without a session, and asking for it anyway
             // would pause a title screen that has no sim to pause.
@@ -400,13 +468,11 @@ fn activate_pause_entry(
             }
         }
         PauseEntry::Close => {
-            menu.open = false;
-            menu.cursor = 0;
+            menu.close();
             play(sfx, ids::UI_MENU_BACK);
         }
         PauseEntry::Resume => {
-            menu.open = false;
-            menu.cursor = 0;
+            menu.close();
             resume_sim(game_mode, next_mode);
             play(sfx, ids::UI_MENU_BACK);
         }
@@ -415,8 +481,7 @@ fn activate_pause_entry(
             // same leak-free path F10 fires. The menu folds; the sim is handed
             // back so the next session starts unpaused.
             shell.write(ShellCommand::QuitToHome);
-            menu.open = false;
-            menu.cursor = 0;
+            menu.close();
             resume_sim(game_mode, next_mode);
             play(sfx, ids::UI_MENU_ACCEPT);
         }
@@ -596,6 +661,95 @@ mod tests {
         }
         app.update();
         *app.world_mut().resource_mut::<MenuControlFrame>() = MenuControlFrame::default();
+    }
+
+    /// A couch: two seated players, each with their own menu frame.
+    fn couch_app() -> App {
+        let mut app = app();
+        app.init_resource::<ambition_input::SeatMenuFrames>();
+        {
+            let mut frames = app
+                .world_mut()
+                .resource_mut::<ambition_input::SeatMenuFrames>();
+            frames.set(0, MenuControlFrame::default());
+            frames.set(1, MenuControlFrame::default());
+        }
+        app
+    }
+
+    /// One seat's intent for exactly one frame — the per-seat twin of
+    /// [`intent`], and the shape a couch actually produces.
+    fn seat_intent(app: &mut App, slot: u8, set: impl Fn(&mut MenuControlFrame)) {
+        {
+            let mut frames = app
+                .world_mut()
+                .resource_mut::<ambition_input::SeatMenuFrames>();
+            let mut frame = MenuControlFrame::default();
+            set(&mut frame);
+            frames.set(slot, frame);
+        }
+        app.update();
+        let mut frames = app
+            .world_mut()
+            .resource_mut::<ambition_input::SeatMenuFrames>();
+        frames.set(slot, MenuControlFrame::default());
+    }
+
+    /// **Player two can pause, and the menu answers to player two.**
+    ///
+    /// ⛔ neither half was true. `drive_shell_pause_menu` read
+    /// `MenuControlFrame`, which `populate_menu_control_frame_from_actions`
+    /// fills from the PRIMARY seat ALONE — so a second player's Start went
+    /// nowhere and their D-pad moved nothing. From the couch that reads as a
+    /// broken button, which is why the handoff's claim that "any seat pauses"
+    /// was worth checking rather than believing.
+    ///
+    /// Jon's ruling, 2026-08-06: any seat may pause, and the seat that paused
+    /// drives it.
+    #[test]
+    fn the_seat_that_paused_is_the_seat_that_drives_the_menu() {
+        let mut app = couch_app();
+        with_live_session(&mut app);
+
+        // Seat ONE opens it. Seat zero never presses anything in this test.
+        seat_intent(&mut app, 1, |f| f.start = true);
+        assert!(
+            app.world().resource::<ShellPauseMenu>().open,
+            "player two's Start opened the pause menu"
+        );
+        assert_eq!(
+            app.world().resource::<ShellPauseMenu>().owner(),
+            Some(1),
+            "and the menu belongs to the seat that opened it"
+        );
+
+        // The PRIMARY seat's navigation is ignored: this menu is not theirs.
+        let cursor_before = app.world().resource::<ShellPauseMenu>().cursor;
+        seat_intent(&mut app, 0, |f| f.down = true);
+        assert_eq!(
+            app.world().resource::<ShellPauseMenu>().cursor,
+            cursor_before,
+            "seat zero does not drive a menu seat one opened"
+        );
+
+        // The owner's navigation moves it.
+        seat_intent(&mut app, 1, |f| f.down = true);
+        assert_ne!(
+            app.world().resource::<ShellPauseMenu>().cursor,
+            cursor_before,
+            "the seat that paused moves the cursor"
+        );
+
+        // And closing releases the seat, so the next player can open their own.
+        seat_intent(&mut app, 1, |f| f.start = true);
+        let menu = app.world().resource::<ShellPauseMenu>();
+        assert!(!menu.open);
+        assert_eq!(
+            menu.owner(),
+            None,
+            "a closed menu owns nobody — otherwise seat one keeps the pause \
+             button away from everyone else forever"
+        );
     }
 
     /// The Start intent — what keyboard Escape, controller Start, and the

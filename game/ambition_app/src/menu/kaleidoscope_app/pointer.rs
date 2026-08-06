@@ -117,23 +117,21 @@ pub(crate) fn kaleidoscope_pointer_move(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
-    mut ui_state: Option<ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>>,
-    // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
-    // like the canonical Esc-close — so route the close through `close_kaleidoscope_menu`.
-    // Bundled into one `SystemParam` to stay under Bevy's 16-param ceiling.
-    mut mode_io: GameModeIo,
-    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    ui_state: Option<Res<ambition_platformer2d::inventory_ui::InventoryUiState>>,
+    pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
-    mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut owned: ResMut<OwnedItems>,
-    mut settings: ResMut<UserSettings>,
-    mut quality_confirm: ResMut<VisualQualityConfirmState>,
-    mut commands: Commands,
-    mut players: MenuEffectPlayers,
-    mut mana_q: MenuEffectManaQuery,
-    mut heals: MessageWriter<PlayerHealRequested>,
-    mut sfx: SfxWriter,
-    mut system: SystemMenuParams,
+    system_nav: Res<KaleidoscopeSystemNav>,
+    settings: Res<UserSettings>,
+    quality_confirm: Res<VisualQualityConfirmState>,
+    // ⭐ **the release ANNOUNCES the action now.** It used to dispatch inline,
+    // which is why an observer needed the whole effect stack — `owned`,
+    // `commands`, `players`, `mana_q`, `heals` — plus `GameModeIo` bundled to
+    // stay under Bevy's 16-parameter ceiling, to unpause on a close-via-action.
+    // All of that lives in `kaleidoscope_menu_action_activated`, once, shared
+    // with the keyboard route.
+    mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
+    // Still needed for the focus resolve below (`system.model`), not for dispatch.
+    system: SystemMenuParams,
     // In-flight press; activation uses the action stored at press time.
     mut press: ResMut<KaleidoscopePointerPress>,
 ) {
@@ -167,31 +165,8 @@ pub(crate) fn kaleidoscope_pointer_release(
         cursor.owner = FocusSource::Pointer;
         cursor.last_pointer_focus = Some(next);
     }
-    let mut close_menu = false;
-    // Releases route through the SAME `crate::menu::dispatch::dispatch_menu_action` as the keyboard
-    // select path, so the action sounds (equip/use/rotate/toggle/...) live in
-    // one place and are identical for pointer + keyboard.
-    crate::menu::dispatch::dispatch_menu_action(
-        action,
-        &mut pages,
-        &mut system_nav,
-        &mut cursor,
-        &mut owned,
-        &mut settings,
-        &mut quality_confirm,
-        &mut close_menu,
-        &mut commands,
-        &mut players,
-        &mut mana_q,
-        &mut heals,
-        &mut sfx,
-        &mut system,
-    );
-    if close_menu {
-        quality_confirm.cancel();
-        if let Some(ui_state) = ui_state.as_deref_mut() {
-            // A close-via-action must unpause exactly like the canonical Esc-close.
-            close_kaleidoscope_menu(ui_state, mode_io.state.get(), &mut mode_io.next);
-        }
-    }
+    // A release and a controller submit are the SAME event, so they say it the
+    // same way. The dispatch — and the close-via-action unpause that used to be
+    // copied here — belong to `kaleidoscope_menu_action_activated`.
+    activated.write(MenuActionActivated { action });
 }

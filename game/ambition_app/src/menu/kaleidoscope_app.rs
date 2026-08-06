@@ -11,8 +11,8 @@
 
 use ambition_platformer2d::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
 use ambition_platformer2d::menu::{
-    ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
-    MenuDynamicTextContent, MenuVisualState,
+    ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuActionActivated,
+    MenuDynamicText, MenuDynamicTextContent, MenuVisualState,
 };
 // The cube renderer's own vocabulary. Everything that touches it is gated with
 // it — see the module doc and `menu/mod.rs`.
@@ -247,6 +247,12 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
         PreUpdate,
         KaleidoscopeRenderPre.run_if(kaleidoscope_render_needed),
     );
+    // ⚠ registered beside the systems that WRITE it — nav and the pointer-release
+    // observer both publish here, so a composition that installs either without
+    // the message panics on an uninitialised `MessageWriter`. The fix for that
+    // panic is never `Option<T>`: that answers "may this be absent" when the
+    // question is "who owns registering it". `add_message` is a no-op if present.
+    app.add_message::<MenuActionActivated<MenuPageAction>>();
     app.add_systems(Startup, spawn_kaleidoscope_scrim)
         // PHASE 1 — decide this frame's CONTENT, BEFORE the lib rebuild. Nav mutates
         // the cursor; scroll/cache/republish derive the page model + System scroll
@@ -278,6 +284,11 @@ pub fn install_kaleidoscope_menu_backend(app: &mut App) {
                 kaleidoscope_focus_nav
                     .run_if(kaleidoscope_menu_visible)
                     .in_set(ambition_platformer2d::actors::schedule::MenuNavConsume),
+                // ⚠ **between nav and republish, deliberately.** Nav and the
+                // pointer-release observer both PUBLISH the chosen action; this
+                // dispatches it. Running it after republish would draw the menu a
+                // frame before the equip it just performed.
+                kaleidoscope_menu_action_activated.run_if(kaleidoscope_menu_visible),
                 // Scroll the System window independently of selection before republish.
                 kaleidoscope_scroll_wheel.run_if(kaleidoscope_menu_visible),
                 kaleidoscope_apply_scroll_drag.run_if(kaleidoscope_menu_visible),
@@ -761,18 +772,17 @@ fn kaleidoscope_focus_nav(
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
     mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
-    // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
-    // like the canonical Esc-close — so thread the game mode through to
-    // `close_kaleidoscope_menu` instead of bare `overlay.visible = false`. Bundled into
-    // one `SystemParam` to stay under Bevy's 16-param ceiling.
-    mut mode_io: GameModeIo,
-    mut owned: ResMut<OwnedItems>,
+    // ⚠ **the game mode is GONE from nav.** It was here only so a close-via-action
+    // (Reset Sandbox) could unpause exactly like an Esc-close — and that close
+    // travels with the dispatch, into `kaleidoscope_menu_action_activated`. Nav
+    // announces; it does not act.
+    owned: Res<OwnedItems>,
     mut settings: ResMut<UserSettings>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
-    mut commands: Commands,
-    mut players: MenuEffectPlayers,
-    mut mana_q: MenuEffectManaQuery,
-    mut heals: MessageWriter<PlayerHealRequested>,
+    // The ONE activation event. Nav announces the chosen action; the consumer
+    // dispatches it. That is what let this signature shed `commands`, `players`,
+    // `mana_q` and `heals` — every parameter it held only in order to dispatch.
+    mut activated: MessageWriter<MenuActionActivated<MenuPageAction>>,
     mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
@@ -858,16 +868,10 @@ fn kaleidoscope_focus_nav(
             &mut system_nav,
             &mut pages,
             &mut overlay,
-            mode_io.state.get(),
-            &mut mode_io.next,
             &mut settings,
             &mut quality_confirm,
             active_page,
-            &mut owned,
-            &mut commands,
-            &mut players,
-            &mut mana_q,
-            &mut heals,
+            &mut activated,
             &mut sfx,
             &mut system,
             // The cube turns its face on LEFT/RIGHT at the row edges.
@@ -951,31 +955,17 @@ fn kaleidoscope_focus_nav(
             // System focus is handled by the System branch above; never reached here.
             MenuFocus::System(_) => None,
         };
-        if let Some(action) = action {
-            let mut close_menu = false;
-            crate::menu::dispatch::dispatch_menu_action(
-                action,
-                &mut pages,
-                &mut system_nav,
-                &mut cursor,
-                &mut owned,
-                &mut settings,
-                &mut quality_confirm,
-                &mut close_menu,
-                &mut commands,
-                &mut players,
-                &mut mana_q,
-                &mut heals,
-                &mut sfx,
-                &mut system,
-            );
-            if close_menu {
-                // A close-via-action must unpause exactly like the canonical Esc-close.
-                close_kaleidoscope_menu(&mut overlay, mode_io.state.get(), &mut mode_io.next);
+        match action {
+            // ⭐ PUBLISH, do not dispatch — the same event a tap on this cell
+            // raises. Page turns come through here too (the cube turns faces via
+            // its edge controls), which is why all three arms are activations and
+            // only System, handled above, is not.
+            Some(action) => {
+                activated.write(MenuActionActivated { action });
             }
-        } else {
             // Selecting an empty / unowned item slot is a no-op: error feedback.
-            play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_ERROR);
+            // Not an activation — there is no action to announce.
+            None => play_ui(&mut sfx, ambition_platformer2d::sfx::ids::UI_MENU_ERROR),
         }
     }
 
@@ -986,6 +976,70 @@ fn kaleidoscope_focus_nav(
         page_before,
         pages.active,
     );
+}
+
+/// **The cube's ONE dispatcher for a chosen action.**
+///
+/// ⛔ **the cube had no consumer at all**, which is the asymmetry this closes.
+/// The grid published `MenuActionActivated` from its pointer bridge and
+/// dispatched it in one system; the cube dispatched inline from THREE places —
+/// its keyboard nav, `system_focus_nav`, and the `Pointer<Release>` observer —
+/// each carrying its own copy of the close-after-dispatch, and each needing the
+/// full dispatch parameter set at a call site that had nothing else to do with
+/// it. That is why the release observer needed `GameModeIo` bundled to stay
+/// under Bevy's 16-parameter ceiling.
+///
+/// Now every route announces the action and this dispatches it, so the
+/// unpause-on-close rule exists once.
+#[cfg(feature = "input")]
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn kaleidoscope_menu_action_activated(
+    mut activated: MessageReader<MenuActionActivated<MenuPageAction>>,
+    mut cursor: ResMut<KaleidoscopeCursor>,
+    mut system_nav: ResMut<KaleidoscopeSystemNav>,
+    mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
+    mut overlay: ResMut<ambition_platformer2d::inventory_ui::InventoryUiState>,
+    mut mode_io: GameModeIo,
+    mut owned: ResMut<OwnedItems>,
+    mut settings: ResMut<UserSettings>,
+    mut quality_confirm: ResMut<VisualQualityConfirmState>,
+    mut commands: Commands,
+    mut players: MenuEffectPlayers,
+    mut mana_q: MenuEffectManaQuery,
+    mut heals: MessageWriter<PlayerHealRequested>,
+    mut sfx: SfxWriter,
+    mut system: SystemMenuParams,
+) {
+    // Backend read from `system` (the bundle owns it); a separate `Res` would
+    // B0002-conflict with that `ResMut`.
+    if system.backend() != InventoryUiBackend::LunexKaleidoscope || !overlay.visible {
+        activated.clear();
+        return;
+    }
+    for activation in activated.read() {
+        let mut close_menu = false;
+        crate::menu::dispatch::dispatch_menu_action(
+            activation.action,
+            &mut pages,
+            &mut system_nav,
+            &mut cursor,
+            &mut owned,
+            &mut settings,
+            &mut quality_confirm,
+            &mut close_menu,
+            &mut commands,
+            &mut players,
+            &mut mana_q,
+            &mut heals,
+            &mut sfx,
+            &mut system,
+        );
+        if close_menu {
+            // A close-via-action must unpause exactly like the canonical Esc-close.
+            close_kaleidoscope_menu(&mut overlay, mode_io.state.get(), &mut mode_io.next);
+            break;
+        }
+    }
 }
 
 /// Emit `UI_MENU_MOVE` ONCE when the cursor's focus actually changed this frame and
@@ -1030,17 +1084,20 @@ pub(crate) fn system_focus_nav(
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
+    // ⚠ the game mode left this signature with the dispatch. The only close
+    // still owned here is `back`, which hides the overlay without unpausing —
+    // the unpause belongs to a close-via-ACTION, and that moved to the consumer.
     overlay: &mut ambition_platformer2d::inventory_ui::InventoryUiState,
-    mode: &ambition_platformer2d::platformer::schedule::GameMode,
-    next_mode: &mut NextState<ambition_platformer2d::platformer::schedule::GameMode>,
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
     active_page: MenuPage,
-    owned: &mut OwnedItems,
-    commands: &mut Commands,
-    players: &mut MenuEffectPlayers,
-    mana_q: &mut MenuEffectManaQuery,
-    heals: &mut MessageWriter<PlayerHealRequested>,
+    // ⭐ **the ONE activation event, in place of the five dispatch parameters.**
+    // This function is SHARED by both inventory frontends, so it was carrying
+    // `owned` / `commands` / `players` / `mana_q` / `heals` purely to call
+    // `dispatch_menu_action` itself — five parameters that existed to say a
+    // thing the pointer path already says as a message. Publishing instead is
+    // what put both backends' nav back under Bevy's 16-parameter ceiling.
+    activated: &mut MessageWriter<MenuActionActivated<MenuPageAction>>,
     sfx: &mut SfxWriter,
     system: &mut SystemMenuParams,
     // The cube turns its face when LEFT/RIGHT walks off the row list onto the
@@ -1145,27 +1202,10 @@ pub(crate) fn system_focus_nav(
 
     if menu.select {
         if let Some(action) = system_row_action_for(&model, current) {
-            let mut close_menu = false;
-            crate::menu::dispatch::dispatch_menu_action(
-                action,
-                pages,
-                system_nav,
-                cursor,
-                owned,
-                settings,
-                quality_confirm,
-                &mut close_menu,
-                commands,
-                players,
-                mana_q,
-                heals,
-                sfx,
-                system,
-            );
-            if close_menu {
-                // A close-via-action must unpause exactly like the canonical Esc-close.
-                close_kaleidoscope_menu(overlay, mode, next_mode);
-            }
+            // The close-after-dispatch (a "Reset Sandbox" row unpausing exactly
+            // like an Esc) moves with the dispatch, into the one consumer. The
+            // `back` close above stays here: it is navigation, not an action.
+            activated.write(MenuActionActivated { action });
         }
         return;
     }

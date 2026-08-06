@@ -470,14 +470,23 @@ mod dispatch_parity {
         app.add_message::<PlayerHealRequested>();
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
-        // The cube keeps its 3D pointer press/release path. The flat Grid consumes
-        // the shared Bevy-UI Interaction activation message.
+        // ⭐ **both backends now dispatch from the SAME message**, which is what
+        // makes this a parity harness rather than two harnesses in a trench coat:
+        // the cube's 3D press/release observers and the flat Grid's `Interaction`
+        // bridge both publish `MenuActionActivated`, and each backend's consumer
+        // dispatches it. They stay separate consumers because the close and
+        // page-re-pin rules genuinely differ — which is exactly what the
+        // deliberate `ChangePage` asymmetry below pins.
         app.add_observer(kaleidoscope_pointer_press);
         app.add_observer(kaleidoscope_pointer_release);
         install_bevy_ui_menu_actions::<MenuPageAction>(&mut app);
         app.add_systems(
             Update,
-            grid_menu_action_activated.after(BevyUiMenuInteractionSet),
+            (
+                grid_menu_action_activated,
+                crate::menu::kaleidoscope_app::kaleidoscope_menu_action_activated,
+            )
+                .after(BevyUiMenuInteractionSet),
         );
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
         app.world_mut().resource_mut::<InventoryUiState>().visible = true;

@@ -69,6 +69,20 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition_platformer2d::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.add_message::<PlayerHealRequested>();
+    // ⚠ nav and the pointer-release observer PUBLISH the chosen action now,
+    // and the consumer dispatches it — so a fixture needs BOTH, or a click is
+    // announced to nobody. Registered in each harness because every one of
+    // them installs one of the publishers.
+    app.add_message::<MenuActionActivated<MenuPageAction>>();
+    app.add_systems(
+        Update,
+        kaleidoscope_menu_action_activated
+            .after(kaleidoscope_focus_nav)
+            // ⚠ and BEFORE republish, exactly as production chains it: a
+            // republish that runs first draws the menu as it was before the
+            // action it just announced.
+            .before(republish_kaleidoscope_pages),
+    );
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app
@@ -917,6 +931,20 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_platformer2d::input::MenuInputState>();
     app.add_message::<PlayerHealRequested>();
+    // ⚠ nav and the pointer-release observer PUBLISH the chosen action now,
+    // and the consumer dispatches it — so a fixture needs BOTH, or a click is
+    // announced to nobody. Registered in each harness because every one of
+    // them installs one of the publishers.
+    app.add_message::<MenuActionActivated<MenuPageAction>>();
+    app.add_systems(
+        Update,
+        kaleidoscope_menu_action_activated
+            .after(kaleidoscope_focus_nav)
+            // ⚠ and BEFORE republish, exactly as production chains it: a
+            // republish that runs first draws the menu as it was before the
+            // action it just announced.
+            .before(republish_kaleidoscope_pages),
+    );
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     app.add_systems(
         Update,

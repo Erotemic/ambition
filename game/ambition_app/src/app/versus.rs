@@ -590,6 +590,24 @@ const VERSUS_DI_MAX_ANGLE: f32 = 0.31;
 
 /// **What the fighting stage overwrote, so leaving can put it back.**
 ///
+/// **Is the versus stage the one being played right now?**
+///
+/// A composition can INSTALL this stage without being on it — the shipped host
+/// installs three — and its rules act on fighters by shape rather than by
+/// ownership, so they must not run otherwise. `ShellRouter` is optional because
+/// a composition with no shell has no route, and there is no honest way for a
+/// route-scoped rule to claim a world that has no routes.
+fn versus_stage_is_active(
+    router: Option<Res<ambition_platformer2d::game_shell::ShellRouter>>,
+) -> bool {
+    router.is_some_and(|router| {
+        router
+            .active
+            .as_ref()
+            .is_some_and(|active| active.route_id.as_str() == VERSUS_GAMEPLAY_ROUTE)
+    })
+}
+
 fn track_versus_roster(
     mut commands: Commands,
     router: Res<ambition_platformer2d::game_shell::ShellRouter>,
@@ -840,7 +858,30 @@ pub fn compose_versus_experience(app: &mut App) {
         let sim = app.sim_schedule();
         app.add_systems(
             sim,
-            super::versus_rules::settle_versus_round.in_set(CombatSet::Settle),
+            super::versus_rules::settle_versus_round
+                .in_set(CombatSet::Settle)
+                // ⛔ **ONLY WHILE THIS STAGE IS THE ONE BEING PLAYED.**
+                //
+                // It ran unconditionally, and `VersusMatch` defaults to
+                // `MatchPhase::Starting` — whose arm calls `take_the_controls`
+                // on EVERY fighter, every tick, idempotently. So in any
+                // composition that installs this stage and is not on its route,
+                // every seated fighter carried `ScriptedControl` forever and
+                // `blank_scripted_control_frames` zeroed its control frame each
+                // tick. The input arrived correctly the whole way — GGRS
+                // published it, the brain read it — and the body never moved.
+                //
+                // ⭐ **the same rule `track_versus_roster` learned about the
+                // roster**: not "a fighter exists", MINE. A global resource with
+                // no owner deleted another game's match on 2026-08-01; a global
+                // countdown with no owner froze another game's fighters, and the
+                // two are the same mistake one campaign apart.
+                //
+                // Invisible until K2b edit 2 (2026-08-06) made the rollback
+                // harness compose the shipped shell host, which installs this
+                // stage. `two_local_seats_drive_independently_under_a_rollback_host`
+                // is what caught it.
+                .run_if(versus_stage_is_active),
         );
     }
 

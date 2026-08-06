@@ -147,6 +147,40 @@ impl Platformer2dSimHarness {
             players,
         } = rollback
         {
+            // ⭐ **DECLARE THE SEAT COUNT BEFORE THE SESSION, not after.**
+            //
+            // `with_rollback_players(n)` is a statement about how many people are
+            // playing, and it has to reach the seat topology or nothing else
+            // agrees with it. The host that composes this harness freezes a
+            // topology from LIVE DEVICES — of which a headless test has none — so
+            // it froze one player while the session carried two handles, and
+            // seat two's authored frames were written into a `PendingSeatInputs`
+            // the topology said did not exist. The symptom was silent: seat two
+            // authored forty frames of right and its fighter moved 0.00px.
+            //
+            // ⚠ **`capture_for_roster`, not `capture`.** The separate entry point
+            // exists precisely so that "nobody declared a seat count" cannot look
+            // like a decision somebody made — and here somebody did decide, in
+            // the harness options.
+            //
+            // ⛔ this is queue G2's stronger endpoint and NOT its cheap one:
+            // *"publish the decided roster topology BEFORE installation, so no
+            // mismatch exists to detect."* The cheap remedy — compare the running
+            // settings and restart on a mismatch — was probed and removed,
+            // because restarting a live session loses the seat→handle binding.
+            {
+                use ambition_platformer2d::input::{LocalDeviceOrder, LocalSeatTopology};
+                let world = app.world_mut();
+                let order = LocalDeviceOrder::from_devices(
+                    world
+                        .get_resource::<LocalDeviceOrder>()
+                        .map(|order| order.devices().to_vec())
+                        .unwrap_or_default(),
+                );
+                if let Some(mut topology) = world.get_resource_mut::<LocalSeatTopology>() {
+                    topology.capture_for_roster(&order, players);
+                }
+            }
             ambition_platformer2d::runtime::rollback::start_sync_test_session(
                 app.world_mut(),
                 ambition_platformer2d::runtime::rollback::SyncTestSettings {

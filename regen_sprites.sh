@@ -1008,6 +1008,7 @@ tackon_targets=(
     martin_cutta
     neil_ongras_turfson
     paradox_barber
+    patent_clerk
     paul_diracula
     player_robot_v2
     player_robot_v3

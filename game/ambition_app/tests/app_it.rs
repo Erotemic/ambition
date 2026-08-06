@@ -50,6 +50,7 @@ mod gravity_room_reachability;
 mod gravity_symmetry;
 mod gravity_symmetry_room;
 mod hall_barks;
+mod hall_scale_spread;
 mod hall_transition_cover;
 mod held_projectile_portal_transit;
 mod input_stream_replay;

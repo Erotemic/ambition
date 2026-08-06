@@ -13,6 +13,19 @@
 
 * The maryo world 1-2 needs to happen after she wins world 1-1, she doesn't just get to go there in the middle of 1-1 and come back. It should be a new level. When she beats world 1-2 we should cycle back to world 1-1 for the demo. World 1-2 also needs to be built out a lot more, its very plain, and there are no enemies. I would like to add the flying snakes on a plane as enemies in this world. 
 
+* ◐ **MEASURED 2026-08-05 — the number is now available, the taxonomy is still yours.**
+  `cargo test -p ambition_app --test app_it print_how_tall -- --ignored --nocapture`
+  prints every character's BAKED BODY in sheet pixels, tallest first. Your
+  reference pair reads Alice **206** and Bob **204**; the ones you called tiny
+  read Jeff Hinter **149**, viking heavy warrior **149**, viking warrior **143**,
+  viking heavy shieldmaiden **135** — roughly **70%** of Alice, which is exactly
+  the "out of place" you saw. Player robot v3 is **91**, and you said that one is
+  meant to be short. Across all 129 the spread is **14.6x** (a 452px cellular
+  automaton to a 31px puppy slug), so a single global rule cannot be right.
+  ⚠ **no ratchet is written**, deliberately: you named an exception in the same
+  breath as the complaint, so which characters are supposed to match is a call
+  only you can make. Say which ones and the limit becomes writable.
+
 * In the hall of characters, the humanoid characters are all dramatically out of scale with each other. Alice and bob are great, but characters like the vikings, or jeff hinter render as tiny little characters and look out of place compared to the rest of the cast. The character art needs to be rescaled (probably at the generator level, not via some post-hoc fix) to balance the size of these characters so they make more sense appearing in the same game together. Note the player robot v3 is supposed to be chibi and short compared to other humanoids.
 
 * ◐ **When maryo-dies the enemies seem to reset before the death animation is finished.** The level reset needs to happen all at once at a time that is easy to express in the game code. This might be a larger refactor if there is a structural problem here, and we need to avoid creating a monolith.

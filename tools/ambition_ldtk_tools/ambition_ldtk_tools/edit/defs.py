@@ -109,7 +109,74 @@ HUMAN_TO_INTERNAL = {
     "Float": "F_Float",
     "String": "F_String",
     "Bool": "F_Bool",
+    # ⭐ **`Enum` is the type that turns a field into a DROPDOWN.** A manifest
+    # declaring one also declares its values (`"enum"` + `"values"`), because a
+    # closed vocabulary is the point: `ldtk_vocabulary.rs` parses `kind`
+    # case-insensitively and says why — *"an author typing into a free-text
+    # field is a real possibility until the enum def lands in the project."*
+    # This is that enum def landing.
+    #
+    # ⚠ the INTERNAL type is `F_Enum(<uid>)`, so it cannot be a constant here;
+    # `enum_field_type` resolves it against the project, creating the enum def
+    # when the project has not seen it yet.
+    "Enum": None,
 }
+
+
+def ensure_enum_def(project: dict, identifier: str, values: list[str]) -> dict:
+    """Find or create a local enum def, preserving uids the levels point at.
+
+    ⭐ **the value SET is owned here, the value's PICTURE is not.** A manifest
+    says which words are sayable; `asset editor-art` fills in each value's
+    `tileRect` afterwards, and re-running either must not undo the other. So
+    this reconciles the list of ids and leaves every other key on a value it
+    already knows alone.
+    """
+    enums = project.setdefault("defs", {}).setdefault("enums", [])
+    existing = next((e for e in enums if e.get("identifier") == identifier), None)
+    if existing is None:
+        existing = {
+            "identifier": identifier,
+            "uid": alloc_uid(project),
+            "values": [],
+            "iconTilesetUid": None,
+            "externalRelPath": None,
+            "externalFileChecksum": None,
+            "tags": [],
+        }
+        enums.append(existing)
+    by_id = {value.get("id"): value for value in existing.get("values") or []}
+    existing["values"] = [
+        by_id.get(value, {"id": value, "tileRect": None, "color": 0})
+        for value in values
+    ]
+    return existing
+
+
+def enum_field_type(project: dict, spec_field: dict) -> tuple[str, str]:
+    """`(__type, type)` for an `Enum` field, creating its enum def if needed."""
+    identifier = spec_field.get("enum")
+    if not identifier:
+        raise SystemExit(
+            f"field {spec_field.get('name')!r} is an Enum but names no `enum`"
+        )
+    values = [str(value) for value in spec_field.get("values") or []]
+    if not values:
+        raise SystemExit(f"enum {identifier!r} declares no `values`")
+    enum = ensure_enum_def(project, str(identifier), values)
+    return f"LocalEnum.{identifier}", f"F_Enum({enum['uid']})"
+
+
+def resolve_field_type(project: dict, spec_field: dict) -> tuple[str, str]:
+    """`(__type, type)` for any manifest field, enum or not."""
+    human = spec_field.get("type")
+    if human == "Enum":
+        return enum_field_type(project, spec_field)
+    if human not in HUMAN_TO_INTERNAL:
+        raise SystemExit(
+            f"unsupported field type {human!r}; supported: {sorted(HUMAN_TO_INTERNAL)}"
+        )
+    return human, HUMAN_TO_INTERNAL[human]
 
 
 def load_spec(path: Path) -> dict:
@@ -139,14 +206,18 @@ def alloc_uid(project: dict) -> int:
     return next_uid
 
 
-def field_def(name: str, human_type: str, default, project: dict) -> dict:
+def field_def(
+    name: str, human_type: str, default, project: dict, spec_field: dict | None = None
+) -> dict:
     """Build a `fieldDefs[]` entry with the editor-roundtrip metadata
-    `ambition_ldtk_tools repair` would otherwise have to fill in."""
-    if human_type not in HUMAN_TO_INTERNAL:
-        raise SystemExit(
-            f"unsupported field type {human_type!r}; supported: {sorted(HUMAN_TO_INTERNAL)}"
-        )
-    internal = HUMAN_TO_INTERNAL[human_type]
+    `ambition_ldtk_tools repair` would otherwise have to fill in.
+
+    `spec_field` is the manifest entry this came from, which an `Enum` needs
+    (its `enum` identifier and `values` live there and nowhere else).
+    """
+    human_type, internal = resolve_field_type(
+        project, spec_field or {"name": name, "type": human_type}
+    )
     uid = alloc_uid(project)
     return {
         "identifier": name,
@@ -220,7 +291,10 @@ def _default_override(human_type: str, value):
         "Bool": "V_Bool",
         "Int": "V_Int",
         "Float": "V_Float",
-    }[human_type]
+        # An enum default is stored as the value's id — the same `V_String`
+        # wrapper LDtk writes for `BreakablePlatform.collision`.
+        "Enum": "V_String",
+    }.get(human_type if human_type in {"String", "Bool", "Int", "Float"} else "Enum")
     if human_type == "Bool":
         params = [bool(value)]
     elif human_type == "Int":
@@ -240,7 +314,7 @@ def build_entity_def(spec: dict, project: dict) -> dict:
     height = int(spec.get("height", 16))
     docs = spec.get("docs")
     field_defs = [
-        field_def(f["name"], f["type"], f.get("default"), project) for f in fields
+        field_def(f["name"], f["type"], f.get("default"), project, f) for f in fields
     ]
     return {
         "identifier": identifier,

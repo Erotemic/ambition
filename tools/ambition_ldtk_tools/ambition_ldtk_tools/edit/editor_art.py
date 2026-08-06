@@ -13,15 +13,21 @@ renders what a `.ldtk` registers, and no world registered any of it.
 
 This tool is that wiring, and it takes the art from ONE place — the engine's own
 sprite folder — so an editor cell cannot drift from the block the simulation
-spawns underneath it. Two halves:
+spawns underneath it. Three halves, which is one more than a half allows:
 
-* **IntGrid layers get auto-layer rules.** Painting `Solid` in the editor draws
-  masonry immediately, and keeps drawing it as the author edits, because the
-  rules are evaluated live by LDtk from the cells themselves. Nothing is baked,
-  so a repaint can never leave stale art behind — the failure mode of a painted
-  Tiles layer (`tileset paint`).
+* **Every IntGrid layer gets a sibling AutoLayer that draws it.** Painting
+  `Solid` shows masonry immediately and keeps showing it as the author edits,
+  because LDtk evaluates the rules live from the cells themselves. Nothing is
+  baked, so a repaint can never leave stale art behind — the failure mode of a
+  painted Tiles layer (`tileset paint`). ⛔ the art is on its OWN layer because
+  the first version put the rules on the collision layer itself and thereby hid
+  the collision; see `COLLISION_OPACITY`.
 * **Entity defs get a `tileRect`.** A `ChestSpawn` looks like the chest, a
   `MovingPlatform` like the platform.
+* **A field can decide the picture, per placement.** `field_art` points an enum
+  field's values at art and switches the def to `EntityTile`, so a `?`-block and
+  a brick are the same entity def wearing what their `kind` says — see
+  `apply_field_art`, which is also where the limits of that live.
 
 ⚠ **the art is 32px and the grid is 16px, so one tile takes FOUR cells.** Every
 engine tile texture is authored at 32×32 (or 32×16 / 16×32) and the game repeats
@@ -175,6 +181,7 @@ class ArtSource:
     path: Path
     crop: tuple[int, int, int, int] | None = None
     trim: bool = False
+    flip_y: bool = False
 
     def load(self) -> Any:
         from PIL import Image
@@ -187,6 +194,11 @@ class ArtSource:
             box = image.getbbox()
             if box is not None:
                 image = image.crop(box)
+        if self.flip_y:
+            # ⭐ a pipe hanging from a ceiling wears its lip UNDERNEATH, which
+            # is the whole difference a `mouth: Down` makes and is one flip of
+            # the art the game already ships.
+            image = image.transpose(Image.FLIP_TOP_BOTTOM)
         return image
 
 
@@ -236,7 +248,13 @@ def load_sidecar(ldtk: Path) -> dict[str, Any]:
 def art_key(reference: Any) -> str:
     """A stable atlas key for an art reference, whatever shape it came in."""
     if isinstance(reference, dict):
-        return f"sheet:{reference['sheet']}#{int(reference.get('frame', 0))}"
+        flipped = "^" if reference.get("flip_y") else ""
+        if "sheet" in reference:
+            return (
+                f"sheet:{reference['sheet']}#"
+                f"{reference.get('animation', 'idle')}:{int(reference.get('frame', 0))}{flipped}"
+            )
+        return f"{reference['art']}{flipped}"
     return str(reference)
 
 
@@ -289,7 +307,7 @@ def resolve_art(reference: Any, sprites_dir: Path, ldtk: Path) -> ArtSource:
       character sheet, read out of the sidecar's packed rects.
     """
     key = art_key(reference)
-    if isinstance(reference, dict):
+    if isinstance(reference, dict) and "sheet" in reference:
         sheet = str(reference["sheet"])
         path = (sprites_dir / f"{sheet}_spritesheet.png").resolve()
         if not path.is_file():
@@ -300,7 +318,19 @@ def resolve_art(reference: Any, sprites_dir: Path, ldtk: Path) -> ArtSource:
             str(reference.get("animation", "idle")),
             int(reference.get("frame", 0)),
         )
-        return ArtSource(key, path, crop=crop, trim=bool(reference.get("trim", True)))
+        return ArtSource(
+            key,
+            path,
+            crop=crop,
+            trim=bool(reference.get("trim", True)),
+            flip_y=bool(reference.get("flip_y")),
+        )
+    if isinstance(reference, dict):
+        plain = resolve_art(str(reference["art"]), sprites_dir, ldtk)
+        return ArtSource(
+            key, plain.path, crop=plain.crop, trim=plain.trim,
+            flip_y=bool(reference.get("flip_y")),
+        )
     stem_or_path = str(reference)
     if "/" in stem_or_path or stem_or_path.endswith(".png"):
         rel = stem_or_path if stem_or_path.endswith(".png") else f"{stem_or_path}.png"
@@ -317,18 +347,22 @@ def resolve_art(reference: Any, sprites_dir: Path, ldtk: Path) -> ArtSource:
 
 def collect_sources(
     project: dict[str, Any], ldtk: Path, sprites_dir: Path, sidecar: dict[str, Any]
-) -> tuple[list[ArtSource], dict[str, str], dict[str, str]]:
+) -> tuple[list[ArtSource], dict[str, str], dict[str, str], dict[str, dict[str, str]]]:
     """Work out which art this world needs, and what each thing points at.
 
-    Returns the sources to pack, the IntGrid-value -> art-key map and the
-    entity-def -> art-key map. Only art the world can actually SHOW is
-    collected: a value or entity def the project does not define contributes
-    nothing, so an atlas stays as small as the world that uses it.
+    Returns the sources to pack, the IntGrid-value -> art-key map, the
+    entity-def -> art-key map and the per-FIELD-value maps. Only art the world
+    can actually SHOW is collected: a value or entity def the project does not
+    define contributes nothing, so an atlas stays as small as the world using it.
     """
     intgrid_art: dict[str, str] = dict(ENGINE_INTGRID_ART)
     intgrid_art.update(sidecar.get("intgrid_art") or {})
     entity_art: dict[str, str] = dict(ENGINE_ENTITY_ART)
     entity_art.update(sidecar.get("entity_art") or {})
+    field_art: dict[str, dict[str, Any]] = {
+        str(path): dict(values or {})
+        for path, values in (sidecar.get("field_art") or {}).items()
+    }
 
     present_values = {
         str(value.get("identifier"))
@@ -346,14 +380,25 @@ def collect_sources(
         k: art_key(v) for k, v in entity_art.items() if k in present_entities
     }
 
+    used_fields = {
+        path: {value: art_key(reference) for value, reference in values.items()}
+        for path, values in field_art.items()
+        if path.partition(".")[0] in present_entities
+    }
+
     references: dict[str, Any] = {}
     for name, reference in list(intgrid_art.items()) + list(entity_art.items()):
         if name in present_values or name in present_entities:
             references[art_key(reference)] = reference
+    for path, values in field_art.items():
+        if path.partition(".")[0] not in present_entities:
+            continue
+        for reference in values.values():
+            references[art_key(reference)] = reference
     sources = [
         resolve_art(references[key], sprites_dir, ldtk) for key in sorted(references)
     ]
-    return sources, used_intgrid, used_entities
+    return sources, used_intgrid, used_entities, used_fields
 
 
 def pack_atlas(sources: Iterable[ArtSource]) -> tuple[list[Placement], int, int]:
@@ -463,6 +508,158 @@ def auto_rules_for_layer(
 #: group with another name and survives every re-run untouched.
 RULE_GROUP_NAME = "Engine art"
 
+#: Suffix for the AutoLayer that draws a source IntGrid layer's art.
+ART_LAYER_SUFFIX = "Art"
+
+#: ⛔ **the first shape of this tool put the rules on the IntGrid layer itself,
+#: and that HID THE COLLISION.** Jon: *"I can't see the collision surfaces."* A
+#: matched rule replaces the cell's colour with its tile, so the layer whose one
+#: job is to say where the walls are stopped saying it the moment it started
+#: looking good — and which value a cell holds (Solid vs OneWayUp vs Hazard)
+#: went invisible exactly where it matters. The art belongs on a layer of its
+#: own, and LDtk has the two knobs that make the pair readable:
+#:
+#: * `displayOpacity` — the layer's own alpha. Left at 1.0, so SELECTING the
+#:   collision layer to paint shows exactly the cells, crisply, art hidden.
+#: * `inactiveOpacity` — what it fades to while another layer is current, which
+#:   is the state you read the level in: a tint saying Solid here, Hazard there,
+#:   over art you can still see.
+#:
+#: ⚠ written only when the art layer is CREATED. These are editor preferences
+#: that live in the file, so re-running must not argue with an author who has
+#: since dragged the sliders.
+COLLISION_OPACITY = 1.0
+COLLISION_INACTIVE_OPACITY = 0.35
+
+
+def art_layer_identifier(source: dict[str, Any]) -> str:
+    return f"{source['identifier']}{ART_LAYER_SUFFIX}"
+
+
+def build_art_layer(project: dict[str, Any], source: dict[str, Any], tileset_uid: int) -> dict:
+    """An AutoLayer that draws another layer's IntGrid.
+
+    ⭐ **`autoSourceLayerDefUid` is the whole point** — this layer owns no cells
+    of its own. It reads the collision the author paints and answers with art,
+    which is why the two can be shown, hidden and dimmed independently while
+    remaining incapable of disagreeing about where a wall is.
+    """
+    return {
+        "__type": "AutoLayer",
+        "identifier": art_layer_identifier(source),
+        "type": "AutoLayer",
+        "uid": alloc_uid(project),
+        "doc": (
+            f"Editor art for {source['identifier']}, generated by "
+            "`ambition_ldtk_tools asset editor-art`. Paint the source layer; this "
+            "one answers with the engine's own texture for whatever is there."
+        ),
+        "uiColor": None,
+        "gridSize": int(source.get("gridSize") or CELL),
+        "guideGridWid": 0,
+        "guideGridHei": 0,
+        "displayOpacity": 1.0,
+        "inactiveOpacity": 1.0,
+        "hideInList": False,
+        "hideFieldsWhenInactive": True,
+        "canSelectWhenInactive": True,
+        "renderInWorldView": True,
+        "pxOffsetX": 0,
+        "pxOffsetY": 0,
+        "parallaxFactorX": 0,
+        "parallaxFactorY": 0,
+        "parallaxScaling": True,
+        "requiredTags": [],
+        "excludedTags": [],
+        "autoTilesKilledByOtherLayerUid": None,
+        "uiFilterTags": [],
+        "useAsyncRender": False,
+        "intGridValues": [],
+        "intGridValuesGroups": [],
+        "autoRuleGroups": [],
+        "autoSourceLayerDefUid": int(source["uid"]),
+        "tilesetDefUid": tileset_uid,
+        "tilePivotX": 0,
+        "tilePivotY": 0,
+        "biomeFieldUid": None,
+    }
+
+
+def build_art_layer_instance(
+    level: dict[str, Any], source_instance: dict[str, Any], layer: dict
+) -> dict:
+    """A blank instance of the art layer, shaped like the one it shadows."""
+    return {
+        "__identifier": layer["identifier"],
+        "__type": "AutoLayer",
+        "iid": f"{layer['identifier']}-{layer['uid']}-{level.get('uid', 0)}",
+        "layerDefUid": int(layer["uid"]),
+        "__cWid": int(source_instance.get("__cWid") or 0),
+        "__cHei": int(source_instance.get("__cHei") or 0),
+        "__gridSize": int(layer["gridSize"]),
+        "__opacity": 1,
+        "__pxTotalOffsetX": 0,
+        "__pxTotalOffsetY": 0,
+        "__tilesetDefUid": int(layer["tilesetDefUid"]),
+        "__tilesetRelPath": None,
+        "levelId": level.get("uid", 0),
+        "pxOffsetX": 0,
+        "pxOffsetY": 0,
+        "visible": True,
+        "optionalRules": [],
+        "seed": level.get("uid", 0),
+        "overrideTilesetUid": None,
+        # Empty on purpose: LDtk fills these from the rules when it opens the
+        # project. Baking them here would be a second copy of the collision,
+        # and a second copy is a copy that can go stale.
+        "autoLayerTiles": [],
+        # ⚠ required by the schema on EVERY layer instance whatever its type —
+        # an AutoLayer holds no cells, tiles or entities of its own and still
+        # has to say so. The schema check is what said so; the first version of
+        # this omitted all three.
+        "intGridCsv": [],
+        "gridTiles": [],
+        "entityInstances": [],
+    }
+
+
+def dim_source_layer(source: dict[str, Any]) -> None:
+    """Let the art show through the collision colours, once there IS art."""
+    source["displayOpacity"] = COLLISION_OPACITY
+    source["inactiveOpacity"] = COLLISION_INACTIVE_OPACITY
+
+
+def add_layer_instances(project: dict[str, Any], source: dict[str, Any], layer: dict) -> None:
+    for level in project.get("levels", []):
+        instances = level.get("layerInstances")
+        if instances is None:
+            continue
+        if any(inst.get("layerDefUid") == layer["uid"] for inst in instances):
+            continue
+        position = next(
+            (
+                index + 1
+                for index, inst in enumerate(instances)
+                if inst.get("layerDefUid") == source["uid"]
+            ),
+            None,
+        )
+        if position is None:
+            continue
+        instances.insert(
+            position, build_art_layer_instance(level, instances[position - 1], layer)
+        )
+
+
+def remove_layer_instances(project: dict[str, Any], layer: dict) -> None:
+    for level in project.get("levels", []):
+        instances = level.get("layerInstances")
+        if instances is None:
+            continue
+        level["layerInstances"] = [
+            inst for inst in instances if inst.get("layerDefUid") != layer.get("uid")
+        ]
+
 
 def apply_auto_rules(
     project: dict[str, Any],
@@ -470,20 +667,47 @@ def apply_auto_rules(
     intgrid_art: dict[str, str],
     by_key: dict[str, Placement],
 ) -> list[str]:
+    """Give every IntGrid layer with art a sibling AutoLayer that draws it."""
     messages: list[str] = []
-    for layer in layer_defs(project):
-        if layer.get("type") != "IntGrid":
+    layers = layer_defs(project)
+    for source in list(layers):
+        if source.get("type") != "IntGrid":
             continue
-        rules = auto_rules_for_layer(layer, intgrid_art, by_key, project)
-        groups = [
+        rules = auto_rules_for_layer(source, intgrid_art, by_key, project)
+        # Undo the first shape of this tool wherever it still exists: rules and
+        # a tileset on the IntGrid layer itself, which is what hid the cells.
+        source["autoRuleGroups"] = [
+            group
+            for group in source.get("autoRuleGroups") or []
+            if group.get("name") != RULE_GROUP_NAME
+        ]
+        if source.get("tilesetDefUid") == tileset_uid:
+            source["tilesetDefUid"] = None
+        identifier = art_layer_identifier(source)
+        existing = next((l for l in layers if l.get("identifier") == identifier), None)
+        if not rules:
+            if existing is not None:
+                layers.remove(existing)
+                remove_layer_instances(project, existing)
+                messages.append(f"{identifier}: removed (no art for its values)")
+            continue
+        if existing is None:
+            layer = build_art_layer(project, source, tileset_uid)
+            # BELOW the collision it draws for: LDtk paints the layer list from
+            # the bottom up, so a later entry is further back.
+            layers.insert(layers.index(source) + 1, layer)
+            dim_source_layer(source)
+            messages.append(f"{identifier}: created under {source['identifier']}")
+        else:
+            layer = existing
+            layer["autoSourceLayerDefUid"] = int(source["uid"])
+            layer["tilesetDefUid"] = tileset_uid
+        add_layer_instances(project, source, layer)
+        layer["autoRuleGroups"] = [
             group
             for group in layer.get("autoRuleGroups") or []
             if group.get("name") != RULE_GROUP_NAME
-        ]
-        if not rules:
-            layer["autoRuleGroups"] = groups
-            continue
-        groups.append(
+        ] + [
             {
                 "uid": alloc_uid(project),
                 "name": RULE_GROUP_NAME,
@@ -496,12 +720,81 @@ def apply_auto_rules(
                 "biomeRequirementMode": 0,
                 "requiredBiomeValues": [],
             }
+        ]
+        messages.append(f"{identifier}: {len(rules)} rules on {source['identifier']}")
+    return messages
+
+
+def apply_field_art(
+    project: dict[str, Any],
+    tileset_uid: int,
+    field_art: dict[str, dict[str, str]],
+    by_key: dict[str, Placement],
+) -> list[str]:
+    """**Make an entity's picture follow one of its FIELDS.**
+
+    Jon: *"is it possible to have the sprite/tile change depending on the
+    properties of the LDtk entity?"* Yes, and LDtk has exactly one mechanism for
+    it: a field whose type is an ENUM whose values carry tiles, displayed with
+    `editorDisplayMode: "EntityTile"`. Then a `?`-block and a brick are the same
+    entity def wearing what their `kind` says, per instance, live as it is
+    edited — which is also how they differ in the game.
+
+    ⛔ **this closes the field.** An enum can only hold the values it spells, so
+    it fits a vocabulary the runtime already closes (`kind` is `Question`,
+    `Brick` or `Hidden` and anything else is refused at load) and NOT one it
+    leaves open. `EnemySpawn.brain` is the counter-example and the reason this
+    is a map rather than a sweep: `parse_enemy_brain` accepts `Patrol:<path>`,
+    `Guard:<radius>` and any custom id, so a dropdown would make most of what
+    the field means unauthorable — a worse trade than a generic icon.
+
+    The VALUES belong to the world's vocabulary manifest, which is what creates
+    the enum; this only fills in each value's picture.
+    """
+    messages: list[str] = []
+    enums = project.get("defs", {}).get("enums") or []
+    for path, art_by_value in sorted(field_art.items()):
+        entity_id, _, field_name = path.partition(".")
+        entity = next(
+            (
+                ent
+                for ent in project.get("defs", {}).get("entities", [])
+                if ent.get("identifier") == entity_id
+            ),
+            None,
         )
-        layer["autoRuleGroups"] = groups
-        # 1.2.0 retired `autoTilesetDefUid`; an auto-layer's source tileset is
-        # `tilesetDefUid` now, on the IntGrid layer itself.
-        layer["tilesetDefUid"] = tileset_uid
-        messages.append(f"{layer['identifier']}: {len(rules)} auto rules")
+        if entity is None:
+            messages.append(f"skipped field art for missing entity def {entity_id}")
+            continue
+        field = next(
+            (f for f in entity.get("fieldDefs") or [] if f.get("identifier") == field_name),
+            None,
+        )
+        if field is None:
+            messages.append(f"skipped field art for missing field {path}")
+            continue
+        enum_identifier = str(field.get("__type") or "").removeprefix("LocalEnum.")
+        enum = next((e for e in enums if e.get("identifier") == enum_identifier), None)
+        if enum is None:
+            messages.append(
+                f"skipped field art for {path}: its type is {field.get('__type')!r}, "
+                "not a local enum — declare it as an Enum in the entity manifest first"
+            )
+            continue
+        painted = 0
+        for value in enum.get("values") or []:
+            key = art_by_value.get(str(value.get("id")))
+            if key is None:
+                continue
+            placement = by_key[key]
+            value["tileRect"] = placement.rect(tileset_uid)
+            painted += 1
+        enum["iconTilesetUid"] = tileset_uid
+        field["editorDisplayMode"] = "EntityTile"
+        messages.append(
+            f"{path}: {painted} of {len(enum.get('values') or [])} "
+            f"{enum_identifier} values wear their own art"
+        )
     return messages
 
 
@@ -564,7 +857,9 @@ def dress(
     atlas_identifier = str(sidecar.get("atlas_identifier") or "EngineArt")
     atlas_path = atlas or default_atlas_path(ldtk, sprites_dir)
 
-    sources, intgrid_art, entity_art = collect_sources(project, ldtk, sprites_dir, sidecar)
+    sources, intgrid_art, entity_art, field_art = collect_sources(
+        project, ldtk, sprites_dir, sidecar
+    )
     if not sources:
         print(f"{ldtk.name}: no engine art applies to this world")
         return 0
@@ -586,6 +881,7 @@ def dress(
     if mount.is_dir() and atlas_path.parent.samefile(mount):
         tileset["relPath"] = f"../sprites/{atlas_path.name}"
     messages += apply_entity_icons(project, manifest)
+    messages += apply_field_art(project, int(tileset["uid"]), field_art, by_key)
     messages += apply_auto_rules(project, int(tileset["uid"]), intgrid_art, by_key)
     messages += prune_unused_tilesets(project)
     for message in messages:

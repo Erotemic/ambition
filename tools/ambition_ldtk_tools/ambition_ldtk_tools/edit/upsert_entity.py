@@ -94,6 +94,7 @@ from pathlib import Path
 from ambition_ldtk_tools.edit.defs import (  # noqa: E402
     HUMAN_TO_INTERNAL,
     build_entity_def,
+    resolve_field_type,
     field_def as _new_field_def,
     load_project,
     load_spec,
@@ -174,9 +175,36 @@ def _stale_field_names(project: dict, spec_entity: dict) -> dict[str, str]:
         if name not in declared:
             stale[name] = "the manifest no longer declares it"
             continue
-        was, now = field_def.get("__type"), declared[name]["type"]
-        if was != now:
-            stale[name] = f"its type changes from {was} to {now}"
+        spec_field = declared[name]
+        was = field_def.get("__type")
+        now = (
+            f"LocalEnum.{spec_field.get('enum')}"
+            if spec_field["type"] == "Enum"
+            else spec_field["type"]
+        )
+        if was == now:
+            continue
+        # ⭐ **closing a String into an enum that SPELLS every authored value
+        # loses nothing**, and it is the one retype this vocabulary actually
+        # wants: `kind` was free text only until its enum landed. The values
+        # are unchanged strings either way — what changes is that the editor
+        # offers a dropdown instead of a text box. A value the enum does NOT
+        # spell is a real loss and still stops the tool, naming it.
+        if spec_field["type"] == "Enum" and was == "String":
+            allowed = {str(value) for value in spec_field.get("values") or []}
+            authored = {
+                str(value)
+                for value in _instance_values(project, spec_entity["identifier"], name)
+            }
+            missing = sorted(authored - allowed)
+            if not missing:
+                continue
+            stale[name] = (
+                f"the enum {spec_field.get('enum')} does not spell "
+                + ", ".join(repr(value) for value in missing)
+            )
+            continue
+        stale[name] = f"its type changes from {was} to {now}"
     return stale
 
 
@@ -239,6 +267,25 @@ def format_losses(losses: list[ValueLoss]) -> str:
         "  " + " ".join(f"--drop-instance-values {loss.path}" for loss in losses)
     )
     return "\n".join(lines)
+
+
+def _retype_field_instances(
+    project: dict, identifier: str, field_name: str, human: str
+) -> int:
+    """Point every instance record of one field at the def's new type."""
+    retyped = 0
+    for level in project.get("levels") or []:
+        for layer in level.get("layerInstances") or []:
+            for inst in layer.get("entityInstances") or []:
+                if inst.get("__identifier") != identifier:
+                    continue
+                for field in inst.get("fieldInstances") or []:
+                    if field.get("__identifier") != field_name:
+                        continue
+                    if field.get("__type") != human:
+                        field["__type"] = human
+                        retyped += 1
+    return retyped
 
 
 def _forget_field_instances(
@@ -322,7 +369,7 @@ def apply_upsert(project: dict, entities: list[dict]) -> list[str]:
             name, human, default = field["name"], field["type"], field.get("default")
             old = existing.pop(name, None)
             if old is None:
-                fresh = _new_field_def(name, human, default, project)
+                fresh = _new_field_def(name, human, default, project, field)
                 ordered.append(fresh)
                 changes.append(
                     f"{identifier}.{name}: added {human} field (uid={fresh['uid']})"
@@ -330,12 +377,21 @@ def apply_upsert(project: dict, entities: list[dict]) -> list[str]:
                 continue
             # The uid is never touched: it is what every fieldInstance in every
             # level points at.
-            if old.get("__type") != human:
+            human, internal = resolve_field_type(project, field)
+            if old.get("__type") != human or old.get("type") != internal:
                 changes.append(
                     f"{identifier}.{name}: retyped {old.get('__type')} -> {human}"
                 )
                 old["__type"] = human
-                old["type"] = HUMAN_TO_INTERNAL[human]
+                old["type"] = internal
+                # ⚠ every INSTANCE carries the type too, and LDtk reads it. A
+                # def that says `LocalEnum.X` over instances still saying
+                # `String` is the mismatch that makes the editor drop values.
+                retyped = _retype_field_instances(project, identifier, name, human)
+                if retyped:
+                    changes.append(
+                        f"{identifier}.{name}: retyped {retyped} field instance(s)"
+                    )
             if "docs" in field and old.get("doc") != _as_stored(field["docs"]):
                 old["doc"] = _as_stored(field["docs"])
                 changes.append(f"{identifier}.{name}: doc updated")

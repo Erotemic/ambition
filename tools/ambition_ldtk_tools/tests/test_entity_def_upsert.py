@@ -206,7 +206,11 @@ def test_retyping_a_field_the_level_still_uses_is_reported_not_done():
     losses = plan_losses(project, manifest["entities"])
 
     assert [loss.path for loss in losses] == ["MaryOBlock.kind"]
-    assert "String to Int" in losses[0].reason
+    # ⚠ the DESTINATION type, not the source's spelling. `kind` was a String
+    # when this was written and is `LocalEnum.MaryOBlockKind` since it gained a
+    # dropdown; what the assertion is about is that the tool names the change it
+    # refuses, and pinning the old source name only pinned the fixture.
+    assert "to Int" in losses[0].reason
 
 
 def test_retiring_a_field_nothing_ever_set_is_silent():

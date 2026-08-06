@@ -257,9 +257,9 @@ are reviewable without raw JSON diffs.
 
 `asset editor-art` is the one-command version of the above for a world that
 wants to look like itself. It composes an atlas out of the ENGINE's own sprite
-folder, registers it, gives every IntGrid value auto-layer rules and every
-1:1 entity def a `tileRect` — so painting `Solid` draws masonry in the editor,
-and a `ChestSpawn` looks like the chest.
+folder, registers it, gives every IntGrid layer a sibling AutoLayer that draws
+its values and every 1:1 entity def a `tileRect` — so painting `Solid` draws
+masonry in the editor, and a `ChestSpawn` looks like the chest.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset editor-art \
@@ -270,6 +270,21 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset editor-
   renderer binds — so an editor cell cannot drift from the block that spawns
   under it. Tile art is 32px against a 16px collision grid, so each texture is
   four cells and four `Single` rules phased by `xModulo`/`yModulo`.
+- ⛔ **the art goes on a `<Layer>Art` AutoLayer, never on the IntGrid layer
+  itself.** A matched rule replaces the cell's colour, so rules on the collision
+  layer HIDE the collision — which values are where, and where a surface ends.
+  The sibling layer reads it through `autoSourceLayerDefUid` instead, and the
+  source layer's `inactiveOpacity` drops so its colours read as a tint over the
+  art while you work on something else. Select it and it goes solid for
+  painting.
+- **A property can choose the picture.** `field_art` in the sidecar maps an
+  ENUM field's values to art and sets the def's `editorDisplayMode` to
+  `EntityTile`, so `MaryOBlock` draws a `?`-plate or masonry per placement
+  according to its `kind`. The enum itself is declared in the world's entity
+  manifest (`"type": "Enum"`, `"enum"`, `"values"`) — the vocabulary owns which
+  words are sayable, this owns what they look like. ⚠ it only fits a field the
+  runtime already CLOSES: `EnemySpawn.brain` accepts `Patrol:<path>` and
+  `Guard:<radius>`, so a dropdown would make most of it unauthorable.
 - **Nothing is baked into the levels.** The rules are evaluated live by LDtk, so
   a repaint can never leave stale art behind — the failure mode `tileset paint`
   has.

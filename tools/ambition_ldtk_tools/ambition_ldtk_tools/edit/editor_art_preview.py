@@ -59,6 +59,45 @@ def _rule_matches(rule: dict[str, Any], value: int, cx: int, cy: int) -> bool:
     ) % y_mod == 0
 
 
+def _instance_tile_rect(
+    project: dict[str, Any], definition: dict[str, Any], entity: dict[str, Any]
+) -> dict[str, Any] | None:
+    """The tile THIS placement wears, when a field decides it.
+
+    A field with `editorDisplayMode: "EntityTile"` overrides the def's own tile
+    with the tile of the enum value the instance holds — which is how a brick
+    and a `?`-block are one entity def with two looks.
+    """
+    for field in definition.get("fieldDefs") or []:
+        if field.get("editorDisplayMode") != "EntityTile":
+            continue
+        enum_identifier = str(field.get("__type") or "").removeprefix("LocalEnum.")
+        enum = next(
+            (
+                candidate
+                for candidate in project.get("defs", {}).get("enums") or []
+                if candidate.get("identifier") == enum_identifier
+            ),
+            None,
+        )
+        if enum is None:
+            continue
+        held = next(
+            (
+                instance.get("__value")
+                for instance in entity.get("fieldInstances") or []
+                if instance.get("__identifier") == field.get("identifier")
+            ),
+            None,
+        )
+        value = next(
+            (v for v in enum.get("values") or [] if v.get("id") == held), None
+        )
+        if value and value.get("tileRect"):
+            return value["tileRect"]
+    return None
+
+
 def _tileset_by_uid(project: dict[str, Any], uid: int | None) -> dict[str, Any] | None:
     if uid is None:
         return None
@@ -118,16 +157,26 @@ def render_preview(
             definition = layer_by_uid.get(int(instance.get("layerDefUid", -1)))
             if definition is None:
                 continue
-            if definition.get("type") == "IntGrid":
+            if definition.get("type") == "AutoLayer":
+                # An AutoLayer owns no cells: it answers another layer's
+                # IntGrid, so the values come from the SOURCE instance.
+                source_uid = definition.get("autoSourceLayerDefUid")
+                source = next(
+                    (
+                        inst
+                        for inst in lvl.get("layerInstances", [])
+                        if inst.get("layerDefUid") == source_uid
+                    ),
+                    None,
+                )
                 tileset = _tileset_by_uid(project, definition.get("tilesetDefUid"))
-                if tileset is None:
+                if source is None or tileset is None:
                     continue
                 sheet = tileset_image(tileset)
                 grid = int(tileset.get("tileGridSize") or 16)
                 cols = max(1, int(tileset.get("__cWid") or 1))
-                cell = int(instance.get("__gridSize") or definition.get("gridSize") or 16)
-                c_wid = int(instance.get("__cWid") or 0)
-                csv = instance.get("intGridCsv") or []
+                cell = int(definition.get("gridSize") or 16)
+                c_wid = int(source.get("__cWid") or 0)
                 rules = [
                     rule
                     for group in definition.get("autoRuleGroups") or []
@@ -135,8 +184,8 @@ def render_preview(
                     for rule in group.get("rules") or []
                     if rule.get("active", True)
                 ]
-                for index, value in enumerate(csv):
-                    if not value:
+                for index, value in enumerate(source.get("intGridCsv") or []):
+                    if not value or not c_wid:
                         continue
                     cx, cy = index % c_wid, index // c_wid
                     for rule in rules:
@@ -151,13 +200,47 @@ def render_preview(
                         canvas.alpha_composite(tile, (cx * cell, cy * cell))
                         if rule.get("breakOnMatch", True):
                             break
+            if definition.get("type") == "IntGrid":
+                # ⭐ **the collision colours, drawn over their own art.** This is
+                # the half Jon could not see when the rules lived on this layer:
+                # which cells are Solid, which are OneWayUp, where a surface
+                # actually ends. `displayOpacity` is the editor's own slider, so
+                # the preview reads the same number the editor will.
+                cell = int(instance.get("__gridSize") or definition.get("gridSize") or 16)
+                c_wid = int(instance.get("__cWid") or 0)
+                # ⚠ the INACTIVE alpha, because that is the state you look at a
+                # level in — some other layer is current while you place things
+                # and read the shape. Selecting the collision layer in the
+                # editor takes it to `displayOpacity` and the art disappears
+                # behind it, which is what painting wants and what a still
+                # picture cannot show two of.
+                opacity = float(
+                    definition.get("displayOpacity", 1.0) or 0.0
+                ) * float(definition.get("inactiveOpacity", 1.0) or 0.0)
+                colours = {
+                    int(value["value"]): str(value.get("color") or "#FFFFFF")
+                    for value in definition.get("intGridValues") or []
+                }
+                if opacity > 0 and c_wid:
+                    wash = Image.new("RGBA", (cell, cell), (0, 0, 0, 0))
+                    for index, value in enumerate(instance.get("intGridCsv") or []):
+                        colour = colours.get(int(value or 0))
+                        if not colour:
+                            continue
+                        rgb = tuple(int(colour.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
+                        wash.paste(rgb + (int(255 * opacity),), (0, 0, cell, cell))
+                        canvas.alpha_composite(
+                            wash, ((index % c_wid) * cell, (index // c_wid) * cell)
+                        )
             for entity in instance.get("entityInstances", []):
                 definition = entity_by_id.get(str(entity.get("__identifier")))
                 if definition is None:
                     continue
                 px = entity.get("px") or [0, 0]
                 w, h = int(entity.get("width", 16)), int(entity.get("height", 16))
-                rect = definition.get("tileRect")
+                rect = _instance_tile_rect(project, definition, entity) or definition.get(
+                    "tileRect"
+                )
                 if not rect:
                     colour = str(definition.get("color") or "#FFFFFF").lstrip("#")
                     rgb = tuple(int(colour[i : i + 2], 16) for i in (0, 2, 4))

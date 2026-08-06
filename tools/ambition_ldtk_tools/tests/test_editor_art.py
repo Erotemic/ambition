@@ -72,6 +72,42 @@ def test_a_32px_texture_is_reassembled_from_its_four_quadrants(tmp_path):
     assert drawn[(3, 2)] == top_right
 
 
+def test_the_art_goes_on_its_own_layer_so_collision_stays_visible():
+    """⛔ the regression Jon reported: *"I can't see the collision surfaces."*
+
+    A rule that matches replaces the cell's colour with its tile, so art and
+    collision cannot share a layer — whichever one draws, the other is gone. The
+    art belongs on an AutoLayer that READS the collision, which is the only
+    arrangement where both can be looked at.
+    """
+    art = editor_art.Placement("solid_tile", x=0, y=0, w=32, h=32)
+    collision = {
+        "identifier": "Collision",
+        "type": "IntGrid",
+        "uid": 10,
+        "gridSize": 16,
+        "intGridValues": [{"identifier": "Solid", "value": 1}],
+        "autoRuleGroups": [],
+        "tilesetDefUid": None,
+        "displayOpacity": 1.0,
+        "inactiveOpacity": 0.6,
+    }
+    project = {"nextUid": 100, "defs": {"layers": [collision]}, "levels": []}
+
+    editor_art.apply_auto_rules(project, 7, {"Solid": "solid_tile"}, {"solid_tile": art})
+
+    assert collision["autoRuleGroups"] == [], "the collision layer keeps drawing its cells"
+    assert collision["tilesetDefUid"] is None
+    assert collision["inactiveOpacity"] < 0.6, "it fades so the art below shows through"
+
+    layers = project["defs"]["layers"]
+    art_layer = next(l for l in layers if l["identifier"] == "CollisionArt")
+    assert art_layer["type"] == "AutoLayer"
+    assert art_layer["autoSourceLayerDefUid"] == collision["uid"], "it reads the collision"
+    assert layers.index(art_layer) > layers.index(collision), "and draws behind it"
+    assert len(art_layer["autoRuleGroups"][0]["rules"]) == 4
+
+
 def test_a_sheet_frame_comes_from_the_sidecar_rects(tmp_path):
     """A frame's rect is read, never computed from `frame_width`."""
     (tmp_path / "hero_spritesheet.yaml").write_text(
@@ -92,3 +128,58 @@ def test_a_sheet_frame_comes_from_the_sidecar_rects(tmp_path):
         editor_art.sheet_frame_rect("hero", tmp_path, "idle", 7)
     with pytest.raises(SystemExit, match="no 'run' animation"):
         editor_art.sheet_frame_rect("hero", tmp_path, "run", 0)
+
+
+def test_closing_a_string_into_an_enum_refuses_a_value_it_cannot_spell():
+    """The dropdown may only land if every authored word survives it.
+
+    Turning a free-text field into an enum is what lets a placement's art follow
+    its own value — but an enum holds only what it spells, so the one that
+    matters is the check that a value already in the level is not about to
+    become unsayable.
+    """
+    from ambition_ldtk_tools.edit.upsert_entity import _stale_field_names
+
+    def project_with(kind: str) -> dict:
+        return {
+            "defs": {
+                "entities": [
+                    {
+                        "identifier": "MaryOBlock",
+                        "fieldDefs": [{"identifier": "kind", "__type": "String"}],
+                    }
+                ]
+            },
+            "levels": [
+                {
+                    "layerInstances": [
+                        {
+                            "entityInstances": [
+                                {
+                                    "__identifier": "MaryOBlock",
+                                    "fieldInstances": [
+                                        {"__identifier": "kind", "__value": kind}
+                                    ],
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+        }
+
+    spec = {
+        "identifier": "MaryOBlock",
+        "fields": [
+            {
+                "name": "kind",
+                "type": "Enum",
+                "enum": "MaryOBlockKind",
+                "values": ["Question", "Brick"],
+            }
+        ],
+    }
+
+    assert _stale_field_names(project_with("Brick"), spec) == {}
+    refused = _stale_field_names(project_with("Quasar"), spec)
+    assert "kind" in refused and "'Quasar'" in refused["kind"]

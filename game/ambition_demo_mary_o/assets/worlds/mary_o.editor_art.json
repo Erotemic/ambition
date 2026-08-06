@@ -18,5 +18,26 @@
     "MaryOBlock": "bonus_block_tile",
     "MaryOPipe": "props/mary_o_pipe_top",
     "PickupSpawn": "pickup_currency"
+  },
+  "_field_art_doc": [
+    "Art that follows a FIELD, per placed instance. The field must be an Enum",
+    "in mary_o.entities.json — LDtk can only vary an entity's tile by an enum",
+    "value — and each value here names what that value looks like.",
+    "",
+    "This is the same split the game makes: `kind` decides the look and",
+    "`contents` decides the payout, so a Brick holding a quasar looks like",
+    "masonry in the editor exactly as it does in play."
+  ],
+  "field_art": {
+    "MaryOBlock.kind": {
+      "Question": "bonus_block_tile",
+      "Power": "bonus_block_tile",
+      "Brick": "solid_tile",
+      "Hidden": "spent_block_tile"
+    },
+    "MaryOPipe.mouth": {
+      "Up": "props/mary_o_pipe_top",
+      "Down": { "art": "props/mary_o_pipe_top", "flip_y": true }
+    }
   }
 }

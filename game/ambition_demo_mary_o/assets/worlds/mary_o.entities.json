@@ -5,11 +5,13 @@
       "color": "#E8A33D",
       "width": 32,
       "height": 32,
-      "docs": "One of Mary-O's REACTIVE blocks — the ones that answer a head-bonk from below.\n\nWhat it LOOKS like and what it HOLDS are separate fields, on purpose: a block that looks like a brick but really has a powerup is a thing you should be able to author. A block's look never announces its contents — that is why `Quasar` is no longer a look.\n\n`kind` — what it looks like:\n\n  Question  a ?-block. Wears its own texture, and an inert one once spent. A quasar comes out of an ORDINARY ?-block.\n  Brick     masonry. Breakable ONLY when it holds nothing — a loaded brick behaves like a ?-block wearing brick art, which is the classic behaviour.\n  Hidden    nothing at all until it is struck. It is NOT a floor: only a head coming up into it from below collides, so she cannot stand on it and cannot bump it from the side. (Becoming a visible solid once discovered is the classic behaviour and is NOT implemented yet.)\n\n`contents` — what it holds. Leave it BLANK for the sensible default for that look (a Question levels toward the lantern, a Brick holds nothing, a Hidden holds a coin), or say:\n\n  Empty           nothing. A Brick that holds nothing is the one that breaks.\n  AlwaysWand      always the star wand, whatever form she is in.\n  AlwaysLantern   always the cinder beacon.\n  AlwaysQuasar    always a pocket quasar.\n  Coin            a coin, credited on the strike — no item to catch.\n  TowardWand      the next rung on the way to the wand.\n  TowardLantern   the next rung on the way to the lantern — small gets the wand, tall gets the lantern. This is what every ?-block in 1-1 does.\n\nA pickup never makes her WEAKER: a wand collected by fire Mary-O pays coins instead of demoting her, whether it came from a block or was authored on the floor.\n\nOne tile, floating at bonk height over ground she can stand on. The block's collision and art come from this entity; nothing else has to be authored for it to work.\n\nAn unknown kind or an unknown contents is REFUSED at load rather than becoming a plain wall — a block that silently stopped being special still stops the player, so the level would look whole with one bonus quietly gone. `Quasar` as a kind is refused by name, and the message says what to write instead.",
+      "docs": "One of Mary-O's REACTIVE blocks — the ones that answer a head-bonk from below.\n\nWhat it LOOKS like and what it HOLDS are separate fields, on purpose: a block that looks like a brick but really has a powerup is a thing you should be able to author. A block's look never announces its contents — that is why `Quasar` is no longer a look.\n\n`kind` — what it looks like:\n\n  Question  a ?-block. Wears its own texture, and an inert one once spent. A quasar comes out of an ORDINARY ?-block.\n  Power     the old spelling of Question, kept in the list only so a file that already says it still loads. Prefer Question.\n  Brick     masonry. Breakable ONLY when it holds nothing — a loaded brick behaves like a ?-block wearing brick art, which is the classic behaviour.\n  Hidden    nothing at all until it is struck. It is NOT a floor: only a head coming up into it from below collides, so she cannot stand on it and cannot bump it from the side. (Becoming a visible solid once discovered is the classic behaviour and is NOT implemented yet.)\n\n`contents` — what it holds. Leave it BLANK for the sensible default for that look (a Question levels toward the lantern, a Brick holds nothing, a Hidden holds a coin), or say:\n\n  Empty           nothing. A Brick that holds nothing is the one that breaks.\n  AlwaysWand      always the star wand, whatever form she is in.\n  AlwaysLantern   always the cinder beacon.\n  AlwaysQuasar    always a pocket quasar.\n  Coin            a coin, credited on the strike — no item to catch.\n  TowardWand      the next rung on the way to the wand.\n  TowardLantern   the next rung on the way to the lantern — small gets the wand, tall gets the lantern. This is what every ?-block in 1-1 does.\n\nA pickup never makes her WEAKER: a wand collected by fire Mary-O pays coins instead of demoting her, whether it came from a block or was authored on the floor.\n\nOne tile, floating at bonk height over ground she can stand on. The block's collision and art come from this entity; nothing else has to be authored for it to work.\n\nAn unknown kind or an unknown contents is REFUSED at load rather than becoming a plain wall — a block that silently stopped being special still stops the player, so the level would look whole with one bonus quietly gone. `Quasar` as a kind is refused by name, and the message says what to write instead.",
       "fields": [
         {
           "name": "kind",
-          "type": "String",
+          "type": "Enum",
+          "enum": "MaryOBlockKind",
+          "values": ["Question", "Brick", "Hidden", "Power"],
           "default": "Question"
         },
         {
@@ -33,12 +35,16 @@
         },
         {
           "name": "mouth",
-          "type": "String",
+          "type": "Enum",
+          "enum": "MaryOPipeMouth",
+          "values": ["Up", "Down"],
           "default": "Up"
         },
         {
           "name": "role",
-          "type": "String",
+          "type": "Enum",
+          "enum": "MaryOPipeRole",
+          "values": ["Entrance", "Exit"],
           "default": "Entrance"
         }
       ]

@@ -37,8 +37,8 @@ pub use plugin::{
 pub use preparation::*;
 pub use router::*;
 pub use scope::{
-    shell_experience_is_active, ExperienceScope, ExperienceScopeBuilder,
-    ShellExperienceScopeAppExt, ShellExperienceScopes,
+    release_departed_experience_state, shell_experience_is_active, ExperienceScope,
+    ExperienceScopeBuilder, ShellExperienceScopeAppExt, ShellExperienceScopes,
 };
 pub use sequence::*;
 pub use session::*;

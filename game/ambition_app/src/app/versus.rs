@@ -954,14 +954,21 @@ pub fn compose_versus_experience(app: &mut App) {
             ),
     );
 
-    // **WHAT THIS EXPERIENCE OWNS, AND WHAT LEAVES WITH IT.**
-    //
-    // A match's roster, its activation, its combat declaration and the seat
-    // count it decided are all global resources with the lifetime of one route
-    // visit. Declaring them here means the exit is one list rather than a
-    // teardown arm inside the system that also builds them — and a teardown that
-    // lives inside the thing it tears down can only ever run while it is not
-    // needed.
+    declare_versus_experience_scope(app);
+}
+
+/// **WHAT THIS EXPERIENCE OWNS, AND WHAT LEAVES WITH IT.**
+///
+/// A match's roster, its activation, its combat declaration and the seat
+/// count it decided are all global resources with the lifetime of one route
+/// visit. Declaring them here means the exit is one list rather than a
+/// teardown arm inside the system that also builds them — and a teardown that
+/// lives inside the thing it tears down can only ever run while it is not
+/// needed.
+///
+/// A named function so the stage-rule tests compose THIS declaration — not a
+/// re-typed copy that would stay green after the real one lost a line.
+fn declare_versus_experience_scope(app: &mut App) {
     {
         use ambition_platformer2d::game_shell::ShellExperienceScopeAppExt;
         app.experience_owns(VERSUS_EXPERIENCE)
@@ -1010,9 +1017,18 @@ mod stage_rule_tests {
         // tests need. Asserting on the resolved value rather than on a global is
         // the whole point of AE6 — a test that read the baseline would be
         // asserting the borrow it replaced.
+        // The REAL exit mechanism, not a fixture copy: the versus scope
+        // declaration (the same call `compose_versus_experience` makes) plus
+        // the shell's release system. These tests went red for a day when the
+        // exit moved from a teardown arm inside `track_versus_roster` into the
+        // scope declaration and this fixture kept composing only the former —
+        // asserting "DI leaves with the match" against an app that contained
+        // no leaving mechanism at all.
+        super::declare_versus_experience_scope(&mut app);
         app.add_systems(
             Update,
             (
+                ambition_platformer2d::game_shell::release_departed_experience_state,
                 track_versus_roster,
                 ambition_platformer2d::actors::features::combat_rules::project_combat_rules,
             )

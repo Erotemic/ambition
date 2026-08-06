@@ -27,7 +27,9 @@
 //!
 //! ⚠ the release systems live in [`crate::AmbitionGameShellPlugin`]. A harness
 //! that composes a provider without the shell registers scopes that nothing
-//! runs, which is the same deal every other shell facility offers.
+//! runs, which is the same deal every other shell facility offers — unless it
+//! registers [`release_departed_experience_state`] itself, which is public for
+//! exactly that composition.
 
 use std::collections::BTreeSet;
 
@@ -133,7 +135,13 @@ pub fn shell_experience_is_active(
 /// Exclusive-world, and deliberately not `Commands`: a release that landed at
 /// the next command flush would be visible to one more frame of the experience
 /// that inherited it, which is exactly the window the leak lived in.
-pub(crate) fn release_departed_experience_state(world: &mut World) {
+///
+/// Public so a harness that composes a provider WITHOUT the shell plugin can
+/// still run the real release mechanism against the real declarations —
+/// otherwise a scope-owned invariant ("the match's rules leave with the
+/// match") is untestable except through the whole shell. The shipped
+/// registration stays the shell's (`AmbitionGameShellPlugin`, Cleanup).
+pub fn release_departed_experience_state(world: &mut World) {
     if !world.contains_resource::<ShellExperienceScopes>() {
         return;
     }

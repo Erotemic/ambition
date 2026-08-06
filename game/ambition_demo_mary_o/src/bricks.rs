@@ -53,6 +53,23 @@ use ambition_platformer2d::actors::session::reset::RoomReplayRequested;
 pub struct BrokenBricks(std::collections::BTreeSet<String>);
 
 impl BrokenBricks {
+    /// **A checksum over WHICH bricks are broken, order-independent.**
+    ///
+    /// ⭐ **XOR of per-name hashes, not a hash of the iteration.** The set is a
+    /// `BTreeSet` so its order is already deterministic — but the projection is
+    /// what two peers compare, and making it independent of container choice
+    /// means a later switch to a `HashSet` cannot turn a matching pair of
+    /// timelines into a reported desync. (Its sibling `SpentPowerBlocks` IS a
+    /// `HashSet`, which is how this came up.)
+    pub fn checksum(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        self.0.iter().fold(0u64, |acc, name| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            name.hash(&mut hasher);
+            acc ^ hasher.finish()
+        })
+    }
+
     /// Mark this brick broken; `true` only on the FRESH break, so the caller
     /// shatters it exactly once rather than every frame the contact re-reports.
     fn mark(&mut self, name: &str) -> bool {

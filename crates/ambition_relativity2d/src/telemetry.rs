@@ -57,6 +57,18 @@ impl WorldlineHistoryView2d {
     }
 }
 
+/// A stable hash of a label, for the rollback value probes below.
+///
+/// ⚠ `DefaultHasher` is not stable ACROSS Rust releases, and that is fine here:
+/// a checksum compares two peers running the same binary, which is already the
+/// premise of every other projection in the registry.
+pub(crate) fn hash_label(label: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    label.hash(&mut hasher);
+    hasher.finish()
+}
+
 pub(crate) fn install_telemetry_systems(app: &mut App, sim: InternedScheduleLabel) {
     app.init_resource::<WorldlineHistoryView2d>();
     app.declare_rollback_derived_resource::<WorldlineHistoryView2d>(
@@ -64,9 +76,16 @@ pub(crate) fn install_telemetry_systems(app: &mut App, sim: InternedScheduleLabe
         "relativity.worldline_history_view_2d",
         "bounded tick-keyed telemetry that truncates abandoned rollback futures and rebuilds on resimulation",
     );
-    app.rollback_component_clone::<WorldlineTracked2d>(
+    // ⭐ **a value probe over the LABEL, not merely its presence** (2026-08-06).
+    // The label IS the whole component, and it is the join key the telemetry
+    // owner-election uses — two timelines that disagree about which track an
+    // entity belongs to write each other's history. A presence probe saw none of
+    // that. See the sibling probes in `ambition_demo_mary_o::rollback_probes`
+    // for why eighteen of these surfaced at once.
+    app.rollback_component_clone_probed::<WorldlineTracked2d>(
         "ambition_relativity2d",
         "relativity.worldline_tracked_2d",
+        |tracked| hash_label(&tracked.0),
     );
 
     app.add_systems(

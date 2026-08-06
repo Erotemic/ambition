@@ -18,8 +18,8 @@
 //! So this test composes `AmbitionGameSimulationPlugin` — the same plugin the game
 //! boots — and asks the world.
 
+use ambition_app::app::StartRoomOverride;
 use ambition_platformer2d::combat::rules::{DeclaredCombatRules, ResolvedCombatTuning};
-use ambition_app::app::{AmbitionGameSimulationPlugin, StartRoomOverride};
 use bevy::app::{PluginGroup, ScheduleRunnerPlugin};
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
@@ -37,9 +37,7 @@ const DECLARED_DI: f32 = 0.31;
 
 fn composed_app() -> App {
     let mut app = App::new();
-    app.add_plugins(
-        MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(std::time::Duration::ZERO)),
-    );
+    app.add_plugins(MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(std::time::Duration::ZERO)));
     app.add_plugins(AssetPlugin::default());
     app.add_plugins(ImagePlugin::default());
     app.add_plugins(TransformPlugin);
@@ -49,15 +47,27 @@ fn composed_app() -> App {
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.insert_resource(StartRoomOverride("portal_lab".to_string()));
-    app.add_plugins(AmbitionGameSimulationPlugin);
+    // ⭐ **K2b edit 2: the shell host, booted to gameplay.** This added the
+    // simulation plugin alone and inherited the `SessionRoot` it published at
+    // plugin-build time; that publisher is gone, so the composition is the one
+    // a player runs. `StartRoomOverride` survives it — it is consumed while the
+    // prepared content is assembled, before any activation.
+    ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
     app.finish();
-    app.update();
+    // ⚠ **one update is no longer enough**: activation is asynchronous, behind a
+    // load barrier and eight preparation work items.
+    ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
+        &mut app,
+        ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
+    )
+    .unwrap_or_else(|budget| {
+        panic!("the shell-composed fixture produced no session world in {budget} frames")
+    });
     app
 }
 
 fn resolved(app: &App) -> ResolvedCombatTuning {
-    *app.world()
-        .resource::<ResolvedCombatTuning>()
+    *app.world().resource::<ResolvedCombatTuning>()
 }
 
 /// **The shipped composition publishes the resolved rules at all.**

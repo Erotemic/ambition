@@ -59,6 +59,23 @@ const STOMP_BAND: f32 = 16.0;
 pub struct SpentMonitors(pub Vec<String>);
 
 impl SpentMonitors {
+    /// **A checksum over WHICH monitors are spent.**
+    ///
+    /// ⚠ **order-independent even though this is a `Vec`.** The vector's order is
+    /// the order they broke in, which is genuine information — but two peers
+    /// running identical simulations break them in the same order anyway, so
+    /// XORing per-name hashes loses nothing a desync check needs and survives a
+    /// later switch to a set. (Its Mary-O siblings are a `BTreeSet` and a
+    /// `HashSet`; all three answer the same way now.)
+    pub fn checksum(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        self.0.iter().fold(0u64, |acc, name| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            name.hash(&mut hasher);
+            acc ^ hasher.finish()
+        })
+    }
+
     fn is_broken(&self, name: &str) -> bool {
         self.0.iter().any(|broken| broken == name)
     }

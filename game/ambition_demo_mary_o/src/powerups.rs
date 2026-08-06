@@ -250,6 +250,22 @@ pub fn tag_mary_o_sparks(
 pub struct SpentPowerBlocks(std::collections::HashSet<ae::GeoId>);
 
 impl SpentPowerBlocks {
+    /// **A checksum over WHICH blocks are spent, order-independent.**
+    ///
+    /// ⛔ **this is a `HashSet`, so an order-DEPENDENT projection would be
+    /// nondeterministic between two peers running identical simulations.** XOR
+    /// of per-id hashes is commutative, so the answer does not depend on the
+    /// traversal. See [[reference_bevy_entity_ordering_traps]] for the family
+    /// this belongs to.
+    pub fn checksum(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        self.0.iter().fold(0u64, |acc, id| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            id.hash(&mut hasher);
+            acc ^ hasher.finish()
+        })
+    }
+
     /// This block has already given up its pickup.
     pub fn is_spent(&self, id: &ae::GeoId) -> bool {
         self.0.contains(id)

@@ -677,38 +677,45 @@ pub fn install_sanic_content(app: &mut App) {
         // survived a GGRS rollback). `BallDash`/`BallDashInput` ride the
         // player body, which `entity:body_kinematics` already anchors.
         app.require_rollback::<SanicActState>("ambition_demo_sanic", "entity:sanic_mode_owner")
-            .rollback_component_clone::<ball_dash::BallDash>(
+            .rollback_component_clone_probed::<ball_dash::BallDash>(
                 "ambition_demo_sanic",
                 "content.sanic_ball_dash",
+                rollback_probes::ball_dash,
             )
-            .rollback_component_clone::<ball_dash::BallDashInput>(
+            .rollback_component_clone_probed::<ball_dash::BallDashInput>(
                 "ambition_demo_sanic",
                 "content.sanic_ball_dash_input",
+                rollback_probes::ball_dash_input,
             )
-            .rollback_component_clone::<SanicActState>(
+            .rollback_component_clone_probed::<SanicActState>(
                 "ambition_demo_sanic",
                 "content.sanic_act_state",
+                rollback_probes::act_state,
             )
-            .rollback_component_clone::<SuperFormLatch>(
+            .rollback_component_clone_probed::<SuperFormLatch>(
                 "ambition_demo_sanic",
                 "content.sanic_super_form_latch",
+                rollback_probes::super_form_latch,
             )
             // A mid-burst scattered ring rides the currency pickup it decorates,
             // which `CenteredAabb`/`PickupFeature` already anchor + snapshot — so
             // like `BallDash` on the body, it only needs its own component
             // registered. Without this the burst would silently not resimulate.
-            .rollback_component_clone::<ScatteredRing>(
+            .rollback_component_clone_probed::<ScatteredRing>(
                 "ambition_demo_sanic",
                 "content.sanic_scattered_ring",
+                rollback_probes::scattered_ring,
             )
             // Which monitors are spent is authoritative for the same reason
             // Mary-O's spent blocks and broken bricks are: the overlay subtracts
             // these from collision every frame, so a rewind across a break that
             // did not restore the set disagrees with the world about what is
             // still solid. Found by the shipped-composition resource sweep.
-            .rollback_resource_clone::<monitors::SpentMonitors>(
+            .rollback_resource_clone_checksum::<monitors::SpentMonitors>(
                 "ambition_demo_sanic",
                 "content.sanic_spent_monitors",
+                "bevy_ggrs clone snapshot + an order-independent checksum over the spent names",
+                |spent| spent.checksum(),
             );
         // The dropped-ring id sequence is no longer a resource: each ring now
         // mints its identity from the SPAWNING player's own `SimIdCounter`
@@ -2241,5 +2248,62 @@ pub fn cycle_act_after_clear(
         }
         *state = SanicActState::default();
         replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
+    }
+}
+
+/// **Value projections for this demo's rollback state.**
+///
+/// Companion to Mary-O's `rollback_probes`, added in the same pass and for the
+/// same reason: every one of these registrations was PRESENCE-ONLY, and the
+/// checker that says so had never seen them. `Platformer2dSimHarness` composed
+/// `AmbitionGameSimulationPlugin` alone until the build-time `SessionRoot` was
+/// deleted (K2b edit 2, 2026-08-06); the shipped shell host composes all three
+/// demos, so eighteen content registrations arrived on the oracle at once.
+///
+/// ⚠ f32 goes through `to_bits`. A rounding checksum calls two timelines equal
+/// one ulp apart, and one ulp of a dash charge is one frame of launch speed.
+mod rollback_probes {
+    use super::*;
+
+    pub(super) fn ball_dash(dash: &ball_dash::BallDash) -> u64 {
+        (dash.charge.to_bits() as u64)
+            ^ ((dash.crouched as u64) << 33)
+            ^ ((dash.contact_grace.to_bits() as u64) << 1).rotate_left(11)
+    }
+
+    /// ⚠ **captured INPUT is rollback state, and its edges are the point.** A
+    /// rewind that restored the charge but not `crouch_released` re-runs the
+    /// launch frame with the edge already consumed, so the two timelines
+    /// disagree about whether the dash fired at all.
+    pub(super) fn ball_dash_input(input: &ball_dash::BallDashInput) -> u64 {
+        (input.crouch_held as u64)
+            | ((input.crouch_released as u64) << 1)
+            | ((input.rev_pressed as u64) << 2)
+            | ((input.grounded_at_capture as u64) << 3)
+    }
+
+    pub(super) fn act_state(state: &SanicActState) -> u64 {
+        let phase = match state.phase {
+            SanicActPhase::Running => 1,
+            SanicActPhase::Cleared { time, rings, dwell } => {
+                2 ^ ((time.to_bits() as u64) << 8)
+                    ^ ((rings as u32 as u64) << 24).rotate_left(5)
+                    ^ ((dwell.to_bits() as u64) << 1).rotate_left(29)
+            }
+        };
+        (state.elapsed.to_bits() as u64)
+            ^ phase.rotate_left(17)
+            ^ ((state.next_milestone as u64) << 48)
+    }
+
+    pub(super) fn super_form_latch(latch: &SuperFormLatch) -> u64 {
+        latch.0 as u64
+    }
+
+    pub(super) fn scattered_ring(ring: &ScatteredRing) -> u64 {
+        (ring.vel.x.to_bits() as u64)
+            ^ ((ring.vel.y.to_bits() as u64) << 32)
+            ^ ((ring.lock.to_bits() as u64) << 1).rotate_left(13)
+            ^ ((ring.life.to_bits() as u64) << 1).rotate_left(41)
     }
 }

@@ -17,12 +17,12 @@
 //! is unproven until here is everything AFTER the announcement, and injecting the
 //! message is how you get to it without a stage.
 
+use ambition_app::app::StartRoomOverride;
 use ambition_platformer2d::combat::components::FighterStocks;
 use ambition_platformer2d::combat::stocks::{
     BodyKnockedOut, FighterEliminated, FighterStockSpent, StocksMatchDecided,
 };
 use ambition_platformer2d::combat::targeting::MatchTeam;
-use ambition_app::app::{AmbitionGameSimulationPlugin, StartRoomOverride};
 use bevy::app::ScheduleRunnerPlugin;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
@@ -48,9 +48,24 @@ fn composed_app() -> App {
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.insert_resource(StartRoomOverride("portal_lab".to_string()));
-    app.add_plugins(AmbitionGameSimulationPlugin);
+    // ⭐ **K2b edit 2: the shell host, booted to gameplay.** This added the
+    // simulation plugin alone and inherited the `SessionRoot` it published at
+    // plugin-build time; that publisher is gone, so the composition is the one
+    // a player runs. `StartRoomOverride` survives it — it is consumed while the
+    // prepared content is assembled, before any activation.
+    ambition_app::app::shell_host::compose_ambition_gameplay_host(&mut app);
     app.finish();
-    app.update();
+    // ⚠ **one update is no longer enough**: activation is asynchronous, behind a
+    // load barrier and eight preparation work items, and the sim schedule is
+    // gated on a session existing — so without this the stocks systems never run
+    // and every assertion below reads an empty message buffer.
+    ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
+        &mut app,
+        ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
+    )
+    .unwrap_or_else(|budget| {
+        panic!("the shell-composed stocks fixture produced no session world in {budget} frames")
+    });
     // A LIVE match. `decide_stocks_match` refuses to end a match that is not
     // running, which is what stops it deciding against a half-seated cast.
     app.world_mut()

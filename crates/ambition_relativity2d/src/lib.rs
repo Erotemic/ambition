@@ -353,9 +353,13 @@ impl Plugin for Relativity2dPlugin {
             "provider-authored spacetime model and invariant-speed fingerprint",
             active_spacetime_checksum,
         )
-        .rollback_component_clone::<RelativityClockLabel>(
+        // ⭐ **a value probe over the LABEL** (2026-08-06). The label is the whole
+        // component and the identity a clock readout is joined by; a presence
+        // probe saw none of it.
+        .rollback_component_clone_probed::<RelativityClockLabel>(
             "ambition_relativity2d",
             "relativity.clock_label_2d",
+            |label| crate::telemetry::hash_label(&label.0),
         )
         .rollback_component_clone::<RelativisticClock2d>(
             "ambition_relativity2d",

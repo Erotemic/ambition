@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v12
+ggrs-rollback-schema-v13
 actor.action_set	component-clone	ambition_characters::brain::action_set::ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.aggression	component-clone-cursor	ambition_combat::components::actors::ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.anim_override	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -109,26 +109,26 @@ content.flag_pole	derived	ambition_demo_mary_o::flag::FlagPole	the ACTIVE room's
 content.gradient_cascade_state	component-canonical	ambition_content::bosses::specials::gradient_sentinel::GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.level_destination	derived	ambition_demo_mary_o::LevelDestination	where the ACTIVE room's goal leads; re-derived from RoomSet on every room change
 content.mary_o_ai_slop	component-clone	ambition_demo_mary_o::ai_slop::AiSlop	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_broken_bricks	resource-clone	ambition_demo_mary_o::bricks::BrokenBricks	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_death_sequence	component-clone	ambition_demo_mary_o::death::MaryODeathSequence	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_flag_sequence	component-clone	ambition_demo_mary_o::flag::FlagSequence	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_level_state	component-clone	ambition_demo_mary_o::MaryOLevelState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_pipe_entry_latch	component-clone	ambition_demo_mary_o::pipe::PipeEntryLatch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_pipe_transit	component-clone	ambition_demo_mary_o::pipe::PipeTransit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_snake_shell	component-clone	ambition_demo_mary_o::snake::SnakeShell	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_spark_cooldown	component-clone	ambition_demo_mary_o::movement::MaryOSparkCooldown	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_spent_power_blocks	resource-clone	ambition_demo_mary_o::powerups::SpentPowerBlocks	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+content.mary_o_broken_bricks	resource-clone-custom-checksum	ambition_demo_mary_o::bricks::BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
+content.mary_o_death_sequence	component-clone	ambition_demo_mary_o::death::MaryODeathSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_flag_sequence	component-clone	ambition_demo_mary_o::flag::FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_level_state	component-clone	ambition_demo_mary_o::MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_pipe_entry_latch	component-clone	ambition_demo_mary_o::pipe::PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_pipe_transit	component-clone	ambition_demo_mary_o::pipe::PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_snake_shell	component-clone	ambition_demo_mary_o::snake::SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_spark_cooldown	component-clone	ambition_demo_mary_o::movement::MaryOSparkCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_spent_power_blocks	resource-clone-custom-checksum	ambition_demo_mary_o::powerups::SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
 content.minima_trap_state	component-canonical	ambition_content::bosses::specials::gradient_sentinel::MinimaTrapState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.mode_collapse_state	component-canonical	ambition_content::bosses::specials::mode_collapse::ModeCollapseState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.overfit_volley_state	component-canonical	ambition_content::bosses::specials::gradient_sentinel::OverfitVolleyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.overflow_state	component-canonical	ambition_content::bosses::specials::overflow_flood::OverflowState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.saddle_point_state	component-clone-cursor	ambition_content::bosses::specials::gradient_sentinel::SaddlePointState	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-content.sanic_act_state	component-clone	ambition_demo_sanic::SanicActState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.sanic_ball_dash	component-clone	ambition_demo_sanic::ball_dash::BallDash	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.sanic_ball_dash_input	component-clone	ambition_demo_sanic::ball_dash::BallDashInput	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.sanic_scattered_ring	component-clone	ambition_demo_sanic::ScatteredRing	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.sanic_spent_monitors	resource-clone	ambition_demo_sanic::monitors::SpentMonitors	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.sanic_super_form_latch	component-clone	ambition_demo_sanic::SuperFormLatch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+content.sanic_act_state	component-clone	ambition_demo_sanic::SanicActState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_ball_dash	component-clone	ambition_demo_sanic::ball_dash::BallDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_ball_dash_input	component-clone	ambition_demo_sanic::ball_dash::BallDashInput	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_scattered_ring	component-clone	ambition_demo_sanic::ScatteredRing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_spent_monitors	resource-clone-custom-checksum	ambition_demo_sanic::monitors::SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
+content.sanic_super_form_latch	component-clone	ambition_demo_sanic::SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.seismic_stomp_state	component-canonical	ambition_content::bosses::specials::seismic_stomp::SeismicStompState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 cutscene.playback	resource-canonical	ambition_cutscene::ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 derived.actor_action_scheme	derived	ambition_characters::action_scheme::ActorActionScheme	reconciled from abilities, moveset, and action set
@@ -343,7 +343,7 @@ projectile.player_marker	component-canonical	ambition_projectiles::entity::Playe
 projectile.seq	component-canonical	ambition_projectiles::entity::ProjectileSeq	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 projectile.visual_id	component-canonical	ambition_projectiles::visual::ProjectileVisualId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 relativity.active_spacetime_2d	component-clone-custom-checksum	ambition_relativity2d::ActiveSpacetime2d	provider-authored spacetime model and invariant-speed fingerprint
-relativity.clock_label_2d	component-clone	ambition_relativity2d::RelativityClockLabel	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+relativity.clock_label_2d	component-clone	ambition_relativity2d::RelativityClockLabel	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 relativity.clock_marker_2d	component-clone	ambition_relativity2d::RelativisticClock2d	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 relativity.clock_view_2d	derived	ambition_relativity2d::RelativityClockView2d	presentation read model rebuilt every tick from RelativityState2d + ProperTimeElapsed
 relativity.coordinate_time_2d	component-canonical	ambition_relativity2d::signals::SpacetimeCoordinateTime2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -362,7 +362,7 @@ relativity.state_2d	derived	ambition_relativity2d::RelativityState2d	recomputed 
 relativity.target_marker_2d	component-canonical	ambition_relativity2d::targeting::RelativisticTarget2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 relativity.targeting_view_2d	derived	ambition_relativity2d::targeting::RelativisticTargetingView2d	constant-velocity null-intercept facts rebuilt from canonical bodies and the optical view
 relativity.worldline_history_view_2d	derived	ambition_relativity2d::telemetry::WorldlineHistoryView2d	bounded tick-keyed telemetry that truncates abandoned rollback futures and rebuilds on resimulation
-relativity.worldline_tracked_2d	component-clone	ambition_relativity2d::telemetry::WorldlineTracked2d	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+relativity.worldline_tracked_2d	component-clone	ambition_relativity2d::telemetry::WorldlineTracked2d	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 resource.active_match	resource-canonical	ambition_platformer2d_actor_monolith::character_runtime::seating::ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.active_round_scope	resource-canonical	ambition_platformer2d_shared_tangle::lifecycle::round::ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.base_gravity	resource-canonical	ambition_platformer2d_shared_tangle::gravity::BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -394,7 +394,7 @@ resource.sim_tick	resource-canonical	ambition_time::SimTick	bevy_ggrs canonical 
 resource.slot_interaction_state	resource-canonical	ambition_platformer2d_actor_monolith::control::components::SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.stocks_match_settled	resource-canonical	ambition_combat::stocks::StocksMatchSettled	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 resource.switch_activation_queue	resource-clone	ambition_platformer2d_actor_monolith::encounter::switches::SwitchActivationQueue	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.versus_match	resource-clone	ambition_app::app::versus_rules::VersusMatch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.versus_match	resource-clone-custom-checksum	ambition_app::app::versus_rules::VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
 resource.world_time	resource-canonical	ambition_time::WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 root.active_room_metadata	component-clone	ambition_platformer2d_world::rooms::metadata::ActiveRoomMetadata	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 root.encounter_music_request	component-clone	ambition_encounter::music::EncounterMusicRequest	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

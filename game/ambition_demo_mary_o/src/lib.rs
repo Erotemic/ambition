@@ -1374,29 +1374,33 @@ pub fn install_mary_o_content(app: &mut App) {
             "the ACTIVE room's goal geometry, mirroring its authored block; re-derived from RoomSet on every room change",
         );
         app.require_rollback::<MaryOLevelState>("ambition_demo_mary_o", "entity:mary_o_mode_owner")
-            .rollback_component_clone::<MaryOLevelState>(
+            .rollback_component_clone_probed::<MaryOLevelState>(
                 "ambition_demo_mary_o",
                 "content.mary_o_level_state",
+                rollback_probes::level_state,
             )
-            .rollback_component_clone::<flag::FlagSequence>(
+            .rollback_component_clone_probed::<flag::FlagSequence>(
                 "ambition_demo_mary_o",
                 "content.mary_o_flag_sequence",
+                rollback_probes::flag_sequence,
             )
             // The death beat rides the same owner entity as those two and was
             // simply missed: it decides how long the level is held, where the
             // body is pinned, and whether the replay has been asked for, none of
             // which a rewind could reproduce without it.
-            .rollback_component_clone::<death::MaryODeathSequence>(
+            .rollback_component_clone_probed::<death::MaryODeathSequence>(
                 "ambition_demo_mary_o",
                 "content.mary_o_death_sequence",
+                rollback_probes::death_sequence,
             )
             // A snake's shell phase (and its stage timers) is authoritative sim
             // state — two sims that disagree on where a shell is in its withdraw
             // are in different states. It rides on the snake BODY, which the
             // engine already anchors, so a plain component clone snapshots it.
-            .rollback_component_clone::<snake::SnakeShell>(
+            .rollback_component_clone_probed::<snake::SnakeShell>(
                 "ambition_demo_mary_o",
                 "content.mary_o_snake_shell",
+                rollback_probes::snake_shell,
             )
             // The AI Slop marker rides on the enemy BODY (already anchored). It is a
             // bare tag, but snapshotting it keeps the stomp-eligible set identical
@@ -1420,18 +1424,21 @@ pub fn install_mary_o_content(app: &mut App) {
             // position for half a second, so a rewind that dropped it would put a
             // half-swallowed player back on the surface. It rides on the player
             // BODY, which the engine already anchors.
-            .rollback_component_clone::<pipe::PipeTransit>(
+            .rollback_component_clone_probed::<pipe::PipeTransit>(
                 "ambition_demo_mary_o",
                 "content.mary_o_pipe_transit",
+                rollback_probes::pipe_transit,
             )
             // WHICH blocks are spent is authoritative: a rewind across the frame
             // a block was struck must leave that block ARMED again, or the same
             // bonk on the re-simulated timeline finds a block that already gave
             // up its pickup and the two sims disagree about what is in the room.
             // (GPT review of 5cc4337..47d7de3, finding 1.)
-            .rollback_resource_clone::<powerups::SpentPowerBlocks>(
+            .rollback_resource_clone_checksum::<powerups::SpentPowerBlocks>(
                 "ambition_demo_mary_o",
                 "content.mary_o_spent_power_blocks",
+                "bevy_ggrs clone snapshot + an order-independent checksum over the spent ids",
+                |spent| spent.checksum(),
             )
             // ⭐ Its BRICK twin, and the same argument exactly: which bricks are
             // broken decides what the room is MADE OF — the feature overlay
@@ -1440,13 +1447,16 @@ pub fn install_mary_o_content(app: &mut App) {
             // by the shipped-composition resource sweep rather than by review;
             // the sandbox sweep could never have seen it, because this resource
             // only exists in Mary-O's composition.
-            .rollback_resource_clone::<bricks::BrokenBricks>(
+            .rollback_resource_clone_checksum::<bricks::BrokenBricks>(
                 "ambition_demo_mary_o",
                 "content.mary_o_broken_bricks",
+                "bevy_ggrs clone snapshot + an order-independent checksum over the broken names",
+                |broken| broken.checksum(),
             )
-            .rollback_component_clone::<pipe::PipeEntryLatch>(
+            .rollback_component_clone_probed::<pipe::PipeEntryLatch>(
                 "ambition_demo_mary_o",
                 "content.mary_o_pipe_entry_latch",
+                rollback_probes::pipe_entry_latch,
             )
             // The spark cadence GATES whether a press fires, so it is
             // authoritative: a rewind that restored input and live sparks but
@@ -1454,9 +1464,10 @@ pub fn install_mary_o_content(app: &mut App) {
             // diverge. It rides on the player BODY, which the engine anchors.
             // Its sibling `MaryOGait` is deliberately NOT here — every field on
             // it is rebuilt from the current tick's control frame.
-            .rollback_component_clone::<movement::MaryOSparkCooldown>(
+            .rollback_component_clone_probed::<movement::MaryOSparkCooldown>(
                 "ambition_demo_mary_o",
                 "content.mary_o_spark_cooldown",
+                rollback_probes::spark_cooldown,
             );
     }
 }
@@ -4004,5 +4015,97 @@ mod flag_geometry_oracle {
         assert!(span > 100.0, "a {span}px pole has no bands worth sliding");
         assert_eq!(flag::flag_score(pole.grab_height(pole.top_y)), 5000);
         assert_eq!(flag::flag_score(pole.grab_height(pole.base_y)), 100);
+    }
+}
+
+/// **Value projections for this demo's rollback state.**
+///
+/// ⛔ **every one of these registrations was PRESENCE-ONLY**, and nothing caught
+/// it for months: `no_snapshot_registration_is_inert` and its sibling sweep run
+/// against `Platformer2dSimHarness`, and the harness composed
+/// `AmbitionGameSimulationPlugin` alone — Ambition's own content and none of the
+/// demos. Deleting the build-time `SessionRoot` (K2b edit 2, 2026-08-06) made the
+/// harness compose the shipped shell host, and eighteen content registrations
+/// across three crates arrived on the checker at once.
+///
+/// A presence probe satisfies the coverage sweep while seeing nothing of the
+/// VALUE: a desync in any of these state types would have been localized to
+/// "something in Mary-O", which is the resolution the whole oracle exists to
+/// improve on.
+///
+/// ⚠ **f32 goes through `to_bits`, deliberately.** A checksum that rounded would
+/// call two timelines equal one ulp apart, and one ulp of a death timer is one
+/// frame of difference by the time it reaches a comparison.
+mod rollback_probes {
+    use super::*;
+
+    pub(super) fn level_state(state: &MaryOLevelState) -> u64 {
+        (state.time_remaining.to_bits() as u64)
+            ^ ((state.score as u64) << 8)
+            ^ ((state.lives as u64) << 40)
+            ^ ((state.intro_card.to_bits() as u64) << 1)
+    }
+
+    pub(super) fn flag_sequence(sequence: &flag::FlagSequence) -> u64 {
+        let phase = match &sequence.phase {
+            flag::FlagPhase::Idle => 1,
+            flag::FlagPhase::Sliding { score } => 2 ^ ((*score as u64) << 8),
+            flag::FlagPhase::WalkingOff { score, remaining } => {
+                3 ^ ((*score as u64) << 8) ^ ((remaining.to_bits() as u64) << 32)
+            }
+            flag::FlagPhase::Tallied { score } => 4 ^ ((*score as u64) << 8),
+        };
+        // ⚠ the DRIVEN position is half the state: while the flag sequence owns
+        // the body, a rewind that restored the phase and not the position would
+        // put the body somewhere the phase does not describe.
+        let driven = sequence
+            .driven
+            .map(|at| (at.x.to_bits() as u64) ^ ((at.y.to_bits() as u64) << 32))
+            .unwrap_or(0);
+        phase ^ driven.rotate_left(17)
+    }
+
+    pub(super) fn death_sequence(sequence: &death::MaryODeathSequence) -> u64 {
+        let at = sequence
+            .at
+            .map(|at| (at.x.to_bits() as u64) ^ ((at.y.to_bits() as u64) << 32))
+            .unwrap_or(0);
+        (sequence.remaining.to_bits() as u64) ^ at.rotate_left(13)
+    }
+
+    pub(super) fn snake_shell(shell: &snake::SnakeShell) -> u64 {
+        match shell {
+            snake::SnakeShell::Walking => 1,
+            snake::SnakeShell::Retreating(t) => 2 ^ ((t.to_bits() as u64) << 8),
+            snake::SnakeShell::Boxed(t) => 3 ^ ((t.to_bits() as u64) << 8),
+            snake::SnakeShell::Sliding { dir, grace, .. } => {
+                4 ^ ((dir.to_bits() as u64) << 8) ^ ((grace.to_bits() as u64) << 32)
+            }
+            snake::SnakeShell::Peeking(t) => 5 ^ ((t.to_bits() as u64) << 8),
+            snake::SnakeShell::Emerging(t) => 6 ^ ((t.to_bits() as u64) << 8),
+        }
+    }
+
+    pub(super) fn spark_cooldown(cooldown: &movement::MaryOSparkCooldown) -> u64 {
+        cooldown.remaining.to_bits() as u64
+    }
+
+    pub(super) fn pipe_entry_latch(latch: &pipe::PipeEntryLatch) -> u64 {
+        latch.pressed as u64
+    }
+
+    pub(super) fn pipe_transit(transit: &pipe::PipeTransit) -> u64 {
+        let phase = match transit.phase {
+            pipe::TransitPhase::Swallowing => 1,
+            pipe::TransitPhase::Emerging => 2,
+        };
+        // The transit OWNS the body's position for its duration, so `elapsed`
+        // alone is not the state — where it is going matters as much.
+        let point = |v: ae::Vec2| (v.x.to_bits() as u64) ^ ((v.y.to_bits() as u64) << 32);
+        phase
+            ^ ((transit.elapsed.to_bits() as u64) << 8)
+            ^ point(transit.from).rotate_left(7)
+            ^ point(transit.to).rotate_left(19)
+            ^ point(transit.arrival).rotate_left(31)
     }
 }

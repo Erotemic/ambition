@@ -520,6 +520,56 @@ fn reconcile_roster_with_frozen_topology(
     commands.insert_resource(rebuilt);
 }
 
+/// **What a `VersusMatch` IS, for a rollback checksum.**
+///
+/// ⚠ **the phase is not a tag here — it carries the numbers.** `Starting` holds
+/// the countdown, `Ko` and `Won` hold the dwell clock, and a rewind that agreed
+/// about "we are in Ko" while disagreeing about how much of it is left produces
+/// two timelines that resume play on different frames.
+///
+/// ⭐ **the per-team wins are folded order-independently.** `rounds_won` is a
+/// `BTreeMap` so its order is already deterministic, but a projection that
+/// depended on that would silently start reporting desyncs if the container ever
+/// changed — the same reasoning as Mary-O's spent-block set, which IS a
+/// `HashSet`.
+fn versus_match_checksum(state: &super::versus_rules::VersusMatch) -> u64 {
+    use super::versus_rules::MatchPhase;
+    use std::hash::{Hash, Hasher};
+    let phase = match &state.phase {
+        MatchPhase::Starting { ticks_remaining } => 1 ^ ((*ticks_remaining as u64) << 8),
+        MatchPhase::Fighting => 2,
+        MatchPhase::Ko {
+            winner,
+            remaining_s,
+        } => {
+            3 ^ ((remaining_s.to_bits() as u64) << 8)
+                ^ winner
+                    .as_deref()
+                    .map(hash_team)
+                    .unwrap_or(0)
+                    .rotate_left(21)
+        }
+        MatchPhase::Won {
+            winner,
+            remaining_s,
+        } => 4 ^ ((remaining_s.to_bits() as u64) << 8) ^ hash_team(winner).rotate_left(37),
+    };
+    let wins = state.rounds_won.iter().fold(0u64, |acc, (team, won)| {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        team.hash(&mut hasher);
+        won.hash(&mut hasher);
+        acc ^ hasher.finish()
+    });
+    ((state.round as u64) << 48) ^ phase ^ wins.rotate_left(11)
+}
+
+fn hash_team(team: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    team.hash(&mut hasher);
+    hasher.finish()
+}
+
 /// **The fighting stage's directional-influence budget, in radians.**
 ///
 /// Jon, asked whether DI was worth turning on: *"In smash DI is critical!"* —
@@ -760,9 +810,18 @@ pub fn compose_versus_experience(app: &mut App) {
     // and not the score leaves the two disagreeing about what round it is.
     {
         use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
-        app.rollback_resource_clone::<super::versus_rules::VersusMatch>(
+        // ⭐ **a value checksum over the match, not merely its presence**
+        // (2026-08-06). `VersusMatch` decides the round, the phase and who has
+        // won — two timelines that disagree about the phase disagree about
+        // whether input is even accepted, and a presence probe saw none of it.
+        // Eighteen of these surfaced at once when K2b edit 2 made the rollback
+        // harness compose the shipped host; see `ambition_demo_mary_o`'s
+        // `rollback_probes` for the family.
+        app.rollback_resource_clone_checksum::<super::versus_rules::VersusMatch>(
             VERSUS_EXPERIENCE,
             "resource.versus_match",
+            "bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins",
+            versus_match_checksum,
         );
     }
 

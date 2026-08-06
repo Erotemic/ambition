@@ -1740,6 +1740,91 @@ fn every_gameplay_message_channel_is_rewound_on_rollback_or_named() {
     // A new gameplay channel lands here as a failure, and its author has to decide
     // rather than inherit silence.
     const NOT_REWOUND: &[(&str, &str)] = &[
+        // ── The SHELL, arriving with K2b edit 2 (2026-08-06) ──────────────────
+        //
+        // Seventeen channels joined this list at once, and not because anything
+        // changed about them: the harness used to compose `AmbitionGameSimulationPlugin`
+        // alone and take the `SessionRoot` it published at plugin-build time. That
+        // publisher is deleted, so the harness composes the shell host a player
+        // runs — and the shell's channels came with it.
+        //
+        // ⭐ **sixteen are answered STRUCTURALLY rather than one at a time.** The
+        // checker asks whether a stale reader cursor can change the simulation. A
+        // sim crate that cannot NAME the message type cannot hold a cursor into
+        // its channel, and the dependency graph settles that without reading a
+        // single system: nothing under `ambition_platformer2d_*` depends on
+        // `ambition_game_shell` or `ambition_load_presentation`. The two that the
+        // graph does not settle — `ambition_audio` and `ambition_shared_tangle`,
+        // both real sim dependencies — were checked by hand and say so below.
+        (
+            "ambition_audio::selection::AudioContextChanged",
+            "the shell audio owner changed. Its ONE reader is          `reset_audio_request_state_on_context_change`, registered in literal `Update`          (verified 2026-08-06) — the only channel in this K2b batch that needed          checking rather than a dependency-graph argument, because the sim does depend          on `ambition_audio`",
+        ),
+        (
+            "ambition_game_shell::launcher::ShellLauncherCommand",
+            "the SHELL's own lifecycle channel. ⭐ STRUCTURAL, not a judgement call: no          simulation crate depends on `ambition_game_shell` at all (checked in Cargo.toml,          2026-08-06), so the sim cannot name this type, cannot construct a reader for it,          and no cursor of its can exist inside the GGRS schedule. It arrived on this list          with K2b edit 2, when the harness stopped composing the simulation plugin alone          and started composing the host a player runs",
+        ),
+        (
+            "ambition_game_shell::router::ShellCommand",
+            "the SHELL's own lifecycle channel. ⭐ STRUCTURAL, not a judgement call: no          simulation crate depends on `ambition_game_shell` at all (checked in Cargo.toml,          2026-08-06), so the sim cannot name this type, cannot construct a reader for it,          and no cursor of its can exist inside the GGRS schedule. It arrived on this list          with K2b edit 2, when the harness stopped composing the simulation plugin alone          and started composing the host a player runs",
+        ),
+        (
+            "ambition_game_shell::router::ShellEvent",
+            "the SHELL's own lifecycle channel. ⭐ STRUCTURAL, not a judgement call: no          simulation crate depends on `ambition_game_shell` at all (checked in Cargo.toml,          2026-08-06), so the sim cannot name this type, cannot construct a reader for it,          and no cursor of its can exist inside the GGRS schedule. It arrived on this list          with K2b edit 2, when the harness stopped composing the simulation plugin alone          and started composing the host a player runs",
+        ),
+        (
+            "ambition_game_shell::sequence::ShellSequenceCommand",
+            "the SHELL's own lifecycle channel. ⭐ STRUCTURAL, not a judgement call: no          simulation crate depends on `ambition_game_shell` at all (checked in Cargo.toml,          2026-08-06), so the sim cannot name this type, cannot construct a reader for it,          and no cursor of its can exist inside the GGRS schedule. It arrived on this list          with K2b edit 2, when the harness stopped composing the simulation plugin alone          and started composing the host a player runs",
+        ),
+        (
+            "ambition_game_shell::session::GameplaySessionEvent",
+            "the SHELL's own lifecycle channel. ⭐ STRUCTURAL, not a judgement call: no          simulation crate depends on `ambition_game_shell` at all (checked in Cargo.toml,          2026-08-06), so the sim cannot name this type, cannot construct a reader for it,          and no cursor of its can exist inside the GGRS schedule. It arrived on this list          with K2b edit 2, when the harness stopped composing the simulation plugin alone          and started composing the host a player runs",
+        ),
+        (
+            "ambition_load_presentation::model::LoadActivitySignal",
+            "the loading PRESENTATION channel, and the same structural argument as the          `ambition_game_shell` family above: no simulation crate depends on          `ambition_load_presentation` (checked 2026-08-06), so no sim reader can exist",
+        ),
+        (
+            "ambition_load_presentation::model::LoadPresentationAction",
+            "the loading PRESENTATION channel, and the same structural argument as the          `ambition_game_shell` family above: no simulation crate depends on          `ambition_load_presentation` (checked 2026-08-06), so no sim reader can exist",
+        ),
+        (
+            "ambition_load_presentation::model::LoadPresentationCommand",
+            "the loading PRESENTATION channel, and the same structural argument as the          `ambition_game_shell` family above: no simulation crate depends on          `ambition_load_presentation` (checked 2026-08-06), so no sim reader can exist",
+        ),
+        (
+            "ambition_load_presentation::model::LoadPresentationEvent",
+            "the loading PRESENTATION channel, and the same structural argument as the          `ambition_game_shell` family above: no simulation crate depends on          `ambition_load_presentation` (checked 2026-08-06), so no sim reader can exist",
+        ),
+        (
+            "ambition_menu::MenuActionActivated<ambition_game_shell::basic_presentation::BasicLauncherAction>",
+            "a menu channel whose payload type lives in `ambition_game_shell`. The sim does          depend on `ambition_menu` — but not on the crate that owns this generic          argument, so it cannot name THIS instantiation and cannot hold a cursor into it",
+        ),
+        (
+            "ambition_menu::MenuActionActivated<ambition_game_shell::basic_presentation::ShellCardAction>",
+            "a menu channel whose payload type lives in `ambition_game_shell`. The sim does          depend on `ambition_menu` — but not on the crate that owns this generic          argument, so it cannot name THIS instantiation and cannot hold a cursor into it",
+        ),
+        (
+            "ambition_menu::MenuActionActivated<ambition_game_shell::pause_menu::PauseEntry>",
+            "a menu channel whose payload type lives in `ambition_game_shell`. The sim does          depend on `ambition_menu` — but not on the crate that owns this generic          argument, so it cannot name THIS instantiation and cannot hold a cursor into it",
+        ),
+        (
+            "ambition_menu::MenuActionPreviewed<ambition_game_shell::basic_presentation::BasicLauncherAction>",
+            "a menu channel whose payload type lives in `ambition_game_shell`. The sim does          depend on `ambition_menu` — but not on the crate that owns this generic          argument, so it cannot name THIS instantiation and cannot hold a cursor into it",
+        ),
+        (
+            "ambition_menu::MenuActionPreviewed<ambition_game_shell::basic_presentation::ShellCardAction>",
+            "a menu channel whose payload type lives in `ambition_game_shell`. The sim does          depend on `ambition_menu` — but not on the crate that owns this generic          argument, so it cannot name THIS instantiation and cannot hold a cursor into it",
+        ),
+        (
+            "ambition_menu::MenuActionPreviewed<ambition_game_shell::pause_menu::PauseEntry>",
+            "a menu channel whose payload type lives in `ambition_game_shell`. The sim does          depend on `ambition_menu` — but not on the crate that owns this generic          argument, so it cannot name THIS instantiation and cannot hold a cursor into it",
+        ),
+        (
+            "ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopeRetired",
+            "a session scope ENDED. Unlike the rest of this batch it lives in a sim crate, so          it got the individual check: its sole writer is          `translate_shell_session_lifecycle`, registered in literal `Update` (verified          2026-08-06) — the same system and schedule that make the `ActiveSessionScope`          waiver hold, so the two go stale together",
+        ),
+
         (
             "ambition_load::plugin::LoadCommand",
             "asset-loading orchestration; `apply_load_commands` runs in Update, not              the GGRS schedule",

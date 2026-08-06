@@ -18,6 +18,11 @@
 
 * ▢ **still open next door**: `maryo flashes when her fireball hits an enemy` (below) is a separate item and was not touched by this.
 
+* ⭐ **The snakes-on-a-plane art already EXISTS.** Your 1-2 request mentions
+  flying snakes on a plane; `snakes_on_a_cartesian_plane` and
+  `snakes_on_a_paper_plane` are both drawn and published by the regen batch, and
+  no code names either one. So that enemy is a wiring job, not an art job.
+
 * Maryo world 1-2 needs moving platforms that move vertically down and up like an elevator. When they go OOB (far enough so they are off screen of the player in normal gameplay) they can teleport to the top / bottom of the screen to make an infinite elevator effect.
 
 * The maryo world 1-2 needs to happen after she wins world 1-1, she doesn't just get to go there in the middle of 1-1 and come back. It should be a new level. When she beats world 1-2 we should cycle back to world 1-1 for the demo. World 1-2 also needs to be built out a lot more, its very plain, and there are no enemies. I would like to add the flying snakes on a plane as enemies in this world. 

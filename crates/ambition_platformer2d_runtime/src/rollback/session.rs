@@ -397,14 +397,21 @@ fn warn_if_no_world_to_rewind(world: &World) {
     );
 }
 
-/// Whether a gameplay session world has been constructed. `try_query` yields
-/// `None` when `SessionRoot` was never registered, which is the correct "no
-/// world" answer for a bare fixture.
+/// Whether a gameplay session world has been constructed **and is readable**.
+///
+/// ⛔ **this asked a narrower question than the rest of the engine, and the gap
+/// only opens under a shell host.** It used to accept ANY `SessionRoot`
+/// entity; `session_world_entity` additionally requires the root's scope to
+/// equal the active one whenever `SessionGatedSimulation` is installed — which
+/// the shell installs. A root left by a RETIRED activation therefore satisfied
+/// the old check while every reader in the engine correctly saw no world, so
+/// the warning below stayed silent for exactly the case it exists to catch.
+///
+/// ⚠ **`session_world_entity` is `None` for a bare fixture too**, which is the
+/// same correct "no world" answer the `try_query` fallback gave, so nothing that
+/// legitimately runs without a session starts warning.
 fn has_session_world_root(world: &World) -> bool {
-    world
-        .try_query::<&ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>()
-        .map(|mut query| query.iter(world).next().is_some())
-        .unwrap_or(false)
+    ambition_platformer2d_shared_tangle::lifecycle::session_world_entity(world).is_some()
 }
 
 /// **Replace the WHOLE input-authority cluster, atomically.**

@@ -439,9 +439,20 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   answer and the message names the helper to wait with. ⚠ it had no teeth to
   grow before: with a build-time root "the world exists" was true before frame
   one, so nothing could notice the rule was missing. 46 rollback tests green.
-  ▢ the harness's own `start_sync_test_session` road (the lower-level runtime
-  entry) still has no such check — it is the one the sim harness calls, and it
-  is where the rule has to bite when the harness flips.
+  ⭐ **CORRECTION (checked, not assumed): the lower-level road already stated
+  the rule.** `install_rebased_sync_test_session` calls
+  `warn_if_no_world_to_rewind`, whose text is the same diagnosis in almost the
+  same words — *"frame zero is an EMPTY world … the frames that build the room
+  will mismatch on every resimulation and GGRS will report it only as a checksum
+  difference."* The row above overstated the gap; what was missing was the
+  refusal at the higher authority, which is what landed.
+  ✔ **but that check asked a NARROWER question, and the gap only opens under a
+  shell host.** It accepted any `SessionRoot` entity, while
+  `session_world_entity` also requires the root's scope to equal the active one
+  whenever `SessionGatedSimulation` is installed — which the shell installs. A
+  root left by a RETIRED activation satisfied the old check while every reader
+  in the engine correctly saw no world, so the warning stayed silent for exactly
+  the case it exists to catch. Both roads ask the same question now.
   ▢ **edits 2-4 remain BLOCKED, and now for a measured reason.**
   The build-time root is not dead: `run_headless` and
   `Platformer2dSimHarness::build` compose `AmbitionGameSimulationPlugin`

@@ -151,7 +151,21 @@ dropping it on empty space returns it rather than clearing the slot; a controlle
 slot with no attached pad cannot be set to controller.
 
 
-* ▢ **You should not be able to stand on an invisible block.** (Jon, 2026-08-05)
+* ✅ **FIXED — You should not be able to stand on an invisible block.** (Jon,
+  2026-08-05; landed 2026-08-06.) A `Hidden` block lowers to
+  `BlockKind::BonkOnly`, the mirror of `OneWay`: solid ONLY against a head coming
+  up into it, air to feet, never a side wall. The coin still pays, because the
+  reward is the head contact.
+  ⛔ **and it shipped half-done first, which is the part worth keeping.**
+  `is_solid_for_axis(BonkOnly, gravity_axis)` is TRUE — a rising head must be
+  stopped — so every caller that filtered on that alone and forgot
+  `bonk_strike_from_head` still saw a floor. Two did: the controlled body's
+  penetration REPAIR and the generic kinematic sweep enemies use, which meant one
+  block kind meant different things depending on which movement engine drove the
+  body. `blocks_only_a_rising_head` states the rule once and both paths ask it.
+  ⭐ `an_invisible_block_is_not_a_floor_but_is_still_strikeable` is Jon's sentence
+  as an assertion, next to the `OneWay` sibling it is the mirror of.
+  The original report:
   A `MaryOBlockLook::Hidden` block is drawn transparent and is still `BlockKind::Solid`,
   so it is an invisible FLOOR — you can land on nothing. In SMB an invisible block
   is intangible until struck from below, and then it is solid.

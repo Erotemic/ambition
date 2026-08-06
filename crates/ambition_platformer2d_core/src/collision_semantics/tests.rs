@@ -311,3 +311,55 @@ fn a_bonk_only_block_never_blocks_a_side_axis() {
     assert!(is_solid_for_axis(BlockKind::BonkOnly, Axis::Y, down));
     assert!(!is_solid_for_axis(BlockKind::BonkOnly, Axis::X, down));
 }
+
+/// **Jon's sentence, as an assertion: you cannot stand on an invisible block.**
+///
+/// *"You should not be able to stand on an invisible block."* (2026-08-05) A
+/// `MaryOBlockLook::Hidden` block was drawn transparent and left
+/// `BlockKind::Solid`, so it was an invisible FLOOR — Mary-O landed on nothing.
+/// In SMB an invisible block is intangible until struck from below and solid
+/// after.
+///
+/// ⛔ **the vocabulary is the fix and this is the line that says so.**
+/// `BonkOnly` is the MIRROR of `OneWay`: `OneWay` is *"solid when crossed from
+/// above"*, `BonkOnly` is *"solid only against a head coming up into it"*. The
+/// three predicates below are the whole claim, and the middle one is the bug —
+/// `is_solid_for_axis` answers TRUE on the gravity axis (a rising head must be
+/// stopped), so any caller that filters on it alone and forgets
+/// `bonk_strike_from_head` gets a floor back. Two did: the controlled body's
+/// penetration repair and the generic kinematic sweep.
+///
+/// ⚠ **not "just make it non-solid"** — the reward IS a `ContactKind::Head`
+/// contact the collision system produces, so a block with nothing to hit cannot
+/// be struck and the coin disappears with the ledge.
+#[test]
+fn an_invisible_block_is_not_a_floor_but_is_still_strikeable() {
+    // Jon's sentence.
+    assert!(
+        !is_support_surface(BlockKind::BonkOnly),
+        "an invisible block reports itself as standable, which is the whole bug"
+    );
+    // Its one-way sibling IS, which is what makes this a vocabulary and not a
+    // special case — the two differ in exactly one direction.
+    assert!(is_support_surface(BlockKind::OneWay));
+
+    // ⚠ and it is STILL a gravity-axis collision surface, deliberately: that is
+    // what stops a rising head and pays the coin. A caller reading this alone
+    // sees a floor, which is why `blocks_only_a_rising_head` exists.
+    assert!(is_solid_for_axis(
+        BlockKind::BonkOnly,
+        Axis::Y,
+        Vec2::new(0.0, 1.0)
+    ));
+    assert!(blocks_only_a_rising_head(BlockKind::BonkOnly));
+    assert!(
+        !blocks_only_a_rising_head(BlockKind::OneWay),
+        "a one-way platform is a real floor; only the hidden block is air to feet"
+    );
+    // Never a side-axis wall — you cannot bump into an invisible block sideways.
+    assert!(!is_solid_for_axis(
+        BlockKind::BonkOnly,
+        Axis::X,
+        Vec2::new(0.0, 1.0)
+    ));
+}

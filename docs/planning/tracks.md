@@ -293,10 +293,48 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   `with_presentation_profiles` is the natural owner, but Ambition's content
   plugin is today's publisher and adding a second writer for one user would be
   speculative. Fold it in with K2b, which touches that builder anyway.
-- ▢ **K2b direct-entry activation** [opus]: route direct entry through the
-  EXISTING `activate_prepared_platformer_sessions` /
-  `PlatformerSessionBuilder` (no neighboring API). Oracle: the hand-built
-  `SessionRoot` at `app/resources.rs:295-322` is deleted.
+- ✔ **K2b direct-entry activation — DONE 2026-08-06.** The oracle is met: the
+  hand-built `SessionRoot` is deleted. `compose_ambition_gameplay_host` is the
+  one composition, and the whole `ambition_app` suite (471 tests) plus the
+  workspace policy job are green without it.
+  ⭐ **the ORDER inside that function is the part worth keeping.**
+  `AmbitionShellHosted` → simulation plugin → shell. Getting the last two
+  backwards panics inside Bevy parameter validation naming a system the caller
+  never heard of, because the shell is an ADAPTER over a composed game rather
+  than a composition of one.
+  ⭐ **nine call sites had the recipe by hand**, which is why deleting the
+  publisher turned every one into a failure at once — 33 tests — and the blast
+  radius got MEASURED instead of estimated.
+  ⛔⛔ **the deletion's real value was the four defects it exposed**, none of
+  which K2b was about. Each had been invisible because the rollback harness
+  composed the simulation plugin alone, so no checker had ever seen the shipped
+  host:
+  - **A global countdown with no owner froze every fighter.**
+    `settle_versus_round` ran unconditionally and `VersusMatch` defaults to
+    `Starting`, whose arm marks EVERY fighter `ScriptedControl` each tick. Any
+    composition that installed the versus stage without being on its route
+    gagged its own bodies. ⭐ same rule `track_versus_roster` learned about the
+    roster one campaign earlier: not "a fighter exists", MINE.
+    ⚠ **the symptom pointed at the wrong end.** Seat two authored 40 frames of
+    right and moved 0.00px, which reads as input routing — and the input was
+    measured intact through `PendingSeatInputs` → `LocalInputs` →
+    `SlotControls[1]` → the brain tick, 190 times. Two plausible fixes (a
+    missing `SlotControlLatches`, a clobbering host writer) were probed and
+    REFUTED, which is the only reason neither shipped.
+  - **18 rollback registrations were presence-only**, across mary_o, sanic,
+    relativity and versus — each now carries a value projection.
+    ⛔ `SpentPowerBlocks` is a `HashSet`, so an order-dependent one would have
+    been nondeterministic between peers; all four set-shaped checksums XOR
+    per-element hashes.
+  - **`PortalGunPickup` and `HealShrine` had no rollback anchor**, so `SimId`,
+    `SpawnOrigin` and `TransactionId` were inert on them. Invisible because
+    direct entry built its world UNSCOPED and the sweep never looked.
+  - **The schema baseline recorded a composition no player runs** — 50 rows
+    added, ZERO removed, when the harness started composing the shipped host.
+  ⭐ **the replay fixture is the cleanest evidence nothing else moved**: the
+  regenerated trace is the old one shifted by exactly one frame
+  (`new[i] == old[i+1]` for all 59, same landing), because activation takes
+  frames. State what changed about a regenerated fixture or it proves nothing.
 
   **⚠ SCOPED 2026-07-21 (opus, structural trace done — the card badly
   understated this).** The blocker is not the `SessionRoot` spawn; it is that

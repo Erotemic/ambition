@@ -33,11 +33,11 @@ fn mary_o_roster() -> CharacterRoster {
         CharacterRosterFragment::from_ron(
             crate::provider::MARY_O_EXPERIENCE,
             None::<String>,
-            &format!(
-                "{{{}{}}}",
-                crate::snake::SNAKE_ROSTER_ROWS,
-                crate::ai_slop::AI_SLOP_ROSTER_ROWS
-            ),
+            // ⭐ **the SHIPPED string, not a copy of it.** This rebuilt the
+            // same braces from the same constants — under a doc comment saying a
+            // specially-assembled roster would prove nothing — and had already
+            // fallen behind by one archetype.
+            &crate::mary_o_roster_ron(),
         )
         .expect("Mary-O enemy roster should be valid"),
     );
@@ -147,5 +147,72 @@ fn every_authored_enemy_is_named_something_that_has_a_sheet() {
     assert!(
         !crate::level_1_1().enemy_spawns.is_empty(),
         "1-1 authors enemies; if it stops, this test is checking nothing"
+    );
+}
+
+/// **The snake-plane swarms assemble, and they FLY.**
+///
+/// The ledger's row claimed a flying swarm needed a motion authority the engine
+/// did not have. It did not: `CharacterBrainTemplate::Aerial` and
+/// `MoveStyleSpec::Float` have existed the whole time. So what is worth
+/// asserting is not that a system exists — it is that these two rows come out of
+/// assembly with the flying shape, because they are a TABLE and a table is
+/// exactly what goes quietly wrong.
+///
+/// ⛔ **`is_aerial` is asserted separately from `move_style`, and that is the
+/// point of the test.** `Float` says how it MOVES; `is_aerial` says gravity does
+/// not apply. Both catalog rows landed as `body_kind: Standard` an hour after
+/// they were written — a snake riding a paper airplane falling out of the sky —
+/// and that was one field, stated once, in one of the two places that decide it.
+#[test]
+fn both_snake_plane_swarms_assemble_as_flyers() {
+    let roster = mary_o_roster();
+    for key in [
+        crate::plane::PAPER_PLANE_BRAIN_KEY,
+        crate::plane::CARTESIAN_PLANE_BRAIN_KEY,
+    ] {
+        assert!(
+            roster.has_brain_key(key),
+            "`{key}` is not in Mary-O's assembled roster, so an LDtk EnemySpawn \
+             naming it would fall back to a generic stand-still body — which is \
+             the silent failure `spec_for_brain` is documented to produce"
+        );
+        let spec = roster
+            .archetype_for(key)
+            .unwrap_or_else(|| panic!("`{key}` is in the roster but has no spec"));
+        assert!(
+            spec.is_aerial,
+            "`{key}` assembled without `is_aerial`, so gravity applies and the \
+             swarm falls out of the sky"
+        );
+        assert_eq!(
+            spec.move_style,
+            ambition_platformer2d::characters::brain::MoveStyleSpec::Float,
+            "`{key}` assembled with a grounded move style"
+        );
+    }
+
+    // ⭐ **the two are different creatures, not two skins** — a maths joke and an
+    // aviation joke — so a table that gave them identical numbers would have
+    // lost the only thing distinguishing them. Asserted rather than described.
+    let paper = roster
+        .archetype_for(crate::plane::PAPER_PLANE_BRAIN_KEY)
+        .expect("the paper plane assembled");
+    let cartesian = roster
+        .archetype_for(crate::plane::CARTESIAN_PLANE_BRAIN_KEY)
+        .expect("the Cartesian plane assembled");
+    assert!(
+        paper.run_speed > cartesian.run_speed,
+        "the paper plane is the light quick one; it assembled at {} against the \
+         Cartesian plane's {}",
+        paper.run_speed,
+        cartesian.run_speed
+    );
+    assert!(
+        cartesian.max_health > paper.max_health,
+        "the Cartesian plane is the sturdier one; it assembled at {} HP against \
+         the paper plane's {}",
+        cartesian.max_health,
+        paper.max_health
     );
 }

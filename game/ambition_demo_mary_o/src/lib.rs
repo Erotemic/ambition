@@ -28,6 +28,7 @@ pub mod ldtk_vocabulary;
 pub mod level_1_2;
 pub mod movement;
 pub mod pipe;
+pub mod plane;
 pub mod powerups;
 pub mod provider;
 pub mod quasar_shader;
@@ -473,6 +474,27 @@ pub fn vault_exit() -> ae::Aabb {
 /// false of render identity, and every enemy in the demo lost its art. Anyone
 /// who reaches for a post-conversion patch pass again should read that first.
 const _ENEMY_ART_IS_AUTHORED_NOT_PATCHED: () = ();
+
+/// **Every hostile archetype this demo registers, in ONE place.**
+///
+/// ⛔ **the concatenation was written twice**, and the copies had already
+/// diverged: `binding_tests::mary_o_roster` hand-assembled the same braces from
+/// the same constants, under a doc comment saying *"reading the shipped rows is
+/// the point — a roster assembled specially for this test would prove nothing
+/// about the game"*. It was assembling one anyway, and a new archetype landed in
+/// the shipped fragment without reaching the test that checks fragments.
+///
+/// ⚠ one fragment per provider is not a style choice: assembly REJECTS a second
+/// from the same provider, which is why every enemy's rows fold here rather than
+/// registering themselves.
+pub(crate) fn mary_o_roster_ron() -> String {
+    format!(
+        "{{{}{}{}}}",
+        snake::SNAKE_ROSTER_ROWS,
+        ai_slop::AI_SLOP_ROSTER_ROWS,
+        plane::SNAKES_ON_A_PLANE_ROSTER_ROWS
+    )
+}
 
 pub fn level_1_1() -> RoomSpec {
     let mut room = authored_room(LEVEL_1_1_ROOM_ID);
@@ -1278,11 +1300,7 @@ pub fn install_mary_o_content(app: &mut App) {
             CharacterRosterFragment::from_ron(
                 provider::MARY_O_EXPERIENCE,
                 None::<String>,
-                &format!(
-                    "{{{}{}}}",
-                    snake::SNAKE_ROSTER_ROWS,
-                    ai_slop::AI_SLOP_ROSTER_ROWS
-                ),
+                &mary_o_roster_ron(),
             )
             .expect("Mary-O enemy roster should be valid"),
         );

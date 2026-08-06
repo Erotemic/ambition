@@ -319,10 +319,7 @@ impl CharacterRoster {
     /// Resolve one provider's authored default without making it the default
     /// for every other game linked into the App.
     #[cfg(test)]
-    pub(crate) fn fallback_for_provider(
-        &self,
-        provider_id: &str,
-    ) -> Option<&ArchetypeSpec> {
+    pub(crate) fn fallback_for_provider(&self, provider_id: &str) -> Option<&ArchetypeSpec> {
         self.provider_fallbacks.get(provider_id)
     }
 
@@ -364,6 +361,22 @@ impl CharacterRoster {
     /// rather than receiving a generic enemy and reporting success.
     pub fn has_brain_key(&self, key: &str) -> bool {
         self.by_brain.contains_key(key)
+    }
+
+    /// **The archetype for `key`, or `None` — no fallback.**
+    ///
+    /// [`Self::spec_for_brain`] is `pub(crate)` on purpose: it answers every key
+    /// by falling back to `combatant`, so a caller outside this crate could not
+    /// tell a registered archetype from a misspelled one. That is the right
+    /// behaviour at a SPAWN site (a generic enemy beats a crash) and the wrong
+    /// answer to every other question.
+    ///
+    /// This is the accessor for INSPECTING a roster — a provider checking its own
+    /// rows assembled the way it wrote them, a tool listing what a composition
+    /// carries — and it is the same reasoning that exposed `has_brain_key`: a
+    /// caller that can refuse should be able to.
+    pub fn archetype_for(&self, key: &str) -> Option<&ArchetypeSpec> {
+        self.by_brain.get(key)
     }
 
     pub(crate) fn spec_for_brain(
@@ -409,9 +422,8 @@ impl CharacterRoster {
     /// rosters). Provider code uses the fallible
     /// [`CharacterRosterFragment::from_ron`].
     pub(crate) fn from_ron(ron: &str) -> Self {
-        let by_brain: std::collections::BTreeMap<String, ArchetypeSpec> =
-            ron::from_str(ron)
-                .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
+        let by_brain: std::collections::BTreeMap<String, ArchetypeSpec> = ron::from_str(ron)
+            .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
         Self::from_map(by_brain)
     }
 }

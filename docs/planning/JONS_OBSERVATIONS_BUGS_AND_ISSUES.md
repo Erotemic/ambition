@@ -55,7 +55,31 @@
 * ⚠ **MEASURED 2026-08-06, and the proposed fix would not have worked — read this before rescaling any art.** A character's rendered HEIGHT is `max(collision.x, collision.y) * collision_scale` (`sprite_sheet::character::sprite_render_size`); the frame's pixel size never enters it, only its ASPECT sets the width. So rescaling art at the generator changes `frame_width` and `frame_height` together, leaves the aspect alone, and moves nothing on screen.
   * ⭐ **what actually differs is ONE authored number.** Alice and Bob have no `collision_scale` and take the default **1.5**. Jeff Hinter declares **1.05** — so for the same collision box he renders at **70%** of their height. That is the whole "tiny little character" effect. 33 of 182 sheets declare the field; the other 149 inherit 1.5, and every one of the smallest declares something explicitly.
   * ⭐ the field's own doc says it "compensates for transparent/cropped frame space", which is the mechanism: Jeff's frame is 160×160 SQUARE with a humanoid in it, Alice's is 225×252 portrait-shaped. A figure surrounded by more empty frame reads smaller at the same rendered height, and the low scale then shrinks it again.
-  * ▢ **so the work is calibration, not art**: either recalibrate the explicit `collision_scale` values against the 1.5 default, or make the generator CROP the transparent margin tighter so the figure fills its frame — "at the generator level" was half right, but the operation is a crop, not a rescale. ⚠ `collision_scale` is presentation-only; the collision box is untouched either way, so this cannot change how anything plays.
+  * ⭐ **QUANTIFIED — `scripts/report_character_scale.py`.** Every sheet carries
+    `body_pixel_bbox`, so what a viewer sees is measurable:
+    `figure = collision_scale * (bbox.h / frame_height)` per unit of collision box.
+    Across 179 sheets with a figure the spread is **10.9x**. The humanoids you
+    named: **alice 1.22, bob 1.20, jeff_hinter 0.98, genghis_cant 1.56,
+    data_lovelace 1.75, noether 1.90** — so Noether reads nearly **twice**
+    Jeff's height for the same box.
+  * ⛔ **and `collision_scale` is going the WRONG WAY.** Its doc says it
+    "compensates for transparent/cropped frame space", so a well-cropped sheet
+    should need LESS. Instead the 95%-fill characters carry the biggest values
+    (noether 2.0, data_lovelace 1.85) while jeff_hinter at 93% fill carries 1.05.
+    The values were hand-set per character and drifted; they do not compensate
+    for anything.
+  * ⭐ **your own reference makes the fix arithmetic rather than taste.** You said
+    *"Alice and bob are great"* — their figure height is **1.21**, and
+    `collision_scale = 1.21 / fill` REPRODUCES Alice's authored 1.5 from her 81%
+    fill (1.21 / 0.81 = 1.49). A formula that predicts the values you already
+    like is not a matter of opinion. `--suggest` prints it per row.
+  * ▢ **so the work is: pick which sheets are HUMANOID and apply the suggestion.**
+    ⚠ the script cannot tell a viking from a puppy slug, and its suggestion is
+    nonsense for a snake, an explosion, a pipe, or a deliberately chibi robot —
+    that judgement is yours and is the only part left. ⛔ **edit the `.yaml`, not
+    the `.ron`**: the RON says "Auto-emitted from …_spritesheet.yaml" on its first
+    line and a regeneration discards a RON edit. ⚠ `collision_scale` is
+    presentation-only, so none of this can change how anything plays.
   * ⚠ **the player robot v3 exception still holds** and is easy here: chibi is a low `collision_scale`, stated deliberately rather than inherited.
   * *(your words, kept)* In the hall of characters, the humanoid characters are all dramatically out of scale with each other. Alice and bob are great, but characters like the vikings, or jeff hinter render as tiny little characters and look out of place compared to the rest of the cast. The character art needs to be rescaled (probably at the generator level, not via some post-hoc fix) to balance the size of these characters so they make more sense appearing in the same game together. Note the player robot v3 is supposed to be chibi and short compared to other humanoids.
 

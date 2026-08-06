@@ -39,8 +39,8 @@ use bevy::{
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin, MeshMaterial2d},
 };
 
-use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::characters::actor::BodyHealth;
+use ambition_platformer2d::characters::actor::WornCharacter;
 use ambition_platformer2d::platformer::lifecycle::{
     SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
@@ -103,7 +103,21 @@ pub fn install(app: &mut App) {
 
     app.insert_resource(QuasarShaderInstalled);
     embedded_asset!(app, "shaders/invincible_rainbow_quasar.wgsl");
-    app.add_plugins(Material2dPlugin::<MaryOQuasarMaterial>::default());
+    // ⛔ **the MATERIAL plugin asks whether this app RENDERS, which the asset
+    // guard above does not.** `Material2dPlugin` installs render-world state —
+    // `PreparedMaterial2d`, `EntitiesNeedingSpecialization` — into any app that
+    // merely has an `AssetPlugin`, which every headless composition has. That is
+    // the same "a proxy answers the question next door" mistake this module's
+    // own doc records, one line further down: the asset registry is a real
+    // precondition of `embedded_asset!`, and it is not evidence of a renderer.
+    //
+    // ⭐ found by K2b (2026-08-06): pointing the sim harness at the shell host
+    // pulled every provider in, and `rollback_coverage` began reporting this
+    // material's render resources as unrewound state in a headless RL/oracle
+    // world. Waiving them would have been a lie about what that harness is.
+    if app.get_sub_app(bevy::render::RenderApp).is_some() {
+        app.add_plugins(Material2dPlugin::<MaryOQuasarMaterial>::default());
+    }
     app.init_resource::<MaryOQuasarShaderSettings>();
     app.register_type::<MaryOQuasarShaderSettings>();
     app.add_systems(
@@ -197,8 +211,7 @@ fn attach_quasar_overlays(
             );
             continue;
         };
-        let Some((uv_rect, frame_texel)) =
-            current_sprite_frame(sprite, &texture_layouts, &images)
+        let Some((uv_rect, frame_texel)) = current_sprite_frame(sprite, &texture_layouts, &images)
         else {
             warn!(
                 target: "mary_o::quasar",
@@ -298,9 +311,10 @@ fn sync_quasar_overlays(
 
         let source_visible = !matches!(source_visibility, Some(v) if *v == Visibility::Hidden);
         let enabled = is_mary_o_form(worn.id())
-            && health.health.invulnerable.holds(
-                ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED,
-            )
+            && health
+                .health
+                .invulnerable
+                .holds(ambition_platformer2d::characters::actor::Invulnerability::EMPOWERED)
             && source_visible
             && !settings.disabled
             && settings.strength > 0.0;
@@ -343,8 +357,7 @@ fn sync_quasar_overlays(
             continue;
         };
 
-        *overlay_transform =
-            overlay_transform_from_source(source_transform, anchor, render_size);
+        *overlay_transform = overlay_transform_from_source(source_transform, anchor, render_size);
         if let Some(material) = materials.get_mut(&material_handle.0) {
             material.uv_rect = uv_rect;
             material.control = Vec4::new(
@@ -353,12 +366,7 @@ fn sync_quasar_overlays(
                 (EFFECT_STRENGTH * settings.strength).clamp(0.0, 2.0),
                 source.seed,
             );
-            material.detail = Vec4::new(
-                frame_texel.x,
-                frame_texel.y,
-                0.0,
-                OVERLAY_ALPHA,
-            );
+            material.detail = Vec4::new(frame_texel.x, frame_texel.y, 0.0, OVERLAY_ALPHA);
             material.color_texture = source_sprite.image.clone();
         }
     }
@@ -392,9 +400,7 @@ fn cleanup_quasar_overlays(
     }
     for (source_entity, source) in &sources {
         if overlays.get(source.overlay).is_err() {
-            commands
-                .entity(source_entity)
-                .remove::<MaryOQuasarSource>();
+            commands.entity(source_entity).remove::<MaryOQuasarSource>();
         }
     }
 }
@@ -452,7 +458,11 @@ fn anchor_to_mesh_offset(anchor: Option<&Anchor>, render_size: Vec2) -> Vec2 {
 }
 
 fn flip_flag(sprite: &Sprite) -> f32 {
-    if sprite.flip_x { 1.0 } else { 0.0 }
+    if sprite.flip_x {
+        1.0
+    } else {
+        0.0
+    }
 }
 
 fn seed_from_id(id: &str) -> f32 {
@@ -522,10 +532,7 @@ mod tests {
         app.add_systems(Update, cleanup_quasar_overlays);
 
         let source = app.world_mut().spawn_empty().id();
-        let overlay = app
-            .world_mut()
-            .spawn(MaryOQuasarOverlay { source })
-            .id();
+        let overlay = app.world_mut().spawn(MaryOQuasarOverlay { source }).id();
         app.world_mut()
             .entity_mut(source)
             .insert(MaryOQuasarSource { overlay, seed: 0.0 });

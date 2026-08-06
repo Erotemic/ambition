@@ -470,8 +470,29 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     `EntitiesNeedingSpecialization<…>` as unrewound resources in the harness
     world, plus an inert-registration failure. Waiving render materials into a
     rollback census would be lying about what a headless RL/oracle harness is.
-  ⭐ **so the remaining work is a HEADLESS SHELL COMPOSITION** — routing and
-  activation without the provider presentation — which does not exist yet.
+  ◐ **ATTEMPT THREE (2026-08-06): the render family is GONE and ONE class
+  remains.** `Material2dPlugin::<MaryOQuasarMaterial>` was being installed
+  whenever an `EmbeddedAssetRegistry` existed — which every headless composition
+  has — so the material's render-world resources landed in any app that merely
+  had `AssetPlugin`. That is the same *"a proxy answers the question next
+  door"* mistake the module's own doc already records about its RUN condition,
+  repeated one line up at install time. It is gated on the render sub-app now,
+  and Mary-O still draws (captured to check).
+  * ✔ render resources: gone from the harness world.
+  * ✔ `ContentEpoch` and `Messages<SessionScopeRetired>`: two honest waivers,
+    identity and lifecycle respectively — a rewind cannot rebuild a session from
+    other content, and must not un-retire a scope.
+  * ▢ **ONE class left, and it is a real question rather than a waiver.**
+    `no_snapshot_registration_is_inert_*` reports an archetype
+    (`SpawnOrigin + TransactionId + RoomScopedEntity + SessionScopedEntity +
+    SimId + Name`) whose components are REGISTERED as rollback state while the
+    entity carries no rollback anchor — so the registration is a claim the
+    engine does not honour. It exists only under the shell. Identify what that
+    entity is before choosing between giving it an anchor and admitting the
+    registration is inert.
+  ⭐ **the remaining work after that is a HEADLESS SHELL COMPOSITION** — routing
+  and activation without the provider presentation — if the anchor question does
+  not dissolve it.
   `compose_ambition_shell_host` is already headless in the sense that visuals
   are separate (`install_ambition_shell_visuals`), but the PROVIDER plugins it
   adds are not. That is the next design step, and it is a smaller and much more

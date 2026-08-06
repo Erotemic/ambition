@@ -417,3 +417,85 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
          spawns, save sync, sandbox reset)."
     );
 }
+
+/// **A conversation the world keeps running through can be broken.**
+///
+/// The three cases Jon named (design:
+/// `docs/planning/engine/dialogue-continuity.md`): standing and talking holds;
+/// being knocked about ends it; falling away from the other body ends it.
+///
+/// ⭐ the struck case is driven from the NPC's body, not the player's. The rule
+/// is symmetric — *"both characters"* — and a test that only ever hits the
+/// player would pass against a player-centric implementation.
+#[test]
+fn a_conversation_breaks_on_knockback_or_on_the_bodies_separating() {
+    use ambition_characters::actor::BodyCombat;
+    use ambition_dialog::{DialogState, DialogueContext};
+
+    fn body(app: &mut App, at: ae::Vec2) -> Entity {
+        app.world_mut()
+            .spawn((
+                CenteredAabb::from_center_size(at, ae::Vec2::new(24.0, 24.0)),
+                BodyCombat::default(),
+            ))
+            .id()
+    }
+
+    // Two bodies standing in each other's reach, mid-conversation.
+    fn talking_app() -> (App, Entity) {
+        let mut app = App::new();
+        app.insert_resource(DialogState::default());
+        app.add_systems(Update, super::break_dialogue_on_hit_or_separation);
+        let here = ae::Vec2::new(100.0, 100.0);
+        let initiator = body(&mut app, here);
+        let npc = body(&mut app, here);
+        let mut dialogue = app.world_mut().resource_mut::<DialogState>();
+        dialogue.start("chat", "Someone", DialogueContext::default());
+        dialogue.set_initiator_entity(initiator);
+        dialogue.set_speaker_entity(npc);
+        drop(dialogue);
+        (app, npc)
+    }
+    fn talking(app: &App) -> bool {
+        app.world().resource::<DialogState>().active()
+    }
+
+    // Standing and talking: nothing breaks.
+    let (mut app, _) = talking_app();
+    app.update();
+    assert!(talking(&app), "two bodies standing together keep talking");
+
+    // ⭐ the NPC is knocked about — not the player.
+    let (mut app, npc) = talking_app();
+    app.world_mut().entity_mut(npc).insert(BodyCombat {
+        recoil_lock_timer: 0.2,
+        ..Default::default()
+    });
+    app.update();
+    assert!(
+        !talking(&app),
+        "an NPC knocked off its feet mid-sentence has ended the conversation too"
+    );
+
+    // Separation: the other body falls away.
+    let (mut app, npc) = talking_app();
+    let far =
+        CenteredAabb::from_center_size(ae::Vec2::new(100.0, 900.0), ae::Vec2::new(24.0, 24.0));
+    app.world_mut().entity_mut(npc).insert(far);
+    app.update();
+    assert!(!talking(&app), "you fell away from the parrot");
+
+    // ⚠ and damage that does NOT move you leaves it alone: a poison tick is not
+    // an interruption, which is the whole reason the signal is the recoil lock
+    // rather than a health change.
+    let (mut app, npc) = talking_app();
+    app.world_mut().entity_mut(npc).insert(BodyCombat {
+        hit_flash: 1.0,
+        ..Default::default()
+    });
+    app.update();
+    assert!(
+        talking(&app),
+        "being hurt without being MOVED does not interrupt a conversation"
+    );
+}

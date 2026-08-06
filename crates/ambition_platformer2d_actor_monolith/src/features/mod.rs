@@ -134,15 +134,16 @@ pub use ecs::{
     advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
     apply_spawn_actor_requests, apply_summon_effects, boss_anim_state_for, boss_is_cleared,
-    boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs, collect_ecs_pickups,
-    damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes, dissolve_settled_grudges,
-    drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
-    ecs_boss_animation_frame_sample, ecs_breakable_state, ecs_chest_opened,
-    ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
-    enforce_mount_rider_link, fan_out_limb_intents, integrate_boss_bodies, integrate_sim_bodies,
-    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
-    project_boss_attack_state_from_move, rebuild_feature_ecs_world_overlay,
-    reconcile_autonomous_actors, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
+    boss_spawn_hurtboxes, break_dialogue_on_hit_or_separation, can_damage,
+    clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics,
+    derive_pogo_target_volumes, dissolve_settled_grudges, drive_boss_animators,
+    ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
+    ecs_breakable_state, ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
+    ecs_hit_event_hits_breakable, enforce_mount_rider_link, fan_out_limb_intents,
+    integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
+    magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move,
+    rebuild_feature_ecs_world_overlay, reconcile_autonomous_actors,
+    refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, route_boss_strikes_to_limbs,
     select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
     spawn_room_feature_entities_from_plan, steer_mount_from_rider,
@@ -717,6 +718,12 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             sim,
             (
                 interact_ecs_actors_and_switches,
+                // ⚠ AFTER the interaction that starts a conversation, in the
+                // same chain: a dialogue opened this frame must not be judged
+                // for separation before the bodies that opened it have been
+                // read. Both use the same `strict_intersects` reach, so a
+                // conversation cannot begin and immediately break.
+                break_dialogue_on_hit_or_separation,
                 open_ecs_chests,
                 update_ecs_breakables,
                 update_ecs_falling_chests,

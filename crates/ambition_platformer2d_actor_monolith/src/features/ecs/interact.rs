@@ -259,3 +259,69 @@ fn dialogue_identity(
 
 #[cfg(test)]
 mod tests;
+
+/// **Break a conversation the world has carried its participants out of.**
+///
+/// The consumer of Jon's continuity design
+/// (`docs/planning/engine/dialogue-continuity.md`). Since `GameMode::Dialogue`
+/// left the suspend set, a conversation is a SUSTAINED condition rather than a
+/// modal state — bodies keep moving, hits keep landing, and a text box that
+/// survives either is a text box floating over two people who are no longer
+/// talking.
+///
+/// ⭐ **symmetric, and that is load-bearing.** It reads
+/// [`ambition_dialog::DialogState::participants`], which yields BOTH bodies, and
+/// folds them into one `any_struck` before asking. There is deliberately no
+/// place in this system for "was the player hit" — an NPC knocked off a ledge
+/// mid-sentence has ended the conversation just as surely as the player being
+/// knocked across the room. Jon: *"both characters should hover"*.
+///
+/// ⚠ **the reach test is the interaction's own**, not a second authored range:
+/// the same `strict_intersects` of the two bodies' AABBs that decided the
+/// conversation could START decides it can continue. Two ranges would drift, and
+/// the symptom — a conversation you can begin but not sustain, or one that
+/// follows you across a room — is the kind nobody reports as a range bug.
+///
+/// A conversation with fewer than two in-world participants (scripted dialogue,
+/// a system-started box) cannot be walked away from, and is left alone.
+pub fn break_dialogue_on_hit_or_separation(
+    mut dialogue: ResMut<ambition_dialog::DialogState>,
+    bodies: Query<(&CenteredAabb, Option<&BodyCombat>)>,
+) {
+    use ambition_dialog::DialogueBreak;
+
+    if !dialogue.active() {
+        return;
+    }
+    let participants: Vec<_> = dialogue.participants().collect();
+    let [a, b] = participants.as_slice() else {
+        // Scripted dialogue with no two in-world bodies. Nothing here can walk
+        // away from anything.
+        return;
+    };
+    let (Ok((a_aabb, a_combat)), Ok((b_aabb, b_combat))) = (bodies.get(*a), bodies.get(*b)) else {
+        // A participant stopped existing — despawned, or the room swapped under
+        // the conversation. That is a separation of the most literal kind.
+        dialogue.close();
+        return;
+    };
+
+    // ⚠ KNOCKBACK, not damage. The reason a hit ends a conversation is that it
+    // MOVES you, so the signal is the recoil/hitstun control lock rather than
+    // any health change: a poison tick or a chip of environmental damage leaves
+    // both bodies standing where they were and leaves them talking.
+    let struck = |combat: Option<&BodyCombat>| {
+        combat.is_some_and(|c| c.recoil_lock_timer > 0.0 || c.hitstun_timer > 0.0)
+    };
+    let any_struck = struck(a_combat) || struck(b_combat);
+    let in_reach = a_aabb.aabb().strict_intersects(b_aabb.aabb());
+
+    if let Some(_break_reason) = DialogueBreak::evaluate(any_struck, in_reach) {
+        // ▢ the BARK is owed: `DialogueBreak::bark_pool` names the pool, and the
+        // bark ticker takes pools from the actor RON's `suggested_barks`. Wiring
+        // it needs a break-pool authored on at least one character to be worth
+        // anything, so the reason is computed and dropped here rather than
+        // pretending a silent break is the finished behaviour.
+        dialogue.close();
+    }
+}

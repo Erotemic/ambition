@@ -26,6 +26,7 @@
 
 mod content;
 mod context;
+mod continuity;
 mod runtime;
 mod speech_sfx;
 mod systems;
@@ -44,6 +45,7 @@ pub use ambition_ui_nav::DialogChoiceSlot;
 )]
 pub use content::DialogChoice;
 pub use context::{DialogueContext, DialogueNodeIndex, SELF_NODE_SUFFIX};
+pub use continuity::DialogueBreak;
 pub use runtime::DialogState;
 pub use speech_sfx::{DialogueVoiceCatalog, DialogueVoiceCatalogAppExt, DialogueVoiceCatalogError};
 pub use systems::{dialog_input, dialog_pointer_input, dialog_reveal_tick};

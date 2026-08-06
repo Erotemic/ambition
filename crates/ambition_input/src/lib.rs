@@ -47,17 +47,17 @@ pub use motion_input::{
 
 #[cfg(feature = "input")]
 pub use actions::Platformer2dInputActionMonolith;
-pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};
 #[cfg(feature = "input")]
 pub use active_input::update_seat_active_devices;
-#[cfg(feature = "input")]
-pub use glyphs::glyph_for;
+pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};
 pub use ambition_platformer2d_core::ControlFrame;
 pub use control::PlayerDashTriggerState;
 #[cfg(feature = "input")]
 pub use control::{
     read_gameplay_control_frame, read_gameplay_control_frame_with_settings, read_menu_control_frame,
 };
+#[cfg(feature = "input")]
+pub use glyphs::glyph_for;
 #[cfg(feature = "input")]
 pub use local_seats::{
     assign_local_seat_devices, track_local_device_order, LocalDeviceOrder, LocalSeatTopology,
@@ -111,8 +111,8 @@ pub enum InputSet {
 }
 #[cfg(feature = "input")]
 pub use bindings::{
-    action_for_slot, publish_seat_bindings, rebuild_maps_from_recipes, ActionBindings,
-    BindingBase, BindingRecipe, PhysicalControl, SeatBindings,
+    action_for_slot, action_name, action_named, publish_seat_bindings, rebuild_maps_from_recipes,
+    ActionBindings, BindingBase, BindingRecipe, PhysicalControl, SeatBindings,
 };
 pub use cues::{ActiveUiCues, UiCue};
 pub use menu::{
@@ -125,6 +125,7 @@ pub use participant::{
     DEBUG_CONTEXT, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT, INVENTORY_CONTEXT, LAUNCHER_CONTEXT,
     PAUSE_CONTEXT, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
+pub use settings::{BindingOverride, OverrideControl, OverrideDeviceClass};
 // ⚠ `key_name` joins this list rather than the module being opened: the crate
 // exposes a chosen surface, and a HUD legend needs exactly one function from it.
 pub use presets::{key_name, ActionKeys, KeyboardPreset, MovementKeys, PresetId};

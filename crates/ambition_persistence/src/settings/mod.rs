@@ -68,4 +68,29 @@ mod tests {
         let restored: UserSettings = serde_json::from_str(&serialized).expect("deserialize");
         assert_eq!(s, restored);
     }
+
+    #[test]
+    fn a_binding_override_survives_the_settings_file() {
+        // A remap that does not persist is not a remap. This is the whole
+        // reason `ambition_input` depends on `bevy_input` with its `serialize`
+        // feature: `KeyCode` and `GamepadButton` go to disk as themselves,
+        // rather than through a name table that could drift from the enum.
+        use bevy::prelude::{GamepadButton, KeyCode};
+
+        let mut s = UserSettings::default();
+        s.controls
+            .set_binding_override(ambition_input::BindingOverride::key("Jump", KeyCode::KeyJ));
+        s.controls
+            .set_binding_override(ambition_input::BindingOverride::button(
+                "Special",
+                GamepadButton::North,
+            ));
+        let restored: UserSettings =
+            serde_json::from_str(&serde_json::to_string(&s).expect("serialize"))
+                .expect("deserialize");
+        assert_eq!(
+            restored.controls.binding_overrides,
+            s.controls.binding_overrides
+        );
+    }
 }

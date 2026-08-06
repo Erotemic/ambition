@@ -122,8 +122,21 @@ pub fn spawn_primary_input_participant(
     {
         return;
     }
-    let preset = KeyboardPreset::by_index(settings.map_or(0, |s| s.controls.keyboard_preset_index));
-    let recipe = ambition_input::BindingRecipe::preset(preset.id);
+    // The persisted RECIPE, not just its preset: a player who remapped Jump
+    // last session must not spend the first frames of this one — the ones
+    // before any settings edit marks the resource changed — on the preset's
+    // binding.
+    let (preset_index, overrides) = settings.map_or_else(
+        || (0, Vec::new()),
+        |s| {
+            (
+                s.controls.keyboard_preset_index,
+                s.controls.binding_overrides.clone(),
+            )
+        },
+    );
+    let preset = KeyboardPreset::by_index(preset_index);
+    let recipe = ambition_input::BindingRecipe::preset(preset.id).with_overrides(overrides);
     commands.spawn((
         InputParticipant::primary(),
         ParticipantContexts::default(),
@@ -134,19 +147,26 @@ pub fn spawn_primary_input_participant(
 }
 
 /// Keep the PRIMARY participant's [`ambition_input::BindingRecipe`] in step
-/// with the persisted keyboard preset.
+/// with the persisted keyboard preset AND its binding overrides.
 ///
-/// The settings menu writes `UserSettings.controls.keyboard_preset_index` —
-/// the ONE preset authority — and this is the engine-owned bridge from that
-/// number to the seat's declared recipe;
-/// `ambition_input::rebuild_maps_from_recipes` then rebuilds the map. The
-/// app-side system this replaces (`sync_preset_input_map`) read its
-/// participant with `single_mut()`, so a second seat made a preset change
-/// reach nobody — and it shipped only in Ambition's own app, so no demo
+/// The settings menu writes `UserSettings.controls` — the ONE binding
+/// authority — and this is the engine-owned bridge from that data to the
+/// seat's declared recipe; `ambition_input::rebuild_maps_from_recipes` then
+/// rebuilds the map. The app-side system this replaces (`sync_preset_input_map`)
+/// read its participant with `single_mut()`, so a second seat made a preset
+/// change reach nobody — and it shipped only in Ambition's own app, so no demo
 /// composition had a rebuild path at all.
 ///
+/// **One path for both halves.** Changing a preset and changing a single
+/// binding are the same operation on the recipe, so a remap reaches behaviour,
+/// glyphs (`SeatBindings` projects the rebuilt map) and the touch overlay
+/// (its `Changed<InputMap>` hook) in the same frame, through the machinery a
+/// preset change already proved.
+///
 /// Only the primary: couch seats are gamepad-only recipes, and what preset
-/// the keyboard player picked is not a fact about their pad.
+/// the keyboard player picked is not a fact about their pad. Per-seat presets
+/// and per-seat overrides wait on the product question of whether couch seats
+/// get their own persisted profiles at all.
 #[cfg(feature = "input")]
 pub fn sync_primary_recipe_from_settings(
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
@@ -161,7 +181,8 @@ pub fn sync_primary_recipe_from_settings(
         if participant.id != ambition_input::ParticipantId::PRIMARY {
             continue;
         }
-        let wanted = ambition_input::BindingRecipe::preset(id);
+        let wanted = ambition_input::BindingRecipe::preset(id)
+            .with_overrides(settings.controls.binding_overrides.clone());
         // Write only on a real change: `Res<UserSettings>` is marked changed
         // by every settings edit, and most of them are not this field.
         if *recipe != wanted {
@@ -891,9 +912,10 @@ mod focus_gate_tests {
             .keyboard_preset_index = 1; // wasd_jkl
         app.update();
 
-        let mut maps =
-            app.world_mut()
-                .query::<(&InputParticipant, &InputMap<Platformer2dInputActionMonolith>)>();
+        let mut maps = app.world_mut().query::<(
+            &InputParticipant,
+            &InputMap<Platformer2dInputActionMonolith>,
+        )>();
         for (participant, map) in maps.iter(app.world()) {
             let bindings = ActionBindings::from_map(map);
             if participant.id == ParticipantId::PRIMARY {
@@ -911,6 +933,108 @@ mod focus_gate_tests {
                         .iter()
                         .any(|control| matches!(control, PhysicalControl::Key(_))),
                     "a couch seat's map binds no key, whatever preset the keyboard player picked"
+                );
+            }
+        }
+    }
+
+    /// **Changing ONE binding reaches behaviour and glyphs in the same frame,
+    /// and only the seat that changed it.**
+    ///
+    /// The three halves that used to be able to disagree, asserted together:
+    /// the live `InputMap` the ROUTER reads binds the new key; `SeatBindings` —
+    /// what every prompt, glyph and touch label projects from — names it as the
+    /// PRIMARY label rather than merely holding it somewhere in the list; and
+    /// the couch seat beside it is untouched, because a binding is a fact about
+    /// one seat.
+    ///
+    /// `F13` is deliberate: no preset binds it, so this cannot pass on a map
+    /// nobody overrode.
+    #[test]
+    fn a_binding_override_reaches_the_primarys_map_and_labels_beside_a_second_seat() {
+        use crate::character_runtime::{
+            ControllerBinding, MatchParticipant, MatchParticipantRoster,
+        };
+        use ambition_input::{ActionBindings, BindingOverride, PhysicalControl, SeatBindings};
+
+        let mut app = App::new();
+        app.insert_resource(UserSettings::default());
+        app.init_resource::<SeatBindings>();
+        app.add_systems(
+            Update,
+            (
+                spawn_primary_input_participant,
+                super::seat_input_participants_for_roster,
+                super::sync_primary_recipe_from_settings,
+                ambition_input::rebuild_maps_from_recipes,
+                ambition_input::publish_seat_bindings,
+            )
+                .chain(),
+        );
+        app.world_mut().insert_resource(MatchParticipantRoster {
+            participants: vec![
+                MatchParticipant::new("mary_o")
+                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
+                MatchParticipant::new("sanic")
+                    .driven_by(ControllerBinding::Human { device_slot: 1 }),
+            ],
+            ..Default::default()
+        });
+        app.update();
+        app.update();
+        assert_eq!(seat_slots(&mut app), vec![0, 1], "two seats exist");
+        let before = app
+            .world()
+            .resource::<SeatBindings>()
+            .label(0, &Platformer2dInputActionMonolith::Jump);
+        assert_ne!(
+            before.as_deref(),
+            Some("F13"),
+            "no preset binds F13 — the assertion below cannot pass by accident"
+        );
+
+        app.world_mut()
+            .resource_mut::<UserSettings>()
+            .controls
+            .set_binding_override(BindingOverride::key("Jump", KeyCode::F13));
+        app.update();
+
+        // Glyphs: the projection every prompt reads names the new key FIRST,
+        // which is what a prompt actually prints.
+        assert_eq!(
+            app.world()
+                .resource::<SeatBindings>()
+                .label(0, &Platformer2dInputActionMonolith::Jump)
+                .as_deref(),
+            Some("F13"),
+            "the primary's published label is the key the player just bound"
+        );
+
+        let mut maps = app.world_mut().query::<(
+            &InputParticipant,
+            &InputMap<Platformer2dInputActionMonolith>,
+        )>();
+        for (participant, map) in maps.iter(app.world()) {
+            let bindings = ActionBindings::from_map(map);
+            let jump = bindings.controls(&Platformer2dInputActionMonolith::Jump);
+            if participant.id == ParticipantId::PRIMARY {
+                // Behaviour: the map the router reads, not just the read-model.
+                assert_eq!(
+                    jump.iter()
+                        .filter(|control| matches!(control, PhysicalControl::Key(_)))
+                        .collect::<Vec<_>>(),
+                    vec![&PhysicalControl::Key(KeyCode::F13)],
+                    "the live map binds Jump to the override and to no other key"
+                );
+                assert!(
+                    jump.iter()
+                        .any(|control| matches!(control, PhysicalControl::Button(_))),
+                    "and the seat's pad still jumps — a keyboard remap is not a pad remap"
+                );
+            } else {
+                assert!(
+                    !jump.contains(&PhysicalControl::Key(KeyCode::F13)),
+                    "the couch seat's bindings are its own"
                 );
             }
         }

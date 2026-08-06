@@ -253,6 +253,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_platformer2d_core",
  "bevy",
+ "bevy_input",
  "bevy_window",
  "leafwing-input-manager",
  "serde",

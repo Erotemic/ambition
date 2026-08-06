@@ -1,10 +1,12 @@
 //! Controls / input settings.
 //!
 //! Holds controller deadzones, trigger thresholds, hysteresis, dash
-//! input behavior, and which keyboard / controller profile is active.
+//! input behavior, which keyboard / controller profile is active, and the
+//! per-action binding OVERRIDES layered on top of that profile.
 //! The values flow into input filtering before the engine-owned `ControlFrame`
 //! is built so gameplay sees clean edges instead of analog jitter.
 
+use bevy::prelude::{GamepadButton, KeyCode};
 use serde::{Deserialize, Serialize};
 
 /// How a tap or mouse click on a menu item should behave.
@@ -272,7 +274,78 @@ impl ControllerProfileId {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+/// A control an override can NAME.
+///
+/// ⚠ **deliberately not `PhysicalControl`**, which the binding projection uses,
+/// and the difference is the direction of travel. That type reads OUT of a live
+/// `InputMap` and so must be total — it carries an `Other(String)` arm rather
+/// than dropping a binding it cannot classify. This one is authored INTO a map
+/// and so must be constructible: there is no honest `Other` here, because a
+/// settings file cannot ask for a control the binding layer cannot bind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OverrideControl {
+    Key(KeyCode),
+    Button(GamepadButton),
+}
+
+impl OverrideControl {
+    /// Which half of a preset this override REPLACES. A preset binds most
+    /// actions on both a key and a pad button, and remapping Jump to `J` must
+    /// not silently unbind the controller.
+    pub fn device_class(self) -> OverrideDeviceClass {
+        match self {
+            Self::Key(_) => OverrideDeviceClass::Keyboard,
+            Self::Button(_) => OverrideDeviceClass::Gamepad,
+        }
+    }
+}
+
+/// The half of an action's bindings an [`OverrideControl`] speaks for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OverrideDeviceClass {
+    Keyboard,
+    Gamepad,
+}
+
+/// One persisted "this action is on THIS control instead".
+///
+/// The action is named by the string [`crate::ActionBindings`] already
+/// publishes (the `Debug` spelling of the action), because a settings file, a
+/// trace line and a rebind row have to agree on one id and that is the one
+/// already in use. It is a `String` rather than the action type itself for a
+/// mechanical reason: this module compiles WITHOUT the `input` feature, where
+/// the leafwing action enum does not exist — while the settings file must
+/// deserialize identically in both builds.
+///
+/// An override naming an action this build does not have is IGNORED, not an
+/// error: settings outlive the binary that wrote them, and a file from a build
+/// with one more action must still load.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BindingOverride {
+    pub action: String,
+    pub control: OverrideControl,
+}
+
+impl BindingOverride {
+    pub fn key(action: impl Into<String>, key: KeyCode) -> Self {
+        Self {
+            action: action.into(),
+            control: OverrideControl::Key(key),
+        }
+    }
+
+    pub fn button(action: impl Into<String>, button: GamepadButton) -> Self {
+        Self {
+            action: action.into(),
+            control: OverrideControl::Button(button),
+        }
+    }
+}
+
+/// ⚠ **not `Copy`.** It holds the binding overrides, which are a `Vec`. The
+/// handful of sites that took a copy take a `.clone()`; every other reader
+/// already went through a reference.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ControlSettings {
     /// Active keyboard preset index (matches `KeyboardPreset::presets()`).
     pub keyboard_preset_index: usize,
@@ -312,6 +385,19 @@ pub struct ControlSettings {
     /// [`MenuTapMode`] for semantics.
     #[serde(default)]
     pub menu_tap_mode: MenuTapMode,
+    /// Per-action binding overrides layered ON TOP of
+    /// [`Self::keyboard_preset_index`]'s preset.
+    ///
+    /// A preset and an override are not rivals: the preset says what every
+    /// action starts on, the override says which single action moved. Storing
+    /// the whole rebuilt map instead would freeze a player's controls at the
+    /// preset they were authored against, so a later preset revision could
+    /// never reach anybody who had ever touched a binding.
+    ///
+    /// `serde(default)` because every settings file written before this field
+    /// existed must keep loading — an empty list is exactly "no overrides".
+    #[serde(default)]
+    pub binding_overrides: Vec<BindingOverride>,
 }
 
 fn default_touch_controls_visible() -> bool {
@@ -334,6 +420,7 @@ impl Default for ControlSettings {
             menu_repeat_interval: 0.12,
             touch_controls_visible: default_touch_controls_visible(),
             menu_tap_mode: MenuTapMode::default(),
+            binding_overrides: Vec::new(),
         }
     }
 }
@@ -351,9 +438,38 @@ impl ControlSettings {
         self.trigger_press_threshold = p.trigger_press_threshold;
     }
 
+    /// Set a per-action binding override, replacing any previous override for
+    /// the SAME action and device class.
+    ///
+    /// One authority per (action, class): a list that accumulated two keyboard
+    /// overrides for Jump would make "which one wins" a question about
+    /// insertion order, and the answer would be invisible in the settings file.
+    pub fn set_binding_override(&mut self, over: BindingOverride) {
+        let class = over.control.device_class();
+        self.binding_overrides
+            .retain(|held| held.action != over.action || held.control.device_class() != class);
+        self.binding_overrides.push(over);
+    }
+
+    /// Drop the override for one action and device class, returning that
+    /// action to whatever the preset binds it to.
+    pub fn clear_binding_override(&mut self, action: &str, class: OverrideDeviceClass) {
+        self.binding_overrides
+            .retain(|held| held.action != action || held.control.device_class() != class);
+    }
+
+    /// Forget every override, so the active preset alone decides the bindings.
+    pub fn reset_binding_overrides(&mut self) {
+        self.binding_overrides.clear();
+    }
+
     /// Restore the deadzone / trigger / repeat values to their defaults
-    /// without disturbing controller/keyboard profile selection. The
-    /// "Reset bindings" menu row calls this.
+    /// without disturbing controller/keyboard profile selection.
+    ///
+    /// ⚠ **filtering only** — it is what the `ResetControlFiltering` row calls,
+    /// and it leaves both the preset and the binding overrides alone. Forgetting
+    /// a remap is [`Self::reset_binding_overrides`]; a row that did both would
+    /// wipe a player's controls when they only wanted their deadzone back.
     pub fn reset_filtering_to_defaults(&mut self) {
         let defaults = Self::default();
         self.left_stick_deadzone = defaults.left_stick_deadzone;

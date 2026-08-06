@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v13
+ggrs-rollback-schema-v14
 actor.action_set	component-clone	ambition_characters::brain::action_set::ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.aggression	component-clone-cursor	ambition_combat::components::actors::ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.anim_override	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -130,6 +130,7 @@ content.sanic_scattered_ring	component-clone	ambition_demo_sanic::ScatteredRing	
 content.sanic_spent_monitors	resource-clone-custom-checksum	ambition_demo_sanic::monitors::SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
 content.sanic_super_form_latch	component-clone	ambition_demo_sanic::SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.seismic_stomp_state	component-canonical	ambition_content::bosses::specials::seismic_stomp::SeismicStompState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+cutscene.last_room	resource-canonical	ambition_cutscene::LastCutsceneRoom	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 cutscene.playback	resource-canonical	ambition_cutscene::ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 derived.actor_action_scheme	derived	ambition_characters::action_scheme::ActorActionScheme	reconciled from abilities, moveset, and action set
 derived.actor_steering	derived	ambition_platformer2d_actor_monolith::features::ecs::actors::update::ActorSteering	rebuilt from the authoritative actor population before movement

@@ -24,20 +24,21 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 
 /// Bevy system: when the active room changes, queue up a cutscene if
 /// the new room has a binding and the cutscene hasn't been seen.
+
 pub fn auto_trigger_room_cutscenes(
     bindings: Res<RoomCutsceneBindings>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
         crate::rooms::RoomSet,
     >,
     mut queue: ResMut<CutsceneTriggerQueue>,
-    mut last_room: Local<Option<String>>,
+    mut last_room: ResMut<ambition_cutscene::LastCutsceneRoom>,
 ) {
     let current = room_set.active_spec().id.clone();
-    let changed = last_room.as_deref() != Some(current.as_str());
+    let changed = last_room.0.as_deref() != Some(current.as_str());
     if !changed {
         return;
     }
-    *last_room = Some(current.clone());
+    last_room.0 = Some(current.clone());
     for (room_id, cutscene_id) in &bindings.bindings {
         if room_id == &current {
             queue.request(cutscene_id);
@@ -180,6 +181,7 @@ impl Plugin for CutsceneSchedulePlugin {
         app.init_resource::<RoomCutsceneBindings>();
         app.init_resource::<CutsceneLibrary>();
         app.init_resource::<CutsceneTriggerQueue>();
+        app.init_resource::<ambition_cutscene::LastCutsceneRoom>();
         app.init_resource::<ActiveCutscene>();
         app.init_resource::<CutsceneAdvanceRequest>();
         // The input-local half of the skip: an accumulator the HUD draws and the

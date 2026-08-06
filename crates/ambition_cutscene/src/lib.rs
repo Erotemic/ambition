@@ -285,6 +285,22 @@ pub enum CutsceneEvent {
 // these are the running-cutscene state the presentation player mutates each frame
 // and gameplay/HUD systems read. Kept here so the cutscene runtime is one crate.
 
+/// **Which room this trigger last saw — ROLLBACK STATE, not a system local.**
+///
+/// ⛔ **it was a `Local<Option<String>>`, and Bevy system locals are not
+/// rewound.** The failure is a cutscene that never plays: enter room B, the
+/// local moves A→B and the cutscene is queued; a rollback restores a frame in
+/// room A; the local STAYS at B because nothing rewinds it; resimulation enters
+/// B again and the trigger sees `last_room == B` and emits nothing. With
+/// `ActiveCutscene` restored to its pre-trigger state, the cutscene is skipped
+/// entirely.
+///
+/// ⛔ **and the coverage waiver said the save-game seen flag would deduplicate a
+/// re-fire** — which assumes the trigger re-fires. It cannot deduplicate one
+/// that never happens. (GPT 5.6 through `32eb27a`, finding 3 — correct.)
+#[derive(Resource, Debug, Default, Clone, PartialEq, Eq)]
+pub struct LastCutsceneRoom(pub Option<String>);
+
 /// Live cutscene playback state. `runtime` is `Some` while a cutscene is running.
 ///
 /// ⭐ **ONE authoritative field.** `runtime` is the whole state; everything a
@@ -664,6 +680,31 @@ mod snapshot {
         }
     }
 
+    impl SnapshotState for LastCutsceneRoom {
+        fn encode(&self, out: &mut Vec<u8>) {
+            match &self.0 {
+                Some(room) => {
+                    put_bool(out, true);
+                    put_str(out, room);
+                }
+                None => put_bool(out, false),
+            }
+        }
+
+        fn decode(reader: &mut Reader<'_>) -> Option<Self> {
+            // ⚠ written the long way ON PURPOSE. The sibling codec below had
+            // `reader.bool()?.then(|| reader.str().map(str::to_owned))?` here and
+            // it refused every absent value, because `bool::then` yields `None`
+            // for false and the `?` returns it from the function. The absent case
+            // is the COMMON one for this resource — no room entered yet.
+            Some(Self(if reader.bool()? {
+                Some(reader.str()?.to_owned())
+            } else {
+                None
+            }))
+        }
+    }
+
     impl SnapshotState for ActiveCutscene {
         fn encode(&self, out: &mut Vec<u8>) {
             match &self.runtime {
@@ -710,6 +751,35 @@ mod snapshot {
             before.encode(&mut bytes);
             let mut reader = Reader::new(&bytes);
             ActiveCutscene::decode(&mut reader).expect("a snapshot this crate wrote decodes")
+        }
+
+        /// **The room a trigger last saw REWINDS with everything else.**
+        ///
+        /// ⛔ this was a `Local<Option<String>>` on a SIM-schedule system, and
+        /// Bevy locals are not rewound. The failure is a cutscene that never
+        /// plays: enter room B, the local moves A→B and the cutscene is queued;
+        /// a rollback restores a frame in room A; the local stays at B;
+        /// resimulation enters B again and the trigger sees no change.
+        ///
+        /// ⚠ the ABSENT case is the one that matters here and is the common one
+        /// — "no room entered yet" — which is exactly the branch the sibling
+        /// script codec got wrong.
+        #[test]
+        fn the_last_triggered_room_survives_the_wire_including_absent() {
+            for room in [None, Some("intro_wake_room".to_string())] {
+                let before = LastCutsceneRoom(room.clone());
+                let mut bytes = Vec::new();
+                before.encode(&mut bytes);
+                let mut reader = Reader::new(&bytes);
+                let after = LastCutsceneRoom::decode(&mut reader)
+                    .expect("a snapshot this crate wrote decodes");
+                assert_eq!(
+                    after, before,
+                    "the trigger's room memory did not survive a rewind, so a \
+                     resimulation re-entering that room emits nothing and its \
+                     cutscene is skipped"
+                );
+            }
         }
 
         /// **A script with NO seen flag decodes.**

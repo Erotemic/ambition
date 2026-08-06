@@ -75,7 +75,7 @@ const WAIVED: &[(&str, &str)] = &[
     ("ambition_dialog::", "narrative view state"),
     (
         "ambition_cutscene::",
-        "scripted presentation sequence state",
+        "scripted presentation sequence state. ⚠ the namespace waiver is NARROWER          than it reads: `ActiveCutscene` (`cutscene.playback`) and          `LastCutsceneRoom` (`cutscene.last_room`) are both REGISTERED, because          playback decides whether the participant can act and the room memory          decides whether a trigger fires. What this waives is the rest — the          library, the bindings table, the skip accumulator the HUD draws",
     ),
     ("ambition_game_shell::", "host shell/session chrome"),
     ("ambition_load::", "load coordination, not gameplay truth"),
@@ -1125,7 +1125,7 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     ),
     (
         "::cutscene_trigger::CutsceneTriggerQueue",
-        "narrative trigger seam; seen-flags in the rollback-registered AmbitionGameSave dedup re-fires",
+        "narrative trigger seam. ⛔ **this reason was WRONG until 2026-08-06** and          said only *\"seen-flags in the rollback-registered AmbitionGameSave dedup          re-fires\"* — which assumes the trigger re-fires. It could not: the room          memory driving it was a `Local<Option<String>>` on a SIM system, and Bevy          locals are not rewound, so a rewind past a room entry left the local          claiming that room and resimulation emitted NOTHING. A seen flag cannot          deduplicate a re-fire that never happens (GPT 5.6 through `32eb27a`).          The memory is `ambition_cutscene::LastCutsceneRoom` now, registered as          `cutscene.last_room`, so the queue's contents ARE regenerated from          rollback state on the restored timeline — which is the condition under          which a transient queue is legitimately transient, and it is now met          rather than assumed",
     ),
     (
         "::brain::BrainActionCounter",

@@ -513,8 +513,13 @@ pub fn vault_exit() -> ae::Aabb {
 /// human-readable string means renaming a character silently un-arts every level
 /// that placed it, and both demos now carry the same hand-written workaround.
 /// Render identity belongs on the archetype (or on an `EnemySpawn.character_id`
-/// field, which `NpcSpawn` already has and `EnemySpawn` does not). Recorded in
-/// the queue as PICK 15's enemy-identity row.
+/// field, which `NpcSpawn` already has and `EnemySpawn` does not).
+///
+/// ⛔ **this comment claimed the queue recorded that, and it did not** — checked
+/// 2026-08-05, no such row existed. The row is written now ("The enemy-identity
+/// seam" in `docs/planning/queue-72h-2026-08-03.md`), so the pointer is finally
+/// true. A comment that cites a record nobody made is the same trap as a doc
+/// claiming an enforcement nobody wrote.
 pub(crate) fn name_enemies_for_render(room: &mut RoomSpec) {
     for spawn in &mut room.enemy_spawns {
         if ai_slop::is_ai_slop_brain(&spawn.payload) {

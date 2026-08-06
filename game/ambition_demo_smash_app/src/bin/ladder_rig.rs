@@ -105,13 +105,22 @@ fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
     applied
 }
 
-/// **Every rung pair, in every §8 situation that names an opponent.**
+/// **Every rung pair, in every §8 situation a PLACEMENT reproduces.**
 ///
-/// ⛔ **without this the suite was classification-only.** `scenarios::suite()`
-/// is eight `WorldView` fixtures the L1 classifier is asked about, and no
-/// fighter had ever stood in one — so a ladder run "over §8's scenarios" seated
-/// every rung at the stage's authored spawn and measured one situation eight
-/// times. `Scenario::starting_positions` is the half that was missing.
+/// ⛔ **this rig places two bodies and starts the clock. That is all it does.**
+/// It does not apply velocity, hitstun, a body phase, a projectile or a damage
+/// total, so a fixture whose premise is made of any of those is not reproduced
+/// by running it here — `juggle_escape` came up with nobody in hitstun,
+/// `projectile_camper` with no projectile, `edgeguard_window` against a
+/// motionless opponent. Three tactical names over three positional fixtures,
+/// reported in the same table as the ones that were real.
+///
+/// ⭐ **so it runs the positional ones and says out loud what it skipped**, with
+/// the state each skipped fixture needed. `Scenario::unreproduced_by_placement`
+/// derives that from the fixture itself, so nothing here has a list to keep in
+/// step. Making the rig honest is a narrowing, not a fix: the tactical fixtures
+/// need a setup operation that applies their whole authoritative state and
+/// rebases the brains before the clock starts, which this is not.
 ///
 /// ⚠ **a ledge trap is not a neutral start, and that is the point.** The whole
 /// reason `l3_earns_its_depth` asks for this suite is that a rollout should pay
@@ -119,20 +128,33 @@ fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
 /// recovering from offstage — and nowhere else.
 fn run_scenarios(seeds: usize) {
     let suite = ambition_platformer2d::characters::brain::fighter::scenarios::suite();
+    let playable: Vec<_> = suite
+        .iter()
+        .filter(|s| s.starting_positions().is_some() && s.is_reproduced_by_placement())
+        .collect();
     println!(
-        "[ladder_rig] --scenarios: {} fixture(s), {} playable (median of {seeds} seeds, {}s each)",
+        "[ladder_rig] --scenarios: PLACEMENT ONLY — {} of {} fixture(s) are \
+         reproduced by placing two bodies (median of {seeds} seeds, {}s each)",
+        playable.len(),
         suite.len(),
-        suite
-            .iter()
-            .filter(|s| s.starting_positions().is_some())
-            .count(),
         TICKS / 60
     );
     for scenario in &suite {
         if scenario.starting_positions().is_none() {
             println!(
-                "[ladder_rig]   {:<22} (no opponent — not a bout)",
+                "[ladder_rig]   {:<22} SKIPPED (no opponent — not a bout)",
                 scenario.name
+            );
+            continue;
+        }
+        let missing = scenario.unreproduced_by_placement();
+        if !missing.is_empty() {
+            println!(
+                "[ladder_rig]   {:<22} SKIPPED (this rig cannot set up: {}) — its \
+                 premise is not reproduced by a placement, so a row here would be \
+                 a positional fixture under a tactical name",
+                scenario.name,
+                missing.join(", ")
             );
             continue;
         }

@@ -105,6 +105,64 @@ impl Scenario {
         Some((self.view.self_view.pos, foe.pos))
     }
 
+    /// **What a harness that can only PLACE BODIES fails to reproduce here.**
+    ///
+    /// ⛔ **a placement is not a scenario.** `starting_positions_on` puts two
+    /// bodies where the fixture says and stops there, so a rig that ran the
+    /// whole suite through it was running `juggle_escape` with nobody in
+    /// hitstun, `projectile_camper` with no projectile, and `edgeguard_window`
+    /// against an opponent with no velocity. Those runs are not those scenarios,
+    /// and reporting them as evidence about a recovery rollout was reporting
+    /// three positional fixtures under three tactical names.
+    ///
+    /// ⭐ **derived from the fixture, not from a hand-kept list.** A scenario that
+    /// gains a velocity or a projectile tomorrow drops out of a positional
+    /// harness the same day, instead of quietly starting to lie.
+    ///
+    /// ⚠ **`on_ground` is deliberately NOT in here.** It is the one piece of
+    /// state a placement does carry: a body put over the platform lands on it
+    /// within a few ticks and a body put past a blastzone stays airborne,
+    /// because gravity is running. Velocity, body phase and projectiles have no
+    /// such route — nothing about standing somewhere produces them.
+    ///
+    /// Empty means the premise IS the geometry, and placing the bodies is the
+    /// whole setup.
+    pub fn unreproduced_by_placement(&self) -> Vec<&'static str> {
+        let mut missing = Vec::new();
+        let me = &self.view.self_view;
+        let moving = me.vel != ae::Vec2::ZERO
+            || self
+                .view
+                .actors
+                .iter()
+                .any(|actor| actor.vel != ae::Vec2::ZERO);
+        if moving {
+            missing.push("velocity");
+        }
+        let mid_phase = me.phase != BodyPhase::Neutral
+            || me.phase_remaining > 0.0
+            || self
+                .view
+                .actors
+                .iter()
+                .any(|actor| actor.phase != BodyPhase::Neutral || actor.phase_remaining > 0.0);
+        if mid_phase {
+            missing.push("body phase");
+        }
+        if !self.view.projectiles.is_empty() {
+            missing.push("projectiles");
+        }
+        if me.damage_taken > 0 || self.view.actors.iter().any(|actor| actor.damage_taken > 0) {
+            missing.push("damage");
+        }
+        missing
+    }
+
+    /// Whether placing the two bodies reproduces this scenario's whole premise.
+    pub fn is_reproduced_by_placement(&self) -> bool {
+        self.unreproduced_by_placement().is_empty()
+    }
+
     /// **The same two points, placed on somebody else's stage.**
     ///
     /// ⛔ **[`Self::starting_positions`] is in FIXTURE coordinates and pasting
@@ -126,6 +184,9 @@ impl Scenario {
     /// this one, deliberately: the four recovery quadrants are offstage by
     /// definition, and clamping them into the platform would answer a different
     /// question from the one they ask.
+    ///
+    /// ⚠ **and this is PLACEMENT ONLY** — see [`Self::unreproduced_by_placement`]
+    /// for what a caller that stops here is not reproducing.
     pub fn starting_positions_on(&self, stage: ae::Aabb) -> Option<(ae::Vec2, ae::Vec2)> {
         use ae::AabbExt;
         let (me, foe) = self.starting_positions()?;
@@ -274,6 +335,53 @@ mod tests {
                 );
             }
             seen.push((scenario.name, start));
+        }
+    }
+
+    /// **Which fixtures a placement-only harness may report results for.**
+    ///
+    /// ⛔ the ladder rig ran all eight through `starting_positions_on` and
+    /// printed a row per name, so `juggle_escape` ran with nobody in hitstun,
+    /// `projectile_camper` with no projectile and `edgeguard_window` against a
+    /// motionless opponent. Three tactical names over three positional fixtures.
+    ///
+    /// ⚠ **the membership is asserted BOTH WAYS.** A one-sided check ("the three
+    /// are refused") stays green if the derivation starts refusing everything,
+    /// which would silently empty the ladder while looking stricter.
+    #[test]
+    fn only_the_positional_fixtures_are_reproduced_by_a_placement() {
+        let suite = suite();
+        let reproduced: Vec<&str> = suite
+            .iter()
+            .filter(|s| s.is_reproduced_by_placement())
+            .map(|s| s.name)
+            .collect();
+        assert_eq!(
+            reproduced,
+            vec![
+                "ledge_trap",
+                "recovery_left",
+                "recovery_right",
+                "recovery_below",
+                "recovery_above",
+            ],
+            "the set a placement-only harness may report on changed"
+        );
+        for (name, missing) in [
+            ("juggle_escape", vec!["velocity", "body phase"]),
+            ("projectile_camper", vec!["projectiles"]),
+            ("edgeguard_window", vec!["velocity"]),
+        ] {
+            let scenario = suite
+                .iter()
+                .find(|s| s.name == name)
+                .expect("a fixture named in this suite");
+            assert_eq!(
+                scenario.unreproduced_by_placement(),
+                missing,
+                "`{name}` reports the wrong missing state, so a harness cannot \
+                 tell a reader what its run was not"
+            );
         }
     }
 

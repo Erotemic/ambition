@@ -111,6 +111,9 @@ fn tick_peaceful(
         // only round-tripped while the body's max_run_speed happened to equal
         // it — now decoupled: capability 270 vs patrol policy 60.)
         max_run_speed: seed.config.tuning.max_run_speed,
+        // A fixture body on default tuning: `None` resolves to the engine's
+        // canonical movement table, which is what this seed is built from.
+        movement_tuning: None,
         attack_cooldown_remaining: 0.0,
         attack_windup_remaining: 0.0,
         attack_active_remaining: 0.0,

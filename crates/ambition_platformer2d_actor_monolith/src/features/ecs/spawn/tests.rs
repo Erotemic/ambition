@@ -471,6 +471,9 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
         sim_time: 0.0,
         dt: 1.0 / 60.0,
         max_run_speed: 120.0,
+        // A fixture body on default tuning: `None` resolves to the engine's
+        // canonical movement table.
+        movement_tuning: None,
         attack_cooldown_remaining: 0.0,
         attack_windup_remaining: 0.0,
         attack_active_remaining: 0.0,

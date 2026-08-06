@@ -977,7 +977,14 @@ fn publish_twintrack_hud(
     readouts.set(
         STATUS_HUD_SLOT,
         ambition_platformer2d::presentation::HudReadout::bare(format!(
-            "{instruction}    SPEED {:>5.1}/{:.0}    beta {:.3}    gamma {:.3}    dτ/dt {:.3}    VIEW {view_mode}",
+            // ⚠ **BROKEN INTO LINES ON PURPOSE.** One long line ran under the
+            // observatory panel, which starts at ~58% of the width — and the
+            // panel is not the thing to move: a readout wide enough to reach it
+            // is wide enough to reach anything. Multi-line is safe now that
+            // `place_declared_hud` measures a slot's real height (2026-08-05);
+            // before that it would have been drawn through by the next slot.
+            "{instruction}\n\
+             SPEED {:>5.1}/{:.0}    beta {:.3}    gamma {:.3}    dτ/dt {:.3}    VIEW {view_mode}",
             traveler.relative_velocity.length(),
             traveler.invariant_speed,
             traveler.beta_squared.max(0.0).sqrt(),
@@ -1066,7 +1073,10 @@ fn publish_twintrack_hud(
     readouts.set(
         SIGNALS_HUD_SLOT,
         ambition_platformer2d::presentation::HudReadout::bare(format!(
-            "TRANSMITTER {:.0}Hz  COOLDOWN {:.3}s proper  TARGET {:.0}-{:.0}Hz  ACTIVE PULSES {}  {pursuit_fact}  {optical_fact}  {last_arrival}",
+            "TRANSMITTER {:.0}Hz  COOLDOWN {:.3}s proper  TARGET {:.0}-{:.0}Hz\n\
+             ACTIVE PULSES {}  {pursuit_fact}\n\
+             {optical_fact}\n\
+             {last_arrival}",
             EMITTED_FREQUENCY,
             cooldown,
             DOPPLER_PASSBAND_MIN,
@@ -1077,7 +1087,8 @@ fn publish_twintrack_hud(
     readouts.set(
         CLOCKS_HUD_SLOT,
         ambition_platformer2d::presentation::HudReadout::bare(format!(
-            "COORDINATE TIME {:>7.3}s    LAB CLOCK {:>7.3}s    TRAVELER CLOCK {:>7.3}s    DIFFERENCE {:>7.3}s",
+            "COORDINATE TIME {:>7.3}s    LAB CLOCK {:>7.3}s\n\
+             TRAVELER CLOCK {:>7.3}s    DIFFERENCE {:>7.3}s",
             signals.coordinate_time,
             lab.proper_time_seconds,
             traveler.proper_time_seconds,

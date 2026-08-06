@@ -276,3 +276,39 @@ Verdicts are recorded here as each is reached.
   ⭐ that also makes the transient trigger queue legitimately transient — its
   contents are regenerated from rollback state on the restored timeline, which is
   the condition the old waiver assumed rather than met.
+
+- ✔ **P3 discovered hidden blocks — ACCEPTED and FIXED** (`7197522ac`). No engine
+  change was needed: `FeatureEcsWorldOverlay` already carries
+  `removed_block_names` AND `blocks`, so the reviewer's own narrow endpoint (*"a
+  rollback-owned dynamic solid placed at the authored block AABB"*) already
+  existed and runs in the slot the brick removal uses. `SpentPowerBlocks` is the
+  authority for art and collision both.
+  ⚠ the BEFORE case is asserted too — solidifying every hidden block on sight
+  passes *"it is solid after"* while deleting the mechanic.
+- ✔ **P4 worldline identity — ACCEPTED and FIXED** (`a301a79a0`).
+  `WorldlineTrackId` keys the history; `WorldlineTracked2d` carries it beside a
+  label nothing keys on. Renaming a caption no longer moves a body's history and
+  two bodies may share one.
+  ⚠ **kept a `String`, against the review's `SimId` suggestion, for a measured
+  reason**: TwinTrack's traveler and passband are demo-spawned WITHOUT a `SimId`,
+  so keying on it would silently drop those tracks. What the finding actually
+  requires is a separate value nothing draws, and that is met.
+- ◐ **P5 aerial authority — ACCEPTED, ATTEMPTED, REVERTED, and the review is
+  right about the defect.** The two paths do disagree exactly as described:
+  `new_peaceful_npc_in` reads the catalog's `body_kind: Floating`, `new_in` (the
+  hostile `EnemySpawn` path) reads `ArchetypeSpec::is_aerial`.
+  ⭐ **and the attempt found WHICH character it affects, which the review did
+  not: `perfect_cellular_automaton`.** Its catalog row says `Floating`, so it
+  FLOATS placed as an NPC and WALKS placed as an enemy — and the duel arena
+  places it as a fighter. Resolving the two with an OR made it fly on both paths
+  and turned `actor_phase_split`'s two tests red, because they spawn a PCA and
+  assert grounded `locomotion.x` intent. Those tests encoded the bug.
+  ⛔ **so the fix is not a resolution rule, it is a DECISION**: does the Perfect
+  Cellular Automaton fly when it fights? Its catalog says yes and the shipped
+  duel says no, and a blind draw here changes a shipped fighter's movement.
+  ▢ **the review's own stronger endpoint is what makes it decidable** —
+  `ArchetypeSpec::is_aerial` must become `Option<bool>` so an archetype can say
+  *grounded* rather than being unable to distinguish that from *silent*, and
+  assembly can then reject a contradiction instead of picking a winner. Eight
+  authored rows and the spec type. The OR alone cannot express the PCA's answer
+  either way, which is why it went back.

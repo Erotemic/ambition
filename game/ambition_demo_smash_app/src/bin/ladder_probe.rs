@@ -149,6 +149,15 @@
 //!   carry `rollout_depth: 0`, so a fix to what the rollout SEES cannot help them
 //!   and did not.
 //!
+//! ⭐ **AND IT STILL ENGAGES** — checked, because this repository has been fooled
+//! by exactly this reading once. A movement veto with too long a commitment
+//! window once condemned every direction, the fighter reasoned itself into never
+//! moving, and survival more than doubled: standing still is an excellent
+//! strategy against an opponent that cannot attack.
+//! `the_fighter_brain_engages_rather_than_standing_still` passes, and the probe's
+//! own `vmax 760` column says the fighter is still reaching DASH speed at every
+//! level — it is moving as hard as it ever did and no longer leaving the stage.
+//!
 //! ⚠ **this is still a probe.** One scenario, one opponent that cannot attack.
 //! `l3_earns_its_depth` wants §8's suite and survival/damage ratios; what this
 //! establishes is that the gate is now worth authoring, which it demonstrably

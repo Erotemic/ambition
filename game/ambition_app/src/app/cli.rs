@@ -810,9 +810,17 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     // configuration: `--direct`, or any explicit start-room request (the
     // run_game.sh mode aliases pass `--start-room`, and their intent is to
     // land in that room immediately).
-    if shell_hosted {
-        app.insert_resource(super::shell_host::AmbitionShellHosted);
-    }
+    // ⭐ **K2b edit 1: the shell host is composed EITHER WAY**, and the mode
+    // only decides which route it boots into. Direct entry stops being a second
+    // way to build a game and becomes what `tracks.md` says it should be — *a
+    // shell host whose initial route is the gameplay route*, the recipe
+    // `ambition_demo_sanic_app` already proves.
+    //
+    // ⚠ this resource must be inserted BEFORE the sim plugins build: it is what
+    // `publish_direct_prepared_session_root` checks, and without it the app
+    // carries the build-time root AND the activation's, which is two canonical
+    // roots and a panic on the first read.
+    app.insert_resource(super::shell_host::AmbitionShellHosted);
     match render {
         VisibleRenderMode::Windowed => {
             app.add_plugins((
@@ -843,8 +851,15 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     }
     if shell_hosted {
         super::shell_host::compose_ambition_shell_host(&mut app);
-        super::shell_host::install_ambition_shell_visuals(&mut app);
+    } else {
+        // Straight to gameplay, no launcher and no vanity run-in — which is what
+        // `--direct` and every `--start-room` alias mean.
+        super::shell_host::compose_ambition_shell_host_booting_to(
+            &mut app,
+            super::shell_host::AMBITION_GAMEPLAY_ROUTE,
+        );
     }
+    super::shell_host::install_ambition_shell_visuals(&mut app);
     if direct_windowed {
         super::startup_loading::install_direct_startup_loading(&mut app);
     }

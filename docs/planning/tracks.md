@@ -407,9 +407,21 @@ this section is the bounded first wave, not a restatement. Vocabulary note
      prose, reproduced.
   ⭐ edit 1 landed additively: `compose_ambition_shell_host_booting_to(app,
   route)`, with the launcher default untouched.
-  ▢ **K2b.2 is now unblocked**: delete the build-time root and the four
-  `direct_entry` gates, with the agreement test as the thing that says the game
-  did not change.
+  ✔ **edit 1 LANDED (2026-08-06): the shell host is composed either way**, and
+  the mode only chooses the route — launcher when hosted, `AMBITION_GAMEPLAY_ROUTE`
+  when `--direct`/`--start-room`. `AmbitionShellHosted` is now inserted
+  unconditionally (before the sim plugins, per the collision above), so
+  `publish_direct_prepared_session_root` never runs in a CLI-built app. 300 app
+  tests green.
+  ▢ **edits 2-4 are BLOCKED on one thing, and it is not what the row assumed.**
+  The build-time root is not dead: `run_headless` and
+  `Platformer2dSimHarness::build` compose `AmbitionGameSimulationPlugin`
+  WITHOUT the CLI, so they never insert `AmbitionShellHosted` and still get
+  their root at build time — and the four `direct_entry` gates are still true
+  for exactly those apps. Deleting either now changes headless behaviour rather
+  than removing a dead path. **The remaining work is migrating those two
+  composers to compose the shell**, which the settle helper already prepared
+  them for; the agreement test then says the room did not change.
 
   **Suggested staging:** (K2b.1) land the settle helper + migrate
   `headless`/`rl_sim`/`capture_scene` to compose the shell and settle, keeping

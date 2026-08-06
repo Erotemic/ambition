@@ -71,8 +71,20 @@ pub fn init_sandbox_resources(app: &mut App) {
     // preparation-time reader below (catalog rows, the LDtk load, the room-set
     // conversion, the hot-reload watcher) and published as a resource for the
     // in-schedule readers. ONE value, no process global (K2a).
+    // ⭐ **ONE writer, and it is the CONTENT plugin's** (2026-08-06).
+    //
+    // This inserted the same value the content plugin does — idempotent, since
+    // both call `ambition_content::worlds::world_manifest()` — but two writers
+    // of one global is the shape that has cost this repo a roster, a rebuild, a
+    // retirement and a countdown. The provider that OWNS the worlds publishes
+    // the declaration; the host reads it.
+    //
+    // ⚠ the local value stays: it is threaded BY REFERENCE into every
+    // preparation-time reader below (catalog rows, the LDtk load, the room-set
+    // conversion, the hot-reload watcher), which run before any schedule and so
+    // cannot take a `Res`. That is the K2a shape — no process global — and it is
+    // unaffected by who inserts the resource.
     let world_manifest = ambition_content::worlds::world_manifest();
-    app.insert_resource(world_manifest.clone());
 
     let sandbox_data = data::Platformer2dGameplayDefaults::load_embedded();
     // Audio lives in its own registries, separate from sandbox tuning and

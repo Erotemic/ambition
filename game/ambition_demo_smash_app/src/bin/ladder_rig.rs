@@ -33,6 +33,7 @@
 
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::actor::{FighterStocks, MatchSeat};
+use ambition_platformer2d::engine_core as ae;
 
 /// One minute at 60Hz — the same budget `ladder_probe` uses, so the two are
 /// readable against each other.
@@ -65,6 +66,9 @@ struct Bout {
 
 fn main() {
     let seeds = seed_count();
+    if std::env::args().any(|arg| arg == "--scenarios") {
+        return run_scenarios(seeds);
+    }
     println!(
         "[ladder_rig] higher vs lower   eliminated(hi:lo)     stocks   verdict   \
          (median of {seeds} seeds, {}s each)",
@@ -99,6 +103,50 @@ fn force_noise_seed(app: &mut bevy::app::App, seed: u64) -> bool {
         }
     }
     applied
+}
+
+/// **Every rung pair, in every §8 situation that names an opponent.**
+///
+/// ⛔ **without this the suite was classification-only.** `scenarios::suite()`
+/// is eight `WorldView` fixtures the L1 classifier is asked about, and no
+/// fighter had ever stood in one — so a ladder run "over §8's scenarios" seated
+/// every rung at the stage's authored spawn and measured one situation eight
+/// times. `Scenario::starting_positions` is the half that was missing.
+///
+/// ⚠ **a ledge trap is not a neutral start, and that is the point.** The whole
+/// reason `l3_earns_its_depth` asks for this suite is that a rollout should pay
+/// for itself where the options are commitments — backed against the blastzone,
+/// recovering from offstage — and nowhere else.
+fn run_scenarios(seeds: usize) {
+    let suite = ambition_platformer2d::characters::brain::fighter::scenarios::suite();
+    println!(
+        "[ladder_rig] --scenarios: {} fixture(s), {} playable (median of {seeds} seeds, {}s each)",
+        suite.len(),
+        suite
+            .iter()
+            .filter(|s| s.starting_positions().is_some())
+            .count(),
+        TICKS / 60
+    );
+    for scenario in &suite {
+        if scenario.starting_positions().is_none() {
+            println!(
+                "[ladder_rig]   {:<22} (no opponent — not a bout)",
+                scenario.name
+            );
+            continue;
+        }
+        for pair in RUNGS.windows(2) {
+            let (lower, higher) = (pair[0], pair[1]);
+            let bouts: Vec<Bout> = (0..seeds)
+                .map(|seed| run_bout_at(higher, lower, seed as u64, Some(scenario.clone())))
+                .collect();
+            report_row(
+                &format!("{:<18} {higher:>2} vs {lower:<2}", scenario.name),
+                &bouts,
+            );
+        }
+    }
 }
 
 fn seed_count() -> usize {
@@ -143,6 +191,11 @@ fn span(values: &[f32]) -> String {
 }
 
 fn report(higher: u8, lower: u8, bouts: &[Bout]) {
+    report_row(&format!("{higher:>2} vs {lower:<2}"), bouts);
+}
+
+/// One line, under whatever label the caller is grouping by.
+fn report_row(label: &str, bouts: &[Bout]) {
     let hi_all: Vec<f32> = bouts.iter().map(|b| b.eliminated[0] as f32).collect();
     let lo_all: Vec<f32> = bouts.iter().map(|b| b.eliminated[1] as f32).collect();
     let hi_out = median(hi_all.clone());
@@ -178,7 +231,7 @@ fn report(higher: u8, lower: u8, bouts: &[Bout]) {
         verdict.to_string()
     };
     println!(
-        "[ladder_rig]   {higher:>2} vs {lower:<2}   {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}  {verdict}",
+        "[ladder_rig]   {label:<26} {:>20} : {:<20} {hi_stocks:>3.0} : {lo_stocks:<3.0}  {verdict}",
         span(&hi_all),
         span(&lo_all)
     );
@@ -189,7 +242,53 @@ fn report(higher: u8, lower: u8, bouts: &[Bout]) {
 /// ⚠ the 30 warm-up updates before the roster lands are `ladder_probe`'s, and
 /// for its reason: the shell has to reach its stage before a roster means
 /// anything.
+/// The running stage's own extent, which is what a fixture's relative geometry
+/// gets mapped onto.
+fn stage_bounds(app: &mut bevy::app::App) -> Option<ae::Aabb> {
+    use ambition_platformer2d::platformer::lifecycle::session_world_component;
+    session_world_component::<ae::RoomGeometry>(app.world())
+        .map(|geometry| ae::Aabb::new(geometry.0.size * 0.5, geometry.0.size * 0.5))
+}
+
+/// Put the two seated bodies where a scenario says they stand.
+///
+/// ⚠ **AFTER seating, and only once both seats exist.** A roster cannot say
+/// where its fighters stand — the stage decides — so this is a measurement
+/// binary reaching into the sim. It is deliberate and it is not a seam to
+/// promote: a game that placed fighters this way would be fighting its own
+/// stage.
+///
+/// Returns `false` until both seats are present, so the caller keeps trying
+/// rather than placing one body and calling it a scenario.
+fn place_at(app: &mut bevy::app::App, me: ae::Vec2, foe: ae::Vec2) -> bool {
+    use ambition_platformer2d::platformer::body::BodyKinematics;
+    let world = app.world_mut();
+    let mut q = world.query::<(&MatchSeat, &mut BodyKinematics)>();
+    let seats: Vec<usize> = q.iter(world).map(|(seat, _)| seat.0).collect();
+    if !seats.contains(&0) || !seats.contains(&1) {
+        return false;
+    }
+    for (seat, mut body) in q.iter_mut(world) {
+        let target = if seat.0 == 0 { me } else { foe };
+        body.pos = target;
+        // ⚠ zero the velocity too. A body carrying the spawn's fall speed into a
+        // "standing at the ledge" premise is not in that premise.
+        body.vel = ae::Vec2::ZERO;
+    }
+    true
+}
+
 fn run_bout(higher: u8, lower: u8, seed: u64) -> Bout {
+    run_bout_at(higher, lower, seed, None)
+}
+
+/// One bout, optionally started from a scenario's positions.
+fn run_bout_at(
+    higher: u8,
+    lower: u8,
+    seed: u64,
+    start: Option<ambition_platformer2d::characters::brain::fighter::scenarios::Scenario>,
+) -> Bout {
     let mut app = build_demo_app();
     for _ in 0..30 {
         app.update();
@@ -226,10 +325,24 @@ fn run_bout(higher: u8, lower: u8, seed: u64) -> Bout {
     // the same way: the noise stream lives on the live `FighterState`, so it can
     // only be set once a brain exists, which is after seating.
     let mut seeded = false;
+    let mut placed = start.is_none();
     for tick in 0..TICKS {
         app.update();
         if !seeded {
             seeded = force_noise_seed(&mut app, seed);
+        }
+        if !placed {
+            if let Some(scenario) = start.as_ref() {
+                // ⚠ **mapped onto the RUNNING stage, not pasted.** The fixture's
+                // numbers describe an 800x600 stage of its own; the smash stage
+                // is a different size in a different place. Pasting them put
+                // every recovery quadrant far outside any platform, where the
+                // blastzone took it instantly — two of them printed identical
+                // columns, which is how it was found.
+                placed = stage_bounds(&mut app)
+                    .and_then(|bounds| scenario.starting_positions_on(bounds))
+                    .is_some_and(|(me, foe)| place_at(&mut app, me, foe));
+            }
         }
         let world = app.world_mut();
         let mut q = world.query::<(&MatchSeat, &FighterStocks)>();
@@ -250,6 +363,11 @@ fn run_bout(higher: u8, lower: u8, seed: u64) -> Bout {
             }
         }
     }
+    assert!(
+        placed,
+        "a scenario bout ran {TICKS} ticks and the fighters were never placed, so \
+         it measured the stage's default spawn while claiming a scenario"
+    );
     assert!(
         seeded,
         "no fighter brain ever took the noise seed, so every run of this bout is \

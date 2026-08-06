@@ -67,6 +67,7 @@ fn foe(pos: ae::Vec2) -> PerceivedActor {
 /// `expect` is not a prediction about a brain. It is the shared premise every
 /// later layer argues from: L2 prices options *given* the situation, and a
 /// disagreement here is a disagreement about the game, not about the CPU.
+#[derive(Clone)]
 pub struct Scenario {
     pub name: &'static str,
     /// Why this fixture exists — the skill the situation demands.
@@ -79,6 +80,67 @@ pub struct Scenario {
 /// four offstage quadrants (§3 asks for exactly that, and it is four fixtures, not
 /// one — a body knocked off the top has different options from one knocked off the
 /// side, and a classifier that conflates them will not be caught by one of them).
+impl Scenario {
+    /// **Where the two bodies stand — the half of a fixture that can be PLAYED.**
+    ///
+    /// ⛔ **these were classification fixtures only.** Each `Scenario` states a
+    /// `WorldView` and the `Situation` L1 must read out of it, and every test
+    /// over this suite asks the classifier a question. Nothing put a FIGHTER in
+    /// one: `ladder_rig` seats its rungs at the stage's authored spawn, so a
+    /// ladder measured over "eight scenarios" measured one situation eight
+    /// times.
+    ///
+    /// `(me, foe)` in stage coordinates. `None` when a scenario names no
+    /// opponent — a fixture about terrain alone cannot be a two-fighter bout,
+    /// and returning a default position would put a body somewhere the premise
+    /// never described.
+    ///
+    /// ⚠ **the caller must place the bodies AFTER seating.** A roster cannot say
+    /// where its fighters stand — the stage decides — so a harness writes their
+    /// positions once both seats exist. That is a measurement binary reaching
+    /// into the sim, and it is not something to promote into the engine without
+    /// a reason.
+    pub fn starting_positions(&self) -> Option<(ae::Vec2, ae::Vec2)> {
+        let foe = self.view.actors.first()?;
+        Some((self.view.self_view.pos, foe.pos))
+    }
+
+    /// **The same two points, placed on somebody else's stage.**
+    ///
+    /// ⛔ **[`Self::starting_positions`] is in FIXTURE coordinates and pasting
+    /// them into a real world is meaningless.** These fixtures describe an
+    /// 800x600 stage ([`STAGE_SIZE`]) centred on (400, 300); a running smash
+    /// stage is a different size in a different place. `ladder_rig` placed the
+    /// raw numbers first and the giveaway was two recovery scenarios printing
+    /// byte-identical columns — `recovery_right` puts a body at x=840 and
+    /// `recovery_below` at y=640, both far outside any real platform, so both
+    /// were instantly taken by the blastzone and respawned into the same state.
+    ///
+    /// ⭐ **so the fixture's geometry is RELATIVE and this is the conversion.**
+    /// A point is mapped by its fraction of the fixture stage onto the same
+    /// fraction of `stage` — which preserves *"backed against the left
+    /// blastzone"* and *"offstage below"* as the premises they are, on a stage
+    /// of any size.
+    ///
+    /// ⚠ a scenario that puts a body OUTSIDE the fixture stage stays outside
+    /// this one, deliberately: the four recovery quadrants are offstage by
+    /// definition, and clamping them into the platform would answer a different
+    /// question from the one they ask.
+    pub fn starting_positions_on(&self, stage: ae::Aabb) -> Option<(ae::Vec2, ae::Vec2)> {
+        use ae::AabbExt;
+        let (me, foe) = self.starting_positions()?;
+        let size = stage.half_size() * 2.0;
+        let min = stage.center() - stage.half_size();
+        let map = |p: ae::Vec2| {
+            ae::Vec2::new(
+                min.x + (p.x / STAGE_SIZE.x) * size.x,
+                min.y + (p.y / STAGE_SIZE.y) * size.y,
+            )
+        };
+        Some((map(me), map(foe)))
+    }
+}
+
 pub fn suite() -> Vec<Scenario> {
     let mid = ae::Vec2::new(400.0, 300.0);
     let mut out = Vec::new();
@@ -184,6 +246,79 @@ pub fn suite() -> Vec<Scenario> {
 
 #[cfg(test)]
 mod tests {
+
+    /// **No two scenarios start from the same two points.**
+    ///
+    /// ⛔ found by running them: `ladder_rig --scenarios` printed
+    /// byte-identical columns for `recovery_right` and `recovery_below`, which
+    /// can only happen if the bodies start in the same places. Two fixtures that
+    /// differ only in NAME make a suite look broader than it is — and the whole
+    /// argument for §8 is that a rollout should pay in some situations and not
+    /// others, which a duplicated situation cannot show.
+    #[test]
+    fn no_two_scenarios_start_from_the_same_positions() {
+        let suite = suite();
+        let mut seen: Vec<(&str, (ae::Vec2, ae::Vec2))> = Vec::new();
+        for scenario in &suite {
+            let Some(start) = scenario.starting_positions() else {
+                continue;
+            };
+            if let Some((other, _)) = seen
+                .iter()
+                .find(|(_, s)| s.0.distance(start.0) < 0.5 && s.1.distance(start.1) < 0.5)
+            {
+                panic!(
+                    "`{}` and `{other}` start from the same two points, so any \
+                     measurement over this suite counts one situation twice",
+                    scenario.name
+                );
+            }
+            seen.push((scenario.name, start));
+        }
+    }
+
+    /// **Every scenario that names an opponent can be PLAYED.**
+    ///
+    /// ⛔ the suite was classification-only: eight `WorldView` fixtures the
+    /// classifier is asked about and no fighter has ever stood in. A ladder
+    /// measured "over §8's scenarios" while seating every rung at the stage's
+    /// authored spawn is measuring one situation eight times.
+    ///
+    /// ⚠ this asserts the two bodies are APART, because a scenario whose
+    /// positions coincide is not a situation — and a fixture that degenerated
+    /// that way would produce a bout the premise never described while looking
+    /// like a scenario run.
+    #[test]
+    fn every_scenario_with_an_opponent_yields_two_distinct_positions() {
+        let suite = suite();
+        assert!(suite.len() >= 8, "the suite shrank to {}", suite.len());
+        let mut playable = 0;
+        for scenario in &suite {
+            let Some((me, foe)) = scenario.starting_positions() else {
+                // A scenario about terrain alone names no opponent; that is a
+                // legitimate fixture and simply not a bout.
+                assert!(
+                    scenario.view.actors.is_empty(),
+                    "`{}` has an opponent but yielded no positions",
+                    scenario.name
+                );
+                continue;
+            };
+            playable += 1;
+            assert!(
+                me.distance(foe) > 1.0,
+                "`{}` puts both fighters in the same place, which is not a \
+                 situation",
+                scenario.name
+            );
+        }
+        assert!(
+            playable >= 4,
+            "only {playable} of {} scenarios can be played, so a ladder run over \
+             this suite would be mostly the stage's default spawn",
+            suite.len()
+        );
+    }
     use super::*;
     use crate::brain::fighter::situation::classify;
     use crate::perception::Perceived;

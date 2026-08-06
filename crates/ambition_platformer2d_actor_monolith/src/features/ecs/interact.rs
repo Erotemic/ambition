@@ -291,6 +291,20 @@ pub fn break_dialogue_on_hit_or_separation(
     mut dialogue: ResMut<ambition_dialog::DialogState>,
     bodies: Query<(&CenteredAabb, Option<&BodyCombat>)>,
     held: Query<(), With<HeldByConversation>>,
+    // The bark's speaker and its anchor. Only the NPC participant carries an
+    // `ActorInteraction`, which is how its character id — and therefore its
+    // voice — is found.
+    speaker: Query<(&super::actor_clusters::BodyKinematics, &ActorInteraction)>,
+    // ⚠ **OPTIONAL here, REQUIRED in the idle-bark ticker, and the divergence is
+    // deliberate.** That ticker takes it as a hard `Res` so a mis-composed
+    // production App cannot silently erase provider-authored dialogue — losing
+    // ambient chatter is its whole output. This system's output is the BREAK;
+    // the bark is an extra. A composition with no catalog (a demo, a headless
+    // fixture) must still stop a conversation its participants walked out of,
+    // and failing the break to guarantee a line would be the wrong trade.
+    character_catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
+    prepared_cast: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     use ambition_dialog::DialogueBreak;
 
@@ -320,12 +334,41 @@ pub fn break_dialogue_on_hit_or_separation(
     let any_struck = struck(a_combat) || struck(b_combat);
     let in_reach = a_aabb.aabb().strict_intersects(b_aabb.aabb());
 
-    if let Some(_break_reason) = DialogueBreak::evaluate(any_struck, in_reach) {
-        // ▢ the BARK is owed: `DialogueBreak::bark_pool` names the pool, and the
-        // bark ticker takes pools from the actor RON's `suggested_barks`. Wiring
-        // it needs a break-pool authored on at least one character to be worth
-        // anything, so the reason is computed and dropped here rather than
-        // pretending a silent break is the finished behaviour.
+    if let Some(reason) = DialogueBreak::evaluate(any_struck, in_reach) {
+        // **THE BARK.** Jon: *"A broken dialog can have some bark to indicate
+        // that it was broken."*
+        //
+        // ⛔ only for the break that has no voice yet. A conversation broken by
+        // a HIT already barks — `npc_hit_bark_line` fires on every strike and
+        // falls back to a generic line when a character authored none — so
+        // adding a second bubble for one event would be worse than none.
+        // `wants_its_own_bark` is where that lives, beside the reason it is
+        // about.
+        //
+        // ⚠ **an empty pool is SILENCE, and that is the finished behaviour**,
+        // exactly as `Idle` and `Hall` document it. No character has a
+        // `conversation_cut` line yet because those are Jon's voice to write,
+        // not the engine's to invent. The mechanism is complete; the content is
+        // a seam.
+        if reason.wants_its_own_bark() {
+            if let Some((kin, interaction)) = speaker.get(*b).ok().or_else(|| speaker.get(*a).ok())
+            {
+                if let Some(line) = character_catalog.as_deref().and_then(|catalog| {
+                    crate::features::npcs::npc_ambient_bark_line(
+                    catalog,
+                    prepared_cast.as_deref(),
+                    &interaction.interactable,
+                    ambition_characters::actor::character_catalog::BarkSituation::ConversationCut,
+                    0,
+                    )
+                }) {
+                    vfx.write(ambition_vfx::vfx::VfxMessage::SpeechBubble {
+                        pos: kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0),
+                        text: line.to_string(),
+                    });
+                }
+            }
+        }
         dialogue.close();
         return;
     }

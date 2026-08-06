@@ -376,6 +376,19 @@ pub enum BarkSituation {
     /// On display in the Hall of Characters: the character's fun, often
     /// self-aware gallery line. Timer-driven; rotates.
     Hall,
+    /// **A conversation with this character was left rather than finished** —
+    /// the other party walked, fell, or was carried out of talking range.
+    ///
+    /// ⛔ deliberately NOT "the conversation was interrupted". A conversation
+    /// broken by a HIT already barks: `npc_hit_bark_line` fires on every strike
+    /// and falls back to a generic line when a character authored none, so a
+    /// second bubble for one event would be worse than none. Walking away is
+    /// the occasion nothing in the game currently answers.
+    ///
+    /// Event-driven; rotates. Empty pool means silence, exactly like `Idle` and
+    /// `Hall` — a character says nothing about being left until somebody writes
+    /// it a line, and that line is the character's voice to author.
+    ConversationCut,
 }
 
 /// Per-character speech-bubble pools, one list per [`BarkSituation`]. All
@@ -400,6 +413,10 @@ pub struct CharacterBarks {
     /// Hall-of-Characters gallery lines (fun / self-aware).
     #[serde(default)]
     pub hall: Vec<String>,
+    /// Lines when somebody walks out of a conversation with this character.
+    /// See [`BarkSituation::ConversationCut`] for why a HIT is not this.
+    #[serde(default)]
+    pub conversation_cut: Vec<String>,
 }
 
 impl CharacterBarks {
@@ -410,6 +427,7 @@ impl CharacterBarks {
             BarkSituation::Provoked => &self.provoked,
             BarkSituation::Idle => &self.idle,
             BarkSituation::Hall => &self.hall,
+            BarkSituation::ConversationCut => &self.conversation_cut,
         }
     }
 

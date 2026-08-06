@@ -43,6 +43,20 @@ pub enum DialogueBreak {
 }
 
 impl DialogueBreak {
+    /// Whether this break deserves a bark of its own.
+    ///
+    /// ⛔ **`Struck` does NOT**, and that is the finding rather than an
+    /// omission: a body knocked about already barks through
+    /// `npc_hit_bark_line`, which fires on every strike and falls back to a
+    /// generic line when a character authored none. A second bubble for one
+    /// event is worse than no bubble.
+    ///
+    /// Walking away is the genuinely new occasion — nothing in the game
+    /// currently says anything when a conversation is simply left.
+    pub fn wants_its_own_bark(self) -> bool {
+        matches!(self, Self::Separated)
+    }
+
     /// Which break, if any, ends a conversation in this state.
     ///
     /// `any_struck` is true when EITHER participant was knocked about — the
@@ -63,20 +77,6 @@ impl DialogueBreak {
             Some(Self::Separated)
         } else {
             None
-        }
-    }
-
-    /// The bark pool this break draws from.
-    ///
-    /// ⭐ barks are not a new concept here — `tick_npc_idle_barks` and the actor
-    /// RON's `suggested_barks` already exist, keyed by pool. A break asks for
-    /// its own pool beside those rather than inventing a second mechanism, so a
-    /// character says something in its own voice when a conversation is cut off
-    /// instead of the box simply vanishing, which reads as a bug.
-    pub fn bark_pool(self) -> &'static str {
-        match self {
-            Self::Struck => "dialogue_broken_struck",
-            Self::Separated => "dialogue_broken_separated",
         }
     }
 }
@@ -120,11 +120,10 @@ mod tests {
     }
 
     #[test]
-    fn the_two_breaks_draw_from_different_pools() {
-        assert_ne!(
-            DialogueBreak::Struck.bark_pool(),
-            DialogueBreak::Separated.bark_pool(),
-            "being hit and walking away deserve different lines"
-        );
+    fn only_walking_away_asks_for_a_line_of_its_own() {
+        // Being struck already barks through the combat path, which always
+        // produces a line. Asking for a second would double the bubble.
+        assert!(!DialogueBreak::Struck.wants_its_own_bark());
+        assert!(DialogueBreak::Separated.wants_its_own_bark());
     }
 }

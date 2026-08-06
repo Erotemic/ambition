@@ -445,6 +445,7 @@ fn a_conversation_breaks_on_knockback_or_on_the_bodies_separating() {
     fn talking_app() -> (App, Entity) {
         let mut app = App::new();
         app.insert_resource(DialogState::default());
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_systems(Update, super::break_dialogue_on_hit_or_separation);
         let here = ae::Vec2::new(100.0, 100.0);
         let initiator = body(&mut app, here);
@@ -519,6 +520,11 @@ fn a_conversation_blanks_the_npcs_brain_and_releases_it_when_it_ends() {
 
     let mut app = App::new();
     app.insert_resource(DialogState::default());
+    // The break can BARK, so its output channel exists here as it does in the
+    // production schedule. Registering it in the fixture rather than wrapping the
+    // writer in `Option` — that waiver would answer "may this be absent" when the
+    // question is who owns registering it.
+    app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_systems(
         Update,
         (

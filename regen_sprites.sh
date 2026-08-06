@@ -377,6 +377,14 @@ expected_files=(
     colonial_statesman_spritesheet.png colonial_statesman_spritesheet.ron
     dark_lord_spritesheet.png dark_lord_spritesheet.ron
     flying_spaghetti_monster_boss_spritesheet.png flying_spaghetti_monster_boss_spritesheet.ron
+    busy_beaver_spritesheet.png busy_beaver_spritesheet.ron
+    busy_beaver_portraits.png busy_beaver_portraits.ron
+    charley_beagle_svg_spritesheet.png charley_beagle_svg_spritesheet.ron
+    charley_beagle_svg_portraits.png charley_beagle_svg_portraits.ron
+    niels_boar_spritesheet.png niels_boar_spritesheet.ron
+    niels_boar_portraits.png niels_boar_portraits.ron
+    vera_ruin_spritesheet.png vera_ruin_spritesheet.ron
+    vera_ruin_portraits.png vera_ruin_portraits.ron
     galwah_spritesheet.png galwah_spritesheet.ron
     ghoul_skulker_spritesheet.png ghoul_skulker_spritesheet.ron
     girdle_spritesheet.png girdle_spritesheet.ron
@@ -1007,6 +1015,10 @@ tackon_targets=(
     marie_curry
     martin_cutta
     neil_ongras_turfson
+    busy_beaver
+    charley_beagle_svg
+    niels_boar
+    vera_ruin
     paradox_barber
     patent_clerk
     paul_diracula

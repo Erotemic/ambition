@@ -120,12 +120,17 @@ const WAIVED: &[(&str, &str)] = &[
         "special_patent_clerk",
         "art in flight; the catalog row is not written yet (Jon, 2026-08-05)",
     ),
-    // Rendered, never cast: a finished sheet with no character anywhere.
-    ("npc_busy_beaver", "rendered but never cast"),
-    ("npc_charley_beagle_svg", "rendered but never cast"),
-    ("npc_niels_boar", "rendered but never cast"),
-    ("npc_pirate_heavy", "rendered but never cast"),
-    ("npc_vera_ruin", "rendered but never cast"),
+    // ⭐ **`pirate_heavy` is a FAMILY, not a character**, and this is a decision
+    // Jon already made: `regen_sprites.sh` records that the catalog dropped its
+    // bare `npc_pirate_heavy` entry on 2026-05-24 rather than shoehorning a
+    // placeholder, because broadside_bess, iron_mary and salt_annet are the real
+    // characters and all three are cast. There is no flat
+    // `pirate_heavy_spritesheet.png` to give a row.
+    //
+    // ⚠ the other four that sat here — busy beaver, charley beagle, niels boar,
+    // vera ruin — were CAST on 2026-08-05 when Jon answered "cast them", so
+    // their entries are gone rather than reworded.
+    ("npc_pirate_heavy", "a multi-variant family target; its variants are the characters, and they are cast"),
 ];
 
 fn waived(id: &str) -> Option<&'static str> {

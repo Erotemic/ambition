@@ -228,10 +228,25 @@ slot with no attached pad cannot be set to controller.
   ignores the sheet entirely. So on the slop *"the sprite might not match the
   box"* is not a scale mismatch at all: the box has the wrong SHAPE, and no value
   of any scale knob can make a square describe a 1.54:1 creature.
-  ▢ **so the slop wants the snake's test**, ratcheting its own quad/box
-  disagreement — and it is the one enemy where the disagreement is fixable
-  without touching the art pipeline, because the square is a hardcoded splat
-  rather than a measured crop.
+  ✅ **FIXED 2026-08-06 (`fbc3689e7`) — the slop's box has its sheet's shape.**
+  `AI_SLOP_BODY_WIDTH` is the one authored number (28, what it occupied before,
+  so no room needs re-authoring) and the height is a measurement:
+  **28 x 28 → 28 x 18.2**. Derived per call like `mary_o_world_per_pixel`, because
+  sheets are regenerated and a scale pinned to today's pixel count silently
+  resizes the creature the first time a crop moves.
+  ⛔ **the first draft of its test recomputed the height from the sheet and was
+  green against the very splat it prevents** — a guard passing through its own
+  arithmetic rather than through the code. It asks `ai_slop_half_size()` now.
+  ⚠ **AND THIS DOES NOT ADDRESS "TOO BIG VISUALLY."** It changed the COLLISION
+  box, not the drawn sprite, so a capture would look identical. Jon's complaint
+  has two halves and this is the one that was a defect; the other is a size, and
+  a size is his call.
+  ▢ **what is left, stated as the choice it is:**
+  * the SNAKE's quad/box disagreement is an art-pipeline crop or a quad sized
+    from the body (`enemy_quad_matches_its_box` ratchets it at 2.47x);
+  * the SIZES themselves — the snake at 41 x 18 world and the slop at 28 x 18
+    against Mary-O's 48 tall — are one number each, and both now live where
+    stating a different one is a one-line edit rather than a hunt.
   ⭐ **the fix Mary-O already demonstrates, in the same crate**: state the world
   size you want and divide by the measured sheet, so a regen that moves the crop
   by a pixel does not silently resize the creature. Her own comment says why —

@@ -121,7 +121,21 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // headless entry point.
     ambition_platformer2d::runtime::add_headless_foundation(&mut app);
 
+    // ⭐ **K2b: the headless report runs the same host a player does.** It used
+    // to compose the simulation plugin alone and take its session root at
+    // plugin-build time — a second way to start a game, whose activation path
+    // nothing else exercised. Composing the shell and booting straight to the
+    // gameplay route makes this one of the ordinary entries; the settle below
+    // is what absorbs the resulting asynchrony.
+    //
+    // ⚠ inserted BEFORE the plugin builds: it is what stops
+    // `publish_direct_prepared_session_root` publishing a second canonical root.
+    app.insert_resource(crate::app::shell_host::AmbitionShellHosted);
     app.add_plugins(AmbitionGameSimulationPlugin);
+    crate::app::shell_host::compose_ambition_shell_host_booting_to(
+        &mut app,
+        crate::app::shell_host::AMBITION_GAMEPLAY_ROUTE,
+    );
 
     // ⭐ **settle BEFORE counting ticks** (K2b.1). Direct entry spawns its root
     // at plugin-build time, so this returns `Ok(0)` and the loop below is

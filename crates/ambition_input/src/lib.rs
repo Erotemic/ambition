@@ -128,7 +128,7 @@ pub use participant::{
     PAUSE_CONTEXT, SELECT_CONTEXT, STARTUP_ACKNOWLEDGE_CONTEXT,
 };
 #[cfg(feature = "input")]
-pub use rebind::{also_bound_to, bindable, capture};
+pub use rebind::{also_bound_to, bindable, capture, pressed_controls_this_frame};
 pub use settings::{BindingOverride, ControlFilters, OverrideControl, OverrideDeviceClass};
 // ⚠ `key_name` joins this list rather than the module being opened: the crate
 // exposes a chosen surface, and a HUD legend needs exactly one function from it.

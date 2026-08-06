@@ -404,10 +404,43 @@ pub const SNAKE_SHEET_TARGET: &str = "solid_snake";
 /// scenery and not bricks — I reported them as bricks drawing with a wooden
 /// texture, and that was wrong.)
 ///
-/// So `0.35` is chosen by ARITHMETIC, honestly labelled: it is a 30% reduction
-/// on the value Jon asked to shrink, and nothing more. Turning this knob again
-/// is a taste call best made by whoever is looking at the running game.
-pub const SNAKE_WORLD_PER_PIXEL: f32 = 0.35;
+/// So `0.35` was chosen by ARITHMETIC, honestly labelled: a 30% reduction on the
+/// value Jon asked to shrink, and nothing more.
+///
+/// ⭐ **it is no longer the knob** (2026-08-06). Turning a pixel scale is a taste
+/// call expressed in the wrong unit: nobody looking at the running game thinks
+/// *"that should be 0.31 world units per sheet pixel"*, they think *"that is too
+/// wide"*. [`SNAKE_BODY_WIDTH`] is that sentence, and this is derived from it —
+/// so the taste call is a one-line edit in the unit the complaint arrives in,
+/// and a regen that moves the crop by a pixel no longer resizes the creature.
+pub fn snake_world_per_pixel() -> f32 {
+    // No baked art (a headless fixture, `--no-assets`): the value this replaced,
+    // so a composition with no sheets behaves exactly as it did.
+    const NO_SHEET: f32 = 0.35;
+    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+        SNAKE_SHEET_TARGET,
+        CharacterAnim::Idle,
+        1.0,
+    )
+    .map(|sheet| sheet.collision.x)
+    .filter(|width| *width > 0.0)
+    .map_or(NO_SHEET, |sheet_width| SNAKE_BODY_WIDTH / sheet_width)
+}
+
+/// **How WIDE a Solid Snake is, in world units** — the one authored number, and
+/// the sentence Jon's complaint actually makes.
+///
+/// ⚠ **WIDTH, not height, and that is the whole point of restating it.** The
+/// snake is a 2.25:1 animal: at the scale this preserves it is **41 x 18** world
+/// against Mary-O's 48 TALL, so it is nearly as wide as she is tall and barely a
+/// third of her height. Every previous attempt scaled by a number that moved both
+/// dimensions together, which is why *"still way too big"* survived three of
+/// them — the offending dimension was never the one being reasoned about.
+///
+/// `41.0` preserves the size `0.35` produced to within a tenth of a world unit,
+/// so this change is a restatement and not a resize. Shrinking the snake is one
+/// edit here.
+pub const SNAKE_BODY_WIDTH: f32 = 41.0;
 
 /// How near an observer has to be for a snake to keep thinking.
 ///
@@ -491,7 +524,7 @@ fn snake_half_size() -> ae::Vec2 {
     ambition_platformer2d::actors::character_sprites::posed_body_geometry(
         SNAKE_SHEET_TARGET,
         CharacterAnim::Idle,
-        SNAKE_WORLD_PER_PIXEL,
+        snake_world_per_pixel(),
     )
     .map_or(ae::Vec2::new(14.0, 16.0), |geometry| {
         geometry.collision * 0.5
@@ -557,7 +590,7 @@ pub fn tag_mary_o_snakes(
                 SnakeShell::Walking,
                 ambition_platformer2d::actors::character_sprites::SpritePosedBody::new(
                     SNAKE_SHEET_TARGET,
-                    SNAKE_WORLD_PER_PIXEL,
+                    snake_world_per_pixel(),
                 ),
                 // ⛔ **the snake had no dormancy policy and the slop did.** Jon
                 // named the slop — *"ai slop will just walk off the edge of the

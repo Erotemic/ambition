@@ -3,7 +3,7 @@
 //! Jon, 2026-08-05, for the second time: *"the snake and ai slop are still way
 //! too big visually. The sprite might not match the box for the snake."*
 //!
-//! `SNAKE_WORLD_PER_PIXEL`'s own doc admits the first answer was not derived:
+//! The scale's own doc admits the first answer was not derived:
 //! *"`0.35` is chosen by ARITHMETIC, honestly labelled: it is a 30% reduction on
 //! the value Jon asked to shrink, and nothing more. Turning this knob again is a
 //! taste call best made by whoever is looking at the running game."* Jon has now
@@ -31,7 +31,7 @@ const TILE: f32 = 32.0;
 /// sprite stands about 2.5x taller than the box it collides with.
 ///
 /// That is Jon's *"the sprite might not match the box for the snake"*, exactly,
-/// and it is why turning `SNAKE_WORLD_PER_PIXEL` never fixed it: the knob scales
+/// and it is why turning the scale never fixed it: the knob scales
 /// both numbers together, so the DISAGREEMENT survives every value. At 0.35 the
 /// body is 41 x 18 world — a bit over a tile long and half a tile tall — while
 /// the quad is 45 x 45, nearly a tile and a half square.
@@ -52,7 +52,7 @@ fn the_snakes_picture_and_its_body_describe_the_same_animal() {
     // is what makes the scale solvable instead of guessable.
     let walking = posed_body_geometry(SNAKE_SHEET_TARGET, CharacterAnim::Idle, 1.0)
         .expect("the snake's sheet publishes body metrics");
-    let scale = ambition_demo_mary_o::snake::SNAKE_WORLD_PER_PIXEL;
+    let scale = ambition_demo_mary_o::snake::snake_world_per_pixel();
     let world = walking.collision * scale;
     let quad = walking.render * scale;
 
@@ -76,7 +76,7 @@ fn the_snakes_picture_and_its_body_describe_the_same_animal() {
         "the snake is DRAWN {:.1} world tall and COLLIDES {:.1} world tall — \
          {overhang:.2}x. Its sheet body is {:?} px inside a {:?} px frame, and \
          the quad is the whole frame, so the picture is square while the animal \
-         is long and flat.\n\nScaling `SNAKE_WORLD_PER_PIXEL` cannot fix this: \
+         is long and flat.\n\nScaling `SNAKE_BODY_WIDTH` cannot fix this: \
          the knob multiplies both numbers, so the disagreement survives every \
          value — which is why two previous attempts at Jon's report did not \
          land. Either the sheet frame is cropped to the animal, or the quad is \

@@ -123,6 +123,29 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
 
     app.add_plugins(AmbitionGameSimulationPlugin);
 
+    // ⭐ **settle BEFORE counting ticks** (K2b.1). Direct entry spawns its root
+    // at plugin-build time, so this returns `Ok(0)` and the loop below is
+    // unchanged — which is exactly why the settle can land before anything is
+    // deleted. Under a shell-composed host the same call waits for the load
+    // barrier and the eight preparation work items instead, and the ticks a
+    // caller asked for are then ticks of GAMEPLAY rather than of activation.
+    //
+    // ⛔ **and it names the barrier when it fails.** The read below is
+    // `.expect("active session RoomSet")`, three lines later: a session that
+    // never activated used to surface as a panic about a missing component,
+    // with nothing pointing at the reason.
+    let settled = ambition_platformer2d::platformer::lifecycle::settle_until_session_world(
+        &mut app,
+        ambition_platformer2d::platformer::lifecycle::SESSION_SETTLE_FRAMES,
+    );
+    if let Err(budget) = settled {
+        eprintln!(
+            "headless: no session world after {budget} frames — the activation \
+             barrier never reached Ready, so the report below would have panicked \
+             on a missing RoomSet rather than saying so"
+        );
+    }
+
     for _ in 0..max_ticks {
         app.update();
     }

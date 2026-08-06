@@ -310,6 +310,49 @@ pub fn session_world_entity(world: &World) -> Option<Entity> {
     Some(entity)
 }
 
+/// **Advance an app until its session world exists.**
+///
+/// ⛔ **direct entry and shell entry disagree about WHEN a world is there, and
+/// that disagreement is the whole of K2b's risk 1.** A direct-entry host spawns
+/// its root at PLUGIN-BUILD time, so `App::new(); …; update(); read_the_world()`
+/// works — and roughly thirty-five integration files, the RL harness and
+/// `run_headless` are written that way. A shell-routed host activates
+/// ASYNCHRONOUSLY: the root appears only once the load barrier reaches `Ready`
+/// and every preparation work item has completed, which takes several frames.
+///
+/// So migrating those callers to the shell is not a call-site edit; it is a
+/// change in when the answer exists. This helper is that change, written down
+/// once: it advances the app until [`session_world_entity`] answers, and returns
+/// how many frames that took.
+///
+/// ⭐ **it returns `Err` with the budget rather than panicking**, so a caller can
+/// say what it was waiting for. A settle that silently gave up would hand back
+/// an app whose world is absent for a reason nobody recorded — which is exactly
+/// the failure the `.expect("active session RoomSet")` in `run_headless` turns
+/// into a panic three lines later, with no clue about the barrier.
+///
+/// ⚠ **a build-time root settles in ZERO frames**, so this is safe to put in
+/// front of a direct-entry caller before anything is deleted — both paths agree
+/// on the answer, they disagree only on when. That is what makes the migration
+/// stageable.
+pub fn settle_until_session_world(app: &mut App, max_frames: u32) -> Result<u32, u32> {
+    for frame in 0..=max_frames {
+        if session_world_entity(app.world()).is_some() {
+            return Ok(frame);
+        }
+        app.update();
+    }
+    Err(max_frames)
+}
+
+/// Frames a shell activation is given to produce its world before a caller
+/// gives up.
+///
+/// Preparation is eight work items behind a load barrier; a handful of frames
+/// covers it with room to spare, and a bound that is far too generous would
+/// turn a genuine hang into a slow test rather than a failure.
+pub const SESSION_SETTLE_FRAMES: u32 = 240;
+
 /// Read one canonical session-world component at an imperative World boundary.
 pub fn session_world_component<T: Component>(world: &World) -> Option<&T> {
     world.get::<T>(session_world_entity(world)?)
@@ -508,3 +551,55 @@ impl Plugin for SessionScopePlugin {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod settle_tests {
+    use super::*;
+    use crate::lifecycle::markers::RoomVisual;
+
+    /// **A world that is already there settles in ZERO frames.**
+    ///
+    /// ⭐ this is what makes K2b stageable: putting the settle in front of a
+    /// direct-entry caller changes nothing for it, so the migration can land the
+    /// helper and the call sites BEFORE anything is deleted, with both paths
+    /// proven to agree on the answer. They disagree only about when.
+    #[test]
+    fn a_build_time_root_settles_immediately() {
+        let mut app = App::new();
+        let entity = insert_session_world_component(app.world_mut(), RoomVisual);
+        assert_eq!(settle_until_session_world(&mut app, 8), Ok(0));
+        assert_eq!(session_world_entity(app.world()), Some(entity));
+    }
+
+    /// **A world that never arrives is an ERROR, not a hang and not a panic.**
+    ///
+    /// ⛔ the caller this replaces reads `.expect("active session RoomSet")`
+    /// three lines after its update loop, so a session that never activated
+    /// surfaced as a panic naming the component rather than the barrier. An
+    /// exhausted budget is a fact the caller can report.
+    #[test]
+    fn a_world_that_never_arrives_reports_the_budget_it_spent() {
+        let mut app = App::new();
+        assert_eq!(settle_until_session_world(&mut app, 4), Err(4));
+    }
+
+    /// **A LATE root is found, which is the whole point.**
+    #[test]
+    fn a_root_that_appears_on_a_later_frame_is_waited_for() {
+        #[derive(Resource, Default)]
+        struct Frames(u32);
+
+        let mut app = App::new();
+        app.init_resource::<Frames>();
+        app.add_systems(
+            Update,
+            |mut frames: ResMut<Frames>, mut commands: Commands| {
+                frames.0 += 1;
+                if frames.0 == 3 {
+                    commands.spawn((SessionRoot(SessionScopeId(0)), RoomVisual));
+                }
+            },
+        );
+        assert_eq!(settle_until_session_world(&mut app, 16), Ok(3));
+    }
+}

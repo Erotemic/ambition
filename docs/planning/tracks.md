@@ -370,6 +370,17 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   `SessionScopeId(0)` directly — the coverage is all implicit, which is exactly
   what makes risk 1 dangerous.
 
+  ◐ **K2b.1 STARTED 2026-08-06: the settle helper is landed and in front of
+  `run_headless`.** `settle_until_session_world(app, frames)` advances until
+  `session_world_entity` answers and returns how many frames it took —
+  `Ok(0)` for a build-time root, so putting it in front of a direct-entry
+  caller changes nothing and the migration is stageable exactly as this row
+  planned. Three tests pin the three cases: immediate, late, and never (an
+  `Err(budget)` rather than a panic three lines later about a missing
+  `RoomSet`). ▢ still to migrate: `rl_sim/mod.rs:64` and
+  `bin/capture_scene.rs:143`, then the ~35 integration files behind
+  `tests/common/mod.rs`.
+
   **Suggested staging:** (K2b.1) land the settle helper + migrate
   `headless`/`rl_sim`/`capture_scene` to compose the shell and settle, keeping
   the build-time root as a fallback and proving both paths agree; (K2b.2)

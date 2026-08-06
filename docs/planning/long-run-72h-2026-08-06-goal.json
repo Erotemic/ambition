@@ -1,0 +1,45 @@
+{
+  "_comment": [
+    "72-hour run, prepared 2026-08-06 on Jon's instruction: 'I also want you to",
+    "set a new 72 hour work goal with our script, after you finish with this",
+    "push, then get back to working on everything in docs/planning.' The deadline",
+    "below is an ABSOLUTE wall-clock stamp -- re-arming after a session is",
+    "replaced does NOT restart the 72 hours, which is deliberate. Only Jon ends",
+    "this run.",
+    "",
+    "Lane A is FIRST because Jon picked it: PA3's remaining halves, then the three",
+    "rulings he made today that turned into work rather than closing items. A5",
+    "(dialogue continuity) is the architecture headline -- it needs an authority",
+    "that does not exist yet, 'can this body hold station', and it is stated",
+    "symmetrically about actors rather than about the player.",
+    "",
+    "The ledger check names THIS run's spine. Refill it rather than letting it",
+    "empty: an empty ledger means the next item has not been written down."
+  ],
+  "goal": "Work continuously for 72 hours on docs/planning/queue-72h-2026-08-06.md, in lane order. A: Jon's pick and his rulings — A1 PA3's remaining halves (one semantic activation event for controller + virtual-touch submit beside the converged pointer path; directional repeat/focus/wrap behind ambition_ui_nav, nav-axis consumption unchanged), A2 per-seat pause (any seat opens it, that seat drives it; SeatMenuFrames already exists), A3 filtering keyed to the PAD not the machine (⛔ this CLOSES per-seat presets by narrowing — do not build them), A4 dialogue leaves the suspend set and DIALOGUE_CONTEXT becomes the whole gate, A5 dialogue CONTINUITY — break on damage or separation, HOLD participants that can hold station, BARK on break, stated symmetrically about actors and never about whether the player can still talk, and it needs a 'can this body hold station' authority that does not exist. A6 the P5 rebind-capture UI, built ON A1 per D3. B: Jon's own observations file — his direct observations outrank inferred work. C: the architecture spine (tracks, smash-siblings, the authoring loop, the engine design docs); prefer a seam, an authority, a lifecycle boundary, or a measurement that can move. D: keep awaiting-maintainer-decision.md ANSWERABLE, and notice when a row has become answerable without Jon. E: the three carried queues by POINTER, never by copy — re-measure before working any of them. ONCE LANES A-E ARE DISCHARGED, EVERYTHING ELSE IN docs/planning IS IN SCOPE (Jon, 2026-08-06) — read the roadmap, vision, status, tracks and the engine design docs, pick the item that makes the next ten cheapest, and add it to the spine as a row WITH its reasoning before working it. Do not invent work outside docs/planning. ⛔ before working any ▢, grep for the thing it says is missing: the commonest staleness is an open row on work that already landed, and the PA handoff hit it twice inside its own text. THERE IS NO COMPLETION CRITERION: if every row is checked, the next item has not been WRITTEN DOWN yet — go read docs/planning, add it, and get back to work. Do not write a completion-shaped summary while time remains; that prose is the exact artifact that ends runs early.",
+  "deadline_utc": "2026-08-09T21:00:00Z",
+  "max_run_hours": 74,
+  "max_stalled_blocks": 40,
+  "checks": [
+    {
+      "name": "the ledger has no open rows (refill it rather than stopping)",
+      "cmd": "! grep -q '▢' docs/planning/queue-72h-2026-08-06.md",
+      "timeout": 60
+    },
+    {
+      "name": "the app compiles (the gate, not a per-crate check)",
+      "cmd": "$HOME/.cargo/bin/cargo check -p ambition_app --quiet",
+      "timeout": 900
+    },
+    {
+      "name": "the architectural absence contracts hold",
+      "cmd": "python3 scripts/check_absence_contracts.py --check",
+      "timeout": 300
+    },
+    {
+      "name": "nothing is left uncommitted",
+      "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal' ':!untracked' ':!tools/ambition_sprite2d_renderer' ':!tools/ambition_music_renderer' ':!ambition-agent-source-*' ':!*.zip' ':!docs/planning/gpt-diff.patch' ':!assets/manual-art')\"",
+      "timeout": 60
+    }
+  ]
+}

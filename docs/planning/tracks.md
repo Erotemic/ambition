@@ -487,9 +487,14 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     (`SpawnOrigin + TransactionId + RoomScopedEntity + SessionScopedEntity +
     SimId + Name`) whose components are REGISTERED as rollback state while the
     entity carries no rollback anchor — so the registration is a claim the
-    engine does not honour. It exists only under the shell. Identify what that
-    entity is before choosing between giving it an anchor and admitting the
-    registration is inert.
+    engine does not honour. It exists only under the shell.
+    ⚠ **narrowed by probe (2026-08-06, throwaway, not kept):** the CLI-built
+    app — which composes the shell as of edit 1 — has **ZERO** construction
+    roots without a body after settling. So the archetype is NOT a plain
+    consequence of shell composition; it appears under the HARNESS's composition
+    specifically (rollback enabled, a named room). The next investigation should
+    probe inside `Platformer2dSimHarness` with the flip applied and print the
+    entity's `Name`, rather than re-deriving that the shell is involved.
   ⭐ **the remaining work after that is a HEADLESS SHELL COMPOSITION** — routing
   and activation without the provider presentation — if the anchor question does
   not dissolve it.

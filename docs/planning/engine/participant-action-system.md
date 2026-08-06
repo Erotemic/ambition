@@ -9,6 +9,12 @@
 > fully captures: a participant-centered, action-based input system that a new
 > game can use without writing keyboard, gamepad, mouse, or touch glue.
 >
+> **ACTIVE (2026-08-06):** Jon approved execution verbatim — "Yes do the
+> architecture task PA1-PA4" — executed by Fable 5. PA1 is largely landed
+> (recipe-based map rebuild 746a95e25; per-seat device fact + glyph move
+> cf868687e; one gamepad label table 8839e9fc7): see the dated §9 PA1
+> annotations for exactly what landed and what PA1 still owes.
+>
 > **Executor:** Opus-level implementation. Land one vertical slice at a time;
 > stop only when source contradicts a factual assumption. Do not replace the
 > working deterministic lower half while migrating the host/device half.
@@ -361,14 +367,45 @@ not claim this deterministic migration is complete.
 
 ### Still global/single-participant
 
-- `ActiveInputContext` is one global primary-participant resource;
-- `ActiveInputKind` is global;
-- `ActiveInputMethod`/`GamepadKind` in actor affordances is a second device
-  presentation model that can drift from `ActiveInputKind`;
-- `ControlFrame`, `ControlFrameLatch`, `MenuControlFrame`, and menu repeat state
-  are global primary-seat resources;
-- gameplay context claims are applied to every participant even though routing
-  resolves only the primary seat.
+Rewritten 2026-08-06 — the couch-multiplayer work seat-keyed most of this list
+before PA1 formally started, and PA1 finished the device half. What became
+seat-keyed, and what is genuinely still global:
+
+**Seat-keyed now:**
+
+- ✔ `ActiveInputContext` is a per-seat VALUE inside the `SeatInputContexts`
+  resource (`crates/ambition_input/src/participant.rs`), resolved from EVERY
+  participant's claims each frame — the old split (claims applied per
+  participant, routing resolved only the primary) is gone, and consumers that
+  are genuinely about the local primary say so via `.primary()` instead of by
+  being the only reader of a global;
+- ✔ (2026-08-06) `ActiveInputKind` and `ActiveInputMethod` no longer exist:
+  one per-seat `SeatActiveDevices` (`crates/ambition_input/src/active_input.rs`)
+  holds each seat's last genuine device, and its `machine()` projection
+  preserves the old global's semantics for the mouse-hover gates; gamepad
+  vendor style (`GamepadStyle`) is actually detected — USB vendor id first,
+  name substrings second (`gamepad_style_of`) — instead of the old TODO stub;
+- ✔ `SeatBindings` (`crates/ambition_input/src/bindings.rs`) is the per-seat
+  binding projection, derived from the live `InputMap` (never a parallel
+  table); `SeatMenuFrames` (`crates/ambition_input/src/menu.rs`) carries
+  per-seat menu frames.
+
+**Still global:**
+
+- `ControlFrame` and `ControlFrameLatch`
+  (`crates/ambition_platformer2d_core/src/control_frame.rs`) remain the ONE
+  global device-shaped packet + latch, and they are seat 0's: secondary seats
+  bypass them — each writes its own slot of `SlotControls`
+  (`crates/ambition_characters/src/brain/mod.rs`), carries its dash edge as a
+  `SeatDashTriggerState` component on its participant entity
+  (`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs`;
+  the primary's still lives in the `PlayerDashTriggerState` resource), and
+  rollback streams secondary frames through `PendingSeatInputs`
+  (`crates/ambition_platformer2d_runtime/src/rollback/session.rs`). Retiring
+  the seat-0 special case is PA5's routing work;
+- `MenuControlFrame` and the `MenuInputState` menu repeat state
+  (`crates/ambition_input/src/menu.rs`) are still global resources beside
+  their per-seat siblings.
 
 ### Contexts not migrated
 
@@ -400,7 +437,15 @@ device adapters.
 ### Binding/cue gaps
 
 - presets are the authority, but there is no per-participant override model;
-- gamepad glyphs still use a parallel table and incomplete device detection;
+- ~~gamepad glyphs still use a parallel table and incomplete device
+  detection~~ — ✔ fixed 2026-08-06 (cf868687e, 8839e9fc7), both halves:
+  `glyphs::button_label(button, style)`
+  (`crates/ambition_input/src/glyphs.rs`) is the ONE gamepad label table —
+  prompts reach it through `PhysicalControl::label_for(style)`, so a prompt
+  and a glyph can never name one physical button two ways on one frame (the
+  old "Select" vs "Back" disagreement) — and vendor style is detected
+  (`gamepad_style_of`), so `GAMEPAD_MAP`/`action_label`/`movement_label` are
+  deleted as dead;
 - `UiCue` is label-only;
 - touch layout still knows fixed `ControlSlot` positions;
 - `Platformer2dInputActionMonolith` remains a closed Ambition adapter enum.
@@ -431,6 +476,32 @@ Build on `character-actions.md` P1/P5 rather than duplicating it.
 
 **Exit:** changing one binding changes behavior, keyboard/gamepad glyphs, and
 virtual touch mapping in the same frame; no actor is recreated.
+
+**Status (2026-08-06, Fable 5) — largely landed, spec above kept as the bar:**
+
+- ✔ recipe-based map rebuild for EVERY seat (746a95e25): `BindingRecipe`
+  (component on the participant, `crates/ambition_input/src/bindings.rs`) is
+  the declared source of one seat's map, with one pure `build()` shared by
+  spawn sites and `rebuild_maps_from_recipes` (which carries the seat's
+  gamepad association and resets `ActionState` only on a real change);
+  `sync_primary_recipe_from_settings`
+  (`crates/ambition_platformer2d_actor_monolith/src/schedule/input_systems.rs`)
+  bridges the persisted preset index. This replaces the app-only
+  `single_mut()` resync that reached nobody the moment a second seat existed;
+- ✔ `ActiveInputKind` + `ActiveInputMethod` collapsed into per-seat
+  `SeatActiveDevices` with the `machine()` projection (cf868687e); vendor
+  style detection (`gamepad_style_of`: USB vendor id, then name fallback)
+  closes the old TODO stub, so DualShock/Switch glyphs actually happen; the
+  glyph stack (`glyph_for`) moved to `ambition_input::glyphs`, deleting the
+  touch overlay's only reason to name the actor crate;
+- ✔ ONE gamepad label table (8839e9fc7):
+  `glyphs::button_label(button, style)` +
+  `PhysicalControl::label_for(style)` — the prompt's "Select" vs the glyph's
+  "Back" disagreement is structurally gone;
+- ▢ still owed for PA1: the persisted per-action OVERRIDE model — rebind
+  capture is `character-actions.md` P5, and `BindingRecipe` is where
+  overrides fold in — and per-seat presets for secondary seats (couch seats
+  are `GamepadOnly` today).
 
 ### PA2 — migrate all ordinary local control surfaces to explicit contexts
 

@@ -58,15 +58,31 @@ pub fn direct_entry(hosted: Option<Res<AmbitionShellHosted>>) -> bool {
 /// re-exports its public identities for compatibility while owning only home,
 /// startup, platform, and process policy.
 pub use ambition_content::provider::{
-    AMBITION_EXPERIENCE, AMBITION_GAMEPLAY_ROUTE, AmbitionExperienceConfig,
-    AmbitionExperiencePlugin, AmbitionPreparedWorld,
+    AmbitionExperienceConfig, AmbitionExperiencePlugin, AmbitionPreparedWorld, AMBITION_EXPERIENCE,
+    AMBITION_GAMEPLAY_ROUTE,
 };
 
 /// Compose the shell-routed multi-game host on top of the already-composed
 /// visible Ambition app: shell/load/session plugins, the three linked
 /// providers, the launcher-as-home routing, process exit, and the universal
 /// in-session Quit to Home binding.
+/// The headless shell host, booted straight to a chosen route.
+///
+/// ⭐ **K2b edit 1, landed additively.** Direct entry is meant to become *a shell
+/// host whose initial route is the gameplay route* — the recipe
+/// `ambition_demo_sanic_app` already proves. This is the parameter that lets a
+/// caller say so, and lets a test build BOTH paths and compare their worlds,
+/// which is the evidence the deletion stage needs. `compose_ambition_shell_host`
+/// keeps its launcher default, so nothing that exists today changes.
+pub fn compose_ambition_shell_host_booting_to(app: &mut App, initial_route: &str) {
+    compose_ambition_shell_host_inner(app, initial_route);
+}
+
 pub fn compose_ambition_shell_host(app: &mut App) {
+    compose_ambition_shell_host_inner(app, AMBITION_LAUNCHER_ROUTE);
+}
+
+fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     app.insert_resource(AmbitionShellHosted);
 
     // The title screen has its own theme. The engine's frontend audio policy
@@ -128,10 +144,7 @@ pub fn compose_ambition_shell_host(app: &mut App) {
         ));
     app.world_mut()
         .resource_mut::<ShellHostConfiguration>()
-        .spec = Some(ShellHostSpec::new(
-        AMBITION_LAUNCHER_ROUTE,
-        AMBITION_LAUNCHER_ROUTE,
-    ));
+        .spec = Some(ShellHostSpec::new(initial_route, AMBITION_LAUNCHER_ROUTE));
 
     // ⚠ ORDERED, not ambiguous. This reads `ShellEvent`, and the shell writes
     // them in `AmbitionGameShellSet::Commands`; unordered it landed wherever
@@ -142,7 +155,8 @@ pub fn compose_ambition_shell_host(app: &mut App) {
     // had nothing to do with what it tests.
     app.add_systems(
         Update,
-        exit_on_shell_request.after(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands),
+        exit_on_shell_request
+            .after(ambition_platformer2d::game_shell::AmbitionGameShellSet::Commands),
     );
     // The pause-suppression bridge only exists when the universal pause menu it
     // yields to does — that menu (and its `ShellPauseMenuSuppressed`) ships with
@@ -182,7 +196,9 @@ pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
 /// consumer that cares how long the run-in lasts derives it from
 /// [`ambition_startup_duration`] rather than restating a number.
 fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSegmentSpec> {
-    use ambition_platformer2d::game_shell::{ShellSegmentPolicy, ShellSegmentRole, ShellSegmentSpec};
+    use ambition_platformer2d::game_shell::{
+        ShellSegmentPolicy, ShellSegmentRole, ShellSegmentSpec,
+    };
 
     vec![
         // The ENGINE card. Held longer than the 2s default so its ease-in /
@@ -248,7 +264,9 @@ pub fn ambition_startup_duration() -> std::time::Duration {
 /// `ShellSequenceCatalog` entry keyed by the startup experience, a route whose
 /// `on_complete` is `GoTo(launcher)`, and the startup route as the initial one.
 pub fn compose_ambition_startup_sequence(app: &mut App) {
-    use ambition_platformer2d::game_shell::{ShellExperienceId, ShellSequenceCatalog, ShellSequenceSpec};
+    use ambition_platformer2d::game_shell::{
+        ShellExperienceId, ShellSequenceCatalog, ShellSequenceSpec,
+    };
 
     app.world_mut()
         .resource_mut::<ShellRouteCatalog>()
@@ -282,7 +300,9 @@ pub fn install_ambition_shell_visuals(app: &mut App) {
     // Provider-agnostic per-session room presentation: parallax + static room
     // visuals for WHATEVER RoomSet the activating provider owns —
     // Sanic and Mary-O draw in this host through the same one system.
-    app.add_plugins(ambition_platformer2d::render::platformer_presentation::SessionRoomVisualsPlugin);
+    app.add_plugins(
+        ambition_platformer2d::render::platformer_presentation::SessionRoomVisualsPlugin,
+    );
     app.add_systems(
         Update,
         ambition_activate_session_visuals.in_set(SessionScopeSet::Presentation),

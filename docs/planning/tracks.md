@@ -387,8 +387,29 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   names no `session_world*` and holds no `.expect`, because it already waits
   through its own warmup and camera-adoption gate. The row listed it because it
   composes the plugin, and composing is not the same as reading.
-  ▢ still to migrate: the ~35 integration files behind `tests/common/mod.rs`,
-  which is the bulk of risk 1.
+  ✔ **the ~35 integration files behind `tests/common/mod.rs` need no edits** —
+  they all construct through `Platformer2dSimHarness::build`, so the settle
+  inside it covers every one. Risk 1 is retired at the seam rather than at 35
+  call sites.
+  ✔ **AND BOTH PATHS ARE NOW PROVEN TO AGREE** —
+  `game/ambition_app/tests/direct_and_shell_agree.rs` builds direct entry and a
+  shell host booted straight to `AMBITION_GAMEPLAY_ROUTE`, settles both through
+  the same helper, and asserts they start in the SAME ROOM. Measured: direct
+  settles in **0** frames, the shell in **2**. That is the coverage this row
+  called *"all implicit, which is exactly what makes risk 1 dangerous"*.
+  ⛔ **two things the test found that the plan did not say:**
+  1. the shell composer is an ADAPTER, not a composition —
+     `compose_ambition_shell_host` without `AmbitionGameSimulationPlugin` panics
+     on frame one (`settle_versus_round` wants `Res<WorldTime>`);
+  2. `AmbitionShellHosted` must be inserted BEFORE the sim plugin builds, or
+     `publish_direct_prepared_session_root` runs anyway and the app gets TWO
+     canonical roots — the `SessionScopeId(0)` collision this row predicts in
+     prose, reproduced.
+  ⭐ edit 1 landed additively: `compose_ambition_shell_host_booting_to(app,
+  route)`, with the launcher default untouched.
+  ▢ **K2b.2 is now unblocked**: delete the build-time root and the four
+  `direct_entry` gates, with the agreement test as the thing that says the game
+  did not change.
 
   **Suggested staging:** (K2b.1) land the settle helper + migrate
   `headless`/`rl_sim`/`capture_scene` to compose the shell and settle, keeping

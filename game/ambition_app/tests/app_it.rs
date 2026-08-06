@@ -35,6 +35,7 @@ mod crouch_stability;
 mod dash_stability;
 mod declared_art_resolves;
 mod desync_canary;
+mod direct_and_shell_agree;
 mod dive_drill_reachability;
 mod door_entry;
 mod duel_arena;

@@ -1405,7 +1405,7 @@ pub fn update_button_glyph_from_active_input(
     }
 }
 
-/// Per-frame: write each button's pressed flag from the persistent
+/// Per-frame: write each button's pressed flag from the PRIMARY
 /// participant's `ActionState<Platformer2dInputActionMonolith>`. Touch is a bound virtual
 /// device now, so the same `ActionState` covers a finger on the overlay, a
 /// mouse click on it, AND the keyboard/gamepad — one source lights the
@@ -1413,14 +1413,24 @@ pub fn update_button_glyph_from_active_input(
 /// the visual-sync system can filter on `Changed<ButtonPressed>`. Operates
 /// on the Button entity (which carries both `TouchActionButton` and
 /// `ButtonPressed`), so no parent walk is needed.
+///
+/// **Primary, not `single()`.** The overlay is one device on one screen —
+/// the machine's own — so it lights from the primary seat's actions, the
+/// same selection [`update_button_glyph_from_active_input`] makes for the
+/// glyphs. A couch seat's pad must not light the machine's screen; and the
+/// old `single()` read went dead the moment a second couch participant
+/// spawned (two matches → `Err` → every button unlit).
 pub fn update_button_pressed_from_actions(
-    actions_q: Query<
+    actions_q: Query<(
+        &ambition_input::InputParticipant,
         &leafwing_input_manager::prelude::ActionState<Platformer2dInputActionMonolith>,
-        With<ambition_input::InputParticipant>,
-    >,
+    )>,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,
 ) {
-    let actions = actions_q.single().ok();
+    let actions = actions_q
+        .iter()
+        .find(|(participant, _)| participant.id == ambition_input::ParticipantId::PRIMARY)
+        .map(|(_, actions)| actions);
     for (touch_action, mut pressed) in &mut buttons {
         // An unclassifiable button reads as NOT held, which is the truthful
         // answer: nothing is driving it.

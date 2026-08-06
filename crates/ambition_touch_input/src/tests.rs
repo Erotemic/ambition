@@ -180,6 +180,55 @@ mod virtual_device_tests {
             "touch stays bound after the preset swap replaced the map"
         );
     }
+
+    #[test]
+    fn a_second_couch_seat_neither_receives_touch_nor_blinds_the_overlay() {
+        // The overlay is ONE device on the machine's own screen: with a couch
+        // seat spawned beside the primary, a screen tap must (a) still drive
+        // the PRIMARY seat, (b) never press anything on the couch seat, and
+        // (c) still light the pressed-visual. (a)+(c) are the single-seat
+        // regressions the couch census found: `bind_touch_virtual_inputs`
+        // bound touch into EVERY map, and the pressed-visual read the
+        // participant via `single()`, which went dead at two matches.
+        use super::super::bevy_plugin::{update_button_pressed_from_actions, ButtonPressed};
+        use super::super::layout::TouchActionButton;
+        use ambition_input::ParticipantId;
+
+        let (mut app, primary) = app();
+        app.add_systems(Update, update_button_pressed_from_actions);
+        // A gamepad-only couch seat: same entity shape, fresh (Changed) map.
+        let couch = app
+            .world_mut()
+            .spawn((
+                InputParticipant::with_id(ParticipantId::SECONDARY),
+                ParticipantContexts::default(),
+                ActionState::<Platformer2dInputActionMonolith>::default(),
+                InputMap::<Platformer2dInputActionMonolith>::default(),
+            ))
+            .id();
+        // One overlay button entity, the shape the pressed-visual operates on.
+        let button = app
+            .world_mut()
+            .spawn((TouchActionButton::Jump, ButtonPressed(false)))
+            .id();
+        app.update(); // the bind pass sees the couch seat's fresh map — and skips it.
+
+        hold(&mut app, |s| s.0.jump = TouchButton::pressed_now());
+        app.update();
+
+        assert!(
+            actions(&app, primary).pressed(&Platformer2dInputActionMonolith::Jump),
+            "the machine's own screen still drives the PRIMARY seat"
+        );
+        assert!(
+            !actions(&app, couch).pressed(&Platformer2dInputActionMonolith::Jump),
+            "one screen tap must not press Jump on the couch seat"
+        );
+        assert!(
+            app.world().get::<ButtonPressed>(button).unwrap().0,
+            "the pressed-visual reads the primary seat; a second participant must not blind it"
+        );
+    }
 }
 
 // ─── The gesture lane + presenter policy ────────────────────────────────────

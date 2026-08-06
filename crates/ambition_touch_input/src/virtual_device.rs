@@ -15,8 +15,9 @@
 //!   `GamepadControlDirection`-with-threshold analog for the discrete
 //!   `MoveLeft/Right/Up/Down` gesture edges (double-tap-down morph, etc.).
 //!
-//! [`bind_touch_virtual_inputs`] adds the bindings to the participant's
-//! `InputMap`. The context-sensitive behaviors that used to be special-cased
+//! [`bind_touch_virtual_inputs`] adds the bindings to the PRIMARY
+//! participant's `InputMap` — the overlay is the machine's own screen, not a
+//! couch seat's. The context-sensitive behaviors that used to be special-cased
 //! (the Jump button acting as menu confirm, the Reset button acting as Back)
 //! are DECLARED double-bindings here: the gameplay verb routes only while the
 //! gameplay context owns input, the menu action always feeds the menu frame —
@@ -316,28 +317,38 @@ pub fn touch_bindings() -> Vec<(
     ]
 }
 
-/// Add the touch virtual-device bindings to the participant's `InputMap`.
+/// Add the touch virtual-device bindings to the PRIMARY participant's
+/// `InputMap`.
 ///
 /// Runs on `Added`/`Changed` so a preset swap (which REPLACES the map
 /// wholesale) re-binds touch; our own insertion bypasses change detection so
 /// the write does not re-trigger this system into duplicate bindings.
+///
+/// **Primary only.** The overlay is ONE virtual device on the machine's own
+/// screen, so it belongs to the primary seat — the same attribution the raw
+/// screen devices get everywhere else in this crate ("one device on one
+/// screen: the local primary seat"). Binding it into EVERY seat's map is
+/// what let one screen tap press a button on a gamepad-only couch seat.
 pub fn bind_touch_virtual_inputs(
     mut maps: Query<
-        &mut leafwing_input_manager::prelude::InputMap<
-            ambition_input::Platformer2dInputActionMonolith,
-        >,
         (
-            With<ambition_input::InputParticipant>,
-            Changed<
-                leafwing_input_manager::prelude::InputMap<
-                    ambition_input::Platformer2dInputActionMonolith,
-                >,
+            &ambition_input::InputParticipant,
+            &mut leafwing_input_manager::prelude::InputMap<
+                ambition_input::Platformer2dInputActionMonolith,
             >,
         ),
+        Changed<
+            leafwing_input_manager::prelude::InputMap<
+                ambition_input::Platformer2dInputActionMonolith,
+            >,
+        >,
     >,
 ) {
     use ambition_input::Platformer2dInputActionMonolith as A;
-    for mut map in &mut maps {
+    for (participant, mut map) in &mut maps {
+        if participant.id != ambition_input::ParticipantId::PRIMARY {
+            continue;
+        }
         let map = map.bypass_change_detection();
         for (action, button) in touch_bindings() {
             map.insert(action, button);

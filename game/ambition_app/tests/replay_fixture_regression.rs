@@ -17,6 +17,17 @@
 //! guards the trajectory of a specific room from a specific recorded moment;
 //! that one guards the artifact.
 //!
+//! ⭐ **REGENERATED 2026-08-06 (K2b edit 2), and the diff proves nothing moved.**
+//! Deleting the build-time `SessionRoot` made every entry point activate through
+//! the shell, which takes frames — so the caller's frame 0 is now one frame
+//! later in the same fall. The new trace is the old one shifted by exactly one:
+//! `new[i] == old[i+1]` for all 59 frames, and both land at y=904.0.
+//!
+//! ⚠ **that check is the point, and it is the one to repeat.** A regenerated
+//! fixture is worthless as evidence unless somebody says what changed about it.
+//! "The trajectory is identical and the window moved" is a different claim from
+//! "the physics changed", and only one of them is a reason to accept a rewrite.
+//!
 //! Regenerate the fixture (e.g. when an intentional gameplay change shifts the
 //! trajectory):
 //!

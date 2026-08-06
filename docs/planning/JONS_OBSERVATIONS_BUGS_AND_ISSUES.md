@@ -268,3 +268,20 @@ slot with no attached pad cannot be set to controller.
   written by a test would be a taxonomy nobody chose. What it does say is that
   the snake should be stated as a WIDTH (or a height with the sheet's aspect
   respected) and the slop should stop being a square.
+
+
+
+----
+
+
+Interesting bug, that's a big smell. When you play a round of smash and choose
+your character, that becomes your character if you quit to title and play
+ambition itself. That is a big architecture problem. Playing one game should
+have no impact on the others. A quit to title and restart a game should also
+have no impact on the game, it should feel fresh every time unless the game has
+a save mechanic. But it should behave like you quit to the desktop and
+restarted, so there is some persistent state that is likely a global resource
+that is not reset, and that is probably an architecture problem. I noticed that
+when I picked the oni-leader and then quit to title and played ambition I was
+the oni leader and I could talk to other characters, but not the oni leader
+himself. Strange.

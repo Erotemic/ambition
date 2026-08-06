@@ -66,11 +66,23 @@ by hardness × payoff; every item below is executable today per its own doc.
    shadow-model rollout stack is in `brain::fighter::rollout`, striking with
    the hit-response kernel carved to `ambition_platformer2d_core::hit_response`,
    with the determinism, bench, and real-sim fidelity instruments beside it.
-   **Remaining in this track: FB4b, the decision rig — specced as
-   fighter-brain.md §13, [opus, fable-specced].** It is what unlocks the
-   ladder self-play rig, the APM/reaction humanity checks, and FB6e's
-   `l3_earns_its_depth`; ladder rows keep `rollout_depth: 0` until that gate
-   exists.
+   ~~**Remaining in this track: FB4b, the decision rig — specced as
+   fighter-brain.md §13.**~~ **THE RIG IS IN TREE** (verified 2026-08-06):
+   `StateMachineCfg::Fighter`, `BrainSnapshot.attack_kit` with a real builder
+   (`attack_kit_of`), the dispatcher arm and the `SnapshotCursor` arm all exist.
+   The row said §13 was the executable next step after it had been executed.
+   ⭐ **what was actually blocking `l3_earns_its_depth` was a missing PARAMETER,
+   not a missing rig.** `ShadowTuning` had no friction term at all, so a body
+   leaving a dash stopped dead in the shadow and coasted ~38px in the game — an
+   under-predicted stopping distance, which is the direction that lets the
+   movement veto approve a dash off the stage. Adding
+   `ground_coast_decel`/`air_coast_decel` (veto untouched) took `ladder_probe`
+   over 7 seeds from *every rung losing all three stocks inside ~10s* to *levels
+   5/6/9 never self-KOing in a minute*, and REVERSED the A/B: `9/d0` loses a
+   stock at 6.2s while `9/d12` survives the whole run.
+   ▢ **still owed for the gate**: §8's scenario suite and the survival/damage
+   ratios. A probe with one scenario and an opponent that cannot attack says the
+   gate is worth authoring; it is not the gate.
 3. ~~**Matchbox two-peer transport + predicted-A/corrected-B oracle**
    (netcode.md "next online slice"; unblocked since the confirmed-frame
    quarantine landed 2026-07-21).~~ **DEFERRED to the Super Smash Siblings era

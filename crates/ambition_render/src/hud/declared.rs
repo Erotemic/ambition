@@ -54,6 +54,48 @@ pub struct DeclaredHudSpec(HudSlotSpec);
 /// Gap between stacked readouts in the same region.
 const SLOT_GAP: f32 = 6.0;
 
+/// Bevy's default line height, `LineHeight::RelativeToFont(1.2)`.
+///
+/// ⚠ mirrored rather than read, because the spawned nodes take the default and
+/// nothing here sets one. If a slot ever declares its own line height, this
+/// derivation has to move to that value.
+const LINE_HEIGHT_FACTOR: f32 = 1.2;
+
+/// How much vertical room one slot's PUBLISHED readout needs.
+///
+/// ⛔ **stacking advanced by ONE line and every readout here may be several.**
+/// TwinTrack publishes three-line status and result cards, so its four declared
+/// slots were drawn on top of each other's second and third lines — the top-left
+/// of that demo is unreadable mush, and it looks like a layout bug in the game
+/// rather than in the renderer that spaces the slots. Any game that publishes a
+/// `\n` hits it.
+///
+/// ⚠ a slot with NO published readout still reserves one line: a conditional
+/// card that blinks in and out would otherwise shove everything below it up and
+/// down as it appeared, and a stable HUD that reserves a little too much beats
+/// one that jumps.
+fn slot_extent(spec: &HudSlotSpec, readouts: &HudReadouts, measured: Option<f32>) -> f32 {
+    // ⛔ **the estimate cannot see WRAPPING, and the measurement can.** Counting
+    // `\n` fixed the explicit line breaks and left TwinTrack's status line —
+    // one logical line long enough to wrap — still colliding with the slot
+    // under it. `ComputedNode` carries what the layout actually produced, which
+    // is the only thing that knows where the text broke.
+    //
+    // ⚠ **last frame's height**, because UI layout runs in `PostUpdate` and this
+    // is an `Update` system. Moving a node's `top` does not change its height,
+    // so there is no oscillation to converge — the lag shows only on the frame a
+    // readout changes line count.
+    if let Some(height) = measured.filter(|height| *height > 0.0) {
+        return height + SLOT_GAP;
+    }
+    let lines = readouts
+        .get(&spec.id)
+        .map(|readout| readout.text().lines().count())
+        .unwrap_or(1)
+        .max(1);
+    spec.font_size * LINE_HEIGHT_FACTOR * lines as f32 + SLOT_GAP
+}
+
 fn declaration_matches_live_specs<'a>(
     declared: &[HudSlotSpec],
     existing: impl Iterator<Item = Option<&'a DeclaredHudSpec>>,
@@ -227,7 +269,10 @@ pub fn spawn_declared_hud(
 pub fn place_declared_hud(
     presentation: Res<ResolvedGameplayPresentation>,
     active: Res<ActiveHudDeclaration>,
-    mut slots: Query<(&DeclaredHudSlot, &mut Node)>,
+    // What each slot is CURRENTLY showing, because how tall a slot is depends on
+    // how many lines the game published into it this frame. See [`slot_extent`].
+    readouts: Res<HudReadouts>,
+    mut slots: Query<(&DeclaredHudSlot, &mut Node, Option<&ComputedNode>)>,
 ) {
     let mut offset_in_region: std::collections::BTreeMap<u8, f32> = Default::default();
     let mut overlay_offset = 0.0_f32;
@@ -243,7 +288,7 @@ pub fn place_declared_hud(
         // the gameplay rectangle, which is the thing the player is looking at.
         if spec.centered {
             let gameplay = presentation.gameplay_rect;
-            for (slot, mut node) in &mut slots {
+            for (slot, mut node, _) in &mut slots {
                 if slot.0 != spec.id {
                     continue;
                 }
@@ -280,6 +325,14 @@ pub fn place_declared_hud(
         // by luck rather than by placement.
         let region = select_hud_region(&presentation, spec);
 
+        // What this slot's text actually occupied last frame, in LOGICAL px —
+        // `ComputedNode` is physical, and `Node::top` is not.
+        let measured = slots
+            .iter()
+            .find(|(slot, ..)| slot.0 == spec.id)
+            .and_then(|(_, _, computed)| computed)
+            .map(|computed| computed.size().y * computed.inverse_scale_factor());
+
         let anchor = match region {
             Some((actual_region, rect)) => {
                 // Two differently authored preferences may fall back to the
@@ -287,17 +340,17 @@ pub fn place_declared_hud(
                 // or both start at its origin and overlap.
                 let stacked = offset_in_region.entry(actual_region as u8).or_insert(0.0);
                 let anchor = rect.min + Vec2::splat(HUD_MARGIN) + Vec2::new(0.0, *stacked);
-                *stacked += spec.font_size + SLOT_GAP;
+                *stacked += slot_extent(spec, &readouts, measured);
                 anchor
             }
             None => {
                 let anchor = OVERLAY_ANCHOR + Vec2::new(0.0, overlay_offset);
-                overlay_offset += spec.font_size + SLOT_GAP;
+                overlay_offset += slot_extent(spec, &readouts, measured);
                 anchor
             }
         };
 
-        for (slot, mut node) in &mut slots {
+        for (slot, mut node, _) in &mut slots {
             if slot.0 != spec.id {
                 continue;
             }
@@ -342,8 +395,12 @@ pub fn update_declared_hud_gauges(
         let slot = specs.iter().find(|(slot, ..)| slot.0 == bar.0);
         if let Some((_, spec, slot_node)) = slot {
             let left = slot_node.left;
+            // ⚠ **below the LAST line, not below the first.** The bar used to
+            // sit one font-size down, which is under a single-line readout and
+            // through the middle of a multi-line one.
+            let text_height = slot_extent(&spec.0, &readouts, None) - SLOT_GAP;
             let top = match slot_node.top {
-                Val::Px(px) => Val::Px(px + spec.0.font_size + 2.0),
+                Val::Px(px) => Val::Px(px + text_height + 2.0),
                 other => other,
             };
             if node.left != left {
@@ -441,7 +498,7 @@ impl Plugin for DeclaredHudPlugin {
 mod tests {
     use super::*;
     use ambition_platformer2d_shared_tangle::gameplay_presentation::{
-        HudDeclaration, HudLayoutPolicy, NamedScreenRect,
+        HudDeclaration, HudLayoutPolicy, HudReadout, NamedScreenRect,
     };
 
     #[test]
@@ -537,6 +594,7 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(presentation);
         app.insert_resource(ActiveHudDeclaration(Some(declaration)));
+        app.init_resource::<HudReadouts>();
         app.add_systems(Update, place_declared_hud);
         let top = app
             .world_mut()
@@ -565,6 +623,49 @@ mod tests {
         assert!(
             bottom_y > top_y,
             "two preferences that fall back to Left must share its stack: {top_y} vs {bottom_y}",
+        );
+    }
+
+    /// **A slot as tall as what it PUBLISHED, not as tall as one line.**
+    ///
+    /// ⛔ the stack advanced by `font_size + gap` whatever the readout said, so
+    /// a game publishing a three-line card had the next slot drawn across its
+    /// second and third lines. TwinTrack does exactly that in four slots at
+    /// once, and its top-left corner is unreadable because of it.
+    #[test]
+    fn a_multi_line_readout_pushes_the_next_slot_below_all_of_its_lines() {
+        const SIZE: f32 = 20.0;
+        let declaration = HudDeclaration::new()
+            .slot(HudSlotSpec::new("tall").with_font_size(SIZE))
+            .slot(HudSlotSpec::new("after").with_font_size(SIZE));
+
+        let mut app = App::new();
+        // No reserved surround: both slots land in the overlay stack, which is
+        // the arrangement every ordinary window produces.
+        app.insert_resource(ResolvedGameplayPresentation::default());
+        app.insert_resource(ActiveHudDeclaration(Some(declaration)));
+        let mut readouts = HudReadouts::default();
+        readouts.set("tall", HudReadout::bare("one\ntwo\nthree"));
+        app.insert_resource(readouts);
+        app.add_systems(Update, place_declared_hud);
+        let tall = app
+            .world_mut()
+            .spawn((DeclaredHudSlot(HudSlotId::new("tall")), Node::default()))
+            .id();
+        let after = app
+            .world_mut()
+            .spawn((DeclaredHudSlot(HudSlotId::new("after")), Node::default()))
+            .id();
+        app.update();
+
+        let y = |entity| match app.world().get::<Node>(entity).expect("node").top {
+            Val::Px(y) => y,
+            ref other => panic!("expected a pixel anchor, got {other:?}"),
+        };
+        let gap = y(after) - y(tall);
+        assert!(
+            gap >= SIZE * 3.0,
+            "a three-line card was allotted {gap}px — the next slot is drawn              through its own text",
         );
     }
 }

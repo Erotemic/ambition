@@ -293,6 +293,19 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   `with_presentation_profiles` is the natural owner, but Ambition's content
   plugin is today's publisher and adding a second writer for one user would be
   speculative. Fold it in with K2b, which touches that builder anyway.
+  ⛔ **RE-EXAMINED 2026-08-06 when K2b landed, and DECLINED — measured, not
+  assumed.** `WorldManifest` appears 80 times across the tree and NO game but
+  Ambition declares one: `ambition_demo_sanic`, `ambition_demo_mary_o` and
+  `ambition_demo_smash` name the type zero times between them. A builder method
+  would therefore be a seam with exactly one caller, which is the
+  pre-generalization the engine direction forbids outright. The row's own
+  reasoning was right; folding it into K2b did not change the count.
+  ▢ **what IS real here, and is a different row**: the manifest has TWO writers
+  of the same value — `ambition_content::plugin` (line 74) and
+  `ambition_app::app::resources` (line 75). Idempotent today because both insert
+  `ambition_content::worlds::world_manifest()`, and the same "a global needs one
+  owner" shape that cost a roster, a rebuild, a retirement and a countdown this
+  week. Worth removing the duplicate; NOT worth inventing a builder to do it.
 - ✔ **K2b direct-entry activation — DONE 2026-08-06.** The oracle is met: the
   hand-built `SessionRoot` is deleted. `compose_ambition_gameplay_host` is the
   one composition, and the whole `ambition_app` suite (471 tests) plus the

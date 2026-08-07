@@ -480,3 +480,102 @@ def test_manifest_lists_outputs_for_enabled_payloads(monkeypatch, tmp_path: Path
         "Live disk inventory",
     ):
         assert f"- {label}: generated" in txt_text
+
+
+def _run_main_capturing_toggles(monkeypatch, tmp_path: Path, argv: list[str]) -> dict:
+    captured: dict = {}
+
+    def fake_build(*args, **kwargs):
+        captured["run_dependency_graph"] = archiver.CONFIG["run_dependency_graph"]
+        return tmp_path / "agent.tar.gz"
+
+    monkeypatch.setattr(archiver, "build_archive", fake_build)
+    monkeypatch.setattr(archiver, "print_output_location", lambda path: None)
+    assert archiver.main([str(tmp_path), *argv]) == 0
+    return captured
+
+
+def test_dependency_graph_is_off_unless_asked_for(monkeypatch, tmp_path: Path):
+    """Graphviz is the one tool this repo's payload does not otherwise need."""
+    assert archiver.CONFIG["run_dependency_graph"] is False
+    off = _run_main_capturing_toggles(monkeypatch, tmp_path, [])
+    on = _run_main_capturing_toggles(monkeypatch, tmp_path, ["--dependency-graph"])
+    assert off["run_dependency_graph"] is False
+    assert on["run_dependency_graph"] is True
+    # and the flag is restored afterwards, so one run cannot leak into the next.
+    assert archiver.CONFIG["run_dependency_graph"] is False
+
+
+def test_dependency_graph_cannot_outlive_its_prerequisite(monkeypatch, tmp_path: Path):
+    """The drawings read graphs the navigation step writes.
+
+    Asking for a picture of a graph that was never built is a request that
+    cannot be honored; it must not turn into a confusing failure deep in the
+    staged tree, nor into an empty drawing.
+    """
+    for skip in (["--skip-agent-navigation"], ["--skip-index"], ["--slim"]):
+        captured = _run_main_capturing_toggles(
+            monkeypatch, tmp_path, ["--dependency-graph", *skip]
+        )
+        assert captured["run_dependency_graph"] is False, skip
+
+
+def test_dependency_graph_paths_required_only_when_the_step_runs(tmp_path: Path):
+    archive_root = tmp_path / "root"
+    (archive_root / ".agent/index/crates").mkdir(parents=True)
+    for name in archiver.CONFIG["required_archive_paths"]:
+        target = archive_root / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("x")
+    saved = {
+        key: archiver.CONFIG[key]
+        for key in (
+            "run_agent_index",
+            "run_ecs_inventory",
+            "run_agent_navigation",
+            "run_dirstats",
+            "run_live_disk_inventory",
+            "run_dependency_graph",
+        )
+    }
+    try:
+        for key in saved:
+            archiver.CONFIG[key] = False
+        archiver.validate_archive_root(archive_root)  # nothing else enabled: passes
+        archiver.CONFIG["run_dependency_graph"] = True
+        with pytest.raises(RuntimeError, match="graph-declared.dot"):
+            archiver.validate_archive_root(archive_root)
+    finally:
+        archiver.CONFIG.update(saved)
+
+
+def test_resolved_graph_is_drawn_only_when_it_was_resolved(tmp_path: Path):
+    """⚠ absence stays explained.
+
+    A resolved graph that cargo could not build ships as `available: false`
+    with a reason, so skipping its drawing leaves a file in the same directory
+    saying why. Drawing it anyway would produce a picture of nothing.
+    """
+    crates = tmp_path / ".agent/index/crates"
+    crates.mkdir(parents=True)
+    resolved = crates / "graph-resolved.json"
+
+    assert archiver.dependency_graphs_to_draw(tmp_path) == ["declared"]
+
+    resolved.write_text(json.dumps({"available": False, "reason": "cargo not runnable"}))
+    assert archiver.dependency_graphs_to_draw(tmp_path) == ["declared"]
+
+    resolved.write_text(json.dumps({"available": True, "edges": {}}))
+    assert archiver.dependency_graphs_to_draw(tmp_path) == ["declared", "resolved"]
+
+
+def test_dependency_graph_step_fails_loudly_without_graphviz(monkeypatch, tmp_path: Path):
+    """⛔ opt-in means it does NOT degrade: you asked for a picture."""
+    monkeypatch.setattr(archiver.shutil, "which", lambda name: None)
+    monkeypatch.setitem(archiver.CONFIG, "run_dependency_graph", True)
+    with pytest.raises(RuntimeError, match="graphviz"):
+        archiver.run_dependency_graph(tmp_path, lambda *a, **k: None)
+
+    # ...and it is silent, not fatal, when the step was never requested.
+    monkeypatch.setitem(archiver.CONFIG, "run_dependency_graph", False)
+    archiver.run_dependency_graph(tmp_path, lambda *a, **k: None)

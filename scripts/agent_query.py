@@ -11,7 +11,13 @@ Examples:
     python scripts/agent_query.py symbol GroundContactTransition
     python scripts/agent_query.py ecs "room transition" --crate ambition_app
     python scripts/agent_query.py crate ambition_platformer2d_runtime
+    python scripts/agent_query.py deps ambition_audio
+    python scripts/agent_query.py graph ambition_audio --format svg
     python scripts/agent_query.py build-catalog
+
+Everything works with the standard library alone. The one exception is drawing:
+``graph`` writes graphviz source unaided, and rendering that source to a picture
+shells out to ``dot`` only when you ask for a picture format.
 """
 
 from __future__ import annotations
@@ -21,11 +27,12 @@ import json
 import re
 import subprocess
 import sys
+import textwrap
 import tomllib
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 AGENT_DIR = ROOT / ".agent"
@@ -47,6 +54,7 @@ KNOWN_COMMANDS = {
     "tests",
     "crate",
     "deps",
+    "graph",
     "path",
     "build-catalog",
 }
@@ -758,6 +766,21 @@ that consumer's own workspace; see
 generation it carries `"available": false` and a reason, because a missing file
 cannot be told apart from a workspace with no dependencies.
 
+### Drawing one
+
+    python scripts/agent_query.py graph                       # whole workspace, resolved
+    python scripts/agent_query.py graph ambition_audio --depth 2
+    python scripts/agent_query.py graph ambition_sfx --direction rdeps --depth 2
+    python scripts/agent_query.py graph --graph declared --format svg
+
+Graphviz is **opt-in and never required**: the `.dot` source is plain text this
+script writes itself, and only `--format svg|png|pdf` shells out to `dot`. The
+drawing states which graph it is in its title, dashes optional edges, and labels
+them with the feature that enables them — a picture of declared edges and one of
+resolved edges are otherwise indistinguishable and mean different things.
+
+`./archive_agent_source.sh --dependency-graph` renders them into the archive.
+
 ## Trust rule
 
 Use generated data to locate likely owners and tests. Confirm the result in
@@ -1082,6 +1105,266 @@ def command_deps(name: str, *, external: bool = False) -> None:
             print("    " + ", ".join(only_declared))
 
 
+# ---------------------------------------------------------------------------
+# Drawing. Graphviz is OPT-IN and is never required to produce the graph: `dot`
+# source is plain text this script writes itself, and rendering it to a picture
+# is a separate step that shells out. A machine with no graphviz still gets the
+# `.dot` file and can render it elsewhere.
+# ---------------------------------------------------------------------------
+
+GRAPHVIZ_MISSING_HINT = (
+    "graphviz is not installed — the `dot` binary is not on PATH.\n"
+    "  The .dot source needs nothing; only rendering it does. Either install\n"
+    "  graphviz, or write the source and render it elsewhere:\n"
+    "    python scripts/agent_query.py graph --out deps.dot"
+)
+
+
+def normalized_graph_edges(
+    graph: Mapping[str, Any], *, external: bool
+) -> dict[str, list[dict[str, Any]]]:
+    """Both graphs' edges in ONE shape, because they are stored differently.
+
+    The declared graph stores rich rows (optional, `enabled_by`, kind); the
+    resolved graph stores bare names, since by the time cargo has resolved it
+    there is no optionality left to describe. Normalizing here keeps the drawing
+    code from asking which graph it is holding — the only thing it needs to know
+    is what to draw, and the difference shows up as edge STYLE, not as a branch.
+    """
+    members = set(graph.get("members", []))
+    out: dict[str, list[dict[str, Any]]] = {}
+    for source, rows in (graph.get("edges", {}) or {}).items():
+        edges: list[dict[str, Any]] = []
+        for row in rows:
+            if isinstance(row, str):
+                row = {"name": row, "internal": row in members, "kind": "normal"}
+            if not external and not row.get("internal"):
+                continue
+            edges.append(dict(row))
+        out[source] = sorted(edges, key=lambda item: str(item.get("name")))
+    return out
+
+
+def graph_neighbourhood(
+    edges: Mapping[str, list[dict[str, Any]]],
+    focus: str,
+    depth: int,
+    direction: str,
+) -> set[str]:
+    """Nodes within `depth` hops of `focus`, following the requested arrows.
+
+    ⚠ `rdeps` is the question that actually gets asked ("what breaks if I change
+    this"), and it is NOT answerable by reversing a `deps` drawing by eye once
+    the graph is wider than a few nodes.
+    """
+    reverse: dict[str, set[str]] = {}
+    for source, rows in edges.items():
+        for row in rows:
+            reverse.setdefault(str(row.get("name")), set()).add(source)
+
+    seen = {focus}
+    frontier = {focus}
+    for _ in range(max(0, depth)):
+        nxt: set[str] = set()
+        for node in frontier:
+            if direction in {"deps", "both"}:
+                nxt |= {str(row.get("name")) for row in edges.get(node, [])}
+            if direction in {"rdeps", "both"}:
+                nxt |= reverse.get(node, set())
+        nxt -= seen
+        if not nxt:
+            break
+        seen |= nxt
+        frontier = nxt
+    return seen
+
+
+def _dot_quote(text: str) -> str:
+    return '"' + str(text).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _dot_label(text: str) -> str:
+    """A quoted label that keeps graphviz's own `\\n` line break working.
+
+    ⚠ `_dot_quote` escapes backslashes, which is right for a crate name and
+    wrong for a title — it turns the line break into a literal `\\n` printed in
+    the picture. Separate helper rather than a flag, so the caller cannot pick
+    the wrong one by omission.
+    """
+    return '"' + str(text).replace('"', '\\"') + '"'
+
+
+def build_dot(
+    graph: Mapping[str, Any],
+    *,
+    external: bool = False,
+    focus: str | None = None,
+    depth: int = 1,
+    direction: str = "both",
+) -> str:
+    """Graphviz source for one dependency graph.
+
+    ⭐ **the drawing says which graph it is**, in the title and in a comment
+    header, for the same reason the JSON files do: a picture of declared edges
+    and a picture of resolved edges look identical and mean different things,
+    and a PNG in a chat window has lost every bit of context but its pixels.
+
+    Declared-only distinctions are drawn, not dropped: an optional edge is
+    dashed and labelled with the feature that enables it, and an optional edge
+    that NOTHING enables — an edge that costs a consumer nothing — is dotted and
+    said so. The resolved graph has no such edges by construction.
+    """
+    which = str(graph.get("graph", "unknown"))
+    members = set(graph.get("members", []))
+    edges = normalized_graph_edges(graph, external=external)
+
+    keep: set[str] | None = None
+    if focus:
+        keep = graph_neighbourhood(edges, focus, depth, direction)
+
+    lines: list[str] = [
+        "// Generated by: python scripts/agent_query.py graph",
+        f"// graph: {which}",
+    ]
+    lines += [f"// {chunk}" for chunk in textwrap.wrap(str(graph.get("means", "")), 76)]
+    if which == "resolved" and not graph.get("available", True):
+        lines.append(f"// ⚠ NOT AVAILABLE: {graph.get('reason', 'unknown')}")
+
+    title = f"ambition dependencies — {which.upper()}"
+    if focus:
+        title += f" — {focus} ({direction}, depth {depth})"
+    title += "\\nedges: " + (
+        "what cargo resolves; every one is compiled"
+        if which == "resolved"
+        else "what manifests declare; dashed = optional, dotted = nothing enables it"
+    )
+
+    lines += [
+        "digraph ambition_deps {",
+        "  graph [rankdir=LR, splines=spline, overlap=false, fontname=Helvetica,",
+        f"         labelloc=t, fontsize=14, label={_dot_label(title)}];",
+        "  node [shape=box, style=rounded, fontname=Helvetica, fontsize=10];",
+        "  edge [color=gray40];",
+        "",
+    ]
+
+    drawn = sorted(
+        {node for node in edges if keep is None or node in keep}
+        | {
+            str(row.get("name"))
+            for source, rows in edges.items()
+            if keep is None or source in keep
+            for row in rows
+            if keep is None or str(row.get("name")) in keep
+        }
+    )
+    for node in drawn:
+        attrs: list[str] = []
+        if node == focus:
+            attrs.append('style="rounded,filled", fillcolor="#ffe08a", penwidth=2')
+        elif node not in members:
+            attrs.append('shape=ellipse, color=gray60, fontcolor=gray40')
+        suffix = f" [{', '.join(attrs)}]" if attrs else ""
+        lines.append(f"  {_dot_quote(node)}{suffix};")
+    lines.append("")
+
+    for source in sorted(edges):
+        if keep is not None and source not in keep:
+            continue
+        for row in edges[source]:
+            target = str(row.get("name"))
+            if keep is not None and target not in keep:
+                continue
+            attrs: list[str] = []
+            if row.get("optional"):
+                enablers = row.get("enabled_by") or []
+                if enablers:
+                    attrs.append("style=dashed")
+                    attrs.append(f"label={_dot_quote(','.join(enablers))}")
+                else:
+                    attrs.append("style=dotted, color=gray70")
+                    attrs.append('label="nothing enables"')
+                attrs.append("fontsize=8, fontname=Helvetica")
+            if row.get("kind") and row.get("kind") != "normal":
+                attrs.append(f'xlabel={_dot_quote(row["kind"])}, fontsize=8')
+            suffix = f" [{', '.join(attrs)}]" if attrs else ""
+            lines.append(f"  {_dot_quote(source)} -> {_dot_quote(target)}{suffix};")
+
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def render_dot(source: str, out: Path, fmt: str) -> None:
+    """Run graphviz. Absence is an ERROR here, because you asked for a picture."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        proc = subprocess.run(
+            ["dot", f"-T{fmt}", "-o", str(out)],
+            input=source,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=300,
+        )
+    except FileNotFoundError:
+        raise SystemExit(GRAPHVIZ_MISSING_HINT) from None
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise SystemExit(f"graphviz failed to run: {exc}") from None
+    if proc.returncode != 0:
+        detail = (proc.stderr or "").strip() or f"exit {proc.returncode}"
+        raise SystemExit(f"graphviz failed: {detail}")
+
+
+def command_graph(
+    *,
+    which: str,
+    focus: str | None,
+    depth: int,
+    direction: str,
+    external: bool,
+    out: Path | None,
+    fmt: str | None,
+) -> None:
+    """Write graphviz source for a dependency graph, and optionally render it."""
+    path = RESOLVED_GRAPH_PATH if which == "resolved" else DECLARED_GRAPH_PATH
+    graph = load_json(path, {}) or {}
+    if not graph:
+        raise SystemExit(
+            f"no {which} dependency graph at {path}; "
+            "run: python scripts/generate_agent_index.py"
+        )
+    if which == "resolved" and not graph.get("available", True):
+        # Not a silent fall back to the declared graph: they disagree, and a
+        # drawing that quietly answered the other question would be worse than
+        # no drawing at all.
+        raise SystemExit(
+            f"the resolved graph was not generated: {graph.get('reason', 'unknown')}\n"
+            "  regenerate it where cargo exists, or draw the other graph:\n"
+            "    python scripts/agent_query.py graph --graph declared"
+        )
+
+    if focus:
+        focus = _resolve_member(focus, graph.get("members", []))
+
+    source = build_dot(
+        graph, external=external, focus=focus, depth=depth, direction=direction
+    )
+
+    # Format is inferred from the output suffix when it is not given, because
+    # `--out deps.svg --format dot` writing DOT into a .svg is a trap.
+    if fmt is None:
+        fmt = out.suffix.lstrip(".").lower() if out and out.suffix else "dot"
+    if out is None:
+        out = path.with_suffix(f".{fmt}")
+
+    if fmt in {"dot", "gv"}:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(source, encoding="utf-8")
+    else:
+        render_dot(source, out, fmt)
+    print_output_location(out)
+
+
 def command_path(path_text: str) -> None:
     normalized = Path(path_text).as_posix().removeprefix("./")
     files = load_json(INDEX_DIR / "file_summaries.json", {}) or {}
@@ -1143,6 +1426,38 @@ def parser() -> argparse.ArgumentParser:
         action="store_true",
         help="include non-workspace (crates.io) edges, which are hidden by default",
     )
+    graph = sub.add_parser(
+        "graph", help="write graphviz source for a dependency graph, optionally rendered"
+    )
+    graph.add_argument("focus", nargs="?", help="draw only around this crate")
+    graph.add_argument(
+        "--graph",
+        dest="which",
+        choices=["resolved", "declared"],
+        default="resolved",
+        help="which graph to draw; they disagree on purpose (default: resolved)",
+    )
+    graph.add_argument(
+        "--depth", type=int, default=1, help="hops from the focus crate (default: 1)"
+    )
+    graph.add_argument(
+        "--direction",
+        choices=["deps", "rdeps", "both"],
+        default="both",
+        help="follow dependencies, dependents, or both from the focus (default: both)",
+    )
+    graph.add_argument(
+        "--external",
+        action="store_true",
+        help="include non-workspace (crates.io) nodes, which are hidden by default",
+    )
+    graph.add_argument("--out", type=Path, help="output path; default sits beside the JSON graph")
+    graph.add_argument(
+        "--format",
+        dest="fmt",
+        help="dot (no graphviz needed) or any `dot -T` format: svg, png, pdf. "
+        "Default: inferred from --out, else dot",
+    )
     path = sub.add_parser("path")
     path.add_argument("path")
     build = sub.add_parser("build-catalog")
@@ -1198,6 +1513,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         command_crate(args.name)
     elif args.command == "deps":
         command_deps(args.name, external=args.external)
+    elif args.command == "graph":
+        command_graph(
+            which=args.which,
+            focus=args.focus,
+            depth=args.depth,
+            direction=args.direction,
+            external=args.external,
+            out=args.out,
+            fmt=args.fmt,
+        )
     elif args.command == "path":
         command_path(args.path)
     elif args.command == "build-catalog":

@@ -12,6 +12,8 @@ The archive layout is deterministic:
         .git/                         # optional shallow/full history
         .agent/README.md              # generated navigation front door
         .agent/index/...              # flat indexes + per-crate drill-down packets
+        .agent/index/crates/graph-*.dot   # optional, --dependency-graph (graphviz)
+        .agent/index/crates/graph-*.svg   # optional, --dependency-graph (graphviz)
         .agent/ecs_inventory/...       # per-crate ECS inventory shards
         .agent/reports/...             # optional full diagnostic reports
         .agent/dirstats-*.txt         # freshly generated from staged contents
@@ -36,6 +38,7 @@ import argparse
 import fnmatch
 import json
 import os
+import shutil
 import subprocess
 import sys
 from collections import Counter
@@ -109,6 +112,27 @@ CONFIG = {
         # so in `available`/`reason`, which is the fact worth shipping.
         '.agent/index/crates/graph-declared.json',
         '.agent/index/crates/graph-resolved.json',
+    ],
+
+    # Drawn dependency graphs. OPT-IN (`--dependency-graph`), because this is
+    # the only payload needing a tool that is neither Rust nor Python: graphviz's
+    # `dot`. The JSON graphs above already carry every edge, so the picture is a
+    # convenience for a human reader, not a fact only it holds.
+    #
+    # ⚠ the RESOLVED graph is drawn only when it was resolved. When cargo was
+    # unavailable the JSON says so in `available`/`reason` and ships anyway, so
+    # the missing .dot beside it is explained by a file in the same directory —
+    # which is the only reason skipping it here is not a silent absence.
+    'run_dependency_graph': False,
+    'dependency_graph_formats': ['dot', 'svg'],
+    'dependency_graph_command': [
+        sys.executable,
+        'scripts/agent_query.py',
+        'graph',
+    ],
+    'required_dependency_graph_paths': [
+        '.agent/index/crates/graph-declared.dot',
+        '.agent/index/crates/graph-declared.svg',
     ],
 
     # Agent discovery reports. The ECS inventory is intentionally a neutral
@@ -1058,6 +1082,8 @@ def write_manifests(
         f'- ECS inventory: {"generated" if run_ecs_inventory else "skipped"}',
         f'- Agent navigation: {"generated" if run_agent_navigation else "skipped"}',
         f'- Full reports: {"generated" if full_reports else "skipped"}',
+        f'- Dependency graph drawings: '
+        f'{"rendered" if CONFIG["run_dependency_graph"] else "skipped"}',
         f'- Dirstats: {"generated" if run_dirstats else "skipped"}',
         f'- Live disk inventory: {"generated" if run_live_disk_inventory else "skipped"}',
         '',
@@ -1087,6 +1113,8 @@ def validate_archive_root(archive_root: Path) -> None:
         required.extend(CONFIG['required_ecs_inventory_paths'])
     if CONFIG['run_agent_navigation']:
         required.extend(CONFIG['required_agent_navigation_paths'])
+    if CONFIG['run_dependency_graph']:
+        required.extend(CONFIG['required_dependency_graph_paths'])
     if CONFIG['run_dirstats']:
         required.extend(CONFIG['required_dirstats_paths'])
     if CONFIG['run_live_disk_inventory']:
@@ -1132,6 +1160,56 @@ def run_agent_navigation(archive_root: Path, log: Log) -> None:
     env = os.environ.copy()
     env.setdefault('PYTHONUNBUFFERED', '1')
     run(cmd, cwd=archive_root, check=True, capture=False, env=env)
+
+
+def dependency_graphs_to_draw(archive_root: Path) -> list[str]:
+    """Which graphs have something to draw, declared always and resolved if resolved.
+
+    ⚠ read from the staged tree, not from the dev checkout: the generators ran
+    in there, and a resolved graph that failed in the archive while succeeding
+    locally is exactly the case this has to get right.
+    """
+    graphs = ['declared']
+    resolved = archive_root / '.agent/index/crates/graph-resolved.json'
+    try:
+        payload = json.loads(resolved.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return graphs
+    if payload.get('available'):
+        graphs.append('resolved')
+    return graphs
+
+
+def run_dependency_graph(archive_root: Path, log: Log) -> None:
+    """Draw the dependency graphs with graphviz. Opt-in; absence is an error.
+
+    ⛔ **a missing `dot` fails the build here rather than degrading**, because
+    this step only runs when it was explicitly asked for. Every other step is on
+    by default and has to tolerate a thin machine; this one was requested.
+    """
+    if not CONFIG['run_dependency_graph']:
+        log(
+            '[archive-agent-source] skipping dependency graph drawings; pass '
+            '--dependency-graph to render them (needs graphviz)'
+        )
+        return
+    if shutil.which('dot') is None:
+        raise RuntimeError(
+            '--dependency-graph needs graphviz, and the `dot` binary is not on PATH. '
+            'Install graphviz, or drop the flag — the JSON graphs carry every edge '
+            'either way.'
+        )
+    base = [str(part) for part in CONFIG['dependency_graph_command']]
+    env = os.environ.copy()
+    env.setdefault('PYTHONUNBUFFERED', '1')
+    for graph in dependency_graphs_to_draw(archive_root):
+        for fmt in CONFIG['dependency_graph_formats']:
+            cmd = [*base, '--graph', graph, '--format', fmt]
+            log(
+                '[archive-agent-source] drawing dependency graph: '
+                + ' '.join(shell_quote(p) for p in cmd)
+            )
+            run(cmd, cwd=archive_root, check=True, capture=False, env=env)
 
 
 def first_primary_span(message: dict[str, object]) -> dict[str, object] | None:
@@ -1337,6 +1415,7 @@ class AmbitionArchiveExtension:
             refresh_generation_stamp(context, self.generated_at, self.log)
         run_ecs_inventory(context.archive_root, self.log)
         run_agent_navigation(context.archive_root, self.log)
+        run_dependency_graph(context.archive_root, self.log)
         if self.full_reports:
             run_full_agent_reports(
                 context.archive_root, self.generated_at, self.log
@@ -1522,6 +1601,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help='do not build .agent/README.md, catalog, or crate packets',
     )
     parser.add_argument(
+        '--dependency-graph',
+        action='store_true',
+        help='render the crate dependency graphs with graphviz (needs the `dot` binary)',
+    )
+    parser.add_argument(
         '--skip-dirstats',
         action='store_true',
         help='do not generate the staged dirstats reports',
@@ -1570,13 +1654,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         'run_agent_index': not args.skip_index,
         'run_ecs_inventory': not args.skip_ecs_inventory,
         'run_agent_navigation': not args.skip_agent_navigation and not args.skip_index,
+        # Nothing to draw without the graphs the navigation step writes, so the
+        # flag cannot turn this on over a skipped prerequisite.
+        'run_dependency_graph': (
+            args.dependency_graph
+            and not args.skip_agent_navigation
+            and not args.skip_index
+        ),
         'run_dirstats': not args.skip_dirstats,
         'run_live_disk_inventory': not args.skip_live_inventory,
     }
     saved = {key: CONFIG[key] for key in step_toggles}
+    # Assign the toggle rather than only clearing it: `run_dependency_graph`
+    # defaults to False and is turned ON by a flag, so a clear-only loop would
+    # accept `--dependency-graph` and silently draw nothing.
     for key, keep in step_toggles.items():
-        if not keep:
-            CONFIG[key] = False
+        CONFIG[key] = keep
     try:
         output = build_archive(
             args.repo,

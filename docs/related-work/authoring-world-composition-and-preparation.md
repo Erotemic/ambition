@@ -6,7 +6,7 @@ where hot reload/validation belong.
 
 ## The Ambition question
 
-Ambition's current construction target is intentionally not "build a prefab
+Ambition's current construction architecture is intentionally not "build a prefab
 system". The architecture in
 [`immutable-content-and-transactional-construction.md`](../planning/engine/immutable-content-and-transactional-construction.md)
 is:
@@ -25,9 +25,54 @@ The canonical world IR remains authoring-backend neutral; LDtk is the active
 spatial backend, not the runtime object model. Hot reload prepares a candidate
 epoch off to the side before commit.
 
-This is already a strong distinction. The remaining work is deciding how much
-editor-like convenience can be added **without letting authoring object graphs
-become the simulation authority**.
+The source shows that this is no longer only a target architecture.
+[`ambition_content_pack::compile`](../../crates/ambition_content_pack/src/lib.rs)
+is the single compiler front door used by tests/CLI/runtime preparation. It
+resolves schema handlers, validates capabilities and facets, aggregates
+multi-source schema fragments, resolves content references/assets, detects
+conflicts, canonicalizes ordering, and emits a
+[`PreparedContentPack`](../../crates/ambition_content_pack/src/prepared.rs).
+That prepared pack contains canonical content, resolved references, prepared
+asset provenance, diagnostics, **already-lowered runtime artifacts**, and a
+stable content fingerprint. Runtime consumers therefore do not need to reparse
+the authored bytes with subtly different validation rules.
+
+The fingerprint is intentionally computed from canonical semantic content, not
+raw source bytes or machine-specific asset roots. Schema handlers are required
+to define the canonical form of the values they lower, and multi-source runtime
+schemas must explicitly define how their fragments aggregate rather than letting
+the compiler guess union/override behavior. That is already compiler design, not
+a loose collection of loader callbacks.
+
+Construction is similarly implemented.
+[`ambition_platformer2d_shared_tangle::construction`](../../crates/ambition_platformer2d_shared_tangle/src/construction/mod.rs)
+plans stable `SimId` roots, stamps `SpawnOrigin`, resolves recipe/relation
+dispatch before commit, and tests reconstruction/retirement invariants. The
+remaining work is deciding how much editor-like convenience can be added
+**without letting authoring object graphs become the simulation authority**.
+
+---
+
+## The compiler boundary is itself related work
+
+Unity/Godot/Unreal authoring systems are often discussed in terms of the object
+or scene representation authors manipulate. Ambition now has a second axis that
+deserves explicit comparison: **source language -> semantic compiler -> frozen
+runtime artifact**.
+
+The closest mature analogies are import/cook/build pipelines rather than prefab
+instancing alone. The important property to retain is that authored data is
+validated once, lowered once, and then consumed through the prepared artifact.
+A runtime path that reparses the same source independently would recreate the
+validator/runtime disagreement this compiler exists to eliminate.
+
+This also changes the hot-reload problem. A file watcher is only the trigger;
+the semantic operation is compile a candidate epoch, prove it, then authorize a
+transactional construction/activation commit. The new
+[loading-coordination comparison](loading-coordination-activation-barriers-and-supersession.md)
+covers the activation half of that pipeline, while the
+[world-IR comparison](world-ir-level-authoring-and-backend-adapters.md) covers
+the authoring-backend half.
 
 ---
 

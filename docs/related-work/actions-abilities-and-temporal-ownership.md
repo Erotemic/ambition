@@ -120,6 +120,56 @@ small games simple, but leaves cross-game lifecycle conventions to project code.
 
 ---
 
+## Motion-input recognition — Ambition already has an open technique layer
+
+The source contains another landed action seam that deserves related work:
+[`ambition_input::motion_input`](../../crates/ambition_input/src/motion_input.rs)
+implements an eight-direction rolling buffer, repeat collapse, a generic ordered
+subsequence matcher, and an **open content-owned `MotionTechniqueCatalog`**.
+The reusable input crate owns no named quarter-circle/half-circle/etc.; games
+register named patterns and action code asks whether a technique fired.
+
+Unreal Enhanced Input includes `UInputTriggerCombo`, whose combo trigger requires
+input actions to complete in a specified order. Unity Input System Interactions
+model temporal patterns such as press, hold, tap, slow tap and multi-tap, with
+explicit phases and timeouts.
+
+Sources:
+
+- [`InputTriggerCombo`](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/InputTriggerCombo)
+  (Epic, official generated API documentation).
+- [Unity Input System interactions](https://docs.unity3d.com/Packages/com.unity.inputsystem%401.20/manual/introduction-interactions.html)
+  (Unity, official).
+- [Built-in interactions](https://docs.unity3d.com/Packages/com.unity.inputsystem%401.20/manual/built-in-interactions.html)
+  (Unity, official).
+
+### Lesson for Ambition
+
+Ambition's current split is promising: physical/action binding stays participant
+side, motion-pattern recognition produces a named semantic technique, and the
+controlled body's gameplay state still decides eligibility/execution. That keeps
+command recognition from becoming an alternate ability system.
+
+The missing competitive work is now concrete:
+
+- deterministic/tick-based timing rather than an arbitrary floating wall-time
+  buffer when motion techniques participate in rollback;
+- authored tolerance rules for diagonals, neutral, charge duration and maximum
+  gaps rather than one generic subsequence rule for every technique;
+- an inspectable match result explaining which samples matched/rejected a
+  technique, suitable for the causal `why-not` layer;
+- participant/control-frame integration so possession and local-N routing never
+  fall back to a hidden single-user gesture buffer;
+- input-display/replay tooling over the same quantized samples.
+
+This is an area where Ambition should compare to fighting-game input systems as
+well as general engine actions. The current open technique catalog is already a
+better architectural starting point than hard-coding named moves into the input
+crate; the next step is to make its timing and diagnostics as rigorous as the
+rest of the deterministic simulation.
+
+---
+
 ## Competitive design frontier
 
 | Problem | Strong prior art | Ambition bar |

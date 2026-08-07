@@ -229,6 +229,28 @@ directly pressure still-open engine contracts are recorded under
 - [authoring, world composition, and deterministic preparation](../../related-work/authoring-world-composition-and-preparation.md)
   for Task 5 and the acceptance-driven editor/importer boundary.
 
+- [movement kernels, character controllers, and collision](../../related-work/movement-character-controllers-and-collision.md)
+  for the existing `step_motion` kernel and controller/collision conformance bar;
+- [reference frames, portals, and relativity](../../related-work/reference-frames-portals-and-relativity.md)
+  and [time domains, proper time, and simulation clocks](../../related-work/time-domains-proper-time-and-simulation-clocks.md)
+  for the frame/time laws already embedded in movement, portals and relativistic
+  actors;
+- [headless simulation and agent environments](../../related-work/headless-simulation-and-agent-environments.md)
+  and [simulation observation/read models](../../related-work/simulation-observation-and-read-models.md)
+  for the existing build/step/reset and observation seams used by tests, RL and
+  visible hosts;
+- [stable identity, provenance, and reconstruction](../../related-work/stable-identity-provenance-and-reconstruction.md)
+  for `ContentId`/`SimId`/runtime-entity scope and construction lineage;
+- [engine extension and SDK boundaries](../../related-work/engine-extension-and-sdk-boundaries.md)
+  for the semantic facade and external-consumer conformance campaign;
+- [asset addressing/runtime profiles/publication](../../related-work/asset-addressing-runtime-profiles-and-publication.md)
+  and [loading coordination/activation barriers](../../related-work/loading-coordination-activation-barriers-and-supersession.md)
+  for Task 6's split between byte-loading substrate and destination activation;
+- [persistence, save compatibility, and confirmed side effects](../../related-work/persistence-save-compatibility-and-confirmed-side-effects.md)
+  for versioning, durable commit and rollback-aware external effects;
+- [world IR, level authoring, and backend adapters](../../related-work/world-ir-level-authoring-and-backend-adapters.md)
+  for the existing LDtk-to-neutral-IR boundary and future importer acceptance.
+
 These pages are evidence, not a second roadmap. Their recurring recommendation
 is to **integrate general engine machinery, compete on complete platformer author
 workflows, and differentiate where deterministic specialization gives Ambition a

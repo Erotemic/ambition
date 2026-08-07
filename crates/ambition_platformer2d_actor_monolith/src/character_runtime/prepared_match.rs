@@ -1,0 +1,766 @@
+//! **A match, decided completely before anything is built.**
+//!
+//! ## Why this exists
+//!
+//! Seating used to answer three different questions in one pass — *can this
+//! fighter be built*, *what is it physically*, and *who drives it* — one seat at
+//! a time, mid-construction, against live authority tables. Every failure it had
+//! came from that shape: a seat it could not resolve made it `return` from the
+//! whole system, so ONE unbuildable fighter meant no match at all, silently and
+//! forever. Jon met it twice in one sitting (2026-08-06): *"only one character
+//! spawns in"* — and the one character was the session's home body, which was
+//! never a fighter.
+//!
+//! ```text
+//! MatchParticipantRoster   stable, serializable INTENT — what somebody chose
+//!         ↓ prepare_match          the ONE place questions are answered
+//! PreparedMatch            immutable, owned, authority-free
+//!         ↓ activate                infallible, deterministic, replayable
+//! ActiveMatch              the receipt
+//! ```
+//!
+//! ## The two invariants that make this worth doing
+//!
+//! **1. Preparation answers every permanent question.** A character no
+//! composition can build, a brain profile nothing registered, a control
+//! authority this build cannot honour — each is a named
+//! [`MatchPreparationProblems`] entry before a single entity exists. Activation
+//! has nothing left to refuse, so it cannot express "still waiting" about
+//! something that will never arrive.
+//!
+//! **2. Activation reads NO character authority.** Not the registry, not the
+//! catalog, not the sheets, not the archetype table. Everything construction
+//! needs is already in the plan. A plan that looked anything up would resolve
+//! against whatever the world holds at activation — which is precisely what a
+//! rollback rewind can change underneath it.
+//!
+//! Together those make activation replayable: rewinding past it removes
+//! [`ActiveMatch`](super::ActiveMatch) — `bevy_ggrs` restores ABSENCE, not just
+//! earlier values — activation runs again from the same immutable plan, and
+//! rebuilds the same cast.
+//!
+//! ⚠ **the plan is NOT rollback state, and that is deliberate.** It is a
+//! DECISION, made before the session it describes; registering it would delete
+//! it on a rewind to before it was made and leave activation with nothing to
+//! replay. What rewinds is the receipt and the bodies.
+
+use bevy::prelude::*;
+
+use ambition_platformer2d_core::Vec2;
+
+use super::{
+    ControllerBinding, MatchParticipantRoster, PreparedCharacterDefinition,
+    PreparedCharacterRegistry, RosterProblem,
+};
+
+/// **What will drive a fighter, once the fighter exists.**
+///
+/// ⚠ [`ControllerBinding`] is what a lobby or a save file SAYS; this is what the
+/// engine will attach. The difference matters most for the variant that used to
+/// be spelled `Human`.
+///
+/// ⛔ **"a person" and "a local input channel" are not one fact.** Conflating
+/// them is how a CPU seat came to size a rollback session: the GGRS handle count
+/// was `participants.len()` and the frozen input topology counted
+/// `ControllerBinding::Human`, each with a comment claiming to be the
+/// authoritative number. A remote human would be a participant with no local
+/// channel; a spectator is a participant with no fighter. Neither is
+/// expressible while one word means both.
+///
+/// ⚠ **exactly the two kinds this engine can ATTACH, and no more.**
+/// `ControllerBinding` also names `Replay` and `Policy`; those are real roster
+/// vocabulary and there is no code anywhere that binds a driver for either. A
+/// variant here for each would be a set with no members — the shape this repo
+/// keeps mistaking for rigour — so preparation REFUSES them by name instead,
+/// and whoever wires a replay seat adds the variant with the code that attaches
+/// it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ControlAuthority {
+    /// A local input channel drives it — one device on this machine, and one
+    /// rollback handle.
+    LocalInput { channel: u8 },
+    /// A named brain profile drives it. Deterministic, and needs no channel.
+    Brain { profile: String },
+}
+
+impl ControlAuthority {
+    /// The local rollback channel this authority occupies, if any.
+    ///
+    /// ⭐ **the ONE definition of "how many people are playing on this
+    /// machine".** Two call sites used to answer it separately and disagreed.
+    pub fn local_channel(&self) -> Option<u8> {
+        match self {
+            Self::LocalInput { channel } => Some(*channel),
+            _ => None,
+        }
+    }
+
+    /// Resolve a roster's stated binding into the authority to attach.
+    ///
+    /// ⛔ **every variant, no catch-all — and the catch-all is what this fixes.**
+    /// The pass this replaces ended in `_ => { let Some(profile) =
+    /// controller.brain_profile() else { return; }; .. }`, and `brain_profile()`
+    /// answers `None` for `Replay` and `Policy` BY DESIGN — its own doc says *"a
+    /// replay that consulted a brain profile would stop being a replay"*. So a
+    /// replay seat silently returned from the whole system and no fighter was
+    /// ever built: the identical defect as the unbuildable character, already
+    /// present on two more paths and never reported by anything.
+    fn resolve(controller: &ControllerBinding) -> Result<Self, String> {
+        match controller {
+            ControllerBinding::Human { device_slot } => Ok(Self::LocalInput {
+                channel: *device_slot,
+            }),
+            ControllerBinding::Cpu { brain_profile } => match brain_profile {
+                Some(profile) => Ok(Self::Brain {
+                    profile: profile.clone(),
+                }),
+                None => Err(
+                    "is driven by a CPU that names no brain profile, so nothing would decide \
+                     what it does. A seat with no driver stands still, which is \
+                     indistinguishable from a brain that failed to install."
+                        .to_owned(),
+                ),
+            },
+            // ⛔ **REFUSED, out loud, and that is an improvement.** Both were
+            // silently unbuildable before — they fell into the catch-all, had no
+            // brain profile by design, and returned from the whole system — so a
+            // roster naming one produced an empty stage and no explanation. The
+            // engine genuinely has no driver to attach for either; saying so is
+            // the honest version of what it already did.
+            ControllerBinding::Replay => Err(
+                "is driven by a REPLAY, and nothing in this engine attaches a \
+                 recorded control stream to a seated fighter yet. The roster \
+                 vocabulary is real; the driver is not written."
+                    .to_owned(),
+            ),
+            ControllerBinding::Policy { .. } => Err(
+                "is driven by an external POLICY, and nothing in this engine \
+                 attaches one to a seated fighter yet. The roster vocabulary is \
+                 real; the driver is not written."
+                    .to_owned(),
+            ),
+        }
+    }
+}
+
+/// **Where the camera looks, expressed before any fighter exists.**
+///
+/// ⚠ an `Entity` is not available at preparation time and would not survive a
+/// rewind if it were. Seat identity is stable; entity identity is not.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MatchViewPolicy {
+    /// Follow one seat — the ordinary answer when somebody local is playing.
+    FollowSeat(usize),
+    /// Frame every seat at once. The only honest answer for a match with no
+    /// local player, and arguably the better one for a platform fighter even
+    /// when there is one.
+    FrameSeats,
+}
+
+/// One fighter, fully resolved.
+#[derive(Clone, Debug)]
+pub struct PreparedSeat {
+    /// Which seat of the match this is. Stable across a rewind, unlike an
+    /// `Entity`, which is why placement and the view policy are keyed on it.
+    pub seat: usize,
+    pub character_id: String,
+    /// **The owned definition**, so activation can read the physical baseline
+    /// without asking the registry what it currently says.
+    pub definition: PreparedCharacterDefinition,
+    /// **The owned pre-spawn cluster**, built from the character authorities
+    /// during preparation and never re-derived.
+    ///
+    /// ⭐ `ActorClusterSeed` already described itself as *"Owned seed used to
+    /// construct the enemy ECS component cluster before spawn"*. The engine had
+    /// the right value the whole time; seating simply built one at spawn time
+    /// against live tables instead of carrying one.
+    pub seed: crate::features::ecs::actor_clusters::ActorClusterSeed,
+    /// The body box this fighter was resolved to occupy.
+    pub body_px: Vec2,
+    pub faction: crate::combat::components::ActorFaction,
+    pub team: Option<crate::combat::targeting::MatchTeam>,
+    /// What will drive it, attached AFTER the body exists — never a fork in how
+    /// the body is built.
+    pub authority: ControlAuthority,
+}
+
+/// What every fighter in this match plays under.
+///
+/// On the match rather than decided by construction, for the reason the roster's
+/// own fields state: the engine does not get an opinion about a match's economy.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MatchRules {
+    pub stocks: Option<u32>,
+    pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    pub opens_suspended: bool,
+}
+
+impl MatchRules {
+    /// S4: a stocks match's fighters die to the WORLD, not to the meter.
+    /// Declared once so no two seats can disagree about it — a divergence this
+    /// file's predecessor had three times.
+    pub fn death_policy(&self) -> ambition_characters::actor::DeathPolicy {
+        if self.stocks.is_some() {
+            ambition_characters::actor::DeathPolicy::Unbounded
+        } else {
+            ambition_characters::actor::DeathPolicy::default()
+        }
+    }
+}
+
+/// **The match, resolved.**
+#[derive(Resource, Clone, Debug)]
+pub struct PreparedMatch {
+    seats: Vec<PreparedSeat>,
+    rules: MatchRules,
+    view: MatchViewPolicy,
+    /// The [`PreparedCharacterRegistry`] generation these seats were resolved
+    /// against.
+    ///
+    /// ⚠ **a staleness ASSERTION, never a re-resolution trigger.** If the
+    /// published cast has moved on, this plan describes a world that no longer
+    /// exists and the honest response is to say so. Silently re-resolving would
+    /// put a live authority back inside activation, which is the one property
+    /// this module exists to remove.
+    cast_generation: super::CharacterCatalogGeneration,
+    /// The frozen seat topology the ROSTER was agreed under, carried through so
+    /// the activation can cite it.
+    ///
+    /// ⚠ carried rather than re-read: a later disagreement about who is playing
+    /// is only answerable if the live match can say which topology decided it,
+    /// and asking the world at activation would answer with whatever is true
+    /// then rather than with what this plan was built from.
+    seat_topology: Option<u64>,
+}
+
+impl PreparedMatch {
+    pub fn seats(&self) -> &[PreparedSeat] {
+        &self.seats
+    }
+
+    pub fn rules(&self) -> &MatchRules {
+        &self.rules
+    }
+
+    pub fn view(&self) -> MatchViewPolicy {
+        self.view
+    }
+
+    pub fn cast_generation(&self) -> super::CharacterCatalogGeneration {
+        self.cast_generation
+    }
+
+    /// The frozen seat topology this plan was agreed under, if anything had an
+    /// opinion when the roster was built.
+    pub fn seat_topology(&self) -> Option<u64> {
+        self.seat_topology
+    }
+
+    /// How many local rollback channels this match needs.
+    ///
+    /// ⛔ **NOT `seats().len()`.** That number sized the GGRS session while the
+    /// frozen input topology used a different one. A CPU is a participant and
+    /// not a channel; a match of two CPUs needs none at all.
+    pub fn local_channels(&self) -> usize {
+        self.seats
+            .iter()
+            .filter(|seat| seat.authority.local_channel().is_some())
+            .count()
+    }
+}
+
+/// **What a composition could not answer about a roster.**
+///
+/// Published where a consumer can say something true to a player, and read by
+/// tests instead of a log line. Present only while an unpreparable roster is
+/// standing.
+#[derive(Resource, Debug, Clone, PartialEq, Eq)]
+pub struct MatchPreparationProblems {
+    pub problems: Vec<RosterProblem>,
+}
+
+impl std::fmt::Display for MatchPreparationProblems {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let joined = self
+            .problems
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("; ");
+        f.write_str(&joined)
+    }
+}
+
+/// The body box a fighter gets when its character authored none.
+///
+/// A placeholder ON PURPOSE and a small one: making it generous would hide a
+/// character whose art never resolved behind a plausible-looking rectangle.
+const SEAT_BODY_PX: Vec2 = Vec2::new(30.0, 48.0);
+
+/// **Resolve a roster into a match, or say exactly why it cannot be one.**
+///
+/// ⭐ **every problem, not the first.** A lobby wants to be told everything that
+/// is wrong with its choice; returning on the first would make fixing a
+/// four-seat roster a four-attempt guessing game.
+#[allow(clippy::too_many_arguments)]
+pub fn prepare_match(
+    roster: &MatchParticipantRoster,
+    registry: &PreparedCharacterRegistry,
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
+    archetypes: &crate::features::CharacterRoster,
+    centre: Vec2,
+) -> Result<PreparedMatch, MatchPreparationProblems> {
+    let rules = MatchRules {
+        stocks: roster.fighter_stocks,
+        abilities: roster.fighter_abilities,
+        opens_suspended: roster.opens_suspended,
+    };
+    let death_policy = rules.death_policy();
+
+    let mut problems: Vec<RosterProblem> = Vec::new();
+    let mut seats: Vec<PreparedSeat> = Vec::new();
+
+    for (index, participant) in roster.participants.iter().enumerate() {
+        let mut seat_problem = |detail: String| {
+            problems.push(RosterProblem {
+                seat: index,
+                detail,
+            });
+        };
+
+        // **THE POPULATION THAT CAN ACTUALLY BE BUILT.**
+        //
+        // ⛔ this check did not exist anywhere. `unsatisfiable_seats` validated
+        // brain profiles and said of character ids: *"`PreparedCharacterRegistry`
+        // answers that, refuses on its own, and asking twice would put two
+        // authorities on one question."* It did refuse on its own — with a bare
+        // `return` from inside the construction pass, no log and no record — so
+        // the failure had no words anywhere in the engine, and a select screen
+        // that filtered its grid by the CATALOG could offer eight fighters this
+        // host cannot seat.
+        let Some(definition) = registry.get(&participant.character) else {
+            seat_problem(format!(
+                "asks for character `{}`, which this composition has not REGISTERED. \
+                 ⚠ a catalog row is not a registration: the catalog says what a \
+                 character IS and `register_character` is what makes one \
+                 buildable, and a surface that offers a fighter must filter on \
+                 the second.",
+                participant.character
+            ));
+            continue;
+        };
+
+        let authority = match ControlAuthority::resolve(&participant.controller) {
+            Ok(authority) => authority,
+            Err(detail) => {
+                seat_problem(detail);
+                continue;
+            }
+        };
+
+        // A CPU's profile must name a rig this composition registered.
+        //
+        // `spec_for_brain` falls back to a generic `combatant` row for an
+        // unknown key — defensible for a placement, and for a match seat it
+        // means the fighter that arrives is not the fighter the roster asked
+        // for. It cost an hour in this demo on 2026-07-31, with a diagram.
+        if let ControlAuthority::Brain { profile } = &authority {
+            if !archetypes.has_brain_key(profile) {
+                let mut known = archetypes.brain_keys();
+                known.sort();
+                seat_problem(format!(
+                    "asks for brain profile `{profile}`, which this composition's \
+                     CharacterRoster does not have. Known keys: {known:?}. \
+                     ⚠ this is the ARCHETYPE table a seated CPU consults, not the \
+                     catalog's `brain_presets` — the two share the word `brain` and \
+                     nothing else."
+                ));
+                continue;
+            }
+        }
+
+        // The authored BRAIN the seed is built from. A local-input seat authors
+        // `Passive` because its real driver is attached afterwards; a passive
+        // placeholder rather than a wandering one, so a body whose writer never
+        // arrives stands still instead of strolling off looking possessed.
+        let seed_brain = match &authority {
+            ControlAuthority::Brain { profile } => {
+                ambition_entity_catalog::placements::CharacterBrain::Custom(profile.clone())
+            }
+            _ => ambition_entity_catalog::placements::CharacterBrain::Passive,
+        };
+
+        let (at, facing) = seat_placement(index, centre);
+
+        // **THE AUTHORED PHYSICAL IDENTITY**, read through `PhysicalBaseline`
+        // rather than off `vitals`/`body` directly, because the exploration
+        // player reads the same value through the same accessors.
+        let baseline = super::PhysicalBaseline::of(definition);
+        let body_px = baseline.explicit_size().unwrap_or(SEAT_BODY_PX);
+        let aabb = ambition_platformer2d_core::Aabb::new(at, body_px / 2.0);
+        // `new_in`, not the test-only `new`: production construction never has a
+        // hidden catalog fallback.
+        let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_in(
+            authored_sheets,
+            catalog,
+            archetypes,
+            participant.character.clone(),
+            definition.display_name.clone(),
+            // ⭐ the id, not the display name. Two characters may legitimately
+            // share a display name; only the id is unique.
+            Some(participant.character.as_str()),
+            aabb,
+            seed_brain,
+            &[],
+        );
+        // The seed's own pool stands for a character that authored none — which
+        // used to be impossible to express, because an unauthored `Vitals`
+        // defaulted to a one-hit pool and every seated fighter silently took it.
+        seed.health =
+            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
+                baseline.max_health_over(seed.health.health.max.max(1)),
+            ))
+            .with_policy(death_policy);
+        seed.kin.facing = facing;
+
+        seats.push(PreparedSeat {
+            seat: index,
+            character_id: participant.character.clone(),
+            definition: definition.clone(),
+            seed,
+            body_px,
+            faction: faction_for(index),
+            team: participant
+                .team
+                .as_ref()
+                .map(|team| crate::combat::targeting::MatchTeam::new(team.clone())),
+            authority,
+        });
+    }
+
+    if !problems.is_empty() {
+        return Err(MatchPreparationProblems { problems });
+    }
+
+    // **WHERE THE CAMERA LOOKS**, decided here because this is the only place
+    // that knows who is playing. A match with a local player follows the first
+    // one; a match without any is framed, which is what makes CPU-vs-CPU a
+    // watchable thing rather than a match nobody can see.
+    let view = seats
+        .iter()
+        .find(|seat| seat.authority.local_channel().is_some())
+        .map(|seat| MatchViewPolicy::FollowSeat(seat.seat))
+        .unwrap_or(MatchViewPolicy::FrameSeats);
+
+    Ok(PreparedMatch {
+        seats,
+        rules,
+        view,
+        cast_generation: registry.generation(),
+        seat_topology: roster.seat_topology(),
+    })
+}
+
+/// Where seat `index` stands, given the stage centre, and which way it looks.
+///
+/// Symmetric about `centre`, alternating sides, facing inward. Public so a rules
+/// layer can put a fighter BACK between rounds without re-deriving the geometry
+/// and drifting from it.
+pub fn seat_placement(index: usize, centre: Vec2) -> (Vec2, f32) {
+    /// Half the horizontal gap between two seated fighters, in world pixels.
+    /// Wide enough that neither starts inside the other's authored silhouette.
+    const SEAT_SPREAD_PX: f32 = 96.0;
+    let side = if index % 2 == 0 { -1.0 } else { 1.0 };
+    let rank = (index / 2) as f32;
+    let x = centre.x + side * (SEAT_SPREAD_PX + rank * SEAT_SPREAD_PX * 0.5);
+    // Facing points back toward the centre: a left-hand seat looks right.
+    (Vec2::new(x, centre.y), -side)
+}
+
+#[cfg(test)]
+mod tests;
+
+/// Alternating sides, so two fighters can actually hit each other:
+/// `effective_faction` refuses a strike between same-faction bodies, and a
+/// roster seated all one way would stand and stare.
+fn faction_for(index: usize) -> crate::combat::components::ActorFaction {
+    if index % 2 == 0 {
+        crate::combat::components::ActorFaction::Player
+    } else {
+        crate::combat::components::ActorFaction::Enemy
+    }
+}
+
+/// **Build one fighter's body. Infallible, and reads no authority.**
+///
+/// ⭐ **ONE path for every fighter, whatever drives it.** The function this
+/// replaces had two: a local player's seat ADOPTED the session's existing body
+/// and a CPU's seat SPAWNED a new one, and that fork is what every symptom of
+/// the 2026-08-06 report came from — the costume handshake, seat 0's privilege,
+/// the health/box/mass/ability divergences unified one at a time over three
+/// weeks, and the impossibility of a match with nobody local in it. Control is
+/// attached to the finished body by [`bind_seat_control`]; it does not get to
+/// decide how the body is made.
+fn realize_seat(
+    commands: &mut Commands,
+    session_scope: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope,
+    seat: &PreparedSeat,
+) -> Entity {
+    let seed = seat.seed.clone();
+    let at = seed.kin.pos;
+    let facing = seed.kin.facing;
+    let centered = ambition_platformer2d_core::CenteredAabb::from_center_size(at, seat.body_px);
+    let motion_model = seed.config.tuning.motion_model();
+    let (identity, _seed_disposition, combat, intent, cooldowns) =
+        crate::features::ecs::enemy_component_snapshot(&seed);
+    // A match participant is a COMBATANT, whatever drives it. The disposition
+    // the seed derives follows the authored brain, and a local-input seat
+    // authors `Passive` — `apply_actor_hit` reads the disposition first, and a
+    // peaceful body takes NO health damage. A seated fighter was once
+    // unkillable, and the symptom was a swing that connected, played its sound
+    // and did nothing.
+    let disposition = crate::combat::components::ActorDisposition::Hostile;
+    // A default action set, matching what an enemy spawn does before its
+    // archetype fills one in. The character's real attacks arrive from
+    // `apply_worn_character_gameplay`, the ONE writer for a worn body's moves.
+    let action_set = ambition_characters::brain::ActionSet::default();
+    let derived_brain = crate::features::ecs::enemy_default_brain(&seed.config);
+    let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
+    let cluster = seed.into_components();
+    use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
+    let body = commands
+        .spawn_session_scoped(
+            session_scope,
+            (
+                crate::features::EnemyActorBundle::new(
+                    crate::features::FeatureBaseBundle::new(
+                        seat.character_id.as_str(),
+                        seat.definition.display_name.clone(),
+                        centered,
+                    ),
+                    identity,
+                    disposition,
+                    seat.faction,
+                    crate::features::ActorPose::from_parts(at, seat.body_px / 2.0, facing),
+                    combat_kit,
+                    crate::features::ActorAggression::hostile(),
+                    combat,
+                    intent,
+                    cooldowns,
+                )
+                .with_motion_model(motion_model),
+                cluster,
+                action_set,
+                derived_brain,
+                Name::new(seat.definition.display_name.clone()),
+                crate::combat::moveset::ActorMoveset(Default::default()),
+                // The body WEARS the character. Everything that makes it that
+                // fighter rather than a generic actor follows from this one
+                // component.
+                ambition_characters::actor::WornCharacter::new(seat.character_id.as_str()),
+                // The MATCH owns this fighter's death, not the world. Without it
+                // a KO runs the exploration economy — a bounty coin, a heart, an
+                // in-place respawn timer — none of which an arena has a use for.
+                crate::combat::components::RulesetOwnsDeath,
+                // WITHOUT THIS THE FIGHTER IS INVISIBLE: the authored render pass
+                // only spawns visuals for `spec.enemy_spawns`, so a directly
+                // staged actor would render nothing.
+                crate::combat::components::RuntimeStagedActor,
+                ambition_characters::brain::ActorControl::default(),
+                ambition_characters::actor::attack_gesture::AttackGestureState::default(),
+                ambition_characters::actor::attack_gesture::AttackGestureTuning::default(),
+                ambition_characters::actor::attack_gesture::ResolvedAttackGesture::default(),
+            ),
+        )
+        .id();
+    // **THE AUTHORED MASS.** Conditional: a character that authored none must
+    // keep its archetype's rather than be overwritten with the ambient 1.0.
+    // Health and geometry are already on the seed, so this is all the boundary
+    // has left to do.
+    super::PhysicalBaseline::of(&seat.definition).apply_to_body(
+        super::BaselineBoundary::Construction,
+        &mut commands.entity(body),
+        None,
+        None,
+        super::PhysicalRetraction::NONE,
+    );
+    body
+}
+
+/// **Attach the driver to a finished body.**
+///
+/// The whole of what "who plays this fighter" now costs. It runs after the body
+/// exists and can therefore be the same two lines for every fighter, which is
+/// the property that made a CPU-only match impossible to express before.
+fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlAuthority) {
+    match authority {
+        ControlAuthority::LocalInput { channel } => {
+            commands.entity(body).insert((
+                ambition_characters::brain::Brain::Player(ambition_characters::brain::PlayerSlot(
+                    *channel,
+                )),
+                crate::control::components::LocalPlayer,
+                crate::control::components::PlayerInputFrame::default(),
+            ));
+        }
+        // The seed already carries the archetype's brain, derived in
+        // `realize_seat` exactly as the enemy spawner derives it.
+        ControlAuthority::Brain { .. } => {}
+    }
+}
+
+/// **Resolve the published roster into a plan, once.**
+///
+/// Runs on the sim schedule beside activation, because it needs the session's
+/// room geometry to place seats and the session world is what owns it.
+pub fn prepare_the_match(
+    mut commands: Commands,
+    roster: Option<Res<MatchParticipantRoster>>,
+    registry: Option<Res<PreparedCharacterRegistry>>,
+    // REQUIRED, not optional: `engine.character-authority-is-app-local` forbids
+    // making the character authority optional. A composition with no catalog
+    // must be NAMED by the capability audit, not silently prepare fighters that
+    // resolve their sprite identity against nothing.
+    catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
+    archetypes: Res<crate::features::CharacterRoster>,
+    geometry: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_core::RoomGeometry,
+        >,
+    >,
+    prepared: Option<Res<PreparedMatch>>,
+) {
+    // One plan per match. Re-preparing every tick would rebuild the seeds under
+    // a live match and, worse, re-resolve them against a registry that may have
+    // been republished — the exact authority-in-activation this module removes.
+    if prepared.is_some() {
+        return;
+    }
+    let (Some(roster), Some(registry), Some(geometry)) = (roster, registry, geometry) else {
+        return;
+    };
+    if roster.participants.is_empty() {
+        return;
+    }
+    // ⛔ **A PROPOSED ROSTER DOES NOT PREPARE.** A roster nobody has agreed to
+    // is a WAIT, not a problem — publishing a refusal for one would cry wolf on
+    // every ordinary route entry.
+    if !roster.seating.may_seat() {
+        return;
+    }
+    // The stage centre is the room's authored spawn: the one point a room
+    // guarantees is standable, which is the only guarantee placement needs.
+    let centre = geometry.0.spawn;
+    match prepare_match(
+        &roster,
+        &registry,
+        &catalog,
+        &authored_sheets,
+        &archetypes,
+        centre,
+    ) {
+        Ok(plan) => {
+            // A standing refusal is over: this roster resolved. Removed here
+            // rather than on roster CHANGE so it cannot go stale — a refusal
+            // that outlives the roster it was about is a worse lie than none.
+            commands.remove_resource::<MatchPreparationProblems>();
+            commands.insert_resource(plan);
+        }
+        Err(problems) => {
+            // ⛔ **OUT LOUD, in every build.** The per-seat `debug_assert!` this
+            // class of check used to rely on was invisible in release, which
+            // reintroduced the very bug it guarded.
+            bevy::log::error!(
+                target: "ambition_platformer2d::match_preparation",
+                "this composition cannot prepare the published match: {problems}"
+            );
+            commands.insert_resource(problems);
+        }
+    }
+}
+
+/// **Build the whole cast, in one flush. Infallible.**
+///
+/// Every permanent question was answered by [`prepare_the_match`], so there is
+/// nothing here to refuse and no way for this to half-apply: either the match
+/// activates completely on one tick or it has not started.
+///
+/// ⚠ **it BORROWS the plan.** Consuming it would make a rewind to before
+/// activation unreplayable: `bevy_ggrs` restores the ABSENCE of
+/// [`ActiveMatch`](super::ActiveMatch), so activation re-runs — and it must find
+/// the same plan waiting, or the cast it rebuilds is not the cast it built.
+pub fn activate_the_prepared_match(
+    mut commands: Commands,
+    prepared: Option<Res<PreparedMatch>>,
+    active: Option<Res<super::ActiveMatch>>,
+    active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
+    // Seats that already have a body — derived from the world, so a rewind that
+    // restored the fighters without the latch cannot double-build them.
+    already_seated: Query<&super::MatchSeat>,
+) {
+    if active.is_some() {
+        return;
+    }
+    let Some(prepared) = prepared else {
+        return;
+    };
+    // No active session means no owner for the bodies. Activation waits rather
+    // than spawning orphans; the plan is still there next tick.
+    let Some(session_scope) =
+        ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::for_optional_active_session(
+            active_session.as_deref(),
+        )
+    else {
+        return;
+    };
+    let occupied: std::collections::BTreeSet<usize> =
+        already_seated.iter().map(|seat| seat.0).collect();
+
+    let rules = prepared.rules();
+    let mut bodies: Vec<Entity> = Vec::new();
+    for seat in prepared.seats() {
+        if occupied.contains(&seat.seat) {
+            continue;
+        }
+        let body = realize_seat(&mut commands, session_scope, seat);
+        let mut seated = commands.entity(body);
+        seated.insert(super::MatchSeat(seat.seat));
+        if let Some(team) = seat.team.clone() {
+            seated.insert(team);
+        }
+        bind_seat_control(&mut commands, body, &seat.authority);
+        bodies.push(body);
+    }
+
+    // **THE MATCH'S RULES, in the same flush that builds the bodies**, so no
+    // fighter is ever observable in a state the ruleset did not ask for.
+    for body in &bodies {
+        let mut entity = commands.entity(*body);
+        if let Some(abilities) = rules.abilities {
+            // `AbilityBase` too, not only the effective set: the effective set
+            // is `base ∩ editable_mask`, recomputed every frame for a
+            // player-driven body, so writing only `BodyAbilities` would be
+            // undone next tick by a system behaving correctly.
+            entity.try_insert((
+                ambition_platformer2d_core::BodyAbilities::new(abilities),
+                ambition_platformer2d_core::AbilityBase::new(abilities),
+            ));
+        }
+        if let Some(stocks) = rules.stocks {
+            entity.try_insert(crate::combat::components::FighterStocks::new(stocks));
+        }
+        if rules.opens_suspended {
+            entity.try_insert(ambition_characters::brain::ScriptedControl);
+        }
+    }
+
+    // ATOMIC: the receipt goes in with the bodies, in the same flush. There is
+    // no partial state to land a rewind in — either the tick that activated
+    // happened or it did not.
+    commands.insert_resource(super::ActiveMatch::activated(
+        prepared.seats().len(),
+        prepared.seat_topology(),
+    ));
+}

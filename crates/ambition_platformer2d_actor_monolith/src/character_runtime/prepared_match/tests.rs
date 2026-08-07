@@ -7,9 +7,14 @@
 // per step costs a set lookup after the first.
 use ambition_platformer2d_shared_tangle::app_finalization::finalize_and_update;
 
+use bevy::prelude::*;
+
+use ambition_platformer2d_core::Vec2;
+
 use super::*;
 use crate::character_runtime::{
-    CharacterDefinition, CharacterDefinitionAppExt, ControllerBinding, MatchParticipant,
+    ActiveMatch, CharacterDefinition, CharacterDefinitionAppExt, ControllerBinding,
+    MatchParticipant, MatchParticipantRoster, MatchSeat, PreparedCharacterRegistry,
 };
 
 /// A CPU seat asking for a brain this fixture's roster ACTUALLY HAS.
@@ -56,7 +61,12 @@ fn seating_app() -> App {
     app.add_systems(
         Update,
         (
-            seat_match_participants,
+            // ⭐ **PREPARE then ACTIVATE**, the pair that replaced
+            // `seat_match_participants`. Both, chained, because a fixture that
+            // ran only one would be testing half a transaction — and the half
+            // that can fail is the half that no longer builds anything.
+            prepare_the_match,
+            activate_the_prepared_match,
             // **The persona derive, which is now the writer for a seated body's
             // kit too** (Phase B, 2026-07-29). It used to be absent here and the
             // tests still passed, because the projection wrote seated kits — two
@@ -153,13 +163,25 @@ fn seating_runs_once_however_many_ticks_pass() {
     );
 }
 
-/// An unregistered character seats nothing, and does not latch the match.
+/// **An unbuildable character is REFUSED BY NAME, not waited on.**
 ///
-/// Quiet by design: the load ledger already reports unknown tokens, and a second
-/// reporter of one fact is how a log becomes unreadable. What matters is that it
-/// does not produce a body wearing a character nothing can describe.
+/// ⛔ this test used to say *"quiet by design"* and assert only that no body
+/// appeared. That silence was the bug. Preparation's predecessor resolved this
+/// seat with `registry.get(id)` and returned from the whole system on `None` —
+/// no log, no record, and because the pass was all-or-nothing, **every other
+/// seat went unbuilt too**. A player picking one of eight catalog-only portraits
+/// in the smash grid got a stage with nobody on it and nothing anywhere saying
+/// why (Jon, 2026-08-06).
+///
+/// ⭐ **and this is the DURABLE guard, which is why it names a character nothing
+/// will ever register.** The host-level reproduction uses `npc_noether`, a real
+/// grid fighter that is unbuildable *today* — and registering the Hall cast is a
+/// planned step that will quietly turn that test into a check that a working
+/// thing works. A guard that content can repair is not defending the gap. This
+/// one names `nobody_registered_this`, so no amount of content can make it
+/// vacuous.
 #[test]
-fn an_unregistered_participant_is_not_seated() {
+fn an_unbuildable_character_is_refused_by_name() {
     let mut app = seating_app();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("nobody_registered_this")],
@@ -170,41 +192,72 @@ fn an_unregistered_participant_is_not_seated() {
     {
         let world = app.world_mut();
         let mut q = world.query::<&ambition_characters::actor::WornCharacter>();
-        assert_eq!(q.iter(world).count(), 0);
+        assert_eq!(
+            q.iter(world).count(),
+            0,
+            "a body wearing nothing describable"
+        );
     }
     assert!(
         app.world().get_resource::<ActiveMatch>().is_none(),
-        "a match that seated nobody must not ACTIVATE — the roster may become \
-         seatable once its characters register"
+        "a match that built nobody must not ACTIVATE"
+    );
+
+    // **THE POINT.** A permanent failure must not present as a wait.
+    let problems = app
+        .world()
+        .get_resource::<crate::character_runtime::MatchPreparationProblems>()
+        .expect(
+            "preparation refused this roster and recorded NOTHING, so a stage \
+             would sit on it forever and no surface could say why — which is \
+             exactly the failure this whole seam was built to remove",
+        )
+        .clone();
+    assert_eq!(problems.problems.len(), 1, "one bad seat, one problem");
+    assert_eq!(problems.problems[0].seat, 0);
+    assert!(
+        problems.problems[0]
+            .detail
+            .contains("nobody_registered_this"),
+        "the refusal does not NAME the character that caused it, so a player \
+         reading it learns nothing: {}",
+        problems.problems[0].detail
     );
 }
 
-/// **A human seat ADOPTS the player body; it does not spawn a second one.**
+/// **A match builds its OWN cast and touches nothing else.**
 ///
-/// This is the bug the versus stage shipped with for an hour: the session spawns
-/// a primary player wearing the starting character, seating spawned a fighter
-/// wearing the same character, and the arena held two of them. The old test here
-/// asserted a human seat produced NO body, which was true and useless — the
-/// defect was the body it did not account for.
+/// ⛔ this replaces two tests that pinned the opposite rule — *"a human seat
+/// ADOPTS the player body"* and *"a human seat does not re-dress a player
+/// wearing someone else"* — and both were correct about a design that has been
+/// deleted. Adoption existed to stop the arena holding two Mary-Os when the
+/// session had already spawned one; the cost was that a fighter's construction
+/// depended on who drove it, and every symptom of Jon's 2026-08-06 report came
+/// out of that fork.
+///
+/// The duplicate is prevented at the other end now: a MATCH experience declares
+/// no session body at all, so there is nothing to adopt, nothing to re-dress,
+/// and no handshake to deadlock on. What is worth pinning is the invariant that
+/// replaced them — **the match's cast is exactly its seats**, and a body that
+/// was already standing there is none of the match's business.
 #[test]
-fn a_human_seat_adopts_the_existing_player_body_instead_of_duplicating_it() {
+fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
-    // The REAL player bundle. A hand-rolled body without the movement clusters
-    // does not match seating's query, so adoption silently skips and the body
-    // simply never moves — which the first version of this fixture could not tell
-    // apart from working, because the seat count was right for the wrong reason.
-    let player = app
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    // A body that is NOT in the match, wearing somebody the roster does not
+    // name. Under the old design this was the thing seat 0 reached out and took.
+    let bystander = app
         .world_mut()
         .spawn((
             crate::avatar::PlayerSimulationBundle::from_scratch(
                 crate::avatar::primary_player_scratch(
-                    Vec2::new(0.0, 0.0),
+                    Vec2::new(7.0, 0.0),
                     ambition_platformer2d_core::AbilitySet::default(),
                 ),
                 ambition_characters::actor::Health::new(5),
             ),
-            ambition_characters::actor::WornCharacter::new("mary_o"),
+            ambition_characters::actor::WornCharacter::new("sanic"),
         ))
         .id();
     app.insert_resource(MatchParticipantRoster {
@@ -217,66 +270,40 @@ fn a_human_seat_adopts_the_existing_player_body_instead_of_duplicating_it() {
 
     finalize_and_update(&mut app);
 
-    let world = app.world_mut();
-    let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
+    // TWO seats, two bodies — built the same way whichever drives them.
+    let seats = {
+        let world = app.world_mut();
+        let mut q = world.query::<&MatchSeat>();
+        let mut seen: Vec<usize> = q.iter(world).map(|seat| seat.0).collect();
+        seen.sort_unstable();
+        seen
+    };
     assert_eq!(
-        worn.iter(world).count(),
-        2,
-        "one body per seat. A human seat that spawns instead of adopting leaves \
-         the player's own body beside a copy of itself — which is what the versus \
-         arena looked like before this existed"
+        seats,
+        vec![0, 1],
+        "a human seat and a CPU seat must both produce a body; they used to \
+         travel different construction paths and only one of them spawned"
     );
 
-    // The adopted body MOVED to its seat. A human seat left at the session spawn
-    // is standing wherever the room put it rather than where the match wants it,
-    // which is only invisible while the two happen to coincide.
+    // The bystander is untouched: same costume, same place.
+    assert_eq!(
+        app.world()
+            .get::<ambition_characters::actor::WornCharacter>(bystander)
+            .map(|worn| worn.id().to_owned()),
+        Some("sanic".to_owned()),
+        "the match re-dressed a body outside its own cast"
+    );
     let kin = app
         .world()
-        .get::<ambition_platformer2d_shared_tangle::body::BodyKinematics>(player)
-        .expect("the player body survives adoption");
-    assert_ne!(
-        kin.pos.x, 0.0,
-        "the human seat was not moved to its side of the stage"
-    );
-    assert_eq!(kin.facing, 1.0, "the left seat looks right");
-}
-
-/// A human seat whose character disagrees with the body's is NOT re-dressed.
-///
-/// Seating places fighters; `WornCharacter` decides who they are. A stage that
-/// wants a different fighter says so in its `StartingCharacter`, and silently
-/// re-dressing the player body here would make two authorities for one fact.
-#[test]
-fn a_human_seat_does_not_redress_a_player_wearing_someone_else() {
-    let mut app = seating_app();
-    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
-    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
-    app.world_mut().spawn((
-        crate::avatar::PlayerSimulationBundle::from_scratch(
-            crate::avatar::primary_player_scratch(
-                Vec2::new(7.0, 0.0),
-                ambition_platformer2d_core::AbilitySet::default(),
-            ),
-            ambition_characters::actor::Health::new(5),
-        ),
-        ambition_characters::actor::WornCharacter::new("sanic"),
-    ));
-    app.insert_resource(MatchParticipantRoster {
-        participants: vec![
-            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 })
-        ],
-        ..Default::default()
-    });
-
-    finalize_and_update(&mut app);
-
-    let world = app.world_mut();
-    let mut worn = world.query::<&ambition_characters::actor::WornCharacter>();
-    let ids: Vec<String> = worn.iter(world).map(|w| w.id().to_string()).collect();
+        .get::<ambition_platformer2d_shared_tangle::body::BodyKinematics>(bystander)
+        .expect("the bystander survives");
     assert_eq!(
-        ids,
-        vec!["sanic".to_string()],
-        "seating re-dressed the player body, or spawned beside it"
+        kin.pos.x, 7.0,
+        "the match MOVED a body outside its own cast to a seat mark"
+    );
+    assert!(
+        app.world().get::<MatchSeat>(bystander).is_none(),
+        "a body nobody put in the roster was enrolled in the match"
     );
 }
 
@@ -292,6 +319,11 @@ fn a_human_seat_does_not_redress_a_player_wearing_someone_else() {
 /// `Brain::Player(1)`, `LocalPlayer` and a `PlayerInputFrame`. A body that
 /// carries the player brain for a slot nothing writes simply stands still, which
 /// is the correct behaviour for an unplugged controller.
+///
+/// ⚠ **no pre-spawned player body here any more, and that IS the change.** This
+/// fixture used to stand one up because seat 0 adopted it; now every seat is
+/// built the same way and seat 0 has no privilege left to test. A match
+/// experience declares no session body at all.
 #[test]
 fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
     use ambition_characters::brain::{Brain, PlayerSlot};
@@ -299,16 +331,6 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
-    app.world_mut().spawn((
-        crate::avatar::PlayerSimulationBundle::from_scratch(
-            crate::avatar::primary_player_scratch(
-                Vec2::new(0.0, 0.0),
-                ambition_platformer2d_core::AbilitySet::default(),
-            ),
-            ambition_characters::actor::Health::new(5),
-        ),
-        ambition_characters::actor::WornCharacter::new("mary_o"),
-    ));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
             MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 }),
@@ -706,36 +728,24 @@ fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
     }
 }
 
-/// **And the ADOPTED seat is suspended on that tick too.**
+/// **And a LOCAL-INPUT seat is suspended on that tick too.**
 ///
-/// The test above seats two fighters by SPAWNING them, and a body that does not
-/// exist until the command queue flushes cannot act before its suspension lands
-/// — the property holds there almost by construction. Seat 0 is different: it
-/// ADOPTS the primary player, a body that already exists, is already in the
-/// brain's query, and was accepting input on the tick before the match began.
+/// A CPU seat opening suspended is nearly free — a body that does not exist
+/// until the command queue flushes cannot act before its suspension lands. The
+/// seat worth asking about is the one a person is holding a direction on when
+/// the round opens.
 ///
-/// That is the body the "one simulation step first — a held direction carried in
-/// from the menu" sentence was actually about, and it was the one the test did
-/// not cover. Nothing had thought to ask, which is the same gap the abilities
-/// test below was written for on the same body.
+/// ⚠ **this used to be about ADOPTION**, and it was the sharper question then:
+/// seat 0 took over a body that already existed, was already in the brain's
+/// query, and had been accepting input on the previous tick. That body is gone —
+/// a match builds its own cast — so the question is now the ordinary one, and
+/// the answer holds by construction rather than by a window being closed. Kept
+/// because "every seat, whoever drives it" is still the claim.
 #[test]
-fn an_adopted_seat_is_also_suspended_on_the_tick_it_joins() {
+fn a_local_input_seat_is_also_suspended_on_the_tick_it_joins() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
 
-    let player = app
-        .world_mut()
-        .spawn((
-            crate::avatar::PlayerSimulationBundle::from_scratch(
-                crate::avatar::primary_player_scratch(
-                    Vec2::new(0.0, 0.0),
-                    ambition_platformer2d_core::AbilitySet::basic(),
-                ),
-                ambition_characters::actor::Health::new(10),
-            ),
-            ambition_characters::actor::WornCharacter::new("duelist"),
-        ))
-        .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
             MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 })
@@ -746,13 +756,16 @@ fn an_adopted_seat_is_also_suspended_on_the_tick_it_joins() {
 
     finalize_and_update(&mut app);
 
-    assert!(
-        app.world()
-            .get::<ambition_characters::brain::ScriptedControl>(player)
-            .is_some(),
-        "the adopted body joined the match still answering input, so whatever the \
-         player was holding when the round opened moves the fighter before the \
-         countdown says go"
+    let world = app.world_mut();
+    let mut seated = world
+        .query_filtered::<Option<&ambition_characters::brain::ScriptedControl>, With<MatchSeat>>();
+    let suspended: Vec<bool> = seated.iter(world).map(|s| s.is_some()).collect();
+    assert_eq!(
+        suspended,
+        vec![true],
+        "the local-input seat joined the match still answering input, so whatever \
+         the player was holding when the round opened moves the fighter before \
+         the countdown says go"
     );
 }
 
@@ -827,10 +840,15 @@ fn a_seated_fighter_keeps_one_capability_baseline_not_two() {
 /// twice with two different body shapes and two different masses, and the seat
 /// that was wrong was always player one (GPT 5.6, 2026-07-29).
 ///
-/// Drives adoption specifically — seat 0 is a HUMAN seat, which is the branch
-/// that adopts rather than spawns.
+/// ⚠ **it used to drive ADOPTION specifically**, because that was the branch
+/// that got these wrong: seat 0 took over a body its session had already built
+/// and kept whatever box and mass that body came with. There is one construction
+/// path now, so the divergence is unrepresentable — but the CHARACTER's authored
+/// facts reaching a seated body is still a real claim, and a mirror match is
+/// still the place a regression would show. Both seats are asserted, so "the
+/// same character is the same fighter in either seat" stays checked.
 #[test]
-fn an_adopted_seat_gets_the_same_body_facts_as_a_spawned_one() {
+fn every_seat_gets_the_body_facts_its_character_authors() {
     let mut app = seating_app();
     app.register_character(
         // Public fields: the definition is authoring data, not a builder-only
@@ -844,50 +862,43 @@ fn an_adopted_seat_gets_the_same_body_facts_as_a_spawned_one() {
             definition
         },
     );
-    let player = app
-        .world_mut()
-        .spawn((
-            crate::avatar::PlayerSimulationBundle::from_scratch(
-                crate::avatar::primary_player_scratch(
-                    Vec2::new(0.0, 0.0),
-                    ambition_platformer2d_core::AbilitySet::basic(),
-                ),
-                ambition_characters::actor::Health::new(10),
-            ),
-            ambition_characters::actor::WornCharacter::new("heavy"),
-        ))
-        .id();
+    // A MIRROR match, driven two different ways: one seat by a local input
+    // channel and one by a brain. If construction ever forks on who drives a
+    // fighter again, these two stop agreeing.
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("heavy").driven_by(ControllerBinding::Human { device_slot: 0 })
+            MatchParticipant::new("heavy").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            cpu("heavy"),
         ],
         ..Default::default()
     });
 
     finalize_and_update(&mut app);
 
-    let size = app
-        .world()
-        .get::<ambition_platformer2d_core::BodyKinematics>(player)
-        .expect("the adopted body keeps its kinematics")
-        .size;
-    assert_eq!(
-        (size.x, size.y),
-        (38.0, 62.0),
-        "the adopted seat kept its session's body box instead of the one its \
-         character authored, so a mirror match puts two different shapes on the \
-         stage"
-    );
-    let mass = app
-        .world()
-        .get::<crate::features::Mass>(player)
-        .expect("the adopted body must carry the authored mass");
-    assert!(
-        (mass.0 - 4.5).abs() < 1e-4,
-        "the adopted seat weighs {} instead of the authored 4.5, so the mount \
-         pair's centre of gravity depends on which seat a character took",
-        mass.0
-    );
+    let facts: Vec<((f32, f32), f32)> = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<(
+            &ambition_platformer2d_core::BodyKinematics,
+            &crate::features::Mass,
+        ), With<MatchSeat>>();
+        q.iter(world)
+            .map(|(kin, mass)| ((kin.size.x, kin.size.y), mass.0))
+            .collect()
+    };
+    assert_eq!(facts.len(), 2, "a mirror match is two bodies");
+    for (size, mass) in &facts {
+        assert_eq!(
+            *size,
+            (38.0, 62.0),
+            "a seat took a body box its character did not author, so a mirror \
+             match puts two different shapes on the stage: {facts:?}"
+        );
+        assert!(
+            (mass - 4.5).abs() < 1e-4,
+            "a seat weighs {mass} instead of the authored 4.5, so the mount \
+             pair's centre of gravity depends on which seat a character took"
+        );
+    }
 }
 
 /// And a roster that says nothing does not get a suspension it never asked for.
@@ -1151,27 +1162,21 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
 /// Found by capturing the stage and looking at it. No test asserted anything
 /// about it because nothing had thought to ask, which is the argument for looking
 /// at the screen and not only at the suite.
+///
+/// ⚠ **the CARRIER of that unfairness is gone**: nothing adopts a body that has
+/// been living in a session, so no seat can arrive holding a kit the match did
+/// not grant. What still needs asserting is the other half — that the roster's
+/// declared set actually REACHES every seat, and that equalising does not
+/// quietly disarm the floor a fighter needs.
 #[test]
-fn an_adopted_seat_fights_with_the_same_abilities_as_a_spawned_one() {
+fn the_matchs_declared_abilities_reach_every_seat() {
     let mut app = seating_app();
     app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
 
-    let mut sandbox_kit = ambition_platformer2d_core::AbilitySet::basic();
-    sandbox_kit.fly = true;
-    sandbox_kit.blink = true;
-    let player = app
-        .world_mut()
-        .spawn((
-            crate::avatar::PlayerSimulationBundle::from_scratch(
-                crate::avatar::primary_player_scratch(Vec2::new(0.0, 0.0), sandbox_kit),
-                ambition_characters::actor::Health::new(10),
-            ),
-            ambition_characters::actor::WornCharacter::new("duelist"),
-        ))
-        .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 })
+            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            cpu("duelist"),
         ],
         fighter_abilities: Some(ambition_platformer2d_core::AbilitySet::basic()),
         ..Default::default()
@@ -1179,33 +1184,40 @@ fn an_adopted_seat_fights_with_the_same_abilities_as_a_spawned_one() {
 
     finalize_and_update(&mut app);
 
-    let abilities = app
-        .world()
-        .get::<ambition_platformer2d_core::BodyAbilities>(player)
-        .expect("the adopted body keeps its ability component");
-    assert!(
-        !abilities.abilities.fly && !abilities.abilities.blink,
-        "the adopted fighter carried the session's sandbox kit into the match: it \
-         can fly and teleport and its opponent cannot"
-    );
-    assert!(
-        abilities.abilities.jump,
-        "and it must still be able to JUMP — equalising must not disarm the floor \
-         every fighter needs"
-    );
-    // The BASE too, not only the effective set: the dev-tools sync recomputes
-    // `effective = base ∩ editable_mask` every frame for the primary player, so a
-    // fix that wrote only the effective set would be undone by a system doing its
-    // job correctly.
-    let base = app
-        .world()
-        .get::<ambition_platformer2d_core::AbilityBase>(player)
-        .expect("the adopted body keeps its ability base");
-    assert!(
-        !base.abilities.fly && !base.abilities.blink,
-        "the intrinsic set still authorises flight, so the next dev-sync tick puts \
-         it back and the match is unfair again one frame later"
-    );
+    let kits: Vec<(bool, bool, bool, bool)> = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<(
+            &ambition_platformer2d_core::BodyAbilities,
+            &ambition_platformer2d_core::AbilityBase,
+        ), With<MatchSeat>>();
+        q.iter(world)
+            .map(|(abilities, base)| {
+                (
+                    abilities.abilities.fly,
+                    abilities.abilities.jump,
+                    // The BASE too, not only the effective set: the dev-tools
+                    // sync recomputes `effective = base ∩ editable_mask` every
+                    // frame for a player-driven body, so writing only the
+                    // effective set would be undone next tick by a system doing
+                    // its job correctly.
+                    base.abilities.fly,
+                    base.abilities.blink,
+                )
+            })
+            .collect()
+    };
+    assert_eq!(kits.len(), 2, "two seats, two kits");
+    for (fly, jump, base_fly, base_blink) in &kits {
+        assert!(
+            !fly && !base_fly && !base_blink,
+            "a fighter can fly or teleport in a match that granted neither, so \
+             the two seats are not playing the same game: {kits:?}"
+        );
+        assert!(
+            jump,
+            "equalising disarmed the floor every fighter needs: {kits:?}"
+        );
+    }
 }
 
 /// **An authored EXPLICIT body box is the seated fighter's box.** (Y″5)
@@ -1367,7 +1379,7 @@ fn a_proposed_roster_waits_and_the_same_roster_activated_seats() {
     // human. A proposal is a wait, not a problem.
     assert!(
         app.world()
-            .get_resource::<crate::character_runtime::MatchSeatingRefused>()
+            .get_resource::<crate::character_runtime::MatchPreparationProblems>()
             .is_none(),
         "waiting for activation was reported as an unsatisfiable roster, which \
          would put a refusal on screen on every ordinary route entry"
@@ -1759,15 +1771,19 @@ mod activation_transaction {
     /// **When every seat CAN be satisfied, they all arrive on one tick.**
     ///
     /// The counterpart assertion, and the one that would catch a "fix" that
-    /// simply refused to seat anything. A spawned seat and an ADOPTED seat land
-    /// in the same command flush — the mix is the point, because they take
-    /// different paths and it was the seam between them that could tear.
+    /// simply refused to build anything.
+    ///
+    /// ⚠ **the mix is still the point, for a different reason.** It used to be
+    /// that a spawned seat and an ADOPTED seat took different construction
+    /// paths and the seam between them could tear. There is one path now, so
+    /// what this pins is that a local-input seat and a brain seat still land in
+    /// the SAME command flush — a regression that staggered them would put a
+    /// fighter on the stage a tick before its opponent, which is a head start.
     #[test]
     fn every_seat_is_constructed_on_the_same_tick() {
         let mut app = seating_app();
         app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
         app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
-        let player = spawn_player(&mut app);
         finalize_and_update(&mut app);
 
         app.insert_resource(MatchParticipantRoster {
@@ -1781,10 +1797,6 @@ mod activation_transaction {
 
         finalize_and_update(&mut app);
 
-        assert!(
-            app.world().get::<MatchSeat>(player).is_some(),
-            "the adopted seat did not land on the activating tick"
-        );
         let world = app.world_mut();
         let mut seats = world.query::<&MatchSeat>();
         let mut indices: Vec<usize> = seats.iter(world).map(|seat| seat.0).collect();
@@ -1840,7 +1852,7 @@ fn an_unseatable_brain_profile_publishes_a_refusal_that_names_it() {
 
     let refusal = app
         .world()
-        .get_resource::<crate::character_runtime::MatchSeatingRefused>()
+        .get_resource::<crate::character_runtime::MatchPreparationProblems>()
         .expect("seating refused this roster and has to say so in every build");
     assert_eq!(refusal.problems.len(), 1, "{:?}", refusal.problems);
     assert_eq!(refusal.problems[0].seat, 1);

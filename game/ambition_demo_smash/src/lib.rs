@@ -660,65 +660,25 @@ fn return_to_the_select_screen_when_the_match_ends(
     }
 }
 
-/// **Dress the player as the fighter they picked.**
-///
-/// ⛔ **without this, player one could only ever be the stage's starting
-/// character, and picking anybody else seated NOBODY.** Seating ADOPTS the
-/// primary player's existing body rather than spawning a second one — which is
-/// right, and is what stopped two Mary-Os appearing in the arena — and it
-/// refuses to re-dress that body itself, saying so in its own comment: *"that is
-/// `WornCharacter`'s job, and a stage that wants a different fighter should say
-/// so in its `StartingCharacter`."*
-///
-/// A `StartingCharacter` is decided when the stage is PREPARED. A character
-/// select screen decides seat 0's fighter afterwards, so the only place that can
-/// reconcile them is here, and the reconciliation is exactly the one the engine
-/// names: re-dress the body.
-///
-/// ⚠ **the symptom was silence.** The roster published, the route reached the
-/// stage, no `MatchSeatingRefused` was recorded, and the stage came up empty —
-/// because that seating check `return`s from the whole system, so one seat
-/// disagreeing seats every other participant too. The engine says so out loud
-/// now; this is the other half.
-/// ⛔ **AND IT MUST NOT RUN OFF THIS EXPERIENCE'S ROUTES.** `MatchParticipantRoster`
-/// is global and outlived the routes that published it, so picking Oni Leader
-/// here and then quitting to the title left a smash-published roster standing —
-/// and this system, which is in the plain `Update` schedule and was gated on
-/// nothing but that roster, redressed AMBITION's controlled body as Oni Leader
-/// on the frame that game opened. The NPC of the same character then had a
-/// duplicate walking around wearing it.
-///
-/// Two independent repairs, and both are needed: this is gated on the smash
-/// gameplay experience owning the active route, and the roster leaves with the
-/// experience (see the scope in [`SmashExperiencePlugin`]).
-fn dress_the_primary_player_as_their_own_pick(
-    roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
-    mut player: bevy::prelude::Query<
-        &mut ambition_platformer2d::character::WornCharacter,
-        ambition_platformer2d::actor::PrimaryPlayerOnly,
-    >,
-) {
-    let Some(roster) = roster else {
-        return;
-    };
-    if !roster.is_published_by(SMASH_EXPERIENCE) {
-        return;
-    }
-    // Seat 0 is the one seating adopts; every other seat is spawned wearing
-    // whatever the roster named, and needs nothing from here.
-    let Some(wanted) = roster
-        .participants
-        .first()
-        .map(|seat| seat.character.as_str())
-    else {
-        return;
-    };
-    for mut worn in &mut player {
-        if worn.id() != wanted {
-            *worn = ambition_platformer2d::character::WornCharacter::new(wanted);
-        }
-    }
-}
+// ⛔ **`dress_the_primary_player_as_their_own_pick` IS GONE, and so is the whole
+// class of bug it was made of.**
+//
+// It existed to reconcile two facts that should never have needed reconciling:
+// the stage spawned a privileged home body when it was PREPARED, and the select
+// screen decided who seat 0 was afterwards. Seating adopted that body for the
+// human seat and refused until it already wore the picked fighter, so something
+// had to re-dress it — and that something dressed it as `participants.first()`,
+// which is only the human seat by coincidence. Put a CPU on an earlier card and
+// the body wore the CPU's costume, the human seat waited for one it would never
+// be given, and because one unresolved seat returned from the whole system,
+// NOBODY was seated. The stage opened with the home body standing on it and
+// nothing anywhere said why (Jon, 2026-08-06).
+//
+// A match now builds its own cast — every fighter by one path, control attached
+// afterwards — so there is no pre-existing body to reconcile with and no costume
+// handshake to lose. The two repairs this system carried survive where they
+// belong: the roster is owned by the experience that published it, and it leaves
+// with that experience (see the scope in `SmashExperiencePlugin`).
 
 /// Say who won, once.
 fn announce_the_winner(
@@ -876,15 +836,6 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                     select_screen::place_the_screen,
                     select_screen::update_the_select_screen,
                     start_the_battle_when_asked,
-                    // ⛔ ONLY while this experience owns the route. See the
-                    // system's own note: unscoped, it redressed another game's
-                    // controlled body from a roster smash had left behind.
-                    bevy::prelude::IntoScheduleConfigs::run_if(
-                        dress_the_primary_player_as_their_own_pick,
-                        ambition_platformer2d::game_shell::shell_experience_is_active(
-                            SMASH_EXPERIENCE,
-                        ),
-                    ),
                     return_to_the_select_screen_when_the_match_ends,
                 )),
                 SmashSelectSet,
@@ -1165,7 +1116,15 @@ fn start_the_battle_when_asked(
     commands.insert_resource(
         ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource::decided(
             SMASH_EXPERIENCE,
-            decided.participants.len(),
+            // ⛔ **CHANNELS, not participants.** This said `participants.len()`,
+            // so a one-person-one-CPU lobby built a two-handle rollback session
+            // whose second handle nothing ever wrote — while
+            // `freeze_local_seating_for_the_decided_match` counted humans for
+            // the same decision, each citing itself as authoritative. A CPU is a
+            // participant and occupies no channel; a lobby of two CPUs needs
+            // none at all, which is the case that makes the difference
+            // impossible to ignore.
+            decided.local_input_channels(),
         ),
     );
     commands.insert_resource(decided);

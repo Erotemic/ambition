@@ -247,8 +247,8 @@ pub mod actor {
     /// A second consumer is the only instrument that finds this class, which is
     /// the entire argument for keeping one.
     pub use ambition_platformer2d_actor_monolith::character_runtime::{
-        ControllerBinding, MatchParticipant, MatchParticipantRoster, MatchSeatingRefused,
-        RosterProblem, RosterSeating,
+        ControlAuthority, ControllerBinding, MatchParticipant, MatchParticipantRoster,
+        MatchPreparationProblems, PreparedMatch, RosterProblem, RosterSeating,
     };
 
     /// **The stocks economy**: the count on a body, the fact that it is out, and

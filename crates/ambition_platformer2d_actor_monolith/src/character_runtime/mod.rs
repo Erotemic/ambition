@@ -38,6 +38,7 @@ pub mod audit;
 pub mod definition;
 pub mod hurtbox;
 pub mod physical_baseline;
+pub mod prepared_match;
 pub mod presentation;
 pub mod seating;
 pub mod staging;
@@ -60,15 +61,17 @@ pub use hurtbox::{
 pub use physical_baseline::{
     BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
 };
+pub use prepared_match::{
+    activate_the_prepared_match, prepare_match, prepare_the_match, seat_placement,
+    ControlAuthority, MatchPreparationProblems, MatchRules, MatchViewPolicy, PreparedMatch,
+    PreparedSeat,
+};
 pub use presentation::{
     authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
     project_prepared_character_definitions, provider_of_character,
     publish_body_presentation_sources, ProjectedCharacterKit,
 };
-pub use seating::{
-    match_participants, seat_character, seat_match_participants, seat_placement, ActiveMatch,
-    MatchSeat, MatchSeatingRefused,
-};
+pub use seating::{match_participants, ActiveMatch, MatchSeat};
 pub use staging::{
     ControllerBinding, DirectStartupSpec, MatchParticipant, MatchParticipantRoster,
     NormalizedEffort, RoomStagingPlan, RosterProblem, RosterSeating, StagesCharacters,
@@ -841,8 +844,19 @@ impl Plugin for CharacterRuntimePlugin {
                 // its moveset and silhouette on the tick it appears rather than the
                 // one after — the difference between a fighter that can be hit on
                 // frame one and one that is briefly a bare rectangle.
-                seating::seat_match_participants
-                    // Seating needs an ASSEMBLED content composition. The archetype
+                // ⭐ **PREPARE, then ACTIVATE, chained on one tick.** Two systems
+                // rather than one because they answer different questions and
+                // only one of them may fail: preparation resolves every
+                // permanent question against the character authorities, and
+                // activation builds the cast from the answer without consulting
+                // any authority at all. Chained so a roster published this tick
+                // still opens its match this tick.
+                (
+                    prepared_match::prepare_the_match,
+                    prepared_match::activate_the_prepared_match,
+                )
+                    .chain()
+                    // Preparation needs an ASSEMBLED content composition. The archetype
                     // roster is built from registered fragments, so a bare engine
                     // App legitimately has none — and this is a run condition
                     // rather than an `Option<Res<..>>` parameter deliberately:

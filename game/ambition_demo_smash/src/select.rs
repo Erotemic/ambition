@@ -23,9 +23,8 @@
 //!
 //! ## The rule, stated once
 //!
-//! **The battle starts when every PARTICIPATING slot has picked a character, at
-//! least two slots participate, and at least one of them is a person.** Each
-//! part is a different bug, and all three were found the hard way:
+//! **The battle starts when every PARTICIPATING slot has picked a character and
+//! at least two slots participate.** Both were found the hard way:
 //!
 //! * without "every participating slot has picked", a player who joined and is
 //!   still browsing gets dropped into a fight as whoever the cursor was over;
@@ -387,11 +386,22 @@ impl SmashSelect {
 
     /// **Can the battle start?**
     ///
-    /// Every participating slot has picked, at least two participate, and at
-    /// least one of them is a person. See the module doc for why each clause is
-    /// load-bearing.
+    /// Every participating slot has picked, and at least two participate.
+    ///
+    /// ⛔ **there used to be a third clause — `humans_decided() >= 1` — and it
+    /// was an ENGINE LIMITATION wearing a product rationale.** Jon, 2026-08-06:
+    /// *"it does not let me make a CPU vs CPU match, and it is very important
+    /// that that is expressible and easy to do."*
+    ///
+    /// Its stated reason ("the second CPU somebody adds starts a match they are
+    /// not in") had already expired: the screen waits for START to be clicked,
+    /// so nothing launches on its own. What the clause was really holding up was
+    /// that a match with nobody local had no answer for the session's home body —
+    /// nothing adopted it, so it stood on the stage unclaimed. That is fixed
+    /// where it belongs, in how a match builds its cast, and this is a product
+    /// rule again: two fighters, everyone has chosen.
     pub fn ready(&self) -> bool {
-        self.decided() >= 2 && self.participating() == self.decided() && self.humans_decided() >= 1
+        self.decided() >= 2 && self.participating() == self.decided()
     }
 
     /// **Why the match cannot start**, in the words the screen puts under the
@@ -406,8 +416,6 @@ impl SmashSelect {
             Some("Two fighters needed — click a slot's button to add a controller or a CPU")
         } else if self.participating() != self.decided() {
             Some("Drag each slot's token onto a portrait")
-        } else if self.humans_decided() == 0 {
-            Some("At least one slot must be a controller player")
         } else {
             None
         }

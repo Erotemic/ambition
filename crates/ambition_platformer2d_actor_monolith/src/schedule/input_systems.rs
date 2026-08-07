@@ -1801,16 +1801,11 @@ pub fn freeze_local_seating_for_the_decided_match(
     // A CPU seat needs a body and a brain. It does not need a device or a
     // rollback handle, and counting it as though it did is what made the two
     // authorities that size a session disagree (queue G1 PICK 17).
-    let seats = roster
-        .participants
-        .iter()
-        .filter(|participant| {
-            matches!(
-                participant.controller,
-                crate::character_runtime::ControllerBinding::Human { .. }
-            )
-        })
-        .count();
+    // ⭐ **through the roster's own accessor, so this and the session's handle
+    // count are ONE definition rather than two that agree by inspection.** They
+    // did not agree: this counted humans and `SessionSeatingSource::decided` was
+    // handed `participants.len()`.
+    let seats = roster.local_input_channels();
     if seats == 0 {
         return;
     }

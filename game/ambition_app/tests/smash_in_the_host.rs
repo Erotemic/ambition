@@ -1131,7 +1131,7 @@ fn bodies_wearing(app: &mut App, character_id: &str) -> usize {
 /// **How far a decided lobby got.**
 ///
 /// ⚠ every arm is derived from WORLD STATE — the roster resource, the
-/// `MatchSeat` bodies, `ActiveMatch`, `MatchSeatingRefused`. Deliberately not
+/// `MatchSeat` bodies, `ActiveMatch`, `MatchPreparationProblems`. Deliberately not
 /// from log capture: the adoption mismatch happens to warn today and the
 /// character-id refusal happens to be silent, and an oracle keyed on that
 /// difference would be pinned to which failures currently remember to speak.
@@ -1214,7 +1214,7 @@ fn start_and_report(app: &mut App) -> MatchStart {
         app.update();
         if app
             .world()
-            .get_resource::<ambition_platformer2d::actors::character_runtime::MatchSeatingRefused>()
+            .get_resource::<ambition_platformer2d::actors::character_runtime::MatchPreparationProblems>()
             .is_some()
         {
             return MatchStart::PreparationRefused;
@@ -1224,10 +1224,34 @@ fn start_and_report(app: &mut App) -> MatchStart {
             .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
             .is_some()
         {
+            // ⛔ **COUNT THE ORPHANS TOO, or this oracle goes green over a broken
+            // game.** Seats are not the whole picture: the session also spawns a
+            // home body from the stage's `StartingCharacter`, and while a human
+            // seat ADOPTED that body the two were the same thing. Once every
+            // fighter is built by the match, an unclaimed home body is a third
+            // actor standing on the platform — one the camera follows and the
+            // player still drives, while their actual fighter waits elsewhere.
+            //
+            // A seat count cannot see that, so it would report `Activated{2}`
+            // about a stage you cannot play. Any controllable body that is not a
+            // match seat is a defect, so it is part of the verdict.
             let world = app.world_mut();
             let mut seated =
                 world.query::<&ambition_platformer2d::actors::character_runtime::MatchSeat>();
             let seats = seated.iter(world).count();
+            let mut loose = world.query_filtered::<Entity, (
+                With<ambition_platformer2d::actors::control::components::LocalPlayer>,
+                Without<ambition_platformer2d::actors::character_runtime::MatchSeat>,
+            )>();
+            let orphans = loose.iter(world).count();
+            assert_eq!(
+                orphans, 0,
+                "the match activated with {seats} seats and {orphans} controllable \
+                 bodies that are NOT in it. A stage that builds its own cast must \
+                 not also be handed a home avatar nobody claimed — the camera \
+                 follows it, input drives it, and the fighter the player chose \
+                 stands somewhere else"
+            );
             return MatchStart::Activated { seats };
         }
     }

@@ -675,7 +675,10 @@ fn track_versus_roster(
             commands.insert_resource(
                 ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource::decided(
                     VERSUS_EXPERIENCE,
-                    roster.participants.len(),
+                    // CHANNELS, not participants — the versus stage published
+                    // the same conflation Smash did. See
+                    // `ControllerBinding::local_channel`.
+                    roster.local_input_channels(),
                 ),
             );
             commands.insert_resource(roster);

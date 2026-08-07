@@ -348,7 +348,7 @@ fn late_arriving_roster_sim() -> Platformer2dSimHarness {
                 sim,
                 (
                     the_roster_arrives_on_a_tick.before(
-                        ambition_platformer2d::actors::character_runtime::seat_match_participants,
+                        ambition_platformer2d::actors::character_runtime::prepare_the_match,
                     ),
                     trace_the_activation.in_set(Platformer2dSimulationPhaseMonolith::Trace),
                 ),
@@ -749,9 +749,8 @@ fn late_arriving_human_roster_sim() -> Platformer2dSimHarness {
             let sim = app.sim_schedule();
             app.add_systems(
                 sim,
-                the_human_roster_arrives_on_a_tick.before(
-                    ambition_platformer2d::actors::character_runtime::seat_match_participants,
-                ),
+                the_human_roster_arrives_on_a_tick
+                    .before(ambition_platformer2d::actors::character_runtime::prepare_the_match),
             );
             Ok(())
         },

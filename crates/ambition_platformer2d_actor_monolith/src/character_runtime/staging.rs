@@ -158,6 +158,28 @@ impl ControllerBinding {
             _ => None,
         }
     }
+
+    /// **The LOCAL INPUT CHANNEL this binding occupies, if any.**
+    ///
+    /// ⛔ **the one definition of "how many people are playing on this
+    /// machine", and it needed to be one.** Two authorities used to answer it
+    /// and disagreed: the rollback session was sized from
+    /// `roster.participants.len()` — every seat, CPUs included — while the
+    /// frozen input topology counted `ControllerBinding::Human`, each with a
+    /// comment claiming to be the authoritative number. A one-human-one-CPU
+    /// match therefore built a two-handle session whose second handle nothing
+    /// ever wrote.
+    ///
+    /// ⚠ **a participant is not a channel.** A CPU is a full participant with a
+    /// body, a team and a stock count, and it occupies no channel at all; a
+    /// spectator would be a participant with no body. Those are only sayable
+    /// once the two counts are allowed to differ.
+    pub fn local_channel(&self) -> Option<u8> {
+        match self {
+            Self::Human { device_slot } => Some(*device_slot),
+            _ => None,
+        }
+    }
 }
 
 /// **Normalized exertion, the only thing locomotion intent may cross the seam
@@ -428,6 +450,19 @@ impl MatchParticipantRoster {
                 .collect(),
             ..Default::default()
         }
+    }
+
+    /// **How many LOCAL INPUT CHANNELS this match needs**, which is not how many
+    /// fighters are in it.
+    ///
+    /// The number that sizes a rollback session and picks solo-versus-couch
+    /// input assignment. See [`ControllerBinding::local_channel`] for the two
+    /// authorities this replaced and how they disagreed.
+    pub fn local_input_channels(&self) -> usize {
+        self.participants
+            .iter()
+            .filter(|participant| participant.controller.local_channel().is_some())
+            .count()
     }
 
     /// Stamp the experience that published this roster. See

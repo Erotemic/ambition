@@ -115,6 +115,15 @@ by hardness × payoff; every item below is executable today per its own doc.
    are what §8's suite measures. ⚠ either way a numbers table that does not name
    the ladder it measured is worse than none, and today it would have said
    "Ambition" while measuring the engine default.
+   ✔ **that half is FIXED 2026-08-07**: `ladder_probe` prints its ladder before
+   any row — *"LADDER: engine floor (`FighterBrainProfile::for_level`) — this demo
+   authors no ladder of its own"* — and states what it costs the table below
+   (rungs gain `rollout_depth: 12` at level ≥ 6, so the level column confounds
+   depth with reaction/APM/noise/read-weight; the forced-depth A/B is the only
+   clean depth comparison there). ⭐ the same table means two different things
+   depending on whose ladder ran, and it now says which. ⚠ its doc comment also
+   records why this is NOT fixed by loading Ambition's ladder, because that is the
+   fix the floor line invites and the demo gate forbids.
 3. ~~**Matchbox two-peer transport + predicted-A/corrected-B oracle**
    (netcode.md "next online slice"; unblocked since the confirmed-frame
    quarantine landed 2026-07-21).~~ **DEFERRED to the Super Smash Siblings era

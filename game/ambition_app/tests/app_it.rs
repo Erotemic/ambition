@@ -18,6 +18,7 @@ mod app_it_sync;
 
 mod actor_phase_split;
 mod app_local_catalog_composition;
+mod authored_fighter_ladder;
 mod blink_run_reachability;
 mod boot_budget;
 mod boss_contact_iframes;

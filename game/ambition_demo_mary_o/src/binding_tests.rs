@@ -185,10 +185,15 @@ fn both_snake_plane_swarms_assemble_as_flyers() {
         let spec = roster
             .archetype_for(key)
             .unwrap_or_else(|| panic!("`{key}` is in the roster but has no spec"));
-        assert!(
+        assert_eq!(
             spec.is_aerial,
-            "`{key}` assembled without `is_aerial`, so gravity applies and the \
-             swarm falls out of the sky"
+            Some(true),
+            "`{key}` did not assemble as a DECIDED flyer, so gravity applies and \
+             the swarm falls out of the sky. ⚠ `None` and `Some(false)` are \
+             different failures: `Some(false)` is a row that chose to be \
+             grounded, `None` is a row that never said — and the whole reason \
+             `is_aerial` became an `Option` is that silence used to be \
+             indistinguishable from a decision"
         );
         assert_eq!(
             spec.move_style,

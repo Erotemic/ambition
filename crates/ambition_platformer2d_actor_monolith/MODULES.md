@@ -22,6 +22,7 @@
 | [`config`](src/config.rs) | The render-only `rgba` color helper. |
 | [`construction`](src/construction/mod.rs) | **The actor construction domain: three origins, one planner.** |
 | [`control`](src/control/mod.rs) | **The local control seam** — device frame → slot → the body carrying that slot's player brain. |
+| [`conversation`](src/conversation/mod.rs) | **Conversation continuity: the authority, the hold, and the break rule.** |
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`cutscene_trigger`](src/cutscene_trigger.rs) | The cutscene TRIGGER channel — a presentation-neutral request queue. |
 | [`dev`](src/dev.rs) | Sim-side developer tooling that still samples actor-domain state. |
@@ -35,6 +36,7 @@
 | [`items`](src/items/mod.rs) | Actor-sim item adapters. |
 | [`menu`](src/menu/mod.rs) | Unified menu content for the sandbox. |
 | [`music`](src/music/mod.rs) | Sandbox music adapters over the `ambition_audio` music core. |
+| [`participant_seat`](src/participant_seat.rs) | **The `ParticipantId` ↔ `PlayerSlot` correspondence, in ONE place.** |
 | [`persistence`](src/persistence/mod.rs) | Compatibility adapter for persistence paths that still sit inside the gameplay-core UI surface. |
 | [`physics`](src/physics.rs) | Shared world physics facade. |
 | [`platformer_runtime`](src/platformer_runtime/mod.rs) | Proto-runtime facade for reusable platformer systems. |
@@ -47,7 +49,7 @@
 | [`time`](src/time/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the LDtk hot-reloadable project loader, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 
-_40 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_42 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

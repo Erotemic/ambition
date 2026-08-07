@@ -83,6 +83,25 @@ by hardness × payoff; every item below is executable today per its own doc.
    ▢ **still owed for the gate**: §8's scenario suite and the survival/damage
    ratios. A probe with one scenario and an opponent that cannot attack says the
    gate is worth authoring; it is not the gate.
+   ⛔⛔ **AND THE INSTRUMENT MEASURES THE ENGINE FLOOR, NOT AMBITION'S LADDER
+   (found 2026-08-07).** `ladder_probe` rosters `duelist_l{N}`, whose archetypes
+   read `brain_template: Fighter, fighter_level: Some(N)` — so they resolve
+   through the same path a shipped fighter does. But the binary composes only
+   `CausalPlugin`; it never installs `AmbitionContentPlugin`, so the
+   `AuthoredFighterLadder` resource is absent and every rung falls back to
+   `FighterBrainProfile::for_level`.
+   ⭐ **the two differ exactly where the probe's own A/B lives.** `for_level`
+   turns `rollout_depth: 12` on at level ≥ 6 — which is why the probe's comment
+   says *"level 5 → 6 is NOT a depth experiment; it is five changes at once"* —
+   while `fighter_brain_ladder.ron` authors `rollout_depth: 0` on EVERY rung,
+   deliberately, gated on FB6e's instruments. So under the shipped ladder there is
+   no depth change between rungs at all, and that confound is a property of the
+   FLOOR rather than of the game.
+   ⚠ **so a gate built on this probe today would calibrate the floor.** Whoever
+   authors §8's suite should decide FIRST which ladder is under test and install
+   the resource accordingly — the fix is one `insert_resource` away now that the
+   ladder loads (2026-08-07), but nothing about it is automatic, and a numbers
+   table that does not say which ladder it measured is worse than none.
 3. ~~**Matchbox two-peer transport + predicted-A/corrected-B oracle**
    (netcode.md "next online slice"; unblocked since the confirmed-frame
    quarantine landed 2026-07-21).~~ **DEFERRED to the Super Smash Siblings era

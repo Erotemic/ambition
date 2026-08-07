@@ -240,6 +240,11 @@ pub fn tick_actor_brains(
                 // prop) has no kit, and an empty kit is the honest answer.
                 Option<&crate::combat::moveset::ActorMoveset>,
             ),
+            // **IS THIS BODY IN A MATCH?** Read for the stand-down rule below,
+            // which pacifies a hostile actor that holds no combat target — and a
+            // peaceful body cannot be damaged. A match declares its fighters
+            // combatants; that is not a fact targeting is allowed to revoke.
+            bevy::prelude::Has<crate::character_runtime::MatchSeat>,
         ),
         // The player carries the unified `BodyKinematics` too, and
         // `player_query` above reads it; exclude the player here so this
@@ -380,6 +385,7 @@ pub fn tick_actor_brains(
         _,
         _,
         (clusters, _, faction, _, _, _, _),
+        _,
     ) in &actors
     {
         if let Some(c) = &clusters {
@@ -459,6 +465,7 @@ pub fn tick_actor_brains(
         action_set,
         _mounted,
         (clusters, resolved_frame, faction, aggression, mut perception_memory, perception, moveset),
+        in_a_match,
     ) in &mut actors
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
@@ -486,7 +493,26 @@ pub fn tick_actor_brains(
         // never spuriously stands down. Relativity-neutral (any fighter, any
         // faction). This REPLACES the former hard pacify-to-passive, which dead-ended
         // a duel winner (couldn't be talked to or re-provoked, and mislabeled it).
-        if disposition.is_hostile() && target.entity.is_none() {
+        // ⛔ **UNLESS A MATCH SAYS OTHERWISE.** A seated fighter is a combatant
+        // because two people decided it is, and that is not a fact about whether
+        // it currently holds a target. Standing one down makes it PEACEFUL, and
+        // `apply_actor_hit` reads disposition first: a peaceful body takes no
+        // health damage at all. So a fighter that stood down could not be hit,
+        // could not be knocked out, and could not lose a stock.
+        //
+        // ⚠ **measured 2026-08-07, and it is worse than the test that found it.**
+        // Two `Brain::Player` fighters hold no combat target — targeting hunts
+        // live foes for a BRAIN — so in a human-versus-human match BOTH sides
+        // stood down and neither could damage the other at all. The stage-kill
+        // test only caught the blast-zone corner of it: seat 1 launched at
+        // 2400px/s fell to y=5771 and kept falling, the gate writing a lethal
+        // hit every tick that nothing would resolve.
+        //
+        // ⚠ it was masked by a bug. `provoke_actor_in_place` used to seize
+        // `Brain::Player` on the first hit, which turned a human's fighter into
+        // an AI body that acquired a target — so the fighters were hostile by
+        // accident. Fixing that seizure (`d657a0e22`) is what exposed this.
+        if disposition.is_hostile() && target.entity.is_none() && !in_a_match {
             *disposition = ActorDisposition::Peaceful;
         }
         // `target.pos` is populated by `select_actor_targets`

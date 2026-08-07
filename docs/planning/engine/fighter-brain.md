@@ -345,6 +345,31 @@ by kill potential alone.
 
 ### A gap in §1's own four features, found by building them
 
+> ✅ **CLOSED via option (1) — verified 2026-08-07.** Both halves landed:
+> `MoveFrameData::max_damage` exists (documented as *"the move's POWER"*), and
+> `UtilityWeights::expected_payoff` is the fifth feature, computed as *"(this
+> move's `max_damage` ÷ the kit's strongest …)"*. The jab-out-scores-a-smash hole
+> this section describes is priced.
+>
+> ⛔⛔ **AND THE CALIBRATION NEVER REACHED THE GAME, which is the part worth
+> keeping.** This section's discipline was followed exactly — the weight was not
+> "divined up front", it was built and then CALIBRATED per rung in
+> `fighter_brain_ladder.ron`, whose own comment names this hole: *"`expected_payoff`
+> is FB6a's fifth feature — it prices a move's POWER on a plausible landing,
+> closing the hole FB2 recorded (a jab out-scored a smash on any punish they both
+> fit)."* The ladder authors it as `0.00` on the low rungs and `0.50` at level 9,
+> because **not noticing which move hits harder IS a difficulty statement**.
+>
+> ⚠ **the game never read the ladder.** Until 2026-08-07 nothing loaded
+> `fighter_brain_ladder.ron`, so every fighter took
+> `FighterBrainProfile::for_level`, which hands every rung
+> `UtilityWeights::default()` — and `default()` is `v1()`, which is the authored
+> LEVEL-9 row. So the feature shipped, the calibration shipped, and a level-1 CPU
+> priced a smash exactly as a level-9 did. ⭐ the failure was not in the doctrine
+> this section defends; it was one wiring step after it, and no test could see it
+> because every test parsed the ladder file itself.
+
+
 **None of the four reads a move's POWER.** `kill_potential` is the *victim's*
 meter; `reach_fit` and `frame_advantage` are geometry and timing; `stage_risk` is
 about me. So at ANY weights, given a punish window both a jab and a smash fit, the

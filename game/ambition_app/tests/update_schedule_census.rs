@@ -161,3 +161,160 @@ fn census_of_how_much_of_update_is_inside_a_set() {
          means this measured something other than the real composition"
     );
 }
+
+/// **Every set that READS `MenuControlFrame` lives in the SAME schedule.**
+///
+/// A writer that has to land before every reader pins `.before` each reader set
+/// by name — `ambition_touch_input`'s `fold_touch_gestures` does it twice, once
+/// for `MenuFrameCutsceneSkip` and once for `MenuNavConsume`.
+///
+/// ⛔ **a cross-schedule `.before` is SILENTLY VACUOUS.** A Bevy set node belongs
+/// to one schedule; pinning against a set that has no members here constrains
+/// nothing and reports nothing. Both configuration sites already know this — the
+/// host's says the chain is *"LOAD-BEARING ONLY under the `RenderFrame` host,
+/// where the sim schedule IS `Update` … under `Fixed60Hz`/`Ggrs` this creates an
+/// empty node here"*. So "the set exists in this schedule" is NOT the question;
+/// "does it have members here" is, and an empty node is a thing this app really
+/// produces.
+///
+/// ⚠ this is a PREREQUISITE for the open `MenuFrameConsume` decision (queue A1):
+/// folding the reader sets into one umbrella, or adding one over both, is only
+/// meaningful if they are co-scheduled. If they are not, the honest finding is
+/// that one of the touch adapter's two pins is already doing nothing.
+#[test]
+fn the_menu_frame_reader_sets_are_co_scheduled() {
+    use ambition_platformer2d::actors::schedule::{
+        MenuFrameConsume, MenuFrameCutsceneSkip, MenuNavConsume,
+    };
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    for _ in 0..4 {
+        app.update();
+    }
+
+    let labels: Vec<bevy::ecs::schedule::InternedScheduleLabel> = app
+        .world()
+        .resource::<Schedules>()
+        .iter()
+        .map(|(_, schedule)| schedule.label())
+        .collect();
+
+    // Schedules in which each set has AT LEAST ONE member system.
+    let mut cutscene_in: Vec<String> = Vec::new();
+    let mut nav_in: Vec<String> = Vec::new();
+    let mut umbrella_in: Vec<String> = Vec::new();
+
+    /// How many members a set has in this graph. ZERO for a set that was never
+    /// registered here AND for one registered as an empty node — the two are
+    /// the same fact for a `.before` pinned against it.
+    fn members<S: bevy::ecs::schedule::SystemSet>(
+        graph: &bevy::ecs::schedule::ScheduleGraph,
+        set: S,
+    ) -> usize {
+        let Some(key) = graph.system_sets.get_key(set.intern()) else {
+            return 0;
+        };
+        graph
+            .hierarchy()
+            .graph()
+            .neighbors_directed(NodeId::Set(key), Direction::Outgoing)
+            .count()
+    }
+
+    for label in labels {
+        app.world_mut()
+            .resource_scope(|world, mut schedules: Mut<Schedules>| {
+                let schedule = schedules.get_mut(label).expect("label came from the map");
+                let _ = schedule.initialize(world);
+                let graph = schedule.graph();
+                let name = format!("{label:?}");
+                if members(graph, MenuFrameCutsceneSkip) > 0 {
+                    cutscene_in.push(name.clone());
+                }
+                if members(graph, MenuNavConsume) > 0 {
+                    nav_in.push(name.clone());
+                }
+                if members(graph, MenuFrameConsume) > 0 {
+                    umbrella_in.push(name);
+                }
+            });
+    }
+    cutscene_in.sort();
+    nav_in.sort();
+    umbrella_in.sort();
+    println!("cutscene-skip readers in: {cutscene_in:?}");
+    println!("nav readers in:           {nav_in:?}");
+    println!("MenuFrameConsume in:      {umbrella_in:?}");
+
+    assert!(
+        !cutscene_in.is_empty() && !nav_in.is_empty(),
+        "a menu-frame reader set has no members in ANY schedule, so every \
+         `.before` pinned against it is already vacuous — cutscene: \
+         {cutscene_in:?}, nav: {nav_in:?}",
+    );
+    assert_eq!(
+        cutscene_in, nav_in,
+        "the two sets that read `MenuControlFrame` are populated in DIFFERENT \
+         schedules, so a writer cannot land before both by pinning both: one of \
+         the two `.before`s is silently doing nothing. cutscene-skip in \
+         {cutscene_in:?}, nav in {nav_in:?}",
+    );
+    assert_eq!(
+        umbrella_in, nav_in,
+        "`MenuFrameConsume` — the ONE name a frame writer pins against — is not \
+         populated in the same schedule as the readers it is supposed to \
+         contain. That is not a loud failure anywhere else: the pin still \
+         compiles, the node is still created, and it constrains nothing. \
+         umbrella in {umbrella_in:?}, readers in {nav_in:?}",
+    );
+}
+
+/// **A `.before` pinned against an umbrella orders EVERY member.**
+///
+/// The property `MenuFrameConsume` rests on, proven on a three-system app rather
+/// than assumed from Bevy's docs. The touch adapter used to name both reader
+/// sets and now names only their umbrella; if nesting did not propagate
+/// ordering, that edit would have silently unordered a gesture write against the
+/// menu readers — and nothing in this repo would have said so, because the pin
+/// still compiles and the set still exists.
+///
+/// ⚠ deliberately NOT the shipped app: a behavioural claim about a Bevy
+/// mechanism is answered by exercising the mechanism, and a full composition
+/// would let a hundred other constraints produce the same order by accident.
+#[test]
+fn a_before_pinned_against_an_umbrella_orders_every_member() {
+    #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+    struct Umbrella;
+    #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+    struct MemberOne;
+    #[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+    struct MemberTwo;
+
+    #[derive(Resource, Default)]
+    struct Order(Vec<&'static str>);
+
+    let mut app = App::new();
+    app.init_resource::<Order>();
+    app.configure_sets(Update, (MemberOne, MemberTwo).in_set(Umbrella));
+    app.add_systems(
+        Update,
+        (
+            (|mut order: ResMut<Order>| order.0.push("reader_one")).in_set(MemberOne),
+            (|mut order: ResMut<Order>| order.0.push("reader_two")).in_set(MemberTwo),
+            // The writer names the umbrella ONLY.
+            (|mut order: ResMut<Order>| order.0.push("writer")).before(Umbrella),
+        ),
+    );
+    app.update();
+
+    let order = &app.world().resource::<Order>().0;
+    assert_eq!(
+        order.first(),
+        Some(&"writer"),
+        "a system pinned `.before` an umbrella did not run before its members — \
+         every `.before(MenuFrameConsume)` in the tree is then decorative. \
+         Observed order: {order:?}"
+    );
+    assert_eq!(order.len(), 3, "all three systems must have run: {order:?}");
+}

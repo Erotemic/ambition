@@ -78,13 +78,36 @@ pub struct MenuFramePopulate;
 /// switch; adding a cutscene system to it would silently make that switch wait
 /// on something unrelated to nav.
 ///
-/// ▢ the fragmentation is real and worth fixing properly: a gesture adapter
-/// today has to pin `.before` BOTH this and `MenuNavConsume` to mean "before
-/// anything reads the frame". One `MenuFrameConsume` that every reader joins
-/// would say it once. That is a rename plus a widening with a behavioural
-/// consequence at the menu-backend switch, so it is a decision, not this edit.
+/// ⭐ **it is a member of [`MenuFrameConsume`] (2026-08-07), which is how the
+/// fragmentation was resolved without the cost that made it a decision.** A
+/// writer says `.before(MenuFrameConsume)` once; the menu-backend switch keeps
+/// `.after(MenuNavConsume)` and still waits on nav alone. Folding the two sets
+/// into one would have made that switch wait on cutscene skip as well, which is
+/// the behavioural consequence the open row named — nesting has no such cost,
+/// because the umbrella adds a NAME for "every reader" and takes nothing away
+/// from either member.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuFrameCutsceneSkip;
+
+/// **Everything that READS [`MenuControlFrame`], under one name.**
+///
+/// The umbrella over [`MenuFrameCutsceneSkip`] and [`MenuNavConsume`]. A writer
+/// that must land in the frame before anything consumes it pins
+/// `.before(MenuFrameConsume)` — one pin that stays correct when a THIRD reader
+/// is added, which is the whole point: `ambition_touch_input` used to name both
+/// reader sets, and a writer that enumerates its readers is a writer that
+/// silently stops covering them.
+///
+/// ⛔ **an umbrella over sets in DIFFERENT schedules would be silently vacuous.**
+/// A Bevy set node belongs to one schedule, so a `.before` against a set with no
+/// members here constrains nothing and says nothing. Both members were MEASURED
+/// into `Update` together before this was added, and
+/// `app_it::update_schedule_census::the_menu_frame_reader_sets_are_co_scheduled`
+/// keeps checking it — an empty node is a thing this app really produces (see
+/// the host's own note about `Fixed60Hz`/`Ggrs`), so presence is not the
+/// question and membership is.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MenuFrameConsume;
 
 /// The menu-nav CONSUMERS of [`MenuControlFrame`].
 ///
@@ -95,6 +118,11 @@ pub struct MenuFrameCutsceneSkip;
 /// `.before(MenuNavConsume)` without naming each backend's private system.
 /// Touch stick navigation itself now arrives through the participant's
 /// virtual-device binding before `MenuControlFrame` is populated.
+///
+/// ⚠ **pin against this only when you mean NAV specifically** — the menu-backend
+/// switch does, because it must not act until the nav that may have chosen it
+/// has run. A writer that means "before anything reads the frame" wants
+/// [`MenuFrameConsume`], which contains this.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuNavConsume;
 

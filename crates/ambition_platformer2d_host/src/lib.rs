@@ -88,7 +88,7 @@ impl Plugin for HostInputBindingsPlugin {
             populate_secondary_slot_controls, publish_latched_slot_controls,
             seat_input_participants_for_roster, spawn_primary_input_participant,
             sync_primary_recipe_from_settings, toggle_player_trail_emission_from_actions,
-            MenuFrameCutsceneSkip, MenuFramePopulate,
+            MenuFrameConsume, MenuFrameCutsceneSkip, MenuFramePopulate, MenuNavConsume,
         };
         use leafwing_input_manager::prelude::InputManagerPlugin;
 
@@ -274,8 +274,7 @@ impl Plugin for HostInputBindingsPlugin {
             // additionally marks `Touch` for overlay input a mouse can drive.
             .add_systems(
                 Update,
-                ambition_input::update_seat_active_devices
-                    .in_set(ambition_input::InputSet::Route),
+                ambition_input::update_seat_active_devices.in_set(ambition_input::InputSet::Route),
             )
             // The persistent participant spawns ONCE at boot — before any
             // route, session, or gameplay actor exists — and is never
@@ -340,6 +339,23 @@ impl Plugin for HostInputBindingsPlugin {
                         .after(ambition_input::InputSet::ResolveContext)
                         .before(ambition_input::InputSet::Route),
                 ),
+            )
+            // ⭐ **ONE NAME FOR "EVERY READER OF THE MENU FRAME".** A gesture
+            // adapter that must land in the frame before anything consumes it
+            // used to pin `.before` each reader set by name, which is a pin that
+            // silently stops covering the readers as soon as a third one is
+            // added. Nesting rather than folding: `MenuNavConsume` keeps its own
+            // identity because the menu-backend switch pins `.after` it and must
+            // NOT start waiting on cutscene skip too.
+            //
+            // ⚠ `Update` specifically, and both members were measured to have
+            // their systems here before this was written — a set node belongs to
+            // one schedule, so an umbrella over members that live elsewhere
+            // constrains nothing at all. `app_it::update_schedule_census` keeps
+            // that measurement honest.
+            .configure_sets(
+                Update,
+                (MenuFrameCutsceneSkip, MenuNavConsume).in_set(MenuFrameConsume),
             )
             // Collect semantic menu intent before gameplay input is
             // suppressed. `populate_control_frame_from_actions` may zero the

@@ -315,8 +315,10 @@ impl Plugin for TouchControlsPlugin {
                     fold_touch_gestures
                         .in_set(ambition_input::InputSet::Route)
                         .after(ambition_platformer2d_actor_monolith::schedule::MenuFramePopulate)
-                        .before(ambition_platformer2d_actor_monolith::schedule::MenuFrameCutsceneSkip)
-                        .before(ambition_platformer2d_actor_monolith::schedule::MenuNavConsume),
+                        // ⭐ ONE pin, not one per reader. Naming each reader set
+                        // is a pin that stops covering them the day a third
+                        // reader is added and nothing says so.
+                        .before(ambition_platformer2d_actor_monolith::schedule::MenuFrameConsume),
                 )
                     .chain(),
             )

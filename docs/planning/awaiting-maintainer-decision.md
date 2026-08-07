@@ -351,6 +351,31 @@ fact. `type_name`'s module path is the same category of organisational label
 wearing a different hat — and unlike the owner, nobody chose to hash it; it came
 along inside a string that was being used for identity.
 
+### ⭐ A third option, which dissolves the trade rather than picking a side
+
+What does `type_name` actually BUY the fingerprint? Exactly one thing the other
+hashed fields do not: catching **the same stable name bound to a different type
+across two peers**. ⚠ within a single build that is already impossible —
+`registry.rs:181` raises *"conflicting rollback registration '{name}'"* and
+`:365` panics on it — so the value is strictly cross-peer.
+
+⇒ **hash the type's IDENTITY without its PATH.** The last segment
+(`ActiveConversation`) or a stable type id keeps the cross-peer check exactly as
+strong, because the pair `(stable name, type basename)` is what actually differs
+in the case being guarded against — while a module move, a crate carve and the
+whole decomposition campaign become free.
+
+⚠ the honest weakness: two types with the SAME basename in different modules,
+bound to the same stable name on two peers, would slip through. That requires a
+name collision on both the schema name and the type basename simultaneously, and
+the schema names are hand-authored and unique. ⭐ this is strictly stronger than
+hashing nothing, and strictly cheaper than hashing the path — which is the shape
+of an answer rather than a preference.
+
+⛔ **and it needs a `GGRS_ROLLBACK_SCHEMA_VERSION` bump**, exactly as v5 did when
+it stopped hashing the owner. The precedent for this change is the change itself,
+one level down.
+
 ### ⭐ Two things measured since, both of which enlarge this decision
 
 **1. The codec blocks carve-outs by a SECOND mechanism nobody had named: the

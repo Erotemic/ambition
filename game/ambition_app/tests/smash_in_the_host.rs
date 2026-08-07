@@ -641,6 +641,7 @@ fn an_adopted_seat_and_a_spawned_seat_agree_on_every_roster_declared_field() {
 /// deaf to every real pad (`Entity::PLACEHOLDER`, not `None`), the select screen
 /// iterating the same seat count its lobby declares, and the couch policy
 /// surviving the route change into the match.
+
 #[test]
 fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     use ambition_platformer2d::actors::actor::BodyKinematics;

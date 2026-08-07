@@ -560,7 +560,22 @@ fn realize_seat(
     // archetype fills one in. The character's real attacks arrive from
     // `apply_worn_character_gameplay`, the ONE writer for a worn body's moves.
     let action_set = ambition_characters::brain::ActionSet::default();
-    let derived_brain = crate::features::ecs::enemy_default_brain(&seed.config);
+    // **THE BRAIN THIS SEAT WILL HAVE, chosen once and spawned WITH the body.**
+    //
+    // ⛔ this used to be the archetype's brain unconditionally, with a follow-up
+    // `commands.entity(body).insert(Brain::Player(..))` for a local seat. Two
+    // steps to say one thing, and this repo's own rule about that is
+    // "an authority that needs a FOLLOW-UP CALL — the second step belongs inside
+    // the first". Here the cost is concrete: for one command-queue ordering
+    // there exists a world in which a seated fighter is AI-brained, and a
+    // rollback snapshot that captures THAT world restores it forever, because
+    // activation is one-shot and never rebinds.
+    let derived_brain = match &seat.authority {
+        ControlAuthority::LocalInput { channel } => ambition_characters::brain::Brain::Player(
+            ambition_characters::brain::PlayerSlot(*channel),
+        ),
+        ControlAuthority::Brain { .. } => crate::features::ecs::enemy_default_brain(&seed.config),
+    };
     let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
     let cluster = seed.into_components();
     use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
@@ -649,11 +664,11 @@ fn realize_seat(
 /// the property that made a CPU-only match impossible to express before.
 fn bind_seat_control(commands: &mut Commands, body: Entity, authority: &ControlAuthority) {
     match authority {
-        ControlAuthority::LocalInput { channel } => {
+        ControlAuthority::LocalInput { .. } => {
+            // ⚠ the BRAIN is not here — it is in the spawn bundle, deliberately;
+            // see `realize_seat`. What is left is the local-input plumbing that
+            // has no archetype counterpart to race with.
             commands.entity(body).insert((
-                ambition_characters::brain::Brain::Player(ambition_characters::brain::PlayerSlot(
-                    *channel,
-                )),
                 crate::control::components::LocalPlayer,
                 crate::control::components::PlayerInputFrame::default(),
             ));

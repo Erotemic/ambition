@@ -33,6 +33,7 @@ use super::{CombatKit, HeldItem};
 use crate::abilities::traversal::possession::PossessionState;
 use crate::combat::CombatCapabilities;
 use crate::features::ecs::actor_tuning::{ActorTuning, CharacterBrainSpec};
+use crate::features::enemies::ArchetypeSpecExt;
 use crate::features::enemies::{ArchetypeSpec, CharacterRoster};
 use crate::features::TemporaryControl;
 use ambition_characters::actor::character_catalog::{
@@ -45,7 +46,6 @@ use ambition_characters::brain::{ActorControl, Brain, PlayerSlot, NPC_PATROL_SPE
 use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d_shared_tangle::markers::PrimaryPlayer;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
-use crate::features::enemies::ArchetypeSpecExt;
 
 /// The complete set of components a provoked hostile archetype installs on an
 /// actor — the deterministic projection of `(archetype spec, current config,
@@ -374,6 +374,9 @@ fn reconcile_temporary_control(world: &mut World) {
         control: TemporaryControl,
         live_is_player: bool,
         live_mounted: bool,
+        /// **This body is player-brained BY CONSTRUCTION, not by possession.**
+        /// See the autonomous-resume arm below for what mistaking the two costs.
+        seated: bool,
     }
 
     let bodies: Vec<Body> = {
@@ -382,13 +385,15 @@ fn reconcile_temporary_control(world: &mut World) {
             &TemporaryControl,
             &Brain,
             bevy::ecs::query::Has<Mounted>,
+            bevy::ecs::query::Has<crate::character_runtime::MatchSeat>,
         )>();
         q.iter(world)
-            .map(|(entity, control, brain, mounted)| Body {
+            .map(|(entity, control, brain, mounted, seated)| Body {
                 entity,
                 control: control.clone(),
                 live_is_player: brain.is_player(),
                 live_mounted: mounted,
+                seated,
             })
             .collect()
     };
@@ -488,6 +493,28 @@ fn reconcile_temporary_control(world: &mut World) {
         // No possession: the home avatar drives, and any body left player-brained
         // by the abandoned future resumes its autonomous source.
         for body in &bodies {
+            // ⛔ **A SEATED FIGHTER IS NOT AN ABANDONED FUTURE.**
+            //
+            // This arm resumes the autonomous brain of any body that is
+            // player-brained while its `TemporaryControl` says autonomous — a
+            // correct repair when the ONLY way to be player-brained is to be
+            // possessed, which was true until a match could seat one.
+            //
+            // A local seat's fighter carries `Brain::Player(slot)` because
+            // `activate_the_prepared_match` gave it one, and `TemporaryControl`
+            // never says otherwise because nobody possessed anything. So the
+            // first rollback restore after the match opened handed every human's
+            // fighter to the CPU, in place, on the same entity — and the couch
+            // test read it as crosstalk, because the AI then walked the "wrong"
+            // fighter around. Measured: seat 1 flipped 28 frames after its pad
+            // was released, seat 0 shortly after.
+            //
+            // ⭐ **arbitrate by IDENTITY.** A seat is who this body is, not a
+            // state it is passing through; possession is the thing that is
+            // temporary. This function reconciles the control it OWNS.
+            if body.seated {
+                continue;
+            }
             if body.live_is_player && body.control.is_autonomous() {
                 if let Some(brain) = autonomous_brain_for_source(world, body.entity) {
                     if let Ok(mut em) = world.get_entity_mut(body.entity) {
@@ -511,6 +538,70 @@ fn reconcile_temporary_control(world: &mut World) {
             possession.possessed = None;
             possession.home = None;
             possession.restore_brain = None;
+        }
+    }
+
+    // ── Seated fighters ─────────────────────────────────────────────────────
+    //
+    // ⛔ **A PLAYER BRAIN IS NEVER SNAPSHOTTED, and a match seat is the one
+    // player brain nothing here knew how to rebuild.** `TemporaryControl`'s own
+    // doc states the contract: *"the `Brain` cursor is a no-op for
+    // `Brain::Player` … reconciliation rebuilds the live control from the
+    // restored id"*. That works because, until a match could seat one, the only
+    // way to be player-brained was to BE the home avatar or to be possessing
+    // something — both recorded in `TemporaryControl`.
+    //
+    // A seated fighter is player-brained by CONSTRUCTION. Its `TemporaryControl`
+    // says `Autonomous`, because nobody possessed anything, so every rollback
+    // restore put the archetype's brain back and the human's fighter became a
+    // CPU — in place, on the same entity, permanently, because activation is
+    // one-shot and never rebinds. Measured on the couch fixture: both seats
+    // opened as `Player(0)`/`Player(1)` and seat one flipped to the Smash state
+    // machine 28 frames after its pad went quiet.
+    //
+    // ⭐ **the plan is what activation replays FROM, and it is what this replays
+    // from too.** `PreparedMatch` is deliberately not rollback state — a
+    // decision made before the session — so it is still standing after any
+    // rewind and still says which seats hold a local channel. Re-deriving the
+    // authority from the plan is the same act as binding it in the first place,
+    // which is the property that makes a rewind reconstruct the SAME match
+    // rather than a similar one.
+    let channels: Vec<Option<u8>> = world
+        .get_resource::<crate::character_runtime::PreparedMatch>()
+        .map(|plan| {
+            plan.seats()
+                .iter()
+                .map(|seat| seat.authority.local_channel())
+                .collect()
+        })
+        .unwrap_or_default();
+    let seated_authorities: Vec<(Entity, u8)> = if channels.is_empty() {
+        Vec::new()
+    } else {
+        let mut q = world.query::<(Entity, &crate::character_runtime::MatchSeat)>();
+        q.iter(world)
+            .filter_map(|(entity, seat)| {
+                channels
+                    .get(seat.0)
+                    .copied()
+                    .flatten()
+                    .map(|channel| (entity, channel))
+            })
+            .collect()
+    };
+    for (entity, channel) in seated_authorities {
+        let wanted = Brain::Player(PlayerSlot(channel));
+        // `is_player` + slot rather than a whole-value compare: `Brain` is not
+        // `PartialEq`, and the slot is the only part of a player brain that
+        // carries meaning here.
+        let already = world
+            .get::<Brain>(entity)
+            .is_some_and(|brain| matches!(brain, Brain::Player(slot) if slot.0 == channel));
+        if already {
+            continue;
+        }
+        if let Ok(mut em) = world.get_entity_mut(entity) {
+            em.insert((wanted, ActorControl::default()));
         }
     }
 

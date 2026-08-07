@@ -193,8 +193,40 @@ const TICKS: usize = 3_600; // one minute at 60Hz
 /// Overridable: `cargo run --bin ladder_probe -- --seeds 7`.
 const DEFAULT_SEEDS: usize = 3;
 
+/// **Say WHICH ladder these numbers describe, before printing any.**
+///
+/// ⛔ **a calibration table that does not name its ladder is worse than no
+/// table**, and this one could not name it. The rungs here resolve through
+/// `FighterBrainProfile::for_level` — the ENGINE FLOOR — because this demo ships
+/// no ladder of its own, which `fighter-brain.md` §4 says is exactly what a game
+/// that has authored none should get: *"Games/demos ship their own rows — it's
+/// content."*
+///
+/// ⚠ **and it is not a wiring bug to be fixed by installing Ambition's.**
+/// `fighter_brain_ladder.ron` belongs to `ambition_content`, and this crate's
+/// manifest states the rule: *"A demo app depends on `ambition_platformer2d`,
+/// never on `ambition_app`. That is the demo gate."* Loading it here would be one
+/// game reading another game's difficulty.
+///
+/// ⭐ **the numbers differ where this probe's own A/B lives**, which is why the
+/// line matters: the floor turns `rollout_depth: 12` on at level ≥ 6, so the
+/// ladder column below confounds depth with four other changes — while an
+/// authored ladder may set 0 on every rung (Ambition's does, deliberately), in
+/// which case the same column is a clean reaction/APM/noise sweep. Same table,
+/// two different meanings, decided entirely by whose ladder ran.
+fn announce_which_ladder_is_under_test() {
+    println!(
+        "[ladder_probe] LADDER: engine floor (`FighterBrainProfile::for_level`) — \
+         this demo authors no ladder of its own. Rungs therefore gain \
+         `rollout_depth: 12` at level >= 6, so the level column confounds depth \
+         with reaction/APM/noise/read-weight. The forced-depth A/B below is the \
+         only clean depth comparison here."
+    );
+}
+
 fn main() {
     warn_if_seam_trace_is_unavailable();
+    announce_which_ladder_is_under_test();
     let seeds = seed_count();
     println!(
         "[ladder_probe] level  first_self_KO   survived   stocks_lost  peak%   \

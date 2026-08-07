@@ -307,12 +307,51 @@ pub fn emit_player_time_intent_system(
     // SLOT-0 BY DESIGN: bullet-time is a per-PLAYER feel-clock affordance (ADR
     // 0010/0011). Slot 0's blink slows slot 0's world; a second player would emit
     // its own intent against its own clock, not fight over this one.
-    primary: Query<(&ambition_platformer2d_core::BodyMotionFacts, &BodyCombat), With<PrimaryPlayer>>,
+    primary: Query<
+        (&ambition_platformer2d_core::BodyMotionFacts, &BodyCombat),
+        With<PrimaryPlayer>,
+    >,
     dev_state: Res<DeveloperRuntimeState>,
     feel: Res<Platformer2dFeelTuningMonolith>,
     mut writer: MessageWriter<ClockScaleRequest>,
 ) {
+    // **NO LOCAL BODY IS NOT "NOTHING TO SAY".**
+    //
+    // ⛔ this used to `return`, and the whole-system return was Jon's freeze
+    // (2026-08-07): pause a match — which forces this clock to zero so
+    // presentation stops dead — quit to the title, then start a CPU-versus-CPU
+    // match. There is no `PrimaryPlayer` in it, so nothing ever asked for the
+    // neutral pace back, and the world ran at scale 0.0 forever. Every fighter
+    // built, seated, armed, framed, brains ticking, `SimTick` counting up — and
+    // zero sim seconds per tick, so not one body moved a pixel. *"the characters
+    // are just stuck in air"*, with a menu that still worked, because menus do
+    // not run on sim time.
+    //
+    // ⭐ **the ladder below is slot zero's; the LAST RUNG is the world's.**
+    // Hitstop and bullet-time are per-player feel affordances and are correctly
+    // absent without a player. "Otherwise, run at normal speed" is not an
+    // affordance — it is what a world does when nobody is bending time, and a
+    // world with no bullet-time claimant is the clearest possible case of that.
+    // Reading the two off one early return made the second one unreachable
+    // exactly where it was the only thing left to say.
     let Ok((facts, combat)) = primary.single() else {
+        // ⚠ the dev rung survives, because the inspector's slow-motion is not
+        // slot zero's either — it belongs to whoever is looking at the world.
+        let (scale, reason) = if dev_state.slowmo {
+            (feel.debug_slowmo_scale, "dev_slowmo")
+        } else {
+            (1.0, "default")
+        };
+        writer.write(ClockScaleRequest {
+            domain: ClockDomain::SimClock,
+            scale,
+            requester: if dev_state.slowmo {
+                ClockRequester::DevTool
+            } else {
+                ClockRequester::Engine
+            },
+            reason,
+        });
         return;
     };
     let (scale, requester, reason) = if combat.hitstop_timer > 0.0 {

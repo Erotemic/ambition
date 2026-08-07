@@ -1749,3 +1749,252 @@ fn a_second_match_in_the_same_session_still_fights() {
          they never moved ({third:.2}px)"
     );
 }
+
+/// **WALKING OUT OF A PAUSED MATCH MUST NOT STOP THE NEXT ONE.**
+/// (Jon, 2026-08-07)
+///
+/// ⛔ *"Doing a match, quitting to title in the middle of it, and then starting
+/// a new cpu vs cpu match still causes the freeze. A quit to title should not
+/// leave a dirty global state."*
+///
+/// [`a_second_match_in_the_same_session_still_fights`] already drove that shape
+/// and was green, which is worth recording because it says where the bug was
+/// NOT: not in the roster, the plan, the seating, the registry or the camera.
+/// Every one of those is correct in the frozen match. So is the resource census
+/// over the same sequence, which came back CLEAN — **the leaked state was never
+/// a resource anybody had thought to release**, so every cleanup list was right
+/// and all of them were beside the point.
+///
+/// It was **two globals the pause writes and the session does not own**, and it
+/// takes both to freeze:
+///
+/// 1. **`GameMode`**, the Bevy `States` that decides whether the world advances.
+///    Quitting from a paused match left it `Paused` with no session to explain
+///    it. Session retirement resets it now.
+/// 2. **`ClockState` / `RequestedClockScale`.** Pausing forces the sim clock to
+///    **zero** so presentation stops dead, and the system that asks for the
+///    neutral pace back — `emit_player_time_intent_system` — returned early when
+///    there was no `PrimaryPlayer`. A CPU-versus-CPU match has none. So the mode
+///    said `Playing`, `SimTick` counted up, brains decided, and every tick moved
+///    **zero sim seconds**: fighters hanging in the air at their spawn pixel with
+///    a menu that still answered, because menus do not run on sim time.
+///
+/// ⚠ **the second one only bites the SECOND match**, which is why a fresh binary
+/// looked fine: the clock boots at 1.0 and nothing had zeroed it yet.
+///
+/// Four things have to be true together, and the test does all four:
+/// * the match is **paused** when it is left — that is how you reach "Quit to
+///   Title" at all, and it is what zeroes the clock;
+/// * the quit is the **bare command**, which is what F10 and the in-world system
+///   menu send; only the pause menu used to resume on its way out;
+/// * the next match has **no local player**, so nothing asks for time back;
+/// * it is measured for **motion**, because everything else about it is correct.
+#[test]
+fn quitting_a_paused_match_to_the_title_does_not_freeze_the_next_one() {
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+    // ⚠ **A PAD IS PLUGGED IN, because Jon's is.** *"I do have a controller and
+    // keyboard connected"* — and this repo has learned five times in one day
+    // that a couch defect is invisible with one source. Two sources is also
+    // what makes the channel count MOVE: a person-versus-CPU match claims one
+    // of two, and the CPU match after it claims neither.
+    app.world_mut()
+        .spawn(bevy::input::gamepad::Gamepad::default());
+    for _ in 0..ambition_app::app::shared_host_startup_ticks() * 2 {
+        app.update();
+    }
+    settle(&mut app);
+
+    // `channels` is the whole point of the fixture, so the roles are cycled
+    // until the SCREEN agrees rather than a press count being guessed: the
+    // button skips the controller rung when no source is free, so the number of
+    // presses a CPU costs depends on what is plugged in and who took it.
+    fn set_role(app: &mut App, slot: usize, want_person: bool) {
+        for _ in 0..4 {
+            let seated = matches!(
+                app.world().resource::<SmashSelect>().slot(slot).occupant,
+                SlotOccupant::Controller { .. }
+            );
+            let is_cpu = matches!(
+                app.world().resource::<SmashSelect>().slot(slot).occupant,
+                SlotOccupant::Cpu
+            );
+            if (want_person && seated) || (!want_person && is_cpu) {
+                return;
+            }
+            cycle_role(app, slot, 1);
+        }
+        panic!(
+            "slot {slot} would not take {} — it reads {:?}",
+            if want_person { "a person" } else { "a CPU" },
+            app.world().resource::<SmashSelect>().slot(slot).occupant
+        );
+    }
+
+    // (how far the SIMULATION moved a fighter, how far its SPRITE moved, how
+    // many of the seats were drawn at all)
+    let run_a_match = |app: &mut App, which: &str, channels: usize| -> (f32, f32, usize) {
+        if active_route(app).as_deref() != Some(ambition_demo_smash::SMASH_SELECT_ROUTE) {
+            launch_row(app, "Smash");
+            settle(app);
+        }
+        set_role(app, 0, channels >= 1);
+        set_role(app, 1, false);
+        pick_fighter(app, 0, PREPARED_FIGHTER);
+        pick_fighter(app, 1, OTHER_PREPARED_FIGHTER);
+        let layout = screen(app);
+        click(app, layout.start_button());
+        for _ in 0..300 {
+            app.update();
+            if active_route(app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+                break;
+            }
+        }
+        assert_eq!(
+            active_route(app).as_deref(),
+            Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+            "{which} never reached the stage"
+        );
+        for _ in 0..90 {
+            app.update();
+        }
+        let start = seat_positions(app);
+        assert_eq!(start.len(), 2, "{which} seated {} fighters", start.len());
+        let drawn_before = drawn_seat_positions(app);
+        for _ in 0..300 {
+            app.update();
+        }
+        let simulated = seat_positions(app)
+            .iter()
+            .zip(&start)
+            .map(|(now, then)| (now - then).abs())
+            .fold(0.0, f32::max);
+        let drawn_after = drawn_seat_positions(app);
+        (
+            simulated,
+            travel(&drawn_before, &drawn_after),
+            drawn_after.len(),
+        )
+    };
+
+    let (person_sim, person_drawn, person_sprites) =
+        run_a_match(&mut app, "the person-versus-CPU match", 1);
+    assert!(
+        person_sim > 1.0 && person_drawn > 1.0 && person_sprites == 2,
+        "even the FIRST match did not move ({person_sim:.2}px simulated, \
+         {person_drawn:.2}px drawn across {person_sprites} sprites), so this \
+         fixture is measuring something other than what Jon reported"
+    );
+
+    // MID-MATCH, AND **PAUSED** — which is how a person reaches "Quit to Title"
+    // at all: the row only exists on the pause menu.
+    //
+    // ⛔ **this is the whole defect, and the test was green without these four
+    // lines.** `GameMode` is a Bevy `States` global; pausing writes it from
+    // outside the session, and nothing handed it back when the session died. The
+    // route reached the launcher, the resource census came back CLEAN, and the
+    // world was still stopped — so the next match built its fighters, seated
+    // them, framed them, and never advanced a tick. *"the characters are just
+    // stuck in air"*, with a menu that still answered, because menus do not run
+    // on sim time.
+    //
+    // ⚠ **quit by the BARE command, not through the pause menu.** The menu used
+    // to resume on its way out, which is exactly what hid this: `QuitToHome` has
+    // four writers and only that one remembered. Asserting through the writer
+    // that already got it right would pin the fix and leave the gap. This is the
+    // F10 path, and the in-world system menu's, and the scripted sweep's.
+    {
+        use ambition_platformer2d::platformer::schedule::GameMode;
+        app.world_mut()
+            .resource_mut::<bevy::state::state::NextState<GameMode>>()
+            .set(GameMode::Paused);
+        settle(&mut app);
+        assert_eq!(
+            app.world()
+                .resource::<bevy::state::state::State<GameMode>>()
+                .get(),
+            &GameMode::Paused,
+            "the match did not pause, so quitting from a paused match is not \
+             what this test is about to do"
+        );
+    }
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    {
+        use ambition_platformer2d::platformer::schedule::GameMode;
+        assert_eq!(
+            app.world()
+                .resource::<bevy::state::state::State<GameMode>>()
+                .get(),
+            &GameMode::Playing,
+            "the session was retired and the world is still stopped. A mode that \
+             stops the world describes a LIVE session; there is no session"
+        );
+    }
+
+    let (cpu_sim, cpu_drawn, cpu_sprites) =
+        run_a_match(&mut app, "the CPU-versus-CPU match after it", 0);
+    assert!(
+        cpu_sim > 1.0,
+        "a CPU-versus-CPU match started after quitting a person's match seated \
+         two fighters and the SIMULATION never moved them ({cpu_sim:.2}px, \
+         against the first match's {person_sim:.2}px)."
+    );
+    // ⛔ **AND SEPARATELY, WHAT IS ON SCREEN.** Jon is describing what he SEES —
+    // *"the characters are just stuck in air"* — and a fighter whose body is
+    // advancing while its sprite is not looks exactly like a frozen game. The
+    // two measurements are one assertion only if presentation cannot fail on
+    // its own, and in this repo it can and does, silently.
+    assert_eq!(
+        cpu_sprites, 2,
+        "the second match's fighters are simulating and {cpu_sprites} of them \
+         are DRAWN. A stage nobody can see is the same defect as a stage that \
+         does not move."
+    );
+    assert!(
+        cpu_drawn > 1.0,
+        "the second match's fighters moved {cpu_sim:.2}px in the simulation and \
+         their sprites moved {cpu_drawn:.2}px. The world is advancing and the \
+         picture of it is not — which is what a person calls a freeze."
+    );
+}
+
+/// Where each seat's sprite is DRAWN, by the body id the match gave it.
+///
+/// ⚠ **not `seat_positions`, and the difference is the whole point.** That
+/// reads `BodyKinematics` — the simulation's own answer. This reads the entity
+/// the renderer spawned for the same body, which is the only thing a person
+/// ever sees. A match can pass the first and fail the second.
+fn drawn_seat_positions(app: &mut App) -> Vec<(String, Vec2)> {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::render::rendering::FeatureVisual,
+        &GlobalTransform,
+    )>();
+    let mut rows: Vec<(String, Vec2)> = q
+        .iter(world)
+        .filter(|(visual, _)| visual.id.contains("#seat"))
+        .map(|(visual, at)| (visual.id.clone(), at.translation().truncate()))
+        .collect();
+    rows.sort_by(|a, b| a.0.cmp(&b.0));
+    rows
+}
+
+/// The furthest any one sprite moved between two readings, matched by id.
+///
+/// A sprite that was DESPAWNED and rebuilt somewhere else is not travel, so
+/// only ids present in both readings count.
+fn travel(before: &[(String, Vec2)], after: &[(String, Vec2)]) -> f32 {
+    after
+        .iter()
+        .filter_map(|(id, now)| {
+            before
+                .iter()
+                .find(|(was, _)| was == id)
+                .map(|(_, then)| now.distance(*then))
+        })
+        .fold(0.0, f32::max)
+}

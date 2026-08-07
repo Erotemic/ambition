@@ -248,7 +248,53 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | dialogue | 7 × `assets/dialogue/sandbox/*.yarn` | ▢ not RON; needs a handler that parses Yarn |
 | worlds | the LDtk projects | ▢ |
 | vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ▢ |
-| fighter brain ladder | `data/fighter_brain_ladder.ron` | ▢ |
+| fighter brain ladder | `data/fighter_brain_ladder.ron` | ⛔ ▢ **NOT the same shape as the rows above — it has ZERO production readers.** See below. |
+
+### ⛔ The fighter brain ladder is not a MIGRATION — it is a bug (2026-08-07)
+
+Every other ▢ in the table above is the two-readers-of-one-file shape: the
+runtime reaches the data through `include_str!` and its own parser, and the
+compiler exists to make that one read. **The fighter brain ladder is not that.**
+`fighter_brain_ladder.ron` is parsed in exactly one place — a content TEST
+(`game/ambition_content/tests/fighter_brain_ladder.rs`) — and by nothing else in
+the workspace. Ambition authored a nine-rung difficulty ladder and the running
+game has never read a row of it.
+
+⭐ **the engine says this is exactly what should not happen.**
+`FighterBrainProfile::for_level`'s own doc calls itself *"a FLOOR, not the
+ladder. A game that cares ships its own nine rows
+(`FighterBrainLadder::from_ron`) and this is never consulted"*. Ambition ships
+the nine rows. The floor is consulted anyway, at both production call sites
+(`brain_builders.rs:86`, `character_catalog/resolver.rs:154`).
+
+**What the game actually plays, measured against what is authored:**
+
+* ⛔⛔ **every difficulty scores moves with the LEVEL-9 weight set.**
+  `for_level` hands every rung `UtilityWeights::default()`, and `default()` is
+  `v1()` — `reach_fit 1.0, frame_advantage 0.6, kill_potential 0.4, stage_risk
+  -0.8, expected_payoff 0.5`, which is the ladder's level 9 verbatim. The
+  ladder's whole second axis is that a low rung does NOT notice things: L1
+  authors `kill_potential: 0.00` and `expected_payoff: 0.00`, and its comment
+  says why — *"not noticing which move hits harder IS a difficulty statement"*.
+  That axis does not exist in the shipped game. A level-1 CPU prices a smash
+  exactly as a level-9 does, and the only thing separating difficulties is
+  reaction speed and noise.
+* **the numbers differ on the reachable rung.** `fighter_level` defaults to 5.
+  Authored L5 is `reaction 300ms / apm 200 / noise 0.20 / read 0.2`; the floor
+  computes `325 / 270 / 0.275 / 0.3`. So the shipped level-5 fighter acts 35%
+  faster than authored, and is noisier.
+* ⚠ **the L3 divergence is NOT reachable, and saying so matters.** `for_level`
+  sets `rollout_depth: 12, rollout_k: 4` for level ≥ 6 while the ladder authors
+  ZERO on every row deliberately (*"§12.7 gates authoring nonzero rows on FB6e's
+  instruments"*). Nothing authors a level ≥ 6 fighter today — the default is 5
+  and smash's fragment says 1 — so the ungated rollout layer is latent rather
+  than live. It becomes live the day anyone authors a hard CPU.
+
+⭐ **so this row is worth more than its position in the table suggests.** Loading
+it is not a cleanup that leaves behaviour identical, which is what migrating the
+other families was; it is a change to how every CPU in the game evaluates a move.
+Whoever takes it should expect the fighter-brain tests to move, and should treat a
+difficulty-feel change as the POINT rather than as a regression.
 
 ### ✔ RESOLVED — the placement blocker, and what it actually was
 

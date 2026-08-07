@@ -112,13 +112,18 @@ impl SfxAuthority {
     }
 }
 
-/// Host-authored audio profile for frontend shell experiences.
+/// Authored audio profile for one frontend shell route.
 ///
 /// The profile is explicit rather than an exception to gameplay authority. A
-/// launcher/startup/loading route may own one title track and a narrow menu-SFX
-/// allowlist. The provider supplies the actual source definitions; the host
-/// chooses which subset belongs to its frontend.
-#[derive(Resource, Clone, Debug, PartialEq, Eq)]
+/// launcher/startup/loading/select route may own one title track and a narrow
+/// menu-SFX allowlist. The provider supplies the actual source definitions; the
+/// declaration chooses which subset belongs to that screen.
+///
+/// ⚠ **not a `Resource`, deliberately.** It was one until 2026-08-07, which made
+/// frontend sound a fact about the PROCESS: the last composition to install it
+/// won, so a host composing seven providers could honour exactly one of them.
+/// Declarations now live in [`FrontendAudioRegistry`], keyed by route.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FrontendAudioProfile {
     provider_id: String,
     title_track: Option<String>,
@@ -159,6 +164,158 @@ impl FrontendAudioProfile {
 
     pub fn sfx_ids(&self) -> &BTreeSet<SfxId> {
         &self.sfx_ids
+    }
+}
+
+/// Every frontend audio DECLARATION in this App, keyed by the route that owns
+/// it — plus the one profile currently in effect.
+///
+/// ⭐ **the key is the ROUTE, not the experience.** (Jon, 2026-08-07: *"Yes, per
+/// route."*) One experience is routinely reached by several routes — the basic
+/// launcher experience is reached by five — so keying by experience would have
+/// meant five screens sharing one answer, a smaller copy of the singleton this
+/// type replaces.
+///
+/// Two kinds of entry, because there are two honest claims:
+///
+/// * a **route declaration** — "this screen sounds like this", made by whoever
+///   authored the screen, and it travels with the provider into any host;
+/// * the **host default** — "screens I own sound like this", made once by the
+///   host for its own launcher/startup/loading routes.
+///
+/// A route with no declaration of its own falls back to the host default. A host
+/// with no default either leaves that route deliberately silent rather than
+/// inheriting somebody else's music.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
+pub struct FrontendAudioRegistry {
+    by_route: BTreeMap<String, FrontendAudioProfile>,
+    host_default: Option<FrontendAudioProfile>,
+    /// The resolved profile of the most recent frontend route — what frontend
+    /// playback is acting on.
+    ///
+    /// **Not cleared when that route deactivates.** The reason is narrower than
+    /// it first looks, and the difference is worth stating because the obvious
+    /// justification is wrong.
+    ///
+    /// `crate::music::title_theme_keeps_playing` decides whether the title theme
+    /// survives a screen handoff, and its doc rested on a property of the
+    /// singleton this type replaced: the profile *"does not blink out between
+    /// two of its screens"*. Keying by route looks like exactly what would take
+    /// that away, so this field was written to preserve it.
+    ///
+    /// ⚠ **measured 2026-08-07, and the concern did not reproduce.** With the
+    /// value force-cleared on every deactivation, a startup→launcher handoff
+    /// showed `in_effect` absent on 0 of 24 frames and the audio owner absent on
+    /// 0 as well: `select_shell_audio_context` drains deactivation and
+    /// activation in ONE run, so no reader observes anything between them. The
+    /// continuity guard
+    /// (`shell_host_startup::the_title_music_survives_the_handoff_from_the_cards_to_the_launcher`)
+    /// stayed green either way.
+    ///
+    /// So this is a cheap precaution, NOT a demonstrated fix, and it is written
+    /// down that way rather than as a claim a test backs. Clearing here would be
+    /// the only way to open the window the 2026-08-03 restart bug came through;
+    /// not clearing costs nothing and closes it by construction. If a route
+    /// change ever does span frames — a frontend route behind a real load
+    /// barrier is the candidate — this is already correct and no test had to
+    /// predict it.
+    in_effect: Option<FrontendAudioProfile>,
+}
+
+impl FrontendAudioRegistry {
+    /// Declare the frontend sound of one route. Later declarations of the same
+    /// route replace earlier ones.
+    pub fn declare_route(&mut self, route_id: impl Into<String>, profile: FrontendAudioProfile) {
+        self.by_route.insert(route_id.into(), profile);
+    }
+
+    /// Declare the answer for routes that declare nothing themselves.
+    pub fn set_host_default(&mut self, profile: FrontendAudioProfile) {
+        self.host_default = Some(profile);
+    }
+
+    pub fn host_default(&self) -> Option<&FrontendAudioProfile> {
+        self.host_default.as_ref()
+    }
+
+    pub fn declared_for(&self, route_id: &str) -> Option<&FrontendAudioProfile> {
+        self.by_route.get(route_id)
+    }
+
+    /// What `route_id` sounds like: its own declaration, else the host default.
+    pub fn resolve(&self, route_id: &str) -> Option<&FrontendAudioProfile> {
+        self.by_route.get(route_id).or(self.host_default.as_ref())
+    }
+
+    /// Resolve `route_id` and make it the profile in effect.
+    ///
+    /// Returns the resolved profile so the caller does not have to ask twice —
+    /// the two-step form is how an authority grows a follow-up call nobody
+    /// remembers to make.
+    pub fn enter_route(&mut self, route_id: &str) -> Option<&FrontendAudioProfile> {
+        self.in_effect = self.resolve(route_id).cloned();
+        self.in_effect.as_ref()
+    }
+
+    /// The profile frontend playback is acting on. See [`Self::in_effect`]'s
+    /// field docs for why this outlives the activation that selected it.
+    pub fn in_effect(&self) -> Option<&FrontendAudioProfile> {
+        self.in_effect.as_ref()
+    }
+
+    /// A statically selected profile for a direct-entry App that runs no shell
+    /// routing at all. There is no route to key by and no handoff to survive.
+    pub fn direct(profile: FrontendAudioProfile) -> Self {
+        Self {
+            by_route: BTreeMap::new(),
+            host_default: Some(profile.clone()),
+            in_effect: Some(profile),
+        }
+    }
+}
+
+/// Declare frontend audio at plugin-build time.
+///
+/// Mirrors [`crate::catalog::AudioCatalogAppExt`]: a provider states what its
+/// own screens sound like beside the audio fragment it already registers, and
+/// composing that provider into any host carries the declaration with it.
+pub trait FrontendAudioAppExt {
+    /// "This screen sounds like this." Made by whoever authored the screen.
+    fn declare_route_frontend_audio(
+        &mut self,
+        route_id: impl Into<String>,
+        profile: FrontendAudioProfile,
+    ) -> &mut Self;
+
+    /// "The screens I own sound like this." Made by the host, once.
+    fn set_host_frontend_audio(&mut self, profile: FrontendAudioProfile) -> &mut Self;
+}
+
+impl FrontendAudioAppExt for bevy::prelude::App {
+    fn declare_route_frontend_audio(
+        &mut self,
+        route_id: impl Into<String>,
+        profile: FrontendAudioProfile,
+    ) -> &mut Self {
+        let mut registry = self
+            .world()
+            .get_resource::<FrontendAudioRegistry>()
+            .cloned()
+            .unwrap_or_default();
+        registry.declare_route(route_id, profile);
+        self.insert_resource(registry);
+        self
+    }
+
+    fn set_host_frontend_audio(&mut self, profile: FrontendAudioProfile) -> &mut Self {
+        let mut registry = self
+            .world()
+            .get_resource::<FrontendAudioRegistry>()
+            .cloned()
+            .unwrap_or_default();
+        registry.set_host_default(profile);
+        self.insert_resource(registry);
+        self
     }
 }
 

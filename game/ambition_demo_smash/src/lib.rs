@@ -763,6 +763,32 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 SMASH_SELECT_ROUTE,
                 SMASH_SELECT_EXPERIENCE,
             ));
+        // **AND IT SOUNDS LIKE ITSELF.** The select screen has a score written
+        // for it, and this is the declaration that carries it into any host —
+        // the standalone demo, Ambition, or a composition that does not exist
+        // yet. Declared HERE, beside the route, because the two are one fact
+        // about one screen; a host naming smash's music would be a host knowing
+        // a provider's content.
+        //
+        // ⚠ this was impossible until 2026-08-07: frontend audio was one
+        // process-global resource, so the select score played in the standalone
+        // app and NOWHERE else, and the comment in `ambition_demo_smash_app`
+        // recorded that as a gap in the seam rather than a decision.
+        {
+            use ambition_platformer2d::audio::selection::FrontendAudioAppExt;
+            app.declare_route_frontend_audio(
+                SMASH_SELECT_ROUTE,
+                ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
+                    SMASH_EXPERIENCE,
+                )
+                .with_title_track(SMASH_SELECT_TRACK)
+                .with_sfx([
+                    ambition_platformer2d::sfx::ids::UI_MENU_MOVE,
+                    ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
+                    ambition_platformer2d::sfx::ids::UI_MENU_BACK,
+                ]),
+            );
+        }
         app.init_resource::<select::SmashSelect>();
         // The pointer, and the one thing it can ask for that the value does not
         // hold. Both live outside `SmashSelect` on purpose: where a cursor is
@@ -1596,12 +1622,14 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                 default_track: SMASH_STAGE_TRACK.to_string(),
                 tracks: SMASH_TRACKS
                     .iter()
-                    .map(|(id, display)| ambition_platformer2d::audio::spec::MusicTrack {
-                        id: (*id).to_string(),
-                        display_name: (*display).to_string(),
-                        asset_path: Some(format!("audio/music/generated/{id}/full.ogg")),
-                        one_shot: false,
-                    })
+                    .map(
+                        |(id, display)| ambition_platformer2d::audio::spec::MusicTrack {
+                            id: (*id).to_string(),
+                            display_name: (*display).to_string(),
+                            asset_path: Some(format!("audio/music/generated/{id}/full.ogg")),
+                            one_shot: false,
+                        },
+                    )
                     .collect(),
             }),
             // Still no SFX registry: the stage declares silence and the

@@ -19,6 +19,7 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
+use ambition_app::app::{shell_host, VisibleRenderMode};
 use ambition_platformer2d::game_shell::{
     ActiveFrontendAuthority, ActiveGameplaySession, BasicSequenceRoot, BasicShellUiRoot,
     FrontendOwnedEntity, FrontendPresentationKind, GameplayInputOwner, GameplaySessionWorldRoot,
@@ -26,10 +27,13 @@ use ambition_platformer2d::game_shell::{
     ShellLauncherCommand, ShellRouter,
 };
 use ambition_platformer2d::load::LoadCoordinator;
-use ambition_platformer2d::load_presentation::{BasicLoadRoot, LoadActivityState, LoadForegroundState};
-use ambition_platformer2d::platformer::lifecycle::{ActiveSessionScope, RoomVisual, SessionScopedEntity};
+use ambition_platformer2d::load_presentation::{
+    BasicLoadRoot, LoadActivityState, LoadForegroundState,
+};
+use ambition_platformer2d::platformer::lifecycle::{
+    ActiveSessionScope, RoomVisual, SessionScopedEntity,
+};
 use ambition_platformer2d::render::rendering::HudText;
-use ambition_app::app::{shell_host, VisibleRenderMode};
 
 /// The real visible composition, stepped on a PINNED timestep.
 ///
@@ -102,12 +106,18 @@ fn active_music_track(app: &App) -> String {
 
 fn assert_recording_audio_output(app: &App) {
     assert_eq!(
-        *app.world().resource::<ambition_platformer2d::audio::AudioOutputMode>(),
+        *app.world()
+            .resource::<ambition_platformer2d::audio::AudioOutputMode>(),
         ambition_platformer2d::audio::AudioOutputMode::Recording,
         "no-window tests must record accepted playback without issuing device play commands"
     );
-    let backend = app.world().resource::<ambition_platformer2d::audio::AudioBackendState>();
-    assert_eq!(backend.mode, ambition_platformer2d::audio::AudioOutputMode::Recording);
+    let backend = app
+        .world()
+        .resource::<ambition_platformer2d::audio::AudioBackendState>();
+    assert_eq!(
+        backend.mode,
+        ambition_platformer2d::audio::AudioOutputMode::Recording
+    );
     assert!(
         !backend.device_backend_installed,
         "recording tests must not initialize Kira's physical-device backend",
@@ -389,8 +399,9 @@ fn provider_relative_music_drives_the_base_channel() {
     // to Home restores it.
     let title = app
         .world()
-        .resource::<ambition_platformer2d::audio::selection::FrontendAudioProfile>()
-        .title_track()
+        .resource::<ambition_platformer2d::audio::selection::FrontendAudioRegistry>()
+        .host_default()
+        .and_then(|profile| profile.title_track())
         .expect("the shell host configures a title theme")
         .to_owned();
     assert_eq!(
@@ -447,6 +458,74 @@ fn provider_relative_music_drives_the_base_channel() {
     );
 }
 
+/// **A provider's own frontend screen plays the score written for it.**
+///
+/// Jon, 2026-08-07: *"Being able to use the same resource in different hosts is
+/// unacceptable. … This current design is not elegant if games cant share
+/// assets."*
+///
+/// Smash's character select has a score of its own
+/// (`super_smash_siblings_character_select`). It played in the standalone smash
+/// app and could not play here, because frontend audio was ONE process-global
+/// resource and the last composition to install it won — so in a host composing
+/// seven providers, six of them had no way to say what their own screens sound
+/// like.
+///
+/// ⚠ **the assertion is the PLAYBACK, not the declaration.** Reading a profile
+/// back out of a registry passes on a singleton too; what distinguishes the two
+/// designs is which song reaches the base channel on a route the host does not
+/// own.
+///
+/// The launcher's own theme is asserted on both sides of the visit: a per-route
+/// answer that clobbered the host's answer would be the same defect pointing the
+/// other way.
+#[test]
+fn a_providers_own_frontend_route_plays_the_score_written_for_it() {
+    let mut app = rendered_app();
+    assert_recording_audio_output(&app);
+    settle(&mut app);
+
+    let title = active_music_track(&app);
+    assert!(
+        !title.is_empty(),
+        "vacuity: the launcher must be playing the host's theme for this to mean anything",
+    );
+    assert_ne!(
+        title,
+        ambition_demo_smash::SMASH_SELECT_TRACK,
+        "vacuity: the host's theme and smash's select score must be different songs",
+    );
+
+    // Smash's character select is a frontend route of the PROVIDER's, reached
+    // inside the multi-game host — the exact composition where the singleton
+    // could not express an answer.
+    app.world_mut().write_message(ShellCommand::GoTo(
+        ambition_demo_smash::SMASH_SELECT_ROUTE.into(),
+    ));
+    settle(&mut app);
+    assert_eq!(
+        active_route(&app),
+        Some(ambition_demo_smash::SMASH_SELECT_ROUTE.to_owned()),
+        "the host reached smash's select route",
+    );
+    assert_eq!(
+        active_music_track(&app),
+        ambition_demo_smash::SMASH_SELECT_TRACK,
+        "smash's select screen plays the score written for it, in the Ambition host",
+    );
+
+    // ...and the host's own frontend routes still play the host's own theme.
+    app.world_mut().write_message(ShellCommand::GoTo(
+        shell_host::AMBITION_LAUNCHER_ROUTE.into(),
+    ));
+    settle(&mut app);
+    assert_eq!(
+        active_music_track(&app),
+        title,
+        "returning to the host's own screen restores the host's own theme",
+    );
+}
+
 fn play_owned_sfx(
     app: &mut App,
     request: ambition_platformer2d::sfx::SfxMessage,
@@ -469,11 +548,12 @@ fn play_owned_sfx_from(
         .world()
         .resource::<ambition_platformer2d::audio::selection::ActiveAudioSelection>()
         .owner();
-    app.world_mut().write_message(ambition_platformer2d::sfx::OwnedSfxMessage {
-        owner,
-        source,
-        request,
-    });
+    app.world_mut()
+        .write_message(ambition_platformer2d::sfx::OwnedSfxMessage {
+            owner,
+            source,
+            request,
+        });
     app.update();
     app.update();
     app.world()
@@ -552,8 +632,7 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     assert_eq!(crossover_sanic_dash.provider_id, "sanic");
     assert_eq!(crossover_sanic_dash.source.kind, SfxSourceKind::Procedural);
     assert_ne!(
-        crossover_sanic_dash.source.fingerprint,
-        ambition_dash.source.fingerprint,
+        crossover_sanic_dash.source.fingerprint, ambition_dash.source.fingerprint,
         "source identity, not the active primary provider, selects the authored Dash"
     );
     assert_eq!(
@@ -771,9 +850,7 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
     let mut app = rendered_app();
     settle(&mut app);
 
-    let mut buttons = app
-        .world_mut()
-        .query::<(&TouchActionButton, &Visibility)>();
+    let mut buttons = app.world_mut().query::<(&TouchActionButton, &Visibility)>();
     let all: Vec<(TouchActionButton, Visibility)> = buttons
         .iter(app.world())
         .map(|(action, visibility)| (*action, *visibility))
@@ -822,7 +899,10 @@ fn the_title_screen_does_not_show_gameplay_touch_buttons() {
     let confirms: Vec<TouchActionButton> = all
         .iter()
         .filter(|(action, _)| {
-            matches!(action, TouchActionButton::Jump | TouchActionButton::Interact)
+            matches!(
+                action,
+                TouchActionButton::Jump | TouchActionButton::Interact
+            )
         })
         .filter(|(_, visibility)| *visibility != Visibility::Hidden)
         .map(|(action, _)| *action)

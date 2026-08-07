@@ -122,8 +122,20 @@ pub fn silence_music_backend(
 /// silence, play, silence, silence, play — because the audio owner passes
 /// through `None` between activations. Any rule of the form "the previous owner
 /// and the next owner are both frontends" is false at exactly the moment it is
-/// asked. The stable fact is the PROFILE: `FrontendAudioProfile` is composed
-/// once for the whole host and does not blink out between two of its screens.
+/// asked. The stable fact is the PROFILE, which does not blink out between two
+/// screens.
+///
+/// ⭐ **that stability survived frontend audio becoming per-route** (2026-08-07),
+/// which is the change that looked most likely to take it away. The profile now
+/// comes from `FrontendAudioRegistry::in_effect`, which is replaced by the next
+/// activation rather than cleared by the previous deactivation — see that
+/// field's docs, including the measurement showing the two are drained in one
+/// system run so nothing observes a gap between them either way.
+///
+/// Two routes resolving to the same profile still hand off without restarting
+/// the song. Two resolving to DIFFERENT profiles now correctly change it, which
+/// is the whole point of the key: the launcher and smash's character select are
+/// different screens with different scores, and before this they could not be.
 pub fn title_theme_keeps_playing(
     title_track: Option<&str>,
     incoming_owner: Option<ambition_sfx::AudioContextOwner>,

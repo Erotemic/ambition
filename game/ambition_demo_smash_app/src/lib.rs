@@ -42,17 +42,17 @@ fn compose_smash_shell(app: &mut App) {
     // Boot onto SELECT. Neither `PrimaryGameplay` nor `Launcher` says this, which
     // is why `starting_at` exists.
     .starting_at(ambition_demo_smash::SMASH_SELECT_ROUTE)
-    // **THE SELECT SCREEN HAS ITS OWN SCORE**, written for it
-    // (`super_smash_siblings_character_select`). `FrontendAudioProfile` is the
-    // seam for "what plays outside a gameplay session", and its title track is
-    // what a home route gets.
+    // ⭐ **the select screen's own score is no longer declared here.**
+    // `SmashSelectPlugin` declares it beside the route it belongs to, so it
+    // travels: the same character-select theme plays in this demo AND in the
+    // multi-game Ambition host, which is exactly what this comment used to say
+    // was impossible ("there is no per-route frontend music today — so the
+    // character-select score plays here and NOT there"). Fixed 2026-08-07 by
+    // keying frontend audio on the route instead of the process.
     //
-    // ⚠ **this is the STANDALONE demo, whose home route IS the select screen.**
-    // In the multi-game Ambition host the frontend profile belongs to that
-    // host's title screen, and there is no per-route frontend music today — so
-    // the character-select score plays here and NOT there. That is a gap in the
-    // audio seam rather than a decision about this demo, and it is written down
-    // here because this is where the difference is visible.
+    // What stays here is the DEFAULT for this app's other frontend routes —
+    // loading, and anything a future screen adds — which is a claim about this
+    // composition and belongs to the composition.
     .with_frontend_audio(
         ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
             ambition_demo_smash::SMASH_EXPERIENCE,

@@ -125,17 +125,26 @@ fn compose_ambition_shell_host_inner(app: &mut App, initial_route: &str) {
     // The title screen has its own theme. The engine's frontend audio policy
     // loops this track whenever no gameplay session is live (and enforces
     // silence otherwise); the host names the song, the engine owns the seam.
-    app.insert_resource(
-        ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
-            ambition_content::AMBITION_CONTENT_PROVIDER,
-        )
-        .with_title_track("something_worth_building")
-        .with_sfx([
-            ambition_platformer2d::sfx::ids::UI_MENU_MOVE,
-            ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
-            ambition_platformer2d::sfx::ids::UI_MENU_BACK,
-        ]),
-    );
+    //
+    // ⚠ **the HOST DEFAULT, which is a narrower claim than it used to be.** This
+    // answers for the routes this host owns — startup, launcher, loading — and
+    // for any hosted route that declares nothing of its own. A provider whose
+    // own screen has its own score declares that beside its content and it
+    // travels here; smash's character select is the first.
+    {
+        use ambition_platformer2d::audio::selection::FrontendAudioAppExt;
+        app.set_host_frontend_audio(
+            ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
+                ambition_content::AMBITION_CONTENT_PROVIDER,
+            )
+            .with_title_track("something_worth_building")
+            .with_sfx([
+                ambition_platformer2d::sfx::ids::UI_MENU_MOVE,
+                ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
+                ambition_platformer2d::sfx::ids::UI_MENU_BACK,
+            ]),
+        );
+    }
 
     app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
     // The normal visible-app composition already installed contributor-neutral

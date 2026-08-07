@@ -1,3 +1,10 @@
+> ## ✅ LANDED 2026-08-07 — keyed by ROUTE
+> `FrontendAudioProfile` is no longer a `Resource`; declarations live in
+> `FrontendAudioRegistry` (`ambition_audio::selection`), keyed by route, with one
+> host default as the fallback. Smash's character-select score now plays in the
+> Ambition host, which is the case that could not be expressed before.
+> **What this plan got wrong, and the outcome, are recorded at the bottom.**
+
 # Frontend audio belongs to an experience, not to the process
 
 Jon, 2026-08-07: *"Being able to use the same resource in different hosts is
@@ -293,3 +300,81 @@ Two things ARE recorded as weak, and neither is being acted on now:
 
 ⭐ **None of this blocks the audio change.** It lands keyed by route whatever the
 words are.
+
+---
+
+# Outcome, 2026-08-07
+
+## What landed
+
+| piece | where |
+|---|---|
+| `FrontendAudioProfile` loses `#[derive(Resource)]` | `ambition_audio/src/selection.rs` |
+| `FrontendAudioRegistry` — declarations by route, one host default, plus the profile in effect | same |
+| `FrontendAudioAppExt::{declare_route_frontend_audio, set_host_frontend_audio}` | same |
+| the lookup on `activation.route_id` | `ambition_game_shell/src/session.rs` |
+| smash's select route declares its own score, beside the route | `ambition_demo_smash/src/lib.rs` |
+| the host default | `ambition_app/src/app/shell_host.rs`, `ShellComposition::install` |
+
+Dropping the `Resource` derive is what made the audit exhaustive: **every reader
+became a compile error**, including the two in the actor monolith's audio plugin
+that the plan listed only as "known sites". Phase 4's warning — *"a singleton has
+readers that do not look like readers"* — was right, and the way to answer it was
+to let the compiler enumerate them rather than to grep.
+
+## ⛔ Where this plan was WRONG
+
+**The plan never mentioned `title_theme_keeps_playing`, and that predicate is the
+one thing per-route keying could plausibly have broken.** Its doc block states the
+property it relies on in as many words: the profile *"is composed once for the
+whole host and does not blink out between two of its screens."* That is a
+documented dependency on the singleton, written by the fix for a real audible
+defect (Jon, 2026-08-03: the title music restarting on the startup→launcher
+handoff). A plan that deletes a property some other code names as load-bearing
+should say so; this one did not, because the search that produced it looked for
+the TYPE and that call site reads a field off it.
+
+Two further corrections, both from measuring rather than reasoning:
+
+* **The continuity guard already existed.** `shell_host_startup::the_title_music_survives_the_handoff_from_the_cards_to_the_launcher`
+  asserts exactly the property at risk, using `play_generation`. It was nearly
+  written a second time, because it never names the predicate it defends — a
+  grep for `title_theme` does not find it. *Ask whether a test asserts the
+  property elsewhere before writing one.*
+* **The gap I designed around does not exist.** `FrontendAudioRegistry::in_effect`
+  is not cleared on deactivation, on the theory that a frontend→frontend handoff
+  passes through a state with no route. Probed by force-clearing it and
+  re-running: the guard stayed green, and a direct measurement showed
+  `in_effect` absent on **0 of 24 frames** and the audio owner absent on 0 as
+  well — `select_shell_audio_context` drains deactivation and activation in ONE
+  run, so no reader observes anything between them. The field is kept as a cheap
+  precaution and **its doc says explicitly that no test backs it**, rather than
+  claiming the guard proves it.
+
+## Verification as run
+
+* `shell_host_rendered::a_providers_own_frontend_route_plays_the_score_written_for_it`
+  — the acceptance oracle. Red before (`something_worth_building` played on
+  smash's select route), green after. Asserts the base-channel PLAYBACK at both
+  routes, so it cannot pass on a resource read back out of its own registry.
+* `the_screen_decides::the_select_screen_plays_its_own_score_in_the_standalone_demo`
+  — new. The half that already worked, so that making the score travel could not
+  quietly pay for it by dropping it where it started.
+* `composition::a_route_that_declares_its_own_sound_is_not_overruled_by_the_default`
+  — new. Precedence, asserted where it is actually decidable.
+* Green: the full `app_it` suite (318), `ambition_platformer2d_actor_monolith`
+  (1196), `ambition_game_shell`, `ambition_audio`, `ambition_platformer2d_provider`,
+  the four demo apps, 25/25 absence contracts, and `./run_tests.sh` 7/8.
+* ⚠ the one red is **pre-existing and unrelated**:
+  `engine.character-authority-is-app-local` vs
+  `actor_monolith/src/conversation/rules.rs:65`.
+
+## Still open
+
+* **Per-route music WITHIN one experience** is now expressible and still not
+  done — a stage theme and a winner-card theme are two routes' declarations.
+  Deliberately out of scope; the key was the blocker and the key is gone.
+* **`provider` and `experience` are still the same STRING at most call sites**,
+  and `session.rs` still defaults the audio provider to `activation.experience_id`.
+  Recorded in [`docs/related-work/shell-vocabulary-in-other-engines.md`](../related-work/shell-vocabulary-in-other-engines.md);
+  no rename, by Jon's call.

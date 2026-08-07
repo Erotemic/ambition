@@ -9,10 +9,10 @@
 //! reached, so the registration was theater until `entity:sanic_mode_owner`
 //! anchored the owner.
 
+use ambition_demo_sanic::{SanicActState, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 use ambition_platformer2d::game_shell::{
     ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog, ShellRouteSpec,
 };
-use ambition_demo_sanic::{SanicActState, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 use bevy::prelude::*;
 
 /// The demo shell composed on the GGRS host instead of the fixed tick — the
@@ -24,9 +24,13 @@ fn build_rollback_demo_app() -> App {
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::rollback());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
-    app.insert_resource(ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
-        ambition_demo_sanic::SANIC_EXPERIENCE,
-    ));
+    app.insert_resource(
+        ambition_platformer2d::audio::selection::FrontendAudioRegistry::direct(
+            ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
+                ambition_demo_sanic::SANIC_EXPERIENCE,
+            ),
+        ),
+    );
     // The engine group supplies `AmbitionLoadPlugin` (the room-transition
     // transaction is a load plan); a duplicate is a hard panic.
     app.add_plugins(ambition_platformer2d::load_presentation::MinimalShellLoadPresentationPlugins);

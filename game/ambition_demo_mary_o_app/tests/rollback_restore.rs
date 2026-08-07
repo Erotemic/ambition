@@ -8,10 +8,10 @@
 //! nothing in resimulation rewrites it — so this discriminates real
 //! save→mutate→restore coverage from registration theater.
 
+use ambition_demo_mary_o::{MaryOExperiencePlugin, MaryOLevelState, MARY_O_GAMEPLAY_ROUTE};
 use ambition_platformer2d::game_shell::{
     ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog, ShellRouteSpec,
 };
-use ambition_demo_mary_o::{MaryOExperiencePlugin, MaryOLevelState, MARY_O_GAMEPLAY_ROUTE};
 use bevy::prelude::*;
 
 /// The demo shell composed on the GGRS host instead of the fixed tick — the
@@ -24,9 +24,13 @@ fn build_rollback_demo_app() -> App {
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::rollback());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     app.add_plugins(ambition_platformer2d::game_shell::MinimalShellPlugins);
-    app.insert_resource(ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
-        ambition_demo_mary_o::MARY_O_EXPERIENCE,
-    ));
+    app.insert_resource(
+        ambition_platformer2d::audio::selection::FrontendAudioRegistry::direct(
+            ambition_platformer2d::audio::selection::FrontendAudioProfile::new(
+                ambition_demo_mary_o::MARY_O_EXPERIENCE,
+            ),
+        ),
+    );
     // No `AmbitionLoadPlugin` here — the engine group supplies it (the
     // room-transition transaction is a load plan), and a duplicate panics.
     app.add_plugins(ambition_platformer2d::load_presentation::MinimalShellLoadPresentationPlugins);

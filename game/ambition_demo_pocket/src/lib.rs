@@ -66,12 +66,15 @@ pub fn pocket_room() -> RoomSpec {
     room
 }
 
-pub fn pocket_frontend_audio_profile() -> ambition_platformer2d::audio::selection::FrontendAudioProfile {
-    ambition_platformer2d::audio::selection::FrontendAudioProfile::new(POCKET_EXPERIENCE).with_sfx([
-        ambition_platformer2d::sfx::ids::UI_MENU_MOVE,
-        ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
-        ambition_platformer2d::sfx::ids::UI_MENU_BACK,
-    ])
+pub fn pocket_frontend_audio_profile(
+) -> ambition_platformer2d::audio::selection::FrontendAudioProfile {
+    ambition_platformer2d::audio::selection::FrontendAudioProfile::new(POCKET_EXPERIENCE).with_sfx(
+        [
+            ambition_platformer2d::sfx::ids::UI_MENU_MOVE,
+            ambition_platformer2d::sfx::ids::UI_MENU_ACCEPT,
+            ambition_platformer2d::sfx::ids::UI_MENU_BACK,
+        ],
+    )
 }
 
 fn cue(id: Option<&str>, frequency: f32) -> ambition_platformer2d::audio::spec::SfxSpec {
@@ -124,7 +127,9 @@ pub fn install_pocket_content(app: &mut App) {
     // catalog row above pointed at `sprites/mary_o_spritesheet.*`, which does not
     // exist in this repository at all, so even the legacy path had nothing to load.
     {
-        use ambition_platformer2d::actors::character_runtime::{CharacterDefinition, CharacterDefinitionAppExt};
+        use ambition_platformer2d::actors::character_runtime::{
+            CharacterDefinition, CharacterDefinitionAppExt,
+        };
         app.register_character(
             CharacterDefinition::new(POCKET_CHARACTER_ID, "Pocket Runner", POCKET_EXPERIENCE)
                 .with_sheet("mary_o_v2")
@@ -170,7 +175,9 @@ impl Plugin for PocketExperiencePlugin {
             AuthoredCatalogFragments::new(POCKET_CHARACTER_ID, POCKET_EXPERIENCE)
                 .with_procedural_sfx(),
         )
-        .with_loading_activity(ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID)
+        .with_loading_activity(
+            ambition_platformer2d::load_presentation::DETERMINISTIC_LOADING_ACTIVITY_ID,
+        )
         .install(app, pocket_prepared_session_world);
     }
 }
@@ -203,7 +210,11 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(MinimalShellPlugins);
         app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
-        app.insert_resource(pocket_frontend_audio_profile());
+        app.insert_resource(
+            ambition_platformer2d::audio::selection::FrontendAudioRegistry::direct(
+                pocket_frontend_audio_profile(),
+            ),
+        );
         app.add_plugins(PocketExperiencePlugin);
         let registration = app
             .world()

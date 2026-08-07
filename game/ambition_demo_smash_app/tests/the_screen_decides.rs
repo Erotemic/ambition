@@ -530,3 +530,53 @@ fn slot_participates(app: &App, index: usize) -> bool {
         .occupant
         .participates()
 }
+
+/// **The select screen's own score plays in the STANDALONE demo too.**
+///
+/// The companion to `shell_host_rendered::a_providers_own_frontend_route_plays_the_score_written_for_it`,
+/// and it is the half that already worked: before 2026-08-07 the select theme
+/// played here — and only here — because frontend audio was one process-global
+/// resource this app happened to own outright.
+///
+/// ⚠ **so this is a REGRESSION guard, not a new capability**, and it is the
+/// point of writing it: the mechanism underneath moved from "the profile this
+/// process installed" to "the profile this route declares", and a change that
+/// made the score travel into the Ambition host while quietly dropping it here
+/// would have traded one composition for another. Both are asserted, so neither
+/// can pay for the other.
+///
+/// The subject is the selected AUTHORITY, not the declaration. Reading a profile
+/// back out of the registry it was written into would pass under either design.
+#[test]
+fn the_select_screen_plays_its_own_score_in_the_standalone_demo() {
+    use ambition_platformer2d::audio::selection::ActiveAudioSelection;
+
+    let mut app = build_demo_app();
+    for _ in 0..6 {
+        app.update();
+    }
+
+    assert_eq!(
+        app.world()
+            .resource::<ambition_platformer2d::game_shell::ShellRouter>()
+            .active
+            .as_ref()
+            .map(|active| active.route_id.as_str().to_owned()),
+        Some(ambition_demo_smash::SMASH_SELECT_ROUTE.to_owned()),
+        "the standalone demo boots onto the select screen",
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ActiveAudioSelection>()
+            .preferred_track(),
+        Some(ambition_demo_smash::SMASH_SELECT_TRACK),
+        "the standalone demo's select screen still selects its own score",
+    );
+    // ⚠ deliberately NOT claiming this proves the ROUTE declaration answered.
+    // In this app the route declaration and the composition's host default name
+    // the same track, so the outcome is identical either way and the test cannot
+    // tell them apart. Which one wins is pinned where it is actually decidable:
+    // `composition::a_route_that_declares_its_own_sound_is_not_overruled_by_the_default`
+    // asserts the precedence directly, and the Ambition host asserts the
+    // consequence — a route whose default says something else entirely.
+}

@@ -9,7 +9,7 @@
 use std::collections::BTreeMap;
 
 use ambition_audio::catalog::{AudioCatalogRegistry, SfxBankRegistry};
-use ambition_audio::selection::{ActiveAudioSelection, AudioContextChanged, FrontendAudioProfile};
+use ambition_audio::selection::{ActiveAudioSelection, AudioContextChanged, FrontendAudioRegistry};
 use ambition_load::LoadBarrierRef;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
@@ -389,7 +389,7 @@ fn select_shell_audio_context(
     active_session: Res<ActiveGameplaySession>,
     catalogs: Res<AudioCatalogRegistry>,
     sfx_banks: Res<SfxBankRegistry>,
-    frontend: Option<Res<FrontendAudioProfile>>,
+    mut frontend: Option<ResMut<FrontendAudioRegistry>>,
     mut selection: ResMut<ActiveAudioSelection>,
     mut emission: ResMut<SfxEmissionContext>,
     mut context_changes: MessageWriter<AudioContextChanged>,
@@ -438,10 +438,16 @@ fn select_shell_audio_context(
         }
     }
 
-    // Plain shell experiences (startup, launcher, loading, credits) share the
-    // host's explicit frontend profile. They are not "ungoverned": menu SFX and
-    // title music are authorized by the exact shell activation that emitted
+    // Plain shell routes (startup, launcher, loading, credits, a provider's own
+    // character select) each get the frontend profile DECLARED FOR THAT ROUTE,
+    // falling back to the host's default. They are not "ungoverned": menu SFX
+    // and title music are authorized by the exact shell activation that emitted
     // them, while stale gameplay requests remain invalid.
+    //
+    // ⭐ **the route is what selects the profile, and it is the only new fact
+    // here.** The OWNER was already per-activation; the provider used to come
+    // from a process-global resource, so one host could honour exactly one
+    // provider's frontend sound. `activation.route_id` was in scope and unread.
     for event in shell_events.read() {
         match event {
             ShellEvent::RouteActivated(activation)
@@ -449,12 +455,18 @@ fn select_shell_audio_context(
             {
                 let owner = AudioContextOwner::Frontend(activation.activation_id.0);
                 let previous = selection.owner();
-                if let Some(frontend) = frontend.as_deref() {
+                if let Some(frontend) = frontend
+                    .as_mut()
+                    .and_then(|frontend| frontend.enter_route(activation.route_id.as_str()))
+                {
                     let provider = frontend.provider_id();
                     emission.set(owner, provider.to_owned());
                     assert!(
                         catalogs.has_provider(provider),
-                        "frontend audio provider '{provider}' registered no audio fragment",
+                        "route '{}' declares frontend audio from provider '{provider}', which \
+                         registered no audio fragment; register an explicit empty fragment for \
+                         silence",
+                        activation.route_id.as_str(),
                     );
                     selection.select_frontend(
                         activation.activation_id.0,

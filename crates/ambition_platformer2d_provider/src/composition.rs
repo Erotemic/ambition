@@ -12,16 +12,16 @@
 //! What it cost, gathered from the consumer side (queue R4):
 //!
 //! ```text
-//! MinimalShellPlugins → FrontendAudioProfile → AmbitionLoadPlugin →
+//! MinimalShellPlugins → frontend audio → AmbitionLoadPlugin →
 //! MinimalShellLoadPresentationPlugins → the experience plugin →
 //! ShellRouteSpec into ShellRouteCatalog → ShellHostSpec into
 //! ShellHostConfiguration
 //! ```
 //!
 //! Seven steps whose ORDER is enforced by a resource-missing panic rather than
-//! by a type, and two of whose omissions are silent: no `FrontendAudioProfile`
-//! and the launcher inherits whatever provider's audio was cached last; no host
-//! spec and the app boots to a router pointing nowhere.
+//! by a type, and two of whose omissions are silent: no frontend audio and this
+//! composition's routes are silent; no host spec and the app boots to a router
+//! pointing nowhere.
 //!
 //! ## Why this is a struct and not a plugin group
 //!
@@ -40,8 +40,8 @@
 //! reading in a composition function.
 //!
 //! Everything here is also still expressible by hand: `install` writes ordinary
-//! resources, so a caller who wants different frontend audio inserts its own
-//! `FrontendAudioProfile` afterwards and the later write wins.
+//! resources, so a caller who wants different frontend audio calls
+//! `set_host_frontend_audio` afterwards and the later write wins.
 
 use bevy::app::{App, Plugins};
 
@@ -115,6 +115,14 @@ impl ShellComposition {
     /// keep a feature it already had. The default — `FrontendAudioProfile::new`
     /// on the experience id — is the answer for a provider that authors no
     /// frontend sound, which is most of them.
+    ///
+    /// ⚠ **this is the DEFAULT for the routes this composition owns**, not a
+    /// declaration about any one screen. A composition is one app hosting one
+    /// experience, so its default is the honest scope. A provider that wants a
+    /// particular screen to sound like itself IN ANY HOST declares that beside
+    /// its other content, with
+    /// [`ambition_audio::selection::FrontendAudioAppExt::declare_route_frontend_audio`]
+    /// — a declaration that travels, which a composition-level default cannot.
     pub fn with_frontend_audio(
         mut self,
         profile: ambition_audio::selection::FrontendAudioProfile,
@@ -132,12 +140,16 @@ impl ShellComposition {
     /// registers into it" is the one this type is here to own.
     pub fn install<M>(self, app: &mut App, experience: impl Plugins<M>) {
         app.add_plugins(ambition_game_shell::MinimalShellPlugins);
-        // The silent one. An app that skips this does not fail — it plays
-        // whichever provider's frontend audio was cached last, which on a first
-        // run is nothing and after a route change is somebody else's music.
-        app.insert_resource(self.frontend_audio.clone().unwrap_or_else(|| {
-            ambition_audio::selection::FrontendAudioProfile::new(self.experience_id.clone())
-        }));
+        // The silent one. An app that skips this does not fail — its frontend
+        // routes simply have nothing to play. (Before 2026-08-07 it was worse
+        // than silent: the profile was one process-global resource, so skipping
+        // this played whichever provider's frontend audio was installed last.)
+        {
+            use ambition_audio::selection::FrontendAudioAppExt;
+            app.set_host_frontend_audio(self.frontend_audio.clone().unwrap_or_else(|| {
+                ambition_audio::selection::FrontendAudioProfile::new(self.experience_id.clone())
+            }));
+        }
         // Stated rather than inherited. `AmbitionLoadPlugin` is idempotent, so
         // a host may add it, omit it, or add it twice; adding it here means a
         // consumer never has to know which engine group already satisfied the
@@ -153,12 +165,9 @@ impl ShellComposition {
         // draws itself and overwriting it here would replace a character select
         // with a list of one game. (That was literally the smash demo's home
         // for a day: its select panels rendered over the launcher's own rows.)
-        let home_is_the_providers_own = app
-            .world()
-            .resource::<ShellRouteCatalog>()
-            .contains(&ambition_game_shell::ShellRouteId::new(
-                self.launcher_route.as_str(),
-            ));
+        let home_is_the_providers_own = app.world().resource::<ShellRouteCatalog>().contains(
+            &ambition_game_shell::ShellRouteId::new(self.launcher_route.as_str()),
+        );
         if !home_is_the_providers_own {
             app.world_mut()
                 .resource_mut::<ShellRouteCatalog>()
@@ -222,31 +231,65 @@ mod tests {
     }
 
     /// The other silent one. A provider authoring no sounds still needs its own
-    /// frontend context, or the launcher plays whatever was cached last.
+    /// frontend context, or its routes play nothing.
     #[test]
     fn the_frontend_audio_context_is_this_experiences_own() {
         let app = composed();
         assert_eq!(
             app.world()
-                .resource::<ambition_audio::selection::FrontendAudioProfile>()
-                .provider_id(),
-            "test_experience"
+                .resource::<ambition_audio::selection::FrontendAudioRegistry>()
+                .host_default()
+                .map(|profile| profile.provider_id()),
+            Some("test_experience")
         );
     }
 
-    /// A host may insert its own profile afterwards — the composition is
-    /// ordinary resource writes, not a policy.
+    /// A host may declare its own default afterwards — the composition is
+    /// ordinary registry writes, not a policy.
     #[test]
     fn a_host_can_still_override_what_the_composition_wrote() {
+        use ambition_audio::selection::FrontendAudioAppExt;
+
         let mut app = composed();
-        app.insert_resource(ambition_audio::selection::FrontendAudioProfile::new(
+        app.set_host_frontend_audio(ambition_audio::selection::FrontendAudioProfile::new(
             "somebody_elses_frontend",
         ));
         assert_eq!(
             app.world()
-                .resource::<ambition_audio::selection::FrontendAudioProfile>()
-                .provider_id(),
-            "somebody_elses_frontend"
+                .resource::<ambition_audio::selection::FrontendAudioRegistry>()
+                .host_default()
+                .map(|profile| profile.provider_id()),
+            Some("somebody_elses_frontend")
+        );
+    }
+
+    /// ⭐ **a route's own declaration outranks the composition's default**, and
+    /// a route without one still gets the default. This is the whole key change:
+    /// before 2026-08-07 there was one answer per PROCESS, so the first of these
+    /// two assertions could not be written down.
+    #[test]
+    fn a_route_that_declares_its_own_sound_is_not_overruled_by_the_default() {
+        use ambition_audio::selection::{FrontendAudioAppExt, FrontendAudioProfile};
+
+        let mut app = composed();
+        app.declare_route_frontend_audio(
+            "test_launcher",
+            FrontendAudioProfile::new("a_provider_of_its_own"),
+        );
+        let registry = app
+            .world()
+            .resource::<ambition_audio::selection::FrontendAudioRegistry>();
+        assert_eq!(
+            registry.resolve("test_launcher").map(|p| p.provider_id()),
+            Some("a_provider_of_its_own"),
+            "the route's own declaration answers for that route",
+        );
+        assert_eq!(
+            registry
+                .resolve("some_other_route")
+                .map(|p| p.provider_id()),
+            Some("test_experience"),
+            "a route that declares nothing still gets the composition's default",
         );
     }
 }

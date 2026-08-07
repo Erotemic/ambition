@@ -263,6 +263,7 @@ message.brain_command	message-clear	ambition_platformer2d_actor_monolith::featur
 message.clear_portals	message-clear	ambition_portal2d::messages::ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_reset_request	message-clear	ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_scale_request	message-clear	ambition_platformer2d_actor_monolith::time::time_control::ClockScaleRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.conversation_ended	message-clear	ambition_platformer2d_actor_monolith::conversation::ui_bridge::ConversationEnded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.debris_burst	message-clear	ambition_vfx::vfx::DebrisBurstMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.drop_portal_gun	message-clear	ambition_portal2d::messages::DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.effect_request	message-clear	ambition_vfx::EffectRequest	clear abandoned-future message buffer in LoadWorld::Mapping

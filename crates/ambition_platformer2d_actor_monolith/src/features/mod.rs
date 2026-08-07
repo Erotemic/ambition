@@ -724,9 +724,16 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // simulation schedule, so a rewind cannot un-close a box the player
         // already watched close.
         app.init_resource::<crate::conversation::ActiveConversation>();
+        app.add_message::<crate::conversation::ConversationEnded>();
+        // Both presentation halves of the seam: one observes the runner finishing
+        // and tells the simulation, the other follows the simulation's answer
+        // back onto the text box.
         app.add_systems(
             bevy::prelude::Update,
-            crate::conversation::close_dialog_ui_when_the_conversation_ends,
+            (
+                crate::conversation::publish_the_narrative_end,
+                crate::conversation::close_dialog_ui_when_the_conversation_ends,
+            ),
         );
         app.add_systems(
             sim,
@@ -735,7 +742,7 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 // simulation, and it lands before anything judges the
                 // conversation for separation — otherwise a conversation that
                 // ended this frame gets barked about on its way out.
-                crate::conversation::close_conversation_when_the_narrative_ends,
+                crate::conversation::close_conversation_on_narrative_end,
                 interact_ecs_actors_and_switches,
                 // ⚠ AFTER the interaction that starts a conversation, in the
                 // same chain: a dialogue opened this frame must not be judged

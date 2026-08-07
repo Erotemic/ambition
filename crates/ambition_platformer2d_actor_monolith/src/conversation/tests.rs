@@ -56,6 +56,96 @@ fn talking(app: &App) -> bool {
     app.world().resource::<ActiveConversation>().is_live()
 }
 
+/// **A resimulated tick does not close a conversation on the strength of a text
+/// box from another timeline.**
+///
+/// ⛔ **the sim used to POLL `DialogState::active()`** to learn the Yarn runner
+/// had run out of lines. `DialogState` is not rewound — deliberately, because
+/// rewinding a typewriter would stutter the box — so on a resimulated tick that
+/// read returned the LIVE runner rather than the runner as it was. A rewind to
+/// before the conversation ended would close it again immediately, and the
+/// resimulation would not reproduce the history it exists to reproduce.
+///
+/// ⭐ **the end is an EVENT now, not a level.** Presentation writes
+/// [`ConversationEnded`] once when the runner finishes; the simulation consumes
+/// it. A tick with no message changes nothing, which is exactly what a
+/// resimulated tick must do — and `clear_message_on_rollback` means a rewound
+/// end is not re-consumed on the way back through.
+///
+/// ⚠ **what this does NOT claim**: that the Yarn runner is deterministic or
+/// rewound. It is content running outside the simulation, and making a
+/// conversation's LIFETIME a simulation input is a much larger piece of work.
+/// This stops the sim from asking the view a question every resimulated tick.
+#[test]
+fn a_conversation_survives_a_tick_that_was_not_told_the_narrative_ended() {
+    use super::ConversationEnded;
+
+    let mut app = App::new();
+    app.init_resource::<ActiveConversation>();
+    app.add_message::<ConversationEnded>();
+    app.add_systems(Update, super::close_conversation_on_narrative_end);
+    app.world_mut().resource_mut::<ActiveConversation>().open(
+        None,
+        None,
+        "chat",
+        ConversationInputOwner::Primary,
+    );
+
+    // A tick nobody told anything. This is the resimulated tick: the live text
+    // box may well be closed, but no END was delivered to THIS tick.
+    app.update();
+    assert!(
+        app.world().resource::<ActiveConversation>().is_live(),
+        "a tick with no end delivered to it must leave the conversation alone — \
+         polling the view here is what let a rewind close a conversation that, \
+         in the timeline being replayed, was still going"
+    );
+
+    // And the event does end it.
+    app.world_mut().write_message(ConversationEnded {
+        dialogue_id: "chat".into(),
+    });
+    app.update();
+    assert!(
+        !app.world().resource::<ActiveConversation>().is_live(),
+        "the runner finishing still ends the conversation — this is a change of \
+         MECHANISM, not of behaviour"
+    );
+}
+
+/// **An end delivered late does not close the conversation that replaced it.**
+///
+/// ⛔ the poison for the event version. A bare marker would close whatever is
+/// live when it happens to be read, so a player who finished one conversation
+/// and immediately started another could have the second one closed by the
+/// first one's ending. The message names its conversation and the consumer
+/// checks.
+#[test]
+fn an_end_from_the_previous_conversation_does_not_close_the_next_one() {
+    use super::ConversationEnded;
+
+    let mut app = App::new();
+    app.init_resource::<ActiveConversation>();
+    app.add_message::<ConversationEnded>();
+    app.add_systems(Update, super::close_conversation_on_narrative_end);
+    app.world_mut().resource_mut::<ActiveConversation>().open(
+        None,
+        None,
+        "second_chat",
+        ConversationInputOwner::Primary,
+    );
+
+    app.world_mut().write_message(ConversationEnded {
+        dialogue_id: "first_chat".into(),
+    });
+    app.update();
+    assert!(
+        app.world().resource::<ActiveConversation>().is_live(),
+        "the FIRST conversation's ending closed the SECOND one — an end has to \
+         name what it is ending or it is just a global 'stop whatever is running'"
+    );
+}
+
 /// **A conversation the world keeps running through can be broken.**
 ///
 /// The three cases Jon named (design:

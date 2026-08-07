@@ -57,5 +57,6 @@ pub use authority::{ActiveConversation, ConversationInputOwner, LiveConversation
 pub use hold::{project_conversation_hold, HeldByConversation};
 pub use rules::break_dialogue_on_hit_or_separation;
 pub use ui_bridge::{
-    close_conversation_when_the_narrative_ends, close_dialog_ui_when_the_conversation_ends,
+    close_conversation_on_narrative_end, close_dialog_ui_when_the_conversation_ends,
+    publish_the_narrative_end, ConversationEnded,
 };

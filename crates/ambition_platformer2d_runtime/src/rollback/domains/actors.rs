@@ -173,6 +173,14 @@ pub(in crate::rollback) fn register(app: &mut App) {
             OWNER,
             "map.resource.active_conversation",
         );
+    // ⛔ **cleared on load, like every other sim-facing message.** A conversation
+    // end left in the queue across a rewind is re-read on the way back through
+    // and closes a conversation the replayed timeline had not finished — the same
+    // shape as a rewound KO spending a second stock.
+    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::conversation::ConversationEnded>(
+            OWNER,
+            "message.conversation_ended",
+        );
     app.rollback_resource_clone::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",

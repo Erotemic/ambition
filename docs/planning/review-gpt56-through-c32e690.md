@@ -140,7 +140,7 @@ recommends `Option<T>` for both, and it is right about only one.
 
 **Follow-ups this turned up** (rows, not asides):
 
-- ▢ **the narrative→sim edge is still a non-rewound read.**
+- ✔ **the narrative→sim edge WAS a non-rewound read.**
   `close_conversation_when_the_narrative_ends` reads `DialogState::active()` to
   learn the Yarn runner finished. That is an EXTERNAL INPUT rather than a rule —
   it only ever closes, never opens or chooses a participant — but `DialogState`
@@ -148,11 +148,11 @@ recommends `Option<T>` for both, and it is right about only one.
   regression**: every continuity rule read this resource before. The fix is a
   `ConversationEnded` message with `clear_message_on_rollback`, and it needs the
   runner's own lifecycle to have an opinion, so it is its own row.
-- ▢ **`DialogState`'s entity API is now dead weight.** `set_speaker_entity`,
+- ✔ **`DialogState`'s entity API was dead weight.** `set_speaker_entity`,
   `set_initiator_entity` and `participants()` have no production caller left.
   Deleting them is the "one authority" payoff; it is held back only so the
   deletion is not tangled with the move.
-- ▢ **`dialog/yarn_bindings.rs` still asks `DialogState::speaker_entity()`** in
+- ✔ **`dialog/yarn_bindings.rs` asked `DialogState::speaker_entity()`** in
   three commands (`<<challenge>>`, `<<use_brain>>`, `<<restore_brain>>`), and
   `<<challenge>>` starts a FIGHT — a simulation effect keyed off view state.
   Repoint at `ActiveConversation::talker()`.

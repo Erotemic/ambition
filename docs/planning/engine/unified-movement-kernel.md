@@ -159,15 +159,28 @@ matrix.
 
 ## Residual debt (honest)
 
+> ⚠ **swept 2026-08-07 and each item measured** — one was already paid (2), two
+> are confirmed live by reading the code (3, 4), and two cannot be settled by a
+> grep and are marked as such (1, 5). The rows carrying them are in
+> [`../queue-72h-2026-08-06.md`](../queue-72h-2026-08-06.md) under lane C4; until
+> that sweep this section was the only record and nothing pointed at this file.
+
 1. **Portal transit orientation** reads the presentation `GravityField`
    mirror rather than per-body frames (the portal core also moves
    cluster-less projectiles). Behavior matches pre-campaign; portal rooms do
    not currently nest gravity zones. Closing it wants a per-body frame port
    on the transit policy.
-2. **`GravityField`/`GravityZones`/`ForceZones`** remain unregistered
-   snapshot resources (reviewed inventory rows; restore recomputes frames
-   from the live field by construction, but rewinding a mid-rewind gravity
-   switch is not covered).
+2. ✅ **CLOSED (verified 2026-08-07).** This said
+   `GravityField`/`GravityZones`/`ForceZones` "remain unregistered snapshot
+   resources", and that rewinding a mid-rewind gravity switch was therefore not
+   covered. All three are accounted for in the frozen rollback baseline now:
+   `ForceZones` and `GravityZones` as **derived** (rebuilt per tick by
+   `collect_force_zones` and from authoritative `GravityZone` components), and
+   `GravityField` as **`resource-canonical`** — a bevy_ggrs codec snapshot with an
+   identical canonical checksum projection. The switch IS covered.
+   ⚠ left in place rather than deleted: a debt item that turns out to be paid is
+   the most useful kind of entry to keep, because the next reader of this list
+   would otherwise re-derive it.
 3. **`ControlFrame`** (the device latch) still carries raw `f32` axes; typed
    `ScreenAxes` begin at the resolution seams that consume it.
 4. **Sanic ball dash** writes `SurfaceMotion::Riding { v_t }` directly from

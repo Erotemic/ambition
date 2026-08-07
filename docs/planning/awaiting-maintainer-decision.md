@@ -251,6 +251,45 @@ being read, but so does one that is raised whenever it is inconvenient. It shoul
 move because somebody decided what belongs in `docs/planning`, not to silence a
 warning.
 
+### ⭐⭐ EVIDENCE ADDED 2026-08-07 — nine of them were read, and the answer is not
+### "archive the big ones"
+
+Queue lane C4 swept every `engine/` doc carrying an open-work section heading
+(`residual` / `debt` / `open question` / `remaining` / `not done` / `gap`) —
+eleven of them, nine cited nowhere in the active ledger — and read all nine.
+
+**Eight had nothing open.** Not "mostly done": their open-work sections described
+a tree that no longer exists. `room-transition-loading.md`'s section headed
+*"Current source-backed gap"* was false in every clause; `character-definition-design.md`'s
+"Attack intent gaps (block Smash)" was 3-of-4 closed and Smash has shipped;
+`participant-input.md`'s "deliberately not done" list was 5-of-8 landed;
+`unified-movement-kernel.md`'s "Residual debt (honest)" was 4-of-5 paid.
+
+⭐ **so "which are history" is the wrong cut, and the sweep says why.** These files
+are not history — their DESIGN ARGUMENTS are live and were load-bearing today
+(three of them explained why the current code is shaped as it is, and one supplied
+the fix for a defect). What has gone stale is a SECTION KIND: the status/gap/debt
+lists inside them. Archiving `room-transition-loading.md` would throw away the
+argument that room transitions must not fabricate shell routes; leaving it
+untouched keeps a paragraph that reads as a current measurement and is not.
+
+⭐⭐ **a cheaper cut is now available**: strike the stale gap sections in place
+(as C4 did for nine files, ~200 lines annotated rather than deleted) and archive
+only files whose ARGUMENT is spent. That is a different and much smaller list than
+"the largest five", and `api-1.0-campaign.md` — the note above's most likely
+candidate — is still the best one on that list, because a closed campaign's
+argument IS spent.
+
+⚠ **and the budget arithmetic barely moves either way.** `engine/` measures
+**16,111 lines today** (up from 15,257 when this row was written, because the
+sweep ADDED annotations). Archiving the largest file frees 2,406 — about 8% of the
+overage. The decision is worth making for legibility, not for the warning.
+
+⛔ **one thing the sweep settles outright**: it is no longer true that nobody
+knows what is live in there. Nine are read and annotated, with each finding dated
+and file:line-backed. The remaining question is genuinely a judgement about
+argument value, which is what this file is for.
+
 ---
 
 ## Does `apple_rain`'s damageable box follow the head row when no sprite sample exists? (2026-08-01)

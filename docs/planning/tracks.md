@@ -312,12 +312,20 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   would therefore be a seam with exactly one caller, which is the
   pre-generalization the engine direction forbids outright. The row's own
   reasoning was right; folding it into K2b did not change the count.
-  ▢ **what IS real here, and is a different row**: the manifest has TWO writers
-  of the same value — `ambition_content::plugin` (line 74) and
-  `ambition_app::app::resources` (line 75). Idempotent today because both insert
-  `ambition_content::worlds::world_manifest()`, and the same "a global needs one
-  owner" shape that cost a roster, a rebuild, a retirement and a countdown this
-  week. Worth removing the duplicate; NOT worth inventing a builder to do it.
+  ✔ **the TWO-WRITERS half is DONE — verified 2026-08-07, the row was stale.**
+  It read: the manifest has two writers of the same value, `ambition_content::
+  plugin` and `ambition_app::app::resources`. There is exactly ONE
+  `insert_resource` now (`ambition_content/src/plugin.rs:77`), and the app side
+  carries the fix's own note at `resources.rs:91` — *"ONE writer, and it is the
+  CONTENT plugin's (2026-08-06) … The provider that OWNS the worlds publishes the
+  declaration; the host reads it."*
+  ⚠ **the local `let world_manifest = …` in `resources.rs` is NOT the duplicate**
+  and should not be "cleaned up" by a later reader: it is threaded BY REFERENCE
+  into the preparation-time readers (catalog rows, the LDtk load, the room-set
+  conversion, the hot-reload watcher) which run before any schedule and so cannot
+  take a `Res`. That is the K2a no-process-global shape, and it is orthogonal to
+  who inserts the resource. ⭐ recorded because the surviving `let` looks exactly
+  like the defect the row described.
 - ✔ **K2b direct-entry activation — DONE 2026-08-06.** The oracle is met: the
   hand-built `SessionRoot` is deleted. `compose_ambition_gameplay_host` is the
   one composition, and the whole `ambition_app` suite (471 tests) plus the

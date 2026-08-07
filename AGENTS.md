@@ -106,11 +106,25 @@ on 2026-08-03 against a warm target dir. Four rules Jon set live there too: the
 write-ahead worktree, interlacing architecture with feature work, one big sweep
 then targeted only, and getting a DISTRIBUTION before theorising about a slow run.
 
-Three of its facts belong in your face rather than behind a link:
+Five of its facts belong in your face rather than behind a link:
 
 - ⚠ **`cargo check -p ambition_app` is the gate, never `-p <one_crate>`.** A
   per-crate check has been observed green on a crate that fails the app build.
   21s; there is no excuse.
+- ⛔ **but a CHANGED AUTHORED TYPE is the one thing no build covers.** Several
+  games author their content as RON in a Rust string literal
+  (`SNAKES_ON_A_PLANE_ROSTER_ROWS`, `SMASH_ROSTER_RON`, `SANIC_CATALOG_RON`,
+  `POCKET_CATALOG_RON`, …), and nothing typechecks the inside of a `&str`. On
+  2026-08-07 `ArchetypeSpec::is_aerial` went `bool` → `Option<bool>`, the app
+  check stayed green, and both of Mary-O's flying snakes failed to parse at
+  startup — taking her WHOLE roster down, because assembly `.expect()`s.
+  ⭐ **the guards existed and would have caught it in 9 seconds**; what was
+  skipped was running them. So after changing a type an authored struct uses:
+  `grep -rn '<field_name>' --include=*.rs --include=*.ron` and **run the tests of
+  every crate that grep touches.** The `*.rs` half is the half that matters.
+  ⚠ do NOT audit coverage by asking whether a test mentions the constant — five
+  of these are named exactly once outside their own definition and are covered
+  anyway, because the crate's plugin-composition test parses them transitively.
 - ⛔ **the 11-second `repo tooling (scripts/tests)` job is the one to stop
   skipping.** It runs the 25 architectural absence contracts — the only thing that
   catches a registration or dependency edge landing in the wrong place. ⚠ and

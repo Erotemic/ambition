@@ -232,10 +232,14 @@ pub fn damage_lands_between(
 ///
 /// Selection is driven by each actor's [`ActorAggression`], not by its
 /// [`ActorFaction`]: `ActorAggression::target_policy` says whether the
-/// actor wants a target and which one. A non-passive actor
-/// (`HostileToPlayer` / `RetaliatesWhenHit`) tracks the nearest alive
-/// player-faction entity by straight-line distance — the same set of
-/// actors the old `faction.needs_target()` shortcut targeted. A passive
+/// actor wants a target and which one. A non-passive actor (`Hostile` /
+/// `RetaliatesWhenHit`) tracks the nearest alive FOE by straight-line
+/// distance — any faction it opposes under `FactionRelations`, or its
+/// grudge entity. ⚠ this used to read "the nearest alive player-faction
+/// entity", and named an `AggressionMode::HostileToPlayer` that no longer
+/// exists: the player-named mode was collapsed into the one relational
+/// policy, and a born Enemy hunts the player because its FACTION opposes
+/// Player, not because the targeting knows what a player is. A passive
 /// actor takes no combat target and is pointed at itself so its facing
 /// math keeps the current facing instead of snapping toward the origin.
 ///

@@ -229,6 +229,33 @@ Behavioral scenarios are *evidence*:
 
 ## Convergence audit (the debt baseline)
 
+> ⚠ **SWEPT 2026-08-07 — the three DECISIONS recorded below have all landed, and
+> two comments in the code still named the thing they removed.**
+>
+> * **Targeting** — the decision was *"collapse to ONE relational policy … provoke
+>   is a per-actor grudge"*. Done: `AggressionMode` is
+>   `Passive | RetaliatesWhenHit { strike_threshold } | Hostile`, with **no
+>   `HostileToPlayer`**, and its doc states the outcome — *"There is no
+>   player-named mode: a born Enemy hunts the player because its faction opposes
+>   Player."* `ActorAggression::grudge` is the generalized accumulator.
+> * **Projectile world-hit (step 5/B2)** — done: `WorldHitPolicy` is authored on
+>   `ProjectileSpec`, and **`ProjectileFaction` is retired** (zero non-test
+>   references).
+> * ⛔ **two stale COMMENTS named the deleted variant**, and one of them described
+>   the behaviour it replaced: `targeting.rs` said a non-passive actor *"tracks the
+>   nearest alive player-faction entity"*, which is the player-centrism this audit
+>   removed. Both corrected 2026-08-07. ⭐ a deleted enum variant surviving in prose
+>   is worse than an ordinary stale comment: the name cannot be found, so a reader
+>   cannot tell whether the code or the comment is behind.
+>
+> ⚠ **and the one MEASUREMENT here has drifted the wrong way.** The entry below
+> records *"~15 genuine `With<PlayerEntity>` / `With<PrimaryPlayer>` filters … a raw
+> grep says 26"*. Re-measured today: **32 raw, 15 of them in comments, so ~17
+> genuine.** Player-centric filters grew slightly rather than shrank. That is not
+> alarming on its own — the audit's own point is that some are legitimately
+> slot-scoped — but a number in a doc that nobody re-takes is a number that stops
+> meaning anything, and this one is the file's only quantity.
+
 Where things actually stand, so progress is measurable and a regression is
 recognizable:
 

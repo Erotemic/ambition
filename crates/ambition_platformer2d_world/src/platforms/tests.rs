@@ -533,6 +533,10 @@ fn a_wrapping_platform_carries_a_rider_by_its_travel_not_by_its_teleport() {
 
 /// **A looping platform never turns around.**
 ///
+/// ⚠ reads as "rising" in the assertions below only in the +y sense; +y is DOWN
+/// on screen. What is being pinned is that the sign never changes, not which way
+/// the player sees it go.
+///
 /// ⛔ the poison for the variant existing at all: if it reversed it would be a
 /// `Sweep` on the other axis, and the elevator effect — step off the top, the
 /// next one arrives from below — would not exist. Two full spans of travel must

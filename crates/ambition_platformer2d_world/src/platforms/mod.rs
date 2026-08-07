@@ -23,7 +23,9 @@ pub struct MovingPlatformSpec {
     /// **Signed vertical span of a WRAPPING loop**, the paternoster authoring.
     ///
     /// Mirrors `sweep_dx`: magnitude is the shaft, sign is the direction of
-    /// travel (positive rises). ⛔ **a loop is not a vertical sweep** — it never
+    /// travel. ⚠ **positive travels DOWN** — world y is down-positive here and
+    /// the LDtk conversion preserves it, so a descending elevator is a POSITIVE
+    /// `loop_dy`. ⛔ **a loop is not a vertical sweep** — it never
     /// reverses, which is what makes a run of them read as an elevator instead
     /// of a row of lifts. `None`/zero leaves the platform on its sweep.
     pub loop_dy: Option<f32>,
@@ -129,6 +131,7 @@ impl MovingPlatformSpec {
                 min_y,
                 max_y,
                 self.speed,
+                // positive dy travels toward +y, which is DOWN.
                 loop_dy > 0.0,
             ))
         } else {
@@ -189,8 +192,13 @@ enum MovingPlatformMotion {
         min_y: f32,
         max_y: f32,
         speed: f32,
-        /// `+1` rises, `-1` descends. Constant for the lifetime of the platform:
-        /// this motion has no reversal, which is the point.
+        /// `+1` travels toward +y, `-1` toward -y. Constant for the lifetime of
+        /// the platform: this motion has no reversal, which is the point.
+        ///
+        /// ⚠ **+y is DOWN here.** The LDtk conversion does not flip the axis, so
+        /// world y increases downward — a falling body's y grows. `+1` therefore
+        /// DESCENDS on screen, which is the opposite of what "positive" reads
+        /// like and is worth stating wherever the sign is chosen.
         dir: f32,
     },
 }
@@ -243,8 +251,13 @@ impl MovingPlatformState {
 
     /// A wrapping vertical loop between `min_y` and `max_y`.
     ///
-    /// `speed` is magnitude; `rising` picks the direction. A run of these with
+    /// `speed` is magnitude; `downward` picks the direction. A run of these with
     /// staggered `start_pos` values along the same span is the elevator shaft.
+    ///
+    /// ⚠ **`downward` rather than `rising`, because +y is DOWN.** The first
+    /// version of this signature said `rising` and set `dir = +1` for it, which
+    /// would have had every authored elevator travel the opposite way to its
+    /// field's name — silent, and only visible by watching the game.
     pub fn from_vertical_loop(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -253,7 +266,7 @@ impl MovingPlatformState {
         min_y: f32,
         max_y: f32,
         speed: f32,
-        rising: bool,
+        downward: bool,
     ) -> Self {
         let (min_y, max_y) = if min_y <= max_y {
             (min_y, max_y)
@@ -269,7 +282,7 @@ impl MovingPlatformState {
                 min_y,
                 max_y,
                 speed: speed.max(0.0),
-                dir: if rising { 1.0 } else { -1.0 },
+                dir: if downward { 1.0 } else { -1.0 },
             },
             last_delta: ae::Vec2::ZERO,
         }

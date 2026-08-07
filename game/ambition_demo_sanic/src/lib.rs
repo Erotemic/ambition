@@ -1814,6 +1814,19 @@ const SCATTER_RESTITUTION: f32 = 0.55;
 /// and bouncing during this window; what it cannot do is be collected, so the
 /// hit costs you something even for the instant you are standing in the spray.
 /// Without it a hit would refund itself on the same frame it landed.
+/// **How long losing your rings keeps you untouchable.**
+///
+/// Jon, from play: *"he should … have a few second of recovery iframes."* The
+/// classic is about two seconds of flashing, and the number has to be read
+/// against what the hit COSTS here: the purse bursts across half a screen and
+/// the window is the whole of your chance to run it back down. The engine's own
+/// `knockback_invulnerability_time` is 0.75s — right for Ambition, and over
+/// before the rings have landed in this game.
+///
+/// ⚠ **it RAISES the running window, never replaces it.** A hazard respawn arms
+/// a longer one, and dropping rings inside that must not cut it short.
+pub(crate) const RING_LOSS_INVULN_S: f32 = 2.0;
+
 const SCATTER_LOCK_S: f32 = 0.6;
 
 /// How long (s) a scattered ring exists at all. Past this it is gone, which is
@@ -1917,6 +1930,8 @@ pub fn scatter_rings_on_hit(
         (
             &ambition_platformer2d::platformer::sim_id::SimId,
             &mut ambition_platformer2d::platformer::sim_id::SimIdCounter,
+            // The window the resolver already armed, which this game lengthens.
+            Option<&mut ambition_platformer2d::characters::actor::BodyCombat>,
         ),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
@@ -1930,7 +1945,7 @@ pub fn scatter_rings_on_hit(
     };
 
     for event in spent.read() {
-        let Ok((player_id, mut counter)) = bodies.get_mut(event.victim) else {
+        let Ok((player_id, mut counter, combat)) = bodies.get_mut(event.victim) else {
             // The resolver ALREADY zeroed the wallet — survival and the spend are
             // settled before this system runs. If the victim cannot be resolved
             // here the currency is simply gone with no burst, no sound, and no
@@ -1946,6 +1961,27 @@ pub fn scatter_rings_on_hit(
             );
             continue;
         };
+        // ⭐ **THE RECOVERY WINDOW, and it is this game's to set.** Jon, from
+        // play: *"there it seems like he is given no iframes … he should have a
+        // few second of recovery iframes."* They were never missing — the
+        // resolver arms `knockback_invulnerability_time`, 0.75s, which its own
+        // comment calls the longest window in the game. It is, for Ambition. Here
+        // the hit throws your purse across half a screen, so 0.75s is over before
+        // the rings land and the badnik you bounced off is still touching you.
+        //
+        // ⛔ **not fixed by raising the engine default**, which Mary-O shares and
+        // whose classic feel is pinned. `WalletShieldSpent`'s contract says where
+        // it belongs: "the generic resolver owns survival; game content owns how
+        // it is expressed" — and in the classic, losing your rings IS the trigger
+        // for the flashing window.
+        //
+        // ⚠ raised, never replaced: a longer window already running (a hazard
+        // respawn arms 1.10s) must not be cut short by dropping rings inside it.
+        // Armed before the early return below, because a spend of zero is still a
+        // hit that landed.
+        if let Some(mut combat) = combat {
+            combat.damage_invuln_timer = combat.damage_invuln_timer.max(RING_LOSS_INVULN_S);
+        }
         let scattered = (event.amount.max(0) as usize).min(SCATTERED_RINGS_MAX);
         if scattered == 0 {
             continue;

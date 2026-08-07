@@ -2053,3 +2053,95 @@ fn the_start_line_legend_follows_the_seats_real_bindings() {
         "the sign names the key this seat jumps with ({jump}), got: {shown}"
     );
 }
+
+/// **Losing your rings buys you a few seconds, the way it always has.**
+///
+/// Jon, from play: *"When SANIC is hit, there it seems like he is given no
+/// iframes. He should also have some hitstun and be knocked back a bit, and then
+/// have a few second of recovery iframes."*
+///
+/// ⭐ **the i-frames were never missing — they were 0.75s**, the engine's
+/// `knockback_invulnerability_time`, whose own comment calls it "the longest
+/// window in the game". It is, for Ambition. For a game whose hit REACTION is a
+/// scramble across half a screen to get your purse back, three quarters of a
+/// second is over before the rings have landed, and the badnik you bounced off
+/// is still touching you — which is indistinguishable from having none.
+///
+/// ⛔ **and it is NOT fixed by raising the engine default**, which is shared with
+/// Mary-O, whose classic feel Jon has pinned elsewhere. `WalletShieldSpent`'s own
+/// contract says where this belongs: *"The generic resolver owns survival; game
+/// content owns how it is expressed."* Losing your rings IS the classic trigger
+/// for the flashing window, so Sanic extends it in the same handler that already
+/// decides what losing them means.
+#[test]
+fn losing_the_purse_buys_a_classic_length_recovery() {
+    use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth, BodyWallet, Health};
+    use ambition_platformer2d::platformer::lifecycle::ActiveSessionScope;
+
+    let mut app = App::new();
+    app.add_message::<ambition_platformer2d::vfx::VfxMessage>();
+    app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
+    app.add_message::<ambition_platformer2d::actors::features::ecs::damage_apply::WalletShieldSpent>();
+    let mut scope = ActiveSessionScope::default();
+    scope.begin();
+    app.insert_resource(scope);
+    app.insert_resource(ambition_platformer2d::time::WorldTime {
+        scaled_dt: 0.1,
+        ..Default::default()
+    });
+    app.add_systems(bevy::prelude::Update, crate::scatter_rings_on_hit);
+
+    let mut kin = ae::BodyKinematics::default();
+    kin.pos = ae::Vec2::new(100.0, 100.0);
+    kin.size = ae::Vec2::new(28.0, 32.0);
+    let sanic = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d::platformer::markers::PlayerEntity,
+            ambition_platformer2d::platformer::markers::PrimaryPlayer,
+            kin,
+            BodyHealth::new(Health::new(3)),
+            BodyWallet { balance: 6 },
+            // What the resolver armed on the way in — the window this is about.
+            BodyCombat {
+                damage_invuln_timer: 0.75,
+                ..Default::default()
+            },
+            ambition_platformer2d::platformer::sim_id::SimId::player_slot(0),
+            ambition_platformer2d::platformer::sim_id::SimIdCounter::default(),
+        ))
+        .id();
+
+    emit_ring_shield_spend(&mut app, sanic, 6);
+    app.update();
+
+    let armed = app
+        .world()
+        .get::<BodyCombat>(sanic)
+        .expect("Sanic keeps his combat state")
+        .damage_invuln_timer;
+    assert!(
+        armed >= crate::RING_LOSS_INVULN_S,
+        "losing the purse left only {armed}s of recovery — the rings have not \
+         even landed yet, and the badnik that hit him is still touching him"
+    );
+
+    // ⚠ and it must RAISE rather than replace: a longer window already running
+    // (a hazard respawn, say) is not shortened by dropping rings inside it.
+    app.world_mut()
+        .get_mut::<BodyCombat>(sanic)
+        .expect("still there")
+        .damage_invuln_timer = crate::RING_LOSS_INVULN_S + 5.0;
+    emit_ring_shield_spend(&mut app, sanic, 1);
+    app.update();
+    let after = app
+        .world()
+        .get::<BodyCombat>(sanic)
+        .expect("still there")
+        .damage_invuln_timer;
+    assert!(
+        after >= crate::RING_LOSS_INVULN_S + 5.0,
+        "a longer window already running was CUT SHORT to {after}s by a later \
+         ring loss"
+    );
+}

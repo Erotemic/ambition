@@ -850,11 +850,21 @@ impl Plugin for CharacterRuntimePlugin {
                 // activation builds the cast from the answer without consulting
                 // any authority at all. Chained so a roster published this tick
                 // still opens its match this tick.
-                (
-                    prepared_match::prepare_the_match,
-                    prepared_match::activate_the_prepared_match,
-                )
-                    .chain()
+                // ⛔ **ONLY ACTIVATION RUNS IN THE ROLLBACK WINDOW.** Preparation
+                // is registered in `Update` below, and the reason is a measured
+                // determinism failure rather than tidiness: `PreparedMatch` is
+                // deliberately NOT rollback state (it is a decision made before
+                // the session it describes), so producing it INSIDE the sim
+                // schedule made it state that is written in the window and does
+                // not rewind with it. GGRS said so directly — *"sync-test
+                // checksum mismatch at frames [10, 11, 12]"* — which is this
+                // repo's own "a derive's MEMO is rollback state" trap: a value
+                // that GATES behaviour is not a cache.
+                //
+                // Activation stays here because building bodies is simulation,
+                // and it replays correctly precisely because the plan it reads
+                // was decided outside the window and cannot have changed.
+                prepared_match::activate_the_prepared_match
                     // Preparation needs an ASSEMBLED content composition. The archetype
                     // roster is built from registered fragments, so a bare engine
                     // App legitimately has none — and this is a run condition
@@ -884,6 +894,13 @@ impl Plugin for CharacterRuntimePlugin {
                 // make that mistake: the set says where it runs.
                 presentation::project_prepared_character_definitions
                     .in_set(crate::schedule::PlayerInputSet::CharacterProjection),
+            )
+            .add_systems(
+                Update,
+                // **THE MATCH IS DECIDED OUTSIDE THE ROLLBACK WINDOW.** See the
+                // activation registration above for the measured reason.
+                prepared_match::prepare_the_match
+                    .run_if(resource_exists::<crate::features::CharacterRoster>),
             )
             .add_systems(
                 Update,

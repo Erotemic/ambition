@@ -373,17 +373,25 @@ fn a_seated_fighter_derives_its_character_and_not_just_its_name() {
     }
     settle_into_a_live_round(&mut app);
 
-    // The CPU opponent: the seated body, not the session's own player.
+    // The CPU opponent, named by its SEAT.
+    //
+    // ⚠ this used to say `Without<PrimaryPlayer>` and mean "the one that is not
+    // player one" — which worked only while seat 0 WAS the session's home body,
+    // the privilege the match-preparation refactor deleted. With every fighter
+    // built the same way neither carries the marker, so that filter selected
+    // whichever seat the query reached first. `MatchSeat` is the identity a
+    // match fighter has, and its own doc says why every other way is a guess.
     let world = app.world_mut();
-    let mut seated = world.query_filtered::<(
+    let mut seated = world.query::<(
+        &ambition_platformer2d::actors::character_runtime::MatchSeat,
         &ambition_platformer2d::characters::actor::WornCharacter,
         &Name,
         &ActionSet,
-    ), Without<ambition_platformer2d::actors::actor::PrimaryPlayer>>();
-    let (worn, name, action_set) = seated
+    )>();
+    let (_, worn, name, action_set) = seated
         .iter(world)
-        .next()
-        .expect("the versus stage seats an opponent");
+        .find(|(seat, ..)| seat.0 == 1)
+        .expect("the versus stage seats an opponent in seat 1");
 
     assert_eq!(worn.id(), "arena_duelist_close");
     assert_ne!(

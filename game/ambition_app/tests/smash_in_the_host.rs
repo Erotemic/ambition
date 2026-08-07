@@ -1278,6 +1278,21 @@ fn start_and_report(app: &mut App) -> MatchStart {
     MatchStart::ActivationStalled
 }
 
+/// Every seated fighter's x, in seat order.
+fn seat_positions(app: &mut App) -> Vec<f32> {
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_platformer2d::actors::character_runtime::MatchSeat,
+        &ambition_platformer2d::engine_core::BodyKinematics,
+    )>();
+    let mut rows: Vec<(usize, f32)> = q
+        .iter(world)
+        .map(|(seat, kin)| (seat.0, kin.pos.x))
+        .collect();
+    rows.sort_by_key(|(seat, _)| *seat);
+    rows.into_iter().map(|(_, x)| x).collect()
+}
+
 /// Open the lobby from the title screen.
 fn open_the_lobby() -> App {
     let mut app = shell_host_app();
@@ -1422,5 +1437,26 @@ fn two_cpus_can_fight_each_other() {
         MatchStart::Activated { seats: 2 },
         "a lobby of two CPUs cannot start a match, so nobody can watch the AI \
          fight itself and no ladder measurement is reachable from the game"
+    );
+
+    // ⛔ **AND THEY MUST ACTUALLY FIGHT.** Asserting the match ACTIVATES is the
+    // trap this file was written to avoid one level down: two bodies that seat
+    // correctly and then stand still satisfy every count anybody thought to
+    // make. Jon asked to watch the AI fight itself, and a stage holding two
+    // statues is not that.
+    let start: Vec<f32> = seat_positions(&mut app);
+    for _ in 0..300 {
+        app.update();
+    }
+    let moved: f32 = seat_positions(&mut app)
+        .iter()
+        .zip(&start)
+        .map(|(now, then)| (now - then).abs())
+        .fold(0.0, f32::max);
+    assert!(
+        moved > 4.0,
+        "neither CPU moved more than {moved:.1}px in five seconds. They seated, \
+         they carry brains, and nothing decided anything — which reads as a \
+         seating success and is a fight between two statues"
     );
 }

@@ -141,32 +141,25 @@ fn she_walks_out_of_one_room_and_into_another() {
         "the demo should start on the surface",
     );
 
-    // Into the vault through the real directional pipe, then along its floor to
-    // the descent shaft at the far end. The pipe half is played, not set up:
-    // stand on the mouth and press DOWN, the verb Jon asked for.
-    let mouth = ambition_demo_mary_o::pipe_mouth();
-    place_player(
-        &mut app,
-        Vec2::new(mouth.center().x, mouth.center().y - 24.0),
-    );
+    // ⛔ **this used to walk into a DESCENT SHAFT in 1-1's vault, and that shaft
+    // is gone (2026-08-06).** Jon: *"she doesn't just get to go there in the
+    // middle of 1-1 and come back."* The only route from 1-1 to 1-2 is finishing
+    // 1-1, so that is the route this proof drives now — the assertion it was
+    // written for is about the TRANSACTION (the active room changed and the body
+    // is standing in the new geometry), not about which affordance started it.
+    //
+    // Set down a short walk from the pole, then WALK into it. The placement is
+    // the same concession `level_circuit` makes and for the same reason — 1-1 is
+    // 3328px of platforming and this is not a playthrough test — but the last
+    // stretch is played, so "reachable by moving" still means something.
+    let pole = ambition_demo_mary_o::pole_for_room(LEVEL_1_1_ROOM_ID);
+    place_player(&mut app, Vec2::new(pole.x - 96.0, pole.base_y - 24.0));
     for _ in 0..8 {
         step(&mut app, ControlFrame::default());
     }
-    for _ in 0..60 {
-        step(&mut app, press_down());
-        if player_pos(&mut app).y > ambition_demo_mary_o::vault_bounds().min.y {
-            break;
-        }
-    }
-    assert!(
-        player_pos(&mut app).y > ambition_demo_mary_o::vault_bounds().min.y,
-        "the pipe did not put her in the vault, so the rest of this run is meaningless",
-    );
 
-    // Now WALK to the shaft. No placement from here on: the transition has to be
-    // reached by moving, or it proves nothing about reachability.
     let mut room = active_room(&mut app);
-    for _ in 0..600 {
+    for _ in 0..900 {
         step(&mut app, hold_right());
         room = active_room(&mut app);
         if room == LEVEL_1_2_ROOM_ID {
@@ -176,23 +169,51 @@ fn she_walks_out_of_one_room_and_into_another() {
 
     assert_eq!(
         room, LEVEL_1_2_ROOM_ID,
-        "walking into the descent shaft did not change the active room — the \
+        "walking into 1-1's goal pole did not change the active room — the \
          transition either never fired or nothing consumed it",
     );
 
     // And she is IN the new room, not merely bookkept into it. 1-2's corridor
     // floor is at the bottom of a 14-tile room; 1-1's vault floor is elsewhere,
     // so a body still standing in the old geometry fails this.
-    let pos = player_pos(&mut app);
+    //
+    // ⚠ **the flip and the body are not the SAME frame on this route.** Under
+    // the deleted descent shaft the transaction that changed the room also moved
+    // the body, so reading the position on the flip frame was safe. The flag
+    // route asks for the room while the sequence still holds her at the pole,
+    // and she is placed at the target room's spawn when it commits — so this
+    // read one frame early and reported her at 1-1's x=3240, which looks exactly
+    // like "the body never moved".
+    //
+    // ⛔ so it WAITS rather than settling a fixed count: a bounded wait that
+    // reports the last position it saw still fails if she never arrives, which a
+    // blind `for 0..120` before the read would have hidden.
     let world_size = {
         let mut query = app.world_mut().query::<&RoomSet>();
         let world = app.world();
         let set = query.iter(world).next().expect("a RoomSet");
         set.rooms[set.active].world.size
     };
+    let inside = |pos: Vec2| {
+        pos.x >= 0.0 && pos.x <= world_size.x && pos.y >= 0.0 && pos.y <= world_size.y
+    };
+    let mut pos = player_pos(&mut app);
+    for _ in 0..120 {
+        if inside(pos) {
+            break;
+        }
+        step(&mut app, ControlFrame::default());
+        pos = player_pos(&mut app);
+    }
     assert!(
-        pos.x >= 0.0 && pos.x <= world_size.x && pos.y >= 0.0 && pos.y <= world_size.y,
-        "she landed outside 1-2's bounds at {pos:?} (room is {world_size:?})",
+        inside(pos),
+        "she never landed inside 1-2's bounds — last seen at {pos:?} (room is \
+         {world_size:?}) 120 frames after the active room became 1-2",
+    );
+    assert_eq!(
+        active_room(&mut app),
+        LEVEL_1_2_ROOM_ID,
+        "she did not STAY in 1-2 — something bounced her back out",
     );
 }
 
@@ -207,15 +228,43 @@ fn the_two_rooms_are_linked_both_ways() {
     assert!(ids.contains(&LEVEL_1_1_ROOM_ID), "1-1 missing from {ids:?}");
     assert!(ids.contains(&LEVEL_1_2_ROOM_ID), "1-2 missing from {ids:?}");
 
-    // A one-way link is a trap door: you can reach 1-2 and never come back. Both
-    // rooms must name a zone that leaves them.
-    for room in &set.rooms {
+    // A one-way link is a trap door: you can reach 1-2 and never come back.
+    //
+    // ⛔ **this asked the LOADING ZONES, and neither room has one any more**
+    // (2026-08-06 — the mid-1-1 round trip Jon rejected was four zones and they
+    // are all deleted). Asking them now would be a check that cannot fail in the
+    // worst way: it would pass on an empty `for`.
+    //
+    // ⭐ **so it asks the route that actually exists.** Finishing a level is what
+    // moves you between them, `exit_for_room` is where each level says where
+    // that goes, and the property worth holding is unchanged and stronger than
+    // "has a zone": follow the exits and you come back to where you started.
+    let mut seen = vec![LEVEL_1_1_ROOM_ID.to_string()];
+    let mut at = LEVEL_1_1_ROOM_ID.to_string();
+    for _ in 0..set.rooms.len() {
+        let ambition_demo_mary_o::LevelDestination::Room(next) =
+            ambition_demo_mary_o::exit_for_room(&at)
+        else {
+            panic!("room '{at}' replays instead of leading anywhere, so the demo dead-ends there");
+        };
         assert!(
-            !room.loading_zones.is_empty(),
-            "room '{}' has no way out",
-            room.id,
+            ids.contains(&next.as_str()),
+            "room '{at}' leads to '{next}', which is not in this world: {ids:?}",
         );
+        at = next;
+        if at == LEVEL_1_1_ROOM_ID {
+            break;
+        }
+        seen.push(at.clone());
     }
+    assert_eq!(
+        at, LEVEL_1_1_ROOM_ID,
+        "following each level's exit from 1-1 never came back to it (visited {seen:?})",
+    );
+    assert!(
+        seen.contains(&LEVEL_1_2_ROOM_ID.to_string()),
+        "the cycle out of 1-1 never passes through 1-2 (visited {seen:?})",
+    );
 }
 
 /// The ferry in 1-2 is not decoration: the chasm has no stepping stone, so a
@@ -292,6 +341,31 @@ fn ferry(app: &mut App) -> (Vec2, Vec2) {
 
 /// Play from the surface into 1-2, the same way the walk proof does.
 fn reach_level_1_2(app: &mut App) {
+    let pole = ambition_demo_mary_o::pole_for_room(LEVEL_1_1_ROOM_ID);
+    place_player(app, Vec2::new(pole.x - 96.0, pole.base_y - 24.0));
+    for _ in 0..8 {
+        step(app, ControlFrame::default());
+    }
+    for _ in 0..900 {
+        step(app, hold_right());
+        if active_room(app) == LEVEL_1_2_ROOM_ID {
+            break;
+        }
+    }
+    assert_eq!(
+        active_room(app),
+        LEVEL_1_2_ROOM_ID,
+        "could not reach 1-2 to test its ferry",
+    );
+}
+
+/// Walk the vault and collect what it pays out.
+///
+/// Into the vault through the real directional pipe — stand on the mouth and
+/// press DOWN, the verb Jon asked for — then along its floor. The far end is
+/// masonry (`vault_wall_1`) since the descent shaft was deleted, so holding
+/// right simply stops there.
+fn bank_the_vault_coins(app: &mut App) {
     let mouth = ambition_demo_mary_o::pipe_mouth();
     place_player(app, Vec2::new(mouth.center().x, mouth.center().y - 24.0));
     for _ in 0..8 {
@@ -303,17 +377,13 @@ fn reach_level_1_2(app: &mut App) {
             break;
         }
     }
+    assert!(
+        player_pos(app).y > ambition_demo_mary_o::vault_bounds().min.y,
+        "the pipe did not put her in the vault, so she cannot bank its coins",
+    );
     for _ in 0..600 {
         step(app, hold_right());
-        if active_room(app) == LEVEL_1_2_ROOM_ID {
-            break;
-        }
     }
-    assert_eq!(
-        active_room(app),
-        LEVEL_1_2_ROOM_ID,
-        "could not reach 1-2 to test its ferry",
-    );
 }
 
 /// A room is a place, not a save file: crossing between them must not reset the
@@ -331,16 +401,25 @@ fn reach_level_1_2(app: &mut App) {
 fn the_run_survives_the_crossing() {
     let mut app = boot();
 
-    // Bank the vault's coins on the way to the shaft — real currency through the
-    // shared economy, not a number poked into a resource.
-    reach_level_1_2(&mut app);
-
+    // Bank the vault's coins FIRST — real currency through the shared economy,
+    // not a number poked into a resource.
+    //
+    // ⚠ **this used to be a side effect of getting to 1-2, and it stopped being
+    // one.** The route to 1-2 ran along the vault floor to the descent shaft, so
+    // walking to the crossing collected the coins on the way. The shaft is gone
+    // (2026-08-06) and the route is the goal pole, which is nowhere near the
+    // vault — so the walk is its own beat now, and the assertion below is what
+    // said so rather than a comment.
+    bank_the_vault_coins(&mut app);
     let coins = wallet(&mut app);
     assert!(
         coins > 0,
         "she banked no coins walking the vault, so this proves nothing about \
          carrying them across",
     );
+
+    // ...and only then cross.
+    reach_level_1_2(&mut app);
     let (lives, score) = run_state(&mut app);
     assert_eq!(lives, 3, "she should not have spent a life getting here");
 

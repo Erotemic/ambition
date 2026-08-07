@@ -6,23 +6,40 @@
 //! same `RoomSpec` as the surface rather than being its own room. The
 //! transaction is engine-side now (`ambition_platformer2d::runtime::room_transition`), and
 //! this level is what proves it: two authored rooms in the demo's own binary,
-//! linked both ways, reached by walking.
+//! linked both ways — by their goals, since 2026-08-06.
 //!
 //! The grammar, left to right:
 //!
-//! 1. **The drop** — you arrive under the descent shaft at the vault's far end,
-//!    in a low stone corridor. The ceiling is solid the whole way, which is what
-//!    makes it read as underground rather than as a pit.
+//! 1. **The drop** — you arrive at the room's own spawn, in a low stone
+//!    corridor. The ceiling is solid the whole way, which is what makes it read
+//!    as underground rather than as a pit.
 //! 2. **The coin shelf** — a short raised run with coins on it, so the first
 //!    thing the room teaches is that its ceiling is low enough to matter.
 //! 3. **The chasm** — a five-tile gap with no stepping stone. The only way over
 //!    is the moving platform, so the room's one new verb is load-bearing exactly
 //!    once, the same rule 1-1's stepping stone follows.
-//! 4. **The way out** — a walk-in alcove that returns you to 1-1's surface,
-//!    past the pits you skipped. Going down is a shortcut, not a detour.
-//! 5. **The goal** — a pole short of that alcove, so a body walking the last
-//!    stretch meets the END before it meets the exit. Where finishing LEADS is
+//! 4. **The goal** — a pole at the far wall. Where finishing LEADS is
 //!    [`crate::exit_for_room`]'s answer rather than this room's.
+//!
+//! ⛔ **THE ROUND TRIP IS GONE (2026-08-06), and it was four zones.** Jon: *"The
+//! maryo world 1-2 needs to happen after she wins world 1-1, she doesn't just
+//! get to go there in the middle of 1-1 and come back."* 1-2 used to be a
+//! SHORTCUT — a shaft in 1-1's vault dropped you in mid-level and an alcove at
+//! this room's far wall walked you back to 1-1's surface, past the pits you
+//! skipped. So a player could visit the second level without finishing the
+//! first, and finish neither.
+//!
+//! ⭐ **the replacement was already here and is the reason this is a deletion
+//! rather than a rewrite.** `LevelDestination` + `cycle_level_on_flag_tally`
+//! have sent 1-1's pole to 1-2 and 1-2's pole back to 1-1 since 2026-08-05, and
+//! the flag route arrives at the target room's own authored spawn — so the
+//! landing pads had nothing left to catch. What is deleted is the shaft
+//! (`mary_o_1_1_descent`), its pad (`mary_o_1_2_arrival`), the alcove
+//! (`mary_o_1_2_exit`) and ITS pad (`mary_o_1_1_surface_return`).
+//!
+//! ⚠ **the vault stays, and it is not the same thing.** 1-1's coin vault is
+//! inside 1-1 and its two pipes move her within that room; only the exit to
+//! ANOTHER LEVEL went.
 //!
 //! ⛔ **THE LEVEL IS `assets/worlds/mary_o.ldtk` NOW, not this file (2026-08-05).**
 //! It used to build every block from constants here, which meant Jon could lay
@@ -30,11 +47,7 @@
 //! the same file 1-1 lives in — bootstrapped once by
 //! `tools/author_mary_o_1_2_ldtk.py`, and edited in LDtk from here on.
 //!
-//! ⭐ **authoring it bought 1-1's last two coordinates as well as its own.** The
-//! descent shaft and the surface return were built in Rust because a
-//! `LoadingZone` has to name a `target_room`, and 1-2 was a room no world file
-//! contained. Both zones and the LINKS between the rooms are authored now.
-//!
+
 //! The platform is authored as an ordinary `MovingPlatform` entity. Riding it is
 //! engine behavior — the platform advance runs once per frame before the body
 //! tick and the ride/ledge-carry logic reads its delta — so this level adds no
@@ -47,21 +60,12 @@ use crate::MARY_O_MODE;
 /// The authored area id, and the room id the runtime knows it by.
 pub const LEVEL_1_2_ROOM_ID: &str = "mary_o_1_2";
 
-/// The zone in 1-1's vault that drops you into 1-2, and its partner in 1-2.
-///
-/// Both are `Walk`: you step into the shaft and go. The vault's own two pipes
-/// stay directional presses (Jon's rule — a pipe answers UP or DOWN, never a
-/// generic Interact); this is a different affordance on purpose, an open shaft
-/// in the vault floor rather than a third tube competing with them.
-///
-/// ⚠ **only two of these four name a target.** `DESCENT` and `EXIT` are exits;
-/// `ARRIVAL` and `SURFACE_RETURN` are landing pads, and a landing pad that named
-/// a target would fire on the body that just arrived on it.
-pub const DESCENT_ZONE_ID: &str = "mary_o_1_1_descent";
-pub const ARRIVAL_ZONE_ID: &str = "mary_o_1_2_arrival";
-/// The way back up: 1-2's exit alcove, and where it puts you on the surface.
-pub const EXIT_ZONE_ID: &str = "mary_o_1_2_exit";
-pub const SURFACE_RETURN_ZONE_ID: &str = "mary_o_1_1_surface_return";
+// ⛔ **`DESCENT_ZONE_ID` / `ARRIVAL_ZONE_ID` / `EXIT_ZONE_ID` /
+// `SURFACE_RETURN_ZONE_ID` ARE GONE (2026-08-06)** — see the module header. They
+// named the four mouths of the mid-1-1 round trip Jon rejected, and the zones
+// they named are no longer in `mary_o.ldtk`. Deleted rather than left pointing
+// at nothing: `authored_zone` PANICS on a missing id, so a constant that
+// survives its zone is a landmine for the next reader who uses it as one.
 
 /// **The ferry's authored ID.**
 ///
@@ -85,12 +89,13 @@ const UNDERGROUND_STONE: [f32; 4] = [0.20, 0.17, 0.28, 1.0];
 
 /// **1-2's goal.**
 ///
-/// ⭐ **the level had an exit but no END.** The alcove at the far wall returns
-/// you to the surface, which is the shortcut's other mouth — walking into it is
-/// leaving, not finishing. Jon: *"The end of 1-2 should transition back to
-/// 1-1."* Finishing is grabbing a pole, the same verb 1-1 ends with, and the
-/// pole is read off the authored shaft by the same rule 1-1's is
-/// ([`crate::authored_pole`]).
+/// ⭐ **the level had an exit but no END.** When this was written the far wall
+/// held an alcove that walked you back to 1-1's surface — the shortcut's other
+/// mouth, which is leaving rather than finishing. Jon: *"The end of 1-2 should
+/// transition back to 1-1."* Finishing is grabbing a pole, the same verb 1-1
+/// ends with, and the pole is read off the authored shaft by the same rule
+/// 1-1's is ([`crate::authored_pole`]). The alcove is gone (see the module
+/// header); the pole is the whole answer now.
 pub fn goal_pole() -> crate::flag::FlagPole {
     crate::authored_pole(&level_1_2())
 }
@@ -413,23 +418,47 @@ mod tests {
         }
     }
 
+    /// **She arrives standing on something.**
+    ///
+    /// ⛔ **this was `both_ends_of_the_room_are_ways_out`, and both ends stopped
+    /// being ways out on 2026-08-06** when the mid-1-1 round trip was deleted.
+    /// It probed the two `LoadingZone`s; there are none, so the old body could
+    /// only panic in `authored_zone`.
+    ///
+    /// ⭐ **the PROPERTY it was really about survives the zones.** It checked
+    /// that a place a body materializes stands ON the floor rather than floating
+    /// in it — the bug 1-1's vault return pipe shipped with (`cbc6902d2`) — and
+    /// asked the BLOCK under it rather than a floor constant. 1-2 still has
+    /// exactly such a place: the flag route arrives at `world.spawn`, so that is
+    /// what gets asked now, and the question is the same one.
     #[test]
-    fn both_ends_of_the_room_are_ways_out() {
+    fn the_arrival_spawn_stands_on_the_floor() {
         let room = level_1_2();
-        for id in [ARRIVAL_ZONE_ID, EXIT_ZONE_ID] {
-            let zone = crate::authored_zone(&room, id);
-            // Both stand ON the floor, not floating in it — the bug the 1-1
-            // vault's return pipe shipped with (`cbc6902d2`). Asked of the
-            // BLOCK under the zone rather than of a floor constant.
-            let feet = zone.aabb.max.y;
-            assert!(
-                room.world.blocks.iter().any(|block| {
-                    (block.aabb.min.y - feet).abs() <= 1.0
-                        && block.aabb.min.x <= zone.aabb.min.x
-                        && block.aabb.max.x >= zone.aabb.max.x
-                }),
-                "zone '{id}' does not stand on anything",
-            );
-        }
+        let spawn = room.world.spawn;
+        // A body materializes with its FEET on the ground it spawns over, so the
+        // block under the spawn is the one whose top is at or below it and whose
+        // span contains it. Nearest below, then require it to be close.
+        let ground = room
+            .world
+            .blocks
+            .iter()
+            .filter(|block| {
+                block.aabb.min.x <= spawn.x
+                    && block.aabb.max.x >= spawn.x
+                    && block.aabb.min.y >= spawn.y
+            })
+            .map(|block| block.aabb.min.y)
+            .fold(f32::INFINITY, f32::min);
+        assert!(
+            ground.is_finite(),
+            "1-2's spawn at {spawn:?} has no floor under it at all — she arrives \
+             over the pit or over nothing",
+        );
+        assert!(
+            ground - spawn.y <= T * 3.0,
+            "1-2's spawn at {spawn:?} is {} above its floor at {ground}; the room \
+             drops her in rather than standing her up",
+            ground - spawn.y,
+        );
     }
 }

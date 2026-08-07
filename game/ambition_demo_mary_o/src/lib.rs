@@ -942,6 +942,7 @@ fn follow_the_active_room(
         >,
     >,
     mut current: bevy::prelude::Local<Option<String>>,
+    mut owners: bevy::prelude::Query<(&mut flag::FlagSequence, &mut MaryOLevelState)>,
 ) {
     let Some(active) = room_set.as_deref().map(|set| set.active_spec().id.clone()) else {
         return;
@@ -951,6 +952,40 @@ fn follow_the_active_room(
     }
     commands.insert_resource(pole_for_room(&active));
     commands.insert_resource(exit_for_room(&active));
+    // ⛔ **A FLAG SEQUENCE BELONGS TO THE LEVEL IT GRABBED, and letting one
+    // outlive its room is what made finishing a level kill you** (Jon,
+    // 2026-08-06: *"when I end world 1-1, I get warped into 1-2 in what looks
+    // like the same place and then immediately die"*, and the same in reverse
+    // out of 1-2).
+    //
+    // `FlagSequence::driven` is a POSITION IN THE SOURCE ROOM — the pole she
+    // slid down — and `run_flag_sequence` writes it onto the body through
+    // `constrain_body_pose` every tick the phase is not `Idle`. `Tallied`
+    // returns `Some(driven)`, and `cycle_level_on_flag_tally` deliberately STAYS
+    // `Tallied` while departing so the transition keeps being asked for. So the
+    // sequence of events was: the transition placed her at the target room's
+    // spawn, and the very next run of the driver put her back at the old room's
+    // pole coordinates — inside the new geometry, where 1-1's x=3240 is 1300px
+    // past the end of 1-2. She then fell out of the world and the death beat
+    // restarted the level, which is exactly what Jon saw.
+    //
+    // ⭐ **the fix belongs HERE, not in an ordering.** This system is already the
+    // authority on "the active room changed" — it is why the pole and the
+    // destination are re-derived on this line — and a sequence whose pole has
+    // just been replaced is a sequence about a level that is over. Clearing it
+    // here also runs BEFORE `run_flag_sequence` by construction: they are
+    // adjacent in the same `.chain()`, so no commit can land between them.
+    //
+    // ⚠ **`current.is_some()` matters**: the first observation is not a change,
+    // and rearming the level clock on session start would restate `MaryOLevelState`'s
+    // own construction.
+    if current.is_some() {
+        for (mut sequence, mut level) in &mut owners {
+            *sequence = flag::FlagSequence::default();
+            level.time_remaining = STARTING_TIME;
+            level.intro_card = INTRO_CARD_SECONDS;
+        }
+    }
     *current = Some(active);
 }
 
@@ -2386,9 +2421,18 @@ fn cycle_level_on_flag_tally(
         return;
     };
 
-    // ⭐ **ARRIVED.** The room the goal named is the room she is standing in, so
-    // the trip is over: bank nothing more, rearm for the next lap, and let
-    // `run_flag_sequence` release her.
+    // ⭐ **ARRIVED, and this branch is a BACKSTOP now rather than the rearm.**
+    // `follow_the_active_room` clears the sequence the moment the room changes,
+    // for the reason its own comment gives at length — a sequence that outlives
+    // its level drives the body back to the old level's pole coordinates and
+    // kills her. That system is adjacent to this one in the same `.chain()` and
+    // runs first, so on the arrival frame the phase is already `Idle` and the
+    // guard at the top of this function has returned.
+    //
+    // ⚠ kept anyway, and NOT as belt-and-braces: it is the answer for an arrival
+    // this function asked for that some other authority commits without the
+    // active room ever changing under `follow_the_active_room` (a same-room
+    // destination, which `LevelDestination::Room(<this room>)` can express).
     if set.rooms[set.active].id == target {
         *dwell = 0.0;
         *departing = None;
@@ -3985,12 +4029,24 @@ mod tests {
             "the pole is ONE-WAY: a flagpole you can walk into is a wall, and a \
              wall parks the body outside its own grab band"
         );
-        // It must stand clear of the exit alcove, or the two affordances race.
-        let exit = authored_zone(&room, level_1_2::EXIT_ZONE_ID);
+        // ⛔ **this used to say "clear of the exit alcove, or the two
+        // affordances race"**, and the alcove was deleted on 2026-08-06 with the
+        // rest of the mid-1-1 round trip. There is nothing left to race: the
+        // pole is now the ONLY way out of 1-2, which is a stronger claim than
+        // the one the alcove made necessary and is the one worth asserting.
         assert!(
-            pole.x + pole.half_width < exit.aabb.min.x,
-            "the goal stands short of the exit alcove, so a body walking the \
-             last stretch meets the pole first"
+            room.loading_zones.is_empty(),
+            "1-2 authors a loading zone again ({:?}) — finishing is the only way \
+             out of this room, and a second one is the shortcut Jon rejected \
+             coming back",
+            room.loading_zones
+                .iter()
+                .map(|zone| zone.id.as_str())
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            pole.x < room.world.size.x,
+            "the goal stands inside the room"
         );
     }
 }

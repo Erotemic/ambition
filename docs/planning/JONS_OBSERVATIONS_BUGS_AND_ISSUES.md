@@ -76,12 +76,26 @@
     ⚠ they ROAM and never dive at you — `aggro_radius: 0.0` on the archetype —
     which is a design choice you can reverse in one number if you want a flyer
     that hunts.
-  ▢ **the half that is left is *"she doesn't just get to go there in the middle
-    of 1-1"*.** The vault's `mary_o_1_1_descent` zone still drops into 1-2
-    mid-level and `mary_o_1_2_exit` still walks back to the surface, so the round
-    trip you rejected is still authored. Removing it is a separate change with
-    test coupling (`two_rooms` walks that very zone), so it is its own commit
-    rather than one buried in a level edit.
+  * ✔ *"she doesn't just get to go there in the middle of 1-1 and come back"* —
+    all four mouths of the round trip are deleted (`mary_o_1_1_descent`, its pad
+    `mary_o_1_2_arrival`, the alcove `mary_o_1_2_exit`, its pad
+    `mary_o_1_1_surface_return`). 1-2 is entered only by finishing 1-1 and left
+    only by finishing 1-2. The vault stays — its pipes move you inside 1-1.
+  ⭐ **and doing it found the bug you then reported.** *"when I end world 1-1, I
+    get warped into 1-2 in what looks like the same place and then immediately
+    die"*, and the same out of 1-2: `FlagSequence::driven` is a position in the
+    room the pole was in, `run_flag_sequence` writes it onto the body every tick
+    the phase is not `Idle`, and `cycle_level_on_flag_tally` deliberately STAYS
+    `Tallied` while departing. So the transition put her at the new room's spawn
+    and the very next driver tick put her back at the old room's pole
+    coordinates — 1-1's x=3240 is 1300px past the end of 1-2 — where she fell out
+    of the world and the death beat restarted the level.
+    `follow_the_active_room` clears the sequence when the room changes now: it is
+    already the authority that re-derives the pole, and it is adjacent to the
+    driver in the same `.chain()`, so nothing can land between them. Two tests
+    pin it (`two_rooms::she_walks_out_of_one_room_and_into_another` waits for the
+    body rather than reading it on the flip frame, and
+    `the_run_survives_the_crossing` catches the lost life).
 
 * ◐ **MEASURED 2026-08-05 — the number is now available, the taxonomy is still yours.**
   `cargo test -p ambition_app --test app_it print_how_tall -- --ignored --nocapture`

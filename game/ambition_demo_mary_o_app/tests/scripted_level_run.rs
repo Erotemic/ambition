@@ -358,26 +358,32 @@ fn a_scripted_run_walks_takes_the_secret_banks_its_coins_and_finishes() {
     // placements. Walking the length of the vault should bank them, and the
     // balance is read from the same `PlayerHudFacts` the HUD's COINS readout
     // draws — so this covers the whole chain from placement to screen.
-    // Walk only as far as the COINS. The vault's far end is not a wall: a
-    // walk-activated descent shaft sits on its floor near `vault.max.x`,
-    // and holding right for a flat 240 frames walked her
-    // straight through it into World 1-2 around frame 135. The wallet assertion
-    // below still passed (the coins are collected long before the shaft), so the
-    // run went green here and failed three beats later in a room where
-    // `vault_exit()` and `goal_pole()` mean nothing — which read as a broken return
-    // pipe and was nothing of the kind.
+    // Walk only as far as the COINS, and stop short of the vault's far wall.
     //
-    // The stop line comes from the shaft itself rather than a tile count, so it
-    // cannot drift out of agreement with the room: walk until she is one body-width
-    // short of its near face. The eight coins all sit well left of it.
+    // ⛔ **the vault's far end USED to be a hole**: a walk-activated descent
+    // shaft sat on its floor near `vault.max.x`, and holding right for a flat
+    // 240 frames walked her straight through it into World 1-2 around frame 135.
+    // The wallet assertion below still passed (the coins are collected long
+    // before the shaft), so the run went green here and failed three beats later
+    // in a room where `vault_exit()` and `goal_pole()` mean nothing — which read
+    // as a broken return pipe and was nothing of the kind.
+    //
+    // ⭐ **the shaft is GONE as of 2026-08-06** (Jon: *"she doesn't just get to
+    // go there in the middle of 1-1"*), so walking into the far end is now
+    // walking into masonry. The stop line stays anyway, and still comes from the
+    // ROOM rather than a tile count — `vault_wall_1` is the authored block that
+    // closes the vault, and stopping one body-width short of it keeps this beat
+    // measuring the coins rather than a collision.
     let before = wallet(&mut app);
     let surface = ambition_demo_mary_o::level_1_1();
-    let shaft = ambition_demo_mary_o::authored_zone(
-        &surface,
-        ambition_demo_mary_o::level_1_2::DESCENT_ZONE_ID,
-    )
-    .aabb;
-    let stop_x = shaft.min.x - player_size(&mut app).x;
+    let far_wall = surface
+        .world
+        .blocks
+        .iter()
+        .find(|block| block.name == "vault_wall_1")
+        .expect("the vault is closed by an authored `vault_wall_1`")
+        .aabb;
+    let stop_x = far_wall.min.x - player_size(&mut app).x;
     for _ in 0..240 {
         if player_pos(&mut app).x >= stop_x {
             break;

@@ -165,27 +165,31 @@
   * ⚠ **TRACED 2026-08-03, and the code does NOT currently do what the report describes — so this needs your re-check before it gets a refactor.** `ResetRoomFeaturesEvent` (what restores enemies, breakables and pickups) has exactly ONE production writer: `reset_sandbox`, reached only through `apply_room_replay_request_system` draining `RoomReplayRequested`. Mary-O emits that from `restart_level_after_death`, which returns early while `sequence.active()` — i.e. **after** the beat. So enemies should not reset early.
   * ⭐ **what DOES happen immediately is the PLAYER**: `death_respawn_player` resets her clusters, anim and combat on the fatal hit, and the death module's own doc says so — *"the engine respawns a dead player IMMEDIATELY, that is why her `Death` row was unreachable"*. The beat then holds her body and re-arms `death_anim_timer` every tick because that immediate respawn wipes it. **So the thing that resets mid-animation is her, not them** — and if what you saw was the world looking untouched while she died, that is the same root wearing different clothes.
   * ✔ **RE-MEASURED at HEAD 2026-08-06, and the trace's CONCLUSION holds — but its count was wrong.** It said `ResetRoomFeaturesEvent` has "exactly ONE production writer". There are TWO: `apply_room_replay_request_system` (two write sites, one function — the replay path Mary-O's death reaches) and `apply_player_reset_input_system` (the manual Reset button). Two more writes are in tests. The second production writer is not the reported symptom — pressing Reset is not dying — so nothing about the finding changes, but a row that says "exactly one" is a row somebody will trust the next time they look for a stray writer. ⭐ the guard is intact: `restart_level_after_death` still returns early while `sequence.active()` (`remaining > 0.0`), so the replay cannot fire during the beat.
-  * ⭐ **ANSWERED 2026-08-07 by reading the call, so the re-watch is no longer
-    needed.** `death_respawn_player` is invoked SYNCHRONOUSLY from
-    `handle_player_damage_events` on the `Damaged { died: true }` branch
-    (`damage_apply.rs:656`), and its first statement is
-    `ae::reset_body_clusters(motion_model, clusters, world.spawn, ...)`. Her body
-    is at the room spawn **on the same tick as the fatal hit** — zero frames, no
-    beat, nothing to animate over. So *"things reset before the death animation
-    is finished"* is HER, necessarily: there is no window in which a death
-    animation could play before the body moves. The enemies are gated behind the
-    beat exactly as the chain-reading said.
-  * ⚠ **and the fix has a reference rather than a preference.** Mary-O is meant to
-    converge on SMB1, where Mario's death is a BEAT — he pops up, falls through
-    the floor, and only then does the level reset. What Mary-O does instead is
-    teleport on the damage frame. So "a death beat before the body moves" is the
-    classic behaviour rather than a new feature, which makes it a smaller ask than
-    the reset-ordering refactor the original report implied.
-  * ▢ **what is left is Jon's, and it is now one number**: how long that beat
-    should be. ⛔ the refactor the row originally proposed ("one reset at one
-    time") is NOT the fix for this symptom — the reset ordering is already
-    correct; the body just moves before any of it. The refactor ("one reset at one time") is still worth wanting, but the SYMPTOM as reported — enemies resetting early — is not what the code does. What DOES reset mid-animation is Mary-O herself (`death_respawn_player`, immediate on the fatal hit). ⚠ **re-watch a death before anybody refactors**: if what you saw was her snapping back while the world held still, the fix is the immediate respawn, not the reset ordering, and those are different pieces of work.
-
+  * ⛔ **RETRACTED — a 2026-08-07 answer here was WRONG and is corrected below.**
+    It claimed `death_respawn_player` teleporting on the fatal tick meant "no beat,
+    nothing to animate over". That is true of the ENGINE and false of Mary-O:
+    `death.rs`'s own module doc says *"The engine respawns a dead player
+    IMMEDIATELY … So this holds the level for a beat after the death"*, and *"She
+    dies WHERE SHE DIED, not at spawn"*. The demo OVERRIDES the engine's teleport
+    and pins her at the death position. ⚠ the mistake was reading one call site
+    and not asking whether a consumer supersedes it — the failure this repo keeps
+    paying for.
+  * ⭐ **what the code actually says, and it makes the row look STALE.** Mary-O has
+    a complete death beat: `DEATH_DWELL = 3.2` seconds, body held at the death
+    position, controls blanked, the `Death` animation row playing, level replay
+    gated behind it. So on the current code neither half of the original report
+    reproduces — the enemies are behind the beat and she does not blink to spawn.
+  * ⭐⭐ **and Jon has already been shown a beat**: `DEATH_DWELL`'s own comment
+    records a LATER report of his — *"death isn't long enough for the entire death
+    music to play"* — and says the value was raised from **1.6s to 3.2s** because
+    the sting was being cut off. A beat of 1.6s that ended mid-tumble is a very
+    good candidate for *"the enemies seem to reset before the death animation is
+    finished"*: the reset was correctly gated behind the beat, and the BEAT was
+    ending too early.
+  * ▢ **so the row's remaining question is whether it still reproduces at 3.2s.**
+    That is one death, watched once, and it is the only part a code reading cannot
+    settle. ⛔ do NOT do the "one reset at one time" refactor first: the reset
+    ordering is already correct and was never the symptom.
 * ~~We probably need an engine concept that allows actors to be dormant.~~ **BUILT, and then found half-wired 2026-08-05.** `features::ecs::dormancy` declares it the way your last clause asks: an actor with no `DormancyPolicy` is always awake, so "not inherent" is the default rather than an opt-out, and `DormancyPolicy::Never` exists so a character that must keep simulating says so where a reader finds it. The wake test is *near any OBSERVER*, never near "the player" — one player, four on a sofa and a remote peer are the same rule, which is your split-screen and netplay point. It sleeps the BRAIN and CLEARS the control frame (a sleeping actor with a stale `ActorControl` keeps walking, which is the exact symptom), and `Dormant` is recomputed every tick from positions so a rollback reproduces it with no memo to get wrong.
   * ⛔ **but only the SLOP was wired to it for a day.** You named the slop, so the slop got the policy — and Solid Snake, the other patrolling enemy in the same level with the same job, thought for the whole course. Fixed `ad43b63ba`. ⚠ **the test was defending the gap**: it asserted that ONLY the slop declares dormancy, with a strays check that would have failed the moment anyone wired the snake. It asserts the property now — every authored enemy declares whether it sleeps — and was probed red.
   * ◐ **Sanic adopted it too (`df269eaec`), and the second game is what made the seam's assumption visible.** A wake radius is a LEAD TIME wearing distance's clothes: your 720px in front of a Mary-O at 300px/s is 2.4s of warning, and the same 720px in front of Sanic at his 2000px/s super top speed is **0.36s** — a badnik snapping into motion in full view, worse than one that had been walking all along. His radius is 4800, derived from his own top speed for the same 2.4s of lead. ⭐ that a fixed radius silently encodes an assumption about how fast the OBSERVER moves is the argument for the policy eventually taking SECONDS rather than pixels; recorded at the constant, not acted on, because two games is not enough to change an engine seam's units.

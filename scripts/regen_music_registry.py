@@ -24,13 +24,33 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ASSETS_ROOT = REPO_ROOT / "crates" / "ambition_platformer2d_actor_monolith" / "assets"
-GENERATED_DIR = ASSETS_ROOT / "audio" / "music" / "generated"
+# ⛔ **the consuming crate's name is NOT this script's to know.** It has been
+# `ambition_actors`, it is `ambition_platformer2d_actor_monolith`, and it moves
+# again when the monolith is decomposed. `scripts/lib/asset_roots.sh` is where
+# this repo declares it, `regen_music.sh` passes it in, and the default below
+# only keeps a bare `python3 scripts/regen_music_registry.py` working for
+# somebody poking at it by hand. Two readers of one declaration, never two
+# declarations. (2026-08-07: the renderer submodule and this script disagreed
+# about that name, so 69 cues were published into a directory nothing reads and
+# the registry reported success without them.)
+DEFAULT_GENERATED_DIR = (
+    REPO_ROOT
+    / "crates"
+    / "ambition_platformer2d_actor_monolith"
+    / "assets"
+    / "audio"
+    / "music"
+    / "generated"
+)
+GENERATED_DIR = Path(
+    os.environ.get("AMBITION_MUSIC_PUBLISH_ROOT") or DEFAULT_GENERATED_DIR
+)
 ACTIVE_SCORES_DIR = (
     REPO_ROOT / "tools" / "ambition_music_renderer" / "scores" / "active"
 )
@@ -261,7 +281,20 @@ def main() -> int:
             "so a partial asset tree cannot silently shrink the shipped registry."
         ),
     )
+    parser.add_argument(
+        "--generated-dir",
+        type=Path,
+        default=None,
+        help=(
+            "the published-cue directory to project from. `regen_music.sh` "
+            "passes the same value it hands the renderer, so the two cannot "
+            "drift apart; see scripts/lib/asset_roots.sh."
+        ),
+    )
     args = parser.parse_args()
+    if args.generated_dir is not None:
+        global GENERATED_DIR
+        GENERATED_DIR = args.generated_dir.expanduser().resolve()
 
     if not GENERATED_DIR.is_dir():
         print(f"error: generated music dir not found: {GENERATED_DIR}", file=sys.stderr)

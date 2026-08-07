@@ -90,6 +90,7 @@
         (id: "to_be_superluminal_is_to_live_in_darkness", display_name: "To Be Superluminal is to Live in Darkness"),
         (id: "velocity", display_name: "Velocity"),
         (id: "violin_boss_relentless", display_name: "Violin Boss Relentless"),
+        (id: "wrong_planet_great_reception", display_name: "Wrong Planet Great Reception"),
         (id: "you_are_too_slow", display_name: "You Are Too Slow"),
     ],
 )

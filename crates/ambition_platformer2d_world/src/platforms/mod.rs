@@ -27,6 +27,18 @@ pub struct MovingPlatformSpec {
     /// reverses, which is what makes a run of them read as an elevator instead
     /// of a row of lifts. `None`/zero leaves the platform on its sweep.
     pub loop_dy: Option<f32>,
+    /// **Where the shaft STARTS, independent of where this platform does.**
+    ///
+    /// ⛔ **without this a conveyor is not authorable.** `loop_dy` alone is
+    /// measured from the platform's own position, so a run of staggered
+    /// platforms gets a run of DIFFERENT shafts and they drift into separate
+    /// bands instead of chasing each other round one. A conveyor is N platforms
+    /// sharing ONE shaft at different PHASES, and the phase is exactly what the
+    /// authored position should mean once the shaft is stated separately.
+    ///
+    /// `None` anchors the shaft at the platform, which is the right default for
+    /// the single-platform case and keeps that authoring one field.
+    pub loop_min_y: Option<f32>,
 }
 
 impl MovingPlatformSpec {
@@ -51,6 +63,7 @@ impl MovingPlatformSpec {
                 (!trimmed.is_empty()).then(|| trimmed.to_string())
             }),
             loop_dy: None,
+            loop_min_y: None,
         }
     }
 
@@ -60,6 +73,13 @@ impl MovingPlatformSpec {
     /// callers and every world that authors no `loop_dy` are untouched.
     pub fn with_vertical_loop(mut self, loop_dy: Option<f32>) -> Self {
         self.loop_dy = loop_dy.filter(|dy| dy.abs() > f32::EPSILON);
+        self
+    }
+
+    /// Anchor this platform's shaft somewhere other than its own position, so a
+    /// run of platforms can SHARE one shaft and differ only in phase.
+    pub fn with_loop_anchor(mut self, loop_min_y: Option<f32>) -> Self {
+        self.loop_min_y = loop_min_y;
         self
     }
 
@@ -88,14 +108,26 @@ impl MovingPlatformSpec {
             // "no sweep authored" is not a thing a spec can express. Precedence
             // is stated rather than emergent: a path beats a loop beats a sweep,
             // because each is a more specific statement of intent than the last.
-            let end_y = self.start_pos.y + loop_dy;
+            // ⭐ **an anchored shaft is SHARED; an unanchored one belongs to
+            // this platform.** With `loop_min_y` the authored position becomes a
+            // PHASE within a shaft several platforms can occupy at once, which is
+            // what makes a conveyor rather than a row of independent lifts.
+            // Without it the shaft is measured from here, which is the right
+            // default for a lone platform and keeps that authoring one field.
+            let (min_y, max_y) = match self.loop_min_y {
+                Some(base) => (base, base + loop_dy.abs()),
+                None => {
+                    let end_y = self.start_pos.y + loop_dy;
+                    (self.start_pos.y.min(end_y), self.start_pos.y.max(end_y))
+                }
+            };
             Ok(MovingPlatformState::from_vertical_loop(
                 self.id,
                 self.name,
                 self.start_pos,
                 self.size,
-                self.start_pos.y.min(end_y),
-                self.start_pos.y.max(end_y),
+                min_y,
+                max_y,
                 self.speed,
                 loop_dy > 0.0,
             ))

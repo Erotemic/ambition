@@ -626,3 +626,67 @@ fn an_authored_vertical_loop_wraps_instead_of_reversing() {
          it is running off upward rather than looping"
     );
 }
+
+/// **A staggered run of platforms shares ONE shaft.**
+///
+/// ⛔ this is the difference between a conveyor and three unrelated lifts, and
+/// it is invisible on the first frame. Anchoring each platform's shaft at its own
+/// position gives three platforms three shafts — they start looking evenly
+/// spaced and slowly separate into their own bands, which is a bug you notice
+/// late and hate diagnosing.
+///
+/// ⭐ **the assertion is that every platform stays inside the SHARED shaft**, not
+/// that they are evenly spaced. Even spacing is what the author wrote; staying
+/// in one shaft is what makes it stay true.
+#[test]
+fn a_staggered_run_of_looping_platforms_shares_one_shaft() {
+    const BASE: f32 = 100.0;
+    const SPAN: f32 = 300.0;
+
+    // Three platforms at thirds of the shaft — the conveyor an author writes.
+    let mut run: Vec<MovingPlatformState> = [0.0, 100.0, 200.0]
+        .into_iter()
+        .enumerate()
+        .map(|(i, phase)| {
+            MovingPlatformSpec::from_authored(
+                format!("lift_{i}"),
+                format!("Lift {i}"),
+                ae::Vec2::new(0.0, BASE + phase),
+                ae::Vec2::new(96.0, 16.0),
+                240.0,
+                100.0,
+                None,
+            )
+            .with_vertical_loop(Some(SPAN))
+            .with_loop_anchor(Some(BASE))
+            .resolve(&[])
+            .expect("a conveyor spec resolves")
+        })
+        .collect();
+
+    for step in 0..60 {
+        for platform in &mut run {
+            platform.update(0.1);
+            assert!(
+                (BASE..=BASE + SPAN).contains(&platform.pos.y),
+                "step {step}: '{}' left the shared shaft at {} (shaft is \
+                 {BASE}..={}) — its shaft is anchored at itself, so the run is \
+                 three lifts rather than one conveyor",
+                platform.id,
+                platform.pos.y,
+                BASE + SPAN
+            );
+        }
+    }
+
+    // And they are still three distinct platforms, not a pile.
+    let mut ys: Vec<f32> = run.iter().map(|p| p.pos.y).collect();
+    ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    for pair in ys.windows(2) {
+        assert!(
+            (pair[1] - pair[0]) > 1.0,
+            "two platforms converged to {pair:?} — the stagger the author wrote \
+             has been lost, so the shaft has a gap somewhere else"
+        );
+    }
+}

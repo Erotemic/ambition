@@ -736,7 +736,9 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
         // ⭐ the elevator authoring (Jon, 1-2): a signed vertical span that WRAPS
         // rather than reversing. Absent on every existing platform, so nothing
         // authored before this changes behaviour.
-        .with_vertical_loop(field_f32(entity, "loop_dy")),
+        .with_vertical_loop(field_f32(entity, "loop_dy"))
+        // Shared shaft for a conveyor; absent means "anchor at me".
+        .with_loop_anchor(field_f32(entity, "loop_min_y")),
     ))
 }
 

@@ -334,9 +334,25 @@ pieces, and the third is the whole cost:
    move into the context-aware path first, which is the same shape the patrol arm
    already has.
 
-**✔ the seam itself is LANDED** (`profile_for_level`, `ambition_characters`), with
-a probe verified red by poison. Nothing calls it yet, so no behaviour has moved —
-the remaining work is the schema, the load, and the carrier above.
+**✔ the seam and the LOAD are both landed** (2026-08-07): `profile_for_level` in
+`ambition_characters`, and a `fighter_brain_ladder` schema declared in `pack.ron`,
+registered in both registries, and lowered into the prepared pack — asserted by
+`the_prepared_pack_lowers_the_shipped_ladder`, which reads the PACK rather than
+the file so it fails if the manifest, either registry, or lowering breaks.
+
+▢ **what is left is the consumption, and it has a layering constraint the sketch
+above missed.** `BrainBuildContext` is the right carrier for the CATALOG path,
+which lives in `ambition_characters`. It cannot serve the other site:
+`enemy_default_brain` is in the MONOLITH, and the prepared pack lives in
+`game/ambition_content`, which is above the monolith — so the monolith cannot
+read the pack and the ladder cannot be fetched where it is needed.
+⭐ **so the ladder has to arrive as a RESOURCE the game inserts**, lowered from
+the pack by `AmbitionContentPlugin` and read at brain construction. That is the
+same shape every other migrated family uses to cross this boundary, and it is
+also why the two sites cannot simply share a function argument.
+⚠ it is config, not state: a rollback restores a brain, never the ladder it was
+built from, so this resource wants no rollback registration — see the
+`PROVENANCE_ONLY` argument for the same reasoning about write-once data.
 
 ### ✔ RESOLVED — the placement blocker, and what it actually was
 

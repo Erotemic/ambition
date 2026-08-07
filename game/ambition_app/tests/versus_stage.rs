@@ -16,7 +16,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
-use ambition_app::app::{VisibleRenderMode, build_visible_app};
+use ambition_app::app::{build_visible_app, VisibleRenderMode};
 use ambition_platformer2d::game_shell::{
     ShellCommand, ShellRouteCatalog, ShellRouteId, ShellRouter,
 };
@@ -799,7 +799,23 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
             damage: hp + 10,
             source: ambition_platformer2d::combat::events::HitSource::EnemyAttack,
             attacker: None,
-            target: ambition_platformer2d::combat::events::HitTarget::Player(seat_zero),
+            // ⛔ **`Actor`, not `Player` — and the change of word is the whole
+            // landing in miniature.** Seat zero used to BE the session's player
+            // body, because a human seat ADOPTED it; a hit aimed at the player
+            // therefore reached the fighter. Seat zero is now an ordinary actor
+            // wearing a character, like every other seat, so the player-damage
+            // consumer skips it and the actor-damage consumer takes it.
+            //
+            // ⚠ **the two consumers are a surviving fork and this test is not
+            // the place to remove it.** `HitTarget::Player` / `HitTarget::Actor`
+            // are documented as a deliberate split — the relational
+            // actor-vs-actor path exists so an Enemy-faction body can damage a
+            // Boss-faction one without the bipartite assumption — but "which
+            // variant names a body" is now decided by how that body was
+            // CONSTRUCTED, which is exactly the coupling the rest of this
+            // landing deleted. Named here so the next reader finds it on
+            // purpose rather than by having a fixture stop landing hits.
+            target: ambition_platformer2d::combat::events::HitTarget::Actor(seat_zero),
             mode: ambition_platformer2d::combat::events::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -1078,8 +1094,8 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
 #[test]
 fn a_decided_round_takes_the_controls_away() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
-    use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::actor::control::ActorControlFrame;
+    use ambition_platformer2d::characters::actor::BodyHealth;
     use ambition_platformer2d::characters::brain::{ActorControl, ScriptedControl};
 
     let mut app = versus_app();
@@ -1426,7 +1442,7 @@ fn every_seated_fighter_has_something_on_screen() {
 #[test]
 fn four_controllers_make_versus_a_two_versus_two() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
-    use ambition_platformer2d::combat::targeting::{FriendlyFire, MatchTeam, damage_lands_between};
+    use ambition_platformer2d::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
 
     let mut app = versus_app();
     for _ in 0..4 {
@@ -2042,7 +2058,7 @@ fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
 /// round one.
 #[test]
 fn the_round_counter_counts_rounds_and_not_wins() {
-    use ambition_app::app::versus_rules::{ANNOUNCE_HUD_SLOT, MatchPhase, VersusMatch};
+    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch, ANNOUNCE_HUD_SLOT};
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);
@@ -2583,18 +2599,49 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
          ends with no sound is a round nobody notices."
     );
 
-    // SEAT 0 TOO, on the other code path. Seat 1 is an actor and dies through
-    // `apply_actor_hit`; seat 0 is the adopted `PlayerEntity` and dies through
-    // the player damage drain, which had the SAME defect one file away — its
-    // `ruleset_owns_death` arm returned `false` and emitted nothing, so the
-    // human's own knockout was the quietest event in the mode.
+    // **SEAT 0 TOO, ON ITS OWN STAGE.**
+    //
+    // ⛔ **one round can only lose one fighter, and this used to try for two.**
+    // The seat-zero half ran straight on from seat one's knockout, and after the
+    // landing it measured nothing at all: probed, seat zero sat at 4 HP for
+    // every frame while the damage said 14. It passed before only because seat
+    // zero was then the adopted PLAYER body and drained through a different
+    // consumer — one the between-rounds freeze did not gate. Settling into the
+    // NEXT round does not rescue it either (probed: phase `Fighting`, not
+    // scripted, still no damage), so the confound is the round transition
+    // itself and the fix is a fresh stage rather than a longer wait.
+    //
+    // ⚠ and what this half proves is smaller than its old comment claimed.
+    // It said "on the other code path" — seat one an actor through
+    // `apply_actor_hit`, seat zero the adopted `PlayerEntity` through the player
+    // damage drain. There is no other path now; both seats are actors wearing
+    // characters, which is the landing working. What is still worth pinning is
+    // that the LOCAL seat's knockout is announced, because it is the one a
+    // person hears about themselves.
+    let mut app = versus_app();
+    settle_to_launcher(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo(ShellRouteId::new(VERSUS_GAMEPLAY_ROUTE)));
+    for _ in 0..900 {
+        app.update();
+        let world = app.world_mut();
+        let mut rooms = world.query::<&ambition_platformer2d::runtime::demo_fixture::RoomSet>();
+        if rooms
+            .iter(world)
+            .next()
+            .is_some_and(|set| set.active_spec().id == VERSUS_ROOM_ID)
+        {
+            break;
+        }
+    }
+    settle_into_a_live_round(&mut app);
     let seat_zero = {
         let world = app.world_mut();
         let mut q = world.query::<(Entity, &MatchSeat)>();
         q.iter(world)
             .find(|(_, seat)| seat.0 == 0)
             .map(|(entity, _)| entity)
-            .expect("the stage seats a player")
+            .expect("the stage seats a fighter in slot zero")
     };
     let where_it_stood = app.world().get::<BodyKinematics>(seat_zero).unwrap().pos;
     let hp = app.world().get::<BodyHealth>(seat_zero).unwrap().current();
@@ -2611,7 +2658,23 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
             damage: hp + 10,
             source: ambition_platformer2d::combat::events::HitSource::EnemyAttack,
             attacker: None,
-            target: ambition_platformer2d::combat::events::HitTarget::Player(seat_zero),
+            // ⛔ **`Actor`, not `Player` — and the change of word is the whole
+            // landing in miniature.** Seat zero used to BE the session's player
+            // body, because a human seat ADOPTED it; a hit aimed at the player
+            // therefore reached the fighter. Seat zero is now an ordinary actor
+            // wearing a character, like every other seat, so the player-damage
+            // consumer skips it and the actor-damage consumer takes it.
+            //
+            // ⚠ **the two consumers are a surviving fork and this test is not
+            // the place to remove it.** `HitTarget::Player` / `HitTarget::Actor`
+            // are documented as a deliberate split — the relational
+            // actor-vs-actor path exists so an Enemy-faction body can damage a
+            // Boss-faction one without the bipartite assumption — but "which
+            // variant names a body" is now decided by how that body was
+            // CONSTRUCTED, which is exactly the coupling the rest of this
+            // landing deleted. Named here so the next reader finds it on
+            // purpose rather than by having a fixture stop landing hits.
+            target: ambition_platformer2d::combat::events::HitTarget::Actor(seat_zero),
             mode: ambition_platformer2d::combat::events::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),

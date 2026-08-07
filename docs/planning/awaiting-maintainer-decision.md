@@ -612,9 +612,19 @@ it rests on has since inverted.
   toward the lip), not a tuning change. And it means the survival numbers above
   may be measuring stage geometry as much as lookahead depth — a fighter that
   cannot recover at all will self-KO regardless of what its rollout decides.
-  ▢ unconfirmed detail: the 8.16 offset implies a body half-width of 8.16 and no
-  such number is authored; the box may be sprite-derived (`SpriteAuthored`'s
-  per-pose projection) or the stop may be a different contact.
+  ✔ **SETTLED 2026-08-07 — the first explanation, structurally.** The 8.16 offset
+  implies a body half-width nobody authored, and for these characters nobody
+  authors one: a catalog entry carries **no `body:` field at all**, only
+  `body_kind` and an optional `sprite_tuning: (collision_scale,
+  frame_sample_inset)`. So `prepared.body` is `None`, `PhysicalBaseline::of`
+  yields `explicit_size: None`, and the box is derived from the SHEET. That is the
+  same policy `BodySource::SpriteAuthored` names explicitly, whose own doc says it
+  *"is not a size, it is a policy, and its authority is the per-pose
+  projection"* — which is exactly why searching for the number finds nothing.
+  ⚠ **the arithmetic is not claimed**: 8.16 as `world_per_pixel × pixel_half_width`
+  would need the derivation run against that character's sheet. What is settled is
+  that an UNAUTHORED half-width is the expected state here, not a symptom — so it
+  is no longer evidence for "the stop may be a different contact".
 
 ⚠ whichever way: the three prose claims that said `rollout_depth` was zero
 everywhere are corrected as of 2026-08-02, so the code and its description now

@@ -38,20 +38,50 @@
   name, traits and barks all DERIVED from the renderer's own spec rather than
   invented — plus hall pedestals and conversations, so they exist as characters
   and their art resolves.
-  ▢ **what is left is behaviour and placement**: a roster archetype the way
-  `solid_snake` has `mary_o_snake`, and an LDtk placement in 1-2. ⭐ **the flying
-  part is already handled** — the movement kernel has carried a flight limb all
+  ✔ **behaviour and placement are BOTH in now (2026-08-06).** The archetypes are
+  `mary_o::plane`, and 1-2 places two of each — see the 1-2 row below for what
+  placing them cost, which was not nothing: an archetype is a brain, and the
+  demo publishes its own enemy ART, so they drew red placeholder rectangles
+  until `register_snakes_on_a_plane_sheets` existed.
+  ⭐ **the flying part was already handled** — the movement kernel has carried a flight limb all
   along, and `body_kind: Floating` in the catalog row is the whole switch (it
   turns gravity off and grants the fly ability at spawn). Both rows now say
   Floating; they said Standard for an hour, which would have had a snake on a
   paper airplane fall out of the sky.
-  ⚠ **which one is the 1-2 enemy is yours to say.** The Cartesian one is the
-  maths joke, the paper one is the aviation joke, and they are different
-  creatures rather than two skins.
+  ⚠ **which one is the 1-2 enemy was yours to say, and 1-2 got BOTH** — two of
+  each, because they are different creatures rather than two skins and the room
+  is where a player can see the difference (1 HP / fast against 2 HP / steady).
+  Say the word and either one comes out.
 
 * Maryo world 1-2 needs moving platforms that move vertically down and up like an elevator. When they go OOB (far enough so they are off screen of the player in normal gameplay) they can teleport to the top / bottom of the screen to make an infinite elevator effect.
 
 * The maryo world 1-2 needs to happen after she wins world 1-1, she doesn't just get to go there in the middle of 1-1 and come back. It should be a new level. When she beats world 1-2 we should cycle back to world 1-1 for the demo. World 1-2 also needs to be built out a lot more, its very plain, and there are no enemies. I would like to add the flying snakes on a plane as enemies in this world.
+
+  ◐ **two of the four are done, and one was already done before you asked.**
+  * ✔ *"cycle back to 1-1"* and *"after she wins 1-1"* — the flag-pole route
+    landed on 08-05: `LevelDestination` + `cycle_level_on_flag_tally` send 1-1's
+    pole to 1-2 and 1-2's pole back to 1-1, and `level_circuit` runs the loop on
+    the real schedule.
+  * ✔ *"built out a lot more, its very plain"* — 1-2 was a rectangular box with
+    one shelf. It has ceiling teeth, a second shelf, a ledge that makes the
+    hidden block reachable, and a staircase up to the pole (2026-08-06).
+    ⚠ **I did NOT add a second pit**: `the_chasm_is_only_crossable_by_the_platform`
+    states the room's design rule — one hole, crossed by the ferry — and that
+    rule is yours, so the floor went back. Say the word and it comes out.
+  * ✔ *"add the flying snakes on a plane"* — two of each creature, in the open
+    band above the shelves. ⭐ **the archetype was NOT the whole enemy**: they
+    drew red placeholder rectangles until `plane.rs` published their sheets, the
+    way `snake.rs` and `ai_slop.rs` publish theirs. The 08-06 ledger row saying
+    *"the whole enemy is a TABLE"* was true of behaviour and false of the enemy.
+    ⚠ they ROAM and never dive at you — `aggro_radius: 0.0` on the archetype —
+    which is a design choice you can reverse in one number if you want a flyer
+    that hunts.
+  ▢ **the half that is left is *"she doesn't just get to go there in the middle
+    of 1-1"*.** The vault's `mary_o_1_1_descent` zone still drops into 1-2
+    mid-level and `mary_o_1_2_exit` still walks back to the surface, so the round
+    trip you rejected is still authored. Removing it is a separate change with
+    test coupling (`two_rooms` walks that very zone), so it is its own commit
+    rather than one buried in a level edit.
 
 * ◐ **MEASURED 2026-08-05 — the number is now available, the taxonomy is still yours.**
   `cargo test -p ambition_app --test app_it print_how_tall -- --ignored --nocapture`

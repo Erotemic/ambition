@@ -1337,6 +1337,7 @@ pub fn install_mary_o_content(app: &mut App) {
             // enemy.
             snake::register_solid_snake_sheet,
             ai_slop::register_ai_slop_sheet,
+            plane::register_snakes_on_a_plane_sheets,
             // ⛔ **the bonus blocks' LOOK, and it was in the SIM chain first.**
             // Registered beside `bonk_power_blocks` because that is where the
             // powerup rules live — and it mutates RENDER entities, from inside
@@ -2993,14 +2994,24 @@ mod tests {
                         spawn.id
                     )
                 });
+                // ⚠ **the list is "what the demo PUBLISHES", and it is four now.**
+                // It read `ai_slop | solid_snake` and the phrase "the two
+                // characters" was baked into the message, so adding the flying
+                // pair to 1-2 failed here — correctly, and for the right reason:
+                // nothing was publishing their sheets yet. The fix was
+                // `plane::register_snakes_on_a_plane_sheets`, not a longer list;
+                // this line only follows it.
                 assert!(
                     matches!(
                         character_id,
-                        ai_slop::AI_SLOP_SHEET_TARGET | snake::SNAKE_SHEET_TARGET
+                        ai_slop::AI_SLOP_SHEET_TARGET
+                            | snake::SNAKE_SHEET_TARGET
+                            | plane::PAPER_PLANE_CHARACTER_ID
+                            | plane::CARTESIAN_PLANE_CHARACTER_ID
                     ),
                     "{label}'s enemy `{}` wears `{character_id}`, which is not one \
-                     of the two characters this demo publishes sheets for — it \
-                     will draw the placeholder",
+                     of the characters this demo publishes sheets for — it will \
+                     draw the placeholder",
                     spawn.id
                 );
             }

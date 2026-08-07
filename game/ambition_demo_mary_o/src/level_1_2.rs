@@ -315,30 +315,17 @@ mod tests {
         // It also `collect`s and demands exactly one, because a `find` over an
         // ambiguous predicate answers confidently and wrongly — which is
         // precisely what happened.
+        //
+        // ⛔ **and "the only terrain shelf clear of every wall" EXPIRED TOO**,
+        // the moment 1-2 stopped being one shelf in an empty box (2026-08-06,
+        // Jon: *"World 1-2 also needs to be built out a lot more, its very
+        // plain"*). Ceiling teeth, a second shelf and a staircase are all terrain
+        // clear of every wall, and the count went to eight. Its own failure
+        // message asked the right question — *"this test has to say which carries
+        // the coins"* — so it does: the coin shelf is the one the COINS name, by
+        // spanning them. That is a stronger statement than the count ever was,
+        // because it survives any amount of further building.
         let size = room.world.size;
-        let shelves: Vec<_> = room
-            .world
-            .blocks
-            .iter()
-            .filter(|block| {
-                matches!(block.kind, ae::BlockKind::Solid)
-                    && crate::ldtk_vocabulary::block_of(&block.name).is_none()
-                    && block.aabb.min.x > 0.0
-                    && block.aabb.min.y > 0.0
-                    && block.aabb.max.x < size.x
-                    && block.aabb.max.y < size.y
-            })
-            .collect();
-        assert_eq!(
-            shelves.len(),
-            1,
-            "1-2 authors exactly ONE raised terrain shelf clear of every wall; \
-             found {}. If a second one is intended, this test has to say which \
-             carries the coins.",
-            shelves.len()
-        );
-        let shelf = shelves[0];
-
         let coins: Vec<_> = room
             .placements
             .iter()
@@ -350,6 +337,37 @@ mod tests {
              a reason to jump. found {}",
             coins.len()
         );
+        let coin_span = coins
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(lo, hi), coin| {
+                (lo.min(coin.aabb.min.x), hi.max(coin.aabb.max.x))
+            });
+        let shelves: Vec<_> = room
+            .world
+            .blocks
+            .iter()
+            .filter(|block| {
+                matches!(block.kind, ae::BlockKind::Solid)
+                    && crate::ldtk_vocabulary::block_of(&block.name).is_none()
+                    && block.aabb.min.x > 0.0
+                    && block.aabb.min.y > 0.0
+                    && block.aabb.max.x < size.x
+                    && block.aabb.max.y < size.y
+                    && block.aabb.min.x <= coin_span.0
+                    && block.aabb.max.x >= coin_span.1
+            })
+            .collect();
+        assert_eq!(
+            shelves.len(),
+            1,
+            "exactly ONE raised terrain shelf spans the cavern coins ({}..{}); \
+             found {}. Two would mean the coins rest on a stack and this test \
+             cannot say which one they are for.",
+            coin_span.0,
+            coin_span.1,
+            shelves.len()
+        );
+        let shelf = shelves[0];
 
         for coin in &coins {
             assert!(

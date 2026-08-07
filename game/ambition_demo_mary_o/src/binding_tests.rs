@@ -118,12 +118,17 @@ fn mary_o_binds_every_ref_it_declares() {
 /// `"EnemySpawn"`, which resolves nothing.
 ///
 /// The two sides this ties together are the level and the demo's own
-/// `publish_under` calls: `ai_slop.rs` and `snake.rs` publish their sheets under
-/// these exact strings, so a rename on either side fails here rather than in
-/// Jon's face.
+/// `publish_under` calls: `ai_slop.rs`, `snake.rs` and `plane.rs` publish their
+/// sheets under these exact strings, so a rename on either side fails here
+/// rather than in Jon's face.
 #[test]
 fn every_authored_enemy_is_named_something_that_has_a_sheet() {
-    let published = [SNAKE_DISPLAY_NAME, AI_SLOP_DISPLAY_NAME];
+    let published = [
+        SNAKE_DISPLAY_NAME,
+        AI_SLOP_DISPLAY_NAME,
+        crate::plane::PAPER_PLANE_DISPLAY_NAME,
+        crate::plane::CARTESIAN_PLANE_DISPLAY_NAME,
+    ];
     for (room_id, room) in [
         ("1-1", crate::level_1_1()),
         ("1-2", crate::level_1_2::level_1_2()),

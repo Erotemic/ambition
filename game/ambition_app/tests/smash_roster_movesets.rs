@@ -49,12 +49,22 @@ const KNOWN_UNARMED: &[&str] = &[
 
 #[test]
 fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
-    let app =
+    let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    // ⚠ ONE frame first, and it is load-bearing: the seatable registry is filled
+    // by a `Startup` system, so a build that has never updated has a catalog and
+    // no registry at all. The grid is filtered by what can be SEATED — see
+    // `SmashRoster::assemble` — so reading it before that frame would report an
+    // empty screen and call it content.
+    app.update();
     let catalog = app
         .world()
         .get_resource::<CharacterCatalog>()
         .expect("the composed host has an assembled character catalog");
+    let registry = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .expect("the composed host has a prepared-character registry");
 
     // ⚠ the ASSEMBLED grid, not the wish list: the demo's stand-in robots drop
     // out of a host that carries the real lineage, and measuring them here would
@@ -64,8 +74,8 @@ fn every_fighter_on_the_smash_grid_can_throw_a_punch() {
     // resource is filled by a `Startup` system and `build_visible_app` has not
     // run a frame — reading it gave the DEFAULT (this demo's own two) and the
     // vacuity guard below caught it. `assemble` is a pure function of the
-    // catalog, so calling it is the same answer the screen will see.
-    let grid = SmashRoster::assemble(catalog);
+    // SEATABLE registry, so calling it is the same answer the screen will see.
+    let grid = SmashRoster::assemble(registry);
 
     let mut unarmed: Vec<String> = Vec::new();
     let mut report: Vec<String> = Vec::new();
@@ -186,13 +196,23 @@ fn every_id_on_the_smash_wish_list_names_a_real_character() {
 fn the_match_gives_every_seat_a_kit_that_can_hit() {
     use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
 
-    let app =
+    let mut app =
         ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    // ⚠ ONE frame first, and it is load-bearing: the seatable registry is filled
+    // by a `Startup` system, so a build that has never updated has a catalog and
+    // no registry at all. The grid is filtered by what can be SEATED — see
+    // `SmashRoster::assemble` — so reading it before that frame would report an
+    // empty screen and call it content.
+    app.update();
     let catalog = app
         .world()
         .get_resource::<CharacterCatalog>()
         .expect("the composed host has an assembled character catalog");
-    let grid = SmashRoster::assemble(catalog);
+    let registry = app
+        .world()
+        .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+        .expect("the composed host has a prepared-character registry");
+    let grid = SmashRoster::assemble(registry);
     assert!(grid.len() >= 8, "the grid is too short to be the host's");
 
     // Two seats, and deliberately the two whose CATALOG rows are peaceful —

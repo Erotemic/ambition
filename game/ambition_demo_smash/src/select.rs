@@ -178,13 +178,29 @@ impl SmashRoster {
         self.0.iter().map(String::as_str)
     }
 
-    /// **[`SMASH_ROSTER`] ∩ what this composition carries**, in roster order.
+    /// **[`SMASH_ROSTER`] ∩ what this composition can SEAT**, in roster order.
     ///
-    /// ⚠ an id the catalog does not have is DROPPED rather than kept as a hole:
-    /// a grid cell for a character that cannot be spawned is a portrait a player
+    /// ⚠ an id this host cannot seat is DROPPED rather than kept as a hole:
+    /// a grid cell for a character that cannot be built is a portrait a player
     /// can pick and a seat the match then refuses.
-    pub fn assemble(catalog: &ambition_platformer2d::character::CharacterCatalog) -> Self {
-        let present = |id: &str| catalog.get(id).is_some();
+    ///
+    /// ⛔ **the REGISTRY, not the catalog, and the difference is a whole class
+    /// of bug.** A catalog row says what a character IS; `register_character` is
+    /// what makes one BUILDABLE, and only the second is what a seat needs. This
+    /// filtered on the catalog until 2026-08-07, and eight of the twelve
+    /// portraits on the grid were rows nothing had registered — seatable as
+    /// player one, where the adopted home body consulted the registry
+    /// OPTIONALLY, and unbuildable in every other seat. Nobody knew, because the
+    /// one configuration anybody tested was the one the permissive path served.
+    ///
+    /// ⭐ registering the missing cast fixed today's twelve; filtering here is
+    /// what stops the NEXT catalog-only addition from putting an unpickable
+    /// portrait on the screen. Both halves are needed and neither implies the
+    /// other.
+    pub fn assemble(
+        registry: &ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+    ) -> Self {
+        let present = |id: &str| registry.get(id).is_some();
         Self(
             SMASH_ROSTER
                 .iter()

@@ -846,14 +846,25 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
 
 /// **Who can be picked, in THIS composition.**
 ///
-/// `select::SMASH_ROSTER` filtered to the ids the assembled catalog carries — so
-/// a multi-game host offers the whole crossover cast and the standalone demo
+/// `select::SMASH_ROSTER` filtered to the ids this host can SEAT — so a
+/// multi-game host offers the whole crossover cast and the standalone demo
 /// offers the fighters it declares itself, from one list.
 fn assemble_the_smash_roster(
-    catalog: bevy::prelude::Res<ambition_platformer2d::character::CharacterCatalog>,
+    // ⛔ the SEATABLE authority, not the catalog — see `SmashRoster::assemble`.
+    // Optional because a composition may reach this route before any character
+    // is registered; an empty grid then says so honestly rather than offering
+    // portraits nothing can build.
+    registry: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+        >,
+    >,
     mut fighters: bevy::prelude::ResMut<select::SmashRoster>,
 ) {
-    let assembled = select::SmashRoster::assemble(&catalog);
+    let Some(registry) = registry else {
+        return;
+    };
+    let assembled = select::SmashRoster::assemble(&registry);
     if *fighters != assembled {
         *fighters = assembled;
     }

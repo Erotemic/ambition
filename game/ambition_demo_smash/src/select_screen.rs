@@ -857,6 +857,12 @@ pub fn update_the_select_screen(
     select: Res<SmashSelect>,
     pointer: Res<SelectCursor>,
     fighters: Res<SmashRoster>,
+    // **THE ENGINE'S REFUSAL, if it has one.** See the prompt below: this is the
+    // only surface in the product that can say a decided roster could not be
+    // built, and until it read this the answer to that was an empty stage.
+    refusal: Option<
+        Res<ambition_platformer2d::actors::character_runtime::MatchPreparationProblems>,
+    >,
     // Required for the same reason `spawn_select_screen`'s is; see there.
     art: ScreenArt,
     windows: Query<&Window>,
@@ -997,10 +1003,25 @@ pub fn update_the_select_screen(
     }
 
     for mut text in &mut prompt {
-        let next = select
-            .blocker()
-            .map(str::to_string)
-            .unwrap_or_else(|| "Ready — click START".to_string());
+        // ⛔ **A REFUSAL OUTRANKS BOTH**, and having nowhere to say it was the
+        // last half of "a permanent failure must never present as a wait".
+        // Preparation names every reason a roster cannot become a match — an
+        // unregistered fighter, a CPU with no brain profile, a replay seat this
+        // build cannot drive — before one entity exists. Nothing in the product
+        // read it, so the screen kept offering START, the match never opened,
+        // and the player was looking at a deadlock wearing an invitation.
+        //
+        // ⚠ the screen's own `blocker()` answers a DIFFERENT question — what
+        // this person still has to do — and stays first when it applies. This is
+        // what the engine could not do with what they already chose.
+        let next = if let Some(refusal) = refusal.as_deref() {
+            format!("This match cannot start — {refusal}")
+        } else {
+            select
+                .blocker()
+                .map(str::to_string)
+                .unwrap_or_else(|| "Ready — click START".to_string())
+        };
         if text.0 != next {
             text.0 = next;
         }

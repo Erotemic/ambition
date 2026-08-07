@@ -1541,3 +1541,71 @@ fn two_cpus_can_fight_each_other() {
          seating success and is a fight between two statues"
     );
 }
+
+/// **A refusal the ENGINE produced reaches the PERSON who chose the roster.**
+///
+/// ⛔ **`MatchPreparationProblems` had no reader in the product, and that is
+/// half of the defect this whole landing is about.** Preparation names every
+/// permanent reason a decided roster cannot become a match — a fighter nothing
+/// registered, a CPU with no brain profile, a replay seat this build cannot
+/// drive — before one entity exists. Nothing displayed it. So the screen kept
+/// offering START, the match never opened, and the player was looking at a
+/// deadlock wearing an invitation, which is exactly the experience Jon reported
+/// on 2026-08-06 in its original form.
+///
+/// ⚠ **the refusal is INSERTED here rather than provoked through the grid, and
+/// that is deliberate.** Provoking it needs an id the composition cannot seat,
+/// and the grid now filters to exactly the ids it CAN seat — so the only honest
+/// way to reach this arm through the UI is to break the filter, which would
+/// make the test a test of the filter. What is being pinned is the BINDING: a
+/// standing refusal is on screen, in the player's words, instead of "Ready".
+/// The refusal's own content is pinned by
+/// `a_catalog_only_fighter_gets_an_answer_rather_than_a_deadlock`.
+#[test]
+fn a_preparation_refusal_is_shown_instead_of_ready() {
+    use ambition_platformer2d::actors::character_runtime::{
+        MatchPreparationProblems, RosterProblem,
+    };
+
+    let mut app = open_the_lobby();
+    cycle_role(&mut app, 0, 2);
+    cycle_role(&mut app, 1, 2);
+    pick_fighter(&mut app, 0, PREPARED_FIGHTER);
+    pick_fighter(&mut app, 1, OTHER_PREPARED_FIGHTER);
+    settle(&mut app);
+
+    let prompt = |app: &mut App| -> Vec<String> {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<&bevy::prelude::Text, bevy::prelude::With<
+            ambition_demo_smash::select_screen::SelectPrompt,
+        >>();
+        q.iter(world).map(|text| text.0.clone()).collect()
+    };
+    let before = prompt(&mut app);
+    assert!(
+        !before.is_empty(),
+        "the select screen draws no prompt at all, so this measures nothing"
+    );
+    assert!(
+        before.iter().all(|line| !line.contains("cannot start")),
+        "the screen is already refusing before anything refused: {before:?}"
+    );
+
+    app.world_mut().insert_resource(MatchPreparationProblems {
+        problems: vec![RosterProblem {
+            seat: 1,
+            detail: "asks for a character this composition cannot build".to_string(),
+        }],
+    });
+    settle(&mut app);
+
+    let after = prompt(&mut app);
+    assert!(
+        after
+            .iter()
+            .any(|line| line.contains("cannot start") && line.contains("cannot build")),
+        "preparation refused the roster and the screen never said so. It read \
+         {after:?} — a permanent failure presenting as a wait, which is the \
+         exact shape this landing exists to remove."
+    );
+}

@@ -1,12 +1,29 @@
-//! ⛔ **THE MIGRATION GATE.** The LDtk file was generated from `lib.rs`'s
-//! constants, so before Jon edits anything the room it converts to must BE the
-//! room those constants build. Until this passes, the file is a guess.
+//! **What has to survive LDtk conversion**, whatever the level says.
 //!
-//! ⚠ it compares what a player can TOUCH — every block's rect and kind — not the
-//! whole `RoomSpec`. Props, art colours and the pieces still built Rust-side are
-//! deliberately out of scope here; each moves under its own probe.
-
-use ambition_platformer2d::engine_core as ae;
+//! ⛔ **the migration GATE that used to head this file is gone (2026-08-07), and
+//! why matters more than that it went.** It compared the converted room against
+//! `crate::level_1_1()` to prove the generated file matched the Rust constants
+//! the level used to be. That job finished: `level_1_1()` is now
+//! `authored_room(LEVEL_1_1_ROOM_ID)` — it READS `mary_o.ldtk` — so the test had
+//! become a comparison of the file with itself. The dressing in between
+//! (`dress_authored_blocks` sets `art_color`, `scenery_for_authored_room`
+//! extends `props`) touches nothing the comparison looked at, which walked
+//! `world.blocks`. **It could not fail, including on the edit it existed to
+//! catch.** Its helper `occupied_cells` went with it, having no other caller.
+//!
+//! ⭐ **so nothing here pins the level's SHAPE, deliberately.** Jon authors this
+//! file in LDtk; a test that says "the pyramid is where it was" would turn every
+//! edit into a test edit and teach the habit of updating expectations to match
+//! whatever came out. What remains asserts things that stay true across any
+//! legitimate edit: every block KIND survives lowering, the named pieces the
+//! runtime addresses still exist, one file reads differently to two
+//! vocabularies, and no lift teleports you somewhere visible.
+//!
+//! ⚠ **the level's real invariants live in `lib.rs`'s tests, not here** — every
+//! enemy has ground under it, the vault ceiling is unbroken, a pipe you enter
+//! has a pipe you come out of, the trench is wide enough to patrol. Those SHOULD
+//! fail on a bad edit; that is the safety net for editing, not friction against
+//! it.
 
 const WORLD_JSON: &str = include_str!("../assets/worlds/mary_o.ldtk");
 
@@ -22,57 +39,6 @@ fn ldtk_room() -> ambition_platformer2d::world::rooms::RoomSpec {
         .into_iter()
         .find(|room| room.id == "mary_o_1_1")
         .expect("the world file authors the mary_o_1_1 area")
-}
-
-/// Which 16px cells this world's blocks occupy, per block kind.
-///
-/// ⛔ **cells, NOT rectangles, and the difference is the whole probe.** The first
-/// draft compared block rects and reported 10 differences out of ~33 — every one
-/// of them a staircase or a ground run. Nothing was misplaced: `area create`
-/// lowers entities into an IntGrid and the IntGrid re-merges cells into maximal
-/// rectangles, so a four-step staircase authored as four columns comes back as a
-/// different PARTITION of the same area. Two partitions of one region are
-/// gameplay-identical, and a test that calls them different is measuring the
-/// packer, not the level.
-///
-/// ⚠ 16 not 32: half a tile, because the platforms and the pole are authored at
-/// half-tile thickness and a tile-sized bucket would round them away.
-fn occupied_cells(world: &ae::World) -> std::collections::BTreeSet<(String, i32, i32)> {
-    const CELL: f32 = 16.0;
-    let mut out = std::collections::BTreeSet::new();
-    for block in &world.blocks {
-        let kind = format!("{:?}", block.kind);
-        let x0 = (block.aabb.min.x / CELL).round() as i32;
-        let x1 = (block.aabb.max.x / CELL).round() as i32;
-        let y0 = (block.aabb.min.y / CELL).round() as i32;
-        let y1 = (block.aabb.max.y / CELL).round() as i32;
-        for x in x0..x1 {
-            for y in y0..y1 {
-                out.insert((kind.clone(), x, y));
-            }
-        }
-    }
-    out
-}
-
-#[test]
-fn the_ldtk_room_is_the_room_the_constants_built() {
-    let ldtk = ldtk_room();
-    let rust = crate::level_1_1();
-    let (a, b) = (occupied_cells(&ldtk.world), occupied_cells(&rust.world));
-    let only_ldtk: Vec<_> = a.difference(&b).take(24).collect();
-    let only_rust: Vec<_> = b.difference(&a).take(24).collect();
-    assert!(
-        only_ldtk.is_empty() && only_rust.is_empty(),
-        "the authored room and the built room cover different cells.\n  \
-         only in LDtk ({} of {}): {:?}\n  only in Rust ({} of {}): {:?}",
-        a.difference(&b).count(),
-        a.len(),
-        only_ldtk,
-        b.difference(&a).count(),
-        b.len(),
-        only_rust
-    );
 }
 
 /// The vocabulary the runtime RECOGNISES has to survive conversion — this is the

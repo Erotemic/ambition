@@ -478,11 +478,18 @@ fn activate_pause_entry(
         }
         PauseEntry::QuitToTitle => {
             // Retire the session and return to the host's title screen — the
-            // same leak-free path F10 fires. The menu folds; the sim is handed
-            // back so the next session starts unpaused.
+            // same leak-free path F10 fires.
+            //
+            // ⭐ **it does NOT hand the sim back, and that is the fix.** This row
+            // used to call `resume_sim` here, which made unpausing the caller's
+            // job — so the three OTHER writers of `QuitToHome` (F10, the in-world
+            // system menu, the scripted route sweep) each left the world stopped
+            // with no session to explain it, and the next match hung in the air.
+            // Session retirement resets the mode now
+            // (`translate_shell_session_lifecycle`), because the lifecycle that
+            // ended the session is the one place that cannot forget.
             shell.write(ShellCommand::QuitToHome);
             menu.close();
-            resume_sim(game_mode, next_mode);
             play(sfx, ids::UI_MENU_ACCEPT);
         }
         PauseEntry::QuitToDesktop => {

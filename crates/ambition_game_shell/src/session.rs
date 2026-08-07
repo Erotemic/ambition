@@ -15,6 +15,7 @@ use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionRoot, SessionScopeId, SessionScopePlugin,
     SessionScopeRetired, SessionScopeSet, SpawnSessionScopedExt,
 };
+use ambition_platformer2d_shared_tangle::schedule::GameMode;
 use ambition_sfx::{AudioContextOwner, SfxEmissionContext};
 use bevy::prelude::*;
 
@@ -498,6 +499,7 @@ fn translate_shell_session_lifecycle(
     mut loads: ResMut<ambition_load::LoadCoordinator>,
     mut session_events: MessageWriter<GameplaySessionEvent>,
     mut retired: MessageWriter<SessionScopeRetired>,
+    mut game_mode: Option<ResMut<NextState<GameMode>>>,
 ) {
     for event in shell_events.read() {
         match event {
@@ -510,6 +512,35 @@ fn translate_shell_session_lifecycle(
                         .and_then(|session| session.load.as_ref())
                     {
                         loads.retire(&load.load_id);
+                    }
+                    // **THE WORLD THAT WAS STOPPED IS GONE, SO NOTHING IS
+                    // STOPPED.** (Jon, 2026-08-07: *"A quit to title should not
+                    // leave a dirty global state. Ideally this would not be
+                    // something we need to manage."*)
+                    //
+                    // ⛔ `GameMode` is a Bevy `States` global, and pausing is the
+                    // one thing that writes it from OUTSIDE the session's own
+                    // systems. Quit to the title from a paused match and the mode
+                    // stayed `Paused` with no session to explain it: the next
+                    // match built its fighters, seated them, framed them and
+                    // never advanced a tick — bodies hanging in the air with a
+                    // menu that still answered. Measured 2026-08-07, and the
+                    // resource census was clean, because the dirty state was
+                    // never a resource anybody thought to release.
+                    //
+                    // ⭐ **the pause menu already handed the sim back on its way
+                    // out, and that is exactly the problem**: `QuitToHome` has
+                    // four writers (the pause menu, the F10 developer hotkey, the
+                    // in-world system menu, the scripted route sweep) and only
+                    // one of them remembered. A rule every caller must obey is a
+                    // rule three callers will eventually break. The lifecycle
+                    // that ended the session is the one place that cannot forget.
+                    //
+                    // ⚠ `Dialogue`, `RoomTransition` and `Cutscene` reset too,
+                    // for the same reason — every one of them describes a live
+                    // world, and this one has just been retired.
+                    if let Some(mode) = game_mode.as_mut() {
+                        mode.set(GameMode::default());
                     }
                     active_scope.clear_if_current(scope);
                     session_events.write(GameplaySessionEvent::Retiring {

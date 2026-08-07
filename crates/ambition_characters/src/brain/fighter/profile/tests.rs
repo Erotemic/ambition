@@ -119,3 +119,61 @@ fn the_whole_ladder_degrades_gracefully_without_l3() {
         assert!(!r.uses_rollouts(), "level {} expects L3", r.level);
     }
 }
+
+/// **A game that shipped rows gets ITS rows, not the engine's floor.**
+///
+/// ⛔ **this is the rule that was written down and not enforced.**
+/// `FighterBrainProfile::for_level`'s own doc says a game shipping nine rows
+/// means the floor "is never consulted" — and both production call sites
+/// consulted it anyway, because a doc comment on the losing source cannot
+/// arbitrate. Ambition ships `fighter_brain_ladder.ron` and had never read a row
+/// of it.
+///
+/// ⭐ **the numbers here are the ones that were actually wrong in the game**, not
+/// invented ones: `for_level` gives EVERY rung `UtilityWeights::default()`, and
+/// `default()` is `v1()` — which is the authored level 9 verbatim. So a level-1
+/// CPU priced a smash exactly as a level-9 did, and the ladder's whole second
+/// axis (*"not noticing which move hits harder IS a difficulty statement"*) did
+/// not exist in the shipped game.
+#[test]
+fn a_shipped_ladder_beats_the_engine_floor() {
+    use super::profile_for_level;
+
+    let ladder = ladder();
+
+    // The floor, when a game shipped nothing.
+    let floor = profile_for_level(1, None);
+    assert_eq!(
+        floor,
+        FighterBrainProfile::for_level(1),
+        "with no ladder the engine floor is what a level means"
+    );
+
+    // The authored rung, when it did.
+    let authored = profile_for_level(1, Some(&ladder));
+    assert_eq!(
+        authored.level, 1,
+        "the rung for the level asked for, not the first row"
+    );
+    assert_ne!(
+        authored, floor,
+        "the authored level-1 rung is identical to the floor, so this test cannot \
+         tell whether the ladder was consulted at all"
+    );
+
+    // ⭐ the difference that matters, and the one the game was losing.
+    assert!(
+        authored.utility_weights.kill_potential < floor.utility_weights.kill_potential,
+        "the floor hands level 1 the level-9 weight set ({:?}), so a beginner CPU \
+         prices a kill move exactly as the hardest one does",
+        floor.utility_weights,
+    );
+
+    // ⚠ a level the ladder does not author still gets a body rather than a panic:
+    // `problems()` is where a malformed ladder is reported, at load, all at once.
+    assert_eq!(
+        profile_for_level(200, Some(&ladder)),
+        FighterBrainProfile::for_level(200),
+        "an unauthored level falls back to the floor"
+    );
+}

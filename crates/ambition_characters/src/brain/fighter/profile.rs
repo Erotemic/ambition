@@ -115,6 +115,27 @@ impl FighterBrainProfile {
     }
 }
 
+/// **The one place a level becomes a profile.**
+///
+/// ⛔ **the engine's rule was written in a doc comment and consulted nowhere, so
+/// it did not hold.** [`FighterBrainProfile::for_level`] says of itself: *"this
+/// is a FLOOR, not the ladder. A game that cares ships its own nine rows
+/// (`FighterBrainLadder::from_ron`) and this is never consulted."* Ambition ships
+/// the nine rows, and both production call sites called the floor anyway —
+/// because a rule about which of two sources wins cannot be enforced by the
+/// source that loses. This function IS the rule.
+///
+/// ⚠ **a ladder that has no rung for this level falls back rather than
+/// refusing.** `problems()` is where a malformed ladder is reported, at load, in
+/// one place with every fault at once; a missing rung discovered here would be
+/// one fighter's construction failing in the middle of a match.
+pub fn profile_for_level(level: u8, ladder: Option<&FighterBrainLadder>) -> FighterBrainProfile {
+    ladder
+        .and_then(|ladder| ladder.level(level))
+        .cloned()
+        .unwrap_or_else(|| FighterBrainProfile::for_level(level))
+}
+
 /// A game's ladder: nine rows, level 1 through 9.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 #[serde(transparent)]

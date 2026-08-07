@@ -180,9 +180,44 @@ pub(crate) fn provoke_actor_in_place(
         // (`ActorAggression::grudge`, set by `apply_actor_stimuli`): targeting treats
         // the grudge entity as a foe, and the victim-side damage gate is `can_damage`
         // (different-faction), which an Npc-vs-Player hit already passes.
-        commands
-            .entity(entity)
-            .insert((proj.brain, proj.action_set));
+        // ⛔ **PROVOCATION CHANGES WHAT A BODY IS, NEVER WHO DRIVES IT.**
+        //
+        // This inserted the archetype's brain unconditionally, and for a body
+        // under player control that is a silent seizure: the first hit a SEATED
+        // FIGHTER took replaced its `Brain::Player(slot)` with the Smash state
+        // machine, in place, permanently — activation is one-shot and never
+        // rebinds — so a human's fighter became a CPU mid-fight and the couch
+        // test read it as input crosstalk. Measured: both seats opened as
+        // `Player(0)`/`Player(1)` and seat one flipped 28 frames after its pad
+        // went quiet, which is when it traded its first blows.
+        //
+        // ⚠ **every other brain writer already knew this** — `brain_command`,
+        // `reconcile_autonomous_actors` and `reconcile_brain_bindings` all open
+        // with `if brain.is_player() { .. }` and update the SOURCE that resumes
+        // instead of the live brain. This was the one path that did not, and it
+        // was unreachable until a player-driven body could also be a provokable
+        // actor. Seating one is what made that ordinary.
+        //
+        // The ACTION SET still lands: what a body fights with is part of what it
+        // is, and a provoked fighter should swing the archetype's kit. Only the
+        // driver is left alone. The archetype is recorded in `BrainBinding`
+        // below either way, so releasing control later resumes the provoked mode
+        // rather than the peaceful one.
+        let provoked_brain = proj.brain;
+        let provoked_action_set = proj.action_set;
+        commands.queue(move |world: &mut bevy::prelude::World| {
+            let driven = world
+                .get::<ambition_characters::brain::Brain>(entity)
+                .is_some_and(ambition_characters::brain::Brain::is_player);
+            let Ok(mut em) = world.get_entity_mut(entity) else {
+                return;
+            };
+            if driven {
+                em.insert(provoked_action_set);
+            } else {
+                em.insert((provoked_brain, provoked_action_set));
+            }
+        });
         // Record the provoked ARCHETYPE in the autonomous binding. The stable
         // archetype id is all a rewind needs: the whole provoked config above is a
         // deterministic function of it (via `project_provoked_archetype`), so a

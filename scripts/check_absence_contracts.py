@@ -99,9 +99,20 @@ ABSENCE_CONTRACTS: list[dict] = [
         "paths": [
             "crates/",
             "game/",
-            # ActiveMatch is PUBLISHED by seating, the one place a match becomes
-            # active, and RETIRED by the versus stage's ownership-gated teardown.
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/seating.rs",
+            # ActiveMatch is PUBLISHED by activation, the one place a match
+            # becomes active, and RETIRED by the versus stage's ownership-gated
+            # teardown.
+            #
+            # The publisher MOVED on 2026-08-07: `seating.rs` held the
+            # adopt/spawn fork and is gone, replaced by
+            # `prepared_match.rs::activate_the_prepared_match`. Growing this list
+            # IS the review, and the review happened — the same landing tried to
+            # RETIRE a stale receipt from `prepare_the_match` and this contract
+            # went red on it, correctly. A second writer had no way to answer
+            # whose receipt it was deleting, so activation stayed the one writer
+            # and derives staleness from the world instead: a receipt whose seats
+            # nobody wears belongs to a session whose cast was despawned with it.
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/prepared_match.rs",
             ":(exclude)game/ambition_app/src/app/versus.rs",
         ],
         "patterns": [

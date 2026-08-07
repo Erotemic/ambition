@@ -793,8 +793,7 @@ pub fn prepare_the_match(
     // is the authority-in-activation this module exists to remove; re-preparing
     // for a NEW session is the opposite of that — it is the only way the second
     // match of a sitting gets a plan at all.
-    let previous_session = prepared.as_deref().and_then(PreparedMatch::session);
-    if prepared.is_some() && previous_session == session {
+    if prepared.is_some_and(|prepared| prepared.session() == session) {
         return;
     }
     let (Some(roster), Some(registry), Some(geometry)) = (roster, registry, geometry) else {
@@ -837,22 +836,6 @@ pub fn prepare_the_match(
             // rather than on roster CHANGE so it cannot go stale — a refusal
             // that outlives the roster it was about is a worse lie than none.
             commands.remove_resource::<MatchPreparationProblems>();
-            // ⭐ **THE PLAN AND THE RECEIPT ARE ONE LIFECYCLE.** A plan being
-            // published for a DIFFERENT session than the standing one means the
-            // previous match is over, and its `ActiveMatch` is still standing —
-            // which is what made activation return early and seat nothing for
-            // the whole rest of the sitting.
-            //
-            // ⚠ **inside the `Ok` arm, and that placement is the fix's second
-            // half.** The first draft retired the receipt up beside the staleness
-            // check, before the roster/registry/geometry guards — so on any frame
-            // where preparation bailed for want of a roster it wiped a LIVE
-            // match's receipt, and `stocks` immediately reported matches that
-            // never ended. A receipt may only be retired by the thing that
-            // replaces it.
-            if previous_session != session {
-                commands.remove_resource::<super::ActiveMatch>();
-            }
             commands.insert_resource(plan);
         }
         Err(problems) => {
@@ -888,22 +871,27 @@ pub fn activate_the_prepared_match(
     already_seated: Query<&super::MatchSeat>,
     tick: Res<ambition_time::SimTick>,
 ) {
-    let session = active_session
-        .as_deref()
-        .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current);
     let Some(prepared) = prepared else {
         return;
     };
-    // ⛔ **A RECEIPT FROM THE PREVIOUS MATCH IS NOT THIS MATCH'S.** This read
+    // ⛔ **A RECEIPT WITH NO BODIES IS NOT A LIVE MATCH.** This read
     // `if active.is_some() { return; }`, which is right for "the match I am
-    // looking at has already been built" and wrong for "some match, once, was
+    // looking at has already been built" and wrong for "SOME match, once, was
     // built in this process". Returning to the select screen and starting
     // another left the first match's `ActiveMatch` standing, so the second
     // seated NOTHING — the symptom Jon reported as fighters frozen in the air
-    // with the menu still working. The plan knows which session it is for; the
-    // receipt is only this match's when the plan is.
-    let stale = prepared.session != session;
-    if active.is_some() && !stale {
+    // with the menu still responding.
+    //
+    // ⭐ **derived from the world, not from a second writer.** The obvious
+    // repair is to retire the stale receipt from preparation — and the
+    // `a-second-writer-of-a-match-global-must-answer-ownership` contract went
+    // RED on exactly that, correctly: `ActiveMatch` carries no `published_by`,
+    // so a second writer has no way to answer whose receipt it is deleting.
+    // Activation stays the ONE writer and asks a question the world can answer
+    // instead. Activation is atomic — the receipt goes in with the bodies in one
+    // flush — so a receipt whose seats nobody wears belongs to a session whose
+    // cast was despawned with it.
+    if active.is_some() && !already_seated.is_empty() {
         return;
     }
     // ⛔ **NOT "the first tick the plan exists".** The plan does not rewind, so

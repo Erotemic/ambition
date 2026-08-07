@@ -698,6 +698,32 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
          keyboard's own source"
     );
 
+    // **AND THE CARD SAYS WHICH DEVICE IT IS.** (Jon, 2026-08-07: *"the UI has
+    // no way to indicate which player is connected to which input device, so idk
+    // if that is the problem or not"* — asked while debugging exactly this
+    // configuration.) The button read `CONTROLLER 1` / `CONTROLLER 2`, which is
+    // the slot's own numbering said back to it.
+    settle(&mut app);
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_demo_smash::select_screen::RoleButtonLabel,
+            &bevy::prelude::Text,
+        )>();
+        let mut labels: Vec<(usize, String)> =
+            q.iter(world).map(|(l, t)| (l.0, t.0.clone())).collect();
+        labels.sort();
+        assert_eq!(
+            labels
+                .iter()
+                .take(2)
+                .map(|(_, text)| text.as_str())
+                .collect::<Vec<_>>(),
+            vec!["KEYBOARD", "PAD 1"],
+            "the two seated cards do not name their devices: {labels:?}"
+        );
+    }
+
     click(&mut app, layout.token_home(0));
     click(&mut app, layout.portrait(0).expect("an authored portrait"));
     pad_click(&mut app, layout.token_home(1));

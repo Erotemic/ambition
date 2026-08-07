@@ -18,10 +18,10 @@
 //! photographs the real thing, and this prints what the screen BELIEVES, which a
 //! photograph cannot.
 
-use ambition_demo_smash::select::{MAX_SMASH_SEATS, SmashRoster, SmashSelect};
+use ambition_demo_smash::select::{SmashRoster, SmashSelect, MAX_SMASH_SEATS};
 use ambition_demo_smash::select_screen::cursor::SelectCursor;
 use ambition_demo_smash::select_screen::layout::SelectLayout;
-use ambition_demo_smash::select_screen::{StartRequested, card_name_text, role_button_text};
+use ambition_demo_smash::select_screen::{card_name_text, role_button_text, StartRequested};
 use ambition_demo_smash_app::build_demo_app;
 use ambition_platformer2d::input::{MenuControlFrame, SeatMenuFrames};
 use bevy::prelude::*;
@@ -112,7 +112,10 @@ fn show(app: &mut App, what: &str) {
         println!(
             "   │ P{}  {:<14} {:<20}{:<3}│",
             slot + 1,
-            role_button_text(card.occupant),
+            // The walkthrough renders the screen's own text without a live input
+            // world, so the button falls back to its index rather than naming a
+            // device it cannot see.
+            role_button_text(card.occupant, None),
             card_name_text(
                 catalog.as_ref(),
                 &fighters,

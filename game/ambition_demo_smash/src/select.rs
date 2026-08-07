@@ -603,6 +603,45 @@ pub fn seats_offered_under(
     seats.clamp(1, MAX_SMASH_SEATS)
 }
 
+/// **WHICH INPUT DEVICE a slot's person is holding, in words.**
+///
+/// Jon, 2026-08-07: *"the UI has no way to indicate which player is connected to
+/// which input device, so idk if that is the problem or not"* — asked while
+/// debugging a couch match, and answered with text rather than a glyph because
+/// *"text saying which input device it is is fine for the prototype. gives more
+/// info for debugging."*
+///
+/// ⭐ **derived from the SAME two authorities that decided the index**, not from
+/// a second table: [`seats_offered_under`] turns `LocalDeviceOrder` + the policy
+/// into how many sources exist, and this turns one of those indices back into
+/// the source it names. A separate mapping would be a second answer to "what is
+/// device 1" and would drift the first time the policy changed — which is
+/// exactly the shape the roster/topology pair has already been bitten by.
+///
+/// ⚠ the keyboard is device ZERO only under the multi-source policies;
+/// `UnifiedPrimary` offers one seat per pad and no keyboard seat, so the same
+/// index means a different thing. That is why the policy is a parameter.
+pub fn source_name_under(
+    device: usize,
+    devices: &ambition_platformer2d::input::LocalDeviceOrder,
+    policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
+) -> String {
+    let pads = devices.devices().len();
+    match policy {
+        // One seat per pad, no keyboard seat: the index IS the pad.
+        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary => {
+            format!("PAD {}", device + 1)
+        }
+        // The keyboard is player one and each pad brings its own slot.
+        _ if device == 0 => "KEYBOARD".to_string(),
+        // A slot offered for a pad that has since been unplugged still names the
+        // pad it is waiting for. Saying "PAD 2" for a seat with nothing in it is
+        // more useful while debugging than hiding the gap.
+        _ if device <= pads => format!("PAD {device}"),
+        _ => format!("PAD {device} (not connected)"),
+    }
+}
+
 /// **What every fighter on this stage swings.**
 ///
 /// The demo's `duelist` preset, in Rust rather than by catalog reference,

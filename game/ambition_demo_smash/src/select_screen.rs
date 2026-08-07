@@ -164,10 +164,33 @@ const BACKDROP: Color = Color::srgb(0.03, 0.035, 0.06);
 /// What a card's button says, which is also the full statement of what that card
 /// IS. Public because a test that checks entities EXIST is a test that passes
 /// over an empty box.
-pub fn role_button_text(occupant: SlotOccupant) -> String {
+/// **What a slot's role button says.**
+///
+/// ⭐ **it names the DEVICE, not an index.** It read `CONTROLLER 1` /
+/// `CONTROLLER 2`, which is the slot's own numbering said back to it and tells
+/// nobody which thing in the room drives that card. Jon, debugging a couch match
+/// on 2026-08-07: *"the UI has no way to indicate which player is connected to
+/// which input device, so idk if that is the problem or not."* It says
+/// `KEYBOARD` and `PAD 1` now, from the same authority that decided the index —
+/// see `select::source_name_under`.
+///
+/// `devices`/`policy` are optional because a fixture (and the walkthrough
+/// binary) renders this text without a live input world; absent, the button
+/// falls back to the index it always showed rather than claiming a device it
+/// cannot see.
+pub fn role_button_text(
+    occupant: SlotOccupant,
+    naming: Option<(
+        &ambition_platformer2d::input::LocalDeviceOrder,
+        ambition_platformer2d::input::sources::InputAssignmentPolicy,
+    )>,
+) -> String {
     match occupant {
         SlotOccupant::Absent => "NOT PLAYING".to_string(),
-        SlotOccupant::Controller { device } => format!("CONTROLLER {}", device + 1),
+        SlotOccupant::Controller { device } => match naming {
+            Some((devices, policy)) => crate::select::source_name_under(device, devices, policy),
+            None => format!("CONTROLLER {}", device + 1),
+        },
         SlotOccupant::Cpu => "CPU".to_string(),
     }
 }
@@ -555,7 +578,7 @@ pub fn spawn_select_screen(
                 .with_children(|node| {
                     node.spawn((
                         RoleButtonLabel(slot),
-                        Text::new(role_button_text(SlotOccupant::Absent)),
+                        Text::new(role_button_text(SlotOccupant::Absent, None)),
                         text_font(14.0),
                         TextColor(INK),
                     ));
@@ -860,9 +883,15 @@ pub fn update_the_select_screen(
     // **THE ENGINE'S REFUSAL, if it has one.** See the prompt below: this is the
     // only surface in the product that can say a decided roster could not be
     // built, and until it read this the answer to that was an empty stage.
-    refusal: Option<
-        Res<ambition_platformer2d::actors::character_runtime::MatchPreparationProblems>,
-    >,
+    // ⚠ ONE param, three resources: this system is at Bevy's 16-param ceiling
+    // and a fourth resource here is a compile error, not a style choice.
+    //   `.0` the engine's refusal, if it has one — see the prompt below.
+    //   `.1`/`.2` WHICH device each seated slot holds, for the role button.
+    lobby_facts: (
+        Option<Res<ambition_platformer2d::actors::character_runtime::MatchPreparationProblems>>,
+        Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
+        Option<Res<ambition_platformer2d::input::sources::InputAssignmentPolicy>>,
+    ),
     // Required for the same reason `spawn_select_screen`'s is; see there.
     art: ScreenArt,
     windows: Query<&Window>,
@@ -906,6 +935,7 @@ pub fn update_the_select_screen(
     mut tokens: Query<(&SlotToken, &mut Node, &mut Visibility), Without<CardPortrait>>,
     mut cursor_node: Query<&mut Node, (With<CursorNode>, Without<SlotToken>)>,
 ) {
+    let (refusal, devices, assignment) = lobby_facts;
     let catalog = Some(&*art.catalog);
     let layout = current_layout(&windows, &fighters);
 
@@ -934,8 +964,15 @@ pub fn update_the_select_screen(
         set_border(&mut border, if select.ready() { INK } else { PANEL_EDGE });
     }
 
+    // The LIVE policy, not a second copy of the constant: this demo claims
+    // `JoinToClaim` on its own routes (`lib.rs`), and the screen only runs on
+    // one of them, so reading the resource is the same answer without being a
+    // second statement of it.
+    let naming = devices
+        .as_deref()
+        .map(|devices| (devices, assignment.as_deref().copied().unwrap_or_default()));
     for (label, mut text) in &mut role_labels {
-        let next = role_button_text(select.slot(label.0).occupant);
+        let next = role_button_text(select.slot(label.0).occupant, naming);
         if text.0 != next {
             text.0 = next;
         }

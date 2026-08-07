@@ -374,6 +374,19 @@ impl MovingPlatformState {
         ae::Aabb::new(self.pos, self.size * 0.5)
     }
 
+    /// The shaft a vertically-LOOPING platform runs in, as `(min_y, max_y)`.
+    ///
+    /// `None` for every other motion — a sweep and a path REVERSE at their
+    /// limits, which is visible on purpose. Only a loop teleports, and a
+    /// teleport the player can see reads as a bug rather than as an elevator, so
+    /// content needs to be able to ask where the wrap happens.
+    pub fn vertical_loop_span(&self) -> Option<(f32, f32)> {
+        match self.motion {
+            MovingPlatformMotion::Loop { min_y, max_y, .. } => Some((min_y, max_y)),
+            _ => None,
+        }
+    }
+
     /// Direction of travel, +1 or -1. For path-driven platforms this reports
     /// the playback direction (not a local tangent sign), which is enough for
     /// trace/HUD readers that want to surface motion phase.

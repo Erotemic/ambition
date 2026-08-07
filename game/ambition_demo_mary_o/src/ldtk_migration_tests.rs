@@ -287,3 +287,80 @@ fn the_same_level_reads_differently_to_two_vocabularies_in_one_process() {
         "and it refuses for the same reason as before: {errors:?}"
     );
 }
+
+/// **A lift must wrap where nobody can see it.**
+///
+/// Jon's words are the requirement, and the parenthesis is the whole of it:
+/// *"When they go OOB (far enough so they are off screen of the player in normal
+/// gameplay) they can teleport to the top / bottom of the screen to make an
+/// infinite elevator effect."*
+///
+/// ⭐ **a teleport the player CAN see is not an elevator, it is a glitch** — and
+/// no other check catches it. The platform is in bounds, the shaft is well
+/// formed, the ride works, and the effect is simply ruined. 1-2 is 1920x448
+/// against a ~360-tall viewport, so a wrap inside the room lands mid-screen.
+///
+/// **Why the room's own extent is the right line.** Under
+/// `CameraClampMode::RoomBounds` the camera target is clamped to
+/// `[-H/2 + half_view, +H/2 - half_view]`, so the visible band is exactly
+/// `[-H/2, +H/2]` — the room and nothing past it. A lift whose whole body is
+/// outside the room at both wrap points therefore cannot be on screen at either,
+/// and this never has to know the viewport size.
+///
+/// ⚠ **two escapes, stated rather than guarded**, both visible in
+/// `clamp_camera_target` and neither reachable from what 1-2 authors: a room
+/// SHORTER than the viewport falls back to centring, which shows past the
+/// bounds, and portal padding can expand them. A room that gains either wants
+/// this tightened to the real band rather than trusted.
+#[test]
+fn every_lift_wraps_outside_the_room() {
+    let room_set = crate::authored_world();
+
+    let mut looping = 0usize;
+    let mut visible: Vec<String> = Vec::new();
+
+    for room in &room_set.rooms {
+        let height = room.world.size.y;
+        for platform in &room.moving_platforms {
+            let Some((min_y, max_y)) = platform.vertical_loop_span() else {
+                continue;
+            };
+            looping += 1;
+            let half = platform.size.y * 0.5;
+            // Where it REAPPEARS: the bottom edge must still be above the room.
+            if min_y + half > 0.0 {
+                visible.push(format!(
+                    "{}: `{}` reappears at y {min_y:.0} (bottom edge {:.0}) inside \
+                     the room's 0..{height:.0} — the player watches it pop in",
+                    room.id,
+                    platform.name,
+                    min_y + half,
+                ));
+            }
+            // Where it VANISHES: the top edge must already be below the room.
+            if max_y - half < height {
+                visible.push(format!(
+                    "{}: `{}` vanishes at y {max_y:.0} (top edge {:.0}) inside the \
+                     room's 0..{height:.0} — the player watches it blink out",
+                    room.id,
+                    platform.name,
+                    max_y - half,
+                ));
+            }
+        }
+    }
+
+    assert!(
+        visible.is_empty(),
+        "a lift teleports where the player can see it:\n{}",
+        visible.join("\n"),
+    );
+    // ⚠ the floor, and it has already earned itself: the first draft of this
+    // check ran against the ANOTHER world's project and found no looping
+    // platform at all, which is a green indistinguishable from a safe one.
+    assert!(
+        looping >= 3,
+        "1-2 authors a three-lift conveyor; only {looping} looping platform(s) \
+         reached this check, so it is not looking at the shaft"
+    );
+}

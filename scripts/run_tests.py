@@ -392,8 +392,18 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # value is the regression they now catch rather than anything they say today.
         jobs.append(Job("doc links (active KB)",
                         [sys.executable, "scripts/check_doc_links.py"]))
+        # ⛔ `--check` IS LOAD-BEARING AND WAS MISSING (fixed 2026-08-07). The
+        # script prints its findings either way and returns
+        # `1 if (problems and args.check) else 0`, so without the flag this job
+        # could not go red — it ran for the whole period the comment above says
+        # its value is "the regression they now catch", catching nothing. Proven
+        # rather than reasoned: a fixture citing a deleted type exits 0 without
+        # the flag and 1 with it. ⚠ this is the repo's recorded failure shape —
+        # an optional `--check` that turns a guard green-by-construction — inside
+        # the guard whose own docstring is about claims that do not rot loudly.
         jobs.append(Job("roadmap claims match source",
-                        [sys.executable, "scripts/check_roadmap_evidence.py"]))
+                        [sys.executable, "scripts/check_roadmap_evidence.py",
+                         "--check"]))
         # The LDtk AUTHORING toolchain, which is the path every room in the
         # game is built through and was the second Python suite nothing ran.
         # Found 2026-07-28 with 11 of 149 RED, all of them pointing at asset

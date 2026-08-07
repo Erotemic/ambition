@@ -2,7 +2,7 @@
 
 **Armed:** 2026-07-31, on Jon's instruction. This file is the SPINE for the
 three-program architecture campaign; rows land here and are mirrored as `▢` in
-[queue-72h-2026-07-31.md](queue-72h-2026-07-31.md), which the guard reads.
+`queue-72h-2026-07-31.md` (retired 2026-08-07; read at `9a66996ce~1`), which the guard reads.
 
 **The objective, in Jon's words:**
 

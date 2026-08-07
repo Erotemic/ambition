@@ -23,7 +23,7 @@
 >
 > **The canonical current status is:**
 >
-> * [queue-24h-2026-07-26.md](queue-24h-2026-07-26.md) § H — the open rows
+> * `queue-24h-2026-07-26.md` (retired 2026-08-07; read at `9a66996ce~1`) § H — the open rows
 > * [character-preparation-finalization-plan.md](character-preparation-finalization-plan.md)
 >   — the design, and what of it has landed
 >
@@ -39,7 +39,7 @@ revisions against the actual tree are in
 [§ Concrete task list](#concrete-task-list).
 
 **Relationship to the 24h queue.** This does not replace
-[queue-24h-2026-07-26.md](queue-24h-2026-07-26.md) — that stays the open-items
+`queue-24h-2026-07-26.md` (retired 2026-08-07; read at `9a66996ce~1`) — that stays the open-items
 ledger the guard reads. This is the *campaign* document: the ledger says what is
 open, this says in what order and under what rules the character-identity work
 happens. Rows land in the ledger as they are picked up.

@@ -7,7 +7,7 @@ the settled outcome of a three-round argument with GPT-5.6 over how to close
 H1 — the finding that a catalog-playable character with no authored action set
 works as the worn player and gets an EMPTY kit when seated as player two.
 
-Read [queue-24h-2026-07-26.md](queue-24h-2026-07-26.md) section H for the
+Read `queue-24h-2026-07-26.md` (retired 2026-08-07; read at `9a66996ce~1`) section H for the
 defects; this doc is only the plan.
 
 ## The invariant being bought

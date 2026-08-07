@@ -80,33 +80,35 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     "robot",              // v0: the original
     "goblin",             // melee striker
     "npc_pirate_admiral", // pistol + cutlass
-    // ⛔ **`perfect_cellular_automaton` IS DELIBERATELY ABSENT, and the reason
-    // is a whole-game behaviour change hiding behind one portrait.**
+    // ⛔ **`perfect_cellular_automaton` IS DELIBERATELY ABSENT — and the reason
+    // is NOT what an earlier version of this comment claimed.**
     //
     // This list stopped being only a character-SELECT list on 2026-08-07: it is
     // now also what `register_declared_cast` REGISTERS, because a fighter must
-    // be seatable and only a registered character is. For a character that
-    // exists solely as somebody to WEAR those are the same claim. For one that
-    // is also a HOSTILE WORLD ACTOR they are not — registering a bare
-    // definition makes `apply_worn_character_kit` take the prepared arm and
-    // fight with the row's `default_action_set` instead of the aggressive kit
-    // its ARCHETYPE builds. Everywhere in the game, not just in a match.
+    // be seatable and only a registered character is.
     //
-    // Measured, not reasoned: `duel_arena_room_is_a_real_neutral_attack_defense_fight`
-    // goes from a real brawl to BOTH fighters throwing zero melee swings, and
-    // removing this one id — nothing else — turns it green. Bisected to
-    // `a733ec37e`, the commit that introduced the registration.
+    // ⚠ **the first explanation here was that registering a hostile world actor
+    // replaces its archetype kit with the row's peaceful one. MEASURED AND
+    // FALSE.** The duel arena's two fighters carry byte-identical components
+    // either way — `size`, `hp`, `melee=true`, `attack_range`, `aggro_radius`,
+    // `sprite_character_id`, no `WornCharacter`, no `BrainBinding`. Registering
+    // the PCA changes nothing about the PCA.
     //
-    // ⚠ **the cost is real and reversing it is Jon's call:** the PCA is on
-    // `SMASH_ROSTER`, so the grid is one portrait shorter until a registered
-    // row can carry its archetype's kit. That is the character-authority
-    // campaign — `CharacterCatalog` and `PreparedCharacterRegistry` as ONE
-    // authority — which this landing deliberately did not open.
+    // What it changes is TIMING: one more registered character is one more sheet
+    // demanded at load, and `duel_arena_room_is_a_real_neutral_attack_defense_fight`
+    // starts measuring three frames after room load. With the extra sheet in
+    // flight both fighters throw ZERO melee for a sixty-second bout; settling
+    // 180 frames first turns that into a real fight (melee 4). ⭐ **that a fight
+    // which starts before its sheets land never recovers is the real finding
+    // here, and it is unexamined** — a combat geometry resolved from a missing
+    // sheet appears to stick for the life of the body.
     //
-    // ⚠ `goblin` above is the same SHAPE, a melee-striker world actor, and it
-    // stays: it was on this list before the list meant registration, and
-    // nothing measures it as broken. That is an argument from absence of
-    // evidence and is worth being suspicious of.
+    // So this line is a WORKAROUND holding a fragile instrument green, not a
+    // statement about the PCA, and the cost is real: the PCA is on
+    // `SMASH_ROSTER`, so the grid is one portrait shorter. Reverse it the moment
+    // either the sheet-timing fragility or `duel_arena`'s per-verb thresholds
+    // are dealt with — a longer settle alone is not the answer, it just moves
+    // the failure to the robot's shield count.
     "stochastic_parrot", // the parrot
     "sandbag",           // the training dummy, playable for laughs
     // ── The fighters the smash grid offers ───────────────────────────────────

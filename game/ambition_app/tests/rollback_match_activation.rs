@@ -76,15 +76,7 @@ fn match_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_sync_test_rollback_settings(4, 10)
-            // ⛔ **THE MATCH OWNS THE STAGE.** Without this the composition also
-            // lowers Ambition's home avatar, and that avatar already holds the
-            // session's control channel — so a LOCAL seat asking for one is a
-            // second claimant and `prepare_match` refuses the roster by name.
-            // It used to "work" because seat zero silently ADOPTED the avatar;
-            // deleting that fork is what made this composition sayable, and
-            // saying it is what a real match experience does.
-            .seating_a_match(),
+            .with_sync_test_rollback_settings(4, 10),
     )
     .expect("Ambition GGRS sync-test harness builds")
 }
@@ -301,10 +293,31 @@ use ambition_platformer2d::sim::{Platformer2dSimulationPhaseMonolith, SimSchedul
 use ambition_platformer2d::time::SimTick;
 use bevy::prelude::{Commands, IntoScheduleConfigs, Res, ResMut, Resource};
 
-/// The `SimTick` the roster appears on. Chosen well past `check_distance: 4` so
-/// the restored frame is unambiguously earlier than the activation rather than
-/// arithmetically adjacent to it.
-const ROSTER_ARRIVES_AT: u64 = 12;
+/// How far past the first OBSERVED rewind the roster is scheduled to appear.
+///
+/// ⛔ **not a `SimTick` constant, and the constant is what broke.** This was
+/// `const ROSTER_ARRIVES_AT: SimTick = 12` — "well past `check_distance: 4`" —
+/// and the arithmetic was about the wrong clock. `SimTick` counts every frame
+/// the session world has simulated, including the ~240 the shell spends
+/// activating a route before GGRS is running; the rollback window's own frame
+/// counter starts at zero somewhere inside that. So the roster reliably arrived
+/// two hundred ticks BEFORE anything could rewind, the activation happened
+/// outside the window entirely, and the fixture's own guard said so:
+/// *"no frame earlier than the activation was ever resimulated"*.
+///
+/// ⭐ so the arrival is READ OFF THE RUN, exactly like the crossing this file
+/// already derives that way: step until a resimulated frame proves the window
+/// is live, then schedule the roster a few frames further on. Anything phrased
+/// against `SimTick` is measuring a different clock than the one it reasons
+/// about.
+const ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS: u64 = 8;
+
+/// **The tick the roster is due on, decided once the window is known to be
+/// live.** Deliberately NOT rollback state: a rewind must not un-decide when the
+/// roster was scheduled, or the replay would disagree with the original run
+/// about a fact that is not simulation.
+#[derive(Resource, Default)]
+struct RosterDueAt(Option<u64>);
 
 /// **Every frame that was simulated, and whether the match was live at the end
 /// of it.**
@@ -317,15 +330,16 @@ const ROSTER_ARRIVES_AT: u64 = 12;
 #[derive(Resource, Default)]
 struct ActivationTrace(Vec<(u64, bool)>);
 
-/// The roster as a pure function of `SimTick` — present from
-/// [`ROSTER_ARRIVES_AT`] onward and absent before it.
+/// The roster as a pure function of `SimTick` — present from the tick in
+/// [`RosterDueAt`] onward and absent before it, and absent entirely until the
+/// test body has decided that tick from an observed rewind.
 ///
 /// The `else` branch is the load-bearing half and the easy one to omit: without
 /// it the roster would persist through a rewind to a frame that never had one,
 /// seating would activate early on the replay, and the sync test would report a
 /// divergence that is the fixture's fault rather than the engine's.
-fn the_roster_arrives_on_a_tick(mut commands: Commands, tick: Res<SimTick>) {
-    if tick.get() >= ROSTER_ARRIVES_AT {
+fn the_roster_arrives_on_a_tick(mut commands: Commands, tick: Res<SimTick>, due: Res<RosterDueAt>) {
+    if due.0.is_some_and(|due| tick.get() >= due) {
         commands.insert_resource(two_cpu_roster());
     } else {
         commands.remove_resource::<MatchParticipantRoster>();
@@ -347,18 +361,11 @@ fn late_arriving_roster_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::build(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_sync_test_rollback_settings(4, 10)
-            // ⛔ **THE MATCH OWNS THE STAGE.** Without this the composition also
-            // lowers Ambition's home avatar, and that avatar already holds the
-            // session's control channel — so a LOCAL seat asking for one is a
-            // second claimant and `prepare_match` refuses the roster by name.
-            // It used to "work" because seat zero silently ADOPTED the avatar;
-            // deleting that fork is what made this composition sayable, and
-            // saying it is what a real match experience does.
-            .seating_a_match(),
+            .with_sync_test_rollback_settings(4, 10),
         |app, options| {
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
             app.init_resource::<ActivationTrace>();
+            app.init_resource::<RosterDueAt>();
             let sim = app.sim_schedule();
             app.add_systems(
                 sim,
@@ -373,6 +380,56 @@ fn late_arriving_roster_sim() -> Platformer2dSimHarness {
         },
     )
     .expect("Ambition GGRS sync-test harness builds")
+}
+
+/// **Step until the rollback window is DEMONSTRABLY open, then schedule the
+/// roster just past that point.**
+///
+/// ⛔ the thing this replaces was a constant, and the constant was about the
+/// wrong clock — see [`ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS`]. What proves the
+/// window is open is a RESIMULATED frame: a tick the trace has already recorded
+/// appearing again. Nothing else in reach distinguishes "GGRS is running" from
+/// "GGRS exists but has never had to rewind", and the second one is the state
+/// this fixture kept mistaking for the first.
+///
+/// Panics rather than returning, because a run that never rewinds cannot state
+/// this file's acceptance condition at all and silently degrading to "the match
+/// survived a window it was never inside" is exactly the failure the module
+/// header warns about.
+fn schedule_the_roster_once_the_window_is_open(sim: &mut Platformer2dSimHarness) {
+    let mut highest: Option<u64> = None;
+    for step in 0..600 {
+        sim.step(AgentAction::default());
+        sim.rollback_health()
+            .unwrap_or_else(|error| panic!("settling step {step}: {error}"));
+        let mut rewound_at = None;
+        {
+            let trace = &sim.world_mut().resource::<ActivationTrace>().0;
+            for (frame, _) in trace {
+                match highest {
+                    Some(top) if *frame < top => {
+                        rewound_at = Some(top);
+                        break;
+                    }
+                    Some(top) => highest = Some(top.max(*frame)),
+                    None => highest = Some(*frame),
+                }
+            }
+        }
+        if let Some(top) = rewound_at {
+            let due = top + ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS;
+            sim.world_mut().insert_resource(RosterDueAt(Some(due)));
+            // The trace so far is the SETTLING, not the run under test: keeping
+            // it would make "the first frame with a live match" the wrong frame
+            // and hand the crossing search a haystack of pre-roster history.
+            sim.world_mut().resource_mut::<ActivationTrace>().0.clear();
+            return;
+        }
+    }
+    panic!(
+        "600 steps and no frame was ever resimulated, so the sync-test window \
+         never opened and this fixture cannot state its acceptance condition"
+    );
 }
 
 /// **A rewind that lands BEFORE the activation reconstructs the identical
@@ -395,8 +452,9 @@ fn late_arriving_roster_sim() -> Platformer2dSimHarness {
 #[test]
 fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
     let mut sim = late_arriving_roster_sim();
+    schedule_the_roster_once_the_window_is_open(&mut sim);
 
-    for tick in 0..(ROSTER_ARRIVES_AT as usize + 40) {
+    for tick in 0..(ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS as usize + 40) {
         sim.step(AgentAction::default());
         // Every tick, not once at the end: a divergence ON the activation frame
         // is repaired by later frames agreeing with each other, so a run that
@@ -648,8 +706,6 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         "a two-human roster seated {} bodies under a rollback host",
         seated.len()
     );
-    let (_, body_one) = seated[0];
-    let (_, body_two) = seated[1];
 
     // **THE SEAT SET SURVIVES RESIMULATION.** Every frame here is saved, rewound
     // and resimulated, and activation is inside that window because the roster
@@ -657,34 +713,62 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
     // the first active frame reconstructs the identical roster"*, checked on
     // every tick rather than at the end.
     //
-    // ⚠ the SLOTS, not just the count. A resim that rebuilt two seats numbered
-    // 0 and 0, or swapped which body wore which, would keep the count and lose
-    // the match.
+    // ⚠ the SLOTS AND WHO IS IN THEM, not just the count. A resim that rebuilt
+    // two seats numbered 0 and 0, or swapped which body wore which, would keep
+    // the count and lose the match.
+    //
+    // ⛔ **and the identity compared is the WORN CHARACTER, not the `Entity`.**
+    // This asserted on raw entity ids and failed with `[(0, 184v1), (1, 183v1)]`
+    // against `[(0, 183v0), (1, 184v0)]` — which is not a seating defect at all.
+    // A rewind despawns and respawns the cast, Bevy hands out freed indices
+    // LIFO, so the second body legitimately comes back wearing the first one's
+    // old index. `Entity` is not identity across a rewind; `Rollback` is, and
+    // what this test actually means by "which body wore which" is the fighter.
+    let worn = |sim: &mut Platformer2dSimHarness| -> Vec<(usize, String)> {
+        let world = sim.world_mut();
+        let mut q = world.query::<(
+            &MatchSeat,
+            &ambition_platformer2d::characters::actor::WornCharacter,
+        )>();
+        let mut rows: Vec<(usize, String)> = q
+            .iter(world)
+            .map(|(seat, worn)| (seat.0, worn.id().to_string()))
+            .collect();
+        rows.sort();
+        rows
+    };
+    let cast = worn(&mut sim);
+    assert_eq!(
+        cast.len(),
+        2,
+        "the two seated bodies must each wear a character; got {cast:?}"
+    );
     for tick in 0..30 {
         sim.step(AgentAction::default());
         sim.rollback_health()
             .unwrap_or_else(|error| panic!("holding the seats, tick {tick}: {error}"));
-        let world = sim.world_mut();
-        let mut q = world.query::<(bevy::prelude::Entity, &MatchSeat)>();
-        let mut now: Vec<(usize, bevy::prelude::Entity)> =
-            q.iter(world).map(|(e, s)| (s.0, e)).collect();
-        now.sort_by_key(|(slot, _)| *slot);
         assert_eq!(
-            now, seated,
+            worn(&mut sim),
+            cast,
             "tick {tick}: the seat set changed under resimulation — two humans \
-             seated at activation must be the same two bodies in the same slots \
-             after every rewind"
+             seated at activation must be the same two fighters in the same \
+             slots after every rewind"
         );
     }
 
-    let x = |sim: &mut Platformer2dSimHarness, body| {
-        sim.world_mut()
-            .get::<BodyKinematics>(body)
+    // ⚠ resolved from the SEAT every time, never cached. A cached `Entity`
+    // survives a rewind as a stale handle that may now name the other fighter —
+    // the same recycling that broke the assertion above, one step more subtle
+    // because it reads a plausible number instead of failing.
+    let x = |sim: &mut Platformer2dSimHarness, slot: usize| {
+        let world = sim.world_mut();
+        let mut q = world.query::<(&MatchSeat, &BodyKinematics)>();
+        q.iter(world)
+            .find(|(seat, _)| seat.0 == slot)
+            .map(|(_, kin)| kin.pos.x)
             .expect("a seated body has kinematics")
-            .pos
-            .x
     };
-    let (start_one, start_two) = (x(&mut sim, body_one), x(&mut sim, body_two));
+    let (start_one, start_two) = (x(&mut sim, 0), x(&mut sim, 1));
 
     // Seat TWO walks right, through the seat-frame seam. Seat one is untouched.
     for tick in 0..40 {
@@ -699,8 +783,8 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         sim.rollback_health()
             .unwrap_or_else(|error| panic!("driving seat two, tick {tick}: {error}"));
     }
-    let moved_two = x(&mut sim, body_two) - start_two;
-    let moved_one = x(&mut sim, body_one) - start_one;
+    let moved_two = x(&mut sim, 1) - start_two;
+    let moved_one = x(&mut sim, 0) - start_one;
     assert!(
         moved_two.abs() > 1.0,
         "seat two authored 40 frames of right and its fighter moved {moved_two:.2}px \
@@ -712,10 +796,6 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
          {moved_two:.2}px): the two seats share an input path"
     );
 }
-
-/// The `SimTick` a TWO-HUMAN roster appears on — same reasoning as
-/// [`ROSTER_ARRIVES_AT`], comfortably past `check_distance: 4`.
-const HUMAN_ROSTER_ARRIVES_AT: u64 = 12;
 
 /// `count` HUMAN participants, from the ids a plain sandbox actually prepares.
 fn human_roster(count: usize) -> MatchParticipantRoster {
@@ -752,8 +832,12 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
 /// So the roster is a pure function of `SimTick` in the SAME shape the
 /// activation fixture uses — absent, then present — and what is new here is that
 /// its participants are HUMAN.
-fn the_human_roster_arrives_on_a_tick(mut commands: Commands, tick: Res<SimTick>) {
-    if tick.get() >= HUMAN_ROSTER_ARRIVES_AT {
+fn the_human_roster_arrives_on_a_tick(
+    mut commands: Commands,
+    tick: Res<SimTick>,
+    due: Res<RosterDueAt>,
+) {
+    if due.0.is_some_and(|due| tick.get() >= due) {
         commands.insert_resource(human_roster(2));
     } else {
         commands.remove_resource::<MatchParticipantRoster>();
@@ -778,11 +862,19 @@ fn late_arriving_human_roster_sim() -> Platformer2dSimHarness {
             .with_rollback_players(2),
         |app, options| {
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
+            app.init_resource::<ActivationTrace>();
+            app.init_resource::<RosterDueAt>();
             let sim = app.sim_schedule();
             app.add_systems(
                 sim,
-                the_human_roster_arrives_on_a_tick
-                    .before(ambition_platformer2d::actors::character_runtime::prepare_the_match),
+                (
+                    the_human_roster_arrives_on_a_tick.before(
+                        ambition_platformer2d::actors::character_runtime::prepare_the_match,
+                    ),
+                    // The trace is not decoration here: the settling helper reads
+                    // it to decide when the rollback window is demonstrably open.
+                    trace_the_activation.in_set(Platformer2dSimulationPhaseMonolith::Trace),
+                ),
             );
             Ok(())
         },
@@ -807,6 +899,7 @@ fn late_arriving_human_roster_sim() -> Platformer2dSimHarness {
 #[test]
 fn rewinds_across_a_two_human_activation_and_reconstructs_both_seats() {
     let mut sim = late_arriving_human_roster_sim();
+    schedule_the_roster_once_the_window_is_open(&mut sim);
 
     let seat_slots = |sim: &mut Platformer2dSimHarness| -> Vec<usize> {
         let world = sim.world_mut();
@@ -817,7 +910,7 @@ fn rewinds_across_a_two_human_activation_and_reconstructs_both_seats() {
     };
 
     let mut saw_the_unseated_phase = false;
-    for tick in 0..(HUMAN_ROSTER_ARRIVES_AT as usize + 40) {
+    for tick in 0..(ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS as usize + 40) {
         sim.step(AgentAction::default());
         sim.rollback_health()
             .unwrap_or_else(|error| panic!("tick {tick}: {error}"));

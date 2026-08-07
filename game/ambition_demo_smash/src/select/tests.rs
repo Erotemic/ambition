@@ -134,27 +134,50 @@ fn a_single_decided_slot_never_starts_a_battle() {
     assert!(select.roster(&fighters()).is_none());
 }
 
-/// **A match nobody is in is not one anybody asked for.**
+/// **Two CPUs ARE a match, and a person can join them.**
 ///
-/// A CPU slot is decided the moment it has a character, so two of them satisfy
-/// "everyone participating has picked, and at least two do" — the screen would
-/// start a fight between two machines while the player who set them up had not
-/// chosen anybody.
+/// Jon, 2026-08-06: *"it does not let me make a CPU vs CPU match, and it is very
+/// important that that is expressible and easy to do."*
+///
+/// ⛔ **this test asserted the opposite until 2026-08-07, and stayed red for a
+/// day.** `ready()` had a third clause — `humans_decided() >= 1` — removed on
+/// that instruction; the test that pinned the clause was left behind, still
+/// demanding a blocker string (`"At least one slot must be a controller
+/// player"`) that no longer exists anywhere in the source. ⚠ a red test whose
+/// expected value is absent from the tree is the tell: it is describing a
+/// version of the product that was decided against, not a fix that is owed.
+///
+/// It is kept rather than deleted because its second half was always right, and
+/// because Jon's rule deserves a pin at THIS level — until now the only thing
+/// asserting CPU-vs-CPU was the host-level `two_cpus_can_fight_each_other`,
+/// which cannot fail for a reason as small as `ready()` growing a clause back.
 #[test]
-fn two_cpus_and_nobody_playing_is_not_a_match() {
+fn two_cpus_are_a_match_and_a_person_can_join_them() {
     let mut select = SmashSelect::default();
     for slot in [0, 1] {
         select.set_occupant(slot, SlotOccupant::Cpu);
         select.seed_pick(slot, &fighters());
     }
     assert_eq!(select.cpus(), 2);
-    assert!(!select.ready(), "a match with no people in it started");
-    assert!(select.roster(&fighters()).is_none());
+    assert!(
+        select.ready(),
+        "a CPU-vs-CPU match could not start, which Jon asked for by name"
+    );
     assert_eq!(
         select.blocker(),
-        Some("At least one slot must be a controller player")
+        None,
+        "the screen named an obstacle to a match that is allowed to start"
+    );
+    assert_eq!(
+        select
+            .roster(&fighters())
+            .expect("two decided CPUs are a match")
+            .participants
+            .len(),
+        2
     );
 
+    // ...and a person joining does not displace them.
     select.set_occupant(2, SlotOccupant::Controller { device: 0 });
     select.set_pick(2, 2);
     assert!(select.ready());

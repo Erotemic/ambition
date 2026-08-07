@@ -16,12 +16,12 @@
 //! this one opens character select, which is a frontend route of the provider's
 //! own, and the stage arrives only once the screen has decided.
 
-use bevy::MinimalPlugins;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
+use bevy::MinimalPlugins;
 
 use ambition_app::app::shell_host;
 use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
@@ -1334,8 +1334,8 @@ fn a_person_against_a_cpu_starts_a_two_fighter_match() {
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 1); // the person takes the only source
     cycle_role(&mut app, 1, 1); // no source left, so: CPU
-    // Two DIFFERENT fighters, so this proves two characters seat rather than
-    // that one character seats twice — see `OTHER_PREPARED_FIGHTER`.
+                                // Two DIFFERENT fighters, so this proves two characters seat rather than
+                                // that one character seats twice — see `OTHER_PREPARED_FIGHTER`.
     pick_fighter(&mut app, 0, PREPARED_FIGHTER);
     pick_fighter(&mut app, 1, OTHER_PREPARED_FIGHTER);
 
@@ -1376,10 +1376,10 @@ fn a_cpu_ordered_before_the_person_still_starts_the_match() {
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 2); // Absent → Controller → CPU, freeing the source
     cycle_role(&mut app, 1, 1); // …which the person then takes
-    // ⚠ **DIFFERENT fighters, and that is the whole case.** The dressing system
-    // points the primary body at `participants.first()`; with both seats on one
-    // character it lands on the right costume by luck and this test passes while
-    // proving nothing. It did exactly that on its first run.
+                                // ⚠ **DIFFERENT fighters, and that is the whole case.** The dressing system
+                                // points the primary body at `participants.first()`; with both seats on one
+                                // character it lands on the right costume by luck and this test passes while
+                                // proving nothing. It did exactly that on its first run.
     pick_fighter(&mut app, 0, OTHER_PREPARED_FIGHTER);
     pick_fighter(&mut app, 1, PREPARED_FIGHTER);
 
@@ -1433,11 +1433,14 @@ fn a_catalog_only_fighter_gets_an_answer_rather_than_a_deadlock() {
 /// *"it does not let me make a CPU vs CPU match, and it is very important that
 /// that is expressible and easy to do."*
 ///
-/// `SmashSelect::ready()` requires `humans_decided() >= 1`, so START is inert.
-/// That clause reads like product policy and is really an engine limitation
-/// wearing a rationale: with no human seat, nothing adopts the session's home
-/// body, and the stage would open with an unowned controllable actor standing
-/// beside the match.
+/// ⚠ **written when this FAILED, and the tense matters.** `SmashSelect::ready()`
+/// USED TO require `humans_decided() >= 1`, so START was inert. That clause read
+/// like product policy and was really an engine limitation wearing a rationale:
+/// with no human seat nothing adopted the session's home body, and the stage
+/// would open with an unowned controllable actor standing beside the match. Both
+/// are fixed — the adoption where it belongs, in how a match builds its cast,
+/// and the clause is gone. Left in the past tense rather than deleted because
+/// the reason a rule was dropped is the part that stops it coming back.
 #[test]
 fn two_cpus_can_fight_each_other() {
     let mut app = open_the_lobby();

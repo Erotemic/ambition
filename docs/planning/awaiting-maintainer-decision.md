@@ -1118,3 +1118,58 @@ refactor anyone should pick unilaterally.
 `a_transit_takes_its_convention_from_tuning_not_the_process_global` asserts the
 global is at its default before it runs, so the first test that writes it turns
 the contamination into a failure with a name.
+
+---
+
+## Does the Perfect Cellular Automaton fly when it fights? (raised 2026-08-07)
+
+Promoted out of [`review-gpt56-through-32eb27a.md`](review-gpt56-through-32eb27a.md)
+P5, where it was recorded as *"the fix is not a resolution rule, it is a
+DECISION"* and then sat in a review ledger rather than where decisions are read.
+
+⭐ **it became a clean two-way question today**, because the type change that made
+it expressible landed: `ArchetypeSpec::is_aerial` is `Option<bool>` now, so an
+archetype can say *grounded* distinctly from saying nothing.
+
+### The two answers, both of them stated in content
+
+| source | says | read by |
+|---|---|---|
+| `character_catalog.ron` — `body_kind: Floating` | it FLIES | `new_peaceful_npc_in` (the NPC placement path) |
+| `character_archetypes.ron` — `is_aerial: Some(false)` | it is GROUNDED | the hostile `EnemySpawn` path, and the duel arena |
+
+⛔ **so this is not a silence to resolve with a precedence rule.** Before today it
+looked like one — a bare `bool` could not distinguish "the archetype says
+grounded" from "the archetype never said", so "the catalog wins when the
+archetype is silent" was a plausible fix. It is not available: somebody authored
+`false`. Two authors said opposite things and both meant it.
+
+**What it costs either way.** The PCA is a shipped fighter and the duel arena
+plays it grounded (`actor_movement_tests` asserts exactly that, and now asserts
+`Some(false)` so the deliberateness is pinned). Making it fly changes a shipped
+fight; making the catalog's `Floating` a lie changes what a Hall visitor sees.
+
+**The decision:**
+
+* **(a) it flies** — the catalog is right, and `cellular_automaton_fighter` should
+  author `Some(true)`. ⚠ changes the duel; `actor_movement_tests`' two assertions
+  are the ones that go red, and they would be recording the new answer rather
+  than a regression.
+* **(b) it is grounded** — the archetype is right, and the catalog's `body_kind`
+  should stop saying `Floating` for this character. Cheapest, and it matches what
+  ships today.
+* **(c) it is BOTH, legitimately** — a body that floats as scenery and fights on
+  the ground. Then neither source is wrong and what is missing is that the two
+  paths do not know they are answering different questions; the fix is a name,
+  not a value.
+
+⚠ **weak recommendation: (b)**, purely because it is what the shipped game does
+and the change is one authored word. But (c) is the interesting one — the PCA is a
+cellular automaton, and "floats when idle, grounds to brawl" is a real character
+idea rather than a reconciliation. That is a design call and it is why this is
+here rather than in a queue.
+
+⭐ **what does NOT need the answer**, and is already done: the type change, so the
+contradiction is expressible; and the note that assembly must not REJECT
+contradictions until this is settled, because rejecting would refuse the PCA
+today.

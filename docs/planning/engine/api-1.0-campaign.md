@@ -280,7 +280,7 @@ merging; a green result closes most of the slice, a red one is a finding.
 Each is a scar, not an aspiration.
 
 1. **One authority, migrate, delete, guard.** From
-   [architecture-campaign-2026-07-28.md](../architecture-campaign-2026-07-28.md):
+   [architecture-campaign-2026-07-28.md](../../archive/architecture-campaign-2026-07-28.md):
    *"Introduce one authority, migrate all production consumers, delete the
    displaced authority, and guard the absence. Every one of the five parts is
    required."*

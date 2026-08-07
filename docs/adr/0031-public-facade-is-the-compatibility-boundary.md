@@ -195,7 +195,7 @@ gravitate to whatever the new integration crate is.
 
 **Write a capability-composition doctrine document first.** Rejected on
 evidence. The previous large architecture document
-([`../planning/architecture-campaign-2026-07-28.md`](../planning/architecture-campaign-2026-07-28.md))
+([`../planning/architecture-campaign-2026-07-28.md`](../archive/architecture-campaign-2026-07-28.md))
 is eight days old and now opens with a SUPERSEDED banner: its reasoning survived,
 every status claim rotted within a week. A growth law written after three real
 migrations is a description; written before, it is a prediction. The method for

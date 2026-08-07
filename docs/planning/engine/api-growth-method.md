@@ -6,7 +6,7 @@ how to know when the campaign is over.
 
 That separation exists because of a measured failure. The last large
 architecture document here
-([architecture-campaign-2026-07-28.md](../architecture-campaign-2026-07-28.md))
+([architecture-campaign-2026-07-28.md](../../archive/architecture-campaign-2026-07-28.md))
 is eight days old and opens with a SUPERSEDED banner: its *reasoning* survived,
 every *status claim* rotted within a week. A document that predicts five slices
 is a document whose last four are wrong. A document that describes how to

@@ -634,7 +634,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
 
     # The WEB build, as a compile CHECK rather than a test run: there is no wasm
     # runner here, and a check is what the failure mode needs anyway. The web
-    # target sat broken for at least four days (see docs/planning/repair_wasm.md)
+    # target sat broken for at least four days (see docs/archive/repair_wasm.md)
     # because nothing in the suite compiled it — every native job stayed green
     # while `--features web` had four errors in it.
     #

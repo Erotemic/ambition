@@ -208,11 +208,73 @@ singleton has readers that do not look like readers.
   asserting something else entirely and should take the least interesting path
   through the new API.
 
-## Open question for Jon
+## DECIDED: per route (Jon, 2026-08-07)
 
-**Should a provider's frontend profile cover every frontend route it owns, or be
-declared per route?** Smash has one frontend experience today
-(`smash.select`), so per-experience is sufficient and simpler. Per-route becomes
-interesting when a provider has a lobby AND a results screen that want different
-music. The plan above is per-experience; per-route is the same lookup one key
-narrower, and can follow if it is ever wanted.
+Keyed by `ShellRouteId`, not `ShellExperienceId`. Everything above holds with the
+key one notch narrower, and it is genuinely one notch: `ActiveShellExperience`
+carries **both** (`router.rs:117-119`), so the lookup reads `activation.route_id`
+and nothing else moves.
+
+⭐ **and per-route is the more honest key anyway**, which the measurement below
+makes plain: one experience is already reached by five different routes, so
+"per experience" would have meant five screens sharing one answer — a smaller
+version of the same singleton this plan exists to delete.
+
+The host default stays the fallback for a route that declares nothing.
+
+---
+
+# Appendix: the vocabulary, because it does not mean what it looks like
+
+Jon, 2026-08-07: *"I'm not sure I like the terms experience and route. The idea
+is experience is the game itself, and route is a some screen or menu or system in
+that game?"*
+
+**That is not what the code means, and the gap is worth naming before the rename
+is decided.** Measured 2026-08-07:
+
+| term | what it actually is | evidence |
+|---|---|---|
+| **provider** | who AUTHORED the content | `AMBITION_CONTENT_PROVIDER`; audio fragments, characters and SFX are all keyed by it |
+| **experience** | a runnable KIND the shell knows how to start | `BASIC_LAUNCHER_EXPERIENCE` is ONE experience reached by FIVE routes — Ambition's launcher, Sanic's, Mary-O's, the provider composition's, and a test's |
+| **route** | a navigable ADDRESS that names an experience | `SMASH_SELECT_ROUTE` → `SMASH_SELECT_EXPERIENCE` |
+
+So the three facts are: **who wrote it**, **what kind of thing it is**, and
+**how you get there**. Under Jon's reading there are two, and "experience" is
+carrying the first one.
+
+Two concrete places the mismatch already shows:
+
+* **Smash-the-game is not one experience.** It is two (`smash`, `smash.select`)
+  plus a provider. A person asking "what is smash's frontend audio" is asking a
+  question the vocabulary cannot phrase.
+* **Provider and experience are the same string in most call sites.** Smash's
+  audio fragment registers under `SMASH_EXPERIENCE`, and
+  `translate_shell_session_lifecycle` (`session.rs:570`) even defaults the audio
+  provider to `activation.experience_id` when a profile names none. They are
+  distinct concepts that happen to agree today, which is exactly how a
+  distinction gets quietly lost.
+
+## What I would rename, if we rename
+
+⚠ **not part of the audio change.** That should land keyed by route whatever the
+words are; this is a separate campaign and a large one (three nouns, every
+provider, the shell's whole public surface).
+
+* `provider` → **game**. It already means that, and "provider" is the only one of
+  the three that a player would never say.
+* `experience` → **surface**. A thing the shell can put on screen and run: a
+  launcher surface, a select surface, a gameplay surface. It stops the word
+  "experience" from being read as "the game", which is the actual complaint.
+* `route` → keep. An address in a navigation graph is a route; the word is
+  standard and it is the one term that already means what it says.
+
+That gives: **a game owns surfaces; a route is how you reach one.** Which is
+Jon's two-level model with the middle term made visible instead of overloaded.
+
+⚠ **the alternative worth considering is deleting a concept rather than renaming
+one.** If every route named its own experience 1:1, "experience" would be pure
+overhead and route alone would do. The five-launchers-one-experience case is the
+only thing standing in the way — and it exists because five hosts each want their
+own launcher ADDRESS while sharing one launcher IMPLEMENTATION. That is a real
+distinction, so the concept earns its place; it is the NAME that does not.

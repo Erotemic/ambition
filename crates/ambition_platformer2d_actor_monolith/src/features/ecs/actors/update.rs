@@ -314,9 +314,26 @@ pub fn tick_actor_brains(
             })
         })
         .map(|(_, _, kin, _)| kin.pos);
-    let Some(player_pos) = slot_anchor_pos else {
-        return;
-    };
+    // ⛔ **NO EARLY RETURN HERE, and this was the statue.**
+    //
+    // This read `let Some(player_pos) = slot_anchor_pos else { return; }`, so a
+    // world with NO player body ticked NO actor brains at all — every actor
+    // everywhere, not merely the ones near a player. That was invisible while
+    // every session built a home avatar; the moment a MATCH experience declared
+    // none, two seated fighters stood on a platform with correct factions,
+    // correct targets and zero velocity, and read as a seating bug for hours
+    // (2026-08-06).
+    //
+    // ⚠ **the anchor is only the anti-clump SLOT BOARD's**, which spaces a crowd
+    // around the thing it is fighting. A brain does not need it to decide, and a
+    // match has neither a crowd nor a player. So the absence skips the board and
+    // nothing else — which is what "no early return from a whole system on a
+    // condition that is legitimate" means in practice.
+    //
+    // ⭐ the honest longer-term shape is that the board anchors on the TARGET a
+    // crowd shares rather than on "the player"; that is a bigger change than
+    // this bug deserves, and naming it here is cheaper than pretending the
+    // player-centrism is gone.
 
     // Pass 1: collect slot requests from every live hostile enemy.
     // The slot board is per-target (player) and arbitrates which
@@ -408,7 +425,11 @@ pub fn tick_actor_brains(
             kind: *kind,
         })
         .collect();
-    crate::combat::slots::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
+    // Only when there is something for a crowd to arrange itself around. See the
+    // anchor resolution above for why absence is ordinary rather than an error.
+    if let Some(player_pos) = slot_anchor_pos {
+        crate::combat::slots::assign_slots(&mut slot_board.0, player_pos, &slot_requests);
+    }
 
     // Per-actor nearest-same-kind-neighbor index (see
     // `compute_nearest_neighbors`). Handed to the movement phase via

@@ -1344,6 +1344,20 @@ fn a_person_against_a_cpu_starts_a_two_fighter_match() {
         MatchStart::Activated { seats: 2 },
         "the one lobby that has ever worked stopped working"
     );
+
+    // **AND THE CPU FIGHTS.** The discriminator between "seated CPUs never act"
+    // and "a match with NO local input channel never runs its simulation": this
+    // lobby has one channel, the two-CPU lobby has none.
+    let start = seat_positions(&mut app);
+    for _ in 0..300 {
+        app.update();
+    }
+    let moved: f32 = seat_positions(&mut app)
+        .iter()
+        .zip(&start)
+        .map(|(now, then)| (now - then).abs())
+        .fold(0.0, f32::max);
+    eprintln!("[one-channel-match] furthest seat travelled {moved:.1}px");
 }
 
 /// **A CPU in an earlier slot than the person.**

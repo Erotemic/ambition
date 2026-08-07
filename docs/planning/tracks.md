@@ -578,6 +578,12 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     SimId + Name`) whose components are REGISTERED as rollback state while the
     entity carries no rollback anchor — so the registration is a claim the
     engine does not honour. It exists only under the shell.
+    ⭐ **MOVED TO [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)
+    (2026-08-07)** — *"Is a SESSION scope marker construction provenance, the way
+    a ROOM scope marker is?"* It stopped being an engineering question the moment
+    it narrowed to one component, and the full write-up lives there so it is not
+    restated in two places that can drift. Kept here in summary because the
+    sweep is what found it.
     ⭐⭐ **NARROWED to one component, 2026-08-07.** Five of the six are in
     `PROVENANCE_ONLY` — `SpawnOrigin`, `TransactionId`, `SimId`,
     `RoomScopedEntity`, `Name` — so they are skipped by the RULE rather than by a

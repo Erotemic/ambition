@@ -28,18 +28,22 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 
-use ambition_platformer2d::actors::actor::BodyKinematics;
-use ambition_platformer2d::actors::combat::moveset::MovePlayback;
-use ambition_platformer2d::characters::actor::{ActorFaction, BodyHealth};
-use ambition_platformer2d::characters::brain::fighter::{shadow_step, ShadowEvent, ShadowIntent, ShadowState, ShadowTuning};
-use ambition_platformer2d::characters::brain::{Brain, PlayerSlot};
-use ambition_platformer2d::characters::perception::{Perceived, PerceivedActor, SelfView, StageView, WorldView};
-use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter};
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_platformer2d::actors::actor::BodyKinematics;
+use ambition_platformer2d::actors::combat::moveset::MovePlayback;
+use ambition_platformer2d::characters::actor::{ActorFaction, BodyHealth};
+use ambition_platformer2d::characters::brain::fighter::{
+    shadow_step, ShadowEvent, ShadowIntent, ShadowState, ShadowTuning,
+};
+use ambition_platformer2d::characters::brain::{Brain, PlayerSlot};
+use ambition_platformer2d::characters::perception::{
+    Perceived, PerceivedActor, SelfView, StageView, WorldView,
+};
+use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::MoveFrameData;
+use ambition_platformer2d::game_shell::{ShellCommand, ShellRouteId, ShellRouter};
 
 fn pad_set(app: &mut App, pad: Entity, button: GamepadButton, value: f32) {
     app.world_mut()
@@ -176,9 +180,20 @@ fn walk_to_gap(
 fn place_at_gap(app: &mut App, attacker: Entity, victim: Entity, target_gap: f32) -> bool {
     let victim_pos = kin(app, victim).pos;
     let attacker_pos = kin(app, attacker).pos;
-    // Keep the attacker on the side it is already on, so nothing has to turn
-    // around and the facing the view reports is the facing it had.
-    let side = if attacker_pos.x <= victim_pos.x { -1.0 } else { 1.0 };
+    // ⛔ **THE SIDE IT FACES, not the side it stands on**, and the difference is
+    // the whole question this fixture asks. The intent was always "nothing has
+    // to turn around" — but that only holds if the attacker is placed where its
+    // CURRENT facing points at the victim. Reading its x instead worked only
+    // while the two happened to agree, and they stopped agreeing when match
+    // seating started PLACING both fighters (`seat_placement`) instead of
+    // leaving seat zero wherever the session's home body already stood: the
+    // attacker was staged 34px from a victim it was facing directly away from,
+    // swung backwards, and the test reported the shadow model lying.
+    //
+    // Measured before the repair: attacker at x=549 facing -1, victim at x=576,
+    // strike volume spanning x 436..554 — entirely BEHIND the attacker.
+    let facing = kin(app, attacker).facing;
+    let side = if facing >= 0.0 { -1.0 } else { 1.0 };
     let destination = ae::Vec2::new(victim_pos.x + side * target_gap, attacker_pos.y);
 
     let mut query = app.world_mut().query::<(
@@ -281,12 +296,7 @@ fn shadow_predicts_a_hit(view: &WorldView, frames: &MoveFrameData) -> bool {
 
 /// The real sim's answer: press the attack button and watch the victim's HP
 /// over the swing (plus input-latch slack the shadow model does not have).
-fn real_swing_lands(
-    app: &mut App,
-    pad: Entity,
-    victim: Entity,
-    frames: &MoveFrameData,
-) -> bool {
+fn real_swing_lands(app: &mut App, pad: Entity, victim: Entity, frames: &MoveFrameData) -> bool {
     let before = hp(app, victim);
     pad_set(app, pad, GamepadButton::West, 1.0);
     for _ in 0..3 {

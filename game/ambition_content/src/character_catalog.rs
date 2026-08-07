@@ -75,14 +75,40 @@ pub fn register(app: &mut bevy::prelude::App) {
 /// cast is not a variant mechanism, it is three characters that happen to
 /// share a face.
 pub const PLAYABLE_ROSTER: &[&str] = &[
-    "player_robot_v3",            // the player robot, v3 (current)
-    "player_robot_v2",            // v2: the build before the SVG rig
-    "robot",                      // v0: the original
-    "goblin",                     // melee striker
-    "npc_pirate_admiral",         // pistol + cutlass
-    "perfect_cellular_automaton", // the PCA (Fable extension target)
-    "stochastic_parrot",          // the parrot
-    "sandbag",                    // the training dummy, playable for laughs
+    "player_robot_v3",    // the player robot, v3 (current)
+    "player_robot_v2",    // v2: the build before the SVG rig
+    "robot",              // v0: the original
+    "goblin",             // melee striker
+    "npc_pirate_admiral", // pistol + cutlass
+    // ⛔ **`perfect_cellular_automaton` IS DELIBERATELY ABSENT, and the reason
+    // is a whole-game behaviour change hiding behind one portrait.**
+    //
+    // This list stopped being only a character-SELECT list on 2026-08-07: it is
+    // now also what `register_declared_cast` REGISTERS, because a fighter must
+    // be seatable and only a registered character is. For a character that
+    // exists solely as somebody to WEAR those are the same claim. For one that
+    // is also a HOSTILE WORLD ACTOR they are not — registering a bare
+    // definition makes `apply_worn_character_kit` take the prepared arm and
+    // fight with the row's `default_action_set` instead of the aggressive kit
+    // its ARCHETYPE builds. Everywhere in the game, not just in a match.
+    //
+    // Measured, not reasoned: `duel_arena_room_is_a_real_neutral_attack_defense_fight`
+    // goes from a real brawl to BOTH fighters throwing zero melee swings, and
+    // removing this one id — nothing else — turns it green. Bisected to
+    // `a733ec37e`, the commit that introduced the registration.
+    //
+    // ⚠ **the cost is real and reversing it is Jon's call:** the PCA is on
+    // `SMASH_ROSTER`, so the grid is one portrait shorter until a registered
+    // row can carry its archetype's kit. That is the character-authority
+    // campaign — `CharacterCatalog` and `PreparedCharacterRegistry` as ONE
+    // authority — which this landing deliberately did not open.
+    //
+    // ⚠ `goblin` above is the same SHAPE, a melee-striker world actor, and it
+    // stays: it was on this list before the list meant registration, and
+    // nothing measures it as broken. That is an argument from absence of
+    // evidence and is worth being suspicious of.
+    "stochastic_parrot", // the parrot
+    "sandbag",           // the training dummy, playable for laughs
     // ── The fighters the smash grid offers ───────────────────────────────────
     //
     // ⭐ **"a character this game offers as a WORN BODY is one this game can

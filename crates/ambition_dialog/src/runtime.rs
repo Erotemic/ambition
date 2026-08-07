@@ -12,7 +12,7 @@
 //! The pending-request seam keeps UI/gameplay callers independent of Bevy runner
 //! queries while giving one system ownership of runner access.
 
-use bevy::prelude::{Entity, Resource};
+use bevy::prelude::Resource;
 
 use crate::content::DialogChoice;
 use crate::context::DialogueContext;
@@ -52,29 +52,14 @@ pub struct DialogState {
     /// conversation. Empty when no conversation is active.
     dialogue_id: String,
 
-    /// The actor entity that opened this conversation, if it came from an
-    /// in-world NPC interaction. `None` for scripted / system-started
-    /// dialogue with no speaker actor. Yarn commands that act on "the NPC
-    /// I'm talking to" (e.g. `<<challenge>>` provoking it into a fight)
-    /// read this. Cleared on every `start()` so a stale entity from a
-    /// prior conversation can't leak into the next one.
-    pub(crate) speaker_entity: Option<Entity>,
-
-    /// The actor entity that WALKED UP AND STARTED IT — the other participant.
-    ///
-    /// ⛔ **a conversation had only one of its two participants**, which is fine
-    /// while the world stops for it and impossible once it does not. Jon's
-    /// continuity design (`docs/planning/engine/dialogue-continuity.md`) asks
-    /// questions about BOTH bodies — how far apart are they, can each hold
-    /// station, was either one hit — and none of them could be asked of a name.
-    ///
-    /// ⚠ **`speaker_entity` is the NPC and this is the initiator, but at the
-    /// interaction site `speaker_id` is the INITIATOR's id.** The two spellings
-    /// of "speaker" mean opposite things and always have. That is why this field
-    /// is not called `listener_entity`: it would inherit the same collision from
-    /// the other side. Ask [`Self::participants`] and avoid the word.
-    pub(crate) initiator_entity: Option<Entity>,
-
+    // ⛔ **the two participant entities LIVED HERE and no longer do.** They were
+    // the simulation's only record of who was talking, in a resource rollback
+    // does not rewind; `ambition_platformer2d_actor_monolith::conversation::
+    // ActiveConversation` owns them now and IS rewound. ⚠ the landmine this used
+    // to carry is worth keeping written down: `speaker_entity` meant the NPC
+    // while the interaction site's `speaker_id` meant the body that walked UP.
+    // The two spellings of "speaker" mean opposite things; the authority avoids
+    // the word entirely and says `talker` / `initiator`.
     /// Stable character id of the conversation endpoint that opened this
     /// dialogue. Copied from `DialogueContext.listener_id`; empty for scripted
     /// conversations without an identified endpoint.
@@ -216,8 +201,6 @@ impl DialogState {
         // A fresh conversation has no known speaker actor until the caller
         // sets one via `set_speaker_entity`. Clearing here prevents a stale
         // entity from a prior dialogue leaking into a system-started one.
-        self.speaker_entity = None;
-        self.initiator_entity = None;
         self.conversation_character_id = context.listener_id.clone();
         self.presented_speaker_character_id.clear();
         self.portrait_clip.clear();
@@ -276,48 +259,6 @@ impl DialogState {
     /// + the Yarn root node name). Empty when inactive.
     pub fn dialogue_id(&self) -> &str {
         &self.dialogue_id
-    }
-
-    /// Record the actor entity that opened this conversation. Called by the
-    /// interaction system right after `start()` so Yarn commands can act on
-    /// "the NPC I'm talking to".
-    pub fn set_speaker_entity(&mut self, entity: Entity) {
-        self.speaker_entity = Some(entity);
-    }
-
-    /// The actor entity that opened this conversation, if any. `None` for
-    /// scripted dialogue with no in-world speaker.
-    pub fn speaker_entity(&self) -> Option<Entity> {
-        self.speaker_entity
-    }
-
-    /// Record the actor entity that started this conversation — the body that
-    /// walked up and pressed Interact. Called beside [`Self::set_speaker_entity`].
-    pub fn set_initiator_entity(&mut self, entity: Entity) {
-        self.initiator_entity = Some(entity);
-    }
-
-    /// The body that started this conversation, if it came from an in-world
-    /// interaction.
-    pub fn initiator_entity(&self) -> Option<Entity> {
-        self.initiator_entity
-    }
-
-    /// **Both bodies in this conversation.**
-    ///
-    /// The seam the continuity rules read. ⭐ deliberately SYMMETRIC and
-    /// unordered-in-meaning: Jon's rule is *"both characters should hover"*, not
-    /// "the NPC waits for the player", so anything asking whether a conversation
-    /// can continue must ask it of each participant the same way. A caller that
-    /// reaches for `speaker_entity` alone has already reintroduced the
-    /// player-centrism.
-    ///
-    /// Empty for scripted dialogue that no in-world body started — which reads
-    /// correctly as "nothing here can walk away from anything".
-    pub fn participants(&self) -> impl Iterator<Item = Entity> + '_ {
-        [self.initiator_entity, self.speaker_entity]
-            .into_iter()
-            .flatten()
     }
 
     /// Human-facing speaker label for the current line. Falls back to the

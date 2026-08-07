@@ -130,6 +130,14 @@ marker would still skip restoring the override. The gate has to ask whether the
 body is FULLY held (both components), which makes every half-state self-repairing
 without knowing which half went missing.
 
+⭐ **a rule fell out of this that is worth keeping: whether the authority may be
+`Option` depends on whether the system OWNS it or observes it.** A system that
+OPENS a conversation takes a hard `Res` — absence is a mis-composition and must
+fail loudly, which is what four fixtures found out. A system that merely reads
+whose conversation it is takes `Option` and treats absence as "no conversation",
+because that is a true answer rather than a waiver. The Bevy param panic
+recommends `Option<T>` for both, and it is right about only one.
+
 **Follow-ups this turned up** (rows, not asides):
 
 - ▢ **the narrative→sim edge is still a non-rewound read.**
@@ -168,7 +176,7 @@ WITH the manifest.
 
 ---
 
-## R2 — participant-specific dialogue ownership ▢
+## R2 — participant-specific dialogue ownership ✔
 
 **Confirmed, and the code says so itself.** `declare_in_session_input_contexts`
 (`schedule/input_systems.rs:326-349`) claims `DIALOGUE_CONTEXT` on every
@@ -196,9 +204,32 @@ start site instead of a grep.
 Probe drives the **production** declarer with two participants — the existing
 coexistence test hand-builds contexts and structurally cannot catch this.
 
+### What landed
+
+⛔ **the existing test was a green test sitting beside the bug it looked like it
+covered, and it said so.**
+`a_seat_browsing_a_menu_stops_driving_its_slot_and_the_others_keep_playing`
+asserted that a surface CAN own one seat's input — by declaring seat 0's claim
+itself and running only the resolver and the router, under a comment reading
+*"re-running the declarer would retract what we just claimed, which is the
+point."* Every word of that is true. It proved the SEAM supported per-seat
+ownership while the only thing that declares in production claimed on every
+participant.
+
+⭐ **the generalizable tell: a test that skips a production system BY NAME to
+protect its own setup is telling you the production system disagrees with it.**
+Either the system is wrong or the setup is unreachable; "run less of the chain"
+is never the third option, and a comment explaining why reads as diligence while
+doing the opposite. The whole chain runs now, declarer included.
+
+⚠ **one behavioural change worth knowing**: capture begins on the frame the
+conversation OPENS rather than the frame the mode transition lands, because
+`next_mode` applies a frame later. That is the more correct edge, but it is a
+change and not a pure refactor.
+
 ---
 
-## R3 — per-seat menu calibration ▢
+## R3 — per-seat menu calibration ✔
 
 **Confirmed.** `decode_menu_frame` (`input_systems.rs:733-737`) reads the global
 `user_settings.controls.left_stick_deadzone` for every seat;
@@ -223,7 +254,7 @@ anything — green by construction, the failure mode this repo keeps hitting.
 
 ---
 
-## R4 — device-aware prompts ▢ (parallelizable)
+## R4 — device-aware prompts ✔
 
 **Confirmed, plus a cause the review did not name.** `ActionBindings::label_for`
 (`ambition_input/src/bindings.rs:343-351`) takes `.first()` and re-spells it, so a
@@ -247,13 +278,26 @@ Probe on a MIXED keyboard+controller map — the normal primary map, which the
 current test avoids by constructing a controller-only one — asserting both
 directions.
 
-⚠ one premise unverified: that `KeyboardPreset::input_map` inserts keyboard
-before controller. If it is the other way the symptom inverts and the defect is
-identical; confirm at implementation.
+✔ **the premise held**: `input_map` inserts the keyboard half at
+`presets.rs:257` and the gamepad half at `:258`. ⚠ and it is the PRIMARY seat
+specifically — secondary seats get `gamepad_only_map()`, where `.first()` is
+already a button — so the seat that showed the wrong prompt is the one most
+likely to be at a docked machine holding a pad.
+
+**The probe was red with the exact predicted symptom** (`Some("Z")` where
+`Some("Cross")` belongs), which is the difference between reading the code
+correctly and being sure.
+
+⭐ **and the fix turned up a SECOND instance nobody had reported.**
+`ambition_demo_sanic`'s speedway legend resolved a `GamepadStyle` the same way
+and passed it to the same method, so the sign in the level read `Z: JUMP` to
+somebody holding a DualSense. It is fixed in the same commit — the signature
+change is what found it, because a type that cannot express "this seat is on a
+keyboard" produces the same bug everywhere it is used.
 
 ---
 
-## R5 — the mapping seam ▢
+## R5 — the mapping seam ✔
 
 No rename (the reviewer deferred it explicitly). What lands is a small helper
 holding the `ParticipantId` ↔ `PlayerSlot` correspondence in ONE place, used by

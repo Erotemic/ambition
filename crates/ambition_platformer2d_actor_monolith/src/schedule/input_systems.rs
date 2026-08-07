@@ -310,12 +310,25 @@ pub fn declare_gameplay_input_context(
 ///
 /// So the surfaces DECLARE, and the routers read one resolved answer.
 ///
-/// ⚠ **this is behaviour-identical today, on purpose.** It claims on every
-/// participant, exactly as the global gates did, so nothing observable moves in
-/// this commit. What changes is that the per-seat version — one player reading
-/// a dialogue box while another keeps running — becomes a change at THIS
-/// function instead of a rewrite at every router. That is the whole point of
-/// moving it.
+/// ⭐ **and the per-seat version is now HERE, which is what that move bought.**
+/// The claim used to be behaviour-identical to the global gate — every
+/// participant, because `GameMode::Dialogue` is one switch for the whole
+/// machine. So one person talking to an NPC took gameplay away from everybody
+/// else at the couch, while the world kept running around them: the half-fix
+/// where the bodies keep moving but nobody else can drive one. (GPT 5.6 review
+/// through `c32e690`, finding 2.)
+///
+/// ⛔ **the owner is asked, never inferred.** A conversation declares whose it is
+/// when it opens (`ConversationInputOwner`), derived from the initiator's
+/// `Brain::Player(slot)`. There is deliberately no "nobody said, so capture
+/// everybody" arm — that was the behaviour, and an absence of attribution is
+/// exactly when claiming the whole couch is least defensible.
+///
+/// ⚠ **it reads the AUTHORITY, not `GameMode`.** `GameMode::Dialogue` still
+/// stops the world for the things that are genuinely global, but it cannot name
+/// a seat, so it could never have answered this. One consequence worth knowing:
+/// capture now begins on the frame the conversation OPENS rather than the frame
+/// the mode transition lands, because `next_mode` applies a frame later.
 ///
 /// ⚠ **pause is deliberately NOT here.** `GameMode::Paused` stops the world,
 /// which is not a per-seat fact, and the paused path does something a context
@@ -324,13 +337,28 @@ pub fn declare_gameplay_input_context(
 /// silently delete that.
 #[cfg(feature = "input")]
 pub fn declare_in_session_input_contexts(
-    mode: Res<State<GameMode>>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
-    mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+    // `Option` because a composition without the conversation feature still has
+    // cutscenes, and a missing authority means no conversation rather than an
+    // error.
+    conversation: Option<Res<crate::conversation::ActiveConversation>>,
+    mut participants: Query<(&InputParticipant, &mut ParticipantContexts)>,
 ) {
-    let in_dialogue = matches!(mode.get(), GameMode::Dialogue);
+    let owner = conversation
+        .as_deref()
+        .and_then(crate::conversation::ActiveConversation::input_owner);
     let in_cutscene = cutscene.is_playing();
-    for mut contexts in &mut participants {
+    for (participant, mut contexts) in &mut participants {
+        let in_dialogue = match owner {
+            Some(crate::conversation::ConversationInputOwner::Participant(id)) => {
+                participant.id == id
+            }
+            Some(crate::conversation::ConversationInputOwner::Primary) => {
+                participant.id == ambition_input::ParticipantId::PRIMARY
+            }
+            Some(crate::conversation::ConversationInputOwner::AllParticipants) => true,
+            None => false,
+        };
         // Touch the component only when a claim actually moves, so a quiet
         // frame is not a change-detection event for every reader downstream.
         if contexts.is_declared(DIALOGUE_CONTEXT) != in_dialogue {
@@ -1361,7 +1389,6 @@ mod focus_gate_tests {
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT};
         use ambition_platformer2d_shared_tangle::schedule::GameMode;
-        use bevy::ecs::system::RunSystemOnce;
 
         fn seat(slot: u8) -> impl Bundle {
             let mut contexts = ParticipantContexts::default();
@@ -1386,6 +1413,7 @@ mod focus_gate_tests {
         app.init_resource::<SlotControls>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.init_resource::<ambition_cutscene::ActiveCutscene>();
+        app.init_resource::<crate::conversation::ActiveConversation>();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.insert_state(GameMode::Playing);
         app.world_mut().spawn(seat(0));
@@ -1408,9 +1436,16 @@ mod focus_gate_tests {
             "baseline: a seat that owns gameplay drives its body"
         );
 
-        // 1. Entering dialogue suppresses input — through a declared claim, and
-        //    with no router matching `GameMode` any more.
-        app.insert_state(GameMode::Dialogue);
+        // 1. A conversation this seat is in suppresses its input — through a
+        //    declared claim, and with no router matching `GameMode` any more.
+        app.world_mut()
+            .resource_mut::<crate::conversation::ActiveConversation>()
+            .open(
+                None,
+                None,
+                "chat",
+                crate::conversation::ConversationInputOwner::Participant(ParticipantId(1)),
+            );
         app.update();
         let seats = app.world().resource::<SeatInputContexts>();
         assert_eq!(
@@ -1427,42 +1462,26 @@ mod focus_gate_tests {
             "and the router honours it without knowing what dialogue is"
         );
 
-        // 2. **What the move buys, proved on a running world.** A surface can
-        //    now own ONE seat's input: seat 0 is in the conversation, seat 1 is
-        //    not, and seat 1 keeps driving its body. Under the old `GameMode`
-        //    match this was not a thing a surface could ask for at all.
+        // 2. **What the move buys, proved on a running world through the
+        //    PRODUCTION declarer.** Seat 0 is in the conversation, seat 1 is not,
+        //    and seat 1 keeps driving its body.
         //
-        //    ⚠ done by claiming directly, because nothing declares per-seat
-        //    YET: `declare_in_session_input_contexts` still claims on every
-        //    participant, exactly as the global gate did. This asserts the seam
-        //    supports it, which is what makes the per-seat declarer a change at
-        //    one function instead of a rewrite at every router.
-        app.insert_state(GameMode::Playing);
+        //    ⛔ **this used to hand-build seat 0's claim and then deliberately
+        //    skip the declarer**, because the declarer claimed on every
+        //    participant and would have retracted it. So the test proved the
+        //    SEAM supported per-seat ownership while the only thing that
+        //    declared in production could not express it — a green test beside
+        //    the bug it looked like it covered. The whole chain runs now, and
+        //    the conversation's own owner is what makes seat 1 keep playing.
+        app.world_mut()
+            .resource_mut::<crate::conversation::ActiveConversation>()
+            .open(
+                None,
+                None,
+                "chat",
+                crate::conversation::ConversationInputOwner::Participant(ParticipantId(0)),
+            );
         app.update();
-        {
-            let world = app.world_mut();
-            let mut seats = world.query::<(&InputParticipant, &mut ParticipantContexts)>();
-            let mut claims: Vec<_> = seats
-                .iter_mut(world)
-                .map(|(participant, contexts)| (participant.id, contexts))
-                .collect();
-            for (id, contexts) in &mut claims {
-                if *id == ParticipantId(0) {
-                    contexts.declare(ContextClaim::capturing(
-                        DIALOGUE_CONTEXT,
-                        context_priority::DIALOGUE,
-                    ));
-                }
-            }
-        }
-        // Re-run only the resolver and the router: re-running the declarer
-        // would retract what we just claimed, which is the point.
-        app.world_mut()
-            .run_system_once(resolve_active_input_context)
-            .expect("resolver runs");
-        app.world_mut()
-            .run_system_once(super::populate_secondary_slot_controls)
-            .expect("router runs");
 
         let seats = app.world().resource::<SeatInputContexts>();
         assert_eq!(

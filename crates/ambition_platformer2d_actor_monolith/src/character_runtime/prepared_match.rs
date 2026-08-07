@@ -883,24 +883,42 @@ pub fn activate_the_prepared_match(
     let Some(prepared) = prepared else {
         return;
     };
-    // ⛔ **A RECEIPT WITH NO BODIES IS NOT A LIVE MATCH.** This read
-    // `if active.is_some() { return; }`, which is right for "the match I am
-    // looking at has already been built" and wrong for "SOME match, once, was
-    // built in this process". Returning to the select screen and starting
-    // another left the first match's `ActiveMatch` standing, so the second
-    // seated NOTHING — the symptom Jon reported as fighters frozen in the air
-    // with the menu still responding.
+    let session = active_session
+        .as_deref()
+        .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current);
+
+    // **A PLAN BELONGS TO ONE SESSION, AND MAY ONLY BE BUILT INTO THAT ONE.**
     //
-    // ⭐ **derived from the world, not from a second writer.** The obvious
-    // repair is to retire the stale receipt from preparation — and the
-    // `a-second-writer-of-a-match-global-must-answer-ownership` contract went
-    // RED on exactly that, correctly: `ActiveMatch` carries no `published_by`,
-    // so a second writer has no way to answer whose receipt it is deleting.
-    // Activation stays the ONE writer and asks a question the world can answer
-    // instead. Activation is atomic — the receipt goes in with the bodies in one
-    // flush — so a receipt whose seats nobody wears belongs to a session whose
-    // cast was despawned with it.
-    if active.is_some() && !already_seated.is_empty() {
+    // ⛔ preparation stamps the session and NOTHING CHECKED IT HERE. The stamp
+    // was consulted only by preparation, deciding whether to re-prepare — so a
+    // plan that outlived its session was structurally able to realize its cast
+    // into the next one. Saying it here makes that unreachable rather than
+    // unlikely.
+    if prepared.session() != session {
+        return;
+    }
+
+    // **HAVE I ALREADY BUILT *THIS* MATCH?** — asked of the receipt's identity,
+    // not of the world's fighters.
+    //
+    // ⛔ this read `active.is_some() && !already_seated.is_empty()`, and the
+    // presence half was wrong for a platform fighter. `ActiveMatch` with no
+    // `MatchSeat` bodies is not a dead session's paperwork: eliminated fighters
+    // are DESPAWNED, and a simultaneous final-stock ring-out is a supported
+    // draw, so a match that has legitimately just finished sits at zero seats
+    // for the whole time the winner card is up. Activation would have fallen
+    // through and rebuilt the cast with fresh stocks underneath the
+    // announcement. (GPT 5.6 review, 2026-08-07 — caught by reading, not by
+    // playing.)
+    //
+    // ⭐ the receipt names its session now, so the question is one comparison
+    // and fighter presence cannot affect the answer. A receipt for a DIFFERENT
+    // session is stale and this same call replaces it below — activation
+    // remains the single writer, which is what the
+    // `a-second-writer-of-a-match-global-must-answer-ownership` contract asks
+    // for, and it can answer whose receipt it is replacing because the receipt
+    // says so.
+    if active.is_some_and(|active| active.session() == prepared.session()) {
         return;
     }
     // ⛔ **NOT "the first tick the plan exists".** The plan does not rewind, so
@@ -913,6 +931,10 @@ pub fn activate_the_prepared_match(
     }
     // No active session means no owner for the bodies. Activation waits rather
     // than spawning orphans; the plan is still there next tick.
+    //
+    // ⚠ this is the SPAWN policy, not the identity above: a composition with no
+    // session lifecycle at all resolves to `UNSCOPED` and still builds, and its
+    // plan is stamped `None` so the identity comparison holds too.
     let Some(session_scope) =
         ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::for_optional_active_session(
             active_session.as_deref(),
@@ -967,6 +989,7 @@ pub fn activate_the_prepared_match(
     commands.insert_resource(super::ActiveMatch::activated(
         prepared.seats().len(),
         prepared.seat_topology(),
+        prepared.session(),
     ));
 }
 

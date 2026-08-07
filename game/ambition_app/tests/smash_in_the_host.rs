@@ -1335,22 +1335,18 @@ const PREPARED_FIGHTER: &str = "player_robot_v3";
 ///
 /// ⛔ **not decoration — the first draft of `a_cpu_ordered_before_the_person`
 /// gave both seats `PREPARED_FIGHTER` and PASSED**, and passed for a reason that
-/// had nothing to do with the thing it was testing: the primary body is dressed
-/// as `participants.first()`, and when both seats want the same character that
-/// accidentally IS what the human seat is waiting for. A probe that cannot fail
+/// had nothing to do with the thing it was testing. A probe that cannot fail
 /// through its own motivating case is not a probe. Measured, not reasoned:
 /// running it is what said so.
-const OTHER_PREPARED_FIGHTER: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
-
-/// A fighter on the grid that only the CATALOG knows about.
 ///
-/// ⚠ **`SmashRoster::assemble` filters the grid by `CharacterCatalog`, and
-/// seating spawns from `PreparedCharacterRegistry`.** Those are different
-/// populations: this host registers the robot lineage, the smash demo's own
-/// three, and each other demo's protagonist, while Ambition's Hall cast is
-/// catalog rows and nothing else. So this id is pickable and unseatable, which
-/// is a sentence that should not be true of anything.
-const CATALOG_ONLY_FIGHTER: &str = "npc_noether";
+/// ⚠ **the mechanism it caught is gone; the requirement it left behind is not.**
+/// The primary body used to be DRESSED as `participants.first()`, so two seats
+/// wanting the same character accidentally landed on the costume the human seat
+/// was waiting for. Nothing dresses a home body now — every fighter is built by
+/// the match — but "two seats, two characters" is still what makes a per-seat
+/// claim distinguishable from a match-wide one, which is why these cases still
+/// pick two.
+const OTHER_PREPARED_FIGHTER: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
 
 /// **The configuration that works.** One person, one CPU, both registered.
 ///
@@ -1389,69 +1385,41 @@ fn a_person_against_a_cpu_starts_a_two_fighter_match() {
 
 /// **A CPU in an earlier slot than the person.**
 ///
-/// ⛔ Nothing about this is exotic — it is the second card being the one you
-/// give away — and it deadlocks. Seating adopts the primary player's existing
-/// body for the human seat and refuses until that body already wears the
-/// picked fighter; `dress_the_primary_player_as_their_own_pick` is what makes
-/// it wear one, and it dresses the body as `participants.first()` rather than
-/// as the participant bound to primary input. With a CPU first, the body is
-/// dressed as the CPU's fighter, the human seat waits for a costume it will
-/// never be given, and **one seat waiting means no seat is built** — the
-/// resolve pass returns from the whole system.
+/// **The invariant: seat ORDER cannot decide whether a match starts.** Every
+/// seat is built the same way from the same prepared plan, so which card holds
+/// the person is a detail of the lobby and nothing else.
+///
+/// ⛔ **it used to deadlock, and the history is why the test exists.** Nothing
+/// about the case is exotic — it is the second card being the one you give away.
+/// Seating ADOPTED the primary player's existing body for a human seat and
+/// refused until that body already wore the picked fighter;
+/// `dress_the_primary_player_as_their_own_pick` dressed it as
+/// `participants.first()` rather than as the participant bound to primary input.
+/// A CPU first meant the body wore the CPU's fighter, the human seat waited for
+/// a costume it would never be given, and **one seat waiting meant no seat was
+/// built** — the resolve pass returned from the whole system.
+///
+/// ⚠ **none of that code exists now**: the adopt path, the dressing system and
+/// the all-or-nothing resolve pass are all deleted, and preparation answers
+/// every permanent question before an entity exists. What survives is the
+/// requirement, which no longer depends on any of those mechanisms.
 #[test]
 fn a_cpu_ordered_before_the_person_still_starts_the_match() {
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 2); // Absent → Controller → CPU, freeing the source
     cycle_role(&mut app, 1, 1); // …which the person then takes
-                                // ⚠ **DIFFERENT fighters, and that is the whole case.** The dressing system
-                                // points the primary body at `participants.first()`; with both seats on one
-                                // character it lands on the right costume by luck and this test passes while
-                                // proving nothing. It did exactly that on its first run.
+                                // ⚠ **DIFFERENT fighters, and that is the whole case.** With both seats on
+                                // one character the first draft passed while proving nothing — see
+                                // `OTHER_PREPARED_FIGHTER` for the mechanism that made it pass and why two
+                                // picks are still required now that the mechanism is gone.
     pick_fighter(&mut app, 0, OTHER_PREPARED_FIGHTER);
     pick_fighter(&mut app, 1, PREPARED_FIGHTER);
 
     assert_eq!(
         start_and_report(&mut app),
         MatchStart::Activated { seats: 2 },
-        "a lobby whose first card is a CPU never seats anybody: the stage opens \
-         with the session's home body standing on it and nothing says why"
-    );
-}
-
-/// **A fighter the grid offered and seating cannot build.**
-///
-/// ⛔ and the failure is SILENT. `seat_match_participants` resolves this seat
-/// with `registry.get(character)` and returns on `None` — no log, no
-/// `MatchSeatingRefused`, and because the resolve pass is all-or-nothing, the
-/// other seat is not built either. Eight of the twelve portraits in this host
-/// are in this state, so this is the likeliest way a player meets the bug.
-///
-/// ⚠ **the fix may make this `Activated` or `PreparationRefused`** — either is
-/// correct, because either one is an ANSWER. What must never come back is
-/// `ActivationStalled`.
-///
-/// ⛔ **and this test GOES VACUOUS the day the Hall cast is registered**, which
-/// is a planned step: `npc_noether` becomes seatable and this becomes a check
-/// that a working thing works. It is kept because it is the reproduction of
-/// what a PLAYER did, but it is not the guard. The guard is a preparation unit
-/// test that names an id no composition has, so it cannot be repaired by
-/// content — *a guard that pins the fix stops defending the gap.*
-#[test]
-fn a_catalog_only_fighter_gets_an_answer_rather_than_a_deadlock() {
-    let mut app = open_the_lobby();
-    cycle_role(&mut app, 0, 1);
-    cycle_role(&mut app, 1, 1);
-    pick_fighter(&mut app, 0, PREPARED_FIGHTER);
-    pick_fighter(&mut app, 1, CATALOG_ONLY_FIGHTER);
-
-    let outcome = start_and_report(&mut app);
-    assert_ne!(
-        outcome,
-        MatchStart::ActivationStalled,
-        "picking `{CATALOG_ONLY_FIGHTER}` — a portrait this host DRAWS — left the \
-         match waiting forever with nothing recorded anywhere. A composition that \
-         cannot seat a fighter must say so; the grid must not offer it; ideally \
-         both."
+        "a lobby whose first card is a CPU did not seat both fighters, so seat \
+         ORDER is deciding whether a match starts"
     );
 }
 
@@ -1460,11 +1428,13 @@ fn a_catalog_only_fighter_gets_an_answer_rather_than_a_deadlock() {
 /// *"it does not let me make a CPU vs CPU match, and it is very important that
 /// that is expressible and easy to do."*
 ///
-/// `SmashSelect::ready()` requires `humans_decided() >= 1`, so START is inert.
-/// That clause reads like product policy and is really an engine limitation
-/// wearing a rationale: with no human seat, nothing adopts the session's home
-/// body, and the stage would open with an unowned controllable actor standing
-/// beside the match.
+/// ⛔ **`SmashSelect::ready()` used to require `humans_decided() >= 1`**, so
+/// START was inert. That clause read like product policy and was really an
+/// engine limitation wearing a rationale: with no human seat, nothing adopted
+/// the session's home body, and the stage would open with an unowned
+/// controllable actor standing beside the match. The clause is gone, the home
+/// body is gone (`InitialBodyPolicy::NoInitialBody`), and every seat is built
+/// the same way — so a lobby of two CPUs is now an ordinary match.
 #[test]
 fn two_cpus_can_fight_each_other() {
     let mut app = open_the_lobby();
@@ -1585,8 +1555,16 @@ fn two_cpus_can_fight_each_other() {
 /// way to reach this arm through the UI is to break the filter, which would
 /// make the test a test of the filter. What is being pinned is the BINDING: a
 /// standing refusal is on screen, in the player's words, instead of "Ready".
-/// The refusal's own content is pinned by
-/// `a_catalog_only_fighter_gets_an_answer_rather_than_a_deadlock`.
+/// The refusal's own content is pinned where it can never go vacuous:
+/// `prepared_match::tests::an_unbuildable_character_is_refused_by_name`, which
+/// names an id no composition will ever register.
+///
+/// ⛔ **its host-level twin is DELETED, and the deletion is the point.** That
+/// test picked `npc_noether` — a portrait the grid drew and seating could not
+/// build — and its own doc said it would go vacuous the day the Hall cast was
+/// registered. That day came: Noether is in `PLAYABLE_ROSTER`, the grid filters
+/// on the prepared registry, and the test had become a check that a working
+/// thing works. A reproduction that content repaired is history, not coverage.
 #[test]
 fn a_preparation_refusal_is_shown_instead_of_ready() {
     use ambition_platformer2d::actors::character_runtime::{
@@ -1997,4 +1975,126 @@ fn travel(before: &[(String, Vec2)], after: &[(String, Vec2)]) -> f32 {
                 .map(|(_, then)| now.distance(*then))
         })
         .fold(0.0, f32::max)
+}
+
+/// **A MATCH THAT HAS JUST ENDED IN A DRAW MUST NOT RESTART ITSELF.**
+///
+/// ⛔ found by review (GPT 5.6, 2026-08-07) rather than by playing, and it is the
+/// sharpest kind of finding: activation asked *"is there an `ActiveMatch` AND are
+/// there `MatchSeat` bodies"* and read a receipt with no bodies as a dead
+/// session's paperwork. In a platform fighter that is simply false.
+/// `take_eliminated_fighters_out_of_play` DESPAWNS an eliminated fighter, and a
+/// simultaneous final-stock ring-out is a supported draw — so a match that has
+/// legitimately just finished sits at `ActiveMatch = current`, zero seats, for
+/// the whole 4.5 seconds the winner card is up. Activation fell through and
+/// rebuilt the entire prepared cast with fresh stocks, underneath the
+/// announcement.
+///
+/// ⚠ **the KO is injected, for the reason `stocks.rs` gives at length**: earning
+/// a simultaneous final-stock ring-out from two CPUs is a test of the arena, not
+/// of this seam. Everything else here is real — a real lobby, a real prepared
+/// plan, a real session, real seated bodies, the real elimination and despawn.
+/// The stocks are set to one because that is the state a last stock IS.
+#[test]
+fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
+    use ambition_platformer2d::combat::components::FighterStocks;
+    use ambition_platformer2d::combat::stocks::{BodyKnockedOut, StocksMatchDecided};
+
+    let mut app = open_the_lobby();
+    cycle_role(&mut app, 0, 2);
+    cycle_role(&mut app, 1, 2);
+    pick_fighter(&mut app, 0, PREPARED_FIGHTER);
+    pick_fighter(&mut app, 1, OTHER_PREPARED_FIGHTER);
+    assert_eq!(
+        start_and_report(&mut app),
+        MatchStart::Activated { seats: 2 },
+        "the fixture never got a live two-seat match to finish"
+    );
+
+    // Down to the last stock apiece.
+    let bodies: Vec<Entity> = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<Entity, With<
+            ambition_platformer2d::actors::character_runtime::MatchSeat,
+        >>();
+        q.iter(world).collect()
+    };
+    assert_eq!(
+        bodies.len(),
+        2,
+        "expected two seated fighters to finish off"
+    );
+    for body in &bodies {
+        app.world_mut()
+            .entity_mut(*body)
+            .insert(FighterStocks::new(1));
+    }
+
+    // BOTH, in the same frame: the double ring-out that is a draw.
+    for body in &bodies {
+        app.world_mut()
+            .resource_mut::<Messages<BodyKnockedOut>>()
+            .write(BodyKnockedOut {
+                body: *body,
+                cause: ambition_platformer2d::combat::HitSource::LeftTheWorld,
+            });
+    }
+    // ⚠ ONE update, then read: the decision lands on the very first tick and a
+    // Bevy message is gone two frames later. A cursor opened after settling
+    // would report an empty buffer and read as "the draw never happened".
+    app.update();
+    {
+        let messages = app.world().resource::<Messages<StocksMatchDecided>>();
+        let mut cursor = messages.get_cursor();
+        let decided: Vec<_> = cursor.read(messages).cloned().collect();
+        assert_eq!(
+            decided.len(),
+            1,
+            "the double knockout did not end the match, so what follows would be \
+             measuring an ordinary live match"
+        );
+        assert_eq!(
+            decided[0].winner, None,
+            "a simultaneous final-stock ring-out was awarded to a side"
+        );
+    }
+    assert_eq!(
+        app.world()
+            .get_resource::<ambition_platformer2d::combat::stocks::StocksMatchSettled>()
+            .map(|settled| settled.0),
+        Some(true),
+        "the ruleset does not consider this match settled"
+    );
+
+    let seats_after_the_draw = seat_positions(&mut app).len();
+    assert_eq!(
+        seats_after_the_draw, 0,
+        "the eliminated fighters were not despawned, so this test is not in the \
+         state it is about — zero seats with a live receipt is the whole premise"
+    );
+
+    // ⭐ **AND NOW THE FRAMES THE WINNER CARD IS UP FOR.** Two seconds, well
+    // inside the 4.5 the announcement stands, and every one of them a tick on
+    // which activation runs and asks whether it has work to do.
+    for _ in 0..120 {
+        app.update();
+    }
+
+    let world = app.world_mut();
+    let mut seats = world.query::<&ambition_platformer2d::actors::character_runtime::MatchSeat>();
+    let rebuilt = seats.iter(world).count();
+    assert_eq!(
+        rebuilt, 0,
+        "{rebuilt} fighters came back after the match they were in ended in a \
+         draw. The winner card is still on screen and a fresh cast with full \
+         stocks is fighting underneath it: activation read 'no bodies' as 'no \
+         match' and rebuilt the plan it had already built."
+    );
+    assert!(
+        world
+            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .is_some(),
+        "the finished match's receipt is gone, so nothing can tell the ruleset \
+         which match it just decided"
+    );
 }

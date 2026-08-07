@@ -13,8 +13,8 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_bool, put_f32, put_i32, put_str, put_u32, put_u64, put_u8, put_vec2,
-    Reader, SnapshotCursor, SnapshotState,
+    put_bool, put_f32, put_i32, put_str, put_u32, put_u64, put_u8, put_vec2, Reader,
+    SnapshotCursor, SnapshotState,
 };
 use ambition_platformer2d_core::{snapshot_pod, snapshot_unit_enum};
 
@@ -45,9 +45,7 @@ impl SnapshotState for crate::character_runtime::MatchSeat {
         put_u64(out, self.0 as u64);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
-        Some(crate::character_runtime::MatchSeat(
-            r.u64()? as usize
-        ))
+        Some(crate::character_runtime::MatchSeat(r.u64()? as usize))
     }
 }
 
@@ -64,11 +62,30 @@ impl SnapshotState for crate::character_runtime::ActiveMatch {
                 put_u64(out, generation);
             }
         }
+        // The activation's IDENTITY travels with it. A rewind restores the
+        // receipt, so it must restore WHICH match the receipt is for — the
+        // whole point of the field is that activation compares it.
+        match self.session() {
+            None => put_bool(out, false),
+            Some(session) => {
+                put_bool(out, true);
+                put_u64(out, session.0);
+            }
+        }
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let seats = r.u64()? as usize;
         let seat_topology = if r.bool()? { Some(r.u64()?) } else { None };
-        Some(crate::character_runtime::ActiveMatch::from_snapshot(seats, seat_topology))
+        let session = if r.bool()? {
+            Some(ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId(r.u64()?))
+        } else {
+            None
+        };
+        Some(crate::character_runtime::ActiveMatch::from_snapshot(
+            seats,
+            seat_topology,
+            session,
+        ))
     }
 }
 
@@ -76,8 +93,6 @@ snapshot_pod!(crate::features::ActorSurfaceState {
     surface_normal: vec2,
     gravity_scale: f32,
 });
-
-
 
 /// **The boss's encounter phase**, and the `ActorPhaseState` it is forwarded from.
 ///
@@ -181,11 +196,9 @@ impl SnapshotState for crate::features::ecs::perception::PerceptionMemory {
                 },
             ));
         }
-        Some(
-            crate::features::ecs::perception::PerceptionMemory(
-                WorldMemory::from_snapshot(rows),
-            ),
-        )
+        Some(crate::features::ecs::perception::PerceptionMemory(
+            WorldMemory::from_snapshot(rows),
+        ))
     }
 }
 

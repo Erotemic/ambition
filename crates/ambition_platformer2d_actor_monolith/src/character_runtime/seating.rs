@@ -71,8 +71,22 @@ pub fn match_participants(seated: &Query<(Entity, &MatchSeat)>) -> Vec<Entity> {
 /// future. [`match_participants`] derives the cast from [`MatchSeat`] on the
 /// bodies themselves, which rewinds because the bodies do.
 ///
-/// What is left is plain data with no identity in it: a count and a generation
-/// number, both facts about the DECISION to activate.
+/// What is left is plain data: a count, a generation number, and **the identity
+/// of the activation it receipts** — all facts about the DECISION to activate.
+///
+/// ⛔ **the identity is load-bearing and it used to be a presence proxy.**
+/// Activation asked *"is there an `ActiveMatch` AND are there `MatchSeat`
+/// bodies"*, reading a receipt with no bodies as a dead session's paperwork.
+/// That is false for a platform fighter: `take_eliminated_fighters_out_of_play`
+/// despawns an eliminated fighter's body, and a simultaneous final-stock ring-out
+/// is a supported DRAW — so a legitimately finished match sits at
+/// `ActiveMatch = current`, `MatchSeat count = 0` for the whole 4.5s the winner
+/// card is up. Activation would have fallen straight through and rebuilt the
+/// cast with fresh stocks, underneath the announcement. Found by review
+/// (GPT 5.6, 2026-08-07) before anybody had to watch it happen.
+///
+/// ⭐ so identity is stated, not inferred: this receipt names the session whose
+/// plan it built, and fighter presence is irrelevant to it.
 #[derive(Resource, Debug, Clone, PartialEq)]
 pub struct ActiveMatch {
     /// How many seats this match activated with. Compare it against
@@ -81,6 +95,10 @@ pub struct ActiveMatch {
     /// The frozen seat topology this match was activated against, copied from
     /// the roster so the two can be COMPARED rather than assumed equal.
     seat_topology: Option<u64>,
+    /// **Whose plan this is a receipt for.** `None` in a composition with no
+    /// session lifecycle at all, which is the same answer `PreparedMatch` stamps
+    /// there, so the two still compare equal.
+    session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
 }
 
 impl ActiveMatch {
@@ -89,11 +107,27 @@ impl ActiveMatch {
     /// ⚠ called only by `activate_the_prepared_match`, which is infallible — so
     /// unlike every earlier version of this latch there is no path on which it
     /// can be published over a partially built cast.
-    pub fn activated(seats: usize, seat_topology: Option<u64>) -> Self {
+    pub fn activated(
+        seats: usize,
+        seat_topology: Option<u64>,
+        session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    ) -> Self {
         Self {
             seats,
             seat_topology,
+            session,
         }
+    }
+
+    /// **The session whose prepared plan this receipts.**
+    ///
+    /// Activation compares this against the plan's own stamp to ask "have I
+    /// already built THIS match", which is a question a despawned cast cannot
+    /// change the answer to.
+    pub fn session(
+        &self,
+    ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId> {
+        self.session
     }
 
     /// How many fighters this match activated with.
@@ -130,6 +164,7 @@ impl ActiveMatch {
         Self {
             seats,
             seat_topology,
+            session: None,
         }
     }
 
@@ -144,10 +179,15 @@ impl ActiveMatch {
     /// would have been decorative if the plugin only overwrote a present value,
     /// which is worth stating because that is the assumption the fix rests on.
     #[doc(hidden)]
-    pub fn from_snapshot(seats: usize, seat_topology: Option<u64>) -> Self {
+    pub fn from_snapshot(
+        seats: usize,
+        seat_topology: Option<u64>,
+        session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    ) -> Self {
         Self {
             seats,
             seat_topology,
+            session,
         }
     }
 }

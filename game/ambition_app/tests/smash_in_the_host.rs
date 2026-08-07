@@ -1453,6 +1453,40 @@ fn two_cpus_can_fight_each_other() {
         .zip(&start)
         .map(|(now, then)| (now - then).abs())
         .fold(0.0, f32::max);
+
+    // **WHAT EACH SEAT ACTUALLY HOLDS**, printed rather than guessed. Three
+    // plausible causes were reasoned through and refuted from source (the
+    // opening hold never released; the seats not being target candidates;
+    // preparation running inside the rollback window). Reading is what produced
+    // those; only measuring will produce the answer.
+    {
+        let world = app.world_mut();
+        let mut q = world.query::<(
+            &ambition_platformer2d::actors::character_runtime::MatchSeat,
+            Option<&ambition_platformer2d::characters::brain::ScriptedControl>,
+            Option<&ambition_platformer2d::actors::combat::components::ActorFaction>,
+            Option<&ambition_platformer2d::actors::combat::components::ActorTarget>,
+            Option<&ambition_platformer2d::engine_core::BodyKinematics>,
+        )>();
+        let mut rows: Vec<String> = q
+            .iter(world)
+            .map(|(seat, held, faction, target, kin)| {
+                format!(
+                    "seat {}: suspended={} faction={:?} target={:?} pos={:?} vel={:?}",
+                    seat.0,
+                    held.is_some(),
+                    faction.map(|f| format!("{f:?}")),
+                    target.map(|t| t.entity),
+                    kin.map(|k| k.pos),
+                    kin.map(|k| k.vel),
+                )
+            })
+            .collect();
+        rows.sort();
+        for row in rows {
+            eprintln!("[cpu-census] {row}");
+        }
+    }
     assert!(
         moved > 4.0,
         "neither CPU moved more than {moved:.1}px in five seconds. They seated, \

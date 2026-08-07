@@ -369,14 +369,42 @@ FighterBrainProfile::for_level
             └── mount/mod.rs:567   (dismounted rider)
 ```
 
-So the monolith side is **three** functions to widen and **three** systems to give
-the resource to, not one. ⚠ each of those systems gains a param, and two of them
-are already close to Bevy's 16-param ceiling — the reason both backends in this
-repo bundle `SystemParam` structs. Budget a bundle, not a parameter.
 ⛔ **and do not fix only the match path.** Seating a fighter and reconciling one
 into hostility would then read different ladders, which is the fork this repo's
-first rule exists to prevent — `enemy_default_brain` must take the ladder, so
-every path through it is the same path.
+first rule exists to prevent — every path through `enemy_default_brain` must see
+the same ladder.
+
+### ⛔ THREADING WAS TRIED AND ABANDONED, 2026-08-07 — and the cascade is the finding
+
+The chain above is drawn from `for_level`'s call sites. **It is wrong**, and the
+compiler said so: a fourth caller (`spawn_actors.rs`, the ORDINARY enemy spawn —
+the most common path of all) does not appear in any grep for `for_level` because
+it goes through `enemy_default_brain`. Threading from there cascaded outward
+through `EnemyActorSpawnPlan::hostile`, `spawn_runtime_minion_into`,
+`spawn_solo_enemy_into`, `spawn_encounter_mob`, their three wrappers, and then
+into `construction/mod.rs` and `abilities/thrown/puppy_slug_gun.rs` — still
+growing when it was abandoned. The diff reached 323 lines and had not compiled
+once.
+
+⭐ **the cascade IS the architectural answer, not an obstacle to it.** The ladder
+is needed at a LEAF of the spawn tree and available only at its ROOT, and the
+roots are many and unalike: a match activation, a reconciler, an encounter wave,
+a thrown puppy-slug ability. Making a thrown ability carry a difficulty ladder so
+it can pass it four levels down is how a parameter list becomes a confession. A
+value with that shape wants a PROJECTION — the same conclusion R1 reached for the
+conversation hold on the same day.
+
+⚠ **and the projection has one constraint that decides its shape.**
+`FighterState::new` caches two things DERIVED from the profile:
+`DelayedPerception::from_reaction_ms(cfg.profile.reaction_ms)` and
+`HabitModel::new(cfg.profile.read_weight)`. Those are the two axes that matter
+most, so re-projecting `cfg.profile` alone after construction fixes NOTHING
+visible — the brain would still see the world as late as the floor said.
+⭐ **so it must project at INSERTION**, where rebuilding the state costs nothing
+because there is no accumulated habit to lose: an `On<Insert, Brain>` observer
+that, for a `Fighter` brain with an authored rung differing from the floor,
+rebuilds `FighterCfg` and `FighterState` from the ladder. Deterministic under
+rollback — same level, same rung, same seed — and idempotent.
 
 ### ✔ RESOLVED — the placement blocker, and what it actually was
 

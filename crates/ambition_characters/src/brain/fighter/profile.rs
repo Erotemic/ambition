@@ -115,6 +115,21 @@ impl FighterBrainProfile {
     }
 }
 
+/// **The game's authored ladder, where the sim can reach it.**
+///
+/// ⛔ **a resource rather than an argument, because of where the pack lives.**
+/// The prepared content pack is `game/ambition_content`, ABOVE the monolith that
+/// builds most brains — so the monolith cannot fetch the ladder, and the game has
+/// to hand it down. Absent means this game shipped no rows and
+/// [`FighterBrainProfile::for_level`] applies, which is the engine's stated rule.
+///
+/// ⚠ **config, not state.** A rewind restores a brain; it never rebuilds the
+/// ladder that brain was constructed from, so this is deliberately not rollback
+/// state — the same argument that puts write-once construction data outside the
+/// snapshot.
+#[derive(bevy::prelude::Resource, Clone, Debug, PartialEq)]
+pub struct AuthoredFighterLadder(pub FighterBrainLadder);
+
 /// **The one place a level becomes a profile.**
 ///
 /// ⛔ **the engine's rule was written in a doc comment and consulted nowhere, so

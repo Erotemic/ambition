@@ -56,7 +56,9 @@ pub mod situation;
 pub use decision::{tick_fighter, ApmLedger, FighterCfg, FighterState};
 pub use habit::{Choice, HabitModel};
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};
-pub use profile::{profile_for_level, FighterBrainLadder, FighterBrainProfile};
+pub use profile::{
+    profile_for_level, AuthoredFighterLadder, FighterBrainLadder, FighterBrainProfile,
+};
 pub use rollout::{
     refine_by_rollout, shadow_step, RefinedChoice, ShadowEvent, ShadowIntent, ShadowState,
     ShadowTuning,

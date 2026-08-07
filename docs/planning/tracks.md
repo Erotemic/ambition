@@ -578,6 +578,27 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     SimId + Name`) whose components are REGISTERED as rollback state while the
     entity carries no rollback anchor — so the registration is a claim the
     engine does not honour. It exists only under the shell.
+    ⭐⭐ **NARROWED to one component, 2026-08-07.** Five of the six are in
+    `PROVENANCE_ONLY` — `SpawnOrigin`, `TransactionId`, `SimId`,
+    `RoomScopedEntity`, `Name` — so they are skipped by the RULE rather than by a
+    waiver. The archetype is reported at all because of exactly ONE component:
+    **`SessionScopedEntity`**, which is registered rollback state
+    (`scope.session`, `primitives.rs:110`) and is NOT in that list.
+    ⚠ **so the real question is an ASYMMETRY, and it is a short one**: both
+    `RoomScopedEntity` and `SessionScopedEntity` are write-once SCOPE MARKERS
+    stamped at construction, and the provenance rule's own argument — *"written
+    ONCE and never again … a rewind that does not restore them restores exactly
+    the values they already hold"* — reads identically for both. Is the omission
+    deliberate? ⛔ **there is a reason to think it might be**: the sibling waiver
+    for `Messages<SessionScopeRetired>` says a rewind *"must not un-retire a
+    scope"*, so session lifetime has a rewind rule that room lifetime does not.
+    Whether that rule reaches the MARKER as well as the retirement message is the
+    whole question, and it is Jon's or the rollback owner's.
+    ⛔ **and the sweep cannot currently see it.** Both
+    `no_snapshot_registration_is_inert_*` assertions PASS, so the archetype does
+    not appear in the boot world or a live match — it is in a composition no test
+    sweeps. Naming the entity (done today) helps only once a test reaches that
+    composition; until then the sweep is green about a class it never looks at.
     ✔ **the instrument NAMES the entity now (2026-08-07), so that probe never
     has to be written.** `inert_registrations` keyed each archetype to
     `names.intersection(&anchors)` — which is PROVABLY EMPTY at that point, since

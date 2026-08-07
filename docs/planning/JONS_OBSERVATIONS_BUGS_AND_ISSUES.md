@@ -3,7 +3,35 @@
 # attempt doesn't work.
 
 
-* When SANIC is hit, there it seems like he is given no iframes. He should also have some hitstun and be knocked back a bit, and then have a few second of recovery iframes. The rings don't splash out nearly large enough. He needs an opportunity to recollect some of them after his hitstun wears off and before they disappear.
+* ◐ **When SANIC is hit** (all four parts addressed 2026-08-07 — your sentence
+  had four requirements and they turned out to have four different answers).
+  Your words: *"there it seems like he is given no iframes. He should also have
+  some hitstun and be knocked back a bit, and then have a few second of recovery
+  iframes. The rings don't splash out nearly large enough. He needs an
+  opportunity to recollect some of them after his hitstun wears off and before
+  they disappear."*
+  * **i-frames — they were never missing, they were 0.75s.** That is the engine's
+    `knockback_invulnerability_time`, and Sanic authored no feel at all so he was
+    on the default. It is a fair "longest window in the game" for Ambition, where
+    a hit is a hit; here the hit throws your purse across half a screen, so it is
+    over before the rings land and the badnik you bounced off is still touching
+    you. Now **2.0s** — the classic — set in Sanic's own ring-loss handler rather
+    than in the engine, because Mary-O shares that default and her feel is pinned.
+  * **hitstun — genuinely missing, and fixed.** The resolver's armor branch arms a
+    beat (added after your Mary-O report, *"there needs to be a bit of hitstun
+    when maryo gets hit"*); the wallet-shield branch six lines below it did not.
+    The rings burst out of a body that never flinched.
+  * **knocked back — already there.** A contact hit carries `HitMode::Knockback`
+    and the wallet branch keeps the physical reaction deliberately, so this half
+    was working.
+  * **the splash — already landed**, with a test that drives the real integrator
+    and requires the spray to reach eight tiles.
+  * **and the recollection window, which is the part the i-frame number actually
+    decides.** Rings become collectible at 0.6s and vanish at 4.2s. At 0.75s of
+    i-frames you had **0.15s** to grab one without being re-hit; at 2.0s you have
+    **1.4s**. Nine times the safe scramble, with the scatter numbers untouched.
+  ⚠ **2.0s is the one number here that is taste rather than measurement** — say
+  the word and it moves; it is one constant, `RING_LOSS_INVULN_S`.
 
 * ◐ **The patent clerk: HE IS IN THE GAME** (2026-08-06). You said "patent clerk
   is new: note we want to use the svg clerk not the older one", so:

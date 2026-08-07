@@ -49,6 +49,23 @@ pub struct StartRoomMustResolve;
 #[derive(Resource, Clone, Debug, Default)]
 pub struct StartingCharacterOverride(pub ambition_platformer2d::actors::avatar::StartingCharacter);
 
+/// **Host composition input: this composition SEATS A MATCH into Ambition's
+/// world, so it must not also lower a home avatar.**
+///
+/// Same shape and same lifetime as [`StartingCharacterOverride`] — consumed
+/// during preparation, never gameplay authority — and it answers the other half
+/// of the same question: that one picks WHICH character the home body wears,
+/// this one says whether there is a home body at all.
+///
+/// ⛔ not a convenience. A match's local seat and an exploration home avatar
+/// both claim the session's control channel, and preparation refuses that
+/// combination by name rather than building two bodies that fight over it. A
+/// composition that seats fighters into this world — a rollback match fixture,
+/// a CPU-vs-CPU bout rig — has to be able to SAY so before the world is built,
+/// because by the time the roster is published the avatar already exists.
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct SeatsAMatchInsteadOfAHomeBody;
+
 #[cfg(test)]
 fn sandbox_init_failed() -> ! {
     panic!("sandbox resource initialization failed; see diagnostics above");
@@ -286,6 +303,12 @@ pub fn init_sandbox_resources(app: &mut App) {
         .remove_resource::<StartingCharacterOverride>()
         .map(|selection| selection.0)
         .unwrap_or_default();
+    // Consumed the same way and for the same reason: a composition decision,
+    // made before the world exists, that must not survive as process state.
+    let builds_a_home_body = app
+        .world_mut()
+        .remove_resource::<SeatsAMatchInsteadOfAHomeBody>()
+        .is_none();
 
     // Immutable boot preparation. Every shell activation clones this value and
     // inserts the resulting bundle on its exact session root.
@@ -293,6 +316,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         room_set: room_set.clone(),
         ldtk_index: ldtk_index.clone(),
         starting_character: starting_character.clone(),
+        builds_a_home_body,
     });
 
     app.insert_resource(ldtk_world::ActiveLdtkProject(ldtk_project.clone()))

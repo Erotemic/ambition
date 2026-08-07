@@ -301,6 +301,10 @@ pub fn prepare_match(
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     archetypes: &crate::features::CharacterRoster,
     centre: Vec2,
+    // What the SESSION declared about a home avatar. Preparation needs it to
+    // refuse a local seat in a session that already has one — see the seat
+    // loop below.
+    home_body: &crate::avatar::starting_character::InitialBodyPolicy,
 ) -> Result<PreparedMatch, MatchPreparationProblems> {
     let rules = MatchRules {
         stocks: roster.fighter_stocks,
@@ -349,6 +353,35 @@ pub fn prepare_match(
                 continue;
             }
         };
+
+        // **TWO CLAIMANTS ON ONE LOCAL CHANNEL, NAMED HERE INSTEAD OF PANICKING
+        // FOUR SYSTEMS DEEP.**
+        //
+        // A session that lowers a home avatar has already given that body the
+        // session's local control channel. A match seat asking for a local
+        // channel in the same session is a SECOND claimant, and the engine's
+        // answer used to be an adopted body: seat zero silently became the home
+        // avatar. With construction unified, both bodies get built and
+        // `resolve_controlled_subject` aborts the frame with
+        // *"2 entities carry Brain::Player(PRIMARY)"* — true, useless, and
+        // reported by a system that had nothing to do with the mistake.
+        //
+        // ⭐ a match experience declares `InitialBodyPolicy::NoInitialBody`;
+        // that is what the policy is FOR. Seating a local match into an
+        // exploration session is a composition error, and this is the boundary
+        // that knows it — before one entity exists.
+        if home_body.spawns_a_body() && authority.local_channel().is_some() {
+            seat_problem(
+                "asks for a LOCAL control channel in a session that also lowers \
+                 its own home avatar, so two bodies would claim the same \
+                 channel. A match experience must declare \
+                 `InitialBodyPolicy::NoInitialBody` — the match owns its whole \
+                 cast, and there is no privileged avatar for a seat to share a \
+                 channel with."
+                    .to_string(),
+            );
+            continue;
+        }
 
         // A CPU's profile must name a rig this composition registered.
         //
@@ -651,6 +684,15 @@ pub fn prepare_the_match(
             ambition_platformer2d_core::RoomGeometry,
         >,
     >,
+    // **WHAT THIS SESSION DECLARED ABOUT A HOME AVATAR.** Optional because a
+    // minimal composition may publish a root that carries no policy at all;
+    // absent is read as `NoInitialBody`, which is what such a root behaves like
+    // — it lowered no avatar, so no seat can collide with one.
+    home_body: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            crate::avatar::starting_character::InitialBodyPolicy,
+        >,
+    >,
     prepared: Option<Res<PreparedMatch>>,
 ) {
     // One plan per match. Re-preparing every tick would rebuild the seeds under
@@ -674,6 +716,10 @@ pub fn prepare_the_match(
     // The stage centre is the room's authored spawn: the one point a room
     // guarantees is standable, which is the only guarantee placement needs.
     let centre = geometry.0.spawn;
+    let home_body = home_body.map_or(
+        crate::avatar::starting_character::InitialBodyPolicy::NoInitialBody,
+        |policy| policy.clone(),
+    );
     match prepare_match(
         &roster,
         &registry,
@@ -681,6 +727,7 @@ pub fn prepare_the_match(
         &authored_sheets,
         &archetypes,
         centre,
+        &home_body,
     ) {
         Ok(plan) => {
             // A standing refusal is over: this roster resolved. Removed here

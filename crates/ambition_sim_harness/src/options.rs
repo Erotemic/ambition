@@ -27,6 +27,18 @@ pub struct Platformer2dSimHarnessOptions {
     /// deterministic harness mode: GGRS repeatedly saves, rewinds, and
     /// resimulates the real game schedule while comparing checksums.
     pub rollback: RollbackMode,
+    /// **Compose the session the way a MATCH experience is composed: with no
+    /// home avatar.**
+    ///
+    /// The default (`false`) is an ordinary exploration session, which lowers
+    /// the experience's home body. Set it when the harness is going to publish a
+    /// `MatchParticipantRoster` with a LOCAL seat in it: the match owns its whole
+    /// cast, and a home avatar would be a second claimant on the session's
+    /// control channel — which match preparation refuses by name.
+    ///
+    /// ⚠ the composition, not the roster, has to say this. By the time a roster
+    /// is published the avatar has already been built.
+    pub seats_a_match: bool,
 }
 
 impl Platformer2dSimHarnessOptions {
@@ -45,6 +57,13 @@ impl Platformer2dSimHarnessOptions {
     /// Builder: host the sim in `FixedUpdate` (see [`Self::fixed_tick`]).
     pub fn with_fixed_tick(mut self, fixed_tick: bool) -> Self {
         self.fixed_tick = fixed_tick;
+        self
+    }
+
+    /// Builder: compose the session with no home avatar, because this harness
+    /// is going to seat a match into it (see [`Self::seats_a_match`]).
+    pub fn seating_a_match(mut self) -> Self {
+        self.seats_a_match = true;
         self
     }
 

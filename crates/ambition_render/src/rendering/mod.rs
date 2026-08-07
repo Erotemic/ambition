@@ -85,11 +85,11 @@ mod wielded_item_visuals;
 mod world;
 
 pub use actors::{
-    actor_sprite_path_owns, animate_bosses, animate_characters, animate_feature_sprites,
-    animate_player, apply_hide_sprites_override, apply_placeholder_sprites_override,
-    refresh_player_sprites_on_game_assets_change, refresh_prop_sprites_on_game_assets_change,
-    sync_visuals, upgrade_actor_sprites, upgrade_boss_sprites, BossAnimation,
-    PlayerSpriteCharacter,
+    BossAnimation, PlayerSpriteCharacter, actor_sprite_path_owns, animate_bosses,
+    animate_characters, animate_feature_sprites, animate_player, apply_hide_sprites_override,
+    apply_placeholder_sprites_override, refresh_player_sprites_on_game_assets_change,
+    refresh_prop_sprites_on_game_assets_change, sync_visuals, upgrade_actor_sprites,
+    upgrade_boss_sprites,
 };
 // `BoundFeatureKind` lives with the foundation feature taxonomy; re-exported
 // here so existing render call sites resolve unchanged.
@@ -101,33 +101,33 @@ pub use ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind;
 pub use ambition_sim_view::camera_snapshot::{CameraSnapshot2d, SceneCaptureRequest};
 #[cfg(feature = "portal_render")]
 pub use camera::publish_portal_camera_clamp;
-pub use camera::{camera_follow, CameraViewState};
+pub use camera::{CameraViewState, camera_follow};
 /// The presentation FLOOR's marker: a feature the sim published that no render
 /// family has drawn. Exported because it is the readable form of "this room is
 /// not presentable yet" — the room-transition cover waits on it.
 pub use features::UnclaimedBodyPlaceholder;
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use label_layout::{
-    layout_world_labels, WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin, WorldLabelLayoutSet,
-    WorldLabelLayoutSettings,
+    WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin, WorldLabelLayoutSet,
+    WorldLabelLayoutSettings, layout_world_labels,
 };
 pub use nameplates::{
-    sync_actor_nameplates, ActorNameplatePresentationPlugin, ActorNameplateSet,
-    ActorNameplateSettings, ActorNameplateVisual, DoorNameplateSource,
+    ActorNameplatePresentationPlugin, ActorNameplateSet, ActorNameplateSettings,
+    ActorNameplateVisual, DoorNameplateSource, sync_actor_nameplates,
 };
 #[cfg(feature = "portal_render")]
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
-    ensure_active_room_parallax_theme,
-    refresh_parallax_layers_on_quality_change,
-    spawn_parallax_layers,
-    sync_parallax_layers,
     // ⚠ the MARKER, not just the systems. A consumer could install the whole
     // parallax family and had no way to ask whether a backdrop existed — the
     // component was behind a private module, so "is my sky drawn" was a question
     // only this crate could answer. `fixtures/external_consumer` asks it now,
     // which is the consumer that makes this worth exporting.
     ParallaxLayerVisual,
+    ensure_active_room_parallax_theme,
+    refresh_parallax_layers_on_quality_change,
+    spawn_parallax_layers,
+    sync_parallax_layers,
 };
 pub use primitives::{
     BlockArt, BlockVisual, FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline,
@@ -159,6 +159,30 @@ pub struct ActorOverlaySet;
 /// Presentation systems below consume session-created resources and entities.
 /// During startup, loading, and the launcher there is deliberately no gameplay
 /// session, so the complete per-frame presentation graph must stay dormant.
+///
+/// ⛔ **THE SUBJECT IS THE SESSION, NEVER A BODY IN IT.** This condition used to
+/// end in `&& !primary_player.is_empty()`, and that one clause turned the
+/// ENTIRE per-frame presentation graph off for any session with no home avatar:
+/// a match experience declaring `InitialBodyPolicy::NoInitialBody` seated two
+/// fighters, ticked their brains, resolved their combat — and drew nothing at
+/// all, not even the stage. It is the same shape as the three system-wide
+/// `let Some(..) else { return }` guards this campaign already removed, one
+/// level coarser: the guarded value was consulted by the run condition and by
+/// NOT ONE system in the sets it gates. Each of those finds its own subject and
+/// no-ops without it.
+///
+/// ⚠ it was never a deliberate precondition. It arrived as a mechanical
+/// translation when `SceneEntities` — a process-global handle bag — was
+/// deleted (`ed5e2f50a`): the bag's player handle became a `PrimaryPlayer`
+/// query, and "a session's scene exists" quietly became "a session's home
+/// avatar exists". The session identity that translation was protecting is
+/// entirely carried by the `SessionRoot` + `ActiveSessionScope` check below.
+///
+/// ⭐ the invariant to hold this to: **presentation must not demand more of a
+/// session than SIMULATION does.** `simulation_authorized` — the gate on the
+/// gameplay sim itself — asks for exactly one `SessionRoot` naming the active
+/// scope and nothing more. Anything stricter here means a session the engine
+/// agreed to simulate is one it refuses to draw.
 fn session_presentation_is_ready(
     gate: Option<
         bevy::prelude::Res<ambition_platformer2d_shared_tangle::lifecycle::SessionGatedSimulation>,
@@ -167,24 +191,13 @@ fn session_presentation_is_ready(
         bevy::prelude::Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>,
     >,
     roots: bevy::prelude::Query<&ambition_platformer2d_shared_tangle::lifecycle::SessionRoot>,
-    // The primary player body IS the readiness signal now: presentation runs only
-    // once the session has lowered its home avatar. Derived from the canonical
-    // marker instead of a process-global handle bag that outlives its session.
-    primary_player: bevy::prelude::Query<
-        (),
-        (
-            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-            bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PrimaryPlayer>,
-        ),
-    >,
 ) -> bool {
-    let exact_world = roots.single().is_ok_and(|root| {
+    roots.single().is_ok_and(|root| {
         gate.is_none()
             || active.as_deref().and_then(
                 ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current,
             ) == Some(root.0)
-    });
-    exact_world && !primary_player.is_empty()
+    })
 }
 
 /// Module-local Bevy plugin: schedules player-bound visual systems

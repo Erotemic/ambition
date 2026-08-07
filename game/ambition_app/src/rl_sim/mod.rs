@@ -26,8 +26,9 @@ use bevy::prelude::App;
 use crate::app::StartRoomOverride;
 
 pub use ambition_sim_harness::{
-    reward, AgentAction, AgentObservation, EnemyObs, Lcg, PickupObs, RandomWalkPolicy,
-    RandomWalkTuning, RollbackMode, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+    AgentAction, AgentObservation, EnemyObs, Lcg, PickupObs, Platformer2dSimHarness,
+    Platformer2dSimHarnessOptions, RandomWalkPolicy, RandomWalkTuning, RollbackMode, TimestepMode,
+    reward,
 };
 
 #[cfg(test)]
@@ -39,7 +40,10 @@ mod tests;
 /// the flagship `AmbitionGameSimulationPlugin` (which composes the Ambition content
 /// catalogs + the engine simulation group). Runs AFTER the harness has added the
 /// engine foundation and chosen the sim schedule.
-pub fn ambition_sim_composition(app: &mut App, options: &Platformer2dSimHarnessOptions) -> Result<(), String> {
+pub fn ambition_sim_composition(
+    app: &mut App,
+    options: &Platformer2dSimHarnessOptions,
+) -> Result<(), String> {
     use ambition_platformer2d::actors::ldtk_world;
     // Provider-owned catalogs are composed as App-local resources by the
     // simulation plugin; validation reads the provider's manifest directly.
@@ -60,6 +64,12 @@ pub fn ambition_sim_composition(app: &mut App, options: &Platformer2dSimHarnessO
     // builds (its `init_sandbox_resources` consumes the override).
     if let Some(room_id) = options.start_room.clone() {
         app.insert_resource(StartRoomOverride(room_id));
+    }
+    // Same kind of composition input, and it has to arrive here for the same
+    // reason: `init_sandbox_resources` consumes it while building the prepared
+    // world, long before any roster is published.
+    if options.seats_a_match {
+        app.insert_resource(crate::app::SeatsAMatchInsteadOfAHomeBody);
     }
     // ⭐ **K2b edit 2: the harness composes the SHELL, like every other entry.**
     // It used to add the simulation plugin alone and inherit the `SessionRoot`

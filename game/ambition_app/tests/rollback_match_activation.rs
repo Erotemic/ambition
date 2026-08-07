@@ -76,7 +76,15 @@ fn match_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::new_with_options(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_sync_test_rollback_settings(4, 10),
+            .with_sync_test_rollback_settings(4, 10)
+            // ⛔ **THE MATCH OWNS THE STAGE.** Without this the composition also
+            // lowers Ambition's home avatar, and that avatar already holds the
+            // session's control channel — so a LOCAL seat asking for one is a
+            // second claimant and `prepare_match` refuses the roster by name.
+            // It used to "work" because seat zero silently ADOPTED the avatar;
+            // deleting that fork is what made this composition sayable, and
+            // saying it is what a real match experience does.
+            .seating_a_match(),
     )
     .expect("Ambition GGRS sync-test harness builds")
 }
@@ -339,7 +347,15 @@ fn late_arriving_roster_sim() -> Platformer2dSimHarness {
     Platformer2dSimHarness::build(
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
-            .with_sync_test_rollback_settings(4, 10),
+            .with_sync_test_rollback_settings(4, 10)
+            // ⛔ **THE MATCH OWNS THE STAGE.** Without this the composition also
+            // lowers Ambition's home avatar, and that avatar already holds the
+            // session's control channel — so a LOCAL seat asking for one is a
+            // second claimant and `prepare_match` refuses the roster by name.
+            // It used to "work" because seat zero silently ADOPTED the avatar;
+            // deleting that fork is what made this composition sayable, and
+            // saying it is what a real match experience does.
+            .seating_a_match(),
         |app, options| {
             ambition_app::rl_sim::ambition_sim_composition(app, options)?;
             app.init_resource::<ActivationTrace>();
@@ -573,6 +589,14 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
+            // ⛔ **THE MATCH OWNS THE STAGE.** Without this the composition also
+            // lowers Ambition's home avatar, and that avatar already holds the
+            // session's control channel — so a LOCAL seat asking for one is a
+            // second claimant and `prepare_match` refuses the roster by name.
+            // It used to "work" because seat zero silently ADOPTED the avatar;
+            // deleting that fork is what made this composition sayable, and
+            // saying it is what a real match experience does.
+            .seating_a_match()
             // The session must actually CARRY seat two, or its authored frames
             // are written and never asked for — inert rather than wrong, and a
             // test that did not say this would pass while proving nothing.
@@ -741,6 +765,14 @@ fn late_arriving_human_roster_sim() -> Platformer2dSimHarness {
         Platformer2dSimHarnessOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())
             .with_sync_test_rollback_settings(4, 10)
+            // ⛔ **THE MATCH OWNS THE STAGE.** Without this the composition also
+            // lowers Ambition's home avatar, and that avatar already holds the
+            // session's control channel — so a LOCAL seat asking for one is a
+            // second claimant and `prepare_match` refuses the roster by name.
+            // It used to "work" because seat zero silently ADOPTED the avatar;
+            // deleting that fork is what made this composition sayable, and
+            // saying it is what a real match experience does.
+            .seating_a_match()
             // The session must CARRY seat two, or the second seat's frames are
             // authored and never asked for.
             .with_rollback_players(2),

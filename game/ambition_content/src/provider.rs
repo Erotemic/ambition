@@ -16,20 +16,49 @@ pub const AMBITION_GAMEPLAY_ROUTE: &str = "ambition_gameplay";
 pub struct AmbitionPreparedWorld {
     pub room_set: RoomSet,
     pub ldtk_index: LdtkRuntimeIndex,
+    /// The experience's catalog DEFAULT character. Meaningful whatever
+    /// [`Self::builds_a_home_body`] says: a worn fighter still needs a fallback
+    /// id even in a session that lowers no avatar of its own.
     pub starting_character: ambition_platformer2d_actor_monolith::avatar::StartingCharacter,
+    /// **Whether this composition lowers Ambition's home avatar.**
+    ///
+    /// True for every ordinary entry — the world is an exploration world and the
+    /// player has a body in it. A composition that instead SEATS A MATCH into
+    /// this world sets it false, because a match owns its whole cast: with a
+    /// home avatar present, a local seat and the avatar would both claim the
+    /// session's control channel, and `prepare_match` refuses that outright
+    /// rather than building two bodies that fight over it.
+    ///
+    /// ⚠ a different question from `starting_character`, deliberately — see
+    /// `PreparedPlatformerSource::for_match`, which takes both for the same
+    /// reason.
+    pub builds_a_home_body: bool,
 }
 
 impl AmbitionPreparedWorld {
     pub fn prepared_source(&self) -> PreparedPlatformerSource {
         let room_set = self.room_set.clone();
-        PreparedPlatformerSource::new(
-            AMBITION_EXPERIENCE,
-            room_set.clone(),
-            RoomGeometry(room_set.active_world().clone()),
-            ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
-            self.starting_character.clone(),
-            self.ldtk_index.clone(),
-        )
+        let geometry = RoomGeometry(room_set.active_world().clone());
+        let active_room = ActiveRoomMetadata(room_set.active_spec().metadata.clone());
+        if self.builds_a_home_body {
+            PreparedPlatformerSource::new(
+                AMBITION_EXPERIENCE,
+                room_set.clone(),
+                geometry,
+                active_room,
+                self.starting_character.clone(),
+                self.ldtk_index.clone(),
+            )
+        } else {
+            PreparedPlatformerSource::for_match(
+                AMBITION_EXPERIENCE,
+                room_set.clone(),
+                geometry,
+                active_room,
+                self.starting_character.clone(),
+                self.ldtk_index.clone(),
+            )
+        }
     }
 }
 

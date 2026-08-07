@@ -16,7 +16,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use ambition_app::app::versus::{VERSUS_GAMEPLAY_ROUTE, VERSUS_ROOM_ID};
 use ambition_app::app::versus_rules::{MatchPhase, VersusMatch};
-use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_app::app::{VisibleRenderMode, build_visible_app};
 use ambition_platformer2d::game_shell::{
     ShellCommand, ShellRouteCatalog, ShellRouteId, ShellRouter,
 };
@@ -1078,8 +1078,8 @@ fn a_knockout_freezes_the_fight_until_the_next_round() {
 #[test]
 fn a_decided_round_takes_the_controls_away() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
-    use ambition_platformer2d::characters::actor::control::ActorControlFrame;
     use ambition_platformer2d::characters::actor::BodyHealth;
+    use ambition_platformer2d::characters::actor::control::ActorControlFrame;
     use ambition_platformer2d::characters::brain::{ActorControl, ScriptedControl};
 
     let mut app = versus_app();
@@ -1426,7 +1426,7 @@ fn every_seated_fighter_has_something_on_screen() {
 #[test]
 fn four_controllers_make_versus_a_two_versus_two() {
     use ambition_platformer2d::actors::character_runtime::MatchSeat;
-    use ambition_platformer2d::combat::targeting::{damage_lands_between, FriendlyFire, MatchTeam};
+    use ambition_platformer2d::combat::targeting::{FriendlyFire, MatchTeam, damage_lands_between};
 
     let mut app = versus_app();
     for _ in 0..4 {
@@ -2042,7 +2042,7 @@ fn the_freeze_is_requested_on_the_tick_the_knockout_lands() {
 /// round one.
 #[test]
 fn the_round_counter_counts_rounds_and_not_wins() {
-    use ambition_app::app::versus_rules::{MatchPhase, VersusMatch, ANNOUNCE_HUD_SLOT};
+    use ambition_app::app::versus_rules::{ANNOUNCE_HUD_SLOT, MatchPhase, VersusMatch};
 
     let mut app = versus_app();
     settle_to_launcher(&mut app);

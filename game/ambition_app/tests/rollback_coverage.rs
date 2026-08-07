@@ -139,6 +139,15 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_actor_monolith::avatar::starting_character::StartingCharacter",
         "session activation input, resolved once at player spawn",
     ),
+    (
+        "ambition_platformer2d_actor_monolith::avatar::starting_character::InitialBodyPolicy",
+        "the same session activation input one level up: WHETHER this session \
+         lowers a home avatar at all, and which one. Authored by the experience \
+         definition, written onto the session world root when the session is \
+         built, and read only by `simulation_world` at that moment. A rewind \
+         cannot reach the frame that wrote it, and a session whose body policy \
+         changed mid-flight would be a different session",
+    ),
     // ── Authored geometry and identity on world props ────────────────────────
     //
     // Same population change surfaced these: a shrine, a moving platform's visual
@@ -946,6 +955,23 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     (
         "::character_runtime::staging::MatchParticipantRoster",
         "the match's authored request; written at route entry, read-only for the match's life",
+    ),
+    // The PLAN, and it is deliberately not rollback state — `prepared_match.rs`
+    // argues this at length in its own header. Registering it would DELETE it on
+    // a rewind to before it was decided and leave activation with nothing to
+    // replay, which is the opposite of the invariant it exists to serve: the
+    // receipt (`ActiveMatch`) and the bodies rewind, and the same immutable plan
+    // rebuilds the same cast. A plan that changed would be a different match.
+    (
+        "::character_runtime::prepared_match::PreparedMatch",
+        "the resolved match DECISION, made once before the fighters exist and \
+         never written from inside the sim. Rewinding it would remove what \
+         activation replays FROM",
+    ),
+    (
+        "::character_runtime::prepared_match::MatchPreparationProblems",
+        "the refusal that answers an unpreparable roster; published beside the \
+         plan, on the same pre-session decision",
     ),
     // The room-transition transaction, engine-side since 2026-07-25. Under a
     // rollback host `detect_room_transition_system` DEFERS the crossing to the

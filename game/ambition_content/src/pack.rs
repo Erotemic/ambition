@@ -36,6 +36,7 @@ const ARCHETYPES_SOURCE_PATH: &str = "data/character_archetypes.ron";
 const BOSS_PROFILES_SOURCE_PATH: &str = "data/boss_profiles.ron";
 const BOSS_SEEDS_SOURCE_PATH: &str = "data/boss_seeds.ron";
 const BOSS_VALIDATOR_BANDS_SOURCE_PATH: &str = "data/boss_validator_bands.ron";
+const FIGHTER_BRAIN_LADDER_SOURCE_PATH: &str = "data/fighter_brain_ladder.ron";
 const MUSIC_REGISTRY_SOURCE_PATH: &str = "audio/music_registry.ron";
 const SFX_REGISTRY_SOURCE_PATH: &str = "audio/sfx_registry.ron";
 
@@ -45,6 +46,14 @@ const ENCOUNTER_WAVES_SOURCE_PATH: &str = "data/encounters/goblin_encounter.ron"
 /// The authored item grid (compile-time include; the loose file stays on disk
 /// so the CLI and the Python tooling read the same bytes).
 pub const ITEMS_RON: &str = include_str!("../assets/data/items.ron");
+
+/// The authored fighter difficulty ladder.
+///
+/// ⛔ **this file existed and nothing read it.** A content test parsed it; the
+/// game did not, and `FighterBrainProfile::for_level` — which documents itself as
+/// the floor a game overrides — was consulted at both production call sites
+/// instead. Declaring it here is what makes it content rather than a document.
+pub const FIGHTER_BRAIN_LADDER_RON: &str = include_str!("../assets/data/fighter_brain_ladder.ron");
 
 /// Every source `pack.ron` declares, paired with its embedded text.
 fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
@@ -66,6 +75,10 @@ fn embedded_sources() -> impl IntoIterator<Item = (String, String)> {
         (
             ARCHETYPES_SOURCE_PATH.to_string(),
             crate::enemy_roster::CHARACTER_ROSTER_RON.to_string(),
+        ),
+        (
+            FIGHTER_BRAIN_LADDER_SOURCE_PATH.to_string(),
+            FIGHTER_BRAIN_LADDER_RON.to_string(),
         ),
         (
             BOSS_PROFILES_SOURCE_PATH.to_string(),

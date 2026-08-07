@@ -41,6 +41,10 @@
 //! on asserting the old state, which is the cost of writing a fact about the code
 //! in prose that nothing evaluates.
 
+/// The `fighter_brain_ladder` schema this capability owns. Behind `content_pack`:
+/// a game that never validates its content must not link a compiler.
+#[cfg(feature = "content_pack")]
+pub mod content_schema;
 pub mod decision;
 pub mod habit;
 pub mod options;

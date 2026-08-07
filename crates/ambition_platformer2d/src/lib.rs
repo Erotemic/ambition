@@ -85,6 +85,11 @@ pub mod content {
             .expect("the engine's own schemas are registered once");
         registry
             .register(
+                crate::characters::brain::fighter::content_schema::fighter_brain_ladder_schema(),
+            )
+            .expect("the engine's own schemas are registered once");
+        registry
+            .register(
                 crate::characters::brain::boss_pattern::content_schema::boss_seed_library_schema(),
             )
             .expect("the engine's own schemas are registered once");

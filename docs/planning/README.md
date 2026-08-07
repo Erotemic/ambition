@@ -4,6 +4,35 @@ This directory is the authoritative planning surface for HEAD and forward work.
 It is deliberately not a changelog. Completed execution ledgers, superseded
 plans, and review evidence belong under [`docs/archive/`](../archive/).
 
+## ⭐ Where the open work is
+
+**Two files, and `▢` is the index into both.**
+
+* [`queue-72h-2026-08-06.md`](queue-72h-2026-08-06.md) — the live run ledger,
+  lanes A–F. This is the current work.
+* [`tracks.md`](tracks.md) — the standing executable queue, longer-lived than any
+  one run.
+
+Then, for things that are open but are not *yours* to close:
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) (needs Jon)
+and [`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`](JONS_OBSERVATIONS_BUGS_AND_ISSUES.md)
+(his direct reports, which outrank anything inferred).
+
+⛔ **`▢` MEANS "A THING TO DO", AND NOTHING ELSE.** Both halves of that were
+violated and both cost real time (2026-08-07):
+
+* **used for prose.** Three retired queues carried 309 of the directory's 361
+  marks; a sample of fifteen rows found fourteen already closed, two of them
+  self-refuting on their own line (*"#7 AGREED, and already true"*). The mark had
+  come to mean "a point I am making" as well as "a thing to do", so counting
+  marks measured nothing. Those files are deleted; read them at `9a66996ce~1`.
+* **missing from real work.** Six sections of `tracks.md` were open assignments
+  with no mark at all, so the grep that finds work returned none of them.
+
+⚠ **so before working any `▢`, grep for the thing it says is missing.** The
+commonest staleness in this directory has always been an open row on work that
+already landed — and it is cheaper to check than to do.
+
 ## Read in this order
 
 1. [`vision.md`](vision.md) — product and engine north star.

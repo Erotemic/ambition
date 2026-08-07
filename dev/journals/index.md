@@ -51,6 +51,7 @@ Use this index when debugging a symptom. Search `dev/journals/` when in doubt; t
 | Android install/launch/build failure moves between Gradle, manifest, native library, assets, or logcat layers | [`lessons_learned.md`](lessons_learned.md) |
 | Overlay patch clobbers platform entrypoints or stale feature/event APIs | [`lessons_learned.md`](lessons_learned.md), [`parallax-overlay-module-graph-clobber-2026-05-11.md`](parallax-overlay-module-graph-clobber-2026-05-11.md) |
 | Headless sandbox build still pulls in winit even after moving render features off the base bevy dep (`ui_api` → `default_app` → `bevy_window` → `bevy_winit` transitive closure) | [`bevy-headless-feature-graph-2026-05-20.md`](bevy-headless-feature-graph-2026-05-20.md) |
+| Compiles feel slow even warm; a "warm" build unexpectedly takes ~100s; the target dir fills quickly; you are about to optimise the linker or carve a crate for compile time | [`compile-time-and-disk-2026-08-07.md`](compile-time-and-disk-2026-08-07.md) |
 
 ## UI / input / Bevy
 

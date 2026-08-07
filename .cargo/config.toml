@@ -10,21 +10,52 @@
 # be deleted to reclaim the shared-disk space it currently occupies.
 target-dir = "/home/joncrall/ambition-target"
 
-# ⛔ **INCREMENTAL OFF, because mold + incremental produces BROKEN LINKS here.**
+# **INCREMENTAL ON for the edit loop. The suite still turns it OFF for itself.**
+#
+# ⭐ **The measurement, 2026-08-07** (`scripts/compile_cost.py`, 8 cores, mold):
+# edit one function in `ambition_platformer2d_actor_monolith`, then build the
+# app's test binary — the loop an agent pays before a single test runs.
+#
+#     incremental off   104.9s
+#     incremental on     21.3s      4.9x
+#
+# The cost is codegen, not linking (a 769 MB test binary relinks in 9.3s) and
+# not the frontend (`cargo check` of that same crate is 8.5s against 50s to
+# build it). Incremental is the only lever that touches codegen without giving
+# up `opt-level`.
+#
+# ⛔ **IF LINKS START FAILING, DELETE THE CACHE FIRST — that is the whole cure.**
+#
+#     rm -rf "$CARGO_TARGET_DIR/debug/incremental"   # or /home/joncrall/ambition-target
 #
 # Three times on 2026-07-31 a `cargo test -p ambition_app` died with
 # `mold: error: undefined symbol: anon.<hash>.llvm.<hash>` referenced from a
-# stale `libambition_platformer2d_runtime` rlib — a link failure with no source cause, cured
-# only by discarding the incremental cache. It is not cosmetic: every goal-guard
-# check that builds the app's test binary fails at the LINK step, so a green
-# repository reports itself red and the reason is in a linker dump nobody reads.
+# stale `libambition_platformer2d_runtime` rlib — a link failure with no source
+# cause, cured only by discarding the incremental cache. That is why this was
+# `false` for a week. It is not cosmetic: every goal-guard check that builds the
+# app's test binary fails at the LINK step, so a green repository reports itself
+# red and the reason is in a linker dump nobody reads. If it recurs often enough
+# to matter, flip this back and say so here rather than suffering it quietly.
 #
-# Two other facts point the same way. `./run_tests.sh` already exports
-# `CARGO_INCREMENTAL=0` (the disk filled at 110G on 2026-07-31, and the cache was
-# 25G of it), so this only makes an ad-hoc `cargo test` agree with the suite; and
-# with mold on a 24-core box a cold workspace build is ~3 minutes, against three
-# full rebuilds lost to bad links in one afternoon.
-incremental = false
+# ⚠ **the suite is NOT covered by this and must not be.**
+# `scripts/run_tests.py` sets `CARGO_INCREMENTAL=0` for its own jobs, and its
+# comment carries the number: on 2026-07-31 `target/debug/incremental` alone
+# reached **110G** and builds failed with ENOSPC mid-suite. Every feature job is
+# its own variant with its own incremental tree, and a suite that runs a dozen
+# times a day reuses almost none of them. Incremental buys the suite nothing
+# anyway — a job either compiles a feature set nothing else shares, or is
+# already fresh. The dev loop is the opposite case, which is why the two differ.
+#
+# ⚠ **switching between the two costs a full rebuild** (~100s, measured): the
+# incremental flag is part of every unit's fingerprint, so `cargo check` here and
+# a `./run_tests.sh` run do not share artifacts. That is the price of the 4.9x,
+# it is paid on entering and leaving the suite rather than per edit, and it is
+# written down because a 100s "warm" build otherwise reads as a slow machine.
+#
+# Disk: the dev-loop cache measured ~7G across a day of use — `debug/deps` is
+# 51G by comparison, 15G of it duplicate fingerprint variants. Reclaim with
+# `./scripts/sweep_cargo_target.sh --apply --deep` (needs `cargo-mark-sweep`).
+incremental = true
 
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"

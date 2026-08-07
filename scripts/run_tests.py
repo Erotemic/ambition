@@ -392,7 +392,13 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # value is the regression they now catch rather than anything they say today.
         jobs.append(Job("doc links (active KB)",
                         [sys.executable, "scripts/check_doc_links.py"]))
-        # ⛔ `--check` IS LOAD-BEARING AND WAS MISSING (fixed 2026-08-07). The
+        # ⛔ `--check` IS LOAD-BEARING AND WAS MISSING (fixed 2026-08-07).
+        # ⚠ and unlike `check_absence_contracts.py` — whose own `--check` is also
+        # optional and is FINE, because `scripts/tests/test_absence_contracts.py`
+        # asserts every contract against the live tree — this script has NO pytest
+        # gate. Checked: 26 files in `scripts/tests/` and none of them is about
+        # roadmap evidence. So this invocation was its only enforcement path, and
+        # the flag was the whole of it. The
         # script prints its findings either way and returns
         # `1 if (problems and args.check) else 0`, so without the flag this job
         # could not go red — it ran for the whole period the comment above says

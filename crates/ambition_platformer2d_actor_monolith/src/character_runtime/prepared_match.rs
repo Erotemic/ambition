@@ -781,7 +781,15 @@ pub fn prepare_the_match(
     prepared: Option<Res<PreparedMatch>>,
     // WHEN this plan becomes effective is part of the plan; see
     // `PreparedMatch::effective_from`.
-    tick: Res<ambition_time::SimTick>,
+    //
+    // ⛔ **`Option`, for the reason spelled out on `FramedCast` below.** A plain
+    // `Res` is a whole-app panic in any composition that assembles this crate
+    // without the timeline, and 32 of this crate's own unit tests were exactly
+    // that. A world with no `SimTick` has no rollback timeline, so the tick the
+    // plan names is stamped zero and the gate it feeds is trivially open —
+    // correct, because the gate exists to make a frame and its REPLAY agree and
+    // there is no replay without a timeline.
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let session = active_session
         .as_deref()
@@ -819,7 +827,7 @@ pub fn prepare_the_match(
     // earliest tick this plan can be acted on is the NEXT one. Naming it is what
     // makes activation a pure function of the plan and the clock rather than of
     // when a non-rewinding resource happened to appear.
-    let effective_from = tick.get().saturating_add(1);
+    let effective_from = tick.map_or(0, |tick| tick.get().saturating_add(1));
     match prepare_match(
         &roster,
         &registry,
@@ -869,7 +877,8 @@ pub fn activate_the_prepared_match(
     // Seats that already have a body — derived from the world, so a rewind that
     // restored the fighters without the latch cannot double-build them.
     already_seated: Query<&super::MatchSeat>,
-    tick: Res<ambition_time::SimTick>,
+    // `Option` for the reason given on preparation's own `tick`.
+    tick: Option<Res<ambition_time::SimTick>>,
 ) {
     let Some(prepared) = prepared else {
         return;
@@ -899,7 +908,7 @@ pub fn activate_the_prepared_match(
     // that frame's replay — the original ran without it and the resimulation
     // found it standing, and the cast appeared a tick early. The plan names the
     // tick instead.
-    if tick.get() < prepared.effective_from() {
+    if tick.is_some_and(|tick| tick.get() < prepared.effective_from()) {
         return;
     }
     // No active session means no owner for the bodies. Activation waits rather
@@ -986,8 +995,19 @@ pub fn activate_the_prepared_match(
 pub fn declare_the_match_cast_as_the_view(
     active: Option<Res<super::ActiveMatch>>,
     seats: Query<(Entity, &super::MatchSeat)>,
-    mut framed: ResMut<ambition_platformer2d_shared_tangle::markers::FramedCast>,
+    // ⛔ **`Option`, and it is not defensive.** A plain `ResMut` here panicked 53
+    // of this crate's own unit tests with *"Parameter `ResMut<FramedCast>` failed
+    // validation: Resource does not exist"* — the resource is initialised by the
+    // ABILITIES plugin and this system is registered by `character_runtime`, so
+    // every composition that takes one without the other dies on its first
+    // frame. A Bevy param panic is a hard stop for the whole app, not a skipped
+    // system; the correct answer for a projection nobody has asked for yet is to
+    // have nothing to say.
+    mut framed: Option<ResMut<ambition_platformer2d_shared_tangle::markers::FramedCast>>,
 ) {
+    let Some(framed) = framed.as_mut() else {
+        return;
+    };
     if active.is_none() {
         if !framed.0.is_empty() {
             framed.0.clear();

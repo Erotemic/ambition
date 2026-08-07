@@ -149,6 +149,65 @@ SECONDS rather than pixels. That is recorded at the Sanic constant and needs a
 third game, not this row.
 
 ---
+## Size the character quad from the BBOX instead of the FRAME? (2026-08-07)
+
+Carries two of Jon's reports that turn out to be one decision: *"the Hall
+characters are inconsistent sizes"* and *"the snake's sprite does not match its
+box"*. ⭐ **the arithmetic makes them the same question**, and answering it
+deletes an authored field rather than retuning it.
+
+### The fact
+
+`sprite_render_size_scaled`
+(`ambition_sprite_sheet/src/character/sheets/geometry.rs:25`) is two lines, and
+both take their number from the PADDED FRAME:
+
+```rust
+let height = collision.x.max(collision.y).max(8.0) * spec.collision_scale * visual_scale;
+let width  = height * (spec.frame_width as f32 / spec.frame_height as f32);
+```
+
+- `collision_scale` — with `fill = body_pixel_bbox.h / frame_height`, the report's
+  formula is `figure = collision_scale x fill`, so `collision_scale = target /
+  fill`. **It is a reciprocal-of-padding fudge and nothing else.** That is why the
+  116 authored values "do not compensate for anything": they are hand-tuned
+  approximations of a computable quantity.
+- the width line takes the FRAME's aspect. Its own comment says it "preserves the
+  cropped frame's aspect ratio" — which is the defect stated as the intent.
+
+⭐ **measured consequence**: 13 scientist sheets on an explicit `1.0` render at
+figure height **0.84** while 33 high-fill sheets on the `1.5` default render at
+**1.42** — two populations of people, in one Hall, **1.69x apart**.
+
+### The fork
+
+- **TAKE IT.** Size and crop the quad from `body_pixel_bbox`. `fill` becomes 1.0
+  by construction, so every `collision_scale` collapses to ONE global constant
+  (the target figure height), and the snake's quad matches its box for the same
+  reason. ⚠ three coupled sites, and doing fewer is the stretched-sprite failure
+  this repo has already paid for:
+  1. `sheets/geometry.rs:25` — height off a constant, width off `bbox.w / bbox.h`;
+  2. the character sprite must draw the bbox SUB-RECT rather than the whole frame
+     (`ambition_render/src/rendering/actors/`);
+  3. `feet_anchor_norm` (`character/sheets/mod.rs:476`, consumed at
+     `rendering/actors/mod.rs:334`) is normalised against the FRAME and has to
+     move with the crop.
+- **LEAVE IT** and apply `--suggest` per character instead. Cheaper today, but it
+  spends a 116-row humanoid judgement on values the first branch would delete.
+
+### Recommendation
+
+⚠ **decide this BEFORE the humanoid pass**, whichever way it goes. The two are
+not independent: `--suggest` retunes a field that "take it" removes. If it is
+taken, the only judgement left is the handful of creatures whose figure should
+not match a human's — slug, snakes, parrot, trex, shark, mites — which is a far
+smaller ask than 116 rows.
+
+⚠ what neither branch decides: what the target figure height should BE. 1.21 is
+Jon's own Alice/Bob reference and reproduces Alice's authored 1.5 from her 81%
+fill, which is evidence it is the right constant, not proof.
+
+---
 ## Which of the 33 engine design documents have become history? (2026-08-01)
 
 `check_agent_kb` warns that `docs/planning` is **30,708 lines against a 10,500

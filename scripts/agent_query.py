@@ -33,6 +33,8 @@ INDEX_DIR = AGENT_DIR / "index"
 ECS_DIR = AGENT_DIR / "ecs_inventory"
 CATALOG_PATH = INDEX_DIR / "catalog.json"
 CRATE_INDEX_PATH = INDEX_DIR / "crates" / "index.json"
+DECLARED_GRAPH_PATH = INDEX_DIR / "crates" / "graph-declared.json"
+RESOLVED_GRAPH_PATH = INDEX_DIR / "crates" / "graph-resolved.json"
 AGENT_README_PATH = AGENT_DIR / "README.md"
 SCHEMA_VERSION = 1
 
@@ -44,9 +46,35 @@ KNOWN_COMMANDS = {
     "ecs",
     "tests",
     "crate",
+    "deps",
     "path",
     "build-catalog",
 }
+
+
+@dataclass(frozen=True)
+class DeclaredDep:
+    """One edge as a manifest DECLARES it. See `build_declared_graph`."""
+
+    name: str
+    kind: str  # normal | dev | build
+    optional: bool
+    internal: bool
+    target: str | None  # the `[target.'cfg(...)'.dependencies]` key, if any
+    enabled_by: tuple[str, ...]  # features that turn an optional edge on
+
+    def to_json(self) -> dict[str, Any]:
+        row: dict[str, Any] = {
+            "name": self.name,
+            "kind": self.kind,
+            "optional": self.optional,
+            "internal": self.internal,
+        }
+        if self.target:
+            row["target"] = self.target
+        if self.enabled_by:
+            row["enabled_by"] = list(self.enabled_by)
+        return row
 
 
 @dataclass(frozen=True)
@@ -55,6 +83,7 @@ class CrateInfo:
     root: str
     manifest: str
     module_map: str | None
+    declared_deps: tuple[DeclaredDep, ...] = ()
 
 
 def load_json(path: Path, default: Any = None) -> Any:
@@ -86,16 +115,57 @@ def generation_stamp() -> dict:
         return {}
 
 
+def _missing_indexed_files(limit: int = 4000) -> tuple[int, int]:
+    """(missing, checked) over the paths the index claims to describe.
+
+    ⭐ **the freshness check for a reader with no git**, which is the archive
+    case this whole bundle exists for. It is a `stat` per path and no reads, so
+    it costs milliseconds; it detects deletions and renames — precisely the
+    drift that produces a confidently-wrong owner — and deliberately does NOT
+    detect edits or new files, which is why it reports rather than concludes.
+    """
+    files = load_json(INDEX_DIR / "file_summaries.json", {}) or {}
+    rows = files.get("files")
+    if not isinstance(rows, list) or not rows:
+        return (0, 0)
+    checked = 0
+    missing = 0
+    for row in rows[:limit]:
+        path = row.get("path") if isinstance(row, dict) else None
+        if not isinstance(path, str):
+            continue
+        checked += 1
+        if not (ROOT / path).exists():
+            missing += 1
+    return (missing, checked)
+
+
 def warn_if_index_stale() -> None:
     """Loudly flag a stale local index — silent staleness has produced
-    confidently-wrong owners (deleted files ranked above live ones)."""
-    stamp_commit = generation_stamp().get("generated_from_commit")
+    confidently-wrong owners (deleted files ranked above live ones).
+
+    ⚠ **two checks, because the first one can decline to answer.** The commit
+    comparison is exact and is the right answer whenever git is present. Where
+    it is not — a source archive published without history, which is the
+    environment this bundle is built for — it returns nothing, and a check that
+    returns nothing is indistinguishable from a check that passed. So absence of
+    git falls through to a content check rather than to silence.
+    """
+    stamp = generation_stamp()
+    stamp_commit = stamp.get("generated_from_commit")
     if not stamp_commit or stamp_commit == "unknown":
         print(
             "⚠ index has no generation stamp — run: python scripts/generate_agent_index.py",
             file=sys.stderr,
         )
         return
+    if stamp.get("worktree_dirty"):
+        print(
+            f"⚠ index was generated from a DIRTY worktree at {stamp_commit} —"
+            " the commit id is not the whole story",
+            file=sys.stderr,
+        )
+    head = ""
     try:
         head = subprocess.run(
             ["git", "rev-parse", "--short=12", "HEAD"],
@@ -105,24 +175,46 @@ def warn_if_index_stale() -> None:
             stderr=subprocess.DEVNULL,
             check=False,
         ).stdout.strip()
-        if not head or head == stamp_commit:
-            return
-        count = subprocess.run(
-            ["git", "rev-list", "--count", f"{stamp_commit}..HEAD"],
-            cwd=ROOT,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        ).stdout.strip()
+    except OSError:
+        head = ""
+
+    if head and head != stamp_commit:
+        count = ""
+        try:
+            count = subprocess.run(
+                ["git", "rev-list", "--count", f"{stamp_commit}..HEAD"],
+                cwd=ROOT,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            ).stdout.strip()
+        except OSError:
+            count = ""
         behind = f"{count} commits " if count else ""
         print(
             f"⚠ index generated at {stamp_commit}, {behind}behind HEAD {head}"
             " — run: python scripts/generate_agent_index.py",
             file=sys.stderr,
         )
-    except OSError:
         return
+    if head:
+        return
+
+    # No git. Say so, and give the reader the check that does not need it.
+    missing, checked = _missing_indexed_files()
+    if missing:
+        print(
+            f"⚠ no git here, and {missing} of {checked} indexed files are absent from this"
+            f" tree — the index (stamped {stamp_commit}) does not describe it",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"note: index stamped {stamp_commit}; freshness unverifiable without git."
+            f" {checked} indexed files all still present.",
+            file=sys.stderr,
+        )
 
 
 def source_commit() -> str:
@@ -146,16 +238,121 @@ def source_commit() -> str:
     return proc.stdout.strip() if proc.returncode == 0 and proc.stdout.strip() else "unknown"
 
 
-def package_name(manifest: Path) -> str | None:
+def read_manifest(manifest: Path) -> dict[str, Any] | None:
     try:
-        data = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        return tomllib.loads(manifest.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
+        return None
+
+
+def package_name(manifest: Path) -> str | None:
+    data = read_manifest(manifest)
+    if data is None:
         return None
     package = data.get("package")
     if not isinstance(package, dict):
         return None
     value = package.get("name")
     return value if isinstance(value, str) else None
+
+
+# `[features]` entries that switch an optional dependency on. Cargo spells this
+# three ways and all three appear in this workspace, so all three are read:
+#   "dep:ambition_x"            explicit, and does NOT imply a feature of x
+#   "ambition_x/feat"           enables x AND its `feat` (unless `?/`)
+#   "ambition_x?/feat"          enables x's `feat` only IF x is already on
+_FEATURE_DEP_RE = re.compile(r"^(?:dep:)?([A-Za-z0-9_.-]+)(\?)?(?:/.*)?$")
+
+
+def _features_that_enable(features: Any) -> dict[str, set[str]]:
+    """dep name -> the feature names that turn it on.
+
+    Only meaningful for OPTIONAL dependencies; a required dep is always on and
+    its feature mentions say nothing about whether it is linked.
+    """
+    enabled_by: dict[str, set[str]] = defaultdict(set)
+    if not isinstance(features, dict):
+        return enabled_by
+    for feature, entries in features.items():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, str):
+                continue
+            match = _FEATURE_DEP_RE.match(entry.strip())
+            if not match:
+                continue
+            dep, weak = match.group(1), match.group(2)
+            # `x?/feat` is explicitly NOT an enabler — that is the whole point
+            # of the `?` sigil, and reading it as one would report an optional
+            # edge as reachable when nothing turns it on.
+            if weak:
+                continue
+            enabled_by[dep].add(str(feature))
+    return enabled_by
+
+
+def _dependency_tables(data: dict[str, Any]) -> list[tuple[str, str | None, dict[str, Any]]]:
+    """(kind, target, table) for every dependency table in one manifest."""
+    kinds = {
+        "dependencies": "normal",
+        "dev-dependencies": "dev",
+        "build-dependencies": "build",
+    }
+    out: list[tuple[str, str | None, dict[str, Any]]] = []
+    for key, kind in kinds.items():
+        table = data.get(key)
+        if isinstance(table, dict):
+            out.append((kind, None, table))
+    # Platform-specific tables are real edges — a consumer on that platform
+    # links them — and omitting them would under-report the graph on exactly
+    # the platforms where it is hardest to check by hand.
+    targets = data.get("target")
+    if isinstance(targets, dict):
+        for target, spec in targets.items():
+            if not isinstance(spec, dict):
+                continue
+            for key, kind in kinds.items():
+                table = spec.get(key)
+                if isinstance(table, dict):
+                    out.append((kind, str(target), table))
+    return out
+
+
+def declared_deps(manifest: Path, workspace_names: set[str]) -> tuple[DeclaredDep, ...]:
+    """Every edge this manifest DECLARES, with the optional/feature facts.
+
+    ⚠ declared is not linked. An `optional = true` edge that no enabled feature
+    turns on costs a consumer nothing, and this workspace has such edges — so a
+    reader that treats this as the link graph will overstate what a game pays
+    for. `graph-resolved.json` is the other half; see `build_declared_graph`.
+    """
+    data = read_manifest(manifest)
+    if data is None:
+        return ()
+    enablers = _features_that_enable(data.get("features"))
+    out: list[DeclaredDep] = []
+    for kind, target, table in _dependency_tables(data):
+        for name, spec in table.items():
+            # `package = "..."` renames: the edge is to the real package.
+            real = name
+            optional = False
+            if isinstance(spec, dict):
+                renamed = spec.get("package")
+                if isinstance(renamed, str):
+                    real = renamed
+                optional = bool(spec.get("optional", False))
+            out.append(
+                DeclaredDep(
+                    name=real,
+                    kind=kind,
+                    optional=optional,
+                    internal=real in workspace_names,
+                    target=target,
+                    enabled_by=tuple(sorted(enablers.get(name, set()))) if optional else (),
+                )
+            )
+    return tuple(sorted(out, key=lambda dep: (dep.name, dep.kind, dep.target or "")))
 
 
 def discover_crates() -> list[CrateInfo]:
@@ -166,25 +363,111 @@ def discover_crates() -> list[CrateInfo]:
         if path.endswith("/MODULES.md"):
             module_by_root[path.removesuffix("/MODULES.md")] = path
 
-    roots: list[CrateInfo] = []
+    # Two passes: `internal` on an edge means "points at a workspace member",
+    # which cannot be decided until every member is known.
+    found: list[tuple[str, Path]] = []
     for parent in ("crates", "game", "tests"):
         base = ROOT / parent
         if not base.exists():
             continue
         for manifest in sorted(base.glob("*/Cargo.toml")):
             name = package_name(manifest)
-            if name is None:
-                continue
-            root = manifest.parent.relative_to(ROOT).as_posix()
-            roots.append(
-                CrateInfo(
-                    name=name,
-                    root=root,
-                    manifest=manifest.relative_to(ROOT).as_posix(),
-                    module_map=module_by_root.get(root),
-                )
+            if name is not None:
+                found.append((name, manifest))
+    workspace_names = {name for name, _ in found}
+
+    roots: list[CrateInfo] = []
+    for name, manifest in found:
+        root = manifest.parent.relative_to(ROOT).as_posix()
+        roots.append(
+            CrateInfo(
+                name=name,
+                root=root,
+                manifest=manifest.relative_to(ROOT).as_posix(),
+                module_map=module_by_root.get(root),
+                declared_deps=declared_deps(manifest, workspace_names),
             )
+        )
     return sorted(roots, key=lambda item: item.name)
+
+
+# The two graphs answer two different questions, and conflating them has
+# already cost this repo a measurement. Stated once, here, and repeated inside
+# each generated file so a reader who opens only the JSON still gets it.
+DECLARED_GRAPH_MEANING = (
+    "What every workspace manifest DECLARES, parsed from Cargo.toml with the "
+    "Python standard library alone. Includes optional edges and names the "
+    "features that enable them. This is NOT what a consumer links: an "
+    "`optional = true` edge that no enabled feature turns on costs nothing, "
+    "and this workspace has such edges (ambition_ui_nav in the actor monolith "
+    "is one). Use this to answer 'who names whom'."
+)
+RESOLVED_GRAPH_MEANING = (
+    "What cargo RESOLVES for this workspace, from `cargo metadata` — feature "
+    "unification applied, so every edge here is actually compiled. Requires a "
+    "Rust toolchain at GENERATION time, not at read time. Use this to answer "
+    "'what is actually linked'. ⚠ still workspace-wide: a specific consumer's "
+    "closure is a different question, measured per-consumer with "
+    "`cargo tree --edges normal` in that consumer's own workspace (see "
+    "docs/planning/engine/slice-evidence/capability-footprint-baseline.json)."
+)
+
+
+def packet_prune_allowlist(crates: Sequence[CrateInfo]) -> set[str]:
+    """Every file allowed to remain in `.agent/index/crates/`.
+
+    ⛔ **`build_catalog` DELETES everything here it does not name**, which is
+    right — a renamed crate used to leave its packet behind forever and an agent
+    looking it up found a confident description of something gone.
+
+    But the directory holds three files that are NOT per-crate packets, and one
+    of them (`graph-resolved.json`) is written by a DIFFERENT generator that
+    needs cargo. Forgetting it would delete it on every catalog build, and the
+    only symptom would be a resolved graph that is mysteriously always missing.
+    This is a named function so that invariant has somewhere to be tested.
+    """
+    return {f"{crate.name}.json" for crate in crates} | {
+        CRATE_INDEX_PATH.name,
+        "_repository.json",
+        DECLARED_GRAPH_PATH.name,
+        RESOLVED_GRAPH_PATH.name,
+    }
+
+
+def build_declared_graph(crates: Sequence[CrateInfo]) -> dict[str, Any]:
+    """The manifest-declared edge graph, with reverse edges.
+
+    Reverse edges are stored rather than derived because "who depends on X" is
+    the question that actually gets asked, and making every reader write the
+    inversion is how two readers end up disagreeing about it.
+    """
+    members = sorted(crate.name for crate in crates)
+    edges: dict[str, list[dict[str, Any]]] = {}
+    reverse: dict[str, set[str]] = {name: set() for name in members}
+    for crate in crates:
+        rows = [dep.to_json() for dep in crate.declared_deps]
+        edges[crate.name] = rows
+        for dep in crate.declared_deps:
+            if dep.internal:
+                reverse[dep.name].add(crate.name)
+    internal_edges = sum(
+        1 for crate in crates for dep in crate.declared_deps if dep.internal
+    )
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "generator": "scripts/agent_query.py build-catalog",
+        "graph": "declared",
+        "means": DECLARED_GRAPH_MEANING,
+        "requires_toolchain": False,
+        "counts": {
+            "members": len(members),
+            "declared_edges": sum(len(rows) for rows in edges.values()),
+            "internal_edges": internal_edges,
+        },
+        "members": members,
+        "edges": edges,
+        "reverse_edges": {name: sorted(callers) for name, callers in reverse.items()},
+    }
 
 
 def owner_for_path(path: str, crates: Sequence[CrateInfo]) -> CrateInfo | None:
@@ -265,7 +548,7 @@ def build_catalog(*, quiet: bool = False) -> dict[str, Any]:
     # no crate owns. Both are written further down in this same pass, so pruning
     # them would "work" — and would break the moment somebody splits this
     # function. Naming them is the difference between correct and lucky.
-    live = {f"{crate.name}.json" for crate in crates} | {"index.json", "_repository.json"}
+    live = packet_prune_allowlist(crates)
     for stale in sorted(crate_dir.glob("*.json")):
         if stale.name not in live:
             stale.unlink()
@@ -290,6 +573,9 @@ def build_catalog(*, quiet: bool = False) -> dict[str, Any]:
             "crate_root": crate.root,
             "manifest": crate.manifest,
             "module_map": crate.module_map,
+            # Declared edges only — the resolved graph is a separate file
+            # because it needs a toolchain. See DECLARED_GRAPH_MEANING.
+            "declared_deps": [dep.to_json() for dep in crate.declared_deps],
             "summary": {
                 "files": len(grouped_files[crate.name]),
                 "symbols": len(grouped_symbols[crate.name]),
@@ -338,11 +624,15 @@ def build_catalog(*, quiet: bool = False) -> dict[str, Any]:
     }
     write_json(crate_dir / "_repository.json", repository_packet)
 
+    write_json(DECLARED_GRAPH_PATH, build_declared_graph(crates))
+
     crate_index = {
         "schema_version": SCHEMA_VERSION,
         "generator": "scripts/agent_query.py build-catalog",
         "crates": crate_rows,
         "repository_packet": ".agent/index/crates/_repository.json",
+        "declared_graph": ".agent/index/crates/graph-declared.json",
+        "resolved_graph": ".agent/index/crates/graph-resolved.json",
     }
     write_json(CRATE_INDEX_PATH, crate_index)
 
@@ -367,6 +657,8 @@ def build_catalog(*, quiet: bool = False) -> dict[str, Any]:
         "entry_points": entry_points.get("start_here", []),
         "indexes": {
             "crate_index": ".agent/index/crates/index.json",
+            "declared_dependency_graph": ".agent/index/crates/graph-declared.json",
+            "resolved_dependency_graph": ".agent/index/crates/graph-resolved.json",
             "file_summaries": ".agent/index/file_summaries.json",
             "symbols": ".agent/index/symbol_index.json",
             "tests": ".agent/index/test_map.json",
@@ -443,6 +735,28 @@ python scripts/agent_query.py crate ambition_platformer2d_runtime
 Each `.agent/index/crates/<crate>.json` packet combines that package's files,
 symbols, tests, module map, and links to its ECS inventory. Prefer those shards
 over loading the full flat indexes into context.
+
+## Dependency edges: TWO graphs, and they disagree on purpose
+
+`python scripts/agent_query.py deps <crate>` prints both. Which one answers your
+question depends on the question:
+
+| file | what it is | needs cargo |
+|---|---|---|
+| `.agent/index/crates/graph-declared.json` | what manifests **declare**, including optional edges and the features that enable them | no — parsed from `Cargo.toml` |
+| `.agent/index/crates/graph-resolved.json` | what cargo **resolves**, feature-unified; every edge is compiled | at generation time only |
+
+⚠ **the declared graph over-reports and the resolved graph is workspace-wide.**
+An `optional = true` edge that no enabled feature turns on costs a consumer
+nothing, so "X declares Y" is not "X links Y". Conversely the resolved graph
+unifies features across the whole workspace, so it is not the closure of any one
+consumer — that is a per-consumer measurement (`cargo tree --edges normal` in
+that consumer's own workspace; see
+`docs/planning/engine/slice-evidence/capability-footprint-baseline.json`).
+
+`graph-resolved.json` is always present. When cargo was unavailable at
+generation it carries `"available": false` and a reason, because a missing file
+cannot be told apart from a workspace with no dependencies.
 
 ## Trust rule
 
@@ -682,6 +996,92 @@ def command_crate(name: str) -> None:
         print_section("First public symbols", [f"{item.get('kind')} {item.get('name')} — {line_location(item)}" for item in public])
 
 
+def _resolve_member(name: str, members: Sequence[str]) -> str:
+    exact = [member for member in members if member.lower() == name.lower()]
+    if exact:
+        return exact[0]
+    partial = [member for member in members if name.lower() in member.lower()]
+    if not partial:
+        raise SystemExit(f"no workspace member matching {name!r}")
+    if len(partial) > 1 and not any(member == name for member in partial):
+        print(f"note: {name!r} matched {len(partial)}; using {partial[0]}", file=sys.stderr)
+    return partial[0]
+
+
+def command_deps(name: str, *, external: bool = False) -> None:
+    """Both graphs for one crate, each labelled with what it is.
+
+    Printing them together is the point: an agent asking "what does this crate
+    pull in" is usually asking the RESOLVED question and would otherwise read
+    the declared answer, which counts optional edges nothing enables.
+    """
+    declared = load_json(DECLARED_GRAPH_PATH, {}) or {}
+    if not declared:
+        raise SystemExit(
+            "no declared dependency graph; run: python scripts/agent_query.py build-catalog"
+        )
+    members = declared.get("members", [])
+    crate = _resolve_member(name, members)
+
+    print(f"crate: {crate}")
+    print()
+    print("DECLARED (manifests; no toolchain needed)")
+    rows = declared.get("edges", {}).get(crate, [])
+    shown = [row for row in rows if external or row.get("internal")]
+    for row in sorted(shown, key=lambda item: (not item.get("internal"), str(item.get("name")))):
+        marks = []
+        if row.get("kind") != "normal":
+            marks.append(str(row.get("kind")))
+        if row.get("optional"):
+            enablers = row.get("enabled_by") or []
+            marks.append("optional" + (f" via {','.join(enablers)}" if enablers else ", NOTHING enables it"))
+        if row.get("target"):
+            marks.append(f"target {row['target']}")
+        if not row.get("internal"):
+            marks.append("external")
+        suffix = f"  [{'; '.join(marks)}]" if marks else ""
+        print(f"  {row.get('name')}{suffix}")
+    if not shown:
+        print("  (none)")
+
+    reverse = declared.get("reverse_edges", {}).get(crate, [])
+    print()
+    print(f"DECLARED BY ({len(reverse)} workspace members name this crate)")
+    print("  " + (", ".join(reverse) if reverse else "(none)"))
+
+    print()
+    resolved = load_json(RESOLVED_GRAPH_PATH, {}) or {}
+    if not resolved:
+        print("RESOLVED  (absent — generated only where cargo is available)")
+        print("  regenerate with a Rust toolchain: python scripts/generate_agent_index.py")
+        return
+    if not resolved.get("available", False):
+        print("RESOLVED  (not generated)")
+        print(f"  reason: {resolved.get('reason', 'unknown')}")
+        return
+    edges = resolved.get("edges", {}).get(crate)
+    print("RESOLVED (cargo metadata; every edge is actually compiled)")
+    if edges is None:
+        print("  (crate absent from the resolve)")
+    else:
+        internal = [dep for dep in edges if dep in members]
+        print("  " + (", ".join(internal) if internal else "(no workspace deps)"))
+        if external:
+            outside = [dep for dep in edges if dep not in members]
+            print(f"  external ({len(outside)}): " + ", ".join(outside))
+    features = resolved.get("features", {}).get(crate)
+    if features:
+        print(f"  features on: {', '.join(features)}")
+
+    declared_internal = {row.get("name") for row in rows if row.get("internal")}
+    if edges:
+        only_declared = sorted(declared_internal - set(edges))
+        if only_declared:
+            print()
+            print("  ⚠ declared but NOT resolved (optional, or dev-only):")
+            print("    " + ", ".join(only_declared))
+
+
 def command_path(path_text: str) -> None:
     normalized = Path(path_text).as_posix().removeprefix("./")
     files = load_json(INDEX_DIR / "file_summaries.json", {}) or {}
@@ -736,6 +1136,13 @@ def parser() -> argparse.ArgumentParser:
     tests.add_argument("query", nargs="+")
     crate = sub.add_parser("crate")
     crate.add_argument("name")
+    deps = sub.add_parser("deps")
+    deps.add_argument("name")
+    deps.add_argument(
+        "--external",
+        action="store_true",
+        help="include non-workspace (crates.io) edges, which are hidden by default",
+    )
     path = sub.add_parser("path")
     path.add_argument("path")
     build = sub.add_parser("build-catalog")
@@ -789,6 +1196,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print_tests(" ".join(args.query), limit)
     elif args.command == "crate":
         command_crate(args.name)
+    elif args.command == "deps":
+        command_deps(args.name, external=args.external)
     elif args.command == "path":
         command_path(args.path)
     elif args.command == "build-catalog":

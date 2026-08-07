@@ -102,6 +102,13 @@ CONFIG = {
         '.agent/README.md',
         '.agent/index/catalog.json',
         '.agent/index/crates/index.json',
+        # Both dependency graphs, required so a silently-missing one fails the
+        # build instead of reaching a consumer as an absence they cannot
+        # distinguish from "this workspace has no dependencies". The RESOLVED
+        # graph is always written even when cargo is unavailable — it then says
+        # so in `available`/`reason`, which is the fact worth shipping.
+        '.agent/index/crates/graph-declared.json',
+        '.agent/index/crates/graph-resolved.json',
     ],
 
     # Agent discovery reports. The ECS inventory is intentionally a neutral

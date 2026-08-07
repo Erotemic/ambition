@@ -395,6 +395,128 @@ def write_json(path: Path, data: dict[str, object]) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+RESOLVED_GRAPH_MEANING = (
+    "What cargo RESOLVES for this workspace, from `cargo metadata` — feature "
+    "unification applied, so every edge here is actually compiled. Requires a "
+    "Rust toolchain at GENERATION time, not at read time. Use this to answer "
+    "'what is actually linked'. ⚠ still workspace-wide: a specific "
+    "consumer's closure is a different question, measured per-consumer with "
+    "`cargo tree --edges normal` in that consumer's own workspace (see "
+    "docs/planning/engine/slice-evidence/capability-footprint-baseline.json)."
+)
+
+
+def build_resolved_dependency_graph() -> dict[str, object]:
+    """The cargo-resolved crate graph, or an explicit record that it is absent.
+
+    ⭐ **written by the machine that HAS cargo, read by the one that does not.**
+    That asymmetry is the whole point: `archive_agent_source.sh` runs on a dev
+    box and ships the answer to an agent with no Rust toolchain, who otherwise
+    has only the manifests — and manifests over-report, because an optional edge
+    nothing enables looks identical to a real one.
+
+    ⚠ **absence is recorded, not implied.** A missing file cannot be told apart
+    from a generator that ran and found nothing, so a failed or skipped run
+    writes `available: false` with the reason. Silence would read as "this
+    workspace has no dependencies", which is the confidently-wrong answer.
+    """
+    base: dict[str, object] = {
+        "schema_version": 1,
+        "generator": "scripts/generate_agent_index.py",
+        "graph": "resolved",
+        "means": RESOLVED_GRAPH_MEANING,
+        "requires_toolchain": True,
+        "generated_from_commit": _git(["rev-parse", "--short=12", "HEAD"]) or "unknown",
+    }
+    try:
+        proc = subprocess.run(
+            ["cargo", "metadata", "--format-version", "1", "--locked"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=180,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {**base, "available": False, "reason": f"cargo not runnable: {exc}"}
+    if proc.returncode != 0:
+        detail = (proc.stderr or "").strip().splitlines()
+        return {
+            **base,
+            "available": False,
+            "reason": "cargo metadata failed: " + (detail[-1] if detail else "unknown"),
+        }
+    try:
+        meta = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        return {**base, "available": False, "reason": f"unparseable cargo metadata: {exc}"}
+
+    name_by_id = {
+        str(pkg.get("id")): str(pkg.get("name"))
+        for pkg in meta.get("packages", [])
+        if isinstance(pkg, dict)
+    }
+    member_ids = {str(pid) for pid in meta.get("workspace_members", [])}
+    members = sorted(name_by_id[pid] for pid in member_ids if pid in name_by_id)
+
+    # NORMAL edges only. A dev-dependency is not linked into the library a
+    # consumer builds, and counting it would inflate every "what does this cost
+    # me" answer with test-only crates.
+    edges: dict[str, list[str]] = {}
+    features: dict[str, list[str]] = {}
+    all_edges: dict[str, list[str]] = {}
+    for node in meta.get("resolve", {}).get("nodes", []):
+        if not isinstance(node, dict):
+            continue
+        node_name = name_by_id.get(str(node.get("id")))
+        if node_name is None:
+            continue
+        normal: list[str] = []
+        for dep in node.get("deps", []):
+            if not isinstance(dep, dict):
+                continue
+            kinds = dep.get("dep_kinds") or []
+            # `kind: null` is cargo's spelling of a normal dependency.
+            if not any(isinstance(k, dict) and k.get("kind") is None for k in kinds):
+                continue
+            dep_name = name_by_id.get(str(dep.get("pkg")))
+            if dep_name:
+                normal.append(dep_name)
+        all_edges[node_name] = sorted(set(normal))
+        if str(node.get("id")) in member_ids:
+            edges[node_name] = sorted(set(normal))
+            feats = node.get("features")
+            if isinstance(feats, list) and feats:
+                features[node_name] = sorted(str(f) for f in feats)
+
+    # The transitive `ambition_*` closure per member — the capability-footprint
+    # question, precomputed because a reader without cargo cannot walk it and a
+    # reader with cargo should not have to.
+    def closure(start: str) -> list[str]:
+        seen: set[str] = set()
+        stack = list(all_edges.get(start, []))
+        while stack:
+            current = stack.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            stack.extend(all_edges.get(current, []))
+        return sorted(name for name in seen if name.startswith("ambition"))
+
+    return {
+        **base,
+        "available": True,
+        "counts": {
+            "members": len(members),
+            "packages_in_resolve": len(name_by_id),
+        },
+        "members": members,
+        "edges": edges,
+        "features": features,
+        "ambition_closure": {name: closure(name) for name in members},
+    }
+
+
 
 def yaml_scalar(value: object) -> str:
     text = str(value)
@@ -466,22 +588,38 @@ def update_agent_manifest(meta: dict[str, str]) -> None:
         encoding="utf-8",
     )
 
-def write_generation_stamp() -> None:
+def write_generation_stamp(indexed_files: int | None = None) -> None:
     """Machine-local generation stamp, next to the gitignored indexes.
 
     The tracked manifest must stay byte-stable across regens, so volatile
     provenance lives here instead: `agent_query.py` reads it to render
     "Generated at" and to warn when the local index is behind HEAD.
+
+    ⭐ **two of these fields exist for the reader who has no git**, which is the
+    environment the source archive is built for. A commit id is only a freshness
+    signal to somebody who can ask what HEAD is; in an archive published without
+    history, the commit comparison silently returns "no answer" and silence
+    reads as "fresh". `indexed_files` gives that reader a check they can
+    actually run — the index names its files, so counting how many are missing
+    from the tree in front of them is a real answer with no toolchain at all.
+
+    `worktree_dirty` records that the index was built over uncommitted edits, so
+    a commit id that looks exact is not mistaken for one.
     """
     import datetime
 
+    status = _git(["status", "--porcelain"])
     stamp = {
         "generated_from_commit": _git(["rev-parse", "--short=12", "HEAD"]) or "unknown",
         "source_commit_time": _git(["show", "-s", "--format=%cI", "HEAD"]) or "unknown",
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(
             timespec="seconds"
         ),
+        # None means "git could not be asked", which is not the same as clean.
+        "worktree_dirty": None if status is None else bool(status),
     }
+    if indexed_files is not None:
+        stamp["indexed_files"] = indexed_files
     (INDEX_DIR / "generation_stamp.json").write_text(
         json.dumps(stamp, indent=2) + "\n", encoding="utf-8"
     )
@@ -501,7 +639,15 @@ def main() -> int:
     write_json(INDEX_DIR / "archive_index.json", build_archive_index())
     write_json(INDEX_DIR / "doc_health.json", build_doc_health(files))
     update_agent_manifest(generated_meta())
-    write_generation_stamp()
+    write_generation_stamp(indexed_files=len(files))
+
+    # The resolved graph before the catalog, so one run leaves a coherent set.
+    # `build_catalog` names this file in its prune allowlist; if that ever stops
+    # being true this file is deleted on every run and nothing says so.
+    resolved = build_resolved_dependency_graph()
+    write_json(INDEX_DIR / "crates" / "graph-resolved.json", resolved)
+    if not resolved.get("available"):
+        print(f"note: resolved dependency graph unavailable — {resolved.get('reason')}")
 
     # Build the progressive-disclosure catalog from the fresh flat indexes.
     # The archive builder reruns this after ECS inventory so archive packets

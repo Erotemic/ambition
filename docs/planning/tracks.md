@@ -97,11 +97,24 @@ by hardness × payoff; every item below is executable today per its own doc.
    deliberately, gated on FB6e's instruments. So under the shipped ladder there is
    no depth change between rungs at all, and that confound is a property of the
    FLOOR rather than of the game.
-   ⚠ **so a gate built on this probe today would calibrate the floor.** Whoever
-   authors §8's suite should decide FIRST which ladder is under test and install
-   the resource accordingly — the fix is one `insert_resource` away now that the
-   ladder loads (2026-08-07), but nothing about it is automatic, and a numbers
-   table that does not say which ladder it measured is worse than none.
+   ⛔ **CORRECTION, same day: the remedy above was wrong, and the reason is the
+   more useful finding.** I first wrote that the fix is "one `insert_resource`
+   now that the ladder loads". It is not. `ladder_probe` lives in
+   `ambition_demo_smash_app`, whose manifest states the rule: *"A demo app depends
+   on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate."*
+   `fighter_brain_ladder.ron` is **AMBITION's** content. Installing it into a
+   smash-demo binary would be one game reading another game's ladder, and the
+   dependency the fix needs is the one the gate forbids.
+   ⭐ **so the probe measuring `for_level` is CORRECT, and the doctrine says so.**
+   `fighter-brain.md` §4: *"Games/demos ship their own rows — it's content."* The
+   smash demo ships none, so its fighters get the engine floor, which is exactly
+   what a game that has authored no ladder should get.
+   ▢ **what is actually owed, restated**: decide WHOSE ladder the gate calibrates.
+   If Ambition's, the probe belongs where Ambition's content is reachable. If
+   smash's, **smash has to author one first** — and then its rungs, not Ambition's,
+   are what §8's suite measures. ⚠ either way a numbers table that does not name
+   the ladder it measured is worse than none, and today it would have said
+   "Ambition" while measuring the engine default.
 3. ~~**Matchbox two-peer transport + predicted-A/corrected-B oracle**
    (netcode.md "next online slice"; unblocked since the confirmed-frame
    quarantine landed 2026-07-21).~~ **DEFERRED to the Super Smash Siblings era

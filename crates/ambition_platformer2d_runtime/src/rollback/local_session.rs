@@ -205,13 +205,21 @@ pub enum SessionSeatingSource {
     /// topology frozen from devices here is a topology the roster is about to
     /// contradict, and the session is never resized afterwards.
     RosterPending { owner: String },
-    /// `owner`'s roster decided `seat_count`. `frozen_topology` is stamped by
+    /// `owner`'s roster decided `channels`. `frozen_topology` is stamped by
     /// the maintainer with the generation it actually captured, so the roster,
     /// the handle count and the per-seat latches cite one number rather than
     /// agreeing by coincidence.
+    ///
+    /// ⛔ **`seat_count: usize` was not enough, and this is the same lesson one
+    /// layer up from [`ambition_input::LocalSeatTopology`].** A count opens the
+    /// right number of GGRS handles and says nothing about whose controller
+    /// feeds each one, so every consumer re-derived the missing half from the
+    /// roster's SPARSE source numbers — and a lobby that seats a CPU before a
+    /// human produced a fighter on a channel the session never opened (GPT 5.6,
+    /// 2026-08-07).
     RosterDecided {
         owner: String,
-        seat_count: usize,
+        channels: ambition_input::LocalChannelPlan,
         frozen_topology: Option<u64>,
     },
 }
@@ -224,11 +232,11 @@ impl SessionSeatingSource {
         }
     }
 
-    /// `owner`'s roster asked for `seat_count` seats.
-    pub fn decided(owner: impl Into<String>, seat_count: usize) -> Self {
+    /// `owner`'s roster decided which source drives which channel.
+    pub fn decided(owner: impl Into<String>, channels: ambition_input::LocalChannelPlan) -> Self {
         Self::RosterDecided {
             owner: owner.into(),
-            seat_count,
+            channels,
             frozen_topology: None,
         }
     }
@@ -245,12 +253,18 @@ impl SessionSeatingSource {
         self.owner() == Some(owner)
     }
 
-    /// The decided seat count, or `None` while seating is pending or device-driven.
-    pub fn seat_count(&self) -> Option<usize> {
+    /// The decided channel plan, or `None` while seating is pending or
+    /// device-driven.
+    pub fn channel_plan(&self) -> Option<&ambition_input::LocalChannelPlan> {
         match self {
-            Self::RosterDecided { seat_count, .. } => Some(*seat_count),
+            Self::RosterDecided { channels, .. } => Some(channels),
             _ => None,
         }
+    }
+
+    /// The decided seat count, or `None` while seating is pending or device-driven.
+    pub fn seat_count(&self) -> Option<usize> {
+        self.channel_plan().map(|channels| channels.channels())
     }
 
     /// The topology generation the session was built from, once one was frozen.
@@ -287,10 +301,11 @@ impl SessionSeatingSource {
 fn decided_or_device_seating(world: &mut World) -> usize {
     let decided = world
         .get_resource::<SessionSeatingSource>()
-        .and_then(SessionSeatingSource::seat_count);
+        .and_then(|source| source.channel_plan().cloned());
     let frozen = freeze_local_seating(world);
     match decided {
-        Some(seats) => {
+        Some(plan) => {
+            let seats = plan.channels();
             // Record the roster's count ON the topology, so the handle count,
             // the per-seat latches and the roster all cite one number rather
             // than agreeing by coincidence.
@@ -303,7 +318,7 @@ fn decided_or_device_seating(world: &mut World) -> usize {
             let generation = world
                 .get_resource_mut::<ambition_input::LocalSeatTopology>()
                 .map(|mut topology| {
-                    topology.capture_for_roster(&order, seats);
+                    topology.capture_for_roster(&order, plan);
                     topology.generation()
                 });
             // ⭐ **the topology the session was frozen from, recorded ON the
@@ -559,7 +574,12 @@ mod seating_readiness_tests {
     /// that had ended sized the next experience's session.
     #[test]
     fn only_the_owner_releases_its_claim() {
-        let mut seating = SessionSeatingSource::decided("ambition_versus", 2);
+        let mut seating = SessionSeatingSource::decided(
+            "ambition_versus",
+            ambition_input::LocalChannelPlan::from_sources(
+                [0, 1].map(ambition_input::LocalInputSource::Pad),
+            ),
+        );
         assert!(!seating.release("smash"), "a stranger released the claim");
         assert_eq!(seating.seat_count(), Some(2));
         assert!(seating.release("ambition_versus"));
@@ -581,7 +601,12 @@ mod seating_readiness_tests {
         let mut world = World::new();
         world.init_resource::<ambition_input::LocalSeatTopology>();
         world.init_resource::<ambition_input::LocalDeviceOrder>();
-        world.insert_resource(SessionSeatingSource::decided("ambition_versus", 2));
+        world.insert_resource(SessionSeatingSource::decided(
+            "ambition_versus",
+            ambition_input::LocalChannelPlan::from_sources(
+                [0, 1].map(ambition_input::LocalInputSource::Pad),
+            ),
+        ));
 
         assert_eq!(
             decided_or_device_seating(&mut world),

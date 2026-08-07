@@ -76,9 +76,25 @@ use super::{
 /// it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ControlAuthority {
-    /// A local input channel drives it — one device on this machine, and one
-    /// rollback handle.
-    LocalInput { channel: u8 },
+    /// A local person drives it: the SOURCE they are holding, and the dense
+    /// CHANNEL the simulation reads them on.
+    ///
+    /// ⛔ **two fields because they are two facts, and collapsing them broke
+    /// every sparse lobby** (GPT 5.6, 2026-08-07). A roster names a source —
+    /// pad 3, the keyboard — and a lobby is right to keep those numbers stable
+    /// when a seat empties. A rollback host requires the opposite: handles
+    /// `0..player_count`, dense, no holes. This carried only the first and
+    /// handed it to `PlayerSlot`, so a fighter could sit on a channel the
+    /// session never opened and receive nothing for the whole match.
+    ///
+    /// ⭐ **the channel is DERIVED here and nowhere else**, from
+    /// [`MatchParticipantRoster::local_channel_plan`], so the number that sizes
+    /// the session and the number the fighter reads are the same number by
+    /// construction rather than by two matching derivations.
+    LocalInput {
+        channel: ambition_input::ParticipantId,
+        source: ambition_input::LocalInputSource,
+    },
     /// A named brain profile drives it. Deterministic, and needs no channel.
     Brain { profile: String },
 }
@@ -88,14 +104,26 @@ impl ControlAuthority {
     ///
     /// ⭐ **the ONE definition of "how many people are playing on this
     /// machine".** Two call sites used to answer it separately and disagreed.
-    pub fn local_channel(&self) -> Option<u8> {
+    pub fn local_channel(&self) -> Option<ambition_input::ParticipantId> {
         match self {
-            Self::LocalInput { channel } => Some(*channel),
+            Self::LocalInput { channel, .. } => Some(*channel),
+            _ => None,
+        }
+    }
+
+    /// The physical source this authority listens to, if any.
+    pub fn local_source(&self) -> Option<ambition_input::LocalInputSource> {
+        match self {
+            Self::LocalInput { source, .. } => Some(*source),
             _ => None,
         }
     }
 
     /// Resolve a roster's stated binding into the authority to attach.
+    ///
+    /// `channel` is the plan's answer for this seat — the dense position of this
+    /// human among the roster's humans — and is what makes a sparse source safe
+    /// to carry.
     ///
     /// ⛔ **every variant, no catch-all — and the catch-all is what this fixes.**
     /// The pass this replaces ended in `_ => { let Some(profile) =
@@ -105,10 +133,20 @@ impl ControlAuthority {
     /// replay seat silently returned from the whole system and no fighter was
     /// ever built: the identical defect as the unbuildable character, already
     /// present on two more paths and never reported by anything.
-    fn resolve(controller: &ControllerBinding) -> Result<Self, String> {
+    fn resolve(
+        controller: &ControllerBinding,
+        channel: Option<ambition_input::ParticipantId>,
+    ) -> Result<Self, String> {
         match controller {
-            ControllerBinding::Human { device_slot } => Ok(Self::LocalInput {
-                channel: *device_slot,
+            ControllerBinding::Human { source } => Ok(Self::LocalInput {
+                channel: channel.ok_or_else(|| {
+                    format!(
+                        "plays on {source:?}, which the match's own channel plan does not \
+                         list. The plan is built from this roster's human seats, so a seat \
+                         missing from it means the two disagree about who is playing."
+                    )
+                })?,
+                source: *source,
             }),
             ControllerBinding::Cpu { brain_profile } => match brain_profile {
                 Some(profile) => Ok(Self::Brain {
@@ -336,16 +374,21 @@ impl PreparedMatch {
         }
     }
 
-    /// How many local rollback channels this match needs.
+    /// **Which local source drives which channel in this match.**
     ///
     /// ⛔ **NOT `seats().len()`.** That number sized the GGRS session while the
     /// frozen input topology used a different one. A CPU is a participant and
     /// not a channel; a match of two CPUs needs none at all.
-    pub fn local_channels(&self) -> usize {
-        self.seats
-            .iter()
-            .filter(|seat| seat.authority.local_channel().is_some())
-            .count()
+    ///
+    /// ⛔ **and not a count either.** `plan.channels()` is the handle count, and
+    /// the rest of the plan is the half that says whose controller each handle
+    /// listens to — which is what a sparse lobby cannot survive losing.
+    pub fn channel_plan(&self) -> ambition_input::LocalChannelPlan {
+        ambition_input::LocalChannelPlan::from_sources(
+            self.seats
+                .iter()
+                .filter_map(|seat| seat.authority.local_source()),
+        )
     }
 }
 
@@ -411,6 +454,39 @@ pub fn prepare_match(
     let mut problems: Vec<RosterProblem> = Vec::new();
     let mut seats: Vec<PreparedSeat> = Vec::new();
 
+    // **WHO IS PLAYING, AND ON WHAT — asked once, by the roster.**
+    //
+    // Every seat below reads its channel out of this rather than deriving one,
+    // so the number that sizes the GGRS session, the number the frozen topology
+    // maps to a controller, and the number the fighter's `PlayerSlot` carries
+    // are one number by construction.
+    let plan = roster.local_channel_plan();
+    // ⛔ **ONE CONTROLLER CANNOT DRIVE TWO FIGHTERS.** Refused before the match
+    // exists rather than after: the second claimant's channel is real, its
+    // handle is opened, and nothing ever writes it — a fighter that stands
+    // still all match with no error anywhere. Two seats defaulting to pad 0 is
+    // the ordinary way to arrive here.
+    for repeated in plan.repeated_sources() {
+        let seat = roster
+            .participants
+            .iter()
+            .enumerate()
+            .filter(|(_, participant)| participant.controller.local_source() == Some(repeated))
+            .map(|(index, _)| index)
+            .next_back()
+            .unwrap_or(0);
+        problems.push(RosterProblem {
+            seat,
+            detail: format!(
+                "plays on {repeated:?}, which another seat in this match also claims. \
+                 One controller cannot drive two fighters: the second seat would open a \
+                 rollback channel nothing ever writes, and stand still for the whole \
+                 match."
+            ),
+        });
+    }
+    let mut humans_seated: u8 = 0;
+
     for (index, participant) in roster.participants.iter().enumerate() {
         let mut seat_problem = |detail: String| {
             problems.push(RosterProblem {
@@ -441,7 +517,16 @@ pub fn prepare_match(
             continue;
         };
 
-        let authority = match ControlAuthority::resolve(&participant.controller) {
+        // **THE DENSE CHANNEL FOR THIS SEAT**, taken from the plan in step with
+        // the seats it was built from — and checked against it, because a plan
+        // that disagreed with the seat it describes would seat somebody on
+        // another person's controller.
+        let channel = participant.controller.local_source().and_then(|source| {
+            let channel = ambition_input::ParticipantId(humans_seated);
+            humans_seated = humans_seated.saturating_add(1);
+            (plan.source_for(channel) == Some(source)).then_some(channel)
+        });
+        let authority = match ControlAuthority::resolve(&participant.controller, channel) {
             Ok(authority) => authority,
             Err(detail) => {
                 seat_problem(detail);
@@ -687,8 +772,11 @@ fn realize_seat(
     // rollback snapshot that captures THAT world restores it forever, because
     // activation is one-shot and never rebinds.
     let derived_brain = match &seat.authority {
-        ControlAuthority::LocalInput { channel } => ambition_characters::brain::Brain::Player(
-            ambition_characters::brain::PlayerSlot(*channel),
+        // ⭐ **through the one correspondence**, not `PlayerSlot(raw)`: the seat
+        // the simulation reads is a projection of the participant channel, and
+        // `participant_seat` is where that projection lives.
+        ControlAuthority::LocalInput { channel, .. } => ambition_characters::brain::Brain::Player(
+            crate::participant_seat::player_slot_of(*channel),
         ),
         ControlAuthority::Brain { .. } => crate::features::ecs::enemy_default_brain(&seed.config),
     };

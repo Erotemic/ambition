@@ -557,8 +557,12 @@ impl SmashSelect {
     /// `None` until [`Self::ready`]. Building a roster from a half-decided
     /// screen is the failure this returns an `Option` to make impossible: a
     /// hovered portrait reads exactly like a choice.
-    pub fn roster(&self, fighters: &SmashRoster) -> Option<MatchParticipantRoster> {
-        self.roster_seeded(fighters, 0)
+    pub fn roster(
+        &self,
+        fighters: &SmashRoster,
+        policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
+    ) -> Option<MatchParticipantRoster> {
+        self.roster_seeded(fighters, 0, policy)
     }
 
     /// **The match this screen decided, with the random squares resolved.**
@@ -576,10 +580,18 @@ impl SmashSelect {
     /// deterministic stream off it, the same shape the boss patterns use. A
     /// seeded stream is also what lets a test ask for a specific draw instead of
     /// asserting "some fighter".
+    ///
+    /// ⚠ **the POLICY is a parameter for the same reason
+    /// [`source_name_under`] takes one**: a slot's occupant number is an index
+    /// into the sources this screen offered, and what index zero MEANS —
+    /// the keyboard, or the first pad — is the policy's answer. Turning that
+    /// index into a roster binding without it would encode one policy's
+    /// arithmetic into the match.
     pub fn roster_seeded(
         &self,
         fighters: &SmashRoster,
         seed: u64,
+        policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
     ) -> Option<MatchParticipantRoster> {
         if !self.ready() {
             return None;
@@ -614,7 +626,7 @@ impl SmashSelect {
                         .driven_by(match card.occupant {
                             SlotOccupant::Controller { device } => {
                                 crate::ControllerBinding::Human {
-                                    device_slot: device as u8,
+                                    source: local_source_under(device, policy),
                                 }
                             }
                             _ => crate::ControllerBinding::Cpu {
@@ -774,18 +786,44 @@ pub fn source_name_under(
     policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
 ) -> String {
     let pads = devices.devices().len();
-    match policy {
-        // One seat per pad, no keyboard seat: the index IS the pad.
-        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary => {
-            format!("PAD {}", device + 1)
-        }
-        // The keyboard is player one and each pad brings its own slot.
-        _ if device == 0 => "KEYBOARD".to_string(),
+    match local_source_under(device, policy) {
+        ambition_platformer2d::actor::LocalInputSource::Keyboard => "KEYBOARD".to_string(),
         // A slot offered for a pad that has since been unplugged still names the
         // pad it is waiting for. Saying "PAD 2" for a seat with nothing in it is
         // more useful while debugging than hiding the gap.
-        _ if device <= pads => format!("PAD {device}"),
-        _ => format!("PAD {device} (not connected)"),
+        ambition_platformer2d::actor::LocalInputSource::Pad(pad) if (pad as usize) < pads => {
+            format!("PAD {}", pad + 1)
+        }
+        ambition_platformer2d::actor::LocalInputSource::Pad(pad) => {
+            format!("PAD {} (not connected)", pad + 1)
+        }
+    }
+}
+
+/// **WHICH SOURCE a slot's occupant number names**, under a stated policy.
+///
+/// ⭐ **the one place this screen's index arithmetic lives.** It was written out
+/// twice — once to label a slot, once to build the roster binding — and the two
+/// were the same three lines with different return types. That is exactly the
+/// pair that drifts: the label said `KEYBOARD` while the roster said pad zero,
+/// and the match then bound the keyboard player to a controller.
+///
+/// ⚠ the keyboard is device ZERO only under the multi-source policies;
+/// `UnifiedPrimary` offers one seat per pad and no keyboard seat, so the same
+/// index means a different thing.
+pub fn local_source_under(
+    device: usize,
+    policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
+) -> ambition_platformer2d::actor::LocalInputSource {
+    use ambition_platformer2d::actor::LocalInputSource;
+    match policy {
+        // One seat per pad, no keyboard seat: the index IS the pad.
+        ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary => {
+            LocalInputSource::Pad(device as u8)
+        }
+        // The keyboard is player one and each pad brings its own slot.
+        _ if device == 0 => LocalInputSource::Keyboard,
+        _ => LocalInputSource::Pad((device - 1) as u8),
     }
 }
 

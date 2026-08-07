@@ -169,7 +169,9 @@ impl Platformer2dSimHarness {
             // settings and restart on a mismatch — was probed and removed,
             // because restarting a live session loses the seat→handle binding.
             {
-                use ambition_platformer2d::input::{LocalDeviceOrder, LocalSeatTopology};
+                use ambition_platformer2d::input::{
+                    LocalChannelPlan, LocalDeviceOrder, LocalInputSource, LocalSeatTopology,
+                };
                 let world = app.world_mut();
                 let order = LocalDeviceOrder::from_devices(
                     world
@@ -178,7 +180,19 @@ impl Platformer2dSimHarness {
                         .unwrap_or_default(),
                 );
                 if let Some(mut topology) = world.get_resource_mut::<LocalSeatTopology>() {
-                    topology.capture_for_roster(&order, players);
+                    // ⚠ **the harness declares the IDENTITY mapping**: seat `n`
+                    // plays on pad `n`. A headless run has no devices at all and
+                    // drives its seats through the latches, so any plan of the
+                    // right SIZE would size the session correctly — but the plan
+                    // is also what a seat's device assignment reads, and a
+                    // harness that declared something else would be describing a
+                    // couch nobody set up.
+                    topology.capture_for_roster(
+                        &order,
+                        LocalChannelPlan::from_sources(
+                            (0..players).map(|channel| LocalInputSource::Pad(channel as u8)),
+                        ),
+                    );
                 }
             }
             ambition_platformer2d::runtime::rollback::start_sync_test_session(

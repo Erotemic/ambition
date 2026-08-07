@@ -110,7 +110,9 @@ where
         .map(|(index, character)| {
             MatchParticipant::new(character)
                 .driven_by(if index == 0 {
-                    ControllerBinding::Human { device_slot: 0 }
+                    ControllerBinding::Human {
+                        source: ambition_platformer2d::actor::LocalInputSource::FIRST_PAD,
+                    }
                 } else {
                     ControllerBinding::Cpu {
                         // The FB4b rig, by the catalog preset name. `medium_striker`
@@ -1153,6 +1155,12 @@ fn start_the_battle_when_asked(
     fighters: bevy::prelude::Res<select::SmashRoster>,
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     roster: Option<bevy::prelude::Res<MatchParticipantRoster>>,
+    // **WHAT THIS SCREEN'S SOURCE NUMBERS MEAN.** A slot's occupant is an index
+    // into the sources the screen offered, and whether index zero is the
+    // keyboard or the first pad is the policy's answer — the same one
+    // `source_name_under` labels the slot with. Reading it here is what stops
+    // the roster and the label disagreeing about who is holding what.
+    assignment: bevy::prelude::Res<ambition_platformer2d::input::sources::InputAssignmentPolicy>,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
 ) {
     if !asked.0 {
@@ -1187,7 +1195,7 @@ fn start_the_battle_when_asked(
         .map_or(0, |active| active.activation_id.0 as u64)
         .rotate_left(17)
         ^ select.participating() as u64;
-    let Some(decided) = select.roster_seeded(&fighters, seed) else {
+    let Some(decided) = select.roster_seeded(&fighters, seed, *assignment) else {
         return;
     };
     // ⭐ **THE SEAT COUNT THIS MATCH DECIDED, published with the roster and
@@ -1208,7 +1216,13 @@ fn start_the_battle_when_asked(
             // participant and occupies no channel; a lobby of two CPUs needs
             // none at all, which is the case that makes the difference
             // impossible to ignore.
-            decided.local_input_channels(),
+            //
+            // ⛔ **and the whole PLAN, not the count of it.** A count sizes the
+            // session and leaves every consumer to guess which controller feeds
+            // each handle — which they did, from the lobby's SPARSE source
+            // numbers, so seating the CPU first put the human's fighter on a
+            // channel the session never opened.
+            decided.local_channel_plan(),
         ),
     );
     commands.insert_resource(decided);
@@ -1782,7 +1796,9 @@ mod tests {
         let roster = smash_roster(["a", "b", "c"]);
         assert!(matches!(
             roster.participants[0].controller,
-            ControllerBinding::Human { device_slot: 0 }
+            ControllerBinding::Human {
+                source: ambition_platformer2d::actor::LocalInputSource::Pad(0)
+            }
         ));
         for participant in &roster.participants[1..] {
             assert!(matches!(

@@ -257,7 +257,13 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         .map(|seat| {
             let controller = if seat < local_players {
                 ControllerBinding::Human {
-                    device_slot: seat as u8,
+                    // ⚠ **PAD `seat`, and this route is entitled to say so.** The
+                    // versus roster is built from live device discovery — seat
+                    // `n` IS the `n`-th pad, with no lobby in between to renumber
+                    // anything — which is exactly the case where the source and
+                    // the channel coincide. A screen that lets people CHOOSE a
+                    // controller (Smash's) is the case where they do not.
+                    source: ambition_platformer2d::actor::LocalInputSource::Pad(seat as u8),
                 }
             } else {
                 ControllerBinding::Cpu {
@@ -678,8 +684,8 @@ fn track_versus_roster(
                     VERSUS_EXPERIENCE,
                     // CHANNELS, not participants — the versus stage published
                     // the same conflation Smash did. See
-                    // `ControllerBinding::local_channel`.
-                    roster.local_input_channels(),
+                    // `ControllerBinding::local_source`.
+                    roster.local_channel_plan(),
                 ),
             );
             commands.insert_resource(roster);

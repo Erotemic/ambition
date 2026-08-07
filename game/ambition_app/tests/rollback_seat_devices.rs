@@ -111,7 +111,9 @@ fn plug_in_a_pad(sim: &mut Platformer2dSimHarness, name: &str) -> Entity {
 fn two_human_roster() -> MatchParticipantRoster {
     let human = |character: &str, slot: u8, team: &str| {
         MatchParticipant::new(character)
-            .driven_by(ControllerBinding::Human { device_slot: slot })
+            .driven_by(ControllerBinding::Human {
+                source: ambition_platformer2d::actor::LocalInputSource::Pad(slot),
+            })
             .on_team(team)
     };
     MatchParticipantRoster {

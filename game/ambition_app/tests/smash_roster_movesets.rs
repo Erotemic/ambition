@@ -239,7 +239,12 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
     select.set_occupant(1, SlotOccupant::Cpu);
     select.set_pick(1, unarmed[1]);
 
-    let roster = select.roster(&grid).expect("two decided seats are a match");
+    let roster = select
+        .roster(
+            &grid,
+            ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary,
+        )
+        .expect("two decided seats are a match");
     for participant in &roster.participants {
         let kit = participant
             .action_set

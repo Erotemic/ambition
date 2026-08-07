@@ -683,7 +683,9 @@ fn two_local_seats_drive_independently_under_a_rollback_host() {
     }
     let human = |character: &str, slot: u8, team: &str| {
         MatchParticipant::new(character)
-            .driven_by(ControllerBinding::Human { device_slot: slot })
+            .driven_by(ControllerBinding::Human {
+                source: ambition_platformer2d::actor::LocalInputSource::Pad(slot),
+            })
             .on_team(team)
     };
     sim.world_mut().insert_resource(MatchParticipantRoster {
@@ -822,7 +824,7 @@ fn human_roster(count: usize) -> MatchParticipantRoster {
             .map(|slot| {
                 MatchParticipant::new(ids[slot])
                     .driven_by(ControllerBinding::Human {
-                        device_slot: slot as u8,
+                        source: ambition_platformer2d::actor::LocalInputSource::Pad(slot as u8),
                     })
                     .on_team(teams[slot])
             })

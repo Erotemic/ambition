@@ -51,6 +51,10 @@
 use bevy::prelude::*;
 use leafwing_input_manager::prelude::InputMap;
 
+use crate::channels::LocalChannelPlan;
+#[cfg(test)]
+use crate::channels::LocalInputSource;
+use crate::participant::ParticipantId;
 use crate::{InputParticipant, Platformer2dInputActionMonolith};
 
 /// Connected controllers, oldest connection first.
@@ -105,7 +109,7 @@ impl LocalDeviceOrder {
 pub struct LocalSeatTopology {
     generation: u64,
     seats: Vec<Entity>,
-    /// How many seats the ROSTER declared, when it said.
+    /// **Which source drives which channel**, as the ROSTER declared it.
     ///
     /// ⛔ **Two authorities used to answer "how many people are playing" and they
     /// contradicted each other** (queue S34). `seat_input_participants_for_roster`
@@ -122,9 +126,16 @@ pub struct LocalSeatTopology {
     /// policy can repair it from above — the count is already wrong before any
     /// policy is consulted.
     ///
+    /// ⛔ **and a COUNT was still not enough** (GPT 5.6, 2026-08-07). It answers
+    /// how many handles to open and says nothing about whose controller feeds
+    /// each one, so a lobby that seats the human holding pad 1 against a CPU
+    /// froze *"one seat"* and then handed that seat pad 0 — the pad nobody was
+    /// touching. The declaration is the whole map now; see
+    /// [`crate::channels`].
+    ///
     /// `None` means no roster spoke, and the device count still answers. That
     /// keeps every existing caller and every existing test on the old path.
-    declared_seats: Option<usize>,
+    declared: Option<LocalChannelPlan>,
 }
 
 impl LocalSeatTopology {
@@ -140,43 +151,70 @@ impl LocalSeatTopology {
         // A recapture is a NEW decision, so a declaration from the previous one
         // does not carry: leaving it would let a roster that has since gone away
         // keep sizing the session.
-        self.declared_seats = None;
+        self.declared = None;
     }
 
     /// How many local players this session seats. At least one: a keyboard-only
     /// desktop has no device rows and still has a player, and a session with
     /// zero local handles accepts input from nobody.
     ///
-    /// The ROSTER's declaration wins when there is one — see `declared_seats`.
-    /// The device count is the fallback for every caller that froze a topology
+    /// The ROSTER's declaration wins when there is one — see `declared`. The
+    /// device count is the fallback for every caller that froze a topology
     /// before rosters could speak.
     pub fn players(&self) -> usize {
-        match self.declared_seats {
-            Some(declared) => declared.max(1),
+        match &self.declared {
+            Some(plan) => plan.channels().max(1),
             None => self.seats.len().max(1),
         }
     }
 
-    /// Freeze the device order AND the seat count the roster declared.
+    /// Freeze the device order AND the channel plan the roster declared.
     ///
     /// The separate entry point is deliberate: [`Self::capture`] is called from
     /// paths that legitimately have no roster (the rollback observatory, device
     /// probes), and giving them a `None` to pass would make "nobody declared"
     /// look like a decision somebody made.
-    pub fn capture_for_roster(&mut self, order: &LocalDeviceOrder, declared_seats: usize) {
+    pub fn capture_for_roster(&mut self, order: &LocalDeviceOrder, declared: LocalChannelPlan) {
         self.capture(order);
-        self.declared_seats = Some(declared_seats);
+        self.declared = Some(declared);
     }
 
-    /// What the roster declared, if it spoke.
+    /// The channel plan the roster declared, if it spoke.
+    pub fn declared_channels(&self) -> Option<&LocalChannelPlan> {
+        self.declared.as_ref()
+    }
+
+    /// How many channels the roster declared, if it spoke.
     pub fn declared_seats(&self) -> Option<usize> {
-        self.declared_seats
+        self.declared.as_ref().map(|plan| plan.channels())
     }
 
-    /// The controller a handle drives, if this seat has one. A handle past the
-    /// connected devices is a CPU or an empty seat, not an error.
-    pub fn device_for_handle(&self, handle: usize) -> Option<Entity> {
-        self.seats.get(handle).copied()
+    /// **The controller a CHANNEL drives**, if that channel drives one.
+    ///
+    /// ⛔ **the channel is not the source, and this used to assume it was.** With
+    /// a declared plan the channel is dense (`0..players`) and the source is
+    /// whatever the lobby said — so channel 0 legitimately listens to the pad at
+    /// source 1, and reading `seats[0]` handed it the wrong controller. Without a
+    /// plan nobody has said otherwise and the channel indexes the device order
+    /// directly, which is every pre-roster caller's behaviour unchanged.
+    ///
+    /// `None` is a channel with no pad: one playing on the KEYBOARD, or one
+    /// whose controller is unplugged. Neither is an error.
+    pub fn device_for_channel(&self, channel: ParticipantId) -> Option<Entity> {
+        let index = match &self.declared {
+            Some(plan) => plan.source_for(channel)?.pad_index()?,
+            None => channel.slot() as usize,
+        };
+        self.seats.get(index).copied()
+    }
+
+    /// The controller at this index of the frozen device order.
+    ///
+    /// ⚠ **a DEVICE index, not a channel** — for a caller that is asking about
+    /// the hardware order itself. Anything asking "which pad does this seat
+    /// drive" wants [`Self::device_for_channel`].
+    pub fn device_at(&self, index: usize) -> Option<Entity> {
+        self.seats.get(index).copied()
     }
 
     /// Bumped on every capture; `0` means never captured.
@@ -307,6 +345,34 @@ impl SeatDeviceOwnership {
     }
 }
 
+/// **Which pad the frozen session decided this seat holds.**
+///
+/// ⭐ **the declared plan is the answer when there is one.** It says which
+/// SOURCE each dense channel listens to, which is exactly this question, and it
+/// needs no positional correction: a lobby that seated the human holding pad 1
+/// against a CPU declares `channel 0 → pad 1`, and reading the device order at
+/// the channel's own index would hand them the pad nobody is touching.
+///
+/// Without a plan nobody said otherwise, so the seat number indexes the device
+/// order — minus the seat playing on keys, which is not a row in it. That
+/// subtraction is the shape the plan replaces: it can only express a keyboard
+/// player in a seat BELOW a pad player, and it fails by producing `None`, which
+/// is a person who is simply inert.
+fn frozen_pad_for_seat(
+    topology: &LocalSeatTopology,
+    slot: u8,
+    keyboard_owner: Option<ParticipantId>,
+) -> Option<Entity> {
+    if topology.declared_channels().is_some() {
+        return topology.device_for_channel(ParticipantId(slot));
+    }
+    let pad_index = match keyboard_owner {
+        Some(owner) if owner.slot() < slot => slot.saturating_sub(1),
+        _ => slot,
+    };
+    topology.device_at(pad_index as usize)
+}
+
 /// Give each local seat its own controller.
 ///
 /// Runs in `PreUpdate` before leafwing resolves actions, so an association made
@@ -372,11 +438,23 @@ pub fn assign_local_seat_devices(
     // below is `pad_index == slot` — today's behaviour, byte for byte. Couch
     // partitioning is something a session opts into, not something a second
     // controller imposes on a solo player.
-    let keyboard_owner = crate::sources::keyboard_owner_for(
-        policy.map(|policy| *policy).unwrap_or_default(),
-        keyboard.map(|keyboard| *keyboard).unwrap_or_default(),
-        players,
-    );
+    //
+    // ⛔ **A DECLARED PLAN OUTRANKS THE POLICY, because the policy is a guess and
+    // the plan is what somebody chose.** `keyboard_owner_for` answers
+    // `Some(PRIMARY)` for every `JoinToClaim` session — "nobody has claimed the
+    // keyboard, so it stays with the seat that has been playing" — and that seat
+    // is then bound to `Entity::PLACEHOLDER`, deaf to every controller in the
+    // room. Correct for a lobby where somebody IS on keys; wrong for the shipped
+    // Smash couch, where two people pick up two pads and player one's pad stops
+    // working. A plan says who is on the keyboard, including *nobody*.
+    let keyboard_owner = match frozen.as_ref().and_then(|t| t.declared_channels()) {
+        Some(plan) => plan.keyboard_channel(),
+        None => crate::sources::keyboard_owner_for(
+            policy.map(|policy| *policy).unwrap_or_default(),
+            keyboard.map(|keyboard| *keyboard).unwrap_or_default(),
+            players,
+        ),
+    };
 
     // Pads that still exist. A seat's claim survives only while its pad does.
     let live: Vec<Entity> = order.devices().to_vec();
@@ -452,12 +530,7 @@ pub fn assign_local_seat_devices(
             // topology's own recorded handle, not from whatever is free. It only
             // records the identity of the controller the session already chose,
             // so that a later reconnect has something to match.
-            let pad_index = match keyboard_owner {
-                Some(owner) if owner.slot() < slot => slot.saturating_sub(1),
-                _ => slot,
-            };
-            if let Some(pad) = topology
-                .device_for_handle(pad_index as usize)
+            if let Some(pad) = frozen_pad_for_seat(topology, slot, keyboard_owner)
                 .filter(|pad| live.contains(pad) && !ownership.is_held(*pad))
             {
                 let identity = pads
@@ -497,11 +570,7 @@ pub fn assign_local_seat_devices(
         } else if let Some(topology) = frozen.as_ref() {
             // A frozen session's mapping is the session's own answer and does not
             // move — that is the whole point of freezing it.
-            let pad_index = match keyboard_owner {
-                Some(owner) if owner.slot() < slot => slot.saturating_sub(1),
-                _ => slot,
-            };
-            let recorded = topology.device_for_handle(pad_index as usize);
+            let recorded = frozen_pad_for_seat(topology, slot, keyboard_owner);
             match recorded {
                 // Still plugged in: the session's answer stands.
                 Some(pad) if live.contains(&pad) => Some(pad),
@@ -563,7 +632,7 @@ pub fn assign_local_seat_devices(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ParticipantId;
+    use ParticipantId;
 
     fn seat_app() -> App {
         let mut app = App::new();
@@ -643,7 +712,13 @@ mod tests {
         // before any assignment pass, the way a real match freezes.
         let frozen = {
             let mut topology = LocalSeatTopology::default();
-            topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![pad]), 2);
+            topology.capture_for_roster(
+                &LocalDeviceOrder::from_devices(vec![pad]),
+                LocalChannelPlan::from_sources([
+                    LocalInputSource::Keyboard,
+                    LocalInputSource::Pad(0),
+                ]),
+            );
             topology
         };
         app.insert_resource(frozen);
@@ -684,6 +759,97 @@ mod tests {
             Some(Entity::PLACEHOLDER),
             "and it must never land on the keyboard seat"
         );
+    }
+
+    /// **TWO PAD PLAYERS AND NOBODY ON THE KEYS.** (GPT 5.6, 2026-08-07)
+    ///
+    /// ⛔ **the shipped Smash couch, and it did not work.** That demo claims
+    /// `JoinToClaim` on its own routes, and `keyboard_owner_for` answers
+    /// `Some(PRIMARY)` for every `JoinToClaim` session — "nobody has claimed the
+    /// keyboard, so it stays with the seat that has been playing". So player
+    /// one, holding a controller, was bound to `Entity::PLACEHOLDER` and deaf to
+    /// it, while player two's pad worked fine. Two people, one of whom cannot
+    /// move.
+    ///
+    /// ⭐ **a declared plan is a stated fact and outranks the policy's guess.**
+    /// It says who is on the keyboard, including *nobody*.
+    #[test]
+    fn a_declared_couch_with_nobody_on_the_keyboard_gives_both_seats_their_pads() {
+        let mut app = seat_app();
+        app.insert_resource(crate::sources::InputAssignmentPolicy::JoinToClaim);
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let pad_a = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad a")))
+            .id();
+        let pad_b = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad b")))
+            .id();
+
+        let frozen = {
+            let mut topology = LocalSeatTopology::default();
+            topology.capture_for_roster(
+                &LocalDeviceOrder::from_devices(vec![pad_a, pad_b]),
+                LocalChannelPlan::from_sources([0, 1].map(LocalInputSource::Pad)),
+            );
+            topology
+        };
+        app.insert_resource(frozen);
+        app.update();
+
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_a),
+            "player one is holding a controller and the plan says so — binding \
+             them to the keyboard makes the person who started the match the one \
+             who cannot move"
+        );
+        assert_eq!(assigned(&app, two), Some(pad_b));
+    }
+
+    /// **A CHANNEL LISTENS TO THE SOURCE IT WAS GIVEN, not to its own number.**
+    ///
+    /// Two people picked up the second and third controllers — the first is on
+    /// the desk, plugged in and unclaimed. Positionally, channel 0 would take
+    /// the spare and channel 1 would take one of theirs.
+    #[test]
+    fn a_declared_plan_hands_each_channel_the_pad_its_person_is_holding() {
+        let mut app = seat_app();
+        let one = spawn_seat(&mut app, ParticipantId::PRIMARY);
+        let two = spawn_seat(&mut app, ParticipantId::SECONDARY);
+        let spare = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("the spare on the desk")))
+            .id();
+        let pad_b = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad b")))
+            .id();
+        let pad_c = app
+            .world_mut()
+            .spawn((Gamepad::default(), Name::new("pad c")))
+            .id();
+
+        let frozen = {
+            let mut topology = LocalSeatTopology::default();
+            topology.capture_for_roster(
+                &LocalDeviceOrder::from_devices(vec![spare, pad_b, pad_c]),
+                LocalChannelPlan::from_sources([1, 2].map(LocalInputSource::Pad)),
+            );
+            topology
+        };
+        app.insert_resource(frozen);
+        app.update();
+
+        assert_eq!(
+            assigned(&app, one),
+            Some(pad_b),
+            "channel zero was given pad ONE; handing it pad zero is handing it a \
+             controller nobody is holding"
+        );
+        assert_eq!(assigned(&app, two), Some(pad_c));
     }
 
     /// **The default policy leaves solo behaviour exactly where it was.**
@@ -1079,7 +1245,10 @@ mod tests {
         // arrives with ownership still empty. The order below is that order.
         let frozen = {
             let mut topology = LocalSeatTopology::default();
-            topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![pad_a, pad_b]), 2);
+            topology.capture_for_roster(
+                &LocalDeviceOrder::from_devices(vec![pad_a, pad_b]),
+                LocalChannelPlan::from_sources([0, 1].map(LocalInputSource::Pad)),
+            );
             topology
         };
         assert!(frozen.is_frozen(), "the fixture must actually freeze");
@@ -1232,11 +1401,18 @@ mod local_seat_topology_tests {
     fn a_declared_roster_seats_two_even_with_one_pad_connected() {
         let mut topology = LocalSeatTopology::default();
         let pad = Entity::from_bits(1 << 32 | 1);
-        topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![pad]), 2);
+        topology.capture_for_roster(
+            &LocalDeviceOrder::from_devices(vec![pad]),
+            LocalChannelPlan::from_sources([LocalInputSource::Keyboard, LocalInputSource::Pad(0)]),
+        );
         assert_eq!(topology.players(), 2);
         assert_eq!(topology.declared_seats(), Some(2));
-        // The device mapping is unchanged: seat handles still resolve to pads.
-        assert_eq!(topology.device_for_handle(0), Some(pad));
+        // ⭐ and the declaration says WHICH source each channel listens to, which
+        // is the half a count could not carry: the pad belongs to channel ONE,
+        // and channel zero is the person on keys rather than a second claimant
+        // on the only controller in the room.
+        assert_eq!(topology.device_for_channel(ParticipantId(1)), Some(pad));
+        assert_eq!(topology.device_for_channel(ParticipantId(0)), None);
     }
 
     /// **A spare controller does not add a player.**
@@ -1249,7 +1425,10 @@ mod local_seat_topology_tests {
         let mut topology = LocalSeatTopology::default();
         let a = Entity::from_bits(1 << 32 | 1);
         let b = Entity::from_bits(1 << 32 | 2);
-        topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![a, b]), 1);
+        topology.capture_for_roster(
+            &LocalDeviceOrder::from_devices(vec![a, b]),
+            LocalChannelPlan::from_sources([LocalInputSource::Pad(0)]),
+        );
         assert_eq!(topology.players(), 1, "one declared seat is one player");
     }
 
@@ -1269,7 +1448,10 @@ mod local_seat_topology_tests {
     fn recapturing_without_a_roster_drops_the_previous_declaration() {
         let mut topology = LocalSeatTopology::default();
         let pad = Entity::from_bits(1 << 32 | 1);
-        topology.capture_for_roster(&LocalDeviceOrder::from_devices(vec![pad]), 4);
+        topology.capture_for_roster(
+            &LocalDeviceOrder::from_devices(vec![pad]),
+            LocalChannelPlan::from_sources([0, 1, 2, 3].map(LocalInputSource::Pad)),
+        );
         assert_eq!(topology.players(), 4);
         topology.capture(&LocalDeviceOrder::from_devices(vec![pad]));
         assert_eq!(
@@ -1326,7 +1508,11 @@ mod local_seat_topology_tests {
         let mut topology = LocalSeatTopology::default();
         topology.capture(&order(0));
         assert_eq!(topology.players(), 1);
-        assert_eq!(topology.device_for_handle(0), None, "and it owns no pad");
+        assert_eq!(
+            topology.device_for_channel(ParticipantId(0)),
+            None,
+            "and it owns no pad"
+        );
     }
 
     /// Re-capturing ADVANCES the generation even when the seats are identical.
@@ -1351,10 +1537,17 @@ mod local_seat_topology_tests {
         let live = order(2);
         let mut topology = LocalSeatTopology::default();
         topology.capture(&live);
-        assert_eq!(topology.device_for_handle(0), Some(live.devices()[0]));
-        assert_eq!(topology.device_for_handle(1), Some(live.devices()[1]));
+        let channel = ParticipantId;
         assert_eq!(
-            topology.device_for_handle(2),
+            topology.device_for_channel(channel(0)),
+            Some(live.devices()[0])
+        );
+        assert_eq!(
+            topology.device_for_channel(channel(1)),
+            Some(live.devices()[1])
+        );
+        assert_eq!(
+            topology.device_for_channel(channel(2)),
             None,
             "a handle past the connected pads is a CPU or an empty seat, not an error"
         );
@@ -1400,7 +1593,10 @@ mod generation_tests {
         // The roster then declares a different answer, on top of the SAME
         // topology — which is the fix: seeding from the existing one rather than
         // from `default()` is what keeps the counter moving.
-        topology.capture_for_roster(&order, 2);
+        topology.capture_for_roster(
+            &order,
+            LocalChannelPlan::from_sources([0, 1].map(LocalInputSource::Pad)),
+        );
         assert!(
             topology.generation() > device_generation,
             "the roster's capture must advance past the device capture ({} vs {}) \

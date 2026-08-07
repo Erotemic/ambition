@@ -100,7 +100,13 @@ impl MatchParticipant {
     pub fn new(character: impl Into<String>) -> Self {
         Self {
             character: character.into(),
-            controller: ControllerBinding::Human { device_slot: 0 },
+            // ⚠ **the first PAD, not "seat zero".** A roster that seats two of
+            // these without saying otherwise is two people on one controller,
+            // and preparation refuses it by name — which is the honest outcome:
+            // whoever built that roster has not said who is holding what.
+            controller: ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::FIRST_PAD,
+            },
             team: None,
             action_set: None,
         }
@@ -132,20 +138,27 @@ impl MatchParticipant {
 /// on an identity is the shape this replaces.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ControllerBinding {
+    /// A person at this machine drives it, on the source they picked up.
+    ///
+    /// ⛔ **this used to say `device_slot: u8`, and the word `slot` was doing
+    /// two jobs.** A lobby's source number is SPARSE — pick three pads and
+    /// unseat the middle one and the survivors are still 0 and 2, because
+    /// renumbering hands somebody the wrong controller — while every seat
+    /// number downstream (participant, `PlayerSlot`, GGRS handle) is DENSE.
+    /// Feeding one into the other made `PlayerSlot(3)` in a session that only
+    /// ever opened handles `0..2`, so that fighter received no input at all
+    /// (GPT 5.6, 2026-08-07). The dense channel is now derived at preparation;
+    /// this is only ever the source.
     Human {
-        device_slot: u8,
+        source: ambition_input::LocalInputSource,
     },
     /// A brain profile drives it. The profile is AI policy, and it is the only
     /// variant that carries one.
-    Cpu {
-        brain_profile: Option<String>,
-    },
+    Cpu { brain_profile: Option<String> },
     /// A recorded control-frame stream drives it.
     Replay,
     /// An external policy drives it (the RL harness).
-    Policy {
-        policy_id: Option<String>,
-    },
+    Policy { policy_id: Option<String> },
 }
 
 impl ControllerBinding {
@@ -159,24 +172,27 @@ impl ControllerBinding {
         }
     }
 
-    /// **The LOCAL INPUT CHANNEL this binding occupies, if any.**
+    /// **The LOCAL INPUT SOURCE this binding occupies, if any.**
     ///
-    /// ⛔ **the one definition of "how many people are playing on this
-    /// machine", and it needed to be one.** Two authorities used to answer it
-    /// and disagreed: the rollback session was sized from
-    /// `roster.participants.len()` — every seat, CPUs included — while the
-    /// frozen input topology counted `ControllerBinding::Human`, each with a
-    /// comment claiming to be the authoritative number. A one-human-one-CPU
-    /// match therefore built a two-handle session whose second handle nothing
-    /// ever wrote.
+    /// ⛔ **the one definition of "who is playing on this machine", and it
+    /// needed to be one.** Two authorities used to answer it and disagreed: the
+    /// rollback session was sized from `roster.participants.len()` — every seat,
+    /// CPUs included — while the frozen input topology counted
+    /// `ControllerBinding::Human`, each with a comment claiming to be the
+    /// authoritative number. A one-human-one-CPU match therefore built a
+    /// two-handle session whose second handle nothing ever wrote.
     ///
     /// ⚠ **a participant is not a channel.** A CPU is a full participant with a
     /// body, a team and a stock count, and it occupies no channel at all; a
     /// spectator would be a participant with no body. Those are only sayable
     /// once the two counts are allowed to differ.
-    pub fn local_channel(&self) -> Option<u8> {
+    ///
+    /// ⚠ **and a source is not a channel either** — see
+    /// [`MatchParticipantRoster::local_channel_plan`], which is what turns these
+    /// into dense channels.
+    pub fn local_source(&self) -> Option<ambition_input::LocalInputSource> {
         match self {
-            Self::Human { device_slot } => Some(*device_slot),
+            Self::Human { source } => Some(*source),
             _ => None,
         }
     }
@@ -452,17 +468,32 @@ impl MatchParticipantRoster {
         }
     }
 
-    /// **How many LOCAL INPUT CHANNELS this match needs**, which is not how many
-    /// fighters are in it.
+    /// **Which local source drives which control channel**, in seat order.
     ///
-    /// The number that sizes a rollback session and picks solo-versus-couch
-    /// input assignment. See [`ControllerBinding::local_channel`] for the two
-    /// authorities this replaced and how they disagreed.
-    pub fn local_input_channels(&self) -> usize {
-        self.participants
-            .iter()
-            .filter(|participant| participant.controller.local_channel().is_some())
-            .count()
+    /// ⛔ **this was a COUNT, and a count is not enough.** It answered *"how many
+    /// local input channels does this match need"* — the number that sizes a
+    /// rollback session and picks solo-versus-couch input assignment — and threw
+    /// away the half that says whose controller feeds each one. Everything
+    /// downstream then re-derived the missing half from the SOURCE number, which
+    /// is sparse: a lobby that seats a CPU first and the human holding pad 1
+    /// second produced one handle and a fighter reading `PlayerSlot(1)`, so
+    /// nobody could move (GPT 5.6, 2026-08-07).
+    ///
+    /// ⭐ **seat order is the channel order**, and that is the whole definition.
+    /// Channel `n` is the `n`-th human seat in the roster, whatever source it
+    /// holds — so `[CPU, human on pad 1]` is one channel listening to pad 1.
+    ///
+    /// ⚠ **the ONE place the correspondence is decided.** `prepare_match` reads
+    /// it rather than counting again, the session is sized from
+    /// `plan.channels()`, and the frozen topology stores the plan itself; three
+    /// consumers citing one fact instead of three derivations that agree by
+    /// inspection.
+    pub fn local_channel_plan(&self) -> ambition_input::LocalChannelPlan {
+        ambition_input::LocalChannelPlan::from_sources(
+            self.participants
+                .iter()
+                .filter_map(|participant| participant.controller.local_source()),
+        )
     }
 
     /// Stamp the experience that published this roster. See
@@ -683,7 +714,9 @@ mod tests {
             Some("aggressive")
         );
         for binding in [
-            ControllerBinding::Human { device_slot: 1 },
+            ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(1),
+            },
             ControllerBinding::Replay,
             ControllerBinding::Policy {
                 policy_id: Some("ppo_7".into()),
@@ -777,9 +810,12 @@ mod roster_validation_tests {
     #[test]
     fn a_human_seat_needs_no_archetype() {
         let mut roster = MatchParticipantRoster::of(["fighter_a"]);
-        roster.participants[0] = roster.participants[0]
-            .clone()
-            .driven_by(ControllerBinding::Human { device_slot: 0 });
+        roster.participants[0] =
+            roster.participants[0]
+                .clone()
+                .driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(0),
+                });
         assert!(roster.unsatisfiable_seats(&archetypes(&[])).is_empty());
     }
 }

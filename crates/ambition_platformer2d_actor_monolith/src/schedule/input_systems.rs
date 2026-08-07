@@ -240,17 +240,19 @@ pub fn seat_input_participants_for_roster(
     lobby: Option<Res<ambition_input::DeclaredInputSeats>>,
     existing: Query<(Entity, &InputParticipant)>,
 ) {
+    // ⛔ **CHANNELS, not the SOURCES the roster names.** This collected each
+    // human seat's `device_slot`, which is a lobby source number and is
+    // deliberately sparse — so a couch of two people on pads 1 and 2 spawned
+    // participants 1 and 2 beside the boot-time primary, three seats for two
+    // channels, and the fighter reading `PlayerSlot(2)` sat in a session that
+    // opened handles 0 and 1 (GPT 5.6, 2026-08-07). The plan is the roster's own
+    // dense answer, and it is the same one the session is sized from.
     let mut wanted: Vec<u8> = roster
         .map(|roster| {
             roster
-                .participants
-                .iter()
-                .filter_map(|participant| match participant.controller {
-                    crate::character_runtime::ControllerBinding::Human { device_slot } => {
-                        Some(device_slot)
-                    }
-                    _ => None,
-                })
+                .local_channel_plan()
+                .channels_with_sources()
+                .map(|(channel, _)| channel.slot())
                 .filter(|slot| *slot != ambition_input::ParticipantId::PRIMARY.slot())
                 .collect()
         })
@@ -1042,10 +1044,12 @@ mod focus_gate_tests {
         );
         app.world_mut().insert_resource(MatchParticipantRoster {
             participants: vec![
-                MatchParticipant::new("mary_o")
-                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
-                MatchParticipant::new("sanic")
-                    .driven_by(ControllerBinding::Human { device_slot: 1 }),
+                MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(0),
+                }),
+                MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(1),
+                }),
             ],
             ..Default::default()
         });
@@ -1120,10 +1124,12 @@ mod focus_gate_tests {
         );
         app.world_mut().insert_resource(MatchParticipantRoster {
             participants: vec![
-                MatchParticipant::new("mary_o")
-                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
-                MatchParticipant::new("sanic")
-                    .driven_by(ControllerBinding::Human { device_slot: 1 }),
+                MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(0),
+                }),
+                MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(1),
+                }),
             ],
             ..Default::default()
         });
@@ -1211,10 +1217,12 @@ mod focus_gate_tests {
 
         app.world_mut().insert_resource(MatchParticipantRoster {
             participants: vec![
-                MatchParticipant::new("mary_o")
-                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
-                MatchParticipant::new("sanic")
-                    .driven_by(ControllerBinding::Human { device_slot: 1 }),
+                MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(0),
+                }),
+                MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(1),
+                }),
             ],
             ..Default::default()
         });
@@ -1224,8 +1232,9 @@ mod focus_gate_tests {
         // A CPU opponent is not a seat: nobody is holding a controller for it.
         app.world_mut().insert_resource(MatchParticipantRoster {
             participants: vec![
-                MatchParticipant::new("mary_o")
-                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
+                MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(0),
+                }),
                 MatchParticipant::new("sanic").driven_by(ControllerBinding::Cpu {
                     brain_profile: Some("medium_striker".into()),
                 }),
@@ -1294,9 +1303,21 @@ mod focus_gate_tests {
         };
 
         let mut app = App::new();
+        // ⚠ **TWO humans, because a second seat is what this is about.** It said
+        // one, on pad 1, and read the participant it produced as "the couch
+        // seat" — which held while a source number WAS a seat number. Channels
+        // are dense now, so one person is one seat however many controllers are
+        // in the room, and asking for `SECONDARY` from a one-person roster would
+        // be asking for a chair nobody is sitting in.
         app.world_mut().insert_resource(MatchParticipantRoster {
-            participants: vec![MatchParticipant::new("sanic")
-                .driven_by(ControllerBinding::Human { device_slot: 1 })],
+            participants: vec![
+                MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(0),
+                }),
+                MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(1),
+                }),
+            ],
             ..Default::default()
         });
         app.add_systems(Update, super::seat_input_participants_for_roster);
@@ -1318,6 +1339,54 @@ mod focus_gate_tests {
                  typing on that keyboard"
             );
         }
+    }
+
+    /// **A COUCH SEATS ONE PARTICIPANT PER PERSON, not one per controller
+    /// NUMBER.** (GPT 5.6, 2026-08-07)
+    ///
+    /// ⛔ the shipped Smash couch, exactly: under `JoinToClaim` the select
+    /// screen offers the keyboard as source 0 and each pad after it, so two
+    /// people on two pads publish a roster of `Pad(0)` and `Pad(1)`… and this
+    /// collected the SOURCE numbers. Add the boot-time primary and that is three
+    /// participants for a two-handle session — with the third writing a
+    /// `PlayerSlot` no GGRS handle ever publishes.
+    ///
+    /// ⭐ the roster's channel plan is dense by construction, and it is the same
+    /// plan the session is sized from.
+    #[test]
+    fn a_sparse_couch_seats_one_participant_per_person() {
+        use crate::character_runtime::{
+            ControllerBinding, MatchParticipant, MatchParticipantRoster,
+        };
+
+        let mut app = App::new();
+        app.add_systems(
+            Update,
+            (
+                spawn_primary_input_participant,
+                super::seat_input_participants_for_roster,
+            )
+                .chain(),
+        );
+        // Two people, holding the second and fourth controllers in the room.
+        app.world_mut().insert_resource(MatchParticipantRoster {
+            participants: vec![
+                MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(1),
+                }),
+                MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(3),
+                }),
+            ],
+            ..Default::default()
+        });
+        app.update();
+        assert_eq!(
+            seat_slots(&mut app),
+            vec![0, 1],
+            "two people are two participants — seats 1 and 3 would be two chairs \
+             nobody is in, plus a session handle that never arrives"
+        );
     }
 
     /// **Each seat routes through ITS OWN context.**
@@ -1985,16 +2054,21 @@ pub fn freeze_local_seating_for_the_decided_match(
     // count are ONE definition rather than two that agree by inspection.** They
     // did not agree: this counted humans and `SessionSeatingSource::decided` was
     // handed `participants.len()`.
-    let seats = roster.local_input_channels();
-    if seats == 0 {
+    let plan = roster.local_channel_plan();
+    if plan.is_empty() {
         return;
     }
     // Already frozen for THIS roster's shape: leave it exactly as it is. A
     // recapture would advance the generation and every consumer that keys off it
     // would rebuild for no reason.
+    //
+    // ⚠ **the whole PLAN, not its size.** Two rosters can want the same number
+    // of channels and a different controller behind each: flip seat one from a
+    // pad to a CPU and seat two from a CPU to a pad and the count never moves,
+    // while every seat's device does.
     if existing
         .as_deref()
-        .is_some_and(|topology| topology.is_frozen() && topology.declared_seats() == Some(seats))
+        .is_some_and(|topology| topology.is_frozen() && topology.declared_channels() == Some(&plan))
     {
         return;
     }
@@ -2014,6 +2088,6 @@ pub fn freeze_local_seating_for_the_decided_match(
     // own parameter is called — so the rebuild it was suppressing produces the
     // right answer, and suppressing it is no longer doing anyone a favour.
     let mut topology = existing.as_deref().cloned().unwrap_or_default();
-    topology.capture_for_roster(&order, seats);
+    topology.capture_for_roster(&order, plan);
     commands.insert_resource(topology);
 }

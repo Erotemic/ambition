@@ -1,5 +1,14 @@
 use super::*;
 
+/// The policy every roster test in this file builds under.
+///
+/// ⚠ **the screen's occupant numbers are indices into the sources it offered,
+/// and what index zero MEANS is the policy's answer** — the first pad here, the
+/// keyboard under `JoinToClaim`. Naming it once keeps these tests reading as
+/// "slot 3 holds pad 3" rather than as arithmetic.
+const UNIFIED: ambition_platformer2d::input::sources::InputAssignmentPolicy =
+    ambition_platformer2d::input::sources::InputAssignmentPolicy::UnifiedPrimary;
+
 /// **A roster with room in it**, so a test about the DECISION is not also a
 /// test of how many fighters ship today.
 ///
@@ -147,7 +156,7 @@ fn a_single_decided_slot_never_starts_a_battle() {
     select.set_occupant(0, SlotOccupant::Controller { device: 0 });
     select.set_pick(0, 0);
     assert!(!select.ready());
-    assert!(select.roster(&fighters()).is_none());
+    assert!(select.roster(&fighters(), UNIFIED).is_none());
 }
 
 /// **Two CPUs ARE a match, and a person can join them.**
@@ -190,7 +199,7 @@ fn two_cpus_are_a_match_and_a_person_can_join_them() {
     );
     assert_eq!(
         select
-            .roster(&fighters())
+            .roster(&fighters(), UNIFIED)
             .expect("two decided CPUs are a match")
             .participants
             .len(),
@@ -203,7 +212,7 @@ fn two_cpus_are_a_match_and_a_person_can_join_them() {
     assert!(select.ready());
     assert_eq!(
         select
-            .roster(&fighters())
+            .roster(&fighters(), UNIFIED)
             .expect("one player and two CPUs is a match")
             .participants
             .len(),
@@ -247,7 +256,7 @@ fn a_pick_past_the_end_of_the_roster_loses_its_seat_rather_than_inventing_one() 
     select.set_pick(2, 999);
 
     let roster = select
-        .roster(&fighters())
+        .roster(&fighters(), UNIFIED)
         .expect("two seats with real fighters are still a match");
     assert_eq!(
         roster.participants.len(),
@@ -264,7 +273,7 @@ fn the_roster_carries_every_decided_slot_on_its_own_side() {
     select.set_pick(3, 2);
 
     let roster = select
-        .roster(&fighters())
+        .roster(&fighters(), UNIFIED)
         .expect("three decided slots are a match");
     assert_eq!(roster.participants.len(), 3);
     assert_eq!(roster.fighter_stocks, Some(STARTING_STOCKS));
@@ -277,7 +286,9 @@ fn the_roster_carries_every_decided_slot_on_its_own_side() {
         .participants
         .iter()
         .filter_map(|participant| match participant.controller {
-            crate::ControllerBinding::Human { device_slot } => Some(device_slot),
+            crate::ControllerBinding::Human {
+                source: ambition_platformer2d::actor::LocalInputSource::Pad(pad),
+            } => Some(pad),
             _ => None,
         })
         .collect();
@@ -342,7 +353,7 @@ fn the_roster_names_no_character_twice() {
 fn an_untouched_screen_is_not_a_match() {
     let select = SmashSelect::default();
     assert!(!select.ready());
-    assert!(select.roster(&fighters()).is_none());
+    assert!(select.roster(&fighters(), UNIFIED).is_none());
     assert_eq!(select.participating(), 0);
     assert!(select.blocker().is_some());
 }
@@ -521,7 +532,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     assert!(select.slot(0).pick.is_some_and(SlotPick::is_random));
 
     let roster = select
-        .roster_seeded(&fighters, 12_345)
+        .roster_seeded(&fighters, 12_345, UNIFIED)
         .expect("two decided seats are a match");
     assert_eq!(roster.participants.len(), 2);
     for participant in &roster.participants {
@@ -535,7 +546,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     // ⚠ **SEEDED, not ambient** (ADR 0023). The same seed draws the same match,
     // which is what makes a desync explicable and a test able to name a draw.
     let again = select
-        .roster_seeded(&fighters, 12_345)
+        .roster_seeded(&fighters, 12_345, UNIFIED)
         .expect("the same screen is still a match");
     assert_eq!(
         again.participants[0].character, roster.participants[0].character,
@@ -545,7 +556,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     // ...and a different seed is allowed to differ. Asserting it MUST differ
     // would be asserting a hash collision never happens on a grid this small.
     let other = select
-        .roster_seeded(&fighters, 99)
+        .roster_seeded(&fighters, 99, UNIFIED)
         .expect("the same screen is still a match");
     assert_eq!(other.participants.len(), 2);
 }

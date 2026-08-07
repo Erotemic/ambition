@@ -256,6 +256,13 @@ pub mod actor {
         MatchPreparationProblems, PreparedMatch, RosterProblem, RosterSeating,
     };
 
+    /// **What a human seat is playing ON**, and the map from those sources to
+    /// the dense channels a rollback session opens.
+    ///
+    /// Re-exported beside the roster because a composition that names
+    /// `ControllerBinding::Human` cannot say who is holding what without it.
+    pub use ambition_input::{LocalChannelPlan, LocalInputSource};
+
     /// **The stocks economy**: the count on a body, the fact that it is out, and
     /// the two messages a ruleset acts on.
     ///

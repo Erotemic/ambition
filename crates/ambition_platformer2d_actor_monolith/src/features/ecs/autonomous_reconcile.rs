@@ -566,7 +566,7 @@ fn reconcile_temporary_control(world: &mut World) {
     // authority from the plan is the same act as binding it in the first place,
     // which is the property that makes a rewind reconstruct the SAME match
     // rather than a similar one.
-    let channels: Vec<Option<u8>> = world
+    let channels: Vec<Option<ambition_input::ParticipantId>> = world
         .get_resource::<crate::character_runtime::PreparedMatch>()
         .map(|plan| {
             plan.seats()
@@ -575,7 +575,7 @@ fn reconcile_temporary_control(world: &mut World) {
                 .collect()
         })
         .unwrap_or_default();
-    let seated_authorities: Vec<(Entity, u8)> = if channels.is_empty() {
+    let seated_authorities: Vec<(Entity, ambition_input::ParticipantId)> = if channels.is_empty() {
         Vec::new()
     } else {
         let mut q = world.query::<(Entity, &crate::character_runtime::MatchSeat)>();
@@ -590,13 +590,17 @@ fn reconcile_temporary_control(world: &mut World) {
             .collect()
     };
     for (entity, channel) in seated_authorities {
-        let wanted = Brain::Player(PlayerSlot(channel));
+        // ⭐ through the one correspondence, exactly as construction does — a
+        // rebuild that spelled the projection itself would be the second place
+        // that decides which seat a channel reads.
+        let seat = crate::participant_seat::player_slot_of(channel);
+        let wanted = Brain::Player(seat);
         // `is_player` + slot rather than a whole-value compare: `Brain` is not
         // `PartialEq`, and the slot is the only part of a player brain that
         // carries meaning here.
         let already = world
             .get::<Brain>(entity)
-            .is_some_and(|brain| matches!(brain, Brain::Player(slot) if slot.0 == channel));
+            .is_some_and(|brain| matches!(brain, Brain::Player(slot) if *slot == seat));
         if already {
             continue;
         }

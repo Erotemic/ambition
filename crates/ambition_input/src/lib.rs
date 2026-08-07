@@ -19,6 +19,7 @@ mod actions;
 mod active_input;
 #[cfg(feature = "input")]
 mod bindings;
+pub mod channels;
 mod control;
 pub mod cues;
 #[cfg(feature = "input")]
@@ -53,6 +54,9 @@ pub use actions::Platformer2dInputActionMonolith;
 pub use active_input::update_seat_active_devices;
 pub use active_input::{gamepad_style_of, ActiveDevice, GamepadStyle, SeatActiveDevices};
 pub use ambition_platformer2d_core::ControlFrame;
+/// Which local source drives which control channel — the map that keeps a
+/// lobby's sparse source numbers out of the rollback host's dense handles.
+pub use channels::{LocalChannelPlan, LocalInputSource};
 pub use control::PlayerDashTriggerState;
 #[cfg(feature = "input")]
 pub use control::{

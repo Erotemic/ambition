@@ -262,7 +262,9 @@ fn a_match_builds_its_own_cast_and_leaves_other_bodies_alone() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(0),
+            }),
             cpu("mary_o"),
         ],
         ..Default::default()
@@ -333,8 +335,12 @@ fn a_second_human_seat_gets_its_own_body_on_its_own_slot() {
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human { device_slot: 0 }),
-            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 }),
+            MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(0),
+            }),
+            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(1),
+            }),
         ],
         ..Default::default()
     });
@@ -382,7 +388,9 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
     app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human { device_slot: 1 })
+            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(1),
+            }),
         ],
         ..Default::default()
     });
@@ -399,6 +407,153 @@ fn a_second_human_body_is_marked_local_so_the_slot_bridge_reaches_it() {
         1,
         "the second human's body is not a `LocalPlayer` with a `PlayerInputFrame`, \
          so `sync_local_player_input_frame` will never hand it its slot's input"
+    );
+}
+
+/// **A SPARSE source does not make a sparse channel.** (GPT 5.6, 2026-08-07)
+///
+/// ⛔ **the smallest reachable form of the defect**: a lobby of two seats where
+/// the FIRST is a CPU. One person is playing, so the session opens one GGRS
+/// handle — and the human is holding the second controller, so the roster says
+/// source `Pad(1)`. That number used to become the channel, and the fighter
+/// spawned reading `PlayerSlot(1)` in a session whose only handle writes
+/// `PlayerSlot(0)`. Nothing errored; the human simply could not move.
+///
+/// ⭐ so the assertion is a PAIR, and both halves matter: the fighter reads the
+/// dense channel, and the plan still remembers which controller feeds it.
+#[test]
+fn a_human_behind_a_cpu_seat_still_lands_on_channel_zero() {
+    use ambition_characters::brain::{Brain, PlayerSlot};
+
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            cpu("mary_o"),
+            MatchParticipant::new("sanic").driven_by(ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(1),
+            }),
+        ],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let plan = app.world().resource::<PreparedMatch>().channel_plan();
+    assert_eq!(
+        plan.channels(),
+        1,
+        "one person is playing, so the session opens exactly one handle"
+    );
+    assert_eq!(
+        plan.source_for(ambition_input::ParticipantId::PRIMARY),
+        Some(ambition_input::LocalInputSource::Pad(1)),
+        "the dense channel must still remember WHICH controller feeds it — \
+         compacting the source is how a player ends up driving somebody else"
+    );
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<(&ambition_characters::actor::WornCharacter, &Brain)>();
+    let seated: Vec<(String, Option<PlayerSlot>)> = bodies
+        .iter(world)
+        .map(|(worn, brain)| (worn.id().to_string(), brain.player_slot()))
+        .collect();
+    assert!(
+        seated.contains(&("sanic".to_string(), Some(PlayerSlot::PRIMARY))),
+        "the only human's fighter must read the only channel the session opens; \
+         a fighter on `PlayerSlot(1)` in a one-handle session receives nothing \
+         for the whole match: {seated:?}"
+    );
+}
+
+/// **Holes in the sources close in the channels, in seat order.**
+///
+/// The select screen's own case — three people holding pads 0, 1 and 3, which
+/// its test pins because renumbering them hands somebody the wrong controller.
+/// Three channels, no holes; three sources, one hole.
+#[test]
+fn three_people_on_pads_zero_one_and_three_get_channels_zero_one_and_two() {
+    use ambition_characters::brain::{Brain, PlayerSlot};
+
+    let mut app = seating_app();
+    for id in ["mary_o", "sanic", "duelist"] {
+        app.register_character(CharacterDefinition::new(id, id, format!("{id}_demo")));
+    }
+    app.insert_resource(MatchParticipantRoster {
+        participants: ["mary_o", "sanic", "duelist"]
+            .into_iter()
+            .zip([0u8, 1, 3])
+            .map(|(character, pad)| {
+                MatchParticipant::new(character).driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(pad),
+                })
+            })
+            .collect(),
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    assert_eq!(
+        app.world()
+            .resource::<PreparedMatch>()
+            .channel_plan()
+            .sources(),
+        [0, 1, 3].map(ambition_input::LocalInputSource::Pad),
+        "the plan must keep the sources people are holding"
+    );
+
+    let world = app.world_mut();
+    let mut bodies = world.query::<&Brain>();
+    let mut slots: Vec<u8> = bodies
+        .iter(world)
+        .filter_map(Brain::player_slot)
+        .map(|slot| slot.0)
+        .collect();
+    slots.sort();
+    assert_eq!(
+        slots,
+        vec![PlayerSlot::PRIMARY.0, 1, 2],
+        "three people are three DENSE channels — `PlayerSlot(3)` names a handle \
+         a three-handle session never opens"
+    );
+}
+
+/// **One controller cannot drive two fighters, and preparation says so.**
+///
+/// ⚠ the ordinary way to arrive here is two seats built with
+/// `MatchParticipant::new`, whose default is the first pad. Refused rather than
+/// deduplicated: the second claimant would get a real channel, a real handle,
+/// and no input at all — a fighter that stands still all match with no error
+/// anywhere.
+#[test]
+fn two_seats_on_one_controller_are_refused_by_name() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("mary_o", "Mary-O", "mary_o_demo"));
+    app.register_character(CharacterDefinition::new("sanic", "Sanic", "sanic_demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            MatchParticipant::new("mary_o"),
+            MatchParticipant::new("sanic"),
+        ],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let problems = app
+        .world()
+        .get_resource::<MatchPreparationProblems>()
+        .expect("two seats claiming one pad must be refused, not seated")
+        .to_string();
+    assert!(
+        problems.contains("Pad(0)"),
+        "the refusal has to name the controller both seats claim: {problems}"
+    );
+    assert!(
+        app.world().get_resource::<PreparedMatch>().is_none(),
+        "a refused roster must build no plan"
     );
 }
 
@@ -748,7 +903,9 @@ fn a_local_input_seat_is_also_suspended_on_the_tick_it_joins() {
 
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 })
+            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(0),
+            }),
         ],
         opens_suspended: true,
         ..Default::default()
@@ -867,7 +1024,9 @@ fn every_seat_gets_the_body_facts_its_character_authors() {
     // fighter again, these two stop agreeing.
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("heavy").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("heavy").driven_by(ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(0),
+            }),
             cpu("heavy"),
         ],
         ..Default::default()
@@ -1130,7 +1289,9 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
         .id();
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("tank").driven_by(ControllerBinding::Human { device_slot: 0 })
+            MatchParticipant::new("tank").driven_by(ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(0),
+            }),
         ],
         ..Default::default()
     });
@@ -1175,7 +1336,9 @@ fn the_matchs_declared_abilities_reach_every_seat() {
 
     app.insert_resource(MatchParticipantRoster {
         participants: vec![
-            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human { device_slot: 0 }),
+            MatchParticipant::new("duelist").driven_by(ControllerBinding::Human {
+                source: ambition_input::LocalInputSource::Pad(0),
+            }),
             cpu("duelist"),
         ],
         fighter_abilities: Some(ambition_platformer2d_core::AbilitySet::basic()),
@@ -1730,8 +1893,9 @@ mod activation_transaction {
 
         app.insert_resource(MatchParticipantRoster {
             participants: vec![
-                MatchParticipant::new("mary_o")
-                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
+                MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(0),
+                }),
                 cpu("never_registered"),
             ],
             ..Default::default()
@@ -1788,8 +1952,9 @@ mod activation_transaction {
 
         app.insert_resource(MatchParticipantRoster {
             participants: vec![
-                MatchParticipant::new("mary_o")
-                    .driven_by(ControllerBinding::Human { device_slot: 0 }),
+                MatchParticipant::new("mary_o").driven_by(ControllerBinding::Human {
+                    source: ambition_input::LocalInputSource::Pad(0),
+                }),
                 cpu("sanic"),
             ],
             ..Default::default()

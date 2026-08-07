@@ -117,7 +117,7 @@ Standalone per-incident files are preferred when a lesson has a focused symptom.
 ## How `dev/` relates to the rest of the repo
 
 ```text
-TODO.md            -> what's in flight
+docs/planning/     -> what's in flight
 docs/current/      -> active architecture and implementation state
 docs/              -> how things work today
 crates/            -> the game itself
@@ -125,7 +125,25 @@ tools/             -> authoring + build tooling
 dev/               -> long-running engineering memory (you are here)
   benchmark-candidates/   -> distilled "hard question" corpus from real mistakes
   journals/               -> >1hr-debug-time bug postmortems
+  *_cost.jsonl            -> cost ledgers (see below)
 ```
+
+## Cost ledgers
+
+Append-only JSONL, one row per measured run. They exist so "this got slower" is
+a diff rather than an impression, and so an optimisation can be shown to have
+worked instead of asserted to have.
+
+| ledger | written by | measures |
+|---|---|---|
+| `run_tests_cost.jsonl` | `scripts/run_tests.py` | wall + per-job cost of the suite |
+| `compile_cost.jsonl` | `scripts/compile_cost.py` | what an EDIT costs to rebuild |
+
+`compile_cost.py` perturbs a real source file, runs a real cargo command, and
+reverts — because the number that matters is the edit→feedback loop, not a cold
+build. Read its module docstring before comparing rows: a run is only comparable
+to another on the same machine, linker, and `CARGO_INCREMENTAL` setting, and
+those are recorded on every row for exactly that reason.
 
 The auto-memory at
 `/home/agent/.claude/projects/-home-joncrall-code-ambition/memory/`

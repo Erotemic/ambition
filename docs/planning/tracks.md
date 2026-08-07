@@ -578,6 +578,14 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     SimId + Name`) whose components are REGISTERED as rollback state while the
     entity carries no rollback anchor — so the registration is a claim the
     engine does not honour. It exists only under the shell.
+    ✔ **the instrument NAMES the entity now (2026-08-07), so that probe never
+    has to be written.** `inert_registrations` keyed each archetype to
+    `names.intersection(&anchors)` — which is PROVABLY EMPTY at that point, since
+    the loop `continue`s a few lines up whenever that intersection is non-empty.
+    Every reported archetype carried an empty set beside it: the failure named a
+    SHAPE and could never name a THING. It reports the entity's `Name` (deduped,
+    so 40 copies of a prop stay one line), which is exactly what the next
+    investigation below was told to go and print.
     ⚠ **narrowed by probe (2026-08-06, throwaway, not kept):** the CLI-built
     app — which composes the shell as of edit 1 — has **ZERO** construction
     roots without a body after settling. So the archetype is NOT a plain

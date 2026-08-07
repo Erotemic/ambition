@@ -1950,10 +1950,23 @@ fn inert_registrations(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, BTr
         // strands the same way however many copies of it the room holds, and a
         // failure listing 40 entities is a failure nobody reads.
         let key = stranded.iter().cloned().collect::<Vec<_>>().join(" + ");
-        inert
-            .entry(key)
-            .or_default()
-            .extend(names.intersection(&anchors).cloned());
+        // ⛔ **the value used to be `names.intersection(&anchors)`, which is
+        // PROVABLY EMPTY here** — the loop `continue`s a few lines up whenever
+        // that intersection is non-empty, so every archetype reported an empty
+        // set beside it. The failure named a shape and could never name a thing.
+        //
+        // ⭐ the entity's NAME is what an investigation actually needs, and
+        // `tracks.md` says so in its own words: *"the next investigation should
+        // probe inside `Platformer2dSimHarness` … and print the entity's `Name`,
+        // rather than re-deriving that the shell is involved."* Putting it in the
+        // instrument means that probe never has to be written.
+        //
+        // Still deduped, so 40 copies of one prop stay one line.
+        let label = world
+            .get::<bevy::prelude::Name>(entity)
+            .map(|name| name.as_str().to_string())
+            .unwrap_or_else(|| format!("<unnamed {entity}>"));
+        inert.entry(key).or_default().insert(label);
     }
     inert
 }

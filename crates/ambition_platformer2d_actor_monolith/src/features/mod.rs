@@ -735,16 +735,32 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // simulation schedule, so a rewind cannot un-close a box the player
         // already watched close.
         app.init_resource::<crate::conversation::ActiveConversation>();
-        app.add_message::<crate::conversation::ConversationEnded>();
-        // Both presentation halves of the seam: one observes the runner finishing
-        // and tells the simulation, the other follows the simulation's answer
-        // back onto the text box.
+        // ⚠ **NOT rollback state, and that is the whole design.** It is the
+        // record of what the narrative — which runs outside the simulation —
+        // told the simulation, stamped with the tick it applies from. A rewind
+        // restores what the simulation DECIDED; erasing what it was TOLD is how
+        // the replay reaches a different answer. See `ObservedNarrativeEnd`.
+        app.init_resource::<crate::conversation::ObservedNarrativeEnd>();
+        // The THREE presentation halves of the seam: one opens the box from the
+        // authority, one observes the runner finishing and records it for the
+        // simulation, one follows the simulation's answer back onto the box.
+        // None of them runs in the sim schedule, which is what keeps a rewind
+        // from replaying a side effect onto state it does not rewind.
+        //
+        // ⛔ **`.chain()`, and the order is load-bearing.** "The runner is not
+        // active" is how the middle one recognises a finished conversation — and
+        // on the frame a conversation OPENS that is also true until the first one
+        // has run. Unordered, a conversation could be recorded as finished on the
+        // tick it began, and the simulation would close it before a line was
+        // ever shown.
         app.add_systems(
             bevy::prelude::Update,
             (
+                crate::conversation::open_dialog_ui_when_the_conversation_starts,
                 crate::conversation::publish_the_narrative_end,
                 crate::conversation::close_dialog_ui_when_the_conversation_ends,
-            ),
+            )
+                .chain(),
         );
         app.add_systems(
             sim,

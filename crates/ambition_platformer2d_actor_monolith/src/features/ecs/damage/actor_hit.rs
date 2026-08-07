@@ -126,7 +126,21 @@ pub(crate) fn apply_actor_hit(
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.session_spawn_scope();
-    if disposition.is_peaceful() {
+    // ⛔ **THE QUESTION IS COMBAT STANDING, NOT SOCIAL MOOD** (GPT 5.6,
+    // 2026-08-07, finding 4). This asked `disposition.is_peaceful()`, which made
+    // `ActorDisposition` answer two things at once: *how does this actor regard
+    // combat* and *may this body be hurt*. A fighter somebody entered into a
+    // match had to stay `Hostile` merely to be damageable — and two
+    // `Brain::Player` fighters hold no AI target, so both stood down and neither
+    // could hurt the other.
+    //
+    // ⭐ a ruleset owning this body's death is the stated decision that it is in
+    // a fight, and it outranks whatever its brain currently thinks. The
+    // provoke-before-damage behaviour a town NPC needs is unchanged, because a
+    // town NPC has no ruleset.
+    if !crate::combat::components::CombatStanding::of(disposition, ruleset_owns_death)
+        .takes_damage()
+    {
         // Body-generic post-hit i-frame — the same consume-time gate
         // `resolve_body_hit` applies to a hostile body: a body that registered
         // a hit within the last `ACTOR_DAMAGE_IFRAME_S` ignores further hits,

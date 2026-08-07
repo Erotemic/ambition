@@ -164,23 +164,66 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // the snapshot; the entity map is what fixes the two body handles when
     // `LoadWorld` remaps. Registering only the first would restore a conversation
     // pointing at whatever those entity ids mean AFTER the load.
-    app.rollback_resource_clone_entity_set::<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>(
+    // ⛔ **the entity set alone reported two DIVERGENT conversations as
+    // identical** (GPT 5.6, 2026-08-07, finding 3). It localizes through the two
+    // bodies' stable sim identities, which is right for the half it covers and
+    // silent about the rest — and the rest is authoritative: `input_owner`
+    // decides whose controls the box captures, `dialogue_id` decides which node
+    // runs, `opened_at` decides whether a stamped narrative end applies at all.
+    // A peer disagreeing about any of them looked like agreement.
+    //
+    // ⚠ **no raw entity numbers in the fingerprint.** Those differ across a load
+    // by design, which is exactly why the entity half is probed through
+    // identities. This is the complement, not a second answer to it.
+    app.rollback_resource_clone_entity_set_probed::<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>(
             OWNER,
             "resource.active_conversation",
             |conversation| conversation.referenced_entities(),
+            |conversation| {
+                use std::hash::{Hash, Hasher};
+                let Some(live) = conversation.live() else {
+                    // Distinct from a live conversation that hashes to nothing:
+                    // "nobody is talking" is a state the probe must be able to
+                    // name.
+                    return 0;
+                };
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                live.dialogue_id.hash(&mut hasher);
+                live.opened_at.hash(&mut hasher);
+                live.context.speaker_id.hash(&mut hasher);
+                live.context.listener_id.hash(&mut hasher);
+                live.context.speaker_is_self.hash(&mut hasher);
+                match live.input_owner {
+                    ambition_platformer2d_actor_monolith::conversation::ConversationInputOwner::Participant(id) => {
+                        (1u8, id.slot()).hash(&mut hasher)
+                    }
+                    ambition_platformer2d_actor_monolith::conversation::ConversationInputOwner::Primary => {
+                        (2u8, 0u8).hash(&mut hasher)
+                    }
+                    ambition_platformer2d_actor_monolith::conversation::ConversationInputOwner::AllParticipants => {
+                        (3u8, 0u8).hash(&mut hasher)
+                    }
+                }
+                // ⚠ `speaker_name` is deliberately absent: it is a DISPLAY
+                // string, and a localization changing it is not a desync.
+                hasher.finish()
+            },
         );
     app.rollback_resource_map_entities::<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>(
             OWNER,
             "map.resource.active_conversation",
         );
-    // ⛔ **cleared on load, like every other sim-facing message.** A conversation
-    // end left in the queue across a rewind is re-read on the way back through
-    // and closes a conversation the replayed timeline had not finished — the same
-    // shape as a rewound KO spending a second stock.
-    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::conversation::ConversationEnded>(
-            OWNER,
-            "message.conversation_ended",
-        );
+    // ⛔ **`message.conversation_ended` USED TO BE REGISTERED HERE, and deleting
+    // it is the fix rather than a coverage regression.** Clearing the message on
+    // load was correct for a message and wrong for what it carried: the
+    // narrative end is an EXTERNAL INPUT, and the system that produced it —
+    // presentation, watching the live Yarn runner — does not execute between
+    // resimulated ticks. So clearing it dropped the end entirely, and every
+    // replayed tick ran with a conversation the original timeline had already
+    // finished. `ObservedNarrativeEnd` records it with the tick it applies from
+    // and is deliberately NOT rollback state, for the same reason device input
+    // is not: a rewind restores what the simulation decided, never what it was
+    // told.
     app.rollback_resource_clone::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",

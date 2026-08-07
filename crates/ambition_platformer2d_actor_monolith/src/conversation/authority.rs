@@ -35,6 +35,14 @@ pub enum ConversationInputOwner {
 }
 
 /// The live conversation's deterministic facts. Nothing presentational.
+///
+/// ⚠ **"deterministic" is the test, not "the simulation branches on it".** The
+/// display name and the [`ambition_dialog::DialogueContext`] below are here
+/// because they are DECIDED by the simulation — read off the two bodies at the
+/// tick somebody pressed Interact — and because the text box has to be able to
+/// open from this and nothing else. The alternative is the simulation reaching
+/// into the runner while it decides, which is what put a presentation side
+/// effect inside a replayable system.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LiveConversation {
     /// The body that walked up and started it. `None` for a scripted
@@ -46,6 +54,49 @@ pub struct LiveConversation {
     /// rather than keeping its own idea of what is running.
     pub dialogue_id: String,
     pub input_owner: ConversationInputOwner,
+    /// **The `SimTick` this conversation opened on.**
+    ///
+    /// ⛔ **WHEN is part of the fact, and leaving it out is the same determinism
+    /// hole `PreparedMatch::effective_from` was written to close.** Two things
+    /// need it. A conversation instance has to be distinguishable from the NEXT
+    /// conversation of the same node, or a stale narrative end closes a fresh
+    /// conversation. And the presentation projection has to know whether the box
+    /// it is showing is THIS conversation — a rewind restores the authority
+    /// unchanged, and a projection that could not tell would restart the runner
+    /// under a player who is mid-sentence.
+    pub opened_at: u64,
+    /// The display name the box shows when a line carries no speaker prefix.
+    pub speaker_name: String,
+    /// The identity context Yarn is entered with.
+    pub context: ambition_dialog::DialogueContext,
+}
+
+impl LiveConversation {
+    /// A conversation with only its SIMULATION facts, for a test about the
+    /// hold, the break rule or input ownership.
+    ///
+    /// The fields stay public and production constructs the whole value, so a
+    /// new presentation fact breaks every real call site; this is the hatch, and
+    /// it is named for what it is. A conversation built here opens at tick zero
+    /// and carries no display name — which is exactly what a test that never
+    /// looks at the text box means.
+    #[doc(hidden)]
+    pub fn for_test(
+        initiator: Option<Entity>,
+        talker: Option<Entity>,
+        dialogue_id: impl Into<String>,
+        input_owner: ConversationInputOwner,
+    ) -> Self {
+        Self {
+            initiator,
+            talker,
+            dialogue_id: dialogue_id.into(),
+            input_owner,
+            opened_at: 0,
+            speaker_name: String::new(),
+            context: ambition_dialog::DialogueContext::scripted(),
+        }
+    }
 }
 
 /// The conversation the simulation is having, if any.
@@ -62,19 +113,13 @@ impl ActiveConversation {
     /// the second and third are the ones a new call site forgets. An authority
     /// that needs a follow-up call has a window in which it is wrong, and here
     /// that window was a tick of the simulation schedule.
-    pub fn open(
-        &mut self,
-        initiator: Option<Entity>,
-        talker: Option<Entity>,
-        dialogue_id: impl Into<String>,
-        input_owner: ConversationInputOwner,
-    ) {
-        self.live = Some(LiveConversation {
-            initiator,
-            talker,
-            dialogue_id: dialogue_id.into(),
-            input_owner,
-        });
+    /// ⚠ **the whole value, so the COMPILER enumerates what a conversation
+    /// is.** It took four positional arguments and grew two more; a struct
+    /// literal makes a new fact break every call site, which is the only way a
+    /// conversation opened somewhere else keeps saying everything the projection
+    /// needs.
+    pub fn open(&mut self, live: LiveConversation) {
+        self.live = Some(live);
     }
 
     pub fn close(&mut self) {

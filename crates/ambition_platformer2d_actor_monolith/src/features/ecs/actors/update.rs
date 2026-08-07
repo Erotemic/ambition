@@ -495,9 +495,20 @@ pub fn tick_actor_brains(
         // a duel winner (couldn't be talked to or re-provoked, and mislabeled it).
         // ⛔ **UNLESS A MATCH SAYS OTHERWISE.** A seated fighter is a combatant
         // because two people decided it is, and that is not a fact about whether
-        // it currently holds a target. Standing one down makes it PEACEFUL, and
-        // `apply_actor_hit` reads disposition first: a peaceful body takes no
-        // health damage at all. So a fighter that stood down could not be hit,
+        // it currently holds a target.
+        //
+        // ⭐ **and it is no longer about DAMAGE**, which is the half that has
+        // moved: `apply_actor_hit` asks `CombatStanding`, so a fighter that
+        // stood down is still damageable. What this defends now is what a
+        // peaceful body's own read-model does — `BodyCombat::peaceful` drops the
+        // attack windup and swing timers every frame, so a stood-down fighter
+        // could be hit and could not SWING, and the anti-clump slot board stops
+        // seeing it. Standing a fighter down was always wrong; it is now wrong
+        // for reasons that are about the fight rather than about survivability.
+        //
+        // ⚠ the original symptom is worth keeping written down, because it is
+        // what the two questions sharing one field cost: a peaceful body takes
+        // no health damage at all, so a fighter that stood down could not be hit,
         // could not be knocked out, and could not lose a stock.
         //
         // ⚠ **measured 2026-08-07, and it is worse than the test that found it.**

@@ -165,6 +165,26 @@ const WAIVED: &[(&str, &str)] = &[
         "ambition_portal2d::link::PortalLink",
         "authored portal channel identity, hashed at spawn",
     ),
+    // ── An EXTERNAL INPUT to the simulation ──────────────────────────────────
+    //
+    // ⛔ **the one category on this list where rewinding would be actively
+    // harmful rather than merely meaningless**, and it is the same category as
+    // the device input stream the `ambition_input::` waiver above already
+    // covers: a rewind restores what the simulation DECIDED, never what it was
+    // TOLD. Erasing an input is how the replay reaches a different decision.
+    //
+    // The narrative end used to be a `Message` cleared on load, which is exactly
+    // that erasure — and the system that would re-deliver it (presentation,
+    // watching the live Yarn runner) does not execute between resimulated ticks,
+    // so a rewind past the end simply lost it. This records WHICH conversation
+    // instance ended and the first `SimTick` the simulation may act on it, so a
+    // resimulated tick reaches the same answer at the same tick.
+    (
+        "ambition_platformer2d_actor_monolith::conversation::ui_bridge::ObservedNarrativeEnd",
+        "an EXTERNAL INPUT, stamped with the tick it applies from — the same \
+         category as the device input stream, and rewinding it would erase what \
+         the simulation was told rather than what it decided",
+    ),
 ];
 
 fn waiver(type_name: &str) -> Option<&'static str> {

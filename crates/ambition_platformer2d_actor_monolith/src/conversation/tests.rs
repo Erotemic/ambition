@@ -43,13 +43,27 @@ fn talking_app() -> (App, Entity, Entity) {
     let here = ae::Vec2::new(100.0, 100.0);
     let initiator = body(&mut app, here);
     let npc = body(&mut app, here);
-    app.world_mut().resource_mut::<ActiveConversation>().open(
-        Some(initiator),
-        Some(npc),
-        "chat",
-        ConversationInputOwner::Primary,
-    );
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(super::LiveConversation::for_test(
+            Some(initiator),
+            Some(npc),
+            "chat",
+            ConversationInputOwner::Primary,
+        ));
     (app, initiator, npc)
+}
+
+/// A conversation through `node`, opened on `tick`.
+///
+/// ⚠ the tick is the fixture's whole subject in the tests below: it is what
+/// tells one visit to an NPC from the next, and what a stamped narrative end is
+/// matched against.
+fn live_at(node: &str, tick: u64) -> super::LiveConversation {
+    super::LiveConversation {
+        opened_at: tick,
+        ..super::LiveConversation::for_test(None, None, node, ConversationInputOwner::Primary)
+    }
 }
 
 fn talking(app: &App) -> bool {
@@ -66,45 +80,45 @@ fn talking(app: &App) -> bool {
 /// before the conversation ended would close it again immediately, and the
 /// resimulation would not reproduce the history it exists to reproduce.
 ///
-/// ⭐ **the end is an EVENT now, not a level.** Presentation writes
-/// [`ConversationEnded`] once when the runner finishes; the simulation consumes
-/// it. A tick with no message changes nothing, which is exactly what a
-/// resimulated tick must do — and `clear_message_on_rollback` means a rewound
-/// end is not re-consumed on the way back through.
+/// ⭐ **the end is a STAMPED RECORD now**: presentation observes the runner
+/// finishing once and writes down which conversation instance ended and the tick
+/// it applies from. A tick before that tick changes nothing, which is exactly
+/// what a resimulated tick must do.
 ///
-/// ⚠ **what this does NOT claim**: that the Yarn runner is deterministic or
-/// rewound. It is content running outside the simulation, and making a
-/// conversation's LIFETIME a simulation input is a much larger piece of work.
-/// This stops the sim from asking the view a question every resimulated tick.
+/// ⚠ **what this does NOT claim**: that the Yarn runner is deterministic. It is
+/// content running outside the simulation, so WHICH tick it finishes on is still
+/// presentation's answer. What is now true is that every replay of that tick
+/// agrees with the original run.
 #[test]
-fn a_conversation_survives_a_tick_that_was_not_told_the_narrative_ended() {
-    use super::ConversationEnded;
+fn a_conversation_survives_a_tick_before_the_narrative_end_applies() {
+    use super::ObservedNarrativeEnd;
 
     let mut app = App::new();
     app.init_resource::<ActiveConversation>();
-    app.add_message::<ConversationEnded>();
+    app.init_resource::<ObservedNarrativeEnd>();
+    app.insert_resource(ambition_time::SimTick(7));
     app.add_systems(Update, super::close_conversation_on_narrative_end);
-    app.world_mut().resource_mut::<ActiveConversation>().open(
-        None,
-        None,
-        "chat",
-        ConversationInputOwner::Primary,
-    );
+    let live = live_at("chat", 5);
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(live.clone());
 
-    // A tick nobody told anything. This is the resimulated tick: the live text
-    // box may well be closed, but no END was delivered to THIS tick.
+    // The narrative finished while the simulation was at tick 9, so the end
+    // applies from 10. This tick is 7 — a resimulated tick BEFORE it.
+    app.world_mut()
+        .resource_mut::<ObservedNarrativeEnd>()
+        .record(&live, 10);
     app.update();
     assert!(
         app.world().resource::<ActiveConversation>().is_live(),
-        "a tick with no end delivered to it must leave the conversation alone — \
+        "a tick before the end applies must leave the conversation alone — \
          polling the view here is what let a rewind close a conversation that, \
          in the timeline being replayed, was still going"
     );
 
-    // And the event does end it.
-    app.world_mut().write_message(ConversationEnded {
-        dialogue_id: "chat".into(),
-    });
+    // ...and the tick it applies from ends it, whether that is the original run
+    // or the fourth replay of it.
+    app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 10;
     app.update();
     assert!(
         !app.world().resource::<ActiveConversation>().is_live(),
@@ -113,36 +127,170 @@ fn a_conversation_survives_a_tick_that_was_not_told_the_narrative_ended() {
     );
 }
 
-/// **An end delivered late does not close the conversation that replaced it.**
+/// **THE REWIND, both halves.** (GPT 5.6, 2026-08-07, finding 2)
 ///
-/// ⛔ the poison for the event version. A bare marker would close whatever is
-/// live when it happens to be read, so a player who finished one conversation
-/// and immediately started another could have the second one closed by the
-/// first one's ending. The message names its conversation and the consumer
-/// checks.
+/// ⛔ the message this replaced was cleared on rollback, and the system that
+/// wrote it — presentation, watching the live runner — does not execute between
+/// resimulated ticks. So a rewind across the end tick DROPPED it: every replayed
+/// tick after it ran with a conversation the original timeline had already
+/// finished, holding a body and capturing a seat, and presentation re-observed
+/// the end afterwards at a different simulation time.
+///
+/// ⭐ the record is not rollback state, so the replay is told the same thing the
+/// original run was told, and reaches the same answer on the same tick.
 #[test]
-fn an_end_from_the_previous_conversation_does_not_close_the_next_one() {
-    use super::ConversationEnded;
+fn a_rewind_past_the_end_replays_it_at_the_same_tick() {
+    use super::ObservedNarrativeEnd;
 
     let mut app = App::new();
     app.init_resource::<ActiveConversation>();
-    app.add_message::<ConversationEnded>();
+    app.init_resource::<ObservedNarrativeEnd>();
+    app.insert_resource(ambition_time::SimTick(12));
     app.add_systems(Update, super::close_conversation_on_narrative_end);
-    app.world_mut().resource_mut::<ActiveConversation>().open(
-        None,
-        None,
-        "second_chat",
-        ConversationInputOwner::Primary,
+    let live = live_at("chat", 5);
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(live.clone());
+    app.world_mut()
+        .resource_mut::<ObservedNarrativeEnd>()
+        .record(&live, 10);
+    app.update();
+    assert!(!app.world().resource::<ActiveConversation>().is_live());
+
+    // THE REWIND: the authority is rollback state, so tick 8 restores the
+    // conversation. The record is NOT, so it is still there to be replayed.
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(live.clone());
+    app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 8;
+    app.update();
+    assert!(
+        app.world().resource::<ActiveConversation>().is_live(),
+        "tick 8 is before the end, so the replayed timeline still has a live \
+         conversation — closing it here would put the hold and the input capture \
+         two ticks early"
     );
 
-    app.world_mut().write_message(ConversationEnded {
-        dialogue_id: "first_chat".into(),
-    });
+    app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 10;
+    app.update();
+    assert!(
+        !app.world().resource::<ActiveConversation>().is_live(),
+        "and the replay ends it on the SAME tick the original run did — a \
+         narrative end that lands at a different simulation time is a different \
+         history"
+    );
+}
+
+/// **An end from the previous conversation does not close the next one.**
+///
+/// ⛔ the poison. A bare marker would close whatever is live when it happens to
+/// be read, so a player who finished one conversation and immediately started
+/// another could have the second one closed by the first one's ending.
+///
+/// ⚠ **and the node id alone is not enough**, which is why the record names the
+/// tick the conversation OPENED on: talk to the same NPC twice and both
+/// conversations are `"chat"`.
+#[test]
+fn an_end_from_the_previous_conversation_does_not_close_the_next_one() {
+    use super::ObservedNarrativeEnd;
+
+    let mut app = App::new();
+    app.init_resource::<ActiveConversation>();
+    app.init_resource::<ObservedNarrativeEnd>();
+    app.insert_resource(ambition_time::SimTick(30));
+    app.add_systems(Update, super::close_conversation_on_narrative_end);
+
+    // A different node entirely.
+    let first = live_at("first_chat", 5);
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(live_at("second_chat", 20));
+    app.world_mut()
+        .resource_mut::<ObservedNarrativeEnd>()
+        .record(&first, 10);
     app.update();
     assert!(
         app.world().resource::<ActiveConversation>().is_live(),
         "the FIRST conversation's ending closed the SECOND one — an end has to \
          name what it is ending or it is just a global 'stop whatever is running'"
+    );
+
+    // And the SAME node, talked to twice — which a node id alone cannot tell
+    // apart.
+    app.world_mut()
+        .resource_mut::<ObservedNarrativeEnd>()
+        .record(&live_at("second_chat", 5), 10);
+    app.update();
+    assert!(
+        app.world().resource::<ActiveConversation>().is_live(),
+        "an end for the PREVIOUS visit to this NPC closed the current one: two \
+         conversations through one node are two conversations"
+    );
+}
+
+/// **A REWIND DOES NOT RESTART THE TEXT BOX.** (GPT 5.6, 2026-08-07, finding 2)
+///
+/// ⛔ opening the runner used to be a `DialogState::start` call inside the
+/// INTERACTION system, which runs in the sim schedule. `DialogState` is left out
+/// of rollback so a rewind does not stutter the typewriter — and a rewind across
+/// the tick somebody pressed Interact replays that system, so the snapshot did
+/// not stutter the box and the replay did: line, options and reveal reset, and a
+/// second `runner.start_node` enqueued.
+///
+/// ⭐ the projection recognises the conversation it already opened, because a
+/// restored authority carries the same `opened_at`. A conversation opened on a
+/// DIFFERENT tick is a different conversation and does open the box, which is
+/// the other half of the same rule.
+#[test]
+fn replaying_the_opening_tick_does_not_reopen_the_box() {
+    let mut app = App::new();
+    app.init_resource::<ActiveConversation>();
+    app.init_resource::<ambition_dialog::DialogState>();
+    app.add_systems(Update, super::open_dialog_ui_when_the_conversation_starts);
+
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(live_at("chat", 5));
+    app.update();
+    assert!(
+        app.world()
+            .resource::<ambition_dialog::DialogState>()
+            .active(),
+        "the simulation decided a conversation exists and the box must follow it"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<ambition_dialog::DialogState>()
+            .dialogue_id(),
+        "chat"
+    );
+
+    // The player finished reading and the box closed. Now a rollback restores
+    // the authority — same conversation, same `opened_at` — and replays the
+    // tick it opened on.
+    app.world_mut()
+        .resource_mut::<ambition_dialog::DialogState>()
+        .close();
+    app.update();
+    assert!(
+        !app.world()
+            .resource::<ambition_dialog::DialogState>()
+            .active(),
+        "the replay reopened a text box the player already watched close — this \
+         is the presentation side effect a replayable system must not have"
+    );
+
+    // Talking to the same NPC AGAIN is a different conversation, and it opens.
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(live_at("chat", 40));
+    app.update();
+    assert!(
+        app.world()
+            .resource::<ambition_dialog::DialogState>()
+            .active(),
+        "a second visit through the same node is a second conversation, and \
+         suppressing it would leave the player looking at nothing"
     );
 }
 

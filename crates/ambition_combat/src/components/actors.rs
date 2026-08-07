@@ -140,6 +140,62 @@ impl ActorDisposition {
     }
 }
 
+/// **Why a body is in a fight**, which is not the same question as how it feels
+/// about anybody.
+///
+/// ⛔ **[`ActorDisposition`] was answering two questions, and one of them was
+/// not its own** (GPT 5.6, 2026-08-07, finding 4). `apply_actor_hit` reads the
+/// disposition first: a `Peaceful` body takes NO health damage — it accumulates
+/// strikes and barks instead, which is exactly right for a town NPC and exactly
+/// wrong for a fighter somebody entered into a match. So a human-driven match
+/// fighter had to stay `Hostile` merely to be *damageable*, despite using no
+/// hostile-AI targeting at all — and it did not: targeting hunts live foes for a
+/// BRAIN, so two `Brain::Player` fighters hold no target, both stood down to
+/// `Peaceful`, and neither could hurt the other.
+///
+/// ⭐ **the two facts that answer it, together.** A ruleset owning a body's
+/// death is a stated decision — two people entered this fighter into a match —
+/// and it outranks whatever the AI currently thinks. Social hostility answers
+/// for everybody else. What was inexpressible before, and is the state a
+/// platform fighter is in for most of a round:
+///
+/// ```text
+/// a combatant · driven by a human · hostile toward nobody · still damageable
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CombatStanding {
+    /// A ruleset put this body in a fight and owns its death. Damageable
+    /// whatever its brain is doing.
+    Combatant,
+    /// Socially hostile: it chases and attacks, and it takes the full damage
+    /// path.
+    Hostile,
+    /// A bystander. Striking one PROVOKES it — barks, strikes, the flip to
+    /// hostile — rather than hurting it.
+    Bystander,
+}
+
+impl CombatStanding {
+    /// `ruleset_owns_death` is the `RulesetOwnsDeath` marker a match seat wears:
+    /// the one place that says "this body's death belongs to a ruleset, not to
+    /// the world's exploration economy", which is the same decision as "this
+    /// body is in a fight".
+    pub fn of(disposition: ActorDisposition, ruleset_owns_death: bool) -> Self {
+        if ruleset_owns_death {
+            Self::Combatant
+        } else if disposition.is_hostile() {
+            Self::Hostile
+        } else {
+            Self::Bystander
+        }
+    }
+
+    /// Whether a landed hit takes health, rather than provoking.
+    pub fn takes_damage(self) -> bool {
+        !matches!(self, Self::Bystander)
+    }
+}
+
 /// Explicit sprite render-quad size for an actor whose collision box was derived
 /// from published sprite `body_metrics` (so `kin.size` is the visible-body
 /// hitbox, not a scaled placeholder). The renderer draws the sprite at THIS

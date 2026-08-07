@@ -147,9 +147,6 @@ pub fn interact_ecs_actors_and_switches(
             super::super::npcs::npc_message(interactable, &identity.name, false),
             2.6,
         );
-        dialogue
-            .state
-            .start(&entry_node, &request.npc_name, context);
         // **THE AUTHORITY, in one call.** ⛔ this was `start()` then
         // `set_speaker_entity()` then `set_initiator_entity()` — three calls to
         // establish one fact, where a conversation existed and was missing a
@@ -160,10 +157,32 @@ pub fn interact_ecs_actors_and_switches(
         // world keeps running through has to be able to ask about both bodies —
         // how far apart they are, whether either can hold station, whether
         // either was hit — and none of that can be asked of a character id.
+        //
+        // ⛔ **AND THE TEXT BOX IS NO LONGER OPENED FROM HERE** (GPT 5.6,
+        // 2026-08-07). This system runs in the SIM schedule, so a rollback across
+        // the tick somebody pressed Interact replays it — and
+        // `DialogState::start` is not a harmless setter: it resets the line, the
+        // options and the typewriter and enqueues a `runner.start_node`.
+        // `DialogState` is left out of rollback so a rewind does not stutter the
+        // box, and replaying this call stuttered it anyway. The box is a
+        // PROJECTION of the authority now, opened by
+        // `open_dialog_ui_when_the_conversation_starts` outside the sim
+        // schedule — so everything it needs is stated here, at the tick the
+        // decision is made.
         let input_owner = conversation_owner(&dialogue.driver, subject);
         dialogue
             .conversation
-            .open(Some(subject), Some(actor_entity), &entry_node, input_owner);
+            .open(crate::conversation::LiveConversation {
+                initiator: Some(subject),
+                talker: Some(actor_entity),
+                dialogue_id: entry_node.clone(),
+                input_owner,
+                // WHEN it opened, which is what tells a rewind-restored
+                // conversation apart from the next one through the same node.
+                opened_at: dialogue.tick.map_or(0, |tick| tick.0),
+                speaker_name: request.npc_name.clone(),
+                context,
+            });
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
         quest_advance.write(QuestAdvanceRequested(
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
@@ -219,16 +238,20 @@ pub fn interact_ecs_actors_and_switches(
 /// system reaching for this many worlds should name its sub-worlds.
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct DialogueDispatch<'w, 's> {
-    /// The conversation read-model the UI polls.
-    ///
-    /// ⚠ **presentation only, and no simulation system may read it.** It is not
-    /// rewound — deliberately, because rewinding a typewriter would stutter the
-    /// text box — so a sim rule that branched on it would be branching on a
-    /// different timeline's state. What the simulation believes lives in
-    /// [`Self::conversation`].
-    pub state: ResMut<'w, ambition_dialog::DialogState>,
     /// What the SIMULATION believes about the live conversation. Rollback-owned.
+    ///
+    /// ⛔ **`DialogState` used to be here beside it, and its removal is the
+    /// point.** The UI read-model is not rewound — deliberately, because
+    /// rewinding a typewriter would stutter the text box — so a simulation
+    /// system that TOUCHED it, in either direction, was reaching across the
+    /// rollback boundary. Reading it would branch on another timeline's state;
+    /// writing it (which this did, to open the runner) replays the write. The
+    /// box follows this resource now and this system never names it.
     pub conversation: ResMut<'w, crate::conversation::ActiveConversation>,
+    /// WHEN a conversation opened, which is part of what it IS — see
+    /// `LiveConversation::opened_at`. `Option` for the same reason preparation's
+    /// is: a composition with no timeline has no replay to disagree with.
+    pub tick: Option<Res<'w, ambition_time::SimTick>>,
     /// Who drives a body, for attributing the conversation to a seat.
     ///
     /// ⭐ the brain is what actually answers "whose body is this" — possession is

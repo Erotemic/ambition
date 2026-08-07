@@ -246,7 +246,6 @@
     "message.clear_portals",
     "message.clock_reset_request",
     "message.clock_scale_request",
-    "message.conversation_ended",
     "message.debris_burst",
     "message.drop_portal_gun",
     "message.effect_request",

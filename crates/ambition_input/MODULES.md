@@ -9,6 +9,7 @@
 | [`actions`](src/actions.rs) | The `Platformer2dInputActionMonolith` leafwing action enum — the logical-input vocabulary the device-binding layer maps physical keys/sticks onto, before it is folded into the device-agnostic `ControlFrame`/`MenuInputFrame`. |
 | [`active_input`](src/active_input.rs) | Which input device each SEAT most recently produced GENUINE input with. |
 | [`bindings`](src/bindings.rs) | **One authority for "which physical control is this action on".** |
+| [`channels`](src/channels.rs) | **A local input SOURCE is not a control CHANNEL, and one integer meant both.** |
 | [`control`](src/control.rs) | Device adapters that build the engine-owned `ControlFrame` resource. |
 | [`cues`](src/cues.rs) | Resolved UI cues — what the submit-functional controls DO right now, in the owning surface's own words. |
 | [`glyphs`](src/glyphs.rs) | Device-conditional glyph rendering for a seat's bindings. |
@@ -22,7 +23,7 @@
 | [`settings`](src/settings.rs) | Controls / input settings. |
 | [`sources`](src/sources.rs) | **Which physical input SOURCE a participant owns.** |
 
-_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_16 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

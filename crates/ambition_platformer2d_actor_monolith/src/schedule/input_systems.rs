@@ -1541,12 +1541,12 @@ mod focus_gate_tests {
         //    declared claim, and with no router matching `GameMode` any more.
         app.world_mut()
             .resource_mut::<crate::conversation::ActiveConversation>()
-            .open(
+            .open(crate::conversation::LiveConversation::for_test(
                 None,
                 None,
                 "chat",
                 crate::conversation::ConversationInputOwner::Participant(ParticipantId(1)),
-            );
+            ));
         app.update();
         let seats = app.world().resource::<SeatInputContexts>();
         assert_eq!(
@@ -1576,12 +1576,12 @@ mod focus_gate_tests {
         //    the conversation's own owner is what makes seat 1 keep playing.
         app.world_mut()
             .resource_mut::<crate::conversation::ActiveConversation>()
-            .open(
+            .open(crate::conversation::LiveConversation::for_test(
                 None,
                 None,
                 "chat",
                 crate::conversation::ConversationInputOwner::Participant(ParticipantId(0)),
-            );
+            ));
         app.update();
 
         let seats = app.world().resource::<SeatInputContexts>();

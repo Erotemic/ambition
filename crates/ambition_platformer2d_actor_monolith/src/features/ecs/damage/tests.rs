@@ -575,6 +575,79 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
     );
 }
 
+/// **A COMBATANT IS DAMAGEABLE WHETHER OR NOT IT IS ANGRY.** (GPT 5.6,
+/// 2026-08-07, finding 4)
+///
+/// ⛔ `apply_actor_hit` read the DISPOSITION to decide whether a hit takes
+/// health, so `ActorDisposition` answered two questions at once: how an actor
+/// regards combat, and whether its body can be hurt. A match fighter therefore
+/// had to stay `Hostile` merely to be damageable — and two `Brain::Player`
+/// fighters hold no AI target, so both stood down to `Peaceful` and neither
+/// could hurt the other.
+///
+/// ⭐ the same body, struck the same way, twice: a bystander is PROVOKED, and
+/// one with a ruleset owning its death takes the blow. Nothing about its brain,
+/// its mood or its faction changed between them.
+#[test]
+fn a_peaceful_body_a_ruleset_owns_takes_damage_instead_of_barking() {
+    fn strike(ruleset_owns_death: bool) -> (i32, usize) {
+        let mut app = App::new();
+        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(crate::features::enemies::test_roster());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<crate::character_sprites::AuthoredSheets>();
+        register_hit_pipeline_messages(&mut app);
+        app.init_resource::<CapturedBubbles>();
+        app.add_systems(Update, (apply_feature_hit_events, capture_bubbles).chain());
+
+        let body = spawn_talkable_npc(&mut app, 9);
+        if ruleset_owns_death {
+            app.world_mut()
+                .entity_mut(body)
+                .insert(crate::combat::components::RulesetOwnsDeath);
+        }
+        let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+        app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
+            volume: event_volume.into(),
+            damage: 3,
+            source: HitSource::PlayerSlash { knock_x: 120.0 },
+            attacker: None,
+            target: HitTarget::Volume,
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+        (
+            app.world().get::<BodyHealth>(body).unwrap().health.current,
+            app.world().resource::<CapturedBubbles>().0,
+        )
+    }
+
+    let (bystander_hp, bystander_bubbles) = strike(false);
+    assert_eq!(
+        bystander_hp, 9,
+        "a town NPC must still be PROVOKED rather than hurt — the \
+         strike-then-turn-hostile behaviour is what a peaceful body is for"
+    );
+    assert_eq!(bystander_bubbles, 1, "and it barks about it");
+
+    let (combatant_hp, combatant_bubbles) = strike(true);
+    assert!(
+        combatant_hp < 9,
+        "a body whose death a RULESET owns is in a fight, and a fighter that \
+         cannot be hurt cannot lose: {combatant_hp}"
+    );
+    assert_eq!(
+        combatant_bubbles, 0,
+        "and it does not bark a provocation line at somebody it is fighting"
+    );
+}
+
 #[test]
 fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     // Regression (Jon, 2026-06-27): a body pinned in a damaging volume — a lingering

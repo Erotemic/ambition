@@ -14,15 +14,22 @@ use bevy_ggrs::{
     ComponentSnapshotPlugin, LoadWorld, LoadWorldSystems, ResourceSnapshotPlugin, RollbackApp,
 };
 
-use crate::SimulationHost;
 use crate::content_identity::SnapshotSchemaFingerprint;
+use crate::SimulationHost;
 
 use super::{
-    CanonicalCodecStrategy, SnapshotCursor, SnapshotResolve, SnapshotState, cursor_checksum,
-    resolved_checksum, state_checksum,
+    cursor_checksum, resolved_checksum, state_checksum, CanonicalCodecStrategy, SnapshotCursor,
+    SnapshotResolve, SnapshotState,
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v15 (2026-08-07): the narrative end stops being a cleared MESSAGE.**
+/// `message.conversation_ended` is gone and `ObservedNarrativeEnd` — a stamped
+/// external input that is deliberately NOT rollback state — replaced it. A v14
+/// peer clears the message on load and has nothing that survives the rewind, so
+/// it resimulates every tick after a conversation ended with that conversation
+/// still live, holding a body and capturing a seat. That is a different
+/// simulation from this one, and the two must not believe they agree.
 /// ⚠ **v11 (2026-08-06): cutscene PLAYBACK becomes canonical state.**
 /// `ActiveCutscene::is_playing()` drives a capturing input-context claim, so a
 /// v10 peer cannot reconstruct whether the participant was allowed to act — it
@@ -61,7 +68,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 14;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 15;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {
@@ -540,6 +547,28 @@ pub trait AmbitionRollbackApp {
         owner: &'static str,
         name: &'static str,
         referenced: fn(&T) -> Vec<bevy::prelude::Entity>,
+    ) -> &mut Self
+    where
+        T: Resource + Clone;
+
+    /// The same, **plus the fields the entity set cannot see**.
+    ///
+    /// ⛔ **an entity-set probe is silent about everything that is not an
+    /// entity**, and for a resource that holds both it reports two divergent
+    /// values as identical. `ActiveConversation` is the case that found it: the
+    /// probe localized the two bodies faithfully while `input_owner` — which
+    /// decides whose controls the conversation captures — could differ between
+    /// peers with no signal at all (GPT 5.6, 2026-08-07).
+    ///
+    /// ⚠ `facts` must NOT hash raw entity handles. Those differ across a load by
+    /// design, which is the whole reason the entity half goes through stable sim
+    /// identities; mixing them in would make every load look like a desync.
+    fn rollback_resource_clone_entity_set_probed<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<bevy::prelude::Entity>,
+        facts: fn(&T) -> u64,
     ) -> &mut Self
     where
         T: Resource + Clone;
@@ -1150,6 +1179,45 @@ impl AmbitionRollbackApp for App {
                 self,
                 crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
                     crate::rollback::census_resource_entity_set::<T>(world, referenced)
+                }),
+            );
+        }
+        self
+    }
+
+    fn rollback_resource_clone_entity_set_probed<T>(
+        &mut self,
+        owner: &'static str,
+        name: &'static str,
+        referenced: fn(&T) -> Vec<bevy::prelude::Entity>,
+        facts: fn(&T) -> u64,
+    ) -> &mut Self
+    where
+        T: Resource + Clone,
+    {
+        if register_app_descriptor(
+            self,
+            descriptor::<T>(
+                owner,
+                name,
+                RollbackEntryKind::ResourceClone,
+                "bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields",
+            ),
+        ) == RollbackRegistrationOutcome::Inserted
+        {
+            RollbackApp::rollback_resource_with_clone::<T>(self);
+            // No GGRS checksum, for the same reason as the plain entity-set arm:
+            // the raw handles differ across a load by design. The localization
+            // probe carries both halves.
+            record_probe(
+                self,
+                crate::rollback::ChecksumProbe::new(std::any::type_name::<T>(), move |world| {
+                    let mut census =
+                        crate::rollback::census_resource_entity_set::<T>(world, referenced);
+                    if let Some(value) = world.get_resource::<T>() {
+                        census.xor = census.xor.wrapping_add(facts(value));
+                    }
+                    census
                 }),
             );
         }

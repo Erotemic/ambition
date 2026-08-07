@@ -80,7 +80,19 @@ fn buffered_interact_toggles_an_adjacent_switch() {
         ))
         .id();
 
-    app.add_systems(Update, interact_ecs_actors_and_switches);
+    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    // interaction system decides that a conversation exists; the presentation
+    // half opens the runner from that, outside the sim schedule. A fixture that
+    // ran only the first would be asserting on a text box nothing was left to
+    // open.
+    app.add_systems(
+        Update,
+        (
+            interact_ecs_actors_and_switches,
+            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+        )
+            .chain(),
+    );
     app.update();
 
     assert!(
@@ -170,7 +182,19 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
         ))
         .id();
 
-    app.add_systems(Update, interact_ecs_actors_and_switches);
+    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    // interaction system decides that a conversation exists; the presentation
+    // half opens the runner from that, outside the sim schedule. A fixture that
+    // ran only the first would be asserting on a text box nothing was left to
+    // open.
+    app.add_systems(
+        Update,
+        (
+            interact_ecs_actors_and_switches,
+            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+        )
+            .chain(),
+    );
     app.update();
 
     assert!(
@@ -245,7 +269,19 @@ fn a_visitor_gets_the_pedestals_ordinary_node() {
     spawn_interaction_player_wearing(&mut app, center, "goblin");
     spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
-    app.add_systems(Update, interact_ecs_actors_and_switches);
+    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    // interaction system decides that a conversation exists; the presentation
+    // half opens the runner from that, outside the sim schedule. A fixture that
+    // ran only the first would be asserting on a text box nothing was left to
+    // open.
+    app.add_systems(
+        Update,
+        (
+            interact_ecs_actors_and_switches,
+            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+        )
+            .chain(),
+    );
     app.update();
 
     let state = app.world().resource::<ambition_dialog::DialogState>();
@@ -262,7 +298,19 @@ fn wearing_the_pedestals_character_enters_the_self_branch() {
     spawn_interaction_player_wearing(&mut app, center, "player_robot_v3");
     spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
-    app.add_systems(Update, interact_ecs_actors_and_switches);
+    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    // interaction system decides that a conversation exists; the presentation
+    // half opens the runner from that, outside the sim schedule. A fixture that
+    // ran only the first would be asserting on a text box nothing was left to
+    // open.
+    app.add_systems(
+        Update,
+        (
+            interact_ecs_actors_and_switches,
+            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+        )
+            .chain(),
+    );
     app.update();
 
     let state = app.world().resource::<ambition_dialog::DialogState>();
@@ -290,7 +338,19 @@ fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
         .resource_mut::<GameplayBanner>()
         .show("sentinel", 9.0);
 
-    app.add_systems(Update, interact_ecs_actors_and_switches);
+    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    // interaction system decides that a conversation exists; the presentation
+    // half opens the runner from that, outside the sim schedule. A fixture that
+    // ran only the first would be asserting on a text box nothing was left to
+    // open.
+    app.add_systems(
+        Update,
+        (
+            interact_ecs_actors_and_switches,
+            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+        )
+            .chain(),
+    );
     app.update();
 
     let world = app.world();
@@ -327,7 +387,19 @@ fn an_unpopulated_node_index_never_suppresses() {
     spawn_interaction_player_wearing(&mut app, center, "player_robot_v3");
     spawn_pedestal(&mut app, center, "player_robot_v3", "hall_player");
 
-    app.add_systems(Update, interact_ecs_actors_and_switches);
+    // ⚠ **the box is a PROJECTION now, so the projection has to run.** The
+    // interaction system decides that a conversation exists; the presentation
+    // half opens the runner from that, outside the sim schedule. A fixture that
+    // ran only the first would be asserting on a text box nothing was left to
+    // open.
+    app.add_systems(
+        Update,
+        (
+            interact_ecs_actors_and_switches,
+            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+        )
+            .chain(),
+    );
     app.update();
 
     let state = app.world().resource::<ambition_dialog::DialogState>();

@@ -41,10 +41,9 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
         .get_resource_or_insert_with(crate::control::SlotInteractionState::default)
         .primary_mut()
         .interact_buffer_timer = 0.15;
-    app.world_mut()
-        .insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(
-            Some(entity),
-        ));
+    app.world_mut().insert_resource(
+        ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(entity)),
+    );
 }
 
 #[test]
@@ -296,6 +295,13 @@ fn interact_buffered_starts_npc_dialogue() {
 
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
+    // ⚠ the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
+    // switches` opens a conversation in the simulation and shows it in the UI,
+    // so a fixture with only the second half fails Bevy's param validation.
+    // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
+    // this be absent" when the question is who OWNS registering it, and in
+    // production the feature plugin does.
+    app.init_resource::<crate::conversation::ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -372,7 +378,9 @@ fn interact_buffered_starts_npc_dialogue() {
 /// Bevy ships or how it tie-breaks unordered systems.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
-    use crate::schedule::{configure_platformer2d_simulation_phases, Platformer2dSimulationPhaseMonolith};
+    use crate::schedule::{
+        configure_platformer2d_simulation_phases, Platformer2dSimulationPhaseMonolith,
+    };
     use bevy::ecs::schedule::{NodeId, Schedules};
     use bevy::prelude::{IntoScheduleConfigs, Update};
 
@@ -417,4 +425,3 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
          spawns, save sync, sandbox reset)."
     );
 }
-

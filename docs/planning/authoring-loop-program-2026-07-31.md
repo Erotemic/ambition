@@ -248,7 +248,7 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | dialogue | 7 × `assets/dialogue/sandbox/*.yarn` | ▢ not RON; needs a handler that parses Yarn |
 | worlds | the LDtk projects | ▢ |
 | vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ▢ |
-| fighter brain ladder | `data/fighter_brain_ladder.ron` | ◐ `fighter_brain_ladder`, owned by `ambition_characters` (2026-08-07) — declared, validated and LOWERED. ⛔ **but not yet CONSUMED**, which for this family is the actual defect: it had zero production readers, not two. See below. |
+| fighter brain ladder | `data/fighter_brain_ladder.ron` | ✅ `fighter_brain_ladder`, owned by `ambition_characters` (2026-08-07) — declared, validated, lowered AND consumed. ⚠ this family had ZERO production readers rather than two, so the migration was a bug fix; see below for what it fixed and why it fixed nothing yet. |
 
 ### ⛔ The fighter brain ladder is not a MIGRATION — it is a bug (2026-08-07)
 
@@ -293,8 +293,20 @@ the nine rows. The floor is consulted anyway, at both production call sites
 ⭐ **so this row is worth more than its position in the table suggests.** Loading
 it is not a cleanup that leaves behaviour identical, which is what migrating the
 other families was; it is a change to how every CPU in the game evaluates a move.
-Whoever takes it should expect the fighter-brain tests to move, and should treat a
-difficulty-feel change as the POINT rather than as a regression.
+
+⭐⭐ **✔ DONE 2026-08-07 — and the last measurement CORRECTS this row's own
+urgency.** I wrote above that the numbers "differ on the reachable rung" because
+`fighter_level` defaults to 5. That implied a live defect. It is not one: **no
+authored content selects `CharacterBrainTemplate::Fighter` at all** — the only
+references in the workspace are the match arm itself and a doc comment. The
+default rung applies only once something asks for a fighter brain, and nothing
+does. So the finding is entirely LATENT: the ladder was unread, the
+level-9-weights-for-everyone consequence was real, and it reached nobody.
+⚠ **that is also why wiring it moved ZERO tests**, and a behaviour change to every
+fighter brain that moves nothing is worth explaining rather than celebrating. The
+four unit probes are the only coverage there can be until a fighter is authored.
+⭐ what the work buys is that the day someone authors one, it reads the ladder —
+which is the difference between content that exists and content that is loaded.
 
 **The shape, scoped 2026-08-07 so the next session does not re-derive it.** Three
 pieces, and the third is the whole cost:

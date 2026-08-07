@@ -929,3 +929,55 @@ art is already drawn and specified; the missing half is a publisher, which is
 mechanical. But casting three enemies nobody has a room for is content debt, and
 you are the one who knows whether the robot heavies belong to a faction that is
 going to exist.
+
+---
+
+## Is a SESSION scope marker construction provenance, the way a ROOM scope marker is? (raised 2026-08-07)
+
+The last open row in `tracks.md`'s rollback-anchor sweep, narrowed today from
+"an archetype the engine does not honour" to **one component**.
+
+`no_snapshot_registration_is_inert_*` reports entities whose components are
+registered as rollback state while the entity carries no rollback anchor. The
+sweep skips a known-safe class via `PROVENANCE_ONLY`, whose argument is that
+construction provenance *is written ONCE and never again (ADR 0030), so a rewind
+that does not restore it restores exactly the value it already holds.*
+
+The reported archetype is `SpawnOrigin + TransactionId + SimId +
+RoomScopedEntity + SessionScopedEntity + Name`. **Five of those six are in
+`PROVENANCE_ONLY`.** It is reported at all because of exactly one:
+`SessionScopedEntity`, which IS registered rollback state (`scope.session`,
+`domains/primitives.rs:110`) and is absent from that list.
+
+**So the question is a short asymmetry.** `RoomScopedEntity` and
+`SessionScopedEntity` are both write-once scope markers stamped at construction,
+and the provenance argument above reads identically for both. Why is one in and
+one out?
+
+⛔ **and there is a real reason it might be deliberate, which is why this is not
+mine to answer.** The sibling waiver for `Messages<SessionScopeRetired>` says a
+rewind *"must not un-retire a scope"*. Session lifetime has a rewind rule that
+room lifetime does not. Whether that rule reaches the MARKER as well as the
+retirement message is the entire decision.
+
+**The decision:**
+
+* **(a) it is provenance** — add `SessionScopedEntity` to `PROVENANCE_ONLY`
+  beside `RoomScopedEntity`, on the grounds that a marker stamped once cannot be
+  restored wrongly. One line, and the sweep's last open class closes.
+* **(b) it is lifecycle** — the marker participates in scope retirement, so a
+  rewind restoring it could resurrect membership of a retired scope. Then it
+  stays out, and what is owed is a WAIVER that says this in one sentence, so the
+  next reader does not re-derive the same question.
+
+⚠ **a third fact that changes what either answer buys.** Both
+`no_snapshot_registration_is_inert_*` assertions currently PASS, so this
+archetype appears in NO composition any test sweeps — it exists only under the
+shell. The report now names the offending entity (improved today), but that helps
+only once a test reaches that composition. **Whichever way this goes, the sweep is
+green about a class it never looks at**, and that is a separate and arguably more
+useful piece of work than the classification.
+
+⚠ **no recommendation.** The provenance argument is symmetric and I can construct
+it either way; the deciding fact is what scope retirement is allowed to mean
+across a rewind, which is a rollback-ownership call.

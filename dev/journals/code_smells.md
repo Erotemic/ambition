@@ -26,6 +26,27 @@ Entry format:
 - **Where:** `.cargo/config.toml` — `[build] target-dir = "/home/joncrall/ambition-target"`.
 - **Smell:** committed build config names an absolute path inside one specific user's home. Anyone building as a different user gets `error: Permission denied (os error 13) at path "/home/joncrall/ambition-targetXXXXXX"` and cannot compile at all — hit here as the `agent` user, where `/home/joncrall` is `root:root drwxr-xr-x` while the checkout itself is agent-owned. The *reason* for an out-of-tree target dir is sound and well documented in the file (virtiofs share vs local disk; identical path string resolving to distinct filesystems keeps VM and host fingerprints from fragmenting) — it is only the hardcoded username that doesn't travel. Same class as the `/data/audio-tools` paths in the music scores: a machine-shaped constant committed as if it were a project constant.
 - **Noticed while:** verifying zero-to-runnable setup from a fresh clone (2026-07-26) — the final `cargo check` gate was the one phase that could not run.
+- ◐ **MITIGATED at setup 2026-08-07, and the symptom does NOT reproduce here — measured.**
+  `run_developer_setup.sh` now checks first whether the configured `target-dir`
+  (or its parent) is writable, and if not says so with the fix, before any long
+  phase runs. Probed both ways: silent when the path is reachable, and on an
+  unreachable one it names the path, the user, and `CARGO_TARGET_DIR`.
+  ⚠ **the entry's stated symptom is currently FALSE on this machine**, and the
+  reason is worth recording rather than deleting the entry:
+  `/home/joncrall/ambition-target` EXISTS and is `agent:agent`, so a bare
+  `cargo build` as `agent` succeeds. The parent `/home/joncrall` is `root:root`
+  and unwritable — which is what makes this easy to misdiagnose, and I did
+  misdiagnose it once today by testing the parent and calling the smell "confirmed
+  live".
+  ⭐ **the structural smell stands**: a committed absolute path inside one
+  username's home still cannot travel, and it works here only because somebody
+  created that directory as this user. A fresh machine still needs the export —
+  which is now a sentence at the start of setup instead of a permission error at
+  the end of a first build.
+  ⛔ **and a per-user `~/.cargo/config.toml` is NOT a workaround** (checked): cargo
+  lets the config nearest the working directory win, so the repo's beats the
+  user's. The environment variable is the only override, which is why
+  `run_game.sh` and the rust-analyzer bridge both export it.
 - **Suggested fix / size:** S — `CARGO_TARGET_DIR` in the environment already overrides this, so the config could drop to a documented default plus a setup-time export, or use a path that exists for any user. If the literal path must stay identical across VM and host for the caching reason, that requirement belongs in a per-machine `.cargo/config.toml` (git-ignored, written by `run_developer_setup.sh`) rather than in the committed one.
 
 ## 2026-07-26 The sprite fingerprint cache can never hit — portrait coverage gates the fast path

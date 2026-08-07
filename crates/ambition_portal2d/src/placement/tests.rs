@@ -531,3 +531,86 @@ fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
         other => panic!("a swept crossing must transfer a stopped body, got {other:?}"),
     }
 }
+
+/// **The transit follows the TUNING's convention, not a process global.**
+///
+/// ⛔ **the convention is a simulation rule that lives outside session
+/// authority.** `ambition_platformer2d_shared_tangle::math` holds
+/// `static PORTAL_MAP_ROTATION: AtomicBool`; `tuning.rs` writes it from live
+/// tuning, and `somersault_roll` / `portal_facing_flips` /
+/// `portal_input_warp_flips_horizontal` read it. So two Apps in one process
+/// cannot choose independent conventions, and a test that sets it changes what
+/// every other test in the binary computes.
+///
+/// ⭐ **and the value is already in the right place.** `PortalTuning::convention`
+/// exists, `transfer_step` already receives `&PortalTuning`, and the pure layer
+/// already exposes `*_for_convention` variants taking it explicitly. The global
+/// is a detour around a value that is right there.
+///
+/// ⚠ **WALL to WALL, and that is the only shape that can prove anything.** The
+/// convention enters as `if !rotation && wall_to_wall(..) { return 0.0 }`, so a
+/// floor pair maps identically under both — measured: a floor→wall fixture gave
+/// π/2 either way, and the anti-vacuity assert below caught it.
+///
+/// ⚠ this probe leaves the process global at its DEFAULT and disagrees with it
+/// through tuning. Writing the global is the contamination the finding is about.
+#[test]
+fn a_transit_takes_its_convention_from_tuning_not_the_process_global() {
+    use crate::tuning::PortalConvention;
+
+    assert!(
+        !ambition_platformer2d_shared_tangle::math::portal_map_rotation(),
+        "this probe assumes the process default (Reflection); another test wrote \
+         the global, which is itself the contamination this is about"
+    );
+
+    // ⚠ **two SAME-facing walls**, computed rather than guessed:
+    // `portal_transit_roll` maps `into_render = (-n_in.x, n_in.y)` against
+    // `out_render = (n_out.x, -n_out.y)`, so a pair of walls both facing -x gives
+    // `atan2(0, -1) = π` — while Reflection's wall↔wall short-circuit returns
+    // 0.0. Two FACING walls give `atan2(0, 1) = 0` under both, which is the
+    // fixture the anti-vacuity assert rejected first.
+    //
+    // `transfer_step` directly, as `a_moving_exit_aperture_rides_out_with_the_body`
+    // does: the crossing machinery is not what is under test.
+    let enter = wall_portal(PURPLE, Vec2::new(500.0, 450.0), Vec2::new(-1.0, 0.0));
+    let exit = wall_portal(YELLOW, Vec2::new(900.0, 450.0), Vec2::new(-1.0, 0.0));
+    let gravity_dir = Vec2::new(0.0, 1.0);
+
+    let roll_under = |convention| match transfer_step(
+        Vec2::new(495.0, 450.0),
+        Vec2::new(-200.0, 0.0),
+        enter.clone(),
+        exit.clone(),
+        gravity_dir,
+        &PortalTuning {
+            convention,
+            ..PortalTuning::default()
+        },
+    ) {
+        TransitStep::Transfer { roll_delta, .. } => roll_delta,
+        other => panic!("expected Transfer, got {other:?}"),
+    };
+
+    let by_reflection =
+        crate::somersault_roll_for_convention(false, enter.normal, exit.normal, gravity_dir);
+    let by_rotation =
+        crate::somersault_roll_for_convention(true, enter.normal, exit.normal, gravity_dir);
+    assert_ne!(
+        by_reflection, by_rotation,
+        "the two conventions agree on this portal pair, so the fixture cannot \
+         distinguish them and this probe proves nothing"
+    );
+
+    assert_eq!(
+        roll_under(PortalConvention::Rotation),
+        by_rotation,
+        "a transit tuned to Rotation rolled by the PROCESS GLOBAL's convention \
+         instead — a simulation rule read from outside session authority"
+    );
+    assert_eq!(
+        roll_under(PortalConvention::Reflection),
+        by_reflection,
+        "a transit tuned to Reflection did not follow its tuning either"
+    );
+}

@@ -339,6 +339,38 @@ works *because of* the check the fold wants to remove.
 where headless tests live, and "it only changes the case with no sprites" is the
 same sentence as "it only changes what every test sees".
 
+### ⭐ How big is the shape change? MEASURED 2026-08-07 (the question was
+### answerable all along; nobody had read the sheet)
+
+The entry above says "a live boss's damageable shape changing" without saying by
+how much, which is the part that decides it. From
+`sprites_0_25x/gnu_ton_boss/giant_gnu_spritesheet.ron` (`giant_gnu`, frame
+**192 × 144** at this scale):
+
+* the authored `head_down` hurtbox is **one part, `head`, 42 × 33**, at `x: 75`,
+  with `y` descending **36 → 63** across its **9 frames** — the head coming down.
+* `rest`'s hurtbox is **the same 42 × 33 head part**, static at `y ≈ 36`. So
+  `head_down` is not a different-sized box; it is the same box, animated.
+* 42 × 33 is **≈ 5% of the frame area** (1 386 of 27 648 px²), sitting top-centre.
+
+⭐ **so the decision reads: on the no-sample path, `apple_rain`'s damageable
+region goes from the whole body box to a head-sized box covering about a
+twentieth of the frame, which descends during the attack.** That is a real
+change, not a rounding one — a player (or a headless test) hitting GNU-ton's
+flank mid-apple-rain would stop connecting.
+
+⚠ **it also cuts the other way, and that is why this is still yours:** the
+authored intent is unambiguous — the sheet author drew a descending head hurtbox
+for exactly these 9 frames, and `SpikeHalo`'s row is 9 frames too. The body-box
+fallback is what nobody chose; it is what happens when the catalog says nothing.
+So option 1 is "honour the art", and option 2 is "keep the larger box a live
+boss has always had". Both are defensible and the numbers do not pick.
+
+⛔ **and a measurement footgun that nearly buried this**: `grep -r` over the
+asset trees in a write-ahead worktree finds NOTHING, because the sheets are
+symlinks and recursive grep does not follow them without `-S`. A first pass here
+concluded `head_down` "is not authored anywhere", which is the opposite of true.
+
 ## Is a crate name part of the rollback wire format? (queue S30, 2026-08-01)
 
 **Newly blocking.** This sat as a queue row for days without costing anything.

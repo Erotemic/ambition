@@ -150,6 +150,16 @@ pub struct PreparedSeat {
     /// `Entity`, which is why placement and the view policy are keyed on it.
     pub seat: usize,
     pub character_id: String,
+    /// **This BODY's stable identity**, distinct from the character it wears.
+    ///
+    /// ⛔ a match may legitimately be a MIRROR — two seats, one character — and
+    /// this id is what presentation, the anti-clump slot board, the steering
+    /// neighbour index and the target/faction maps are ALL keyed on
+    /// (`HashMap<String, _>`, every one of them). Keying it on the character made
+    /// two fighters one entity to every one of them, and
+    /// `spawn_dynamic_feature_visuals` dedupes by id — so one of the pair could
+    /// never be drawn.
+    pub feature_id: String,
     /// **The owned definition**, so activation can read the physical baseline
     /// without asking the registry what it currently says.
     pub definition: PreparedCharacterDefinition,
@@ -380,13 +390,21 @@ pub fn prepare_match(
         let baseline = super::PhysicalBaseline::of(definition);
         let body_px = baseline.explicit_size().unwrap_or(SEAT_BODY_PX);
         let aabb = ambition_platformer2d_core::Aabb::new(at, body_px / 2.0);
+        // ⛔ **THE SEAT, not the character.** A mirror match is two bodies
+        // wearing one character, and every id-keyed index in the actor runtime
+        // would collapse them into one: `entity_to_id`, the anti-clump slot
+        // board's `requests`, `faction_by_id` and `target_entity_by_id`
+        // (`features/ecs/actors/update.rs`), plus `ActorIdentity` itself. The
+        // ART still resolves from the character, which is exactly what
+        // `art_identity` is for — a body whose id is not its costume's name.
+        let body_id = format!("{}#seat{index}", participant.character);
         // `new_in`, not the test-only `new`: production construction never has a
         // hidden catalog fallback.
         let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_in(
             authored_sheets,
             catalog,
             archetypes,
-            participant.character.clone(),
+            body_id.clone(),
             definition.display_name.clone(),
             // ⭐ the id, not the display name. Two characters may legitimately
             // share a display name; only the id is unique.
@@ -407,6 +425,7 @@ pub fn prepare_match(
 
         seats.push(PreparedSeat {
             seat: index,
+            feature_id: body_id,
             character_id: participant.character.clone(),
             definition: definition.clone(),
             seed,
@@ -518,7 +537,26 @@ fn realize_seat(
             (
                 crate::features::EnemyActorBundle::new(
                     crate::features::FeatureBaseBundle::new(
-                        seat.character_id.as_str(),
+                        // ⛔ **THE SEAT, not the character.** This passed
+                        // `character_id`, so two fighters wearing one character
+                        // WERE ONE FEATURE: `spawn_dynamic_feature_visuals`
+                        // dedupes by id and drew only the first, and the slot
+                        // board, the steering neighbour index and the
+                        // target/faction maps are all `HashMap<String, _>` keyed
+                        // on it — a mirror match corrupted every one of them.
+                        //
+                        // ⚠ it was UNREACHABLE before and is not a new mistake so
+                        // much as a newly possible one: seat 0 used to be the
+                        // ADOPTED player body, which carries no `FeatureId` at
+                        // all, so a match could never hold two seated features.
+                        // Unifying construction is what made two of them exist —
+                        // the same shadow the registration gap and the couch
+                        // crosstalk came out of.
+                        //
+                        // ⭐ a body's render/simulation identity is the BODY.
+                        // What it WEARS is `WornCharacter`, and a mirror match is
+                        // an ordinary thing a platform fighter must allow.
+                        seat.feature_id.as_str(),
                         seat.definition.display_name.clone(),
                         centered,
                     ),

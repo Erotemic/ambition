@@ -452,6 +452,8 @@ fn schedule_the_roster_once_the_window_is_open(sim: &mut Platformer2dSimHarness)
 #[test]
 fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
     let mut sim = late_arriving_roster_sim();
+    sim.world_mut()
+        .insert_resource(ambition_platformer2d::runtime::rollback::RollbackRestoreAudit::enabled());
     schedule_the_roster_once_the_window_is_open(&mut sim);
 
     for tick in 0..(ROSTER_ARRIVES_AFTER_THE_WINDOW_OPENS as usize + 40) {
@@ -460,8 +462,22 @@ fn rewinds_across_the_activation_frame_and_reconstructs_the_same_match() {
         // is repaired by later frames agreeing with each other, so a run that
         // only checks the end can watch the interesting frame go wrong and
         // report success.
-        sim.rollback_health()
-            .unwrap_or_else(|error| panic!("tick {tick}: {error}"));
+        if let Err(error) = sim.rollback_health() {
+            let audit = sim
+                .world()
+                .resource::<ambition_platformer2d::runtime::rollback::RollbackRestoreAudit>();
+            let mut seen: Vec<String> = audit
+                .divergences
+                .iter()
+                .map(|d| format!("{:?} {}", d.boundary, d.type_name))
+                .collect();
+            seen.sort();
+            seen.dedup();
+            panic!(
+                "tick {tick}: {error}\n  comparisons={} divergent types: {seen:?}",
+                audit.comparisons
+            );
+        }
     }
 
     let trace = std::mem::take(&mut sim.world_mut().resource_mut::<ActivationTrace>().0);

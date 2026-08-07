@@ -226,11 +226,31 @@ pub struct PreparedMatch {
     /// and asking the world at activation would answer with whatever is true
     /// then rather than with what this plan was built from.
     seat_topology: Option<u64>,
+    /// **The first `SimTick` this plan may build on.**
+    ///
+    /// ⛔ **WHEN a decision takes effect is part of the decision, and leaving it
+    /// out is a determinism hole.** The plan is deliberately not rollback state,
+    /// so it survives a rewind — but its ARRIVAL did not: the original frame 8
+    /// ran with no plan and activated on 9, while the RESIMULATED frame 8 found
+    /// the plan already standing and activated on 8. Every actor component then
+    /// diverged at once, which is the signature of a cast that exists in one
+    /// run of a frame and not the other, and GGRS reported it as a checksum
+    /// mismatch three frames wide.
+    ///
+    /// ⭐ stamping the tick makes activation a pure function of the plan and the
+    /// clock, which is the property that lets a rewind reconstruct the SAME
+    /// match instead of a similar one built a frame early.
+    effective_from: u64,
 }
 
 impl PreparedMatch {
     pub fn seats(&self) -> &[PreparedSeat] {
         &self.seats
+    }
+
+    /// The first `SimTick` this plan may build on. See [`Self::effective_from`].
+    pub fn effective_from(&self) -> u64 {
+        self.effective_from
     }
 
     pub fn rules(&self) -> &MatchRules {
@@ -301,6 +321,10 @@ pub fn prepare_match(
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     archetypes: &crate::features::CharacterRoster,
     centre: Vec2,
+    // The first `SimTick` the resulting plan may build on — see
+    // `PreparedMatch::effective_from`. Preparation runs in `Update`, after the
+    // frame's simulation, so the caller passes the NEXT tick.
+    effective_from: u64,
     // What the SESSION declared about a home avatar. Preparation needs it to
     // refuse a local seat in a session that already has one — see the seat
     // loop below.
@@ -482,18 +506,18 @@ pub fn prepare_match(
     // dressed as intent — the same objection this module makes to control
     // authorities nothing can attach — so it is not here.
     //
-    // What the camera does today: it follows the `ControlledSubject`, which is
-    // the local seat's fighter in any match somebody is playing. A CPU-only
-    // match has no subject, so the camera does not resolve and the stage is
-    // framed by whatever the default is. That is the remaining gap, and it is
-    // a PRESENTATION question — the headless suite is blind to it by
-    // construction, so it wants a photograph rather than another test.
+    // ⭐ **WHERE THE CAMERA LOOKS IS ANSWERED NOW**, and the answer is not here:
+    // the match DECLARES its cast (`FramedCast`) once the bodies exist, and the
+    // camera resolver frames them when nothing local is driving one. A draft of
+    // this function returned a `MatchViewPolicy` and nothing read it; the value
+    // was never the mistake, having no consumer was.
 
     Ok(PreparedMatch {
         seats,
         rules,
         cast_generation: registry.generation(),
         seat_topology: roster.seat_topology(),
+        effective_from,
     })
 }
 
@@ -709,6 +733,9 @@ pub fn prepare_the_match(
         >,
     >,
     prepared: Option<Res<PreparedMatch>>,
+    // WHEN this plan becomes effective is part of the plan; see
+    // `PreparedMatch::effective_from`.
+    tick: Res<ambition_time::SimTick>,
 ) {
     // One plan per match. Re-preparing every tick would rebuild the seeds under
     // a live match and, worse, re-resolve them against a registry that may have
@@ -735,6 +762,11 @@ pub fn prepare_the_match(
         crate::avatar::starting_character::InitialBodyPolicy::NoInitialBody,
         |policy| policy.clone(),
     );
+    // Preparation runs in `Update`, which follows the frame's simulation, so the
+    // earliest tick this plan can be acted on is the NEXT one. Naming it is what
+    // makes activation a pure function of the plan and the clock rather than of
+    // when a non-rewinding resource happened to appear.
+    let effective_from = tick.get().saturating_add(1);
     match prepare_match(
         &roster,
         &registry,
@@ -742,6 +774,7 @@ pub fn prepare_the_match(
         &authored_sheets,
         &archetypes,
         centre,
+        effective_from,
         &home_body,
     ) {
         Ok(plan) => {
@@ -782,6 +815,7 @@ pub fn activate_the_prepared_match(
     // Seats that already have a body — derived from the world, so a rewind that
     // restored the fighters without the latch cannot double-build them.
     already_seated: Query<&super::MatchSeat>,
+    tick: Res<ambition_time::SimTick>,
 ) {
     if active.is_some() {
         return;
@@ -789,6 +823,14 @@ pub fn activate_the_prepared_match(
     let Some(prepared) = prepared else {
         return;
     };
+    // ⛔ **NOT "the first tick the plan exists".** The plan does not rewind, so
+    // its arrival time is not a fact the simulation shares between a frame and
+    // that frame's replay — the original ran without it and the resimulation
+    // found it standing, and the cast appeared a tick early. The plan names the
+    // tick instead.
+    if tick.get() < prepared.effective_from() {
+        return;
+    }
     // No active session means no owner for the bodies. Activation waits rather
     // than spawning orphans; the plan is still there next tick.
     let Some(session_scope) =

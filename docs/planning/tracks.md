@@ -646,10 +646,36 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   remainder above) while that builder is already open.
 
 **Bounded hygiene** — [sonnet unless noted]
-- ▢ Sequester the rollback inventory smoke → `tests/ambition_agent_guardrails/`
-  (shape: fable-reply-2026-07-19-b.md §4; widen population by the static
-  `BodyKinematics` filter, rename `rollback_inventory_smoke`, honest
-  docstring). Runs only in the full gate by construction.
+- ✅ **RESOLVED 2026-08-07, and two of its three parts are no longer the right
+  work.** The row prescribed three things for "the smallest inventory smoke worth
+  keeping" (`fable-reply-2026-07-19-b.md` §3–4). Checked each against the tree
+  before doing any of them:
+  * **widen the population by `BodyKinematics` — LANDED**, and went further than
+    prescribed. `simulated_population` has THREE sources now, the third being
+    vocabulary-derived (anything carrying a type the rollback registers). The
+    review explicitly dropped registry-derived queries as a non-goal; the code's
+    own comment justifies it with a gap the two tags provably cannot reach — a
+    moveset strike volume lives six frames and carries neither tag, so no number
+    of extra rooms reaches that family.
+  * **per-filter anti-vacuity — LANDED TODAY, at a different granularity, and the
+    difference is a measurement.** The review asked that each of the two filters
+    assert ≥1 match. That was right when the helper served ONE boot room, where a
+    filter matching nothing could only mean a broken filter. It serves TEN rooms
+    now, and asserting it revealed that **`portal_lab` authors no
+    `FeatureSimEntity` at all** — a legitimate room, not a broken fixture. So the
+    floor asserts what is true of every fixture: a body exists, and the union is
+    non-empty. ⛔ this was load-bearing and unguarded: poisoning the population to
+    empty fails **11 of the 17** tests in the file, and every one of them would
+    have passed silently before, because an empty population produces an empty
+    unaccounted-list which is exactly what a clean sweep produces.
+  * ⛔ **sequester into `tests/ambition_agent_guardrails/` — NO LONGER CORRECT, and
+    doing it would invert the rule it came from.** Guardrails are agent tooling and
+    are sequestered; product architecture is not. When this row was written the
+    thing was one smoke test. It is now **19 tests in 2130 lines** verifying the
+    ADR-0023 determinism contract across ten rooms, a live match, a mounted pair
+    and a transient strike volume. Filing that under agent tooling would move the
+    rollback correctness sweep out of the product's own verification. The rename
+    to `rollback_inventory_smoke` goes with it: the file stopped being a smoke.
 - ✅ **DONE** (verified 2026-07-24) — Kill the vacuous projectile-anchor
   `.all()` (`desync_canary.rs`) + ONE strong mutable-state rewind canary.
   `assert_family_anchored` now REFUSES to pass on an empty family (asserts the

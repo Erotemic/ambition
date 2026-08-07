@@ -224,7 +224,9 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     found.extend(tagged.iter(world));
     let mut bodies = world
         .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::BodyKinematics>>();
-    found.extend(bodies.iter(world));
+    let body_hits: Vec<Entity> = bodies.iter(world).collect();
+    let body_count = body_hits.len();
+    found.extend(body_hits);
 
     let all: Vec<Entity> = {
         let world = sim.world_mut();
@@ -243,6 +245,37 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
             found.insert(entity);
         }
     }
+    // ⛔ **ANTI-VACUITY, and it is load-bearing for NINETEEN tests.** Every sweep
+    // in this file runs `unaccounted_components` over this population and passes
+    // when the result is empty — which is also what an EMPTY POPULATION produces.
+    // A fixture that booted no bodies, or a filter that stopped matching after a
+    // bundle changed, would turn the whole file green in one commit and read
+    // exactly like an all-clear.
+    //
+    // ⚠ what is asserted is what is TRUE OF EVERY FIXTURE: a body exists, and the
+    // union is non-empty. The vocabulary-derived third source is not asserted —
+    // a room with no transient volumes legitimately contributes none.
+    // ⛔ **NOT asserted per-filter on `FeatureSimEntity`, and the reason is a
+    // measurement.** The review that asked for per-filter anti-vacuity
+    // (`fable-reply-2026-07-19-b.md` §3) was written when this helper served ONE
+    // fixture — a single boot room — and "a filter that matched nothing" could
+    // only mean a broken filter. It now serves ten rooms, and `portal_lab`
+    // authors no `FeatureSimEntity` at all (measured 2026-08-07, by asserting it
+    // and watching that room alone fail). A room that authors no feature entities
+    // is a legitimate room, not a broken fixture, so the assert the review asked
+    // for would be a false alarm on real content. The granularity that was right
+    // for the smoke is wrong for the sweep it became.
+    assert!(
+        body_count > 0,
+        "no entity in this fixture carries `BodyKinematics`, so the rollback \
+         coverage sweep is about to inspect a population with no bodies in it \
+         and report a confident all-clear"
+    );
+    assert!(
+        !found.is_empty(),
+        "the rollback coverage population is EMPTY — every sweep in this file \
+         would pass by having nothing to look at"
+    );
     found.into_iter().collect()
 }
 

@@ -107,6 +107,26 @@ enum MovingPlatformMotion {
         segment: usize,
         dir: i32,
     },
+    /// **A one-way vertical loop — the paternoster / "infinite elevator".**
+    ///
+    /// Jon, on Mary-O 1-2: *"moving platforms that move vertically down and up
+    /// like an elevator. When they go OOB (far enough so they are off screen of
+    /// the player in normal gameplay) they can teleport to the top / bottom of
+    /// the screen to make an infinite elevator effect."*
+    ///
+    /// ⛔ **it WRAPS where the other two REVERSE**, and that is the whole reason
+    /// it is a third variant rather than a `Sweep` with the axis swapped. A
+    /// reversing platform is a lift; a wrapping one is a conveyor of lifts, and
+    /// the player experience — step off the top, another arrives from below —
+    /// only exists if the platform never turns around.
+    Loop {
+        min_y: f32,
+        max_y: f32,
+        speed: f32,
+        /// `+1` rises, `-1` descends. Constant for the lifetime of the platform:
+        /// this motion has no reversal, which is the point.
+        dir: f32,
+    },
 }
 
 impl MovingPlatformState {
@@ -155,6 +175,40 @@ impl MovingPlatformState {
         }
     }
 
+    /// A wrapping vertical loop between `min_y` and `max_y`.
+    ///
+    /// `speed` is magnitude; `rising` picks the direction. A run of these with
+    /// staggered `start_pos` values along the same span is the elevator shaft.
+    pub fn from_vertical_loop(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        start_pos: ae::Vec2,
+        size: ae::Vec2,
+        min_y: f32,
+        max_y: f32,
+        speed: f32,
+        rising: bool,
+    ) -> Self {
+        let (min_y, max_y) = if min_y <= max_y {
+            (min_y, max_y)
+        } else {
+            (max_y, min_y)
+        };
+        Self {
+            id: id.into(),
+            name: name.into(),
+            pos: start_pos,
+            size,
+            motion: MovingPlatformMotion::Loop {
+                min_y,
+                max_y,
+                speed: speed.max(0.0),
+                dir: if rising { 1.0 } else { -1.0 },
+            },
+            last_delta: ae::Vec2::ZERO,
+        }
+    }
+
     pub fn from_path(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -187,6 +241,13 @@ impl MovingPlatformState {
     /// it as [`Self::last_delta`] for readers that run after the advance.
     pub fn update(&mut self, dt: f32) -> ae::Vec2 {
         let old = self.pos;
+        // ⛔ **a WRAP is a position change that is not a MOVEMENT**, and
+        // `last_delta` is the quantity a rider is carried by. An arm that
+        // teleports must say what it actually travelled, or `pos - old` hands the
+        // rider the whole span in one frame — in the direction opposite to
+        // travel. Only the wrapping arm needs this; the reversing ones move
+        // continuously, so their position difference IS their travel.
+        let mut carried: Option<ae::Vec2> = None;
         match &mut self.motion {
             MovingPlatformMotion::Sweep {
                 min_x,
@@ -206,8 +267,27 @@ impl MovingPlatformState {
             MovingPlatformMotion::Path { path, segment, dir } => {
                 self.pos = advance_path_position(path, segment, dir, self.pos, dt);
             }
+            MovingPlatformMotion::Loop {
+                min_y,
+                max_y,
+                speed,
+                dir,
+            } => {
+                let step = ae::Vec2::new(0.0, *speed * *dir * dt);
+                self.pos += step;
+                let span = *max_y - *min_y;
+                if span > 0.0 {
+                    if self.pos.y > *max_y {
+                        self.pos.y -= span;
+                    } else if self.pos.y < *min_y {
+                        self.pos.y += span;
+                    }
+                }
+                // The TRAVEL, never the teleport.
+                carried = Some(step);
+            }
         }
-        self.last_delta = self.pos - old;
+        self.last_delta = carried.unwrap_or(self.pos - old);
         self.last_delta
     }
 
@@ -222,6 +302,7 @@ impl MovingPlatformState {
         match &self.motion {
             MovingPlatformMotion::Sweep { dir, .. } => *dir,
             MovingPlatformMotion::Path { dir, .. } => *dir as f32,
+            MovingPlatformMotion::Loop { dir, .. } => *dir,
         }
     }
 

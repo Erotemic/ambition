@@ -477,3 +477,94 @@ fn loop_mode_closes_the_circuit_back_to_its_first_point() {
         platform.pos
     );
 }
+
+/// **A wrapping platform must not fling whoever is standing on it.**
+///
+/// Jon asked for an infinite elevator: platforms that run one way and teleport
+/// back to the far end rather than reversing. ⛔ **the teleport is a position
+/// change that is NOT a movement**, and `last_delta` is exactly the quantity the
+/// per-body tick adds to a rider (`body_integration.rs` reads it for
+/// platform-ride and ledge-carry). Reporting `pos - old` across a wrap hands the
+/// rider the whole span in one frame — the height of the shaft, in one tick, in
+/// the direction opposite to travel.
+///
+/// ⭐ **the honest test of a wrap is the frame it happens on**, not the frames
+/// either side, and it is a frame the naive implementation gets wrong while
+/// looking completely correct in a position trace: the platform IS where it
+/// should be. Only the carried rider reveals it.
+#[test]
+fn a_wrapping_platform_carries_a_rider_by_its_travel_not_by_its_teleport() {
+    // A shaft 300 tall, descending at 100/s. dt of 0.5 puts the wrap squarely
+    // inside a step rather than exactly on the boundary.
+    let mut platform = MovingPlatformState::from_vertical_loop(
+        "lift",
+        "Lift",
+        ae::Vec2::new(0.0, 40.0),
+        ae::Vec2::new(96.0, 16.0),
+        0.0,
+        300.0,
+        100.0,
+        false,
+    );
+
+    // One ordinary step: no wrap, and the delta is the travel.
+    let delta = platform.update(0.2);
+    assert!(
+        (delta.y + 20.0).abs() < 1e-3,
+        "an ordinary descending step carries the rider down 20px, got {delta:?}"
+    );
+
+    // The step that crosses the bottom and reappears at the top.
+    let before = platform.pos.y;
+    let delta = platform.update(0.5);
+    assert!(
+        platform.pos.y > before,
+        "precondition: this step wrapped — the platform reappeared at the top \
+         ({before} -> {})",
+        platform.pos.y
+    );
+    assert!(
+        (delta.y + 50.0).abs() < 1e-3,
+        "the wrap frame reported {delta:?} of carry, but the platform only \
+         TRAVELLED 50px down — the rest is a teleport, and handing it to a rider \
+         throws them the length of the shaft in one tick"
+    );
+}
+
+/// **A looping platform never turns around.**
+///
+/// ⛔ the poison for the variant existing at all: if it reversed it would be a
+/// `Sweep` on the other axis, and the elevator effect — step off the top, the
+/// next one arrives from below — would not exist. Two full spans of travel must
+/// leave the direction unchanged.
+#[test]
+fn a_looping_platform_keeps_going_the_same_way_forever() {
+    let mut platform = MovingPlatformState::from_vertical_loop(
+        "lift",
+        "Lift",
+        ae::Vec2::new(0.0, 0.0),
+        ae::Vec2::new(96.0, 16.0),
+        0.0,
+        200.0,
+        100.0,
+        true,
+    );
+    for _ in 0..40 {
+        let delta = platform.update(0.1);
+        assert!(
+            delta.y > 0.0,
+            "a rising loop reported downward carry ({delta:?}) — either it \
+             reversed, which would make it a lift rather than a paternoster, or a \
+             wrap leaked into the carry"
+        );
+        assert!(
+            (0.0..=200.0).contains(&platform.pos.y),
+            "the platform left its shaft at {}",
+            platform.pos.y
+        );
+    }
+    assert!(
+        platform.direction() > 0.0,
+        "and it still reports the direction it was authored with"
+    );
+}

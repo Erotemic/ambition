@@ -445,8 +445,13 @@ pub fn prepare_match(
         // rather than off `vitals`/`body` directly, because the exploration
         // player reads the same value through the same accessors.
         let baseline = super::PhysicalBaseline::of(definition);
-        let body_px = baseline.explicit_size().unwrap_or(SEAT_BODY_PX);
-        let aabb = ambition_platformer2d_core::Aabb::new(at, body_px / 2.0);
+        // The box the SEED is built around. A hint, not the answer: for a named
+        // catalog character `ActorClusterSeed::new_in` resizes to the AUTHORED
+        // SPRITE's collision — the same resolution a peaceful NPC of that
+        // character gets — and the seat has to take that size back, which is
+        // what `seat.body_px` below reads.
+        let hint_px = baseline.explicit_size().unwrap_or(SEAT_BODY_PX);
+        let aabb = ambition_platformer2d_core::Aabb::new(at, hint_px / 2.0);
         // ⛔ **THE SEAT, not the character.** A mirror match is two bodies
         // wearing one character, and every id-keyed index in the actor runtime
         // would collapse them into one: `entity_to_id`, the anti-clump slot
@@ -480,6 +485,20 @@ pub fn prepare_match(
             .with_policy(death_policy);
         seed.kin.facing = facing;
 
+        // ⛔ **ONE BODY, ONE BOX — and for a day it was two.** This recorded
+        // `hint_px`, so a fighter's POSE and `CenteredAabb` were the 30x48
+        // placeholder while its `BodyKinematics` carried the authored sprite
+        // collision. Hit tests read the pose, so a seated fighter could not
+        // reach another one: `fb6_shadow_fidelity` measured the shadow model
+        // predicting a hit at a 34px gap with 51px of reach and the real sim
+        // landing nothing, and `duel_arena` watched two fighters throw zero
+        // melee swings across a whole bout.
+        //
+        // ⚠ the placeholder is still right for a character that authors no
+        // size — it is deliberately small so an unresolved body looks wrong
+        // rather than plausible — but it must not outrank a size the seed
+        // actually resolved.
+        let body_px = seed.kin.size;
         seats.push(PreparedSeat {
             seat: index,
             feature_id: body_id,

@@ -30,7 +30,21 @@
 
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 
-* ▢ **still open next door**: `maryo flashes when her fireball hits an enemy` (below) is a separate item and was not touched by this.
+* ✔ **`maryo flashes when her fireball hits an enemy` — FIXED, and now GUARDED (2026-08-07).**
+  ⛔ this row said "still open next door … (below)" and there was no row below: the
+  only mention of the fireball in this whole file was the pointer. The fix had in
+  fact landed — `damage/mod.rs` wraps the attacker flash in
+  `if !matches!(event.source, HitSource::PlayerProjectile)`, quoting Jon's words
+  verbatim — so the row was a dangling pointer to work that was already done.
+  ⚠ **but nothing pinned it.** A bare `if` with no test is one refactor away from
+  handing the bug back. `a_projectile_hit_flashes_its_victim_but_never_its_thrower`
+  pins it now, and was verified by POISONING the guard rather than by observing a
+  pass: with the condition removed the thrower's `hit_flash` reads 0.1 against the
+  expected 0.0, which is Jon's symptom exactly.
+  ⭐ it asserts BOTH halves — a slash still flashes — because a projectile-only
+  assertion would pass just as happily against `hit_flash` being deleted outright.
+  ⚠ the HITSTOP is deliberately not asserted absent: the brief hold is what makes
+  a shot feel like it connected, nobody reported it, and the fix kept it.
 
 * ◐ **The snakes-on-a-plane art already EXISTS, and half the wiring is now in.**
   Both `snakes_on_a_cartesian_plane` and `snakes_on_a_paper_plane` were drawn,

@@ -329,25 +329,77 @@ impl ActionBindings {
             .unwrap_or_default()
     }
 
+    /// **THE selection primitive: which bound control this seat should be SHOWN,
+    /// given the device in its hands.**
+    ///
+    /// ⛔ **this used to be `.first()`, and `.first()` cannot be right on a mixed
+    /// map.** `KeyboardPreset::input_map` inserts the keyboard half
+    /// (`presets.rs:257`) before the gamepad half (`:258`), so for every action
+    /// both halves bind — Jump, Attack, Dash — the first control is a KEY. A
+    /// caller that then re-spelled it in a controller vocabulary got `Z`, not
+    /// `Cross`: picking a vocabulary cannot turn a `KeyCode` into a button.
+    /// (GPT 5.6 review through `c32e690`, finding 3.)
+    ///
+    /// ⚠ **it is the PRIMARY seat that was wrong**, because secondary seats get
+    /// `gamepad_only_map()` where the first control is already a button. The seat
+    /// showing the wrong prompt is the one most likely to be at a docked machine
+    /// holding a pad.
+    ///
+    /// ⭐ **one primitive, shared by the text label and the glyph**, so the two
+    /// cannot drift into naming one physical button two ways on one frame — the
+    /// exact failure `glyphs::button_label` was written to end for vendor
+    /// spellings.
+    ///
+    /// Returns `None` when this seat has no binding of the device's class.
+    /// Callers choose their own miss policy: a glyph draws nothing (honest — it
+    /// stops being empty the moment somebody binds it), a label falls back to
+    /// the other class (text can say "Z" to a pad user and be understood).
+    pub fn control_for(
+        &self,
+        action: &Platformer2dInputActionMonolith,
+        device: crate::ActiveDevice,
+    ) -> Option<&PhysicalControl> {
+        let want_key = device.draws_keyboard_glyphs();
+        self.controls(action).iter().find(|control| {
+            matches!(
+                (control, want_key),
+                (PhysicalControl::Key(_), true) | (PhysicalControl::Button(_), false)
+            )
+        })
+    }
+
     /// The label a prompt should show — the FIRST binding, which is the one a
     /// preset lists first and therefore the one the author considered primary.
     ///
-    /// Gamepad buttons come out Xbox-style. A caller that knows which pad the
-    /// seat is holding should say so with [`Self::label_for`].
+    /// ⚠ **device-blind, so gamepad buttons come out Xbox-style and a mixed map
+    /// answers with its keyboard half.** That is only right for a caller with no
+    /// seat to ask about (a docs generator, a rebind list). Anything drawing a
+    /// prompt for a SEAT wants [`Self::label_for`].
     pub fn label(&self, action: &Platformer2dInputActionMonolith) -> Option<String> {
         self.controls(action).first().map(PhysicalControl::label)
     }
 
-    /// The same label, in the vocabulary of the pad this seat is actually
-    /// holding — so a DualSense reads "Cross" where an Xbox pad reads "A".
+    /// The label for the device this seat is actually holding — so a DualSense
+    /// reads "Cross", an Xbox pad reads "A", and a keyboard reads "Z", from one
+    /// binding map.
+    ///
+    /// ⚠ **`ActiveDevice`, not `GamepadStyle`, and the type IS the fix.** A style
+    /// cannot represent "this seat is on a keyboard" —
+    /// `SeatActiveDevices::gamepad_style_for` collapses every non-pad device to
+    /// the Xbox default and says so in its own doc — so the old signature could
+    /// not have expressed the right answer even with correct selection logic.
+    ///
+    /// Falls back to the other device class rather than to `None`: an action
+    /// bound only on the keyboard should still NAME its key to somebody holding
+    /// a pad, because a blank prompt reads as "this action has no control".
     pub fn label_for(
         &self,
         action: &Platformer2dInputActionMonolith,
-        style: crate::GamepadStyle,
+        device: crate::ActiveDevice,
     ) -> Option<String> {
-        self.controls(action)
-            .first()
-            .map(|control| control.label_for(style))
+        self.control_for(action, device)
+            .or_else(|| self.controls(action).first())
+            .map(|control| control.label_for(device.gamepad_style()))
     }
 
     /// Every bound action and its controls, in canonical order. For a help
@@ -420,23 +472,22 @@ impl SeatBindings {
     /// The label for an ability SLOT — what a prompt actually wants to ask.
     /// Composes [`action_for_slot`] rather than carrying its own table.
     ///
-    /// ⚠ **`devices` is a PARAMETER, not a second call.** The seat's pad decides
-    /// whether its jump button reads "A" or "Cross", so a caller that asked for
-    /// the label and then re-spelled it from the device fact would be two steps
-    /// where one is correct — and the second step is the one a new caller
-    /// forgets. `None` (a headless sim with no device tracking) spells gamepad
-    /// buttons Xbox-style, which is the documented default and not a guess about
-    /// this seat.
+    /// ⚠ **`devices` is a PARAMETER, not a second call.** The seat's device
+    /// decides both WHICH binding to name and how to spell it, so a caller that
+    /// asked for the label and then re-spelled it from the device fact would be
+    /// two steps where one is correct — and the second step is the one a new
+    /// caller forgets. `None` (a headless sim with no device tracking) reads as
+    /// the keyboard, which is the documented cold-start answer and not a guess
+    /// about this seat.
     pub fn label_for_slot(
         &self,
         seat: u8,
         slot: ambition_entity_catalog::action_scheme::ControlSlot,
         devices: Option<&crate::SeatActiveDevices>,
     ) -> Option<String> {
-        let style =
-            devices.map_or_else(Default::default, |devices| devices.gamepad_style_for(seat));
+        let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
         self.for_seat(seat)
-            .label_for(&action_for_slot(slot)?, style)
+            .label_for(&action_for_slot(slot)?, device)
     }
 
     pub fn seats(&self) -> impl Iterator<Item = (u8, &ActionBindings)> {
@@ -610,6 +661,57 @@ mod tests {
                 .as_deref(),
             Some("A"),
             "and it prints as a face button, which is what goes on a glyph"
+        );
+    }
+
+    /// **A prompt names the device that is actually in the seat's hands.**
+    ///
+    /// ⛔ **the fixture above cannot catch this and that is the point.** It uses
+    /// `gamepad_only_map()`, where the first bound control IS a button, so
+    /// `.first()` looks correct. The PRIMARY seat's map is the mixed one —
+    /// `input_map()` inserts the keyboard half at `presets.rs:257` and the
+    /// gamepad half at `:258` — and there `.first()` is a KEY for every action
+    /// both halves bind. Picking a controller vocabulary and then re-spelling a
+    /// `KeyCode` with it cannot turn `Z` into `Cross`.
+    ///
+    /// ⚠ **it is the primary seat specifically**, because secondary seats get
+    /// `gamepad_only_map()`. The seat that shows the wrong prompt is the one
+    /// most likely to be sitting at a docked machine holding a pad.
+    ///
+    /// ⭐ **both directions, or this is not a test.** An implementation that
+    /// always preferred the gamepad binding would satisfy the first assertion
+    /// and be exactly as wrong; the keyboard case is the poison.
+    #[test]
+    fn a_prompt_names_the_device_the_seat_is_actually_holding() {
+        use crate::active_input::{ActiveDevice, SeatActiveDevices};
+        use ambition_entity_catalog::action_scheme::ControlSlot;
+
+        // The primary seat's real map: keyboard first, then gamepad.
+        let mut app = app_with_seats(&[(0, KeyboardPreset::arrows_zxc().input_map())]);
+        publish(&mut app);
+        let bindings = app.world().resource::<SeatBindings>().clone();
+
+        let mut on_a_dualsense = SeatActiveDevices::default();
+        on_a_dualsense.mark(0, ActiveDevice::Gamepad(crate::GamepadStyle::PlayStation));
+        assert_eq!(
+            bindings
+                .label_for_slot(0, ControlSlot::Jump, Some(&on_a_dualsense))
+                .as_deref(),
+            Some("Cross"),
+            "a seat holding a DualSense is told to press Cross — naming the key \
+             `Z` that the same action also binds is a prompt for a device that \
+             is not in their hands"
+        );
+
+        let mut on_the_keyboard = SeatActiveDevices::default();
+        on_the_keyboard.mark(0, ActiveDevice::Keyboard);
+        assert_eq!(
+            bindings
+                .label_for_slot(0, ControlSlot::Jump, Some(&on_the_keyboard))
+                .as_deref(),
+            Some("Z"),
+            "and the same seat back on the keyboard is told to press Z, not the \
+             button it is no longer holding"
         );
     }
 

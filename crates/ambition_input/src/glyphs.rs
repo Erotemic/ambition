@@ -47,22 +47,33 @@ pub fn glyph_for(
     }
 }
 
-/// The first physical control of a kind this seat has bound to `action`.
+/// The physical control of a kind this seat has bound to `action`.
 ///
-/// ⚠ **an action bound to nothing yields nothing**, and the caller renders an
-/// empty glyph. That is the honest answer: it stops being empty the moment
-/// somebody binds the action, with no table to remember to edit.
+/// ⭐ **a thin alias over [`ActionBindings::control_for`], which is now THE
+/// selection primitive.** This logic used to live here and only here, while the
+/// text-label path picked `.first()` regardless of device — so a glyph and a
+/// prompt for one physical button could disagree on one frame, and did: a mixed
+/// keyboard+gamepad map showed the pad glyph beside the label `Z`. Sharing the
+/// primitive is what makes that unrepresentable rather than merely fixed.
+///
+/// ⚠ **an action bound to nothing of this kind yields nothing**, and the caller
+/// renders an empty glyph. That is the honest answer for a GLYPH — a picture of
+/// a button nobody has bound is a lie, where the text label can fall back and be
+/// understood. The two miss policies differ on purpose and are stated at each
+/// call site rather than buried in the selection.
 fn bound_control(
     bindings: &ActionBindings,
     action: Platformer2dInputActionMonolith,
     want_key: bool,
 ) -> Option<&PhysicalControl> {
-    bindings.controls(&action).iter().find(|control| {
-        matches!(
-            (control, want_key),
-            (PhysicalControl::Key(_), true) | (PhysicalControl::Button(_), false)
-        )
-    })
+    let device = if want_key {
+        ActiveDevice::Keyboard
+    } else {
+        // Selection only cares about the CLASS; the caller re-spells with the
+        // seat's real style, so any pad style resolves the same control here.
+        ActiveDevice::Gamepad(GamepadStyle::default())
+    };
+    bindings.control_for(&action, device)
 }
 
 /// Keyboard glyph for an action.
@@ -242,7 +253,12 @@ mod tests {
             (Platformer2dInputActionMonolith::Dash, "C"),
         ] {
             assert_eq!(
-                glyph_for(action, &arrows_zxc, &bindings(&arrows_zxc), ActiveDevice::Keyboard),
+                glyph_for(
+                    action,
+                    &arrows_zxc,
+                    &bindings(&arrows_zxc),
+                    ActiveDevice::Keyboard
+                ),
                 glyph
             );
         }
@@ -254,7 +270,10 @@ mod tests {
             (Platformer2dInputActionMonolith::Attack, "J"),
             (Platformer2dInputActionMonolith::Dash, "K"),
         ] {
-            assert_eq!(glyph_for(action, &wasd, &bindings(&wasd), ActiveDevice::Keyboard), glyph);
+            assert_eq!(
+                glyph_for(action, &wasd, &bindings(&wasd), ActiveDevice::Keyboard),
+                glyph
+            );
         }
     }
 
@@ -263,7 +282,12 @@ mod tests {
         // Clicking does not move the player's other hand off the keys.
         let preset = KeyboardPreset::arrows_zxc();
         assert_eq!(
-            glyph_for(Platformer2dInputActionMonolith::Jump, &preset, &bindings(&preset), ActiveDevice::Mouse),
+            glyph_for(
+                Platformer2dInputActionMonolith::Jump,
+                &preset,
+                &bindings(&preset),
+                ActiveDevice::Mouse
+            ),
             "Z"
         );
     }

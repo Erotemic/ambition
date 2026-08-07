@@ -89,9 +89,16 @@ pub fn gamepad_style_of(vendor_id: Option<u16>, name: Option<&str>) -> GamepadSt
         return GamepadStyle::Generic;
     };
     let name = name.to_ascii_lowercase();
-    if ["dualshock", "dualsense", "playstation", "sony", "ps4", "ps5"]
-        .iter()
-        .any(|hint| name.contains(hint))
+    if [
+        "dualshock",
+        "dualsense",
+        "playstation",
+        "sony",
+        "ps4",
+        "ps5",
+    ]
+    .iter()
+    .any(|hint| name.contains(hint))
     {
         GamepadStyle::PlayStation
     } else if ["nintendo", "switch", "joy-con", "pro controller"]
@@ -129,6 +136,21 @@ impl ActiveDevice {
     /// half of the keyboard bundle: clicking does not move your other hand.
     pub fn draws_keyboard_glyphs(self) -> bool {
         matches!(self, Self::Keyboard | Self::Mouse)
+    }
+
+    /// How this device's gamepad buttons should be SPELLED.
+    ///
+    /// ⚠ a device that is not a pad answers the default (Xbox-style), which is
+    /// what a label has to say when nothing better is known — it is not a claim
+    /// that anybody is holding an Xbox pad. Callers that need to know whether
+    /// there is a pad at all ask [`Self::draws_keyboard_glyphs`]; a style alone
+    /// cannot express "this seat is on a keyboard", which is exactly how a
+    /// prompt came to print `Z` under a DualSense.
+    pub fn gamepad_style(self) -> GamepadStyle {
+        match self {
+            Self::Gamepad(style) => style,
+            _ => GamepadStyle::default(),
+        }
     }
 }
 
@@ -182,10 +204,7 @@ impl SeatActiveDevices {
     /// rule [`GamepadStyle::Generic`] follows. It is not a claim that the seat
     /// holds an Xbox pad.
     pub fn gamepad_style_for(&self, slot: u8) -> GamepadStyle {
-        match self.for_seat(slot) {
-            ActiveDevice::Gamepad(style) => style,
-            _ => GamepadStyle::default(),
-        }
+        self.for_seat(slot).gamepad_style()
     }
 }
 
@@ -314,7 +333,10 @@ mod tests {
 
     #[test]
     fn defaults_to_keyboard() {
-        assert_eq!(SeatActiveDevices::default().machine(), ActiveDevice::Keyboard);
+        assert_eq!(
+            SeatActiveDevices::default().machine(),
+            ActiveDevice::Keyboard
+        );
         assert_eq!(
             SeatActiveDevices::default().for_seat(3),
             ActiveDevice::Keyboard
@@ -394,7 +416,10 @@ mod tests {
         // exists for.
         let pad = app
             .world_mut()
-            .spawn((Gamepad::default(), Name::new("DualSense Wireless Controller")))
+            .spawn((
+                Gamepad::default(),
+                Name::new("DualSense Wireless Controller"),
+            ))
             .id();
         app.world_mut().spawn((
             InputParticipant::primary(),
@@ -444,13 +469,14 @@ mod tests {
         app.world_mut()
             .resource_mut::<ButtonInput<KeyCode>>()
             .press(KeyCode::KeyA);
-        app.world_mut().write_message(bevy::input::touch::TouchInput {
-            phase: bevy::input::touch::TouchPhase::Started,
-            position: Vec2::new(5.0, 5.0),
-            window,
-            force: None,
-            id: 7,
-        });
+        app.world_mut()
+            .write_message(bevy::input::touch::TouchInput {
+                phase: bevy::input::touch::TouchPhase::Started,
+                position: Vec2::new(5.0, 5.0),
+                window,
+                force: None,
+                id: 7,
+            });
         app.update();
         assert_eq!(machine(&app), ActiveDevice::Touch);
     }

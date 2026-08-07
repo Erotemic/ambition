@@ -268,7 +268,12 @@ const LEGEND_LABEL_ID: &str = "start";
 /// participant and can only speak for the default preset.
 fn control_legend(
     bindings: Option<&ambition_platformer2d::input::ActionBindings>,
-    style: ambition_platformer2d::input::GamepadStyle,
+    // ⛔ **the DEVICE, not a `GamepadStyle`.** This sign had finding 3 too: a
+    // style picks the vocabulary a BUTTON is spelled in, and the seat's map binds
+    // the keyboard half first, so the legend re-spelled `Z` as `Z` and read
+    // "Z: JUMP" to somebody holding a DualSense. A style cannot say "this seat is
+    // on a keyboard", which is why the type had to change rather than the lookup.
+    device: ambition_platformer2d::input::ActiveDevice,
 ) -> String {
     use ambition_platformer2d::input::Platformer2dInputActionMonolith as Action;
 
@@ -276,7 +281,7 @@ fn control_legend(
     let name = ambition_platformer2d::input::key_name;
     let label = |action: Action, fallback: bevy::prelude::KeyCode| {
         bindings
-            .and_then(|bound| bound.label_for(&action, style))
+            .and_then(|bound| bound.label_for(&action, device))
             .unwrap_or_else(|| name(fallback).to_string())
     };
     format!(
@@ -318,8 +323,8 @@ fn refresh_sanic_control_legend(
         return;
     }
     let seat = ambition_platformer2d::input::ParticipantId::PRIMARY.slot();
-    let style = devices.map_or_else(Default::default, |devices| devices.gamepad_style_for(seat));
-    let wanted = control_legend(Some(bindings.for_seat(seat)), style);
+    let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
+    let wanted = control_legend(Some(bindings.for_seat(seat)), device);
     for (label, mut text) in &mut labels {
         if !label.owner_id.ends_with(LEGEND_LABEL_ID) {
             continue;

@@ -160,3 +160,45 @@ existed to place a scoreboard, so Jon's answer makes it moot rather than wanted.
 * **`interact` on the fighting stage** — a SEPARATE open question he has
   explicitly reserved for a design discussion (queue Z′4): whether `interact`
   belongs to the engine at all or only to Ambition-the-game.
+
+---
+
+## Named debt after the match-preparation campaign (2026-08-07)
+
+The campaign that made CPU-vs-CPU and person-vs-CPU work is done and the
+freeze that followed it is fixed. Two things are deliberately NOT done, named
+here so neither reads as an oversight.
+
+### The "one match lifecycle" invariant is not fully reached — engine backlog
+
+`PreparedMatch` is the authority for SMASH. Versus still consults
+`RosterSeating::{Proposed, Activated}`, `activate_if_seatable` and
+`SessionSeatingSource` as independent readiness/topology gates *before*
+preparation, rather than as inputs to it. They still carry useful data — the
+frozen topology in particular — so this is consolidation, not deletion, and it
+belongs with the participant-action work rather than bolted onto a bug fix.
+
+⚠ **do not describe the invariant as achieved.** It is achieved for one
+provider.
+
+### The Perfect Cellular Automaton is off the grid, on purpose
+
+`perfect_cellular_automaton` is in `SMASH_ROSTER` and deliberately absent from
+the registered playable cast, so the shipped grid is one portrait shorter than
+the authored roster. The cause is a real and separate engine defect —
+**a fight that starts before its sheets land never recovers** — measured on
+2026-08-06: sixty seconds with neither fighter pressing melee, where settling
+180 frames first gives an ordinary fight. Combat geometry resolved against a
+missing sheet appears to stick for the life of the body.
+
+Jon, 2026-08-07: *"I do want to fix the PCA issue, but we can do that in a
+separate pass, because I need to understand why it is an issue first."* So the
+workaround stays until the sheet-timing defect is understood, and this
+paragraph is the waiver — a test asserting the exact grid contents would pin
+the workaround rather than the gap it stands in for.
+
+⚠ `every_smash_roster_id_resolves_in_the_shipped_host` checks the
+`CharacterCatalog` while `SmashRoster::assemble` filters the
+`PreparedCharacterRegistry`, so nothing fails today on this omission. That is
+the correct outcome for a decision somebody made, and the wrong one for a
+decision somebody forgot — which is why it is written down here.

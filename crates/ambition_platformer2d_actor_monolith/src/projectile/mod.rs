@@ -1,4 +1,4 @@
-//! Sandbox PLAYER-faction projectile glue.
+//! Controlled-body projectile integration around the reusable projectile model.
 //!
 //! The reusable projectile MODEL — shot vocabulary (`ProjectileKind` / the open
 //! `ProjectileVisualId` + content-owned visual catalog), the ECS components,

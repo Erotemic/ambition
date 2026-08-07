@@ -404,16 +404,17 @@ single-build measurement suggests, AND it means fronts 0–1 could remove most o
 that multiplier without moving a single line of code between crates. Do not let
 either front be used as an argument against the other.
 
-⚠ **This does NOT reopen the settled ruling.**
-[`engine/decomposition.md`](engine/decomposition.md) says a split must create a
-durable semantic boundary and that *"size alone is not sufficient"*, and
-specifically rejects a size-driven monolith carve because splitting by LOC risks
-recreating the player/enemy/boss paths. That ruling stands, and compile time is
-not a license to overturn it — a carve that shortens builds and restores three
-divergent paths is a bad trade, and this project has paid for that class of bug
-more than once.
+**This evidence now contributes directly to the active actor-monolith carve.**
+The later API consumer-footprint measurement independently demonstrated that the
+monolith leaks unrelated capabilities into a movement-only consumer. Together,
+those results retire the July "no further carve owed" ruling. Compile cost does
+not dictate boundaries: a carve that shortens builds by recreating divergent
+player/enemy/boss paths is still a bad trade. It does mean the decomposition is
+required, and compile isolation is one axis for ordering otherwise-sound slices.
+See
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 
-What this front asks for is narrower, and it is about ORDER and EVIDENCE:
+What this front asks for is about ORDER and EVIDENCE:
 
 - **Add compile cost to what a carve candidate is measured by.** The census
   (`scripts/core_import_census.py --cuts`) already ranks candidate cuts by

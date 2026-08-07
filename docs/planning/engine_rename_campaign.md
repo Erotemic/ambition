@@ -306,9 +306,12 @@ controlled-body input translation
     → platformer input
 ```
 
-Keep the monolith name until it stops accepting reusable behavior by default.
-
-This work should accompany feature and repair work rather than becoming an arbitrary file-splitting exercise.
+Keep the monolith name while the residue still mixes multiple ownership
+domains. The active incremental carve is specified in
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md):
+compile isolation and consumer dependency leakage now make decomposition explicit
+work, while each individual boundary is still chosen by semantic ownership rather
+than arbitrary file splitting.
 
 ## Higher difficulty
 

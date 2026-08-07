@@ -1,4 +1,4 @@
-//! Unified menu content for the sandbox.
+//! Unified menu content for the Ambition game.
 //!
 //! This module is the single home for the game's menu *content* — the
 //! backend-agnostic page model, the concrete settings IR, and the Map tab —

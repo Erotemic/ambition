@@ -64,8 +64,8 @@ must lean on recorded as a named API leak.
    composition path that keeps product apps focused on product policy.
 2. **Ambition, the game** — the flagship content crate
    ([`game/`](game/)): *"Every upgrade a theorem, every boss a failed
-   objective function, every biome a math world model."* The sandbox is ALSO
-   the engine's integration lab: it can host every demo game inside its world
+   objective function, every biome a math world model."* The Ambition game is ALSO
+   the engine's integration customer: it can host every demo game inside its world
    (see §5).
 3. **The demo suite** ([`demos/`](demos/)) — standalone games, each ONE
    content crate + a thin app: **Sanic**, **Super Mary-O**, **Super Smash
@@ -84,16 +84,15 @@ must lean on recorded as a named API leak.
 
 - The crate map of `engine/architecture.md` is REAL: every crate is a
   well-scoped domain a small agent can navigate and modify safely.
-  **Extensibility, pluggability, and agent navigation remain the highest
-  priority** — but the mechanism changed as the decomposition landed: the
-  2026-07-16 recon settled that there is **no further size-driven
-  `ambition_platformer2d_actor_monolith` carve** ([`engine/decomposition.md`](engine/decomposition.md)
-  "Settled ruling"); what remains is **role-driven eviction** — misplaced
-  product/presentation/observation code leaves the sim heart through the
-  open seams (the `ControlPrompt` inversion pattern), and navigability below
-  crate level comes from module ownership + the generated `.agent` maps.
+  **Extensibility, pluggability, compile isolation, and agent navigation remain
+  high priorities.** The actor monolith is now an active incremental
+  decomposition target: consumer-footprint measurements and compile-unit cost
+  have both crossed the threshold for a carve. Boundaries are chosen by semantic
+  ownership and dependency direction, not by mirroring directories or slicing
+  by LOC. See
+  [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
 - All four named demos exist and pass the oracle — they exercise the shared
-  engine contracts with no parallel private engine paths; the ambition sandbox
+  engine contracts with no parallel private engine paths; the Ambition game
   can host each demo in-world (§5).
 - The collision doctrine of
   [`engine/collision-and-ccd.md`](engine/collision-and-ccd.md) holds: every
@@ -136,7 +135,7 @@ vectors; they get full design docs when their tier opens.
 
 ## 5. Ambition hosts the demos (maximum composability, forced honesty)
 
-The ambition sandbox app depends on the demo **content** crates and mounts
+The Ambition app depends on the demo **content** crates and mounts
 each demo inside the LDtk world: possess Sanic in the Hall of Characters, walk
 into the Sanic demo zone, and that game plays *as if launched standalone* —
 same rules, same systems — with only presentation differences (the standalone

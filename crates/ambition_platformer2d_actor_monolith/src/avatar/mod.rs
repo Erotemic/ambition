@@ -1,27 +1,19 @@
-//! **The HOME AVATAR** — the body slot 0 owns and returns to, and the policy that
-//! belongs to the local human rather than to any body.
+//! Historical slot-0/home-body and protagonist integration.
 //!
-//! This module was `player/`. Its name was the last structural claim that the
-//! player is a KIND OF THING rather than a brain and a slot. Everything in it that
-//! was not actually the home avatar's has left (the S5/S6 fold,
-//! `docs/archive/reviews/refactor-chain-residue-2026-07-16.md` R6):
+//! This module is **not** a permanent actor-domain boundary. `ControlledSubject`
+//! answers which body currently has control authority; `PrimaryPlayer` answers a
+//! different, narrower question about slot 0's own body. The engine may eventually
+//! retain little or no privileged home-body policy at all.
 //!
-//! | What left | Where it went | Why |
-//! |---|---|---|
-//! | `BodyAnimFacts`, `BodyMelee` | `crate::actor` (→ `ambition_characters`) | body vocabulary; every actor has it |
-//! | `LocalPlayer`, `PlayerInputFrame`, the slot gestures, the two input bridges | [`crate::control`] | the device→slot→body seam is a wire, not a kind |
-//! | the affordance table | [`crate::affordances`] | a BRIDGE: input × body × world → verb |
-//! | `movement_fx`, `swim`, `ledge_grab` | [`crate::features`] | body mechanics; two of them named no `crate::` type at all |
+//! During the active actor-monolith decomposition, move each responsibility to
+//! its real owner instead of extracting an `avatar` crate: body mechanics and
+//! intrinsic capabilities go to actor/body capability owners; starting-character
+//! identity and preparation go to provider/session owners; retained slot/home-body
+//! lifecycle policy goes to session/control; camera reactions and trails go to
+//! presentation.
 //!
-//! **What is left is named correctly.** The home avatar is a real concept — during
-//! possession it is precisely the body that is NOT the controlled subject, so
-//! nothing else can find it. Its identity bundle, its respawn safety and blink
-//! camera, its starting character, its emitted trail, and the tick that integrates
-//! it all belong to slot 0 by design, not by omission.
-//!
-//! **Nothing here is the ONLY path for anything.** A body's motion, melee, damage,
-//! and abilities run the same seams every actor runs; the avatar differs in its
-//! INPUT FRAME and its RESPAWN POLICY, and that is all.
+//! A body's motion, melee, damage, inventory, and abilities follow body-owned
+//! simulation seams regardless of which participant currently controls it.
 //!
 //! Submodules:
 //! - [`components`] — the home avatar's policy state (respawn safety, blink camera).

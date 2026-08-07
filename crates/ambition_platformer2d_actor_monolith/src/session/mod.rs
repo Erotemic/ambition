@@ -1,4 +1,4 @@
-//! Sandbox SESSION lifecycle: startup setup ([`setup`]), full
+//! Ambition-game session lifecycle: startup setup ([`setup`]), full
 //! reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue.
 //! Coarse `GameMode` state and camera layer markers now live in
 //! `ambition_platformer2d_shared_tangle`.

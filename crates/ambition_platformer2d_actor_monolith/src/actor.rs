@@ -1,5 +1,5 @@
-//! The neutral **actor vocabulary** home for shared sim-state — the components
-//! every actor carries, the player included.
+//! The neutral **actor vocabulary** home for shared sim-state — components any
+//! simulation body may carry, including bodies under participant control.
 //!
 //! Establishing this module is step 4 (the keystone) of the unified-actors plan
 //! (`docs/planning/engine/unified-actors.md` / `engine/architecture.md`): the
@@ -9,9 +9,10 @@
 //! here dissolves those back-edges so the runtime domains can extract into leaf
 //! crates.
 //!
-//! **Rule:** new *shared* sim-state (state every actor has) lands here on the
-//! actor vocabulary, never on a `Player*`-named component. Genuinely player-only
-//! state (camera, HUD, device input, wallet) stays in `crate::avatar`.
+//! **Rule:** new shared body sim-state lands on neutral actor/body vocabulary,
+//! never on a participant-specific component merely because one body is currently
+//! controlled. Camera/HUD/device concerns remain outside body authority; body-owned
+//! inventory, economy, capabilities, motion, and combat stay with the body.
 //!
 //! Slice 0 re-homed [`BodyKinematics`] (the single position / velocity / size /
 //! facing component the player, enemies, NPCs, and bosses all share). Slice 0b

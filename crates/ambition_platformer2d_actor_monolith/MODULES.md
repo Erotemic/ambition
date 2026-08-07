@@ -9,13 +9,13 @@
 | [`abilities`](src/abilities/mod.rs) | Ambition's player ability / weapon kit. |
 | [`ability_cooldown`](src/ability_cooldown.rs) | Shared cooldown for the movement abilities (Blink, Grapple) so they read as deliberate verbs instead of spammable teleports. |
 | [`action_scheme`](src/action_scheme.rs) | Materializing each body's [`ActorActionScheme`] — the OBSERVATION CACHE of its derived slot→action scheme. |
-| [`actor`](src/actor.rs) | The neutral **actor vocabulary** home for shared sim-state — the components every actor carries, the player included. |
-| [`affordances`](src/affordances/mod.rs) | Player affordances: "what would each button do right now?" |
+| [`actor`](src/actor.rs) | The neutral **actor vocabulary** home for shared sim-state — components any simulation body may carry, including bodies under participant control. |
+| [`affordances`](src/affordances/mod.rs) | Controlled-body affordances: "what would each input do right now?" |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
-| [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition sandbox. |
-| [`avatar`](src/avatar/mod.rs) | **The HOME AVATAR** — the body slot 0 owns and returns to, and the policy that belongs to the local human rather than to any body. |
-| [`body_mode`](src/body_mode/mod.rs) | Sandbox-side body-mode driver: facade re-exporting [`update_body_mode`]. |
-| [`boss_encounter`](src/boss_encounter/mod.rs) | Sandbox-side coordinator for boss fights (distinct from the generic `crate::encounter` enemy-wave system). |
+| [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition game. |
+| [`avatar`](src/avatar/mod.rs) | Historical slot-0/home-body and protagonist integration. |
+| [`body_mode`](src/body_mode/mod.rs) | Body-mode driver: facade re-exporting [`update_body_mode`]. |
+| [`boss_encounter`](src/boss_encounter/mod.rs) | Ambition-game coordinator for boss fights (distinct from the generic `crate::encounter` enemy-wave system). |
 | [`causal`](src/causal.rs) | This crate's causal facts. |
 | [`character_runtime`](src/character_runtime/mod.rs) | **The engine owns turning a declared character into loaded art.** |
 | [`character_sprites`](src/character_sprites/mod.rs) | Spritesheet metadata, atlas/animation logic, and loading for every animated character (player robot, goblins, sandbag, boss, NPCs). |
@@ -34,16 +34,16 @@
 | [`gravity`](src/gravity/mod.rs) | Gravity-zone mechanic. |
 | [`host`](src/host/mod.rs) | Host vocabulary that machinery reads: windowing/display-mode types consumed by the settings model and menu IR. |
 | [`items`](src/items/mod.rs) | Actor-sim item adapters. |
-| [`menu`](src/menu/mod.rs) | Unified menu content for the sandbox. |
-| [`music`](src/music/mod.rs) | Sandbox music adapters over the `ambition_audio` music core. |
+| [`menu`](src/menu/mod.rs) | Unified menu content for the Ambition game. |
+| [`music`](src/music/mod.rs) | Ambition-game music adapters over the `ambition_audio` music core. |
 | [`participant_seat`](src/participant_seat.rs) | **The `ParticipantId` ↔ `PlayerSlot` correspondence, in ONE place.** |
 | [`persistence`](src/persistence/mod.rs) | Compatibility adapter for persistence paths that still sit inside the gameplay-core UI surface. |
 | [`physics`](src/physics.rs) | Shared world physics facade. |
 | [`platformer_runtime`](src/platformer_runtime/mod.rs) | Proto-runtime facade for reusable platformer systems. |
-| [`projectile`](src/projectile/mod.rs) | Sandbox PLAYER-faction projectile glue. |
+| [`projectile`](src/projectile/mod.rs) | Controlled-body projectile integration around the reusable projectile model. |
 | [`quest`](src/quest/mod.rs) | Gameplay-core adapter for the generic quest runtime. |
 | [`schedule`](src/schedule/mod.rs) | Schedule + input-frame vocabulary shared by the machinery lib, the content crate, and the app crate. |
-| [`session`](src/session/mod.rs) | Sandbox SESSION lifecycle: startup setup ([`setup`]), full reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue. |
+| [`session`](src/session/mod.rs) | Ambition-game session lifecycle: startup setup ([`setup`]), full reset/respawn ([`reset`]), RON data manifests ([`data`]), and setup glue. |
 | [`shrine`](src/shrine.rs) | Healing / save-point shrine. |
 | [`snapshot_impls`](src/snapshot_impls.rs) | `SnapshotState` for this crate's own types — the rollback wire format. |
 | [`time`](src/time/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
@@ -56,22 +56,26 @@ _42 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 ## Notes
 
-**Read this first if you are about to change something here.** This crate is the
-residual `ambition_platformer2d_actor_monolith` the decomposition left: 63.5k total src lines
-(units: TOTAL, incl. tests). The 2026-07-10 ledger ruling
-([`docs/planning/engine/decomposition.md`](../../docs/planning/engine/decomposition.md))
-says no further crate split is owed — navigability below the crate line is won by
-the D-B standard (every module ≤ ~1.5k lines with a `//!` header stating its ONE
-concern, plus this map), not by more crates.
+**Read this first if you are about to change something here.** This crate is an
+active decomposition target. At the 2026-08-07 planning baseline it contains
+110,911 Rust lines under `src/`; with Cargo incremental compilation disabled,
+that size is also an edit-loop cost. The current strategy is to subtract coherent
+domains little by little, guided by dependency/authority evidence, until the
+residue is honestly the actor/body/control simulation domain. See
+[`docs/planning/engine/actor-monolith-decomposition.md`](../../docs/planning/engine/actor-monolith-decomposition.md).
 
-### The three modules whose names mislead
+The generated module map and `.agent` inventories are navigation evidence for
+choosing slices; they are not a reason to preserve today's directory boundaries
+as crates.
 
-| Name | What it actually is |
+### Historical names to interpret during the carve
+
+| Name | What it currently means / where it is headed |
 |---|---|
-| `features` | **the enemy / NPC / boss ECS ACTOR SIMULATION.** Not a feature-toggle layer. "Features" here means in-world entities. The `features/` rename rides the S5/S6 player fold (refactor-chain R6). |
-| `actor` (singular) | the neutral **body VOCABULARY** — components every actor carries, the player included. Not systems. New shared body state lands here, never on a `Player*` component. |
-| `player` | what is LEFT of player-centrism after R6a–R6c took out the body vocabulary and the control seam: home-avatar POLICY (respawn safety, blink camera, identity bundle, starting character) plus the body mechanics still to be re-homed. The directory finishes dissolving in the rest of R6. |
-| `control` | **the local control seam** — device frame → slot → the body carrying that slot's player brain. Not player-centrism: it is the wire between a human and a body. Downstream of it, nothing holds `Res<ControlFrame>`. |
+| `features` | **the enemy / NPC / boss ECS ACTOR SIMULATION**, not a feature-toggle layer. Peel optional domains first; rename the residue only when its ownership is honest. |
+| `actor` (singular) | neutral body vocabulary, not the whole actor runtime. Shared body state belongs here or in a lower canonical owner rather than on participant-specific types. |
+| `avatar` | historical slot-0/home-body and protagonist integration. Do not extract an `avatar` crate; dissolve its mechanics, lifecycle policy, preparation, and presentation responsibilities into their actual owners. |
+| `control` | local participant/input-source → slot/channel → controlled-body seam. Downstream body simulation should not depend on a privileged participant identity. |
 
 ### Authoritative state — who mutates what
 

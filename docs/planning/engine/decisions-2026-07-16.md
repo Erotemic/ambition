@@ -157,10 +157,14 @@ questions from LOC counts or terminology alone.
    advance (accepted #7).
 5. **Boss crate justification** — re-asked after convergence (accepted #6).
 
-## 6. Explicit non-goals (do not reopen from LOC/terminology alone)
+## 6. Explicit non-goals that still stand
 
-- **No further `ambition_platformer2d_actor_monolith` crate split** (2026-07-10 ruling stands; the
-  leaf modules are the existing residue queue, not a new carve).
+The 2026-07-10 prohibition on further actor-monolith decomposition is retired.
+Later consumer-footprint and compile-iteration evidence crossed the threshold it
+was waiting for; the active replacement is
+[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md). The
+remaining non-goals below still stand unless separately superseded.
+
 - **No `ambition_platformer2d_core` split** (measured coherent kernel; ~5s rebuild).
 - **No sim_view types/builders inversion** (considered and rejected: splits
   types from their builders; the pull model quarantines the actors dep in

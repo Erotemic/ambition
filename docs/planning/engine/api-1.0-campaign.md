@@ -840,9 +840,13 @@ The first draft of ADR 0032 conflated them; it has been corrected.
   is what made the public promise expressible at all. §4's carve authorisation
   covered it exactly: a leak that cannot be closed without moving code between
   crates authorises the boundary the leak names.
-* **Any `ambition_platformer2d_actor_monolith` decomposition.** See
-  [api-growth-method.md](api-growth-method.md) §4 for the two conditions that
-  authorise it.
+* **Actor-monolith decomposition.** The movement-only footprint measurement
+  subsequently fired the carve condition: unrelated capability crates remain in
+  the consumer closure because actors bring them. Ongoing incremental work is
+  owned by
+  [actor-monolith-decomposition.md](actor-monolith-decomposition.md); the public
+  API campaign remains evidence for the consumer boundary rather than a reason to
+  postpone the carve.
 * **The capability-composition doctrine.** Derived at the end, not written at
   the start (ADR 0031, Alternatives).
 

@@ -1,6 +1,6 @@
-//! Audio runtime for the Ambition sandbox.
+//! Audio runtime for the Ambition game.
 //!
-//! All audio playback in the sandbox is **authored**: pre-rendered OGG
+//! All Ambition-game audio playback is **authored**: pre-rendered OGG
 //! music tracks loaded through the asset manager catalog, and SFX served
 //! from the packed `.sfxbank` (also catalog-routed). Kira owns the
 //! backend, channels, fades, and looping. The old runtime fundsp

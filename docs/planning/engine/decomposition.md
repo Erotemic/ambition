@@ -8,34 +8,33 @@ Current accepted work is in [`../tracks.md`](../tracks.md).
 ## What earns a crate
 
 A crate split must create a durable semantic boundary with at least one concrete
-benefit: a lower dependency surface, an independently usable engine face, an
-independent owner/test surface, or elimination of a misleading composition
-boundary. Size alone is not sufficient.
+benefit: lower dependency/rebuild fanout, an independently usable engine face,
+an independent owner/test surface, or elimination of a misleading composition
+boundary. Crate size and compile cost are valid reasons to require decomposition;
+they do not, by themselves, tell us where the durable boundaries belong.
 
-Prefer internal modules when code shares runtime authority, schedule ordering,
-private invariants, and nearly all consumers. Do not replace one understandable
+Prefer internal modules when code truly shares runtime authority, schedule
+ordering, private invariants, and nearly all consumers. Do not replace one large
 crate with a chain of forwarding facades or abstract service traits.
 
-## Settled ruling: no size-driven `ambition_platformer2d_actor_monolith` carve
+## Active ruling: incrementally decompose `ambition_platformer2d_actor_monolith`
 
-The post-carve actor crate is the authority-woven simulation adapter around one
-body/control/motion path. Its remaining mass is spread across actor spawning,
-perception, control, body integration, boss policy, world/contact adapters,
-projectile victim routing, presentation publication, and content hooks. Splitting
-those by LOC would risk recreating player/enemy/boss paths and does not produce a
-clean independent consumer.
+The July-era "no further carve owed" ruling is retired. The condition it was
+waiting for has fired: the API campaign measured a movement-only consumer that
+still inherits 15 unrelated capability crates through the actor monolith, and
+the compile-iteration audit established that the crate is a major rebuild unit
+with Cargo incremental compilation disabled. The current source is also now well
+over 100k Rust lines.
 
-This ruling does not protect misplaced named content or prevent a later split
-that a real second consumer demonstrates. In particular, boss decomposition is
-reassessed only after boss execution converges onto the canonical moveset path.
+The active plan is
+[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md). It is a
+subtractive campaign: peel coherent domains out little by little, prefer existing
+owners, remove real Cargo edges, and leave the central actor/body/control kernel
+until the surrounding dependency graph has become honest. Do not split the crate
+by line count or mirror today's directory tree into new crates.
 
-**The trigger above now has a defined mechanism** (2026-07-30). "A real second
-consumer demonstrates" is not a judgement call: it is the terminal condition in
-[`api-growth-method.md`](api-growth-method.md) § 4 — the campaign carves
-`ambition_platformer2d_actor_monolith` when, and only when, the highest-cost remaining consumer leak
-cannot be closed without moving code between crates. The carve is then designed
-from the leak (which names the boundary a consumer could not be given) rather
-than from the module list (which names today's internal topology). See
+The public facade remains the compatibility boundary; internal ownership can move
+without making consumers follow the historical crate topology. See
 [ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md).
 
 ## E4 — one-way observation boundary
@@ -180,6 +179,9 @@ opaque discovery is not a goal.
 
 ## Current decomposition work
 
-Only the current queue in [`../tracks.md`](../tracks.md) is active. Completed
-carve IDs, old LOC projections, compile-time samples, and execution task cards
-are historical evidence and must not be reintroduced here.
+The actor-monolith campaign is active in
+[`actor-monolith-decomposition.md`](actor-monolith-decomposition.md). Execution
+slices may be scheduled through [`../tracks.md`](../tracks.md), but the durable
+boundary rules and baseline measurements live in that focused plan. Completed
+carve IDs and task-card narration belong in git history or the archive rather
+than accumulating here.

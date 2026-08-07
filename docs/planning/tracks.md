@@ -472,8 +472,10 @@ implementation cannot accidentally violate either one.
 
 ## ▢ 7. Role evictions from the sim heart — [opus]
 
-Deep-review §6 (all carve-doctrine-safe; the settled "no size-driven carve"
-ruling stands — these are ROLE moves, each with a named destination):
+Deep-review §6 remains useful as the first set of role-driven evictions, but
+the old "no size-driven carve" ruling is retired. These tasks now serve the
+active incremental actor-monolith campaign in
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md):
 
 - move `ambition_platformer2d_actor_monolith/src/menu/` (product Map-tab/settings-IR content) to the
   game side; drop actors' menu/settings_menu edges;

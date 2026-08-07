@@ -1,4 +1,4 @@
-//! Sandbox music adapters over the `ambition_audio` music core.
+//! Ambition-game music adapters over the `ambition_audio` music core.
 //!
 //! Game-side music glue: [`intent`] (encounter / room / radio state ->
 //! [`MusicIntent`]), authored goblin cue data, and settings ->

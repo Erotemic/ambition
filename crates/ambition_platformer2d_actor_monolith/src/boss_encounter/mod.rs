@@ -1,4 +1,4 @@
-//! Sandbox-side coordinator for boss fights (distinct from the generic
+//! Ambition-game coordinator for boss fights (distinct from the generic
 //! `crate::encounter` enemy-wave system).
 //!
 //! Boss HP/phase state is ENTITY-LOCAL (`BossEncounter.health` +

@@ -1,7 +1,7 @@
-//! Player affordances: "what would each button do right now?"
+//! Controlled-body affordances: "what would each input do right now?"
 //!
-//! The affordance table is the single source of truth bridging player
-//! input + player state + world state to the verb each input would
+//! The affordance table bridges participant input + controlled-body state +
+//! world state to the verb each input would
 //! invoke this frame. The HUD reads it to label each on-screen button;
 //! gameplay code (today: nothing; future: the attack / jump / shield
 //! subsystems) will read the same table so the HUD can never disagree

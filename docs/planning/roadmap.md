@@ -98,6 +98,7 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 | M25 | Session content is assembled deterministically, fingerprinted, and frozen; world construction is planned and validated before mutation, with explicit entity provenance. | [`engine/immutable-content-and-transactional-construction.md`](engine/immutable-content-and-transactional-construction.md) |
 | M27 | GGRS and bevy_ggrs are the sole ephemeral rollback authority; Ambition owns only deterministic domain registration, exact content/schema binding, and session policy. | [`../adr/0027-ggrs-is-the-sole-rollback-authority.md`](../adr/0027-ggrs-is-the-sole-rollback-authority.md) |
 | M26 | Room transitions are readiness-gated and progressively disclosed: the source room remains authoritative until one-shot target commit; fast loads avoid loading foregrounds, and slow or expensive commits occur behind a rendered cover without exposing partial rooms. | [`engine/room-transition-loading.md`](engine/room-transition-loading.md) |
+| M28 | The actor monolith is decomposed incrementally by semantic ownership, with compile isolation and minimal-consumer dependency closure as explicit success measures. | [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md) |
 
 ## Durable uncertainties
 
@@ -106,7 +107,7 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 - **Feel drift:** use per-body data and differential/property tests, never divergent kernels.
 - **Deep host services:** audio/save/network services may need a small explicit contract when a real provider demands it.
 - **Placement extension:** the common Tier-0 schema remains closed; whether providers ever receive a separate authored-placement channel is open.
-- **Public naming:** the provider crate shipped as `ambition_platformer2d_provider`; engine/repository split timing and final `ambition_platformer2d_actor_monolith`/`features` names remain unsettled.
+- **Public naming:** the provider crate shipped as `ambition_platformer2d_provider`; engine/repository split timing remains unsettled. The actor monolith keeps its temporary name during the active carve; the final actor/residual names are chosen only after ownership has been drained enough to make them honest.
 - **Boss carve:** convergence permits reassessment, but the current source review has not identified a concrete reuse, dependency, or build boundary; the maintainer ruling remains open.
 - **Online transport:** GGRS integration is landed; Matchbox signaling/WebRTC and production connection policy are DEFERRED to the Super Smash Siblings era (Jon, 2026-07-24) — no netplay work before a game needs it.
 

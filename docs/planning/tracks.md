@@ -744,11 +744,36 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   WALL time deliberately — a player holding a button for 1.2 seconds means 1.2
   seconds of their life, not of a slow-motion world's, which is the opposite of
   the `elapsed` decision one bullet up and the reason the two live apart.
-- ▢ Cutscene authority (model 1): write the semantic-playback state shape
-  (beat index, deterministic elapsed, advance/skip edges through
-  participant input) vs derived presentation FIRST; hold-to-skip stays a
-  local accumulator, only the completed edge crosses. Frame-mode transport:
-  Option A (modes ride `ControlFrame`). Then implement.
+- ✅ **LANDED — verified clause by clause 2026-08-07, having been written as
+  design-before-code for a design that is now code.** Every part of the
+  prescription exists:
+  * **semantic-playback state shape** — `CutsceneRuntime { script, beat_index,
+    elapsed }`, and `ambition_cutscene/src/lib.rs:65` states the property the row
+    was asking for in the row's own terms: *"it is a pure function of `(script,
+    beat_index, elapsed)`"*.
+  * **vs derived presentation** — `ActiveCutscene { runtime, presentation }`, with
+    `presentation` documented as *"a cache of a pure function, and the tick that
+    advances `runtime` is the only writer"*. Stored rather than computed for a
+    stated reason (Bevy readers cannot allocate a projection per frame), which is
+    the derived-not-authoritative shape the row wanted.
+  * **deterministic elapsed** — landed 2026-08-06, one bullet above.
+  * **hold-to-skip stays a local accumulator, only the completed edge crosses** —
+    landed 2026-08-06; `CutsceneSkipHold` is input-local and the comment at
+    `update_cutscene_request_from_menu` says exactly that.
+  ⚠ **one deliberate deviation, and it is the better answer.** The row specified
+  Option A, *modes ride `ControlFrame`*. The edges ride **`MenuControlFrame`**
+  instead — the menu-intent frame, not the gameplay one. A cutscene is not
+  gameplay input, and routing a skip through the gameplay frame would put it in
+  the channel that gets suppressed in UI modes.
+  ▢ **what is genuinely NOT done, stated so it is not mistaken for done**: the row
+  says *"through participant input"*, and the skip reads the GLOBAL
+  `MenuControlFrame` rather than a seat's. So any seat skips for everyone, with no
+  attribution — the same question R2 answered for dialogue. ⭐ **but the answer is
+  probably different here, which is why this is a note and not a row**: a
+  conversation has a TALKER and a cutscene has an audience. Everyone watching a
+  shared cutscene has an equal claim to end it, so global may be correct rather
+  than merely unimplemented. Worth one sentence from Jon before anyone builds
+  per-seat skip attribution on the assumption that dialogue's answer transfers.
 
 ## 0. Pay down the GGRS correctness debt — **LARGELY LANDED 2026-07-19**
 

@@ -211,6 +211,29 @@ not invitations to build replacements. They are integration and completeness
 reviews whose output may be "use the existing Bevy path and delete Ambition
 special cases."
 
+### Related-work companion pages
+
+The capability matrix is intentionally terse. The outside comparisons that most
+directly pressure still-open engine contracts are recorded under
+[`docs/related-work/`](../../related-work/README.md):
+
+- [participant input, control authority, and possession](../../related-work/participant-input-control-and-possession.md)
+  for Tasks 3 and 8, especially context arbitration, local-N routing, possession,
+  frame policy, and view/control separation;
+- [actions, abilities, and temporal ownership](../../related-work/actions-abilities-and-temporal-ownership.md)
+  for Task 3's remaining non-melee lifecycle design;
+- [deterministic simulation, rollback, and replay](../../related-work/deterministic-simulation-rollback-and-replay.md)
+  for Tasks 1–2 and the production-transport boundary;
+- [diagnostics, causality, and frame inspection](../../related-work/diagnostics-causality-and-frame-inspection.md)
+  for Task 12's cross-tick explanation and enforced-budget frontier;
+- [authoring, world composition, and deterministic preparation](../../related-work/authoring-world-composition-and-preparation.md)
+  for Task 5 and the acceptance-driven editor/importer boundary.
+
+These pages are evidence, not a second roadmap. Their recurring recommendation
+is to **integrate general engine machinery, compete on complete platformer author
+workflows, and differentiate where deterministic specialization gives Ambition a
+stronger semantic contract.**
+
 ---
 
 ## 5. What Ambition already has and must protect

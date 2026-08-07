@@ -54,3 +54,46 @@ CONCEPTS over claims about spellings.
 * [Shell vocabulary: provider, experience, route](shell-vocabulary-in-other-engines.md)
   — what Unreal, Unity and Godot call the things our shell calls providers,
   experiences and routes. Checked 2026-08-07.
+* [Participant input, control authority, and possession](participant-input-control-and-possession.md)
+  — per-user devices, contexts, possession, spatial interpretation, local-N, and
+  why view ownership should remain a separate relation. Checked 2026-08-07.
+* [Actions, abilities, and temporal ownership](actions-abilities-and-temporal-ownership.md)
+  — Unreal GAS versus Ambition's landed action seam, and the minimum shared
+  lifecycle still worth designing. Checked 2026-08-07.
+* [Deterministic simulation, rollback, and replay](deterministic-simulation-rollback-and-replay.md)
+  — Photon Quantum, Unity and Unreal prediction compared with Ambition's
+  headless/rollback contract and scenario-tooling frontier. Checked 2026-08-07.
+* [Diagnostics, causality, and frame inspection](diagnostics-causality-and-frame-inspection.md)
+  — where to integrate general profilers and where semantic cross-tick
+  explanation can distinguish the engine. Checked 2026-08-07.
+* [Authoring, world composition, and deterministic preparation](authoring-world-composition-and-preparation.md)
+  — prefabs/scenes/world layers versus `PreparedContent` and transactional
+  construction. Checked 2026-08-07.
+
+## Competitive design frontiers
+
+The pages above are not a checklist for copying large engines. They should make
+three outcomes explicit:
+
+1. **Integrate** where Bevy or mature engine tooling already solves a general
+   problem well (profiling, renderer/editor-facing visualization, asset plumbing).
+2. **Compete** where a 2D platformer engine needs a complete conventional author
+   experience (participant-local input, actions, content reuse, rollback proof).
+3. **Differentiate** where Ambition's architecture enables a stronger contract:
+   persistent participant/control authority, body-owned spatial interpretation,
+   deterministic preparation, rollback outside networking, and semantic causal
+   explanation.
+
+The competitive roadmap is the binding plan. Related-work pages are evidence and
+design pressure: recommendations here become architecture only when the relevant
+plan/ADR adopts them.
+
+## Highest-leverage open comparisons
+
+| Frontier | Design still owed | Competitive/differentiating bar |
+|---|---|---|
+| Participant/control | action-specific context arbitration; PA5 participant-keyed routing; PA6 synchronized frame policy | Unity/Unreal-grade device/context ergonomics without conflating participant, control authority, body, spatial frame, or view |
+| Action lifecycle | minimum shared temporal record beyond melee; cost/cooldown transaction timing; confirmed/speculative effects | GAS-quality lifecycle semantics without forcing every mechanic through one universal ability/effect framework |
+| Rollback/replay | declarative scenarios; correction-aware effect identity; measured rollback workload gates | deterministic rollback as a normal headless/replay/debug contract, not merely a multiplayer mode |
+| Diagnostics | cross-tick causal edges; corrected-history inspection; enforced per-host budgets | answer platformer-specific *why* / *why not* questions on the same facts CI and headless tests use |
+| Authoring/construction | public reusable-definition shape; hot-reload transaction UX; schema evolution; dependency readiness | prefab-like authoring convenience lowered through immutable prepared content and transactional construction rather than making an editor object graph authoritative |

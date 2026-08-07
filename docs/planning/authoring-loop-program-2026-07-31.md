@@ -323,6 +323,20 @@ pieces, and the third is the whole cost:
    ⚠ threading the ladder to those two sites is a signature change through their
    callers. That is the estimate: the schema is a morning, the threading is the
    slice.
+   ⭐ **the carrier already exists, found 2026-08-07 and it lowers the estimate**:
+   `BrainBuildContext` (`character_catalog/binding.rs`) is a per-spawn context
+   already threaded into `brain_from_preset_with_context`, carrying
+   `spawn_world_x` and `patrol_radius`. The ladder is the same KIND of thing — a
+   per-spawn fact the resolver needs and cannot look up — so it belongs there
+   rather than in a new parameter on four functions. ⚠ the catch: today the
+   `Fighter` arm lives in the CONTEXT-FREE `brain_from_preset`, and the context
+   variant delegates to it for every non-patrol preset. So the Fighter arm has to
+   move into the context-aware path first, which is the same shape the patrol arm
+   already has.
+
+**✔ the seam itself is LANDED** (`profile_for_level`, `ambition_characters`), with
+a probe verified red by poison. Nothing calls it yet, so no behaviour has moved —
+the remaining work is the schema, the load, and the carrier above.
 
 ### ✔ RESOLVED — the placement blocker, and what it actually was
 

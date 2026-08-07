@@ -183,9 +183,22 @@ matrix.
    would otherwise re-derive it.
 3. **`ControlFrame`** (the device latch) still carries raw `f32` axes; typed
    `ScreenAxes` begin at the resolution seams that consume it.
-4. **Sanic ball dash** writes `SurfaceMotion::Riding { v_t }` directly from
-   demo content; a typed tangential-impulse op on `SurfaceMomentumMotion`
-   would close it.
+4. ✅ **CLOSED 2026-08-07** — `SurfaceMomentumMotion::set_tangential_speed`,
+   `scale_tangential_speed` and `tangential_speed`, with Sanic's two reach-ins
+   migrated onto them.
+   ⚠ **the name in this item was wrong, and the correction is the useful half.**
+   It asked for a *tangential-impulse* op. Neither operation the demo performs is
+   an impulse: the ball-dash launch SETS (`*v_t = facing * speed`) and the
+   post-goal brake SCALES (`*v_t *= keep`). They are two ops because scaling
+   preserves direction and setting does not — a brake routed through a setter
+   would have to read the sign back out, which is the reach-in this closes.
+   ⭐ **and it buys more than tidiness.** The kernel's sign convention (`v_t`
+   shares facing's sign, because integration is `v_t += run * accel * dt` with
+   `run = locomotion.x`) was written out in THREE comments inside the demo; it
+   lives on the op now. And each caller used to match `SurfaceMotion` itself and
+   decide what AIRBORNE meant — the launch has an answer (write kinematic
+   velocity along the local side axis), the brake does not — which the ops now
+   return as a `bool` instead of leaving each site to remember.
 5. **Block→chain crawl transfer**: a block-attached crawler does not migrate
    onto an overlapping chain (and vice versa) without detaching first; the
    two surface domains are authored separately today.

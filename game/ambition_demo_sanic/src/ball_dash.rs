@@ -284,7 +284,8 @@ pub fn tick_ball_dash(
         &mut bodies
     {
         let frame = resolved_frame.basis();
-        let ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(m) = &mut *motion else {
+        let ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(m) = &mut *motion
+        else {
             // A Sanic on the AABB path is a Sanic in a different demo. Nothing
             // here reaches for `MotionModel::AxisSwept`, on purpose: the verb is
             // defined against the momentum kernel's `v_t`, and faking it with a
@@ -323,7 +324,9 @@ pub fn tick_ball_dash(
                     sfx.write_for(
                         entity,
                         ambition_platformer2d::sfx::SfxMessage::Play {
-                            id: ambition_platformer2d::sfx::SfxId::from_static(crate::rev_tier_id(charge)),
+                            id: ambition_platformer2d::sfx::SfxId::from_static(crate::rev_tier_id(
+                                charge,
+                            )),
                             pos: kin.pos,
                         },
                     );
@@ -332,17 +335,15 @@ pub fn tick_ball_dash(
             BallDashStep::Launch(charge) => {
                 let speed = tuning.launch_speed * charge;
                 let facing = if kin.facing == 0.0 { 1.0 } else { kin.facing };
-                match &mut m.state {
-                    ae::SurfaceMotion::Riding { v_t, .. } => {
-                        // The kernel integrates `v_t += run * accel * dt` with
-                        // `run = locomotion.x`, so `v_t` and facing share a sign.
-                        *v_t = facing * speed;
-                    }
-                    ae::SurfaceMotion::Airborne => {
-                        // No tangent to speak of; the local side axis is the
-                        // kernel's own airborne convention.
-                        kin.vel = frame.side * facing * speed;
-                    }
+                // ⭐ the sign convention (`v_t` shares facing's sign, because the
+                // kernel integrates `v_t += run * accel * dt` with
+                // `run = locomotion.x`) now lives on the op rather than in a
+                // comment here. The `false` branch is the airborne case, which
+                // this launch DOES have an answer for.
+                if !m.set_tangential_speed(facing * speed) {
+                    // No tangent to speak of; the local side axis is the
+                    // kernel's own airborne convention.
+                    kin.vel = frame.side * facing * speed;
                 }
                 // The release whoosh — distinct from the generic dash cue.
                 sfx.write_for(
@@ -377,7 +378,8 @@ pub fn tick_rolling(
     tuning: Res<BallDashTuning>,
 ) {
     for (entity, motion, mut kin, rolling) in &mut bodies {
-        let ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(m) = motion else {
+        let ambition_platformer2d::actors::features::MotionModel::SurfaceMomentum(m) = motion
+        else {
             continue;
         };
         // Airborne, speed is the world velocity's magnitude; riding, it is |v_t|.
@@ -484,7 +486,9 @@ pub fn attach_ball_dash(
             // technique auto-attaches `ResolvedTechniqueEdges` (required-component
             // of `ActorTechniques`) — the sanctioned edge the gate writes and
             // `capture_ball_dash_input` reads — so the seam can never be missing.
-            ambition_platformer2d::characters::action_scheme::ActorTechniques(vec![spin_dash_technique()]),
+            ambition_platformer2d::characters::action_scheme::ActorTechniques(vec![
+                spin_dash_technique(),
+            ]),
         ));
     }
 }

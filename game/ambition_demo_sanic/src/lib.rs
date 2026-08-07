@@ -2287,13 +2287,10 @@ fn take_the_controls_at_the_goal(
     // edge; k=9 stops him in ~120 and leaves real margin.
     const BRAKE_PER_SECOND: f32 = 9.0;
     let keep = (1.0 - BRAKE_PER_SECOND * time.sim_dt()).clamp(0.0, 1.0);
-    match &mut *motion {
-        ae::MotionModel::SurfaceMomentum(momentum) => {
-            if let ae::SurfaceMotion::Riding { v_t, .. } = &mut momentum.state {
-                *v_t *= keep;
-            }
-        }
-        _ => {}
+    if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *motion {
+        // A brake has no airborne answer — the kinematic velocity below is that
+        // half — so the `false` return is deliberately ignored here.
+        momentum.scale_tangential_speed(keep);
     }
     if let Ok(mut kin) = kinematics.get_mut(entity) {
         kin.vel.x *= keep;

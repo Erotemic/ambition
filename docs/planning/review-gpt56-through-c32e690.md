@@ -49,7 +49,7 @@ dialogue ownership → per-seat menu calibration → device-aware binding select
 
 ---
 
-## R1 — the conversation authority ▢
+## R1 — the conversation authority ✔
 
 **Confirmed, and it is the serious one.** Two mechanisms, both real:
 
@@ -108,6 +108,49 @@ beat's `ScriptedControl`. That is impossible today by construction —
 body while this marks the NPC — and the projection preserves that separation
 rather than relying on it. Assert the invariant, and poison it with a body
 wearing both a stale conversation marker and a death hold.
+
+### What landed, and what it turned up
+
+⭐ **the continuity code left `features/ecs/interact.rs` entirely.** Jon,
+2026-08-07: *"if we add things to the monolith, try to do it so it's obvious what
+the decomposition should be. we will need to address that bloat in the coming
+days."* So this is not an addition to the pile — `crate::conversation` is four
+small files (`authority`, `hold`, `rules`, `ui_bridge`) whose module header
+carries the carve accounting: every outward edge is already a crate BELOW the
+monolith, and exactly ONE inward edge remains
+(`features::npc_ambient_bark_line`, named as a `pub(crate) use` rather than
+opening the whole `npcs` module, so the size of the remaining coupling is
+visible). What stays in `interact.rs` is the moment somebody presses Interact —
+keeping a conversation alive was never an interaction.
+
+⛔ **the first draft of the projection reintroduced the bug, and the probe is why
+that is a footnote rather than a shipped defect.** The insert was gated on
+`held.get(talker).is_err()` — the same memo shape, so a rewind that left the
+marker would still skip restoring the override. The gate has to ask whether the
+body is FULLY held (both components), which makes every half-state self-repairing
+without knowing which half went missing.
+
+**Follow-ups this turned up** (rows, not asides):
+
+- ▢ **the narrative→sim edge is still a non-rewound read.**
+  `close_conversation_when_the_narrative_ends` reads `DialogState::active()` to
+  learn the Yarn runner finished. That is an EXTERNAL INPUT rather than a rule —
+  it only ever closes, never opens or chooses a participant — but `DialogState`
+  is not rewound, so a resimulated tick reads the live runner. ⚠ **not a
+  regression**: every continuity rule read this resource before. The fix is a
+  `ConversationEnded` message with `clear_message_on_rollback`, and it needs the
+  runner's own lifecycle to have an opinion, so it is its own row.
+- ▢ **`DialogState`'s entity API is now dead weight.** `set_speaker_entity`,
+  `set_initiator_entity` and `participants()` have no production caller left.
+  Deleting them is the "one authority" payoff; it is held back only so the
+  deletion is not tangled with the move.
+- ▢ **`dialog/yarn_bindings.rs` still asks `DialogState::speaker_entity()`** in
+  three commands (`<<challenge>>`, `<<use_brain>>`, `<<restore_brain>>`), and
+  `<<challenge>>` starts a FIGHT — a simulation effect keyed off view state.
+  Repoint at `ActiveConversation::talker()`.
+- ✔ **`stable_schema_name_count` was stale before this change** (336 recorded,
+  337 actual). Display-only — the ratchet compares the name SET — but corrected
+  while adding the two new names rather than left to rot.
 
 ### Placement
 

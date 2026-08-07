@@ -79,6 +79,11 @@ pub mod boss_encounter;
 pub mod character_runtime;
 pub mod character_sprites;
 pub mod config;
+/// Conversation continuity: the rollback-owned authority, the hold projected
+/// from it, and the break rule. Written to be lifted out as
+/// `ambition_conversation` — see its module header for the two edges that
+/// remain.
+pub mod conversation;
 pub mod cutscene;
 pub mod cutscene_trigger;
 pub mod dev;
@@ -96,6 +101,9 @@ pub mod gravity;
 pub mod music;
 // Unified menu content (model + concrete settings IR + Map tab).
 pub mod menu;
+/// The `ParticipantId` ↔ `PlayerSlot` correspondence, in one place, so the
+/// eventual split of "a person" from "a seat" is localized.
+pub mod participant_seat;
 pub mod persistence;
 pub mod physics;
 // The presentation layer was extracted to the `ambition_render` crate (the

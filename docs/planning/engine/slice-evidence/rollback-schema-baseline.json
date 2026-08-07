@@ -223,6 +223,7 @@
     "map.mount_slot",
     "map.move_playback",
     "map.projectile_owner",
+    "map.resource.active_conversation",
     "map.resource.encounter_registry",
     "map.resource.pending_player_hit_events",
     "map.resource.possession_state",
@@ -323,6 +324,7 @@
     "projectile.player_marker",
     "projectile.seq",
     "projectile.visual_id",
+    "resource.active_conversation",
     "resource.active_match",
     "resource.active_round_scope",
     "resource.base_gravity",
@@ -364,7 +366,7 @@
     "scope.room",
     "scope.session"
   ],
-  "stable_schema_name_count": 336,
+  "stable_schema_name_count": 339,
   "encoded_types": [
     "ambition_characters::actor::BodyHealth",
     "ambition_characters::actor::BodyWallet",

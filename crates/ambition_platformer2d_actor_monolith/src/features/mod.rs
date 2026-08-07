@@ -61,10 +61,10 @@ pub use crate::combat::components;
 // player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
 // facts for whichever body produced them; `swim` and `ledge_grab` are thin shims
 // over engine-owned water / ledge state and name no `crate::` type at all.
+pub mod empowerment;
 pub mod ledge_grab;
 pub mod movement_fx;
 pub mod swim;
-pub mod empowerment;
 pub mod transform_beat;
 pub use movement_fx::{
     advance_body_anim_overlays, arm_ground_contact_anim_overlay, arm_movement_anim_overlays,
@@ -101,6 +101,12 @@ pub(crate) use ecs::{
     spawn_boss_with_overrides_into, spawn_enemy_with_faction_into, spec_is_limbed_host,
 };
 pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
+// ⭐ **the ONE thing `crate::conversation` reaches back into `features` for**: a
+// bark line for a character in a situation. Named explicitly rather than opening
+// the whole `npcs` module, because when the conversation module is carved out
+// this single function IS its port — and a `pub(crate) mod` would have hidden
+// how small the remaining coupling is.
+pub(crate) use npcs::npc_ambient_bark_line;
 
 pub use components::{
     ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,
@@ -134,16 +140,15 @@ pub use ecs::{
     advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
     apply_spawn_actor_requests, apply_summon_effects, boss_anim_state_for, boss_is_cleared,
-    boss_spawn_hurtboxes, break_dialogue_on_hit_or_separation, can_damage,
-    clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics,
-    derive_pogo_target_volumes, dissolve_settled_grudges, drive_boss_animators,
-    ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
-    ecs_breakable_state, ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
-    ecs_hit_event_hits_breakable, enforce_mount_rider_link, fan_out_limb_intents,
-    integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
-    magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move,
-    rebuild_feature_ecs_world_overlay, reconcile_autonomous_actors,
-    refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
+    boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs, collect_ecs_pickups,
+    damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes, dissolve_settled_grudges,
+    drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
+    ecs_boss_animation_frame_sample, ecs_breakable_state, ecs_chest_opened,
+    ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
+    enforce_mount_rider_link, fan_out_limb_intents, integrate_boss_bodies, integrate_sim_bodies,
+    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
+    project_boss_attack_state_from_move, rebuild_feature_ecs_world_overlay,
+    reconcile_autonomous_actors, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, route_boss_strikes_to_limbs,
     select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
     spawn_room_feature_entities_from_plan, steer_mount_from_rider,
@@ -714,21 +719,37 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         let sim = app.sim_schedule();
         use bevy::prelude::IntoScheduleConfigs;
+        // The conversation authority is sim state and lives for the whole App;
+        // the UI projection that follows it is presentation and runs outside the
+        // simulation schedule, so a rewind cannot un-close a box the player
+        // already watched close.
+        app.init_resource::<crate::conversation::ActiveConversation>();
+        app.add_systems(
+            bevy::prelude::Update,
+            crate::conversation::close_dialog_ui_when_the_conversation_ends,
+        );
         app.add_systems(
             sim,
             (
+                // The narrative running out of lines is an INPUT to the
+                // simulation, and it lands before anything judges the
+                // conversation for separation — otherwise a conversation that
+                // ended this frame gets barked about on its way out.
+                crate::conversation::close_conversation_when_the_narrative_ends,
                 interact_ecs_actors_and_switches,
                 // ⚠ AFTER the interaction that starts a conversation, in the
                 // same chain: a dialogue opened this frame must not be judged
                 // for separation before the bodies that opened it have been
                 // read. Both use the same `strict_intersects` reach, so a
                 // conversation cannot begin and immediately break.
-                break_dialogue_on_hit_or_separation,
-                // The release runs AFTER, in the same chain: whatever ended the
-                // conversation — this frame's break, the runner finishing, a
-                // room swap — a body still wearing the hold must lose it on the
-                // same frame, or it is a permanently frozen NPC.
-                ecs::release_conversation_hold,
+                crate::conversation::break_dialogue_on_hit_or_separation,
+                // The hold is PROJECTED after, in the same chain: whatever the
+                // rule above decided — a break, a body that stopped existing, or
+                // nothing at all — the world is made to match the authority on
+                // the same frame. ⛔ it is not a "release": it both takes and
+                // releases the hold, because a projection that only let go would
+                // be a second rule about when to hold.
+                crate::conversation::project_conversation_hold,
                 open_ecs_chests,
                 update_ecs_breakables,
                 update_ecs_falling_chests,

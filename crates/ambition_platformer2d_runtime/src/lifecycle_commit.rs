@@ -368,6 +368,17 @@ fn commit_transition(
     if let Some(mut dialogue) = world.get_resource_mut::<ambition_dialog::DialogState>() {
         dialogue.close();
     }
+    // ⛔ **and the AUTHORITY, or the room swap only closed the text box.** The
+    // simulation's conversation names two bodies, and a transition despawns the
+    // room they were standing in — leaving a live conversation pointing at
+    // entities that no longer exist, and an NPC holding a `ScriptedControl` it
+    // can never be released from because nothing is left to release it.
+    if let Some(mut conversation) = world
+        .get_resource_mut::<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>(
+        )
+    {
+        conversation.close();
+    }
     if let Some(mut dev_state) =
         world.get_resource_mut::<ambition_dev_tools::DeveloperRuntimeState>()
     {

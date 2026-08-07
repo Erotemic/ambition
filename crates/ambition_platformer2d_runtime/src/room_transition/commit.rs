@@ -134,6 +134,7 @@ fn ground_gap_below_feet(
 fn apply_room_transition_resets(
     safety: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>,
     dialogue: &mut ambition_dialog::DialogState,
+    conversation: &mut ambition_platformer2d_actor_monolith::conversation::ActiveConversation,
     combat: &mut ambition_characters::actor::BodyCombat,
     blink_cam: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>,
     arrival_pos: ae::Vec2,
@@ -163,6 +164,12 @@ fn apply_room_transition_resets(
         safety.last_safe_pos = arrival_pos;
     }
     dialogue.close();
+    // ⛔ **the AUTHORITY too, and it is not the same close.** `DialogState` going
+    // quiet only takes the text box away; the simulation's conversation names
+    // two BODIES, and this transition is about to despawn the room they were
+    // standing in. A conversation that survived would point at dead entities and
+    // hold an NPC that no longer exists.
+    conversation.close();
 }
 
 pub fn load_room(
@@ -177,8 +184,11 @@ pub fn load_room(
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     // Home-only presentation state (None when a possessed actor transits).
     safety: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>,
-    moving_platforms: &mut Vec<ambition_platformer2d_actor_monolith::world::platforms::MovingPlatformState>,
+    moving_platforms: &mut Vec<
+        ambition_platformer2d_actor_monolith::world::platforms::MovingPlatformState,
+    >,
     dialogue: &mut ambition_dialog::DialogState,
+    conversation: &mut ambition_platformer2d_actor_monolith::conversation::ActiveConversation,
     combat: &mut ambition_characters::actor::BodyCombat,
     blink_cam: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>,
     world: &mut RoomGeometry,
@@ -224,6 +234,7 @@ pub fn load_room(
     apply_room_transition_resets(
         safety,
         dialogue,
+        conversation,
         combat,
         blink_cam,
         arrival_pos,
@@ -277,12 +288,14 @@ pub struct TransitBodies<'w, 's> {
     clusters: Query<'w, 's, ae::BodyClusterQueryData>,
     /// The transiting body's movement policy — a room transition is a discrete
     /// TRANSIT (ADR 0024 authority) and must reconcile model-private attachment.
-    motion_models: Query<'w, 's, &'static mut ambition_platformer2d_actor_monolith::features::MotionModel>,
+    motion_models:
+        Query<'w, 's, &'static mut ambition_platformer2d_actor_monolith::features::MotionModel>,
     combat: Query<'w, 's, &'static mut ambition_characters::actor::BodyCombat>,
     /// The transiting body's resolved gravity frame — read (before the mutable
     /// cluster borrow) so the landing diagnostic probes along the body's own
     /// gravity, not world-down.
-    motion_frames: Query<'w, 's, &'static ambition_platformer2d_actor_monolith::physics::ResolvedMotionFrame>,
+    motion_frames:
+        Query<'w, 's, &'static ambition_platformer2d_actor_monolith::physics::ResolvedMotionFrame>,
     presentation: Query<
         'w,
         's,
@@ -311,6 +324,9 @@ pub fn commit_ready_room_transition_system(
     mut room_clock: RoomClock,
     mut moving_platforms: ResMut<ambition_platformer2d_world::collision::MovingPlatformSet>,
     mut dialogue: ResMut<ambition_dialog::DialogState>,
+    mut conversation: ResMut<
+        ambition_platformer2d_actor_monolith::conversation::ActiveConversation,
+    >,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
@@ -512,6 +528,7 @@ pub fn commit_ready_room_transition_system(
         safety_opt.as_deref_mut(),
         &mut moving_platforms.0,
         &mut dialogue,
+        &mut conversation,
         &mut combat,
         blink_opt.as_deref_mut(),
         &mut world,

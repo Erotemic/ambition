@@ -1,0 +1,96 @@
+//! **The hold: a projection of the authority onto the body being talked to.**
+//!
+//! A conversation asks its participants to stay where they are, and the rule is
+//! one line: their movement INTENT goes to zero. Everything Jon described falls
+//! out of that with no case analysis — a grounded body stands, a flying body
+//! hovers (`integrate_flight_clusters` drives toward `local_stick *
+//! terminal_speed`, so neutral input decays to rest), and a falling body with no
+//! flight has no intent to zero, keeps falling, leaves reach, and breaks the
+//! conversation on the rule next door. That is the parrot case, correct by
+//! omission rather than by a rule about parrots.
+//!
+//! ⚠ **two mechanisms, one effect, and that is not player-centrism.** The
+//! initiator's intent is already neutral — `DIALOGUE_CONTEXT` captures their
+//! input, so their `ControlFrame` is default. The other participant takes its
+//! intent from a BRAIN, which nothing has captured, so it needs
+//! `ScriptedControl`. The rule is symmetric ("every participant's intent is
+//! neutral"); the two halves differ only because the two bodies are driven from
+//! different places.
+
+use bevy::prelude::*;
+
+use ambition_characters::brain::ScriptedControl;
+
+use super::authority::ActiveConversation;
+
+/// This system's claim on a body it blanked for a conversation.
+///
+/// ⚠ **a PROJECTION, not a record — and it must NOT become rollback state.** It
+/// says nothing [`ActiveConversation`] does not already say. Registering it for
+/// rollback would recreate the very shape this module exists to delete: two
+/// records of one fact, rewound on two different schedules. Its only job is to
+/// mark which bodies THIS system put `ScriptedControl` on, so the reconcile
+/// below never strips a death beat's or a flagpole's.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct HeldByConversation;
+
+/// **Make the world match the conversation authority.**
+///
+/// ⭐ **a total function of [`ActiveConversation`] → world, and that is the whole
+/// design.** It does not remember what it inserted last tick and does not diff
+/// against a previous value. Whatever a rollback restored, this rebuilds the
+/// hold from the authority on the next tick, because the authority IS rewound
+/// and this reads nothing else.
+///
+/// ⛔ **the gate asks whether the body is FULLY held, and the first draft of this
+/// system asked about the marker alone — which is the original bug, rewritten.**
+/// A hold is `ScriptedControl` (rewound) plus [`HeldByConversation`] (not).
+/// Ask only whether the marker is present, and a rewind that removed the
+/// override while leaving the marker reads as "already held", so the override
+/// never comes back — exactly the state
+/// `a_rewind_cannot_leave_a_conversation_holding_a_body_it_no_longer_controls`
+/// pins. Asking whether the world already MATCHES the authority makes every
+/// half-state self-repairing, in both directions, without knowing which half
+/// went missing or why.
+///
+/// ⛔ **the removal is scoped by the marker on purpose.** `ScriptedControl` has
+/// five other claimants — the death beat, the flagpole, act clear, versus, and
+/// seating — and this system must never strip theirs. All five mark the body a
+/// PLAYER is driving, while a conversation marks the body being talked TO, so
+/// the two sets cannot overlap today;
+/// `a_conversation_hold_never_strips_another_claimants_control` pins that as an
+/// invariant rather than leaving it a coincidence that a later feature could
+/// quietly break.
+pub fn project_conversation_hold(
+    mut commands: Commands,
+    conversation: Res<ActiveConversation>,
+    claimed: Query<Entity, With<HeldByConversation>>,
+    fully_held: Query<(), (With<HeldByConversation>, With<ScriptedControl>)>,
+) {
+    let holding = conversation.talker();
+    for entity in &claimed {
+        if Some(entity) == holding {
+            continue;
+        }
+        // The conversation ended, or it moved to another body, or a rewind took
+        // the authority back past this hold. All three mean the same thing here
+        // and need no case analysis: this body is not held now.
+        commands
+            .entity(entity)
+            .try_remove::<(ScriptedControl, HeldByConversation)>();
+    }
+    let Some(talker) = holding else {
+        return;
+    };
+    // ⚠ **the skip is about change detection, not about correctness.**
+    // `try_insert` is idempotent, so running it unconditionally would behave
+    // identically — it would just touch the entity every tick and wake every
+    // change-gated reader downstream. Because the question is "does the world
+    // already match the authority" rather than "did I already do this", a
+    // half-applied hold falls through this and is repaired.
+    if fully_held.get(talker).is_err() {
+        commands
+            .entity(talker)
+            .try_insert((ScriptedControl, HeldByConversation));
+    }
+}

@@ -7,8 +7,6 @@
 
 use super::*;
 
-use ambition_characters::brain::ScriptedControl;
-
 /// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
 /// `open_ecs_chests` because they have their own reward/persistence path.
 ///
@@ -152,14 +150,20 @@ pub fn interact_ecs_actors_and_switches(
         dialogue
             .state
             .start(&entry_node, &request.npc_name, context);
-        // Record which actor we're talking to so dialogue commands like
-        // `<<challenge>>` can provoke THIS NPC into a fight.
-        dialogue.state.set_speaker_entity(actor_entity);
-        // ⭐ and the OTHER participant, symmetrically. A conversation that the
+        // **THE AUTHORITY, in one call.** ⛔ this was `start()` then
+        // `set_speaker_entity()` then `set_initiator_entity()` — three calls to
+        // establish one fact, where a conversation existed and was missing a
+        // participant in between. Both bodies and the seat that owns the
+        // conversation are now settled at the moment it opens or not at all.
+        //
+        // ⭐ and the OTHER participant is here symmetrically: a conversation the
         // world keeps running through has to be able to ask about both bodies —
         // how far apart they are, whether either can hold station, whether
         // either was hit — and none of that can be asked of a character id.
-        dialogue.state.set_initiator_entity(subject);
+        let input_owner = conversation_owner(&dialogue.driver, subject);
+        dialogue
+            .conversation
+            .open(Some(subject), Some(actor_entity), &entry_node, input_owner);
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
         quest_advance.write(QuestAdvanceRequested(
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
@@ -216,7 +220,21 @@ pub fn interact_ecs_actors_and_switches(
 #[derive(bevy::ecs::system::SystemParam)]
 pub struct DialogueDispatch<'w, 's> {
     /// The conversation read-model the UI polls.
+    ///
+    /// ⚠ **presentation only, and no simulation system may read it.** It is not
+    /// rewound — deliberately, because rewinding a typewriter would stutter the
+    /// text box — so a sim rule that branched on it would be branching on a
+    /// different timeline's state. What the simulation believes lives in
+    /// [`Self::conversation`].
     pub state: ResMut<'w, ambition_dialog::DialogState>,
+    /// What the SIMULATION believes about the live conversation. Rollback-owned.
+    pub conversation: ResMut<'w, crate::conversation::ActiveConversation>,
+    /// Who drives a body, for attributing the conversation to a seat.
+    ///
+    /// ⭐ the brain is what actually answers "whose body is this" — possession is
+    /// a brain transfer, so a possessed actor's conversation belongs to the seat
+    /// that possessed it without this needing to know possession exists.
+    pub driver: Query<'w, 's, &'static ambition_characters::brain::Brain>,
     /// Which Yarn nodes content compiled. Read to decide whether a
     /// self-conversation has a branch to enter; an unpopulated index never
     /// suppresses.
@@ -259,188 +277,37 @@ fn dialogue_identity(
     identity.map(|identity| identity.id.clone())
 }
 
+/// **Which seat owns a conversation this body just started.**
+///
+/// ⛔ **there is no "nobody said, so capture everybody" arm, and that absence is
+/// the fix** (GPT 5.6 review through `c32e690`, finding 2). Dialogue used to
+/// claim every participant's input, so one person talking to an NPC took
+/// gameplay away from everyone else at the couch — while the world kept running
+/// around them.
+///
+/// ⭐ the question is answered by the initiator's BRAIN, not by an entity index
+/// or a device slot that happens to share a number with a seat. Possession is a
+/// brain transfer, so a seat that possessed an actor and walked it up to an NPC
+/// owns that conversation without this function knowing possession exists.
+///
+/// ⚠ **the non-player arm is a DECISION, not a fallback.** A body with no player
+/// brain cannot have pressed Interact under its own steam, so this is a
+/// composition that drove the interaction some other way; the primary seat owns
+/// the box, because somebody has to be able to advance it and capturing the
+/// whole couch for a conversation nobody at it started is the behaviour being
+/// removed.
+fn conversation_owner(
+    driver: &Query<&'static ambition_characters::brain::Brain>,
+    initiator: Entity,
+) -> crate::conversation::ConversationInputOwner {
+    use crate::conversation::ConversationInputOwner;
+    match driver.get(initiator) {
+        Ok(ambition_characters::brain::Brain::Player(slot)) => {
+            ConversationInputOwner::Participant(crate::participant_seat::participant_of(*slot))
+        }
+        _ => ConversationInputOwner::Primary,
+    }
+}
+
 #[cfg(test)]
 mod tests;
-
-/// **Break a conversation the world has carried its participants out of.**
-///
-/// The consumer of Jon's continuity design
-/// (`docs/planning/engine/dialogue-continuity.md`). Since `GameMode::Dialogue`
-/// left the suspend set, a conversation is a SUSTAINED condition rather than a
-/// modal state — bodies keep moving, hits keep landing, and a text box that
-/// survives either is a text box floating over two people who are no longer
-/// talking.
-///
-/// ⭐ **symmetric, and that is load-bearing.** It reads
-/// [`ambition_dialog::DialogState::participants`], which yields BOTH bodies, and
-/// folds them into one `any_struck` before asking. There is deliberately no
-/// place in this system for "was the player hit" — an NPC knocked off a ledge
-/// mid-sentence has ended the conversation just as surely as the player being
-/// knocked across the room. Jon: *"both characters should hover"*.
-///
-/// ⚠ **the reach test is the interaction's own**, not a second authored range:
-/// the same `strict_intersects` of the two bodies' AABBs that decided the
-/// conversation could START decides it can continue. Two ranges would drift, and
-/// the symptom — a conversation you can begin but not sustain, or one that
-/// follows you across a room — is the kind nobody reports as a range bug.
-///
-/// A conversation with fewer than two in-world participants (scripted dialogue,
-/// a system-started box) cannot be walked away from, and is left alone.
-pub fn break_dialogue_on_hit_or_separation(
-    mut commands: Commands,
-    mut dialogue: ResMut<ambition_dialog::DialogState>,
-    bodies: Query<(&CenteredAabb, Option<&BodyCombat>)>,
-    held: Query<(), With<HeldByConversation>>,
-    // The bark's speaker and its anchor. Only the NPC participant carries an
-    // `ActorInteraction`, which is how its character id — and therefore its
-    // voice — is found.
-    speaker: Query<(&super::actor_clusters::BodyKinematics, &ActorInteraction)>,
-    // ⚠ **OPTIONAL here, REQUIRED in the idle-bark ticker, and the divergence is
-    // deliberate.** That ticker takes it as a hard `Res` so a mis-composed
-    // production App cannot silently erase provider-authored dialogue — losing
-    // ambient chatter is its whole output. This system's output is the BREAK;
-    // the bark is an extra. A composition with no catalog (a demo, a headless
-    // fixture) must still stop a conversation its participants walked out of,
-    // and failing the break to guarantee a line would be the wrong trade.
-    character_catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
-    prepared_cast: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
-    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
-) {
-    use ambition_dialog::DialogueBreak;
-
-    if !dialogue.active() {
-        return;
-    }
-    let participants: Vec<_> = dialogue.participants().collect();
-    let [a, b] = participants.as_slice() else {
-        // Scripted dialogue with no two in-world bodies. Nothing here can walk
-        // away from anything.
-        return;
-    };
-    let (Ok((a_aabb, a_combat)), Ok((b_aabb, b_combat))) = (bodies.get(*a), bodies.get(*b)) else {
-        // A participant stopped existing — despawned, or the room swapped under
-        // the conversation. That is a separation of the most literal kind.
-        dialogue.close();
-        return;
-    };
-
-    // ⚠ KNOCKBACK, not damage. The reason a hit ends a conversation is that it
-    // MOVES you, so the signal is the recoil/hitstun control lock rather than
-    // any health change: a poison tick or a chip of environmental damage leaves
-    // both bodies standing where they were and leaves them talking.
-    let struck = |combat: Option<&BodyCombat>| {
-        combat.is_some_and(|c| c.recoil_lock_timer > 0.0 || c.hitstun_timer > 0.0)
-    };
-    let any_struck = struck(a_combat) || struck(b_combat);
-    let in_reach = a_aabb.aabb().strict_intersects(b_aabb.aabb());
-
-    if let Some(reason) = DialogueBreak::evaluate(any_struck, in_reach) {
-        // **THE BARK.** Jon: *"A broken dialog can have some bark to indicate
-        // that it was broken."*
-        //
-        // ⛔ only for the break that has no voice yet. A conversation broken by
-        // a HIT already barks — `npc_hit_bark_line` fires on every strike and
-        // falls back to a generic line when a character authored none — so
-        // adding a second bubble for one event would be worse than none.
-        // `wants_its_own_bark` is where that lives, beside the reason it is
-        // about.
-        //
-        // ⚠ **an empty pool is SILENCE, and that is the finished behaviour**,
-        // exactly as `Idle` and `Hall` document it. No character has a
-        // `conversation_cut` line yet because those are Jon's voice to write,
-        // not the engine's to invent. The mechanism is complete; the content is
-        // a seam.
-        if reason.wants_its_own_bark() {
-            if let Some((kin, interaction)) = speaker.get(*b).ok().or_else(|| speaker.get(*a).ok())
-            {
-                if let Some(line) = character_catalog.as_deref().and_then(|catalog| {
-                    crate::features::npcs::npc_ambient_bark_line(
-                    catalog,
-                    prepared_cast.as_deref(),
-                    &interaction.interactable,
-                    ambition_characters::actor::character_catalog::BarkSituation::ConversationCut,
-                    0,
-                    )
-                }) {
-                    vfx.write(ambition_vfx::vfx::VfxMessage::SpeechBubble {
-                        pos: kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0),
-                        text: line.to_string(),
-                    });
-                }
-            }
-        }
-        dialogue.close();
-        return;
-    }
-
-    // **THE HOLD.** A conversation asks its participants to stay where they are,
-    // and the rule is one line: their movement INTENT goes to zero. Everything
-    // Jon described falls out of that with no case analysis — a grounded body
-    // stands, a flying body hovers (`integrate_flight_clusters` drives toward
-    // `local_stick * terminal_speed`, so neutral input decays to rest), and a
-    // falling body with no flight has no intent to zero, keeps falling, leaves
-    // reach, and breaks the conversation on the branch above. That is the parrot
-    // case, correct by omission rather than by a rule about parrots.
-    //
-    // ⚠ **two mechanisms, one effect, and that is not player-centrism.** The
-    // TALKER's intent is already neutral — `DIALOGUE_CONTEXT` captured their
-    // input, so their `ControlFrame` is default. The other participant takes its
-    // intent from a BRAIN, which nothing has captured, so it needs
-    // `ScriptedControl`. The rule is symmetric ("every participant's intent is
-    // neutral"); the two halves differ only because the two bodies are driven
-    // from different places.
-    //
-    // ⭐ `ScriptedControl`'s own doc says a blanked frame "is not a frozen body,
-    // and gravity will happily walk an undriven one out from under its pose",
-    // and names that as the inserter's problem. Here it is the DESIGN: a body
-    // gravity walks away is a body that could not hold station, and the break
-    // above is what happens next.
-    if let Some(brained) = dialogue.speaker_entity() {
-        // ⚠ **`HeldByConversation` is the CLAIMANT `ScriptedControl`'s doc asks
-        // for.** It warns that consumers remove the marker without checking who
-        // put it there, and that a second concurrent sequence needs a claimant
-        // rather than two owners racing. All five existing owners mark the
-        // PLAYER's driven body (death, flagpole, act clear, versus, seating)
-        // while this marks the NPC, so they do not collide today — but the
-        // discipline is cheap and this system removes only what it added.
-        if held.get(brained).is_err() {
-            commands
-                .entity(brained)
-                .try_insert((ScriptedControl, HeldByConversation));
-        }
-    }
-}
-
-/// This system's claim on a body it blanked for a conversation.
-///
-/// See the hold in [`break_dialogue_on_hit_or_separation`]: it exists so the
-/// release removes only markers this system placed, rather than stomping a
-/// death beat's.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct HeldByConversation;
-
-/// Release every body a conversation was holding, once it is no longer holding
-/// one.
-///
-/// ⛔ **a stranded `ScriptedControl` is a permanently frozen NPC**, and the ways
-/// a conversation ends are not one place: the break rule, the player walking the
-/// Yarn runner to its end, a room swap, a session teardown. So the release does
-/// not try to be a mirror of the insert — it asks the only question that is
-/// always true, "is this body still being held by a live conversation", and
-/// answers from the dialogue state rather than from remembering.
-pub fn release_conversation_hold(
-    mut commands: Commands,
-    dialogue: Res<ambition_dialog::DialogState>,
-    held: Query<Entity, With<HeldByConversation>>,
-) {
-    let talking = dialogue.active();
-    let still_talking = talking.then(|| dialogue.speaker_entity()).flatten();
-    for entity in &held {
-        if Some(entity) == still_talking {
-            continue;
-        }
-        commands
-            .entity(entity)
-            .try_remove::<(ScriptedControl, HeldByConversation)>();
-    }
-}

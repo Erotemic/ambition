@@ -600,7 +600,11 @@ pub fn populate_secondary_slot_controls(
             continue;
         }
         let gameplay = world_running && active_context.gameplay_owned(participant.id.slot());
-        let slot = ambition_characters::brain::PlayerSlot(participant.id.slot());
+        // ⭐ through the SEAM rather than by arithmetic (R5). This line is the
+        // exact shape the reviewer asked new code to stop writing — a bare
+        // `PlayerSlot(id.slot())` asserts the two numberings are the same thing,
+        // and they are two lifecycles that happen to agree today.
+        let slot = crate::participant_seat::player_slot_of(participant.id);
         if !gameplay {
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state — the same rule the primary seat follows.

@@ -252,3 +252,49 @@ fn the_match_gives_every_seat_a_kit_that_can_hit() {
         );
     }
 }
+
+/// **The grid offers only ids the roster NAMES and the host can SEAT.**
+///
+/// ⛔ moved here from `ambition_demo_smash`'s own unit tests when the filter
+/// moved from the CATALOG to the prepared registry. A row says what a character
+/// IS; `register_character` is what makes one BUILDABLE, and eight of the twelve
+/// shipped portraits were rows nothing had registered — seatable as player one,
+/// where the adopted home body consulted the registry OPTIONALLY, and
+/// unbuildable in every other seat. The demo crate cannot fill a registry (that
+/// needs the preparation barrier, which needs a composition), so the claim
+/// belongs against the REAL one.
+///
+/// Both directions, because each alone is satisfiable by a broken filter: a
+/// grid of everything passes "only named ids" if it drops nothing, and an empty
+/// grid passes "only seatable ids" trivially.
+#[test]
+fn the_grid_offers_only_named_and_seatable_fighters() {
+    use ambition_demo_smash::select::{SmashRoster, SMASH_ROSTER};
+
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.update();
+    let registry = app
+        .world()
+        .resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>(
+    );
+    let grid = SmashRoster::assemble(registry);
+
+    assert!(
+        grid.len() >= 8,
+        "the assembled grid is {} fighters — too short to be the shipped host's, \
+         so the assertions below would pass over an empty screen",
+        grid.len()
+    );
+    for id in grid.ids() {
+        assert!(
+            SMASH_ROSTER.contains(&id),
+            "`{id}` is on the grid and the roster never named it"
+        );
+        assert!(
+            registry.get(id).is_some(),
+            "`{id}` is a portrait a player can pick and a seat the match would \
+             then refuse: nothing registered it"
+        );
+    }
+}

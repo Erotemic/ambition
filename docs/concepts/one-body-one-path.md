@@ -7,7 +7,7 @@ last_verified: 2026-08-07
 related_docs:
   - docs/concepts/invariants.md
   - docs/concepts/movement-collision.md
-  - docs/adr/0020-mount-vehicle-model.md
+  - docs/adr/0020-mounts-and-vehicles.md
 ---
 
 # One body, one path

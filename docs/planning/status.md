@@ -145,6 +145,18 @@ added to it. `features/transform_beat.rs` (211) crossed on its own. All three ar
 `test-placement.md` forbids — so they are review-pending, which is the disposition
 an agent is allowed to record.
 
+⚠ **Three more crossed by 2026-08-07 and the check was FAILING on them**, which
+is how they were found — not by anyone noticing the files grow.
+`ambition_input/src/bindings.rs` (~389 test lines) is the agent's own doing, from
+the device-aware control-prompt work (`67c3e59c6`, `edf4b7e78`);
+`ambition_cutscene/src/lib.rs` (~582) grew with the rollback-state and
+unfinished-verb rows; `ambition_relativity/src/lib.rs` (~210) crossed on the SR-3
+overlay work. All three are `behavioral-local` and recorded review-pending, the
+only disposition an agent may set for itself.
+
+<!-- planning-evidence: inline-test path=crates/ambition_cutscene/src/lib.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_input/src/bindings.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_relativity/src/lib.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/character_sprites/assets.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_actor_monolith/src/features/transform_beat.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_content/src/player_robot_lineage.rs kind=behavioral-local disposition=maintainer-review-pending -->

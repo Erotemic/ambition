@@ -62,7 +62,7 @@ dialogue ownership → per-seat menu calibration → device-aware binding select
   `DialogState` (`ambition_dialog/src/runtime.rs:40`) appears in no rollback
   domain.
 - The gate at `interact.rs:406` — `if held.get(brained).is_err()` — is exactly
-  the [derive-MEMO](../../memory) class: an "already applied" flag that gates
+  the derive-MEMO class: an "already applied" flag that gates
   behaviour rather than caching a value. Rewind removes `ScriptedControl`, leaves
   the marker, and the gate then declines to restore the hold. A "held" NPC with
   no control override.

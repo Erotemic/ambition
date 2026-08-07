@@ -17,6 +17,7 @@ should survive crate moves. Exact current symbols and files belong in source,
 
 | Concept | Read when |
 |---|---|
+| [`one-body-one-path.md`](one-body-one-path.md) | writing anything keyed to "player" or "actor/enemy/boss" — the bifurcation smell test, what is already unified, and what stays separate on purpose |
 | [`bevy-native-data-driven-ecs.md`](bevy-native-data-driven-ecs.md) | deciding whether behavior belongs in authored data, ECS state, systems, or a tool |
 | [`input-and-game-modes.md`](input-and-game-modes.md) | changing devices, control authority, action slots, prompts, touch, menus, dialogue, or pause |
 | [`sim-presentation-seam.md`](sim-presentation-seam.md) | changing messages, read models, rendering, audio, UI, or headless behavior |

@@ -696,9 +696,30 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   banned, because the review flagged that phrasing: the forbidden operation is
   committing a stale tree SNAPSHOT without replaying its edits, not the delivery
   mechanism.
-- ▢ The ONE deletion-heavy docs pass (tracks→open cards; smells refiled
-  both directions; AGENTS ONE-BODY map extracted; archive provenance
-  writer+validator; `run_source_analysis.sh`; reviews README) — then STOP.
+- ◐ **The ONE deletion-heavy docs pass** (tracks→open cards; smells refiled both
+  directions; AGENTS ONE-BODY map extracted; archive provenance writer+validator;
+  `run_source_analysis.sh`; reviews README) — then STOP.
+  ✔ **`run_source_analysis.sh` and the reviews README already EXIST** — checked
+  before doing anything, both present.
+  ✔ **AGENTS ONE-BODY map EXTRACTED, 2026-08-07** →
+  [`docs/concepts/one-body-one-path.md`](../concepts/one-body-one-path.md),
+  following the `hall-of-characters-is-not-special` template this file already
+  uses (a tight section in `AGENTS.md`, the detail and the rejected shortcuts in a
+  concept page). The bullet went **2820 → 1446 characters**.
+  ⭐ **the split is RULE vs STATUS, and that is the reusable part.** The bullet
+  mixed a timeless rule (the smell test; "a green test on a forked path is
+  worthless"; log the remainder as `BIFURCATION:`) with an INVENTORY of what
+  happens to be unified today — melee's six symbols, the movement driver, the
+  two-clock blink, what stays deliberately separate. The rule belongs where
+  everyone reads it; the inventory goes stale and belongs in a page with a
+  `last_verified` date. Nothing was dropped: every claim is in one file or the
+  other.
+  ⚠ **why this one was worth doing rather than any other line in `AGENTS.md`**:
+  the file calls it *"the most-violated rule"*, and it was presented as a single
+  unbroken ~2800-character paragraph in the cold-start doc. A rule nobody can
+  finish reading is a rule that gets violated.
+  ▢ still open: tracks→open cards, smells refiled both directions, archive
+  provenance writer+validator.
 
 **Design-before-code**
 - ◐ **Cutscene authority — the DETERMINISTIC ELAPSED half landed 2026-08-06.**

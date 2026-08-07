@@ -533,6 +533,17 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // marker is applied by `Commands` and must be flushed before the
                 // query that filters on it runs.
                 crate::features::ecs::dormancy::assess_dormancy,
+                // ⭐ **THE GAME'S RUNGS, applied before the first decision.** A
+                // fighter is constructed with the engine FLOOR because the
+                // authored ladder lives in the content pack, above this crate and
+                // out of reach of the spawn tree's many roots. This rewrites a
+                // freshly-inserted fighter brain from the game's own rows.
+                //
+                // ⚠ before `tick_actor_brains` and immediately so: the projection
+                // rebuilds `FighterState`, and doing that after a decision would
+                // discard the habits that decision accumulated. Chained, so the
+                // brain that ticks below is the one this wrote.
+                crate::features::ecs::project_authored_fighter_ladder,
                 tick_actor_brains,
                 // **IMMEDIATELY after the writer, and that placement is the
                 // whole correctness of the instrument.**

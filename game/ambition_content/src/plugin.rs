@@ -128,6 +128,28 @@ impl Plugin for AmbitionContentPlugin {
                 .expect("the encounter schema lowers its book for every pack that compiles"),
         );
 
+        // ⭐ **THE GAME'S OWN DIFFICULTY RUNGS, handed to the sim.** Nine rows
+        // authored in July that nothing had ever read: `FighterBrainProfile::for_level`
+        // documents itself as "a FLOOR … a game that cares ships its own nine rows
+        // and this is never consulted", and every call site consulted it anyway.
+        // The consequence was not a tuning delta — `for_level` gives every rung
+        // `UtilityWeights::default()`, which is `v1()`, which is the authored level
+        // NINE, so a level-1 CPU priced a kill move exactly as the hardest one did.
+        //
+        // ⚠ inserted rather than threaded: the pack lives here, ABOVE the crate
+        // that builds brains, and a fighter is constructed at the leaf of a spawn
+        // tree whose roots include a thrown ability. `project_authored_fighter_ladder`
+        // applies it at insertion.
+        app.insert_resource(
+            ambition_characters::brain::fighter::AuthoredFighterLadder(
+                ambition_characters::brain::fighter::content_schema::lowered_fighter_brain_ladder(
+                    crate::pack::prepared(),
+                )
+                .cloned()
+                .expect("the fighter-ladder schema lowers its rungs for every pack that compiles"),
+            ),
+        );
+
         // The spectator duel is the arena room's registered content staging:
         // part of room construction (every path — activation, transition,
         // reset, restore staging — rebuilds it), not a RoomLoaded consumer.

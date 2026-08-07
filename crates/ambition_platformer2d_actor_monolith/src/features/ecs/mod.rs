@@ -49,6 +49,8 @@ pub mod boss_clusters;
 mod bosses;
 mod brain_builders;
 pub(crate) use brain_builders::enemy_default_brain;
+/// The ladder projection, registered in the actor pipeline beside the brain tick.
+pub use brain_builders::project_authored_fighter_ladder;
 mod brain_effects;
 pub mod chests;
 pub mod dormancy;

@@ -1385,6 +1385,21 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_shared_tangle::block_nudge::",
         "a struck block's flinch is a drawn offset: one render-plugin reader on          the wall clock, writing only presentation components, over geometry          that is authoritative and static by design",
     ),
+    // ⭐ **AUTHORED CONTENT, written once and never by a system.** The game's
+    // fighter difficulty rungs, lowered from the compiled content pack and
+    // inserted at plugin build. No system mutates it; there is no tick at which
+    // its value differs from the tick before, so there is nothing for a rewind to
+    // restore. What a rewind DOES restore is the brains built from it, and those
+    // are ordinary rollback state.
+    //
+    // ⚠ the question this answers is not "is it important" — it is very
+    // important, and a fighter reads it on the frame it spawns. It is whether a
+    // REWIND can observe it changing, and it cannot: the only writer is
+    // `AmbitionContentPlugin`, before any frame runs.
+    (
+        "ambition_characters::brain::fighter::profile::AuthoredFighterLadder",
+        "authored difficulty rungs, lowered from the content pack at plugin build          and never written by a system: no tick changes it, so a rewind has          nothing to restore",
+    ),
     // Bevy wrapper resources around non-simulation machinery.
     ("bevy_asset::", "asset plumbing"),
     (

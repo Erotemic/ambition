@@ -20,6 +20,13 @@ pub struct MovingPlatformSpec {
     pub sweep_dx: f32,
     pub speed: f32,
     pub path_id: Option<String>,
+    /// **Signed vertical span of a WRAPPING loop**, the paternoster authoring.
+    ///
+    /// Mirrors `sweep_dx`: magnitude is the shaft, sign is the direction of
+    /// travel (positive rises). ⛔ **a loop is not a vertical sweep** — it never
+    /// reverses, which is what makes a run of them read as an elevator instead
+    /// of a row of lifts. `None`/zero leaves the platform on its sweep.
+    pub loop_dy: Option<f32>,
 }
 
 impl MovingPlatformSpec {
@@ -43,7 +50,17 @@ impl MovingPlatformSpec {
                 let trimmed = value.trim();
                 (!trimmed.is_empty()).then(|| trimmed.to_string())
             }),
+            loop_dy: None,
         }
+    }
+
+    /// Author this platform as a wrapping vertical loop instead of a sweep.
+    ///
+    /// Additive on purpose: `from_authored` keeps its shape, so the existing
+    /// callers and every world that authors no `loop_dy` are untouched.
+    pub fn with_vertical_loop(mut self, loop_dy: Option<f32>) -> Self {
+        self.loop_dy = loop_dy.filter(|dy| dy.abs() > f32::EPSILON);
+        self
     }
 
     pub fn resolve(self, paths: &[KinematicPathSpec]) -> Result<MovingPlatformState, String> {
@@ -64,6 +81,23 @@ impl MovingPlatformSpec {
                 self.name,
                 self.size,
                 path_spec.path.clone(),
+            ))
+        } else if let Some(loop_dy) = self.loop_dy {
+            // ⚠ **the loop wins over `sweep_dx`**, which is authored by default
+            // (the converter falls back to 240.0 when nobody says otherwise), so
+            // "no sweep authored" is not a thing a spec can express. Precedence
+            // is stated rather than emergent: a path beats a loop beats a sweep,
+            // because each is a more specific statement of intent than the last.
+            let end_y = self.start_pos.y + loop_dy;
+            Ok(MovingPlatformState::from_vertical_loop(
+                self.id,
+                self.name,
+                self.start_pos,
+                self.size,
+                self.start_pos.y.min(end_y),
+                self.start_pos.y.max(end_y),
+                self.speed,
+                loop_dy > 0.0,
             ))
         } else {
             Ok(MovingPlatformState::from_sweep(

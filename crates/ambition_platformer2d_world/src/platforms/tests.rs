@@ -568,3 +568,61 @@ fn a_looping_platform_keeps_going_the_same_way_forever() {
         "and it still reports the direction it was authored with"
     );
 }
+
+/// **An authored `loop_dy` produces a platform that WRAPS.**
+///
+/// The authoring half of the elevator. ⛔ the tell that it is wired is not that
+/// the platform moves vertically — a `Path` does that, and so would a sweep on
+/// the wrong axis — it is that the platform **comes back to where it started
+/// while still travelling the same way**. A reversing platform also returns to
+/// its start, so the direction check is what separates the two.
+#[test]
+fn an_authored_vertical_loop_wraps_instead_of_reversing() {
+    let spec = MovingPlatformSpec::from_authored(
+        "shaft_lift",
+        "Shaft Lift",
+        ae::Vec2::new(0.0, 100.0),
+        ae::Vec2::new(96.0, 16.0),
+        // A sweep is authored too, and must LOSE to the loop.
+        240.0,
+        100.0,
+        None,
+    )
+    .with_vertical_loop(Some(200.0));
+
+    let mut platform = spec.resolve(&[]).expect("a loop spec resolves");
+    assert!(platform.direction() > 0.0, "a positive loop_dy rises");
+
+    // ⚠ **the wrap is a DROP in y on a platform that is rising**, not a return
+    // below the start: the shaft here begins at its own floor, so a wrap lands
+    // just above where it began. Comparing against `start` would never fire, and
+    // the test would pass a platform that ran off up the shaft forever.
+    let mut previous = platform.pos.y;
+    let mut wrapped = false;
+    for _ in 0..40 {
+        let delta = platform.update(0.1);
+        assert!(
+            delta.x.abs() < 1e-6,
+            "the authored sweep_dx leaked into a loop platform ({delta:?}) — a \
+             loop is not a sweep with an extra field"
+        );
+        assert!(
+            delta.y > 0.0,
+            "a rising loop never carries downward, so it never reversed: {delta:?}"
+        );
+        if platform.pos.y < previous {
+            wrapped = true;
+        }
+        previous = platform.pos.y;
+        assert!(
+            (100.0..=300.0).contains(&platform.pos.y),
+            "the platform left its authored shaft at {}",
+            platform.pos.y
+        );
+    }
+    assert!(
+        wrapped,
+        "the platform never dropped back down the shaft, so it never wrapped — \
+         it is running off upward rather than looping"
+    );
+}

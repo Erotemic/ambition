@@ -47,7 +47,7 @@ use ambition_platformer2d::character::{
 };
 use bevy::prelude::*;
 
-use crate::select::{SlotOccupant, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
+use crate::select::{SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
 use cursor::{CursorTarget, HitRect, SelectCursor};
 use layout::{SelectLayout, CURSOR_PX, TOKEN_PX};
 
@@ -199,11 +199,27 @@ pub fn role_button_text(
 pub fn card_name_text(
     catalog: Option<&CharacterCatalog>,
     fighters: &SmashRoster,
-    pick: Option<usize>,
+    pick: Option<SlotPick>,
 ) -> String {
-    match pick.and_then(|index| fighters.get(index)) {
-        Some(id) => display_name(catalog, id),
+    match pick {
+        // ⚠ **"RANDOM", not a fighter's name.** The card must not name somebody
+        // before the draw happens, and it must not read as undecided either —
+        // a slot on random IS decided, which is why `ready()` counts it.
+        Some(SlotPick::Random) => "RANDOM".to_string(),
+        Some(SlotPick::Fighter(index)) => match fighters.get(index) {
+            Some(id) => display_name(catalog, id),
+            None => "— no fighter —".to_string(),
+        },
         None => "— no fighter —".to_string(),
+    }
+}
+
+/// Which grid cell a pick occupies. The random square is a cell like any other,
+/// so a token can rest on it and it can light up when somebody takes it.
+fn cell_of(pick: SlotPick, fighters: &SmashRoster) -> usize {
+    match pick {
+        SlotPick::Fighter(index) => index,
+        SlotPick::Random => fighters.random_cell(),
     }
 }
 
@@ -249,6 +265,10 @@ pub struct ScreenArt<'w> {
     /// happens to derive. See [`portrait_art`].
     pub declared: Option<Res<'w, PreparedCharacterRegistry>>,
     pub asset_server: Option<Res<'w, AssetServer>>,
+    /// The decoded entity art, for the RANDOM square's interrobang. Loaded by
+    /// the same asset pass every other sprite comes from, so the square is
+    /// absent for exactly the reasons any other sprite would be.
+    pub entities: Option<Res<'w, ambition_platformer2d::view::GameAssets>>,
     pub menu_font: Option<Res<'w, ambition_platformer2d::menu::render::bevy_ui::MenuFont>>,
 }
 
@@ -328,7 +348,7 @@ fn viewport(windows: &Query<&Window>) -> Option<Vec2> {
 
 /// The layout this frame, from the window if there is one.
 pub fn current_layout(windows: &Query<&Window>, fighters: &SmashRoster) -> SelectLayout {
-    SelectLayout::for_viewport(viewport(windows), fighters.len())
+    SelectLayout::for_viewport(viewport(windows), fighters.cell_count())
 }
 
 /// Build the screen.
@@ -406,6 +426,10 @@ pub fn spawn_select_screen(
             });
 
             // ── THE GRID: Jon's top 65% ──────────────────────────────────
+            //
+            // ⚠ **one more cell than there are fighters.** The last square is
+            // RANDOM (Jon, 2026-08-07), drawn below the loop so every fighter
+            // keeps the cell index it already had.
             for (index, id) in fighters.ids().enumerate() {
                 let mut cell = anchored(Anchored::Portrait(index));
                 cell.1.flex_direction = FlexDirection::Column;
@@ -482,6 +506,72 @@ pub fn spawn_select_screen(
                     }
                     cell.spawn((
                         Text::new(display_name(catalog, id)),
+                        text_font(13.0),
+                        TextColor(INK),
+                        TextLayout::new_with_justify(Justify::Center),
+                    ));
+                });
+            }
+
+            // ── THE RANDOM SQUARE, last cell of the grid ─────────────────
+            //
+            // ⭐ **the interrobang, reused deliberately** (Jon: *"We can reuse
+            // the interobang sprite for this"*). It is the glyph on Mary-O's
+            // bonus block — the thing you hit without knowing what comes out —
+            // which is the same promise this square makes.
+            //
+            // ⚠ it is a cell like any other: a token rests on it, it lights up
+            // for whoever took it, and `SmashSelect::ready()` counts it as
+            // decided. What it is NOT is a character, which is why the pick is
+            // `SlotPick::Random` and not an index.
+            {
+                let index = fighters.random_cell();
+                let mut cell = anchored(Anchored::Portrait(index));
+                cell.1.flex_direction = FlexDirection::Column;
+                cell.1.align_items = AlignItems::Center;
+                cell.1.justify_content = JustifyContent::SpaceBetween;
+                cell.1.border = UiRect::all(Val::Px(3.0));
+                cell.1.border_radius = BorderRadius::all(Val::Px(8.0));
+                cell.1.padding = UiRect::all(Val::Px(4.0));
+                cell.1.overflow = Overflow::clip();
+                root.spawn((
+                    cell,
+                    PortraitCell(index),
+                    BackgroundColor(PANEL),
+                    BorderColor::all(PANEL_EDGE),
+                    Name::new("portrait cell random"),
+                ))
+                .with_children(|cell| {
+                    match art.entities.as_deref().and_then(|assets| {
+                        assets.entities.get(
+                            ambition_platformer2d::actors::assets::game_assets::EntitySprite::BonusBlockTile,
+                        )
+                    }) {
+                        Some(handle) => {
+                            cell.spawn((
+                                ImageNode::new(handle.clone()),
+                                Node {
+                                    flex_grow: 1.0,
+                                    width: Val::Percent(100.0),
+                                    min_height: Val::Px(0.0),
+                                    ..default()
+                                },
+                            ));
+                        }
+                        // ⚠ the same rule the portraits follow: a composition
+                        // with no asset server draws the LABEL and no art,
+                        // rather than a hole nobody can explain.
+                        None => {
+                            cell.spawn((Node {
+                                flex_grow: 1.0,
+                                width: Val::Percent(100.0),
+                                min_height: Val::Px(0.0),
+                                ..default()
+                            },));
+                        }
+                    }
+                    cell.spawn((
+                        Text::new("RANDOM"),
                         text_font(13.0),
                         TextColor(INK),
                         TextLayout::new_with_justify(Justify::Center),
@@ -782,14 +872,21 @@ pub fn drive_the_cursor(
         // again". Its resting home is in the target list; where it currently
         // sits is the decision's answer, not the layout's.
         let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
-            token_rect(&layout, &select, *slot).is_some_and(|rect| rect.contains(pointer.position))
+            token_rect(&layout, &select, &fighters, *slot)
+                .is_some_and(|rect| rect.contains(pointer.position))
         });
         match (pointer.carrying, on_token, over) {
             // Picking up.
             (None, Some(slot), _) => pointer.grab(slot),
             // Placing.
-            (Some(slot), _, Some(SelectTarget::Portrait(character))) => {
-                select.set_pick(slot, character);
+            // ⚠ a CELL, not a fighter index. `SmashRoster::cell` is the one
+            // place that knows the grid's last square is RANDOM; a click that
+            // lands past the end of the grid chooses nothing rather than
+            // clamping onto whoever is last.
+            (Some(slot), _, Some(SelectTarget::Portrait(cell))) => {
+                if let Some(pick) = fighters.cell(cell) {
+                    select.set_pick(slot, pick);
+                }
                 pointer.drop_it();
             }
             // Anywhere else with something in hand: put it back. Dropping a
@@ -812,8 +909,10 @@ pub fn drive_the_cursor(
     } else if released && pointer.release_should_drop() {
         // A mouse DRAG: press on the token, move, let go over a portrait.
         let over = cursor::hovered(pointer.position, &rects).and_then(kind_of);
-        if let (Some(slot), Some(SelectTarget::Portrait(character))) = (pointer.carrying, over) {
-            select.set_pick(slot, character);
+        if let (Some(slot), Some(SelectTarget::Portrait(cell))) = (pointer.carrying, over) {
+            if let Some(pick) = fighters.cell(cell) {
+                select.set_pick(slot, pick);
+            }
         }
         pointer.drop_it();
     }
@@ -824,12 +923,22 @@ pub fn drive_the_cursor(
 /// `None` for a slot nobody is at — an absent slot has no token to grab, and
 /// returning its pool rect anyway would let a click on empty space pick up a
 /// player who is not there.
-pub fn token_rect(layout: &SelectLayout, select: &SmashSelect, slot: usize) -> Option<HitRect> {
+pub fn token_rect(
+    layout: &SelectLayout,
+    select: &SmashSelect,
+    fighters: &SmashRoster,
+    slot: usize,
+) -> Option<HitRect> {
     let card = select.slot(slot);
     if !card.occupant.participates() {
         return None;
     }
-    match card.pick.and_then(|character| layout.portrait(character)) {
+    // ⚠ the cell, not the fighter index: a slot on RANDOM rests its token on the
+    // random square, which is a real cell of the grid like any other.
+    match card
+        .pick
+        .and_then(|pick| layout.portrait(cell_of(pick, fighters)))
+    {
         Some(cell) => Some(token_rect_over(cell, slot)),
         None => Some(layout.token_home(slot)),
     }
@@ -944,7 +1053,8 @@ pub fn update_the_select_screen(
     for (cell, mut border) in &mut cells {
         let owner = (0..MAX_SMASH_SEATS).find(|slot| {
             let card = select.slot(*slot);
-            card.occupant.participates() && card.pick == Some(cell.0)
+            card.occupant.participates()
+                && card.pick.map(|pick| cell_of(pick, &fighters)) == Some(cell.0)
         });
         set_border(
             &mut border,
@@ -998,6 +1108,11 @@ pub fn update_the_select_screen(
             .participates()
             .then_some(card.pick)
             .flatten()
+            // ⚠ **a random card shows NO face, on purpose.** It has not been
+            // resolved yet — the draw happens when the match starts — and
+            // showing any portrait here would be the screen inventing an answer
+            // it does not have.
+            .and_then(SlotPick::fighter)
             .and_then(|index| fighters.get(index))
             .and_then(|id| art.portrait(id));
         match shown {
@@ -1068,7 +1183,7 @@ pub fn update_the_select_screen(
     // the pool. Written every frame from the layout rather than remembered, so a
     // resized window carries the tokens with it.
     for (token, mut node, mut visibility) in &mut tokens {
-        let Some(resting) = token_rect(&layout, &select, token.0) else {
+        let Some(resting) = token_rect(&layout, &select, &fighters, token.0) else {
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
         };

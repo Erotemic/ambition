@@ -11,7 +11,9 @@
 //! `select_screen::layout`, a pure function of the viewport, so a headless app
 //! clicks exactly where a windowed one draws.
 
-use ambition_demo_smash::select::{SlotOccupant, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
+use ambition_demo_smash::select::{
+    SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS,
+};
 use ambition_demo_smash::select_screen::cursor::{HitRect, SelectCursor};
 use ambition_demo_smash::select_screen::layout::SelectLayout;
 use ambition_demo_smash::select_screen::{CardName, RoleButtonLabel, SlotToken};
@@ -143,7 +145,7 @@ fn nth(app: &App, index: usize) -> usize {
 /// four fighters it declares; a host offers its whole tagged cast, and a layout
 /// built from the wrong count would put the cursor between two cells.
 fn layout(app: &App) -> SelectLayout {
-    SelectLayout::for_viewport(None, app.world().resource::<SmashRoster>().len())
+    SelectLayout::for_viewport(None, app.world().resource::<SmashRoster>().cell_count())
 }
 
 /// Put the cursor somewhere. A mouse does exactly this; so does a pad, one snap
@@ -218,8 +220,8 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     click(&mut app, 1, layout.token_home(1));
     let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
     click(&mut app, 1, cell);
-    assert_eq!(slot(&app, 0).pick, Some(nth(&app, 0)));
-    assert_eq!(slot(&app, 1).pick, Some(nth(&app, 1)));
+    assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 0))));
+    assert_eq!(slot(&app, 1).pick, Some(SlotPick::Fighter(nth(&app, 1))));
 
     // ⚠ **it must NOT have started yet.** A screen that launches the instant
     // the last token lands is the one nobody can look at.
@@ -293,21 +295,21 @@ fn a_token_dropped_on_empty_space_goes_back_to_the_fighter_it_had() {
     click(&mut app, 0, layout.token_home(0));
     let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
     click(&mut app, 0, cell);
-    assert_eq!(slot(&app, 0).pick, Some(nth(&app, 1)));
+    assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 1))));
 
     // Pick it back up and let go over the title bar, which is nothing.
     click(&mut app, 0, layout.token_home(0));
     click(&mut app, 0, layout.title());
     assert_eq!(
         slot(&app, 0).pick,
-        Some(nth(&app, 1)),
+        Some(SlotPick::Fighter(nth(&app, 1))),
         "a token dropped on empty space took the player's fighter with it"
     );
 
     // And BACK while carrying does the same.
     click(&mut app, 0, layout.token_home(0));
     press(&mut app, 0, back());
-    assert_eq!(slot(&app, 0).pick, Some(nth(&app, 1)));
+    assert_eq!(slot(&app, 0).pick, Some(SlotPick::Fighter(nth(&app, 1))));
     assert_eq!(app.world().resource::<SelectCursor>().carrying, None);
 }
 

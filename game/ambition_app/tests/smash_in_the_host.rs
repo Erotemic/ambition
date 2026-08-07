@@ -145,7 +145,10 @@ fn screen(app: &App) -> SelectLayout {
         None,
         app.world()
             .resource::<ambition_demo_smash::select::SmashRoster>()
-            .len(),
+            // ⚠ CELLS, not fighters: the grid's last square is RANDOM, and a
+            // layout built from the fighter count puts every click one cell off
+            // at the end of the last row.
+            .cell_count(),
     )
 }
 

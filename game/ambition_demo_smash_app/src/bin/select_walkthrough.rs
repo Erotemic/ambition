@@ -36,7 +36,7 @@ fn main() {
         .insert_resource(ambition_platformer2d::input::LocalDeviceOrder::from_devices(devices));
 
     let fighters = app.world().resource::<SmashRoster>().clone();
-    let layout = SelectLayout::for_viewport(None, fighters.len());
+    let layout = SelectLayout::for_viewport(None, fighters.cell_count());
     show(&mut app, "the screen as three people find it");
 
     click(&mut app, layout.role_button(0), "P1 takes a controller");

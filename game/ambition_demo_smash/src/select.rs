@@ -258,11 +258,109 @@ impl SlotOccupant {
 /// controller to CPU and back is how a player hands their character to the
 /// machine, and clearing the portrait on the way through would make that a
 /// re-pick every time.
+/// **What a slot has chosen.**
+///
+/// ⛔ **not a `usize`, because one of the choices is not a character.** The grid
+/// offers a RANDOM cell (Jon, 2026-08-07), and spelling that as a reserved index
+/// into the fighter list would put arithmetic between "what somebody clicked"
+/// and "who they are playing" — the shape this file already refuses for the
+/// occupant. `Fighter(i)` indexes [`SmashRoster`]; `Random` indexes nothing and
+/// is not resolved until the match starts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SlotPick {
+    /// This exact fighter, by roster index.
+    Fighter(usize),
+    /// **Surprise me.** The character is chosen when the match starts, not when
+    /// the square is clicked — so a person who takes random and then waits is
+    /// not sitting there already knowing.
+    Random,
+}
+
+impl SlotPick {
+    /// The roster index, if this is a committed fighter. `None` for random —
+    /// which is the whole point: there is no index yet.
+    pub fn fighter(self) -> Option<usize> {
+        match self {
+            Self::Fighter(index) => Some(index),
+            Self::Random => None,
+        }
+    }
+
+    pub fn is_random(self) -> bool {
+        matches!(self, Self::Random)
+    }
+}
+
+impl From<usize> for SlotPick {
+    fn from(index: usize) -> Self {
+        Self::Fighter(index)
+    }
+}
+
+/// **One deterministic stream for a match's random squares.**
+///
+/// ADR 0023 forbids ambient RNG, so this is a value seeded by its caller rather
+/// than anything reaching for the clock. The mixer is the same 64-bit LCG the
+/// boss patterns roll on, kept local because a screen drawing one number per
+/// seat has no business owning a shared stream.
+struct RandomPick(u64);
+
+impl RandomPick {
+    fn seeded(seed: u64) -> Self {
+        // A zero seed is a real input (a test asking for the same draw twice),
+        // and a zero state would make the LCG constant. Mix it once so every
+        // seed — including zero — starts somewhere.
+        Self(seed ^ 0x9E37_79B9_7F4A_7C15)
+    }
+
+    /// A uniform index into `0..len`, or `None` for an empty grid.
+    fn draw(&mut self, len: usize) -> Option<usize> {
+        if len == 0 {
+            return None;
+        }
+        self.0 = self
+            .0
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        // The HIGH bits, because an LCG's low bits have short periods — the
+        // classic way to make "random" alternate between two fighters.
+        Some(((self.0 >> 33) % len as u64) as usize)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SlotCard {
     pub occupant: SlotOccupant,
-    /// Indexes [`SELECTABLE`]. `None` is the state the match waits on.
-    pub pick: Option<usize>,
+    /// What this slot chose. `None` is the state the match waits on.
+    pub pick: Option<SlotPick>,
+}
+
+/// **The grid's cells, which are the fighters PLUS the random square.**
+///
+/// The random square is LAST, deliberately: every fighter keeps the cell index
+/// it already had, so a screen, a walkthrough or a test that names a portrait by
+/// position is not silently re-pointed at its neighbour by this feature.
+impl SmashRoster {
+    /// How many cells the grid draws — one per fighter, plus random.
+    pub fn cell_count(&self) -> usize {
+        self.len() + 1
+    }
+
+    /// What clicking cell `index` chooses. `None` past the end of the grid,
+    /// matching `SelectLayout::portrait`: an index nobody drew is a bug to see,
+    /// not a choice to invent.
+    pub fn cell(&self, index: usize) -> Option<SlotPick> {
+        match index {
+            _ if index < self.len() => Some(SlotPick::Fighter(index)),
+            _ if index == self.len() => Some(SlotPick::Random),
+            _ => None,
+        }
+    }
+
+    /// Which cell the random square is drawn in.
+    pub fn random_cell(&self) -> usize {
+        self.len()
+    }
 }
 
 impl SlotCard {
@@ -271,7 +369,7 @@ impl SlotCard {
     ///
     /// ⚠ an absent slot with a remembered pick answers `None`, which is what
     /// makes [`SmashSelect::ready`] safe to write as a count.
-    pub fn locked_character(self) -> Option<usize> {
+    pub fn locked_pick(self) -> Option<SlotPick> {
         self.occupant.participates().then_some(self.pick).flatten()
     }
 }
@@ -351,9 +449,9 @@ impl SmashSelect {
     /// only draws for a fighter in the roster. [`Self::roster`] drops a pick
     /// with no id, so an index that somehow outlived its roster costs a seat
     /// rather than a fighter nobody chose.
-    pub fn set_pick(&mut self, slot: usize, character: usize) {
+    pub fn set_pick(&mut self, slot: usize, pick: impl Into<SlotPick>) {
         if slot < MAX_SMASH_SEATS {
-            self.slots[slot].pick = Some(character);
+            self.slots[slot].pick = Some(pick.into());
         }
     }
 
@@ -364,7 +462,7 @@ impl SmashSelect {
     /// dragging at all.
     pub fn seed_pick(&mut self, slot: usize, fighters: &SmashRoster) {
         if slot < MAX_SMASH_SEATS && self.slots[slot].pick.is_none() && !fighters.is_empty() {
-            self.slots[slot].pick = Some(slot % fighters.len());
+            self.slots[slot].pick = Some(SlotPick::Random);
         }
     }
 
@@ -380,7 +478,7 @@ impl SmashSelect {
     pub fn decided(&self) -> usize {
         self.slots
             .iter()
-            .filter(|card| card.locked_character().is_some())
+            .filter(|card| card.locked_pick().is_some())
             .count()
     }
 
@@ -443,9 +541,38 @@ impl SmashSelect {
     /// screen is the failure this returns an `Option` to make impossible: a
     /// hovered portrait reads exactly like a choice.
     pub fn roster(&self, fighters: &SmashRoster) -> Option<MatchParticipantRoster> {
+        self.roster_seeded(fighters, 0)
+    }
+
+    /// **The match this screen decided, with the random squares resolved.**
+    ///
+    /// ⭐ **this is where "when the match starts" happens** (Jon, 2026-08-07:
+    /// *"The exact character is chosen when the match starts."*). Resolving here
+    /// rather than at the click is what makes random actually random to the
+    /// person who chose it — and resolving here rather than LATER is what keeps
+    /// every stage downstream ordinary: preparation, activation and the rollback
+    /// window all see a roster of concrete character ids, with no notion that
+    /// one of them was a surprise.
+    ///
+    /// ⚠ **`seed` is required, not ambient** (ADR 0023: no ambient RNG). The
+    /// caller supplies something that varies per match; this rolls a
+    /// deterministic stream off it, the same shape the boss patterns use. A
+    /// seeded stream is also what lets a test ask for a specific draw instead of
+    /// asserting "some fighter".
+    pub fn roster_seeded(
+        &self,
+        fighters: &SmashRoster,
+        seed: u64,
+    ) -> Option<MatchParticipantRoster> {
         if !self.ready() {
             return None;
         }
+        // One stream for the whole match, advanced once per random seat in slot
+        // order — so two random seats draw independently, and CAN draw the same
+        // fighter. A mirror match is a legal outcome of two people both asking
+        // to be surprised; de-duplicating would be this screen quietly deciding
+        // that it is not.
+        let mut rng = RandomPick::seeded(seed);
         let mut roster = MatchParticipantRoster::of(Vec::<String>::new());
         roster.participants = self
             .slots
@@ -457,7 +584,10 @@ impl SmashSelect {
                 // impossible today and exactly the kind of thing a hosted
                 // composition could arrange — and seating a fighter nobody
                 // chose is worse than seating one fewer.
-                let character = fighters.get(card.locked_character()?)?;
+                let character = match card.locked_pick()? {
+                    SlotPick::Fighter(index) => fighters.get(index)?,
+                    SlotPick::Random => fighters.get(rng.draw(fighters.len())?)?,
+                };
                 Some(
                     MatchParticipant::new(character)
                         // A slot is driven by whoever the SCREEN says is at it.

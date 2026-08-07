@@ -204,11 +204,11 @@ fn the_chosen_character_survives_the_button() {
     select.cycle_occupant(0, 2);
     select.set_pick(0, 5);
     select.cycle_occupant(0, 2); // → CPU
-    assert_eq!(select.slot(0).pick, Some(5));
+    assert_eq!(select.slot(0).pick, Some(SlotPick::Fighter(5)));
     select.cycle_occupant(0, 2); // → absent
-    assert_eq!(select.slot(0).pick, Some(5));
+    assert_eq!(select.slot(0).pick, Some(SlotPick::Fighter(5)));
     assert_eq!(
-        select.slot(0).locked_character(),
+        select.slot(0).locked_pick(),
         None,
         "an absent slot's remembered pick counted toward the match"
     );
@@ -428,4 +428,108 @@ fn the_couch_policy_still_respects_the_seat_ceiling() {
         super::seats_offered_under(&many, InputAssignmentPolicy::JoinToClaim),
         super::MAX_SMASH_SEATS
     );
+}
+
+/// **THE RANDOM SQUARE IS A CELL, AND IT IS THE LAST ONE.** (Jon, 2026-08-07)
+///
+/// Both directions, because each alone is satisfiable by a broken mapping: a
+/// grid that returns `Fighter` for every cell passes "the last cell is random"
+/// if it never reaches it, and one that returns `Random` for everything passes
+/// "fighters keep their index" if nothing checks the fighters.
+///
+/// ⚠ **fighters keeping their index is the load-bearing half.** Putting random
+/// FIRST would have been just as reasonable a design and would silently
+/// re-point every portrait-by-position in the screen, the walkthrough and the
+/// host tests at its neighbour.
+#[test]
+fn the_grid_is_the_fighters_plus_a_random_square_at_the_end() {
+    let fighters = fighters();
+    assert_eq!(fighters.cell_count(), fighters.len() + 1);
+    for index in 0..fighters.len() {
+        assert_eq!(
+            fighters.cell(index),
+            Some(SlotPick::Fighter(index)),
+            "cell {index} stopped naming the fighter it used to"
+        );
+    }
+    assert_eq!(
+        fighters.cell(fighters.random_cell()),
+        Some(SlotPick::Random)
+    );
+    assert_eq!(
+        fighters.cell(fighters.cell_count()),
+        None,
+        "a click past the end of the grid chose something"
+    );
+}
+
+/// **A NEW PARTICIPANT DEFAULTS TO RANDOM.** (Jon, 2026-08-07: *"I also want
+/// adding a new participant to default to the random square."*)
+///
+/// ⚠ it used to seed `slot % len`, so an untouched two-slot lobby was Duelist A
+/// against Duelist B every single time. That was a reasonable default for a demo
+/// with four fighters and is a poor one for a crossover grid: the fastest path
+/// through the screen now gives you a fight you did not already know the shape
+/// of.
+#[test]
+fn a_new_participant_starts_on_the_random_square() {
+    let fighters = fighters();
+    let mut select = SmashSelect::default();
+    select.set_occupant(0, SlotOccupant::Cpu);
+    select.seed_pick(0, &fighters);
+    assert_eq!(select.slot(0).pick, Some(SlotPick::Random));
+    assert!(
+        select
+            .slot(0)
+            .locked_pick()
+            .is_some_and(SlotPick::is_random),
+        "a slot on random does not read as decided, so the match waits forever"
+    );
+}
+
+/// **RANDOM RESOLVES TO A REAL FIGHTER, AND ONLY WHEN THE MATCH STARTS.**
+///
+/// ⭐ the ROSTER is where the draw happens, so everything downstream — the
+/// prepared plan, activation, the rollback window — sees ordinary character ids
+/// and never learns that one of them was a surprise.
+#[test]
+fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
+    let fighters = fighters();
+    let mut select = SmashSelect::default();
+    for slot in [0, 1] {
+        select.set_occupant(slot, SlotOccupant::Cpu);
+        select.set_pick(slot, SlotPick::Random);
+    }
+
+    // Before the start there is no fighter to name — that is the whole point.
+    assert!(select.slot(0).pick.is_some_and(SlotPick::is_random));
+
+    let roster = select
+        .roster_seeded(&fighters, 12_345)
+        .expect("two decided seats are a match");
+    assert_eq!(roster.participants.len(), 2);
+    for participant in &roster.participants {
+        assert!(
+            fighters.0.iter().any(|id| *id == participant.character),
+            "a random seat drew `{}`, which is not on the grid",
+            participant.character
+        );
+    }
+
+    // ⚠ **SEEDED, not ambient** (ADR 0023). The same seed draws the same match,
+    // which is what makes a desync explicable and a test able to name a draw.
+    let again = select
+        .roster_seeded(&fighters, 12_345)
+        .expect("the same screen is still a match");
+    assert_eq!(
+        again.participants[0].character, roster.participants[0].character,
+        "the same seed drew a different fighter"
+    );
+
+    // ...and a different seed is allowed to differ. Asserting it MUST differ
+    // would be asserting a hash collision never happens on a grid this small.
+    let other = select
+        .roster_seeded(&fighters, 99)
+        .expect("the same screen is still a match");
+    assert_eq!(other.participants.len(), 2);
 }

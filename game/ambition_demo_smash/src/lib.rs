@@ -1114,7 +1114,26 @@ fn start_the_battle_when_asked(
     if !on_select || roster.is_some() {
         return;
     }
-    let Some(decided) = select.roster(&fighters) else {
+    // **THE SEED FOR THIS MATCH'S RANDOM SQUARES.**
+    //
+    // ⚠ ADR 0023: no ambient RNG. This is the shell ACTIVATION this select
+    // screen is running under — a monotonic id minted per route entry — so two
+    // visits to the screen draw differently and one visit draws the same thing
+    // twice if it somehow started twice. Mixed with the participant count so a
+    // three-way and a two-way opened from the same visit do not walk the same
+    // sequence.
+    //
+    // ⛔ NOT the wall clock, and not a thread RNG. A match is decided in
+    // `Update`, but everything it produces is read inside the rollback window,
+    // and "where did this fighter come from" must have an answer that survives a
+    // replay.
+    let seed = router
+        .active
+        .as_ref()
+        .map_or(0, |active| active.activation_id.0 as u64)
+        .rotate_left(17)
+        ^ select.participating() as u64;
+    let Some(decided) = select.roster_seeded(&fighters, seed) else {
         return;
     };
     // ⭐ **THE SEAT COUNT THIS MATCH DECIDED, published with the roster and
@@ -2107,7 +2126,7 @@ mod pause_arbitration_tests {
         // what proves the press lands at all.
         let button = select_screen::layout::SelectLayout::for_viewport(
             None,
-            select::SmashRoster::default().len(),
+            select::SmashRoster::default().cell_count(),
         )
         .role_button(0);
         app.world_mut()

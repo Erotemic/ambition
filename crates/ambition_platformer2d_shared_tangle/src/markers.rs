@@ -65,6 +65,41 @@ pub struct FramedCast(pub Vec<Entity>);
 /// sandbox reset, save sync, spawn-clone-relative-to, heal fallback, and the HUD /
 /// debug subject (which still show the home avatar's stats by design).
 ///
+/// ## ⚠ ZERO OF THESE IS A LEGITIMATE STEADY STATE (2026-08-07)
+///
+/// "There is exactly one primary player" was never an engine invariant, only an
+/// unexamined habit — and `InitialBodyPolicy::NoInitialBody` is what turned it
+/// into an experience-scoped claim. A MATCH realizes its own cast and lowers no
+/// home avatar, so every reader of this marker has to be correct at a count of
+/// zero. 109 production sites were classified against that; the result, so the
+/// next reader inherits the reading rather than repeating it:
+///
+/// * **home-body policy — correct to do nothing in a match.** Respawn, sandbox
+///   reset, save sync, the exploration HUD (`spawn_player_hud` waits for a
+///   primary player and a match has its own HUD), the heal shrine, pickups,
+///   item persistence, dialogue. The overwhelming majority.
+/// * **already migrated to `ControlledSubject`.** `rebuild_player_hud_facts`
+///   and `rebuild_nameplate_index` both prefer the controlled subject and keep
+///   this only as a startup-frame fallback. ⭐ `rebuild_nameplate_index` was
+///   recorded as a defect in the plan and is NOT one: with no subject it simply
+///   marks no plate as "self" and every other plate still draws — which is why
+///   Jon saw a name over a fighter in a match that had no player at all.
+/// * **fixed here.** `camera_snapshot` (a `single()` that returned without one,
+///   so a match had no camera) and `rebuild_hostile_wielded_items_view` (a
+///   whole-system `return`, and the aim target it published was the PLAYER's
+///   position rather than each wielder's own target).
+/// * ⚠ **known and deliberately out of scope:** the player-victim damage path
+///   (`damage_apply`) is slot-0 by design and says so — hitstop, the death
+///   banner and the safe-position rewind are "the feel/save consequences the
+///   local human is owed". A local participant's FIGHTER is an actor, so it
+///   gets none of them. Whether a fighter should have hitstop is a design
+///   question for the match, not a marker bug.
+///
+/// ⛔ the shape to watch for is not `With<PrimaryPlayer>` itself but
+/// `single()` + `else { return }` around it: a run condition or a system-wide
+/// guard on this marker disables its whole subsystem for every entity, and
+/// three of those were removed in one week.
+///
 /// Distinct from `LocalPlayer` because in a future split-screen
 /// build the local players would each be `LocalPlayer` but only one
 /// would be `PrimaryPlayer` (e.g. the host's view in a guest-joined

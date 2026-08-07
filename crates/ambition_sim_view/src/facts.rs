@@ -206,17 +206,18 @@ pub fn rebuild_world_items_view(
 ) {
     use ambition_platformer2d_actor_monolith::items::world_item::WorldItemPayload;
     view.0.clear();
-    view.0.extend(items.iter().map(|(item, motion)| WorldItemFact {
-        pos: item.pos,
-        half_extent: item.half_extent,
-        row_id: match &item.payload {
-            WorldItemPayload::Equip(row) => row.id.clone(),
-        },
-        sprite: item.sprite.clone(),
-        // An item with no motion is not rising: a dropped or authored item sits
-        // where it is, and belongs in front of the world like any other pickup.
-        emerging: motion.is_some_and(|motion| motion.emerging()),
-    }));
+    view.0
+        .extend(items.iter().map(|(item, motion)| WorldItemFact {
+            pos: item.pos,
+            half_extent: item.half_extent,
+            row_id: match &item.payload {
+                WorldItemPayload::Equip(row) => row.id.clone(),
+            },
+            sprite: item.sprite.clone(),
+            // An item with no motion is not rising: a dropped or authored item sits
+            // where it is, and belongs in front of the world like any other pickup.
+            emerging: motion.is_some_and(|motion| motion.emerging()),
+        }));
 }
 
 /// Every in-flight held shot (gun-sword laser / fireball).
@@ -331,6 +332,20 @@ pub struct HostileWieldedItemFact {
     pub wielder_height: f32,
 }
 
+/// ⛔ **A WIELDER AIMS AT WHAT IT IS FIGHTING, not at "the player".**
+///
+/// This took `Query<&BodyKinematics, PrimaryPlayerOnly>`, `single()`d it, and
+/// `return`ed without one — so in a match, where no session home avatar exists,
+/// every hostile wielder's held item vanished from the view entirely. And when
+/// there WAS a player the fact was still wrong for a match: two fighters both
+/// aimed their weapons at a third body neither was fighting.
+///
+/// ⭐ **relativity over player-centrism** (Jon's rule, and the reason this is
+/// worth changing rather than defaulting): the aim target is the wielder's OWN
+/// `ActorTarget`. The controlled subject is the fallback for a wielder with no
+/// target — an exploration enemy that has not acquired one still points its
+/// pistol at the person it is menacing — and a wielder with neither is simply
+/// aimed where it faces, which is a fact rather than a hole.
 #[allow(clippy::type_complexity)]
 pub fn rebuild_hostile_wielded_items_view(
     mut view: ResMut<HostileWieldedItemsView>,
@@ -339,14 +354,23 @@ pub fn rebuild_hostile_wielded_items_view(
         &ambition_platformer2d_actor_monolith::features::HeldItem,
         Option<&BodyKinematics>,
         Option<&BodyHealth>,
+        Option<&ambition_platformer2d_actor_monolith::combat::components::ActorTarget>,
     )>,
+    bodies: Query<&BodyKinematics>,
+    controlled: Option<Res<ControlledSubject>>,
     player_q: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {
     view.0.clear();
-    let Ok(player) = player_q.single() else {
-        return;
-    };
-    for (disposition, held_item, kin, health) in &wielders {
+    // The session's own subject, for a wielder that has acquired nothing. `None`
+    // in a match with no local participant, which is legitimate rather than a
+    // reason to publish nothing.
+    let subject_pos = controlled
+        .as_deref()
+        .and_then(|subject| subject.0)
+        .and_then(|entity| bodies.get(entity).ok())
+        .or_else(|| player_q.single().ok())
+        .map(|kin| kin.pos);
+    for (disposition, held_item, kin, health, target) in &wielders {
         if disposition.is_peaceful() {
             continue;
         }
@@ -357,6 +381,13 @@ pub fn rebuild_hostile_wielded_items_view(
             continue;
         }
         let wielder_height = kin.size.y;
+        // Its own target first; the session subject second; where it faces last.
+        let aim_world = target
+            .and_then(|target| target.entity)
+            .and_then(|entity| bodies.get(entity).ok())
+            .map(|kin| kin.pos)
+            .or(subject_pos)
+            .unwrap_or_else(|| kin.pos + ae::Vec2::new(kin.facing * wielder_height, 0.0));
         view.0.push(HostileWieldedItemFact {
             item_id: held_item.id().to_owned(),
             hand_world: ambition_platformer2d_actor_monolith::features::rider_hand_world_pos(
@@ -364,7 +395,7 @@ pub fn rebuild_hostile_wielded_items_view(
                 kin.facing,
                 wielder_height,
             ),
-            aim_world: player.pos,
+            aim_world,
             wielder_height,
         });
     }

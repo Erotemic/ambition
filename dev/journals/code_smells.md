@@ -100,7 +100,29 @@ open smells; entry kept for the analysis below.
 - **Noticed while:** 2026-07-19 deep review (bifurcation sweep).
 - **Suggested fix / size:** M — one victims query with `Has<PlayerEntity>` selecting payload policy, exactly like `hitbox/mod.rs:203`; delete both loops.
 
-## 2026-07-19 BIFURCATION: "body was struck" feedback keyed on `is_player` at TWO attacker-side emit sites
+## 2026-07-19 BIFURCATION: "body was struck" feedback keyed on `is_player` at TWO attacker-side emit sites — ✅ RESOLVED (verified 2026-08-07)
+
+- **Resolution: the elegant one this entry asked for, not a patch.** It proposed
+  *"ONE victim-side feedback seam keyed on the attack/volume spec + the victim's
+  feel profile, which retires both `is_player` branches AND gives moves authored
+  feedback in the same stroke."* That is what shipped, under the name CM8:
+  - the victim's feel profile is `HurtFeedback` (`ambition_combat/src/util.rs`),
+    with an `ENEMY` profile that carries neither `PLAYER_DAMAGE` nor the red
+    burst — so no `is_player`-flavoured payload can leak onto a non-player victim;
+  - both attacker-side emit blocks are gone. `hitbox/mod.rs` now documents *"ONE
+    victim loop (§A3): every body with a published footprint — player, actor,
+    boss, possessed anything — resolves through the same relational rule"*, and
+    `actors/update.rs` says *"CM8: contact hits no longer emit feedback here (they
+    used to fire the player-hurt payload for EVERY victim)"*;
+  - the duplicated constants are single: the burst colour lives once in
+    `ambition_vfx`;
+  - ⭐ **and Jon's fix note is satisfied too** — *"the same one should not
+    generically be used for all attacks"* — pinned by
+    `"different attacks on the same body sound different"`.
+- ⚠ the bug the fork was hiding has its own regression test, named for it:
+  `an_enemy_victim_never_throws_the_player_hurt_burst`.
+
+**Original entry:**
 - **Where:** `crates/ambition_combat/src/hitbox/mod.rs:241-268` and `crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs:1113-1142` (byte-identical payload: `PLAYER_DAMAGE` sfx + `Burst{14,300,[1.0,0.34,0.28,0.88],Shard}` + `DebrisBurst{Impact}`); non-player victims get their richer feedback on the CONSUMER side instead (`damage/actor_hit.rs:271`, `:207-213`). Death feedback is likewise per-victim-kind at three sites (`actor_hit.rs:377-388`, `boss_hit.rs:205-215`, `damage_apply.rs` `death_respawn_player`).
 - **Smell:** hit RESOLUTION is unified (`resolve_body_hit`), but hit FEEDBACK forks by `is_player` and by layer. Duplicated payload constants at two emit sites will drift.
 - **Noticed while:** 2026-07-19 deep review. **Jon's fix note asks for per-attack VFX/SFX binding ("the same one should not generically be used for all attacks") — the elegant resolution is ONE victim-side feedback seam keyed on the attack/volume spec + the victim's feel profile, which retires both `is_player` branches AND gives moves authored feedback in the same stroke.**

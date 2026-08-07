@@ -247,7 +247,7 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | sfx registry | `assets/audio/sfx_registry.ron` | ✅ `sfx_registry`, same owner (2026-08-03) |
 | dialogue | 7 × `assets/dialogue/sandbox/*.yarn` | ▢ not RON; needs a handler that parses Yarn |
 | worlds | the LDtk projects | ▢ |
-| vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ▢ |
+| vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ⊘ **NOT a migration — measured 2026-08-07.** `vanity_card.ron` has ZERO readers in the workspace: only `tools/vanity_card_prep/export_sequence.py` writes it, and Jon settled it as reference art on 2026-08-03. `vanity_card_made_this_meme.ron` is 269K of GENERATED baked rig with exactly one reader (`include_str!`), so there is no two-reader fork to close. ⚠ chasing this row found two source comments citing `presentation::vanity_card`, a module that has never existed — fixed. |
 | fighter brain ladder | `data/fighter_brain_ladder.ron` | ✅ `fighter_brain_ladder`, owned by `ambition_characters` (2026-08-07) — declared, validated, lowered AND consumed. ⚠ this family had ZERO production readers rather than two, so the migration was a bug fix; see below for what it fixed and why it fixed nothing yet. |
 
 ### ⛔ The fighter brain ladder is not a MIGRATION — it is a bug (2026-08-07)
@@ -352,8 +352,19 @@ registered in both registries, and lowered into the prepared pack — asserted b
 `the_prepared_pack_lowers_the_shipped_ladder`, which reads the PACK rather than
 the file so it fails if the manifest, either registry, or lowering breaks.
 
-▢ **what is left is the consumption, and it has a layering constraint the sketch
-above missed.** `BrainBuildContext` is the right carrier for the CATALOG path,
+✔ **CONSUMPTION LANDED 2026-08-07** — pinned end to end by
+`ambition_app/tests/authored_fighter_ladder.rs`, probed red both ways (projection
+unregistered; the insert `#[cfg(any())]`-ed out). ⛔ **and it exposed a layering
+mismatch bigger than the one below**: Ambition's 24 archetypes contain ZERO
+`Fighter` brains, while all 7 in the workspace are `ambition_demo_smash`'s — a
+crate that depends on `ambition_platformer2d` alone and so cannot see the pack.
+The ladder is authored in the game with no fighters and consumed by the game that
+cannot see it; `ambition_app` is the only composition where they meet, and the
+standalone demo (plus `ladder_probe` and `ladder_rig`) still runs the engine
+floor. Carried as **C3a** in `queue-72h-2026-08-06.md`.
+
+**The constraint the sketch above missed, kept because it is what forced the
+shape:** `BrainBuildContext` is the right carrier for the CATALOG path,
 which lives in `ambition_characters`. It cannot serve the other site:
 `enemy_default_brain` is in the MONOLITH, and the prepared pack lives in
 `game/ambition_content`, which is above the monolith — so the monolith cannot

@@ -1,15 +1,15 @@
 {
   "schema": "llm-resource-tally/v3",
-  "through": "2026-08-07T14:31:58.476520+00:00",
-  "ledger_rows": 3062,
-  "commits_accounted": 2764,
-  "turns": 112266,
+  "through": "2026-08-07T15:12:27.981377+00:00",
+  "ledger_rows": 3065,
+  "commits_accounted": 2767,
+  "turns": 112327,
   "tokens": {
-    "input": 30391259,
-    "cache_write": 305867837,
-    "cache_read": 43209814494,
-    "output": 104888769,
-    "billable_input": 43546073590
+    "input": 30391381,
+    "cache_write": 305947627,
+    "cache_read": 43226846030,
+    "output": 104931982,
+    "billable_input": 43563185038
   },
   "by_model": {
     "claude-opus-4-8": {
@@ -49,18 +49,18 @@
       "output": 833268
     },
     "claude-opus-5": {
-      "input": 91181,
-      "cache_write": 85377645,
-      "cache_read": 18013393063,
-      "output": 24993369
+      "input": 91303,
+      "cache_write": 85457435,
+      "cache_read": 18030424599,
+      "output": 25036582
     }
   },
   "by_activity": {
     "unlabeled": {
-      "input": 8234841,
-      "cache_write": 178035174,
-      "cache_read": 28658671440,
-      "output": 59128316
+      "input": 8234963,
+      "cache_write": 178114964,
+      "cache_read": 28675702976,
+      "output": 59171529
     },
     "backfill": {
       "input": 21552517,
@@ -89,10 +89,10 @@
   },
   "by_agent": {
     "claude-code": {
-      "input": 8362795,
-      "cache_write": 305867837,
-      "cache_read": 42674084190,
-      "output": 103068049
+      "input": 8362917,
+      "cache_write": 305947627,
+      "cache_read": 42691115726,
+      "output": 103111262
     },
     "codex": {
       "input": 22028464,
@@ -106,7 +106,7 @@
     "web_fetch": 0
   },
   "time": {
-    "wall_clock_s": 6440903.3
+    "wall_clock_s": 6443140.8
   },
   "compaction_signals": {
     "events": 163,

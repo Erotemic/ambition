@@ -131,7 +131,27 @@
     `collision_scale = 1.21 / fill` REPRODUCES Alice's authored 1.5 from her 81%
     fill (1.21 / 0.81 = 1.49). A formula that predicts the values you already
     like is not a matter of opinion. `--suggest` prints it per row.
+  * ⭐ **MEASURED 2026-08-07, and the number is the argument.** Two groups of
+    HUMANS currently render **1.69× apart**: the 13 scientist-cast sheets carrying
+    an explicit `collision_scale: 1.0` sit at figure height **0.84**, while the 33
+    high-fill sheets left on the `1.5` default sit at **1.42**. Your reference is
+    1.21. So this is not "the values drifted a bit" — it is two populations of
+    people, in the same Hall, one of them two-thirds the height of the other.
+  * ⭐ **and the judgement is smaller than the row implies.** The report lists 180
+    sheets; only **116 are catalog characters**. The other 64 have no catalog row
+    at all — `lasersword`, `portal_gun`, `cut_rope_anvil`, `bow_arrow`,
+    `throwing_javelin`, `news_board`, `shrine`, the `goblin_*` weapon sheets — so
+    a figure-height formula is meaningless for them and they are out of scope
+    without any judgement being made. ⚠ a few in that 64 look like UNCAST
+    CHARACTERS rather than props (`george_booul`, `goblin_brute_hammer`), which is
+    the same orphan-sheet class the Hall identity scan turned up; noted, not acted
+    on.
   * ▢ **so the work is: pick which sheets are HUMANOID and apply the suggestion.**
+    The candidate list is the 116, and the ones where the formula is obviously
+    WRONG are identifiable by shape rather than by taste — `puppy_slug` (0.49),
+    `snakes_on_a_*` (0.59), `stochastic_parrot` (0.70), `trex_enemy`,
+    `burning_flying_shark`, the `*_mite`s. Everything above ~80% fill in that list
+    is a person.
     ⚠ the script cannot tell a viking from a puppy slug, and its suggestion is
     nonsense for a snake, an explosion, a pipe, or a deliberately chibi robot —
     that judgement is yours and is the only part left. ⛔ **edit the `.yaml`, not

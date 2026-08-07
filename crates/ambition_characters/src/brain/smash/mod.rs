@@ -149,11 +149,26 @@ pub struct SmashCfg {
     /// reacting to at all. Above a slow drift, below a walk-in so the fighter
     /// guards an opponent stepping into poke range.
     pub shield_closing_speed: f32,
-    /// When true, the (grounded) fighter may **reactive-block** a perceived lunge
-    /// it can't or won't blink away from — it raises `shield_held` and stands its
-    /// ground for a short window. Layered defense: blink is the mobile option,
-    /// block the stand-ground one. `false` for grunts.
+    /// When true, the fighter may **reactive-block** a perceived lunge it can't
+    /// or won't blink away from — it raises `shield_held` and stands its ground
+    /// for a short window. Layered defense: blink is the mobile option, block the
+    /// stand-ground one. `false` for grunts.
     pub can_shield: bool,
+    /// **Whether blocking requires the ground — the GAME's rule, not this
+    /// brain's.**
+    ///
+    /// ⛔ this was hardcoded as `obs.self_on_ground` at both the reactive-block
+    /// arm and the hold that follows it, which made "no blocking in mid-air" a
+    /// fact about `brain/smash`. Smash Siblings wants that rule; another game on
+    /// this engine may not, and answering it meant editing the brain.
+    ///
+    /// ⚠ **defaults to `true` everywhere, so nothing changes by accident** — the
+    /// lift is deliberately behaviour-preserving. Whether AMBITION wants airborne
+    /// blocking is a separate product question and stays open
+    /// (`awaiting-maintainer-decision.md` #9, "Can a flying fighter shield?").
+    /// ⭐ a game answers it by AUTHORING now, and a duel fixture can state which
+    /// rule it is testing under instead of inheriting one silently.
+    pub shield_requires_ground: bool,
     /// When true, this is a **hybrid flyer**: a body that can both fight grounded
     /// (footsies + jump) and take flight (`fly_toggle_pressed`). The brain decides
     /// when to be airborne — to contest an elevated target, or to mount a proactive
@@ -215,6 +230,8 @@ impl SmashCfg {
         blink_closing_speed: 175.0,
         shield_closing_speed: 175.0,
         can_shield: false,
+        // Smash's rule, and the default everywhere: no blocking in mid-air.
+        shield_requires_ground: true,
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
         aerial_foray_duration_s: 0.0,
@@ -247,6 +264,8 @@ impl SmashCfg {
         blink_closing_speed: 175.0,
         shield_closing_speed: 175.0,
         can_shield: false,
+        // Smash's rule, and the default everywhere: no blocking in mid-air.
+        shield_requires_ground: true,
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
         aerial_foray_duration_s: 0.0,
@@ -290,6 +309,8 @@ impl SmashCfg {
         blink_closing_speed: 230.0,
         shield_closing_speed: 70.0,
         can_shield: true,
+        // Smash's rule, and the default everywhere: no blocking in mid-air.
+        shield_requires_ground: true,
         // Grounded duelist by default; hybrid flight is opt-in per fighter.
         can_fly: false,
         aerial_foray_cadence_s: 0.0,
@@ -692,13 +713,16 @@ pub fn tick_smash(
                     out.locomotion = ae::LocalAxes::ZERO;
                     out.velocity_target = ae::WorldVec2::ZERO;
                     state.blink_cooldown = cfg.blink_cooldown_s;
-                } else if cfg.can_shield && obs.self_on_ground {
+                } else if cfg.can_shield && (!cfg.shield_requires_ground || obs.self_on_ground) {
                     state.shield_hold_timer = SHIELD_HOLD_S;
                 }
             }
         }
         // Hold the block up across its window: shield + stand ground.
-        if state.shield_hold_timer > 0.0 && obs.self_on_ground && !out.blink_pressed {
+        if state.shield_hold_timer > 0.0
+            && (!cfg.shield_requires_ground || obs.self_on_ground)
+            && !out.blink_pressed
+        {
             out.shield_held = true;
             out.locomotion = ae::LocalAxes::ZERO;
         }

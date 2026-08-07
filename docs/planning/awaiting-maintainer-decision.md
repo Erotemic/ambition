@@ -650,11 +650,25 @@ shield — but it encodes it in the BRAIN, where every game inherits Smash's cal
 Jon's answer says this is a per-game policy with three states, and Ambition's is
 still open.
 
-▢ **the architecture item, which does not need Ambition's answer**: lift
-"may a body block while airborne" out of `brain/smash` into the game's policy,
-defaulting to Smash's rule so nothing changes by accident. Then Ambition can
-answer later by authoring, not by editing the brain — and the duel fixture can
-state which rule it is testing under instead of inheriting one silently.
+✔ **DONE 2026-08-07 — the architecture item, which did not need Ambition's
+answer.** `SmashCfg::shield_requires_ground` now carries the rule, and the two
+sites that hardcoded `obs.self_on_ground` — the reactive-block arm and the hold
+that follows it — read the policy. It defaults to `true` in every `SmashCfg`
+constant, so nothing changed by accident: `ambition_characters` 468,
+`ambition_demo_smash` 50, contracts 25/25, app gate green.
+
+⭐ so **Ambition's answer is now an AUTHORING act rather than a brain edit**, and
+the duel fixture can state which rule it fights under instead of inheriting one
+silently. ▢ **the product question below stays open and is unchanged** — this
+lift deliberately decides nothing about what Ambition wants.
+
+⚠ **worth knowing for the next change of this shape**: `SmashCfg` rides inside
+`Brain`, which IS rollback state (`actor.brain`, `component-clone-cursor`) — and
+the frozen schema baseline did NOT move. It records type NAMES and snapshot
+strategies, not field layouts, so a nested struct can change shape without the
+wire-format guard noticing. That is the documented design of a clone snapshot
+rather than a hole, but it means "the baseline is green" is not evidence that a
+nested type is unchanged.
 
 Two `app_it` duel tests have been failing since before this run. The cause is
 measured, not suspected — the same fight, both fighters, identical capabilities:

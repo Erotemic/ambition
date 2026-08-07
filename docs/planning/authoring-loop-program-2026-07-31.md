@@ -248,7 +248,7 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | dialogue | 7 × `assets/dialogue/sandbox/*.yarn` | ▢ not RON; needs a handler that parses Yarn |
 | worlds | the LDtk projects | ▢ |
 | vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ▢ |
-| fighter brain ladder | `data/fighter_brain_ladder.ron` | ⛔ ▢ **NOT the same shape as the rows above — it has ZERO production readers.** See below. |
+| fighter brain ladder | `data/fighter_brain_ladder.ron` | ◐ `fighter_brain_ladder`, owned by `ambition_characters` (2026-08-07) — declared, validated and LOWERED. ⛔ **but not yet CONSUMED**, which for this family is the actual defect: it had zero production readers, not two. See below. |
 
 ### ⛔ The fighter brain ladder is not a MIGRATION — it is a bug (2026-08-07)
 

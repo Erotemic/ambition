@@ -255,26 +255,41 @@ Two concrete places the mismatch already shows:
   distinct concepts that happen to agree today, which is exactly how a
   distinction gets quietly lost.
 
-## What I would rename, if we rename
+## ⛔ NO RENAME — decided 2026-08-07
 
-⚠ **not part of the audio change.** That should land keyed by route whatever the
-words are; this is a separate campaign and a large one (three nouns, every
-provider, the shell's whole public surface).
+Jon: *"We don't need to do the rename. Having a finer grained vocabulary is
+probably the right way to do it. We want to find the path that is maximally
+elegant. Let's not churn for now."*
 
-* `provider` → **game**. It already means that, and "provider" is the only one of
-  the three that a player would never say.
-* `experience` → **surface**. A thing the shell can put on screen and run: a
-  launcher surface, a select surface, a gameplay surface. It stops the word
-  "experience" from being read as "the game", which is the actual complaint.
-* `route` → keep. An address in a navigation graph is a route; the word is
-  standard and it is the one term that already means what it says.
+⚠ **and the recommendation this section used to carry was WRONG**, which is why
+it is written down rather than deleted. The draft advised `experience` →
+`surface`, on the grounds that "experience" reads like "the game". Checking what
+other engines do reversed it:
 
-That gives: **a game owns surfaces; a route is how you reach one.** Which is
-Jon's two-level model with the middle term made visible instead of overloaded.
+* **Unity and Godot have no word for the middle concept at all**, because they do
+  not separate it — a Scene is both the kind and the instance. Having the concept
+  IS the finer-grained position.
+* **Unreal separates it, and Epic's Lyra sample calls it an `Experience`** —
+  `ULyraExperienceDefinition`, a data asset defining what a session consists of,
+  with each level naming the experience it wants. That is our meaning, under our
+  word, arrived at independently.
 
-⚠ **the alternative worth considering is deleting a concept rather than renaming
-one.** If every route named its own experience 1:1, "experience" would be pure
-overhead and route alone would do. The five-launchers-one-experience case is the
-only thing standing in the way — and it exists because five hosts each want their
-own launcher ADDRESS while sharing one launcher IMPLEMENTATION. That is a real
-distinction, so the concept earns its place; it is the NAME that does not.
+Renaming away from the only prior art's term, on taste, would have been churn in
+exactly the wrong direction.
+
+Two things ARE recorded as weak, and neither is being acted on now:
+
+* **`provider` is the poor term** — the one a player would never say, the one
+  carrying the meaning "experience" was expected to have. Unreal calls it a *Game
+  Feature*, Unity a *Package*.
+* **Ambition uses the same STRING for provider and experience at most call
+  sites.** Smash registers its audio fragment under `SMASH_EXPERIENCE`, and
+  `session.rs:570` defaults the audio provider to `activation.experience_id`.
+  Two distinct concepts that happen to agree today. Unreal keeps them as separate
+  types that cannot be confused.
+
+**Full comparison, with citations that were fetched rather than remembered:**
+[`docs/related-work/shell-vocabulary-in-other-engines.md`](../related-work/shell-vocabulary-in-other-engines.md).
+
+⭐ **None of this blocks the audio change.** It lands keyed by route whatever the
+words are.

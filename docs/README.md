@@ -28,6 +28,7 @@ That is normally enough to begin useful work.
 | Project direction and live queue | [`planning/`](planning/README.md) |
 | Accepted architectural decisions | [`adr/`](adr/README.md) |
 | Durable vocabulary and invariants | [`concepts/`](concepts/index.md) |
+| How other engines solve the same problem | [`related-work/`](related-work/README.md) |
 | Current subsystem implementation notes | [`systems/`](systems/index.md), then source |
 | Repeatable procedures | [`recipes/`](recipes/index.md) |
 | Author-time tools | [`tools/`](tools/index.md) |

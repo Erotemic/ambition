@@ -228,15 +228,28 @@ Every claim below was checked against the source on 2026-07-26.
 - `deferred_npcs` is consumed by **nothing else in the workspace**.
 
 ### 3.2 Attack intent gaps (block Smash)
-- `AttackDir` is `Neutral | Up | Down | Back` — **no `Forward`** —
-  `crates/ambition_entity_catalog/src/lib.rs:681`.
-- `attack_dir_from_axis` sends *forward* input to the same `else` branch as *no*
-  input → `Neutral` — `crates/ambition_combat/src/moveset/mod.rs:600-616`. So
-  **jab ≡ ftilt and nair ≡ fair are the same value**, not merely unresolved.
-- `ControlFrame` has `attack_pressed` and **no held/released** —
-  `crates/ambition_platformer2d_core/src/control_frame.rs:64`.
-- Special is non-directional: `move_for_verb("special")` —
-  `crates/ambition_platformer2d_actor_monolith/src/action_scheme.rs:235`.
+
+> ⚠ **SWEPT 2026-08-07 — three of the four below are CLOSED, which fits: the
+> thing they were said to block has shipped.** Smash Siblings' six planned rows
+> are all landed. A gap list titled "block X" is worth rechecking the moment X
+> ships, and this one was not.
+
+- ✅ **`AttackDir` has `Forward`** (`ambition_entity_catalog/src/lib.rs:1032`),
+  documented as *"Aimed in the body's facing direction (Smash forward tilt /
+  forward air)"*. ~~`Neutral | Up | Down | Back` — no `Forward`~~
+- ✅ **`attack_dir_from_axis` resolves it** — `attack_gesture.rs:126` branches
+  `forward > deadzone → AttackDir::Forward` before the neutral fallback, so **jab
+  ≢ ftilt and nair ≢ fair**. ~~forward input reaches the same `else` branch as no
+  input~~
+- ✅ **`ControlFrame` carries `attack_held` and `attack_released`** beside
+  `attack_pressed` (`control_frame.rs:65-70`). ~~pressed only~~
+- ▢ **Special is still non-directional**: `move_for_verb("special")` —
+  `action_scheme.rs:241` ("Special fires `move_for_verb(\"special\")`, no longer a
+  phantom slot"). The one bullet here that survives the sweep. ⚠ note the same
+  section already argues why closing it is additive: `directional_verb_chain`
+  resolves most-specific-first with a fallback to the base verb, so a
+  `special_forward` is a new optional verb id and existing movesets keep resolving
+  to `special`.
 - `directional_verb_chain` resolves **most-specific-first with fallback to the
   base verb**, so adding `Forward` is purely additive: existing movesets keep
   resolving to `attack`, and `attack_forward` is a new optional verb id.

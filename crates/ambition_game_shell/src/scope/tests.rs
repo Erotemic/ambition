@@ -177,3 +177,68 @@ fn the_active_experience_run_condition_answers_from_the_router() {
 }
 
 use bevy::ecs::system::RunSystemOnce;
+
+/// The activation whose owner is written on the `Roster` rather than on itself.
+#[derive(Resource, Debug, PartialEq)]
+struct Activation(u8);
+
+/// **A witnessed release leaves a stranger's state alone, and takes its own.**
+///
+/// The shape `ActiveMatch` needs: rollback state that deliberately carries no
+/// identity, released on the word of the plan it came from.
+#[test]
+fn a_witnessed_release_asks_the_witness_who_owns_it() {
+    let mut app = App::new();
+    let mut catalog = ShellRouteCatalog::default();
+    catalog.register(ShellRouteSpec::new("game_play", "game"));
+    catalog.register(ShellRouteSpec::new("other_play", "other"));
+    app.insert_resource(catalog);
+    app.insert_resource(ShellRouter::default());
+    app.experience_owns("game")
+        .releasing_witnessed::<Activation, Roster>(|roster, owner| {
+            roster.published_by == owner.as_str()
+        })
+        .releasing_owned::<Roster>(|roster, owner| roster.published_by == owner.as_str());
+
+    // A stranger's roster stands with a stranger's activation.
+    app.insert_resource(Roster {
+        published_by: "other",
+    });
+    app.insert_resource(Activation(7));
+    go(&mut app, "game_play", "game");
+    go(&mut app, "other_play", "other");
+    release_departed_experience_state(app.world_mut());
+    assert_eq!(
+        app.world().get_resource::<Activation>(),
+        Some(&Activation(7)),
+        "leaving `game` deleted an activation whose witness names `other`"
+    );
+
+    // And its own leaves with it.
+    app.insert_resource(Roster {
+        published_by: "game",
+    });
+    app.insert_resource(Activation(1));
+    go(&mut app, "game_play", "game");
+    go(&mut app, "other_play", "other");
+    release_departed_experience_state(app.world_mut());
+    assert!(
+        app.world().get_resource::<Activation>().is_none(),
+        "`game`'s own activation outlived its route"
+    );
+}
+
+/// ⛔ **a witness released before the thing that reads it is a release that
+/// silently stops working**, so declaring them in that order is refused where
+/// the mistake is made rather than discovered later as a leak.
+#[test]
+#[should_panic(expected = "already released earlier in this scope")]
+fn a_witness_may_not_be_released_before_its_dependent() {
+    let mut app = App::new();
+    app.insert_resource(ShellRouter::default());
+    app.experience_owns("game")
+        .releasing_owned::<Roster>(|roster, owner| roster.published_by == owner.as_str())
+        .releasing_witnessed::<Activation, Roster>(|roster, owner| {
+            roster.published_by == owner.as_str()
+        });
+}

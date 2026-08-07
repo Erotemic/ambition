@@ -226,6 +226,20 @@ pub struct PreparedMatch {
     /// and asking the world at activation would answer with whatever is true
     /// then rather than with what this plan was built from.
     seat_topology: Option<u64>,
+    /// **Which experience's roster this plan was built from.**
+    ///
+    /// ⭐ **inherited, never authored.** It is copied from
+    /// [`MatchParticipantRoster::published_by`] in [`prepare_match`], so a
+    /// provider that already says who it is on the roster says it here for free
+    /// — and a plan whose owner disagreed with its roster's would be describing
+    /// a match nobody asked for.
+    ///
+    /// ⚠ **this is what makes teardown safe in a host that runs more than one
+    /// game.** `PreparedMatch` is a GLOBAL resource shared by every experience
+    /// that stages a cast, so a scope that removed it by type would be one game
+    /// deleting another's plan — the roster's own lesson, one resource later.
+    /// See `ExperienceScopeBuilder::releasing_owned`.
+    published_by: Option<String>,
 }
 
 impl PreparedMatch {
@@ -245,6 +259,34 @@ impl PreparedMatch {
     /// opinion when the roster was built.
     pub fn seat_topology(&self) -> Option<u64> {
         self.seat_topology
+    }
+
+    /// **Was this plan built from `experience_id`'s roster?**
+    ///
+    /// The question a shell experience scope asks before tearing a plan — and
+    /// the activation that came from it — down. An UNOWNED plan (no publisher on
+    /// its roster) answers `false` to everyone, which leaks rather than deletes:
+    /// the safe direction, because the cost of a leak is one stale plan and the
+    /// cost of a wrong delete is another game's live match.
+    pub fn is_published_by(&self, experience_id: &str) -> bool {
+        self.published_by.as_deref() == Some(experience_id)
+    }
+
+    /// Build a plan carrying nothing but an OWNER, for a test about teardown.
+    ///
+    /// The fields stay private so production has exactly one builder
+    /// ([`prepare_match`]); this is the hatch, and it is named for what it is.
+    /// A scope test needs a plan that says whose it is and needs nothing else to
+    /// be true about it.
+    #[doc(hidden)]
+    pub fn for_test_published_by(experience_id: Option<&str>) -> Self {
+        Self {
+            seats: Vec::new(),
+            rules: MatchRules::default(),
+            cast_generation: super::CharacterCatalogGeneration::default(),
+            seat_topology: None,
+            published_by: experience_id.map(str::to_owned),
+        }
     }
 
     /// How many local rollback channels this match needs.
@@ -494,6 +536,7 @@ pub fn prepare_match(
         rules,
         cast_generation: registry.generation(),
         seat_topology: roster.seat_topology(),
+        published_by: roster.published_by.clone(),
     })
 }
 

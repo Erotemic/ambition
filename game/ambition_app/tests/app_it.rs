@@ -42,6 +42,7 @@ mod duel_arena;
 mod effect_quarantine;
 mod enemy_attacks_player;
 mod every_character_says_something;
+mod experience_scope_ownership;
 mod falling_sand_room;
 mod fb6_shadow_fidelity;
 mod fuzz_random_walker;

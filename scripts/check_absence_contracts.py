@@ -99,9 +99,21 @@ ABSENCE_CONTRACTS: list[dict] = [
         "paths": [
             "crates/",
             "game/",
-            # ActiveMatch is PUBLISHED by seating, the one place a match becomes
-            # active, and RETIRED by the versus stage's ownership-gated teardown.
-            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/seating.rs",
+            # ActiveMatch is PUBLISHED by activation - the one place a match
+            # becomes active - and RETIRED by the versus stage's ownership-gated
+            # teardown.
+            #
+            # This path was `seating.rs` until 2026-08-07, when `ef28aea6f` split
+            # preparation out of seating and the publisher moved with it. The
+            # contract went red pointing at the LEGITIMATE writer, which is what
+            # a genuine second writer looks like too.
+            #
+            # HOW TO TELL THEM APART, when this next goes red: grep the path this
+            # list already names for the write. If the old site no longer has it,
+            # the publisher MOVED and this path follows it. If the old site still
+            # writes, a second writer really did appear and growing this list IS
+            # the review the reason below describes.
+            ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/prepared_match.rs",
             ":(exclude)game/ambition_app/src/app/versus.rs",
         ],
         "patterns": [
@@ -120,7 +132,15 @@ ABSENCE_CONTRACTS: list[dict] = [
             "the SECOND writer visible at the moment it appears, which is when the "
             "ownership question actually has to be answered rather than months "
             "later from a photograph. If this list has to grow, growing it IS the "
-            "review."
+            "review. "
+            "NOTE this contract sees `commands` writes only. A shell experience "
+            "scope can also DELETE a match global by declaring "
+            "`releasing::<ActiveMatch>()`, which is invisible here and is how "
+            "two experiences came to claim sole ownership of both match globals "
+            "at once (fixed 2026-08-07). That class is checked by "
+            "`app_it::experience_scope_ownership`, which asks the composed scope "
+            "registry rather than the source text - the two are complementary "
+            "and neither subsumes the other."
         ),
     },
     {

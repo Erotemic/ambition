@@ -984,12 +984,27 @@ fn declare_versus_experience_scope(app: &mut App) {
             })
             // The match ends WITH its route. An activation that outlives its
             // match is the next game inheriting somebody else's fighters.
-            .releasing::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            //
+            // ⛔ **by OWNER, and the owner is on the PLAN.** This removed the
+            // activation by TYPE until 2026-08-07, as did smash's scope three
+            // files away — so whichever experience left first deleted the
+            // other's live match, and each declaration read as correct on its
+            // own. `ActiveMatch` is rollback state that deliberately carries no
+            // identity, so the plan it was activated from answers for it.
+            .releasing_witnessed::<
+                ambition_platformer2d::actors::character_runtime::ActiveMatch,
+                ambition_platformer2d::actors::character_runtime::PreparedMatch,
+            >(|plan, owner| plan.is_published_by(owner.as_str()))
             // AND THE PLAN it activated from. A `PreparedMatch` that outlives
             // its experience is the next game's stage quietly building THIS
             // game's fighters — the same lesson as the roster above, one
             // resource later.
-            .releasing::<ambition_platformer2d::actors::character_runtime::PreparedMatch>()
+            //
+            // ⚠ declared AFTER the activation above, which reads it: releases
+            // run in declaration order and the witness has to still be here.
+            .releasing_owned::<ambition_platformer2d::actors::character_runtime::PreparedMatch>(
+                |plan, owner| plan.is_published_by(owner.as_str()),
+            )
             // DROP THE DECLARATION. A match rule that outlives its match is a
             // rule the next game silently inherits, and "your allies can now
             // shoot you" is a bad surprise to bring into a co-op level.
@@ -1073,6 +1088,80 @@ mod stage_rule_tests {
             .resource_mut::<ambition_platformer2d::game_shell::ShellRouter>()
             .active = None;
         app.update();
+    }
+
+    /// **A match leaves with its route — and takes only its OWN.**
+    ///
+    /// ⛔ **the bug this pins shipped for a day and read as correct in both
+    /// files that had it.** Versus removed `ActiveMatch` and `PreparedMatch` by
+    /// TYPE on the way out; so did smash, in a host (`shell_host.rs`) that lists
+    /// both. Whichever experience left first deleted the other's live match, and
+    /// the comment directly above each declaration explained — correctly, about
+    /// the roster — why removing a shared global by type is exactly that bug.
+    ///
+    /// ⚠ **both halves, because either alone is green for the wrong reason.**
+    /// Deleting the release entirely passes "a stranger's survives"; leaving it
+    /// unconditional passes "mine is gone". Only the pair pins the fix.
+    #[test]
+    fn a_match_leaves_with_its_route() {
+        use ambition_platformer2d::actors::character_runtime::{ActiveMatch, PreparedMatch};
+
+        let mut app = stage_rule_app();
+        enter_versus(&mut app);
+
+        app.world_mut()
+            .insert_resource(PreparedMatch::for_test_published_by(Some(
+                VERSUS_EXPERIENCE,
+            )));
+        app.world_mut()
+            .insert_resource(ActiveMatch::for_test(2, None));
+
+        leave_versus(&mut app);
+
+        assert!(
+            app.world().get_resource::<ActiveMatch>().is_none(),
+            "versus's own activation outlived its route — the next experience \
+             inherits somebody else's fighters"
+        );
+        assert!(
+            app.world().get_resource::<PreparedMatch>().is_none(),
+            "versus's own plan outlived its route — the next experience's \
+             seating quietly builds THIS game's cast"
+        );
+    }
+
+    /// **...and never another game's.** The other half of the pair above.
+    ///
+    /// The plan is the WITNESS: `ActiveMatch` is rollback state that carries no
+    /// identity by design, so the question "whose match is this" is answered by
+    /// the plan it was activated from. A stranger's plan must protect the
+    /// stranger's activation too, which is the property a release keyed only on
+    /// the plan could get wrong in one direction.
+    #[test]
+    fn another_experiences_match_is_left_standing() {
+        use ambition_platformer2d::actors::character_runtime::{ActiveMatch, PreparedMatch};
+
+        let mut app = stage_rule_app();
+        enter_versus(&mut app);
+
+        app.world_mut()
+            .insert_resource(PreparedMatch::for_test_published_by(Some("smash")));
+        app.world_mut()
+            .insert_resource(ActiveMatch::for_test(4, None));
+
+        leave_versus(&mut app);
+
+        assert!(
+            app.world().get_resource::<PreparedMatch>().is_some(),
+            "versus deleted another game's plan on its way out"
+        );
+        let survivor = app.world().get_resource::<ActiveMatch>();
+        assert_eq!(
+            survivor.map(ActiveMatch::seats),
+            Some(4),
+            "versus deleted another game's LIVE MATCH on its way out — the \
+             roster's lesson, one resource later"
+        );
     }
 
     /// **DI is a rule of the fighting stage, and it leaves with the stage.**

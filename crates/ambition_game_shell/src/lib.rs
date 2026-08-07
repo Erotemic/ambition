@@ -38,7 +38,7 @@ pub use preparation::*;
 pub use router::*;
 pub use scope::{
     release_departed_experience_state, shell_experience_is_active, ExperienceScope,
-    ExperienceScopeBuilder, ShellExperienceScopeAppExt, ShellExperienceScopes,
+    ExperienceScopeBuilder, ReleaseKind, ShellExperienceScopeAppExt, ShellExperienceScopes,
 };
 pub use sequence::*;
 pub use session::*;

@@ -37,9 +37,36 @@ use bevy::prelude::{App, Res, Resource, World};
 
 use crate::{ShellExperienceId, ShellRouter};
 
+/// **What OWNERSHIP CLAIM a giveback makes about the state it releases.**
+///
+/// ⚠ **this is a claim about the world, not an implementation detail.**
+/// [`ReleaseKind::SoleRemoval`] asserts *no other experience publishes this
+/// resource* — and two experiences making that claim about one resource is a
+/// contradiction that no amount of reading either declaration in isolation can
+/// reveal. Recording the kind is what lets the claim be CHECKED across every
+/// scope at once, which is the only place the contradiction is visible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReleaseKind {
+    /// [`ExperienceScopeBuilder::releasing`] — removed outright, on the claim
+    /// that this provider ALONE publishes it.
+    SoleRemoval,
+    /// [`ExperienceScopeBuilder::releasing_owned`] — removed only when the value
+    /// itself says this owner published it. The shape for SHARED state.
+    OwnedRemoval,
+    /// [`ExperienceScopeBuilder::resetting`] — put back to its default. Never a
+    /// removal, so it makes no ownership claim: a stranger's value is
+    /// overwritten rather than deleted, which is a different question.
+    Reset,
+    /// [`ExperienceScopeBuilder::releasing_with`] — a custom giveback whose
+    /// ownership rule, if it has one, lives inside the closure where nothing
+    /// outside can read it.
+    Custom,
+}
+
 /// One thing a scope gives back when its experience leaves.
 struct ScopedRelease {
     what: &'static str,
+    kind: ReleaseKind,
     release: Box<dyn Fn(&mut World, &ShellExperienceId) + Send + Sync>,
 }
 
@@ -67,6 +94,17 @@ impl ExperienceScope {
     /// The names of the state this scope releases, for diagnostics.
     pub fn released_state(&self) -> impl Iterator<Item = &'static str> + '_ {
         self.releases.iter().map(|release| release.what)
+    }
+
+    /// Every giveback this scope declares, WITH the ownership claim it makes.
+    ///
+    /// ⭐ read across every scope at once, this is what makes "two experiences
+    /// both claim to be the sole publisher of one resource" a checkable
+    /// question instead of a thing you have to notice by reading two files.
+    pub fn releases(&self) -> impl Iterator<Item = (&'static str, ReleaseKind)> + '_ {
+        self.releases
+            .iter()
+            .map(|release| (release.what, release.kind))
     }
 }
 
@@ -212,6 +250,7 @@ impl ExperienceScopeBuilder<'_> {
         self.with(move |scope| {
             scope.releases.push(ScopedRelease {
                 what,
+                kind: ReleaseKind::SoleRemoval,
                 release: Box::new(|world, _owner| {
                     world.remove_resource::<R>();
                 }),
@@ -230,6 +269,7 @@ impl ExperienceScopeBuilder<'_> {
         self.with(move |scope| {
             scope.releases.push(ScopedRelease {
                 what,
+                kind: ReleaseKind::Reset,
                 release: Box::new(|world, _owner| {
                     if world.contains_resource::<R>() {
                         world.insert_resource(R::default());
@@ -254,10 +294,61 @@ impl ExperienceScopeBuilder<'_> {
         self.with(move |scope| {
             scope.releases.push(ScopedRelease {
                 what,
+                kind: ReleaseKind::OwnedRemoval,
                 release: Box::new(move |world, owner| {
                     if world
                         .get_resource::<R>()
                         .is_some_and(|value| owned_by(value, owner))
+                    {
+                        world.remove_resource::<R>();
+                    }
+                }),
+            });
+        })
+    }
+
+    /// A resource whose OWNER is written on a different resource — the receipt
+    /// and the plan it was issued from.
+    ///
+    /// ⭐ **the shape for state that cannot carry its own publisher.** An
+    /// `ActiveMatch` is rollback state and deliberately holds nothing but the
+    /// facts of the activation; stamping a shell experience id into it would put
+    /// frontend identity on the rollback wire to answer a teardown question. The
+    /// plan it was activated from is not rollback state, is present whenever the
+    /// activation is, and already knows whose roster it came from. So the
+    /// activation is released by asking the WITNESS.
+    ///
+    /// ⚠ **the witness must outlive the release, so it may not already be
+    /// declared in this scope.** Givebacks run in declaration order, and a
+    /// witness released first would leave every later release reading a resource
+    /// that is gone — silently answering "not mine" forever, which is a release
+    /// that stops working rather than one that fails. That ordering is invisible
+    /// at the call site, so it is checked HERE, at declaration, where the panic
+    /// names both resources.
+    pub fn releasing_witnessed<R: Resource, W: Resource>(
+        &mut self,
+        witness_owns: fn(&W, &ShellExperienceId) -> bool,
+    ) -> &mut Self {
+        let what = std::any::type_name::<R>();
+        let witness = std::any::type_name::<W>();
+        self.with(move |scope| {
+            assert!(
+                !scope.releases.iter().any(|release| release.what == witness),
+                "{what} is released on the word of {witness}, but {witness} is \
+                 already released earlier in this scope — by the time {what} is \
+                 asked about, its witness would be gone and the answer would \
+                 always be \"not mine\". Declare the witnessed release first.",
+            );
+            scope.releases.push(ScopedRelease {
+                what,
+                // An owner-scoped removal, and truthfully so: it removes only
+                // what this owner published. Where the proof is written does not
+                // change what is being claimed.
+                kind: ReleaseKind::OwnedRemoval,
+                release: Box::new(move |world, owner| {
+                    if world
+                        .get_resource::<W>()
+                        .is_some_and(|witness| witness_owns(witness, owner))
                     {
                         world.remove_resource::<R>();
                     }
@@ -276,6 +367,7 @@ impl ExperienceScopeBuilder<'_> {
         self.with(move |scope| {
             scope.releases.push(ScopedRelease {
                 what,
+                kind: ReleaseKind::Custom,
                 release: Box::new(release),
             });
         })

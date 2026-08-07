@@ -107,6 +107,48 @@ nothing about per-seat input makes them per-seat.
 
 ---
 
+## Should the Hall cast and the content bosses declare dormancy? (2026-08-07)
+
+Carried from `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`, where it reads *"nobody has
+decided, and silence currently reads the same as 'always awake' whether or not
+that was chosen."* ⭐ **it is answerable now, because the two facts it turns on
+are measured rather than assumed.**
+
+### The facts
+
+1. **The Hall is 129 `NpcSpawn`s and every one is `brain: stand_still`**
+   (counted out of `hall_of_characters.ldtk`). So "should the Hall sleep" is a
+   question about 129 NO-OP brain ticks per frame, not about 129 actors thinking.
+2. ⭐ **dormancy would NOT silence them.** `Dormant` is filtered by
+   `tick_actor_brains` (`actors/update.rs`, `Without<Dormant>`) and by nothing
+   else — `tick_npc_idle_barks` carries no dormancy filter at all. A sleeping
+   statue keeps its voice. That kills the obvious objection to sleeping a gallery.
+
+### The fork
+
+- **Hall cast** — `AwakeNearObservers` is SAFE (barks survive, the brain is a
+  no-op, the bodies do not move) but saves only 129 no-op ticks. `Never` states
+  the intent and saves nothing. ⚠ **neither is wrong and the difference is
+  measurable**: if 129 StandStill ticks do not show in a frame profile, this is
+  purely about whether silence should be allowed to mean a choice.
+- **Content bosses** — `Never` is the answer that matches what they are. A boss
+  that stops deciding because the player stepped back is a bug, and silence
+  already means "always awake", so declaring it is BEHAVIOUR-PRESERVING and only
+  converts an omission into a statement.
+
+### Recommendation
+
+Declare `Never` on the content bosses (free, states intent, cannot regress), and
+leave the Hall until somebody has a frame profile that says 129 no-op brain ticks
+are worth removing. ⛔ **do not declare `Never` on the Hall as a tidy-up** — that
+would spend the decision without the measurement and make the later `AwakeNear
+Observers` change look like a reversal rather than a finding.
+
+⚠ what this does NOT decide: whether the dormancy policy should eventually take
+SECONDS rather than pixels. That is recorded at the Sanic constant and needs a
+third game, not this row.
+
+---
 ## Which of the 33 engine design documents have become history? (2026-08-01)
 
 `check_agent_kb` warns that `docs/planning` is **30,708 lines against a 10,500

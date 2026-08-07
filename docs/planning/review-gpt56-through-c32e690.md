@@ -159,6 +159,15 @@ recommends `Option<T>` for both, and it is right about only one.
 - ✔ **`stable_schema_name_count` was stale before this change** (336 recorded,
   337 actual). Display-only — the ratchet compares the name SET — but corrected
   while adding the two new names rather than left to rot.
+- ⛔ **there are TWO rollback baselines for one fact, and updating one is not
+  updating the schema.** `docs/planning/engine/slice-evidence/rollback-schema-
+  baseline.json` is what `check_absence_contracts.py` reads;
+  `game/ambition_app/tests/rollback_schema_baseline.txt` is what
+  `app_it::rollback_schema_baseline` reads. Adding `ActiveConversation`
+  needed both, and the contracts job going 24/25 green said nothing about the
+  second — a textbook *validate the state AROUND the table*. ⚠ **the txt file's
+  first line is a version header** (`ggrs-rollback-schema-v14`); sorting the file
+  as a whole buries it and produces a diff that looks like a rewrite.
 
 ### Placement
 

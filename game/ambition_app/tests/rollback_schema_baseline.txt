@@ -243,6 +243,7 @@ map.limb_rig	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs:
 map.mount_slot	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs::mount::MountSlot	bevy_ggrs LoadWorld entity-reference remapping
 map.move_playback	entity-mapping	ambition_combat::moveset::MovePlayback	bevy_ggrs LoadWorld entity-reference remapping
 map.projectile_owner	entity-mapping	ambition_projectiles::entity::ProjectileOwner	bevy_ggrs LoadWorld entity-reference remapping
+map.resource.active_conversation	resource-entity-mapping	ambition_platformer2d_actor_monolith::conversation::authority::ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.encounter_registry	resource-entity-mapping	ambition_encounter::registry::EncounterRegistry	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.pending_player_hit_events	resource-entity-mapping	ambition_combat::events::PendingPlayerHitEvents	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.possession_state	resource-entity-mapping	ambition_platformer2d_actor_monolith::abilities::traversal::possession::PossessionState	bevy_ggrs LoadWorld resource entity-reference remapping
@@ -364,6 +365,7 @@ relativity.target_marker_2d	component-canonical	ambition_relativity2d::targeting
 relativity.targeting_view_2d	derived	ambition_relativity2d::targeting::RelativisticTargetingView2d	constant-velocity null-intercept facts rebuilt from canonical bodies and the optical view
 relativity.worldline_history_view_2d	derived	ambition_relativity2d::telemetry::WorldlineHistoryView2d	bounded tick-keyed telemetry that truncates abandoned rollback futures and rebuilds on resimulation
 relativity.worldline_tracked_2d	component-clone	ambition_relativity2d::telemetry::WorldlineTracked2d	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+resource.active_conversation	resource-clone	ambition_platformer2d_actor_monolith::conversation::authority::ActiveConversation	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 resource.active_match	resource-canonical	ambition_platformer2d_actor_monolith::character_runtime::seating::ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.active_round_scope	resource-canonical	ambition_platformer2d_shared_tangle::lifecycle::round::ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
 resource.base_gravity	resource-canonical	ambition_platformer2d_shared_tangle::gravity::BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

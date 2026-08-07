@@ -100,26 +100,42 @@ fn emptying_a_slot_returns_its_source_to_the_pool() {
     );
 }
 
-/// **A participating slot with no character holds the match**, or a player who
-/// is still deciding gets dropped into a fight as whoever the cursor was over.
+/// **A THIRD PLAYER JOINS ON RANDOM AND THE MATCH STAYS READY.**
+///
+/// ⛔ **this test asserted the opposite until 2026-08-07**, and the rule it
+/// pinned is the one Jon changed: *"going from 'Not Playing' to a player does
+/// not auto assign to random, and I would like that to be the case."* Joining
+/// used to leave a slot participating with no character, which held the match —
+/// correctly, because the alternative then was dropping somebody into a fight as
+/// whoever the cursor happened to be over. Random is the third answer: the slot
+/// IS decided, and what it decided is "surprise me".
+///
+/// ⚠ the invariant underneath did not move — `ready()` still requires every
+/// participating slot to hold a pick. What moved is that joining supplies one,
+/// which makes "participating and undecided" unreachable through the button.
 #[test]
-fn a_slot_that_has_not_picked_holds_the_battle() {
+fn a_third_player_joins_on_random_and_the_match_is_still_ready() {
     let mut select = two_decided();
     assert!(select.ready());
 
     select.set_occupant(2, SlotOccupant::Controller { device: 2 });
-    assert!(
-        !select.ready(),
-        "a third player joined and had chosen nobody, and the match started anyway"
-    );
     assert_eq!(
-        select.blocker(),
-        Some("Drag each slot's token onto a portrait")
+        select.slot(2).pick,
+        Some(SlotPick::Random),
+        "a slot that just joined was left with nothing chosen"
     );
-
-    select.set_pick(2, 3);
-    assert!(select.ready());
+    assert!(
+        select.ready(),
+        "a player who joined and took random cannot start the match, so random \
+         is not a decision the screen believes in"
+    );
     assert_eq!(select.blocker(), None);
+
+    // ...and naming a fighter afterwards is an ordinary re-pick, not a
+    // different kind of state.
+    select.set_pick(2, 3);
+    assert_eq!(select.slot(2).pick, Some(SlotPick::Fighter(3)));
+    assert!(select.ready());
 }
 
 /// **One decided slot is not a match.** A stocks match with one side never

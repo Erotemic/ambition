@@ -416,6 +416,18 @@ impl SmashSelect {
             SlotOccupant::Cpu => SlotOccupant::Absent,
         };
         self.slots[slot].occupant = next;
+        // **A SLOT THAT JUST JOINED IS ON RANDOM.** (Jon, 2026-08-07: *"going
+        // from 'Not Playing' to a player does not auto assign to random, and I
+        // would like that to be the case."*)
+        //
+        // ⚠ **only when it has no pick**, which is what keeps the promise the
+        // card already makes: a pick SURVIVES the occupant changing, so cycling
+        // controller → CPU → absent → controller hands your fighter to the
+        // machine and back rather than re-rolling it. Random is the state of a
+        // slot nobody has chosen for, not a thing the button does to you.
+        if next.participates() && self.slots[slot].pick.is_none() {
+            self.slots[slot].pick = Some(SlotPick::Random);
+        }
     }
 
     /// Put a slot directly into a state, for a screen that has a reason to
@@ -423,6 +435,11 @@ impl SmashSelect {
     pub fn set_occupant(&mut self, slot: usize, occupant: SlotOccupant) {
         if slot < MAX_SMASH_SEATS {
             self.slots[slot].occupant = occupant;
+            // The same rule the button follows, so a screen that seats somebody
+            // directly does not produce a state the button cannot reach.
+            if occupant.participates() && self.slots[slot].pick.is_none() {
+                self.slots[slot].pick = Some(SlotPick::Random);
+            }
         }
     }
 

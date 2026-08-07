@@ -250,10 +250,22 @@ fn two_players_take_controllers_pick_fighters_and_the_battle_starts() {
     );
 }
 
-/// **A card with nobody home cannot start a match**, and START says so rather
-/// than doing nothing quietly.
+/// **A PLAYER WHO NEVER TOUCHED THE GRID STILL STARTS THE MATCH — ON RANDOM.**
+///
+/// ⛔ **this asserted the opposite until 2026-08-07**: two players joined, one
+/// picked, and START was refused because the other "had chosen nobody". That was
+/// right when joining left a slot undecided; it is not the product any more.
+/// Jon: *"going from 'Not Playing' to a player does not auto assign to random,
+/// and I would like that to be the case."* A slot that joins IS decided, and
+/// what it decided is "surprise me".
+///
+/// ⚠ what is asserted instead is the thing that matters and did NOT change: the
+/// match that starts has one fighter per participating slot, and the fighter the
+/// random seat gets is a real one off the grid. The refusal this test used to
+/// pin now has no way to happen through the button, and pinning an unreachable
+/// state would be pinning the fix rather than the gap.
 #[test]
-fn start_is_refused_until_every_participating_slot_has_a_fighter() {
+fn a_player_who_never_touched_the_grid_starts_on_random() {
     let mut app = build_demo_app();
     install_press_port(&mut app);
     plug_in(&mut app, 2);
@@ -262,20 +274,39 @@ fn start_is_refused_until_every_participating_slot_has_a_fighter() {
 
     click(&mut app, 0, layout.role_button(0));
     click(&mut app, 1, layout.role_button(1));
+    // Only slot 0 chooses. Slot 1 is left exactly as joining made it.
     click(&mut app, 0, layout.token_home(0));
     let cell = layout.portrait(nth(&app, 1)).expect("an authored portrait");
     click(&mut app, 0, cell);
+    assert_eq!(
+        slot(&app, 1).pick,
+        Some(SlotPick::Random),
+        "the untouched slot is not on random, so this test is not about random"
+    );
 
     click(&mut app, 0, layout.start_button());
-    assert!(
-        app.world()
-            .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
-            .is_none(),
-        "START launched a match with a player who had chosen nobody"
-    );
+    for _ in 0..8 {
+        app.update();
+    }
+    let fighters = app.world().resource::<SmashRoster>().clone();
+    let roster = app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .expect("a decided screen with a random seat did not start a match")
+        .clone();
+    assert_eq!(roster.participants.len(), 2);
     assert_eq!(
-        app.world().resource::<SmashSelect>().blocker(),
-        Some("Drag each slot's token onto a portrait")
+        roster.participants[0].character,
+        fighters.get(nth(&app, 1)).expect("a fighter"),
+        "the slot that CHOSE did not get what it chose"
+    );
+    assert!(
+        fighters
+            .0
+            .iter()
+            .any(|id| *id == roster.participants[1].character),
+        "the random seat drew `{}`, which is not on the grid",
+        roster.participants[1].character
     );
 }
 

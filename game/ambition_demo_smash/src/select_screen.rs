@@ -214,6 +214,26 @@ pub fn card_name_text(
     }
 }
 
+/// **The random square's icon**, for the grid cell AND for the card of a slot
+/// that took it — one accessor, because two spellings of "what random looks
+/// like" is how a screen ends up disagreeing with itself.
+///
+/// ⚠ **PLACEHOLDER ART.** This is `BonusBlockTile` — the interrobang plate from
+/// Mary-O's bonus blocks — reused because the glyph already means "you do not
+/// know what is in here" (Jon, 2026-08-07: *"We can reuse the interobang sprite
+/// for this"*). It is a 32x32 world TILE standing in for a portrait, so it reads
+/// heavier than the faces beside it and its plate/rivets belong to a different
+/// game. Replace it with a drawn random icon when one exists; nothing else has
+/// to change, because this function is the only place that names it.
+fn random_icon(art: &ScreenArt<'_>) -> Option<Handle<Image>> {
+    art.entities.as_deref().and_then(|assets| {
+        assets
+            .entities
+            .get(ambition_platformer2d::actors::assets::game_assets::EntitySprite::BonusBlockTile)
+            .cloned()
+    })
+}
+
 /// Which grid cell a pick occupies. The random square is a cell like any other,
 /// so a token can rest on it and it can light up when somebody takes it.
 fn cell_of(pick: SlotPick, fighters: &SmashRoster) -> usize {
@@ -542,14 +562,10 @@ pub fn spawn_select_screen(
                     Name::new("portrait cell random"),
                 ))
                 .with_children(|cell| {
-                    match art.entities.as_deref().and_then(|assets| {
-                        assets.entities.get(
-                            ambition_platformer2d::actors::assets::game_assets::EntitySprite::BonusBlockTile,
-                        )
-                    }) {
+                    match random_icon(&art) {
                         Some(handle) => {
                             cell.spawn((
-                                ImageNode::new(handle.clone()),
+                                ImageNode::new(handle),
                                 Node {
                                     flex_grow: 1.0,
                                     width: Val::Percent(100.0),
@@ -872,8 +888,7 @@ pub fn drive_the_cursor(
         // again". Its resting home is in the target list; where it currently
         // sits is the decision's answer, not the layout's.
         let on_token = (0..MAX_SMASH_SEATS).find(|slot| {
-            token_rect(&layout, &select, &fighters, *slot)
-                .is_some_and(|rect| rect.contains(pointer.position))
+            token_rect(&layout, &select, *slot).is_some_and(|rect| rect.contains(pointer.position))
         });
         match (pointer.carrying, on_token, over) {
             // Picking up.
@@ -923,21 +938,27 @@ pub fn drive_the_cursor(
 /// `None` for a slot nobody is at — an absent slot has no token to grab, and
 /// returning its pool rect anyway would let a click on empty space pick up a
 /// player who is not there.
-pub fn token_rect(
-    layout: &SelectLayout,
-    select: &SmashSelect,
-    fighters: &SmashRoster,
-    slot: usize,
-) -> Option<HitRect> {
+pub fn token_rect(layout: &SelectLayout, select: &SmashSelect, slot: usize) -> Option<HitRect> {
     let card = select.slot(slot);
     if !card.occupant.participates() {
         return None;
     }
-    // ⚠ the cell, not the fighter index: a slot on RANDOM rests its token on the
-    // random square, which is a real cell of the grid like any other.
+    // **A TOKEN RESTS ON A PORTRAIT, OR AT HOME — NEVER ON RANDOM.**
+    //
+    // ⛔ deriving the resting place from the pick moved a token NOBODY MOVED:
+    // joining a slot seats it on random (Jon, 2026-08-07), and a token that
+    // jumps onto the random square by itself takes the drag affordance with it —
+    // the player's own card is then empty and there is nothing to pick up.
+    //
+    // ⚠ so random is not a resting place. The square still lights up in the
+    // owner's colour and the card says `RANDOM` with the random icon, which is
+    // the feedback; what does not happen is the screen rearranging itself
+    // around a choice the player has not made yet. Dragging ONTO random is the
+    // same: the token goes home, because there is no portrait under it.
     match card
         .pick
-        .and_then(|pick| layout.portrait(cell_of(pick, fighters)))
+        .and_then(SlotPick::fighter)
+        .and_then(|index| layout.portrait(index))
     {
         Some(cell) => Some(token_rect_over(cell, slot)),
         None => Some(layout.token_home(slot)),
@@ -1108,13 +1129,15 @@ pub fn update_the_select_screen(
             .participates()
             .then_some(card.pick)
             .flatten()
-            // ⚠ **a random card shows NO face, on purpose.** It has not been
-            // resolved yet — the draw happens when the match starts — and
-            // showing any portrait here would be the screen inventing an answer
-            // it does not have.
-            .and_then(SlotPick::fighter)
-            .and_then(|index| fighters.get(index))
-            .and_then(|id| art.portrait(id));
+            .and_then(|pick| match pick {
+                SlotPick::Fighter(index) => fighters.get(index).and_then(|id| art.portrait(id)),
+                // ⚠ **the random ICON, never a fighter's face.** The draw has
+                // not happened — it happens when the match starts — so any
+                // portrait here would be the screen inventing an answer it does
+                // not have. The square's own art is the honest one: it says
+                // "this seat is a surprise", which is exactly what the seat is.
+                SlotPick::Random => random_icon(&art).map(|handle| (handle, None)),
+            });
         match shown {
             Some((handle, rect)) => {
                 if image.image != handle {
@@ -1183,7 +1206,7 @@ pub fn update_the_select_screen(
     // the pool. Written every frame from the layout rather than remembered, so a
     // resized window carries the tokens with it.
     for (token, mut node, mut visibility) in &mut tokens {
-        let Some(resting) = token_rect(&layout, &select, &fighters, token.0) else {
+        let Some(resting) = token_rect(&layout, &select, token.0) else {
             set_visibility(&mut visibility, Visibility::Hidden);
             continue;
         };

@@ -8,10 +8,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer2d_actor_monolith::avatar::StartingCharacter;
+use ambition_encounter::EncounterMusicRequest;
+use ambition_platformer2d_actor_monolith::avatar::{InitialBodyPolicy, StartingCharacter};
 use ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex;
 use ambition_platformer2d_actor_monolith::rooms::{ActiveRoomMetadata, RoomMusicRequest, RoomSet};
-use ambition_encounter::EncounterMusicRequest;
 use ambition_platformer2d_core::RoomGeometry;
 
 #[derive(Component, Clone, Debug, Eq, PartialEq)]
@@ -41,10 +41,15 @@ pub struct PreparedPlatformerSource {
     geometry: RoomGeometry,
     active_room: ActiveRoomMetadata,
     starting_character: StartingCharacter,
+    /// **Whether this session builds a home body at all.** See
+    /// [`InitialBodyPolicy`]; a match experience declares
+    /// [`InitialBodyPolicy::NoInitialBody`] and realizes its own cast.
+    initial_body: InitialBodyPolicy,
     runtime_rooms: LdtkRuntimeIndex,
 }
 
 impl PreparedPlatformerSource {
+    /// A session with a home body — every exploration experience.
     pub fn new(
         provider: impl Into<String>,
         room_set: RoomSet,
@@ -58,7 +63,40 @@ impl PreparedPlatformerSource {
             room_set,
             geometry,
             active_room,
+            initial_body: InitialBodyPolicy::SpawnCharacter(starting_character.clone()),
             starting_character,
+            runtime_rooms,
+        }
+    }
+
+    /// **A session that builds NO home body**, because the experience realizes
+    /// its own cast.
+    ///
+    /// ⛔ this is the constructor a MATCH wants, and until it existed the engine
+    /// forced one on every session. Match seating then had to reinterpret that
+    /// privileged body as a fighter — an adoption path whose costume handshake
+    /// could deadlock a whole match, and which made a match with nobody local in
+    /// it inexpressible.
+    ///
+    /// `catalog_default` still names the experience's default character: a match
+    /// has no body of its own and its worn fighters still need a fallback id.
+    /// That is a different question from whether a body is built, which is
+    /// exactly why it is a different argument.
+    pub fn for_match(
+        provider: impl Into<String>,
+        room_set: RoomSet,
+        geometry: RoomGeometry,
+        active_room: ActiveRoomMetadata,
+        catalog_default: StartingCharacter,
+        runtime_rooms: LdtkRuntimeIndex,
+    ) -> Self {
+        Self {
+            catalogs: PlatformerSessionCatalogs::provider(provider),
+            room_set,
+            geometry,
+            active_room,
+            starting_character: catalog_default,
+            initial_body: InitialBodyPolicy::NoInitialBody,
             runtime_rooms,
         }
     }
@@ -77,6 +115,10 @@ impl PreparedPlatformerSource {
     }
     pub fn starting_character(&self) -> &StartingCharacter {
         &self.starting_character
+    }
+    /// Whether this session builds a home body, and who it wears if so.
+    pub fn initial_body(&self) -> &InitialBodyPolicy {
+        &self.initial_body
     }
     pub fn runtime_rooms(&self) -> &LdtkRuntimeIndex {
         &self.runtime_rooms
@@ -100,6 +142,7 @@ impl PreparedPlatformerSource {
             geometry,
             active_room,
             starting_character: self.starting_character.clone(),
+            initial_body: self.initial_body.clone(),
             runtime_rooms,
         }
     }
@@ -129,6 +172,7 @@ impl PreparedPlatformerSource {
             geometry: self.geometry.clone(),
             active_room: self.active_room.clone(),
             starting_character: self.starting_character.clone(),
+            initial_body: self.initial_body.clone(),
             runtime_rooms: self.runtime_rooms.clone(),
             requests: PlatformerSessionRequests::default(),
         }
@@ -150,6 +194,7 @@ pub struct PlatformerSessionWorld {
     pub geometry: RoomGeometry,
     pub active_room: ActiveRoomMetadata,
     pub starting_character: StartingCharacter,
+    pub initial_body: InitialBodyPolicy,
     pub runtime_rooms: LdtkRuntimeIndex,
     pub requests: PlatformerSessionRequests,
 }

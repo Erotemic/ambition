@@ -10,11 +10,11 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy_math::UVec2;
 
+use ambition_persistence::settings::video::CameraFramingPreset;
+use ambition_persistence::settings::CameraAspectPolicy;
 use ambition_platformer2d_actor_monolith::rooms::{
     apply_forward_only_x, CameraClampMode, CameraScrollPolicy, CameraZoneSpec,
 };
-use ambition_persistence::settings::video::CameraFramingPreset;
-use ambition_persistence::settings::CameraAspectPolicy;
 use ambition_platformer2d_shared_tangle::camera_ease::{CameraEaseState, CameraEaseTuning};
 use ambition_platformer2d_shared_tangle::gameplay_presentation::NormalizedScreenRegion;
 
@@ -707,7 +707,9 @@ pub fn resolve_camera_observation(
     viewport: bevy::prelude::Res<CameraViewport>,
     screen_framing: bevy::prelude::Res<CameraScreenFraming>,
     extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
-    ease_tuning: bevy::prelude::Res<ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning>,
+    ease_tuning: bevy::prelude::Res<
+        ambition_platformer2d_shared_tangle::camera_ease::CameraEaseTuning,
+    >,
     mut camera_state: bevy::prelude::ResMut<
         ambition_platformer2d_shared_tangle::camera_ease::CameraEaseState,
     >,
@@ -748,15 +750,46 @@ pub fn resolve_camera_observation(
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_view.camera_zoom.max(1.0);
 
-    let Ok((player_entity, mut player_body, player_base_size, blink_cam)) =
-        player.single().map(|(e, b, bs, bc)| (e, *b, *bs, *bc))
-    else {
-        return;
+    // ⛔ **A HOME AVATAR IS NOT REQUIRED ANY MORE, and this `single()` used to
+    // make it one.** Without a primary player the whole system returned, so an
+    // experience that legitimately has no session body — a MATCH, which realizes
+    // its own cast — would have had no camera at all, silently. That is the
+    // failure mode this repo has been bitten by repeatedly: presentation not
+    // running looks exactly like presentation running badly.
+    //
+    // The home avatar remains the source of blink easing and the base size when
+    // there IS one, because those are its presentation state. When there is not,
+    // the CONTROLLED SUBJECT supplies the frame on its own.
+    let home = player.single().ok().map(|(e, b, bs, bc)| (e, *b, *bs, *bc));
+    let (mut player_body, player_base_size, blink_cam, mut followed) = match home {
+        Some((entity, body, base_size, blink)) => (body, base_size, blink, entity),
+        None => {
+            // ⚠ still `return` when nobody is driving anything: a match with no
+            // local player has no subject to follow. Framing the whole cast
+            // instead is a presentation decision this resolver should be TOLD,
+            // not one it should guess — and it is the remaining gap for a
+            // CPU-versus-CPU match, which a headless test cannot see.
+            let Some(subject) = controlled.0 else {
+                return;
+            };
+            let Ok(kin) = body_kinematics.get(subject) else {
+                return;
+            };
+            (
+                *kin,
+                ae::BodyBaseSize {
+                    base_size: kin.size,
+                },
+                // No home avatar means no blink state to ease from, which is
+                // correct rather than a fallback: a fighter does not blink.
+                ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState::default(),
+                subject,
+            )
+        }
     };
     // Follow the CONTROLLED SUBJECT's body. Zoom + blink easing stay on the
     // home avatar's presentation state; only the follow point tracks the
     // driven body.
-    let mut followed = player_entity;
     if let Some(subject) = controlled.0 {
         if let Ok(kin) = body_kinematics.get(subject) {
             player_body.pos = kin.pos;

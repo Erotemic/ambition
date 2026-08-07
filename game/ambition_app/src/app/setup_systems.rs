@@ -80,8 +80,8 @@ pub(super) fn setup_simulation_system(
     >,
     active_tuning: Res<ambition_platformer2d::engine_core::ActiveMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
-    starting_character: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::actors::avatar::StartingCharacter,
+    initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::actors::avatar::InitialBodyPolicy,
     >,
     characters: CharacterAuthorities,
     boss_catalog: Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
@@ -97,7 +97,7 @@ pub(super) fn setup_simulation_system(
             ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
             tuning: &active_tuning,
-            starting_character: &starting_character,
+            initial_body: &initial_body,
             character_catalog: &characters.catalog,
             prepared_characters: characters.prepared.as_deref(),
             authored_sheets: &characters.sheets,

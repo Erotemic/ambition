@@ -107,16 +107,20 @@ fn fixture_setup(
     >,
     editable_abilities: Res<ambition_platformer2d_runtime::demo_fixture::EditableAbilitySet>,
     tuning: Res<ambition_platformer2d_runtime::demo_fixture::ActiveMovementTuning>,
-    starting_character: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_runtime::demo_fixture::StartingCharacter,
+    initial_body: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+        ambition_platformer2d_runtime::demo_fixture::InitialBodyPolicy,
     >,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    prepared_characters: Option<Res<ambition_platformer2d_runtime::demo_fixture::PreparedCharacterRegistry>>,
+    prepared_characters: Option<
+        Res<ambition_platformer2d_runtime::demo_fixture::PreparedCharacterRegistry>,
+    >,
     character_roster: Res<ambition_platformer2d_runtime::demo_fixture::CharacterRoster>,
     boss_catalog: Res<ambition_platformer2d_runtime::demo_fixture::BossCatalog>,
     placement_lowering: Res<ambition_platformer2d_runtime::demo_fixture::PlacementLoweringRegistry>,
     content_staging: Res<ambition_platformer2d_runtime::demo_fixture::RoomContentStagingRegistry>,
-    construction_recipes: Res<ambition_platformer2d_runtime::demo_fixture::ActorConstructionRegistry>,
+    construction_recipes: Res<
+        ambition_platformer2d_runtime::demo_fixture::ActorConstructionRegistry,
+    >,
     asset_server: Res<AssetServer>,
 ) {
     ambition_platformer2d_runtime::demo_fixture::simulation_world(
@@ -128,7 +132,7 @@ fn fixture_setup(
             ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
             tuning: &tuning,
-            starting_character: &starting_character,
+            initial_body: &initial_body,
             character_catalog: &character_catalog,
             prepared_characters: prepared_characters.as_deref(),
             // A smoke fixture authors no sheets; empty is the honest value and
@@ -137,10 +141,11 @@ fn fixture_setup(
             character_roster: &character_roster,
             placement_lowering: &placement_lowering,
             content_staging: &content_staging,
-            construction: ambition_platformer2d_runtime::demo_fixture::ActorConstructionContext::new(
-                &construction_recipes,
-                Default::default(),
-            ),
+            construction:
+                ambition_platformer2d_runtime::demo_fixture::ActorConstructionContext::new(
+                    &construction_recipes,
+                    Default::default(),
+                ),
             boss_catalog: &boss_catalog,
             default_character_id: "player",
             sandbox_data_asset: None,
@@ -173,8 +178,8 @@ fn demo_shell_boots_and_ticks() {
 // schedule-shape suites pass with the label threaded BOTH ways.
 // ─────────────────────────────────────────────────────────────────────────────
 
-use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use ambition_platformer2d_runtime::SimTick;
+use ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith;
 use bevy::ecs::schedule::Schedules;
 use bevy::time::{Fixed, Time, TimeUpdateStrategy};
 
@@ -310,7 +315,14 @@ fn frame_stepped_shell_keeps_the_sim_in_update() {
     app.update();
 
     assert!(systems_in(&app, Update, Platformer2dSimulationPhaseMonolith::WorldPrep) > 0);
-    assert_eq!(systems_in(&app, FixedUpdate, Platformer2dSimulationPhaseMonolith::WorldPrep), 0);
+    assert_eq!(
+        systems_in(
+            &app,
+            FixedUpdate,
+            Platformer2dSimulationPhaseMonolith::WorldPrep
+        ),
+        0
+    );
     // The timeline advances in both modes.
     assert_eq!(app.world().resource::<SimTick>().get(), 0);
     app.update();

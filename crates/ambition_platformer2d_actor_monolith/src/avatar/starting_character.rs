@@ -77,6 +77,57 @@ impl StartingCharacter {
     }
 }
 
+/// **Does this session build a home body at all?**
+///
+/// ⛔ **it did not used to be a question, and that was an engine assumption
+/// nobody had written down.** Every platformer session constructed a privileged
+/// primary body: `simulation_world` always returned one and
+/// `SessionBuildResult.player` was an `Entity`, not an option. A MATCH is not
+/// that shape — it realizes its own cast from a roster — so the engine handed
+/// one an extra controllable actor it had no use for, and match seating grew a
+/// whole adoption path to reinterpret that body as a fighter. Every symptom of
+/// Jon's 2026-08-06 report came out of the reinterpretation.
+///
+/// ⚠ **NOT an `Option<StartingCharacter>`, and not an empty id.** An empty
+/// [`StartingCharacter::character_id`] already means *"wear the provider-relative
+/// default"* — absence is taken, and a second meaning on the same emptiness is
+/// exactly how a silent default becomes a silent bug.
+///
+/// ⚠ **and it is a different question from `starting_character`**, which is why
+/// both exist. That field also names the experience's catalog DEFAULT — the id a
+/// worn body falls back to, which a match experience legitimately still has even
+/// though it builds no body of its own.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub enum InitialBodyPolicy {
+    /// Spawn the session's home body wearing this character. Every exploration
+    /// experience, and the default.
+    SpawnCharacter(StartingCharacter),
+    /// **Build no session body.** The experience realizes whatever actors it
+    /// needs — a match builds its cast from a prepared roster — and there is no
+    /// privileged avatar for anything to adopt, re-dress, or follow by accident.
+    NoInitialBody,
+}
+
+impl Default for InitialBodyPolicy {
+    fn default() -> Self {
+        Self::SpawnCharacter(StartingCharacter::default())
+    }
+}
+
+impl InitialBodyPolicy {
+    /// The character the home body wears, or `None` when there is no home body.
+    pub fn starting_character(&self) -> Option<&StartingCharacter> {
+        match self {
+            Self::SpawnCharacter(character) => Some(character),
+            Self::NoInitialBody => None,
+        }
+    }
+
+    pub fn spawns_a_body(&self) -> bool {
+        matches!(self, Self::SpawnCharacter(_))
+    }
+}
+
 // The curated PLAYABLE cast (which catalog ids the character-select surface
 // cycles) is CONTENT — it lives in `ambition_content::character_catalog`
 // (`PLAYABLE_ROSTER` / `next_playable`), beside the catalog data it indexes

@@ -35,7 +35,9 @@
 //! from v2. A reader who treats it as an inheritance edge has reintroduced the
 //! patch layer this design exists to refuse.
 
-use ambition_entity_catalog::{HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape};
+use ambition_entity_catalog::{
+    HurtboxDoc, HurtboxKeyframe, HurtboxTimeline, HurtboxVolume, VolumeShape,
+};
 use ambition_platformer2d_actor_monolith::character_runtime::{
     CharacterBindings, CharacterDefinition, CharacterDefinitionAppExt, Lineage,
 };
@@ -196,9 +198,9 @@ fn definition_from(
     // v2 — whose boxes are still raw silhouettes, arms and all — keep exactly
     // the path they have today and opt in when someone authors them. Absence is
     // the answer, not an omission to fix here.
-    if let Some(body_px) = ambition_platformer2d::actors::character_sprites::authored_body_pixel_size(
-        sheet,
-    ) {
+    if let Some(body_px) =
+        ambition_platformer2d::actors::character_sprites::authored_body_pixel_size(sheet)
+    {
         let world_per_pixel = ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / body_px.y;
         definition = definition
             .with_sprite_authored_body(world_per_pixel)
@@ -417,8 +419,7 @@ mod tests {
             "player_robot_v3",
         )
         .expect("v3's sheet authors a body box");
-        let body =
-            pixels * (ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / pixels.y);
+        let body = pixels * (ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / pixels.y);
 
         // Every edge of the hurtbox, against the matching edge of the body box.
         for (axis, off, half, body_half) in [
@@ -583,5 +584,62 @@ mod tests {
                 incarnation.id,
             );
         }
+    }
+}
+
+/// **Every character this provider DECLARES, registered so it can be BUILT.**
+///
+/// ⛔ **a catalog row is not a registration, and the difference had never been
+/// visible.** The row says what a character IS; `register_character` is what
+/// puts it in `PreparedCharacterRegistry`, which is the population match
+/// preparation can construct a body from. Ambition's Hall cast was catalog-only,
+/// so the crossover grid OFFERED eight fighters this host could not seat.
+///
+/// ⛔ **and the old adoption path HID it.** A human seat took over the session's
+/// existing body, and that branch consulted the registry optionally — so a
+/// catalog-only character worked in seat 0 and nowhere else. Eight of the twelve
+/// grid fighters were playable only as player one, and picking one for anybody
+/// else deadlocked the whole match in silence (Jon, 2026-08-06). Building every
+/// seat the same way is what turned that asymmetry into a single question, and
+/// this is the answer to it.
+///
+/// ⚠ **projected from the rows, never re-authored.** Display name and sheet come
+/// from the catalog exactly as [`definition_from`] takes them, because naming
+/// them again in Rust is the second source of truth the character-authority
+/// campaign exists to remove.
+///
+/// ⚠ **a BLANKET rule over the provider's own catalog, not a list of eight.**
+/// A hand-kept list is the shape this repo has been bitten by five times — the
+/// pairing that drifts because nothing checks it. "A character we declare is a
+/// character we can build" needs no maintenance.
+pub fn register_declared_cast(app: &mut bevy::prelude::App) {
+    let catalog = crate::character_catalog::load_catalog();
+    // The lineage registers itself above with authored bodies and hurtboxes;
+    // re-registering here would be a duplicate and would also throw those away.
+    let lineage: std::collections::BTreeSet<&str> =
+        LINEAGE.iter().map(|incarnation| incarnation.id).collect();
+    for (id, row) in catalog.iter() {
+        if lineage.contains(id.as_str()) {
+            continue;
+        }
+        // No derivable sheet target means nothing to wear. The load ledger
+        // already reports that class; a registration that could not draw would
+        // be a second reporter of one fact.
+        let Some(sheet) = row.manifest_target() else {
+            continue;
+        };
+        let definition = CharacterDefinition::new(
+            id.clone(),
+            row.display_name.clone(),
+            crate::AMBITION_CONTENT_PROVIDER,
+        )
+        .with_sheet(sheet);
+        // `try_`, and a SKIP rather than a panic: another provider legitimately
+        // owns some of these ids in a multi-game composition, and losing a race
+        // for one is not this provider's error to raise.
+        let _ = app.try_register_character(
+            definition,
+            CharacterBindings::default().with_engine_sheet_vocabulary(),
+        );
     }
 }

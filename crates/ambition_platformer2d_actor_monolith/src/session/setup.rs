@@ -48,7 +48,13 @@ pub struct SimulationSetup<'a> {
     pub tuning: &'a ae::ActiveMovementTuning,
     /// Which catalog character the local player spawns as. `is_default()` (the
     /// `player` protagonist) takes the untouched `from_scratch` path.
-    pub starting_character: &'a crate::avatar::StartingCharacter,
+    /// Whether this session builds a home body, and who it wears if so.
+    ///
+    /// ⚠ a MATCH experience declares `NoInitialBody`: it realizes its own cast
+    /// from a prepared roster, and a privileged avatar beside that cast is an
+    /// actor nobody owns — the camera follows it and input drives it while the
+    /// fighter the player chose stands somewhere else.
+    pub initial_body: &'a crate::avatar::InitialBodyPolicy,
     /// App-local assembled character definitions used by spawn and re-wear.
     pub character_catalog: &'a ambition_characters::actor::character_catalog::CharacterCatalog,
     /// The prepared cast, when this composition registered one.
@@ -110,14 +116,14 @@ pub fn simulation_world(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
     params: SimulationSetup<'_>,
-) -> Entity {
+) -> Option<Entity> {
     let SimulationSetup {
         world,
         room_set,
         ldtk_index,
         editable_abilities,
         tuning,
-        starting_character,
+        initial_body,
         character_catalog,
         prepared_characters,
         authored_sheets,
@@ -175,6 +181,14 @@ pub fn simulation_world(
     commands.insert_resource(ambition_platformer2d_world::collision::MovingPlatformSet(
         room_plan.platform_states().to_vec(),
     ));
+
+    // ⛔ **NO HOME BODY unless the experience asked for one.** Everything above
+    // is the WORLD, which every session needs; everything below builds the
+    // session's privileged avatar, which a match does not want and used to be
+    // given anyway. See `InitialBodyPolicy`.
+    let crate::avatar::InitialBodyPolicy::SpawnCharacter(starting_character) = initial_body else {
+        return None;
+    };
 
     // Capability set travels WITH the worn character when the row authors one
     // (the per-character analogue of the motion model below): a restricted-kit
@@ -294,5 +308,8 @@ pub fn simulation_world(
     // avatar by its `PrimaryPlayer` marker — no process-global handle bag records
     // it — and spawns the HUD/quest text as session-scoped, marker-tagged
     // entities during its own setup.
-    player
+    //
+    // ⚠ `Option` since 2026-08-06: "there is always exactly one primary player"
+    // was an engine-wide assumption, and a match experience is the counterexample.
+    Some(player)
 }

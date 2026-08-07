@@ -1229,6 +1229,17 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // is the next game's seating refusing to run because a match is
                 // already "live".
                 .releasing::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+                // ⛔ **AND THE PLAN, which is the same lesson one resource later.**
+                // `PreparedMatch` is global and had no lifetime when it was
+                // introduced, so it outlived every smash route — and because the
+                // latch above IS released, the next experience's session found a
+                // plan with no activation and dutifully built smash's fighters
+                // into Ambition's world. Two bodies then carried
+                // `Brain::Player(PRIMARY)` and `resolve_controlled_subject`
+                // panicked on its own hard invariant, which is the loudest this
+                // class of bug has ever been and the reason it took minutes
+                // rather than the afternoon the roster version took.
+                .releasing::<ambition_platformer2d::actors::character_runtime::PreparedMatch>()
                 // A RESTART IS FRESH. `resetting`, never `releasing`: the
                 // screen's systems take these as plain `ResMut`, so REMOVING
                 // them panics the app on the frame the experience ends — which
@@ -1607,7 +1618,12 @@ fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPla
     let room = smash_stage();
     let geometry = ae::RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
-    ambition_platformer2d::runtime::PreparedPlatformerSource::new(
+    // ⛔ **`for_match`, so this stage builds NO home body.** It used to build one
+    // wearing `SMASH_CHARACTER_ID`, and match seating then adopted that body for
+    // the human seat — which is where every symptom of Jon's 2026-08-06 report
+    // came from. The match realizes its own cast; the id below is only this
+    // experience's catalog DEFAULT, which its worn fighters still fall back to.
+    ambition_platformer2d::runtime::PreparedPlatformerSource::for_match(
         SMASH_EXPERIENCE,
         RoomSet::from_parts(SMASH_STAGE_ROOM_ID, vec![room], Vec::new()),
         geometry,

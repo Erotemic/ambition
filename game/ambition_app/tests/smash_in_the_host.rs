@@ -999,13 +999,33 @@ fn a_fighter_picked_in_smash_does_not_follow_the_player_into_ambition() {
         Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
         "the decided match never reached the stage, so this is not testing the leak"
     );
-    // The premise: in Smash the pick IS the controlled body. Without this the
-    // test could pass because the dressing never worked at all.
+    // **The premise: in Smash the pick IS a fighter on the stage.**
+    //
+    // ⚠ this used to read the PRIMARY PLAYER's worn character, because the pick
+    // reached the player by re-dressing the session's home body — which is
+    // precisely the leak vector the rest of this test is about. A match
+    // experience now declares no home body at all, so the premise is asserted
+    // where the fighter actually is: on a seat. There is no longer anything to
+    // redress, which is a stronger answer to Jon's report than the guard that
+    // used to make the redressing behave.
+    let seated: Vec<String> = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            &ambition_platformer2d::character::WornCharacter,
+            With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
+        >();
+        q.iter(world).map(|worn| worn.id().to_owned()).collect()
+    };
+    assert!(
+        seated.iter().any(|id| id == ONI_LEADER),
+        "the fighter the lobby picked never reached the stage, so this is not \
+         testing anything: seated {seated:?}"
+    );
     assert_eq!(
-        primary_player_character(&mut app).as_deref(),
-        Some(ONI_LEADER),
-        "the fighter the lobby picked never reached the body, so there is no \
-         redressing to leak"
+        primary_player_character(&mut app),
+        None,
+        "a MATCH built a home avatar. Nothing should own a controllable body \
+         beside the match's own cast"
     );
 
     app.world_mut().write_message(ShellCommand::QuitToHome);

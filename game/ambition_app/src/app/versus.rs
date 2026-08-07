@@ -129,14 +129,15 @@ fn versus_prepared_session_world() -> PreparedPlatformerSource {
     let room = versus_arena();
     let geometry = ae::RoomGeometry(room.world.clone());
     let metadata = ActiveRoomMetadata(room.metadata.clone());
-    PreparedPlatformerSource::new(
+    // ⛔ **`for_match`: no home body.** The comment this replaces described the
+    // old contract exactly — *"the body a human seat takes over"* — and that
+    // takeover is the fork that has been deleted. Every fighter is built by the
+    // match now; `FIGHTERS[0]` remains as this experience's catalog default.
+    PreparedPlatformerSource::for_match(
         VERSUS_EXPERIENCE,
         RoomSet::from_parts(VERSUS_ROOM_ID, vec![room], Vec::new()),
         geometry,
         metadata,
-        // The primary player wears the first fighter. It is the camera's subject
-        // and, in slice 3, the body a human seat takes over — so the stage does
-        // not change shape when the human arrives.
         StartingCharacter::new(FIGHTERS[0]),
         LdtkRuntimeIndex::default(),
     )
@@ -984,6 +985,11 @@ fn declare_versus_experience_scope(app: &mut App) {
             // The match ends WITH its route. An activation that outlives its
             // match is the next game inheriting somebody else's fighters.
             .releasing::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            // AND THE PLAN it activated from. A `PreparedMatch` that outlives
+            // its experience is the next game's stage quietly building THIS
+            // game's fighters — the same lesson as the roster above, one
+            // resource later.
+            .releasing::<ambition_platformer2d::actors::character_runtime::PreparedMatch>()
             // DROP THE DECLARATION. A match rule that outlives its match is a
             // rule the next game silently inherits, and "your allies can now
             // shoot you" is a bad surprise to bring into a co-op level.

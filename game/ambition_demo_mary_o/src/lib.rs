@@ -1579,8 +1579,8 @@ fn mary_o_setup(
         ambition_platformer2d::runtime::demo_fixture::EditableAbilitySet,
     >,
     tuning: bevy::prelude::Res<ambition_platformer2d::runtime::demo_fixture::ActiveMovementTuning>,
-    starting_character: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
-        ambition_platformer2d::runtime::demo_fixture::StartingCharacter,
+    initial_body: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<
+        ambition_platformer2d::runtime::demo_fixture::InitialBodyPolicy,
     >,
     asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
     character_catalog: bevy::prelude::Res<
@@ -1615,7 +1615,7 @@ fn mary_o_setup(
             ldtk_index: &ldtk_index,
             editable_abilities: &editable_abilities,
             tuning: &tuning,
-            starting_character: &starting_character,
+            initial_body: &initial_body,
             character_catalog: &character_catalog,
             prepared_characters: prepared_characters.as_deref(),
             authored_sheets: &authored_sheets,

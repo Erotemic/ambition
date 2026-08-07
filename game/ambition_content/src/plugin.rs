@@ -63,6 +63,9 @@ impl Plugin for AmbitionContentPlugin {
         // runtime. See that module for why `Lineage::derived_from` is provenance
         // and not an inheritance edge.
         super::player_robot_lineage::register(app);
+        // AND every other character this provider declares, so the crossover
+        // grid cannot offer a fighter this host is unable to build.
+        super::player_robot_lineage::register_declared_cast(app);
 
         // Publish this provider's world manifest (which .ldtk files exist +
         // the entry room) as an App-local resource, so in-schedule readers —

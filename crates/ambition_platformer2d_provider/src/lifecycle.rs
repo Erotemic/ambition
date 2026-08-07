@@ -31,11 +31,11 @@ use ambition_game_shell::{
     PREPARE_SFX_WORK_ID, PREPARE_SPRITES_WORK_ID, PREPARE_WORLD_WORK_ID,
 };
 use ambition_load::AmbitionLoadSet;
-use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionSpawnScope};
 use ambition_platformer2d_runtime::{
     ContentDiagnostic, ContentEpochSequence, ContentOwner, PlatformerSessionWorld, PreparedContent,
     PreparedContentBuilder, PreparedContentIdentity, PreparedPlatformerSource,
 };
+use ambition_platformer2d_shared_tangle::lifecycle::{SessionScopeId, SessionSpawnScope};
 
 use crate::authoring::PlatformerAuthoredCatalogRegistry;
 
@@ -221,12 +221,16 @@ pub(crate) struct PlatformerPreparation<'w> {
     character_catalog_registry:
         Option<Res<'w, ambition_characters::actor::character_catalog::CharacterCatalogRegistry>>,
     snapshot_registry: Option<Res<'w, ambition_platformer2d_runtime::rollback::RollbackRegistry>>,
-    placement_lowering:
-        Option<Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>>,
-    content_staging: Option<Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>>,
+    placement_lowering: Option<
+        Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
+    >,
+    content_staging:
+        Option<Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>>,
     // ⚠ This brings the struct to Bevy's 16-parameter `SystemParam` ceiling.
     // The next field added here must bundle something first.
-    construction_recipes: Option<Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>>,
+    construction_recipes: Option<
+        Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
+    >,
     epochs: ResMut<'w, ContentEpochSequence>,
     audio_catalogs: Res<'w, ambition_audio::catalog::AudioCatalogRegistry>,
     #[cfg(feature = "audio")]
@@ -486,7 +490,8 @@ impl PlatformerPreparation<'_> {
             .as_deref()
             .map(ambition_platformer2d_runtime::rollback::RollbackRegistry::schema_fingerprint)
             .unwrap_or_else(|| {
-                ambition_platformer2d_runtime::rollback::RollbackRegistry::default().schema_fingerprint()
+                ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
+                    .schema_fingerprint()
             });
         let content = match prepare_platformer_content(
             source,
@@ -722,7 +727,8 @@ pub fn prepare_platformer_content_for_app(
         .cloned();
     let content_staging = app
         .world()
-        .get_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>()
+        .get_resource::<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>(
+        )
         .cloned();
     let construction_recipes = app
         .world()
@@ -733,7 +739,8 @@ pub fn prepare_platformer_content_for_app(
         .get_resource::<ambition_platformer2d_runtime::rollback::RollbackRegistry>()
         .map(ambition_platformer2d_runtime::rollback::RollbackRegistry::schema_fingerprint)
         .unwrap_or_else(|| {
-            ambition_platformer2d_runtime::rollback::RollbackRegistry::default().schema_fingerprint()
+            ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
+                .schema_fingerprint()
         });
     app.init_resource::<ContentEpochSequence>();
     let mut epochs = app.world_mut().resource_mut::<ContentEpochSequence>();
@@ -755,8 +762,12 @@ pub fn prepare_platformer_content(
     character_registry: Option<
         &ambition_characters::actor::character_catalog::CharacterCatalogRegistry,
     >,
-    placement_lowering: Option<&ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
-    content_staging: Option<&ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
+    placement_lowering: Option<
+        &ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry,
+    >,
+    content_staging: Option<
+        &ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
+    >,
     // Canonical dump of the construction registry, when the app has one. A dump
     // rather than the registry itself: `ConstructionRegistry` is not `Clone` (it
     // holds relation `fn` pointers), and the fingerprint wants only its stable
@@ -1105,26 +1116,44 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// The prepared cast, when this composition registered one. Activation builds
     /// the player's BODY, and a prepared character states what a body physically
     /// is — its health pool, its mass, its authored box.
-    prepared_characters:
-        Option<Res<'w, ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>>,
+    prepared_characters: Option<
+        Res<'w, ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>,
+    >,
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
-    authored_sheets: Res<'w, ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
+    authored_sheets:
+        Res<'w, ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
     character_roster: Res<'w, ambition_platformer2d_actor_monolith::features::CharacterRoster>,
     boss_catalog: Res<'w, ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
-    placement_lowering: Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
-    content_staging: Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
-    construction_recipes: Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
-    sandbox_data_asset: Option<Res<'w, ambition_platformer2d_actor_monolith::session::data::Platformer2dGameplayDefaultsHandle>>,
-    sandbox_asset_collection:
-        Option<Res<'w, ambition_platformer2d_actor_monolith::assets::loading::Platformer2dStartupAssets>>,
+    placement_lowering:
+        Res<'w, ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
+    content_staging:
+        Res<'w, ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
+    construction_recipes:
+        Res<'w, ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
+    sandbox_data_asset: Option<
+        Res<
+            'w,
+            ambition_platformer2d_actor_monolith::session::data::Platformer2dGameplayDefaultsHandle,
+        >,
+    >,
+    sandbox_asset_collection: Option<
+        Res<'w, ambition_platformer2d_actor_monolith::assets::loading::Platformer2dStartupAssets>,
+    >,
     moving_platforms: ResMut<'w, ambition_platformer2d_world::collision::MovingPlatformSet>,
     active_session: ResMut<'w, ActiveGameplaySession>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SessionBuildResult {
-    pub player: Entity,
+    /// The session's home body, when the experience declared one.
+    ///
+    /// ⚠ **`Option` since 2026-08-06.** "Every session has exactly one primary
+    /// player" was an engine-wide assumption with no counterexample until a MATCH
+    /// experience needed to be one: it realizes its own cast from a roster, and a
+    /// privileged avatar beside that cast is an actor nobody owns. See
+    /// `InitialBodyPolicy`.
+    pub player: Option<Entity>,
     pub world: Entity,
 }
 
@@ -1140,9 +1169,10 @@ impl PlatformerSessionBuilder<'_, '_> {
         let prepared_identity: PreparedContentIdentity = prepared_content.identity();
         // Live moving-platform state derives from the activating room. Rooms
         // without authored platforms (every current demo) reset it to empty.
-        self.moving_platforms.0 = ambition_platformer2d_actor_monolith::world::platforms::moving_platforms_for_room(
-            live_world.room_set.active_spec(),
-        );
+        self.moving_platforms.0 =
+            ambition_platformer2d_actor_monolith::world::platforms::moving_platforms_for_room(
+                live_world.room_set.active_spec(),
+            );
 
         let player = ambition_platformer2d_actor_monolith::session::setup::simulation_world(
             &mut self.commands,
@@ -1153,7 +1183,7 @@ impl PlatformerSessionBuilder<'_, '_> {
                 ldtk_index: &live_world.runtime_rooms,
                 editable_abilities: &self.editable_abilities,
                 tuning: &self.tuning,
-                starting_character: &live_world.starting_character,
+                initial_body: &live_world.initial_body,
                 character_catalog: &self.character_catalog,
                 prepared_characters: self.prepared_characters.as_deref(),
                 authored_sheets: &self.authored_sheets,
@@ -1163,10 +1193,11 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // Activation is the one place that holds the exact prepared
                 // definition, so it is the one place a construction plan can
                 // state a REAL activation generation rather than defaulting.
-                construction: ambition_platformer2d_actor_monolith::features::ActorConstructionContext::new(
-                    &self.construction_recipes,
-                    prepared_identity.epoch,
-                ),
+                construction:
+                    ambition_platformer2d_actor_monolith::features::ActorConstructionContext::new(
+                        &self.construction_recipes,
+                        prepared_identity.epoch,
+                    ),
                 boss_catalog: &self.boss_catalog,
                 default_character_id,
                 sandbox_data_asset: self.sandbox_data_asset.as_deref(),
@@ -1174,11 +1205,6 @@ impl PlatformerSessionBuilder<'_, '_> {
                 asset_server: &self.asset_server,
             },
         );
-
-        self.commands.entity(player).insert(GameplayInputOwner {
-            activation_id: activation.activation_id,
-            scope,
-        });
 
         let world = self
             .active_session
@@ -1198,6 +1224,21 @@ impl PlatformerSessionBuilder<'_, '_> {
                 ),
             )
             .expect("provider activation still owns the session it is constructing");
+
+        // **SESSION INPUT OWNERSHIP GOES ON THE WORLD, NOT ON A BODY.**
+        //
+        // ⛔ `GameplayInputOwner` documents itself as *"Marker and exact owner
+        // facts on the canonical live gameplay-world entity"* and was then
+        // inserted onto the player. Nothing read it for routing — its only
+        // consumer counts instances — so the disagreement was invisible right up
+        // until a session could legitimately have no body at all, at which point
+        // "no home avatar" would silently have meant "no input owner". A
+        // human-versus-CPU match has no home body and certainly has input
+        // authority; those are different facts and now live in different places.
+        self.commands.entity(world).insert(GameplayInputOwner {
+            activation_id: activation.activation_id,
+            scope,
+        });
 
         SessionBuildResult { player, world }
     }
@@ -1268,13 +1309,18 @@ mod tests {
                 Vec::new(),
             ),
         );
-        let room_set =
-            ambition_platformer2d_world::rooms::RoomSet::from_parts("same-room", vec![room], Vec::new());
+        let room_set = ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            "same-room",
+            vec![room],
+            Vec::new(),
+        );
         PreparedPlatformerSource::new(
             "same-provider",
             room_set.clone(),
             ambition_platformer2d_core::RoomGeometry(room_set.active_world().clone()),
-            ambition_platformer2d_world::rooms::ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
+            ambition_platformer2d_world::rooms::ActiveRoomMetadata(
+                room_set.active_spec().metadata.clone(),
+            ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
             ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex::default(),
         )
@@ -1290,12 +1336,18 @@ mod tests {
                 Vec::new(),
             ),
         );
-        let room_set = ambition_platformer2d_world::rooms::RoomSet::from_parts(room_id, vec![room], Vec::new());
+        let room_set = ambition_platformer2d_world::rooms::RoomSet::from_parts(
+            room_id,
+            vec![room],
+            Vec::new(),
+        );
         PreparedPlatformerSource::new(
             "same-provider",
             room_set.clone(),
             ambition_platformer2d_core::RoomGeometry(room_set.active_world().clone()),
-            ambition_platformer2d_world::rooms::ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
+            ambition_platformer2d_world::rooms::ActiveRoomMetadata(
+                room_set.active_spec().metadata.clone(),
+            ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
             ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex::default(),
         )
@@ -1330,7 +1382,9 @@ mod tests {
             "same-provider",
             room_set.clone(),
             ambition_platformer2d_core::RoomGeometry(room_set.active_world().clone()),
-            ambition_platformer2d_world::rooms::ActiveRoomMetadata(room_set.active_spec().metadata.clone()),
+            ambition_platformer2d_world::rooms::ActiveRoomMetadata(
+                room_set.active_spec().metadata.clone(),
+            ),
             ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new("alpha"),
             ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex::default(),
         )
@@ -1357,8 +1411,11 @@ mod tests {
         registry
     }
 
-    fn staging_registry(reverse: bool) -> ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry {
-        let mut registry = ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default();
+    fn staging_registry(
+        reverse: bool,
+    ) -> ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry {
+        let mut registry =
+            ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry::default();
         let register_a = |registry: &mut ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry| {
             registry
                 .register(
@@ -1406,8 +1463,8 @@ mod tests {
         construction_recipes: Option<String>,
     ) -> PreparedContent {
         let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
-        let snapshot_schema =
-            ambition_platformer2d_runtime::rollback::RollbackRegistry::default().schema_fingerprint();
+        let snapshot_schema = ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
+            .schema_fingerprint();
         let mut epochs = ContentEpochSequence::default();
         prepare_platformer_content(
             source,
@@ -1438,8 +1495,8 @@ mod tests {
         let characters = character_registry(false, CHARACTER_B);
         let staging = staging_registry(false);
         let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
-        let snapshot_schema =
-            ambition_platformer2d_runtime::rollback::RollbackRegistry::default().schema_fingerprint();
+        let snapshot_schema = ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
+            .schema_fingerprint();
 
         let prepare = |selected: &str| {
             let base = fixture_source(128.0);
@@ -1450,7 +1507,9 @@ mod tests {
                 ambition_platformer2d_world::rooms::ActiveRoomMetadata(
                     base.room_set().active_spec().metadata.clone(),
                 ),
-                ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new(selected.to_string()),
+                ambition_platformer2d_actor_monolith::avatar::StartingCharacter::new(
+                    selected.to_string(),
+                ),
                 ambition_platformer2d_actor_monolith::ldtk_world::LdtkRuntimeIndex::default(),
             );
             let mut epochs = ContentEpochSequence::default();
@@ -1587,7 +1646,9 @@ mod tests {
     }
 
     fn relation_dump(schema: &str) -> String {
-        let mut registry = ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::default();
+        let mut registry =
+            ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::default(
+            );
         registry
             .try_register_relation(
                 ambition_platformer2d_actor_monolith::construction::relation_grudge(),
@@ -1601,7 +1662,9 @@ mod tests {
 
     /// A real registry, dumped — the same value the app path contributes.
     fn construction_dump(schema: &str) -> String {
-        let mut registry = ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::default();
+        let mut registry =
+            ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::default(
+            );
         registry
             .try_register_recipe(
                 ambition_platformer2d_actor_monolith::construction::recipe_staged_actor(),
@@ -1614,7 +1677,9 @@ mod tests {
     }
 
     fn construction_dump_ordered(reverse: bool) -> String {
-        let mut registry = ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::default();
+        let mut registry =
+            ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry::default(
+            );
         let ids = [
             ambition_platformer2d_actor_monolith::construction::recipe_staged_actor(),
             ambition_platformer2d_actor_monolith::construction::recipe_summoned_minion(),
@@ -1637,8 +1702,8 @@ mod tests {
         let characters = character_registry(false, CHARACTER_B);
         let staging = staging_registry(false);
         let authored = AuthoredCatalogFragments::new("alpha", "same-provider");
-        let snapshot_schema =
-            ambition_platformer2d_runtime::rollback::RollbackRegistry::default().schema_fingerprint();
+        let snapshot_schema = ambition_platformer2d_runtime::rollback::RollbackRegistry::default()
+            .schema_fingerprint();
         let mut epochs = ContentEpochSequence::default();
         let first = prepare_platformer_content(
             fixture_source(128.0),
@@ -1665,8 +1730,14 @@ mod tests {
 
         assert_eq!(first.fingerprint(), second.fingerprint());
         assert_ne!(first.epoch(), second.epoch());
-        assert_eq!(first.epoch(), ambition_platformer2d_runtime::ContentEpoch(1));
-        assert_eq!(second.epoch(), ambition_platformer2d_runtime::ContentEpoch(2));
+        assert_eq!(
+            first.epoch(),
+            ambition_platformer2d_runtime::ContentEpoch(1)
+        );
+        assert_eq!(
+            second.epoch(),
+            ambition_platformer2d_runtime::ContentEpoch(2)
+        );
     }
 
     #[test]
@@ -1692,8 +1763,14 @@ mod tests {
         assert_eq!(active.source().geometry().0.size.x, 128.0);
 
         let committed = changed.with_epoch(ambition_platformer2d_runtime::ContentEpoch(9));
-        assert_eq!(committed.epoch(), ambition_platformer2d_runtime::ContentEpoch(9));
-        assert_eq!(active.epoch(), ambition_platformer2d_runtime::ContentEpoch(1));
+        assert_eq!(
+            committed.epoch(),
+            ambition_platformer2d_runtime::ContentEpoch(9)
+        );
+        assert_eq!(
+            active.epoch(),
+            ambition_platformer2d_runtime::ContentEpoch(1)
+        );
     }
 
     #[test]

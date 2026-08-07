@@ -63,8 +63,7 @@ pub use physical_baseline::{
 };
 pub use prepared_match::{
     activate_the_prepared_match, prepare_match, prepare_the_match, seat_placement,
-    ControlAuthority, MatchPreparationProblems, MatchRules, MatchViewPolicy, PreparedMatch,
-    PreparedSeat,
+    ControlAuthority, MatchPreparationProblems, MatchRules, PreparedMatch, PreparedSeat,
 };
 pub use presentation::{
     authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,

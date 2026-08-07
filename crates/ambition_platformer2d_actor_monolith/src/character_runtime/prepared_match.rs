@@ -143,20 +143,6 @@ impl ControlAuthority {
     }
 }
 
-/// **Where the camera looks, expressed before any fighter exists.**
-///
-/// ⚠ an `Entity` is not available at preparation time and would not survive a
-/// rewind if it were. Seat identity is stable; entity identity is not.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MatchViewPolicy {
-    /// Follow one seat — the ordinary answer when somebody local is playing.
-    FollowSeat(usize),
-    /// Frame every seat at once. The only honest answer for a match with no
-    /// local player, and arguably the better one for a platform fighter even
-    /// when there is one.
-    FrameSeats,
-}
-
 /// One fighter, fully resolved.
 #[derive(Clone, Debug)]
 pub struct PreparedSeat {
@@ -213,7 +199,6 @@ impl MatchRules {
 pub struct PreparedMatch {
     seats: Vec<PreparedSeat>,
     rules: MatchRules,
-    view: MatchViewPolicy,
     /// The [`PreparedCharacterRegistry`] generation these seats were resolved
     /// against.
     ///
@@ -240,10 +225,6 @@ impl PreparedMatch {
 
     pub fn rules(&self) -> &MatchRules {
         &self.rules
-    }
-
-    pub fn view(&self) -> MatchViewPolicy {
-        self.view
     }
 
     pub fn cast_generation(&self) -> super::CharacterCatalogGeneration {
@@ -443,20 +424,22 @@ pub fn prepare_match(
         return Err(MatchPreparationProblems { problems });
     }
 
-    // **WHERE THE CAMERA LOOKS**, decided here because this is the only place
-    // that knows who is playing. A match with a local player follows the first
-    // one; a match without any is framed, which is what makes CPU-vs-CPU a
-    // watchable thing rather than a match nobody can see.
-    let view = seats
-        .iter()
-        .find(|seat| seat.authority.local_channel().is_some())
-        .map(|seat| MatchViewPolicy::FollowSeat(seat.seat))
-        .unwrap_or(MatchViewPolicy::FrameSeats);
+    // ⚠ **WHERE THE CAMERA LOOKS IS NOT DECIDED HERE, YET.** A draft of this
+    // module returned a `MatchViewPolicy` (follow the first local seat, else
+    // frame the whole cast) and nothing read it. An unread value is dead code
+    // dressed as intent — the same objection this module makes to control
+    // authorities nothing can attach — so it is not here.
+    //
+    // What the camera does today: it follows the `ControlledSubject`, which is
+    // the local seat's fighter in any match somebody is playing. A CPU-only
+    // match has no subject, so the camera does not resolve and the stage is
+    // framed by whatever the default is. That is the remaining gap, and it is
+    // a PRESENTATION question — the headless suite is blind to it by
+    // construction, so it wants a photograph rather than another test.
 
     Ok(PreparedMatch {
         seats,
         rules,
-        view,
         cast_generation: registry.generation(),
         seat_topology: roster.seat_topology(),
     })

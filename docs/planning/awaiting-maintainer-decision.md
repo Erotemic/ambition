@@ -60,7 +60,15 @@ be the one choosing.
 ✔ **The ENGINE answer is settled: both must be expressible.** "Stop the world" is
 a capability the dialogue system owes, not a behaviour it picks — so this is a
 policy with a default, exactly like #9 above, and the two share a shape.
-▢ **the game-level default stays open**, and does not block the engine work.
+✔ **and the game-level default is settled too** — Jon, 2026-08-06, *"Build it,
+default to per-seat"*, recorded in
+[`maintainer-decisions.md`](maintainer-decisions.md) (row 2026-08-06, "Dialogue
+claims only the TALKER's input by default").
+⛔ **this line said `▢ the game-level default stays open` until 2026-08-07**,
+three days after he answered it and directly above the note recording his answer.
+⚠ that is worse than an ordinary stale line in THIS file: a `▢` here is what a
+sweep looks for, so it invites re-raising a question the maintainer has already
+ruled on — the exact failure this file's own preamble describes about rows 1–7.
 
 **This is a product question, not a repair**, and it took a wrong turn to work
 that out — so the mechanism is written down here rather than re-derived.

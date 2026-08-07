@@ -83,6 +83,36 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     "perfect_cellular_automaton", // the PCA (Fable extension target)
     "stochastic_parrot",          // the parrot
     "sandbag",                    // the training dummy, playable for laughs
+    // ── The fighters the smash grid offers ───────────────────────────────────
+    //
+    // ⭐ **"a character this game offers as a WORN BODY is one this game can
+    // BUILD", and this list is where that claim is made.** They are here
+    // because a match seats them, which is the same act as wearing them: a
+    // fighter IS a body wearing a character, and eight of the twelve portraits
+    // on the grid could be seated only as player one because nothing had ever
+    // registered them. That asymmetry was invisible while human seats ADOPTED
+    // the home body and CPU seats spawned; unifying construction is what
+    // made it a hard failure.
+    //
+    // ⛔ **and the alternative was measured and rejected.** The first version
+    // registered EVERY catalog row — "a character this game declares should be
+    // one this game can build" — which reads better and is wrong: a bare
+    // registration says the character authors no body, and preparation
+    // correctly RETRACTS what an incoming persona does not author. That flipped
+    // ~100 exploration NPCs off their archetype-built vitals onto defaults, and
+    // `rollback_lifecycle_reset::a_player_death_reset_survives_the_rollback_window`
+    // caught it: the calibration lab's strikers stopped being able to kill a
+    // 3-HP player in 2400 frames (bisected to a733ec37e, verified by reverting
+    // that one call). The catalog row has no mass or health to fold back in —
+    // those come from the ARCHETYPE — so the blanket rule cannot be made
+    // behaviour-neutral, only narrower.
+    "mary_o",
+    "sanic",
+    "npc_ninja_shadow_oni_leader",
+    "npc_alice",
+    "npc_bob",
+    "npc_oiler",
+    "npc_noether",
 ];
 
 /// The next id in [`PLAYABLE_ROSTER`] after `current`, wrapping. Unknown ids

@@ -1609,3 +1609,117 @@ fn a_preparation_refusal_is_shown_instead_of_ready() {
          exact shape this landing exists to remove."
     );
 }
+
+/// **THE SECOND MATCH OF A SESSION MUST ALSO BE A MATCH.** (Jon, 2026-08-07)
+///
+/// ⛔ *"a fresh restart and then player vs cpu works, but the next match does
+/// not work … there is some bad global state, we need to be careful about this,
+/// over-relying on global state has happened several times."* What he sees is
+/// fighters standing still in the air with the menu still responding — so the
+/// bodies are built and something that should be driving them is not.
+///
+/// ⚠ **`coming_back_to_the_select_screen_offers_a_fresh_match` was green over
+/// this the whole time**, and the reason is the exact trap this repo keeps
+/// falling into: it asserts the screen is RESET — the roster gone, the slots
+/// empty, START not still asked for — and every one of those is a PRESENCE
+/// check. A second match that opens and then never moves satisfies all of them.
+/// Only an assertion about MOTION catches it.
+///
+/// So this drives the whole cycle a person drives: decide a match, watch it
+/// move, quit to the title, decide another, and watch THAT move.
+#[test]
+fn a_second_match_in_the_same_session_still_fights() {
+    // ⚠ the VISIBLE host, not `shell_host_app()`. The headless fixture composes
+    // the sim and the shell but not the rollback session, and Jon's freeze is a
+    // whole-binary symptom: the menu keeps responding while the fighters stand
+    // still, which is what a stalled SIMULATION looks like from the outside.
+    let mut app =
+        ambition_app::app::build_visible_app(ambition_app::app::VisibleRenderMode::NoWindow, true);
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f64(1.0 / 60.0),
+    ));
+    for _ in 0..ambition_app::app::shared_host_startup_ticks() * 2 {
+        app.update();
+    }
+    settle(&mut app);
+
+    let run_a_match = |app: &mut App, which: &str| {
+        if active_route(app).as_deref() != Some(ambition_demo_smash::SMASH_SELECT_ROUTE) {
+            launch_row(app, "Smash");
+            settle(app);
+        }
+        decide_a_solo_match(app);
+        settle(app);
+        for _ in 0..120 {
+            app.update();
+            if active_route(app).as_deref() == Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE) {
+                break;
+            }
+        }
+        assert_eq!(
+            active_route(app).as_deref(),
+            Some(ambition_demo_smash::SMASH_GAMEPLAY_ROUTE),
+            "{which} match never reached the stage"
+        );
+        for _ in 0..90 {
+            app.update();
+        }
+        let seats = seat_positions(app);
+        assert_eq!(
+            seats.len(),
+            2,
+            "{which} match seated {} fighters, not two",
+            seats.len()
+        );
+        let start = seats;
+        for _ in 0..300 {
+            app.update();
+        }
+        let moved: f32 = seat_positions(app)
+            .iter()
+            .zip(&start)
+            .map(|(now, then)| (now - then).abs())
+            .fold(0.0, f32::max);
+        moved
+    };
+
+    let first = run_a_match(&mut app, "the first");
+    assert!(
+        first > 1.0,
+        "even the FIRST match's fighters never moved ({first:.2}px), so this \
+         fixture is measuring something other than what Jon reported"
+    );
+
+    // ⚠ BACK TO THE SELECT SCREEN, not the title: that is the shorter loop a
+    // person actually takes between matches, and the one the existing
+    // `coming_back_to_the_select_screen_offers_a_fresh_match` stops at.
+    app.world_mut().write_message(ShellCommand::GoTo(
+        ambition_platformer2d::game_shell::ShellRouteId::new(
+            ambition_demo_smash::SMASH_SELECT_ROUTE,
+        ),
+    ));
+    settle(&mut app);
+
+    let second = run_a_match(&mut app, "the second");
+    assert!(
+        second > 1.0,
+        "the SECOND match of the session seated two fighters and they never \
+         moved ({second:.2}px against the first match's {first:.2}px). The \
+         bodies exist and nothing drives them — state from the first match \
+         outlived it."
+    );
+
+    // ⚠ AND THE LONGER LOOP, because Jon took both: *"I quit to title and
+    // restarted the smash game"*. A route change inside the experience and a
+    // full exit through the launcher retire different things, and only running
+    // both says the match lifecycle is owned rather than that one path happens
+    // to clean up after itself.
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    let third = run_a_match(&mut app, "the third, after quitting to the title");
+    assert!(
+        third > 1.0,
+        "a match started after quitting to the title seated two fighters and \
+         they never moved ({third:.2}px)"
+    );
+}

@@ -241,9 +241,31 @@ pub struct PreparedMatch {
     /// clock, which is the property that lets a rewind reconstruct the SAME
     /// match instead of a similar one built a frame early.
     effective_from: u64,
+    /// **The gameplay session this plan was decided FOR.**
+    ///
+    /// ⛔ **a plan is about ONE activation of one route, and without this it was
+    /// about the process.** Jon, 2026-08-07: *"a fresh restart and then player
+    /// vs cpu works, but the next match does not work … there is some bad
+    /// global state."* Returning to the select screen and starting a second
+    /// match left the FIRST match's plan and receipt standing, so preparation
+    /// returned early (a plan exists) and activation returned early (a receipt
+    /// exists) and the new match seated nothing at all.
+    ///
+    /// ⚠ **content cannot answer this.** The obvious repair — re-prepare when
+    /// the roster differs — fails on the case that actually happens: a rematch
+    /// with the same two picks publishes an IDENTICAL roster. What changed is
+    /// not what was chosen, it is that this is a different SESSION.
+    session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
 }
 
 impl PreparedMatch {
+    /// The gameplay session this plan was decided for. See [`Self::session`].
+    pub fn session(
+        &self,
+    ) -> Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId> {
+        self.session
+    }
+
     pub fn seats(&self) -> &[PreparedSeat] {
         &self.seats
     }
@@ -325,6 +347,8 @@ pub fn prepare_match(
     // `PreparedMatch::effective_from`. Preparation runs in `Update`, after the
     // frame's simulation, so the caller passes the NEXT tick.
     effective_from: u64,
+    // Which gameplay session this plan is FOR — see `PreparedMatch::session`.
+    session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
     // What the SESSION declared about a home avatar. Preparation needs it to
     // refuse a local seat in a session that already has one — see the seat
     // loop below.
@@ -537,6 +561,7 @@ pub fn prepare_match(
         cast_generation: registry.generation(),
         seat_topology: roster.seat_topology(),
         effective_from,
+        session,
     })
 }
 
@@ -751,15 +776,25 @@ pub fn prepare_the_match(
             crate::avatar::starting_character::InitialBodyPolicy,
         >,
     >,
+    // WHICH session this plan is for; a plan from the previous one is stale.
+    active_session: Option<Res<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>>,
     prepared: Option<Res<PreparedMatch>>,
     // WHEN this plan becomes effective is part of the plan; see
     // `PreparedMatch::effective_from`.
     tick: Res<ambition_time::SimTick>,
 ) {
-    // One plan per match. Re-preparing every tick would rebuild the seeds under
-    // a live match and, worse, re-resolve them against a registry that may have
-    // been republished — the exact authority-in-activation this module removes.
-    if prepared.is_some() {
+    let session = active_session
+        .as_deref()
+        .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current);
+    // ONE plan per match — but a plan belongs to ONE SESSION, and this used to
+    // read `if prepared.is_some() { return; }`, which made it one plan per
+    // PROCESS. Re-preparing every tick would rebuild the seeds under a live
+    // match and re-resolve them against a possibly-republished registry, which
+    // is the authority-in-activation this module exists to remove; re-preparing
+    // for a NEW session is the opposite of that — it is the only way the second
+    // match of a sitting gets a plan at all.
+    let previous_session = prepared.as_deref().and_then(PreparedMatch::session);
+    if prepared.is_some() && previous_session == session {
         return;
     }
     let (Some(roster), Some(registry), Some(geometry)) = (roster, registry, geometry) else {
@@ -794,6 +829,7 @@ pub fn prepare_the_match(
         &archetypes,
         centre,
         effective_from,
+        session,
         &home_body,
     ) {
         Ok(plan) => {
@@ -801,6 +837,22 @@ pub fn prepare_the_match(
             // rather than on roster CHANGE so it cannot go stale — a refusal
             // that outlives the roster it was about is a worse lie than none.
             commands.remove_resource::<MatchPreparationProblems>();
+            // ⭐ **THE PLAN AND THE RECEIPT ARE ONE LIFECYCLE.** A plan being
+            // published for a DIFFERENT session than the standing one means the
+            // previous match is over, and its `ActiveMatch` is still standing —
+            // which is what made activation return early and seat nothing for
+            // the whole rest of the sitting.
+            //
+            // ⚠ **inside the `Ok` arm, and that placement is the fix's second
+            // half.** The first draft retired the receipt up beside the staleness
+            // check, before the roster/registry/geometry guards — so on any frame
+            // where preparation bailed for want of a roster it wiped a LIVE
+            // match's receipt, and `stocks` immediately reported matches that
+            // never ended. A receipt may only be retired by the thing that
+            // replaces it.
+            if previous_session != session {
+                commands.remove_resource::<super::ActiveMatch>();
+            }
             commands.insert_resource(plan);
         }
         Err(problems) => {
@@ -836,12 +888,24 @@ pub fn activate_the_prepared_match(
     already_seated: Query<&super::MatchSeat>,
     tick: Res<ambition_time::SimTick>,
 ) {
-    if active.is_some() {
-        return;
-    }
+    let session = active_session
+        .as_deref()
+        .and_then(ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::current);
     let Some(prepared) = prepared else {
         return;
     };
+    // ⛔ **A RECEIPT FROM THE PREVIOUS MATCH IS NOT THIS MATCH'S.** This read
+    // `if active.is_some() { return; }`, which is right for "the match I am
+    // looking at has already been built" and wrong for "some match, once, was
+    // built in this process". Returning to the select screen and starting
+    // another left the first match's `ActiveMatch` standing, so the second
+    // seated NOTHING — the symptom Jon reported as fighters frozen in the air
+    // with the menu still working. The plan knows which session it is for; the
+    // receipt is only this match's when the plan is.
+    let stale = prepared.session != session;
+    if active.is_some() && !stale {
+        return;
+    }
     // ⛔ **NOT "the first tick the plan exists".** The plan does not rewind, so
     // its arrival time is not a fact the simulation shares between a frame and
     // that frame's replay — the original ran without it and the resimulation

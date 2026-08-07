@@ -296,6 +296,34 @@ other families was; it is a change to how every CPU in the game evaluates a move
 Whoever takes it should expect the fighter-brain tests to move, and should treat a
 difficulty-feel change as the POINT rather than as a regression.
 
+**The shape, scoped 2026-08-07 so the next session does not re-derive it.** Three
+pieces, and the third is the whole cost:
+
+1. **the schema** — `ambition_characters` already owns four
+   (`character_catalog`, `boss_seed_library`, `boss_validator_bands`,
+   `boss_profiles`), so this is a fifth in the same crate with no placement
+   question. `crates/ambition_encounter/src/content_schema.rs` is the template at
+   ~180 lines. ⭐ the "what can this family say that its parser accepts and the
+   runtime cannot use" question — which the template says is the point of
+   migrating — is ALREADY answered here: `FighterBrainLadder::problems()` exists
+   and the content test asserts it empty (monotone in reaction/APM/noise, never a
+   zero reaction). The handler wires that up rather than inventing it.
+2. **registration + lowering** — mechanical, mirrors the four siblings.
+3. ⛔ **the consumption, which is where the work actually is.** Both production
+   call sites are PURE FUNCTIONS with no access to a resource:
+   `enemy_default_brain(enemy: &ActorConfig) -> Brain` (`brain_builders.rs:86`)
+   and the catalog resolver (`resolver.rs:154`). A loaded ladder has to reach
+   both, and the tempting fix — read it at each site — reintroduces the two-sites
+   shape this program exists to remove.
+   ⭐ **the right seam is ONE function**: `profile_for_level(level, ladder:
+   Option<&FighterBrainLadder>)` that falls back to `for_level` when no game
+   shipped rows, with both call sites routed through it. That also states the
+   engine's own rule — floor unless the game overrides — in code instead of in a
+   doc comment, which is why `for_level` was consulted anyway.
+   ⚠ threading the ladder to those two sites is a signature change through their
+   callers. That is the estimate: the schema is a morning, the threading is the
+   slice.
+
 ### ✔ RESOLVED — the placement blocker, and what it actually was
 
 This section used to say boss profiles and the enemy roster were BLOCKED on a

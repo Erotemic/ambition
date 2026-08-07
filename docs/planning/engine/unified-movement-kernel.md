@@ -193,8 +193,27 @@ matrix.
    ⚠ left in place rather than deleted: a debt item that turns out to be paid is
    the most useful kind of entry to keep, because the next reader of this list
    would otherwise re-derive it.
-3. **`ControlFrame`** (the device latch) still carries raw `f32` axes; typed
-   `ScreenAxes` begin at the resolution seams that consume it.
+3. ✅ **CLOSED (verified 2026-08-07) — the remedy landed, and its other half is
+   REFUTED by the type it names.**
+   The remedy — *"typed `ScreenAxes` begin at the resolution seams that consume
+   it"* — is done: four seams construct one (`affordances/intent.rs`,
+   `abilities/traversal/possession.rs`, `control/input_systems.rs`,
+   `items/pickup/mod.rs`), and `movement/input.rs` states the resulting property,
+   *"Raw `ScreenAxes` never appear below the seam."*
+   ⛔ **and `ControlFrame` must NOT hold one.** `ScreenAxes`'s own doc says
+   *"Passing a `ScreenAxes` below the controller seam is an architecture error —
+   the movement kernel never sees one"*, and `ControlFrame` goes exactly there: it
+   is mirrored into `SlotControls`, read as brain state, and SERIALIZED as the
+   recorded input stream (`InputStream.slots: Vec<ControlFrame>`). Typing the
+   latch's own fields would carry the seam type across the seam it defines.
+   ⚠ **and it would cost the replay format.** `ScreenAxes` derives no serde, and
+   `input_stream.rs` is explicit that only ADDING a field is free — reshaping
+   `axis_x`/`axis_y` into a nested `axes` is not additive and invalidates every
+   stream recorded at `INPUT_STREAM_VERSION = 1`.
+   ⭐ the general lesson, which is already recorded elsewhere in this repo: a
+   typed wrapper stops WHOLE-VECTOR confusion at a seam where two frames could be
+   mistaken for each other. `ControlFrame`'s axes are screen-space by definition
+   and have no rival frame at that point, so there is nothing there to confuse.
 4. ✅ **CLOSED 2026-08-07** — `SurfaceMomentumMotion::set_tangential_speed`,
    `scale_tangential_speed` and `tangential_speed`, with Sanic's two reach-ins
    migrated onto them.

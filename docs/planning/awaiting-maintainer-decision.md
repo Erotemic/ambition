@@ -119,10 +119,14 @@ are measured rather than assumed.**
 1. **The Hall is 129 `NpcSpawn`s and every one is `brain: stand_still`**
    (counted out of `hall_of_characters.ldtk`). So "should the Hall sleep" is a
    question about 129 NO-OP brain ticks per frame, not about 129 actors thinking.
+   ✔ **re-counted 2026-08-07: 129 spawns, 129 `stand_still`, unchanged.** ⚠ the
+   authored field is `brain_override`, not `brain` — a re-count that queries
+   `brain` returns a clean ZERO and reads exactly like "this fact is now false".
 2. ⭐ **dormancy would NOT silence them.** `Dormant` is filtered by
    `tick_actor_brains` (`actors/update.rs`, `Without<Dormant>`) and by nothing
    else — `tick_npc_idle_barks` carries no dormancy filter at all. A sleeping
    statue keeps its voice. That kills the obvious objection to sleeping a gallery.
+   ✔ **re-verified 2026-08-07**: still zero `Dormant` references in that system.
 
 ### The fork
 

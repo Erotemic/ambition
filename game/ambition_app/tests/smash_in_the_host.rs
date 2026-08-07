@@ -1109,3 +1109,274 @@ fn bodies_wearing(app: &mut App, character_id: &str) -> usize {
         .filter(|worn| worn.id() == character_id)
         .count()
 }
+
+// ── HOW FAR A LOBBY'S DECISION GETS ─────────────────────────────────────────
+//
+// Jon, 2026-08-06: *"if I have a player fight another player or CPU, and then I
+// start the match, only one character spawns in. Additionally it does not let me
+// make a CPU vs CPU match."*
+//
+// ⛔ **the existing coverage cannot see this, and the reason is a category
+// error.** `a_two_participant_roster_actually_seats_two_bodies` counts seats for
+// ONE configuration — the one that works — and every other test in this file
+// stops at the route or the session. So four different lobbies that fail in
+// three different ways all present to the suite as "not tested", and the two
+// that deadlock do it by WAITING, which is indistinguishable from "waiting one
+// more tick" to anything that only looks at the end state.
+//
+// ⭐ **so the assertion is the STAGE REACHED, not a seat count.** A permanent
+// refusal and a temporary wait are different answers and must never again share
+// a shape; `MatchStart` is that distinction made observable.
+
+/// **How far a decided lobby got.**
+///
+/// ⚠ every arm is derived from WORLD STATE — the roster resource, the
+/// `MatchSeat` bodies, `ActiveMatch`, `MatchSeatingRefused`. Deliberately not
+/// from log capture: the adoption mismatch happens to warn today and the
+/// character-id refusal happens to be silent, and an oracle keyed on that
+/// difference would be pinned to which failures currently remember to speak.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum MatchStart {
+    /// START did nothing: the screen refused to publish a roster at all.
+    SelectionRefused,
+    /// A roster was published and the composition said it cannot seat it.
+    PreparationRefused,
+    /// A roster was published, the stage opened, and no match ever activated.
+    /// **This is the shape the bug hides in** — nothing is wrong, everything is
+    /// merely still waiting, forever.
+    ActivationStalled,
+    /// The match is live, with this many bodies wearing a `MatchSeat`.
+    Activated { seats: usize },
+}
+
+/// Press one slot's role button `presses` times.
+///
+/// The button cycles `Absent → Controller → Cpu → Absent`, and it SKIPS the
+/// controller rung when no input source is free. On a keyboard-only host that
+/// is exactly one source, which is what makes these sequences readable:
+/// one press on the first slot is a person, one press on the second is a CPU
+/// (no source left), and two presses on the first frees the source again for
+/// whoever asks next.
+fn cycle_role(app: &mut App, slot: usize, presses: usize) {
+    for _ in 0..presses {
+        let layout = screen(app);
+        click(app, layout.role_button(slot));
+    }
+}
+
+/// Drag `slot`'s token onto the portrait of `character_id`.
+///
+/// By id through the assembled roster like [`pick_and_start`], never by grid
+/// index — and this probe leans on that harder than any other test here,
+/// because the whole point of one of its cases is WHICH character was picked.
+fn pick_fighter(app: &mut App, slot: usize, character_id: &str) {
+    let index = app
+        .world()
+        .resource::<ambition_demo_smash::select::SmashRoster>()
+        .0
+        .iter()
+        .position(|id| id == character_id)
+        .unwrap_or_else(|| panic!("{character_id} is not in this host's smash roster"));
+    let layout = screen(app);
+    click(app, layout.token_home(slot));
+    click(
+        app,
+        layout
+            .portrait(index)
+            .unwrap_or_else(|| panic!("no portrait cell for {character_id}")),
+    );
+}
+
+/// Press START and report how far the decision got.
+///
+/// ⚠ **it polls for a TERMINAL state rather than settling a fixed number of
+/// frames and looking once.** Seating is a retry, so "no match yet" is the
+/// ordinary reading on almost every early frame; a fixed settle would report
+/// whichever answer the frame budget happened to land on. The budget here is
+/// only an upper bound on patience, and reaching it IS the stall verdict.
+fn start_and_report(app: &mut App) -> MatchStart {
+    let layout = screen(app);
+    click(app, layout.start_button());
+    settle(app);
+
+    // No roster means START declined — `start_the_battle_when_asked` asks
+    // `SmashSelect::roster()` for one and gets `None` from a screen that is not
+    // ready. Nothing left to wait for.
+    if app
+        .world()
+        .get_resource::<ambition_platformer2d::actor::MatchParticipantRoster>()
+        .is_none()
+    {
+        return MatchStart::SelectionRefused;
+    }
+
+    for _ in 0..300 {
+        app.update();
+        if app
+            .world()
+            .get_resource::<ambition_platformer2d::actors::character_runtime::MatchSeatingRefused>()
+            .is_some()
+        {
+            return MatchStart::PreparationRefused;
+        }
+        if app
+            .world()
+            .get_resource::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+            .is_some()
+        {
+            let world = app.world_mut();
+            let mut seated =
+                world.query::<&ambition_platformer2d::actors::character_runtime::MatchSeat>();
+            let seats = seated.iter(world).count();
+            return MatchStart::Activated { seats };
+        }
+    }
+    MatchStart::ActivationStalled
+}
+
+/// Open the lobby from the title screen.
+fn open_the_lobby() -> App {
+    let mut app = shell_host_app();
+    settle(&mut app);
+    launch_row(&mut app, "Smash");
+    app
+}
+
+/// A fighter this host has REGISTERED, so seating can build one.
+const PREPARED_FIGHTER: &str = "player_robot_v3";
+
+/// A SECOND registered fighter, so a case can give two seats different picks.
+///
+/// ⛔ **not decoration — the first draft of `a_cpu_ordered_before_the_person`
+/// gave both seats `PREPARED_FIGHTER` and PASSED**, and passed for a reason that
+/// had nothing to do with the thing it was testing: the primary body is dressed
+/// as `participants.first()`, and when both seats want the same character that
+/// accidentally IS what the human seat is waiting for. A probe that cannot fail
+/// through its own motivating case is not a probe. Measured, not reasoned:
+/// running it is what said so.
+const OTHER_PREPARED_FIGHTER: &str = ambition_demo_smash::SMASH_GEORGE_BOOUL;
+
+/// A fighter on the grid that only the CATALOG knows about.
+///
+/// ⚠ **`SmashRoster::assemble` filters the grid by `CharacterCatalog`, and
+/// seating spawns from `PreparedCharacterRegistry`.** Those are different
+/// populations: this host registers the robot lineage, the smash demo's own
+/// three, and each other demo's protagonist, while Ambition's Hall cast is
+/// catalog rows and nothing else. So this id is pickable and unseatable, which
+/// is a sentence that should not be true of anything.
+const CATALOG_ONLY_FIGHTER: &str = "npc_noether";
+
+/// **The configuration that works.** One person, one CPU, both registered.
+///
+/// Here as the regression guard: everything else in this probe changes, and
+/// this must not.
+#[test]
+fn a_person_against_a_cpu_starts_a_two_fighter_match() {
+    let mut app = open_the_lobby();
+    cycle_role(&mut app, 0, 1); // the person takes the only source
+    cycle_role(&mut app, 1, 1); // no source left, so: CPU
+                                // Two DIFFERENT fighters, so this proves two characters seat rather than
+                                // that one character seats twice — see `OTHER_PREPARED_FIGHTER`.
+    pick_fighter(&mut app, 0, PREPARED_FIGHTER);
+    pick_fighter(&mut app, 1, OTHER_PREPARED_FIGHTER);
+
+    assert_eq!(
+        start_and_report(&mut app),
+        MatchStart::Activated { seats: 2 },
+        "the one lobby that has ever worked stopped working"
+    );
+}
+
+/// **A CPU in an earlier slot than the person.**
+///
+/// ⛔ Nothing about this is exotic — it is the second card being the one you
+/// give away — and it deadlocks. Seating adopts the primary player's existing
+/// body for the human seat and refuses until that body already wears the
+/// picked fighter; `dress_the_primary_player_as_their_own_pick` is what makes
+/// it wear one, and it dresses the body as `participants.first()` rather than
+/// as the participant bound to primary input. With a CPU first, the body is
+/// dressed as the CPU's fighter, the human seat waits for a costume it will
+/// never be given, and **one seat waiting means no seat is built** — the
+/// resolve pass returns from the whole system.
+#[test]
+fn a_cpu_ordered_before_the_person_still_starts_the_match() {
+    let mut app = open_the_lobby();
+    cycle_role(&mut app, 0, 2); // Absent → Controller → CPU, freeing the source
+    cycle_role(&mut app, 1, 1); // …which the person then takes
+                                // ⚠ **DIFFERENT fighters, and that is the whole case.** The dressing system
+                                // points the primary body at `participants.first()`; with both seats on one
+                                // character it lands on the right costume by luck and this test passes while
+                                // proving nothing. It did exactly that on its first run.
+    pick_fighter(&mut app, 0, OTHER_PREPARED_FIGHTER);
+    pick_fighter(&mut app, 1, PREPARED_FIGHTER);
+
+    assert_eq!(
+        start_and_report(&mut app),
+        MatchStart::Activated { seats: 2 },
+        "a lobby whose first card is a CPU never seats anybody: the stage opens \
+         with the session's home body standing on it and nothing says why"
+    );
+}
+
+/// **A fighter the grid offered and seating cannot build.**
+///
+/// ⛔ and the failure is SILENT. `seat_match_participants` resolves this seat
+/// with `registry.get(character)` and returns on `None` — no log, no
+/// `MatchSeatingRefused`, and because the resolve pass is all-or-nothing, the
+/// other seat is not built either. Eight of the twelve portraits in this host
+/// are in this state, so this is the likeliest way a player meets the bug.
+///
+/// ⚠ **the fix may make this `Activated` or `PreparationRefused`** — either is
+/// correct, because either one is an ANSWER. What must never come back is
+/// `ActivationStalled`.
+///
+/// ⛔ **and this test GOES VACUOUS the day the Hall cast is registered**, which
+/// is a planned step: `npc_noether` becomes seatable and this becomes a check
+/// that a working thing works. It is kept because it is the reproduction of
+/// what a PLAYER did, but it is not the guard. The guard is a preparation unit
+/// test that names an id no composition has, so it cannot be repaired by
+/// content — *a guard that pins the fix stops defending the gap.*
+#[test]
+fn a_catalog_only_fighter_gets_an_answer_rather_than_a_deadlock() {
+    let mut app = open_the_lobby();
+    cycle_role(&mut app, 0, 1);
+    cycle_role(&mut app, 1, 1);
+    pick_fighter(&mut app, 0, PREPARED_FIGHTER);
+    pick_fighter(&mut app, 1, CATALOG_ONLY_FIGHTER);
+
+    let outcome = start_and_report(&mut app);
+    assert_ne!(
+        outcome,
+        MatchStart::ActivationStalled,
+        "picking `{CATALOG_ONLY_FIGHTER}` — a portrait this host DRAWS — left the \
+         match waiting forever with nothing recorded anywhere. A composition that \
+         cannot seat a fighter must say so; the grid must not offer it; ideally \
+         both."
+    );
+}
+
+/// **Two CPUs, which Jon asked for by name.**
+///
+/// *"it does not let me make a CPU vs CPU match, and it is very important that
+/// that is expressible and easy to do."*
+///
+/// `SmashSelect::ready()` requires `humans_decided() >= 1`, so START is inert.
+/// That clause reads like product policy and is really an engine limitation
+/// wearing a rationale: with no human seat, nothing adopts the session's home
+/// body, and the stage would open with an unowned controllable actor standing
+/// beside the match.
+#[test]
+fn two_cpus_can_fight_each_other() {
+    let mut app = open_the_lobby();
+    cycle_role(&mut app, 0, 2);
+    cycle_role(&mut app, 1, 2);
+    pick_fighter(&mut app, 0, PREPARED_FIGHTER);
+    pick_fighter(&mut app, 1, PREPARED_FIGHTER);
+
+    assert_eq!(
+        start_and_report(&mut app),
+        MatchStart::Activated { seats: 2 },
+        "a lobby of two CPUs cannot start a match, so nobody can watch the AI \
+         fight itself and no ladder measurement is reachable from the game"
+    );
+}

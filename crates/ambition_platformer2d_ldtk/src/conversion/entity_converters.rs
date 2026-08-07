@@ -736,9 +736,17 @@ pub(super) fn convert_moving_platform(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmi
         // ⭐ the elevator authoring (Jon, 1-2): a signed vertical span that WRAPS
         // rather than reversing. Absent on every existing platform, so nothing
         // authored before this changes behaviour.
+        // ⚠ `loop_dy` is a DELTA, so it needs no offset — the same reason
+        // `sweep_dx` never did.
         .with_vertical_loop(field_f32(entity, "loop_dy"))
-        // Shared shaft for a conveyor; absent means "anchor at me".
-        .with_loop_anchor(field_f32(entity, "loop_min_y")),
+        // ⛔ **`loop_min_y` is a POSITION, so it does.** `LdtkEntityCtx::offset`
+        // says it outright — "apply it to any ADDITIONAL points a converter
+        // parses out of entity fields; `min` has it applied already" — and an
+        // anchor compared against an already-offset `start_pos` is a shaft in a
+        // different place than the author drew, by exactly the level's offset.
+        // Silent in a level at the origin, which is the worst way for it to be
+        // wrong.
+        .with_loop_anchor(field_f32(entity, "loop_min_y").map(|y| y + ctx.offset.y)),
     ))
 }
 

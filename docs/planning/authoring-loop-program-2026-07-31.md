@@ -354,6 +354,30 @@ also why the two sites cannot simply share a function argument.
 built from, so this resource wants no rollback registration — see the
 `PROVENANCE_ONLY` argument for the same reasoning about write-once data.
 
+**The call chain, MEASURED 2026-08-07 rather than estimated.** It is wider than
+"two call sites" — `for_level` has two, but the functions carrying them are
+reached from three system entry points:
+
+```text
+FighterBrainProfile::for_level
+├── character_catalog/resolver.rs:154   brain_from_preset  (ambition_characters)
+│     └── carrier: BrainBuildContext  ← already threaded, per above
+└── brain_builders.rs:86               enemy_default_brain (monolith)
+      ├── prepared_match.rs:606  realize_seat  ← activate_the_prepared_match (a system)
+      └── brain_builders.rs:173  …_brain_and_action_set
+            ├── autonomous_reconcile.rs:99
+            └── mount/mod.rs:567   (dismounted rider)
+```
+
+So the monolith side is **three** functions to widen and **three** systems to give
+the resource to, not one. ⚠ each of those systems gains a param, and two of them
+are already close to Bevy's 16-param ceiling — the reason both backends in this
+repo bundle `SystemParam` structs. Budget a bundle, not a parameter.
+⛔ **and do not fix only the match path.** Seating a fighter and reconciling one
+into hostility would then read different ladders, which is the fork this repo's
+first rule exists to prevent — `enemy_default_brain` must take the ladder, so
+every path through it is the same path.
+
 ### ✔ RESOLVED — the placement blocker, and what it actually was
 
 This section used to say boss profiles and the enemy roster were BLOCKED on a

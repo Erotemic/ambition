@@ -422,6 +422,34 @@ pub const FIGHTER_HUD_SLOTS: [&str; 4] = [
 /// The winner card. One slot, because the stage says one thing at a time.
 pub const SMASH_ANNOUNCE_HUD_SLOT: &str = "smash_announce";
 
+/// **What plays on the stage.**
+pub const SMASH_STAGE_TRACK: &str = "super_smash_siblings_theme";
+/// **What plays over the character select**, in a host whose frontend audio
+/// this demo owns. See `SMASH_TRACKS` for why it is registered either way.
+pub const SMASH_SELECT_TRACK: &str = "super_smash_siblings_character_select";
+
+/// **The scores written for this demo**, rendered from
+/// `tools/ambition_music_renderer/scores/active/super_smash_siblings_*.music.yaml`.
+///
+/// ⚠ **all three are registered, not only the one that plays.** A track in this
+/// fragment is a track this experience is ALLOWED to play — the radio, a future
+/// stage select, and the winner card all pick from it — so registering only the
+/// default would make the other two unreachable from inside a smash session
+/// even though they were written for it. The default is what plays with nobody
+/// asking.
+///
+/// ⚠ the asset path is derived (`audio/music/generated/<id>/full.ogg`) rather
+/// than written out, because that layout is the renderer's own contract and
+/// three hand-typed copies of it is three chances to typo one.
+pub const SMASH_TRACKS: &[(&str, &str)] = &[
+    (SMASH_STAGE_TRACK, "Super Smash Siblings"),
+    (SMASH_SELECT_TRACK, "Choose Your Fighter"),
+    (
+        "super_smash_siblings_grand_symphony",
+        "Super Smash Siblings — Grand Symphony",
+    ),
+];
+
 /// Publish percent and stocks for every seated fighter.
 ///
 /// ⚠ percent is NOT health and the gauge fill says so: it fills as damage
@@ -1562,8 +1590,26 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
         );
     }
     app.register_audio_catalog_fragment(
-        AudioCatalogFragment::new(SMASH_EXPERIENCE, None, None)
-            .expect("the silent smash audio fragment is valid"),
+        AudioCatalogFragment::new(
+            SMASH_EXPERIENCE,
+            Some(ambition_platformer2d::audio::spec::MusicRegistry {
+                default_track: SMASH_STAGE_TRACK.to_string(),
+                tracks: SMASH_TRACKS
+                    .iter()
+                    .map(|(id, display)| ambition_platformer2d::audio::spec::MusicTrack {
+                        id: (*id).to_string(),
+                        display_name: (*display).to_string(),
+                        asset_path: Some(format!("audio/music/generated/{id}/full.ogg")),
+                        one_shot: false,
+                    })
+                    .collect(),
+            }),
+            // Still no SFX registry: the stage declares silence and the
+            // FIGHTERS bring their own cues. Claiming procedural sfx it never
+            // registers would be a declaration with nothing behind it.
+            None,
+        )
+        .expect("the smash audio fragment is valid"),
     );
 }
 

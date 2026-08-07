@@ -170,8 +170,26 @@
     into an unconditional one — which is arguably PROGRESS, because a
     deterministic failure is diagnosable and an order-dependent one is not.
   * ⭐ the current symptom is concrete: *"the keyboard moved the PAD player's
-    fighter (40.34px against the keyboard player's -50.05px)"*. That is the couch
-    bug class named in the row, now reproducible on demand.
+    fighter (40.34px against the keyboard player's -50.05px)"*, reproducible on
+    demand.
+  * ⛔ **but the SIGNS say it is probably not shared input, and the assertion's
+    wording is what misleads.** The keyboard pressed RIGHT; seat one's fighter
+    moved **-50** (left) and seat two's moved **+40** (right). Two seats reading
+    one source move the SAME way — that is what the assertion is shaped to
+    catch. Opposite directions with the presser going backwards is the signature
+    of CONTACT: two fighters overlapping and pushing each other apart.
+  * ⚠ **so the cheapest next measurement is their spawn separation**, not a hunt
+    through device routing. If they spawn close enough to overlap, this test has
+    been measuring push-apart rather than input ownership, and the 08-02
+    "passes alone" behaviour was spawn-position luck rather than test order.
+    `seat_input_participants_for_roster` already gives every non-primary seat
+    `BindingRecipe::gamepad_only()`, so the keyboard has no route into seat two's
+    map to begin with — which is evidence for the contact reading.
+  * ⛔ **NOT picked up here on purpose**: smash seating is the parallel agent's
+    active area (their in-flight work renames `ActiveMatch` / `seat_match_
+    participants`). Two people editing that at once is how a merge gets
+    expensive. Recorded with the evidence so whoever owns it starts from the
+    measurement rather than from the 08-02 story.
 
 * **[agent-found] Mary-O's gameplay box is her raw alpha silhouette, because her generator authors no `body_inset`.** Her three forms now hand their collision geometry to their sheets (`BodySource::SpriteAuthored`), so box and sprite derive from one authored scale and can no longer disagree — that part is done. But `body_pixel_bbox` is the measured alpha bbox, hat and outstretched arms included, so her tall form is ~36 px wide against a 32 px tile. The builder already has the right seam for this: `CharacterGenerator.body_inset()` takes per-edge fractions of the measured box, seven other characters override it, and its own docstring notes that being fractional is what makes it "survive art changes". Mary-O's generator overrides nothing. The fix belongs there — carve the gameplay body in from the silhouette — and NOT in a second box authority in the game. Per-pose `hurtbox_parts()` is the finer-grained version of the same seam if a pose needs its own rect.
 

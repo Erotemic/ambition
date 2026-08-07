@@ -759,8 +759,31 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   the file calls it *"the most-violated rule"*, and it was presented as a single
   unbroken ~2800-character paragraph in the cold-start doc. A rule nobody can
   finish reading is a rule that gets violated.
-  ▢ still open: tracks→open cards, smells refiled both directions, archive
-  provenance writer+validator.
+  ◐ **smells refiled — TWO large entries closed and the file MEASURED, 2026-08-07.**
+  Both remaining `BIFURCATION:` entries are resolved, each verified by checking
+  the symbols they name rather than re-reading the prose: the 2026-06-28
+  player-vs-actor MELEE fork (`ActorAttackState` gone; `PlayerAttackState`,
+  `attack_advance_system` and even its own proposed remedy `spawn_melee_hitbox`
+  survive only in comments recording their deletion), and the 2026-07-19
+  `is_player` FEEDBACK fork (shipped as CM8 with `HurtFeedback::ENEMY` as the
+  victim profile — the elegant resolution the entry asked for, plus Jon's
+  per-attack binding).
+  ⭐⭐ **and the file does NOT need a sweep, which is the measurement worth
+  keeping.** 92 entries, 29 marked resolved. Sampling three open ones —
+  `.cargo/config.toml` hardcoding a home target dir, `regen_sprites.sh` restating
+  the renderer's sheet list, vestigial bfs sand plumbing — found **3 of 3 STILL
+  TRUE**.
+  ⭐ **that is the exact opposite of the carried queues** (4 of 4 already closed),
+  and the reason is structural: **a smell entry describes a PROPERTY OF THE CODE**
+  — "this file hardcodes a path" — which stays true until someone fixes it. **A
+  queue row describes WORK TO DO**, which goes false the moment anyone does it,
+  usually somebody who updated the code and not the row. So a smells journal ages
+  WELL and a queue ages BADLY, and they want opposite maintenance: refile a smell
+  when its code changes, re-check a queue row before believing it.
+  ⚠ this is the same distinction `docs/planning/README.md` now states as
+  citation-vs-situation, arriving from the other direction: the journal is
+  naturally citations because an entry names a file and a property.
+  ▢ still open: tracks→open cards, archive provenance writer+validator.
 
 **Design-before-code**
 - ◐ **Cutscene authority — the DETERMINISTIC ELAPSED half landed 2026-08-06.**

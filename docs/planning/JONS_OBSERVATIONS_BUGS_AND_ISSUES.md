@@ -421,6 +421,27 @@ slot with no attached pad cannot be set to controller.
   by a pixel does not silently resize the creature. Her own comment says why —
   *"a scale pinned to today's pixel count silently changes her height the first
   time a crop moves"* — and both enemies are pinned to today's pixel count.
+  ⭐⭐ **AND THE TWO REPORTS COLLAPSE INTO ONE DECISION — the arithmetic says so.**
+  The scale report's own formula is `figure_height = collision_scale x fill`,
+  where `fill = body_pixel_bbox.h / frame_height`. So hitting a target figure
+  height means `collision_scale = target / fill`: **`collision_scale` IS a
+  reciprocal-of-frame-padding fudge and nothing else.** That is why the row above
+  found the values "do not compensate for anything" — they are 116 hand-tuned
+  approximations of a quantity the code can compute exactly.
+  ⭐ **so the bbox-aspect route does not merely fix the snake — it deletes the
+  per-character number.** If the quad is sized and cropped from
+  `body_pixel_bbox`, fill is 1.0 BY CONSTRUCTION and every character's
+  `collision_scale` becomes the same global constant (the target figure height).
+  116 authored numbers collapse to one.
+  ⚠ **which reorders the work.** Applying `--suggest` per character is a stopgap
+  that the bbox route would then obsolete — the 116-row humanoid judgement would
+  have been spent on values that stop existing. ⭐ **decide the bbox route
+  first**; if it is taken, the only judgement left is the handful of creatures
+  whose figure should NOT match a human's (slug, snakes, parrot, trex, shark,
+  mites), which is a much smaller ask than 116 rows.
+  ⚠ it remains three coupled changes (aspect + drawn sub-rect + `feet_anchor_norm`
+  moving with the crop), and that has not changed.
+
   ▢ **what this does NOT decide**: what the numbers should BE. The instrument
   asserts no ratio on purpose — what counts as too big is Jon's call, and a limit
   written by a test would be a taxonomy nobody chose. What it does say is that

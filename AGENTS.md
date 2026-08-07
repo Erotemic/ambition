@@ -188,6 +188,35 @@ optimising anything that touches this room.
   2026-07-31). Better still, don't poll — a backgrounded command reports its
   exit. Details in the recipe linked above.
 
+## Landing when somebody else holds `main`
+
+⚠ **This section applies ONLY to parallel or multi-agent landings.** A solo
+linear session committing to `main` cannot hit the failure below, and running the
+ritual there is friction for a hazard that does not exist.
+
+When you work a branch or worktree while another session owns `main`:
+
+- **Record the base SHA you started from**, in the handoff and in the branch's
+  first commit message. It is the only thing that makes "was this tested against
+  what it will land on" answerable later.
+- **Before landing, compare what you touched against what moved**:
+  `git diff --name-only <base>..HEAD` (yours) against
+  `git diff --name-only <base>..origin/main` (theirs). The intersection is the
+  whole question.
+- **If they overlap, replay your edits on live `HEAD` and re-run the scoped
+  tests.** Tests that ran against the old base are not landing evidence — they
+  describe a tree nobody will have.
+- **If they do not overlap, land it.** No rebase ceremony for a disjoint change.
+
+⛔ **overlays are NOT banned** — they are a legitimate delivery mechanism here.
+The forbidden operation is committing a broad STALE TREE SNAPSHOT without
+replaying its edits onto current source, which is how a merge silently reverts
+somebody else's work while every test you ran was green.
+
+⚠ **no script.** The protection is the rule plus two `git` one-liners; a checker
+waits for a second incident that happens despite the recipe. Adding one now is
+the machinery the next section forbids.
+
 ## Avoid bullshit guardrails
 
 Do not waste time testing the tests.

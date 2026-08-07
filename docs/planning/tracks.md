@@ -685,8 +685,17 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   melee hit + armor spend + switch flip + brick break survive a forced rollback
   window checksum-identically. No scenario matrix — the old Track-0 exit list is
   opportunity, not contract.
-- ▢ Base-SHA/overlap landing rule into existing agent instructions (doc
-  only; a script waits for a second incident).
+- ✅ **DONE 2026-08-07** — `AGENTS.md`, "Landing when somebody else holds
+  `main`", written from the situation it governs (this run works a worktree while
+  another agent owns `main`). The rule and two `git` one-liners, no script: the
+  reply this came from scoped the checker to "only if a second stale-base incident
+  happens despite the recipe", and a checker now is exactly the machinery the very
+  next section of that file forbids. ⚠ scoped to PARALLEL landings explicitly, per
+  the same reply — *"imposing it on solo linear sessions on main adds friction
+  where the failure mode cannot occur"*. ⛔ and it states that overlays are NOT
+  banned, because the review flagged that phrasing: the forbidden operation is
+  committing a stale tree SNAPSHOT without replaying its edits, not the delivery
+  mechanism.
 - ▢ The ONE deletion-heavy docs pass (tracks→open cards; smells refiled
   both directions; AGENTS ONE-BODY map extracted; archive provenance
   writer+validator; `run_source_analysis.sh`; reviews README) — then STOP.

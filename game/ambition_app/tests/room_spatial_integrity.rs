@@ -46,7 +46,10 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
 fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
     let project = load_project_for_test().expect("sandbox LDtk should load");
     let room_set = project
-        .to_room_set(&ambition_content::worlds::world_manifest(), &ambition_app::composed_ldtk_vocabulary())
+        .to_room_set(
+            &ambition_content::worlds::world_manifest(),
+            &ambition_app::composed_ldtk_vocabulary(),
+        )
         .expect("room_set should build");
     assert!(
         !room_set.rooms.is_empty(),
@@ -127,7 +130,8 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
 /// Load the game's merged LDtk project the way a sim entry point does:
 /// install the world manifest first — post-R3.2 the engine ships no worlds
 /// and panics without a provider-owned manifest.
-fn load_project_for_test() -> Result<ambition_platformer2d::actors::ldtk_world::LdtkProject, String> {
+fn load_project_for_test() -> Result<ambition_platformer2d::actors::ldtk_world::LdtkProject, String>
+{
     ambition_platformer2d::actors::ldtk_world::LdtkProject::load_default_for_dev(
         &ambition_content::worlds::world_manifest(),
     )

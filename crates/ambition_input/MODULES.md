@@ -17,11 +17,12 @@
 | [`motion_input`](src/motion_input.rs) | Motion-input gesture recognition: a rolling directional buffer, a generic ordered-subsequence matcher ([`MotionInputBuffer::detect_sequence`]), and an **open, content-owned** [`MotionTechniqueCatalog`] of named techniques. |
 | [`participant`](src/participant.rs) | The persistent input participant — the person in front of a controller. |
 | [`presets`](src/presets.rs) | Default binding presets: the selectable keyboard layouts (`PresetId` / `KeyboardPreset` / `MovementKeys` / `ActionKeys`) and the shared gamepad bindings that seed leafwing's input map for `Platformer2dInputActionMonolith`. |
+| [`rebind`](src/rebind.rs) | **Turning "the player pressed a thing" into a persisted binding override.** |
 | [`semantic`](src/semantic.rs) | **Semantic actions: the open vocabulary between a device and a consumer.** |
 | [`settings`](src/settings.rs) | Controls / input settings. |
 | [`sources`](src/sources.rs) | **Which physical input SOURCE a participant owns.** |
 
-_14 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_15 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -58,7 +58,7 @@ pub(crate) const SNAKES_ON_A_PLANE_ROSTER_ROWS: &str = r#"
         damage_amount: 1,
         brain_template: Aerial,
         move_style: Float,
-        is_aerial: true,
+        is_aerial: Some(true),
         respawn: OnRoomReenter,
     ),
     "mary_o_snakes_on_a_cartesian_plane": (
@@ -72,7 +72,7 @@ pub(crate) const SNAKES_ON_A_PLANE_ROSTER_ROWS: &str = r#"
         damage_amount: 1,
         brain_template: Aerial,
         move_style: Float,
-        is_aerial: true,
+        is_aerial: Some(true),
         respawn: OnRoomReenter,
     ),
 "#;

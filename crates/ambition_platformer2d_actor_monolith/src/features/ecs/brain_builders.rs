@@ -399,6 +399,134 @@ fn smash_cfg_from_spec(spec: &CharacterBrainSpec, tuning: &ActorTuning) -> Smash
 }
 
 #[cfg(test)]
+mod ladder_projection_tests {
+    use super::*;
+    use ambition_characters::brain::fighter::{AuthoredFighterLadder, FighterBrainLadder};
+    use bevy::prelude::*;
+
+    /// Two rungs that differ from the engine floor in the way the SHIPPED ladder
+    /// does: a lower `apm_cap`, and — the one that matters — weights a beginner
+    /// does not have.
+    const LADDER: &str = "[
+        (level: 1, reaction_ms: 500.0, apm_cap: 60.0, execution_noise: 0.40,
+         rollout_depth: 0, rollout_k: 0, read_weight: 0.0,
+         utility_weights: (reach_fit: 1.0, frame_advantage: 0.10, kill_potential: 0.00, stage_risk: -0.10, expected_payoff: 0.00)),
+        (level: 2, reaction_ms: 450.0, apm_cap: 90.0, execution_noise: 0.35,
+         rollout_depth: 0, rollout_k: 0, read_weight: 0.0,
+         utility_weights: (reach_fit: 1.0, frame_advantage: 0.20, kill_potential: 0.00, stage_risk: -0.20, expected_payoff: 0.00)),
+    ]";
+
+    fn fighter_brain(level: u8) -> Brain {
+        let cfg = ambition_characters::brain::fighter::FighterCfg::new(
+            ambition_characters::brain::fighter::FighterBrainProfile::for_level(level),
+        );
+        let state = ambition_characters::brain::fighter::FighterState::new(
+            &cfg,
+            0x5F37_7A11_u64.wrapping_mul(level as u64 + 1),
+        );
+        Brain::StateMachine(StateMachineCfg::Fighter {
+            cfg: Box::new(cfg),
+            state: Box::new(state),
+        })
+    }
+
+    fn profile_of(brain: &Brain) -> ambition_characters::brain::fighter::FighterBrainProfile {
+        match brain {
+            Brain::StateMachine(StateMachineCfg::Fighter { cfg, .. }) => cfg.profile,
+            other => panic!("not a fighter brain: {other:?}"),
+        }
+    }
+
+    /// **A spawned fighter reads the game's rung.**
+    ///
+    /// ⛔ the property that was broken: `for_level` hands EVERY rung
+    /// `UtilityWeights::default()`, which is `v1()`, which is the authored level
+    /// NINE. So a level-1 CPU priced a kill move exactly as the hardest one did.
+    #[test]
+    fn a_spawned_fighter_takes_the_authored_rung_over_the_floor() {
+        let mut app = App::new();
+        app.insert_resource(AuthoredFighterLadder(
+            FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
+        ));
+        app.add_systems(Update, project_authored_fighter_ladder);
+
+        let floor = ambition_characters::brain::fighter::FighterBrainProfile::for_level(1);
+        let entity = app.world_mut().spawn(fighter_brain(1)).id();
+        app.update();
+
+        let projected = profile_of(app.world().get::<Brain>(entity).expect("brain"));
+        assert_ne!(
+            projected, floor,
+            "the spawned fighter kept the engine floor, so the authored ladder \
+             reached nothing"
+        );
+        assert!(
+            projected.utility_weights.kill_potential < floor.utility_weights.kill_potential,
+            "a level-1 CPU still values a kill move as highly as the hardest rung \
+             does — floor {:?}, projected {:?}",
+            floor.utility_weights,
+            projected.utility_weights,
+        );
+        assert_eq!(projected.apm_cap, 60.0, "the authored action cap");
+    }
+
+    /// **No ladder means the floor, which is the engine's stated rule.**
+    #[test]
+    fn without_a_ladder_the_engine_floor_stands() {
+        let mut app = App::new();
+        app.add_systems(Update, project_authored_fighter_ladder);
+        let entity = app.world_mut().spawn(fighter_brain(1)).id();
+        app.update();
+        assert_eq!(
+            profile_of(app.world().get::<Brain>(entity).expect("brain")),
+            ambition_characters::brain::fighter::FighterBrainProfile::for_level(1),
+            "a game that shipped no rows had its fighter rewritten anyway"
+        );
+    }
+
+    /// ⚠ **idempotent**, which is what makes it safe to run on a change-detection
+    /// filter that does not rewind. A second pass must land on the same value.
+    #[test]
+    fn projecting_twice_lands_on_the_same_brain() {
+        let mut app = App::new();
+        app.insert_resource(AuthoredFighterLadder(
+            FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
+        ));
+        app.add_systems(Update, project_authored_fighter_ladder);
+        let entity = app.world_mut().spawn(fighter_brain(2)).id();
+        app.update();
+        let once = profile_of(app.world().get::<Brain>(entity).expect("brain"));
+        // Force it to be seen as freshly added again.
+        let brain = app.world().get::<Brain>(entity).expect("brain").clone();
+        app.world_mut().entity_mut(entity).insert(brain);
+        app.update();
+        assert_eq!(
+            profile_of(app.world().get::<Brain>(entity).expect("brain")),
+            once,
+            "a second projection moved the brain, so the pass is not idempotent"
+        );
+    }
+
+    /// ⚠ **a level the ladder does not author keeps the floor** rather than
+    /// failing — the same fallback `profile_for_level` states, so the two agree.
+    #[test]
+    fn an_unauthored_level_keeps_the_floor() {
+        let mut app = App::new();
+        app.insert_resource(AuthoredFighterLadder(
+            FighterBrainLadder::from_ron(LADDER).expect("the fixture ladder parses"),
+        ));
+        app.add_systems(Update, project_authored_fighter_ladder);
+        let entity = app.world_mut().spawn(fighter_brain(7)).id();
+        app.update();
+        assert_eq!(
+            profile_of(app.world().get::<Brain>(entity).expect("brain")),
+            ambition_characters::brain::fighter::FighterBrainProfile::for_level(7),
+            "level 7 is not in the two-rung fixture and must keep the floor"
+        );
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     // Test-only: the brain fixtures below author ranged styles; nothing in this
@@ -460,5 +588,60 @@ mod tests {
             set.ranged
         );
         assert!(set.melee.is_some(), "and still keeps its melee swing");
+    }
+}
+
+/// **A fighter brain gets the GAME's rung, not the engine's floor.**
+///
+/// ⛔ **this is a PROJECTION because threading was tried and cascaded.** The
+/// ladder is authored content that lives in the pack, above this crate, and it is
+/// needed at the LEAF of a spawn tree whose roots are many and unalike — a match
+/// activation, a hostility reconciler, an encounter wave, a thrown puppy-slug
+/// ability. Passing it down four levels so an ability can hand a difficulty
+/// ladder to a brain builder reached 323 lines without compiling once. A value
+/// with that shape is projected, not threaded.
+///
+/// ⚠ **at INSERTION, and that is not a detail.** `FighterState::new` caches
+/// `DelayedPerception::from_reaction_ms(profile.reaction_ms)` and
+/// `HabitModel::new(profile.read_weight)` — the two axes that matter most — so
+/// overwriting `cfg.profile` alone after the fact would change nothing the player
+/// could see. The state has to be rebuilt, and the only moment that costs nothing
+/// is before any habit has accumulated.
+///
+/// ⚠ **the seed is the construction seed, reproduced exactly.** Both builders use
+/// `0x5F37_7A11 * (level + 1)` precisely so two fighters on one rung are the same
+/// fighter and a replay reproduces both; a projection that reseeded differently
+/// would make the brain the one part of the sim that does not rewind.
+///
+/// ⭐ **idempotent, which is what makes it safe under change detection.** It runs
+/// on `Added<Brain>` and rewrites only when the authored rung differs from what
+/// is there, so running it twice — or after a rollback re-inserts a brain — lands
+/// on the same value. `Added` not rewinding is therefore harmless: the snapshot
+/// stores the PROJECTED profile, because that is what was live.
+pub fn project_authored_fighter_ladder(
+    ladder: Option<bevy::prelude::Res<ambition_characters::brain::fighter::AuthoredFighterLadder>>,
+    mut brains: bevy::prelude::Query<&mut Brain, bevy::prelude::Added<Brain>>,
+) {
+    let Some(ladder) = ladder else {
+        // No ladder shipped: the engine floor is the answer, which is the rule
+        // `profile_for_level` states.
+        return;
+    };
+    for mut brain in &mut brains {
+        let Brain::StateMachine(StateMachineCfg::Fighter { cfg, state }) = &mut *brain else {
+            continue;
+        };
+        let level = cfg.profile.level;
+        let Some(rung) = ladder.0.level(level) else {
+            continue;
+        };
+        if cfg.profile == *rung {
+            continue;
+        }
+        cfg.profile = *rung;
+        **state = ambition_characters::brain::fighter::FighterState::new(
+            cfg,
+            0x5F37_7A11_u64.wrapping_mul(level as u64 + 1),
+        );
     }
 }

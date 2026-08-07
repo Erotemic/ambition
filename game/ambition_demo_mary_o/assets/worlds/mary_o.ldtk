@@ -11,7 +11,7 @@
 	"iid": "ambition-mary-o-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 107066,
+	"nextUid": 107071,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -5690,6 +5690,80 @@
 					"allowedRefsEntityUid": null,
 					"allowedRefTags": [],
 					"tilesetUid": null
+				},
+				{
+					"identifier": "loop_dy",
+					"doc": null,
+					"__type": "Float",
+					"uid": 107066,
+					"type": "F_Float",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "RefLinkBetweenCenters",
+					"editorDisplayPos": "Above",
+					"editorDisplayScale": 1.0,
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorCutLongValues": true,
+					"editorShowInWorld": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"editorLinkStyle": "CurvedArrow",
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"tilesetUid": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"exportToToc": false,
+					"searchable": true
+				},
+				{
+					"identifier": "loop_min_y",
+					"doc": null,
+					"__type": "Float",
+					"uid": 107067,
+					"type": "F_Float",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "RefLinkBetweenCenters",
+					"editorDisplayPos": "Above",
+					"editorDisplayScale": 1.0,
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorCutLongValues": true,
+					"editorShowInWorld": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"editorLinkStyle": "CurvedArrow",
+					"useForSmartColor": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"tilesetUid": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": true,
+					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"exportToToc": false,
+					"searchable": true
 				}
 			]
 		},
@@ -11941,7 +12015,8 @@
 								{ "__identifier": "id", "__type": "String", "__value": "mary_o_1_2_ferry", "__tile": null, "defUid": 106926, "realEditorValues": [{
 									"id": "V_String",
 									"params": ["mary_o_1_2_ferry"]
-								}] }
+								}] },
+								{ "__identifier": "loop_dy", "__type": "Float", "__value": null, "__tile": null, "defUid": 107066, "realEditorValues": [] }
 							]
 						},
 						{
@@ -12393,6 +12468,90 @@
 									"id": "V_String",
 									"params": ["npc_snakes_on_a_cartesian_plane"]
 								}] }
+							]
+						},
+						{
+							"__identifier": "MovingPlatform",
+							"__grid": [83,0],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#5BA1FF",
+							"__worldX": 1332,
+							"__worldY": 1030,
+							"iid": "MovingPlatform-107068",
+							"width": 96,
+							"height": 16,
+							"defUid": 4251,
+							"px": [1332,6],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "mary_o_1_2_lift_a", "__tile": null, "defUid": 106926, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["mary_o_1_2_lift_a"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Lift A", "__tile": null, "defUid": 4248, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Lift A"]
+								}] },
+								{ "__identifier": "speed", "__type": "Float", "__value": 55.0, "__tile": null, "defUid": 4250, "realEditorValues": [{ "id": "V_Float", "params": [55.0] }] },
+								{ "__identifier": "loop_dy", "__type": "Float", "__value": -640.0, "__tile": null, "defUid": 107066, "realEditorValues": [{ "id": "V_Float", "params": [-640.0] }] },
+								{ "__identifier": "loop_min_y", "__type": "Float", "__value": -96.0, "__tile": null, "defUid": 107067, "realEditorValues": [{ "id": "V_Float", "params": [-96.0] }] }
+							]
+						},
+						{
+							"__identifier": "MovingPlatform",
+							"__grid": [83,13],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#5BA1FF",
+							"__worldX": 1332,
+							"__worldY": 1243,
+							"iid": "MovingPlatform-107069",
+							"width": 96,
+							"height": 16,
+							"defUid": 4251,
+							"px": [1332,219],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "mary_o_1_2_lift_b", "__tile": null, "defUid": 106926, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["mary_o_1_2_lift_b"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Lift B", "__tile": null, "defUid": 4248, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Lift B"]
+								}] },
+								{ "__identifier": "speed", "__type": "Float", "__value": 55.0, "__tile": null, "defUid": 4250, "realEditorValues": [{ "id": "V_Float", "params": [55.0] }] },
+								{ "__identifier": "loop_dy", "__type": "Float", "__value": -640.0, "__tile": null, "defUid": 107066, "realEditorValues": [{ "id": "V_Float", "params": [-640.0] }] },
+								{ "__identifier": "loop_min_y", "__type": "Float", "__value": -96.0, "__tile": null, "defUid": 107067, "realEditorValues": [{ "id": "V_Float", "params": [-96.0] }] }
+							]
+						},
+						{
+							"__identifier": "MovingPlatform",
+							"__grid": [83,27],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#5BA1FF",
+							"__worldX": 1332,
+							"__worldY": 1456,
+							"iid": "MovingPlatform-107070",
+							"width": 96,
+							"height": 16,
+							"defUid": 4251,
+							"px": [1332,432],
+							"fieldInstances": [
+								{ "__identifier": "id", "__type": "String", "__value": "mary_o_1_2_lift_c", "__tile": null, "defUid": 106926, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["mary_o_1_2_lift_c"]
+								}] },
+								{ "__identifier": "name", "__type": "String", "__value": "Lift C", "__tile": null, "defUid": 4248, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Lift C"]
+								}] },
+								{ "__identifier": "speed", "__type": "Float", "__value": 55.0, "__tile": null, "defUid": 4250, "realEditorValues": [{ "id": "V_Float", "params": [55.0] }] },
+								{ "__identifier": "loop_dy", "__type": "Float", "__value": -640.0, "__tile": null, "defUid": 107066, "realEditorValues": [{ "id": "V_Float", "params": [-640.0] }] },
+								{ "__identifier": "loop_min_y", "__type": "Float", "__value": -96.0, "__tile": null, "defUid": 107067, "realEditorValues": [{ "id": "V_Float", "params": [-96.0] }] }
 							]
 						}
 					]

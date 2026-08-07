@@ -8,12 +8,12 @@ use super::super::damage_drops::{
 use super::*;
 use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 use crate::features::ecs::enemy_component_snapshot;
+use crate::features::enemies::ArchetypeSpecExt;
 use crate::features::{HitMode, HitTarget};
 use ambition_characters::actor::BodyHealth;
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
 use bevy::prelude::{App, IntoScheduleConfigs, Update};
-use crate::features::enemies::ArchetypeSpecExt;
 
 /// Register every message the shared feature-hit pipeline writes.
 ///
@@ -1591,5 +1591,84 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
         kill_disposition(&HitSource::LeftTheWorld, RespawnPolicy::DeadStaysDead),
         KillDisposition::GoneFromTheWorld,
         "gone is gone whatever the policy says — no coin dropped into the void"
+    );
+}
+
+/// **A projectile hit does not flash its thrower.**
+///
+/// Jon, from play: *"maryo flashes when her fireball hits an enemy. that should
+/// not happen."* The attacker flash is CONTACT feel — it reads as "that
+/// connected on my body", which is true for a slash or a pogo bounce and false
+/// for a shot that landed across the room.
+///
+/// ⛔ **the fix landed unguarded.** It is one `if !matches!(…)` around the flash
+/// write in `apply_feature_hit_events`, and nothing pinned it, so any refactor
+/// of that branch hands the bug straight back. This is the guard, written after
+/// the fact and verified by POISONING it — the assertion was confirmed to fail
+/// with the condition removed, not merely observed to pass with it in.
+///
+/// ⭐ **both halves, because the fix is a discrimination and not a deletion.**
+/// The slash still flashes: a guard that only checked the projectile case would
+/// pass just as well against `hit_flash` being removed entirely.
+///
+/// ⚠ the HITSTOP is deliberately NOT asserted absent for the projectile — the
+/// brief hold on impact is what makes a shot feel like it connected, nobody
+/// reported it, and the fix kept it on purpose.
+#[test]
+fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
+    fn thrower_flash_after(source: HitSource) -> f32 {
+        let mut app = App::new();
+        app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+        app.insert_resource(crate::features::enemies::test_roster());
+        app.insert_resource(GameplayBanner::default());
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
+        app.init_resource::<crate::character_sprites::AuthoredSheets>();
+        app.insert_resource(ambition_persistence::settings::UserSettings::default());
+        register_hit_pipeline_messages(&mut app);
+        app.add_systems(Update, apply_feature_hit_events);
+
+        let victim = spawn_hostile_actor(&mut app);
+        // The thrower: a player body the attacker query can find.
+        let thrower = app
+            .world_mut()
+            .spawn((
+                crate::actor::PlayerEntity,
+                crate::actor::PrimaryPlayer,
+                ambition_characters::actor::BodyCombat::default(),
+            ))
+            .id();
+
+        app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
+            volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
+            damage: 1,
+            source,
+            attacker: Some(thrower),
+            target: HitTarget::Actor(victim),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+
+        app.world()
+            .get::<ambition_characters::actor::BodyCombat>(thrower)
+            .expect("the thrower keeps its combat state")
+            .hit_flash
+    }
+
+    assert_eq!(
+        thrower_flash_after(HitSource::PlayerProjectile),
+        0.0,
+        "her fireball landed across the room and SHE flashed — the attacker \
+         flash is contact feel and a shot is not contact"
+    );
+    assert!(
+        thrower_flash_after(HitSource::PlayerSlash { knock_x: 0.0 }) > 0.0,
+        "a SLASH must still flash the attacker: this half is what stops the \
+         projectile assertion from passing against a `hit_flash` that was simply \
+         deleted"
     );
 }

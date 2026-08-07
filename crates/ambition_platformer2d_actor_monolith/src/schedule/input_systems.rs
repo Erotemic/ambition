@@ -78,13 +78,36 @@ pub struct MenuFramePopulate;
 /// switch; adding a cutscene system to it would silently make that switch wait
 /// on something unrelated to nav.
 ///
-/// ▢ the fragmentation is real and worth fixing properly: a gesture adapter
-/// today has to pin `.before` BOTH this and `MenuNavConsume` to mean "before
-/// anything reads the frame". One `MenuFrameConsume` that every reader joins
-/// would say it once. That is a rename plus a widening with a behavioural
-/// consequence at the menu-backend switch, so it is a decision, not this edit.
+/// ⭐ **it is a member of [`MenuFrameConsume`] (2026-08-07), which is how the
+/// fragmentation was resolved without the cost that made it a decision.** A
+/// writer says `.before(MenuFrameConsume)` once; the menu-backend switch keeps
+/// `.after(MenuNavConsume)` and still waits on nav alone. Folding the two sets
+/// into one would have made that switch wait on cutscene skip as well, which is
+/// the behavioural consequence the open row named — nesting has no such cost,
+/// because the umbrella adds a NAME for "every reader" and takes nothing away
+/// from either member.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuFrameCutsceneSkip;
+
+/// **Everything that READS [`MenuControlFrame`], under one name.**
+///
+/// The umbrella over [`MenuFrameCutsceneSkip`] and [`MenuNavConsume`]. A writer
+/// that must land in the frame before anything consumes it pins
+/// `.before(MenuFrameConsume)` — one pin that stays correct when a THIRD reader
+/// is added, which is the whole point: `ambition_touch_input` used to name both
+/// reader sets, and a writer that enumerates its readers is a writer that
+/// silently stops covering them.
+///
+/// ⛔ **an umbrella over sets in DIFFERENT schedules would be silently vacuous.**
+/// A Bevy set node belongs to one schedule, so a `.before` against a set with no
+/// members here constrains nothing and says nothing. Both members were MEASURED
+/// into `Update` together before this was added, and
+/// `app_it::update_schedule_census::the_menu_frame_reader_sets_are_co_scheduled`
+/// keeps checking it — an empty node is a thing this app really produces (see
+/// the host's own note about `Fixed60Hz`/`Ggrs`), so presence is not the
+/// question and membership is.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct MenuFrameConsume;
 
 /// The menu-nav CONSUMERS of [`MenuControlFrame`].
 ///
@@ -95,6 +118,11 @@ pub struct MenuFrameCutsceneSkip;
 /// `.before(MenuNavConsume)` without naming each backend's private system.
 /// Touch stick navigation itself now arrives through the participant's
 /// virtual-device binding before `MenuControlFrame` is populated.
+///
+/// ⚠ **pin against this only when you mean NAV specifically** — the menu-backend
+/// switch does, because it must not act until the nav that may have chosen it
+/// has run. A writer that means "before anything reads the frame" wants
+/// [`MenuFrameConsume`], which contains this.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuNavConsume;
 
@@ -310,12 +338,25 @@ pub fn declare_gameplay_input_context(
 ///
 /// So the surfaces DECLARE, and the routers read one resolved answer.
 ///
-/// ⚠ **this is behaviour-identical today, on purpose.** It claims on every
-/// participant, exactly as the global gates did, so nothing observable moves in
-/// this commit. What changes is that the per-seat version — one player reading
-/// a dialogue box while another keeps running — becomes a change at THIS
-/// function instead of a rewrite at every router. That is the whole point of
-/// moving it.
+/// ⭐ **and the per-seat version is now HERE, which is what that move bought.**
+/// The claim used to be behaviour-identical to the global gate — every
+/// participant, because `GameMode::Dialogue` is one switch for the whole
+/// machine. So one person talking to an NPC took gameplay away from everybody
+/// else at the couch, while the world kept running around them: the half-fix
+/// where the bodies keep moving but nobody else can drive one. (GPT 5.6 review
+/// through `c32e690`, finding 2.)
+///
+/// ⛔ **the owner is asked, never inferred.** A conversation declares whose it is
+/// when it opens (`ConversationInputOwner`), derived from the initiator's
+/// `Brain::Player(slot)`. There is deliberately no "nobody said, so capture
+/// everybody" arm — that was the behaviour, and an absence of attribution is
+/// exactly when claiming the whole couch is least defensible.
+///
+/// ⚠ **it reads the AUTHORITY, not `GameMode`.** `GameMode::Dialogue` still
+/// stops the world for the things that are genuinely global, but it cannot name
+/// a seat, so it could never have answered this. One consequence worth knowing:
+/// capture now begins on the frame the conversation OPENS rather than the frame
+/// the mode transition lands, because `next_mode` applies a frame later.
 ///
 /// ⚠ **pause is deliberately NOT here.** `GameMode::Paused` stops the world,
 /// which is not a per-seat fact, and the paused path does something a context
@@ -324,13 +365,28 @@ pub fn declare_gameplay_input_context(
 /// silently delete that.
 #[cfg(feature = "input")]
 pub fn declare_in_session_input_contexts(
-    mode: Res<State<GameMode>>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
-    mut participants: Query<&mut ParticipantContexts, With<InputParticipant>>,
+    // `Option` because a composition without the conversation feature still has
+    // cutscenes, and a missing authority means no conversation rather than an
+    // error.
+    conversation: Option<Res<crate::conversation::ActiveConversation>>,
+    mut participants: Query<(&InputParticipant, &mut ParticipantContexts)>,
 ) {
-    let in_dialogue = matches!(mode.get(), GameMode::Dialogue);
+    let owner = conversation
+        .as_deref()
+        .and_then(crate::conversation::ActiveConversation::input_owner);
     let in_cutscene = cutscene.is_playing();
-    for mut contexts in &mut participants {
+    for (participant, mut contexts) in &mut participants {
+        let in_dialogue = match owner {
+            Some(crate::conversation::ConversationInputOwner::Participant(id)) => {
+                participant.id == id
+            }
+            Some(crate::conversation::ConversationInputOwner::Primary) => {
+                participant.id == ambition_input::ParticipantId::PRIMARY
+            }
+            Some(crate::conversation::ConversationInputOwner::AllParticipants) => true,
+            None => false,
+        };
         // Touch the component only when a claim actually moves, so a quiet
         // frame is not a change-detection event for every reader downstream.
         if contexts.is_declared(DIALOGUE_CONTEXT) != in_dialogue {
@@ -572,7 +628,11 @@ pub fn populate_secondary_slot_controls(
             continue;
         }
         let gameplay = world_running && active_context.gameplay_owned(participant.id.slot());
-        let slot = ambition_characters::brain::PlayerSlot(participant.id.slot());
+        // ⭐ through the SEAM rather than by arithmetic (R5). This line is the
+        // exact shape the reviewer asked new code to stop writing — a bare
+        // `PlayerSlot(id.slot())` asserts the two numberings are the same thing,
+        // and they are two lifecycles that happen to agree today.
+        let slot = crate::participant_seat::player_slot_of(participant.id);
         if !gameplay {
             // Neutral, and RESET the edge, so the post-pause re-press starts from
             // a clean Released state — the same rule the primary seat follows.
@@ -593,13 +653,7 @@ pub fn populate_secondary_slot_controls(
         // stick in somebody's hands. (Jon, 2026-08-06: filtering per pad,
         // bindings shared.) The PREFERENCES inside `ControlFilters` — dash mode,
         // inverted aim — stay machine-wide, because those are about the person.
-        let filters = match devices.as_deref() {
-            Some(devices) => ambition_input::ControlFilters::for_pad(
-                &user_settings.controls,
-                devices.gamepad_style_for(participant.id.slot()),
-            ),
-            None => ambition_input::ControlFilters::from_settings(&user_settings.controls),
-        };
+        let filters = filters_for_seat(&user_settings, devices.as_deref(), participant.id.slot());
         let (frame, next) = read_gameplay_control_frame_with_settings(actions, filters, dash.0);
         dash.0 = next;
         match latches.as_deref_mut() {
@@ -662,6 +716,8 @@ pub fn publish_latched_slot_controls(
 #[cfg(feature = "input")]
 pub fn populate_menu_control_frame_from_actions(
     world_time: Option<Res<ambition_time::WorldTime>>,
+    // The primary seat owns this resource, so its pad decides the calibration.
+    devices: Option<Res<ambition_input::SeatActiveDevices>>,
     player_input: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
@@ -701,7 +757,18 @@ pub fn populate_menu_control_frame_from_actions(
         .find(|(participant, _)| participant.id == ambition_input::ParticipantId::PRIMARY)
         .map(|(_, actions)| actions)
     {
-        next = decode_menu_frame(actions, &mut menu_input_state, &user_settings, wall_dt);
+        let filters = filters_for_seat(
+            &user_settings,
+            devices.as_deref(),
+            ambition_input::ParticipantId::PRIMARY.slot(),
+        );
+        next = decode_menu_frame(
+            actions,
+            &mut menu_input_state,
+            &user_settings,
+            filters,
+            wall_dt,
+        );
     }
 
     for ev in mouse_wheel.read() {
@@ -709,6 +776,36 @@ pub fn populate_menu_control_frame_from_actions(
     }
 
     *menu_frame = next;
+}
+
+/// **Which filters apply to the stick in THIS seat's hands.**
+///
+/// ⛔ **one resolution, three callers**, because the gameplay path and the menu
+/// paths disagreeing about a seat's deadzone is exactly the defect this closes:
+/// the same physical stick answered one way while driving and another while
+/// navigating a menu. (GPT 5.6 review through `c32e690`, finding 4.)
+///
+/// ⚠ **calibration is per PAD, preferences stay per MACHINE.** Jon, 2026-08-06:
+/// *"filtering per pad, bindings shared."* `ControlFilters::for_pad` carries that
+/// split — it replaces the deadzones and trigger thresholds from the detected
+/// pad's table while leaving dash mode and inverted aim alone, because those are
+/// choices about the PERSON rather than properties of the hardware.
+///
+/// `None` — a headless fixture with no device tracking — reads the machine-wide
+/// sliders, which is the honest answer when nothing is known about the device.
+#[cfg(feature = "input")]
+fn filters_for_seat(
+    settings: &ambition_persistence::settings::UserSettings,
+    devices: Option<&ambition_input::SeatActiveDevices>,
+    slot: u8,
+) -> ambition_input::ControlFilters {
+    match devices {
+        Some(devices) => ambition_input::ControlFilters::for_pad(
+            &settings.controls,
+            devices.gamepad_style_for(slot),
+        ),
+        None => ambition_input::ControlFilters::from_settings(&settings.controls),
+    }
 }
 
 /// **One decode, so the global menu frame and every seat's frame agree.**
@@ -722,6 +819,10 @@ pub fn decode_menu_frame(
     actions: &ActionState<Platformer2dInputActionMonolith>,
     menu_input_state: &mut MenuInputState,
     user_settings: &ambition_persistence::settings::UserSettings,
+    // ⚠ **RESOLVED by the caller, which is the only place that knows the seat.**
+    // Passing `UserSettings` alone is what made every seat share one deadzone:
+    // this function cannot ask "whose stick is this" and should not try.
+    filters: ambition_input::ControlFilters,
     wall_dt: f32,
 ) -> MenuControlFrame {
     let edge_up = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateUp);
@@ -730,10 +831,14 @@ pub fn decode_menu_frame(
     let edge_right = actions.just_pressed(&Platformer2dInputActionMonolith::MenuNavigateRight);
 
     let raw = actions.clamped_axis_pair(&Platformer2dInputActionMonolith::MenuStick);
+    // ⛔ the seat's OWN deadzone, not the machine-wide slider. A couch seat
+    // cannot reach the settings screen — it belongs to the primary — so reading
+    // that slider here meant player two's pad was filtered by whatever suited
+    // player one's.
     let (sx, sy) = ambition_persistence::settings::ControlSettings::apply_deadzone(
         raw.x,
         raw.y,
-        user_settings.controls.left_stick_deadzone,
+        filters.left_stick_deadzone,
     );
     let analog_dir = analog_to_dir(sx, sy, 0.5);
 
@@ -778,6 +883,9 @@ pub fn decode_menu_frame(
 #[cfg(feature = "input")]
 pub fn populate_seat_menu_frames(
     world_time: Option<Res<ambition_time::WorldTime>>,
+    // ⭐ the whole point of a per-seat frame: each seat's stick is filtered by
+    // the pad actually in that seat's hands.
+    devices: Option<Res<ambition_input::SeatActiveDevices>>,
     participants: Query<(
         &InputParticipant,
         &ActionState<Platformer2dInputActionMonolith>,
@@ -802,7 +910,8 @@ pub fn populate_seat_menu_frames(
     rows.sort_by_key(|(slot, _)| *slot);
     for (slot, actions) in rows {
         let state = states.entry(slot).or_default();
-        let frame = decode_menu_frame(actions, state, &user_settings, wall_dt);
+        let filters = filters_for_seat(&user_settings, devices.as_deref(), slot);
+        let frame = decode_menu_frame(actions, state, &user_settings, filters, wall_dt);
         frames.set(slot, frame);
     }
 }
@@ -1312,7 +1421,6 @@ mod focus_gate_tests {
         use ambition_input::participant::context_priority;
         use ambition_input::{ContextClaim, DIALOGUE_CONTEXT, GAMEPLAY_CONTEXT};
         use ambition_platformer2d_shared_tangle::schedule::GameMode;
-        use bevy::ecs::system::RunSystemOnce;
 
         fn seat(slot: u8) -> impl Bundle {
             let mut contexts = ParticipantContexts::default();
@@ -1337,6 +1445,7 @@ mod focus_gate_tests {
         app.init_resource::<SlotControls>();
         app.init_resource::<ambition_persistence::settings::UserSettings>();
         app.init_resource::<ambition_cutscene::ActiveCutscene>();
+        app.init_resource::<crate::conversation::ActiveConversation>();
         app.add_plugins(bevy::state::app::StatesPlugin);
         app.insert_state(GameMode::Playing);
         app.world_mut().spawn(seat(0));
@@ -1359,9 +1468,16 @@ mod focus_gate_tests {
             "baseline: a seat that owns gameplay drives its body"
         );
 
-        // 1. Entering dialogue suppresses input — through a declared claim, and
-        //    with no router matching `GameMode` any more.
-        app.insert_state(GameMode::Dialogue);
+        // 1. A conversation this seat is in suppresses its input — through a
+        //    declared claim, and with no router matching `GameMode` any more.
+        app.world_mut()
+            .resource_mut::<crate::conversation::ActiveConversation>()
+            .open(
+                None,
+                None,
+                "chat",
+                crate::conversation::ConversationInputOwner::Participant(ParticipantId(1)),
+            );
         app.update();
         let seats = app.world().resource::<SeatInputContexts>();
         assert_eq!(
@@ -1378,42 +1494,26 @@ mod focus_gate_tests {
             "and the router honours it without knowing what dialogue is"
         );
 
-        // 2. **What the move buys, proved on a running world.** A surface can
-        //    now own ONE seat's input: seat 0 is in the conversation, seat 1 is
-        //    not, and seat 1 keeps driving its body. Under the old `GameMode`
-        //    match this was not a thing a surface could ask for at all.
+        // 2. **What the move buys, proved on a running world through the
+        //    PRODUCTION declarer.** Seat 0 is in the conversation, seat 1 is not,
+        //    and seat 1 keeps driving its body.
         //
-        //    ⚠ done by claiming directly, because nothing declares per-seat
-        //    YET: `declare_in_session_input_contexts` still claims on every
-        //    participant, exactly as the global gate did. This asserts the seam
-        //    supports it, which is what makes the per-seat declarer a change at
-        //    one function instead of a rewrite at every router.
-        app.insert_state(GameMode::Playing);
+        //    ⛔ **this used to hand-build seat 0's claim and then deliberately
+        //    skip the declarer**, because the declarer claimed on every
+        //    participant and would have retracted it. So the test proved the
+        //    SEAM supported per-seat ownership while the only thing that
+        //    declared in production could not express it — a green test beside
+        //    the bug it looked like it covered. The whole chain runs now, and
+        //    the conversation's own owner is what makes seat 1 keep playing.
+        app.world_mut()
+            .resource_mut::<crate::conversation::ActiveConversation>()
+            .open(
+                None,
+                None,
+                "chat",
+                crate::conversation::ConversationInputOwner::Participant(ParticipantId(0)),
+            );
         app.update();
-        {
-            let world = app.world_mut();
-            let mut seats = world.query::<(&InputParticipant, &mut ParticipantContexts)>();
-            let mut claims: Vec<_> = seats
-                .iter_mut(world)
-                .map(|(participant, contexts)| (participant.id, contexts))
-                .collect();
-            for (id, contexts) in &mut claims {
-                if *id == ParticipantId(0) {
-                    contexts.declare(ContextClaim::capturing(
-                        DIALOGUE_CONTEXT,
-                        context_priority::DIALOGUE,
-                    ));
-                }
-            }
-        }
-        // Re-run only the resolver and the router: re-running the declarer
-        // would retract what we just claimed, which is the point.
-        app.world_mut()
-            .run_system_once(resolve_active_input_context)
-            .expect("resolver runs");
-        app.world_mut()
-            .run_system_once(super::populate_secondary_slot_controls)
-            .expect("router runs");
 
         let seats = app.world().resource::<SeatInputContexts>();
         assert_eq!(
@@ -1583,6 +1683,86 @@ mod focus_gate_tests {
                 "and seat 1's Back must NOT: the primary OWNS this resource, it is not a fold"
             );
         }
+    }
+
+    /// **A seat's MENU deadzone comes from the pad in that seat's hands.**
+    ///
+    /// ⛔ gameplay learned this on 2026-08-06 (`ControlFilters::for_pad`, Jon:
+    /// *"filtering per pad, bindings shared"*) and the menu did not:
+    /// `decode_menu_frame` read the machine-wide slider for every seat. So one
+    /// couch seat could have its own calibration while driving and player one's
+    /// while navigating — the same stick answering two ways depending on which
+    /// screen is up. (GPT 5.6 review through `c32e690`, finding 4.)
+    ///
+    /// ⚠ **the magnitude is CHOSEN, not guessed.** After the deadzone rescale
+    /// `(m - d) / (1 - d)`, a direction needs to clear 0.5. At `m = 0.58`:
+    /// PlayStation (`d = 0.14`) gives 0.512 and registers; the Xbox/baseline
+    /// table (`d = 0.18`) gives 0.488 and does not. Both sides sit off the
+    /// threshold by more than 1%, so this is a real discrimination rather than a
+    /// float coin-flip.
+    ///
+    /// ⛔ **`controller_profile` MUST stay `Default` or this test proves
+    /// nothing.** `ControlFilters::for_pad` returns the machine values unchanged
+    /// when somebody has explicitly picked a profile — an explicit choice is a
+    /// decision, and detection does not overrule it. A probe that let a profile
+    /// be set would pass while measuring the old behaviour, so the precondition
+    /// is asserted rather than assumed.
+    #[test]
+    fn a_couch_seats_menu_reads_its_own_pads_calibration() {
+        use ambition_input::{ActiveDevice, GamepadStyle, SeatActiveDevices, SeatMenuFrames};
+
+        fn seat(slot: u8) -> impl Bundle {
+            let mut actions = ActionState::<Platformer2dInputActionMonolith>::default();
+            // The SAME physical push for both seats — so any difference in the
+            // frames is a difference in calibration and nothing else.
+            actions.set_axis_pair(
+                &Platformer2dInputActionMonolith::MenuStick,
+                bevy::math::Vec2::new(0.0, 0.58),
+            );
+            (
+                InputParticipant {
+                    id: ParticipantId(slot),
+                },
+                ParticipantContexts::default(),
+                actions,
+            )
+        }
+
+        let settings = ambition_persistence::settings::UserSettings::default();
+        assert_eq!(
+            settings.controls.controller_profile,
+            ambition_persistence::settings::controls::ControllerProfileId::Default,
+            "precondition: an explicitly chosen profile makes `for_pad` a no-op, \
+             which would make this test green without testing anything"
+        );
+
+        let mut app = App::new();
+        app.insert_resource(settings);
+        app.init_resource::<SeatMenuFrames>();
+        let mut devices = SeatActiveDevices::default();
+        devices.mark(0, ActiveDevice::Gamepad(GamepadStyle::XboxLike));
+        devices.mark(1, ActiveDevice::Gamepad(GamepadStyle::PlayStation));
+        app.insert_resource(devices);
+        app.world_mut().spawn(seat(0));
+        app.world_mut().spawn(seat(1));
+        app.add_systems(Update, super::populate_seat_menu_frames);
+        app.update();
+
+        let frames = app.world().resource::<SeatMenuFrames>();
+        let dualsense = frames.for_seat(1);
+        assert!(
+            dualsense.up || dualsense.down,
+            "the DualSense seat's tighter stick cleared its own deadzone and the \
+             menu did not notice — it was filtered by whatever the machine-wide \
+             slider says, which belongs to a different person's controller"
+        );
+        let xbox = frames.for_seat(0);
+        assert!(
+            !xbox.up && !xbox.down,
+            "and the seat on the wider table must NOT register the same push — \
+             otherwise this passes because both seats got the tight deadzone, \
+             which is the same bug facing the other way"
+        );
     }
 
     fn seat_slots(app: &mut App) -> Vec<u8> {

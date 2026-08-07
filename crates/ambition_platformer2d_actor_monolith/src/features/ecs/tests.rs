@@ -41,10 +41,9 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
         .get_resource_or_insert_with(crate::control::SlotInteractionState::default)
         .primary_mut()
         .interact_buffer_timer = 0.15;
-    app.world_mut()
-        .insert_resource(ambition_platformer2d_shared_tangle::markers::ControlledSubject(
-            Some(entity),
-        ));
+    app.world_mut().insert_resource(
+        ambition_platformer2d_shared_tangle::markers::ControlledSubject(Some(entity)),
+    );
 }
 
 #[test]
@@ -296,6 +295,13 @@ fn interact_buffered_starts_npc_dialogue() {
 
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
+    // ⚠ the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
+    // switches` opens a conversation in the simulation and shows it in the UI,
+    // so a fixture with only the second half fails Bevy's param validation.
+    // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
+    // this be absent" when the question is who OWNS registering it, and in
+    // production the feature plugin does.
+    app.init_resource::<crate::conversation::ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -372,7 +378,9 @@ fn interact_buffered_starts_npc_dialogue() {
 /// Bevy ships or how it tie-breaks unordered systems.
 #[test]
 fn presentation_visual_sync_runs_after_feature_view_sync() {
-    use crate::schedule::{configure_platformer2d_simulation_phases, Platformer2dSimulationPhaseMonolith};
+    use crate::schedule::{
+        configure_platformer2d_simulation_phases, Platformer2dSimulationPhaseMonolith,
+    };
     use bevy::ecs::schedule::{NodeId, Schedules};
     use bevy::prelude::{IntoScheduleConfigs, Update};
 
@@ -415,167 +423,5 @@ fn presentation_visual_sync_runs_after_feature_view_sync() {
          systems can read a stale FeatureViewIndex on any frame \
          that mutates feature state (pickups, switches, encounter \
          spawns, save sync, sandbox reset)."
-    );
-}
-
-/// **A conversation the world keeps running through can be broken.**
-///
-/// The three cases Jon named (design:
-/// `docs/planning/engine/dialogue-continuity.md`): standing and talking holds;
-/// being knocked about ends it; falling away from the other body ends it.
-///
-/// ⭐ the struck case is driven from the NPC's body, not the player's. The rule
-/// is symmetric — *"both characters"* — and a test that only ever hits the
-/// player would pass against a player-centric implementation.
-#[test]
-fn a_conversation_breaks_on_knockback_or_on_the_bodies_separating() {
-    use ambition_characters::actor::BodyCombat;
-    use ambition_dialog::{DialogState, DialogueContext};
-
-    fn body(app: &mut App, at: ae::Vec2) -> Entity {
-        app.world_mut()
-            .spawn((
-                CenteredAabb::from_center_size(at, ae::Vec2::new(24.0, 24.0)),
-                BodyCombat::default(),
-            ))
-            .id()
-    }
-
-    // Two bodies standing in each other's reach, mid-conversation.
-    fn talking_app() -> (App, Entity) {
-        let mut app = App::new();
-        app.insert_resource(DialogState::default());
-        app.add_message::<ambition_vfx::vfx::VfxMessage>();
-        app.add_systems(Update, super::break_dialogue_on_hit_or_separation);
-        let here = ae::Vec2::new(100.0, 100.0);
-        let initiator = body(&mut app, here);
-        let npc = body(&mut app, here);
-        let mut dialogue = app.world_mut().resource_mut::<DialogState>();
-        dialogue.start("chat", "Someone", DialogueContext::default());
-        dialogue.set_initiator_entity(initiator);
-        dialogue.set_speaker_entity(npc);
-        drop(dialogue);
-        (app, npc)
-    }
-    fn talking(app: &App) -> bool {
-        app.world().resource::<DialogState>().active()
-    }
-
-    // Standing and talking: nothing breaks.
-    let (mut app, _) = talking_app();
-    app.update();
-    assert!(talking(&app), "two bodies standing together keep talking");
-
-    // ⭐ the NPC is knocked about — not the player.
-    let (mut app, npc) = talking_app();
-    app.world_mut().entity_mut(npc).insert(BodyCombat {
-        recoil_lock_timer: 0.2,
-        ..Default::default()
-    });
-    app.update();
-    assert!(
-        !talking(&app),
-        "an NPC knocked off its feet mid-sentence has ended the conversation too"
-    );
-
-    // Separation: the other body falls away.
-    let (mut app, npc) = talking_app();
-    let far =
-        CenteredAabb::from_center_size(ae::Vec2::new(100.0, 900.0), ae::Vec2::new(24.0, 24.0));
-    app.world_mut().entity_mut(npc).insert(far);
-    app.update();
-    assert!(!talking(&app), "you fell away from the parrot");
-
-    // ⚠ and damage that does NOT move you leaves it alone: a poison tick is not
-    // an interruption, which is the whole reason the signal is the recoil lock
-    // rather than a health change.
-    let (mut app, npc) = talking_app();
-    app.world_mut().entity_mut(npc).insert(BodyCombat {
-        hit_flash: 1.0,
-        ..Default::default()
-    });
-    app.update();
-    assert!(
-        talking(&app),
-        "being hurt without being MOVED does not interrupt a conversation"
-    );
-}
-
-/// **A conversation holds the body it is talking to, and lets go afterwards.**
-///
-/// The hold is one rule — a participant's movement INTENT goes to zero — and the
-/// two participants reach it by different routes because they are driven from
-/// different places: the talker's input is captured by `DIALOGUE_CONTEXT`, the
-/// NPC's brain is blanked by `ScriptedControl`.
-///
-/// ⛔ the release is the half that bites: a stranded `ScriptedControl` is a
-/// permanently frozen NPC, and a conversation can end in more ways than the
-/// break rule (the Yarn runner finishing, a room swap, a teardown). So the
-/// release asks the dialogue state rather than remembering what it inserted.
-#[test]
-fn a_conversation_blanks_the_npcs_brain_and_releases_it_when_it_ends() {
-    use ambition_characters::actor::BodyCombat;
-    use ambition_characters::brain::ScriptedControl;
-    use ambition_dialog::{DialogState, DialogueContext};
-
-    let mut app = App::new();
-    app.insert_resource(DialogState::default());
-    // The break can BARK, so its output channel exists here as it does in the
-    // production schedule. Registering it in the fixture rather than wrapping the
-    // writer in `Option` — that waiver would answer "may this be absent" when the
-    // question is who owns registering it.
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
-    app.add_systems(
-        Update,
-        (
-            super::break_dialogue_on_hit_or_separation,
-            super::release_conversation_hold,
-        )
-            .chain(),
-    );
-    let here = ae::Vec2::new(100.0, 100.0);
-    let size = ae::Vec2::new(24.0, 24.0);
-    let initiator = app
-        .world_mut()
-        .spawn((
-            CenteredAabb::from_center_size(here, size),
-            BodyCombat::default(),
-        ))
-        .id();
-    let npc = app
-        .world_mut()
-        .spawn((
-            CenteredAabb::from_center_size(here, size),
-            BodyCombat::default(),
-        ))
-        .id();
-    let mut dialogue = app.world_mut().resource_mut::<DialogState>();
-    dialogue.start("chat", "Someone", DialogueContext::default());
-    dialogue.set_initiator_entity(initiator);
-    dialogue.set_speaker_entity(npc);
-    drop(dialogue);
-
-    app.update();
-    assert!(
-        app.world().get::<ScriptedControl>(npc).is_some(),
-        "the NPC stops answering its brain while it is talking — otherwise it \
-         wanders off mid-sentence now that the world keeps running"
-    );
-    assert!(
-        app.world().get::<ScriptedControl>(initiator).is_none(),
-        "the TALKER is not marked: `DIALOGUE_CONTEXT` already neutralised their \
-         input, and a second mechanism on the same body would race the death beat"
-    );
-
-    // The conversation ends by any route — here, the runner finishing.
-    app.world_mut().resource_mut::<DialogState>().close();
-    app.update();
-    assert!(
-        app.world().get::<ScriptedControl>(npc).is_none(),
-        "and it gets its brain back; a stranded marker is a frozen NPC forever"
-    );
-    assert!(
-        app.world().get::<super::HeldByConversation>(npc).is_none(),
-        "the claim is released with the marker it claimed"
     );
 }

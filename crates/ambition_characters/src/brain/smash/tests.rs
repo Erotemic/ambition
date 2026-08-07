@@ -925,3 +925,62 @@ fn hybrid_flight_has_landing_hysteresis() {
         "once closed inside the landing band, the hybrid comes down to fight"
     );
 }
+
+/// **Whether a body may block while AIRBORNE is the game's rule, not the
+/// brain's.**
+///
+/// ⛔ **it was hardcoded here**: both the reactive-block arm and the hold below
+/// it read `obs.self_on_ground` directly, so "shielding is grounded-only" was a
+/// fact about `brain/smash` rather than a policy a game states. Smash Siblings
+/// wants that rule; another game on this engine may not, and answering it meant
+/// editing the brain.
+///
+/// `awaiting-maintainer-decision.md` #9 ("Can a flying fighter shield?") records
+/// the product question as Ambition's to answer and this lift as the part that
+/// does NOT need their answer — so the default stays Smash's rule and nothing
+/// changes by accident.
+///
+/// ⚠ probes the HOLD rather than the reactive arm: the hold is reachable from
+/// state alone, where the arm needs a perceived lunge, so this asks the policy
+/// question without also asserting a threat model.
+#[test]
+fn airborne_shielding_is_a_policy_the_game_states() {
+    let mut cfg = SmashCfg::DUELIST_DEFAULT;
+    cfg.can_shield = true;
+
+    let held_while_airborne = |cfg: &SmashCfg| {
+        let mut state = SmashState::default();
+        state.shield_hold_timer = 0.2;
+        let mut snap = snap_with_target_at_x(60.0);
+        snap.actor_on_ground = false; // in the air, mid-shield-window
+        let mut frame = crate::actor::control::ActorControlFrame::neutral();
+        tick_smash(
+            cfg,
+            &mut state,
+            &ActionSet::peaceful(),
+            &snap,
+            None,
+            &mut frame,
+        );
+        frame.shield_held
+    };
+
+    // Smash's rule, and the default: no blocking in the air.
+    assert!(
+        cfg.shield_requires_ground,
+        "the default must be Smash's rule so no game changes by accident"
+    );
+    assert!(
+        !held_while_airborne(&cfg),
+        "the default let a fighter block in mid-air"
+    );
+
+    // A game that says otherwise gets otherwise, without editing the brain.
+    let mut airborne_ok = cfg;
+    airborne_ok.shield_requires_ground = false;
+    assert!(
+        held_while_airborne(&airborne_ok),
+        "a game that authored airborne blocking still could not block in the \
+         air — the rule is still the brain's rather than the game's"
+    );
+}

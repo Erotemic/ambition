@@ -477,3 +477,220 @@ fn loop_mode_closes_the_circuit_back_to_its_first_point() {
         platform.pos
     );
 }
+
+/// **A wrapping platform must not fling whoever is standing on it.**
+///
+/// Jon asked for an infinite elevator: platforms that run one way and teleport
+/// back to the far end rather than reversing. ⛔ **the teleport is a position
+/// change that is NOT a movement**, and `last_delta` is exactly the quantity the
+/// per-body tick adds to a rider (`body_integration.rs` reads it for
+/// platform-ride and ledge-carry). Reporting `pos - old` across a wrap hands the
+/// rider the whole span in one frame — the height of the shaft, in one tick, in
+/// the direction opposite to travel.
+///
+/// ⭐ **the honest test of a wrap is the frame it happens on**, not the frames
+/// either side, and it is a frame the naive implementation gets wrong while
+/// looking completely correct in a position trace: the platform IS where it
+/// should be. Only the carried rider reveals it.
+#[test]
+fn a_wrapping_platform_carries_a_rider_by_its_travel_not_by_its_teleport() {
+    // A shaft 300 tall, descending at 100/s. dt of 0.5 puts the wrap squarely
+    // inside a step rather than exactly on the boundary.
+    let mut platform = MovingPlatformState::from_vertical_loop(
+        "lift",
+        "Lift",
+        ae::Vec2::new(0.0, 40.0),
+        ae::Vec2::new(96.0, 16.0),
+        0.0,
+        300.0,
+        100.0,
+        false,
+    );
+
+    // One ordinary step: no wrap, and the delta is the travel.
+    let delta = platform.update(0.2);
+    assert!(
+        (delta.y + 20.0).abs() < 1e-3,
+        "an ordinary descending step carries the rider down 20px, got {delta:?}"
+    );
+
+    // The step that crosses the bottom and reappears at the top.
+    let before = platform.pos.y;
+    let delta = platform.update(0.5);
+    assert!(
+        platform.pos.y > before,
+        "precondition: this step wrapped — the platform reappeared at the top \
+         ({before} -> {})",
+        platform.pos.y
+    );
+    assert!(
+        (delta.y + 50.0).abs() < 1e-3,
+        "the wrap frame reported {delta:?} of carry, but the platform only \
+         TRAVELLED 50px down — the rest is a teleport, and handing it to a rider \
+         throws them the length of the shaft in one tick"
+    );
+}
+
+/// **A looping platform never turns around.**
+///
+/// ⚠ reads as "rising" in the assertions below only in the +y sense; +y is DOWN
+/// on screen. What is being pinned is that the sign never changes, not which way
+/// the player sees it go.
+///
+/// ⛔ the poison for the variant existing at all: if it reversed it would be a
+/// `Sweep` on the other axis, and the elevator effect — step off the top, the
+/// next one arrives from below — would not exist. Two full spans of travel must
+/// leave the direction unchanged.
+#[test]
+fn a_looping_platform_keeps_going_the_same_way_forever() {
+    let mut platform = MovingPlatformState::from_vertical_loop(
+        "lift",
+        "Lift",
+        ae::Vec2::new(0.0, 0.0),
+        ae::Vec2::new(96.0, 16.0),
+        0.0,
+        200.0,
+        100.0,
+        true,
+    );
+    for _ in 0..40 {
+        let delta = platform.update(0.1);
+        assert!(
+            delta.y > 0.0,
+            "a rising loop reported downward carry ({delta:?}) — either it \
+             reversed, which would make it a lift rather than a paternoster, or a \
+             wrap leaked into the carry"
+        );
+        assert!(
+            (0.0..=200.0).contains(&platform.pos.y),
+            "the platform left its shaft at {}",
+            platform.pos.y
+        );
+    }
+    assert!(
+        platform.direction() > 0.0,
+        "and it still reports the direction it was authored with"
+    );
+}
+
+/// **An authored `loop_dy` produces a platform that WRAPS.**
+///
+/// The authoring half of the elevator. ⛔ the tell that it is wired is not that
+/// the platform moves vertically — a `Path` does that, and so would a sweep on
+/// the wrong axis — it is that the platform **comes back to where it started
+/// while still travelling the same way**. A reversing platform also returns to
+/// its start, so the direction check is what separates the two.
+#[test]
+fn an_authored_vertical_loop_wraps_instead_of_reversing() {
+    let spec = MovingPlatformSpec::from_authored(
+        "shaft_lift",
+        "Shaft Lift",
+        ae::Vec2::new(0.0, 100.0),
+        ae::Vec2::new(96.0, 16.0),
+        // A sweep is authored too, and must LOSE to the loop.
+        240.0,
+        100.0,
+        None,
+    )
+    .with_vertical_loop(Some(200.0));
+
+    let mut platform = spec.resolve(&[]).expect("a loop spec resolves");
+    assert!(platform.direction() > 0.0, "a positive loop_dy rises");
+
+    // ⚠ **the wrap is a DROP in y on a platform that is rising**, not a return
+    // below the start: the shaft here begins at its own floor, so a wrap lands
+    // just above where it began. Comparing against `start` would never fire, and
+    // the test would pass a platform that ran off up the shaft forever.
+    let mut previous = platform.pos.y;
+    let mut wrapped = false;
+    for _ in 0..40 {
+        let delta = platform.update(0.1);
+        assert!(
+            delta.x.abs() < 1e-6,
+            "the authored sweep_dx leaked into a loop platform ({delta:?}) — a \
+             loop is not a sweep with an extra field"
+        );
+        assert!(
+            delta.y > 0.0,
+            "a rising loop never carries downward, so it never reversed: {delta:?}"
+        );
+        if platform.pos.y < previous {
+            wrapped = true;
+        }
+        previous = platform.pos.y;
+        assert!(
+            (100.0..=300.0).contains(&platform.pos.y),
+            "the platform left its authored shaft at {}",
+            platform.pos.y
+        );
+    }
+    assert!(
+        wrapped,
+        "the platform never dropped back down the shaft, so it never wrapped — \
+         it is running off upward rather than looping"
+    );
+}
+
+/// **A staggered run of platforms shares ONE shaft.**
+///
+/// ⛔ this is the difference between a conveyor and three unrelated lifts, and
+/// it is invisible on the first frame. Anchoring each platform's shaft at its own
+/// position gives three platforms three shafts — they start looking evenly
+/// spaced and slowly separate into their own bands, which is a bug you notice
+/// late and hate diagnosing.
+///
+/// ⭐ **the assertion is that every platform stays inside the SHARED shaft**, not
+/// that they are evenly spaced. Even spacing is what the author wrote; staying
+/// in one shaft is what makes it stay true.
+#[test]
+fn a_staggered_run_of_looping_platforms_shares_one_shaft() {
+    const BASE: f32 = 100.0;
+    const SPAN: f32 = 300.0;
+
+    // Three platforms at thirds of the shaft — the conveyor an author writes.
+    let mut run: Vec<MovingPlatformState> = [0.0, 100.0, 200.0]
+        .into_iter()
+        .enumerate()
+        .map(|(i, phase)| {
+            MovingPlatformSpec::from_authored(
+                format!("lift_{i}"),
+                format!("Lift {i}"),
+                ae::Vec2::new(0.0, BASE + phase),
+                ae::Vec2::new(96.0, 16.0),
+                240.0,
+                100.0,
+                None,
+            )
+            .with_vertical_loop(Some(SPAN))
+            .with_loop_anchor(Some(BASE))
+            .resolve(&[])
+            .expect("a conveyor spec resolves")
+        })
+        .collect();
+
+    for step in 0..60 {
+        for platform in &mut run {
+            platform.update(0.1);
+            assert!(
+                (BASE..=BASE + SPAN).contains(&platform.pos.y),
+                "step {step}: '{}' left the shared shaft at {} (shaft is \
+                 {BASE}..={}) — its shaft is anchored at itself, so the run is \
+                 three lifts rather than one conveyor",
+                platform.id,
+                platform.pos.y,
+                BASE + SPAN
+            );
+        }
+    }
+
+    // And they are still three distinct platforms, not a pile.
+    let mut ys: Vec<f32> = run.iter().map(|p| p.pos.y).collect();
+    ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    for pair in ys.windows(2) {
+        assert!(
+            (pair[1] - pair[0]) > 1.0,
+            "two platforms converged to {pair:?} — the stagger the author wrote \
+             has been lost, so the shaft has a gap somewhere else"
+        );
+    }
+}

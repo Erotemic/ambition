@@ -10,11 +10,12 @@
 | [`bridge`](src/bridge.rs) | Yarn↔DialogState bridge. |
 | [`content`](src/content.rs) | Dialogue content types — minimal post-Yarn migration. |
 | [`context`](src/context.rs) | **Who is talking to whom** — the identity context of one conversation. |
+| [`continuity`](src/continuity.rs) | **What ends a conversation that the world keeps running through.** |
 | [`runtime`](src/runtime.rs) | `DialogState` — the dialogue UI read model. |
 | [`speech_sfx`](src/speech_sfx.rs) | Dialogue typewriter SFX selection and throttling. |
 | [`systems`](src/systems.rs) | Dialogue Bevy systems: input translation + the typewriter reveal tick. |
 
-_7 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

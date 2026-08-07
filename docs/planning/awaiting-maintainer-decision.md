@@ -60,7 +60,15 @@ be the one choosing.
 ✔ **The ENGINE answer is settled: both must be expressible.** "Stop the world" is
 a capability the dialogue system owes, not a behaviour it picks — so this is a
 policy with a default, exactly like #9 above, and the two share a shape.
-▢ **the game-level default stays open**, and does not block the engine work.
+✔ **and the game-level default is settled too** — Jon, 2026-08-06, *"Build it,
+default to per-seat"*, recorded in
+[`maintainer-decisions.md`](maintainer-decisions.md) (row 2026-08-06, "Dialogue
+claims only the TALKER's input by default").
+⛔ **this line said `▢ the game-level default stays open` until 2026-08-07**,
+three days after he answered it and directly above the note recording his answer.
+⚠ that is worse than an ordinary stale line in THIS file: a `▢` here is what a
+sweep looks for, so it invites re-raising a question the maintainer has already
+ruled on — the exact failure this file's own preamble describes about rows 1–7.
 
 **This is a product question, not a repair**, and it took a wrong turn to work
 that out — so the mechanism is written down here rather than re-derived.
@@ -107,6 +115,111 @@ nothing about per-seat input makes them per-seat.
 
 ---
 
+## Should the Hall cast and the content bosses declare dormancy? (2026-08-07)
+
+Carried from `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`, where it reads *"nobody has
+decided, and silence currently reads the same as 'always awake' whether or not
+that was chosen."* ⭐ **it is answerable now, because the two facts it turns on
+are measured rather than assumed.**
+
+### The facts
+
+1. **The Hall is 129 `NpcSpawn`s and every one is `brain: stand_still`**
+   (counted out of `hall_of_characters.ldtk`). So "should the Hall sleep" is a
+   question about 129 NO-OP brain ticks per frame, not about 129 actors thinking.
+   ✔ **re-counted 2026-08-07: 129 spawns, 129 `stand_still`, unchanged.** ⚠ the
+   authored field is `brain_override`, not `brain` — a re-count that queries
+   `brain` returns a clean ZERO and reads exactly like "this fact is now false".
+2. ⭐ **dormancy would NOT silence them.** `Dormant` is filtered by
+   `tick_actor_brains` (`actors/update.rs`, `Without<Dormant>`) and by nothing
+   else — `tick_npc_idle_barks` carries no dormancy filter at all. A sleeping
+   statue keeps its voice. That kills the obvious objection to sleeping a gallery.
+   ✔ **re-verified 2026-08-07**: still zero `Dormant` references in that system.
+
+### The fork
+
+- **Hall cast** — `AwakeNearObservers` is SAFE (barks survive, the brain is a
+  no-op, the bodies do not move) but saves only 129 no-op ticks. `Never` states
+  the intent and saves nothing. ⚠ **neither is wrong and the difference is
+  measurable**: if 129 StandStill ticks do not show in a frame profile, this is
+  purely about whether silence should be allowed to mean a choice.
+- **Content bosses** — `Never` is the answer that matches what they are. A boss
+  that stops deciding because the player stepped back is a bug, and silence
+  already means "always awake", so declaring it is BEHAVIOUR-PRESERVING and only
+  converts an omission into a statement.
+
+### Recommendation
+
+Declare `Never` on the content bosses (free, states intent, cannot regress), and
+leave the Hall until somebody has a frame profile that says 129 no-op brain ticks
+are worth removing. ⛔ **do not declare `Never` on the Hall as a tidy-up** — that
+would spend the decision without the measurement and make the later `AwakeNear
+Observers` change look like a reversal rather than a finding.
+
+⚠ what this does NOT decide: whether the dormancy policy should eventually take
+SECONDS rather than pixels. That is recorded at the Sanic constant and needs a
+third game, not this row.
+
+---
+## Size the character quad from the BBOX instead of the FRAME? (2026-08-07)
+
+Carries two of Jon's reports that turn out to be one decision: *"the Hall
+characters are inconsistent sizes"* and *"the snake's sprite does not match its
+box"*. ⭐ **the arithmetic makes them the same question**, and answering it
+deletes an authored field rather than retuning it.
+
+### The fact
+
+`sprite_render_size_scaled`
+(`ambition_sprite_sheet/src/character/sheets/geometry.rs:25`) is two lines, and
+both take their number from the PADDED FRAME:
+
+```rust
+let height = collision.x.max(collision.y).max(8.0) * spec.collision_scale * visual_scale;
+let width  = height * (spec.frame_width as f32 / spec.frame_height as f32);
+```
+
+- `collision_scale` — with `fill = body_pixel_bbox.h / frame_height`, the report's
+  formula is `figure = collision_scale x fill`, so `collision_scale = target /
+  fill`. **It is a reciprocal-of-padding fudge and nothing else.** That is why the
+  116 authored values "do not compensate for anything": they are hand-tuned
+  approximations of a computable quantity.
+- the width line takes the FRAME's aspect. Its own comment says it "preserves the
+  cropped frame's aspect ratio" — which is the defect stated as the intent.
+
+⭐ **measured consequence**: 13 scientist sheets on an explicit `1.0` render at
+figure height **0.84** while 33 high-fill sheets on the `1.5` default render at
+**1.42** — two populations of people, in one Hall, **1.69x apart**.
+
+### The fork
+
+- **TAKE IT.** Size and crop the quad from `body_pixel_bbox`. `fill` becomes 1.0
+  by construction, so every `collision_scale` collapses to ONE global constant
+  (the target figure height), and the snake's quad matches its box for the same
+  reason. ⚠ three coupled sites, and doing fewer is the stretched-sprite failure
+  this repo has already paid for:
+  1. `sheets/geometry.rs:25` — height off a constant, width off `bbox.w / bbox.h`;
+  2. the character sprite must draw the bbox SUB-RECT rather than the whole frame
+     (`ambition_render/src/rendering/actors/`);
+  3. `feet_anchor_norm` (`character/sheets/mod.rs:476`, consumed at
+     `rendering/actors/mod.rs:334`) is normalised against the FRAME and has to
+     move with the crop.
+- **LEAVE IT** and apply `--suggest` per character instead. Cheaper today, but it
+  spends a 116-row humanoid judgement on values the first branch would delete.
+
+### Recommendation
+
+⚠ **decide this BEFORE the humanoid pass**, whichever way it goes. The two are
+not independent: `--suggest` retunes a field that "take it" removes. If it is
+taken, the only judgement left is the handful of creatures whose figure should
+not match a human's — slug, snakes, parrot, trex, shark, mites — which is a far
+smaller ask than 116 rows.
+
+⚠ what neither branch decides: what the target figure height should BE. 1.21 is
+Jon's own Alice/Bob reference and reproduces Alice's authored 1.5 from her 81%
+fill, which is evidence it is the right constant, not proof.
+
+---
 ## Which of the 33 engine design documents have become history? (2026-08-01)
 
 `check_agent_kb` warns that `docs/planning` is **30,708 lines against a 10,500
@@ -150,6 +263,45 @@ being read, but so does one that is raised whenever it is inconvenient. It shoul
 move because somebody decided what belongs in `docs/planning`, not to silence a
 warning.
 
+### ⭐⭐ EVIDENCE ADDED 2026-08-07 — nine of them were read, and the answer is not
+### "archive the big ones"
+
+Queue lane C4 swept every `engine/` doc carrying an open-work section heading
+(`residual` / `debt` / `open question` / `remaining` / `not done` / `gap`) —
+eleven of them, nine cited nowhere in the active ledger — and read all nine.
+
+**Eight had nothing open.** Not "mostly done": their open-work sections described
+a tree that no longer exists. `room-transition-loading.md`'s section headed
+*"Current source-backed gap"* was false in every clause; `character-definition-design.md`'s
+"Attack intent gaps (block Smash)" was 3-of-4 closed and Smash has shipped;
+`participant-input.md`'s "deliberately not done" list was 5-of-8 landed;
+`unified-movement-kernel.md`'s "Residual debt (honest)" was 4-of-5 paid.
+
+⭐ **so "which are history" is the wrong cut, and the sweep says why.** These files
+are not history — their DESIGN ARGUMENTS are live and were load-bearing today
+(three of them explained why the current code is shaped as it is, and one supplied
+the fix for a defect). What has gone stale is a SECTION KIND: the status/gap/debt
+lists inside them. Archiving `room-transition-loading.md` would throw away the
+argument that room transitions must not fabricate shell routes; leaving it
+untouched keeps a paragraph that reads as a current measurement and is not.
+
+⭐⭐ **a cheaper cut is now available**: strike the stale gap sections in place
+(as C4 did for nine files, ~200 lines annotated rather than deleted) and archive
+only files whose ARGUMENT is spent. That is a different and much smaller list than
+"the largest five", and `api-1.0-campaign.md` — the note above's most likely
+candidate — is still the best one on that list, because a closed campaign's
+argument IS spent.
+
+⚠ **and the budget arithmetic barely moves either way.** `engine/` measures
+**16,111 lines today** (up from 15,257 when this row was written, because the
+sweep ADDED annotations). Archiving the largest file frees 2,406 — about 8% of the
+overage. The decision is worth making for legibility, not for the warning.
+
+⛔ **one thing the sweep settles outright**: it is no longer true that nobody
+knows what is live in there. Nine are read and annotated, with each finding dated
+and file:line-backed. The remaining question is genuinely a judgement about
+argument value, which is what this file is for.
+
 ---
 
 ## Does `apple_rain`'s damageable box follow the head row when no sprite sample exists? (2026-08-01)
@@ -187,6 +339,38 @@ works *because of* the check the fold wants to remove.
 where headless tests live, and "it only changes the case with no sprites" is the
 same sentence as "it only changes what every test sees".
 
+### ⭐ How big is the shape change? MEASURED 2026-08-07 (the question was
+### answerable all along; nobody had read the sheet)
+
+The entry above says "a live boss's damageable shape changing" without saying by
+how much, which is the part that decides it. From
+`sprites_0_25x/gnu_ton_boss/giant_gnu_spritesheet.ron` (`giant_gnu`, frame
+**192 × 144** at this scale):
+
+* the authored `head_down` hurtbox is **one part, `head`, 42 × 33**, at `x: 75`,
+  with `y` descending **36 → 63** across its **9 frames** — the head coming down.
+* `rest`'s hurtbox is **the same 42 × 33 head part**, static at `y ≈ 36`. So
+  `head_down` is not a different-sized box; it is the same box, animated.
+* 42 × 33 is **≈ 5% of the frame area** (1 386 of 27 648 px²), sitting top-centre.
+
+⭐ **so the decision reads: on the no-sample path, `apple_rain`'s damageable
+region goes from the whole body box to a head-sized box covering about a
+twentieth of the frame, which descends during the attack.** That is a real
+change, not a rounding one — a player (or a headless test) hitting GNU-ton's
+flank mid-apple-rain would stop connecting.
+
+⚠ **it also cuts the other way, and that is why this is still yours:** the
+authored intent is unambiguous — the sheet author drew a descending head hurtbox
+for exactly these 9 frames, and `SpikeHalo`'s row is 9 frames too. The body-box
+fallback is what nobody chose; it is what happens when the catalog says nothing.
+So option 1 is "honour the art", and option 2 is "keep the larger box a live
+boss has always had". Both are defensible and the numbers do not pick.
+
+⛔ **and a measurement footgun that nearly buried this**: `grep -r` over the
+asset trees in a write-ahead worktree finds NOTHING, because the sheets are
+symlinks and recursive grep does not follow them without `-S`. A first pass here
+concluded `head_down` "is not authored anywhere", which is the opposite of true.
+
 ## Is a crate name part of the rollback wire format? (queue S30, 2026-08-01)
 
 **Newly blocking.** This sat as a queue row for days without costing anything.
@@ -216,6 +400,64 @@ general thing stuck in there.
 
 ⛔ **but moving it rewrites the fingerprint**, which is why the geometry carve
 went first and this one has not started. Deciding this unblocks it.
+
+### ⭐⭐ RE-VERIFIED 2026-08-07, and it is worse than "a crate name"
+
+Checked to the definitions rather than restated: `schema_dump()` writes
+`entry.name`, `entry.kind.canonical_name()`, **`entry.type_name`** and
+`entry.detail` — pointedly NOT `entry.owner`, which is v5's fix still holding —
+and `schema_fingerprint()` hashes that whole dump (`registry.rs:323-330`).
+
+⛔ **`type_name` carries the MODULE path, not just the crate.** Today's own work
+is the proof: registering `ActiveConversation` put this line in the baseline —
+
+```
+resource.active_conversation	resource-clone	ambition_platformer2d_actor_monolith::conversation::authority::ActiveConversation	…
+```
+
+`::conversation::authority::` is a module layout decision from this morning, and
+it is now inside the wire-format hash. So the sensitivity is not "moving a type
+between crates" — it is **moving a type between modules**, which is an ordinary
+refactor this repo does weekly.
+
+⚠ **and that collides directly with Jon's decomposition instruction** (2026-08-07:
+*"if we add things to the monolith, try to do it so it's obvious what the
+decomposition should be. we will need to address that bloat in the coming
+days."*). Carving the monolith moves rollback-registered types between modules and
+crates by definition, so every step of that campaign rewrites the fingerprint and
+declares two identical builds incompatible. This row does not block one carve; it
+taxes the whole decomposition.
+
+⭐ **the argument the row already makes now has a second instance.** v5 stopped
+hashing the owner because *"which module registered this"* is not a wire-format
+fact. `type_name`'s module path is the same category of organisational label
+wearing a different hat — and unlike the owner, nobody chose to hash it; it came
+along inside a string that was being used for identity.
+
+### ⭐ A third option, which dissolves the trade rather than picking a side
+
+What does `type_name` actually BUY the fingerprint? Exactly one thing the other
+hashed fields do not: catching **the same stable name bound to a different type
+across two peers**. ⚠ within a single build that is already impossible —
+`registry.rs:181` raises *"conflicting rollback registration '{name}'"* and
+`:365` panics on it — so the value is strictly cross-peer.
+
+⇒ **hash the type's IDENTITY without its PATH.** The last segment
+(`ActiveConversation`) or a stable type id keeps the cross-peer check exactly as
+strong, because the pair `(stable name, type basename)` is what actually differs
+in the case being guarded against — while a module move, a crate carve and the
+whole decomposition campaign become free.
+
+⚠ the honest weakness: two types with the SAME basename in different modules,
+bound to the same stable name on two peers, would slip through. That requires a
+name collision on both the schema name and the type basename simultaneously, and
+the schema names are hand-authored and unique. ⭐ this is strictly stronger than
+hashing nothing, and strictly cheaper than hashing the path — which is the shape
+of an answer rather than a preference.
+
+⛔ **and it needs a `GGRS_ROLLBACK_SCHEMA_VERSION` bump**, exactly as v5 did when
+it stopped hashing the owner. The precedent for this change is the change itself,
+one level down.
 
 ### ⭐ Two things measured since, both of which enlarge this decision
 
@@ -402,9 +644,19 @@ it rests on has since inverted.
   toward the lip), not a tuning change. And it means the survival numbers above
   may be measuring stage geometry as much as lookahead depth — a fighter that
   cannot recover at all will self-KO regardless of what its rollout decides.
-  ▢ unconfirmed detail: the 8.16 offset implies a body half-width of 8.16 and no
-  such number is authored; the box may be sprite-derived (`SpriteAuthored`'s
-  per-pose projection) or the stop may be a different contact.
+  ✔ **SETTLED 2026-08-07 — the first explanation, structurally.** The 8.16 offset
+  implies a body half-width nobody authored, and for these characters nobody
+  authors one: a catalog entry carries **no `body:` field at all**, only
+  `body_kind` and an optional `sprite_tuning: (collision_scale,
+  frame_sample_inset)`. So `prepared.body` is `None`, `PhysicalBaseline::of`
+  yields `explicit_size: None`, and the box is derived from the SHEET. That is the
+  same policy `BodySource::SpriteAuthored` names explicitly, whose own doc says it
+  *"is not a size, it is a policy, and its authority is the per-pose
+  projection"* — which is exactly why searching for the number finds nothing.
+  ⚠ **the arithmetic is not claimed**: 8.16 as `world_per_pixel × pixel_half_width`
+  would need the derivation run against that character's sheet. What is settled is
+  that an UNAUTHORED half-width is the expected state here, not a symptom — so it
+  is no longer evidence for "the stop may be a different contact".
 
 ⚠ whichever way: the three prose claims that said `rollout_depth` was zero
 everywhere are corrected as of 2026-08-02, so the code and its description now
@@ -430,11 +682,25 @@ shield — but it encodes it in the BRAIN, where every game inherits Smash's cal
 Jon's answer says this is a per-game policy with three states, and Ambition's is
 still open.
 
-▢ **the architecture item, which does not need Ambition's answer**: lift
-"may a body block while airborne" out of `brain/smash` into the game's policy,
-defaulting to Smash's rule so nothing changes by accident. Then Ambition can
-answer later by authoring, not by editing the brain — and the duel fixture can
-state which rule it is testing under instead of inheriting one silently.
+✔ **DONE 2026-08-07 — the architecture item, which did not need Ambition's
+answer.** `SmashCfg::shield_requires_ground` now carries the rule, and the two
+sites that hardcoded `obs.self_on_ground` — the reactive-block arm and the hold
+that follows it — read the policy. It defaults to `true` in every `SmashCfg`
+constant, so nothing changed by accident: `ambition_characters` 468,
+`ambition_demo_smash` 50, contracts 25/25, app gate green.
+
+⭐ so **Ambition's answer is now an AUTHORING act rather than a brain edit**, and
+the duel fixture can state which rule it fights under instead of inheriting one
+silently. ▢ **the product question below stays open and is unchanged** — this
+lift deliberately decides nothing about what Ambition wants.
+
+⚠ **worth knowing for the next change of this shape**: `SmashCfg` rides inside
+`Brain`, which IS rollback state (`actor.brain`, `component-clone-cursor`) — and
+the frozen schema baseline did NOT move. It records type NAMES and snapshot
+strategies, not field layouts, so a nested struct can change shape without the
+wire-format guard noticing. That is the documented design of a clone snapshot
+rather than a hole, but it means "the baseline is green" is not evidence that a
+nested type is unchanged.
 
 Two `app_it` duel tests have been failing since before this run. The cause is
 measured, not suspected — the same fight, both fighters, identical capabilities:
@@ -770,3 +1036,172 @@ art is already drawn and specified; the missing half is a publisher, which is
 mechanical. But casting three enemies nobody has a room for is content debt, and
 you are the one who knows whether the robot heavies belong to a faction that is
 going to exist.
+
+---
+
+## Is a SESSION scope marker construction provenance, the way a ROOM scope marker is? (raised 2026-08-07)
+
+The last open row in `tracks.md`'s rollback-anchor sweep, narrowed today from
+"an archetype the engine does not honour" to **one component**.
+
+`no_snapshot_registration_is_inert_*` reports entities whose components are
+registered as rollback state while the entity carries no rollback anchor. The
+sweep skips a known-safe class via `PROVENANCE_ONLY`, whose argument is that
+construction provenance *is written ONCE and never again (ADR 0030), so a rewind
+that does not restore it restores exactly the value it already holds.*
+
+The reported archetype is `SpawnOrigin + TransactionId + SimId +
+RoomScopedEntity + SessionScopedEntity + Name`. **Five of those six are in
+`PROVENANCE_ONLY`.** It is reported at all because of exactly one:
+`SessionScopedEntity`, which IS registered rollback state (`scope.session`,
+`domains/primitives.rs:110`) and is absent from that list.
+
+**So the question is a short asymmetry.** `RoomScopedEntity` and
+`SessionScopedEntity` are both write-once scope markers stamped at construction,
+and the provenance argument above reads identically for both. Why is one in and
+one out?
+
+⛔ **and there is a real reason it might be deliberate, which is why this is not
+mine to answer.** The sibling waiver for `Messages<SessionScopeRetired>` says a
+rewind *"must not un-retire a scope"*. Session lifetime has a rewind rule that
+room lifetime does not. Whether that rule reaches the MARKER as well as the
+retirement message is the entire decision.
+
+**The decision:**
+
+* **(a) it is provenance** — add `SessionScopedEntity` to `PROVENANCE_ONLY`
+  beside `RoomScopedEntity`, on the grounds that a marker stamped once cannot be
+  restored wrongly. One line, and the sweep's last open class closes.
+* **(b) it is lifecycle** — the marker participates in scope retirement, so a
+  rewind restoring it could resurrect membership of a retired scope. Then it
+  stays out, and what is owed is a WAIVER that says this in one sentence, so the
+  next reader does not re-derive the same question.
+
+⚠ **a third fact that changes what either answer buys.** Both
+`no_snapshot_registration_is_inert_*` assertions currently PASS, so this
+archetype appears in NO composition any test sweeps — it exists only under the
+shell. The report now names the offending entity (improved today), but that helps
+only once a test reaches that composition. **Whichever way this goes, the sweep is
+green about a class it never looks at**, and that is a separate and arguably more
+useful piece of work than the classification.
+
+⚠ **no recommendation.** The provenance argument is symmetric and I can construct
+it either way; the deciding fact is what scope retirement is allowed to mean
+across a rewind, which is a rollback-ownership call.
+
+---
+
+## How should the portal map convention stop being a process global? (raised 2026-08-07)
+
+`closeout-review-followups-2026-07-20.md` §2 recorded this and it is still true:
+`ambition_platformer2d_shared_tangle::math` holds
+`static PORTAL_MAP_ROTATION: AtomicBool`, and `portal_map_vec` dispatches on it.
+That function's own doc calls it *"one orthogonal map shared by velocity,
+position, AABB, input, and rays so they always agree"* — so the global is the
+single switch under the entire portal map.
+
+⭐ **the harm is concrete, not theoretical.** `sync_portal_tuning_convention` runs
+**every frame** (`PortalSet::InputAdapter`), writing that App's `PortalTuning`
+into the process-wide static. Two Apps in one process therefore fight over it once
+per frame — and a parallel test binary IS two Apps in one process. Today nothing
+collides only because every composition defaults to `Reflection`.
+
+**Already done (2026-08-07):** `transfer_step`'s three DERIVED facts — roll,
+facing flip, input warp — read `tuning.convention` instead, because
+`PortalTuning` was already in its argument list. That is the small half.
+
+**The measured cost of the rest.** `portal_map_vec` has 5 non-test callers, but
+the helpers wrapping it do not:
+
+```text
+  map_point                          14 call sites
+  portal_transform_velocity           3
+  map_aabb                            2
+  rotate_velocity_between_normals     0  (a rename of portal_transform_velocity)
+```
+
+Threading a convention parameter therefore reaches ~19 sites, many in geometry and
+presentation code with no `PortalTuning` in scope.
+
+**The decision:**
+
+* **(a) thread it** — a `MapConvention` argument through all ~19. Honest and
+  total; ⚠ this is the shape that cascaded on the fighter ladder the same day
+  (323 lines, never compiled), and for the same reason: a value needed at leaves
+  and owned at a root.
+* **(b) leave the global, make its WRITE session-owned** — once at session start
+  rather than every frame. Cheap, and ⛔ does not fix two Apps: it narrows the
+  window rather than closing it.
+* **(c) follow the crate's own precedent** — `portal_map_vec` gains a
+  `*_for_convention` form, `map_point` / `map_aabb` / `portal_transform_velocity`
+  gain theirs, and the SIMULATION callers migrate while presentation keeps the
+  convenience wrappers that read the global. This is exactly what
+  `somersault_roll` / `somersault_roll_for_convention` already are, and what made
+  today's fix one `let` plus three swaps.
+
+⚠ **weak recommendation: (c)**, because the crate has already solved this shape
+once and the result is the reason the derived-facts half was cheap. But it leaves
+a global that presentation still reads, so it is a judgement about whether "the
+simulation is session-authoritative and the HUD is not" is an acceptable
+resting place — and that is a call about the engine's own standard, not a
+refactor anyone should pick unilaterally.
+
+⭐ **a canary already exists either way**:
+`a_transit_takes_its_convention_from_tuning_not_the_process_global` asserts the
+global is at its default before it runs, so the first test that writes it turns
+the contamination into a failure with a name.
+
+---
+
+## Does the Perfect Cellular Automaton fly when it fights? (raised 2026-08-07)
+
+Promoted out of [`review-gpt56-through-32eb27a.md`](review-gpt56-through-32eb27a.md)
+P5, where it was recorded as *"the fix is not a resolution rule, it is a
+DECISION"* and then sat in a review ledger rather than where decisions are read.
+
+⭐ **it became a clean two-way question today**, because the type change that made
+it expressible landed: `ArchetypeSpec::is_aerial` is `Option<bool>` now, so an
+archetype can say *grounded* distinctly from saying nothing.
+
+### The two answers, both of them stated in content
+
+| source | says | read by |
+|---|---|---|
+| `character_catalog.ron` — `body_kind: Floating` | it FLIES | `new_peaceful_npc_in` (the NPC placement path) |
+| `character_archetypes.ron` — `is_aerial: Some(false)` | it is GROUNDED | the hostile `EnemySpawn` path, and the duel arena |
+
+⛔ **so this is not a silence to resolve with a precedence rule.** Before today it
+looked like one — a bare `bool` could not distinguish "the archetype says
+grounded" from "the archetype never said", so "the catalog wins when the
+archetype is silent" was a plausible fix. It is not available: somebody authored
+`false`. Two authors said opposite things and both meant it.
+
+**What it costs either way.** The PCA is a shipped fighter and the duel arena
+plays it grounded (`actor_movement_tests` asserts exactly that, and now asserts
+`Some(false)` so the deliberateness is pinned). Making it fly changes a shipped
+fight; making the catalog's `Floating` a lie changes what a Hall visitor sees.
+
+**The decision:**
+
+* **(a) it flies** — the catalog is right, and `cellular_automaton_fighter` should
+  author `Some(true)`. ⚠ changes the duel; `actor_movement_tests`' two assertions
+  are the ones that go red, and they would be recording the new answer rather
+  than a regression.
+* **(b) it is grounded** — the archetype is right, and the catalog's `body_kind`
+  should stop saying `Floating` for this character. Cheapest, and it matches what
+  ships today.
+* **(c) it is BOTH, legitimately** — a body that floats as scenery and fights on
+  the ground. Then neither source is wrong and what is missing is that the two
+  paths do not know they are answering different questions; the fix is a name,
+  not a value.
+
+⚠ **weak recommendation: (b)**, purely because it is what the shipped game does
+and the change is one authored word. But (c) is the interesting one — the PCA is a
+cellular automaton, and "floats when idle, grounds to brawl" is a real character
+idea rather than a reconciliation. That is a design call and it is why this is
+here rather than in a queue.
+
+⭐ **what does NOT need the answer**, and is already done: the type change, so the
+contradiction is expressible; and the note that assembly must not REJECT
+contradictions until this is settled, because rejecting would refuse the PCA
+today.

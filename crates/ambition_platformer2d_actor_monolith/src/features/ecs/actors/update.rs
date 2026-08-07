@@ -482,8 +482,8 @@ pub fn tick_actor_brains(
         // relabels as peaceful, and is re-provokable (strike it past the threshold)
         // again — but KEEPS its aggression mode, so it re-acquires and re-engages the
         // instant a foe reappears (retreat → escape → peaceful; reacquire →
-        // fighting). A HostileToPlayer enemy keeps the live player as its target, so
-        // it never spuriously stands down. Relativity-neutral (any fighter, any
+        // fighting). A `Hostile` enemy keeps its live foe as its target, so it
+        // never spuriously stands down. Relativity-neutral (any fighter, any
         // faction). This REPLACES the former hard pacify-to-passive, which dead-ended
         // a duel winner (couldn't be talked to or re-provoked, and mislabeled it).
         if disposition.is_hostile() && target.entity.is_none() {

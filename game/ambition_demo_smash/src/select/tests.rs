@@ -134,25 +134,29 @@ fn a_single_decided_slot_never_starts_a_battle() {
     assert!(select.roster(&fighters()).is_none());
 }
 
-/// **A MATCH BETWEEN TWO MACHINES IS A MATCH.**
+/// **Two CPUs ARE a match, and a person can join them.**
 ///
-/// ⛔ **this test used to assert the opposite**, and it was wrong — not subtly,
-/// but against a requirement Jon stated outright on 2026-08-06: *"it does not
-/// let me make a CPU vs CPU match, and it is very important that that is
-/// expressible and easy to do."* The rule it pinned was
-/// `humans_decided() >= 1` in `ready()`, whose reasoning read *"the screen would
-/// start a fight between two machines while the player who set them up had not
-/// chosen anybody"* — which describes exactly what somebody watching their own
-/// AI fight itself is asking for. Watching is participating.
+/// Jon, 2026-08-06: *"it does not let me make a CPU vs CPU match, and it is very
+/// important that that is expressible and easy to do."*
 ///
-/// ⚠ the shape is worth keeping in view: the rule and this test agreed with each
-/// other, so the suite was green over a feature the product did not have. A test
-/// that encodes a policy cannot also be the evidence the policy is right.
+/// ⛔ **this test asserted the opposite until 2026-08-07, and stayed red for a
+/// day.** `ready()` had a third clause — `humans_decided() >= 1` — removed on
+/// that instruction; the test that pinned the clause was left behind, still
+/// demanding a blocker string (`"At least one slot must be a controller
+/// player"`) that no longer exists anywhere in the source. ⚠ a red test whose
+/// expected value is absent from the tree is the tell: it is describing a
+/// version of the product that was decided against, not a fix that is owed.
 ///
-/// What remains is product policy that IS true: every participating slot has
-/// picked, and at least two participate.
+/// ⚠ **and the rule and this test AGREED with each other**, so the suite was
+/// green over a feature the product did not have. A test that encodes a policy
+/// cannot also be the evidence the policy is right.
+///
+/// It is kept rather than deleted because its second half was always right, and
+/// because Jon's rule deserves a pin at THIS level — until now the only thing
+/// asserting CPU-vs-CPU was the host-level `two_cpus_can_fight_each_other`,
+/// which cannot fail for a reason as small as `ready()` growing a clause back.
 #[test]
-fn two_cpus_are_a_match_somebody_can_watch() {
+fn two_cpus_are_a_match_and_a_person_can_join_them() {
     let mut select = SmashSelect::default();
     for slot in [0, 1] {
         select.set_occupant(slot, SlotOccupant::Cpu);
@@ -161,33 +165,144 @@ fn two_cpus_are_a_match_somebody_can_watch() {
     assert_eq!(select.cpus(), 2);
     assert!(
         select.ready(),
-        "two decided CPU slots are two fighters and a stage; refusing them is \
-         the defect Jon reported, not a safeguard"
+        "a CPU-vs-CPU match could not start, which Jon asked for by name"
     );
-    let roster = select
-        .roster(&fighters())
-        .expect("a decided two-CPU lobby produces a roster");
-    assert_eq!(roster.participants.len(), 2);
-    assert!(
-        select.blocker().is_none(),
-        "a ready lobby must not still be telling somebody what to do: {:?}",
-        select.blocker()
+    assert_eq!(
+        select.blocker(),
+        None,
+        "the screen named an obstacle to a match that is allowed to start"
+    );
+    assert_eq!(
+        select
+            .roster(&fighters())
+            .expect("two decided CPUs are a match")
+            .participants
+            .len(),
+        2
+    );
+
+    // ...and a person joining does not displace them.
+    select.set_occupant(2, SlotOccupant::Controller { device: 0 });
+    select.set_pick(2, 2);
+    assert!(select.ready());
+    assert_eq!(
+        select
+            .roster(&fighters())
+            .expect("one player and two CPUs is a match")
+            .participants
+            .len(),
+        3
     );
 }
 
-// ⛔ **THE GRID-FILTER TEST MOVED, and where it went is the point.** It built a
-// synthetic CATALOG string and asserted `assemble` kept the id that catalog had
-// and dropped the one it did not. On 2026-08-07 the filter moved from the
-// catalog to the PREPARED REGISTRY — a row says what a character IS,
-// `register_character` is what makes one BUILDABLE, and eight of the twelve
-// shipped portraits were rows nothing had registered — and "can be seated" is
-// not a fact a parsed catalog string has. Filling a registry needs the
-// preparation barrier, which needs a composition, which this crate is not.
+/// **A pick outlives its occupant.** Toggling a slot from controller to CPU and
+/// back is how a player hands their fighter to the machine; clearing the
+/// portrait on the way through would make that a re-pick every time.
+#[test]
+fn the_chosen_character_survives_the_button() {
+    let mut select = SmashSelect::default();
+    select.cycle_occupant(0, 2);
+    select.set_pick(0, 5);
+    select.cycle_occupant(0, 2); // → CPU
+    assert_eq!(select.slot(0).pick, Some(5));
+    select.cycle_occupant(0, 2); // → absent
+    assert_eq!(select.slot(0).pick, Some(5));
+    assert_eq!(
+        select.slot(0).locked_character(),
+        None,
+        "an absent slot's remembered pick counted toward the match"
+    );
+}
+
+/// **A pick with no fighter behind it costs a SEAT, not a wrong fighter.**
+///
+/// The roster is a composition fact now, so it can in principle be smaller than
+/// an index a decided screen is holding. Dropping that seat is the only safe
+/// answer: clamping would seat somebody nobody chose, and a panic would take
+/// the whole match down over one card.
+#[test]
+fn a_pick_past_the_end_of_the_roster_loses_its_seat_rather_than_inventing_one() {
+    let mut select = SmashSelect::default();
+    select.set_occupant(0, SlotOccupant::Controller { device: 0 });
+    select.set_pick(0, 0);
+    select.set_occupant(1, SlotOccupant::Controller { device: 1 });
+    select.set_pick(1, 1);
+    select.set_occupant(2, SlotOccupant::Cpu);
+    select.set_pick(2, 999);
+
+    let roster = select
+        .roster(&fighters())
+        .expect("two seats with real fighters are still a match");
+    assert_eq!(
+        roster.participants.len(),
+        2,
+        "a pick nothing in the roster answers put a fighter on the stage anyway"
+    );
+}
+
+/// The roster is the screen's decision, and only exists once it IS one.
+#[test]
+fn the_roster_carries_every_decided_slot_on_its_own_side() {
+    let mut select = two_decided();
+    select.set_occupant(3, SlotOccupant::Controller { device: 3 });
+    select.set_pick(3, 2);
+
+    let roster = select
+        .roster(&fighters())
+        .expect("three decided slots are a match");
+    assert_eq!(roster.participants.len(), 3);
+    assert_eq!(roster.fighter_stocks, Some(STARTING_STOCKS));
+    assert!(roster.opens_suspended);
+
+    // Slot 3's device is 3, not 2 — the roster is indexed by the SOURCE
+    // somebody holds, not by how many people showed up. A compacted list would
+    // hand slot 3's controller to the wrong body.
+    let devices: Vec<u8> = roster
+        .participants
+        .iter()
+        .filter_map(|participant| match participant.controller {
+            crate::ControllerBinding::Human { device_slot } => Some(device_slot),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        devices,
+        vec![0, 1, 3],
+        "the roster renumbered the slots, so a player's controller drives \
+         somebody else's fighter"
+    );
+}
+
+/// **Every id this demo DECLARES is one its own catalog carries.** ⛔ a roster
+/// naming a character the catalog does not have is a seat the match REFUSES,
+/// and the refusal arrives at spawn time on a screen that already said "go".
+#[test]
+fn every_own_fighter_is_declared_by_this_demo() {
+    for id in OWN_FIGHTERS {
+        assert!(
+            crate::SMASH_CATALOG_RON.contains(&format!("\"{id}\":")),
+            "'{id}' is one of this demo's own fighters and no catalog row declares it"
+        );
+        assert!(
+            SMASH_ROSTER.contains(id),
+            "'{id}' is declared and then left off the grid"
+        );
+    }
+}
+
+// **`the_grid_is_the_roster_list_filtered_to_what_the_composition_carries`
+// lives in `ambition_app` now**, as
+// `smash_in_the_host::the_grid_offers_only_named_and_seatable_fighters`.
 //
-// The claim now lives in `ambition_app`'s `smash_roster_movesets`, against the
-// REAL shipped registry: every assembled id is one the roster names and one the
-// host can seat. A synthetic re-implementation here would have been a test of a
-// fixture rather than of the screen.
+// ⛔ it filtered a synthetic `CharacterCatalog`, and the FILTER MOVED: a row
+// says what a character IS, and `register_character` is what makes one
+// BUILDABLE. Eight of the twelve shipped portraits were rows nothing had
+// registered — seatable as player one, where the adopted home body consulted
+// the registry optionally, and unbuildable in every other seat. This crate
+// cannot fill a `PreparedCharacterRegistry` (that needs the preparation
+// barrier, which needs a composition), so the claim had to move to a test with
+// a real one. The host version asserts BOTH directions, because each alone is
+// satisfiable by a broken filter.
 
 /// **The roster list is a list of DISTINCT characters.**
 ///

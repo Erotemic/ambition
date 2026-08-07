@@ -224,7 +224,9 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
     found.extend(tagged.iter(world));
     let mut bodies = world
         .query_filtered::<Entity, With<ambition_platformer2d::actors::actor::BodyKinematics>>();
-    found.extend(bodies.iter(world));
+    let body_hits: Vec<Entity> = bodies.iter(world).collect();
+    let body_count = body_hits.len();
+    found.extend(body_hits);
 
     let all: Vec<Entity> = {
         let world = sim.world_mut();
@@ -243,6 +245,37 @@ fn simulated_population(sim: &mut Platformer2dSimHarness) -> Vec<Entity> {
             found.insert(entity);
         }
     }
+    // ⛔ **ANTI-VACUITY, and it is load-bearing for NINETEEN tests.** Every sweep
+    // in this file runs `unaccounted_components` over this population and passes
+    // when the result is empty — which is also what an EMPTY POPULATION produces.
+    // A fixture that booted no bodies, or a filter that stopped matching after a
+    // bundle changed, would turn the whole file green in one commit and read
+    // exactly like an all-clear.
+    //
+    // ⚠ what is asserted is what is TRUE OF EVERY FIXTURE: a body exists, and the
+    // union is non-empty. The vocabulary-derived third source is not asserted —
+    // a room with no transient volumes legitimately contributes none.
+    // ⛔ **NOT asserted per-filter on `FeatureSimEntity`, and the reason is a
+    // measurement.** The review that asked for per-filter anti-vacuity
+    // (`fable-reply-2026-07-19-b.md` §3) was written when this helper served ONE
+    // fixture — a single boot room — and "a filter that matched nothing" could
+    // only mean a broken filter. It now serves ten rooms, and `portal_lab`
+    // authors no `FeatureSimEntity` at all (measured 2026-08-07, by asserting it
+    // and watching that room alone fail). A room that authors no feature entities
+    // is a legitimate room, not a broken fixture, so the assert the review asked
+    // for would be a false alarm on real content. The granularity that was right
+    // for the smoke is wrong for the sweep it became.
+    assert!(
+        body_count > 0,
+        "no entity in this fixture carries `BodyKinematics`, so the rollback \
+         coverage sweep is about to inspect a population with no bodies in it \
+         and report a confident all-clear"
+    );
+    assert!(
+        !found.is_empty(),
+        "the rollback coverage population is EMPTY — every sweep in this file \
+         would pass by having nothing to look at"
+    );
     found.into_iter().collect()
 }
 
@@ -1359,6 +1392,21 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "ambition_platformer2d_shared_tangle::block_nudge::",
         "a struck block's flinch is a drawn offset: one render-plugin reader on          the wall clock, writing only presentation components, over geometry          that is authoritative and static by design",
     ),
+    // ⭐ **AUTHORED CONTENT, written once and never by a system.** The game's
+    // fighter difficulty rungs, lowered from the compiled content pack and
+    // inserted at plugin build. No system mutates it; there is no tick at which
+    // its value differs from the tick before, so there is nothing for a rewind to
+    // restore. What a rewind DOES restore is the brains built from it, and those
+    // are ordinary rollback state.
+    //
+    // ⚠ the question this answers is not "is it important" — it is very
+    // important, and a fighter reads it on the frame it spawns. It is whether a
+    // REWIND can observe it changing, and it cannot: the only writer is
+    // `AmbitionContentPlugin`, before any frame runs.
+    (
+        "ambition_characters::brain::fighter::profile::AuthoredFighterLadder",
+        "authored difficulty rungs, lowered from the content pack at plugin build          and never written by a system: no tick changes it, so a rewind has          nothing to restore",
+    ),
     // Bevy wrapper resources around non-simulation machinery.
     ("bevy_asset::", "asset plumbing"),
     (
@@ -1957,10 +2005,23 @@ fn inert_registrations(sim: &mut Platformer2dSimHarness) -> BTreeMap<String, BTr
         // strands the same way however many copies of it the room holds, and a
         // failure listing 40 entities is a failure nobody reads.
         let key = stranded.iter().cloned().collect::<Vec<_>>().join(" + ");
-        inert
-            .entry(key)
-            .or_default()
-            .extend(names.intersection(&anchors).cloned());
+        // ⛔ **the value used to be `names.intersection(&anchors)`, which is
+        // PROVABLY EMPTY here** — the loop `continue`s a few lines up whenever
+        // that intersection is non-empty, so every archetype reported an empty
+        // set beside it. The failure named a shape and could never name a thing.
+        //
+        // ⭐ the entity's NAME is what an investigation actually needs, and
+        // `tracks.md` says so in its own words: *"the next investigation should
+        // probe inside `Platformer2dSimHarness` … and print the entity's `Name`,
+        // rather than re-deriving that the shell is involved."* Putting it in the
+        // instrument means that probe never has to be written.
+        //
+        // Still deduped, so 40 copies of one prop stay one line.
+        let label = world
+            .get::<bevy::prelude::Name>(entity)
+            .map(|name| name.as_str().to_string())
+            .unwrap_or_else(|| format!("<unnamed {entity}>"));
+        inert.entry(key).or_default().insert(label);
     }
     inert
 }

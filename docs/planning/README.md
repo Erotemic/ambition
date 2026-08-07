@@ -73,6 +73,38 @@ A prior agent report is evidence about what was attempted, not proof that HEAD
 still has the claimed property. Avoid fragile exact counts unless the count is
 decision-relevant.
 
+### Write a status as a CITATION, not a SITUATION
+
+⛔ **the failure this prevents was measured, not imagined**: on 2026-08-07 a
+single run found ten stale planning claims — a whole plan file open on a shipped
+game mode, 8 of 9 engine docs whose "open" sections described a tree that no
+longer exists, a decision file reading `▢ still open` three lines under the
+maintainer's recorded answer, and 4 of 4 sampled rows in a carried queue already
+closed. Each cost a read to disprove, and two nearly sent an agent to undo a
+decision or redo finished work.
+
+⭐ **every one of them was phrased as a SITUATION**, and that is the whole
+difference. Compare:
+
+* *"the ordinary room-transition path does not compose those pieces"* — a
+  situation. Nothing can check it, and it was false for weeks.
+* *"`ROOM_READY_BARRIER` does not exist"* — a citation. It names something, and a
+  reader confirms or refutes it in one grep.
+
+**The rule**: when you write a status — DONE, OPEN or BLOCKED — name something a
+machine can look for. A test, a symbol, a file. `scripts/check_roadmap_evidence.py`
+enforces exactly this for the rows it can parse, and its docstring states the
+authoring half: *"A BACKTICKED name is a CLAIM THAT IT EXISTS … it is what lets a
+correction paragraph name a retired file without the guard calling it rot: write
+the dead name as plain prose."*
+
+⚠ **and do not answer this with a scanner** — rule 5 below already says so, and a
+prototype confirmed why: a check over backticked names across the 35 engine docs
+reports ~118 absences, dominated by design docs correctly naming things they
+record as retired, and catches **zero** of the ten failures above, because a
+situation names nothing to look for. The convention is cheap and the checker is
+noise.
+
 ## Living-plan rules
 
 1. Keep only material current status and next work.

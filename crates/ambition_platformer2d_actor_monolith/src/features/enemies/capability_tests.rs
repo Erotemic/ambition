@@ -112,7 +112,12 @@ fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
     // Aggressive sky form.
     let sky = test_spec("sky_parrot");
     assert!(sky.attacks_player, "sky_parrot is hostile by default");
-    assert!(sky.is_aerial, "sky_parrot flies (aerial, no gravity)");
+    assert_eq!(
+        sky.is_aerial,
+        Some(true),
+        "sky_parrot flies (aerial, no gravity), and says so EXPLICITLY — `None` \
+         would mean it never stated an answer"
+    );
     assert!(sky.melee.is_some(), "sky_parrot has a dive/peck melee");
     assert_eq!(
         sky.brain_template,
@@ -137,7 +142,7 @@ fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
             &catalog,
             "stochastic_parrot"
         )
-            .is_some(),
+        .is_some(),
         "the parrot catalog row must resolve a sprite sheet",
     );
 

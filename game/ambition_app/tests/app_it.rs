@@ -18,6 +18,7 @@ mod app_it_sync;
 
 mod actor_phase_split;
 mod app_local_catalog_composition;
+mod authored_fighter_ladder;
 mod blink_run_reachability;
 mod boot_budget;
 mod boss_contact_iframes;
@@ -42,6 +43,7 @@ mod duel_arena;
 mod effect_quarantine;
 mod enemy_attacks_player;
 mod every_character_says_something;
+mod experience_scope_ownership;
 mod falling_sand_room;
 mod fb6_shadow_fidelity;
 mod fuzz_random_walker;

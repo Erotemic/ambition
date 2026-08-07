@@ -1239,7 +1239,23 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // A match that ended with the route it ran on. Left standing, it
                 // is the next game's seating refusing to run because a match is
                 // already "live".
-                .releasing::<ambition_platformer2d::actors::character_runtime::ActiveMatch>()
+                //
+                // ⛔ **by OWNER, and the owner is on the PLAN.** This removed the
+                // activation by TYPE until 2026-08-07, as did the versus stage's
+                // scope in the host that lists BOTH of us — so whichever left
+                // first deleted the other's live match. `ActiveMatch` names the
+                // SESSION whose plan it receipts and no publisher, so the plan
+                // it came from is what answers "which GAME is this".
+                //
+                // ⚠ **two different questions, and both are needed.** The
+                // session id (added 2026-08-07 so a finished match cannot be
+                // rebuilt by its own activation) says WHICH ACTIVATION of one
+                // game; the witness here says WHICH GAME, which is the only one
+                // that matters when two providers share a host.
+                .releasing_witnessed::<
+                    ambition_platformer2d::actors::character_runtime::ActiveMatch,
+                    ambition_platformer2d::actors::character_runtime::PreparedMatch,
+                >(|plan, owner| plan.is_published_by(owner.as_str()))
                 // ⛔ **AND THE PLAN, which is the same lesson one resource later.**
                 // `PreparedMatch` is global and had no lifetime when it was
                 // introduced, so it outlived every smash route — and because the
@@ -1250,7 +1266,12 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 // panicked on its own hard invariant, which is the loudest this
                 // class of bug has ever been and the reason it took minutes
                 // rather than the afternoon the roster version took.
-                .releasing::<ambition_platformer2d::actors::character_runtime::PreparedMatch>()
+                //
+                // ⚠ declared AFTER the activation above, which reads it as its
+                // witness: releases run in declaration order.
+                .releasing_owned::<
+                    ambition_platformer2d::actors::character_runtime::PreparedMatch,
+                >(|plan, owner| plan.is_published_by(owner.as_str()))
                 // A RESTART IS FRESH. `resetting`, never `releasing`: the
                 // screen's systems take these as plain `ResMut`, so REMOVING
                 // them panics the app on the frame the experience ends — which

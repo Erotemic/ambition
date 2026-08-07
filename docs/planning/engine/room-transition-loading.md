@@ -71,6 +71,41 @@ readiness checks.
 
 ## Current source-backed gap
 
+> ⛔⛔ **SWEPT 2026-08-07 — this entire section is STALE, and its heading is the
+> most authoritative-sounding one in the file.** "Current source-backed gap" reads
+> as a measurement of the tree. It was one, once. Every claim below was checked
+> against the tree today and each is now false:
+>
+> * *"The ordinary room-transition path does not compose those pieces"* — it does.
+>   `room_transition/mod.rs` adds `AmbitionLoadPlugin`, `room_transition/loading.rs`
+>   imports the coordinator's whole vocabulary, and `commit.rs` drives
+>   `LoadCoordinator` / `LoadEvent` including `LoadCommand::Cancel`.
+> * *"A `RoomTransitionRequested` currently proceeds to the synchronous
+>   room-loading path"* — `loading.rs`'s own doc says the transition commits *"a
+>   later simulation tick after the required barrier is ready and one-shot"*.
+> * *"Target-room readiness is not represented by an `ambition_load` barrier"* —
+>   `ROOM_READY_BARRIER = "room-transition.ready"`.
+> * *"normal transitions do not wait for target construction or required asset
+>   readiness"* — the barrier declares `TARGET_LOOKUP_WORK`,
+>   `ARRIVAL_VALIDATION_WORK`, `CONSTRUCTION_PREFLIGHT_WORK` and
+>   `ROOM_ASSET_WORK_PREFIX`.
+> * *"The existing presentation crate is also shell-specific despite its generic
+>   name"* — the shell coupling lives in `shell_adapter.rs` now, beside a neutral
+>   core (`model.rs`, `plugin.rs`, `deterministic_activity.rs`,
+>   `basic_presentation.rs`), which is the separation the section asks for two
+>   paragraphs later.
+> * ⚠ *"the standard provider preparation plan also declares speculative work
+>   named `prewarm-neighbor-room`"* — **the string does not appear anywhere in the
+>   tree.** So the declaration is gone as well as the implementation: this is not
+>   an unimplemented plan, it is a plan that no longer exists. Whether prewarming
+>   is still WANTED is a live question; that it is "declared but unimplemented" is
+>   not true.
+>
+> Kept verbatim below rather than deleted, because the design argument it makes —
+> why room transitions should not fabricate shell routes to reuse the machinery —
+> is what the implementation was built to satisfy, and deleting the argument
+> leaves only the result.
+
 The repository already contains substantial pieces:
 
 - `ambition_load` is a contributor-neutral coordinator for work, barriers,

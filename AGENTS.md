@@ -9,7 +9,7 @@ This is the repository operating guide for coding agents. Keep it short, session
 * Correctness is emergent from elegance.
 * **Pre-release engine, zero dependents.** Behavior and feel are NOT sacred until a polish pass — optimize for the elegant unified design, not for preserving current output. Delete duplicates, compat shims, and bridges on sight. Never fold a richer path onto a simpler one to "preserve" it; make the richer/general path universal and delete the rest.
 * **Unified actors.** Every actor — the player included — is one body: kinematics + composable ability limbs + a capability mask, driven by a Controller (Human / Brain / RL) and observed via one `WorldView`. Player / Enemy / Boss / NPC are DATA (controller + capabilities), not types or code paths. The player's movement is the good base — make enemies and NPCs *rise to it* (adopt the rich limb pipeline), never drag the player down to a simpler path. Adding a character should be: author capabilities + pick a controller, zero core edits.
-* **ONE BODY, ONE PATH — never bifurcate. This is the most-violated rule; read it before any combat/movement/visual/state change.** The player is an actor. Before you write *anything* keyed to "player" or "actor/enemy/boss" — an attack, a hitbox, a damage rule, a VFX/SFX emit, a shield, a reset, a state machine, a brain hook — run the **bifurcation smell test**: *"Does the other controller kind already do this on its own code path?"* If yes, you have found a **FORK**, and your job is to UNIFY onto the single shared seam and delete the other side — NOT to add a second site. **Adding a parallel emission site / state component / system / spec for an effect that already exists elsewhere is a BUG, not a fix — even if it compiles and every test passes.** A green test on a forked path is worthless. If you genuinely cannot complete the merge in one pass, do NOT add the parallel path "for now": route the new caller *through the existing seam* (extract one shared fn/system/event if none exists), and log the remaining merge in `dev/journals/code_smells.md` with `BIFURCATION:` as the first word. Melee is now unified end-to-end: the STATE (`BodyMelee`/`MeleeSwing`), swing MODEL (`AttackSpec`), slash VFX (`emit_melee_slash` in `combat::util`), AND the strike SPAWN (the moveset path: `combat::moveset::trigger_moveset_moves` → `advance_move_playback` spawns one gravity-resolved volume that drives BOTH the damage `Hitbox` entity and the slash, projected to body state by `project_moveset_melee_to_body_melee`) are ONE path for the player and every actor. Do NOT reintroduce a `PlayerAttackState`/`ActorAttackState` split, a second slash emit, or a per-frame player damage loop — every melee is an `"attack"`-verb moveset move riding `MovePlayback`. The MOVEMENT driver is now unified at the engine entry: the player tick is ONE system (`player_body_tick`) that calls the SAME combined body tick the actor uses (`ae::update_player_with_tuning_clusters` ≈ the actor's `update_body_with_tuning_clusters`), differing only in the input frame and the player respawn POLICY. **The two-clock precision-blink split (responsive aim during bullet-time) is now purely `InputState::control_dt` — an INPUT affordance, not a simulation structure: the human sets `control_dt = real frame dt`; a brain leaves it `0` and runs everything at sim time.** The player tick and `update_ecs_actors` stay SEPARATE Bevy systems on purpose (merging the orchestrators into one god-system is NOT the goal); what's shared is the body-tick engine entry. The next melee elevation is the unified action/ability timeline (cancel windows, movement locks, armor/i-frames, resource costs, hurtbox swaps, anim binding) layered on the one strike seam. When a doc/keystone says "unification," it means *delete one path*, not "make them behave similarly."
+* **ONE BODY, ONE PATH — never bifurcate. This is the most-violated rule; read it before any combat/movement/visual/state change.** The player is an actor. Before you write *anything* keyed to "player" or to "actor/enemy/boss" — an attack, a hitbox, a damage rule, a VFX/SFX emit, a shield, a reset, a state machine, a brain hook — run the **bifurcation smell test**: *"Does the other controller kind already do this on its own code path?"* If yes you have found a **FORK**, and your job is to UNIFY onto the single shared seam and DELETE the other side — NOT to add a second site. ⛔ **Adding a parallel emission site / state component / system / spec for an effect that already exists elsewhere is a BUG, not a fix — even if it compiles and every test passes.** A green test on a forked path is worthless. If you genuinely cannot finish the merge in one pass, do NOT add the parallel path "for now": route the new caller *through the existing seam* (extract one shared fn/system/event if none exists) and log the remainder in `dev/journals/code_smells.md` with `BIFURCATION:` as the first word. ⭐ "unification" always means *delete one path*, never "make them behave similarly". **What is already unified (melee end-to-end, the movement driver, the two-clock blink), what stays deliberately separate and why, and the next elevation are in `docs/concepts/one-body-one-path.md`** — that inventory is STATUS and goes stale; the rule above does not.
 
 ## Cold start
 
@@ -106,11 +106,25 @@ on 2026-08-03 against a warm target dir. Four rules Jon set live there too: the
 write-ahead worktree, interlacing architecture with feature work, one big sweep
 then targeted only, and getting a DISTRIBUTION before theorising about a slow run.
 
-Three of its facts belong in your face rather than behind a link:
+Five of its facts belong in your face rather than behind a link:
 
 - ⚠ **`cargo check -p ambition_app` is the gate, never `-p <one_crate>`.** A
   per-crate check has been observed green on a crate that fails the app build.
   21s; there is no excuse.
+- ⛔ **but a CHANGED AUTHORED TYPE is the one thing no build covers.** Several
+  games author their content as RON in a Rust string literal
+  (`SNAKES_ON_A_PLANE_ROSTER_ROWS`, `SMASH_ROSTER_RON`, `SANIC_CATALOG_RON`,
+  `POCKET_CATALOG_RON`, …), and nothing typechecks the inside of a `&str`. On
+  2026-08-07 `ArchetypeSpec::is_aerial` went `bool` → `Option<bool>`, the app
+  check stayed green, and both of Mary-O's flying snakes failed to parse at
+  startup — taking her WHOLE roster down, because assembly `.expect()`s.
+  ⭐ **the guards existed and would have caught it in 9 seconds**; what was
+  skipped was running them. So after changing a type an authored struct uses:
+  `grep -rn '<field_name>' --include=*.rs --include=*.ron` and **run the tests of
+  every crate that grep touches.** The `*.rs` half is the half that matters.
+  ⚠ do NOT audit coverage by asking whether a test mentions the constant — five
+  of these are named exactly once outside their own definition and are covered
+  anyway, because the crate's plugin-composition test parses them transitively.
 - ⛔ **the 11-second `repo tooling (scripts/tests)` job is the one to stop
   skipping.** It runs the 25 architectural absence contracts — the only thing that
   catches a registration or dependency edge landing in the wrong place. ⚠ and
@@ -187,6 +201,35 @@ optimising anything that touches this room.
   pattern, so it matches ITSELF and the loop sleeps forever (seven stranded,
   2026-07-31). Better still, don't poll — a backgrounded command reports its
   exit. Details in the recipe linked above.
+
+## Landing when somebody else holds `main`
+
+⚠ **This section applies ONLY to parallel or multi-agent landings.** A solo
+linear session committing to `main` cannot hit the failure below, and running the
+ritual there is friction for a hazard that does not exist.
+
+When you work a branch or worktree while another session owns `main`:
+
+- **Record the base SHA you started from**, in the handoff and in the branch's
+  first commit message. It is the only thing that makes "was this tested against
+  what it will land on" answerable later.
+- **Before landing, compare what you touched against what moved**:
+  `git diff --name-only <base>..HEAD` (yours) against
+  `git diff --name-only <base>..origin/main` (theirs). The intersection is the
+  whole question.
+- **If they overlap, replay your edits on live `HEAD` and re-run the scoped
+  tests.** Tests that ran against the old base are not landing evidence — they
+  describe a tree nobody will have.
+- **If they do not overlap, land it.** No rebase ceremony for a disjoint change.
+
+⛔ **overlays are NOT banned** — they are a legitimate delivery mechanism here.
+The forbidden operation is committing a broad STALE TREE SNAPSHOT without
+replaying its edits onto current source, which is how a merge silently reverts
+somebody else's work while every test you ran was green.
+
+⚠ **no script.** The protection is the rule plus two `git` one-liners; a checker
+waits for a second incident that happens despite the recipe. Adding one now is
+the machinery the next section forbids.
 
 ## Avoid bullshit guardrails
 

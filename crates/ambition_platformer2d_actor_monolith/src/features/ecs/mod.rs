@@ -49,6 +49,8 @@ pub mod boss_clusters;
 mod bosses;
 mod brain_builders;
 pub(crate) use brain_builders::enemy_default_brain;
+/// The ladder projection, registered in the actor pipeline beside the brain tick.
+pub use brain_builders::project_authored_fighter_ladder;
 mod brain_effects;
 pub mod chests;
 pub mod dormancy;
@@ -141,10 +143,10 @@ pub use hitbox::{
     apply_hitbox_damage, tick_and_despawn_hitboxes, Hitbox, HitboxAnchor, HitboxHits,
     HitboxKnockback, HitboxLifetime,
 };
-pub use interact::{
-    break_dialogue_on_hit_or_separation, interact_ecs_actors_and_switches,
-    release_conversation_hold, HeldByConversation,
-};
+// ⚠ the continuity systems moved to `crate::conversation` on 2026-08-07. What
+// stays here is what this module is actually about: the moment somebody presses
+// Interact. Keeping a conversation ALIVE is not an interaction.
+pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{
     enforce_mount_rider_link, steer_mount_from_rider, sync_riders_to_mounts, CanPilot,
     ControlGrant, Mass, MountClass, MountDeathImpact, MountDied, MountRiderLinkEnforced, MountSlot,

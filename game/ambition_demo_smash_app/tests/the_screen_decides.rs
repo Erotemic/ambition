@@ -341,7 +341,13 @@ fn the_cards_say_what_each_slot_has_decided() {
     click(&mut app, 1, layout.role_button(1)); // → CPU
 
     let decided = card_text(&mut app);
-    assert_eq!(decided[0].0, "CONTROLLER 1");
+    // **The card names the DEVICE, not the slot.** (Jon, 2026-08-07: *"text
+    // saying which input device it is is fine for the prototype. gives more
+    // info for debugging."*) This read `CONTROLLER 1` — the slot's own
+    // numbering said back to it — which told a person nothing about which of
+    // their two hands was seated where. `plug_in(2)` gives this fixture pads
+    // and a keyboard, and the keyboard is source zero under the couch policy.
+    assert_eq!(decided[0].0, "KEYBOARD");
     assert_eq!(
         decided[0].1, "George Booul",
         "the card shows `{}` rather than the fighter's display name — the \

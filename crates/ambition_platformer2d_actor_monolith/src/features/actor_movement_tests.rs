@@ -281,8 +281,15 @@ fn perfect_cellular_automaton_provokes_to_its_boss_archetype() {
     // (so on provoke its gravity re-syncs to grounded and it descends), but
     // carries the `can_fly` kit to take to the air and cover a long traversal
     // gap. Flight is a brain *preference* (I4), not a fixed body mode.
-    assert!(
-        !spec.is_aerial,
+    // ⭐ `Some(false)`, not merely falsy. The PCA is the live case in the open
+    // aerial-authority question (`review-gpt56-through-32eb27a.md` P5): its
+    // CATALOG row says `body_kind: Floating` while this archetype says grounded,
+    // and the two spawn paths read different ones. Asserting `Some(false)` pins
+    // that the archetype's answer is DELIBERATE — so "the catalog wins because
+    // the archetype never said" is not available as a resolution.
+    assert_eq!(
+        spec.is_aerial,
+        Some(false),
         "the PCA boss is grounded-base (prefers grounded), not a permanent flyer"
     );
     assert!(
@@ -343,7 +350,7 @@ fn enemy_brain_keys_resolve_to_their_rows() {
 /// because they don't emit a melee windup.
 #[test]
 fn enemy_archetype_tunings_are_finite() {
-    use crate::features::enemies::{COMBAT_BRAIN_KEYS, test_spec};
+    use crate::features::enemies::{test_spec, COMBAT_BRAIN_KEYS};
     for key in COMBAT_BRAIN_KEYS {
         let spec = test_spec(key);
         assert!(spec.max_health > 0);
@@ -847,8 +854,16 @@ fn walk_into_wall(turns_at_walls: bool) -> f32 {
         ae::Vec2::new(2000.0, 2000.0),
         ae::Vec2::new(100.0, 100.0),
         vec![
-            ae::Block::solid("floor", ae::Vec2::new(0.0, 500.0), ae::Vec2::new(2000.0, 100.0)),
-            ae::Block::solid("wall", ae::Vec2::new(600.0, 300.0), ae::Vec2::new(40.0, 200.0)),
+            ae::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 500.0),
+                ae::Vec2::new(2000.0, 100.0),
+            ),
+            ae::Block::solid(
+                "wall",
+                ae::Vec2::new(600.0, 300.0),
+                ae::Vec2::new(40.0, 200.0),
+            ),
         ],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 476.0), ae::Vec2::new(14.0, 23.0));

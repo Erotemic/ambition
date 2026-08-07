@@ -250,11 +250,18 @@ fn ambition_startup_segments() -> Vec<ambition_platformer2d::game_shell::ShellSe
         // played back. It used to be `image_sequence_timed` over nine rendered
         // frames from the content manifest, which meant the card only existed
         // on a machine that had the git-ignored payload; a fresh clone played
-        // correctly-timed blank slots. `ambition_content::presentation::vanity_card`
-        // draws the same beat out of UI nodes, so the card is a property of the
-        // source. Its length is still DERIVED — from the same manifest total —
-        // so retiming the authored version retimes this one and there is
-        // nothing to keep in sync by hand.
+        // correctly-timed blank slots.
+        // `ambition_content::presentation::vanity_card_made_this_meme` draws the
+        // same beat out of UI nodes, so the card is a property of the source.
+        // Its length is still DERIVED — `made_this_meme_card_duration()` is
+        // `frame_ms × frames.len()` off `vanity_card_made_this_meme.ron` — so
+        // re-exporting the animation retimes this segment and there is nothing
+        // to keep in sync by hand.
+        //
+        // ⚠ that RON is the BAKED RIG, not `vanity_card.ron`. The nine-frame
+        // manifest and its rendered payload are reference art with no reader in
+        // the workspace (Jon, 2026-08-03); naming "the same manifest" here sent
+        // readers to the dead one.
         //
         // The id is the punchline because the studio is unnamed. When there IS a
         // studio name, rename this segment to it.

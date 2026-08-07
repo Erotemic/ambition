@@ -365,6 +365,7 @@ fn transfer_step(
     gravity_dir: Vec2,
     tuning: &PortalTuning,
 ) -> TransitStep {
+    let rotation = tuning.convention.is_rotation();
     let ef = enter.frame();
     let xf = exit.frame();
     // Galilean composition (CC6, §7): map the body's velocity RELATIVE to the
@@ -388,9 +389,32 @@ fn transfer_step(
         // The body picks up the on-screen turn it travels through (a tumble for
         // floor/ceiling, nothing for a wall↔wall turn-around); `update_actor_roll`
         // then eases it back to gravity-upright (feet-in → reorient).
-        roll_delta: somersault_roll(enter.normal, exit.normal, gravity_dir),
-        facing_flip: portal_facing_flips(enter.normal, exit.normal, gravity_dir),
-        input_warp: portal_input_warp_flips_horizontal(enter.normal, exit.normal),
+        // ⭐ **the convention comes from TUNING, not from a process global.**
+        // `PortalTuning::convention` is right here in the argument list, and the
+        // pure helpers already expose `*_for_convention` forms that take it. The
+        // `somersault_roll` / `portal_facing_flips` /
+        // `portal_input_warp_flips_horizontal` wrappers read
+        // `static PORTAL_MAP_ROTATION` instead — which prevents two Apps in one
+        // process from choosing independent conventions, contaminates any test
+        // that writes it, and leaves a simulation rule outside session authority
+        // (`closeout-review-followups-2026-07-20.md` §2).
+        roll_delta: somersault_roll_for_convention(
+            rotation,
+            enter.normal,
+            exit.normal,
+            gravity_dir,
+        ),
+        facing_flip: portal_facing_flips_for_convention(
+            rotation,
+            enter.normal,
+            exit.normal,
+            gravity_dir,
+        ),
+        input_warp: portal_input_warp_flips_horizontal_for_convention(
+            rotation,
+            enter.normal,
+            exit.normal,
+        ),
         enter_normal: enter.normal,
         exit_normal: exit.normal,
         exit_channel: exit.channel,

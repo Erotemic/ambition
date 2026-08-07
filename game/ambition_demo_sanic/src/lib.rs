@@ -268,7 +268,12 @@ const LEGEND_LABEL_ID: &str = "start";
 /// participant and can only speak for the default preset.
 fn control_legend(
     bindings: Option<&ambition_platformer2d::input::ActionBindings>,
-    style: ambition_platformer2d::input::GamepadStyle,
+    // ⛔ **the DEVICE, not a `GamepadStyle`.** This sign had finding 3 too: a
+    // style picks the vocabulary a BUTTON is spelled in, and the seat's map binds
+    // the keyboard half first, so the legend re-spelled `Z` as `Z` and read
+    // "Z: JUMP" to somebody holding a DualSense. A style cannot say "this seat is
+    // on a keyboard", which is why the type had to change rather than the lookup.
+    device: ambition_platformer2d::input::ActiveDevice,
 ) -> String {
     use ambition_platformer2d::input::Platformer2dInputActionMonolith as Action;
 
@@ -276,7 +281,7 @@ fn control_legend(
     let name = ambition_platformer2d::input::key_name;
     let label = |action: Action, fallback: bevy::prelude::KeyCode| {
         bindings
-            .and_then(|bound| bound.label_for(&action, style))
+            .and_then(|bound| bound.label_for(&action, device))
             .unwrap_or_else(|| name(fallback).to_string())
     };
     format!(
@@ -318,8 +323,8 @@ fn refresh_sanic_control_legend(
         return;
     }
     let seat = ambition_platformer2d::input::ParticipantId::PRIMARY.slot();
-    let style = devices.map_or_else(Default::default, |devices| devices.gamepad_style_for(seat));
-    let wanted = control_legend(Some(bindings.for_seat(seat)), style);
+    let device = devices.map_or_else(Default::default, |devices| devices.for_seat(seat));
+    let wanted = control_legend(Some(bindings.for_seat(seat)), device);
     for (label, mut text) in &mut labels {
         if !label.owner_id.ends_with(LEGEND_LABEL_ID) {
             continue;
@@ -1809,6 +1814,19 @@ const SCATTER_RESTITUTION: f32 = 0.55;
 /// and bouncing during this window; what it cannot do is be collected, so the
 /// hit costs you something even for the instant you are standing in the spray.
 /// Without it a hit would refund itself on the same frame it landed.
+/// **How long losing your rings keeps you untouchable.**
+///
+/// Jon, from play: *"he should … have a few second of recovery iframes."* The
+/// classic is about two seconds of flashing, and the number has to be read
+/// against what the hit COSTS here: the purse bursts across half a screen and
+/// the window is the whole of your chance to run it back down. The engine's own
+/// `knockback_invulnerability_time` is 0.75s — right for Ambition, and over
+/// before the rings have landed in this game.
+///
+/// ⚠ **it RAISES the running window, never replaces it.** A hazard respawn arms
+/// a longer one, and dropping rings inside that must not cut it short.
+pub(crate) const RING_LOSS_INVULN_S: f32 = 2.0;
+
 const SCATTER_LOCK_S: f32 = 0.6;
 
 /// How long (s) a scattered ring exists at all. Past this it is gone, which is
@@ -1912,6 +1930,8 @@ pub fn scatter_rings_on_hit(
         (
             &ambition_platformer2d::platformer::sim_id::SimId,
             &mut ambition_platformer2d::platformer::sim_id::SimIdCounter,
+            // The window the resolver already armed, which this game lengthens.
+            Option<&mut ambition_platformer2d::characters::actor::BodyCombat>,
         ),
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
@@ -1925,7 +1945,7 @@ pub fn scatter_rings_on_hit(
     };
 
     for event in spent.read() {
-        let Ok((player_id, mut counter)) = bodies.get_mut(event.victim) else {
+        let Ok((player_id, mut counter, combat)) = bodies.get_mut(event.victim) else {
             // The resolver ALREADY zeroed the wallet — survival and the spend are
             // settled before this system runs. If the victim cannot be resolved
             // here the currency is simply gone with no burst, no sound, and no
@@ -1941,6 +1961,27 @@ pub fn scatter_rings_on_hit(
             );
             continue;
         };
+        // ⭐ **THE RECOVERY WINDOW, and it is this game's to set.** Jon, from
+        // play: *"there it seems like he is given no iframes … he should have a
+        // few second of recovery iframes."* They were never missing — the
+        // resolver arms `knockback_invulnerability_time`, 0.75s, which its own
+        // comment calls the longest window in the game. It is, for Ambition. Here
+        // the hit throws your purse across half a screen, so 0.75s is over before
+        // the rings land and the badnik you bounced off is still touching you.
+        //
+        // ⛔ **not fixed by raising the engine default**, which Mary-O shares and
+        // whose classic feel is pinned. `WalletShieldSpent`'s contract says where
+        // it belongs: "the generic resolver owns survival; game content owns how
+        // it is expressed" — and in the classic, losing your rings IS the trigger
+        // for the flashing window.
+        //
+        // ⚠ raised, never replaced: a longer window already running (a hazard
+        // respawn arms 1.10s) must not be cut short by dropping rings inside it.
+        // Armed before the early return below, because a spend of zero is still a
+        // hit that landed.
+        if let Some(mut combat) = combat {
+            combat.damage_invuln_timer = combat.damage_invuln_timer.max(RING_LOSS_INVULN_S);
+        }
         let scattered = (event.amount.max(0) as usize).min(SCATTERED_RINGS_MAX);
         if scattered == 0 {
             continue;
@@ -2246,13 +2287,10 @@ fn take_the_controls_at_the_goal(
     // edge; k=9 stops him in ~120 and leaves real margin.
     const BRAKE_PER_SECOND: f32 = 9.0;
     let keep = (1.0 - BRAKE_PER_SECOND * time.sim_dt()).clamp(0.0, 1.0);
-    match &mut *motion {
-        ae::MotionModel::SurfaceMomentum(momentum) => {
-            if let ae::SurfaceMotion::Riding { v_t, .. } = &mut momentum.state {
-                *v_t *= keep;
-            }
-        }
-        _ => {}
+    if let ae::MotionModel::SurfaceMomentum(momentum) = &mut *motion {
+        // A brake has no airborne answer — the kinematic velocity below is that
+        // half — so the `false` return is deliberately ignored here.
+        momentum.scale_tangential_speed(keep);
     }
     if let Ok(mut kin) = kinematics.get_mut(entity) {
         kin.vel.x *= keep;

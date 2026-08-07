@@ -151,11 +151,14 @@ pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRe
 /// arms a boss/duel by authoring this one command on a choice; no Rust per-NPC
 /// branch. Logs and no-ops if there's no in-world speaker (scripted dialogue).
 pub fn cmd_challenge(
-    dialogue: Res<ambition_dialog::DialogState>,
+    // ⛔ **the AUTHORITY, not `DialogState`.** This command provokes a fight, so
+    // it is a simulation effect; keying it off the UI read-model meant a
+    // gameplay consequence read a resource that rollback does not rewind.
+    conversation: Res<crate::conversation::ActiveConversation>,
     player: Query<Entity, With<crate::actor::PlayerEntity>>,
     mut commands: Commands,
 ) {
-    let Some(actor) = dialogue.speaker_entity() else {
+    let Some(actor) = conversation.talker() else {
         warn!("<<challenge>>: no speaker entity in dialogue context; ignoring");
         return;
     };
@@ -182,11 +185,11 @@ pub fn cmd_challenge(
 /// stable id (scripted/anonymous dialogue).
 pub fn cmd_use_brain(
     In(preset): In<String>,
-    dialogue: Res<ambition_dialog::DialogState>,
+    conversation: Res<crate::conversation::ActiveConversation>,
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     mut commands: MessageWriter<crate::features::BrainCommand>,
 ) {
-    let Some(actor) = dialogue.speaker_entity() else {
+    let Some(actor) = conversation.talker() else {
         warn!("<<use_brain>>: no speaker entity in dialogue context; ignoring");
         return;
     };
@@ -207,11 +210,11 @@ pub fn cmd_use_brain(
 /// autonomous source + complete config. (A bare `BrainCommand::RestoreDefault`
 /// would restore only the brain/source, leaving a provoked NPC still hostile.)
 pub fn cmd_restore_brain(
-    dialogue: Res<ambition_dialog::DialogState>,
+    conversation: Res<crate::conversation::ActiveConversation>,
     sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
     mut commands: MessageWriter<crate::features::ReleaseProvocation>,
 ) {
-    let Some(actor) = dialogue.speaker_entity() else {
+    let Some(actor) = conversation.talker() else {
         warn!("<<restore_brain>>: no speaker entity in dialogue context; ignoring");
         return;
     };

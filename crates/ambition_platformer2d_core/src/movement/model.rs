@@ -195,6 +195,54 @@ impl SurfaceMomentumMotion {
     /// A fresh surface-momentum body begins `Airborne` on the unchanged pose
     /// and velocity; it may attach only through its normal same-tick
     /// contact/sweep rules.
+    /// **Set the tangential speed of a riding body.** Returns `false` when the
+    /// body is airborne and there is no tangent to set.
+    ///
+    /// ⭐ **the SIGN CONVENTION lives here now, not in each caller.** The kernel
+    /// integrates `v_t += run * accel * dt` with `run = locomotion.x`, so `v_t`
+    /// and facing share a sign — a fact Sanic's ball dash had written out in
+    /// three separate comments because it was reaching into
+    /// [`SurfaceMotion::Riding`] itself.
+    ///
+    /// ⚠ **returning `false` rather than doing nothing quietly is the point.** A
+    /// caller that must also handle the airborne case (the ball dash's launch
+    /// writes `BodyKinematics::vel` instead) is made to say so; one that has no
+    /// airborne answer, like a brake, may ignore it.
+    pub fn set_tangential_speed(&mut self, speed: f32) -> bool {
+        match &mut self.state {
+            SurfaceMotion::Riding { v_t, .. } => {
+                *v_t = speed;
+                true
+            }
+            SurfaceMotion::Airborne => false,
+        }
+    }
+
+    /// **Scale the tangential speed of a riding body** — a brake or a boost.
+    /// Returns `false` when airborne, for the reason above.
+    ///
+    /// Separate from [`Self::set_tangential_speed`] because scaling preserves
+    /// direction and setting does not: a brake that went through the setter would
+    /// have to read the current sign back out, which is the reach-in this exists
+    /// to remove.
+    pub fn scale_tangential_speed(&mut self, factor: f32) -> bool {
+        match &mut self.state {
+            SurfaceMotion::Riding { v_t, .. } => {
+                *v_t *= factor;
+                true
+            }
+            SurfaceMotion::Airborne => false,
+        }
+    }
+
+    /// The tangential speed of a riding body, or `None` airborne.
+    pub fn tangential_speed(&self) -> Option<f32> {
+        match &self.state {
+            SurfaceMotion::Riding { v_t, .. } => Some(*v_t),
+            SurfaceMotion::Airborne => None,
+        }
+    }
+
     pub fn new(params: MomentumParams) -> Self {
         Self {
             params,
@@ -485,5 +533,70 @@ mod tests {
             "same-variant refresh preserves the clung surface"
         );
         assert_eq!(motion.params, updated);
+    }
+}
+
+#[cfg(test)]
+mod tangential_op_tests {
+    use super::super::surface_momentum::{SurfaceMotion, SurfaceRef};
+    use super::*;
+
+    fn riding(v_t: f32) -> SurfaceMomentumMotion {
+        let mut m = SurfaceMomentumMotion::new(MomentumParams::default());
+        m.state = SurfaceMotion::Riding {
+            on: SurfaceRef::Chain(0),
+            s: 0.0,
+            v_t,
+        };
+        m
+    }
+
+    /// **Setting replaces, scaling preserves direction** — the reason these are
+    /// two operations rather than one. A brake routed through the setter would
+    /// have to read the sign back out, which is the reach-in they exist to
+    /// remove.
+    #[test]
+    fn set_replaces_and_scale_preserves_direction() {
+        let mut m = riding(-700.0);
+        assert!(m.scale_tangential_speed(0.5));
+        assert_eq!(
+            m.tangential_speed(),
+            Some(-350.0),
+            "a brake reversed the ride's direction"
+        );
+        assert!(m.set_tangential_speed(120.0));
+        assert_eq!(m.tangential_speed(), Some(120.0));
+    }
+
+    /// ⭐ **the property the typed op ADDS: an airborne body says so.**
+    ///
+    /// Before this, each caller matched on `SurfaceMotion` itself and decided
+    /// what airborne meant — and the two callers in Sanic decided differently by
+    /// accident rather than by intent. The launch has an answer (write the
+    /// kinematic velocity along the local side axis); the brake does not, and
+    /// silently doing nothing is correct for it. Both are now a visible `bool`
+    /// rather than a branch each site had to remember to write.
+    #[test]
+    fn an_airborne_body_refuses_a_tangential_op_rather_than_absorbing_it() {
+        let mut m = SurfaceMomentumMotion::new(MomentumParams::default());
+        assert!(
+            matches!(m.state, SurfaceMotion::Airborne),
+            "a fresh surface-momentum body begins airborne"
+        );
+        assert!(
+            !m.set_tangential_speed(500.0),
+            "an airborne body reported that it set a tangential speed it has no \
+             tangent for"
+        );
+        assert!(!m.scale_tangential_speed(0.5));
+        assert_eq!(
+            m.tangential_speed(),
+            None,
+            "an airborne body reported a tangential speed"
+        );
+        assert!(
+            matches!(m.state, SurfaceMotion::Airborne),
+            "a refused op still changed the motion state"
+        );
     }
 }

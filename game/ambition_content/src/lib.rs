@@ -78,7 +78,10 @@ pub mod quest;
 pub mod quests;
 // ⛔ no `vanity_card` module. The startup card USED to be a manifest of nine
 // rendered frames read from here and composed by the host as an image sequence;
-// it is now drawn by `presentation::vanity_card` from baked rig placements, and
+// it is now drawn by `presentation::vanity_card_made_this_meme` from baked rig
+// placements (⚠ this comment said `presentation::vanity_card` for three days —
+// a module that has never existed, in the comment whose whole job is to send a
+// reader to the ONE card authority), and
 // two card authorities is exactly the fork this project deletes on sight.
 // The rendered frames, their manifest and `tools/vanity_card_prep` stay on disk
 // as REFERENCE art (Jon, 2026-08-03) — nothing in the game reads them.

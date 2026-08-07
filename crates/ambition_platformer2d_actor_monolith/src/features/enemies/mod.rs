@@ -242,7 +242,8 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             respawn: self.respawn,
             weight: self.weight,
             death_policy: self.death_policy,
-            is_aerial: self.is_aerial,
+            // `ActorTuning` carries a decided bool, so silence resolves here.
+            is_aerial: self.is_aerial.unwrap_or(false),
             // Archetype flyers use smoothed accel flight; direct-velocity is a boss
             // opt-in (its brain commands exact velocities). See AS4.
             flight_direct_velocity: false,

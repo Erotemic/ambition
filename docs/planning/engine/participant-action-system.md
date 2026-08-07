@@ -439,7 +439,16 @@ device adapters.
 
 ### Binding/cue gaps
 
-- presets are the authority, but there is no per-participant override model;
+> ⚠ **SWEPT 2026-08-07. Two entries below are not gaps — they are positions the
+> project has DECIDED since, and a gap list that outlives its decision argues for
+> undoing them.**
+
+- ⛔ **presets are the authority, but there is no per-participant override
+  model** — **DECIDED, not owed.** An override model exists and is persisted
+  (`ControlSettings::binding_overrides`, applied through `.with_overrides(..)` in
+  `schedule/input_systems.rs`), and it is machine-wide ON PURPOSE: queue A3 / D2
+  settled that **input FILTERING is keyed to the pad while BINDINGS stay
+  machine-wide**. Reading this line as owed work would argue for reversing that.
 - ~~gamepad glyphs still use a parallel table and incomplete device
   detection~~ — ✔ fixed 2026-08-06 (cf868687e, 8839e9fc7), both halves:
   `glyphs::button_label(button, style)`
@@ -455,8 +464,13 @@ device adapters.
 
 ### Context-transition gaps
 
-- menu analog repeat state is global and continues updating outside an
-  explicitly migrated UI context;
+- ◐ **menu analog repeat state is global** — **the "global" half is DECIDED.**
+  The A7 review's R3 settled per-seat menu calibration *"with repeat timing left a
+  machine preference"*, so `MenuInputState` being one `Resource` is the intended
+  shape rather than a gap. ▢ **the second half of this line is still live and
+  should not be closed with it**: *"and continues updating outside an explicitly
+  migrated UI context"* is a claim about SCOPE LEAKAGE, not about seat-keying, and
+  nothing measured today speaks to it.
 - held-axis transition behavior is tested less strongly than held confirm;
 - non-capturing contexts do not yet have action-specific ownership/cue rules;
 - focused-surface despawn recovery is not generalized beyond current shell

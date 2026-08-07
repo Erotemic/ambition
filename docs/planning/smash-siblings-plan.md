@@ -52,7 +52,19 @@ holds).
 
 ## The parts, in dependency order
 
-### 0. THE DAMAGE MODEL — percent has to be able to EXCEED the pool ▢ FIRST
+### 0. THE DAMAGE MODEL — percent has to be able to EXCEED the pool ✔ LANDED
+
+> ✔ **VERIFIED AGAINST THE TREE 2026-08-07.** Every claim below is now false of
+> the code, which is the good outcome: `BodyHealth::damage_taken()` is
+> `self.accumulated` — an unbounded counter, not the saturating `(max -
+> current).max(0)` this row is about. `DeathPolicy` MOVED DOWN into
+> `ambition_characters::actor::body` exactly as the row said it had to
+> ("the enum moves down, it cannot be a field where it is"). Production DOES
+> select `Unbounded` (`prepared_match.rs:200` → `with_policy` at :498), so the
+> row's "nothing in production selects `Unbounded`" no longer holds either. The
+> HUD consequence landed with its own test, named for the number this row
+> predicted: `damage_percent_is_unclamped_so_a_hud_can_print_188`.
+> **The analysis is kept because it is why the shape is what it is.**
 
 `DeathPolicy::Unbounded` suppresses one consequence — a meter-kill no longer
 kills. It does not make the meter unbounded, and the meter is the thing smash
@@ -99,7 +111,17 @@ when this is built:
 * the HUD reads a percent that can print `188%`, which `Health::ratio()`
   (clamped to 1.0) cannot express.
 
-### 1. STOCKS — the rule that makes it Smash ▢
+### 1. STOCKS — the rule that makes it Smash ✔ LANDED
+
+> ✔ **VERIFIED 2026-08-07, and all five of the things this row says are missing
+> now exist.** It reads *"`FighterStocks` is vocabulary only right now — no
+> runtime consumer, no stock-loss rule, no respawn lifecycle, no rollback
+> registration, no elimination flow."* `crates/ambition_combat/src/stocks.rs`
+> carries the rule and `FighterEliminated`; the component is rollback-registered
+> (`domains/combat.rs:89` — the row's own warning that "a stock count that is not
+> registered rollback state is a stock count that un-spends itself on a rewind");
+> it is inserted in production at `prepared_match.rs:863`; and it has its own
+> ordered set, `FighterStocksSpent`.
 
 A fighter has N stocks (3). A blast-zone death spends one. At zero it is
 **eliminated** — out, not respawned. The match ends when one fighter remains.
@@ -120,13 +142,22 @@ stock-loss rule, no respawn lifecycle, no rollback registration, no elimination
 flow. All five land together with the rule; a stock count that is not registered
 rollback state is a stock count that un-spends itself on a rewind.
 
-### 2. The 3-platform stage ▢
+### 2. The 3-platform stage ✔ LANDED
+
+> ✔ `smash_stage()` / `SMASH_STAGE_ROOM_ID` in `ambition_demo_smash`, authored as
+> a room exactly as this row asked.
 
 "battlefield like": one main platform plus three floating ones, blast zones on
 all four sides. Authored as a room, not a special case — the engine already
 stages rooms and the blast zone is engine-owned.
 
-### 3. Character select ▢ — the biggest UI piece
+### 3. Character select ✔ LANDED — the biggest UI piece
+
+> ✔ **and it became Jon's own headline feature**, spec kept verbatim in
+> `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`. Both parts this row flagged as risky are
+> in: the CPU toggle (`SlotOccupant::Cpu`) and the ORB DRAG, which is a real
+> drag with its own click-vs-drag slop threshold (`select_screen/cursor.rs`,
+> mirroring `ROW_TAP_SLOP_PX`) rather than a menu list.
 
 1–4 seats, each **toggling between human and CPU**, and selection by **dragging
 an orb onto a character**. `LocalSeatTopology` already answers "how many humans
@@ -137,14 +168,31 @@ roster's `MatchParticipant` already models.
 characters, and a drop target. This is the part most likely to need its own
 slice.
 
-### 4. The loop ▢
+### 4. The loop ✔ LANDED
+
+> ✔ `RETURN_TO_SELECT_AFTER` counts down on match end and issues
+> `ShellCommand::GoTo(SMASH_SELECT_ROUTE)`. ⭐ and the trap this row named — state
+> outliving its match — was live until 2026-08-07 in a form the row did not
+> predict: smash and versus BOTH removed `ActiveMatch`/`PreparedMatch` by type on
+> the way out, so whichever left first deleted the other's match. Now
+> owner-scoped, with `app_it::experience_scope_ownership` over the composed scope
+> registry.
 
 Match over → back to character select. A shell ROUTE transition, and the
 `ShellRouter` already owns those. The trap to avoid is the one `VersusMatch`
 already hit: state that outlives its match, so the next visit resumes somebody
 else's game.
 
-### 5. The HUD ▢
+### 5. The HUD ◐ LANDED, with two presentation deviations
+
+> ✔ per fighter along the bottom, sorted by SEAT (query order is not an order),
+> with unwritten slots CLEARED so a 1v1 does not inherit the last match's fourth
+> fighter. Percent is unclamped.
+> ⚠ **two deviations from this row, stated rather than quietly accepted**: it
+> asks for a PORTRAIT and ONE ICON PER REMAINING STOCK; the HUD prints the
+> fighter's NAME and the stocks as text (`2/3`). Both are presentation choices
+> a photograph would settle, and neither is a defect — but a row that asked for
+> icons and got text should say so.
 
 Per fighter, along the bottom: **portrait, one icon per remaining stock, current
 percent**. **No score** — the reserved-surround branch (`wip/versus-reserved-surround`)

@@ -312,6 +312,44 @@ Verdicts are recorded here as each is reached.
   assembly can then reject a contradiction instead of picking a winner. Eight
   authored rows and the spec type. The OR alone cannot express the PCA's answer
   either way, which is why it went back.
+  ⭐ **MEASURED 2026-08-07 — the estimate is off in both directions, and there is
+  a cost the row does not name.**
+  * **FOUR authored rows, not eight**: `character_archetypes.ron` lines 138 and
+    233 (`false`), 397 and 610 (`true`). The other four `is_aerial` hits are
+    comments.
+  * **TWO real readers of the SPEC field**, both in
+    `features/ecs/actor_clusters.rs` (`gravity_scale: if spec.is_aerial`, and
+    `ActorBody::from_kit(.., spec.is_aerial, ..)`). ⚠ the other `is_aerial` hits
+    are a DIFFERENT thing — `affordances` and `anim_index` read a runtime
+    `body.is_aerial` derived from `!ground.on_ground`, which is a fact about the
+    frame, not about authoring. A sweep that changed those would be changing the
+    wrong concept.
+  * ⛔ **the hidden cost: it is a CONTENT-SHAPE change, not just a type change.**
+    RON has no bare-bool spelling for `Option<bool>`, so all four authored rows
+    become `Some(true)` / `Some(false)`, the `character_archetypes` schema
+    revalidates them, and the content pack's fingerprint moves. That is fine and
+    expected — but it makes this a content + schema + code edit rather than the
+    "spec type and eight rows" the row describes, and it is why the estimate
+    should not be trusted as small.
+  ✔ **THE TYPE CHANGE LANDED 2026-08-07** — `Option<bool>`, four authored rows
+  now `Some(..)`, and **THREE** readers resolving absence with `unwrap_or(false)`
+  (not the two I first counted; the third builds `ActorTuning::is_aerial` in
+  `features/enemies/mod.rs`, and the compiler found it, not a grep).
+  ⭐⭐ **and it immediately changed what is known about the PCA.**
+  `cellular_automaton_fighter` reads `is_aerial: Some(false)` — a DELIBERATE
+  grounded claim — against a catalog row saying `body_kind: Floating`. So the two
+  sources genuinely contradict, and **"the catalog wins because the archetype
+  never said" is not available as a resolution**: somebody authored `false`. That
+  was unknowable while the field was a bare bool, which is exactly what the review
+  said the stronger endpoint would buy.
+  ⚠ `actor_movement_tests` now asserts `Some(false)` rather than falsiness, so the
+  deliberateness is pinned rather than incidental.
+  ⭐ **and the REJECTION half must not ship with the type change.** Assembly
+  rejecting a contradiction would refuse the Perfect Cellular Automaton today —
+  its catalog says `Floating` and the shipped duel plays it grounded — so
+  rejection turns a live fighter into an assembly failure. The type change is
+  behaviour-preserving (`unwrap_or(false)` at both readers); the rejection waits
+  on Jon's answer to "does the PCA fly when it fights?".
 
 - ⛔ **P7 duplicate code — REFUSED: it does not reproduce.** Checked each
   specific, because a finding stated this concretely deserves a concrete answer

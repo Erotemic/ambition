@@ -247,8 +247,187 @@ accepted it. Look for the invariant a family's own reader cannot check.
 | sfx registry | `assets/audio/sfx_registry.ron` | ✅ `sfx_registry`, same owner (2026-08-03) |
 | dialogue | 7 × `assets/dialogue/sandbox/*.yarn` | ▢ not RON; needs a handler that parses Yarn |
 | worlds | the LDtk projects | ▢ |
-| vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ▢ |
-| fighter brain ladder | `data/fighter_brain_ladder.ron` | ▢ |
+| vanity cards | `data/vanity_card{,_made_this_meme}.ron` | ⊘ **NOT a migration — measured 2026-08-07.** `vanity_card.ron` has ZERO readers in the workspace: only `tools/vanity_card_prep/export_sequence.py` writes it, and Jon settled it as reference art on 2026-08-03. `vanity_card_made_this_meme.ron` is 269K of GENERATED baked rig with exactly one reader (`include_str!`), so there is no two-reader fork to close. ⚠ chasing this row found two source comments citing `presentation::vanity_card`, a module that has never existed — fixed. |
+| fighter brain ladder | `data/fighter_brain_ladder.ron` | ✅ `fighter_brain_ladder`, owned by `ambition_characters` (2026-08-07) — declared, validated, lowered AND consumed. ⚠ this family had ZERO production readers rather than two, so the migration was a bug fix; see below for what it fixed and why it fixed nothing yet. |
+
+### ⛔ The fighter brain ladder is not a MIGRATION — it is a bug (2026-08-07)
+
+Every other ▢ in the table above is the two-readers-of-one-file shape: the
+runtime reaches the data through `include_str!` and its own parser, and the
+compiler exists to make that one read. **The fighter brain ladder is not that.**
+`fighter_brain_ladder.ron` is parsed in exactly one place — a content TEST
+(`game/ambition_content/tests/fighter_brain_ladder.rs`) — and by nothing else in
+the workspace. Ambition authored a nine-rung difficulty ladder and the running
+game has never read a row of it.
+
+⭐ **the engine says this is exactly what should not happen.**
+`FighterBrainProfile::for_level`'s own doc calls itself *"a FLOOR, not the
+ladder. A game that cares ships its own nine rows
+(`FighterBrainLadder::from_ron`) and this is never consulted"*. Ambition ships
+the nine rows. The floor is consulted anyway, at both production call sites
+(`brain_builders.rs:86`, `character_catalog/resolver.rs:154`).
+
+**What the game actually plays, measured against what is authored:**
+
+* ⛔⛔ **every difficulty scores moves with the LEVEL-9 weight set.**
+  `for_level` hands every rung `UtilityWeights::default()`, and `default()` is
+  `v1()` — `reach_fit 1.0, frame_advantage 0.6, kill_potential 0.4, stage_risk
+  -0.8, expected_payoff 0.5`, which is the ladder's level 9 verbatim. The
+  ladder's whole second axis is that a low rung does NOT notice things: L1
+  authors `kill_potential: 0.00` and `expected_payoff: 0.00`, and its comment
+  says why — *"not noticing which move hits harder IS a difficulty statement"*.
+  That axis does not exist in the shipped game. A level-1 CPU prices a smash
+  exactly as a level-9 does, and the only thing separating difficulties is
+  reaction speed and noise.
+* **the numbers differ on the reachable rung.** `fighter_level` defaults to 5.
+  Authored L5 is `reaction 300ms / apm 200 / noise 0.20 / read 0.2`; the floor
+  computes `325 / 270 / 0.275 / 0.3`. So the shipped level-5 fighter acts 35%
+  faster than authored, and is noisier.
+* ⚠ **the L3 divergence is NOT reachable, and saying so matters.** `for_level`
+  sets `rollout_depth: 12, rollout_k: 4` for level ≥ 6 while the ladder authors
+  ZERO on every row deliberately (*"§12.7 gates authoring nonzero rows on FB6e's
+  instruments"*). Nothing authors a level ≥ 6 fighter today — the default is 5
+  and smash's fragment says 1 — so the ungated rollout layer is latent rather
+  than live. It becomes live the day anyone authors a hard CPU.
+
+⭐ **so this row is worth more than its position in the table suggests.** Loading
+it is not a cleanup that leaves behaviour identical, which is what migrating the
+other families was; it is a change to how every CPU in the game evaluates a move.
+
+⭐⭐ **✔ DONE 2026-08-07 — and the last measurement CORRECTS this row's own
+urgency.** I wrote above that the numbers "differ on the reachable rung" because
+`fighter_level` defaults to 5. That implied a live defect. It is not one: **no
+authored content selects `CharacterBrainTemplate::Fighter` at all** — the only
+references in the workspace are the match arm itself and a doc comment. The
+default rung applies only once something asks for a fighter brain, and nothing
+does. So the finding is entirely LATENT: the ladder was unread, the
+level-9-weights-for-everyone consequence was real, and it reached nobody.
+⚠ **that is also why wiring it moved ZERO tests**, and a behaviour change to every
+fighter brain that moves nothing is worth explaining rather than celebrating. The
+four unit probes are the only coverage there can be until a fighter is authored.
+⭐ what the work buys is that the day someone authors one, it reads the ladder —
+which is the difference between content that exists and content that is loaded.
+
+**The shape, scoped 2026-08-07 so the next session does not re-derive it.** Three
+pieces, and the third is the whole cost:
+
+1. **the schema** — `ambition_characters` already owns four
+   (`character_catalog`, `boss_seed_library`, `boss_validator_bands`,
+   `boss_profiles`), so this is a fifth in the same crate with no placement
+   question. `crates/ambition_encounter/src/content_schema.rs` is the template at
+   ~180 lines. ⭐ the "what can this family say that its parser accepts and the
+   runtime cannot use" question — which the template says is the point of
+   migrating — is ALREADY answered here: `FighterBrainLadder::problems()` exists
+   and the content test asserts it empty (monotone in reaction/APM/noise, never a
+   zero reaction). The handler wires that up rather than inventing it.
+2. **registration + lowering** — mechanical, mirrors the four siblings.
+3. ⛔ **the consumption, which is where the work actually is.** Both production
+   call sites are PURE FUNCTIONS with no access to a resource:
+   `enemy_default_brain(enemy: &ActorConfig) -> Brain` (`brain_builders.rs:86`)
+   and the catalog resolver (`resolver.rs:154`). A loaded ladder has to reach
+   both, and the tempting fix — read it at each site — reintroduces the two-sites
+   shape this program exists to remove.
+   ⭐ **the right seam is ONE function**: `profile_for_level(level, ladder:
+   Option<&FighterBrainLadder>)` that falls back to `for_level` when no game
+   shipped rows, with both call sites routed through it. That also states the
+   engine's own rule — floor unless the game overrides — in code instead of in a
+   doc comment, which is why `for_level` was consulted anyway.
+   ⚠ threading the ladder to those two sites is a signature change through their
+   callers. That is the estimate: the schema is a morning, the threading is the
+   slice.
+   ⭐ **the carrier already exists, found 2026-08-07 and it lowers the estimate**:
+   `BrainBuildContext` (`character_catalog/binding.rs`) is a per-spawn context
+   already threaded into `brain_from_preset_with_context`, carrying
+   `spawn_world_x` and `patrol_radius`. The ladder is the same KIND of thing — a
+   per-spawn fact the resolver needs and cannot look up — so it belongs there
+   rather than in a new parameter on four functions. ⚠ the catch: today the
+   `Fighter` arm lives in the CONTEXT-FREE `brain_from_preset`, and the context
+   variant delegates to it for every non-patrol preset. So the Fighter arm has to
+   move into the context-aware path first, which is the same shape the patrol arm
+   already has.
+
+**✔ the seam and the LOAD are both landed** (2026-08-07): `profile_for_level` in
+`ambition_characters`, and a `fighter_brain_ladder` schema declared in `pack.ron`,
+registered in both registries, and lowered into the prepared pack — asserted by
+`the_prepared_pack_lowers_the_shipped_ladder`, which reads the PACK rather than
+the file so it fails if the manifest, either registry, or lowering breaks.
+
+✔ **CONSUMPTION LANDED 2026-08-07** — pinned end to end by
+`ambition_app/tests/authored_fighter_ladder.rs`, probed red both ways (projection
+unregistered; the insert `#[cfg(any())]`-ed out). ⛔ **and it exposed a layering
+mismatch bigger than the one below**: Ambition's 24 archetypes contain ZERO
+`Fighter` brains, while all 7 in the workspace are `ambition_demo_smash`'s — a
+crate that depends on `ambition_platformer2d` alone and so cannot see the pack.
+The ladder is authored in the game with no fighters and consumed by the game that
+cannot see it; `ambition_app` is the only composition where they meet, and the
+standalone demo (plus `ladder_probe` and `ladder_rig`) still runs the engine
+floor. Carried as **C3a** in `queue-72h-2026-08-06.md`.
+
+**The constraint the sketch above missed, kept because it is what forced the
+shape:** `BrainBuildContext` is the right carrier for the CATALOG path,
+which lives in `ambition_characters`. It cannot serve the other site:
+`enemy_default_brain` is in the MONOLITH, and the prepared pack lives in
+`game/ambition_content`, which is above the monolith — so the monolith cannot
+read the pack and the ladder cannot be fetched where it is needed.
+⭐ **so the ladder has to arrive as a RESOURCE the game inserts**, lowered from
+the pack by `AmbitionContentPlugin` and read at brain construction. That is the
+same shape every other migrated family uses to cross this boundary, and it is
+also why the two sites cannot simply share a function argument.
+⚠ it is config, not state: a rollback restores a brain, never the ladder it was
+built from, so this resource wants no rollback registration — see the
+`PROVENANCE_ONLY` argument for the same reasoning about write-once data.
+
+**The call chain, MEASURED 2026-08-07 rather than estimated.** It is wider than
+"two call sites" — `for_level` has two, but the functions carrying them are
+reached from three system entry points:
+
+```text
+FighterBrainProfile::for_level
+├── character_catalog/resolver.rs:154   brain_from_preset  (ambition_characters)
+│     └── carrier: BrainBuildContext  ← already threaded, per above
+└── brain_builders.rs:86               enemy_default_brain (monolith)
+      ├── prepared_match.rs:606  realize_seat  ← activate_the_prepared_match (a system)
+      └── brain_builders.rs:173  …_brain_and_action_set
+            ├── autonomous_reconcile.rs:99
+            └── mount/mod.rs:567   (dismounted rider)
+```
+
+⛔ **and do not fix only the match path.** Seating a fighter and reconciling one
+into hostility would then read different ladders, which is the fork this repo's
+first rule exists to prevent — every path through `enemy_default_brain` must see
+the same ladder.
+
+### ⛔ THREADING WAS TRIED AND ABANDONED, 2026-08-07 — and the cascade is the finding
+
+The chain above is drawn from `for_level`'s call sites. **It is wrong**, and the
+compiler said so: a fourth caller (`spawn_actors.rs`, the ORDINARY enemy spawn —
+the most common path of all) does not appear in any grep for `for_level` because
+it goes through `enemy_default_brain`. Threading from there cascaded outward
+through `EnemyActorSpawnPlan::hostile`, `spawn_runtime_minion_into`,
+`spawn_solo_enemy_into`, `spawn_encounter_mob`, their three wrappers, and then
+into `construction/mod.rs` and `abilities/thrown/puppy_slug_gun.rs` — still
+growing when it was abandoned. The diff reached 323 lines and had not compiled
+once.
+
+⭐ **the cascade IS the architectural answer, not an obstacle to it.** The ladder
+is needed at a LEAF of the spawn tree and available only at its ROOT, and the
+roots are many and unalike: a match activation, a reconciler, an encounter wave,
+a thrown puppy-slug ability. Making a thrown ability carry a difficulty ladder so
+it can pass it four levels down is how a parameter list becomes a confession. A
+value with that shape wants a PROJECTION — the same conclusion R1 reached for the
+conversation hold on the same day.
+
+⚠ **and the projection has one constraint that decides its shape.**
+`FighterState::new` caches two things DERIVED from the profile:
+`DelayedPerception::from_reaction_ms(cfg.profile.reaction_ms)` and
+`HabitModel::new(cfg.profile.read_weight)`. Those are the two axes that matter
+most, so re-projecting `cfg.profile` alone after construction fixes NOTHING
+visible — the brain would still see the world as late as the floor said.
+⭐ **so it must project at INSERTION**, where rebuilding the state costs nothing
+because there is no accumulated habit to lose: an `On<Insert, Brain>` observer
+that, for a `Fighter` brain with an authored rung differing from the floor,
+rebuilds `FighterCfg` and `FighterState` from the ladder. Deterministic under
+rollback — same level, same rung, same seed — and idempotent.
 
 ### ✔ RESOLVED — the placement blocker, and what it actually was
 

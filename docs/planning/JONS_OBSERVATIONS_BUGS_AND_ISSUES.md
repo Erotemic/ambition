@@ -3,7 +3,35 @@
 # attempt doesn't work.
 
 
-* When SANIC is hit, there it seems like he is given no iframes. He should also have some hitstun and be knocked back a bit, and then have a few second of recovery iframes. The rings don't splash out nearly large enough. He needs an opportunity to recollect some of them after his hitstun wears off and before they disappear.
+* ◐ **When SANIC is hit** (all four parts addressed 2026-08-07 — your sentence
+  had four requirements and they turned out to have four different answers).
+  Your words: *"there it seems like he is given no iframes. He should also have
+  some hitstun and be knocked back a bit, and then have a few second of recovery
+  iframes. The rings don't splash out nearly large enough. He needs an
+  opportunity to recollect some of them after his hitstun wears off and before
+  they disappear."*
+  * **i-frames — they were never missing, they were 0.75s.** That is the engine's
+    `knockback_invulnerability_time`, and Sanic authored no feel at all so he was
+    on the default. It is a fair "longest window in the game" for Ambition, where
+    a hit is a hit; here the hit throws your purse across half a screen, so it is
+    over before the rings land and the badnik you bounced off is still touching
+    you. Now **2.0s** — the classic — set in Sanic's own ring-loss handler rather
+    than in the engine, because Mary-O shares that default and her feel is pinned.
+  * **hitstun — genuinely missing, and fixed.** The resolver's armor branch arms a
+    beat (added after your Mary-O report, *"there needs to be a bit of hitstun
+    when maryo gets hit"*); the wallet-shield branch six lines below it did not.
+    The rings burst out of a body that never flinched.
+  * **knocked back — already there.** A contact hit carries `HitMode::Knockback`
+    and the wallet branch keeps the physical reaction deliberately, so this half
+    was working.
+  * **the splash — already landed**, with a test that drives the real integrator
+    and requires the spray to reach eight tiles.
+  * **and the recollection window, which is the part the i-frame number actually
+    decides.** Rings become collectible at 0.6s and vanish at 4.2s. At 0.75s of
+    i-frames you had **0.15s** to grab one without being re-hit; at 2.0s you have
+    **1.4s**. Nine times the safe scramble, with the scatter numbers untouched.
+  ⚠ **2.0s is the one number here that is taste rather than measurement** — say
+  the word and it moves; it is one constant, `RING_LOSS_INVULN_S`.
 
 * ◐ **The patent clerk: HE IS IN THE GAME** (2026-08-06). You said "patent clerk
   is new: note we want to use the svg clerk not the older one", so:
@@ -30,7 +58,21 @@
 
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 
-* ▢ **still open next door**: `maryo flashes when her fireball hits an enemy` (below) is a separate item and was not touched by this.
+* ✔ **`maryo flashes when her fireball hits an enemy` — FIXED, and now GUARDED (2026-08-07).**
+  ⛔ this row said "still open next door … (below)" and there was no row below: the
+  only mention of the fireball in this whole file was the pointer. The fix had in
+  fact landed — `damage/mod.rs` wraps the attacker flash in
+  `if !matches!(event.source, HitSource::PlayerProjectile)`, quoting Jon's words
+  verbatim — so the row was a dangling pointer to work that was already done.
+  ⚠ **but nothing pinned it.** A bare `if` with no test is one refactor away from
+  handing the bug back. `a_projectile_hit_flashes_its_victim_but_never_its_thrower`
+  pins it now, and was verified by POISONING the guard rather than by observing a
+  pass: with the condition removed the thrower's `hit_flash` reads 0.1 against the
+  expected 0.0, which is Jon's symptom exactly.
+  ⭐ it asserts BOTH halves — a slash still flashes — because a projectile-only
+  assertion would pass just as happily against `hit_flash` being deleted outright.
+  ⚠ the HITSTOP is deliberately not asserted absent: the brief hold is what makes
+  a shot feel like it connected, nobody reported it, and the fix kept it.
 
 * ◐ **The snakes-on-a-plane art already EXISTS, and half the wiring is now in.**
   Both `snakes_on_a_cartesian_plane` and `snakes_on_a_paper_plane` were drawn,
@@ -131,7 +173,27 @@
     `collision_scale = 1.21 / fill` REPRODUCES Alice's authored 1.5 from her 81%
     fill (1.21 / 0.81 = 1.49). A formula that predicts the values you already
     like is not a matter of opinion. `--suggest` prints it per row.
+  * ⭐ **MEASURED 2026-08-07, and the number is the argument.** Two groups of
+    HUMANS currently render **1.69× apart**: the 13 scientist-cast sheets carrying
+    an explicit `collision_scale: 1.0` sit at figure height **0.84**, while the 33
+    high-fill sheets left on the `1.5` default sit at **1.42**. Your reference is
+    1.21. So this is not "the values drifted a bit" — it is two populations of
+    people, in the same Hall, one of them two-thirds the height of the other.
+  * ⭐ **and the judgement is smaller than the row implies.** The report lists 180
+    sheets; only **116 are catalog characters**. The other 64 have no catalog row
+    at all — `lasersword`, `portal_gun`, `cut_rope_anvil`, `bow_arrow`,
+    `throwing_javelin`, `news_board`, `shrine`, the `goblin_*` weapon sheets — so
+    a figure-height formula is meaningless for them and they are out of scope
+    without any judgement being made. ⚠ a few in that 64 look like UNCAST
+    CHARACTERS rather than props (`george_booul`, `goblin_brute_hammer`), which is
+    the same orphan-sheet class the Hall identity scan turned up; noted, not acted
+    on.
   * ▢ **so the work is: pick which sheets are HUMANOID and apply the suggestion.**
+    The candidate list is the 116, and the ones where the formula is obviously
+    WRONG are identifiable by shape rather than by taste — `puppy_slug` (0.49),
+    `snakes_on_a_*` (0.59), `stochastic_parrot` (0.70), `trex_enemy`,
+    `burning_flying_shark`, the `*_mite`s. Everything above ~80% fill in that list
+    is a person.
     ⚠ the script cannot tell a viking from a puppy slug, and its suggestion is
     nonsense for a snake, an explosion, a pipe, or a deliberately chibi robot —
     that judgement is yours and is the only part left. ⛔ **edit the `.yaml`, not
@@ -145,19 +207,74 @@
   * ⚠ **TRACED 2026-08-03, and the code does NOT currently do what the report describes — so this needs your re-check before it gets a refactor.** `ResetRoomFeaturesEvent` (what restores enemies, breakables and pickups) has exactly ONE production writer: `reset_sandbox`, reached only through `apply_room_replay_request_system` draining `RoomReplayRequested`. Mary-O emits that from `restart_level_after_death`, which returns early while `sequence.active()` — i.e. **after** the beat. So enemies should not reset early.
   * ⭐ **what DOES happen immediately is the PLAYER**: `death_respawn_player` resets her clusters, anim and combat on the fatal hit, and the death module's own doc says so — *"the engine respawns a dead player IMMEDIATELY, that is why her `Death` row was unreachable"*. The beat then holds her body and re-arms `death_anim_timer` every tick because that immediate respawn wipes it. **So the thing that resets mid-animation is her, not them** — and if what you saw was the world looking untouched while she died, that is the same root wearing different clothes.
   * ✔ **RE-MEASURED at HEAD 2026-08-06, and the trace's CONCLUSION holds — but its count was wrong.** It said `ResetRoomFeaturesEvent` has "exactly ONE production writer". There are TWO: `apply_room_replay_request_system` (two write sites, one function — the replay path Mary-O's death reaches) and `apply_player_reset_input_system` (the manual Reset button). Two more writes are in tests. The second production writer is not the reported symptom — pressing Reset is not dying — so nothing about the finding changes, but a row that says "exactly one" is a row somebody will trust the next time they look for a stray writer. ⭐ the guard is intact: `restart_level_after_death` still returns early while `sequence.active()` (`remaining > 0.0`), so the replay cannot fire during the beat.
-  * ▢ **so the question is still yours, and it is now a narrow one.** The refactor ("one reset at one time") is still worth wanting, but the SYMPTOM as reported — enemies resetting early — is not what the code does. What DOES reset mid-animation is Mary-O herself (`death_respawn_player`, immediate on the fatal hit). ⚠ **re-watch a death before anybody refactors**: if what you saw was her snapping back while the world held still, the fix is the immediate respawn, not the reset ordering, and those are different pieces of work.
-
+  * ⛔ **RETRACTED — a 2026-08-07 answer here was WRONG and is corrected below.**
+    It claimed `death_respawn_player` teleporting on the fatal tick meant "no beat,
+    nothing to animate over". That is true of the ENGINE and false of Mary-O:
+    `death.rs`'s own module doc says *"The engine respawns a dead player
+    IMMEDIATELY … So this holds the level for a beat after the death"*, and *"She
+    dies WHERE SHE DIED, not at spawn"*. The demo OVERRIDES the engine's teleport
+    and pins her at the death position. ⚠ the mistake was reading one call site
+    and not asking whether a consumer supersedes it — the failure this repo keeps
+    paying for.
+  * ⭐ **what the code actually says, and it makes the row look STALE.** Mary-O has
+    a complete death beat: `DEATH_DWELL = 3.2` seconds, body held at the death
+    position, controls blanked, the `Death` animation row playing, level replay
+    gated behind it. So on the current code neither half of the original report
+    reproduces — the enemies are behind the beat and she does not blink to spawn.
+  * ⭐⭐ **and Jon has already been shown a beat**: `DEATH_DWELL`'s own comment
+    records a LATER report of his — *"death isn't long enough for the entire death
+    music to play"* — and says the value was raised from **1.6s to 3.2s** because
+    the sting was being cut off. A beat of 1.6s that ended mid-tumble is a very
+    good candidate for *"the enemies seem to reset before the death animation is
+    finished"*: the reset was correctly gated behind the beat, and the BEAT was
+    ending too early.
+  * ▢ **so the row's remaining question is whether it still reproduces at 3.2s.**
+    That is one death, watched once, and it is the only part a code reading cannot
+    settle. ⛔ do NOT do the "one reset at one time" refactor first: the reset
+    ordering is already correct and was never the symptom.
 * ~~We probably need an engine concept that allows actors to be dormant.~~ **BUILT, and then found half-wired 2026-08-05.** `features::ecs::dormancy` declares it the way your last clause asks: an actor with no `DormancyPolicy` is always awake, so "not inherent" is the default rather than an opt-out, and `DormancyPolicy::Never` exists so a character that must keep simulating says so where a reader finds it. The wake test is *near any OBSERVER*, never near "the player" — one player, four on a sofa and a remote peer are the same rule, which is your split-screen and netplay point. It sleeps the BRAIN and CLEARS the control frame (a sleeping actor with a stale `ActorControl` keeps walking, which is the exact symptom), and `Dormant` is recomputed every tick from positions so a rollback reproduces it with no memo to get wrong.
   * ⛔ **but only the SLOP was wired to it for a day.** You named the slop, so the slop got the policy — and Solid Snake, the other patrolling enemy in the same level with the same job, thought for the whole course. Fixed `ad43b63ba`. ⚠ **the test was defending the gap**: it asserted that ONLY the slop declares dormancy, with a strays check that would have failed the moment anyone wired the snake. It asserts the property now — every authored enemy declares whether it sleeps — and was probed red.
   * ◐ **Sanic adopted it too (`df269eaec`), and the second game is what made the seam's assumption visible.** A wake radius is a LEAD TIME wearing distance's clothes: your 720px in front of a Mary-O at 300px/s is 2.4s of warning, and the same 720px in front of Sanic at his 2000px/s super top speed is **0.36s** — a badnik snapping into motion in full view, worse than one that had been walking all along. His radius is 4800, derived from his own top speed for the same 2.4s of lead. ⭐ that a fixed radius silently encodes an assumption about how fast the OBSERVER moves is the argument for the policy eventually taking SECONDS rather than pixels; recorded at the constant, not acted on, because two games is not enough to change an engine seam's units.
-  * ▢ **the content bosses and the hall cast still declare nothing.** Both are stationary or scripted, so the cost of leaving them is low and the right answer may well be `DormancyPolicy::Never` stated explicitly rather than silence — but nobody has decided, and silence currently reads the same as "always awake" whether or not that was chosen.
+  * ◐ **the content bosses and the hall cast still declare nothing — but the question is ANSWERABLE now** (`awaiting-maintainer-decision.md`, 2026-08-07): the Hall is 129 NpcSpawns all on `stand_still`, and `tick_npc_idle_barks` carries no dormancy filter, so sleeping a statue would not cost it its voice. Recommendation there: `Never` on the bosses (free, behaviour-preserving), leave the Hall until a frame profile says 129 no-op brain ticks matter. Both are stationary or scripted, so the cost of leaving them is low and the right answer may well be `DormancyPolicy::Never` stated explicitly rather than silence — but nobody has decided, and silence currently reads the same as "always awake" whether or not that was chosen.
 
   * *(your words, kept)* We probably need an engine concept that allows actors to be dormant. This is important for maryo because ai slop will just walk off the edge of the level before she even gets to that part of the level, so we need to wake or sleep their brain depending on how close she is to them. This sort of optimization will likely be generally important for any game using the engine, although it's not something that should be inherent. There might be characters that don't go dormant off screen, this matters a lot for split screen or network multiplayer games. It also might matter in other cases. Not 100% sure how its elegantly expressed though.
 
 * ~~In mary-o blocks that are used need a new texture so they are visually distinguishable. They also need a small animation (probably an in-code position nudge up and back into place) when they are hit.~~ **BOTH DONE.** A spent block wears `EntitySprite::SpentBlockTile` — its OWN inert texture rather than falling back to plain masonry, which would have hidden its history — chosen in `dress_power_blocks` from `SpentPowerBlocks` every frame rather than from the bonk EVENT, because that set is rollback state and art driven by the event would keep the used look through a rewind that undid the strike. The nudge is `BlockStruck`, emitted by the bonk and consumed by the render layer (`rendering/world.rs`): the block's own position is never moved, exactly as you guessed it should not be — moving it would lift a body standing on it.
   * ⭐ **and a related asymmetry fixed 2026-08-05**: a BRICK drew as the generic dark slab while the level's own solid surfaces drew `SolidTile`, the seamless brick pattern. Same `BlockKind::Solid`, two textures, decided by whether the block came from the IntGrid or from an entity. Bricks wear the masonry now (`c6a7034a3`).
 
-* **[agent-found, next long run] The couch-input smash test fails only in a full-binary run.** `app_it::smash_in_the_host::a_keyboard_player_and_a_pad_player_drive_different_fighters` passes in isolation and fails when the whole `app_it` binary runs (measured both ways, 2026-08-02, and confirmed identical on a clean worktree at the previous commit — it is not a regression from the Mary-O geometry or contact-harm work). So it is order- or parallelism-dependent: something earlier in the binary leaves seat/pad state that this test then reads. That is a real defect and not merely a flaky test — a keyboard participant and a pad participant driving the same fighter is exactly the couch bug class that has bitten repeatedly, and the isolated pass is what makes it invisible. Worth finding what the shared state is rather than adding a serial-test attribute over it.
+* **[agent-found] The couch-input smash test no longer fails ONLY in a full-binary run — ⚠ RE-MEASURED 2026-08-07 and the diagnosis below is STALE.** `app_it::smash_in_the_host::a_keyboard_player_and_a_pad_player_drive_different_fighters` passes in isolation and fails when the whole `app_it` binary runs (measured both ways, 2026-08-02, and confirmed identical on a clean worktree at the previous commit — it is not a regression from the Mary-O geometry or contact-harm work). So it is order- or parallelism-dependent: something earlier in the binary leaves seat/pad state that this test then reads. That is a real defect and not merely a flaky test — a keyboard participant and a pad participant driving the same fighter is exactly the couch bug class that has bitten repeatedly, and the isolated pass is what makes it invisible. Worth finding what the shared state is rather than adding a serial-test attribute over it.
+  * ⛔ **RE-MEASURED 2026-08-07: it fails in ISOLATION too.**
+    `cargo test -p ambition_app --test app_it -- --exact
+    smash_in_the_host::a_keyboard_player_and_a_pad_player_drive_different_fighters`
+    → `0 passed; 1 failed; 317 filtered out`. So the "passes alone, fails in the
+    binary" characterisation no longer holds, and anyone acting on it would go
+    hunting for cross-test shared state that is not what is breaking it now.
+    ⚠ **still not a regression from any current campaign**: the same test fails at
+    `b24ccb6b2` in a full-binary run, checked by detaching a worktree to that
+    commit. Something between 08-02 and now turned an order-dependent failure
+    into an unconditional one — which is arguably PROGRESS, because a
+    deterministic failure is diagnosable and an order-dependent one is not.
+  * ⭐ the current symptom is concrete: *"the keyboard moved the PAD player's
+    fighter (40.34px against the keyboard player's -50.05px)"*, reproducible on
+    demand.
+  * ⛔ **but the SIGNS say it is probably not shared input, and the assertion's
+    wording is what misleads.** The keyboard pressed RIGHT; seat one's fighter
+    moved **-50** (left) and seat two's moved **+40** (right). Two seats reading
+    one source move the SAME way — that is what the assertion is shaped to
+    catch. Opposite directions with the presser going backwards is the signature
+    of CONTACT: two fighters overlapping and pushing each other apart.
+  * ⚠ **so the cheapest next measurement is their spawn separation**, not a hunt
+    through device routing. If they spawn close enough to overlap, this test has
+    been measuring push-apart rather than input ownership, and the 08-02
+    "passes alone" behaviour was spawn-position luck rather than test order.
+    `seat_input_participants_for_roster` already gives every non-primary seat
+    `BindingRecipe::gamepad_only()`, so the keyboard has no route into seat two's
+    map to begin with — which is evidence for the contact reading.
+  * ⛔ **NOT picked up here on purpose**: smash seating is the parallel agent's
+    active area (their in-flight work renames `ActiveMatch` / `seat_match_
+    participants`). Two people editing that at once is how a merge gets
+    expensive. Recorded with the evidence so whoever owns it starts from the
+    measurement rather than from the 08-02 story.
 
 * **[agent-found] Mary-O's gameplay box is her raw alpha silhouette, because her generator authors no `body_inset`.** Her three forms now hand their collision geometry to their sheets (`BodySource::SpriteAuthored`), so box and sprite derive from one authored scale and can no longer disagree — that part is done. But `body_pixel_bbox` is the measured alpha bbox, hat and outstretched arms included, so her tall form is ~36 px wide against a 32 px tile. The builder already has the right seam for this: `CharacterGenerator.body_inset()` takes per-edge fractions of the measured box, seven other characters override it, and its own docstring notes that being fractional is what makes it "survive art changes". Mary-O's generator overrides nothing. The fix belongs there — carve the gameplay body in from the silhouette — and NOT in a second box authority in the game. Per-pose `hurtbox_parts()` is the finer-grained version of the same seam if a pose needs its own rect.
 
@@ -369,6 +486,27 @@ slot with no attached pad cannot be set to controller.
   by a pixel does not silently resize the creature. Her own comment says why —
   *"a scale pinned to today's pixel count silently changes her height the first
   time a crop moves"* — and both enemies are pinned to today's pixel count.
+  ⭐⭐ **AND THE TWO REPORTS COLLAPSE INTO ONE DECISION — the arithmetic says so.**
+  The scale report's own formula is `figure_height = collision_scale x fill`,
+  where `fill = body_pixel_bbox.h / frame_height`. So hitting a target figure
+  height means `collision_scale = target / fill`: **`collision_scale` IS a
+  reciprocal-of-frame-padding fudge and nothing else.** That is why the row above
+  found the values "do not compensate for anything" — they are 116 hand-tuned
+  approximations of a quantity the code can compute exactly.
+  ⭐ **so the bbox-aspect route does not merely fix the snake — it deletes the
+  per-character number.** If the quad is sized and cropped from
+  `body_pixel_bbox`, fill is 1.0 BY CONSTRUCTION and every character's
+  `collision_scale` becomes the same global constant (the target figure height).
+  116 authored numbers collapse to one.
+  ⚠ **which reorders the work.** Applying `--suggest` per character is a stopgap
+  that the bbox route would then obsolete — the 116-row humanoid judgement would
+  have been spent on values that stop existing. ⭐ **decide the bbox route
+  first**; if it is taken, the only judgement left is the handful of creatures
+  whose figure should NOT match a human's (slug, snakes, parrot, trex, shark,
+  mites), which is a much smaller ask than 116 rows.
+  ⚠ it remains three coupled changes (aspect + drawn sub-rect + `feet_anchor_norm`
+  moving with the crop), and that has not changed.
+
   ▢ **what this does NOT decide**: what the numbers should BE. The instrument
   asserts no ratio on purpose — what counts as too big is Jon's call, and a limit
   written by a test would be a taxonomy nobody chose. What it does say is that

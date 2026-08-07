@@ -20,6 +20,27 @@ pub struct MovingPlatformSpec {
     pub sweep_dx: f32,
     pub speed: f32,
     pub path_id: Option<String>,
+    /// **Signed vertical span of a WRAPPING loop**, the paternoster authoring.
+    ///
+    /// Mirrors `sweep_dx`: magnitude is the shaft, sign is the direction of
+    /// travel. ⚠ **positive travels DOWN** — world y is down-positive here and
+    /// the LDtk conversion preserves it, so a descending elevator is a POSITIVE
+    /// `loop_dy`. ⛔ **a loop is not a vertical sweep** — it never
+    /// reverses, which is what makes a run of them read as an elevator instead
+    /// of a row of lifts. `None`/zero leaves the platform on its sweep.
+    pub loop_dy: Option<f32>,
+    /// **Where the shaft STARTS, independent of where this platform does.**
+    ///
+    /// ⛔ **without this a conveyor is not authorable.** `loop_dy` alone is
+    /// measured from the platform's own position, so a run of staggered
+    /// platforms gets a run of DIFFERENT shafts and they drift into separate
+    /// bands instead of chasing each other round one. A conveyor is N platforms
+    /// sharing ONE shaft at different PHASES, and the phase is exactly what the
+    /// authored position should mean once the shaft is stated separately.
+    ///
+    /// `None` anchors the shaft at the platform, which is the right default for
+    /// the single-platform case and keeps that authoring one field.
+    pub loop_min_y: Option<f32>,
 }
 
 impl MovingPlatformSpec {
@@ -43,7 +64,25 @@ impl MovingPlatformSpec {
                 let trimmed = value.trim();
                 (!trimmed.is_empty()).then(|| trimmed.to_string())
             }),
+            loop_dy: None,
+            loop_min_y: None,
         }
+    }
+
+    /// Author this platform as a wrapping vertical loop instead of a sweep.
+    ///
+    /// Additive on purpose: `from_authored` keeps its shape, so the existing
+    /// callers and every world that authors no `loop_dy` are untouched.
+    pub fn with_vertical_loop(mut self, loop_dy: Option<f32>) -> Self {
+        self.loop_dy = loop_dy.filter(|dy| dy.abs() > f32::EPSILON);
+        self
+    }
+
+    /// Anchor this platform's shaft somewhere other than its own position, so a
+    /// run of platforms can SHARE one shaft and differ only in phase.
+    pub fn with_loop_anchor(mut self, loop_min_y: Option<f32>) -> Self {
+        self.loop_min_y = loop_min_y;
+        self
     }
 
     pub fn resolve(self, paths: &[KinematicPathSpec]) -> Result<MovingPlatformState, String> {
@@ -64,6 +103,36 @@ impl MovingPlatformSpec {
                 self.name,
                 self.size,
                 path_spec.path.clone(),
+            ))
+        } else if let Some(loop_dy) = self.loop_dy {
+            // ⚠ **the loop wins over `sweep_dx`**, which is authored by default
+            // (the converter falls back to 240.0 when nobody says otherwise), so
+            // "no sweep authored" is not a thing a spec can express. Precedence
+            // is stated rather than emergent: a path beats a loop beats a sweep,
+            // because each is a more specific statement of intent than the last.
+            // ⭐ **an anchored shaft is SHARED; an unanchored one belongs to
+            // this platform.** With `loop_min_y` the authored position becomes a
+            // PHASE within a shaft several platforms can occupy at once, which is
+            // what makes a conveyor rather than a row of independent lifts.
+            // Without it the shaft is measured from here, which is the right
+            // default for a lone platform and keeps that authoring one field.
+            let (min_y, max_y) = match self.loop_min_y {
+                Some(base) => (base, base + loop_dy.abs()),
+                None => {
+                    let end_y = self.start_pos.y + loop_dy;
+                    (self.start_pos.y.min(end_y), self.start_pos.y.max(end_y))
+                }
+            };
+            Ok(MovingPlatformState::from_vertical_loop(
+                self.id,
+                self.name,
+                self.start_pos,
+                self.size,
+                min_y,
+                max_y,
+                self.speed,
+                // positive dy travels toward +y, which is DOWN.
+                loop_dy > 0.0,
             ))
         } else {
             Ok(MovingPlatformState::from_sweep(
@@ -106,6 +175,31 @@ enum MovingPlatformMotion {
         path: ambition_platformer2d_core::KinematicPath,
         segment: usize,
         dir: i32,
+    },
+    /// **A one-way vertical loop — the paternoster / "infinite elevator".**
+    ///
+    /// Jon, on Mary-O 1-2: *"moving platforms that move vertically down and up
+    /// like an elevator. When they go OOB (far enough so they are off screen of
+    /// the player in normal gameplay) they can teleport to the top / bottom of
+    /// the screen to make an infinite elevator effect."*
+    ///
+    /// ⛔ **it WRAPS where the other two REVERSE**, and that is the whole reason
+    /// it is a third variant rather than a `Sweep` with the axis swapped. A
+    /// reversing platform is a lift; a wrapping one is a conveyor of lifts, and
+    /// the player experience — step off the top, another arrives from below —
+    /// only exists if the platform never turns around.
+    Loop {
+        min_y: f32,
+        max_y: f32,
+        speed: f32,
+        /// `+1` travels toward +y, `-1` toward -y. Constant for the lifetime of
+        /// the platform: this motion has no reversal, which is the point.
+        ///
+        /// ⚠ **+y is DOWN here.** The LDtk conversion does not flip the axis, so
+        /// world y increases downward — a falling body's y grows. `+1` therefore
+        /// DESCENDS on screen, which is the opposite of what "positive" reads
+        /// like and is worth stating wherever the sign is chosen.
+        dir: f32,
     },
 }
 
@@ -155,6 +249,45 @@ impl MovingPlatformState {
         }
     }
 
+    /// A wrapping vertical loop between `min_y` and `max_y`.
+    ///
+    /// `speed` is magnitude; `downward` picks the direction. A run of these with
+    /// staggered `start_pos` values along the same span is the elevator shaft.
+    ///
+    /// ⚠ **`downward` rather than `rising`, because +y is DOWN.** The first
+    /// version of this signature said `rising` and set `dir = +1` for it, which
+    /// would have had every authored elevator travel the opposite way to its
+    /// field's name — silent, and only visible by watching the game.
+    pub fn from_vertical_loop(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        start_pos: ae::Vec2,
+        size: ae::Vec2,
+        min_y: f32,
+        max_y: f32,
+        speed: f32,
+        downward: bool,
+    ) -> Self {
+        let (min_y, max_y) = if min_y <= max_y {
+            (min_y, max_y)
+        } else {
+            (max_y, min_y)
+        };
+        Self {
+            id: id.into(),
+            name: name.into(),
+            pos: start_pos,
+            size,
+            motion: MovingPlatformMotion::Loop {
+                min_y,
+                max_y,
+                speed: speed.max(0.0),
+                dir: if downward { 1.0 } else { -1.0 },
+            },
+            last_delta: ae::Vec2::ZERO,
+        }
+    }
+
     pub fn from_path(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -187,6 +320,13 @@ impl MovingPlatformState {
     /// it as [`Self::last_delta`] for readers that run after the advance.
     pub fn update(&mut self, dt: f32) -> ae::Vec2 {
         let old = self.pos;
+        // ⛔ **a WRAP is a position change that is not a MOVEMENT**, and
+        // `last_delta` is the quantity a rider is carried by. An arm that
+        // teleports must say what it actually travelled, or `pos - old` hands the
+        // rider the whole span in one frame — in the direction opposite to
+        // travel. Only the wrapping arm needs this; the reversing ones move
+        // continuously, so their position difference IS their travel.
+        let mut carried: Option<ae::Vec2> = None;
         match &mut self.motion {
             MovingPlatformMotion::Sweep {
                 min_x,
@@ -206,13 +346,45 @@ impl MovingPlatformState {
             MovingPlatformMotion::Path { path, segment, dir } => {
                 self.pos = advance_path_position(path, segment, dir, self.pos, dt);
             }
+            MovingPlatformMotion::Loop {
+                min_y,
+                max_y,
+                speed,
+                dir,
+            } => {
+                let step = ae::Vec2::new(0.0, *speed * *dir * dt);
+                self.pos += step;
+                let span = *max_y - *min_y;
+                if span > 0.0 {
+                    if self.pos.y > *max_y {
+                        self.pos.y -= span;
+                    } else if self.pos.y < *min_y {
+                        self.pos.y += span;
+                    }
+                }
+                // The TRAVEL, never the teleport.
+                carried = Some(step);
+            }
         }
-        self.last_delta = self.pos - old;
+        self.last_delta = carried.unwrap_or(self.pos - old);
         self.last_delta
     }
 
     pub fn aabb(&self) -> ae::Aabb {
         ae::Aabb::new(self.pos, self.size * 0.5)
+    }
+
+    /// The shaft a vertically-LOOPING platform runs in, as `(min_y, max_y)`.
+    ///
+    /// `None` for every other motion — a sweep and a path REVERSE at their
+    /// limits, which is visible on purpose. Only a loop teleports, and a
+    /// teleport the player can see reads as a bug rather than as an elevator, so
+    /// content needs to be able to ask where the wrap happens.
+    pub fn vertical_loop_span(&self) -> Option<(f32, f32)> {
+        match self.motion {
+            MovingPlatformMotion::Loop { min_y, max_y, .. } => Some((min_y, max_y)),
+            _ => None,
+        }
     }
 
     /// Direction of travel, +1 or -1. For path-driven platforms this reports
@@ -222,6 +394,7 @@ impl MovingPlatformState {
         match &self.motion {
             MovingPlatformMotion::Sweep { dir, .. } => *dir,
             MovingPlatformMotion::Path { dir, .. } => *dir as f32,
+            MovingPlatformMotion::Loop { dir, .. } => *dir,
         }
     }
 

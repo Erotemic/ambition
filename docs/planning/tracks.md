@@ -83,6 +83,47 @@ by hardness × payoff; every item below is executable today per its own doc.
    ▢ **still owed for the gate**: §8's scenario suite and the survival/damage
    ratios. A probe with one scenario and an opponent that cannot attack says the
    gate is worth authoring; it is not the gate.
+   ⛔⛔ **AND THE INSTRUMENT MEASURES THE ENGINE FLOOR, NOT AMBITION'S LADDER
+   (found 2026-08-07).** `ladder_probe` rosters `duelist_l{N}`, whose archetypes
+   read `brain_template: Fighter, fighter_level: Some(N)` — so they resolve
+   through the same path a shipped fighter does. But the binary composes only
+   `CausalPlugin`; it never installs `AmbitionContentPlugin`, so the
+   `AuthoredFighterLadder` resource is absent and every rung falls back to
+   `FighterBrainProfile::for_level`.
+   ⭐ **the two differ exactly where the probe's own A/B lives.** `for_level`
+   turns `rollout_depth: 12` on at level ≥ 6 — which is why the probe's comment
+   says *"level 5 → 6 is NOT a depth experiment; it is five changes at once"* —
+   while `fighter_brain_ladder.ron` authors `rollout_depth: 0` on EVERY rung,
+   deliberately, gated on FB6e's instruments. So under the shipped ladder there is
+   no depth change between rungs at all, and that confound is a property of the
+   FLOOR rather than of the game.
+   ⛔ **CORRECTION, same day: the remedy above was wrong, and the reason is the
+   more useful finding.** I first wrote that the fix is "one `insert_resource`
+   now that the ladder loads". It is not. `ladder_probe` lives in
+   `ambition_demo_smash_app`, whose manifest states the rule: *"A demo app depends
+   on `ambition_platformer2d`, never on `ambition_app`. That is the demo gate."*
+   `fighter_brain_ladder.ron` is **AMBITION's** content. Installing it into a
+   smash-demo binary would be one game reading another game's ladder, and the
+   dependency the fix needs is the one the gate forbids.
+   ⭐ **so the probe measuring `for_level` is CORRECT, and the doctrine says so.**
+   `fighter-brain.md` §4: *"Games/demos ship their own rows — it's content."* The
+   smash demo ships none, so its fighters get the engine floor, which is exactly
+   what a game that has authored no ladder should get.
+   ▢ **what is actually owed, restated**: decide WHOSE ladder the gate calibrates.
+   If Ambition's, the probe belongs where Ambition's content is reachable. If
+   smash's, **smash has to author one first** — and then its rungs, not Ambition's,
+   are what §8's suite measures. ⚠ either way a numbers table that does not name
+   the ladder it measured is worse than none, and today it would have said
+   "Ambition" while measuring the engine default.
+   ✔ **that half is FIXED 2026-08-07**: `ladder_probe` prints its ladder before
+   any row — *"LADDER: engine floor (`FighterBrainProfile::for_level`) — this demo
+   authors no ladder of its own"* — and states what it costs the table below
+   (rungs gain `rollout_depth: 12` at level ≥ 6, so the level column confounds
+   depth with reaction/APM/noise/read-weight; the forced-depth A/B is the only
+   clean depth comparison there). ⭐ the same table means two different things
+   depending on whose ladder ran, and it now says which. ⚠ its doc comment also
+   records why this is NOT fixed by loading Ambition's ladder, because that is the
+   fix the floor line invites and the demo gate forbids.
 3. ~~**Matchbox two-peer transport + predicted-A/corrected-B oracle**
    (netcode.md "next online slice"; unblocked since the confirmed-frame
    quarantine landed 2026-07-21).~~ **DEFERRED to the Super Smash Siblings era
@@ -312,12 +353,20 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   would therefore be a seam with exactly one caller, which is the
   pre-generalization the engine direction forbids outright. The row's own
   reasoning was right; folding it into K2b did not change the count.
-  ▢ **what IS real here, and is a different row**: the manifest has TWO writers
-  of the same value — `ambition_content::plugin` (line 74) and
-  `ambition_app::app::resources` (line 75). Idempotent today because both insert
-  `ambition_content::worlds::world_manifest()`, and the same "a global needs one
-  owner" shape that cost a roster, a rebuild, a retirement and a countdown this
-  week. Worth removing the duplicate; NOT worth inventing a builder to do it.
+  ✔ **the TWO-WRITERS half is DONE — verified 2026-08-07, the row was stale.**
+  It read: the manifest has two writers of the same value, `ambition_content::
+  plugin` and `ambition_app::app::resources`. There is exactly ONE
+  `insert_resource` now (`ambition_content/src/plugin.rs:77`), and the app side
+  carries the fix's own note at `resources.rs:91` — *"ONE writer, and it is the
+  CONTENT plugin's (2026-08-06) … The provider that OWNS the worlds publishes the
+  declaration; the host reads it."*
+  ⚠ **the local `let world_manifest = …` in `resources.rs` is NOT the duplicate**
+  and should not be "cleaned up" by a later reader: it is threaded BY REFERENCE
+  into the preparation-time readers (catalog rows, the LDtk load, the room-set
+  conversion, the hot-reload watcher) which run before any schedule and so cannot
+  take a `Res`. That is the K2a no-process-global shape, and it is orthogonal to
+  who inserts the resource. ⭐ recorded because the surviving `let` looks exactly
+  like the defect the row described.
 - ✔ **K2b direct-entry activation — DONE 2026-08-06.** The oracle is met: the
   hand-built `SessionRoot` is deleted. `compose_ambition_gameplay_host` is the
   one composition, and the whole `ambition_app` suite (471 tests) plus the
@@ -570,6 +619,41 @@ this section is the bounded first wave, not a restatement. Vocabulary note
     SimId + Name`) whose components are REGISTERED as rollback state while the
     entity carries no rollback anchor — so the registration is a claim the
     engine does not honour. It exists only under the shell.
+    ⭐ **MOVED TO [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md)
+    (2026-08-07)** — *"Is a SESSION scope marker construction provenance, the way
+    a ROOM scope marker is?"* It stopped being an engineering question the moment
+    it narrowed to one component, and the full write-up lives there so it is not
+    restated in two places that can drift. Kept here in summary because the
+    sweep is what found it.
+    ⭐⭐ **NARROWED to one component, 2026-08-07.** Five of the six are in
+    `PROVENANCE_ONLY` — `SpawnOrigin`, `TransactionId`, `SimId`,
+    `RoomScopedEntity`, `Name` — so they are skipped by the RULE rather than by a
+    waiver. The archetype is reported at all because of exactly ONE component:
+    **`SessionScopedEntity`**, which is registered rollback state
+    (`scope.session`, `primitives.rs:110`) and is NOT in that list.
+    ⚠ **so the real question is an ASYMMETRY, and it is a short one**: both
+    `RoomScopedEntity` and `SessionScopedEntity` are write-once SCOPE MARKERS
+    stamped at construction, and the provenance rule's own argument — *"written
+    ONCE and never again … a rewind that does not restore them restores exactly
+    the values they already hold"* — reads identically for both. Is the omission
+    deliberate? ⛔ **there is a reason to think it might be**: the sibling waiver
+    for `Messages<SessionScopeRetired>` says a rewind *"must not un-retire a
+    scope"*, so session lifetime has a rewind rule that room lifetime does not.
+    Whether that rule reaches the MARKER as well as the retirement message is the
+    whole question, and it is Jon's or the rollback owner's.
+    ⛔ **and the sweep cannot currently see it.** Both
+    `no_snapshot_registration_is_inert_*` assertions PASS, so the archetype does
+    not appear in the boot world or a live match — it is in a composition no test
+    sweeps. Naming the entity (done today) helps only once a test reaches that
+    composition; until then the sweep is green about a class it never looks at.
+    ✔ **the instrument NAMES the entity now (2026-08-07), so that probe never
+    has to be written.** `inert_registrations` keyed each archetype to
+    `names.intersection(&anchors)` — which is PROVABLY EMPTY at that point, since
+    the loop `continue`s a few lines up whenever that intersection is non-empty.
+    Every reported archetype carried an empty set beside it: the failure named a
+    SHAPE and could never name a THING. It reports the entity's `Name` (deduped,
+    so 40 copies of a prop stay one line), which is exactly what the next
+    investigation below was told to go and print.
     ⚠ **narrowed by probe (2026-08-06, throwaway, not kept):** the CLI-built
     app — which composes the shell as of edit 1 — has **ZERO** construction
     roots without a body after settling. So the archetype is NOT a plain
@@ -603,10 +687,36 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   remainder above) while that builder is already open.
 
 **Bounded hygiene** — [sonnet unless noted]
-- ▢ Sequester the rollback inventory smoke → `tests/ambition_agent_guardrails/`
-  (shape: fable-reply-2026-07-19-b.md §4; widen population by the static
-  `BodyKinematics` filter, rename `rollback_inventory_smoke`, honest
-  docstring). Runs only in the full gate by construction.
+- ✅ **RESOLVED 2026-08-07, and two of its three parts are no longer the right
+  work.** The row prescribed three things for "the smallest inventory smoke worth
+  keeping" (`fable-reply-2026-07-19-b.md` §3–4). Checked each against the tree
+  before doing any of them:
+  * **widen the population by `BodyKinematics` — LANDED**, and went further than
+    prescribed. `simulated_population` has THREE sources now, the third being
+    vocabulary-derived (anything carrying a type the rollback registers). The
+    review explicitly dropped registry-derived queries as a non-goal; the code's
+    own comment justifies it with a gap the two tags provably cannot reach — a
+    moveset strike volume lives six frames and carries neither tag, so no number
+    of extra rooms reaches that family.
+  * **per-filter anti-vacuity — LANDED TODAY, at a different granularity, and the
+    difference is a measurement.** The review asked that each of the two filters
+    assert ≥1 match. That was right when the helper served ONE boot room, where a
+    filter matching nothing could only mean a broken filter. It serves TEN rooms
+    now, and asserting it revealed that **`portal_lab` authors no
+    `FeatureSimEntity` at all** — a legitimate room, not a broken fixture. So the
+    floor asserts what is true of every fixture: a body exists, and the union is
+    non-empty. ⛔ this was load-bearing and unguarded: poisoning the population to
+    empty fails **11 of the 17** tests in the file, and every one of them would
+    have passed silently before, because an empty population produces an empty
+    unaccounted-list which is exactly what a clean sweep produces.
+  * ⛔ **sequester into `tests/ambition_agent_guardrails/` — NO LONGER CORRECT, and
+    doing it would invert the rule it came from.** Guardrails are agent tooling and
+    are sequestered; product architecture is not. When this row was written the
+    thing was one smoke test. It is now **19 tests in 2130 lines** verifying the
+    ADR-0023 determinism contract across ten rooms, a live match, a mounted pair
+    and a transient strike volume. Filing that under agent tooling would move the
+    rollback correctness sweep out of the product's own verification. The rename
+    to `rollback_inventory_smoke` goes with it: the file stopped being a smoke.
 - ✅ **DONE** (verified 2026-07-24) — Kill the vacuous projectile-anchor
   `.all()` (`desync_canary.rs`) + ONE strong mutable-state rewind canary.
   `assert_family_anchored` now REFUSES to pass on an empty family (asserts the
@@ -616,11 +726,64 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   melee hit + armor spend + switch flip + brick break survive a forced rollback
   window checksum-identically. No scenario matrix — the old Track-0 exit list is
   opportunity, not contract.
-- ▢ Base-SHA/overlap landing rule into existing agent instructions (doc
-  only; a script waits for a second incident).
-- ▢ The ONE deletion-heavy docs pass (tracks→open cards; smells refiled
-  both directions; AGENTS ONE-BODY map extracted; archive provenance
-  writer+validator; `run_source_analysis.sh`; reviews README) — then STOP.
+- ✅ **DONE 2026-08-07** — `AGENTS.md`, "Landing when somebody else holds
+  `main`", written from the situation it governs (this run works a worktree while
+  another agent owns `main`). The rule and two `git` one-liners, no script: the
+  reply this came from scoped the checker to "only if a second stale-base incident
+  happens despite the recipe", and a checker now is exactly the machinery the very
+  next section of that file forbids. ⚠ scoped to PARALLEL landings explicitly, per
+  the same reply — *"imposing it on solo linear sessions on main adds friction
+  where the failure mode cannot occur"*. ⛔ and it states that overlays are NOT
+  banned, because the review flagged that phrasing: the forbidden operation is
+  committing a stale tree SNAPSHOT without replaying its edits, not the delivery
+  mechanism.
+- ◐ **The ONE deletion-heavy docs pass** (tracks→open cards; smells refiled both
+  directions; AGENTS ONE-BODY map extracted; archive provenance writer+validator;
+  `run_source_analysis.sh`; reviews README) — then STOP.
+  ✔ **`run_source_analysis.sh` and the reviews README already EXIST** — checked
+  before doing anything, both present.
+  ✔ **AGENTS ONE-BODY map EXTRACTED, 2026-08-07** →
+  [`docs/concepts/one-body-one-path.md`](../concepts/one-body-one-path.md),
+  following the `hall-of-characters-is-not-special` template this file already
+  uses (a tight section in `AGENTS.md`, the detail and the rejected shortcuts in a
+  concept page). The bullet went **2820 → 1446 characters**.
+  ⭐ **the split is RULE vs STATUS, and that is the reusable part.** The bullet
+  mixed a timeless rule (the smell test; "a green test on a forked path is
+  worthless"; log the remainder as `BIFURCATION:`) with an INVENTORY of what
+  happens to be unified today — melee's six symbols, the movement driver, the
+  two-clock blink, what stays deliberately separate. The rule belongs where
+  everyone reads it; the inventory goes stale and belongs in a page with a
+  `last_verified` date. Nothing was dropped: every claim is in one file or the
+  other.
+  ⚠ **why this one was worth doing rather than any other line in `AGENTS.md`**:
+  the file calls it *"the most-violated rule"*, and it was presented as a single
+  unbroken ~2800-character paragraph in the cold-start doc. A rule nobody can
+  finish reading is a rule that gets violated.
+  ◐ **smells refiled — TWO large entries closed and the file MEASURED, 2026-08-07.**
+  Both remaining `BIFURCATION:` entries are resolved, each verified by checking
+  the symbols they name rather than re-reading the prose: the 2026-06-28
+  player-vs-actor MELEE fork (`ActorAttackState` gone; `PlayerAttackState`,
+  `attack_advance_system` and even its own proposed remedy `spawn_melee_hitbox`
+  survive only in comments recording their deletion), and the 2026-07-19
+  `is_player` FEEDBACK fork (shipped as CM8 with `HurtFeedback::ENEMY` as the
+  victim profile — the elegant resolution the entry asked for, plus Jon's
+  per-attack binding).
+  ⭐⭐ **and the file does NOT need a sweep, which is the measurement worth
+  keeping.** 92 entries, 29 marked resolved. Sampling three open ones —
+  `.cargo/config.toml` hardcoding a home target dir, `regen_sprites.sh` restating
+  the renderer's sheet list, vestigial bfs sand plumbing — found **3 of 3 STILL
+  TRUE**.
+  ⭐ **that is the exact opposite of the carried queues** (4 of 4 already closed),
+  and the reason is structural: **a smell entry describes a PROPERTY OF THE CODE**
+  — "this file hardcodes a path" — which stays true until someone fixes it. **A
+  queue row describes WORK TO DO**, which goes false the moment anyone does it,
+  usually somebody who updated the code and not the row. So a smells journal ages
+  WELL and a queue ages BADLY, and they want opposite maintenance: refile a smell
+  when its code changes, re-check a queue row before believing it.
+  ⚠ this is the same distinction `docs/planning/README.md` now states as
+  citation-vs-situation, arriving from the other direction: the journal is
+  naturally citations because an entry names a file and a property.
+  ▢ still open: tracks→open cards, archive provenance writer+validator.
 
 **Design-before-code**
 - ◐ **Cutscene authority — the DETERMINISTIC ELAPSED half landed 2026-08-06.**
@@ -675,11 +838,36 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   WALL time deliberately — a player holding a button for 1.2 seconds means 1.2
   seconds of their life, not of a slow-motion world's, which is the opposite of
   the `elapsed` decision one bullet up and the reason the two live apart.
-- ▢ Cutscene authority (model 1): write the semantic-playback state shape
-  (beat index, deterministic elapsed, advance/skip edges through
-  participant input) vs derived presentation FIRST; hold-to-skip stays a
-  local accumulator, only the completed edge crosses. Frame-mode transport:
-  Option A (modes ride `ControlFrame`). Then implement.
+- ✅ **LANDED — verified clause by clause 2026-08-07, having been written as
+  design-before-code for a design that is now code.** Every part of the
+  prescription exists:
+  * **semantic-playback state shape** — `CutsceneRuntime { script, beat_index,
+    elapsed }`, and `ambition_cutscene/src/lib.rs:65` states the property the row
+    was asking for in the row's own terms: *"it is a pure function of `(script,
+    beat_index, elapsed)`"*.
+  * **vs derived presentation** — `ActiveCutscene { runtime, presentation }`, with
+    `presentation` documented as *"a cache of a pure function, and the tick that
+    advances `runtime` is the only writer"*. Stored rather than computed for a
+    stated reason (Bevy readers cannot allocate a projection per frame), which is
+    the derived-not-authoritative shape the row wanted.
+  * **deterministic elapsed** — landed 2026-08-06, one bullet above.
+  * **hold-to-skip stays a local accumulator, only the completed edge crosses** —
+    landed 2026-08-06; `CutsceneSkipHold` is input-local and the comment at
+    `update_cutscene_request_from_menu` says exactly that.
+  ⚠ **one deliberate deviation, and it is the better answer.** The row specified
+  Option A, *modes ride `ControlFrame`*. The edges ride **`MenuControlFrame`**
+  instead — the menu-intent frame, not the gameplay one. A cutscene is not
+  gameplay input, and routing a skip through the gameplay frame would put it in
+  the channel that gets suppressed in UI modes.
+  ▢ **what is genuinely NOT done, stated so it is not mistaken for done**: the row
+  says *"through participant input"*, and the skip reads the GLOBAL
+  `MenuControlFrame` rather than a seat's. So any seat skips for everyone, with no
+  attribution — the same question R2 answered for dialogue. ⭐ **but the answer is
+  probably different here, which is why this is a note and not a row**: a
+  conversation has a TALKER and a cutscene has an audience. Everyone watching a
+  shared cutscene has an equal claim to end it, so global may be correct rather
+  than merely unimplemented. Worth one sentence from Jon before anyone builds
+  per-seat skip attribution on the assumption that dialogue's answer transfers.
 
 ## 0. Pay down the GGRS correctness debt — **LARGELY LANDED 2026-07-19**
 

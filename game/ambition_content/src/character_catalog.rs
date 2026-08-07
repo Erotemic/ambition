@@ -134,8 +134,17 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     // that one call). The catalog row has no mass or health to fold back in —
     // those come from the ARCHETYPE — so the blanket rule cannot be made
     // behaviour-neutral, only narrower.
-    "mary_o",
-    "sanic",
+    //
+    // ⛔ **AMBITION'S OWN, and `mary_o`/`sanic` were here and should not have
+    // been.** They are on the smash grid and they are other providers'
+    // characters — no row for either exists in this game's catalog, so
+    // `register_declared_cast` skipped them silently (`catalog.get(id)` →
+    // `None` → `continue`) and they registered nothing. Their own demos declare
+    // them, which is why the grid carries them either way. What the two entries
+    // DID do was break this crate's own `every_playable_roster_id_is_a_real_
+    // catalog_character` and `the_shipped_cast_is_what_the_compiler_prepared`,
+    // both of which say a curated id must resolve a row here — correctly.
+    // ⚠ measured, not assumed: removing them changes no registration.
     "npc_ninja_shadow_oni_leader",
     "npc_alice",
     "npc_bob",

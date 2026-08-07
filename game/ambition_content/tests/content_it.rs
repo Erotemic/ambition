@@ -10,7 +10,9 @@
 
 mod content_it_sync;
 
+mod aerial_authoring;
 mod boss_fight_validator;
+mod boss_presentation;
 mod boss_seeds;
 mod content_pack_registry;
 mod dialogue_lint;

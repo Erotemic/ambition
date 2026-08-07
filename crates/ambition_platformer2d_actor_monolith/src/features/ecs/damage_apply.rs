@@ -303,6 +303,18 @@ pub fn resolve_body_hit(
     {
         combat.hit_flash = feel.hit_flash;
         combat.damage_invuln_timer = feel.damage_invuln_time;
+        // ⛔ **AND THE BEAT — the same one the armor branch above was fixed for,
+        // and this branch went on skipping.** Jon, from play: *"When SANIC is hit
+        // … he should also have some hitstun."* Losing the purse is the same
+        // event as losing a form: the most consequential thing short of dying,
+        // and it happened with no pause at all, which reads as the hit not
+        // landing. The rings burst out of a body that never flinched.
+        //
+        // ⚠ the hitstop ONLY, exactly as for armor. The recoil lock and the
+        // carried launch belong to being THROWN, and the caller already keeps
+        // the physical reaction — a `HitMode::Knockback` still knocks the body
+        // off its ledge. What is owed here is the pause that says it happened.
+        combat.hitstop_timer = combat.hitstop_timer.max(feel.armor_hitstop_time);
         return BodyHitResolution::WalletShielded { spent };
     }
     combat.hit_flash = feel.hit_flash;

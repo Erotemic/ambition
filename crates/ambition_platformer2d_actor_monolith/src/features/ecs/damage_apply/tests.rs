@@ -1091,6 +1091,64 @@ fn wallet_shield_spends_currency_before_a_lethal_hit_reaches_health() {
     assert_eq!(wallet.balance, 0, "the whole defensive balance is spent");
 }
 
+/// **Losing your rings gets the same BEAT as losing a powerup.**
+///
+/// Jon, from play: *"When SANIC is hit, there it seems like he is given no
+/// iframes. He should also have some hitstun and be knocked back a bit."*
+///
+/// ⛔ **the lesson was learned one branch above and not applied to this one.**
+/// The armor branch carries a comment that says so in Jon's earlier words about
+/// Mary-O — *"AND THE BEAT, which this branch used to skip … she shrank
+/// mid-stride with no beat, which reads as the hit not landing at all"* — and the
+/// wallet branch, six lines below it, still skipped it. Spending a purse is the
+/// same event: the most consequential thing that happens to Sanic short of
+/// dying, and it happened with no pause at all.
+///
+/// ⚠ the hitstop ONLY, exactly as for armor. The recoil lock and the carried
+/// launch belong to being thrown, and the outer handler already keeps the
+/// physical reaction (`HitMode::Knockback` still knocks him off the ledge). What
+/// is owed here is the pause that says it happened.
+#[test]
+fn losing_a_purse_arms_the_same_beat_as_losing_armor() {
+    use ambition_characters::actor::{BodyWallet, BodyWalletShield};
+
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(1);
+    let mut wallet = BodyWallet { balance: 7 };
+    let shield = BodyWalletShield;
+    let pos = ae::Vec2::new(10.0, 20.0);
+
+    let res = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        None,
+        Some(WalletArmor::new(&mut wallet, &shield)),
+        false,
+        1.0,
+        pos,
+        pos,
+        DOWN,
+        99,
+        1.0,
+        false,
+        TEST_FEEL,
+        false,
+    );
+
+    assert_eq!(res, BodyHitResolution::WalletShielded { spent: 7 });
+    assert!(
+        combat.hitstop_timer >= TEST_FEEL.armor_hitstop_time,
+        "spending a purse armed no hitstop ({}s), so the rings burst out of a \
+         body that never paused — the same silence the armor branch was fixed \
+         for",
+        combat.hitstop_timer,
+    );
+    assert!(
+        combat.damage_invuln_timer >= TEST_FEEL.damage_invuln_time,
+        "and the i-frames the resolver arms for every other survivable hit"
+    );
+}
+
 #[test]
 fn empty_wallet_shield_does_not_make_the_body_immortal() {
     use ambition_characters::actor::{BodyWallet, BodyWalletShield};

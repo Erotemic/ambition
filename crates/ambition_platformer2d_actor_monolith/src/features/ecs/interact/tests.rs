@@ -43,6 +43,13 @@ fn buffered_interact_toggles_an_adjacent_switch() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
+    // ⚠ the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
+    // switches` opens a conversation in the simulation and shows it in the UI,
+    // so a fixture with only the second half fails Bevy's param validation.
+    // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
+    // this be absent" when the question is who OWNS registering it, and in
+    // production the feature plugin does.
+    app.init_resource::<crate::conversation::ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -93,6 +100,13 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
+    // ⚠ the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
+    // switches` opens a conversation in the simulation and shows it in the UI,
+    // so a fixture with only the second half fails Bevy's param validation.
+    // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
+    // this be absent" when the question is who OWNS registering it, and in
+    // production the feature plugin does.
+    app.init_resource::<crate::conversation::ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
     ambition_platformer2d_shared_tangle::lifecycle::insert_session_world_component(
         app.world_mut(),
@@ -202,6 +216,13 @@ fn dialogue_app(nodes: &[&str]) -> App {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
+    // ⚠ the AUTHORITY travels with the read-model. `interact_ecs_actors_and_
+    // switches` opens a conversation in the simulation and shows it in the UI,
+    // so a fixture with only the second half fails Bevy's param validation.
+    // ⛔ NOT solved by making the param `Option`: that waiver would answer "may
+    // this be absent" when the question is who OWNS registering it, and in
+    // production the feature plugin does.
+    app.init_resource::<crate::conversation::ActiveConversation>();
     let mut index = ambition_dialog::DialogueNodeIndex::default();
     index.populate(nodes.iter().map(|n| (*n).to_string()));
     app.insert_resource(index);

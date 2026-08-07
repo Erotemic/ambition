@@ -151,6 +151,36 @@ pub(in crate::rollback) fn register(app: &mut App) {
             OWNER,
             "map.resource.possession_state",
         );
+    // **The conversation the simulation is having.**
+    //
+    // ⛔ registered because the continuity rules RESIMULATE: they run in the sim
+    // schedule, which under a rollback host is the GGRS schedule. Before this
+    // existed those rules read `ambition_dialog::DialogState`, which is not
+    // rewound, and the hold they applied was half rollback state
+    // (`ScriptedControl`) and half not (`HeldByConversation`) — so a rewind could
+    // leave a body held by the dialogue's account and free by the simulation's.
+    //
+    // ⚠ **two registrations, exactly as `PossessionState` above.** The clone is
+    // the snapshot; the entity map is what fixes the two body handles when
+    // `LoadWorld` remaps. Registering only the first would restore a conversation
+    // pointing at whatever those entity ids mean AFTER the load.
+    app.rollback_resource_clone_entity_set::<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>(
+            OWNER,
+            "resource.active_conversation",
+            |conversation| conversation.referenced_entities(),
+        );
+    app.rollback_resource_map_entities::<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>(
+            OWNER,
+            "map.resource.active_conversation",
+        );
+    // ⛔ **cleared on load, like every other sim-facing message.** A conversation
+    // end left in the queue across a rewind is re-read on the way back through
+    // and closes a conversation the replayed timeline had not finished — the same
+    // shape as a rewound KO spending a second stock.
+    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::conversation::ConversationEnded>(
+            OWNER,
+            "message.conversation_ended",
+        );
     app.rollback_resource_clone::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",

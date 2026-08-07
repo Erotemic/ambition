@@ -26,6 +26,27 @@ Entry format:
 - **Where:** `.cargo/config.toml` — `[build] target-dir = "/home/joncrall/ambition-target"`.
 - **Smell:** committed build config names an absolute path inside one specific user's home. Anyone building as a different user gets `error: Permission denied (os error 13) at path "/home/joncrall/ambition-targetXXXXXX"` and cannot compile at all — hit here as the `agent` user, where `/home/joncrall` is `root:root drwxr-xr-x` while the checkout itself is agent-owned. The *reason* for an out-of-tree target dir is sound and well documented in the file (virtiofs share vs local disk; identical path string resolving to distinct filesystems keeps VM and host fingerprints from fragmenting) — it is only the hardcoded username that doesn't travel. Same class as the `/data/audio-tools` paths in the music scores: a machine-shaped constant committed as if it were a project constant.
 - **Noticed while:** verifying zero-to-runnable setup from a fresh clone (2026-07-26) — the final `cargo check` gate was the one phase that could not run.
+- ◐ **MITIGATED at setup 2026-08-07, and the symptom does NOT reproduce here — measured.**
+  `run_developer_setup.sh` now checks first whether the configured `target-dir`
+  (or its parent) is writable, and if not says so with the fix, before any long
+  phase runs. Probed both ways: silent when the path is reachable, and on an
+  unreachable one it names the path, the user, and `CARGO_TARGET_DIR`.
+  ⚠ **the entry's stated symptom is currently FALSE on this machine**, and the
+  reason is worth recording rather than deleting the entry:
+  `/home/joncrall/ambition-target` EXISTS and is `agent:agent`, so a bare
+  `cargo build` as `agent` succeeds. The parent `/home/joncrall` is `root:root`
+  and unwritable — which is what makes this easy to misdiagnose, and I did
+  misdiagnose it once today by testing the parent and calling the smell "confirmed
+  live".
+  ⭐ **the structural smell stands**: a committed absolute path inside one
+  username's home still cannot travel, and it works here only because somebody
+  created that directory as this user. A fresh machine still needs the export —
+  which is now a sentence at the start of setup instead of a permission error at
+  the end of a first build.
+  ⛔ **and a per-user `~/.cargo/config.toml` is NOT a workaround** (checked): cargo
+  lets the config nearest the working directory win, so the repo's beats the
+  user's. The environment variable is the only override, which is why
+  `run_game.sh` and the rust-analyzer bridge both export it.
 - **Suggested fix / size:** S — `CARGO_TARGET_DIR` in the environment already overrides this, so the config could drop to a documented default plus a setup-time export, or use a path that exists for any user. If the literal path must stay identical across VM and host for the caching reason, that requirement belongs in a per-machine `.cargo/config.toml` (git-ignored, written by `run_developer_setup.sh`) rather than in the committed one.
 
 ## 2026-07-26 The sprite fingerprint cache can never hit — portrait coverage gates the fast path
@@ -100,7 +121,29 @@ open smells; entry kept for the analysis below.
 - **Noticed while:** 2026-07-19 deep review (bifurcation sweep).
 - **Suggested fix / size:** M — one victims query with `Has<PlayerEntity>` selecting payload policy, exactly like `hitbox/mod.rs:203`; delete both loops.
 
-## 2026-07-19 BIFURCATION: "body was struck" feedback keyed on `is_player` at TWO attacker-side emit sites
+## 2026-07-19 BIFURCATION: "body was struck" feedback keyed on `is_player` at TWO attacker-side emit sites — ✅ RESOLVED (verified 2026-08-07)
+
+- **Resolution: the elegant one this entry asked for, not a patch.** It proposed
+  *"ONE victim-side feedback seam keyed on the attack/volume spec + the victim's
+  feel profile, which retires both `is_player` branches AND gives moves authored
+  feedback in the same stroke."* That is what shipped, under the name CM8:
+  - the victim's feel profile is `HurtFeedback` (`ambition_combat/src/util.rs`),
+    with an `ENEMY` profile that carries neither `PLAYER_DAMAGE` nor the red
+    burst — so no `is_player`-flavoured payload can leak onto a non-player victim;
+  - both attacker-side emit blocks are gone. `hitbox/mod.rs` now documents *"ONE
+    victim loop (§A3): every body with a published footprint — player, actor,
+    boss, possessed anything — resolves through the same relational rule"*, and
+    `actors/update.rs` says *"CM8: contact hits no longer emit feedback here (they
+    used to fire the player-hurt payload for EVERY victim)"*;
+  - the duplicated constants are single: the burst colour lives once in
+    `ambition_vfx`;
+  - ⭐ **and Jon's fix note is satisfied too** — *"the same one should not
+    generically be used for all attacks"* — pinned by
+    `"different attacks on the same body sound different"`.
+- ⚠ the bug the fork was hiding has its own regression test, named for it:
+  `an_enemy_victim_never_throws_the_player_hurt_burst`.
+
+**Original entry:**
 - **Where:** `crates/ambition_combat/src/hitbox/mod.rs:241-268` and `crates/ambition_platformer2d_actor_monolith/src/features/ecs/actors/update.rs:1113-1142` (byte-identical payload: `PLAYER_DAMAGE` sfx + `Burst{14,300,[1.0,0.34,0.28,0.88],Shard}` + `DebrisBurst{Impact}`); non-player victims get their richer feedback on the CONSUMER side instead (`damage/actor_hit.rs:271`, `:207-213`). Death feedback is likewise per-victim-kind at three sites (`actor_hit.rs:377-388`, `boss_hit.rs:205-215`, `damage_apply.rs` `death_respawn_player`).
 - **Smell:** hit RESOLUTION is unified (`resolve_body_hit`), but hit FEEDBACK forks by `is_player` and by layer. Duplicated payload constants at two emit sites will drift.
 - **Noticed while:** 2026-07-19 deep review. **Jon's fix note asks for per-attack VFX/SFX binding ("the same one should not generically be used for all attacks") — the elegant resolution is ONE victim-side feedback seam keyed on the attack/volume spec + the victim's feel profile, which retires both `is_player` branches AND gives moves authored feedback in the same stroke.**
@@ -302,6 +345,23 @@ Verified: actors --lib 783 green (existing throw tests pin the normal-gravity pa
 - **2026-06-27 `enemy_archetypes.ron` / `EnemyArchetypeSpec` / `EnemyRoster` / `EnemyBrain` are misnomers** — now that the protagonist is authored as the `player_robot` archetype (and the roadmap makes player/enemy just controller+capability DATA, not types), these are *character* archetypes, not "enemy" ones. Flagged by Jon. The rename (file + `EnemyArchetypeSpec`→`CharacterArchetypeSpec`, `enemy_roster`, `EnemyBrain`, `ALL_BRAIN_KEYS`, etc.) is a mechanical pass touching many refs and is INDEPENDENT of the movement-tuning/unification work — deferred as its own commit, not bundled. Jon also noted he's "not sure archetypes is a great design anyway" — so don't over-invest in the archetype concept; the rename is the cheap win, a deeper archetype rethink is separate.
 - **2026-06-27 Stale `docs/planning/<oldfile>.md` breadcrumbs after the planning rewrite** — the `docs/planning/` tree was consolidated/renamed (see `docs/planning/MIGRATION.md`): old flat filenames (e.g. `fighter-capability-and-motor-unification.md`, `non-player-centric-actor-unification.md`, `restructuring-blueprint.md`) became `engine/unified-actors.md` / `engine/architecture.md` / etc. ~13 code-comment breadcrumbs in crates/ (and a few root TODO/*.md) still point at the OLD filenames. They're comments, not functional, so left for a mechanical sweep: `grep -rln 'docs/planning/[a-z-]*\.md' --include=*.rs crates/` then repoint to the consolidated doc (the MIGRATION table is the map). AGENTS.md is fine — it references the directory, which survived.
 - **2026-06-27 Planning docs lag the body-vocab de-player-casing** — after the keystone moved the movement/economy vocabulary onto `crate::actor` (commits f3c8dff8 → 59653267), `docs/planning/engine/architecture.md`'s Bucket-2 component plan still names now-renamed/moved types: `PlayerWallet` (→`BodyWallet`), `PlayerShieldState`/`PlayerEnvironmentContact`/etc. (→`Body*`, all 18 clusters renamed), and `unified-actors.md`'s step-3 "(historical)" prose names dead symbols `ActorBody`/`PlayerClustersMut`/`integrate_grounded_body`/`integrate_aerial_body` (now `AncillaryMovementBundle` real components / `BodyClustersMut` / `ActorMut::integrate_body`). Also `ActorStatus.shield_raised` (retired, commit e0f65a78) may be referenced as a live bucket item. These are planning prose, not code, so left for a doc-refresh pass (deferred-intent additions in unified-actors.md ARE current). When refreshing: the Bucket-2 economy/movement slices are largely DONE; what remains is interaction-consumer + attack-state + safety/respawn. Don't trust a planning doc's component name without grepping the code first.
+- ✅ **RESOLVED — verified 2026-08-07 by checking every symbol this entry names.**
+  `ActorAttackState`: gone (0 files). `PlayerAttackState`: gone from code — the
+  only hit is a doc comment in `combat/components/actors.rs` referring to the
+  retired split. `attack_advance_system`: gone — the only hit is a test comment
+  saying it "was drained out of". ⭐ **and even the REMEDY this entry proposes is
+  retired**: `spawn_melee_hitbox` survives solely in a comment recording that it
+  and its siblings "are deleted". The merge happened by a better route than the
+  three steps below — the moveset path (`trigger_moveset_moves` →
+  `advance_move_playback` spawning ONE gravity-resolved volume that drives both
+  the damage `Hitbox` and the slash), with `BodyMelee` as the shared state. See
+  `docs/concepts/one-body-one-path.md`.
+  ⚠ **kept in full rather than deleted**: it is the clearest statement of what the
+  fork COST, and its risk note ("(1) and (2) change the player's WORKING core
+  melee feel … are BLIND … have Jon verify feel") is why the merge was done
+  carefully. ⚠ also note the checking method mattered — three of the four symbols
+  "exist" to a bare grep and all three hits are comments RECORDING their removal.
+  **Original entry:**
 - **BIFURCATION: 2026-06-28 player vs actor MELEE attack pipeline (two state machines + two damage paths)** — the player and a brain-driven actor run PARALLEL melee pipelines, the keystone fork behind the recent "actor melee doesn't connect / no slash / not the same attack" bugs. Player: `PlayerAttackState` + `AttackSpec`, driven by `attack_advance_system` (`PrimaryPlayerOnly`, EXCLUDED from `update_ecs_actors` via `Without<PlayerEntity>`); damage = a per-frame Volume `HitEvent` (`HitSource::PlayerSlash`) each active frame, deduped via `hit_targets`. Actor: `ActorAttackState` (windup/active/cooldown + `pending_axis`, NO spec), driven by `update_ecs_actors`; damage = a persistent `Hitbox` ENTITY spawned at the windup→active edge, resolved by `apply_hitbox_damage`, deduped via `HitboxHits`. The `Hitbox`-entity path is the canonical one (bosses, actors, player AOE all use it). DONE so far (one-definition, not yet one-path): the SLASH visual now has ONE emitter `combat::attack::emit_melee_slash` that both call (commit after this entry). REMAINING merge (the real "ONE BODY ONE PATH"), per the explore map, in order: (1) player melee SPAWNS a `Hitbox` entity via `spawn_melee_hitbox` (Player faction) and DELETE the per-frame `HitEvent` loop — needs `apply_hitbox_damage`'s Player-faction branch to carry knockback (`knock_x`) + the damage multiplier (currently hardcodes `knock_x: 0.0`); keep pogo in the player path (player-only physics). (2) Merge `PlayerAttackState`+`ActorAttackState` into ONE body attack-state component (add `spec: Option<AttackSpec>` to the actor state; compute the actor's spec at `begin_melee_attack` instead of deferring geometry to the edge), and ONE driver that ticks it + spawns the hitbox + slash at the active edge for every body. (3) Fold the player into `update_ecs_actors` (drop `Without<PlayerEntity>`) OR have both call the one shared strike-spawn system; delete `attack_advance_system`'s bespoke damage/slash. RISK: (1) and (2) change the player's WORKING core melee feel (knockback/dedup/timing) and are BLIND (no GUI here) — drive with headless tests (damage connects, knockback preserved, one-hit-per-target, one slash) and have Jon verify feel; do NOT add any new player/actor-specific attack code in the meantime (route through the shared seam).
   - **UPDATE 2026-06-28 (mostly RESOLVED):** the slash visual, the swing MODEL, and the STATE COMPONENT are now unified. (a) `emit_melee_slash` is the one slash emitter; (b) the actor swing is resolved through the player's `attack_spec_from_view` + `AttackSpec` and stored on the shared state (commit `actor melee adopts the player's AttackSpec`); (c) step (2) is DONE — `PlayerAttackState`/`ActivePlayerAttack` AND the timer-based `ActorAttackState` are all DELETED, replaced by ONE `BodyMelee { swing: Option<MeleeSwing>, cooldown, ranged_cooldown, pending_axis }` carried by the player and every actor, built on the player's spec+elapsed `MeleeSwing` model (commits `merge actor melee state onto ONE BodyMelee` + `fold the player onto BodyMelee`). REMAINING (the last sliver): step (1)/(3) — the player still PRODUCES its melee damage as a per-frame Volume `HitEvent` from `advance_attack`/`attack_advance_system`, while actors produce it as a `Hitbox` ENTITY via `update_ecs_actors`+`apply_hitbox_damage`. Both feed the SAME resolver (`apply_feature_hit_events`), so this is two PRODUCERS of one event, not two resolvers. Collapsing it cleanly wants the player's per-swing string-key dedup (`MeleeSwing.hit_targets`, fed back by the universal resolver) reconciled with the hitbox's entity-key dedup (`HitboxHits`) — and the player's universal target coverage (breakables/orbs/bosses via `HitTarget::Volume`) preserved. Tracked; lower-risk to do once a body-melee DRIVER unifies the player+actor systems (currently still two systems gated by the not-yet-unified movement architecture).
   - **UPDATE 2026-06-28 (RESOLVED — producer collapsed):** the player melee now spawns a Player-faction `Hitbox` ENTITY through the SAME `combat::hitbox::spawn_melee_strike` every actor uses; the per-frame Volume `HitEvent` loop in `advance_attack` + the separate `start_attack` slash emit are DELETED. `spawn_melee_strike` derives BOTH the damage hitbox AND the slash from ONE gravity-resolved `world_box`, fixing the player's hitbox-vs-vfx divergence under C4 gravity (the player box now gates the screen-axis manifest box to upright, else the gravity-rotated spec box — the actor's rule). `Hitbox` gained `knock_x`; the Player FollowOwner branch emits the `PlayerSlash` Volume each active tick (deduped per-swing via `MeleeSwing.hit_targets`), World-anchored Player hitboxes (shockwave AOE) keep the once-only sentinel; `apply_hitbox_damage` resolves owner-pos via `CenteredAabb` OR `BodyKinematics` (player has no `CenteredAabb`). NOT a fork anymore — the ONLY remaining seam is the two DRIVER systems (`attack_advance_system` vs `update_ecs_actors`), which is the movement-driver question. Next: the unified action/ability timeline on this strike seam.

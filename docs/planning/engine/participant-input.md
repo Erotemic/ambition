@@ -155,6 +155,32 @@ consumers.
 
 ## Deliberately not done (this slice)
 
+> ⚠ **SWEPT 2026-08-07 — this is a slice boundary, and FIVE of its eight items
+> have since landed.** A non-goals list ages exactly like a backlog and reads more
+> authoritatively, because "deliberately" sounds like a standing decision rather
+> than a note about one slice's scope. Verified against the tree, not from memory:
+>
+> * ✅ **Rebinding UI** — `crates/ambition_input/src/rebind.rs` carries the policy;
+>   the P5 capture UI landed (queue A6).
+> * ✅ **multiple local participants** — the claim was *"frames are still
+>   single-slot"*. `SeatMenuFrames` exists and the pause menu reads it, beside
+>   `SlotControls` for gameplay.
+> * ✅ **deterministic cutscene input** — landed 2026-08-06: the playback state is
+>   a pure function of `(script, beat_index, elapsed)` and the advance/skip edges
+>   ride `MenuControlFrame`.
+> * ✅ **dialogue/pause contexts** — both are declared: `PAUSE_CONTEXT` in the
+>   shell's pause menu, `DIALOGUE_CONTEXT` at the conversation hold. ⚠ VEHICLE is
+>   the part of that clause still open.
+> * ⛔ **`ControlFrame` redesign — REFUTED rather than pending.** See
+>   [`unified-movement-kernel.md`](unified-movement-kernel.md) residual item 3:
+>   `ControlFrame` must NOT hold a `ScreenAxes`, because that type's own doc makes
+>   passing one below the controller seam an architecture error and `ControlFrame`
+>   goes exactly there — plus it would invalidate every recorded input stream.
+>
+> **Still not done:** inventory/specialized menu migration beyond cues, the
+> VEHICLE context, editor-authored input assets, and loading-context migration
+> (its `retry` keeps a local raw read).
+
 Rebinding UI (P5 stands), inventory/specialized menu migration beyond cues,
 `ControlFrame` redesign, multiple local participants (ParticipantId exists;
 frames are still single-slot), deterministic cutscene input (cutscene

@@ -159,20 +159,77 @@ matrix.
 
 ## Residual debt (honest)
 
-1. **Portal transit orientation** reads the presentation `GravityField`
-   mirror rather than per-body frames (the portal core also moves
-   cluster-less projectiles). Behavior matches pre-campaign; portal rooms do
-   not currently nest gravity zones. Closing it wants a per-body frame port
-   on the transit policy.
-2. **`GravityField`/`GravityZones`/`ForceZones`** remain unregistered
-   snapshot resources (reviewed inventory rows; restore recomputes frames
-   from the live field by construction, but rewinding a mid-rewind gravity
-   switch is not covered).
-3. **`ControlFrame`** (the device latch) still carries raw `f32` axes; typed
-   `ScreenAxes` begin at the resolution seams that consume it.
-4. **Sanic ball dash** writes `SurfaceMotion::Riding { v_t }` directly from
-   demo content; a typed tangential-impulse op on `SurfaceMomentumMotion`
-   would close it.
+> ⚠ **swept 2026-08-07 and each item measured** — one was already paid (2), two
+> are confirmed live by reading the code (3, 4), and two cannot be settled by a
+> grep and are marked as such (1, 5). The rows carrying them are in
+> [`../queue-72h-2026-08-06.md`](../queue-72h-2026-08-06.md) under lane C4; until
+> that sweep this section was the only record and nothing pointed at this file.
+
+1. ✅ **CLOSED (verified 2026-08-07), and the mechanism it describes is not what
+   happens.** It said portal transit orientation "reads the presentation
+   `GravityField` mirror rather than per-body frames". **No portal source reads
+   `GravityField` at all** — the readers today are dev tools, room-transition
+   commit, the rollback registration, the pose view and the sim harness. The
+   projectile path resolves gravity PER BODY:
+   `projectile/systems.rs` calls `gravity.dir_for(kin.aabb())`, and
+   `GravityCtx::dir_for` matches the body's AABB against the authored zones,
+   falling back to the field only as the BASE when a room authors no zones —
+   which is the per-body frame port this item asked for.
+   ⭐ and the transit CORE needs no frame at all: `try_projectile_portal_transit`
+   is pure portal geometry — momentum rotated by the portal pair's transform —
+   so there is no orientation for it to get from the wrong place.
+   ⚠ **the item's own escape still stands as an EXERCISE gap, not a code gap**:
+   *"portal rooms do not currently nest gravity zones"*, so the zone-resolving
+   branch is correct and unexercised in a portal room. That is a test somebody
+   could write, not a port somebody has to do.
+2. ✅ **CLOSED (verified 2026-08-07).** This said
+   `GravityField`/`GravityZones`/`ForceZones` "remain unregistered snapshot
+   resources", and that rewinding a mid-rewind gravity switch was therefore not
+   covered. All three are accounted for in the frozen rollback baseline now:
+   `ForceZones` and `GravityZones` as **derived** (rebuilt per tick by
+   `collect_force_zones` and from authoritative `GravityZone` components), and
+   `GravityField` as **`resource-canonical`** — a bevy_ggrs codec snapshot with an
+   identical canonical checksum projection. The switch IS covered.
+   ⚠ left in place rather than deleted: a debt item that turns out to be paid is
+   the most useful kind of entry to keep, because the next reader of this list
+   would otherwise re-derive it.
+3. ✅ **CLOSED (verified 2026-08-07) — the remedy landed, and its other half is
+   REFUTED by the type it names.**
+   The remedy — *"typed `ScreenAxes` begin at the resolution seams that consume
+   it"* — is done: four seams construct one (`affordances/intent.rs`,
+   `abilities/traversal/possession.rs`, `control/input_systems.rs`,
+   `items/pickup/mod.rs`), and `movement/input.rs` states the resulting property,
+   *"Raw `ScreenAxes` never appear below the seam."*
+   ⛔ **and `ControlFrame` must NOT hold one.** `ScreenAxes`'s own doc says
+   *"Passing a `ScreenAxes` below the controller seam is an architecture error —
+   the movement kernel never sees one"*, and `ControlFrame` goes exactly there: it
+   is mirrored into `SlotControls`, read as brain state, and SERIALIZED as the
+   recorded input stream (`InputStream.slots: Vec<ControlFrame>`). Typing the
+   latch's own fields would carry the seam type across the seam it defines.
+   ⚠ **and it would cost the replay format.** `ScreenAxes` derives no serde, and
+   `input_stream.rs` is explicit that only ADDING a field is free — reshaping
+   `axis_x`/`axis_y` into a nested `axes` is not additive and invalidates every
+   stream recorded at `INPUT_STREAM_VERSION = 1`.
+   ⭐ the general lesson, which is already recorded elsewhere in this repo: a
+   typed wrapper stops WHOLE-VECTOR confusion at a seam where two frames could be
+   mistaken for each other. `ControlFrame`'s axes are screen-space by definition
+   and have no rival frame at that point, so there is nothing there to confuse.
+4. ✅ **CLOSED 2026-08-07** — `SurfaceMomentumMotion::set_tangential_speed`,
+   `scale_tangential_speed` and `tangential_speed`, with Sanic's two reach-ins
+   migrated onto them.
+   ⚠ **the name in this item was wrong, and the correction is the useful half.**
+   It asked for a *tangential-impulse* op. Neither operation the demo performs is
+   an impulse: the ball-dash launch SETS (`*v_t = facing * speed`) and the
+   post-goal brake SCALES (`*v_t *= keep`). They are two ops because scaling
+   preserves direction and setting does not — a brake routed through a setter
+   would have to read the sign back out, which is the reach-in this closes.
+   ⭐ **and it buys more than tidiness.** The kernel's sign convention (`v_t`
+   shares facing's sign, because integration is `v_t += run * accel * dt` with
+   `run = locomotion.x`) was written out in THREE comments inside the demo; it
+   lives on the op now. And each caller used to match `SurfaceMotion` itself and
+   decide what AIRBORNE meant — the launch has an answer (write kinematic
+   velocity along the local side axis), the brake does not — which the ops now
+   return as a `bool` instead of leaving each site to remember.
 5. **Block→chain crawl transfer**: a block-attached crawler does not migrate
    onto an overlapping chain (and vice versa) without detaching first; the
    two surface domains are authored separately today.

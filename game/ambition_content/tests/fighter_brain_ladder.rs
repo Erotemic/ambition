@@ -48,3 +48,49 @@ fn the_whole_shipped_ladder_plays_without_l3() {
         assert!(!r.uses_rollouts(), "level {} expects L3", r.level);
     }
 }
+
+/// **The pack LOWERS the ladder, which is the whole point of migrating it.**
+///
+/// ⛔ **the tests above this one all passed while the game read none of it.**
+/// Every one of them parses `LADDER_RON` itself, so they were green for as long
+/// as the file was well-formed — including the entire period when
+/// `fighter_brain_ladder.ron` was authored content that nothing in the running
+/// game had ever read, and `FighterBrainProfile::for_level` (which documents
+/// itself as the floor a game overrides) was consulted at both production call
+/// sites instead.
+///
+/// ⭐ so this test asks the only question the others cannot: **is it in the
+/// pack?** It reads the prepared pack rather than the file, so it fails if the
+/// manifest stops declaring the source, if the schema stops being registered, or
+/// if lowering breaks — none of which the parse tests can see.
+#[test]
+fn the_prepared_pack_lowers_the_shipped_ladder() {
+    let lowered =
+        ambition_characters::brain::fighter::content_schema::lowered_fighter_brain_ladder(
+            ambition_content::pack::prepared(),
+        )
+        .expect(
+            "the prepared pack lowers no fighter ladder — the game is back on the \
+         engine floor, where every difficulty scores moves with the level-9 \
+         weight set",
+        );
+
+    assert_eq!(
+        lowered.rungs().len(),
+        9,
+        "the lowered ladder is not nine rungs"
+    );
+    assert_eq!(
+        lowered.rungs(),
+        ladder().rungs(),
+        "the pack lowered a DIFFERENT ladder than the file on disk"
+    );
+    // ⭐ the property the floor gets wrong, asserted on what the game will read.
+    let l1 = lowered.level(1).expect("level 1 is authored");
+    let floor = ambition_characters::brain::fighter::FighterBrainProfile::for_level(1);
+    assert!(
+        l1.utility_weights.kill_potential < floor.utility_weights.kill_potential,
+        "the lowered level-1 rung values a kill move as highly as the engine floor \
+         does, so loading the ladder changed nothing about difficulty"
+    );
+}

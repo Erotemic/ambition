@@ -99,19 +99,30 @@ ABSENCE_CONTRACTS: list[dict] = [
         "paths": [
             "crates/",
             "game/",
-            # ActiveMatch is PUBLISHED by activation, the one place a match
-            # becomes active, and RETIRED by the versus stage's ownership-gated
+            # ActiveMatch is PUBLISHED by activation - the one place a match
+            # becomes active - and RETIRED by the versus stage's ownership-gated
             # teardown.
             #
-            # The publisher MOVED on 2026-08-07: `seating.rs` held the
-            # adopt/spawn fork and is gone, replaced by
-            # `prepared_match.rs::activate_the_prepared_match`. Growing this list
-            # IS the review, and the review happened — the same landing tried to
-            # RETIRE a stale receipt from `prepare_the_match` and this contract
-            # went red on it, correctly. A second writer had no way to answer
-            # whose receipt it was deleting, so activation stayed the one writer
-            # and derives staleness from the world instead: a receipt whose seats
-            # nobody wears belongs to a session whose cast was despawned with it.
+            # This path was `seating.rs` until 2026-08-07, when `ef28aea6f` split
+            # preparation out of seating and the publisher moved with it. The
+            # contract went red pointing at the LEGITIMATE writer, which is what
+            # a genuine second writer looks like too.
+            #
+            # HOW TO TELL THEM APART, when this next goes red: grep the path this
+            # list already names for the write. If the old site no longer has it,
+            # the publisher MOVED and this path follows it. If the old site still
+            # writes, a second writer really did appear and growing this list IS
+            # the review the reason below describes.
+            #
+            # ⭐ **and that review happened, on the same landing.** It tried to
+            # RETIRE a stale receipt from `prepare_the_match`, and this contract
+            # went red on it, correctly: a second writer had no way to answer
+            # whose receipt it was deleting. Activation stayed the one writer.
+            # It first derived staleness from the WORLD — a receipt whose seats
+            # nobody wears — and that was wrong for a platform fighter, where a
+            # finished match legitimately has no bodies left; the receipt names
+            # its `SessionScopeId` now, so the one writer can say whose paperwork
+            # it is replacing.
             ":(exclude)crates/ambition_platformer2d_actor_monolith/src/character_runtime/prepared_match.rs",
             ":(exclude)game/ambition_app/src/app/versus.rs",
         ],
@@ -131,7 +142,15 @@ ABSENCE_CONTRACTS: list[dict] = [
             "the SECOND writer visible at the moment it appears, which is when the "
             "ownership question actually has to be answered rather than months "
             "later from a photograph. If this list has to grow, growing it IS the "
-            "review."
+            "review. "
+            "NOTE this contract sees `commands` writes only. A shell experience "
+            "scope can also DELETE a match global by declaring "
+            "`releasing::<ActiveMatch>()`, which is invisible here and is how "
+            "two experiences came to claim sole ownership of both match globals "
+            "at once (fixed 2026-08-07). That class is checked by "
+            "`app_it::experience_scope_ownership`, which asks the composed scope "
+            "registry rather than the source text - the two are complementary "
+            "and neither subsumes the other."
         ),
     },
     {

@@ -1428,13 +1428,14 @@ fn a_cpu_ordered_before_the_person_still_starts_the_match() {
 /// *"it does not let me make a CPU vs CPU match, and it is very important that
 /// that is expressible and easy to do."*
 ///
-/// ⛔ **`SmashSelect::ready()` used to require `humans_decided() >= 1`**, so
-/// START was inert. That clause read like product policy and was really an
-/// engine limitation wearing a rationale: with no human seat, nothing adopted
-/// the session's home body, and the stage would open with an unowned
-/// controllable actor standing beside the match. The clause is gone, the home
-/// body is gone (`InitialBodyPolicy::NoInitialBody`), and every seat is built
-/// the same way — so a lobby of two CPUs is now an ordinary match.
+/// ⚠ **written when this FAILED, and the tense matters.** `SmashSelect::ready()`
+/// USED TO require `humans_decided() >= 1`, so START was inert. That clause read
+/// like product policy and was really an engine limitation wearing a rationale:
+/// with no human seat nothing adopted the session's home body, and the stage
+/// would open with an unowned controllable actor standing beside the match. Both
+/// are fixed — the adoption where it belongs, in how a match builds its cast,
+/// and the clause is gone. Left in the past tense rather than deleted because
+/// the reason a rule was dropped is the part that stops it coming back.
 #[test]
 fn two_cpus_can_fight_each_other() {
     let mut app = open_the_lobby();

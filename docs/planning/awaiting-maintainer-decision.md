@@ -981,3 +981,65 @@ useful piece of work than the classification.
 ⚠ **no recommendation.** The provenance argument is symmetric and I can construct
 it either way; the deciding fact is what scope retirement is allowed to mean
 across a rewind, which is a rollback-ownership call.
+
+---
+
+## How should the portal map convention stop being a process global? (raised 2026-08-07)
+
+`closeout-review-followups-2026-07-20.md` §2 recorded this and it is still true:
+`ambition_platformer2d_shared_tangle::math` holds
+`static PORTAL_MAP_ROTATION: AtomicBool`, and `portal_map_vec` dispatches on it.
+That function's own doc calls it *"one orthogonal map shared by velocity,
+position, AABB, input, and rays so they always agree"* — so the global is the
+single switch under the entire portal map.
+
+⭐ **the harm is concrete, not theoretical.** `sync_portal_tuning_convention` runs
+**every frame** (`PortalSet::InputAdapter`), writing that App's `PortalTuning`
+into the process-wide static. Two Apps in one process therefore fight over it once
+per frame — and a parallel test binary IS two Apps in one process. Today nothing
+collides only because every composition defaults to `Reflection`.
+
+**Already done (2026-08-07):** `transfer_step`'s three DERIVED facts — roll,
+facing flip, input warp — read `tuning.convention` instead, because
+`PortalTuning` was already in its argument list. That is the small half.
+
+**The measured cost of the rest.** `portal_map_vec` has 5 non-test callers, but
+the helpers wrapping it do not:
+
+```text
+  map_point                          14 call sites
+  portal_transform_velocity           3
+  map_aabb                            2
+  rotate_velocity_between_normals     0  (a rename of portal_transform_velocity)
+```
+
+Threading a convention parameter therefore reaches ~19 sites, many in geometry and
+presentation code with no `PortalTuning` in scope.
+
+**The decision:**
+
+* **(a) thread it** — a `MapConvention` argument through all ~19. Honest and
+  total; ⚠ this is the shape that cascaded on the fighter ladder the same day
+  (323 lines, never compiled), and for the same reason: a value needed at leaves
+  and owned at a root.
+* **(b) leave the global, make its WRITE session-owned** — once at session start
+  rather than every frame. Cheap, and ⛔ does not fix two Apps: it narrows the
+  window rather than closing it.
+* **(c) follow the crate's own precedent** — `portal_map_vec` gains a
+  `*_for_convention` form, `map_point` / `map_aabb` / `portal_transform_velocity`
+  gain theirs, and the SIMULATION callers migrate while presentation keeps the
+  convenience wrappers that read the global. This is exactly what
+  `somersault_roll` / `somersault_roll_for_convention` already are, and what made
+  today's fix one `let` plus three swaps.
+
+⚠ **weak recommendation: (c)**, because the crate has already solved this shape
+once and the result is the reason the derived-facts half was cheap. But it leaves
+a global that presentation still reads, so it is a judgement about whether "the
+simulation is session-authoritative and the HUD is not" is an acceptable
+resting place — and that is a call about the engine's own standard, not a
+refactor anyone should pick unilaterally.
+
+⭐ **a canary already exists either way**:
+`a_transit_takes_its_convention_from_tuning_not_the_process_global` asserts the
+global is at its default before it runs, so the first test that writes it turns
+the contamination into a failure with a name.

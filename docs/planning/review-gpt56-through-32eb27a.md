@@ -331,6 +331,19 @@ Verdicts are recorded here as each is reached.
     expected — but it makes this a content + schema + code edit rather than the
     "spec type and eight rows" the row describes, and it is why the estimate
     should not be trusted as small.
+  ✔ **THE TYPE CHANGE LANDED 2026-08-07** — `Option<bool>`, four authored rows
+  now `Some(..)`, and **THREE** readers resolving absence with `unwrap_or(false)`
+  (not the two I first counted; the third builds `ActorTuning::is_aerial` in
+  `features/enemies/mod.rs`, and the compiler found it, not a grep).
+  ⭐⭐ **and it immediately changed what is known about the PCA.**
+  `cellular_automaton_fighter` reads `is_aerial: Some(false)` — a DELIBERATE
+  grounded claim — against a catalog row saying `body_kind: Floating`. So the two
+  sources genuinely contradict, and **"the catalog wins because the archetype
+  never said" is not available as a resolution**: somebody authored `false`. That
+  was unknowable while the field was a bare bool, which is exactly what the review
+  said the stronger endpoint would buy.
+  ⚠ `actor_movement_tests` now asserts `Some(false)` rather than falsiness, so the
+  deliberateness is pinned rather than incidental.
   ⭐ **and the REJECTION half must not ship with the type change.** Assembly
   rejecting a contradiction would refuse the Perfect Cellular Automaton today —
   its catalog says `Floating` and the shipped duel plays it grounded — so

@@ -535,7 +535,13 @@ impl ActorClusterSeed {
             ),
             surface: ActorSurfaceState {
                 surface_normal: ae::Vec2::new(0.0, -1.0),
-                gravity_scale: if spec.is_aerial { 0.0 } else { 1.0 },
+                // Absence resolves the way the bare bool did; whether it should
+                // instead defer to the catalog is the open product question.
+                gravity_scale: if spec.is_aerial.unwrap_or(false) {
+                    0.0
+                } else {
+                    1.0
+                },
             },
             attack: BodyMelee::default(),
             config: ActorConfig {
@@ -549,7 +555,7 @@ impl ActorClusterSeed {
                 sprite_character_id,
             },
             motion: ActorMotionPath(motion),
-            body: ActorBody::from_kit(spec.movement_kit(), spec.is_aerial, size),
+            body: ActorBody::from_kit(spec.movement_kit(), spec.is_aerial.unwrap_or(false), size),
             caps: spec.combat_capabilities(),
             hurt_feedback,
             spec,

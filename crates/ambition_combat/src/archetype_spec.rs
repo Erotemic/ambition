@@ -135,8 +135,27 @@ pub struct ArchetypeSpec {
     /// Authored `false` for crawlers that hold on when struck.
     #[serde(default)]
     pub cling_breaks_on_hit: bool,
+    /// **Whether this archetype flies — or is SILENT about it.**
+    ///
+    /// ⛔ `None` is not `Some(false)`, and that distinction is the whole point.
+    /// Two spawn paths decide aerial-ness: `new_peaceful_npc_in` reads the
+    /// catalog's `body_kind: Floating`, the hostile `EnemySpawn` path reads this.
+    /// While this was a bare `bool` with `#[serde(default)]`, an archetype that
+    /// authored `false` and one that authored nothing were the same value — so a
+    /// disagreement between the two paths could not even be stated, let alone
+    /// resolved. The Perfect Cellular Automaton is the live case: `Floating` in
+    /// its catalog row, played grounded by the shipped duel.
+    ///
+    /// ⭐ this is the same defect `deny_unknown_fields` was added for, one field
+    /// away — there a misspelled key "looks identical to authoring nothing", here
+    /// a deliberate `false` did.
+    ///
+    /// ⚠ **readers resolve absence with `unwrap_or(false)`**, which is exactly
+    /// what the bare bool did, so making the question expressible changed no
+    /// behaviour. Whether ANY of them should instead defer to the catalog is the
+    /// open product question (`review-gpt56-through-32eb27a.md` P5).
     #[serde(default)]
-    pub is_aerial: bool,
+    pub is_aerial: Option<bool>,
     #[serde(default)]
     pub is_sandbag: bool,
     /// Detonates at the corpse on death (see `CombatCapabilities`).

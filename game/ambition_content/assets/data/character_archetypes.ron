@@ -135,7 +135,7 @@
         // Grounded-base HYBRID: it prefers to fight on the ground (so it descends
         // on provoke), and uses `can_fly` below to take to the air only to
         // cover a long traversal gap, then land.
-        is_aerial: false,
+        is_aerial: Some(false),
         brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.24,
@@ -230,7 +230,7 @@
         damage_amount: 1,
         // Grounded-base hybrid, exactly like the player: fights on the ground and
         // takes to the air via the fly toggle when it needs the vertical space.
-        is_aerial: false,
+        is_aerial: Some(false),
         brain_template: Smash,
         // A snappy player-like strike.
         melee: Some(Swipe((
@@ -394,7 +394,7 @@
         attack_range: 60.0,
         contact_strength: 0.55,
         damage_amount: 1,
-        is_aerial: true,
+        is_aerial: Some(true),
         mass: 0.5,
         default_size: Some((76.0, 60.0)),
         // Aerial dive-bomber: stalks to an altitude above the player, dives,
@@ -607,7 +607,7 @@
         attack_range: 200.0,
         contact_strength: 1.10,
         damage_amount: 2,
-        is_aerial: true,
+        is_aerial: Some(true),
         // A riderless shark's fast charge that gets stopped dead by a
         // wall detonates the shark (#98).
         charge_crash_explodes: true,

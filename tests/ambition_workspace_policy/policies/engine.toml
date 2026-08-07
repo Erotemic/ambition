@@ -470,10 +470,36 @@ scope = "engine"
 kind = "dependency-allowlist"
 owners = ["ambition_inventory_ui"]
 watch_paths = ["crates/ambition_inventory_ui/Cargo.toml"]
-rationale = "ambition_inventory_ui is reusable menu-navigation state over ambition_ui_nav"
+rationale = "ambition_inventory_ui is reusable menu-navigation state over ambition_ui_nav. It also DECLARES that an open inventory owns the seat's input (ambition_input::participant), which is why the vocabulary is allowed here."
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition_ui_nav"]
+# ⚠ PROVISIONAL, on Jon's word (2026-08-07): "add it to the allowlist for now
+# just to prevent agents from going nuts on it. I'll think about it in more
+# detail later." The open question is what this crate IS — a pure view crate
+# that never participates in input arbitration, in which case the claim belongs
+# in whatever composes the inventory rather than here.
+#
+# The case for allowing it, so the later decision starts from the facts:
+# * it adds NOTHING to the dependency graph. `ambition_ui_nav` already depends
+#   on `ambition_input`, so this edge existed transitively; naming it directly
+#   says the claim is this crate's own fact rather than a re-export it reaches.
+# * it buys one system, `declare_inventory_input_context`, which raises
+#   `INVENTORY_CONTEXT` while the inventory is open.
+# * what it REPLACED is the derivation `ambition_input::participant` forbids in
+#   its own header — "nothing derives input ownership from `GameMode` or from
+#   the presence of a controlled body". "The inventory has the controls" used to
+#   be spelled `GameMode::Paused && inventory.visible` at every site that needed
+#   it: two authorities for one question, and the mode is the wrong one, because
+#   `Paused` is a fact about the WORLD and owning input is a fact about a SEAT.
+# * the gap was real, not hypothetical: a composition that never registers
+#   `GameMode` (a demo, a capture harness) had the inventory open with gameplay
+#   still routing underneath it, so navigation keys also drove the actor behind
+#   it — and no router could be told otherwise.
+#
+# ⛔ the two alternatives are both worse: re-export the vocabulary through
+# `ambition_ui_nav` to launder the same edge, or go back to deriving ownership
+# from `GameMode`, which is the bug.
+allow = ["ambition_ui_nav", "ambition_input"]
 manifest = "crates/ambition_inventory_ui/Cargo.toml"
 
 [[policy]]

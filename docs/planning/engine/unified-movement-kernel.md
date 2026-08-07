@@ -165,11 +165,23 @@ matrix.
 > [`../queue-72h-2026-08-06.md`](../queue-72h-2026-08-06.md) under lane C4; until
 > that sweep this section was the only record and nothing pointed at this file.
 
-1. **Portal transit orientation** reads the presentation `GravityField`
-   mirror rather than per-body frames (the portal core also moves
-   cluster-less projectiles). Behavior matches pre-campaign; portal rooms do
-   not currently nest gravity zones. Closing it wants a per-body frame port
-   on the transit policy.
+1. ✅ **CLOSED (verified 2026-08-07), and the mechanism it describes is not what
+   happens.** It said portal transit orientation "reads the presentation
+   `GravityField` mirror rather than per-body frames". **No portal source reads
+   `GravityField` at all** — the readers today are dev tools, room-transition
+   commit, the rollback registration, the pose view and the sim harness. The
+   projectile path resolves gravity PER BODY:
+   `projectile/systems.rs` calls `gravity.dir_for(kin.aabb())`, and
+   `GravityCtx::dir_for` matches the body's AABB against the authored zones,
+   falling back to the field only as the BASE when a room authors no zones —
+   which is the per-body frame port this item asked for.
+   ⭐ and the transit CORE needs no frame at all: `try_projectile_portal_transit`
+   is pure portal geometry — momentum rotated by the portal pair's transform —
+   so there is no orientation for it to get from the wrong place.
+   ⚠ **the item's own escape still stands as an EXERCISE gap, not a code gap**:
+   *"portal rooms do not currently nest gravity zones"*, so the zone-resolving
+   branch is correct and unexercised in a portal room. That is a test somebody
+   could write, not a port somebody has to do.
 2. ✅ **CLOSED (verified 2026-08-07).** This said
    `GravityField`/`GravityZones`/`ForceZones` "remain unregistered snapshot
    resources", and that rewinding a mid-rewind gravity switch was therefore not

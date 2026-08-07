@@ -30,6 +30,29 @@ pub struct PlayerEntity;
 #[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ControlledSubject(pub Option<Entity>);
 
+/// **The bodies to frame when no local authority is driving one.**
+///
+/// ⛔ **the answer to "what does a CPU-versus-CPU match look like", and until
+/// this existed the answer was NOTHING.** The camera resolved its subject from
+/// [`ControlledSubject`] and returned without one — correct for exploration,
+/// where a session always has a driven body, and silently fatal for a match
+/// that legitimately has no local participant. Jon's own run: *"when I seated 2
+/// CPUs and pressed start, nothing shows up. No stage."*
+///
+/// ⭐ **a DECLARATION, not a guess.** Whoever knows what the session is about
+/// publishes the cast; the resolver frames it. That is the difference between
+/// this and the camera scanning for bodies on its own — a scan would have to
+/// decide which bodies matter, which is exactly the question the publisher
+/// already knows the answer to and the camera never can.
+///
+/// Empty means nothing has been declared, which is the ordinary case: with a
+/// controlled subject present this is not consulted at all. Ordered by the
+/// publisher (a match orders by SEAT) so the framing is stable frame to frame
+/// rather than by whatever order a query happened to iterate —
+/// see the Bevy entity-ordering traps this repo has been bitten by.
+#[derive(Resource, Default, Clone, Debug, PartialEq, Eq)]
+pub struct FramedCast(pub Vec<Entity>);
+
 /// Marks the **home avatar** / respawn identity — the ORIGINAL body, its save
 /// identity, respawn anchor, and inventory owner. Exactly one entity carries it.
 ///

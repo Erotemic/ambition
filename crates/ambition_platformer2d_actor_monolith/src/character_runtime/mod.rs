@@ -62,8 +62,9 @@ pub use physical_baseline::{
     BaselineBoundary, BodyGeometry, DisplacedPhysicals, PhysicalBaseline, PhysicalRetraction,
 };
 pub use prepared_match::{
-    activate_the_prepared_match, prepare_match, prepare_the_match, seat_placement,
-    ControlAuthority, MatchPreparationProblems, MatchRules, PreparedMatch, PreparedSeat,
+    activate_the_prepared_match, declare_the_match_cast_as_the_view, prepare_match,
+    prepare_the_match, seat_placement, ControlAuthority, MatchPreparationProblems, MatchRules,
+    PreparedMatch, PreparedSeat,
 };
 pub use presentation::{
     authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
@@ -899,8 +900,14 @@ impl Plugin for CharacterRuntimePlugin {
                 Update,
                 // **THE MATCH IS DECIDED OUTSIDE THE ROLLBACK WINDOW.** See the
                 // activation registration above for the measured reason.
-                prepared_match::prepare_the_match
-                    .run_if(resource_exists::<crate::features::CharacterRoster>),
+                (
+                    prepared_match::prepare_the_match
+                        .run_if(resource_exists::<crate::features::CharacterRoster>),
+                    // The camera's answer for a match with no local participant.
+                    // In `Update` beside preparation because it is a projection
+                    // FOR presentation, not simulation state.
+                    prepared_match::declare_the_match_cast_as_the_view,
+                ),
             )
             .add_systems(
                 Update,

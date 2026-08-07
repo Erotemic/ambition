@@ -695,6 +695,59 @@ pub struct ResolvedCameraSnapshot {
 /// It reads sim state and writes only presentation state; nothing in the
 /// simulation reads what it publishes.
 #[allow(clippy::too_many_arguments)]
+/// **Where to point a camera that is watching a cast rather than driving one,
+/// and how wide to open it.**
+///
+/// Returns `None` for an empty or unresolvable cast, which is the ordinary case
+/// outside a match — a caller with no declared cast has nothing to frame and
+/// must not fall back to the world origin, because "the camera is at 0,0" looks
+/// exactly like "the camera is broken" and this repo has shipped that before.
+struct CastFraming {
+    centre: ae::Vec2,
+    /// The cast's bounding box plus margin. Used both as the framing base size
+    /// and as a FLOOR on the view, so a pair that separates stays on screen.
+    view: ae::Vec2,
+    /// The body the presented-pose sample is taken from — the first seat, so
+    /// the choice is stable rather than whichever entity sorted first.
+    anchor: bevy::prelude::Entity,
+}
+
+/// Half the extra room left around the cast's bounding box, in world units.
+/// Small on purpose: the view is a FLOOR, so authored zoom still wins whenever
+/// it is already wider.
+const CAST_FRAMING_MARGIN: f32 = 48.0;
+
+fn frame_the_cast(
+    cast: &[bevy::prelude::Entity],
+    bodies: &bevy::prelude::Query<&ambition_platformer2d_shared_tangle::body::BodyKinematics>,
+) -> Option<CastFraming> {
+    let mut anchor = None;
+    let (mut min, mut max) = (
+        ae::Vec2::new(f32::MAX, f32::MAX),
+        ae::Vec2::new(f32::MIN, f32::MIN),
+    );
+    for entity in cast {
+        let Ok(kin) = bodies.get(*entity) else {
+            continue;
+        };
+        anchor.get_or_insert(*entity);
+        let half = kin.size / 2.0;
+        min.x = min.x.min(kin.pos.x - half.x);
+        min.y = min.y.min(kin.pos.y - half.y);
+        max.x = max.x.max(kin.pos.x + half.x);
+        max.y = max.y.max(kin.pos.y + half.y);
+    }
+    let anchor = anchor?;
+    Some(CastFraming {
+        centre: (min + max) / 2.0,
+        view: ae::Vec2::new(
+            (max.x - min.x) + CAST_FRAMING_MARGIN * 2.0,
+            (max.y - min.y) + CAST_FRAMING_MARGIN * 2.0,
+        ),
+        anchor,
+    })
+}
+
 pub fn resolve_camera_observation(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<ae::RoomGeometry>,
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
@@ -724,7 +777,13 @@ pub fn resolve_camera_observation(
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
-    controlled: bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+    // ⚠ ONE param, two resources: this system sits at Bevy's 16-param ceiling,
+    // which is also why `followed_body` below is a tuple. `framed` is what to
+    // look at when nothing is driving a body — see the `None` arm below.
+    subject: (
+        bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
+        bevy::prelude::Res<ambition_platformer2d_shared_tangle::markers::FramedCast>,
+    ),
     // Both lookups for whichever body is being followed, grouped into ONE
     // system param because this resolve sits at Bevy's 16-param ceiling.
     //
@@ -737,6 +796,7 @@ pub fn resolve_camera_observation(
     ),
 ) {
     let (body_kinematics, presented) = followed_body;
+    let (controlled, framed) = subject;
     // Dev tools can temporarily replace the authored/default camera view.
     let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
         (
@@ -746,7 +806,7 @@ pub fn resolve_camera_observation(
     } else {
         user_settings.video.camera_zoom.base_view()
     };
-    let base_view = ae::Vec2::new(base_view_w, base_view_h);
+    let mut base_view = ae::Vec2::new(base_view_w, base_view_h);
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
     let encounter_scale = encounter_view.camera_zoom.max(1.0);
 
@@ -764,27 +824,50 @@ pub fn resolve_camera_observation(
     let (mut player_body, player_base_size, blink_cam, mut followed) = match home {
         Some((entity, body, base_size, blink)) => (body, base_size, blink, entity),
         None => {
-            // ⚠ still `return` when nobody is driving anything: a match with no
-            // local player has no subject to follow. Framing the whole cast
-            // instead is a presentation decision this resolver should be TOLD,
-            // not one it should guess — and it is the remaining gap for a
-            // CPU-versus-CPU match, which a headless test cannot see.
-            let Some(subject) = controlled.0 else {
-                return;
-            };
-            let Ok(kin) = body_kinematics.get(subject) else {
-                return;
-            };
-            (
-                *kin,
-                ae::BodyBaseSize {
-                    base_size: kin.size,
-                },
-                // No home avatar means no blink state to ease from, which is
-                // correct rather than a fallback: a fighter does not blink.
-                ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState::default(),
-                subject,
-            )
+            // ⭐ **NO HOME AVATAR: the controlled body, else the DECLARED CAST.**
+            // The second half used to be a bare `return`, which is why a
+            // CPU-versus-CPU match drew nothing at all — Jon's own run said so
+            // before any test did. What to frame is a presentation decision this
+            // resolver is TOLD (`FramedCast`), never one it guesses: a scan for
+            // bodies would have to decide which ones matter, and whoever
+            // published the cast already knows.
+            match controlled
+                .0
+                .and_then(|subject| body_kinematics.get(subject).ok().map(|kin| (*kin, subject)))
+            {
+                Some((kin, subject)) => (
+                    kin,
+                    ae::BodyBaseSize {
+                        base_size: kin.size,
+                    },
+                    // No home avatar means no blink state to ease from, which is
+                    // correct rather than a fallback: a fighter does not blink.
+                    ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState::default(),
+                    subject,
+                ),
+                None => {
+                    let Some(cast) = frame_the_cast(&framed.0, &body_kinematics) else {
+                        return;
+                    };
+                    // The bounds decide the ZOOM as well as the centre: two
+                    // fighters that run apart must both stay on screen, and a
+                    // fixed view centred between them is how one of them walks
+                    // off it. A FLOOR, so authored zoom still wins when wider.
+                    base_view = base_view.max(cast.view);
+                    (
+                        ae::BodyKinematics {
+                            pos: cast.centre,
+                            ..Default::default()
+                        },
+                        ae::BodyBaseSize {
+                            base_size: cast.view,
+                        },
+                        ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState::default(
+                        ),
+                        cast.anchor,
+                    )
+                }
+            }
         }
     };
     // Follow the CONTROLLED SUBJECT's body. Zoom + blink easing stay on the

@@ -49,5 +49,7 @@ impl Plugin for AmbitionAbilitiesPlugin {
         // `register_player_simulation_systems`.
         app.init_resource::<traversal::possession::PossessionState>();
         app.init_resource::<ambition_platformer2d_shared_tangle::markers::ControlledSubject>();
+        // Its sibling: what to frame when nothing is driving a body.
+        app.init_resource::<ambition_platformer2d_shared_tangle::markers::FramedCast>();
     }
 }

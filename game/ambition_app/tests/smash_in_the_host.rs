@@ -16,12 +16,12 @@
 //! this one opens character select, which is a frontend route of the provider's
 //! own, and the stage arrives only once the screen has decided.
 
-use bevy::MinimalPlugins;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
 use bevy::state::app::StatesPlugin;
 use bevy::transform::TransformPlugin;
+use bevy::MinimalPlugins;
 
 use ambition_app::app::shell_host;
 use ambition_demo_smash::select::{SlotOccupant, SmashSelect};
@@ -1334,8 +1334,8 @@ fn a_person_against_a_cpu_starts_a_two_fighter_match() {
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 1); // the person takes the only source
     cycle_role(&mut app, 1, 1); // no source left, so: CPU
-    // Two DIFFERENT fighters, so this proves two characters seat rather than
-    // that one character seats twice — see `OTHER_PREPARED_FIGHTER`.
+                                // Two DIFFERENT fighters, so this proves two characters seat rather than
+                                // that one character seats twice — see `OTHER_PREPARED_FIGHTER`.
     pick_fighter(&mut app, 0, PREPARED_FIGHTER);
     pick_fighter(&mut app, 1, OTHER_PREPARED_FIGHTER);
 
@@ -1376,10 +1376,10 @@ fn a_cpu_ordered_before_the_person_still_starts_the_match() {
     let mut app = open_the_lobby();
     cycle_role(&mut app, 0, 2); // Absent → Controller → CPU, freeing the source
     cycle_role(&mut app, 1, 1); // …which the person then takes
-    // ⚠ **DIFFERENT fighters, and that is the whole case.** The dressing system
-    // points the primary body at `participants.first()`; with both seats on one
-    // character it lands on the right costume by luck and this test passes while
-    // proving nothing. It did exactly that on its first run.
+                                // ⚠ **DIFFERENT fighters, and that is the whole case.** The dressing system
+                                // points the primary body at `participants.first()`; with both seats on one
+                                // character it lands on the right costume by luck and this test passes while
+                                // proving nothing. It did exactly that on its first run.
     pick_fighter(&mut app, 0, OTHER_PREPARED_FIGHTER);
     pick_fighter(&mut app, 1, PREPARED_FIGHTER);
 
@@ -1468,81 +1468,70 @@ fn two_cpus_can_fight_each_other() {
         .map(|(now, then)| (now - then).abs())
         .fold(0.0, f32::max);
 
-    // **DOES THE SIM PUBLISH THESE BODIES TO PRESENTATION AT ALL?**
+    // **AND SOMETHING MUST BE LOOKING AT THEM.**
     //
-    // Jon, looking at the real game: the stage renders, the combatants do not,
-    // and there is a nameplate over seat 1 but not seat 0. Two seats built by
-    // ONE constructor being drawn differently is the adopt/spawn fork surviving
-    // in presentation — so the first question is which side of the seam drops
-    // them. `DynamicFeatureViews` is the sim's read model and exists headlessly;
-    // `FeatureVisual` needs render plugins this fixture does not install.
+    // ⛔ this is where the two diagnostics that used to sit here ended up, and
+    // recording the route matters: a `[view-census]` print showed both seats
+    // published to `DynamicFeatureViews` under ONE `FeatureId`, which is how the
+    // mirror-match identity collision was found; a `[cpu-census]` print showed
+    // correct factions, correct targets and zero velocity, which is how the
+    // whole-system `return` in `tick_actor_brains` was found. Both are fixed and
+    // both prints are gone — a diagnostic that outlives its diagnosis is noise
+    // that the next reader has to re-derive.
+    //
+    // What replaces them is the question neither could answer: a match with no
+    // local participant has no `ControlledSubject`, so the camera resolver
+    // returned and framed NOTHING. Jon saw exactly that — *"when I seated 2 CPUs
+    // and pressed start, nothing shows up. No stage."* The cast is declared now
+    // (`FramedCast`), and this asserts the camera is actually pointed at it.
     {
         let world = app.world_mut();
-        let published: Vec<String> = world
-            .resource::<ambition_platformer2d::sim_view::DynamicFeatureViews>()
-            .0
-            .iter()
-            .map(|fact| format!("{} ({}) sprite={:?}", fact.id, fact.family, fact.sprite_key))
-            .collect();
-        eprintln!("[view-census] DynamicFeatureViews = {published:?}");
+        let resolved = world
+            .get_resource::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>(
+            )
+            .expect(
+                "no camera snapshot was ever resolved in a live match, so this \
+                 composition cannot say what a CPU-versus-CPU match looks like",
+            );
+        let follow = resolved.follow_world;
         let mut q = world.query::<(
             &ambition_platformer2d::actors::character_runtime::MatchSeat,
-            Option<&ambition_platformer2d::actors::features::FeatureId>,
-            Option<&ambition_platformer2d::actors::features::ActorConfig>,
-            Option<&ambition_platformer2d::actors::features::RuntimeStagedActor>,
-            &ambition_platformer2d::actors::combat::components::ActorDisposition,
+            &ambition_platformer2d::engine_core::BodyKinematics,
         )>();
-        let mut rows: Vec<String> = q
+        let mut cast: Vec<(usize, f32, f32)> = q
             .iter(world)
-            .map(|(seat, id, config, staged, disposition)| {
-                format!(
-                    "seat {}: feature_id={:?} actor_config={} staged={} peaceful={}",
-                    seat.0,
-                    id.map(|i| i.0.clone()),
-                    config.is_some(),
-                    staged.is_some(),
-                    disposition.is_peaceful(),
-                )
-            })
+            .map(|(seat, kin)| (seat.0, kin.pos.x, kin.pos.y))
             .collect();
-        rows.sort();
-        for row in rows {
-            eprintln!("[view-census] {row}");
-        }
-    }
-
-    // **WHAT EACH SEAT ACTUALLY HOLDS**, printed rather than guessed. Three
-    // plausible causes were reasoned through and refuted from source (the
-    // opening hold never released; the seats not being target candidates;
-    // preparation running inside the rollback window). Reading is what produced
-    // those; only measuring will produce the answer.
-    {
-        let world = app.world_mut();
-        let mut q = world.query::<(
-            &ambition_platformer2d::actors::character_runtime::MatchSeat,
-            Option<&ambition_platformer2d::characters::brain::ScriptedControl>,
-            Option<&ambition_platformer2d::actors::combat::components::ActorFaction>,
-            Option<&ambition_platformer2d::actors::combat::components::ActorTarget>,
-            Option<&ambition_platformer2d::engine_core::BodyKinematics>,
-        )>();
-        let mut rows: Vec<String> = q
-            .iter(world)
-            .map(|(seat, held, faction, target, kin)| {
-                format!(
-                    "seat {}: suspended={} faction={:?} target={:?} pos={:?} vel={:?}",
-                    seat.0,
-                    held.is_some(),
-                    faction.map(|f| format!("{f:?}")),
-                    target.map(|t| t.entity),
-                    kin.map(|k| k.pos),
-                    kin.map(|k| k.vel),
-                )
-            })
-            .collect();
-        rows.sort();
-        for row in rows {
-            eprintln!("[cpu-census] {row}");
-        }
+        cast.sort_by_key(|(slot, _, _)| *slot);
+        assert_eq!(
+            cast.len(),
+            2,
+            "a two-CPU match must have two bodies to frame"
+        );
+        let centre = ((cast[0].1 + cast[1].1) / 2.0, (cast[0].2 + cast[1].2) / 2.0);
+        // ⛔ **TIGHT, and the first version of this was not.** It allowed ±200px
+        // around the pair's span, and PROBED GREEN with the cast declaration
+        // disabled: with nothing to frame the resolver returns and leaves the
+        // previous snapshot standing, which in this fixture reads (0, 0) — and
+        // (0, 0) sat inside that window. A camera parked at the world origin
+        // passing a test about whether the camera found the fighters is exactly
+        // the green-by-construction shape this file exists to avoid.
+        //
+        // Re-probed with the declaration disabled at this tolerance: RED, by
+        // 218px on x and 231px on y.
+        let slack = 32.0;
+        assert!(
+            (follow.x - centre.0).abs() <= slack && (follow.y - centre.1).abs() <= slack,
+            "the camera is at ({:.0}, {:.0}) while the two fighters straddle \
+             ({:.0}, {:.0}). A match with no local participant has no \
+             `ControlledSubject`; unless something DECLARES the cast the \
+             resolver frames nothing and the last snapshot stands — which is \
+             precisely what a CPU-versus-CPU match looked like on Jon's screen.",
+            follow.x,
+            follow.y,
+            centre.0,
+            centre.1
+        );
     }
     assert!(
         moved > 4.0,

@@ -832,3 +832,49 @@ pub fn activate_the_prepared_match(
         prepared.seat_topology(),
     ));
 }
+
+/// **Declare the match's cast as what the camera frames.**
+///
+/// ⛔ **the missing reader.** An earlier draft of this module computed a
+/// `MatchViewPolicy` and it was deleted as "a value nothing reads" — which was
+/// the right objection to the wrong half. The value was not the mistake; having
+/// no consumer was. Jon's run found the consequence directly: *"when I seated 2
+/// CPUs and pressed start, nothing shows up. No stage."* The camera resolves its
+/// subject from `ControlledSubject` and returns without one, so a match with no
+/// local participant framed nothing at all.
+///
+/// ⭐ **published, not guessed.** The camera could scan for `MatchSeat` bodies
+/// itself, and then presentation would own a question about what a session is
+/// FOR. The match already knows; saying so is one line and keeps the resolver
+/// generic — a cutscene or a replay viewer publishes the same resource.
+///
+/// ⚠ **ordered by SEAT.** A `Vec<Entity>` built in query order is a different
+/// vector frame to frame, and this one is read by a framing computation whose
+/// output a person looks at.
+///
+/// Runs in `Update`: it is a projection of simulation state for presentation to
+/// consume, not simulation state, so it must not be written inside the rollback
+/// window.
+pub fn declare_the_match_cast_as_the_view(
+    active: Option<Res<super::ActiveMatch>>,
+    seats: Query<(Entity, &super::MatchSeat)>,
+    mut framed: ResMut<ambition_platformer2d_shared_tangle::markers::FramedCast>,
+) {
+    if active.is_none() {
+        if !framed.0.is_empty() {
+            framed.0.clear();
+        }
+        return;
+    }
+    let mut cast: Vec<(usize, Entity)> = seats
+        .iter()
+        .map(|(entity, seat)| (seat.0, entity))
+        .collect();
+    cast.sort_by_key(|(slot, _)| *slot);
+    let cast: Vec<Entity> = cast.into_iter().map(|(_, entity)| entity).collect();
+    // Written only on change: this is read every frame by the camera, and a
+    // resource touched every frame is a change signal that means nothing.
+    if framed.0 != cast {
+        framed.0 = cast;
+    }
+}

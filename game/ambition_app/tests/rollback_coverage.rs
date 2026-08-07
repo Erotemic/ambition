@@ -963,6 +963,13 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
     // receipt (`ActiveMatch`) and the bodies rewind, and the same immutable plan
     // rebuilds the same cast. A plan that changed would be a different match.
     (
+        "ambition_platformer2d_shared_tangle::markers::FramedCast",
+        "presentation projection: WHAT THE CAMERA LOOKS AT when nothing local is \
+         driving a body. Rebuilt in `Update` from the live seats every frame it \
+         changes, never read by simulation, and a rewind that restored an older \
+         cast would aim the camera at bodies the restored frame does not have",
+    ),
+    (
         "::character_runtime::prepared_match::PreparedMatch",
         "the resolved match DECISION, made once before the fighters exist and \
          never written from inside the sim. Rewinding it would remove what \

@@ -318,6 +318,39 @@ general thing stuck in there.
 ⛔ **but moving it rewrites the fingerprint**, which is why the geometry carve
 went first and this one has not started. Deciding this unblocks it.
 
+### ⭐⭐ RE-VERIFIED 2026-08-07, and it is worse than "a crate name"
+
+Checked to the definitions rather than restated: `schema_dump()` writes
+`entry.name`, `entry.kind.canonical_name()`, **`entry.type_name`** and
+`entry.detail` — pointedly NOT `entry.owner`, which is v5's fix still holding —
+and `schema_fingerprint()` hashes that whole dump (`registry.rs:323-330`).
+
+⛔ **`type_name` carries the MODULE path, not just the crate.** Today's own work
+is the proof: registering `ActiveConversation` put this line in the baseline —
+
+```
+resource.active_conversation	resource-clone	ambition_platformer2d_actor_monolith::conversation::authority::ActiveConversation	…
+```
+
+`::conversation::authority::` is a module layout decision from this morning, and
+it is now inside the wire-format hash. So the sensitivity is not "moving a type
+between crates" — it is **moving a type between modules**, which is an ordinary
+refactor this repo does weekly.
+
+⚠ **and that collides directly with Jon's decomposition instruction** (2026-08-07:
+*"if we add things to the monolith, try to do it so it's obvious what the
+decomposition should be. we will need to address that bloat in the coming
+days."*). Carving the monolith moves rollback-registered types between modules and
+crates by definition, so every step of that campaign rewrites the fingerprint and
+declares two identical builds incompatible. This row does not block one carve; it
+taxes the whole decomposition.
+
+⭐ **the argument the row already makes now has a second instance.** v5 stopped
+hashing the owner because *"which module registered this"* is not a wire-format
+fact. `type_name`'s module path is the same category of organisational label
+wearing a different hat — and unlike the owner, nobody chose to hash it; it came
+along inside a string that was being used for identity.
+
 ### ⭐ Two things measured since, both of which enlarge this decision
 
 **1. The codec blocks carve-outs by a SECOND mechanism nobody had named: the

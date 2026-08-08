@@ -129,6 +129,8 @@ dev/               -> long-running engineering memory (you are here)
   ambition_dev_measurements/ -> SUBMODULE: the cost ledgers (see below)
   compile_ratchet_baseline.json -> the ratchet's frozen input; NOT in the submodule
   compile_telemetry_schema.md   -> the ledgers' field-by-field contract
+  audio_loudness_report.md      -> every sound's level, ranked; REWRITTEN by
+                                   `scripts/audio_levels.py`, not appended
 ```
 
 ## Cost ledgers — `dev/ambition_dev_measurements/` (a submodule)

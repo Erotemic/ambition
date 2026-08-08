@@ -480,6 +480,39 @@ presence in a movement-only game's graph, the workspace's densest frontend cost,
 and a known-hard refactor are all the same fact: **per-type rollback registration
 performed by name, in one file per capability.**
 
+### ⛔⛔ REFUTED, same day, by the subtraction test — finding 2 does not hold
+
+`cargo clean -p ambition_platformer2d_runtime` then `cargo check`, on a quiet
+machine, with and without the 11 domain modules and their 11 `register(app)`
+calls commented out:
+
+```text
+  baseline (domains present)   2.52  2.58  2.52 s
+  subtracted (domains gone)    2.59  2.42  2.44 s
+```
+
+**Removing 2,130 lines and 74 of the crate's 79 generic functions changes the
+runtime's check time by nothing measurable.** The frontend-cost half of the
+convergence is dead. Findings 1 (the dependency isolation) and 3 (C7's blocker)
+are unaffected — they were grep-measured and stand.
+
+⚠ **the refutation is BOUNDED, and the bound is worth stating**: `cargo check`
+of this crate is **2.5s**, while the timed build attributed it **24.8s** of
+frontend. A 10x gap means `check` is not doing the same work as a build's
+frontend phase (it emits no codegen-ready MIR, and the build figure was also
+taken under load 14–18). So what is refuted is the strong claim — *the generic
+surface in `domains/` dominates the runtime's type-checking cost*. Whether it
+dominates the build's frontend phase is still unmeasured, and still wants
+`-Z self-profile`.
+
+⭐ **the process point, which is the durable part**: three independent findings
+converged, the convergence was written down as a hypothesis with the inference
+link named, a falsifier was queued — and the falsifier killed it within the hour.
+That is the system working. The queue row said *"three findings agreeing is a
+reason to measure next, not a substitute for measuring, and this campaign has
+already had three premises die on contact with measurement, always in the
+direction of the tidy answer being wrong."* It was four.
+
 ⚠ **what is MEASURED and what is INFERRED**, because this convergence is
 seductive: measured — the file-level dependency isolation (grep), the 211 call
 sites (grep), the crate-level 8x frontend cost per line (timed build). Inferred —

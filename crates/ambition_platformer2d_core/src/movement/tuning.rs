@@ -307,13 +307,22 @@ pub struct MovementTuning {
     /// `stick × flight_terminal_speed` verbatim — no accel ramp, drag, hover-bob,
     /// or deadzone. `#[serde(default)]` (false) so pre-existing tuning files +
     /// every ordinary flyer (parrot, hover-drone) keep the smoothed accel/drag
-    /// flight unchanged.
+    /// flight unchanged. The one bound a direct command still answers to is
+    /// [`FlightTuning::coordinate_speed_cap`], which is `flight_terminal_speed`
+    /// itself unless an invariant speed lowers it.
     #[serde(default)]
     pub flight_direct_velocity: bool,
     /// Optional invariant speed for proper-velocity flight. When present, the
     /// flight limb accelerates in proper-velocity space and converts back to a
-    /// coordinate velocity, guaranteeing a subluminal result. The authored
-    /// terminal remains a coordinate-speed cap below this value.
+    /// coordinate velocity.
+    ///
+    /// The subluminal guarantee is a POSTCONDITION on the limb's output, not a
+    /// property of that one control policy: whichever branch produces the
+    /// requested velocity — direct-velocity commands included — the result is
+    /// bounded by [`FlightTuning::coordinate_speed_cap`], which is the authored
+    /// terminal bounded strictly below this value. Authoring a terminal at or
+    /// above the invariant speed therefore yields a subluminal body rather than a
+    /// broken guarantee.
     #[serde(default)]
     pub flight_invariant_speed: Option<f32>,
     pub coyote_time: f32,
@@ -538,6 +547,28 @@ pub struct FlightTuning {
     /// See [`MovementTuning::flight_invariant_speed`].
     #[serde(default)]
     pub invariant_speed: Option<f32>,
+}
+
+impl FlightTuning {
+    /// The coordinate-speed bound the flight limb enforces on its OUTPUT, for
+    /// every control policy.
+    ///
+    /// `terminal_speed` is the authored game-feel knob. When an `invariant_speed`
+    /// is also authored it is a physical law rather than a preference, so the cap
+    /// is additionally held strictly below `c`. Reading this instead of the raw
+    /// terminal is what makes "an invariant speed is never reached" a property of
+    /// the limb rather than of the one branch that integrates in proper velocity —
+    /// a direct-velocity command and any future control policy pass through the
+    /// same bound.
+    pub fn coordinate_speed_cap(self) -> f32 {
+        let terminal = self.terminal_speed.abs();
+        match self.invariant_speed {
+            // Strictly below `c`: a body that exactly reaches the invariant speed
+            // has an infinite Lorentz factor, so the margin is part of the law.
+            Some(c) => terminal.min(c.abs().max(f32::EPSILON) * (1.0 - 1.0e-5)),
+            None => terminal,
+        }
+    }
 }
 
 /// Parameters owned by the axis-swept movement policy, grouped by ownership.

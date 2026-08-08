@@ -619,6 +619,68 @@ fn diagonal_free_flight_respects_the_radial_terminal_speed() {
 }
 
 #[test]
+fn an_invariant_speed_bounds_every_flight_policy_not_just_the_relativistic_one() {
+    // `flight_invariant_speed` documents a POSTCONDITION on the flight limb's
+    // output, so it must survive whichever control policy produced the request.
+    // The reachable break is an authored default, not exotic tuning:
+    // `AxisTuningSpec` defaults `flight_terminal_speed` to `FLIGHT_TERMINAL_SPEED`
+    // (760) and exposes `flight_direct_velocity` + `flight_invariant_speed` as two
+    // adjacent knobs, so a catalog row that writes only those two fields commands
+    // 760 px/s against a c of 600.
+    use crate::world::World;
+    let world = World {
+        name: "superluminal temptation".to_string(),
+        size: Vec2::new(8000.0, 8000.0),
+        spawn: Vec2::new(4000.0, 4000.0),
+        blocks: Vec::new(),
+        climbable_regions: Vec::new(),
+        chains: Vec::new(),
+        blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
+        water_regions: Vec::new(),
+    };
+    let invariant_speed = 600.0;
+    let mut tuning = TEST_TUNING;
+    tuning.flight_terminal_speed = crate::movement::FLIGHT_TERMINAL_SPEED;
+    tuning.flight_direct_velocity = true;
+    tuning.flight_invariant_speed = Some(invariant_speed);
+    tuning.flight_hover_speed = 0.0;
+    tuning.flight_hover_hz = 0.0;
+    assert!(
+        tuning.flight_terminal_speed > invariant_speed,
+        "the probe is only meaningful with an authored terminal above c"
+    );
+
+    // Both clamps: a single axis exercises the per-axis clamp, a full diagonal the
+    // radial one.
+    for axes in [
+        crate::LocalAxes::new(1.0, 0.0),
+        crate::LocalAxes::new(1.0, 1.0),
+    ] {
+        let mut body = scratch_with(AbilitySet::sandbox_all(), Vec2::new(4000.0, 4000.0));
+        body.ground.on_ground = false;
+        body.flight.fly_enabled = true;
+        update_player_with_tuning_scratch(
+            &world,
+            &mut body,
+            InputState {
+                axes,
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            tuning,
+        );
+        let speed = body.kinematics.vel.length();
+        assert!(
+            speed < invariant_speed,
+            "direct-velocity flight reached {speed} against an invariant speed of \
+             {invariant_speed} (stick {axes:?})"
+        );
+    }
+}
+
+#[test]
 fn proper_velocity_free_flight_approaches_the_terminal_without_reaching_c() {
     use crate::world::World;
     let world = World {

@@ -681,6 +681,18 @@ pub(super) fn integrate_flight_clusters(
     let vel_descend = kinematics.vel.dot(basis.down);
     let local_stick = input.local_axis();
 
+    // The ONE coordinate-speed bound this limb enforces, read by every branch below
+    // and by both clamps. It is the authored terminal, held strictly below `c` when
+    // an invariant speed is authored — so "an invariant speed is never reached" is a
+    // postcondition of the limb, not a property of the proper-velocity branch that
+    // happens to compute it on the way past.
+    let terminal = tuning.flight.coordinate_speed_cap();
+
+    // The TARGET keeps the raw authored terminal: it is the scale a caller
+    // normalised its command by (`velocity_target / flight_terminal_speed` in the
+    // actor integrator), so lowering it here would slow every *subluminal* command
+    // too. Superluminal requests are answered by the clamps, which cost nothing a
+    // representable command can feel.
     let target_run = local_stick.x * tuning.flight.terminal_speed;
     let mut target_descend = local_stick.y * tuning.flight.terminal_speed;
     if !tuning.flight.direct_velocity && local_stick.y.abs() <= 0.10 {
@@ -689,18 +701,21 @@ pub(super) fn integrate_flight_clusters(
 
     let (mut new_run, mut new_descend) = if tuning.flight.direct_velocity {
         // Direct-velocity free-mover: the controller commanded an exact velocity
-        // (`stick × terminal` == its `velocity_target`), so take it verbatim — no
-        // accel ramp, drag, hover-bob, or deadzone. Byte-identical to a SNAP float
-        // (`step_floating_body`, `accel: None`) so a boss flies through the ONE
-        // pipeline without a motion change.
+        // (`stick × flight_terminal_speed` == its `velocity_target`), so take it
+        // verbatim — no accel ramp, drag, hover-bob, or deadzone. Byte-identical to
+        // a SNAP float (`step_floating_body`, `accel: None`) so a boss flies through
+        // the ONE pipeline without a motion change. "Verbatim" still means "as
+        // verbatim as `terminal` allows": this arm does NOT get to opt out of the
+        // limb's speed bound, which is the whole reason the clamps below read the
+        // hoisted `terminal` rather than the authored one.
         (target_run, target_descend)
     } else if let Some(invariant_speed) = tuning.flight.invariant_speed {
         // Relativistic free flight still runs through the ONE shared flight limb.
         // Acceleration and drag act on spatial proper velocity w = gamma*v; the
-        // conversion back to coordinate velocity guarantees |v| < c. The authored
-        // terminal remains a coordinate-speed cap and therefore a game-feel knob.
+        // conversion back to coordinate velocity keeps |v| < c on its own. The
+        // authored terminal remains a coordinate-speed cap and therefore a
+        // game-feel knob — `terminal` above is that knob, already c-bounded.
         let c = invariant_speed.abs().max(f32::EPSILON);
-        let terminal = tuning.flight.terminal_speed.abs().min(c * (1.0 - 1.0e-5));
         let current_v = crate::Vec2::new(vel_run, vel_descend);
         let current_speed_squared = current_v.length_squared().min(c * c * (1.0 - 1.0e-6));
         let current_gamma = 1.0 / (1.0 - current_speed_squared / (c * c)).sqrt();
@@ -742,8 +757,8 @@ pub(super) fn integrate_flight_clusters(
         (new_run, new_descend)
     };
 
-    new_run = new_run.clamp(-tuning.flight.terminal_speed, tuning.flight.terminal_speed);
-    new_descend = new_descend.clamp(-tuning.flight.terminal_speed, tuning.flight.terminal_speed);
+    new_run = new_run.clamp(-terminal, terminal);
+    new_descend = new_descend.clamp(-terminal, terminal);
 
     let mut local_velocity = crate::Vec2::new(new_run, new_descend);
     if tuning.flight.invariant_speed.is_some() {
@@ -751,9 +766,9 @@ pub(super) fn integrate_flight_clusters(
         // this opt-in preserves the established per-axis behavior of ordinary
         // flight bodies while preventing a diagonal command from exceeding the
         // experiment's terminal or invariant speed.
-        let terminal_squared = tuning.flight.terminal_speed * tuning.flight.terminal_speed;
+        let terminal_squared = terminal * terminal;
         if local_velocity.length_squared() > terminal_squared && terminal_squared > 0.0 {
-            local_velocity = local_velocity.normalize() * tuning.flight.terminal_speed;
+            local_velocity = local_velocity.normalize() * terminal;
         }
     }
     kinematics.vel = frame.to_world(local_velocity);

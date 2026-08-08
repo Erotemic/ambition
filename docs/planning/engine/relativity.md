@@ -126,6 +126,15 @@ optionally integrate acceleration and drag in spatial proper velocity and then
 convert back to coordinate velocity. This guarantees subluminal output for
 finite inputs while retaining an authored coordinate-speed terminal.
 
+The guarantee is a postcondition of the LIMB, not a property of that one
+integration mode. `FlightTuning::coordinate_speed_cap` is the single bound every
+control policy's output passes through — the authored terminal, held strictly
+below `c` whenever an invariant speed is authored. A direct-velocity command (a
+boss pattern driving an exact per-tick velocity, which bypasses the
+proper-velocity integration entirely) is therefore subluminal for the same reason
+the accelerated path is, and authoring a terminal at or above `c` yields a slower
+body rather than a broken invariant.
+
 This is not a relativity-owned pose writer. It is an optional tuning mode of the
 same movement authority used by ordinary flying bodies. Radial terminal-speed
 enforcement prevents diagonal input from reaching `sqrt(2)` times the authored

@@ -951,13 +951,40 @@ code."*
 
 **What is measured, not guessed.**
 `death_reset_timing::the_room_resets_no_earlier_than_the_death_beat_ends` asserts
-the ordering and it holds: the reset is correctly gated behind the beat. But the
-same test records that the world never HOLDS STILL — the non-player bodies move
-on essentially every frame of the ~0.55s dwell (signature drifting 37188 → 37131
-across f163..f195) and then snap on the single frame after it ends. To a player
-that reads exactly as *"the enemies reset before the animation finished"*: they
-were walking the whole time, and then jumped. So the ordering was never the
-defect; the absence of a freeze is.
+the ordering and it holds: the reset is correctly gated behind the beat. The
+world does not HOLD STILL during it — the non-player bodies walk through the
+dwell and then snap on the frame after it ends. To a player that reads exactly as
+*"the enemies reset before the animation finished"*: they were walking the whole
+time, and then jumped. So the ordering was never the defect; the absence of a
+freeze is.
+
+> ⛔ **CORRECTED 2026-08-08 — two numbers in this row's first draft were wrong,
+> and its fixture has since stopped measuring the question.**
+>
+> **The "~0.55s dwell" was a misreading of the test's own output.** The quoted
+> `f163..f195` is the **last screenful of a 194-line log**, not the dwell. The
+> beat is `f3..f195` — **192 frames, 3.200s** — and `DEATH_DWELL` has been `3.2`
+> since `ecf21b2de` (2026-07-25), so it was already 3.2 when this was written.
+> There is no second, shorter beat and no nested animation dwell.
+>
+> ⛔ **and the drift evidence no longer reproduces in that fixture.** The
+> signature now moves only on f4–f15 (0.2s, and *upward*) then sits **constant
+> for f15–f195 — 94% of the beat.** The cause is not a fix: the fixture kills her
+> at `y = 4000`, ≥3500px from every enemy, and both Mary-O enemies gained
+> `AwakeNearObservers { radius: 720 }` *after* this row was written. **Every
+> enemy is dormant for the whole fixture beat, so the test no longer exercises
+> the freeze question at all** — it would now report a frozen world whether or
+> not one was implemented.
+>
+> ⭐ **the conclusion survives, on new evidence.** In a real death she dies next
+> to what killed her, well inside 720px. Across eight captures verified inside
+> the beat, the slop sits at screen x = 334, 330, 306, 248, 273, 279, 275, 202
+> with the camera anchored. The world keeps living; the snap is real.
+>
+> ⚠ **so this row needs a fixture that kills her NEAR an enemy** before its
+> measurement means anything again. A dormancy radius silently turned a freeze
+> instrument into a no-op — the same class as an instrument shaped exactly like
+> the bug it hunts.
 
 **The mechanism already exists and is the one to reuse.**
 `GameMode::{Paused, Dialogue, RoomTransition, Cutscene}` suspend gameplay through

@@ -248,10 +248,35 @@
     good candidate for *"the enemies seem to reset before the death animation is
     finished"*: the reset was correctly gated behind the beat, and the BEAT was
     ending too early.
-  * ▢ **so the row's remaining question is whether it still reproduces at 3.2s.**
+  * ~~▢ **so the row's remaining question is whether it still reproduces at 3.2s.**
     That is one death, watched once, and it is the only part a code reading cannot
-    settle. ⛔ do NOT do the "one reset at one time" refactor first: the reset
+    settle.~~ ⛔ do NOT do the "one reset at one time" refactor first: the reset
     ordering is already correct and was never the symptom.
+  * ✔ **MEASURED 2026-08-08 — no, and it never could have.** Three numbers, all
+    found at their source:
+    | | | |
+    |---|---|---|
+    | death **animation** | **0.12 s** | 1 frame × 120 ms, non-looping (`mary_o_v2_spritesheet.yaml`) |
+    | death **beat** | **3.2 s** | `DEATH_DWELL`, `demo_mary_o/src/death.rs:45` |
+    | death **music** | **3.200 s** | `ffprobe` on `mary_o_you_died/full.ogg`; 4 bars of 2/4 at 150bpm |
+
+    The reset lands **3.08 s after the clip finishes — 26.7× its length.** Even
+    at the old 1.6 s the margin was 1.48 s. Confirmed three independent ways: the
+    deterministic sim log (`beat started f3, ended f195, room reset f195`), three
+    real captured deaths (reset at 2.882 / 3.299 / 3.349 s), and screenshots
+    inside the beat.
+  * ⛔ **and this retracts the ⭐⭐ theory above: there is no tumble.** Mary-O's
+    death animation is a **single static frame** in all three forms — authored
+    that way in the generator (`SHORT_POSES["death"]` is one pose). A 1.6 s beat
+    cannot cut a 0.12 s clip, so the beat's length was never the mechanism behind
+    your original report. The only thing 1.6 s ever cut off was the **music**,
+    which is exactly what the second report said.
+  * ⭐ **so the live explanation is the one the freeze row already names**: the
+    enemies walk for the full 3.2 s and then snap. Measured today at eight
+    verified in-beat captures — the slop at screen x = 334, 330, 306, 248, 273,
+    279, 275, 202 with the camera anchored. That is your *"reset before the
+    animation is finished"*, and it is about the absence of a freeze rather than
+    about any duration.
 * ~~We probably need an engine concept that allows actors to be dormant.~~ **BUILT, and then found half-wired 2026-08-05.** `features::ecs::dormancy` declares it the way your last clause asks: an actor with no `DormancyPolicy` is always awake, so "not inherent" is the default rather than an opt-out, and `DormancyPolicy::Never` exists so a character that must keep simulating says so where a reader finds it. The wake test is *near any OBSERVER*, never near "the player" — one player, four on a sofa and a remote peer are the same rule, which is your split-screen and netplay point. It sleeps the BRAIN and CLEARS the control frame (a sleeping actor with a stale `ActorControl` keeps walking, which is the exact symptom), and `Dormant` is recomputed every tick from positions so a rollback reproduces it with no memo to get wrong.
   * ⛔ **but only the SLOP was wired to it for a day.** You named the slop, so the slop got the policy — and Solid Snake, the other patrolling enemy in the same level with the same job, thought for the whole course. Fixed `ad43b63ba`. ⚠ **the test was defending the gap**: it asserted that ONLY the slop declares dormancy, with a strays check that would have failed the moment anyone wired the snake. It asserts the property now — every authored enemy declares whether it sleeps — and was probed red.
   * ◐ **Sanic adopted it too (`df269eaec`), and the second game is what made the seam's assumption visible.** A wake radius is a LEAD TIME wearing distance's clothes: your 720px in front of a Mary-O at 300px/s is 2.4s of warning, and the same 720px in front of Sanic at his 2000px/s super top speed is **0.36s** — a badnik snapping into motion in full view, worse than one that had been walking all along. His radius is 4800, derived from his own top speed for the same 2.4s of lead. ⭐ that a fixed radius silently encodes an assumption about how fast the OBSERVER moves is the argument for the policy eventually taking SECONDS rather than pixels; recorded at the constant, not acted on, because two games is not enough to change an engine seam's units.

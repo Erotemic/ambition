@@ -1406,27 +1406,90 @@ rewind *"must not un-retire a scope"*. Session lifetime has a rewind rule that
 room lifetime does not. Whether that rule reaches the MARKER as well as the
 retirement message is the entire decision.
 
-**The decision:**
+**The decision was going to be:**
 
 * **(a) it is provenance** — add `SessionScopedEntity` to `PROVENANCE_ONLY`
   beside `RoomScopedEntity`, on the grounds that a marker stamped once cannot be
   restored wrongly. One line, and the sweep's last open class closes.
 * **(b) it is lifecycle** — the marker participates in scope retirement, so a
   rewind restoring it could resurrect membership of a retired scope. Then it
-  stays out, and what is owed is a WAIVER that says this in one sentence, so the
-  next reader does not re-derive the same question.
+  stays out, and what is owed is a WAIVER that says this in one sentence.
 
-⚠ **a third fact that changes what either answer buys.** Both
-`no_snapshot_registration_is_inert_*` assertions currently PASS, so this
-archetype appears in NO composition any test sweeps — it exists only under the
-shell. The report now names the offending entity (improved today), but that helps
-only once a test reaches that composition. **Whichever way this goes, the sweep is
-green about a class it never looks at**, and that is a separate and arguably more
-useful piece of work than the classification.
+---
 
-⚠ **no recommendation.** The provenance argument is symmetric and I can construct
-it either way; the deciding fact is what scope retirement is allowed to mean
-across a rewind, which is a rollback-ownership call.
+### ✔ ANSWERED 2026-08-08 — and BOTH options rest on a premise that is false
+
+Jon, 2026-08-08: *"Yes, read `SessionScopedEntity` to determine what is going on
+with that. I've left rollback design to agents."* So this is answered rather than
+asked, per his operating note the same day. **Overrule freely; the reasoning is
+kept legible below rather than compressed into a verdict.**
+
+⛔ **Neither marker is write-once.** The sentence above — *"both write-once scope
+markers stamped at construction"* — is the shared premise of (a) and (b), and
+possession falsifies it for **both**. `abilities/traversal/possession.rs`:
+
+```rust
+// :342 — on possess, the body is PROMOTED to session scope
+target_cmds.remove::<RoomScopedEntity>()
+           .remove::<SessionScopedEntity>()
+           .insert(SessionScopedEntity(scope_id));
+
+// :385 — on release, the EXACT prior scope is restored
+ec.remove::<RoomScopedEntity>().remove::<SessionScopedEntity>();
+match restore_scope {
+    PossessionRestoreScope::Unscoped => {}
+    PossessionRestoreScope::Room => { ec.insert(RoomScopedEntity); }
+    PossessionRestoreScope::Session(id) => { ec.insert(SessionScopedEntity(id)); }
+}
+```
+
+The `PossessionRestoreScope` enum (`:47`) exists *because* the scope changes and
+has to be put back. A type whose whole job is remembering the previous value is
+proof the value is not write-once.
+
+**So the asymmetry is real, and it points the other way from what the row
+assumed:**
+
+| | registered rollback state | in `PROVENANCE_ONLY` | actually write-once |
+|---|---|---|---|
+| `SessionScopedEntity` (`primitives.rs:110`) | yes | no | **no** |
+| `RoomScopedEntity` (`primitives.rs:106`) | yes | **yes** (`rollback_coverage.rs:1954`) | **no** |
+
+⇒ **`SessionScopedEntity`'s exclusion is CORRECT** — it is mutable rollback state
+and belongs in the snapshot. Neither (a) nor (b) is the answer; the question
+"why is this one out?" had a wrong presupposition.
+
+⇒ ⛔ **`RoomScopedEntity`'s PRESENCE is the defect.** Its exemption is justified
+by the list's own argument — *"written ONCE and never again, so a rewind that
+does not restore it restores exactly the value it already holds"* — and a rewind
+across a possess/release boundary is exactly the case where that is false. The
+exemption tells the sweep not to care about the one transition that can be wrong.
+
+**The call, and what it costs.** `RoomScopedEntity` comes off `PROVENANCE_ONLY`.
+If the sweep then goes red, the red is correct and names real work — an entity
+carrying mutable rollback state with no rollback anchor is the exact thing the
+sweep exists to find.
+
+⚠ **not landed yet, deliberately.** Per the standing lesson, the **probe comes
+before the guard**: a rewind across a possession that asserts room scope comes
+back, watched failing first. A list edit that turns something red without a
+demonstrated failure produces a guard nobody trusts, and five first-draft guards
+in one day were already green through their own motivating case.
+
+⚠ **the third fact below still stands and is still the more useful work.** Both
+`no_snapshot_registration_is_inert_*` assertions PASS, so this archetype appears
+in NO composition any test sweeps — it exists only under the shell. The report
+now names the offending entity, but that helps only once a test reaches that
+composition. **The sweep is green about a class it never looks at**, and that is
+true whichever way the classification goes.
+
+⭐ **how the wrong question got asked, since it is the transferable part.** The
+row read the two registration sites and the exemption list — three tables — and
+concluded from their *shape* that both markers were construction-stamped. Nothing
+in those three places records who WRITES the component. The one file that does is
+`possession.rs`, which no part of the investigation had reason to open. This is
+`validate_the_state_around_the_table`: the tables agreed with each other and were
+collectively wrong about the world.
 
 ---
 

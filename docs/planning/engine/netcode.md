@@ -93,7 +93,23 @@ fixtures, supplying exactly what production omitted.
 ⭐⭐ **the durable fix was to make the pairing unforgettable rather than
 remembered**: `SimId` is now `#[require(SimIdCounter)]`, so *"identified"* and
 *"able to be descended from"* are one condition rather than two facts six mint
-sites had to keep in step. ⚠ **the namespace half is still unenforced**, and ⛔ **it cannot be enforced the
+sites had to keep in step.
+
+⚠ **rollback cost, verified independently rather than taken on report** — this is
+the widest-reaching change of 2026-08-08 and it touches every `SimId` carrier:
+
+* `SimIdCounter` was **already** snapshot-registered
+  (`rollback/domains/primitives.rs:51`, `rollback_component_canonical`), so **no
+  new type entered the schema.** Confirmed: the schema version is still **18** and
+  neither `rollback_schema_baseline.txt` nor the slice-evidence JSON has moved
+  since `a7013ef82`, which predates the change.
+* What changed is how many ENTITIES carry an already-registered component — a
+  snapshot-payload cost (8 bytes each), not a schema or determinism change.
+* ⭐ **the restore question is the one that mattered**: a required component is
+  supplied only when the component is **absent**, so a restore putting back
+  `SimIdCounter(7)` keeps 7 rather than re-minting a default. Evidenced by
+  `rollback_coverage`'s inert sweep not firing (its poison test still passes) and
+  the rollback tests in `app_it` staying green. ⚠ **the namespace half is still unenforced**, and ⛔ **it cannot be enforced the
 same way.** Measured: **70 `SimId::placement` call sites**, and nearly all are
 correct — the construction executor naming authored features, room staging,
 probes, tests. A grep contract cannot separate them from a runtime spawn wearing

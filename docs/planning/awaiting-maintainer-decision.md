@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 18 open, added 2026-08-08
+## ⇥ INDEX — 19 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -43,6 +43,7 @@ is the only ordering a maintainer can triage from.
 | Mary-O 1-1's first ?-block drops its wand into a pit | one level | no recommendation |
 | Does `apple_rain`'s damageable box follow the head row? | one boss volume | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
+| **Should an AUTHORED id be unspellable by a runtime spawn?** | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
 
 ⚠ **the first two are the only ones blocking a lane.** Everything below them is
 scoped, small, and waiting — none is blocked on unknowns, which is this file's

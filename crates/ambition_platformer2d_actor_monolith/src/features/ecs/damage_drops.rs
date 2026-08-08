@@ -5,13 +5,59 @@
 //! the exploding-mite death blast, and the dividing-mite split. Sibling of
 //! `damage/` (which owns hit application) and `damage_predicates`.
 
+use ambition_platformer2d_shared_tangle::construction::SpawnOrigin;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     RoomScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
 };
+use ambition_platformer2d_shared_tangle::sim_id::SimId;
 use bevy::prelude::{Commands, Entity};
 
 use super::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, PickupFeature};
 use ambition_platformer2d_core as ae;
+
+/// **Which of a body's death drops this is** — the `sequence` half of the drop's
+/// [`SpawnOrigin::Dynamic`].
+///
+/// DERIVED, not counted, and for the same reason `SimId::strike_volume` is
+/// derived rather than sequenced: `(parent, kind)` determines a death drop
+/// completely. A body dies once and drops at most one coin, one heart and one
+/// ability pickup, so a counter would number a thing that cannot repeat.
+///
+/// There is also nothing to count with. A construction-built body carries a
+/// `SimId` from the executor and **no `SimIdCounter`** — `ensure_sim_id`, which
+/// mints the pair, is filtered `Without<SimId>` and so never sees it. Measured
+/// 2026-08-08 on `proving_grounds`: every enemy reads
+/// `sim=placement:EnemySpawn-… counter=None`.
+///
+/// ⚠ these ordinals reach snapshots inside `SpawnOrigin`. Append, never
+/// renumber.
+const DROP_SEQUENCE_COIN: u64 = 0;
+const DROP_SEQUENCE_HEALTH: u64 = 1;
+const DROP_SEQUENCE_ABILITY: u64 = 2;
+
+/// **A drop states the body it fell out of.**
+///
+/// ⛔ **without this a drop is never DRAWN.** `rebuild_dynamic_feature_views`
+/// discovers loot the running simulation minted by construction PROVENANCE —
+/// "this pickup was not in the room spec" is exactly the condition under which
+/// the room-load visual pass could not have seen it. An authored pickup carries
+/// [`SpawnOrigin::Authored`] and is filtered out there; these carried NO
+/// provenance at all, so the query skipped them, no render family ever claimed
+/// them, and `draw_unclaimed_feature_views` gave each one a magenta diagnostic
+/// stand-in. Measured 2026-08-08: `proving_grounds` settles at 0 stand-ins
+/// clean and at 8 after seven defeats — one per coin and heart — and the player
+/// walked over a magenta box instead of a coin.
+///
+/// ⚠ this is provenance, NOT identity: no `SimId` is minted here. A `SimId`
+/// would enrol the coin in `TransactionBaseline::capture`, whose roster a
+/// room-scoped entity leaves mid-transition; giving drops durable identity is a
+/// step of the reconstruction migration, and drawing them does not wait on it.
+fn dynamic_drop_origin(parent: &SimId, sequence: u64) -> SpawnOrigin {
+    SpawnOrigin::Dynamic {
+        parent: parent.clone(),
+        sequence,
+    }
+}
 
 /// Deterministic (FNV-1a over the id) gate so ~1 in 4 enemy *kinds* drops a heart.
 /// Deterministic, not random, so the headless sim stays reproducible — the same
@@ -28,9 +74,13 @@ pub fn id_drops_health(id: &str) -> bool {
 /// [`super::collect_ecs_pickups`] grants it (and plays `WORLD_COIN_PICKUP`) when a
 /// player overlaps it. The coin sits where the enemy fell and never respawns
 /// (`Pickup::new` defaults to [`ambition_interaction::RespawnPolicy::Never`]).
+///
+/// `parent` is the identity of the body or prop it fell out of — see
+/// [`dynamic_drop_origin`].
 pub fn drop_currency_coin(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    parent: &SimId,
     id: &str,
     pos: ae::Vec2,
     amount: i32,
@@ -59,6 +109,7 @@ pub fn drop_currency_coin(
             // deadline. Two lifetimes for one thing is the bug; the entity and
             // its picture now share one.
             RoomScopedEntity,
+            dynamic_drop_origin(parent, DROP_SEQUENCE_COIN),
             super::reset::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             // It stopped being an engine default (Jon: coins and rings must not
@@ -156,6 +207,7 @@ pub(super) fn spawn_split_offspring(
 pub fn drop_health_pickup(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    parent: &SimId,
     id: &str,
     pos: ae::Vec2,
     amount: i32,
@@ -173,6 +225,7 @@ pub fn drop_health_pickup(
             )),
             // Room-scoped for the same reason as the coin above.
             RoomScopedEntity,
+            dynamic_drop_origin(parent, DROP_SEQUENCE_HEALTH),
             super::reset::SpawnedThisAttempt,
             // Ambition's OWN combat drops keep the loot magnet, and now say so.
             // It stopped being an engine default (Jon: coins and rings must not
@@ -190,6 +243,7 @@ pub fn drop_health_pickup(
 pub fn drop_ability_pickup(
     commands: &mut Commands,
     session_scope: SessionSpawnScope,
+    parent: &SimId,
     boss_id: &str,
     pos: ae::Vec2,
     ability_id: &str,
@@ -208,6 +262,7 @@ pub fn drop_ability_pickup(
                     ability_id: ability_id.to_string(),
                 },
             )),
+            dynamic_drop_origin(parent, DROP_SEQUENCE_ABILITY),
             super::reset::SpawnedThisAttempt,
         ),
     );

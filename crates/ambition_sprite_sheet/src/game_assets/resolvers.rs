@@ -59,6 +59,32 @@ pub fn entity_sprite_for_pickup(
     Some(pickup_sprite(&pickup.kind))
 }
 
+/// Runtime pickup resolver used by sim-view facts for a pickup the SIMULATION
+/// minted — an enemy's bounty coin, a boss's heart, a scattered ring. Twin of
+/// [`entity_sprite_for_pickup`], which reads the authored spec, and it exists
+/// for the reason [`entity_sprite_for_runtime_chest`] does: a dropped pickup
+/// has no authored spec behind it, and sim-view must not fabricate one just to
+/// pick the same art.
+///
+/// ⚠ **a dropped heart is not a coin.** The dynamic-view row used to hardcode
+/// [`EntitySprite::PickupCurrency`] for every drop, which was invisible for as
+/// long as no Ambition drop was drawn at all (they carried no provenance, so
+/// nothing claimed them) and would have shipped a heart wearing a coin the
+/// moment they were.
+pub fn entity_sprite_for_runtime_pickup(
+    kind: &ambition_interaction::PickupKind,
+) -> Option<EntitySprite> {
+    use ambition_interaction::PickupKind as K;
+    Some(match kind {
+        K::Health { .. } => EntitySprite::PickupHealth,
+        K::Currency { .. } => EntitySprite::PickupCurrency,
+        K::Ability { .. } => EntitySprite::PickupAbility,
+        // StoryFlag and Custom fall back to the ability look until they get
+        // dedicated art — the same fallback the authored twin takes.
+        K::StoryFlag { .. } | K::Custom(_) => EntitySprite::PickupAbility,
+    })
+}
+
 pub fn entity_sprite_for_chest(
     _chest: &ambition_platformer2d_world::rooms::ChestSpec,
 ) -> Option<EntitySprite> {
@@ -229,9 +255,7 @@ pub fn block_tile_sprite(kind: ae::BlockKind) -> Option<EntitySprite> {
         // PogoOrb / Rebound are point objects, not tiled surfaces, and
         // BonkOnly deliberately draws nothing until it is found. Listed
         // rather than wildcarded so a new kind has to answer this question.
-        ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } | ae::BlockKind::BonkOnly => {
-            None
-        }
+        ae::BlockKind::PogoOrb | ae::BlockKind::Rebound { .. } | ae::BlockKind::BonkOnly => None,
     }
 }
 
@@ -309,7 +333,9 @@ mod tests {
             ae::BlockKind::Hazard,
             ae::BlockKind::BonkOnly,
             ae::BlockKind::PogoOrb,
-            ae::BlockKind::Rebound { impulse: ae::Vec2::ZERO },
+            ae::BlockKind::Rebound {
+                impulse: ae::Vec2::ZERO,
+            },
             ae::BlockKind::BlinkWall {
                 tier: ae::BlinkWallTier::Soft,
             },
@@ -338,6 +364,9 @@ mod tests {
         assert!(point_block_sprite(ae::BlockKind::OneWay).is_none());
         assert!(point_block_sprite(ae::BlockKind::Hazard).is_none());
         assert!(point_block_sprite(ae::BlockKind::PogoOrb).is_some());
-        assert!(point_block_sprite(ae::BlockKind::Rebound { impulse: ae::Vec2::ZERO }).is_some());
+        assert!(point_block_sprite(ae::BlockKind::Rebound {
+            impulse: ae::Vec2::ZERO
+        })
+        .is_some());
     }
 }

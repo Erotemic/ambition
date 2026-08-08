@@ -537,13 +537,11 @@ pub fn rebuild_dynamic_feature_views(
             &ambition_platformer2d_actor_monolith::features::FeatureId,
             &ambition_platformer2d_actor_monolith::features::FeatureName,
             &ambition_platformer2d_actor_monolith::features::CenteredAabb,
+            &ambition_platformer2d_actor_monolith::features::PickupFeature,
             &ambition_platformer2d_shared_tangle::construction::SpawnOrigin,
             Option<&ambition_platformer2d_actor_monolith::features::PickupArt>,
         ),
-        (
-            With<ambition_platformer2d_actor_monolith::features::PickupFeature>,
-            Without<ambition_platformer2d_actor_monolith::features::Collected>,
-        ),
+        Without<ambition_platformer2d_actor_monolith::features::Collected>,
     >,
 ) {
     use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
@@ -622,7 +620,7 @@ pub fn rebuild_dynamic_feature_views(
             prop_sheet: None,
         });
     }
-    for (id, name, aabb, origin, art) in &dropped_pickups {
+    for (id, name, aabb, pickup, origin, art) in &dropped_pickups {
         if !matches!(
             origin,
             ambition_platformer2d_shared_tangle::construction::SpawnOrigin::Dynamic { .. }
@@ -638,8 +636,11 @@ pub fn rebuild_dynamic_feature_views(
             visual_kind: FeatureVisualKind::Pickup,
             fighting: false,
             // The static per-kind fallback, used only when the drop names no
-            // animated sheet or that sheet hasn't loaded.
-            sprite_key: Some(game_assets::EntitySprite::PickupCurrency),
+            // animated sheet or that sheet hasn't loaded. Resolved from the
+            // pickup's LIVE kind, exactly as the room-load pass resolves an
+            // authored pickup's from its spec — this was hardcoded to the coin
+            // and would have drawn a dropped heart as currency.
+            sprite_key: game_assets::entity_sprite_for_runtime_pickup(pickup.kind()),
             prop_sheet: art.map(|art| art.0.clone()),
         });
     }

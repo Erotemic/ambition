@@ -272,29 +272,39 @@ pub(crate) fn apply_boss_hit(
             victim_source.as_ref(),
             SfxMessage::Death { pos: boss.kin.pos },
         );
+        // Whose death this loot fell out of — the provenance every drop below
+        // states, and without which no render family claims the pickup.
+        let parent = super::drop_parent(writers, boss_entity, "boss", &boss.config.behavior.id);
         // A jackpot of coins + a heal for the hardest fight, on top of the ability.
-        drop_currency_coin(
-            &mut writers.commands,
-            session_scope,
-            &boss.config.behavior.id,
-            boss.kin.pos,
-            BOSS_BOUNTY,
-        );
-        drop_health_pickup(
-            &mut writers.commands,
-            session_scope,
-            &boss.config.behavior.id,
-            boss.kin.pos + ae::Vec2::new(24.0, 0.0),
-            3,
-        );
+        if let Some(parent) = &parent {
+            drop_currency_coin(
+                &mut writers.commands,
+                session_scope,
+                parent,
+                &boss.config.behavior.id,
+                boss.kin.pos,
+                BOSS_BOUNTY,
+            );
+            drop_health_pickup(
+                &mut writers.commands,
+                session_scope,
+                parent,
+                &boss.config.behavior.id,
+                boss.kin.pos + ae::Vec2::new(24.0, 0.0),
+                3,
+            );
+        }
         // North star: "every boss a failed objective function, every upgrade a
         // theorem" — a defeated boss drops the ability it embodies, so combat
         // (not just the merchant) teaches the player new verbs.
-        if let Some(ability_id) = boss.config.behavior.reward_ability.as_deref() {
+        if let (Some(ability_id), Some(parent)) =
+            (boss.config.behavior.reward_ability.as_deref(), &parent)
+        {
             if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
                 drop_ability_pickup(
                     &mut writers.commands,
                     session_scope,
+                    parent,
                     &boss.config.behavior.id,
                     boss.kin.pos,
                     ability_id,

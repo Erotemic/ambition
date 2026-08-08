@@ -28,15 +28,19 @@
 //! single unclaimed id may survive the crossing. A stand-in that follows you into
 //! the next room is the defect *whatever entity caused it*.
 //!
-//! ⚠ **a drop is unclaimed in the room it FELL in too, and that is a separate
-//! live defect this file deliberately does not assert on.** Measured 2026-08-07:
-//! `proving_grounds` settles at 0 stand-ins, and after seven defeats it settles
-//! at 8 — one per coin and heart. `rebuild_dynamic_feature_views` selects dropped
-//! pickups by `SpawnOrigin::Dynamic` and `drop_currency_coin` stamps no
-//! `SpawnOrigin` at all, so no family ever claims a drop and the player collects
-//! a magenta box. That is why the baseline below is the DESTINATION room's own
+//! **A drop is unclaimed in the room it FELL in too** — that was a second, live
+//! defect when this file landed, and it is now the second thing asserted here.
+//! Measured 2026-08-07: `proving_grounds` settled at 0 stand-ins clean and at 8
+//! after seven defeats, one per coin and heart, because
+//! `rebuild_dynamic_feature_views` selects dropped pickups by
+//! `SpawnOrigin::Dynamic` and `drop_currency_coin` stamped no `SpawnOrigin` at
+//! all. No family claimed a drop, and the player walked over a magenta box
+//! instead of a coin. Fixed 2026-08-08 by giving the drops their provenance.
+//!
+//! ⚠ that history is also why the baseline below is the DESTINATION room's own
 //! clean population rather than the source room's: comparing against a source
-//! that is already at 8 would let 8 stand-ins ride into the next room unnoticed.
+//! that is itself carrying stand-ins would let them ride into the next room
+//! unnoticed.
 //!
 //! ⚠ **it needs a real room-unload path, so it pays for the real app.** The
 //! drop-path tests build their worlds by hand, which cannot unload a room at all;
@@ -349,6 +353,42 @@ fn crossing_a_room_boundary_leaves_no_repeating_unclaimed_population() {
          view at all, so the death path minted nothing for a crossing to carry \
          and this test is measuring an empty room. Victims: {victims:?}",
         victims.len(),
+    );
+
+    // ── What the death path minted must be DRAWN, where it fell ─────────────
+    //
+    // Before any boundary is involved. A drop is a feature the room-load visual
+    // pass could not have seen — it did not exist when the room loaded — so the
+    // only pass that can draw it is the dynamic-discovery one, and that pass
+    // selects loot by construction provenance. Both drop spawners stamped none,
+    // so nothing claimed a coin and the player collected the magenta diagnostic
+    // box `draw_unclaimed_feature_views` puts under everything.
+    //
+    // ⚠ **stated against the MINTED ids, not against a count.** The population
+    // is re-spawned per room, so "it grew" is answerable by a room that simply
+    // has more in it; what is wrong is specifically that a thing this death path
+    // published is a thing nothing drew.
+    let unclaimed_drops: Vec<&&String> = minted
+        .iter()
+        .filter(|id| after_drops.contains(**id))
+        .collect();
+    assert!(
+        unclaimed_drops.is_empty(),
+        "{} of the {} feature views the death path published in `{COMBAT_ROOM}` \
+         are UNDRAWN in the room they fell in: {unclaimed_drops:?}\n\
+         \n\
+         No render family claimed them, so each one is a magenta \
+         `UnclaimedBodyPlaceholder` the player walks over and collects as if it \
+         were the coin it stands in for — and the room-transition cover holds the \
+         screen black until none remain.\n\
+         minted by {} defeats: {minted:?}\n\
+         stand-ins now: {after_drops:?} ('{COMBAT_ROOM}' settles at {} with \
+         nothing dropped in it)\n\
+         bodies defeated to produce this: {victims:?}",
+        unclaimed_drops.len(),
+        minted.len(),
+        victims.len(),
+        combat_clean.len(),
     );
     println!(
         "clean stand-ins: {HUB_ROOM}={} {hub_clean:?} | {COMBAT_ROOM}={} \

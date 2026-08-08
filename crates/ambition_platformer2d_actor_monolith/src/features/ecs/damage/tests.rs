@@ -866,6 +866,10 @@ fn player_slash_shatters_a_breakable() {
             FeatureSimEntity,
             FeatureId::new("crate"),
             FeatureName::new("crate"),
+            // The identity the construction executor stamps on every authored
+            // placement before its recipe runs. The coin needs it: a drop states
+            // the prop it fell out of, or no render family claims it.
+            ambition_platformer2d_shared_tangle::sim_id::SimId::placement("crate"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             BreakableFeature::new(ambition_interaction::Breakable::new("crate", 1)),
         ))
@@ -915,6 +919,7 @@ fn enemy_defeat_drops_a_collectible_currency_coin() {
         drop_currency_coin(
             &mut c,
             ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId::placement("goblin_1"),
             "goblin_1",
             ae::Vec2::new(40.0, 50.0),
             ENEMY_BOUNTY,
@@ -975,6 +980,7 @@ fn defeated_boss_drops_its_signature_ability() {
         drop_ability_pickup(
             &mut c,
             ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId::placement("trex_boss"),
             "trex_boss",
             ae::Vec2::new(10.0, 20.0),
             "grapple",
@@ -1134,6 +1140,7 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
         drop_health_pickup(
             &mut c,
             ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
+            &ambition_platformer2d_shared_tangle::sim_id::SimId::placement("any"),
             "any",
             ae::Vec2::ZERO,
             ENEMY_HEALTH_DROP,

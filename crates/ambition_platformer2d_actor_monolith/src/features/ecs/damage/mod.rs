@@ -72,6 +72,12 @@ pub struct FeatureHitWriters<'w, 's> {
     /// matters most — an authored strike sound belongs to the ATTACKER's bank and
     /// the hurt fallback to the VICTIM's, so the emitter needs both.
     pub body_sources: Query<'w, 's, &'static ambition_sfx::BodyPresentationSource>,
+    /// **Whose death a drop fell out of.** Read-only, looked up by entity, and
+    /// bundled here for the same reason `body_sources` is: all three drop sites
+    /// (actor, boss, breakable) already take `writers`, and a coin, a heart and
+    /// an ability pickup each have to state their parent's identity or no render
+    /// family will claim them — see `damage_drops::dynamic_drop_origin`.
+    pub identities: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
 }
 
 impl FeatureHitWriters<'_, '_> {
@@ -90,6 +96,24 @@ impl FeatureHitWriters<'_, '_> {
             .ok()
             .map(|source| source.id().clone())
     }
+
+    /// The simulation identity of one body or prop, if it has one.
+    ///
+    /// Owned for the same reason [`Self::source_of`] is owned: the drop sites
+    /// need it alongside `&mut writers.commands`.
+    ///
+    /// ⚠ **read, never spelled.** `SimId::placement(feature_id)` would reproduce
+    /// today's value for every drop parent in the shipped game, and that is
+    /// exactly the shortcut `SimId::as_str`'s doc forbids — provenance is a
+    /// component the entity carries so that changing the id grammar cannot
+    /// silently change what reconstruction believes. A summoned body's identity
+    /// is not in the `placement:` namespace at all.
+    pub fn identity_of(
+        &self,
+        entity: bevy::prelude::Entity,
+    ) -> Option<ambition_platformer2d_shared_tangle::sim_id::SimId> {
+        self.identities.get(entity).ok().cloned()
+    }
 }
 
 impl FeatureHitWriters<'_, '_> {
@@ -101,6 +125,39 @@ impl FeatureHitWriters<'_, '_> {
             ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope::spawn_scope,
         )
     }
+}
+
+/// Resolve the identity a drop will descend from, or refuse the drop loudly.
+///
+/// ⛔ **a drop that cannot name its parent must not spawn** — the same rule
+/// `apply_summon_effects` applies to a summon, and here it is not even a
+/// trade. `rebuild_dynamic_feature_views` selects loot by provenance, so an
+/// unprovenanced coin is a coin NO render family claims: the player walks over
+/// `draw_unclaimed_feature_views`' magenta diagnostic box, and the
+/// room-transition cover — which holds the screen until no stand-in remains —
+/// sits out its whole 8-second deadline over it. Skipping is how the defect
+/// gets a log line naming the body that needs identity instead of a magenta
+/// box the player has to report.
+///
+/// Empirically this never fires in the shipped game: every drop parent is
+/// built by the construction executor, which stamps `SimId` before the recipe
+/// runs (probed 2026-08-08 across `proving_grounds`' whole cast).
+fn drop_parent(
+    writers: &FeatureHitWriters<'_, '_>,
+    entity: Entity,
+    what: &str,
+    id: &str,
+) -> Option<ambition_platformer2d_shared_tangle::sim_id::SimId> {
+    let parent = writers.identity_of(entity);
+    if parent.is_none() {
+        bevy::log::warn!(
+            target: "ambition_platformer2d::damage",
+            "{what} `{id}` died with no simulation identity, so its drop is skipped: \
+             a pickup that cannot state the body it fell out of is drawn by no \
+             render family and reaches the player as a magenta stand-in",
+        );
+    }
+    parent
 }
 
 #[derive(SystemParam)]
@@ -631,13 +688,16 @@ pub fn apply_feature_hit_events(
                 // Loot: a smashed crate/pot drops a small coin (same collectible
                 // pickup path as enemy drops).
                 let session_scope = writers.session_spawn_scope();
-                drop_currency_coin(
-                    &mut writers.commands,
-                    session_scope,
-                    id.as_str(),
-                    aabb.center,
-                    BREAKABLE_BOUNTY,
-                );
+                if let Some(parent) = drop_parent(&writers, entity, "breakable", id.as_str()) {
+                    drop_currency_coin(
+                        &mut writers.commands,
+                        session_scope,
+                        &parent,
+                        id.as_str(),
+                        aabb.center,
+                        BREAKABLE_BOUNTY,
+                    );
+                }
                 emit_breakable_destroyed(
                     aabb.center,
                     &mut writers.sfx,

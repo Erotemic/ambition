@@ -505,16 +505,23 @@ pub(crate) fn apply_actor_hit(
                 banner.show(format!("{} dropped; respawning", em.config.name), 2.6);
             } else {
                 banner.show(format!("defeated {}", em.config.name), 2.6);
+                // Whose death this loot fell out of. Resolved once for both
+                // drops below: each states it as its provenance, and without it
+                // no render family claims the pickup.
+                let parent = super::drop_parent(writers, actor_entity, "actor", &em.config.id);
                 // Earn-side: a defeated enemy drops a collectible coin so the
                 // player can fund the merchant / ability shop from combat, and
                 // ~1 in 4 enemy kinds also drops a heart (combat sustain).
-                drop_currency_coin(
-                    &mut writers.commands,
-                    session_scope,
-                    &em.config.id,
-                    em.kin.pos,
-                    ENEMY_BOUNTY,
-                );
+                if let Some(parent) = &parent {
+                    drop_currency_coin(
+                        &mut writers.commands,
+                        session_scope,
+                        parent,
+                        &em.config.id,
+                        em.kin.pos,
+                        ENEMY_BOUNTY,
+                    );
+                }
                 // Volatile archetypes detonate on death — a sizable
                 // Enemy-faction blast at the corpse, so a point-blank kill is
                 // punished (the read: kill it at range / sidestep the body).
@@ -543,10 +550,11 @@ pub(crate) fn apply_actor_hit(
                         em.kin.pos,
                     );
                 }
-                if id_drops_health(&em.config.id) {
+                if let (true, Some(parent)) = (id_drops_health(&em.config.id), &parent) {
                     drop_health_pickup(
                         &mut writers.commands,
                         session_scope,
+                        parent,
                         &em.config.id,
                         em.kin.pos + ae::Vec2::new(18.0, 0.0),
                         ENEMY_HEALTH_DROP,

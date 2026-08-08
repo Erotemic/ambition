@@ -174,6 +174,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 DEFAULT_CHECK_TIMEOUT = 120
@@ -349,16 +350,99 @@ def parse_deadline(raw) -> _dt.datetime | None:
 
 
 class CheckResult:
-    def __init__(self, name: str, cmd: str, ok: bool, detail: str):
+    def __init__(self, name: str, cmd: str, ok: bool, detail: str, seconds: float = 0.0):
         self.name = name
         self.cmd = cmd
         self.ok = ok
         self.detail = detail
+        self.seconds = seconds
+
+
+def _foreign_build_processes() -> int:
+    """How many cargo/rustc processes are running that are not this check.
+
+    Read from `/proc` rather than shelling out to `pgrep -f`, which MATCHES ITS
+    OWN SHELL and so can never report zero (a tighter regex does not fix it).
+    """
+    count = 0
+    try:
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            try:
+                with open(f"/proc/{entry}/comm", "r") as handle:
+                    comm = handle.read().strip()
+            except OSError:
+                continue
+            if comm in ("cargo", "rustc"):
+                count += 1
+    except OSError:
+        return -1
+    return count
+
+
+def record_check_cost(
+    root: Path, results: list[CheckResult], load_before: float | None = None
+) -> None:
+    """Append one row per Stop-hook invocation to `.goal/check_cost.jsonl`.
+
+    ⭐ **Jon, 2026-08-08: measure compile and test time in the context of real
+    work.** This is that loop — the goal guard runs `cargo check -p ambition_app`
+    and the whole `app_it` suite every time a turn ends. It had run **114 times
+    in 11h17m** before anything timed it, while three instruments built the same
+    day measured only synthetic builds staged for measurement.
+
+    ⛔ **it writes under `.goal/`, which the "nothing is left uncommitted" check
+    already excludes.** A recorder that dirties the tree would fail the very run
+    it measures — the instrument becoming the defect.
+
+    ⚠ **`foreign_builds` is a POINT-IN-TIME sample and is noisy** — build
+    processes come and go between samples, and a zero here has been verified
+    against `/proc` to be real rather than a broken counter. `load_before` /
+    `load_after` (1-minute averages) are the sturdier contention signal; prefer
+    them when the two disagree.
+
+    ⚠ **and none of this is decoration.** The same
+    688-unit build measured 833.9s and 540.0s on this machine depending on what
+    else was running, and the biggest contender IS this guard. A duration with no
+    contention stamp records the supervisor's reporting cadence as if it were the
+    code. Never fails the run: recording is best-effort by construction.
+    """
+    try:
+        payload = {
+            "schema": 1,
+            "kind": "goal_check",
+            "recorded_at": now_utc().isoformat(),
+            "head": head_sha(root),
+            "total_seconds": round(sum(r.seconds for r in results), 3),
+            "load_before": None if load_before is None else round(load_before, 2),
+            "load_after": round(os.getloadavg()[0], 2),
+            "foreign_builds": _foreign_build_processes(),
+            "checks": [
+                {
+                    "name": r.name,
+                    "ok": r.ok,
+                    "seconds": round(r.seconds, 3),
+                }
+                for r in results
+            ],
+        }
+        path = root / ".goal" / "check_cost.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a") as handle:
+            handle.write(json.dumps(payload) + "\n")
+    except Exception:
+        # A measurement must never be able to break the thing it measures.
+        pass
 
 
 def run_checks(goal: dict, root: Path) -> list[CheckResult]:
     """Every check, always — a partial answer would hide the second open item."""
     results: list[CheckResult] = []
+    try:
+        load_before = os.getloadavg()[0]
+    except OSError:
+        load_before = None
     for raw in goal.get("checks", []):
         name = str(raw.get("name") or raw.get("cmd") or "unnamed check")
         cmd = raw.get("cmd")
@@ -366,6 +450,7 @@ def run_checks(goal: dict, root: Path) -> list[CheckResult]:
             results.append(CheckResult(name, "", False, "check has no `cmd`"))
             continue
         timeout = raw.get("timeout", DEFAULT_CHECK_TIMEOUT)
+        started = time.monotonic()
         try:
             proc = subprocess.run(
                 ["bash", "-o", "pipefail", "-c", cmd],
@@ -378,15 +463,27 @@ def run_checks(goal: dict, root: Path) -> list[CheckResult]:
             # A timeout is NOT a pass. The whole point of this file is that
             # "we could not tell" never resolves to "done".
             results.append(
-                CheckResult(name, cmd, False, f"timed out after {timeout}s")
+                CheckResult(
+                    name, cmd, False, f"timed out after {timeout}s",
+                    time.monotonic() - started,
+                )
             )
             continue
         except OSError as exc:
-            results.append(CheckResult(name, cmd, False, f"could not run: {exc}"))
+            results.append(
+                CheckResult(
+                    name, cmd, False, f"could not run: {exc}",
+                    time.monotonic() - started,
+                )
+            )
             continue
+        elapsed = time.monotonic() - started
         tail = (proc.stderr.strip() or proc.stdout.strip() or "").splitlines()
         detail = "" if proc.returncode == 0 else " / ".join(tail[-3:])[:400]
-        results.append(CheckResult(name, cmd, proc.returncode == 0, detail))
+        results.append(
+            CheckResult(name, cmd, proc.returncode == 0, detail, elapsed)
+        )
+    record_check_cost(root, results, load_before)
     return results
 
 

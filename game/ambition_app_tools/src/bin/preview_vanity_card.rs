@@ -6,7 +6,12 @@
 //! uses — around that one card, and routes back to itself when it finishes, so
 //! the beat replays until the window is closed.
 //!
-//!     cargo run -p ambition_app_tools --bin preview_vanity_card --features visible
+//!     cargo run -p ambition_app_tools --bin preview_vanity_card
+//!
+//! ⚠ no `--features visible`. That was true when this bin lived in
+//! `ambition_app`, where `visible` is a default feature; `ambition_app_tools`
+//! declares only `causal`, and cargo hard-errors on a feature a package does
+//! not have — so the documented command could not run at all.
 //!
 //! Set `AMBITION_PREVIEW_SCALE_FACTOR=3` to preview at a phone's pixel density
 //! rather than the desktop's, which is the axis a resolution proxy cannot reach.

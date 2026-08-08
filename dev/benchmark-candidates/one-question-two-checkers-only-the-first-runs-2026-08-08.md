@@ -112,3 +112,54 @@ projectile capability, so the "fireballs" half had already been fixed by the
 2026-07-05 deletion of `overlay_character_moveset`. The surviving "blink" is the
 home body's own traversal grant (the dev `EditableAbilitySet`), which is the
 documented design rather than something the persona grants.
+
+## The general shape — six of these landed on 2026-08-08
+
+This started as one bug and finished as the day's most common defect class. The
+invariant it violates is *one question, one authoritative answer*:
+
+| the question | the two answers | closed by |
+|---|---|---|
+| is this a selection or a default? | the same check at two lifecycle sites, only the first reached | the second site deleted |
+| what is this body's identity? | `SimId` and `SimIdCounter`, maintained separately | `#[require(SimIdCounter)]` |
+| how is the app built? | `build_visible_app` and `capture_scene`'s private copy | one builder + a hook, −288 lines |
+| where did this drop come from? | its identity, and its provenance | drops stamp `SpawnOrigin` + parent `SimId` |
+| can this body be hit? | melee asked `DamageableVolumes`; a bolt never did | `intangible()`, one predicate, two callers |
+| will this hit land? | the predictor says yes, the applier says no | **open — D25** |
+
+Four are now impossible by construction rather than merely fixed: the second
+site does not exist, the counter cannot be absent, there is one builder, and one
+predicate answers for both damage families.
+
+### Why they are hard to see
+
+Every one was **latent under the configuration anybody runs**. Two proxies agree
+until something makes them disagree, so there is no red test and no report —
+the divergence needs a state nobody has authored yet (an invulnerable window),
+a composition nobody uses (a mirror match), or an order nobody hits (a
+selection arriving before defaults). A test suite cannot find these by being
+larger; it finds them by someone asking the question from the other side.
+
+### The cheap detector
+
+⭐ **the fork usually declares itself in a doc comment.** Phrases that mean "there
+is a second implementation of this question": *mirrors*, *predicts*, *matches
+what X will do*, *same rule as Y*, *kept in sync with*. Each is a citation, and
+a citation can go stale without touching the file it lives in.
+
+Two of the six were found this way in minutes:
+
+- *"Mirrors `ambition_combat::hitbox`'s unified melee victims query"* — it did
+  not, and had never consulted `DamageableVolumes` at all.
+- *"Read-only hit test used by systems that need immediate projectile / attack
+  feedback while damage application is still drained through typed Bevy
+  messages"* — that sentence is a contract with an applier, and the two disagree
+  on an authored invulnerable window.
+
+⭐⭐ **and read the siblings.** `ecs_hit_event_hits_boss` guards this exact case
+and explains why in eleven lines of comment: checking the gross AABB *"would
+over-trigger projectile termination on the body without ever applying damage."*
+It sits immediately below the unguarded actor variant. The repo already
+contained the argument for the fix it had not applied — which is the most
+reliable signal available, because someone competent already thought it through
+and only finished half the family.

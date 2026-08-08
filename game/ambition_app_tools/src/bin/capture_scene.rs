@@ -237,6 +237,24 @@ fn main() {
         app.add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_millis(0)));
     }
     pin_the_clock(&mut app);
+    // **THE TWO SIDE EFFECTS A CAPTURE MUST NOT HAVE** — the third, the clock,
+    // is `pin_the_clock` directly above, and these are its siblings.
+    //
+    // `build_visible_app` states the rule for every windowless host it builds:
+    // *"a windowless host is a test, a capture, or a headless acceptance run —
+    // none of them is a player"*, so it redirects audio away from the speakers
+    // and the save/settings away from `~/.local/share/ambition/`. ROUTE mode is
+    // built by that function and gets both; ROOM mode assembles its own App and
+    // got neither, so every room capture since has read and written the user's
+    // real save and played music at them. The BEFORE run of this change logs
+    // `simple_music target=long_lofi_drift` and a first owned SFX play attempt.
+    //
+    // ⚠ **unconditional, where `build_visible_app` keys it on the render mode.**
+    // What earns the exemption there is being a PLAYER's window; `--show-window`
+    // is still a screenshot tool with a window on it, and a capture that
+    // overwrites a save is no less wrong for being visible.
+    app.insert_resource(ambition_platformer2d::audio::AudioOutputMode::Recording);
+    app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot::isolated());
     app.init_state::<GameMode>();
     app.insert_resource(asset_config);
     app.insert_resource(StartRoomOverride(config.room_id.clone()));
@@ -304,6 +322,31 @@ fn main() {
         &mut app,
         ambition_app::app::shell_host::AMBITION_GAMEPLAY_ROUTE,
     );
+    // ⛔ **AND THE SHELL'S VISUALS — the half of the shell composition this tool
+    // was missing, and the reason it photographed a VOID (D10 / K2b.1).**
+    //
+    // Under the shell, a room's parallax and static visuals are spawned on
+    // session ACTIVATION by `ambition_activate_session_visuals` +
+    // `SessionRoomVisualsPlugin`, and `install_ambition_shell_visuals` is the
+    // only thing that installs either. Composing the shell without it leaves a
+    // host that activates a session and never draws the world it activated.
+    //
+    // ⚠ **this is what a half-finished migration looks like from the outside.**
+    // K2b edit 5 moved this builder onto the shell and deleted the build-time
+    // session root; the Startup path that used to spawn the room went with the
+    // `direct_entry` gate (K2b edit 3). Nothing replaced it here, and nothing
+    // failed: the capture still exited 0, still wrote a valid 640x360 PNG, and
+    // still drew the HUD, the touch bezel, the player and an NPC — everything
+    // that hangs off the session rather than off the room. Only the ROOM was
+    // gone, so the picture read as "a capture of a dark corner" rather than as a
+    // broken composition, and the migration was signed off on that image.
+    //
+    // ⭐ the general lesson this file keeps re-learning: ROUTE mode is built by
+    // `build_visible_app` and gets this for free; ROOM mode assembles its own
+    // App and gets only what is spelled out here. That fork has now silently
+    // eaten `--route` as a positional, the headless display surface,
+    // `--dev-overlays`, `--combat-overlay`, and the entire room.
+    ambition_app::app::shell_host::install_ambition_shell_visuals(&mut app);
     // The layout resolver, if this composition does not already have it. Guarded
     // because the two capture modes build their apps differently and only one of
     // them goes through `build_visible_app`.

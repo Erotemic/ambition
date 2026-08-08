@@ -253,21 +253,48 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   SESSION scope marker construction provenance, the way a ROOM scope marker
   is?"*). Summarised rather than restated so the two cannot drift.
 
-  ▢ **K2b-ii — RE-MEASURED 2026-08-08, and what is left is ONE FILE.** The text
-  below described two blocked composers; both have since migrated, and the row
-  had not been updated.
-  * `headless.rs:132` — **migrated** (`compose_ambition_gameplay_host`), its own
-    comment naming K2b.
-  * `rl_sim/mod.rs:84` — **migrated** (K2b edit 2), and the build-time publisher
-    it worked around is *gone*.
-  * `capture_scene.rs:286` — **still composes `AmbitionGameSimulationPlugin`
-    directly.** This is the whole remaining row.
-  ⭐ **and it is the one worth having**: `capture_scene` is the phone proxy and
-  the composition already on record as an unrun probe for the Bevy param-panic
-  class, so the last unexercised way to start a game is the tooling one.
+  ✔ **K2b-ii — CLOSED 2026-08-08. Every entry point composes the shell**, and the
+  last one was already composing it when this row said otherwise.
+  * `headless.rs:132` — migrated (`compose_ambition_gameplay_host`).
+  * `rl_sim/mod.rs:84` — migrated (K2b edit 2); the build-time publisher is gone.
+  * `capture_scene.rs` — migrated **2026-08-06** in `9266bdca9`, not 08-08. The
+    08-08 re-measurement cited `:286`, which is the `add_plugins` line; the
+    composition call twelve lines below it was already
+    `compose_ambition_shell_host_booting_to(…, AMBITION_GAMEPLAY_ROUTE)`.
+  ⛔ **the warning below was written and then violated by its own author in the
+  same paragraph** — "read the composition call" is right, and citing the import
+  site is what re-derivation looks like when it is wearing the fix.
   ⛔ **do not re-derive this with a grep for `AmbitionGameSimulationPlugin`** —
-  the *import* survives migration, so that search does not merely fail to help,
-  it points the wrong way. Read the composition call.
+  the *import* survives migration, and so does the `add_plugins` line in any
+  VISIBLE composition, which must still name the simulation plugin to interleave
+  presentation before the shell. That search points the wrong way twice.
+
+  ⭐ **What the row was actually for, and it paid off: the migration had eaten the
+  room.** K2b edit 5 composed the shell and inherited the activation lifecycle,
+  but nothing installed `install_ambition_shell_visuals` — the only registrar of
+  `SessionRoomVisualsPlugin` and `ambition_activate_session_visuals`, which spawn
+  parallax, static room visuals, signage and the LDtk spine ON ACTIVATION. The
+  Startup path that used to do it had been deleted with the `direct_entry` gate
+  (K2b edit 3). For two days the phone proxy photographed a **void with a HUD on
+  it** — exit 0, valid PNG, player + NPC + HUD + touch bezel all drawn, no world —
+  because everything that hangs off the SESSION still worked and only what hangs
+  off the ROOM did not.
+  ⚠ **this is the param-panic class arriving silently.** The same fork panicked
+  twice before (`VisualQualityPlugin` 2026-07-31, `sync_portal_quality_budget`
+  2026-08-04, both recorded in `plugins.rs`) and was caught in minutes each time.
+  It did not panic here because the missing piece was a SPAWN system, not a `Res`
+  reader. **A composition that half-runs is worse than one that refuses to.**
+  ⚠ **the fork itself SURVIVES, and naming it is the honest status.** There is no
+  composer a room capture can call: `compose_ambition_gameplay_host` is the
+  sim-only shorthand (a visible host must build presentation between the
+  simulation and the shell, which is why `build_visible_app` also spells the three
+  steps out), and `build_visible_app` cannot be used because `StartRoomOverride` /
+  `StartRoomMustResolve` / `StartingCharacterOverride` are consumed at
+  PLUGIN-BUILD time by `init_sandbox_resources`. So `capture_scene` still hand
+  -assembles, and that hand-assembly has now silently eaten five things: `--route`
+  as a positional, the headless display surface, `--dev-overlays`,
+  `--combat-overlay`, and the room. **Giving `build_visible_app` a pre-simulation
+  hook is the item that closes it.**
   ⚠ **two different things are named `direct_entry`**: `shell_host.rs:51` records
   its own as already deleted, while `cli.rs:245,271,886` carries a live
   `cli_direct_entry()`. K2b.2/K2b.3 below refer to the first.

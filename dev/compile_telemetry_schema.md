@@ -122,7 +122,7 @@ embeds the identical per-unit JSON as `const UNIT_DATA`, including the per-unit
 | `opt_level` | `[profile.dev]` + per-package overrides in `Cargo.toml` | ✅ |
 | `seconds` | `UNIT_DATA[].duration` | ✅ |
 | `start_seconds` | offset into the build; with `build_max_concurrency`, the parallelism story | ✅ |
-| `frontend_seconds` / `codegen_seconds` | `UNIT_DATA[].sections` | ✅ |
+| `frontend_seconds` / `codegen_seconds` | `UNIT_DATA[].sections` | ✅ (⛔ read the warning below before using `frontend_seconds`) |
 | `features` | the feature set this unit compiled with | ✅ |
 | `backfilled` | derived: report predates HEAD | ✅ |
 | `build_profile` | HTML header `Profile:` — `dev` / `test` / `release` | ✅ |
@@ -151,6 +151,34 @@ rather than the report's local indices, which mean nothing outside their file.
 `frontend_seconds`/`codegen_seconds` are null**, and for the same reason: it
 emitted no metadata. Proc-macro crates, build scripts, bins, tests — and
 `ambition_app`, the one lib in this workspace declaring a `cdylib`.
+
+### ⛔ `frontend_seconds` is TIME-TO-RMETA, and that is not rustc's frontend
+
+The name is cargo's (`UNIT_DATA[].sections`) and is kept for provenance, but it
+means *"when did this unit's metadata unblock its dependents"* — **not** "how long
+did parsing, macro expansion and type checking take". The gap is not small,
+because metadata encoding needs `exported_symbols`, which forces the
+**monomorphization collector** to walk the whole instantiation graph first. So on
+a registration-heavy unit `frontend_seconds` is mostly a *middle-end* number.
+
+Measured on `ambition_platformer2d_runtime` (2026-08-08, D34 — cold, own target
+dir, `CARGO_INCREMENTAL=0`, one unit compiled, idle machine):
+
+| | metadata-only build (`cargo check`) | link build |
+|---|---|---|
+| `type_check_crate` | 1.124 s | 1.118 s |
+| `generate_crate_metadata` | **0.008 s** | **12.873 s** |
+| `monomorphization_collector_graph_walk` | **absent** | **11.294 s** |
+
+That unit's ledger row reads `frontend_seconds: 23.32`. Its actual rustc frontend
+is **1.8 s**; the rest is monomorphization collection.
+
+⛔ **This column has produced two wrong conclusions already** — an external
+review's *"surprisingly expensive frontend phase"*, and this repo's own
+`rollback/domains/` hypothesis, which was declared "Refuted" on a `cargo check`
+A/B that could not see 94% of the cost. **`cargo check` is not a cheap proxy for
+build cost on a unit that registers a lot of generics.** Full working:
+`dev/journals/compile-cost-what-actually-drives-it-2026-08-08.md`, final section.
 
 ⚠ **the names are not unique in a COLD build.** A package compiled twice — host
 against target, or two feature sets — yields two units with the same

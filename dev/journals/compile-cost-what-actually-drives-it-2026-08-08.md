@@ -375,3 +375,187 @@ was right.
 ⚠ **the lesson is the cheap one**: the data that settles this was in the ledger
 the whole time, under field names I had already read. I speculated about
 contention for hours while `build_foreign_cargo_peak` sat in every row.
+
+---
+
+# `ambition_platformer2d_runtime` — it is not the frontend, and the rollback hypothesis was never actually tested (2026-08-08, D34)
+
+Settles the question §3 could not: this crate is the most expensive first-party
+unit in 3 of 3 release builds on 1/8 the monolith's lines, and an external review
+attributed it to *"a surprisingly expensive frontend phase"* — 23.32 s of
+frontend on 14.7k lines, read off `dev/compile_units.jsonl`.
+
+⛔ **Two things everyone believed about this crate are wrong, and the second one
+is the expensive one.**
+
+## 0. Method — the cache state, stated first
+
+`rustc 1.99.0-nightly (84b36a78a)`, its own `CARGO_TARGET_DIR`
+(`…/ambition-target/_nightly_probe`, deleted afterwards), `CARGO_INCREMENTAL=0`,
+`cargo clean -p <crate>` before **every** run, and **exactly one unit compiled
+per measurement** — verified by counting `Compiling` lines in each run's stderr,
+not assumed. Machine idle, no other cargo. Features `portal`, which is what all
+nine ledger rows for this unit recorded.
+
+⚠ two instrument failures happened here and both were caught by a control:
+extracting the rustc command line from `cargo build -v` and re-running it
+produced **202 type errors on the unmodified command**, so every number from that
+route was discarded; and a probe counter read 14 substitutions where 12 were
+expected because the file already contained `// PROBED`. Neither reached a
+finding. ⭐ **run the control before you interpret the treatment.**
+
+## 1. The frontend claim is off by 14x
+
+Dev profile, so the crate carries its `[profile.dev.package] opt-level = 0`
+override. The monolith is the calibration — same instrument, same cache state,
+same session:
+
+| pass | runtime (14,819 ln) | monolith (112,794 ln) | runtime per-line |
+|---|---|---|---|
+| rustc `total` | **28.13 s** | **28.02 s** | 7.6x |
+| frontend (parse→expand→resolve→typeck→borrowck) | **1.83 s (6.5%)** | 6.96 s (24.8%) | 2.0x |
+| `type_check_crate` | 1.118 | 3.350 | 2.6x |
+| **`monomorphization_collector_graph_walk`** | **11.29 s (40.1%)** | 3.86 s (13.8%) | **22.3x** |
+| `generate_crate_metadata` | 12.87 | 4.77 | — |
+| `codegen_to_LLVM_IR` | 11.81 | 6.66 | — |
+| `LLVM_passes` | 11.91 | 7.53 | — |
+| `LLVM_thinlto` | **0.00** (opt-0) | 9.34 (opt-1) | — |
+
+⭐⭐ **The two crates cost the SAME 28 s, and the runtime's frontend is 1.8 s of
+it.** Whatever is expensive here, it is not type checking — and per line the
+runtime's frontend is only 2x the monolith's, against a 22x gap in the collector.
+
+⭐ the `opt-level = 0` override is earning its keep and needs nothing added: it
+removes ThinLTO from this crate outright, which is 9.3 s of the monolith's build.
+
+## 2. Why the ledger says 23 s: `frontend_seconds` is time-to-RMETA, not the frontend
+
+Same crate, same conditions, `cargo check` instead of a link build:
+
+```text
+  rustc total                        1.619 s
+  type_check_crate                   1.124 s     (link build: 1.118 — identical work)
+  generate_crate_metadata            0.008 s     (link build: 12.873)
+  monomorphization_collector_...     ABSENT      (link build: 11.294)
+```
+
+⭐⭐ **That is the whole explanation.** A metadata-only build encodes metadata in
+8 ms. A link build spends 12.87 s there, because metadata encoding needs
+`exported_symbols`, which forces the monomorphization collector to walk the
+entire instantiation graph first. Cargo's `--timings` calls everything before the
+`.rmeta` lands "frontend" — so for this unit **the ledger's `frontend_seconds` is
+~85–90% monomorphization collection.**
+
+⛔ **This column has now produced two wrong conclusions**: the review's
+"expensive frontend phase", and this journal's own §"a hypothesis about
+`rollback/domains/`", whose ⚠ note already spotted the 2.5 s / 24.8 s gap and
+guessed contention. It was not contention. `dev/compile_telemetry_schema.md` now
+says so at the column.
+
+⚠ it also means this crate's rmeta lands ~52% of the way through its own compile
+against the monolith's ~37%, so it blocks its dependents for longer than its size
+suggests. Same cause, and it moves with the same lever.
+
+## 3. Where the time goes: 150,261 monomorphized instantiations
+
+`-Zdump-mono-stats` (built into nightly — nothing was installed):
+
+| | runtime | monolith |
+|---|---|---|
+| distinct generic definitions instantiated | 4,020 | 7,114 |
+| **monomorphized instantiations** | **150,261** | 65,310 |
+| per 1000 source lines | **10,140** | 579 |
+| collector µs per instantiation | 75.2 | 59.1 |
+| distinct SYSTEM types (`FunctionSystem::run_unsafe`) | **1,205** | **0** |
+| distinct QUERY shapes (`QueryState::new_archetype`) | 866 | 183 |
+
+⭐ **the per-instantiation cost is ordinary (75 vs 59 µs); the count is not.** The
+collector is not slow on this crate — it has 17.5x more per line to walk.
+
+⭐⭐ **the monolith instantiates ZERO system wrappers.** It *defines* most of the
+engine's systems; the runtime *registers* them, and registration is where Bevy's
+ECS generics get monomorphized. Codegen volume by origin: bevy ECS queries 30.5%,
+bevy ECS systems 21.3%, std/hashbrown 18.8%, this crate's own code 12.1%, other
+bevy 8.8%, `bevy_ggrs` 6.4%, schedule config 2.2%.
+
+## 4. ⛔ The rollback subtraction, re-run with an instrument that can see it
+
+The §"hypothesis about `rollback/domains/`" experiment commented out the same 12
+lines and compared `cargo check`: 2.52/2.58/2.52 s against 2.59/2.42/2.44 s, and
+concluded **"Refuted."** Re-run identically, but measuring a **build**:
+
+| | baseline | domains commented out | Δ |
+|---|---|---|---|
+| source lines compiled | 14,819 | ~12,689 | −14% |
+| **rustc `total` (dev)** | **28.13 / 26.32 s** | **8.66 s** | **−67 to −69%** |
+| `monomorphization_collector_graph_walk` | 11.29 s | 3.23 s | −71% |
+| `generate_crate_metadata` | 12.87 s | 3.64 s | −72% |
+| `LLVM_passes` | 11.91 s | 2.88 s | −76% |
+| **`type_check_crate`** | **1.118 s** | **1.165 s** | **+4%** |
+| **monomorphized instantiations** | 150,261 | 42,725 | **−71.6%** |
+| distinct system types | 1,205 | 295 | −75% |
+| distinct query shapes | 866 | 239 | −72% |
+
+⭐⭐⭐ **`−71.6%` instantiations predicts `−69%` time.** Two independent
+instruments, one mechanism, and the numbers agree quantitatively rather than
+directionally.
+
+⛔ **so "the rollback registrations are not the cost" was never tested.** The old
+experiment is *reproduced exactly* by the `type_check_crate` row — +4%, i.e.
+nothing — and that row is **4% of the crate's build**. `cargo check` cannot
+monomorphize, so it is structurally blind to 94% of what this crate costs.
+⭐ **the finding generalises past this crate: `cargo check` is not a cheap proxy
+for build cost on any registration-heavy unit**, and this repo has twice reasoned
+as though it were.
+
+## 5. Release: same cause, different pass
+
+Cold, isolated, `CARGO_INCREMENTAL=0`, one unit:
+
+```text
+  total 73.68 s | LLVM_passes 35.58 (48%) | LLVM_thinlto 21.60 (29%)
+                | mono collector 12.32 (17%) | type_check_crate 1.066 (1.4%)
+```
+
+Replicates §4's warm-cache release run closely (65.99 / 37.45 / 24.47), which
+retroactively validates that run's backend half. Dev → release is 28 s → 74 s and
+**the entire increase is LLVM** (11.9 → 35.6, plus 21.6 of ThinLTO from nothing);
+the collector barely moves and the frontend does not move at all. Same 150k
+instantiations — walked in dev, optimised in release.
+
+⚠ **and release is not in anyone's loop**: neither `run_tests.py` nor
+`goal_guard.py` passes `--release`. The 3.2x release gap that motivated D34 is
+real and is paid by `compile_collect.py --config release` and by shipping. **In
+the profile the edit loop actually pays, this crate costs the same as the
+monolith.** There is still no `[profile.release]` table; this says a lever exists
+there, not that it should be pulled.
+
+## 6. Confidence, graded
+
+| claim | confidence | why |
+|---|---|---|
+| The frontend is ~6% (dev) / ~2% (release), not 23 s | **very high** | `type_check_crate` measured 4x across 3 conditions (1.118/1.076/1.165/1.066); whole-crate `cargo check` 1.62 s; monolith calibration |
+| `frontend_seconds` = time-to-rmeta, which in a link build subsumes mono collection | **high** | check-vs-link contrast is direct: metadata 0.008 s → 12.87 s, collector absent → 11.29 s |
+| The cost is 150,261 instantiations at an ordinary per-item rate | **very high** | direct census, plus per-instantiation cost within 27% of the monolith's |
+| The rollback domain registrations are ~69% of this crate's build | **high** | subtraction measured; instantiation drop predicts time drop; baseline reproduced twice (28.13 / 26.32) |
+| Relocating those registrations would make the WHOLE build cheaper | ⛔ **not measured** | see below |
+
+## 7. ⛔ What this does NOT license
+
+* **It does not say to delete or move the rollback domains.** It says what they
+  cost. Removing them removes the schema; the probe was reverted and the tree
+  verified clean (`git status` shows only the pre-existing music submodule).
+* **It does not price a relocation.** `rollback/domains/mod.rs` explains why they
+  live here — the registration vocabulary is here and the domain crates must not
+  gain a dependency on the runtime, which needs R1's schema-vocabulary extraction
+  first. Moving them **moves** ~107k instantiations rather than deleting them, and
+  whether ~11 crates each paying a share beats one crate paying all of it is the
+  per-crate-toll question §4 of this journal explicitly says is unsettled. ⭐ the
+  falsifier is cheap and specific: **relocate ONE domain and measure the whole
+  workspace build both ways.** If the total does not fall, the recommendation is
+  wrong; my number cannot tell you.
+* **It says nothing about carving the monolith.** The monolith's profile is
+  unremarkable — its cost is spread across a frontend proportional to its size
+  and a ThinLTO its opt-level buys.
+* ⚠ **the probed build is n=1.** The baseline is n=2 (28.13 / 26.32, 6% apart);
+  8.66 s was measured once. A repeat would cost 40 s and nobody has run it.

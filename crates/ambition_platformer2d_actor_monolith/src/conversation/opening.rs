@@ -116,6 +116,7 @@ impl DialogueDispatch<'_, '_> {
         speaker_name: &str,
         speaker_id: &str,
         listener_id: &str,
+        input_owner: ConversationInputOwner,
     ) -> bool {
         let context = ambition_dialog::DialogueContext::between(speaker_id, listener_id);
         // SELF-TALK. The speaker IS the listener — the player possessed this
@@ -125,7 +126,6 @@ impl DialogueDispatch<'_, '_> {
         let Some(entry_node) = self.nodes.entry_node(dialogue_id, context.speaker_is_self) else {
             return false;
         };
-        let input_owner = self.input_owner(initiator);
         self.conversation.open(LiveConversation {
             // WHICH conversation this is: when it opened, which node, and which
             // two bodies — every ingredient read off the world at this tick, so
@@ -147,31 +147,24 @@ impl DialogueDispatch<'_, '_> {
         true
     }
 
-    /// **Which seat owns a conversation this body just started.**
+    /// **Which seat is DRIVING this body**, for the caller to attribute the
+    /// conversation with.
     ///
-    /// ⛔ **there is no "nobody said, so capture everybody" arm, and that absence
-    /// is the fix.** Dialogue used to claim every participant's input, so one
-    /// person talking to an NPC took gameplay away from everyone else at the
-    /// couch — while the world kept running around them.
+    /// ⭐ the brain is what actually answers "whose body is this" — possession is
+    /// a brain transfer, so a seat that possessed an actor and walked it up to
+    /// an NPC is the answer here without this knowing possession exists.
     ///
-    /// ⭐ the question is answered by the initiator's BRAIN, not by an entity
-    /// index or a device slot that happens to share a number with a seat.
-    /// Possession is a brain transfer, so a seat that possessed an actor and
-    /// walked it up to an NPC owns that conversation without this knowing
-    /// possession exists.
-    ///
-    /// ⚠ **the non-player arm is a DECISION, not a fallback.** A body with no
-    /// player brain cannot have pressed Interact under its own steam, so this is
-    /// a composition that drove the interaction some other way; the primary seat
-    /// owns the box, because somebody has to be able to advance it and capturing
-    /// the whole couch for a conversation nobody at it started is the behaviour
-    /// being removed.
-    fn input_owner(&self, initiator: Entity) -> ConversationInputOwner {
-        match self.driver.get(initiator) {
-            Ok(ambition_characters::brain::Brain::Player(slot)) => {
-                ConversationInputOwner::Participant(crate::participant_seat::participant_of(*slot))
-            }
-            _ => ConversationInputOwner::Primary,
+    /// ⛔ **it returns the SLOT, and the conversion to a participant is the
+    /// caller's.** `ParticipantId` and `PlayerSlot` are two concepts sharing one
+    /// number, and `crate::participant_seat` is the ONE place that correspondence
+    /// lives — precisely because `ambition_input` and `ambition_characters` are
+    /// siblings that cannot see each other. Converting here would make this
+    /// module a second owner of it, and would put a `participant_seat` edge into
+    /// a module whose whole carve accounting is two edges to the BARK.
+    pub fn driving_slot(&self, body: Entity) -> Option<ambition_characters::brain::PlayerSlot> {
+        match self.driver.get(body) {
+            Ok(ambition_characters::brain::Brain::Player(slot)) => Some(*slot),
+            _ => None,
         }
     }
 }

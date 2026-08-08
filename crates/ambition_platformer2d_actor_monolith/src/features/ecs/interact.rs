@@ -148,6 +148,22 @@ pub fn interact_ecs_actors_and_switches(
         // talkable, and the buffered press has not been consumed. An
         // interaction that does not happen must leave no trace — no banner, no
         // flags, no quest pump, no mode flip.
+        // **WHOSE conversation this is**, decided here because the
+        // `ParticipantId` ↔ `PlayerSlot` correspondence lives in exactly one
+        // place (`crate::participant_seat`) and that place is this crate. ⚠ the
+        // non-player arm is a DECISION, not a fallback: a body with no player
+        // brain cannot have pressed Interact under its own steam, so the primary
+        // seat owns the box — somebody has to be able to advance it, and
+        // capturing the whole couch for a conversation nobody at it started is
+        // the behaviour that was removed.
+        let input_owner = dialogue.driving_slot(subject).map_or(
+            crate::conversation::ConversationInputOwner::Primary,
+            |slot| {
+                crate::conversation::ConversationInputOwner::Participant(
+                    crate::participant_seat::participant_of(slot),
+                )
+            },
+        );
         if !dialogue.open_between(
             subject,
             actor_entity,
@@ -155,6 +171,7 @@ pub fn interact_ecs_actors_and_switches(
             &request.npc_name,
             speaker_id,
             listener_id,
+            input_owner,
         ) {
             continue;
         }

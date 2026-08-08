@@ -18,25 +18,44 @@
 //! decomposition should be"*). This module was written to be liftable, and the
 //! honest accounting is:
 //!
+//! ⚠ **RE-DERIVED 2026-08-08, from source rather than from this paragraph.**
+//! Prose accounting goes stale silently: the ledger and `opening` both landed
+//! after it was written, and `opening` DID add a third inward edge before it was
+//! measured and removed. Re-derive with
+//! `grep -oE "crate::[a-z_]+::[A-Za-z_]+" conversation/*.rs` before trusting it.
+//!
 //! - **Outward edges are all crates BELOW the monolith already**:
-//!   `ambition_dialog` (`DialogueBreak`, the pure rule),
-//!   `ambition_platformer2d_core` (`CenteredAabb`, `Vec2`),
-//!   `ambition_platformer2d_shared_tangle` (`BodyKinematics`),
-//!   `ambition_combat` (`ActorInteraction`), `ambition_characters`
-//!   (`ScriptedControl`, `BodyCombat`, the catalog), `ambition_vfx`, and
-//!   `ambition_input` (`ParticipantId`). None of them depend on the monolith, so
-//!   none would cycle.
-//! - **⚠ TWO inward edges remain, and both are the BARK**:
+//!   `ambition_dialog` (`DialogueBreak`, `DialogueContext`, `DialogueNodeIndex`,
+//!   the pure rule), `ambition_platformer2d_core` (`CenteredAabb`, `Vec2`,
+//!   `ConfirmedFrameBoundary`), `ambition_platformer2d_shared_tangle`
+//!   (`BodyKinematics`, `SimId`, the schedule sets), `ambition_time` (`SimTick`),
+//!   `ambition_combat` (`ActorInteraction`, `ActorIdentity`),
+//!   `ambition_characters` (`ScriptedControl`, `BodyCombat`, `Brain`, the
+//!   catalog), `ambition_interaction`, `ambition_vfx`, and `ambition_input`
+//!   (`ParticipantId`). None of them depend on the monolith, so none would cycle.
+//! - **⚠ TWO inward edges, and both are the BARK**:
 //!   `crate::features::npcs::npc_ambient_bark_line` and
-//!   `crate::character_runtime::PreparedCharacterRegistry`. Neither is about
-//!   continuity — they answer "what line does this character say", which is a
-//!   CAST question. A carve would put a small port here ("give me a bark for
-//!   this character in this situation") and leave the cast lookup behind.
+//!   `crate::character_runtime::PreparedCharacterRegistry`, both in
+//!   [`rules`]. Neither is about continuity — they answer "what line does this
+//!   character say", which is a CAST question. A carve would put a small port
+//!   here ("give me a bark for this character in this situation") and leave the
+//!   cast lookup behind.
+//!
+//! ⛔ **and the third edge that ALMOST landed is the instructive one.**
+//! [`opening`] arrived deriving `ConversationInputOwner` itself, which meant
+//! calling `crate::participant_seat::participant_of` — making this module a
+//! second owner of the `ParticipantId` ↔ `PlayerSlot` correspondence that
+//! module exists to keep in ONE place. It hands the caller a `PlayerSlot` and
+//! takes the owner as a parameter instead. ⚠ **that correspondence is a carve
+//! hazard for anything leaving this crate**, because it exists precisely because
+//! `ambition_input` and `ambition_characters` are siblings that cannot see each
+//! other — see the `SessionSeatId`/`ControlChannelId` row in
+//! `docs/planning/tracks.md`.
 //!
 //! That is the whole list. Nothing else in this module reaches into the
 //! monolith, and the carve is a port plus a `Cargo.toml`.
 //!
-//! ## The three files
+//! ## The files
 //!
 //! - [`instance`] — WHICH conversation this is, in a form a corrected timeline
 //!   agrees with. Content-derived, so a resimulation re-mints it.

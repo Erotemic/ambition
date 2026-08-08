@@ -52,7 +52,7 @@ actor.roll	component-canonical	ambition_platformer2d_shared_tangle::orientation:
 actor.ruleset_owns_death	component-canonical	ambition_combat::components::actors::RulesetOwnsDeath	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.scripted_control	component-clone	ambition_characters::brain::ScriptedControl	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.sprite_offset	component-clone	ambition_combat::components::actors::ActorSpriteOffset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.sprite_posed_body	component-clone	ambition_platformer2d_actor_monolith::character_sprites::posed_body::SpritePosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.sprite_posed_body	component-clone	ambition_sprite_sheet::character::sheets::SpritePosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.stashed_action_set	component-clone	ambition_platformer2d_actor_monolith::items::pickup::StashedActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.status	component-canonical	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorStatus	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.surface_state	component-canonical	ambition_platformer2d_actor_monolith::features::enemies::ActorSurfaceState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

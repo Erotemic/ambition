@@ -352,6 +352,44 @@ pub fn record_for_target(target: &str) -> Option<&'static SheetRecord> {
     record_index().get(target)
 }
 
+/// **This body's geometry is authored by its spritesheet, per pose.**
+///
+/// Presence is the opt-in: a body without it keeps whatever collision box its
+/// spawn authored, exactly as before. Opting in hands the box to the art, which
+/// is only meaningful for a sheet that publishes per-animation body metrics —
+/// for one that doesn't, every pose resolves to the same static idle bbox and
+/// this degenerates to "size the body to its art", which is still an improvement
+/// on a hand-guessed rectangle but is not why the seam exists.
+///
+/// ⭐ **the DECLARATION lives here and the per-tick derivation does not.** This
+/// is two facts about a sheet — which [`record_for_target`] key the boxes come
+/// from, and how many world units one of its pixels covers — so it belongs to
+/// the crate that owns sheet targets. The pass that resolves the pose and writes
+/// the collision box, sprite quad and quad offset (`sync_sprite_posed_bodies`)
+/// is an ECS system over components this crate does not own, and stays above.
+///
+/// That split is what lets the writer sit BESIDE the actor crate rather than
+/// under it: the actor crate's character projection declares a posed body by
+/// naming this type, the derivation reads it, and neither has to name the other.
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct SpritePosedBody {
+    /// The sheet manifest target the boxes are read from (`"solid_snake"`).
+    pub target: String,
+    /// World units per sheet pixel. The ONE authored number: it fixes the
+    /// body's on-screen scale, and every box follows from the art at that
+    /// scale. Uniform by construction, so the art is never distorted.
+    pub world_per_pixel: f32,
+}
+
+impl SpritePosedBody {
+    pub fn new(target: impl Into<String>, world_per_pixel: f32) -> Self {
+        Self {
+            target: target.into(),
+            world_per_pixel,
+        }
+    }
+}
+
 /// Load a sheet spec for an explicit manifest record key with the given tuning.
 /// Returns `None` when the manifest target is absent so catalog-driven sprite
 /// loading can fall back to colored rectangles.

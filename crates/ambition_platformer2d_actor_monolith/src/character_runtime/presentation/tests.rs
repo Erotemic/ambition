@@ -827,7 +827,7 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
 
     let posed = app
         .world()
-        .get::<crate::character_sprites::SpritePosedBody>(body)
+        .get::<ambition_sprite_sheet::character::SpritePosedBody>(body)
         .expect("an authored sprite body must reach the body it describes");
     assert_eq!(
         posed.target, "robot",
@@ -847,7 +847,7 @@ fn a_character_authoring_a_sprite_body_gets_a_posed_body() {
     settle(&mut app);
     assert!(
         app.world()
-            .get::<crate::character_sprites::SpritePosedBody>(body)
+            .get::<ambition_sprite_sheet::character::SpritePosedBody>(body)
             .is_none(),
         "the previous character's posed body survived an identity change, so the \
          body keeps deriving its collision box from art it no longer wears"

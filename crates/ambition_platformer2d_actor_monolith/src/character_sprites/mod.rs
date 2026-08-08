@@ -23,8 +23,9 @@
 //!
 //! Sheet vocabulary — `AuthoredSheets`, `CharacterSheetSpec`, `SheetRecord`,
 //! `SheetRegistry`, `SheetRegistryPlugin`, `CharacterAnim`, `CharacterAnimator`,
-//! `CharacterSpriteAssets`, `record_for_target`, `baked_sheet_registry` and the
-//! rest — is OWNED by `ambition_sprite_sheet` and is named from there. This
+//! `CharacterSpriteAssets`, `SpritePosedBody`, `record_for_target`,
+//! `baked_sheet_registry` and the rest — is OWNED by `ambition_sprite_sheet` and
+//! is named from there. This
 //! module used to pass 22 such names through, on the argument that "every
 //! consumer of character art already imports this module, so a crate that
 //! threads it does not need a new dependency edge". Measured 2026-08-08 that
@@ -44,7 +45,6 @@ mod tests;
 pub use anim::{pick_actor_anim, pick_player_anim, ActorAnimState};
 pub use posed_body::{
     authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies, PosedBodyGeometry,
-    SpritePosedBody,
 };
 // ⚠ this re-exported four names under an `#[allow(unused_imports)]` whose stated
 // reason was *"player_attack_hitbox_world is the live consumer (the debug-overlay

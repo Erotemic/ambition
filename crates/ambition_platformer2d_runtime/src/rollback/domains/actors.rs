@@ -458,7 +458,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.authored_hurtboxes",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::character_sprites::SpritePosedBody>(
+    app.rollback_component_clone::<ambition_sprite_sheet::character::SpritePosedBody>(
         OWNER,
         "actor.sprite_posed_body",
     );

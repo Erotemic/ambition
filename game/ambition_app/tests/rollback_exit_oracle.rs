@@ -486,7 +486,7 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "authored hurtbox document; immutable at runtime",
         ),
         (
-            "ambition_platformer2d_actor_monolith::character_sprites::posed_body::SpritePosedBody",
+            "ambition_sprite_sheet::character::sheets::SpritePosedBody",
             "authored per-pose body table; immutable at runtime",
         ),
         (

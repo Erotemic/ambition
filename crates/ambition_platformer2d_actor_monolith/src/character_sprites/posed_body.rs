@@ -13,7 +13,10 @@
 //!
 //! One scalar — [`SpritePosedBody::world_per_pixel`] — is the entire authored
 //! input, and it means the obvious thing: how many world units one sheet pixel
-//! covers. Everything else is read off the sheet. That is what makes a body
+//! covers. The declaration itself is `ambition_sprite_sheet`'s (it is two facts
+//! about a sheet target); what lives here is the per-tick derivation, which is
+//! the half that needs an ECS and none of which the actor crate names.
+//! Everything else is read off the sheet. That is what makes a body
 //! whose silhouette CHANGES SHAPE between poses expressible without bespoke
 //! per-state boxes: a snake that withdraws into a cardboard box is a long low
 //! serpent in `walk` and a small cube in `boxed_idle` because its art is, and
@@ -55,37 +58,10 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d_core as ae;
-use ambition_sprite_sheet::character::sheets::record_for_target;
+use ambition_sprite_sheet::character::sheets::{record_for_target, SpritePosedBody};
 use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 
 use crate::features::{ActorRenderSize, ActorSpriteOffset};
-
-/// **This actor's body geometry is authored by its spritesheet, per pose.**
-///
-/// Presence is the opt-in: an actor without it keeps whatever collision box its
-/// spawn authored, exactly as before. Opting in hands the box to the art, which
-/// is only meaningful for a sheet that publishes per-animation body metrics —
-/// for one that doesn't, every pose resolves to the same static idle bbox and
-/// this degenerates to "size the body to its art", which is still an improvement
-/// on a hand-guessed rectangle but is not why the seam exists.
-#[derive(Component, Clone, Debug, PartialEq)]
-pub struct SpritePosedBody {
-    /// The sheet manifest target the boxes are read from (`"solid_snake"`).
-    pub target: String,
-    /// World units per sheet pixel. The ONE authored number: it fixes the
-    /// actor's on-screen scale, and every box follows from the art at that
-    /// scale. Uniform by construction, so the art is never distorted.
-    pub world_per_pixel: f32,
-}
-
-impl SpritePosedBody {
-    pub fn new(target: impl Into<String>, world_per_pixel: f32) -> Self {
-        Self {
-            target: target.into(),
-            world_per_pixel,
-        }
-    }
-}
 
 /// The three geometry facts one pose resolves to, in world units.
 #[derive(Clone, Copy, Debug, PartialEq)]

@@ -601,7 +601,7 @@ pub fn tag_mary_o_snakes(
             body.half_size = snake_half_size();
             commands.entity(entity).try_insert((
                 SnakeShell::Walking,
-                ambition_platformer2d::actors::character_sprites::SpritePosedBody::new(
+                ambition_platformer2d::sprite_sheet::character::SpritePosedBody::new(
                     SNAKE_SHEET_TARGET,
                     snake_world_per_pixel(),
                 ),

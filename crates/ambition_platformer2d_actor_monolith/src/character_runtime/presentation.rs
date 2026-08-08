@@ -343,7 +343,7 @@ impl GrantedBodyFacts {
         if posed_body {
             commands
                 .entity(entity)
-                .remove::<crate::character_sprites::SpritePosedBody>();
+                .remove::<ambition_sprite_sheet::character::SpritePosedBody>();
         }
     }
 }
@@ -362,10 +362,10 @@ impl GrantedBodyFacts {
 /// rather than producing a body that silently never poses.
 fn posed_body_for(
     prepared: &super::PreparedCharacterDefinition,
-) -> Option<crate::character_sprites::SpritePosedBody> {
+) -> Option<ambition_sprite_sheet::character::SpritePosedBody> {
     match prepared.body.as_ref()? {
         super::BodySource::SpriteAuthored { world_per_pixel } => {
-            Some(crate::character_sprites::SpritePosedBody::new(
+            Some(ambition_sprite_sheet::character::SpritePosedBody::new(
                 prepared.sheet.as_deref()?,
                 *world_per_pixel,
             ))

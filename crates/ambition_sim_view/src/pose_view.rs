@@ -168,7 +168,7 @@ pub fn rebuild_body_pose_views(
                 // for bodies whose collision box is still hand-authored.
                 Option<&ambition_platformer2d_actor_monolith::features::ActorSpriteOffset>,
                 bevy::prelude::Has<
-                    ambition_platformer2d_actor_monolith::character_sprites::SpritePosedBody,
+                    ambition_sprite_sheet::character::SpritePosedBody,
                 >,
                 Option<&mut BodyPoseView>,
             ),
@@ -344,8 +344,8 @@ mod pose_view_tests {
     /// field is wired at all.
     #[test]
     fn only_a_sheet_authored_body_reports_an_authored_quad() {
-        use ambition_platformer2d_actor_monolith::character_sprites::SpritePosedBody;
         use ambition_platformer2d_actor_monolith::features::ActorRenderSize;
+        use ambition_sprite_sheet::character::SpritePosedBody;
 
         let mut app = bevy::prelude::App::new();
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);

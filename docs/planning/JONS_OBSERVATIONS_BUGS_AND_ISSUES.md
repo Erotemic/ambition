@@ -202,6 +202,33 @@
   `--combat-overlay` are systems, and room vs route genuinely install different
   ones. That is the irreducible half.
 
+* ✔ **`AMBITION_START_CHARACTER=sanic` — SANIC WAS NEVER GRANTED THE WRONG VERBS.
+  THE GAME DID NOT START** (2026-08-08, `a93fa707f`). Three weeks on your fix list
+  as *"the persona grants blink/fireballs and loses move/jump"*, and three
+  separate static readings — including this run's own groundwork this morning —
+  aimed at per-character `ActionScheme` data, catalog composition order and the
+  moveset overlay. **All three were wrong about the layer.** One probe settled it:
+  the session **never activates**. No world, no body, no message you would see.
+  The "wrong verbs" description was a plausible symptom invented to fit a game
+  that simply did not come up.
+  ⭐ **and Sanic was only the id you happened to type.** `PlatformerPreparation::prepare`
+  failed `validate-provider-defaults` whenever the session's starting character
+  differed from the experience's authored default, and returned before publishing
+  anything — so **`goblin`, and every `capture_scene --character <id>`, were
+  equally dead.**
+  ⛔⛔ **AND THE FIX WAS WRITTEN TEN DAYS AGO, AT THE WRONG SITE.** `c98797138`
+  (2026-07-29) deleted the identical equality check from
+  `prepare_platformer_content`, under a comment titled *"A SELECTION IS NOT A
+  DEFAULT"*, in a commit whose message says `--character` *"had never worked for
+  any id"*. It was **right about the defect and wrong about having fixed it**:
+  that site runs at `PREPARE_SESSION`, downstream of the barrier's early return,
+  so the corrected copy was unreachable by the exact case it was written for. A
+  comment claiming the repair sat two hundred lines below the code preventing it,
+  and a green unit test covered the copy that cannot run.
+  ⭐ **the seam**: a provider's authored DEFAULT and a session's SELECTION are two
+  facts, and exactly ONE site may answer *"does the selection resolve"*. Both
+  sites now point at each other so the pair cannot drift again.
+
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 
 * ✔ **`maryo flashes when her fireball hits an enemy` — FIXED, and now GUARDED (2026-08-07).**

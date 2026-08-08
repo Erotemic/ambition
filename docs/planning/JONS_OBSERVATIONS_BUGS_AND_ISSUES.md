@@ -525,6 +525,36 @@
 
 * The current player V3 collision / hurt box  is larger than the player sprite. It needs to be slightly inset from the visible parts of the player. It should be under the main head, and well within the player arms. The player hitbox needs to be very forgiving to the player.
 
+  ▢ **UNTRIAGED UNTIL 2026-08-08 — it carried no mark at all, which is how D5 hid
+  for a day.** Found by sweeping this file for observations with no triage
+  marker; two of ~40 had none and this is the substantive one.
+
+  ⚠ **NOT yet measured in world units — what follows is the shape of the
+  question, not an answer.** From
+  `assets/sprites_0_25x/player_robot_v3_spritesheet.ron`: the frame is **56×56**,
+  the visible body (`body_pixel_bbox`) is **18×25**, and `collision_scale` is
+  **1.65**. The player's collision is `DEFAULT_PLAYER_BODY_WIDTH/HEIGHT` =
+  **30×48** world units. ⛔ **I did not convert those to a common unit** — a
+  cross-unit ratio is exactly the mistake that reversed a recommendation earlier
+  today, and the frame→world mapping needs reading before any number here means
+  anything.
+
+  ⭐⭐ **the likely connection, and the reason this matters more than one
+  character's feel**: this may be the PLAYER-SIDE instance of the open decision
+  *"Size the character quad from the BBOX instead of the FRAME?"*. If the quad is
+  sized from the **frame** while the art occupies only a third of it, then
+  anything derived from the quad is larger than the art — which is exactly what
+  you describe. If that holds, your two observations are one defect seen from two
+  ends, and the bbox decision has an independent second motivation nobody
+  connected.
+  ⚠ **stated as a hypothesis on purpose.** It needs the frame→world mapping read
+  and the three sites checked before it is claimed.
+
+  ⭐ and the second half of your note is a separate, purely design statement that
+  no measurement touches: *"The player hitbox needs to be very forgiving to the
+  player."* That is a feel target — inset under the head, well within the arms —
+  and it is yours whichever way the bbox question goes.
+
 ---
 
 ◐ **DONE 2026-08-05 except the two you marked iffy** — and per your follow-up

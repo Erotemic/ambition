@@ -89,7 +89,7 @@ fn buffered_interact_toggles_an_adjacent_switch() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+            crate::conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -191,7 +191,7 @@ fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+            crate::conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -278,7 +278,7 @@ fn a_visitor_gets_the_pedestals_ordinary_node() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+            crate::conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -307,7 +307,7 @@ fn wearing_the_pedestals_character_enters_the_self_branch() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+            crate::conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -347,7 +347,7 @@ fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+            crate::conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );
@@ -396,7 +396,7 @@ fn an_unpopulated_node_index_never_suppresses() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+            crate::conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );

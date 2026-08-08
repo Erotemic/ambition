@@ -39,14 +39,23 @@
 //!
 //! ## The three files
 //!
+//! - [`instance`] — WHICH conversation this is, in a form a corrected timeline
+//!   agrees with. Content-derived, so a resimulation re-mints it.
 //! - [`authority`] — what the simulation believes about the live conversation.
 //!   Rollback-owned. Reads nothing.
+//! - [`ledger`] — what the NARRATIVE told the simulation, stamped with the tick
+//!   it applies from. The mirror image of the effect quarantine, and the one
+//!   crossing every gameplay-bearing Yarn command goes through.
 //! - [`hold`] — the projection: which body is standing still because it is being
 //!   talked to, rebuilt from the authority every tick.
 //! - [`rules`] — when a conversation ENDS, and the bark that says so.
+//! - [`ui_bridge`] — the text box as a projection, and the narrative end as the
+//!   ledger's first payload.
 
 mod authority;
 mod hold;
+mod instance;
+mod ledger;
 mod rules;
 mod ui_bridge;
 
@@ -55,8 +64,12 @@ mod tests;
 
 pub use authority::{ActiveConversation, ConversationInputOwner, LiveConversation};
 pub use hold::{project_conversation_hold, HeldByConversation};
+pub use instance::ConversationInstanceId;
+pub use ledger::{
+    release_narrative_inputs, NarrativeInputLedger, NarrativeInputPlugin, NarrativeInputWriter,
+};
 pub use rules::break_dialogue_on_hit_or_separation;
 pub use ui_bridge::{
-    close_conversation_on_narrative_end, close_dialog_ui_when_the_conversation_ends,
-    open_dialog_ui_when_the_conversation_starts, publish_the_narrative_end, ObservedNarrativeEnd,
+    close_conversation_on_narrative_end, project_the_dialog_ui_from_the_conversation,
+    publish_the_narrative_end, ConversationEnded,
 };

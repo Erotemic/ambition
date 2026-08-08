@@ -61,13 +61,55 @@ fn talking_app() -> (App, Entity, Entity) {
 /// matched against.
 fn live_at(node: &str, tick: u64) -> super::LiveConversation {
     super::LiveConversation {
-        opened_at: tick,
+        instance: super::ConversationInstanceId::mint(tick, node, None, None),
         ..super::LiveConversation::for_test(None, None, node, ConversationInputOwner::Primary)
     }
 }
 
 fn talking(app: &App) -> bool {
     app.world().resource::<ActiveConversation>().is_live()
+}
+
+/// An app with the narrative-end half of the seam wired as the sim wires it:
+/// the ledger releases at the head, the closer reads what it released.
+///
+/// ⚠ **the release is a real system, not a hand-poked resource.** The whole
+/// claim these tests make is about WHEN a record reaches the simulation, and a
+/// fixture that reached into the ledger directly would be testing the container
+/// rather than the seam.
+fn narrative_app(tick: u64) -> App {
+    let mut app = App::new();
+    app.init_resource::<ActiveConversation>();
+    app.init_resource::<super::NarrativeInputLedger<super::ConversationEnded>>();
+    app.add_message::<super::ConversationEnded>();
+    app.insert_resource(ambition_time::SimTick(tick));
+    app.add_systems(
+        Update,
+        (
+            super::release_narrative_inputs::<super::ConversationEnded>,
+            super::close_conversation_on_narrative_end,
+        )
+            .chain(),
+    );
+    app
+}
+
+/// Write down that `live`'s narrative finished, effective from `from_tick` —
+/// what `publish_the_narrative_end` does when it sees the runner go quiet.
+fn record_end(app: &mut App, live: &super::LiveConversation, from_tick: u64) {
+    app.world_mut()
+        .resource_mut::<super::NarrativeInputLedger<super::ConversationEnded>>()
+        .record(
+            live.instance.clone(),
+            from_tick,
+            super::ConversationEnded {
+                instance: live.instance.clone(),
+            },
+        );
+}
+
+fn set_tick(app: &mut App, tick: u64) {
+    app.world_mut().resource_mut::<ambition_time::SimTick>().0 = tick;
 }
 
 /// **A resimulated tick does not close a conversation on the strength of a text
@@ -91,13 +133,7 @@ fn talking(app: &App) -> bool {
 /// agrees with the original run.
 #[test]
 fn a_conversation_survives_a_tick_before_the_narrative_end_applies() {
-    use super::ObservedNarrativeEnd;
-
-    let mut app = App::new();
-    app.init_resource::<ActiveConversation>();
-    app.init_resource::<ObservedNarrativeEnd>();
-    app.insert_resource(ambition_time::SimTick(7));
-    app.add_systems(Update, super::close_conversation_on_narrative_end);
+    let mut app = narrative_app(7);
     let live = live_at("chat", 5);
     app.world_mut()
         .resource_mut::<ActiveConversation>()
@@ -105,9 +141,7 @@ fn a_conversation_survives_a_tick_before_the_narrative_end_applies() {
 
     // The narrative finished while the simulation was at tick 9, so the end
     // applies from 10. This tick is 7 — a resimulated tick BEFORE it.
-    app.world_mut()
-        .resource_mut::<ObservedNarrativeEnd>()
-        .record(&live, 10);
+    record_end(&mut app, &live, 10);
     app.update();
     assert!(
         app.world().resource::<ActiveConversation>().is_live(),
@@ -118,7 +152,7 @@ fn a_conversation_survives_a_tick_before_the_narrative_end_applies() {
 
     // ...and the tick it applies from ends it, whether that is the original run
     // or the fourth replay of it.
-    app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 10;
+    set_tick(&mut app, 10);
     app.update();
     assert!(
         !app.world().resource::<ActiveConversation>().is_live(),
@@ -138,22 +172,21 @@ fn a_conversation_survives_a_tick_before_the_narrative_end_applies() {
 ///
 /// ⭐ the record is not rollback state, so the replay is told the same thing the
 /// original run was told, and reaches the same answer on the same tick.
+///
+/// ⚠ **the fixture runs the applying tick rather than jumping past it**, because
+/// the release is an EDGE. It used to start at 12 for a record applying from 10,
+/// which no timeline ever does — `SimTick` advances one per step and every value
+/// is visited, in the original run and in every replay of it. The level rule
+/// that made the old fixture pass is the one that would hand out an item on
+/// every tick after the first; see [`super::ledger`].
 #[test]
 fn a_rewind_past_the_end_replays_it_at_the_same_tick() {
-    use super::ObservedNarrativeEnd;
-
-    let mut app = App::new();
-    app.init_resource::<ActiveConversation>();
-    app.init_resource::<ObservedNarrativeEnd>();
-    app.insert_resource(ambition_time::SimTick(12));
-    app.add_systems(Update, super::close_conversation_on_narrative_end);
+    let mut app = narrative_app(10);
     let live = live_at("chat", 5);
     app.world_mut()
         .resource_mut::<ActiveConversation>()
         .open(live.clone());
-    app.world_mut()
-        .resource_mut::<ObservedNarrativeEnd>()
-        .record(&live, 10);
+    record_end(&mut app, &live, 10);
     app.update();
     assert!(!app.world().resource::<ActiveConversation>().is_live());
 
@@ -162,7 +195,7 @@ fn a_rewind_past_the_end_replays_it_at_the_same_tick() {
     app.world_mut()
         .resource_mut::<ActiveConversation>()
         .open(live.clone());
-    app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 8;
+    set_tick(&mut app, 8);
     app.update();
     assert!(
         app.world().resource::<ActiveConversation>().is_live(),
@@ -171,7 +204,7 @@ fn a_rewind_past_the_end_replays_it_at_the_same_tick() {
          two ticks early"
     );
 
-    app.world_mut().resource_mut::<ambition_time::SimTick>().0 = 10;
+    set_tick(&mut app, 10);
     app.update();
     assert!(
         !app.world().resource::<ActiveConversation>().is_live(),
@@ -192,22 +225,14 @@ fn a_rewind_past_the_end_replays_it_at_the_same_tick() {
 /// conversations are `"chat"`.
 #[test]
 fn an_end_from_the_previous_conversation_does_not_close_the_next_one() {
-    use super::ObservedNarrativeEnd;
-
-    let mut app = App::new();
-    app.init_resource::<ActiveConversation>();
-    app.init_resource::<ObservedNarrativeEnd>();
-    app.insert_resource(ambition_time::SimTick(30));
-    app.add_systems(Update, super::close_conversation_on_narrative_end);
+    let mut app = narrative_app(30);
 
     // A different node entirely.
     let first = live_at("first_chat", 5);
     app.world_mut()
         .resource_mut::<ActiveConversation>()
         .open(live_at("second_chat", 20));
-    app.world_mut()
-        .resource_mut::<ObservedNarrativeEnd>()
-        .record(&first, 10);
+    record_end(&mut app, &first, 10);
     app.update();
     assert!(
         app.world().resource::<ActiveConversation>().is_live(),
@@ -217,9 +242,7 @@ fn an_end_from_the_previous_conversation_does_not_close_the_next_one() {
 
     // And the SAME node, talked to twice — which a node id alone cannot tell
     // apart.
-    app.world_mut()
-        .resource_mut::<ObservedNarrativeEnd>()
-        .record(&live_at("second_chat", 5), 10);
+    record_end(&mut app, &live_at("second_chat", 5), 10);
     app.update();
     assert!(
         app.world().resource::<ActiveConversation>().is_live(),
@@ -246,7 +269,7 @@ fn replaying_the_opening_tick_does_not_reopen_the_box() {
     let mut app = App::new();
     app.init_resource::<ActiveConversation>();
     app.init_resource::<ambition_dialog::DialogState>();
-    app.add_systems(Update, super::open_dialog_ui_when_the_conversation_starts);
+    app.add_systems(Update, super::project_the_dialog_ui_from_the_conversation);
 
     app.world_mut()
         .resource_mut::<ActiveConversation>()
@@ -291,6 +314,107 @@ fn replaying_the_opening_tick_does_not_reopen_the_box() {
             .active(),
         "a second visit through the same node is a second conversation, and \
          suppressing it would leave the player looking at nothing"
+    );
+}
+
+/// **TWO conversations finish inside the window, and a rewind replays BOTH.**
+///
+/// ⛔ **the record was DEPTH ONE, and the argument for it was about how fast a
+/// human reads.** The second end overwrote the first, so a rewind reaching back
+/// past both replayed only the later one: the earlier conversation was restored
+/// live and stayed live for the rest of the replayed branch, holding a body and
+/// capturing a seat that the original timeline had already released.
+///
+/// ⚠ **"a player has to read the first one" is not an engine invariant.**
+/// Dialogue can be scripted, system-started, one line long, or auto-advancing;
+/// the cut-rope room reaches `<<reset_cut_rope_room>>` before the player has
+/// dismissed the line it is on. Correctness cannot rest on reading speed.
+#[test]
+fn two_narrative_ends_in_one_window_both_replay() {
+    let mut app = narrative_app(100);
+
+    let first = live_at("first_chat", 100);
+    let second = live_at("second_chat", 104);
+
+    // The original run: A opens at 100 and finishes (applies from 103); B opens
+    // at 104 and finishes (applies from 106). Well inside an eight-frame window.
+    record_end(&mut app, &first, 103);
+    record_end(&mut app, &second, 106);
+
+    // **THE REWIND** to 101, which restores the authority to the conversation
+    // that was live then — A.
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(first.clone());
+    set_tick(&mut app, 101);
+    app.update();
+    assert!(talking(&app), "101 is before A's end; A is still going");
+
+    set_tick(&mut app, 103);
+    app.update();
+    assert!(
+        !talking(&app),
+        "the replay lost the FIRST conversation's ending because a second one \
+         overwrote it — every observation the rollback window can still reach \
+         has to survive, and one slot cannot hold two"
+    );
+}
+
+/// **A conversation whose authority disappears and comes back gets its box
+/// back.**
+///
+/// ⛔ **the presentation memo said "I projected this once", and what a
+/// repairable projection needs is "I am currently attached to this instance".**
+/// Reachable under prediction: a predicted remote hit breaks the conversation,
+/// presentation closes the box at the end of that frame, the real input arrives
+/// and the correction restores the SAME conversation — and the memo, which is
+/// never cleared, refuses to rebuild the box. The simulation goes on holding the
+/// talker and capturing a seat while the player looks at nothing.
+///
+/// ⚠ distinct from `replaying_the_opening_tick_does_not_reopen_the_box`, which
+/// is the case where the box closes while the AUTHORITY stays live. Both must
+/// hold: presentation follows the authority's existence, not its own history.
+#[test]
+fn a_conversation_restored_after_its_authority_vanished_is_projected_again() {
+    let mut app = App::new();
+    app.init_resource::<ActiveConversation>();
+    app.init_resource::<ambition_dialog::DialogState>();
+    app.add_systems(Update, super::project_the_dialog_ui_from_the_conversation);
+
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(live_at("chat", 5));
+    app.update();
+    assert!(
+        app.world()
+            .resource::<ambition_dialog::DialogState>()
+            .active(),
+        "precondition: the box follows the authority"
+    );
+
+    // A predicted branch broke it. Presentation observes the absence and closes.
+    app.world_mut().resource_mut::<ActiveConversation>().close();
+    app.update();
+    assert!(
+        !app.world()
+            .resource::<ambition_dialog::DialogState>()
+            .active(),
+        "precondition: the box closed with the conversation"
+    );
+
+    // **THE CORRECTION.** The real input said the hit never landed, so the SAME
+    // conversation instance is authoritative again.
+    app.world_mut()
+        .resource_mut::<ActiveConversation>()
+        .open(live_at("chat", 5));
+    app.update();
+    assert!(
+        app.world()
+            .resource::<ambition_dialog::DialogState>()
+            .active(),
+        "the authority is live and there is no text box: presentation refused to \
+         rebuild a conversation it had projected once before, so the simulation \
+         holds the talker and captures the seat for a conversation nobody can see"
     );
 }
 

@@ -173,13 +173,20 @@ pub fn interact_ecs_actors_and_switches(
         dialogue
             .conversation
             .open(crate::conversation::LiveConversation {
+                // WHICH conversation this is: when it opened, which node, and
+                // which two bodies — every ingredient read off the world at this
+                // tick, so a resimulation of it mints an equal id and a narrative
+                // record from the original run still finds its own conversation.
+                // ⚠ `SimId`, never these entities: `LoadWorld` remaps handles.
+                instance: crate::conversation::ConversationInstanceId::mint(
+                    dialogue.tick.map_or(0, |tick| tick.0),
+                    entry_node.clone(),
+                    dialogue.sim_ids.get(subject).ok().cloned(),
+                    dialogue.sim_ids.get(actor_entity).ok().cloned(),
+                ),
                 initiator: Some(subject),
                 talker: Some(actor_entity),
-                dialogue_id: entry_node.clone(),
                 input_owner,
-                // WHEN it opened, which is what tells a rewind-restored
-                // conversation apart from the next one through the same node.
-                opened_at: dialogue.tick.map_or(0, |tick| tick.0),
                 speaker_name: request.npc_name.clone(),
                 context,
             });
@@ -258,6 +265,13 @@ pub struct DialogueDispatch<'w, 's> {
     /// a brain transfer, so a possessed actor's conversation belongs to the seat
     /// that possessed it without this needing to know possession exists.
     pub driver: Query<'w, 's, &'static ambition_characters::brain::Brain>,
+    /// The two bodies' STABLE identities, for the conversation's instance id.
+    ///
+    /// ⛔ not the entities beside them: GGRS remaps entity handles on
+    /// `LoadWorld`, so an id built from one names a different body after a
+    /// restore. A body with no `SimId` yields `None`, which is a weaker id
+    /// rather than a wrong one — see [`crate::conversation::ConversationInstanceId`].
+    pub sim_ids: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
     /// Which Yarn nodes content compiled. Read to decide whether a
     /// self-conversation has a branch to enter; an unpopulated index never
     /// suppresses.

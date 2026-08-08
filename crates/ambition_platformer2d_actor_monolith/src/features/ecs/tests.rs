@@ -360,7 +360,7 @@ fn interact_buffered_starts_npc_dialogue() {
         Update,
         (
             interact_ecs_actors_and_switches,
-            crate::conversation::open_dialog_ui_when_the_conversation_starts,
+            crate::conversation::project_the_dialog_ui_from_the_conversation,
         )
             .chain(),
     );

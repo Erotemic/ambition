@@ -6,19 +6,12 @@
 //! be derived from the other, so the seam is explicit and each direction is one
 //! system with one job.
 //!
-//! ⭐ **and the seam is the WHOLE crossing now — both ways** (GPT 5.6,
-//! 2026-08-07, finding 2). It used to be half a seam:
-//!
 //! ```text
-//! before                              now
-//! ──────────────────────────────      ──────────────────────────────
-//! sim  → runner.start_node   (!)      sim  → ActiveConversation
-//! runner-ended → message → sim (!)      ↳ presentation projects the box
-//!                                     runner-ended → STAMPED record → sim
+//! sim  → ActiveConversation ──▶ presentation PROJECTS the box
+//! runner-ended ──▶ a stamped record in the ledger ──▶ sim closes it
 //! ```
 //!
-//! Both starred lines were simulation-significant crossings with no replay
-//! story:
+//! Both crossings were simulation-significant and had no replay story:
 //!
 //! * **opening** ran `DialogState::start` from inside the sim schedule, which
 //!   resets the line, the options, the typewriter and enqueues a
@@ -32,102 +25,34 @@
 //!   tick after it with the conversation still holding a body and capturing a
 //!   seat, and re-observed the end afterwards at a different simulation time.
 //!
-//! ⭐ **so opening is a PROJECTION and ending is a STAMPED EXTERNAL INPUT.** The
+//! ⭐ **so opening is a PROJECTION and ending is a STAMPED NARRATIVE INPUT.** The
 //! simulation decides that a conversation exists; presentation reads that and
-//! opens the runner. The narrative decides that it is over; that observation is
-//! recorded with the tick it applies from, and the record is not rewound —
-//! because it is the record of what arrived from outside, and rewinding an input
-//! erases it. A resimulated tick therefore reaches the same decision at the same
-//! `SimTick`, which is the whole invariant.
+//! opens the runner. The narrative decides that it is over; that observation goes
+//! into [`super::NarrativeInputLedger`] with the tick it applies from, and the
+//! ledger is not rewound — because it is the record of what arrived from
+//! outside, and rewinding an input erases it.
+//!
+//! ⚠ **the ending is not a special case any more.** It is one payload type in a
+//! ledger every gameplay-bearing narrative fact crosses through; see
+//! [`super::ledger`] for the four rules and
+//! [`crate::dialog::yarn_bindings`] for which commands are which.
 
 use bevy::prelude::*;
 
 use super::authority::ActiveConversation;
+use super::instance::ConversationInstanceId;
+use super::ledger::NarrativeInputWriter;
 
-/// **The narrative ran out of lines, and the tick that fact applies from.**
+/// **The narrative ran out of lines.**
 ///
-/// ⛔ **this replaced a `Message`, and the difference is what makes it
-/// replayable.** A message is delivered once and cleared on rollback, and the
-/// system that would re-deliver it — a presentation system watching the live
-/// runner — does not execute between resimulated ticks. So a rewind past the end
-/// simply lost it: the conversation stayed live through every replayed tick it
-/// had already finished in, holding a body and capturing a seat, and
-/// presentation ended it again afterwards at a different simulation time.
-///
-/// ⚠ **NOT rollback state, deliberately, and the reason is the same one that
-/// keeps device input out of the snapshot.** This is the record of what arrived
-/// from OUTSIDE the simulation. A rewind restores what the simulation decided;
-/// erasing what it was told is how the replay reaches a different decision.
-///
-/// ⚠ **keyed on the conversation INSTANCE** — the node AND the tick it opened
-/// on. A bare node id would let a finished conversation's end close the next
-/// conversation of the same node, which is the bug the message's `dialogue_id`
-/// was already carrying a field to avoid.
-///
-/// ⚠ **depth ONE, and that is a judgement rather than an oversight.** A second
-/// conversation's end overwrites the first's, so a rewind reaching back past two
-/// completed conversations would replay only the later one. The prediction
-/// window is eight frames; two conversations cannot open and finish inside it,
-/// because a player has to read the first. A queue would be machinery for a
-/// state that needs somebody to read two text boxes in an eighth of a second.
-#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
-pub struct ObservedNarrativeEnd {
-    last: Option<NarrativeEnd>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct NarrativeEnd {
-    dialogue_id: String,
-    /// Which conversation instance this ends — see [`super::LiveConversation::opened_at`].
-    opened_at: u64,
-    /// The first `SimTick` on which the simulation may act on it.
-    ///
-    /// ⭐ the NEXT tick, because presentation observes the runner in `Update`,
-    /// after this frame's simulation has already run. Stamping the tick that has
-    /// been simulated would make the original frame and its replay disagree
-    /// about whether the conversation was live during it — the same off-by-one
-    /// `PreparedMatch::effective_from` exists to close.
-    from_tick: u64,
-}
-
-impl ObservedNarrativeEnd {
-    /// Record that the narrative finished `live`, effective from `from_tick`.
-    pub fn record(&mut self, live: &super::LiveConversation, from_tick: u64) {
-        self.last = Some(NarrativeEnd {
-            dialogue_id: live.dialogue_id.clone(),
-            opened_at: live.opened_at,
-            from_tick,
-        });
-    }
-
-    /// Whether this record already names `live`. ⚠ the observing system runs
-    /// every frame until the simulation acts, and re-stamping a later tick each
-    /// time would push the end forward and make a rewind land on a different
-    /// answer than the original run.
-    pub fn already_names(&self, live: &super::LiveConversation) -> bool {
-        self.last.as_ref().is_some_and(|end| {
-            end.dialogue_id == live.dialogue_id && end.opened_at == live.opened_at
-        })
-    }
-
-    /// Whether the simulation should close `live` as of `now`.
-    pub fn ends(&self, live: &super::LiveConversation, now: u64) -> bool {
-        self.already_names(live) && self.last.as_ref().is_some_and(|end| end.from_tick <= now)
-    }
-
-    /// Forget it.
-    ///
-    /// ⛔ **not callable from the simulation**, and that is not a style rule: a
-    /// replayable system that erased an external input is the exact defect this
-    /// type replaced, one level down. Nothing in the shipped schedule calls it —
-    /// a record survives its conversation harmlessly, because it applies only to
-    /// a live conversation matching BOTH its node and the tick that conversation
-    /// opened on, and by the time a later conversation could reproduce that pair
-    /// the record's own `from_tick` has long since passed. This exists for a
-    /// caller outside the timeline (a test, a tool) that wants a clean slate.
-    pub fn forget(&mut self) {
-        self.last = None;
-    }
+/// Carries the conversation it ends even though the ledger only ever releases it
+/// while that conversation is live: a message that cannot say what it is about
+/// is one refactor away from being a global "stop whatever is running", which is
+/// the poison `an_end_from_the_previous_conversation_does_not_close_the_next_one`
+/// exists to keep out.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct ConversationEnded {
+    pub instance: ConversationInstanceId,
 }
 
 /// **Tell the simulation the narrative finished.** (presentation)
@@ -136,34 +61,31 @@ impl ObservedNarrativeEnd {
 /// exactly right: this IS the moment the runner finished, observed once, in real
 /// time.
 ///
-/// ⚠ **observed once per conversation instance**, and the idempotence is
-/// load-bearing rather than an optimization: the condition stays true until the
-/// authority closes, and re-stamping a later tick on each of those frames would
-/// mean a rewind replays an end the original run applied earlier.
+/// ⚠ **observed once per conversation**, and the idempotence is load-bearing
+/// rather than an optimization: the condition stays true until the authority
+/// closes, and re-stamping a later tick on each of those frames would mean a
+/// rewind replays an end the original run applied earlier. That is what
+/// [`NarrativeInputWriter::write_once`] is for, and it is the only writer that
+/// should use it — a conversation may legitimately grant two items.
 pub fn publish_the_narrative_end(
     conversation: Res<ActiveConversation>,
     dialog: Res<ambition_dialog::DialogState>,
-    // `Option` for the reason `prepare_the_match`'s own tick is: a composition
-    // with no timeline has no replay to disagree with, and a plain `Res` would
-    // panic in every one of them.
-    tick: Option<Res<ambition_time::SimTick>>,
-    mut observed: ResMut<ObservedNarrativeEnd>,
+    mut narrative: NarrativeInputWriter<ConversationEnded>,
 ) {
-    let Some(live) = conversation.live() else {
+    let Some(instance) = conversation.instance().cloned() else {
         return;
     };
-    if dialog.active() || observed.already_names(live) {
+    if dialog.active() {
         return;
     }
-    let from_tick = tick.map_or(0, |tick| tick.0.saturating_add(1));
-    observed.record(live, from_tick);
+    narrative.write_once(ConversationEnded { instance });
 }
 
 /// **The narrative finished, so the simulation's conversation is over.** (sim)
 ///
-/// ⭐ **it reads a stamped record, not a delivered event.** A resimulated tick
-/// asks the same question of the same record and gets the same answer, so the
-/// conversation ends at the same `SimTick` in the replay as it did in the
+/// ⭐ **it reads a released record, not a delivered event.** The ledger hands
+/// this over on the tick it was stamped for and on every replay of that tick, so
+/// the conversation ends at the same `SimTick` in the replay as it did in the
 /// original run — which is what "the hold, the scripted control and the input
 /// capture rewind correctly" actually requires.
 ///
@@ -176,21 +98,17 @@ pub fn publish_the_narrative_end(
 /// finished on, every replay of that tick agrees.
 pub fn close_conversation_on_narrative_end(
     mut conversation: ResMut<ActiveConversation>,
-    observed: Res<ObservedNarrativeEnd>,
-    tick: Option<Res<ambition_time::SimTick>>,
+    mut ended: MessageReader<ConversationEnded>,
 ) {
-    // No timeline is no replay: a composition without `SimTick` acts on the
-    // record the moment it sees it, which is what the message-based seam did.
-    let now = tick.map_or(u64::MAX, |tick| tick.0);
-    let ends = conversation
-        .live()
-        .is_some_and(|live| observed.ends(live, now));
+    let ends = ended
+        .read()
+        .any(|end| conversation.instance() == Some(&end.instance));
     if ends {
         conversation.close();
     }
 }
 
-/// **The simulation opened a conversation, so the text box shows it.**
+/// **The text box shows whatever conversation the simulation is having.**
 /// (presentation)
 ///
 /// ⛔ **this used to be a `DialogState::start` call inside the interaction
@@ -200,42 +118,51 @@ pub fn close_conversation_on_narrative_end(
 /// and enqueueing a second `runner.start_node`. The snapshot deliberately does
 /// not rewind the text box; replaying the side effect rewound it anyway.
 ///
-/// ⭐ **the memo is what makes a rewind quiet.** A rollback restores the
-/// authority with the SAME `opened_at`, so this recognises the conversation it
-/// already opened and does nothing. A conversation opened on a different tick —
-/// including the same node entered again in the replayed timeline — is a
-/// different instance and does start the runner, which is correct: that is a
-/// conversation the player has not seen.
+/// ⭐ **the memo means "the box is ATTACHED to this conversation", not "I
+/// projected this once"**, and the difference is a reachable defect. It used to
+/// mean the latter, and it was never cleared: a predicted remote hit breaks the
+/// conversation, presentation closes the box at the end of that frame, the real
+/// input arrives and the correction restores the SAME conversation — and the memo
+/// refused to rebuild it. The simulation went on holding the talker and
+/// capturing a seat while the player looked at nothing.
+///
+/// ⚠ **opening and closing are ONE system for that reason.** They were two, and
+/// the closing half wrote no bookkeeping at all, so presentation's record of what
+/// it had done outlived the thing it was a record of. A projection is current
+/// derived state or it is not a projection.
+///
+/// ⚠ the three cases, and each one is a rule:
+///
+/// * **no authority** → close the box AND detach. Nothing is being said.
+/// * **a conversation this box is not attached to** → start the runner. This
+///   includes the same node entered again, which is a conversation the player has
+///   not seen.
+/// * **the conversation this box is already attached to** → nothing. A rewind
+///   restores the authority with the same instance, and restarting the runner
+///   under a player who is mid-sentence is the defect the memo exists for.
 ///
 /// ⚠ the memo is a `Local`, and it belongs there: it is presentation's record of
-/// what presentation has done, on the side of the seam that is not rewound.
-pub fn open_dialog_ui_when_the_conversation_starts(
+/// presentation's own state, on the side of the seam that is not rewound.
+pub fn project_the_dialog_ui_from_the_conversation(
     conversation: Res<ActiveConversation>,
     mut dialog: ResMut<ambition_dialog::DialogState>,
-    mut opened: Local<Option<(u64, String)>>,
+    mut attached: Local<Option<ConversationInstanceId>>,
 ) {
     let Some(live) = conversation.live() else {
+        // ⚠ the close is UNCONDITIONAL on the box, not on the memo: a box opened
+        // by something that is not a conversation (a cutscene, a scripted
+        // request through the bridge) is closed here exactly as it was before
+        // these two systems were one, and narrowing that to "only what I opened"
+        // would strand it.
+        *attached = None;
+        if dialog.active() {
+            dialog.close();
+        }
         return;
     };
-    let instance = (live.opened_at, live.dialogue_id.clone());
-    if opened.as_ref() == Some(&instance) {
+    if attached.as_ref() == Some(&live.instance) {
         return;
     }
-    *opened = Some(instance);
-    dialog.start(&live.dialogue_id, &live.speaker_name, live.context.clone());
-}
-
-/// **The simulation ended it, so the text box goes away.** (presentation)
-///
-/// The projection direction, and the reason `DialogState` can stop being an
-/// authority without the box outliving the conversation it was showing. Runs
-/// outside the simulation schedule: it writes presentation state only, and a
-/// rewind must not un-close a text box the player already saw close.
-pub fn close_dialog_ui_when_the_conversation_ends(
-    conversation: Res<ActiveConversation>,
-    mut dialog: ResMut<ambition_dialog::DialogState>,
-) {
-    if !conversation.is_live() && dialog.active() {
-        dialog.close();
-    }
+    *attached = Some(live.instance.clone());
+    dialog.start(live.dialogue_id(), &live.speaker_name, live.context.clone());
 }

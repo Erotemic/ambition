@@ -11,6 +11,8 @@
 
 use bevy::prelude::*;
 
+use super::instance::ConversationInstanceId;
+
 /// **Who owns input while a conversation is live.**
 ///
 /// ⛔ **no `Default`, deliberately.** "Nobody said whose conversation this is, so
@@ -45,26 +47,34 @@ pub enum ConversationInputOwner {
 /// effect inside a replayable system.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LiveConversation {
+    /// **WHICH conversation this is** — see [`ConversationInstanceId`].
+    ///
+    /// ⛔ **WHEN and WHO are part of the fact, and leaving them out is the same
+    /// determinism hole `PreparedMatch::effective_from` was written to close.**
+    /// Two things need this. A narrative record crossing back from the
+    /// non-rewound runner has to name the conversation it belongs to, or a
+    /// finished conversation's ending closes a fresh one. And the presentation
+    /// projection has to know whether the box it is showing is THIS conversation
+    /// — a rewind restores the authority unchanged, and a projection that could
+    /// not tell would restart the runner under a player who is mid-sentence.
+    ///
+    /// ⚠ **the Yarn node lives in here**, not beside it. It is one of the four
+    /// facts that make a conversation that conversation, and a second copy on
+    /// this struct would be a second answer to keep in step.
+    pub instance: ConversationInstanceId,
     /// The body that walked up and started it. `None` for a scripted
     /// conversation with no in-world initiator.
-    pub initiator: Option<Entity>,
-    /// The body being talked TO — the one a hold applies to.
-    pub talker: Option<Entity>,
-    /// Which Yarn node is live, so the UI projection can follow the authority
-    /// rather than keeping its own idea of what is running.
-    pub dialogue_id: String,
-    pub input_owner: ConversationInputOwner,
-    /// **The `SimTick` this conversation opened on.**
     ///
-    /// ⛔ **WHEN is part of the fact, and leaving it out is the same determinism
-    /// hole `PreparedMatch::effective_from` was written to close.** Two things
-    /// need it. A conversation instance has to be distinguishable from the NEXT
-    /// conversation of the same node, or a stale narrative end closes a fresh
-    /// conversation. And the presentation projection has to know whether the box
-    /// it is showing is THIS conversation — a rewind restores the authority
-    /// unchanged, and a projection that could not tell would restart the runner
-    /// under a player who is mid-sentence.
-    pub opened_at: u64,
+    /// ⚠ **a handle, not an identity.** GGRS remaps it on `LoadWorld` (see the
+    /// [`bevy::ecs::entity::MapEntities`] impl below); the identity that survives
+    /// that is the `SimId` inside [`Self::instance`]. Both are here because the
+    /// continuity rules need to ASK things of the live body — how far away is it,
+    /// was it hit — and none of that can be asked of an id.
+    pub initiator: Option<Entity>,
+    /// The body being talked TO — the one a hold applies to. Same handle-vs-identity
+    /// split as [`Self::initiator`].
+    pub talker: Option<Entity>,
+    pub input_owner: ConversationInputOwner,
     /// The display name the box shows when a line carries no speaker prefix.
     pub speaker_name: String,
     /// The identity context Yarn is entered with.
@@ -88,14 +98,24 @@ impl LiveConversation {
         input_owner: ConversationInputOwner,
     ) -> Self {
         Self {
+            instance: ConversationInstanceId::mint(0, dialogue_id, None, None),
             initiator,
             talker,
-            dialogue_id: dialogue_id.into(),
             input_owner,
-            opened_at: 0,
             speaker_name: String::new(),
             context: ambition_dialog::DialogueContext::scripted(),
         }
+    }
+
+    /// Which Yarn node is live, so the UI projection can follow the authority
+    /// rather than keeping its own idea of what is running.
+    pub fn dialogue_id(&self) -> &str {
+        self.instance.node()
+    }
+
+    /// The `SimTick` this conversation opened on.
+    pub const fn opened_at(&self) -> u64 {
+        self.instance.opened_at()
     }
 }
 
@@ -149,7 +169,12 @@ impl ActiveConversation {
     }
 
     pub fn dialogue_id(&self) -> Option<&str> {
-        self.live.as_ref().map(|live| live.dialogue_id.as_str())
+        self.live.as_ref().map(LiveConversation::dialogue_id)
+    }
+
+    /// Which conversation is live, for a narrative record that has to name one.
+    pub fn instance(&self) -> Option<&ConversationInstanceId> {
+        self.live.as_ref().map(|live| &live.instance)
     }
 
     /// Both in-world bodies.

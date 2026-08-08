@@ -165,12 +165,17 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // `LoadWorld` remaps. Registering only the first would restore a conversation
     // pointing at whatever those entity ids mean AFTER the load.
     // ⛔ **the entity set alone reported two DIVERGENT conversations as
-    // identical** (GPT 5.6, 2026-08-07, finding 3). It localizes through the two
-    // bodies' stable sim identities, which is right for the half it covers and
-    // silent about the rest — and the rest is authoritative: `input_owner`
-    // decides whose controls the box captures, `dialogue_id` decides which node
-    // runs, `opened_at` decides whether a stamped narrative end applies at all.
-    // A peer disagreeing about any of them looked like agreement.
+    // identical.** It localizes through the two bodies' stable sim identities,
+    // which is right for the half it covers and silent about the rest — and the
+    // rest is authoritative: `input_owner` decides whose controls the box
+    // captures, and the instance id decides which node runs and whether a
+    // stamped narrative record applies at all. A peer disagreeing about any of
+    // them looked like agreement.
+    //
+    // ⭐ **the instance id is hashed WHOLE rather than field by field**, so a new
+    // ingredient of conversation identity joins the fingerprint by construction.
+    // Listing its parts here was a second place to keep in step, and the kind
+    // that goes quietly stale.
     //
     // ⚠ **no raw entity numbers in the fingerprint.** Those differ across a load
     // by design, which is exactly why the entity half is probed through
@@ -188,8 +193,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
                     return 0;
                 };
                 let mut hasher = std::collections::hash_map::DefaultHasher::new();
-                live.dialogue_id.hash(&mut hasher);
-                live.opened_at.hash(&mut hasher);
+                live.instance.hash(&mut hasher);
                 live.context.speaker_id.hash(&mut hasher);
                 live.context.listener_id.hash(&mut hasher);
                 live.context.speaker_is_self.hash(&mut hasher);
@@ -213,17 +217,25 @@ pub(in crate::rollback) fn register(app: &mut App) {
             OWNER,
             "map.resource.active_conversation",
         );
-    // ⛔ **`message.conversation_ended` USED TO BE REGISTERED HERE, and deleting
-    // it is the fix rather than a coverage regression.** Clearing the message on
-    // load was correct for a message and wrong for what it carried: the
-    // narrative end is an EXTERNAL INPUT, and the system that produced it —
-    // presentation, watching the live Yarn runner — does not execute between
-    // resimulated ticks. So clearing it dropped the end entirely, and every
-    // replayed tick ran with a conversation the original timeline had already
-    // finished. `ObservedNarrativeEnd` records it with the tick it applies from
-    // and is deliberately NOT rollback state, for the same reason device input
-    // is not: a rewind restores what the simulation decided, never what it was
+    // **The narrative end, as the conversation ledger RELEASES it.**
+    //
+    // ⛔ **clearing this message was once the whole bug, and clearing it is now
+    // correct — because the producer changed.** It used to be written by
+    // presentation watching the live Yarn runner, a system that does not execute
+    // between resimulated ticks: clearing it on load dropped the end entirely,
+    // and every replayed tick ran with a conversation the original timeline had
+    // already finished. It is now written by `release_narrative_inputs`, a SIM
+    // system, from a ledger that is deliberately not rollback state. So the
+    // resimulated tick is handed the fact again rather than remembering it —
+    // which is exactly what clearing a message on load is for.
+    //
+    // ⭐ **the durable record is the ledger; the message is its delivery.** The
+    // ledger stays out of the schema for the same reason the device input stream
+    // does: a rewind restores what the simulation decided, never what it was
     // told.
+    app.clear_message_on_rollback::<
+        ambition_platformer2d_actor_monolith::conversation::ConversationEnded,
+    >(OWNER, "message.conversation_ended");
     app.rollback_resource_clone::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",

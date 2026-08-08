@@ -23,6 +23,15 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v16 (2026-08-07): every narrative fact crosses through a LEDGER, and the
+/// ledger holds more than one.** `ObservedNarrativeEnd` held exactly one record
+/// and justified it by arguing a player has to read the first conversation
+/// before a second can finish — not an engine invariant. A v15 peer reaching
+/// back past two completed conversations replays only the later one, so the
+/// earlier one comes back live and stays live, holding a body and capturing a
+/// seat the other peer has released. `message.conversation_ended` returns as the
+/// ledger's released payload, cleared on load so the resimulated tick is handed
+/// it again rather than remembering it.
 /// ⚠ **v15 (2026-08-07): the narrative end stops being a cleared MESSAGE.**
 /// `message.conversation_ended` is gone and `ObservedNarrativeEnd` — a stamped
 /// external input that is deliberately NOT rollback state — replaced it. A v14
@@ -68,7 +77,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 15;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 16;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

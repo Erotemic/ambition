@@ -176,11 +176,15 @@ const WAIVED: &[(&str, &str)] = &[
     // The narrative end used to be a `Message` cleared on load, which is exactly
     // that erasure — and the system that would re-deliver it (presentation,
     // watching the live Yarn runner) does not execute between resimulated ticks,
-    // so a rewind past the end simply lost it. This records WHICH conversation
-    // instance ended and the first `SimTick` the simulation may act on it, so a
-    // resimulated tick reaches the same answer at the same tick.
+    // so a rewind past the end simply lost it. The ledger records WHICH
+    // conversation said each thing and the first `SimTick` the simulation may act
+    // on it, so a resimulated tick reaches the same answer at the same tick.
+    //
+    // ⚠ the waiver names the LEDGER, not one payload: every narrative-input
+    // family a game registers is the same category, and a waiver that had to be
+    // re-typed per payload would go stale the first time content added one.
     (
-        "ambition_platformer2d_actor_monolith::conversation::ui_bridge::ObservedNarrativeEnd",
+        "ambition_platformer2d_actor_monolith::conversation::ledger::NarrativeInputLedger",
         "an EXTERNAL INPUT, stamped with the tick it applies from — the same \
          category as the device input stream, and rewinding it would erase what \
          the simulation was told rather than what it decided",

@@ -452,23 +452,32 @@ ensure_tool_venv() {
     local project="$1"
     local requested_python="$2"
     local venv_dir="$project/.venv"
+    # ".venv" for the repo root, "tools/<name>/.venv" for a tool project.
+    local label="${venv_dir#"$repo_root"/}"
 
+    # `--clear` on EVERY creation path, not just the version-mismatch one. A
+    # venv's `bin/python` is a symlink chain ending at the interpreter it was
+    # built from, so when that interpreter goes away the `-x` test below fails
+    # while the venv directory is still very much there. uv then finds an
+    # existing environment at the target and, on a terminal, STOPS to ask
+    # whether to replace it — a setup script that hangs on a question nobody is
+    # there to answer (2026-08-08). `--clear` states the answer up front, which
+    # is what the surrounding branch already decided.
     if [ -x "$venv_dir/bin/python" ]; then
         local current_python
         current_python="$(venv_major_minor "$venv_dir/bin/python")"
         if [ "$current_python" != "$requested_python" ]; then
-            log "recreating ${project#$repo_root/}/.venv ($current_python -> $requested_python)"
+            log "recreating $label ($current_python -> $requested_python)"
             uv venv --clear --python "$requested_python" "$venv_dir"
         else
-            log "reusing ${project#$repo_root/}/.venv (Python $current_python)"
+            log "reusing $label (Python $current_python)"
         fi
     else
         if [ -e "$venv_dir" ]; then
-            warn "replacing incomplete environment: ${venv_dir#$repo_root/}"
-            rm -rf "$venv_dir"
+            warn "replacing incomplete environment: $label"
         fi
-        log "creating ${project#$repo_root/}/.venv with Python $requested_python"
-        uv venv --python "$requested_python" "$venv_dir"
+        log "creating $label with Python $requested_python"
+        uv venv --clear --python "$requested_python" "$venv_dir"
     fi
 }
 
@@ -563,10 +572,10 @@ install_scripts_env() {
     local venv_dir="$repo_root/.venv"
     local requested_python
     requested_python="$(tool_python_version)"
-    if [ ! -x "$venv_dir/bin/python" ]; then
-        log "creating .venv for scripts/ with Python $requested_python"
-        uv venv --python "$requested_python" "$venv_dir"
-    fi
+    # Same creation policy as every tool-local environment: this used to be its
+    # own copy of the logic, and being a copy is how it missed both `--clear`
+    # and the interpreter-version check the tool venvs have had all along.
+    ensure_tool_venv "$repo_root" "$requested_python"
     log "installing scripts/ dependencies"
     # `pytest` belongs here for the same reason `tree_sitter_rust` does, and its
     # absence was worse. `scripts/run_tests.py` runs the repo's TWO Python suites

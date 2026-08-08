@@ -33,9 +33,17 @@ been easy to spend a day on `lld` vs `mold` or `split-debuginfo` believing it
 was.
 
 **2. The frontend.** `cargo check` of the monolith is 8.5s; *building* it is
-50.3s. Across the whole agent-loop build, **255 of 313 unit-seconds are
+50.3s. ~~Across the whole agent-loop build, **255 of 313 unit-seconds are
 codegen**. The build is LLVM-bound. Anything that speeds parsing, resolution or
-macro expansion is aimed at 18% of the problem.
+macro expansion is aimed at 18% of the problem.~~
+⛔ **BOTH SENTENCES ARE WRONG and the correction is 160 lines below, which is
+too far — a reader who stops at the summary carries the error away.** "255 of
+313" reproduces from no reading; the real split is **72–80% codegen** across four
+fresh builds (§ "the codegen/frontend split", 2026-08-08). And "aimed at 18% of
+the problem" is wrong in a way that matters more than the arithmetic: **on a
+REBUILD, halving the frontend is worth 5.2x halving codegen**, because a rebuild
+is dependency-bound rather than core-bound. The rebuild is what an agent pays
+before one test runs. See § "two regimes".
 
 **3. Crate size.** This is the one worth remembering:
 
@@ -397,3 +405,46 @@ and every one of the 525 measured is at **opt-level 3**, from
 `[profile.dev.package."*"]`. `bevy_pbr` alone is 334.3s — 1.7x the monolith.
 That is the price of the fast-dependencies trade, it is paid once per target
 dir, and it is why a new feature variant is expensive.
+
+
+---
+
+## 2026-08-08 — a hypothesis about `rollback/domains/`, and its refutation
+
+Recorded because the refutation is the useful part and it took one hour.
+
+**The hypothesis.** Three independent findings converged on
+`ambition_platformer2d_runtime`'s `rollback/domains/` — 12 files, 2,130 lines:
+it is the sole in-crate reference for `ambition_cutscene` and `ambition_items`
+(so two leaked capability crates arrive through ~9 lines); it holds 74 of the
+crate's 79 generic functions and 211 of ~222 `rollback_component_*<T>` call
+sites; and it is why C7 concluded the declare/install split *"cannot be done by
+data alone — installation is generic per type."* The runtime costs 24.8s of
+frontend against the monolith's 23.9s from 7.6x fewer lines, so the generic
+surface looked like the cause.
+
+**The falsifier.** Comment out the 11 `pub(super) mod` lines and the 11
+`domains::*::register(app)` calls, leaving a compilable crate, and compare full
+rechecks (`cargo clean -p` then `cargo check -p`) on a quiet machine:
+
+```text
+  baseline (domains present)   2.52  2.58  2.52 s
+  subtracted (domains gone)    2.59  2.42  2.44 s
+```
+
+**Refuted.** Removing 2,130 lines and 94% of the crate's generic surface changes
+type-check time by nothing measurable.
+
+⚠ **bounded**: `cargo check` of this crate is **2.5s** while a full build's
+`--timings` attributes it **24.8s** of frontend. A 10x gap — `check` is not the
+build's frontend phase, and the 24.8s was also taken under load 14–18. What is
+refuted is *the generics dominate type-checking*. Whether they dominate a build's
+frontend phase is unmeasured and wants nightly `-Z self-profile`.
+
+⛔ **and it took four attempts to measure, three invalid.** `touch` + `cargo
+check` read **0.64s** for a 14,747-line generic-heavy crate — and a second
+experiment was run on that number before anyone noticed it was impossible. A real
+content edit read 0.77s, still fresh, because **incremental is ON**, so it timed
+the cost of adding one function. Only `cargo clean -p` forces the full recheck.
+⭐ **an implausible number is a broken instrument, not a result**; ask what the
+smallest plausible value is before interpreting any timing.

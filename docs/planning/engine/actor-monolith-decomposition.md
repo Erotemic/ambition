@@ -350,6 +350,32 @@ every OTHER edit marginally cheaper and dialogue work no cheaper at all.
 *lengthens* the serial chain — every size metric can improve while the wall clock
 gets worse. This carve leaves it at 12, measured rather than assumed.
 
+⛔ **CORRECTED the same day by a real timed build: that number is right in HOPS
+and wrong by 2.2x in SECONDS.** The guard's own comment claimed parallelism
+cannot compress a serial chain. Pipelined compilation does: **rustc releases a
+dependent as soon as the predecessor's `rmeta` lands**, so only the FRONTEND is
+serial across a chain edge and codegen overlaps everything downstream. A naive
+chain-of-durations reads **377.9s for a build that finished in 210.5s**.
+Keep the guard — a lengthened chain is still a real regression, and hops is the
+honest unit for it — but do not read it as seconds.
+
+⭐ **and the corollary decides which lever a carve should pull.** A cold build and
+a rebuild are in different regimes:
+
+```text
+                         work/8 cores   dependency floor   binding
+  dev cold, 583 units        767.6s          418.9s        CORES
+  dev rebuild, 57 units      123.9s          168.4s        THE CHAIN
+```
+
+Halving codegen saves **282.7s** cold and **11.8s** on a rebuild; halving the
+frontend saves **101.1s** and **61.6s**. So codegen wins 2.8x on a cold build and
+the frontend wins **5.2x** on a rebuild — reproduced 3.6x/4.0x/4.1x/5.2x across
+four rebuild-shaped runs. **The rebuild is what an agent pays before one test
+runs, and this repo has been prioritising it with the cold build's number.**
+A carve that shortens the chain therefore helps the loop that is actually paid,
+which is a better argument for decomposition than the line count ever was.
+
 The row was told to answer its own payoff before starting. Measured 2026-08-08:
 
 **Who names `ambition_dialog` inside the monolith, production only:**

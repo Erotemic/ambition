@@ -1471,3 +1471,13 @@ inserts a layer *lengthens* the serial dependency chain, so every size metric ca
 improve while the wall clock gets worse. This carve leaves it at 12 — but that is
 now measured rather than assumed, and it is the number that would have made a
 "free" carve quietly expensive.
+⛔ **corrected by a real timed build the same day: it is right in HOPS and wrong
+by 2.2x in SECONDS**, because rustc releases a dependent at the predecessor's
+`rmeta`, so only the frontend is serial across a chain edge. Keep it as a hop
+count; do not read it as time.
+⭐ **and the correction strengthens the case for carving rather than weakening
+it.** A rebuild is DEPENDENCY-bound (123.9s of work against a 168.4s chain floor)
+while a cold build is CORE-bound, and on a rebuild halving the frontend is worth
+**5.2x** what halving codegen is. A rebuild is what an agent pays before one test
+runs — so shortening the chain helps the loop that is actually paid, which is a
+better argument for decomposition than the 1% line figure above.

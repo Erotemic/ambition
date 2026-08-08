@@ -9,7 +9,7 @@ use ambition_sprite_sheet::character::{non_looping, CharacterAnim};
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 
-use crate::actor::BodyAnimFacts;
+use ambition_characters::actor::body::BodyAnimFacts;
 
 /// Pick the player's animation from ECS animation state and engine state.
 ///
@@ -387,7 +387,7 @@ pub fn pick_player_anim(
 /// shapes — multiple intents share one row because the sprite already
 /// flips with the player's facing.
 fn directional_attack_anim(attack: Option<&crate::MeleeSwing>) -> CharacterAnim {
-    use crate::combat::AttackIntent;
+    use ambition_combat::AttackIntent;
     let Some(attack) = attack else {
         // Defensive fallback: slash_anim_timer is set but no attack
         // state — keep the old side-swing read until the timer drains.

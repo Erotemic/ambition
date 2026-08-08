@@ -61,7 +61,7 @@ use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::character::sheets::{record_for_target, SpritePosedBody};
 use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 
-use crate::features::{ActorRenderSize, ActorSpriteOffset};
+use ambition_combat::components::{ActorRenderSize, ActorSpriteOffset};
 
 /// The three geometry facts one pose resolves to, in world units.
 #[derive(Clone, Copy, Debug, PartialEq)]

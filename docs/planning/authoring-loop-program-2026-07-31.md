@@ -361,7 +361,8 @@ crate that depends on `ambition_platformer2d` alone and so cannot see the pack.
 The ladder is authored in the game with no fighters and consumed by the game that
 cannot see it; `ambition_app` is the only composition where they meet, and the
 standalone demo (plus `ladder_probe` and `ladder_rig`) still runs the engine
-floor. Carried as **C3a** in `queue-72h-2026-08-06.md`.
+floor. Carried as **C3a** in `queue-72h-2026-08-06.md`, archived 2026-08-08 to
+[`../archive/queue-72h-2026-08-06.md`](../archive/queue-72h-2026-08-06.md).
 
 **The constraint the sketch above missed, kept because it is what forced the
 shape:** `BrainBuildContext` is the right carrier for the CATALOG path,

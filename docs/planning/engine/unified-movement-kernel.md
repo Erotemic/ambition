@@ -162,7 +162,7 @@ matrix.
 > ⚠ **swept 2026-08-07 and each item measured** — one was already paid (2), two
 > are confirmed live by reading the code (3, 4), and two cannot be settled by a
 > grep and are marked as such (1, 5). The rows carrying them are in
-> [`../queue-72h-2026-08-06.md`](../queue-72h-2026-08-06.md) under lane C4; until
+> [`../../archive/queue-72h-2026-08-06.md`](../../archive/queue-72h-2026-08-06.md) under lane C4; until
 > that sweep this section was the only record and nothing pointed at this file.
 
 1. ✅ **CLOSED (verified 2026-08-07), and the mechanism it describes is not what

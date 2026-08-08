@@ -138,7 +138,7 @@ no absence contracts, no coverage machinery.
 
 ## 7. Trailing whitespace — FIXED
 
-One line in `docs/planning/queue-72h-2026-08-06.md`.
+One line in `docs/archive/queue-72h-2026-08-06.md`.
 
 ---
 

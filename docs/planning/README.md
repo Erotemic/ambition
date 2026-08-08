@@ -16,10 +16,12 @@ plans, and review evidence belong under [`docs/archive/`](../archive/).
   whose own heading is *"Where the open work is"* sent every new reader to a
   retired ledger carrying **24 `▢` marks that are not things to do** — while
   three paragraphs below declaring that `▢` means a thing to do and nothing else.
-  * [`queue-72h-2026-08-06.md`](queue-72h-2026-08-06.md) — the RETIRED previous
-    run. Read it for the standing state it recorded, never for its open rows;
-    its two genuinely-open rows were carried into the live ledger as **D13** on
-    2026-08-08.
+  * [`../archive/queue-72h-2026-08-06.md`](../archive/queue-72h-2026-08-06.md) —
+    the previous run, **archived 2026-08-08 once fully discharged**. Its two
+    genuinely-open rows were carried into the live ledger as D13 first, and
+    closed there. ⭐ **a ledger is archived when nothing in it is open, not when
+    the run ends** — this one sat in `planning/` for two days after its run,
+    carrying 24 `▢` marks that were not work.
 * [`tracks.md`](tracks.md) — the standing executable queue, longer-lived than any
   one run.
 

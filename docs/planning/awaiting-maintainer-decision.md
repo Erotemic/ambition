@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 20 open, added 2026-08-08
+## ⇥ INDEX — 21 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -43,6 +43,7 @@ is the only ordering a maintainer can triage from.
 | Mary-O 1-1's first ?-block drops its wand into a pit | one level | no recommendation |
 | Does `apple_rain`'s damageable box follow the head row? | one boss volume | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
+| **Should the goal guard run a SMALLER suite on a prose-only turn?** | ~5 h of suite per 11 h of run; `app_it` is 94.6% of check time | ⭐ added 2026-08-08, MEASURED; (a) leave, (b) whitelist outside `docs/`, (c) blacklist ⛔not recommended |
 | **Should "declared no abilities" mean "give it the dev kit"?** | the character-capability seam in the decomposition brief; the broader half of your own Sanic-blink question | ⭐ added 2026-08-08; (a) base-kit-by-default, (b) keep it, (c) split by host |
 | **Should an AUTHORED id be unspellable by a runtime spawn?** | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
 
@@ -1741,3 +1742,59 @@ product statement about what a character IS, and no measurement decides it.
 ⭐ **what does NOT need the answer**: shaping the character-preparation seam so
 body-owned intrinsic capabilities are *expressible* is architecture and can
 proceed either way. Only flipping the default is blocked.
+
+---
+
+## Should the goal guard run a SMALLER suite on a prose-only turn? (raised 2026-08-08)
+
+⭐ **this one has measurements, which is why it is askable at all.** `goal_guard.py`
+now times its own checks (`.goal/check_cost.jsonl`, landed `0af0e718b`).
+
+### The fact
+
+Five recorded Stop checks:
+
+| # | total | `cargo check` | `app_it` |
+|---|---|---|---|
+| 1 | 161.1 s | 0.5 | 158.4 |
+| 2 | 134.3 s | 0.5 | 131.9 |
+| 3 | 212.0 s | 0.7 | 208.8 |
+| 4 | 208.8 s | **20.9** | 185.2 |
+| 5 | 235.3 s | **16.7** | 216.0 |
+
+**`app_it` is 94.6% of all check time.** `cargo check` is 0.5 s warm and 17–21 s
+after a Rust edit — a 41x spread, and irrelevant either way at that size.
+
+`.goal/state.json` records **114 blocks** between 01:48 and 13:05 on 2026-08-08.
+At ~158 s that is **≈5 hours of suite inside an 11.3-hour window**, and most of
+those turns edited only planning prose.
+
+`app_it` is ONE binary with 96 `mod` submodules and already supports
+`--test app_it -- <module_name>`, so a subset needs no restructuring.
+
+### The fork
+
+* **(a) Leave it.** Every turn pays the full suite. ⚠ **defensible, and it is the
+  reason the guard is trustworthy**: nothing is ever skipped, so no turn can hide
+  a regression behind a judgement about its own diff.
+* **(b) Whitelist.** Anything outside `docs/` forces the full suite; a turn that
+  touched only `docs/` runs a named smoke subset. ⭐ the failure mode is a slower
+  turn, never a missed regression — a generated file, a submodule pointer or a
+  `.ron` all fall outside `docs/` and force the full run.
+* **(c) Blacklist** ("skip the suite when no `.rs` changed"). ⛔ **not
+  recommended, and named only to rule it out**: it makes "only docs changed" a
+  claim about a diff, and this repo has been bitten by claims about diffs
+  repeatedly. Assets and generated files are not `.rs` and change behaviour.
+
+### What makes this yours
+
+It **weakens a gate on purpose**, and *"we skipped the suite"* is exactly how a
+regression hides. The measurement earns the proposal; it does not make the
+decision. ⚠ if you take (b), the subset must be **named modules with a reason
+each**, not "the fast ones" — a subset chosen by runtime is one nobody can
+defend, and it will rot silently as tests are added.
+
+⭐ **what does NOT need the answer**: the timing keeps accruing either way, and
+at n≈50 it will also answer whether background subagents materially tax the
+gate (five points currently order perfectly by load, but `load_after` is not
+independent of the suite, so that is a hint rather than a finding).

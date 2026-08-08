@@ -102,6 +102,26 @@
   offspring in the same set were drawn, so it discriminates rather than passing on
   everything.
 
+* ⛔ **THE GRADIENT SENTINEL'S SUMMON DOES NOTHING** (found 2026-08-08, NOT fixed
+  — queued as D20). Its Minima Trap is authored to summon a *"Puppy Slug"*
+  minion (`bosses/specials/gradient_sentinel.rs:604`, and a second site at `:860`);
+  the boss ships with a sheet, a cutscene intro and a derived encounter
+  (`clockwork_warden`). **The minion never appears.**
+  ⭐ **why**: `apply_summon_effects` requires the summoner to carry BOTH a `SimId`
+  and a `SimIdCounter`, and `warn!`s + skips otherwise. A body built by the
+  construction executor gets a `SimId` and **no counter** —
+  `ensure_sim_id` is filtered `Without<SimId>`, so it never backfills one, and
+  `construction/mod.rs` inserts a counter **nowhere** (its 16 mentions are 15 in
+  `tests.rs` plus a doc comment describing a counter nothing supplies).
+  ⚠ **the unit tests cannot catch it**: they build the summoner by hand and so
+  supply exactly the counter the real path omits.
+  ⭐ **you can confirm it from play without any code**: the bail emits a `warn!`,
+  so if you have fought either boss recently and no Puppy Slug appeared, it is in
+  your log. If one DID appear, tell me — that would refute this and I want to know.
+  ⚠ found while fixing the magenta-coin bug, and verified by a second route
+  before being written down; the first search said *"only constructed in tests"*
+  and that was `head -6` cutting off the two production sites.
+
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 
 * ✔ **`maryo flashes when her fireball hits an enemy` — FIXED, and now GUARDED (2026-08-07).**

@@ -324,6 +324,58 @@ repository cares about independently — and it should be recorded as that rathe
 than banked as a decomposition win. The measured win still requires both halves
 to leave, and `conversation` leaving is what removes the edge.
 
+### C4e answered — `ambition_conversation` IS a footprint win, if `dialog.rs` goes too
+
+The row was told to answer its own payoff before starting. Measured 2026-08-08:
+
+**Who names `ambition_dialog` inside the monolith, production only:**
+
+| where | lines | can it leave? |
+|---|---:|---|
+| `conversation/` | 2,164 | yes — two inward edges, both the bark |
+| `dialog.rs` | 110 | **yes** — `ambition_dialog`, `ambition_input`, `ambition_platformer2d_shared_tangle`, and **zero `crate::` edges** |
+| `features/ecs/{tests,interact/tests}.rs` | — | test code → `[dev-dependencies]`, which does not propagate |
+
+⭐ **so the edge does leave, and the carve is a footprint win rather than a
+compile-isolation win** — but only if BOTH go. Carving `conversation` alone
+leaves `dialog.rs` naming `ambition_dialog` from the monolith and nothing about a
+movement-only game's graph changes. That was worth knowing before starting, and
+is exactly why the row demanded it.
+
+⭐ **and `ambition_ui_nav` leaves with it**, closing the loop on the earlier
+finding: `ui_nav` reaches a movement-only game only through `ambition_dialog`, so
+the footprint drops by TWO of the fifteen unasked-for crates, not one.
+
+**The work, in order:**
+
+1. **The BARK PORT.** `rules.rs` is the only thing keeping `conversation` inside:
+   it names `crate::features::npcs::npc_ambient_bark_line` and
+   `crate::character_runtime::PreparedCharacterRegistry`, both answering *"what
+   line does this character say"* — a CAST question, not a continuity one.
+   Install a small port (a resource holding a fn, or a trait object) that the
+   monolith fills; leave the cast lookup behind.
+2. **Move `conversation/` + `dialog.rs`** into `crates/ambition_conversation`.
+3. **`ambition_dialog` becomes a `[dev-dependency]`** of the monolith — the two
+   test files still name `DialogState`, and a dev-dependency does not reach a
+   consumer's resolved graph.
+4. **Repoint the rollback registration.** `rollback/domains/actors.rs` names
+   `ambition_platformer2d_actor_monolith::conversation::{ActiveConversation,
+   ConversationEnded, ConversationInstanceId, ConversationInputOwner}`; the
+   runtime already sits above both crates, so this is a path rewrite. ⚠ the
+   schema NAMES do not change, so the wire format and both baselines stay put —
+   confirm that rather than assuming it.
+5. **Remeasure**: `cargo tree --offline --edges normal -i ambition_dialog` from
+   `fixtures/minimal_game` must come back empty, and
+   `capability-footprint-may-not-grow` should report **13**, not 15.
+
+⚠ **the `ParticipantId` ↔ `PlayerSlot` correspondence is the carve hazard to
+watch.** `conversation/opening.rs` briefly acquired an edge to
+`crate::participant_seat` by deriving `ConversationInputOwner` itself, which
+would have forced the carve to take that correspondence along or duplicate it.
+It takes the owner as a parameter now. Anything else leaving this crate meets the
+same wall, because `participant_seat` exists precisely because `ambition_input`
+and `ambition_characters` are siblings that cannot see each other.
+
 ## Candidate extraction waves
 
 These are **priority hypotheses**, not a promise to create one crate per row.

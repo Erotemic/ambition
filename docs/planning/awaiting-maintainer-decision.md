@@ -302,6 +302,17 @@ beside Mario."* Both landed **2026-08-06**, and the snake's own doc names Jon's
 report as what it fixed: *"before this it was 41.0 world units against her 25.6 —
 1.6x her width … that is the 'way too big' Jon reported twice."*
 
+⭐ **and the picture agrees, checked 2026-08-08 against the broken-capture
+scare.** `capture_mary_o` composes through `build_windowed_demo_app_with_home`,
+NOT the `capture_scene` path that spent two days photographing a void — and the
+snake capture shows full room geometry (floor tiles, both ?-blocks, the spike
+platform, the backdrop), so the D3 evidence stands.
+⭐⭐ **reading that image gives a second, independent measurement**: the AI slop's
+SPRITE stands roughly Mary-O's height while its BODY is 18.2 against her 48 —
+about **2.6x picture-over-body**, matching the snake's measured 2.46x. **So the
+quad/box gap is general across the cast, not a snake peculiarity**, which is the
+strongest argument yet that this fork is worth taking.
+
 ⭐⭐ **so the SIZE half is already done, and what remains is exactly this
 decision.** The bodies are right; the PICTURE is 2.46x the body. That residue is
 the quad/box disagreement and nothing else — **taking this fork is the fix for

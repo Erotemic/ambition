@@ -122,6 +122,16 @@ Five of its facts belong in your face rather than behind a link:
   skipped was running them. So after changing a type an authored struct uses:
   `grep -rn '<field_name>' --include=*.rs --include=*.ron` and **run the tests of
   every crate that grep touches.** The `*.rs` half is the half that matters.
+  ⛔ **but that command CANNOT SEE THE SPRITE SHEETS, and they are authored
+  `.ron`.** Measured 2026-08-08: `grep -rlS --include=*_spritesheet.ron
+  body_pixel_bbox .` returns **0** — across **184 files that contain it**. This
+  grep honours ignore files, and the art is gitignored
+  (`.gitignore:110`, `…/assets/sprites/**/*.ron`). A recursive search also skips
+  SYMLINKED assets in a worktree unless given `-S`. **Two independent silent
+  skips, both returning a clean `0`.**
+  ⭐ **when a search touches `assets/`, use `find … | xargs grep`** — it has
+  neither behaviour:
+  `find . -path '*/assets/sprites/*.ron' -not -path './target/*' | xargs grep -l '<field>'`
   ⚠ do NOT audit coverage by asking whether a test mentions the constant — five
   of these are named exactly once outside their own definition and are covered
   anyway, because the crate's plugin-composition test parses them transitively.

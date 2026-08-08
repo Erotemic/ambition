@@ -132,6 +132,14 @@ Five of its facts belong in your face rather than behind a link:
   ⭐ **when a search touches `assets/`, use `find … | xargs grep`** — it has
   neither behaviour:
   `find . -path '*/assets/sprites/*.ron' -not -path './target/*' | xargs grep -l '<field>'`
+  ⚠ **and know what DOES guard the sheets, because it is one sheet, not 190.**
+  Catalog ROWS are swept by several running tests (`declared_art_resolves`,
+  `rendered_identities_are_registered`, `character_containment`). The sheets' own
+  parsed CONTENT is reached by `posed_body_geometry`, which a running test calls
+  for **the snake** (`enemy_quad_matches_its_box`) — so a change that breaks every
+  sheet's parse fails loudly, and **a change that breaks only some does not**. The
+  only whole-population sweep, `hall_scale_spread::print_how_tall_every_character_stands`,
+  is `#[ignore]`d and asserts nothing by design.
   ⚠ do NOT audit coverage by asking whether a test mentions the constant — five
   of these are named exactly once outside their own definition and are covered
   anyway, because the crate's plugin-composition test parses them transitively.

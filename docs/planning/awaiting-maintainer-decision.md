@@ -282,25 +282,30 @@ since it was written:
         mary_o_v2     64x120       160x192       1.12x    1.32x
 ```
 
-Jon's report is *"the snake and AI slop are still way too big visually."* **These
-are the COLLISION BODIES** — the AI slop's body is already **4.51x the player's
-width and 1.84x its height**, and the snake's is 2.05x wide. So the enemies are
-not merely *drawn* too big; **their bodies are that big.**
+⛔⛔ **I FIRST READ THIS TABLE WRONG, AND THE CORRECTION REVERSES THE CONCLUSION.**
+I reported the slop's body as *"4.51x the player's width"* and concluded this
+decision would not fix Jon's complaint. **That comparison was invalid**: the
+`collision` column is in SHEET PIXELS, and these sheets have completely different
+pixel densities, so a cross-sheet ratio of sheet pixels means nothing. Comparing
+in WORLD units, which is what the game and the player actually see:
 
-⛔ **which means this decision, taken in full, does not fix the complaint.** The
-bbox route makes the picture match the box. If the box is 4.51x the player, the
-picture becomes 4.51x the player — correctly, and still too big. **Two distinct
-problems have been travelling as one:**
+| body | world size | vs Mary-O's width |
+|---|---|---|
+| Mary-O | 25.6 x 48.0 | 1.00x |
+| AI slop | 28.0 x 18.2 | **1.09x** |
+| snake | 25.6 x 11.4 | **1.00x** |
 
-1. **quad ≠ box** — the 2.46x disagreement. This decision fixes it.
-2. **the box itself is too big** — a single authored number per creature, which
-   this decision does not touch and cannot.
+**The bodies are already the right size.** `AI_SLOP_BODY_WIDTH = 28.0` is *"the
+one authored number; its height follows from the art"*, and `snake_body_width()`
+returns `mary_o_body_width()` — derived from her, *"which is what a Koopa does
+beside Mario."* Both landed **2026-08-06**, and the snake's own doc names Jon's
+report as what it fixed: *"before this it was 41.0 world units against her 25.6 —
+1.6x her width … that is the 'way too big' Jon reported twice."*
 
-⭐ the observations file already said so and it was read as a footnote: *"the
-SIZES themselves — the snake at 41 x 18 world and the slop at 28 x 18 against
-Mary-O's 48 tall — are one number each, and both now live where stating a
-different one is a one-line edit rather than a hunt."* **That is the cheaper half
-of Jon's complaint and it needs no decision at all** — only a number he states.
+⭐⭐ **so the SIZE half is already done, and what remains is exactly this
+decision.** The bodies are right; the PICTURE is 2.46x the body. That residue is
+the quad/box disagreement and nothing else — **taking this fork is the fix for
+"way too big visually", not a separate concern from it.**
 
 ⚠ context, not an argument for a rule: the catalog's 136 characters span
 **14.58x** in body height (`perfect_cellular_automaton` 452px,

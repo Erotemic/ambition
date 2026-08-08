@@ -647,15 +647,25 @@ slot with no attached pad cannot be set to controller.
   | ai_slop         | 257x167 | 271x232 | **4.51x** | **1.84x** |
   | mary_o_v2       | 64x120  | 160x192 | 1.12x | 1.32x |
 
-  Those are the **collision bodies**. The slop's BODY is already 4.51x your
-  player's width; the snake's is 2.05x. So they are not just drawn too big —
-  they ARE too big. The bbox route makes the picture match the box, so a 4.51x
-  box becomes a 4.51x picture: correct, and still too big.
-  ⭐ **the size half needs no decision from you, only a number.** Your own row
-  already says it — *"the snake at 41 x 18 world and the slop at 28 x 18 against
-  Mary-O's 48 tall are one number each, and both now live where stating a
-  different one is a one-line edit rather than a hunt."* Say the numbers and that
-  half is done, whatever you decide about the quad.
+  ⛔ **I READ THAT TABLE WRONG FIRST — it is in SHEET PIXELS, and these sheets
+  have different pixel densities, so cross-sheet ratios of it mean nothing.** In
+  WORLD units, which is what you see:
+
+  | body | world size | vs Mary-O's width |
+  |---|---|---|
+  | Mary-O | 25.6 x 48.0 | 1.00x |
+  | AI slop | 28.0 x 18.2 | **1.09x** |
+  | snake | 25.6 x 11.4 | **1.00x** |
+
+  ⭐ **your enemies are already the right SIZE** — that landed 2026-08-06, and the
+  snake's own comment names your report: *"before this it was 41.0 world units
+  against her 25.6 — 1.6x her width … that is the 'way too big' Jon reported
+  twice."* `AI_SLOP_BODY_WIDTH = 28.0` is the one authored number and the height
+  follows the art.
+  ⭐⭐ **so what is left of "way too big visually" IS the quad/box gap, and the
+  bbox fork is exactly its fix** — the body is right, the picture is 2.46x the
+  body. Not two problems as I said an hour ago; one, and it is the one you are
+  being asked to decide.
 
   ▢ **what this does NOT decide**: what the numbers should BE. The instrument
   asserts no ratio on purpose — what counts as too big is Jon's call, and a limit

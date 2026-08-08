@@ -25,7 +25,7 @@ pub(super) fn sync_player_presentation(
     frame_out: &PlayerBodyFrameOutput,
     clusters: &ae::BodyClustersMut<'_>,
     combat: &mut ambition_platformer2d::characters::actor::BodyCombat,
-    blink_cam: &mut ambition_platformer2d::actors::avatar::PlayerBlinkCameraState,
+    blink_cam: &mut ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState,
     anim: &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
     sfx_writer: &mut SfxWriter,
     vfx_writer: &mut MessageWriter<VfxMessage>,

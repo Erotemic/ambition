@@ -1,10 +1,11 @@
-//! Smoothed camera scale + world-target state with tunable ease rates.
+//! Smoothed camera scale + world-target state with tunable ease rates, plus the
+//! per-body [`PlayerBlinkCameraState`] the arrival ease reads.
 //!
 //! Moved below `ambition_platformer2d_actor_monolith` during F1.5 so render/host can share camera
 //! presentation timing state without depending on the actor-domain crate.
 
 use ambition_platformer2d_core as ae;
-use bevy::prelude::Resource;
+use bevy::prelude::{Component, Resource};
 
 /// Live camera scale + ease state. The camera reads target scale from
 /// the encounter registry (or developer overview override) every
@@ -216,6 +217,54 @@ impl CameraShakeState {
             to_unit(sx) * self.amplitude_px,
             to_unit(sy) * self.amplitude_px,
         )
+    }
+}
+
+/// Camera easing and blink-in presentation state, per body. Authoritative ECS
+/// component; written by `cleanup_timers_system`, `load_room`, and
+/// `handle_player_events` (blink path). Read by the camera follow system and the
+/// sprite animator.
+///
+/// It lives here with the rest of the camera ease vocabulary rather than in the
+/// actor crate for the same reason [`CameraEaseState`] does: nothing about it is
+/// actor-domain — four `f32`s and two [`ae::Vec2`]s — and its readers
+/// (`ambition_sim_view`'s pose/camera snapshots, the runtime's reset, room
+/// transition and rollback paths) sit ABOVE the actor crate and only ever needed
+/// the numbers.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct PlayerBlinkCameraState {
+    /// Counts down from `blink_in_duration` to 0 after a blink; the camera
+    /// and animator use this to play the arrival ease-in.
+    pub blink_in_timer: f32,
+    /// Set to `BLINK_IN_ANIM_TIME` when a blink fires; used to normalise
+    /// `blink_in_timer` into a 0..1 progress value.
+    pub blink_in_duration: f32,
+    /// World-space camera position at the moment the blink fired; the camera
+    /// eases from here toward the new player position.
+    pub blink_camera_from: ae::Vec2,
+    /// Blink destination in world space (set alongside `blink_camera_from`
+    /// for future use; not yet consumed by the camera easing path).
+    pub blink_camera_to: ae::Vec2,
+    /// Positive while the camera should snap (not ease) to the player position.
+    /// Set on door transitions; zero on edge exits to allow scroll effects.
+    pub camera_snap_timer: f32,
+}
+
+impl Default for PlayerBlinkCameraState {
+    fn default() -> Self {
+        Self {
+            blink_in_timer: 0.0,
+            blink_in_duration: 0.0,
+            blink_camera_from: ae::Vec2::ZERO,
+            blink_camera_to: ae::Vec2::ZERO,
+            camera_snap_timer: 0.0,
+        }
+    }
+}
+
+impl PlayerBlinkCameraState {
+    pub fn reset(&mut self) {
+        *self = Self::default();
     }
 }
 

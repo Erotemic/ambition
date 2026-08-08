@@ -7,6 +7,7 @@
 use ambition_sprite_sheet::character::{non_looping, CharacterAnim};
 
 use ambition_platformer2d_core as ae;
+use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 
 use crate::actor::BodyAnimFacts;
 
@@ -323,7 +324,7 @@ pub fn body_view_from_body(
 pub fn pick_player_anim(
     anim: &BodyAnimFacts,
     combat: &ambition_characters::actor::BodyCombat,
-    blink_cam: &crate::avatar::PlayerBlinkCameraState,
+    blink_cam: &PlayerBlinkCameraState,
     attack: Option<&crate::MeleeSwing>,
     kinematics: &crate::actor::BodyKinematics,
     ground: &crate::actor::BodyGroundState,

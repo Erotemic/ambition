@@ -50,7 +50,7 @@ pub(crate) fn apply_home_reset_policy(
             &mut ambition_platformer2d::actors::features::MotionModel,
             &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
             &mut ambition_platformer2d::characters::actor::BodyCombat,
-            &mut ambition_platformer2d::actors::avatar::PlayerBlinkCameraState,
+            &mut ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState,
             &mut ambition_platformer2d::actors::actor::BodyMelee,
             &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
             &PlayerBodyFrameOutput,
@@ -120,7 +120,7 @@ pub fn sync_player_presentation(
             ae::BodyClusterQueryData,
             &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
             &mut ambition_platformer2d::characters::actor::BodyCombat,
-            &mut ambition_platformer2d::actors::avatar::PlayerBlinkCameraState,
+            &mut ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState,
             &PlayerBodyFrameOutput,
             Option<&ambition_platformer2d::actors::actor::PrimaryPlayer>,
             // A13: whose cues this player body emits.

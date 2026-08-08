@@ -2,7 +2,7 @@
 //! request/consume edge behavior, and the post-reset gameplay-state rebuild.
 
 use super::*;
-use crate::avatar::PlayerBlinkCameraState;
+use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_platformer2d_core::RoomGeometry;
 

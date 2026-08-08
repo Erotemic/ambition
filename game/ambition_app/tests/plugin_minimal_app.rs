@@ -22,7 +22,7 @@
 
 use ambition_platformer2d::actors::actor::BodyAnimFacts;
 use ambition_platformer2d::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_platformer2d::actors::avatar::{PlayerBlinkCameraState, PlayerIdentityBundle};
+use ambition_platformer2d::actors::avatar::PlayerIdentityBundle;
 use ambition_platformer2d::actors::body_mode::BodyModeCapabilities;
 use ambition_platformer2d::actors::control::{LocalPlayer, PlayerSlot};
 use ambition_platformer2d::actors::rooms::RoomSet;
@@ -30,6 +30,7 @@ use ambition_platformer2d::actors::RoomTransitionCooldown;
 use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer2d::engine_core::RoomGeometry;
 use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState;
 use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::time::ClockState;
 use ambition_platformer2d::world::collision::MovingPlatformSet;

@@ -35,10 +35,9 @@
 use bevy::prelude::*;
 
 use ambition_characters::actor::BodyHealth;
-use ambition_sprite_sheet::character::CharacterAnim;
+use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 use ambition_time::{ClockDomain, WorldTime};
 
-use super::ecs::actor_clusters::ActorAnimOverride;
 use crate::time::time_control::{ClockRequester, ClockScaleRequest};
 
 /// What a transformation looks like for THIS body. Authored per character by

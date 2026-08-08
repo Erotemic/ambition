@@ -132,7 +132,7 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_platformer2d_actor_monolith::actor::BodyFlightState>,
                 Option<&BodyCombat>,
                 Option<&ambition_platformer2d_actor_monolith::actor::BodyAnimFacts>,
-                Option<&ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>,
+                Option<&ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>,
             ),
             (
                 Option<&ambition_platformer2d_actor_monolith::actor::BodyModeState>,
@@ -147,7 +147,7 @@ pub fn rebuild_body_pose_views(
                 // Content-driven pose PIN — the SAME component the actor path
                 // honours in `rebuild_actor_anim_index`. See the read below.
                 Option<
-                    &ambition_platformer2d_actor_monolith::features::ActorAnimOverride,
+                    &ambition_sprite_sheet::character::ActorAnimOverride,
                 >,
                 // The sheet-authored sprite quad, when this body's geometry is
                 // its art. Produced beside the collision box by
@@ -408,7 +408,7 @@ mod pose_view_tests {
     /// pin proves the test is reading the field the pin would have changed.
     #[test]
     fn a_content_pose_pin_reaches_the_players_pose_view() {
-        use ambition_platformer2d_actor_monolith::features::ActorAnimOverride;
+        use ambition_sprite_sheet::character::ActorAnimOverride;
 
         let mut app = bevy::prelude::App::new();
         app.add_systems(bevy::prelude::Update, rebuild_body_pose_views);

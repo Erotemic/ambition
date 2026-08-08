@@ -465,6 +465,29 @@ pub fn non_looping(anim: CharacterAnim) -> bool {
     )
 }
 
+/// Content-driven animation PIN for a body.
+///
+/// A locomotion picker chooses a body's pose from its movement/combat clusters,
+/// which is deliberately disposition-agnostic and knows nothing about
+/// content-specific states. When a content state machine needs a pose the picker
+/// can't infer — a shelled enemy pulling into its shell, boxed at rest, peeking,
+/// or emerging — it inserts this component with the desired [`CharacterAnim`];
+/// the anim-index rebuild honors it over the picked pose. Remove it (or the state
+/// machine sets it back to the locomotion the body is already doing) to return to
+/// normal picking.
+///
+/// It is a presentation hint DERIVED from rollback state each tick by the content
+/// system, so it is not itself snapshot state — a resim recomputes it before the
+/// presentation-only anim-index reads it.
+///
+/// It lives beside [`CharacterAnim`] rather than in the actor crate because that
+/// is all it is: a one-field newtype over this crate's vocabulary. Its readers —
+/// `ambition_sim_view`'s anim index and pose view, the runtime's rollback domain,
+/// and the content state machines in the game tier — all sit ABOVE the actor
+/// crate and needed only the pose.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ActorAnimOverride(pub CharacterAnim);
+
 #[cfg(test)]
 mod shell_anim_tests {
     use super::{non_looping, CharacterAnim};

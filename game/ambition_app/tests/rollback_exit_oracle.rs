@@ -478,10 +478,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
     // promise is actually written down instead.
     const PRESENCE_ONLY: &[(&str, &str)] = &[
         (
-            "ambition_platformer2d_actor_monolith::avatar::components::PlayerBlinkCameraState",
-            "presentation camera state, republished from the blink clock",
-        ),
-        (
             "ambition_platformer2d_actor_monolith::boss_encounter::encounter_entity::EncounterDef",
             "authored encounter definition; immutable at runtime",
         ),
@@ -500,10 +496,6 @@ fn every_presence_only_probe_is_named_with_its_reason() {
         (
             "ambition_platformer2d_actor_monolith::encounter::switches::SwitchFeature",
             "authored switch payload; the mutable half is SwitchOn, value-probed",
-        ),
-        (
-            "ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride",
-            "republished from the move clock by the moveset animator",
         ),
         (
             "ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorConfig",
@@ -767,12 +759,20 @@ fn every_presence_only_probe_is_named_with_its_reason() {
             "the recorded input stream itself; grows every frame by design",
         ),
         (
+            "ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState",
+            "presentation camera state, republished from the blink clock",
+        ),
+        (
             "ambition_platformer2d_world::rooms::metadata::ActiveRoomMetadata",
             "authored room metadata; replaced on room load",
         ),
         (
             "ambition_platformer2d_world::rooms::metadata::RoomMusicRequest",
             "authored music request; immutable at runtime",
+        ),
+        (
+            "ambition_sprite_sheet::character::anim::ActorAnimOverride",
+            "republished from the move clock by the moveset animator",
         ),
         (
             "bevy_ecs::name::Name",

@@ -10,7 +10,7 @@
 | [`binding`](src/binding.rs) | The binding resolution boundary: authored references resolve through the authority that knows, and what fails to resolve is named out loud. |
 | [`block_nudge`](src/block_nudge.rs) | **A struck block flinches** — the presentation half of hitting one. |
 | [`body`](src/body.rs) | Unified body kinematics for every controllable platformer body. |
-| [`camera_ease`](src/camera_ease.rs) | Smoothed camera scale + world-target state with tunable ease rates. |
+| [`camera_ease`](src/camera_ease.rs) | Smoothed camera scale + world-target state with tunable ease rates, plus the per-body [`PlayerBlinkCameraState`] the arrival ease reads. |
 | [`camera_layers`](src/camera_layers.rs) | Presentation camera markers shared by host, render, and app wiring. |
 | [`class_b`](src/class_b.rs) | **Class-B transit authority** — the per-frame remap ledger. |
 | [`construction`](src/construction/mod.rs) | **Explicit spawn provenance and the one construction plan.** |

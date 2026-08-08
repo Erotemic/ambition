@@ -4,7 +4,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::CenteredAabb;
 use bevy::prelude::*;
 
-use super::components::{PlayerBlinkCameraState, PlayerEntity, PlayerSafetyState, PrimaryPlayer};
+use super::components::{PlayerEntity, PlayerSafetyState, PrimaryPlayer};
 use super::movement_components::BodyKinematics;
 use crate::actor::AncillaryMovementBundle;
 use crate::actor::{BodyAnimFacts, BodyMelee};
@@ -13,6 +13,7 @@ use crate::control::{LocalPlayer, PlayerInputFrame, PlayerSlot};
 use crate::features::{ActorFaction, ActorPose};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
 use ambition_characters::brain::{ActionSet, ActorControl, Brain};
+use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 
 /// All simulation components required on the player entity.
 ///

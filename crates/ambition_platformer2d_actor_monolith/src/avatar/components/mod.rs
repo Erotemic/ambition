@@ -24,45 +24,13 @@ pub use ambition_characters::brain::PlayerSlot;
 // combat component). The player fills the reaction-timer fields; the actor fills
 // the status/attack fields.
 
-/// Camera easing and blink-in presentation state. Authoritative ECS component;
-/// written by `cleanup_timers_system`, `load_room`, and `handle_player_events`
-/// (blink path). Read by the camera follow system and the sprite animator.
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
-pub struct PlayerBlinkCameraState {
-    /// Counts down from `blink_in_duration` to 0 after a blink; the camera
-    /// and animator use this to play the arrival ease-in.
-    pub blink_in_timer: f32,
-    /// Set to `BLINK_IN_ANIM_TIME` when a blink fires; used to normalise
-    /// `blink_in_timer` into a 0..1 progress value.
-    pub blink_in_duration: f32,
-    /// World-space camera position at the moment the blink fired; the camera
-    /// eases from here toward the new player position.
-    pub blink_camera_from: ambition_platformer2d_core::Vec2,
-    /// Blink destination in world space (set alongside `blink_camera_from`
-    /// for future use; not yet consumed by the camera easing path).
-    pub blink_camera_to: ambition_platformer2d_core::Vec2,
-    /// Positive while the camera should snap (not ease) to the player position.
-    /// Set on door transitions; zero on edge exits to allow scroll effects.
-    pub camera_snap_timer: f32,
-}
-
-impl Default for PlayerBlinkCameraState {
-    fn default() -> Self {
-        Self {
-            blink_in_timer: 0.0,
-            blink_in_duration: 0.0,
-            blink_camera_from: ambition_platformer2d_core::Vec2::ZERO,
-            blink_camera_to: ambition_platformer2d_core::Vec2::ZERO,
-            camera_snap_timer: 0.0,
-        }
-    }
-}
-
-impl PlayerBlinkCameraState {
-    pub fn reset(&mut self) {
-        *self = Self::default();
-    }
-}
+// Camera easing and blink-in presentation state is now
+// `ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState`. It
+// carried no actor-domain type — four `f32`s and two `Vec2`s — and every reader
+// outside this crate (`ambition_sim_view`'s pose/camera snapshots, the runtime's
+// reset / room-transition / rollback paths) sits ABOVE this crate, so owning it
+// here made the actor crate a way-station on an edge that never needed it.
+// Named from its owner; deliberately NOT re-exported.
 
 /// Per-player "last known safe spot" used by hazard knockback and debug
 /// respawn helpers. Stored on each player so future co-op builds keep safe

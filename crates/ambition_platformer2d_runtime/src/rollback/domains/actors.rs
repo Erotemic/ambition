@@ -293,7 +293,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "player.safety_state",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>(
+    app.rollback_component_clone::<ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>(
         OWNER,
         "player.blink_camera_state",
     );
@@ -314,7 +314,7 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.transform_beat_requested",
     );
-    app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::ActorAnimOverride>(
+    app.rollback_component_clone::<ambition_sprite_sheet::character::ActorAnimOverride>(
         OWNER,
         "actor.anim_override",
     );

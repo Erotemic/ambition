@@ -136,7 +136,9 @@ fn apply_room_transition_resets(
     dialogue: &mut ambition_dialog::DialogState,
     conversation: &mut ambition_platformer2d_actor_monolith::conversation::ActiveConversation,
     combat: &mut ambition_characters::actor::BodyCombat,
-    blink_cam: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>,
+    blink_cam: Option<
+        &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
+    >,
     arrival_pos: ae::Vec2,
     edge_exit: bool,
     feel: Platformer2dFeelTuningMonolith,
@@ -190,7 +192,9 @@ pub fn load_room(
     dialogue: &mut ambition_dialog::DialogState,
     conversation: &mut ambition_platformer2d_actor_monolith::conversation::ActiveConversation,
     combat: &mut ambition_characters::actor::BodyCombat,
-    blink_cam: Option<&mut ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>,
+    blink_cam: Option<
+        &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
+    >,
     world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
     construction_plan: &rooms::RoomConstructionPlan,
@@ -300,7 +304,7 @@ pub struct TransitBodies<'w, 's> {
         'w,
         's,
         (
-            &'static mut ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState,
+            &'static mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
             &'static mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState,
         ),
         ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,

@@ -773,7 +773,7 @@ pub fn resolve_camera_observation(
             bevy::prelude::Entity,
             &ambition_platformer2d_shared_tangle::body::BodyKinematics,
             &ae::BodyBaseSize,
-            &ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState,
+            &ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
         ),
         ambition_platformer2d_shared_tangle::markers::PrimaryPlayerOnly,
     >,
@@ -842,7 +842,7 @@ pub fn resolve_camera_observation(
                     },
                     // No home avatar means no blink state to ease from, which is
                     // correct rather than a fallback: a fighter does not blink.
-                    ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState::default(),
+                    ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState::default(),
                     subject,
                 ),
                 None => {
@@ -862,7 +862,7 @@ pub fn resolve_camera_observation(
                         ae::BodyBaseSize {
                             base_size: cast.view,
                         },
-                        ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState::default(
+                        ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState::default(
                         ),
                         cast.anchor,
                     )

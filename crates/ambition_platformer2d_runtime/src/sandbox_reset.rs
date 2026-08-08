@@ -59,7 +59,7 @@ pub fn reset_sandbox(
     anim: &mut ambition_platformer2d_actor_monolith::actor::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
     interaction: &mut ambition_platformer2d_actor_monolith::control::SlotGestures,
-    blink_cam: &mut ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState,
+    blink_cam: &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
     feel: Platformer2dFeelTuningMonolith,
 ) {
@@ -131,7 +131,7 @@ pub fn apply_room_replay_request_system(
             &mut ambition_platformer2d_actor_monolith::features::MotionModel,
             &mut ambition_platformer2d_actor_monolith::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
-            &mut ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState,
+            &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
             &mut ambition_platformer2d_actor_monolith::actor::BodyMelee,
             &mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState,
         ),

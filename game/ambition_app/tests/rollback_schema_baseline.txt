@@ -2,7 +2,7 @@ ggrs-rollback-schema-v19
 actor.action_set	component-clone	ambition_characters::brain::action_set::ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ambition_combat::components::actors::ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ambition_combat::components::actors::ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-actor.anim_override	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.anim_override	component-clone	ambition_sprite_sheet::character::anim::ActorAnimOverride	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.animation_facts	component-clone	ambition_characters::actor::body::BodyAnimFacts	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.attack_gesture_state	component-canonical	ambition_characters::actor::attack_gesture::AttackGestureState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.attack_gesture_tuning	component-canonical	ambition_characters::actor::attack_gesture::AttackGestureTuning	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -330,7 +330,7 @@ mount.mountable	component-clone	ambition_platformer2d_actor_monolith::features::
 mount.mounted	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::Mounted	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 mount.riding_on	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::RidingOn	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 mount.slot	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::MountSlot	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-player.blink_camera_state	component-clone	ambition_platformer2d_actor_monolith::avatar::components::PlayerBlinkCameraState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+player.blink_camera_state	component-clone	ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 player.local_marker	component-clone	ambition_platformer2d_actor_monolith::control::components::LocalPlayer	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 player.projectile_state	component-canonical	ambition_projectiles::state::PlayerProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 player.safety_state	component-canonical	ambition_platformer2d_actor_monolith::avatar::components::PlayerSafetyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection

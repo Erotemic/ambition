@@ -5,8 +5,8 @@
 //! loop correctly.
 
 use super::*;
-use crate::avatar::PlayerBlinkCameraState;
 use ambition_characters::actor::BodyCombat;
+use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 
 /// Build a player + the three default state inputs that
 /// `pick_player_anim` consumes. Tests then mutate just the

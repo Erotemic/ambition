@@ -56,7 +56,7 @@ pub use starting_character::{
 // direction (non-avatar code imports body state from `crate::actor`, never through
 // here). That direction is what makes `crate::avatar`'s importer sink shrink
 // instead of grow.
-pub use components::{PlayerBlinkCameraState, PlayerSafetyState};
+pub use components::PlayerSafetyState;
 pub use events::PlayerHealRequested;
 pub use systems::{
     apply_player_heal_requests, blank_scripted_control_frames, regen_player_mana,

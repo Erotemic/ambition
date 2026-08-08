@@ -80,7 +80,7 @@ pub fn reset_ecs_room_features(
     // last attempt left them in. The engine owns the slot, so the engine clears
     // it: after a reset the shared picker chooses again, which is what a reset
     // MEANS. `Entity`-only fetch, so no aliasing with the actor query above.
-    pinned_poses: Query<Entity, With<crate::features::ActorAnimOverride>>,
+    pinned_poses: Query<Entity, With<ambition_sprite_sheet::character::ActorAnimOverride>>,
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
     mut bosses: Query<
         (
@@ -151,7 +151,7 @@ pub fn reset_ecs_room_features(
     for entity in &pinned_poses {
         commands
             .entity(entity)
-            .remove::<crate::features::ActorAnimOverride>();
+            .remove::<ambition_sprite_sheet::character::ActorAnimOverride>();
     }
     for (entity, mut feature, stand_timer) in &mut breakables {
         feature.breakable.state = ambition_interaction::BreakableState::Intact;

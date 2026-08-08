@@ -43,14 +43,12 @@
 use bevy::prelude::*;
 
 use ambition_platformer2d::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_platformer2d::actors::features::{
-    ActorAnimOverride, ActorConfig, CenteredAabb, FeatureId,
-};
+use ambition_platformer2d::actors::features::{ActorConfig, CenteredAabb, FeatureId};
 use ambition_platformer2d::actors::features::{HitEvent, HitMode, HitSource, HitTarget};
 use ambition_platformer2d::characters::actor::BodyCombat;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
-use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
+use ambition_platformer2d::sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 
 use crate::stomp::{player_touch, PlayerTouch};
 

@@ -20,8 +20,8 @@ use ambition_platformer2d_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use crate::actor::BodyAnimFacts;
-use crate::avatar::PlayerBlinkCameraState;
 use ambition_characters::actor::BodyCombat;
+use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// How long the wall-jump push-off pose holds after the WallJump op fires. Short

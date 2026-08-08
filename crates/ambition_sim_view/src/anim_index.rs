@@ -5,12 +5,11 @@
 use bevy::prelude::{Query, ResMut, Resource};
 
 use ambition_platformer2d_actor_monolith::features::{
-    boss_anim_state_for, ActorAnimOverride, ActorConfig, ActorStatus, BodyKinematics, BodyMelee,
-    FeatureId,
+    boss_anim_state_for, ActorConfig, ActorStatus, BodyKinematics, BodyMelee, FeatureId,
 };
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
-use ambition_sprite_sheet::character::CharacterAnim;
+use ambition_sprite_sheet::character::{ActorAnimOverride, CharacterAnim};
 
 /// Read-only query of the unified actor cluster every actor (was-NPC, was-enemy,
 /// encounter mob, mount/rider) carries — the SAME `Body*` movement/ability
@@ -272,8 +271,8 @@ pub fn rebuild_boss_frame_index(
         Option<&ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnimFrame>,
     )>,
 ) {
-    use ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnim;
     use ambition_characters::brain::BossAttackProfile;
+    use ambition_platformer2d_actor_monolith::boss_encounter::sprites::BossAnim;
     index.begin_rebuild();
     for (id, feature, health, combat, attack_state, brain, anim_frame) in &bosses {
         let boss = feature.as_boss_ref();

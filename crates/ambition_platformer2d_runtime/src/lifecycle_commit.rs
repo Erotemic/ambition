@@ -338,10 +338,11 @@ fn commit_transition(
     {
         safety.last_safe_pos = arrival;
     }
-    if let Some(mut blink) = world
-        .get_mut::<ambition_platformer2d_actor_monolith::avatar::PlayerBlinkCameraState>(
-        subject,
-    ) {
+    if let Some(mut blink) =
+        world.get_mut::<ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState>(
+            subject,
+        )
+    {
         blink.blink_in_timer = 0.0;
         blink.blink_camera_from = arrival;
         blink.blink_camera_to = arrival;

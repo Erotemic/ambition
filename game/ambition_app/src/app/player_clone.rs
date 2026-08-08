@@ -121,7 +121,7 @@ pub fn spawn_requested_player_clone(
         (
             ambition_platformer2d::actors::actor::BodyAnimFacts::default(),
             ambition_platformer2d::characters::actor::BodyCombat::default(),
-            ambition_platformer2d::actors::avatar::PlayerBlinkCameraState::default(),
+            ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState::default(),
         ),
         // The clone IS a `PlayerEntity` (3c-ii): the iterating
         // `player_control_system` / `player_simulation_system` move it through the

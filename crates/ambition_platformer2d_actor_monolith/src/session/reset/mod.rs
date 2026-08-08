@@ -164,7 +164,7 @@ pub fn process_new_game_reset_request(
             &mut crate::features::MotionModel,
             &mut crate::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
-            &mut crate::avatar::PlayerBlinkCameraState,
+            &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
             &mut crate::actor::BodyMelee,
             &mut crate::avatar::PlayerSafetyState,
         ),

@@ -12,7 +12,7 @@ pub mod animator;
 mod assets;
 pub mod sheets;
 
-pub use anim::{non_looping, CharacterAnim};
+pub use anim::{non_looping, ActorAnimOverride, CharacterAnim};
 pub use animator::{CharacterAnimator, RenderBasis};
 pub use assets::{CharacterSheetState, CharacterSpriteAssets};
 pub use sheets::*;

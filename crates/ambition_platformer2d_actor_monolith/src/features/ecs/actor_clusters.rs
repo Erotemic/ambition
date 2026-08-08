@@ -21,22 +21,12 @@ use crate::features::enemies::ArchetypeSpecExt;
 use bevy::ecs::query::QueryData;
 use bevy::prelude::Component;
 
-/// Content-driven animation PIN for an actor.
-///
-/// The shared picker ([`crate::character_sprites::pick_actor_anim`]) chooses an
-/// actor's pose from its movement/combat clusters, which is deliberately
-/// disposition-agnostic and knows nothing about content-specific states. When a
-/// content state machine needs a pose the picker can't infer — a shelled enemy
-/// pulling into its shell, boxed at rest, peeking, or emerging — it inserts this
-/// component with the desired [`CharacterAnim`]; the anim-index rebuild honors it
-/// over the picked pose. Remove it (or the state machine sets it back to the
-/// locomotion the body is already doing) to return to normal picking.
-///
-/// It is a presentation hint DERIVED from rollback state each tick by the content
-/// system, so it is not itself snapshot state — a resim recomputes it before the
-/// presentation-only anim-index reads it.
-#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ActorAnimOverride(pub ambition_sprite_sheet::character::CharacterAnim);
+// The content-driven animation PIN is now
+// `ambition_sprite_sheet::character::ActorAnimOverride`. It was a one-field
+// newtype over `CharacterAnim`, a type that crate DEFINES, and every reader
+// outside this crate (`ambition_sim_view`'s anim index + pose view, the runtime's
+// rollback domain, Mary-O's shell state machine) sits ABOVE this crate. Named
+// from its owner; deliberately NOT re-exported.
 
 use super::super::components::BodyMelee;
 use super::super::enemies::{ActorSpawnState, ActorSurfaceState, ArchetypeSpec, CharacterRoster};

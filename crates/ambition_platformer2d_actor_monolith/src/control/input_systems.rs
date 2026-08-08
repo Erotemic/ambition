@@ -202,7 +202,7 @@ pub fn cleanup_timers_system(
             &ae::BodyMotionFacts,
             &mut crate::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
-            &mut crate::avatar::PlayerBlinkCameraState,
+            &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
         ),
         crate::actor::PrimaryPlayerOnly,
     >,

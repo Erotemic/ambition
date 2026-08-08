@@ -69,7 +69,7 @@ pub fn apply_player_reset_input_system(
             &mut ambition_platformer2d::actors::features::MotionModel,
             &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
             &mut ambition_platformer2d::characters::actor::BodyCombat,
-            &mut ambition_platformer2d::actors::avatar::PlayerBlinkCameraState,
+            &mut ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState,
             &mut ambition_platformer2d::actors::actor::BodyMelee,
             &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
         ),

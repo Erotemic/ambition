@@ -154,6 +154,18 @@ unfinished-verb rows; `ambition_relativity/src/lib.rs` (~210) crossed on the SR-
 overlay work. All three are `behavioral-local` and recorded review-pending, the
 only disposition an agent may set for itself.
 
+⚠ **One crossed on 2026-08-07 in the TwinTrack overlay merge** (`ac0bf991c`):
+`ambition_platformer2d_core/src/abilities.rs` went **198 → 256** test lines. The
+58 new lines are the `fly_toggle` regression pin — `AbilitySet::NONE` defaults it
+to `false`, so every `..NONE` spread granting `fly: true` had silently become
+PERMANENT flight, and the test holds the two spellings apart so the next spread
+has to say the word. ⭐ **crossing the proxy by adding the case that closes a
+defect is the system working**, the same judgement recorded above for
+`ambition_audio`. `behavioral-local` and review-pending: the assertions read
+`AbilitySet`'s private defaults, so extracting them would widen a private API,
+which `test-placement.md` forbids.
+
+<!-- planning-evidence: inline-test path=crates/ambition_platformer2d_core/src/abilities.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_cutscene/src/lib.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_input/src/bindings.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_relativity/src/lib.rs kind=behavioral-local disposition=maintainer-review-pending -->

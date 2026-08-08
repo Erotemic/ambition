@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 19 open, added 2026-08-08
+## ⇥ INDEX — 20 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -43,6 +43,7 @@ is the only ordering a maintainer can triage from.
 | Mary-O 1-1's first ?-block drops its wand into a pit | one level | no recommendation |
 | Does `apple_rain`'s damageable box follow the head row? | one boss volume | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
+| **Should "declared no abilities" mean "give it the dev kit"?** | the character-capability seam in the decomposition brief; the broader half of your own Sanic-blink question | ⭐ added 2026-08-08; (a) base-kit-by-default, (b) keep it, (c) split by host |
 | **Should an AUTHORED id be unspellable by a runtime spawn?** | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
 
 ⚠ **the first two are the only ones blocking a lane.** Everything below them is
@@ -1677,3 +1678,66 @@ turned out to be one-line consequences of a type; this one is not.**
 ⭐ **what does NOT need the answer**: the counter half is already closed, and the
 whole contract is now written up in [`engine/netcode.md`](engine/netcode.md) with
 the three violations and which are impossible now.
+
+---
+
+## Should "this character declared no abilities" mean "give it the dev kit"? (raised 2026-08-08)
+
+You have already ruled on the narrow version of this. Your observations file
+(obs:248) says of Sanic's blink: *"it is a QUESTION FOR YOU rather than a bug …
+which is the documented 'the box keeps its traversal kit' design. **Whether Sanic
+should keep blink is product, not repair** — say the word either way."* That
+question is still open and unchanged.
+
+**This row is the BROADER one a GPT 5.6 review raised on 2026-08-08**, and it is
+a different question with a different blast radius, so it is asked separately
+rather than folded into yours.
+
+### The fact
+
+`session/setup.rs:199-201`:
+
+```rust
+let base_abilities = character_catalog
+    .ability_set(starting_character.effective_id(default_character_id))
+    .unwrap_or_else(|| editable_abilities.as_engine());
+```
+
+Its own comment states the rule plainly: *"A row without an authored set keeps
+that shared sandbox set."* And `platformer_defaults.ron:18-21` grants
+`blink: true`, `precision_blink: true`, `blink_through_soft_walls: true`,
+`blink_through_hard_walls: true`.
+
+So **absence of a declaration is read as consent to the full development
+traversal kit** — for every character, not just Sanic.
+
+### The fork
+
+* **(a) Absence means the BASE kit, and the dev kit is opt-in.** A character that
+  declares nothing gets ordinary movement; the sandbox set becomes something a
+  session explicitly asks for. ⭐ this is the direction the decomposition brief
+  wants (*"prepared character/body definition → intrinsic body capabilities →
+  explicit session/dev restriction or augmentation policy"*), and it makes the
+  capability seam natural rather than accidental.
+  ⚠ **it changes what every undeclared character can do**, which is a content
+  sweep of unknown size until someone counts the undeclared rows.
+* **(b) Keep it. Absence means the dev kit, deliberately.** ⚠ **defensible, and
+  it is the CURRENT documented design** — the box keeps its traversal kit, and
+  Ambition's own protagonist is exactly the case it serves. Then the fix is
+  declaration hygiene: characters that should not blink say so.
+* **(c) Split the difference**: absence means the base kit for a character worn
+  by a *game*, and the dev kit only under the sandbox/dev host. ⚠ two answers to
+  one question keyed on composition — the shape this repo keeps finding as a
+  defect, so it needs a reason beyond convenience.
+
+### What makes this yours
+
+The review calls the current behaviour a bug. **You have already looked at the
+same mechanism and called it documented design.** Both readings are coherent —
+it depends on whether "the box keeps its traversal kit" is a property of the
+BOX (yours) or an accident of a missing declaration (the review's). That is a
+product statement about what a character IS, and no measurement decides it.
+
+⭐ **what does NOT need the answer**: shaping the character-preparation seam so
+body-owned intrinsic capabilities are *expressible* is architecture and can
+proceed either way. Only flipping the default is blocked.

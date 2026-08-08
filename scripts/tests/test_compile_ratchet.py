@@ -206,6 +206,24 @@ def test_appending_to_the_ledger_cannot_move_a_guarded_number(monkeypatch, tmp_p
     tree nobody edited — the false red this whole instrument was designed to
     avoid. Weights are frozen in the baseline and move only on `--update`.
     """
+    def reported_worst_seconds() -> str:
+        """The `worst_edit_cost_seconds` REPORT row, as printed.
+
+        ⚠ the row, not the whole output. An earlier draft searched all of stdout
+        and passed against the very draft it rejects: a `REGRESSED` finding
+        quotes the frozen value in its own message, so the string was present
+        precisely when the guard had gone wrong.
+        """
+        ratchet.main(["--report-only"])
+        printed = capsys.readouterr().out
+        return next(
+            line for line in printed.splitlines()
+            if line.strip().startswith("worst_edit_cost_seconds")
+        )
+
+    # Baseline reading FIRST, against the real ledger and this working tree.
+    before = reported_worst_seconds()
+
     doctored = tmp_path / "compile_units.jsonl"
     doctored.write_text(
         "\n".join(
@@ -221,18 +239,15 @@ def test_appending_to_the_ledger_cannot_move_a_guarded_number(monkeypatch, tmp_p
         baseline()["unit_weights"]["ms_per_line"][MONOLITH] * 9, rel=1e-3
     )
 
-    ratchet.main(["--report-only"])
-    printed = capsys.readouterr().out
-    frozen_worst = baseline()["worst_edit_cost_seconds"]["seconds"]
-    # ⚠ the REPORT row, not the whole output. The first draft of this assertion
-    # searched all of stdout and passed against the very draft it rejects: a
-    # `REGRESSED` finding quotes the frozen value in its own message, so the
-    # string was present precisely when the guard had gone wrong.
-    row = next(
-        line for line in printed.splitlines()
-        if line.strip().startswith("worst_edit_cost_seconds")
-    )
-    assert f"{frozen_worst:,.1f}s" in row
+    # ⛔ compare the two READINGS, never a reading against a frozen constant.
+    # The first draft of this test asserted the row contained the baseline's
+    # `worst_edit_cost_seconds` verbatim — and that number is
+    # `frozen weight × the tree's CURRENT line count`, so it moved the moment
+    # another agent added 380 lines to the monolith. It went red on ordinary
+    # work while the property it names was never violated. A test whose subject
+    # is "X cannot change Y" must hold everything but X still, and the tree is
+    # not X.
+    assert reported_worst_seconds() == before
 
 
 # ---------------------------------------------------------------------------

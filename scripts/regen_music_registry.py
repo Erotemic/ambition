@@ -38,9 +38,15 @@ def _declared_asset_crate() -> str:
 
     ⛔ **this script used to carry its own copy of that name as a fallback
     default**, immediately below a comment reading *"two readers of one
-    declaration, never two declarations"*. It has been `ambition_actors`, it is
-    `ambition_platformer2d_actor_monolith`, and it moves again when the monolith
-    is decomposed — and a second copy is wrong for every value it does not hold.
+    declaration, never two declarations"*. The name has already been retired
+    once, it moves again when the monolith is decomposed — and a second copy is
+    wrong for every value it does not hold.
+
+    ⚠ **and this docstring may not SPELL the retired name**, which is not
+    pedantry: `check_retired_crate_names` reads every tracked file and cannot
+    tell a history lesson from a live reference. Writing the old name here to
+    illustrate the point made the checker red — the prose was describing exactly
+    the mistake it was committing.
     That is not hypothetical here: on 2026-08-07 the renderer submodule and this
     repo disagreed about the name, 69 cues were published into a directory
     nothing reads, and both halves reported success.

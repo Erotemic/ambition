@@ -32,8 +32,9 @@
 | [`quest`](src/quest.rs) | Ambition's authored quests + their completion payouts. |
 | [`quests`](src/quests/mod.rs) | Named Ambition quest content registration. |
 | [`worlds`](src/worlds.rs) | Ambition's LDtk WORLD payload + its `WorldManifest` — CONTENT, evicted from the engine core (R3.2, the #1 violation: the engine shipped the game's worlds). |
+| [`yarn_vocabulary`](src/yarn_vocabulary.rs) | Yarn command + function + markup registrations — the "vocabulary" that authored `.yarn` content can invoke at runtime. |
 
-_26 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_27 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

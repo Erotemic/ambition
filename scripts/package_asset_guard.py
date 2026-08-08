@@ -257,10 +257,39 @@ def iter_regular_files(root: Path, *, excludes: Sequence[str]) -> Iterator[tuple
             rel = path.relative_to(root).as_posix()
             if matches_any(rel, excludes):
                 continue
-            if path.is_symlink():
+            # ⛔ A SYMLINKED FILE IS PACKAGED BY ITS CONTENT, NOT SKIPPED.
+            #
+            # This used to `continue` on any symlink, which was harmless until
+            # 2026-08-08, when the six LDtk worlds moved into the
+            # `game/ambition_map_assets` submodule and are now reached through
+            # TRACKED symlinks. The skip silently dropped every one of them from
+            # the APK, and the game came up on a device logging
+            # `Path not found: worlds/sandbox.ldtk`.
+            #
+            # ⚠ **the postcondition did not catch it, because it cannot.** The
+            # asset contract is built by THIS walk, so contract and package
+            # agreed with each other — `final package matches asset contract:
+            # 4301 files` — and both were missing the same six files. Two views
+            # derived from one broken enumeration cannot disagree.
+            #
+            # Following the link is correct and keeps the output invariant: the
+            # PACKAGE must contain no symlinks (enforced separately, on the
+            # destination), and copying through a link satisfies that by writing
+            # real bytes. `is_file()` already follows links, so a dangling one —
+            # the deliberate signal that the map submodule is not checked out —
+            # still raises below instead of vanishing.
+            if path.is_symlink() and path.is_dir():
                 continue
             if not path.is_file():
-                raise AssetContractError(f"unsupported non-regular asset entry: {path}")
+                raise AssetContractError(
+                    f"unsupported non-regular asset entry: {path}"
+                    + (
+                        "\n  this is a DANGLING SYMLINK. Its target is missing —"
+                        " run `git submodule update --init --recursive`."
+                        if path.is_symlink()
+                        else ""
+                    )
+                )
             yield rel, path
 
 

@@ -204,6 +204,56 @@ figure height **0.84** while 33 high-fill sheets on the `1.5` default render at
   3. `feet_anchor_norm` (`character/sheets/mod.rs:476`, consumed at
      `rendering/actors/mod.rs:334`) is normalised against the FRAME and has to
      move with the crop.
+
+### MEASURED 2026-08-08 — the coupling is real, and the site list was an undercount
+
+Site 1 was done ALONE and photographed, precisely because "three coupled
+changes" was an argument rather than an observation. It is an observation now.
+
+**The art stretches, first try, in opposite directions on two characters** —
+measured on the ink by colour-masked bounding box, against the prediction from
+each sheet's `bbox / frame`:
+
+| subject | x scale | y scale | aspect change | predicted |
+|---|---|---|---|---|
+| snake (117x52 in 128x128) | 0.898 | **0.409** | **2.20x** vertical squash | 0.914 / 0.406 |
+| Mary-O (64x120 in 160x192) | **0.414** | 0.636 | **0.65x** horizontal squash | 0.400 / 0.625 |
+
+Both match the arithmetic to measurement error, so the mechanism is certain
+rather than suspected: `Sprite::custom_size` scales the WHOLE atlas frame into
+the quad, per axis, so shrinking the quad to the bbox without cropping the
+source divides the frame's padding into the body. The snake becomes a 9px green
+smear and the box on its back a flat plank; Mary-O's arms retract into stubs.
+⭐ **site 2 is the load-bearing one** — without the sub-rect, site 1 is not "a
+quad that matches its box", it is a non-uniform scale applied to the art.
+
+⚠ **and site 3 is misidentified for the characters that matter.** The snake and
+Mary-O both take the `sprite_offset` branch (`rendering/actors/mod.rs:345`,
+`:771`), which sets `Anchor::CENTER` and never reads `feet_anchor_norm` — that
+is the fallback for sheets publishing no body. What actually broke placement was
+`sprite_offset` itself, still computed at FRAME scale while the art drew at bbox
+scale, floating the snake ~8px off the floor. Same defect class, different
+field: a frame-normalised placement outliving the crop. Both must move.
+
+⛔ **THE REAL CORRECTION: there are TWO independent render-size publishers, and
+this row names only one.**
+
+* `posed_body_geometry` → `ActorRenderSize` → `ActorRenderIndex.render_size` —
+  the sheet-authored path. **This is what the snake and Mary-O use.**
+* `sprite_render_size_scaled` → `build_character_sprite(asset, collision)` — the
+  `collision_scale` path at `geometry.rs:25`, which is the one this row names.
+
+They sit side by side in one match arm (`rendering/actors/mod.rs:772` and
+`:780`), and the independent proof is the AI Slop: in the same captured frame it
+measured **0.99x / 1.02x — completely unmoved** by the change, despite its sheet
+publishing a 257x167 body in a 271x232 frame, because `tag_mary_o_ai_slop`
+derives only its collision and never attaches `SpritePosedBody`.
+
+**So TAKE IT costs four sites, not three**, and doing only the one named here
+would fix the Hall's 1.69x spread while leaving the snake and Mary-O — the two
+characters Jon actually complained about — on the old arithmetic. That is the
+opposite of the intended outcome, and it is what a careful reading of this row
+would have produced.
 - **LEAVE IT** and apply `--suggest` per character instead. Cheaper today, but it
   spends a 116-row humanoid judgement on values the first branch would delete.
 

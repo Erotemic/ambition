@@ -572,6 +572,25 @@ slot with no attached pad cannot be set to controller.
   and the decision's "three coupled changes" was right; if it does not, the
   coupling is smaller than the decision assumes. Either answer is worth more than
   more reading.
+  ✔ **DONE 2026-08-08, and the answer is: it stretches, badly.** The quad/box
+  number goes perfect — `2.46x → 1.00x`, the ratchet fires its own lower bound —
+  and the picture is destroyed getting there. The snake flattens to 41% height at
+  90% width (a 9px green smear, the cardboard box on its back a flat plank);
+  Mary-O squeezes to 41% width at 64% height, arms retracting into stubs. Both
+  match `bbox/frame` arithmetic to measurement error, so this is the mechanism
+  and not a rendering accident: `custom_size` scales the whole frame into the
+  quad per axis, so shrinking the quad without cropping the source divides the
+  padding into the body. **Your "three coupled changes" was right**, and the crop
+  (site 2) is the load-bearing one.
+  ⛔ **and it is FOUR sites, not three** — the decision named one render-size
+  publisher and there are two. The snake and Mary-O go through
+  `posed_body_geometry`; the `collision_scale` path at `geometry.rs:25` that the
+  decision describes is a different one. Proof in the same captured frame: the AI
+  Slop measured **0.99x/1.02x, completely unmoved**, because it never attaches
+  `SpritePosedBody`. Fixing only the named site would fix the Hall's spread and
+  leave the two characters you complained about untouched.
+  ⚠ the code was reverted, not landed — this is evidence for your open decision,
+  not a change made on your behalf.
 
   ▢ **what this does NOT decide**: what the numbers should BE. The instrument
   asserts no ratio on purpose — what counts as too big is Jon's call, and a limit

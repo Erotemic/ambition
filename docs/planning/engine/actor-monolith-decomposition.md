@@ -450,6 +450,41 @@ It takes the owner as a parameter now. Anything else leaving this crate meets th
 same wall, because `participant_seat` exists precisely because `ambition_input`
 and `ambition_characters` are siblings that cannot see each other.
 
+## ⭐⭐ Measured 2026-08-08: the FRONTEND cost points at the runtime, not the monolith
+
+Two independent measurements now name the same crate, and it is not the one this
+plan is about.
+
+**Frontend seconds, first-party, dev cold build** (`dev/compile_units.jsonl`):
+
+| crate | frontend | lines | ms/line |
+|---|---:|---:|---:|
+| `ambition_platformer2d_runtime` | **24.8s** | 14,747 | **1.68** |
+| `ambition_platformer2d_actor_monolith` | 23.9s | 111,579 | 0.21 |
+| `ambition_demo_mary_o` | 13.2s | 15,110 | 0.87 |
+| `ambition_characters` | 10.6s | 35,475 | 0.30 |
+| `ambition_content` | 9.7s | 21,496 | 0.45 |
+
+⛔ **`ambition_platformer2d_runtime` costs MORE frontend time than the monolith
+while being 7.6x smaller — 8x the cost per line.** And the frontend is the phase
+that matters: a rebuild is dependency-bound, and there halving the frontend is
+worth **5.2x** halving codegen. The monolith is the biggest unit in the workspace
+and among the cheapest per line either way.
+
+⭐ **and the dependency measurement already said the same thing.** C5 found that
+of the fifteen capability crates a movement-only game inherits,
+`ambition_platformer2d_runtime` declares **ten** and is a direct facade
+dependency, while exactly one belongs to the monolith. So the runtime is both
+the dependency problem and the frontend-cost problem, measured two entirely
+different ways.
+
+⚠ **this does not retarget the plan by itself** — nobody has looked at what
+inside `runtime` costs 24.8s of frontend, and 1.68 ms/line is a symptom rather
+than a diagnosis (generics, macro expansion and trait resolution all land there).
+**But every future "which crate should we carve" argument should start here
+rather than at line count**, which is the measure this plan opened with and which
+ranks the monolith first for a cost it does not have.
+
 ## ⛔ Measured 2026-08-08: the dependency leak is mostly NOT the monolith's
 
 This plan opens by naming two independent triggers, the second being *"the

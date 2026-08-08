@@ -400,6 +400,71 @@ It takes the owner as a parameter now. Anything else leaving this crate meets th
 same wall, because `participant_seat` exists precisely because `ambition_input`
 and `ambition_characters` are siblings that cannot see each other.
 
+## ⛔ Measured 2026-08-08: the dependency leak is mostly NOT the monolith's
+
+This plan opens by naming two independent triggers, the second being *"the
+public-API campaign's movement-only consumer still inherited 15 capability
+crates it did not request **because the actor monolith brought them into the
+resolved graph**"*. Measured against the tree, **that attribution is wrong for
+14 of the 15.**
+
+`cargo tree --offline --edges normal -i <crate> --depth 1` from
+`fixtures/minimal_game`, for every crate on the never-asked-for list:
+
+| crate | direct dependents in the consumer's graph |
+|---|---|
+| **`ambition_platformer2d_ldtk`** | **the monolith, and nothing else** ⭐ |
+| `ambition_items`, `ambition_cutscene` | monolith **+ the RUNTIME** |
+| `ambition_dialog`, `ambition_encounter` | monolith + runtime + `sim_view` |
+| `ambition_portal2d`, `ambition_projectiles`, `ambition_vfx`, `ambition_menu` | monolith + runtime + render/host/others |
+| `ambition_audio`, `ambition_settings_menu` | monolith + `game_shell` |
+| `ambition_sfx`, `ambition_persistence` | nine and eleven dependents respectively |
+| `ambition_sfx_bank` | **`ambition_sfx` only — not a monolith dependency at all** |
+| `ambition_ui_nav` | `ambition_dialog`, `ambition_menu`, `ambition_render` |
+
+⭐ **`ambition_platformer2d_runtime` declares TEN of the fifteen**, and it is a
+direct dependency of the facade. So carving a capability out of the monolith
+removes one of several paths and the closure does not move — which is exactly
+what the `ambition_ui_nav` removal measured, and what the aborted
+`ambition_conversation` footprint claim got wrong.
+
+### And for two of them the runtime's ONLY reason is the rollback schema
+
+`ambition_cutscene` is named in `rollback/domains/cutscene.rs` and nowhere else
+in the runtime. `ambition_items` is named in `rollback/domains/items.rs` and
+nowhere else. The registrations are the whole edge.
+
+⚠ **`central-rollback-does-not-enumerate-domains` is GREEN over this**, and
+correctly so by its own terms — it reads exactly one file,
+`rollback/src/rollback/mod.rs`, and Campaign 2 deliberately moved the
+registrations to `rollback/domains/*.rs`. The contract guards against the
+central FUNCTION regrowing. Nothing guards the consumer-visible consequence,
+which is that the runtime still names every gameplay domain one directory down.
+
+### What this changes about the campaign
+
+- **The compile-unit trigger stands.** 112k lines in one recompilation unit with
+  incremental compilation off is reason enough, and every carve here still pays
+  that.
+- **The dependency-leak trigger points at the wrong crate.** A movement-only
+  game's fifteen unwanted crates are mostly the RUNTIME's, and the largest single
+  mechanism is the central rollback schema enumerating every domain.
+- **`ambition_platformer2d_ldtk` is the ONE capability a monolith carve can shed
+  on its own** — one root module (`world`), one file naming it, no other
+  dependent. If a slice wants a footprint win from this plan as written, that is
+  the only one available.
+- **Everything else needs the same maintainer answer** filed for dialogue in
+  `awaiting-maintainer-decision.md`: may a game compose the engine without a
+  capability? Only optional dependencies move this number, and they would have to
+  be optional in the runtime as much as in the monolith.
+
+⚠ **the baseline's own split is stale**:
+`slice-evidence/capability-footprint-baseline.json` lists all fifteen under
+`reachable_via_ambition_platformer2d_actor_monolith_alone`. Only one is. Left
+unchanged here because the ratchet's live invariant (the SET may not grow) is
+still enforced correctly and rewriting the annotation is a separate, careful
+edit — but do not reason from that field.
+
 ## Candidate extraction waves
 
 These are **priority hypotheses**, not a promise to create one crate per row.

@@ -83,14 +83,40 @@ def _catalog_sheet_stems() -> dict[str, set[str]]:
     return stems
 
 
+MAIN_CONFIGS = (
+    REPO / "tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs"
+)
+
+
 def _published_by_regen() -> str:
-    """`regen_sprites.sh` with comments stripped.
+    """`regen_sprites.sh` with comments stripped, plus what `draw-all` covers.
 
     ⚠ comments matter: the first run of this census counted a stem mentioned
     only in a comment as covered, and reported `player_robot_v3` as fine when
     nothing publishes it.
+
+    ⚠ **two surfaces publish by DIRECTORY, not by name.** `draw-all` renders
+    every `configs/*.yaml` unconditionally, so those targets are covered without
+    the script ever spelling them. They used to be spelled anyway, incidentally,
+    by the hand-written `expected_files` list — and when that list was replaced
+    by one derived from the roster, four of them (`dividing_mite`,
+    `exploding_mite`, and the two ninjas) read as orphans here despite nothing
+    about their coverage changing. Mentions are evidence of coverage; the
+    surface is the coverage.
     """
-    return "\n".join(line.split("#")[0] for line in REGEN.read_text(encoding="utf8").splitlines())
+    script = "\n".join(
+        line.split("#")[0] for line in REGEN.read_text(encoding="utf8").splitlines()
+    )
+    covered = []
+    for path in sorted(MAIN_CONFIGS.glob("*.yaml")):
+        covered.append(path.stem)
+        # `output_name` renames the target (ninja.yaml -> ninja_shadow_duelist).
+        override = re.search(
+            r"^output_name:\s*([a-z_0-9]+)", path.read_text(encoding="utf8"), re.M
+        )
+        if override:
+            covered.append(override.group(1))
+    return script + "\n" + "\n".join(covered)
 
 
 def _names(stem: str, script: str) -> bool:
@@ -124,8 +150,9 @@ def test_every_catalog_character_names_a_sheet_regen_publishes():
         + "\n".join(f"  {stem:32s} used by {', '.join(ids)}" for stem, ids in orphans.items())
         + "\n\nGenerated art is gitignored, so these exist only on machines that "
         "once rendered them and are ABSENT from a fresh clone. Add the target to "
-        "`tackon_targets` (and its products to `expected_files`), or stop naming "
-        "the sheet. `sprite2d_renderer list` says whether a target is registered."
+        "`tackon_targets` in the script's publish roster (its expected files are "
+        "derived from that roster), or stop naming the sheet. "
+        "`sprite2d_renderer list` says whether a target is registered."
     )
 
 

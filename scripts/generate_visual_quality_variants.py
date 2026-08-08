@@ -24,11 +24,35 @@ floors every frame at ``POTATO_MIN_FRAME_PX`` so atlases stay loadable, and it
 uses nearest-neighbour reduction for deliberate crunchy pixels. The effective
 factor is per-sheet and is *baked into the variant RON*, so the runtime never
 needs to know it — it just reads the smaller rects.
+
+Work selection
+--------------
+The unit of work is one SHEET (one character/prop), and the tiers are the INNER
+loop. That ordering is what makes less-than-everything expressible: a sheet owns
+its own destination files rather than a tier owning a directory it just deleted,
+so a sheet can be skipped when it is already current, rebuilt on its own, or
+(one day) built in parallel with its neighbours. It also parses each sheet's RON
+and decodes its page PNGs once for all three tiers instead of three times.
+
+    --target NAME       only sheets / loose PNGs matching NAME (fnmatch,
+                        repeatable) — e.g. ``--target patent_clerk``,
+                        ``--target 'pirate_*'``
+    --tier 0_5x         only that quality tier (repeatable)
+    --force             rebuild even when the outputs are newer than the source
+    --clean             delete each selected tier root first (whole-tier only)
+
+Without ``--force`` a sheet is rebuilt only when its authored RON, one of its
+page PNGs, or this script is newer than the variant it already published. An
+unfiltered run also prunes variant files whose source no longer exists, so
+dropping the tier-wide ``rmtree`` did not trade freshness for orphans.
 """
 
 from __future__ import annotations
 
 import argparse
+import fnmatch
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 import shutil
@@ -63,6 +87,89 @@ VARIANTS: tuple[Variant, ...] = (
     Variant("0_25x", 0.25, 1),
     Variant("potato", 1.0 / 16.0, POTATO_MIN_FRAME_PX),
 )
+
+# Editing this file changes every variant's pixels, so its own mtime is part of
+# every freshness comparison. Nothing else in the repo is: a target's generator
+# code reaches the tiers only through the published sheet, which regen_sprites
+# rewrites when that code changes.
+_SCRIPT_MTIME = Path(__file__).resolve().stat().st_mtime
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Phase timing
+#
+# A counter, not a profiler. The question a slow run raises here is "which
+# PHASE, and which CHARACTER, cost the minutes" — `cProfile` answers a
+# different one (which call), at a multiple of the runtime, and its call graph
+# is dominated by PIL internals shared by all three phases anyway.
+# ──────────────────────────────────────────────────────────────────────────
+
+
+class PhaseClock:
+    """Wall-clock seconds and call counts per named phase, plus per-unit totals."""
+
+    def __init__(self) -> None:
+        self.seconds: dict[str, float] = {}
+        self.calls: dict[str, int] = {}
+        self.units: dict[str, float] = {}
+        self.unit_phase: dict[str, str] = {}
+
+    @contextmanager
+    def phase(self, name: str, unit: str | None = None):
+        started = time.perf_counter()
+        try:
+            yield
+        finally:
+            elapsed = time.perf_counter() - started
+            self.seconds[name] = self.seconds.get(name, 0.0) + elapsed
+            self.calls[name] = self.calls.get(name, 0) + 1
+            if unit is not None:
+                self.units[unit] = self.units.get(unit, 0.0) + elapsed
+                self.unit_phase[unit] = name
+
+    def report(self, *, top: int = 10) -> None:
+        if not self.seconds:
+            return
+        total = sum(self.seconds.values())
+        print(f"\n==> phase cost ({total:.1f}s attributed)")
+        for name, seconds in sorted(
+            self.seconds.items(), key=lambda kv: kv[1], reverse=True
+        ):
+            share = 100.0 * seconds / total if total else 0.0
+            print(
+                f"    {seconds:8.1f}s  {share:5.1f}%  {name}"
+                f"  ({self.calls[name]} calls)"
+            )
+        if not self.units:
+            return
+        ranked = sorted(self.units.items(), key=lambda kv: kv[1], reverse=True)[:top]
+        print(f"==> slowest {len(ranked)} units (all selected tiers summed)")
+        for unit, seconds in ranked:
+            print(f"    {seconds:8.1f}s  {unit}  [{self.unit_phase[unit]}]")
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Selection
+# ──────────────────────────────────────────────────────────────────────────
+
+
+def selects(name: str, selectors: tuple[str, ...]) -> bool:
+    """True when no selector was given, or one matches `name` (fnmatch)."""
+    if not selectors:
+        return True
+    return any(fnmatch.fnmatch(name, pattern) for pattern in selectors)
+
+
+def resolve_tiers(names: tuple[str, ...]) -> tuple[Variant, ...]:
+    if not names:
+        return VARIANTS
+    by_suffix = {variant.suffix: variant for variant in VARIANTS}
+    unknown = [name for name in names if name not in by_suffix]
+    if unknown:
+        raise SystemExit(
+            f"unknown tier(s) {unknown}; choose from {sorted(by_suffix)}"
+        )
+    return tuple(by_suffix[name] for name in dict.fromkeys(names))
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -745,34 +852,81 @@ def _logical_frame_from_crop(
     return logical
 
 
-def process_sheet(ron_src: Path, ron_dst: Path, variant: Variant) -> int:
+class SheetSource:
+    """One authored spritesheet, parsed ONCE and shared by every tier.
+
+    This object is the reason the loop is per-sheet outer / tier inner. With
+    the tier outer the same RON was parsed three times and the same page PNGs
+    decoded three times, and the tier owned a destination directory it had
+    just deleted — so no sheet could be skipped, rebuilt alone, or built
+    beside its neighbours.
+    """
+
+    __slots__ = ("ron", "records", "_pages", "_page_names")
+
+    def __init__(self, ron: Path, records: List_) -> None:
+        self.ron = ron
+        self.records = records
+        self._pages: dict[int, Image.Image] | None = None
+        self._page_names: list[str] = []
+
+    @classmethod
+    def load(cls, ron: Path) -> "SheetSource":
+        records = RonParser(ron.read_text()).parse()
+        if not isinstance(records, List_):
+            # Single-record top-level struct is unusual here, but support it.
+            records = List_([records])
+        return cls(ron, records)
+
+    def _decode(self) -> None:
+        pages: dict[int, Image.Image] = {}
+        names: list[str] = []
+        for record in self.records.items:
+            if not isinstance(record, Struct):
+                continue
+            for page_index, fname in enumerate(page_filenames(record)):
+                if page_index in pages:
+                    continue
+                png_src = self.ron.parent / fname
+                if png_src.exists():
+                    pages[page_index] = Image.open(png_src).convert("RGBA")
+                    names.append(fname)
+        self._pages = pages
+        self._page_names = names
+
+    @property
+    def pages(self) -> dict[int, Image.Image]:
+        if self._pages is None:
+            self._decode()
+        assert self._pages is not None
+        return self._pages
+
+    @property
+    def page_names(self) -> list[str]:
+        if self._pages is None:
+            self._decode()
+        return self._page_names
+
+    def close(self) -> None:
+        for image in (self._pages or {}).values():
+            image.close()
+        self._pages = None
+
+
+def build_sheet_variant(source: SheetSource, ron_dst: Path, variant: Variant) -> int:
     """Publish one quality-tier `*_spritesheet.ron` + freshly packed page PNGs.
 
     Actor/character quality variants are generated from isolated source frames,
     never by resizing the already-packed atlas page.
     """
-    records = RonParser(ron_src.read_text()).parse()
-    if not isinstance(records, List_):
-        # Single-record top-level struct is unusual for these files, but support it.
-        records = List_([records])
+    records = source.records
     scale = effective_scale(records, variant)
     scaled = List_(
         [scale_record(r, scale) if isinstance(r, Struct) else r for r in records.items]
     )
 
-    source_pages: dict[int, Image.Image] = {}
-    source_page_names: list[str] = []
-    for record in records.items:
-        if not isinstance(record, Struct):
-            continue
-        for page_index, fname in enumerate(page_filenames(record)):
-            if page_index in source_pages:
-                continue
-            png_src = ron_src.parent / fname
-            if png_src.exists():
-                source_pages[page_index] = Image.open(png_src).convert("RGBA")
-                source_page_names.append(fname)
-
+    source_pages = source.pages
+    source_page_names = source.page_names
     if not source_pages:
         return 0
 
@@ -836,10 +990,10 @@ def process_sheet(ron_src: Path, ron_dst: Path, variant: Variant) -> int:
     for page, fname in zip(result.pages, page_names):
         page.save(ron_dst.parent / fname)
 
-    for image in source_pages.values():
-        image.close()
-
-    ron_dst.parent.mkdir(parents=True, exist_ok=True)
+    # ⚠ the decoded source pages belong to `source`, which the caller reuses for
+    # the remaining tiers. Closing them here (as this did while the tier was the
+    # outer loop and each sheet was opened afresh) leaves the next tier reading
+    # from a closed image.
     ron_dst.write_text("[\n" + ",\n".join(dump(r) for r in scaled.items) + "\n]\n")
     return len(result.pages)
 
@@ -888,11 +1042,15 @@ def publish_source_quality_target(
             variant.nominal_scale / source_scale,
             variant.min_frame_px,
         )
-        return process_sheet(
-            ron_src,
-            dst_root / f"{target.name}_spritesheet.ron",
-            final_variant,
-        )
+        intermediate = SheetSource.load(ron_src)
+        try:
+            return build_sheet_variant(
+                intermediate,
+                dst_root / f"{target.name}_spritesheet.ron",
+                final_variant,
+            )
+        finally:
+            intermediate.close()
     copied = target.install(out_dir, dst_root)
     return sum(
         1 for path in copied if path.suffix == ".png" and "_canonical" not in path.name
@@ -909,11 +1067,24 @@ def effective_source_quality_scale(variant: Variant) -> float:
     return variant.nominal_scale
 
 
-def assert_one_manifest_per_page(src: Path) -> None:
+def sheet_page_claims(src: Path) -> dict[Path, list[Path]]:
+    """Every authored manifest under `src`, mapped to the page PNGs it names.
+
+    Parsed once and threaded through the run: the duplicate-page guard, the
+    freshness stamps, and the loose-PNG exclusion set all ask this same
+    question, and each used to re-parse all 190 manifests to answer it.
+    """
+    return {
+        ron: [ron.parent / fname for fname in page_filenames_safe(ron)]
+        for ron in sorted(src.rglob("*_spritesheet.ron"))
+    }
+
+
+def assert_one_manifest_per_page(claims: dict[Path, list[Path]], src: Path) -> None:
     """Refuse to publish while two manifests name the same page PNG.
 
-    ⛔ this is silent corruption, not a tidiness rule. `process_sheet` writes
-    its freshly packed page to the filename the RON's `image` field names, so
+    ⛔ this is silent corruption, not a tidiness rule. `build_sheet_variant`
+    writes its freshly packed page to the filename the RON's `image` field names, so
     two `*_spritesheet.ron` claiming one PNG means whichever sorts LAST
     overwrites the other's page — while the loser's rects stay in its own RON,
     describing a packing that no longer exists. Nothing fails: both RONs parse,
@@ -927,11 +1098,11 @@ def assert_one_manifest_per_page(src: Path) -> None:
     ⚠ counts distinct FILES, not records: one multi-record manifest sharing a
     page across its own records (the lab props) is the legitimate case.
     """
-    claims: dict[Path, set[Path]] = {}
-    for ron in sorted(src.rglob("*_spritesheet.ron")):
-        for fname in page_filenames_safe(ron):
-            claims.setdefault((ron.parent / fname).resolve(), set()).add(ron)
-    contested = {png: rons for png, rons in claims.items() if len(rons) > 1}
+    claimants: dict[Path, set[Path]] = {}
+    for ron, pages in claims.items():
+        for page in pages:
+            claimants.setdefault(page.resolve(), set()).add(ron)
+    contested = {png: rons for png, rons in claimants.items() if len(rons) > 1}
     if not contested:
         return
     lines = ["a page PNG is claimed by more than one spritesheet manifest:"]
@@ -947,58 +1118,259 @@ def assert_one_manifest_per_page(src: Path) -> None:
     raise SystemExit("\n".join(lines))
 
 
-def generate_sprite_variants(asset_root: Path) -> None:
+@dataclass(frozen=True)
+class SheetUnit:
+    """One sheet's worth of work, across every selected tier."""
+
+    stem: str
+    ron: Path
+    rel: Path
+    pages: tuple[Path, ...]
+    target: Target | None  # not None => render this tier from source art
+
+
+def _mtime(path: Path) -> float | None:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return None
+
+
+def _input_stamp(inputs: tuple[Path, ...]) -> float:
+    """Newest mtime among a unit's inputs (this script always counts)."""
+    stamps = [_SCRIPT_MTIME]
+    stamps.extend(m for m in (_mtime(path) for path in inputs) if m is not None)
+    return max(stamps)
+
+
+def _published_and_current(ron_dst: Path, stamp: float) -> bool:
+    """True when this tier's RON and every page it names post-date `stamp`."""
+    published = _mtime(ron_dst)
+    if published is None or published < stamp:
+        return False
+    names = page_filenames_safe(ron_dst)
+    if not names:
+        return False
+    for name in names:
+        page = _mtime(ron_dst.parent / name)
+        if page is None or page < stamp:
+            return False
+    return True
+
+
+def _source_counterpart(rel: Path) -> Path:
+    """The authored file a variant file mirrors.
+
+    Almost always the same relative path; a multi-page atlas publishes
+    `<stem>.<n>.<ext>` siblings of `<stem>.<ext>`, and those trace back to the
+    same authored sheet.
+    """
+    parts = rel.name.split(".")
+    if len(parts) >= 3 and parts[-2].isdigit():
+        return rel.with_name(".".join(parts[:-2] + parts[-1:]))
+    return rel
+
+
+def prune_orphans(src: Path, dst: Path) -> int:
+    """Delete variant files whose authored counterpart is gone.
+
+    This is what the tier-wide `rmtree` used to accomplish incidentally, at the
+    cost of making every run a full rebuild. Deleting a character now removes
+    its three variants on the next unfiltered run, and nothing else moves.
+    """
+    if not dst.exists():
+        return 0
+    removed = 0
+    for path in sorted(dst.rglob("*")):
+        if not path.is_file():
+            continue
+        if (src / _source_counterpart(path.relative_to(dst))).exists():
+            continue
+        path.unlink()
+        removed += 1
+    return removed
+
+
+def verify_published_sheets(
+    asset_root: Path,
+    units: list["SheetUnit"],
+    tiers: tuple[Variant, ...],
+) -> None:
+    """Postcondition, DERIVED from the plan this run just executed.
+
+    ⛔ the shape matters more than the check. Both this script's wrapper and
+    `regen_sprites.sh` used to assert a hand-written list of filenames; both
+    lists drifted off the target list (`player_robot_spritesheet.*` has had no
+    producer for months, and the wrapper spent weeks asserting the same dead
+    stem), and a list that names a file nothing publishes can only ever fail —
+    aborting real work over an entry nobody maintains. A postcondition
+    generated from the units actually planned cannot drift, because there is
+    no second list to drift from.
+    """
+    missing: list[Path] = []
+    for unit in units:
+        for variant in tiers:
+            ron_dst = asset_root / f"sprites_{variant.suffix}" / unit.rel
+            if not ron_dst.is_file():
+                missing.append(ron_dst)
+                continue
+            names = page_filenames_safe(ron_dst)
+            if not names:
+                missing.append(ron_dst)
+                continue
+            missing.extend(
+                ron_dst.parent / name
+                for name in names
+                if not (ron_dst.parent / name).is_file()
+            )
+    if not missing:
+        return
+    lines = [f"{len(missing)} planned quality-variant file(s) were not published:"]
+    lines.extend(f"    {path}" for path in missing[:20])
+    if len(missing) > 20:
+        lines.append(f"    … and {len(missing) - 20} more")
+    raise SystemExit("\n".join(lines))
+
+
+def generate_sprite_variants(
+    asset_root: Path,
+    *,
+    tiers: tuple[Variant, ...] = VARIANTS,
+    selectors: tuple[str, ...] = (),
+    force: bool = False,
+    clean: bool = False,
+    clock: PhaseClock | None = None,
+) -> None:
+    """Publish each selected sheet into each selected tier.
+
+    ⛔ the loop is per-sheet OUTER, tier INNER, and that is not a preference:
+    the tier-outer form owned a destination directory it had just deleted, so
+    "rebuild just the patent clerk" could not be expressed at all. Ultrapack's
+    loop stays tier-outer for the opposite reason — its pages are shared across
+    characters, so no page can be finalized until every character is known.
+    """
+    clock = clock or PhaseClock()
     src = asset_root / "sprites"
     if not src.exists():
         print(f"skip missing sprite root: {src}")
         return
-    assert_one_manifest_per_page(src)
-    source_targets = source_publishable_targets()
-    for variant in VARIANTS:
-        dst = asset_root / f"sprites_{variant.suffix}"
-        if dst.exists():
-            shutil.rmtree(dst)
-        sheet_pngs: set[Path] = set()
-        sheets = 0
-        source_sheets = 0
-        fallback_sheets = 0
-        for ron in sorted(src.rglob("*_spritesheet.ron")):
-            rel = ron.relative_to(src)
-            stem = ron.name.removesuffix("_spritesheet.ron")
-            target = source_targets.get(stem)
-            if target is not None and ron.parent == src:
-                publish_source_quality_target(target, variant, dst)
-                source_sheets += 1
-            else:
-                process_sheet(ron, dst / rel, variant)
-                fallback_sheets += 1
-            sheets += 1
-            for fname in page_filenames_safe(ron):
-                sheet_pngs.add((ron.parent / fname).resolve())
-        # Standalone PNGs (entities/, loose) not owned by a sheet.
-        loose = 0
-        for png in sorted(src.rglob("*.png")):
-            if png.resolve() in sheet_pngs:
+
+    with clock.phase("manifest scan"):
+        claims = sheet_page_claims(src)
+        assert_one_manifest_per_page(claims, src)
+        source_targets = source_publishable_targets()
+
+    units: list[SheetUnit] = []
+    for ron, pages in claims.items():
+        stem = ron.name.removesuffix("_spritesheet.ron")
+        if not selects(stem, selectors):
+            continue
+        target = source_targets.get(stem)
+        units.append(
+            SheetUnit(
+                stem=stem,
+                ron=ron,
+                rel=ron.relative_to(src),
+                pages=tuple(pages),
+                target=target if (target is not None and ron.parent == src) else None,
+            )
+        )
+
+    sheet_pngs = {page.resolve() for pages in claims.values() for page in pages}
+    loose_srcs: list[Path] = []
+    for png in sorted(src.rglob("*.png")):
+        rel = png.relative_to(src)
+        if png.resolve() in sheet_pngs or is_diagnostic_png(rel):
+            continue  # a sheet page, or a human-only diagnostic that never ships
+        if selects(rel.with_suffix("").as_posix(), selectors) or selects(
+            png.stem, selectors
+        ):
+            loose_srcs.append(png)
+
+    if selectors and not units and not loose_srcs:
+        raise SystemExit(
+            f"no sprite sheet or loose PNG under {src} matched {list(selectors)}"
+        )
+
+    if clean:
+        for variant in tiers:
+            tier_root = asset_root / f"sprites_{variant.suffix}"
+            if tier_root.exists():
+                shutil.rmtree(tier_root)
+
+    built = {variant.suffix: 0 for variant in tiers}
+    skipped = {variant.suffix: 0 for variant in tiers}
+
+    for unit in units:
+        source: SheetSource | None = None
+        stamp = _input_stamp((unit.ron,) + unit.pages)
+        try:
+            for variant in tiers:
+                dst_root = asset_root / f"sprites_{variant.suffix}"
+                ron_dst = dst_root / unit.rel
+                if not force and _published_and_current(ron_dst, stamp):
+                    skipped[variant.suffix] += 1
+                    continue
+                # ⚠ the phases are DISJOINT — nesting the parse inside the build
+                # would bill its seconds to both, and a phase table that sums to
+                # more than the run is a table nobody can reason from.
+                if unit.target is not None:
+                    with clock.phase("source-render", unit=unit.stem):
+                        publish_source_quality_target(unit.target, variant, dst_root)
+                else:
+                    if source is None:
+                        with clock.phase("sheet parse + decode", unit=unit.stem):
+                            source = SheetSource.load(unit.ron)
+                            source.pages  # decode here so this phase owns the cost
+                    with clock.phase("frame-local fallback", unit=unit.stem):
+                        build_sheet_variant(source, ron_dst, variant)
+                built[variant.suffix] += 1
+        finally:
+            if source is not None:
+                source.close()
+
+    loose_built = {variant.suffix: 0 for variant in tiers}
+    for png in loose_srcs:
+        rel = png.relative_to(src)
+        stamp = _input_stamp((png,))
+        for variant in tiers:
+            dst = asset_root / f"sprites_{variant.suffix}" / rel
+            dst_mtime = _mtime(dst)
+            if not force and dst_mtime is not None and dst_mtime >= stamp:
                 continue
-            if is_diagnostic_png(png.relative_to(src)):
-                continue  # human-only diagnostic: never ships in a variant root
             # Loose props/icons still load as standalone images. A future prop
             # atlas should be added at this seam and reuse the renderer packer,
             # but character-sheet variants above must remain pre-pack frame
             # generation, not post-pack atlas resizing.
-            resize_png(
-                png,
-                dst / png.relative_to(src),
-                variant.nominal_scale,
-                min_px=variant.min_frame_px,
-                resampling=resampling_for_variant(variant),
-            )
-            loose += 1
+            with clock.phase("loose png", unit=rel.as_posix()):
+                resize_png(
+                    png,
+                    dst,
+                    variant.nominal_scale,
+                    min_px=variant.min_frame_px,
+                    resampling=resampling_for_variant(variant),
+                )
+            loose_built[variant.suffix] += 1
+
+    pruned = {variant.suffix: 0 for variant in tiers}
+    if not selectors:
+        with clock.phase("prune orphans"):
+            for variant in tiers:
+                pruned[variant.suffix] = prune_orphans(
+                    src, asset_root / f"sprites_{variant.suffix}"
+                )
+
+    for variant in tiers:
+        dst = asset_root / f"sprites_{variant.suffix}"
+        orphans = f", {pruned[variant.suffix]} orphan(s) pruned" if pruned[variant.suffix] else ""
         print(
-            f"sprites {variant.suffix}: {sheets} sheets "
-            f"({source_sheets} source-rendered, {fallback_sheets} frame-local fallback), "
-            f"{loose} loose png (scale~{variant.nominal_scale}) -> {dst}"
+            f"sprites {variant.suffix}: {built[variant.suffix]} sheet(s) built, "
+            f"{skipped[variant.suffix]} already current; "
+            f"{loose_built[variant.suffix]}/{len(loose_srcs)} loose png "
+            f"(scale~{variant.nominal_scale}){orphans} -> {dst}"
         )
+
+    verify_published_sheets(asset_root, units, tiers)
 
 
 def page_filenames_safe(ron: Path) -> list[str]:
@@ -1017,32 +1389,79 @@ def page_filenames_safe(ron: Path) -> list[str]:
     return names
 
 
-def generate_parallax_variants(asset_root: Path) -> None:
+def generate_parallax_variants(
+    asset_root: Path,
+    *,
+    tiers: tuple[Variant, ...] = VARIANTS,
+    selectors: tuple[str, ...] = (),
+    force: bool = False,
+    clean: bool = False,
+    clock: PhaseClock | None = None,
+) -> None:
+    """Parallax layers are standalone images, so these ARE whole-image resizes.
+
+    (The no-resizing-a-packed-page rule is about atlases; nothing here is
+    packed.) Same per-image outer / tier inner shape as the sheets, for the
+    same reason: one image's three tiers are its own business.
+    """
+    clock = clock or PhaseClock()
     src = asset_root / "backgrounds" / "parallax_layers"
     if not src.exists():
         print(f"skip missing parallax root: {src}")
         return
-    for variant in VARIANTS:
-        dst = asset_root / "backgrounds" / f"parallax_layers_{variant.suffix}"
-        if dst.exists():
-            shutil.rmtree(dst)
-        pngs = 0
-        for png in sorted(src.rglob("*.png")):
-            resize_png(
-                png,
-                dst / png.relative_to(src),
-                variant.nominal_scale,
-                min_px=variant.min_frame_px,
-                resampling=resampling_for_variant(variant),
-            )
-            pngs += 1
+
+    if clean:
+        for variant in tiers:
+            tier_root = asset_root / "backgrounds" / f"parallax_layers_{variant.suffix}"
+            if tier_root.exists():
+                shutil.rmtree(tier_root)
+
+    layers = [
+        png
+        for png in sorted(src.rglob("*.png"))
+        if selects(png.relative_to(src).with_suffix("").as_posix(), selectors)
+        or selects(png.stem, selectors)
+    ]
+    built = {variant.suffix: 0 for variant in tiers}
+    missing: list[Path] = []
+    for png in layers:
+        rel = png.relative_to(src)
+        stamp = _input_stamp((png,))
+        for variant in tiers:
+            dst = asset_root / "backgrounds" / f"parallax_layers_{variant.suffix}" / rel
+            dst_mtime = _mtime(dst)
+            if force or dst_mtime is None or dst_mtime < stamp:
+                with clock.phase("parallax png", unit=rel.as_posix()):
+                    resize_png(
+                        png,
+                        dst,
+                        variant.nominal_scale,
+                        min_px=variant.min_frame_px,
+                        resampling=resampling_for_variant(variant),
+                    )
+                built[variant.suffix] += 1
+            if not dst.is_file():
+                missing.append(dst)
+
+    for variant in tiers:
+        dst_root = asset_root / "backgrounds" / f"parallax_layers_{variant.suffix}"
         print(
-            f"parallax {variant.suffix}: {pngs} png (scale {variant.nominal_scale}) -> {dst}"
+            f"parallax {variant.suffix}: {built[variant.suffix]} built, "
+            f"{len(layers) - built[variant.suffix]} already current "
+            f"(scale {variant.nominal_scale}) -> {dst_root}"
+        )
+    if missing:
+        raise SystemExit(
+            f"{len(missing)} planned parallax variant file(s) were not published:\n"
+            + "\n".join(f"    {path}" for path in missing[:20])
         )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--asset-root",
         type=Path,
@@ -1051,13 +1470,82 @@ def main() -> None:
     )
     parser.add_argument("--sprites-only", action="store_true")
     parser.add_argument("--backgrounds-only", action="store_true")
+    parser.add_argument(
+        "--tier",
+        action="append",
+        default=[],
+        metavar="SUFFIX",
+        help=(
+            "only this quality tier (repeatable): "
+            + ", ".join(variant.suffix for variant in VARIANTS)
+        ),
+    )
+    parser.add_argument(
+        "--target",
+        action="append",
+        default=[],
+        metavar="PATTERN",
+        help=(
+            "only sheets / loose images whose stem matches PATTERN "
+            "(fnmatch, repeatable), e.g. patent_clerk or 'pirate_*'"
+        ),
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="rebuild even when the published variant is newer than its source",
+    )
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help="delete each selected tier root first (whole tiers only)",
+    )
     args = parser.parse_args()
 
+    if args.sprites_only and args.backgrounds_only:
+        raise SystemExit("--sprites-only and --backgrounds-only are exclusive")
+    if args.clean and args.target:
+        raise SystemExit(
+            "--clean empties a whole tier, so it cannot be combined with "
+            "--target; use --target with --force to rebuild a selection."
+        )
+
+    tiers = resolve_tiers(tuple(args.tier))
+    selectors = tuple(args.target)
     asset_root = args.asset_root.resolve()
+    clock = PhaseClock()
+    started = time.perf_counter()
+
     if not args.backgrounds_only:
-        generate_sprite_variants(asset_root)
+        generate_sprite_variants(
+            asset_root,
+            tiers=tiers,
+            selectors=selectors,
+            force=args.force,
+            clean=args.clean,
+            clock=clock,
+        )
     if not args.sprites_only:
-        generate_parallax_variants(asset_root)
+        generate_parallax_variants(
+            asset_root,
+            tiers=tiers,
+            selectors=selectors,
+            force=args.force,
+            clean=args.clean,
+            clock=clock,
+        )
+
+    clock.report()
+    print(f"\n==> quality variants finished in {time.perf_counter() - started:.1f}s")
+    for variant in tiers:
+        if not args.backgrounds_only:
+            print(f"    file://{asset_root}/sprites_{variant.suffix}")
+        if not args.sprites_only:
+            print(
+                "    file://"
+                f"{asset_root}/backgrounds/parallax_layers_{variant.suffix}"
+            )
+    print(f"    file://{asset_root}")
 
 
 if __name__ == "__main__":

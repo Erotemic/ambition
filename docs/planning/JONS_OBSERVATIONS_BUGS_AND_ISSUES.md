@@ -52,6 +52,26 @@
   ⭐ that failure is now VISIBLE: `patent_clerk` was in the render batch and
   missing from the postcondition list, so a run that failed to draw him still
   reported every expected output present.
+  ✔ **FIXED 2026-08-08** (submodule `6203ae9`). It was a binding-spec defect, not
+  an art fact: `path1115` is a single path labelled "Neck" drawing only the neck.
+  It gained a second owner because `part-neck` was authored **inside**
+  `part-torso`, and `_descendant_ids` collects with `elem.iter()`, which recurses
+  into nested part groups. Across your seven rigged SVGs — 170 part groups — this
+  was the only nested one, and Carl Stargan has the identical neck/torso split as
+  siblings.
+  ⚠ **so `9521978` "new higher quality rigs" is what introduced it**: that commit
+  added the one-to-one check and migrated `carl-stargan.svg` to satisfy it,
+  without migrating `patent-clerk.svg`. This was the unfinished half of its own
+  migration rather than an older latent bug. A second failure was queued behind
+  it — `data-rig-z` still carried the pre-migration `5..20` numbering, so fixing
+  only the nesting would have failed the next check.
+  ⭐ **and the duplicate was not cosmetic.** Rasterising the torso with and
+  without `path1115` shows the shipped sprite carried a stray skin-coloured neck
+  slab at torso depth, **covering the top of the far arm's sleeve and cuff** —
+  visible in the portraits as a sleeve ending in a blob. The regenerated art
+  differs from the 13:58 render in exactly that.
+  Carl re-renders byte-identical, the regen is idempotent, and all three `.ron`
+  outputs are unchanged, so nothing on the Rust side sees a contract change.
   ⭐ **the five others in this gap are down to one, and it is a ruling of yours**:
   busy beaver, charley beagle, niels boar and vera ruin were cast on 2026-08-05,
   and `npc_pirate_heavy` is a family rather than a character by your own answer.

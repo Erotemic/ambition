@@ -609,6 +609,62 @@ Deep-review §5; BIFURCATION entries in code_smells.md 2026-07-19:
   ("never a host crate"). Fixed with the crate's OWN host-seam idiom instead
   (the same shape as `PortalCameraContinuityHostView`).
 
+- ~~name the strike victim (`StrikeVictim` query data)~~ **DONE 2026-08-08** —
+  the first slice promoted out of
+  [`triage/bevy-system-parameter-architecture.md`](triage/bevy-system-parameter-architecture.md)
+  (recommendation 1, Case A's own named candidate "damage victims"), and the
+  direct continuation of the projectile victim-loop unification above.
+  **Systems:** `ambition_combat::hitbox::apply_hitbox_damage` (melee) and
+  `ambition_platformer2d_actor_monolith::projectile::systems::step_projectiles`
+  (one of the 12 systems at Bevy's 16-param ceiling, and one carrying an explicit
+  tuple-slot workaround) now iterate ONE named role,
+  `ambition_combat::hitbox::StrikeVictim`, instead of two positional tuples.
+  **Deleted:** the 10-member and 7-member victim tuples; the nested
+  `Option<(BodyOffense, BodyMotionFacts, BodyShieldState, BodyCombat)>` arity
+  workaround; **both** `victim_frames: Query<&ResolvedMotionFrame>` lookup params —
+  a per-victim component that had been reached by a second query in each system
+  through byte-identical `.map(|f| f.basis()).unwrap_or(default)` ladders, now
+  `StrikeVictimItem::knockback_side` once. `apply_hitbox_damage` 11 → 10 params;
+  `step_projectiles` 19 → 18 real params (its packed tuple 4 → 3 members, still
+  packed — the ceiling is not the point, see below).
+  **Invariants:** the victim SET of each system is unchanged. Melee's four
+  REQUIRED cluster members were bound to `_vuln` and never read (since §A2 i-frames
+  resolve in `resolve_body_hit`), so they became a `With<..>` filter — `With<T>`
+  and `&T` match identical archetypes, and the narrowing is now visible at the call
+  site instead of buried in whether one tuple wrote `Option<(..)>`. One victim loop
+  per family, one relational rule (`damage_lands*`), `is_player` still picking only
+  payload policy.
+  **Measurements:** all access added by the shared view is READ-ONLY, so no new
+  mutable conflict is possible — melee gains a `BodyPresentationSource` read;
+  projectiles gain `DamageableVolumes`/`BodyHealth`/`CombatTuning`/`MatchTeam` and
+  drop `BodyOffense`/`BodyMotionFacts`/`BodyCombat`; `ResolvedMotionFrame` is net
+  unchanged in both (it moved from a standalone query into the view).
+  B0001 is a RUNTIME panic and no build catches it, so the headless gate is the
+  probe: `app_it` 320 passed / 0 failed / 10 ignored before (199.7 s) and after
+  (211.0 s); `ambition_combat` 142 and the monolith 1213, both 0 failed.
+  **No new test.** The invariant this slice owns is "the victim set did not
+  change", which the existing combat suites already assert behaviourally — and
+  this document's own test strategy rules out the alternative: *"source-text tests
+  that merely count parameters or demand a specific type name are not
+  appropriate."*
+  ⭐ **What it exposed, which is the real yield:** `step_projectiles` never
+  consulted `DamageableVolumes` at all — it tests the coarse `CenteredAabb` while
+  melee and feature hits both ask `strike_reaches_victim`. Its comment nonetheless
+  claimed it shared "the SAME published hurtbox" as melee. **A published silhouette
+  — an authored hurtbox timeline, a boss's active parts, an EMPTY list meaning
+  intangible — decides whether a sword lands on a body and has never decided
+  whether a BOLT does.** The tuple that would have carried it had run out of arity,
+  and `apply_feature_hit_events` documents that exact cause for its own workaround.
+  Left OPEN below, deliberately: closing it is a combat behaviour change (it also
+  retires `strict_intersects`, which rejects edge-touching where the shared rule
+  accepts it) and does not belong riding on a structural commit.
+- ▢ **make a projectile hit the silhouette its victim published**, i.e. swap
+  `step_projectiles`' coarse-box test for `victim.reached_by(..)` — the one-line
+  call the card above put within reach, plus the test that pins it and a
+  re-baseline of whatever projectile-range expectations move. Authored
+  invulnerability windows and boss part-hitboxes currently do not apply to
+  projectiles at all.
+
 **Exit:** no `is_player` branch selects an effect payload anywhere in combat;
 a moveset volume can author its own strike/hit effects and the goblin swipe
 sounds different from the sword.

@@ -13,6 +13,21 @@
 > migration plan. Promote bounded slices into [`../tracks.md`](../tracks.md)
 > only when they can name the systems, invariants, performance measurements, and
 > deletion target owned by that slice.
+>
+> **FIRST SLICE PROMOTED 2026-08-08** — *name the strike victim* is now
+> [`../tracks.md`](../tracks.md) track 8 (combat unification), where it belongs
+> beside the projectile victim-loop unification it continues. It is recommendation
+> 1 (derived `QueryData` for a stable entity view) applied to Case A's own named
+> candidate, "damage victims". Landed, not planned; the card carries its
+> measurements.
+>
+> ⚠ **and it did not come from the priority order below.** Priority 2 nominates
+> `resolve_camera_observation` as the low-risk pilot; the victim view was chosen
+> over it on the *recurring* test — the camera's followed-body view has one call
+> site, while the victim role was spelled three different ways in two crates and
+> had already DRIFTED. Case A's "one place for required versus optional component
+> policy" is worth nothing where there is only one place. **Prefer the recurring
+> view to the convenient one when picking the next slice.**
 
 ## Executive conclusion
 
@@ -33,6 +48,48 @@ The counts are a snapshot, not a policy oracle. They show enough recurring
 pressure to justify a coordinated refactor, but they do **not** imply that every
 long signature should become a custom parameter or that every large system
 should split.
+
+### Re-measured 2026-08-08 — and the population is SMALLER and DIFFERENT
+
+⛔ **Do not re-use the 2026-07-23 numbers above; three of them are wrong in ways
+that change what to do.** Re-counted with comment lines stripped and a
+nesting-aware split on top-level commas (a naive `:` count inside the paren span
+scores `::` paths and turbofish, and once reported 197 parameters for one
+function):
+
+| | 07-23 | 08-08 |
+|---|---:|---:|
+| production fns with ≥13 non-`self` params | 27 | **49** |
+| …of those, real registered Bevy **systems** | — | **29** |
+| …plain **kernels / adapters** | — | **20** |
+| systems at the 16 ceiling | "several" | **12** |
+| derived `SystemParam` | 35 | **40** |
+| derived `QueryData` | 5 | **4** → 5 with this slice |
+| `#[allow(clippy::too_many_arguments)]` | "many" | **124** |
+
+Three corrections, in descending order of how much they matter:
+
+1. ⛔ **systems and kernels were counted together, and only systems are bound by
+   the ceiling.** The discriminator is not the parameter count and not
+   `#[allow(too_many_arguments)]` — it is whether a parameter is a REFERENCE. A
+   Bevy system cannot take `&T`, so `handle_player_damage_events` (28 params) and
+   `integrate_actor_body` (23) are ordinary functions with long argument lists.
+   They are a legibility question, **not a B0001 risk**, and `QueryData` does
+   nothing for them; they want recommendation 3 (ordinary value structs), which is
+   a different card. This is the mixture the last bullet above warned about, and
+   the first re-count made exactly that mistake.
+2. ⚠ **"at or above 16" cannot happen — 12 systems sit at EXACTLY 16.** The
+   ceiling is a hard compiler stop, so the population is not a tail to be ranked
+   by severity. Every one of the twelve is equally wedged, and the next dependency
+   any of them acquires is a build failure. Ranking them by "worst" is meaningless;
+   pick by which one owns a nameable concept.
+3. ⚠ **`QueryData` was 4, not 5** — so the recommended tool was even less used
+   than the doc claimed, while `SystemParam` grew 35 → 40 over the same fortnight.
+   The workaround outgrew the remedy 5-to-0.
+
+⭐ **`PlatformerPreparation` is STALE in the good direction**: flagged here as
+"itself at the 16-field ceiling", it now carries **9** fields. Pilot B is
+substantially less urgent than this document says.
 
 The enduring direction is:
 
@@ -551,16 +608,54 @@ The initiative is complete when:
 Promote this work as several bounded cards rather than one workspace-wide
 refactor:
 
-1. camera observation + preparation-boundary pilots;
-2. unified projectile step;
-3. shared damage consumers;
+1. ~~camera observation + preparation-boundary pilots~~ — **superseded as the
+   first card**, see below. Pilot B is also largely moot (`PlatformerPreparation`
+   is at 9 fields, not 16);
+2. ~~unified projectile step~~ / 3. ~~shared damage consumers~~ — **PROMOTED
+   2026-08-08 as one card**, `tracks.md` track 8: *name the strike victim*. The
+   two were never separable: `step_projectiles` and `apply_hitbox_damage` were
+   iterating the SAME entity role, which is why splitting them into two cards left
+   both unstarted for two weeks;
 4. unified body and encounter adapters;
 5. room-transaction parameter deletion;
 6. presentation/UI/debug cleanup.
 
-The first card should establish conventions and measurement. The projectile card
-is the first high-value gameplay proof. The room-lifecycle card must remain
-coordinated with the existing transactional-construction campaign.
+The room-lifecycle card must remain coordinated with the existing
+transactional-construction campaign.
+
+### What the first landed slice changed about this plan
+
+⭐ **Pick the RECURRING view, not the low-risk one.** This document nominated
+`resolve_camera_observation` to go first because it is safe — it already delegates
+to a pure resolver, so the pilot could not break simulation. That safety is also
+why it teaches nothing: its followed-body view has ONE call site, and Case A's
+promised benefits ("one place for required versus optional component policy",
+"reusable read-only and mutable forms") are all benefits of a SECOND call site.
+A view with one consumer is a rename.
+
+The victim role had three consumers, in two crates, and the card paid for itself
+before it compiled: **the three spellings had already drifted, and one of them was
+lying about it.** `step_projectiles` carried a comment claiming it shared "the
+SAME published hurtbox" as melee, and it tested the coarse box — the tuple that
+would have carried `DamageableVolumes` had run out of arity, so the parity existed
+only in prose. `apply_feature_hit_events` says the same thing out loud, in the
+comment explaining why its silhouette rides a SECOND query: *"that tuple is already
+nesting `Option<(..)>` groups to stay inside Bevy's arity ceiling."*
+
+⛔ **so the ceiling's real cost is not the compiler error — it is the component a
+system silently stops consulting.** A tuple that runs out of room does not fail to
+build; it fails to ask a question, and the comment above it keeps claiming the
+question is asked. That is the argument for this whole document, and it is
+stronger than the parameter counts.
+
+⚠ **and it is a strictness question every time.** Unifying two spellings of one
+role immediately surfaced a disagreement the tuples had hidden: melee REQUIRED the
+four-member vulnerability cluster while projectiles made it `Option`, with each
+side's comment asserting the opposite was unsafe. The resolution was that the
+cluster is a FILTER, not data — melee never read it — so it belongs in that
+system's `With<..>` and the victim SET is provably unchanged. **Diff the two sides'
+strictness before merging them; the permissive side is usually absorbing a content
+gap, and the required side is usually a filter wearing a data costume.**
 
 The goal is not to make every signature small. The goal is to make every large
 operation expose the few stable concepts it actually owns.

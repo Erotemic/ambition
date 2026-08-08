@@ -26,7 +26,8 @@
 //! `HitboxAnchor::World` (Task B groundwork) is a fixed
 //! world-space rectangle for hazards / boss specials.
 
-use bevy::prelude::{Commands, Entity, MessageWriter, Query, Res, With};
+use bevy::ecs::query::QueryData;
+use bevy::prelude::{Commands, Entity, Has, MessageWriter, Query, Res, With};
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -105,6 +106,113 @@ pub fn strike_reaches_victim(
     }
 }
 
+/// **The body a strike lands on** — one entity role, named once.
+///
+/// Every damage family asks the same questions of the thing it hit: where is it,
+/// whose side is it on, may it be struck at all, what silhouette does it present,
+/// and which way does *its* frame call "away". Before this type each family spelled
+/// that role as its own positional tuple, and the tuples had already drifted:
+///
+/// * [`apply_hitbox_damage`] (melee) carried the published silhouette inline;
+/// * `apply_feature_hit_events` could not — its tuple was at the ARITY ceiling, so
+///   the silhouette rode a second `Query<&DamageableVolumes>` beside it;
+/// * `step_projectiles` had neither, and its comment nonetheless claimed "the SAME
+///   published hurtbox" as melee. It tests the coarse box. **The prose was the only
+///   place the parity existed.**
+///
+/// That drift is the argument for the type. A role spelled three ways cannot be
+/// diffed; a role spelled once has one answer, and [`Self::reached_by`] is it.
+///
+/// # Required versus optional is deliberate, and it is a FILTER decision
+///
+/// Only `aabb` and `faction` are required — the two facts without which "a strike
+/// hit this" is not a sentence. Everything else is `Option`, because a body that
+/// lacks it has a correct answer rather than a missing one: no `DamageableVolumes`
+/// means fall back to the coarse box, no `BodyHealth` means it cannot be a corpse,
+/// no `BodyShieldState` means it cannot parry.
+///
+/// ⛔ **Do not add a required field to widen a caller's victim set.** Requiring a
+/// component silently DROPS every body without it from the query, which is the
+/// "my hit does nothing" bug. A caller that genuinely wants a narrower set says so
+/// in its own [`With`] filter, where the narrowing is visible at the call site —
+/// that is exactly how melee keeps its combat-body-only victim set below.
+#[derive(QueryData)]
+pub struct StrikeVictim {
+    pub entity: Entity,
+    /// The coarse collision box. The framing fallback when nothing finer is
+    /// published, and the impact/knockback geometry in every case.
+    pub aabb: &'static super::components::CenteredAabb,
+    /// Authored allegiance. Run it through [`StrikeVictimItem::effective_faction`]
+    /// rather than reading it raw — a possessed body fights as its driver's side.
+    pub faction: &'static ActorFaction,
+    pub brain: Option<&'static ambition_characters::brain::Brain>,
+    /// The published silhouette, when this body publishes one. See
+    /// [`strike_reaches_victim`] for why absent and empty mean opposite things.
+    pub volumes: Option<&'static super::components::DamageableVolumes>,
+    pub health: Option<&'static ambition_characters::actor::BodyHealth>,
+    /// Knockback weight (CM1). Absent ⇒ the reference weight `1.0`.
+    pub tuning: Option<&'static super::components::CombatTuning>,
+    /// Outranks faction for "may this land": two humans share a faction, so a
+    /// match could not otherwise let them hit each other.
+    pub team: Option<&'static crate::targeting::MatchTeam>,
+    /// Read for the parry window only. A body without one simply cannot parry.
+    pub shield: Option<&'static ambition_platformer2d_core::BodyShieldState>,
+    /// This body's voice, for the cue its striker emits (the parry clang).
+    pub voice: Option<&'static ambition_sfx::BodyPresentationSource>,
+    /// The victim's own resolved motion frame (ADR 0024).
+    ///
+    /// **A field, not a `Query<&ResolvedMotionFrame>` beside the victim query.**
+    /// Both damage families looked this up by victim entity, through byte-identical
+    /// `.map(|f| f.basis()).unwrap_or(default)` ladders — a per-victim component
+    /// reached by a second lookup only because the victim tuple had run out of
+    /// room. It belongs to the victim, so it rides with the victim, and the ladder
+    /// is [`StrikeVictimItem::knockback_side`] once.
+    pub frame: Option<&'static ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
+    pub is_player: Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+}
+
+impl StrikeVictimItem<'_, '_> {
+    /// Allegiance as this body actually fights: a possessed victim carrying
+    /// `Brain::Player` is a Player-effective body, without its authored faction
+    /// being mutated.
+    pub fn effective_faction(&self) -> ActorFaction {
+        effective_faction(*self.faction, self.brain)
+    }
+
+    /// A dead body is an intangible corpse — the strike passes through it.
+    pub fn is_corpse(&self) -> bool {
+        crate::util::body_is_corpse(self.health)
+    }
+
+    /// Does `world_volume` reach the geometry this body actually published?
+    ///
+    /// The single victim-geometry rule, applied to the victim that owns it.
+    pub fn reached_by(&self, world_volume: &ambition_platformer2d_core::CombatVolume) -> bool {
+        strike_reaches_victim(world_volume, self.volumes, self.aabb)
+    }
+
+    /// The "away" axis in the VICTIM's local frame (§B11).
+    ///
+    /// Not the world axis: under sideways gravity the pair separates along
+    /// world-Y, which is exactly when a screen-X comparison degenerates.
+    pub fn knockback_side(&self) -> ae::Vec2 {
+        self.frame
+            .map(|frame| frame.basis())
+            .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR))
+            .side
+    }
+
+    /// Accumulated damage and weight, the two CM1 knockback-growth inputs.
+    /// Absent components answer with the inert defaults rather than skipping
+    /// the body.
+    pub fn knockback_growth_inputs(&self) -> (i32, f32) {
+        (
+            self.health.map(|h| h.damage_taken()).unwrap_or(0),
+            self.tuning.map(|ct| ct.weight).unwrap_or(1.0),
+        )
+    }
+}
+
 /// Apply each live hitbox's damage to the right faction's targets.
 ///
 /// Enemy / Boss hitboxes hit the player and emit `HitEvent` with a
@@ -123,57 +231,32 @@ pub fn apply_hitbox_damage(
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
     // AE6: resolved match rules, not the world's baseline toggle.
     tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
-    // Non-player actor victims for the actor-vs-actor melee path: an Enemy/Boss
-    // swing damages any DIFFERENT-faction actor it overlaps (e.g. a Boss vs an
-    // Enemy in a duel); same-faction allies are spared unless friendly fire is on.
-    // `Option<&Brain>`: a possessed victim (carrying `Brain::Player`) is a
-    // Player-EFFECTIVE body, so a former ally's Enemy swing lands on it — via
-    // effective allegiance, without its authored faction being mutated.
     // ONE victim query for every body with a published footprint (fable review
-    // 2026-07-02 §A3 — this system used to run separate actor and player
-    // victim loops whose faction rules and hurtboxes had drifted). Every body
-    // carries the three vulnerability clusters now — bosses too, since §A1
-    // slice 3 gave them the inert defaults — so the tuple is no longer `Option`.
-    // Since §A2 they're read only to MUTE feedback (i-frames are consumed by
-    // `resolve_body_hit` on the victim side, never decided here).
-    victims: Query<(
-        Entity,
-        &super::components::CenteredAabb,
-        &ActorFaction,
-        Option<&ambition_characters::brain::Brain>,
+    // 2026-07-02 §A3 — this system used to run separate actor and player victim
+    // loops whose faction rules and hurtboxes had drifted), named as the role it
+    // is: [`StrikeVictim`].
+    //
+    // ⭐ **The vulnerability cluster is a FILTER here, and it is now spelled as
+    // one.** It was four REQUIRED members of the data tuple bound to `_vuln` and
+    // never read — since §A2 i-frames are consumed by `resolve_body_hit` on the
+    // victim side, never decided here. Its remaining job is to say "only real
+    // combat bodies are victims of hostile melee", which is a `With` claim. As
+    // data it read like an input; as a filter it reads like the narrowing it is,
+    // and the victim SET is byte-identical either way (`With<T>` and `&T` match
+    // the same archetypes).
+    //
+    // ⚠ this filter is why melee's victim set is narrower than the projectile
+    // path's, which carries no such `With`. That difference used to be invisible,
+    // buried in whether one tuple wrote `Option<(..)>` and the other did not.
+    victims: Query<
+        StrikeVictim,
         (
-            &ambition_platformer2d_core::BodyOffense,
-            &ambition_platformer2d_core::BodyMotionFacts,
-            &ambition_platformer2d_core::BodyShieldState,
-            &ambition_characters::actor::BodyCombat,
+            With<ambition_platformer2d_core::BodyOffense>,
+            With<ambition_platformer2d_core::BodyMotionFacts>,
+            With<ambition_platformer2d_core::BodyShieldState>,
+            With<ambition_characters::actor::BodyCombat>,
         ),
-        bevy::prelude::Has<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
-        // **The victim's published silhouette.** A body that publishes
-        // `DamageableVolumes` is hit on THOSE volumes — an authored hurtbox
-        // timeline, a boss's active head/hand parts, or its own coarse box when it
-        // authored nothing. This used to read `CenteredAabb` unconditionally, which
-        // meant an authored silhouette changed pogo targeting and the debug overlay
-        // and nothing else: no body in the game was ever hit on the volumes it
-        // published. `Option` only for bare test bodies and un-migrated props;
-        // when the component IS present, an EMPTY volume list means intangible
-        // (mid-move invulnerability, a cleared corpse) and must NOT fall back to
-        // the coarse box.
-        Option<&super::components::DamageableVolumes>,
-        // CM1 knockback scaling: the victim's accumulated-damage meter and its
-        // archetype weight. Both `Option` — the player carries `BodyHealth` but
-        // no `CombatTuning` (weight → reference `1.0`); a headless test body may
-        // carry neither (damage_taken → 0). Growth is inert unless the striking
-        // volume authored `kb_growth`, so this is parity-free by construction.
-        // Reads the combat-owned `CombatTuning`, never the sim-heart `ActorConfig`
-        // (E2 verdict b).
-        Option<&ambition_characters::actor::BodyHealth>,
-        Option<&super::components::CombatTuning>,
-        // The victim's TEAM, when a ruleset gave it one. Outranks faction for
-        // "may this land": two humans are always the same faction, so a match
-        // could not otherwise let them hit each other without switching on
-        // GLOBAL friendly fire.
-        Option<&crate::targeting::MatchTeam>,
-    )>,
+    >,
     // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
     // per-entity override. Lets a hit land on a same-faction body the owner has a
     // personal grudge against (two `Npc` duelists), without re-tagging factions.
@@ -186,13 +269,6 @@ pub fn apply_hitbox_damage(
     // slash — and a possessed actor's) reads the per-swing `hit_targets` for
     // one-hit-per-target dedup and emits only while the swing is live.
     melee_owners: Query<&super::components::BodyMelee>,
-    // Iterate every player so a multi-player build hits each
-    // overlapping player independently. Single-player behavior is
-    // preserved because the iterator has exactly one entity today.
-    // The victim's per-tick resolved frame (ADR 0024), for the local-frame
-    // knockback side (§B11). Looked up by victim entity; a bare test hurtbox
-    // without a body frame falls back to the engine default down.
-    victim_frames: Query<&ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame>,
     // CM8: hostile melee overlap no longer emits hit feedback here — the ONE
     // victim-side reaction (`emit_hit_feedback`) owns sfx/spray/debris now, so
     // this system only needs the `VfxMessage` writer for the wielded-AOE landing
@@ -250,23 +326,8 @@ pub fn apply_hitbox_damage(
                 // for every body (`resolve_body_hit`, §A2). Victim KIND picks
                 // only policy: a player victim gets the knockback payload and
                 // the richer feedback.
-                for (
-                    victim_entity,
-                    victim_aabb,
-                    victim_faction,
-                    victim_brain,
-                    // CM8: the vulnerability cluster is still REQUIRED (only real
-                    // combat bodies are victims), but no longer READ here — i-frame
-                    // muting is the victim consumer's job now (see below).
-                    _vuln,
-                    is_player,
-                    victim_damageable,
-                    victim_health,
-                    victim_tuning,
-                    victim_team,
-                ) in &victims
-                {
-                    if victim_entity == hitbox.owner {
+                for victim in &victims {
+                    if victim.entity == hitbox.owner {
                         continue;
                     }
                     // Structural tangibility gate (Jon 2026-07-22): a dead body is
@@ -274,28 +335,27 @@ pub fn apply_hitbox_damage(
                     // here means NO event and NO impact VFX are produced at the
                     // corpse, so a dead thing neither interacts nor presents. (The
                     // consume-time `resolve_body_hit` alive check stays as defense.)
-                    if crate::util::body_is_corpse(victim_health) {
+                    if victim.is_corpse() {
                         continue;
                     }
-                    let victim_faction = effective_faction(*victim_faction, victim_brain);
                     if !crate::targeting::damage_lands_between(
                         source_faction,
-                        victim_faction,
+                        victim.effective_faction(),
                         attacker_team.get(hitbox.owner).ok(),
-                        victim_team,
+                        victim.team,
                         friendly_fire,
                         owner_grudge,
-                        victim_entity,
+                        victim.entity,
                     ) {
                         continue;
                     }
-                    if hits.hit.contains(&victim_entity) {
+                    if hits.hit.contains(&victim.entity) {
                         continue;
                     }
-                    if !strike_reaches_victim(&world_volume, victim_damageable, victim_aabb) {
+                    if !victim.reached_by(&world_volume) {
                         continue;
                     }
-                    let victim_body = victim_aabb.aabb();
+                    let victim_body = victim.aabb.aabb();
                     // §A2: the EVENT always flows — i-frames resolve at CONSUME
                     // time in `resolve_body_hit`, the same for every body.
                     // CM8: hit FEEDBACK (the sfx/spray/debris) is no longer
@@ -306,7 +366,7 @@ pub fn apply_hitbox_damage(
                     // recomputing vulnerability, and an enemy struck by another
                     // enemy uses its OWN `HurtFeedback` instead of the player's
                     // red "you got hurt" burst.
-                    let impact = midpoint(victim_aabb.center, world_volume.center());
+                    let impact = midpoint(victim.aabb.center, world_volume.center());
                     // Knockback side in the victim's LOCAL frame (§B11): under
                     // sideways gravity the attacker and victim separate along
                     // world-Y, exactly when a screen-X comparison degenerates.
@@ -314,18 +374,13 @@ pub fn apply_hitbox_damage(
                     // its fallback, so the stored side must be frame-correct
                     // too. Attached for EVERY victim (§A2 step 6): an actor
                     // victim rides the same resolved knockback the player does.
-                    let side = victim_frames
-                        .get(victim_entity)
-                        .map(|frame| frame.basis())
-                        .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR))
-                        .side;
+                    let side = victim.knockback_side();
                     let dir = if (victim_body.center() - owner_pos).dot(side) >= 0.0 {
                         1.0
                     } else {
                         -1.0
                     };
-                    let victim_damage_taken = victim_health.map(|h| h.damage_taken()).unwrap_or(0);
-                    let victim_weight = victim_tuning.map(|ct| ct.weight).unwrap_or(1.0);
+                    let (victim_damage_taken, victim_weight) = victim.knockback_growth_inputs();
                     let magnitude = resolved_hitbox_knockback_magnitude(
                         hitbox.knockback,
                         victim_damage_taken,
@@ -350,16 +405,16 @@ pub fn apply_hitbox_damage(
                         // death cause to the right body.
                         attacker: Some(hitbox.owner),
                         // Stamp the victim so the right consumer lands the hit.
-                        target: if is_player {
-                            HitTarget::Player(victim_entity)
+                        target: if victim.is_player {
+                            HitTarget::Player(victim.entity)
                         } else {
-                            HitTarget::Actor(victim_entity)
+                            HitTarget::Actor(victim.entity)
                         },
                         mode: HitMode::Knockback,
                         knockback,
                         ignored_targets: Vec::new(),
                     });
-                    hits.hit.insert(victim_entity);
+                    hits.hit.insert(victim.entity);
                 }
             }
             // Player-faction hitbox (a wielded boss-style AOE — see

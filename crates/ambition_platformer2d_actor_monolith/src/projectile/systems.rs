@@ -424,39 +424,30 @@ pub fn step_projectiles(
             Without<FeatureSimEntity>,
         ),
     >,
-    // Read-only player bodies for enemy-faction damage + parry. Disjoint from the
+    // Read-only victim bodies for hostile-shot damage + parry. Disjoint from the
     // mutable projectile query above (both touch `BodyKinematics`; B0001) via the
-    // `LiveProjectile` / `PlayerEntity` marker split.
+    // `LiveProjectile` marker split.
+    //
     // ONE victim set for hostile shots — every body, player included. The player
-    // is selected by `Has<PlayerEntity>` for PAYLOAD POLICY only (routing stamp,
-    // parry heal), never by a separate query or a separate loop. Mirrors
-    // `ambition_combat::hitbox`'s unified melee victims query. Bosses are
-    // excluded here because the boss-facing hit path is `ecs_bosses` below;
-    // including them would double-damage.
+    // is selected by `is_player` for PAYLOAD POLICY only (routing stamp, parry
+    // heal), never by a separate query or a separate loop. Bosses are excluded
+    // because the boss-facing hit path is `ecs_bosses` below; including them would
+    // double-damage.
+    //
+    // ⭐ **Now the SAME NAMED ROLE melee uses** — [`StrikeVictim`], owned by
+    // `ambition_combat::hitbox` beside the victim-geometry rule. The comment here
+    // used to claim this loop shared "the SAME published hurtbox" as melee; it did
+    // not, because the tuple that would have carried `DamageableVolumes` had run
+    // out of arity and the claim was never anything but prose. Sharing the type
+    // makes the claim checkable — and see the loop below for what it exposed.
+    //
+    // ⚠ NO `With` filter on the vulnerability cluster, deliberately, and unlike
+    // melee: a shot must be able to hit any body with a hurtbox and a faction,
+    // including a simple feature body carrying no shield/dodge state at all.
+    // Narrowing here would silently drop those bodies (the required-components-skip
+    // trap), which is exactly how a "my projectile does nothing" bug is born.
     victims: Query<
-        (
-            Entity,
-            &crate::features::CenteredAabb,
-            &ActorFaction,
-            // H7: the victim's own voice, for the parry clang. A COLUMN rather than
-            // a second query, because this system is already at Bevy's parameter
-            // limit — and it is the same body either way.
-            Option<&ambition_sfx::BodyPresentationSource>,
-            Option<&ambition_characters::brain::Brain>,
-            // The vulnerability cluster is OPTIONAL, deliberately. A shot must be
-            // able to hit any body that has a hurtbox and a faction — including a
-            // simple feature body that carries no shield/dodge state at all.
-            // Requiring the cluster would silently drop those bodies from the
-            // query (the required-components-skip trap), which is exactly how a
-            // "my projectile does nothing" bug is born. Absent ⇒ no defenses.
-            Option<(
-                &crate::actor::BodyOffense,
-                &ambition_platformer2d_core::BodyMotionFacts,
-                &crate::actor::BodyShieldState,
-                &ambition_characters::actor::BodyCombat,
-            )>,
-            Has<crate::actor::PlayerEntity>,
-        ),
+        ambition_combat::hitbox::StrikeVictim,
         (Without<LiveProjectile>, Without<BossConfig>),
     >,
     mut feature_damage: MessageWriter<HitEvent>,
@@ -488,7 +479,9 @@ pub fn step_projectiles(
     // is on — so a pirate's shot can't hit another pirate. (Targeting is separate.)
     // AE6: resolved match rules, not the world's baseline toggle.
     tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
-    // Bundled into ONE tuple slot to stay under Bevy's 16-param ceiling:
+    // Still bundled into ONE tuple slot to stay under Bevy's 16-param ceiling, but
+    // one member SHORTER: `victim_frames` left, because a per-victim component
+    // belongs to the victim view rather than to a lookup query beside it.
     // - `owner_combat` — the firer's REAL faction + optional grudge, looked up from
     //   the projectile's owner entity (player / enemy / boss / player-robot). The
     //   faction RETIRES the binary `ProjectileGameplay.faction` (damage routes off the
@@ -498,14 +491,10 @@ pub fn step_projectiles(
     // - `boss_catalog` — App-local authored boss geometry used by the hit predicate.
     // - `visual_catalog` — the open, content-owned projectile art registry; the
     //   detonation-FX pick resolves a shot's visual id through it.
-    // - `victim_frames` — per-victim resolved frame for the knockback side,
-    //   looked up rather than required so a body without one falls back to
-    //   engine-default down (the shape `ambition_combat::hitbox` uses).
-    (owner_combat, boss_catalog, visual_catalog, victim_frames): (
+    (owner_combat, boss_catalog, visual_catalog): (
         Query<(&ActorFaction, Option<&ActorAggression>)>,
         Res<crate::boss_encounter::BossCatalog>,
         Res<ambition_projectiles::ProjectileVisualCatalog>,
-        Query<&crate::physics::ResolvedMotionFrame>,
     ),
 ) {
     let dt = world_time.sim_dt();
@@ -631,38 +620,38 @@ pub fn step_projectiles(
             // the grudge term, and only the player side re-checked vulnerability.
             let mut struck = false;
             let mut reflected = false;
-            for (
-                victim_entity,
-                victim_aabb,
-                victim_faction,
-                parrier_source,
-                victim_brain,
-                vuln,
-                is_player,
-            ) in &victims
-            {
-                if Some(victim_entity) == owner_entity {
+            for victim in &victims {
+                if Some(victim.entity) == owner_entity {
                     continue;
                 }
                 // An owned shot lands on a faction-foe OR a same-faction body its
                 // firer holds a grudge against; an indiscriminate (ownerless) shot
                 // lands on everyone — there is no ally to spare.
-                let victim_faction =
-                    crate::combat::targeting::effective_faction(*victim_faction, victim_brain);
                 let can_hit = indiscriminate
                     || firer_faction.is_some_and(|f| {
                         damage_lands(
                             f,
-                            victim_faction,
+                            victim.effective_faction(),
                             friendly_fire,
                             firer_grudge,
-                            victim_entity,
+                            victim.entity,
                         )
                     });
                 if !can_hit {
                     continue;
                 }
-                let victim_body = victim_aabb.aabb();
+                let victim_body = victim.aabb.aabb();
+                // ⚠ **THE COARSE BOX, while melee and feature hits both ask
+                // `strike_reaches_victim`.** Naming the victim role put
+                // `victim.volumes` in reach here for the first time and thereby
+                // exposed the gap: a body's published silhouette — an authored
+                // hurtbox timeline, a boss's active parts, an EMPTY list meaning
+                // intangible — decides whether a sword or a feature strike lands
+                // on it, and has never decided whether a BOLT does. Closing it is
+                // `victim.reached_by(&kin.aabb().into())`, which is a combat
+                // behaviour change (it also retires `strict_intersects`, which
+                // rejects edge-touching where the shared rule accepts it) and so
+                // wants its own card rather than a ride on a structural one.
                 if !kin.aabb().strict_intersects(victim_body) {
                     continue;
                 }
@@ -671,17 +660,17 @@ pub fn step_projectiles(
                 // body's own shot, back at its foes) and reverses + boosts its
                 // velocity. Shared by every body; only the HEAL is player reward
                 // policy. A body with no shield state simply cannot parry.
-                if vuln.is_some_and(|(_, _, shield, _)| shield.parrying()) {
+                if victim.shield.is_some_and(|shield| shield.parrying()) {
                     reflect_parried_shot(
                         &mut commands,
                         proj_entity,
                         &mut kin,
-                        victim_entity,
-                        parrier_source.map(ambition_sfx::BodyPresentationSource::id),
+                        victim.entity,
+                        victim.voice.map(ambition_sfx::BodyPresentationSource::id),
                         &mut sfx,
                         &mut vfx,
                     );
-                    if is_player {
+                    if victim.is_player {
                         heals.write(crate::avatar::PlayerHealRequested::new(PARRY_HEAL));
                     }
                     reflected = true;
@@ -695,11 +684,7 @@ pub fn step_projectiles(
                 // Knockback side in the victim's LOCAL frame (fable review
                 // 2026-07-02 §B11): a screen-X difference degenerates exactly when
                 // sideways gravity separates the pair along world-Y.
-                let side = victim_frames
-                    .get(victim_entity)
-                    .map(|frame| frame.basis())
-                    .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR))
-                    .side;
+                let side = victim.knockback_side();
                 let knock_dir = (victim_body.center() - kin.pos).dot(side).signum();
                 let knock_dir = if knock_dir.abs() < 0.001 {
                     1.0
@@ -719,10 +704,10 @@ pub fn step_projectiles(
                     // with a real owner — `None` for ownerless shots.
                     attacker: owner_entity,
                     // Victim kind picks the consumer, nothing else.
-                    target: if is_player {
-                        HitTarget::Player(victim_entity)
+                    target: if victim.is_player {
+                        HitTarget::Player(victim.entity)
                     } else {
-                        HitTarget::Actor(victim_entity)
+                        HitTarget::Actor(victim.entity)
                     },
                     mode: HitMode::Knockback,
                     // EVERY victim rides the same resolved knockback (§A2 step 6).

@@ -128,3 +128,56 @@ def test_the_ledgers_rollback_schema_version_matches_the_source():
         f"moves the version, the live baseline dump and the slice-evidence JSON "
         f"together — and this line too."
     )
+
+
+# ── a row cannot be both open and closed ─────────────────────────────────────
+
+
+def _contradictory_rows(text: str) -> set[str]:
+    """Row ids the ledger marks BOTH open and closed.
+
+    ⛔ **written after this failed five times in one day.** The pattern: a row
+    lands, a verdict (`✔` / `⊘`) is written above it, and the original text is
+    kept "for its diagnosis" — with its `▢` intact. `▢` is the only index anyone
+    greps, so the row reads as owed work forever. Twice the SAME session, the
+    person who had just complained about it did it three more times.
+
+    ⭐ this is the mechanical half of a problem discipline was not solving.
+    It cannot tell whether an un-verdicted `▢` has secretly landed — that needs
+    a reader, and pretending otherwise would be the `a_check_that_cannot_fail`
+    defect. It CAN tell that one document says both things about one row.
+    """
+    open_ids = set(re.findall(r"^- ▢ \*\*([A-Z]\d+)\b", text, re.M))
+    closed_ids = set(re.findall(r"^- [✔⊘] \*\*(?:\[[^\]]*\] )?([A-Z]\d+)\b", text, re.M))
+    return open_ids & closed_ids
+
+
+def test_no_ledger_row_is_marked_both_open_and_closed():
+    ledger = PLANNING / _live_ledger_link()
+    both = _contradictory_rows(ledger.read_text(encoding="utf8"))
+    assert not both, (
+        f"{ledger.relative_to(REPO)} marks {sorted(both)} as BOTH ✔/⊘ and ▢. "
+        f"A closed row keeps its text and loses its marker — `▢` is the only "
+        f"index a reader greps, so a stale one is indistinguishable from owed "
+        f"work. Strip the marker from the kept original."
+    )
+
+
+def test_the_contradiction_check_actually_catches_one():
+    """The probe. A checker for a defect nobody can reproduce is not a checker.
+
+    ⭐ **also probed against the REAL defect, not just this synthetic one.** Run
+    against `0e415e62a:docs/planning/queue-72h-2026-08-08.md` — the ledger one
+    commit before the marker cleanup — it returns exactly `{D29, D31, D32}`,
+    the three rows that had a verdict written above them and kept their `▢`.
+    A synthetic case proves the regex; real data proves the checker.
+    """
+    defective = (
+        "- ✔ **D29 landed, and here is why**\n"
+        "  some prose\n"
+        "- ▢ **D29 the original row, kept for its diagnosis**\n"
+        "- ▢ **D30 genuinely open**\n"
+    )
+    assert _contradictory_rows(defective) == {"D29"}
+    healthy = defective.replace("- ▢ **D29", "- ⊙ **D29")
+    assert _contradictory_rows(healthy) == set()

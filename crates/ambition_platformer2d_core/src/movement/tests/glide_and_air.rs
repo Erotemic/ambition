@@ -581,6 +581,92 @@ fn direct_velocity_flight_takes_the_commanded_velocity_verbatim() {
 }
 
 #[test]
+fn diagonal_free_flight_respects_the_radial_terminal_speed() {
+    use crate::world::World;
+    let world = World {
+        name: "open air".to_string(),
+        size: Vec2::new(4000.0, 4000.0),
+        spawn: Vec2::new(2000.0, 2000.0),
+        blocks: Vec::new(),
+        climbable_regions: Vec::new(),
+        chains: Vec::new(),
+        blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
+        water_regions: Vec::new(),
+    };
+    let terminal = 540.0;
+    let mut tuning = TEST_TUNING;
+    tuning.flight_terminal_speed = terminal;
+    tuning.flight_direct_velocity = true;
+    tuning.flight_invariant_speed = Some(600.0);
+    tuning.flight_hover_speed = 0.0;
+    tuning.flight_hover_hz = 0.0;
+    let mut body = scratch_with(AbilitySet::sandbox_all(), Vec2::new(2000.0, 2000.0));
+    body.ground.on_ground = false;
+    body.flight.fly_enabled = true;
+    update_player_with_tuning_scratch(
+        &world,
+        &mut body,
+        InputState {
+            axes: crate::LocalAxes::new(1.0, 1.0),
+            ..Default::default()
+        },
+        1.0 / 60.0,
+        tuning,
+    );
+    assert!((body.kinematics.vel.length() - terminal).abs() < 1.0e-3);
+}
+
+#[test]
+fn proper_velocity_free_flight_approaches_the_terminal_without_reaching_c() {
+    use crate::world::World;
+    let world = World {
+        name: "relativistic open air".to_string(),
+        size: Vec2::new(8000.0, 8000.0),
+        spawn: Vec2::new(4000.0, 4000.0),
+        blocks: Vec::new(),
+        climbable_regions: Vec::new(),
+        chains: Vec::new(),
+        blast_margin: World::DEFAULT_BLAST_MARGIN,
+        side_blast_margin: None,
+        ceiling_blast_margin: None,
+        water_regions: Vec::new(),
+    };
+    let invariant_speed = 600.0;
+    let terminal = 590.0;
+    let mut tuning = TEST_TUNING;
+    tuning.flight_accel = 1_200.0;
+    tuning.flight_drag = 0.0;
+    tuning.flight_terminal_speed = terminal;
+    tuning.flight_direct_velocity = false;
+    tuning.flight_invariant_speed = Some(invariant_speed);
+    tuning.flight_hover_speed = 0.0;
+    tuning.flight_hover_hz = 0.0;
+    let mut body = scratch_with(AbilitySet::sandbox_all(), Vec2::new(4000.0, 4000.0));
+    body.ground.on_ground = false;
+    body.flight.fly_enabled = true;
+
+    for _ in 0..360 {
+        update_player_with_tuning_scratch(
+            &world,
+            &mut body,
+            InputState {
+                axes: crate::LocalAxes::new(1.0, 1.0),
+                ..Default::default()
+            },
+            1.0 / 60.0,
+            tuning,
+        );
+    }
+
+    let speed = body.kinematics.vel.length();
+    assert!(speed <= terminal + 1.0e-3, "speed={speed}");
+    assert!(speed < invariant_speed, "speed reached c: {speed}");
+    assert!(body.kinematics.vel.x > 0.0 && body.kinematics.vel.y > 0.0);
+}
+
+#[test]
 fn the_player_rides_a_horizontally_moving_platform() {
     // A floor carrying a rightward per-frame velocity. The player standing on it is
     // carried right by the platform — EMERGENT in the movement sweep (the same rule

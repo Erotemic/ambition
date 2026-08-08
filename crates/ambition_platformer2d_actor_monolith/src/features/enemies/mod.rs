@@ -186,6 +186,12 @@ impl ArchetypeSpecExt for ArchetypeSpec {
         ae::AbilitySet {
             blink: self.can_blink,
             fly: self.can_fly,
+            // ⛔ **paired with `fly`, and forgetting it is SILENT.** `NONE`
+            // leaves `fly_toggle` false, which means PERMANENT flight — and
+            // permanent flight is latched when the cluster is built, so a body
+            // that gains the capability afterwards never flies at all. An
+            // authored enemy that "can fly" means the ordinary toggled kind.
+            fly_toggle: self.can_fly,
             shield: self.can_shield,
             dash: self.can_dash,
             ..ae::AbilitySet::NONE

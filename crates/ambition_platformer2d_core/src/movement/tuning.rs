@@ -310,6 +310,12 @@ pub struct MovementTuning {
     /// flight unchanged.
     #[serde(default)]
     pub flight_direct_velocity: bool,
+    /// Optional invariant speed for proper-velocity flight. When present, the
+    /// flight limb accelerates in proper-velocity space and converts back to a
+    /// coordinate velocity, guaranteeing a subluminal result. The authored
+    /// terminal remains a coordinate-speed cap below this value.
+    #[serde(default)]
+    pub flight_invariant_speed: Option<f32>,
     pub coyote_time: f32,
     pub jump_buffer: f32,
     pub pogo_speed: f32,
@@ -529,6 +535,9 @@ pub struct FlightTuning {
     /// See [`MovementTuning::flight_direct_velocity`].
     #[serde(default)]
     pub direct_velocity: bool,
+    /// See [`MovementTuning::flight_invariant_speed`].
+    #[serde(default)]
+    pub invariant_speed: Option<f32>,
 }
 
 /// Parameters owned by the axis-swept movement policy, grouped by ownership.
@@ -609,6 +618,7 @@ impl MovementTuning {
                 hover_speed: self.flight_hover_speed,
                 hover_hz: self.flight_hover_hz,
                 direct_velocity: self.flight_direct_velocity,
+                invariant_speed: self.flight_invariant_speed,
             },
         }
     }
@@ -662,6 +672,7 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     flight_hover_hz: FLIGHT_HOVER_HZ,
     // Smoothed accel/drag flight is the default; direct-velocity is opt-in per body.
     flight_direct_velocity: false,
+    flight_invariant_speed: None,
     coyote_time: COYOTE_TIME,
     jump_buffer: JUMP_BUFFER,
     pogo_speed: POGO_SPEED,

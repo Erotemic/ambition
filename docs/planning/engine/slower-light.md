@@ -19,7 +19,7 @@
 
 ## Relationship to TwinTrack
 
-TwinTrack implements flat-spacetime clocks, event transforms, exact null-signal propagation, local Doppler measurements, bounded worldlines, a past-light-cone solver for compact emitters, an exact aberrated/Doppler-shifted point-source observatory, and observer-local causal interception of a moving compact target in 2D. Slower Light is a later **3D** game centered on retarded presentation of extended nearby geometry, full-field observer optics, and richer finite-signal gameplay. It should reuse those foundations, but it is not the same demo and is not ready while the engine lacks a 3D game surface.
+TwinTrack implements flat-spacetime clocks, proper-velocity 2D flight, event transforms, identity-bearing light messages, exact null-signal propagation, local Doppler measurements, bounded worldlines, a past-light-cone solver for compact emitters, an exact aberrated/Doppler-shifted point-source observatory, and observer-local causal interception of moving compact characters. Slower Light is a later **3D** game centered on light-delayed presentation of extended nearby geometry, full-field observer optics, and richer finite-signal gameplay. It should reuse those foundations, but it is not the same demo and is not ready while the engine lacks a 3D game surface.
 
 ## Feasibility
 
@@ -29,12 +29,12 @@ several get simpler:
 
 | Effect | What it is | 2D difficulty |
 |---|---|---|
-| Speed cap `c` | nothing exceeds c; bodies asymptote toward it | trivial (a velocity clamp) |
+| Speed cap `c` | nothing exceeds c; bodies asymptote toward it | **foundation built** — proper-velocity flight in the shared movement limb |
 | Time dilation | a fast body's proper time runs slow by `γ = 1/√(1−v²/c²)` | **already built** — ADR 0010/0011 proper time |
 | Length contraction | moving bodies squash along motion | a sprite/vertex scale along the velocity axis |
 | Doppler shift | blue ahead / red behind when the OBSERVER moves | a full-screen color LUT post pass |
 | Aberration ("warp") | the view compresses ahead, dilates behind | a full-screen UV remap post pass |
-| Light delay | you SEE things where they WERE | render/perceive from a short position history |
+| Light delay | you see light-delayed source events | **compact-source foundation built** — bounded worldlines plus past-light-cone solving |
 
 **The key adjudication — "how to warp space":** you don't. The SIM keeps one
 honest, unwarped world (one Galilean sim + a speed cap + per-body time
@@ -46,9 +46,9 @@ per-observer geometry) is explicitly out of scope — it would fork the sim
 and buys almost no gameplay the observational version doesn't.
 
 That makes the mechanic's gameplay come from three REAL sim effects — the
-cap (your dash/run/projectiles crowd toward c), dilation (moving fast slows
-your own clocks: move cooldowns, timers — the moveset already runs on proper
-time), and delayed information (you and the AI react to where things WERE) —
+cap (proper-velocity control makes coordinate speed crowd toward c), dilation
+(moving fast slows your own clocks: cooldowns and local mechanisms), and
+delayed information (you and the AI react to what light has delivered) —
 while the drama (warp, Doppler, contraction) is presentation.
 
 ## Why Ambition is unusually ready for this
@@ -89,7 +89,7 @@ while the drama (warp, Doppler, contraction) is presentation.
 - **Tier L2 — light-limited information [opus after L1]**: a short
   `KinematicHistory` ring buffer (opt-in component, only inserted inside a
   finite-c zone) + `Perception::LightLimited { c }` building the WorldView
-  from each peer's retarded position (`t_ret` solved by 2–3 fixed-point
+  from each peer's light-delayed position (`t_emit` solved by 2–3 fixed-point
   iterations of `|x_peer(t_ret) − x_self| = c·(t − t_ret)`). AI now dodges
   your PAST. HUD/targeting for a player body reads the same retarded view.
 - **Tier L3 — the observer shaders [opus + BLIND feel; the "warp"]**: a
@@ -101,7 +101,7 @@ while the drama (warp, Doppler, contraction) is presentation.
   approach velocity sign/magnitude (cheap approximation: screen-space
   direction relative to observer motion); (c) optional per-body length
   contraction on sprites moving relative to the observer (vertex squash
-  along their velocity — reads the read-model velocities). Retarded-position
+  along their velocity — reads the read-model velocities). Light-delayed
   RENDERING (drawing bodies from the L2 history) is the last, most
   disorienting toggle — ship each sub-effect behind its own knob for Jon's
   feel pass.
@@ -131,8 +131,9 @@ while the drama (warp, Doppler, contraction) is presentation.
    single full-screen post seam where ordered passes can be registered —
    L3 registers there. (Bevy supports this natively; the obligation is just
    not to bury the camera output where a post pass can't see it.)
-5. **Naming**: the mechanic's vocabulary is `LightZone` / `c` /
-   `LightLimited` / retarded state — recorded here so slices don't invent
+5. **Naming**: the mechanic's code vocabulary may use standard causal terms,
+   while player-facing teaching text uses `LightZone` / `c` / `LightLimited` /
+   light-delayed state — recorded here so slices don't invent
    competing terms.
 
 ## Non-goals (explicit)

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v17
+ggrs-rollback-schema-v18
 actor.action_set	component-clone	ambition_characters::brain::action_set::ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ambition_combat::components::actors::ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ambition_combat::components::actors::ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -417,7 +417,7 @@ root.room_set	component-clone-custom-checksum	ambition_platformer2d_world::rooms
 root:room_set	required-rollback	ambition_platformer2d_world::rooms::room_graph::RoomSet	component presence automatically installs bevy_ggrs::Rollback
 scope.room	component-canonical	ambition_platformer2d_shared_tangle::lifecycle::markers::RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 scope.session	component-canonical	ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-twintrack.chase_beacon	component-clone	ambition_demo_twintrack::TwinTrackChaseBeacon	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+twintrack.character	component-clone	ambition_demo_twintrack::TwinTrackCharacter	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 twintrack.experiment	component-canonical	ambition_demo_twintrack::TwinTrackExperiment	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 twintrack.laboratory	component-clone	ambition_demo_twintrack::LaboratoryTwin	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 twintrack.traveler	component-clone	ambition_demo_twintrack::TravelerTwin	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

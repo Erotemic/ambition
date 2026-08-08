@@ -28,6 +28,7 @@ impl SnapshotState for crate::AbilitySet {
         put_bool(out, self.dash);
         put_bool(out, self.double_dash);
         put_bool(out, self.fly);
+        put_bool(out, self.fly_toggle);
         put_bool(out, self.blink);
         put_bool(out, self.precision_blink);
         put_bool(out, self.blink_through_soft_walls);
@@ -59,6 +60,7 @@ impl SnapshotState for crate::AbilitySet {
             dash: r.bool()?,
             double_dash: r.bool()?,
             fly: r.bool()?,
+            fly_toggle: r.bool()?,
             blink: r.bool()?,
             precision_blink: r.bool()?,
             blink_through_soft_walls: r.bool()?,

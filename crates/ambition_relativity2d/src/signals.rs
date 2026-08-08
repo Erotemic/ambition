@@ -87,6 +87,8 @@ impl SnapshotState for ProperTimeCooldown2d {
 #[require(ProperTimeCooldown2d)]
 pub struct LightEmitter2d {
     pub label: String,
+    /// Stable game-owned identity copied into emitted packets and arrivals.
+    pub emitter_tag: u64,
     pub pool_label: String,
     pub emitted_proper_frequency: f64,
     pub cooldown_proper_seconds: f64,
@@ -111,6 +113,7 @@ impl LightEmitter2d {
         );
         Self {
             label: label.into(),
+            emitter_tag: 0,
             pool_label: pool_label.into(),
             emitted_proper_frequency,
             cooldown_proper_seconds,
@@ -119,8 +122,16 @@ impl LightEmitter2d {
         }
     }
 
+    pub fn with_tag(mut self, tag: u64) -> Self {
+        self.emitter_tag = tag;
+        self
+    }
+
     pub fn with_source_receiver_channel(mut self, channel: u8) -> Self {
-        assert!(channel < 64, "light receiver channels must fit the hit mask");
+        assert!(
+            channel < 64,
+            "light receiver channels must fit the hit mask"
+        );
         self.source_receiver_channel = Some(channel);
         self
     }
@@ -129,6 +140,7 @@ impl LightEmitter2d {
 impl SnapshotState for LightEmitter2d {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, &self.label);
+        put_u64(out, self.emitter_tag);
         put_str(out, &self.pool_label);
         put_u64(out, self.emitted_proper_frequency.to_bits());
         put_u64(out, self.cooldown_proper_seconds.to_bits());
@@ -145,6 +157,7 @@ impl SnapshotState for LightEmitter2d {
     fn decode(reader: &mut Reader<'_>) -> Option<Self> {
         let emitter = Self {
             label: reader.str()?.to_owned(),
+            emitter_tag: reader.u64()?,
             pool_label: reader.str()?.to_owned(),
             emitted_proper_frequency: f64::from_bits(reader.u64()?),
             cooldown_proper_seconds: f64::from_bits(reader.u64()?),
@@ -159,7 +172,9 @@ impl SnapshotState for LightEmitter2d {
             && emitter.emitted_proper_frequency > 0.0
             && emitter.cooldown_proper_seconds.is_finite()
             && emitter.cooldown_proper_seconds >= 0.0
-            && emitter.source_receiver_channel.is_none_or(|channel| channel < 64))
+            && emitter
+                .source_receiver_channel
+                .is_none_or(|channel| channel < 64))
         .then_some(emitter)
     }
 }
@@ -199,6 +214,8 @@ impl SnapshotState for LightSignalPoolSlot2d {
 pub struct LightSignal2d {
     pub active: bool,
     pub packet_id: u64,
+    pub emitter_tag: u64,
+    pub payload: u64,
     pub emission_time: f64,
     pub last_coordinate_time: f64,
     pub emission_position: Vec2,
@@ -208,6 +225,8 @@ pub struct LightSignal2d {
     pub emitter_velocity: Vec2,
     pub was_reflected: bool,
     pub source_receiver_channel: Option<u8>,
+    /// Optional destination channel. Other receivers are transparent to this packet.
+    pub target_receiver_channel: Option<u8>,
     pub hit_channels: u64,
     pub maximum_coordinate_age: f64,
 }
@@ -223,6 +242,8 @@ impl LightSignal2d {
         Self {
             active: false,
             packet_id: 0,
+            emitter_tag: 0,
+            payload: 0,
             emission_time: 0.0,
             last_coordinate_time: 0.0,
             emission_position: Vec2::ZERO,
@@ -232,6 +253,7 @@ impl LightSignal2d {
             emitter_velocity: Vec2::ZERO,
             was_reflected: false,
             source_receiver_channel: None,
+            target_receiver_channel: None,
             hit_channels: 0,
             maximum_coordinate_age: 8.0,
         }
@@ -240,6 +262,8 @@ impl LightSignal2d {
     fn activate(
         &mut self,
         packet_id: u64,
+        emitter_tag: u64,
+        payload: u64,
         emission_time: f64,
         emission_position: Vec2,
         direction: Vec2,
@@ -247,6 +271,7 @@ impl LightSignal2d {
         emitter_velocity: Vec2,
         was_reflected: bool,
         source_receiver_channel: Option<u8>,
+        target_receiver_channel: Option<u8>,
         maximum_coordinate_age: f64,
     ) {
         let source_hit = source_receiver_channel
@@ -255,6 +280,8 @@ impl LightSignal2d {
         *self = Self {
             active: true,
             packet_id,
+            emitter_tag,
+            payload,
             emission_time,
             last_coordinate_time: emission_time,
             emission_position,
@@ -264,6 +291,7 @@ impl LightSignal2d {
             emitter_velocity,
             was_reflected,
             source_receiver_channel,
+            target_receiver_channel,
             hit_channels: source_hit,
             maximum_coordinate_age,
         };
@@ -283,6 +311,8 @@ impl SnapshotState for LightSignal2d {
     fn encode(&self, out: &mut Vec<u8>) {
         put_bool(out, self.active);
         put_u64(out, self.packet_id);
+        put_u64(out, self.emitter_tag);
+        put_u64(out, self.payload);
         put_u64(out, self.emission_time.to_bits());
         put_u64(out, self.last_coordinate_time.to_bits());
         put_vec2(out, self.emission_position);
@@ -298,6 +328,13 @@ impl SnapshotState for LightSignal2d {
             }
             None => put_bool(out, false),
         }
+        match self.target_receiver_channel {
+            Some(channel) => {
+                put_bool(out, true);
+                put_u8(out, channel);
+            }
+            None => put_bool(out, false),
+        }
         put_u64(out, self.hit_channels);
         put_u64(out, self.maximum_coordinate_age.to_bits());
     }
@@ -306,6 +343,8 @@ impl SnapshotState for LightSignal2d {
         Some(Self {
             active: reader.bool()?,
             packet_id: reader.u64()?,
+            emitter_tag: reader.u64()?,
+            payload: reader.u64()?,
             emission_time: f64::from_bits(reader.u64()?),
             last_coordinate_time: f64::from_bits(reader.u64()?),
             emission_position: reader.vec2()?,
@@ -315,6 +354,11 @@ impl SnapshotState for LightSignal2d {
             emitter_velocity: reader.vec2()?,
             was_reflected: reader.bool()?,
             source_receiver_channel: if reader.bool()? {
+                Some(reader.u8()?)
+            } else {
+                None
+            },
+            target_receiver_channel: if reader.bool()? {
                 Some(reader.u8()?)
             } else {
                 None
@@ -344,7 +388,10 @@ pub struct LightReceiver2d {
 
 impl LightReceiver2d {
     pub fn observer(label: impl Into<String>, channel: u8, half_extents: Vec2) -> Self {
-        assert!(channel < 64, "light receiver channels must fit the hit mask");
+        assert!(
+            channel < 64,
+            "light receiver channels must fit the hit mask"
+        );
         assert!(
             half_extents.is_finite() && half_extents.min_element() >= 0.0,
             "light receiver half-extents must be finite and non-negative"
@@ -391,10 +438,7 @@ impl LightReceiver2d {
             && self.half_extents.is_finite()
             && self.half_extents.min_element() >= 0.0
             && self.accepted_frequency.is_none_or(|(minimum, maximum)| {
-                minimum.is_finite()
-                    && maximum.is_finite()
-                    && minimum > 0.0
-                    && maximum >= minimum
+                minimum.is_finite() && maximum.is_finite() && minimum > 0.0 && maximum >= minimum
             })
     }
 }
@@ -428,10 +472,7 @@ impl SnapshotState for LightReceiver2d {
             channel: reader.u8()?,
             half_extents: reader.vec2()?,
             accepted_frequency: if reader.bool()? {
-                Some((
-                    f64::from_bits(reader.u64()?),
-                    f64::from_bits(reader.u64()?),
-                ))
+                Some((f64::from_bits(reader.u64()?), f64::from_bits(reader.u64()?)))
             } else {
                 None
             },
@@ -451,20 +492,47 @@ impl SnapshotState for LightReceiver2d {
 pub struct LightEmissionRequest2d {
     pub emitter: Entity,
     pub direction: Vec2,
+    /// Opaque game-owned payload transported with the light packet.
+    pub payload: u64,
+    /// Optional destination receiver channel. Other receivers remain transparent.
+    pub target_receiver_channel: Option<u8>,
 }
 
 impl LightEmissionRequest2d {
     pub fn new(emitter: Entity, direction: Vec2) -> Self {
-        Self { emitter, direction }
+        Self {
+            emitter,
+            direction,
+            payload: 0,
+            target_receiver_channel: None,
+        }
+    }
+
+    pub fn with_payload(mut self, payload: u64) -> Self {
+        self.payload = payload;
+        self
+    }
+
+    pub fn to_receiver(mut self, channel: u8) -> Self {
+        assert!(
+            channel < 64,
+            "light receiver channels must fit the hit mask"
+        );
+        self.target_receiver_channel = Some(channel);
+        self
     }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SignalArrivalRecord2d {
     pub packet_id: u64,
+    pub emitter_tag: u64,
+    pub payload: u64,
     pub receiver_label: String,
     pub receiver_channel: u8,
     pub coordinate_time: f64,
+    /// Coordinate time at which this packet left its current emitter.
+    pub signal_emission_time: f64,
     pub receiver_proper_time: Option<f64>,
     pub observed_frequency: f64,
     pub accepted: bool,
@@ -476,9 +544,12 @@ pub struct SignalArrivalRecord2d {
 impl SignalArrivalRecord2d {
     fn encode(&self, out: &mut Vec<u8>) {
         put_u64(out, self.packet_id);
+        put_u64(out, self.emitter_tag);
+        put_u64(out, self.payload);
         put_str(out, &self.receiver_label);
         put_u8(out, self.receiver_channel);
         put_u64(out, self.coordinate_time.to_bits());
+        put_u64(out, self.signal_emission_time.to_bits());
         match self.receiver_proper_time {
             Some(time) => {
                 put_bool(out, true);
@@ -496,9 +567,12 @@ impl SignalArrivalRecord2d {
     fn decode(reader: &mut Reader<'_>) -> Option<Self> {
         Some(Self {
             packet_id: reader.u64()?,
+            emitter_tag: reader.u64()?,
+            payload: reader.u64()?,
             receiver_label: reader.str()?.to_owned(),
             receiver_channel: reader.u8()?,
             coordinate_time: f64::from_bits(reader.u64()?),
+            signal_emission_time: f64::from_bits(reader.u64()?),
             receiver_proper_time: if reader.bool()? {
                 Some(f64::from_bits(reader.u64()?))
             } else {
@@ -569,10 +643,13 @@ impl SnapshotState for SignalArrivalHistory2d {
 #[derive(Clone, Debug, PartialEq)]
 pub struct LightSignalObservation2d {
     pub packet_id: u64,
+    pub emitter_tag: u64,
+    pub payload: u64,
     pub emission_time: f64,
     pub emission_position: Vec2,
     pub position: Vec2,
     pub direction: Vec2,
+    pub target_receiver_channel: Option<u8>,
     pub coordinate_frequency: f64,
     pub age: f64,
 }
@@ -700,7 +777,10 @@ fn advance_coordinate_time(
 
 fn advance_proper_time_cooldowns(
     time: Res<WorldTime>,
-    mut emitters: Query<(&mut ProperTimeCooldown2d, Option<&ProperTimeScale>), With<LightEmitter2d>>,
+    mut emitters: Query<
+        (&mut ProperTimeCooldown2d, Option<&ProperTimeScale>),
+        With<LightEmitter2d>,
+    >,
 ) {
     for (mut cooldown, scale) in &mut emitters {
         let rate = f64::from(ProperTimeScale::or_default(scale).value());
@@ -711,10 +791,7 @@ fn advance_proper_time_cooldowns(
 
 fn process_light_emission_requests(
     mut requests: MessageReader<LightEmissionRequest2d>,
-    spacetime: Query<
-        (&ActiveSpacetime2d, &SpacetimeCoordinateTime2d),
-        With<SessionRoot>,
-    >,
+    spacetime: Query<(&ActiveSpacetime2d, &SpacetimeCoordinateTime2d), With<SessionRoot>>,
     mut emitters: Query<(
         &BodyKinematics,
         &mut LightEmitter2d,
@@ -731,7 +808,9 @@ fn process_light_emission_requests(
         let Ok((body, mut emitter, mut cooldown)) = emitters.get_mut(request.emitter) else {
             continue;
         };
-        if !cooldown.ready() || request.direction.length_squared() <= MIN_SIGNAL_DIRECTION_LENGTH_SQUARED {
+        if !cooldown.ready()
+            || request.direction.length_squared() <= MIN_SIGNAL_DIRECTION_LENGTH_SQUARED
+        {
             continue;
         }
         let direction = request.direction.normalize();
@@ -764,6 +843,8 @@ fn process_light_emission_requests(
         emitter.next_packet_id = packet_id.wrapping_add(1).max(1);
         signal.activate(
             packet_id,
+            emitter.emitter_tag,
+            request.payload,
             coordinate_time.seconds,
             body.pos,
             direction,
@@ -771,6 +852,7 @@ fn process_light_emission_requests(
             body.vel,
             false,
             emitter.source_receiver_channel,
+            request.target_receiver_channel,
             8.0,
         );
         cooldown.remaining_seconds = emitter.cooldown_proper_seconds.max(0.0);
@@ -792,21 +874,23 @@ struct ReceiverSample {
 
 impl ReceiverSample {
     fn accepts(&self, frequency: f64) -> bool {
-        self.accepted_frequency.is_none_or(|(minimum, maximum)| {
-            frequency >= minimum && frequency <= maximum
-        })
+        self.accepted_frequency
+            .is_none_or(|(minimum, maximum)| frequency >= minimum && frequency <= maximum)
     }
 }
 
 #[derive(Clone)]
 struct ReflectedSignal {
     packet_id: u64,
+    emitter_tag: u64,
+    payload: u64,
     emission_time: f64,
     emission_position: Vec2,
     direction: Vec2,
     coordinate_frequency: f64,
     emitter_velocity: Vec2,
     source_receiver_channel: Option<u8>,
+    target_receiver_channel: Option<u8>,
     maximum_coordinate_age: f64,
     pool_label: String,
 }
@@ -873,6 +957,12 @@ fn propagate_light_signals(
             if receiver.channel >= 64 {
                 continue;
             }
+            if signal
+                .target_receiver_channel
+                .is_some_and(|target| target != receiver.channel)
+            {
+                continue;
+            }
             let channel_bit = 1_u64 << receiver.channel;
             if signal.hit_channels & channel_bit != 0 {
                 continue;
@@ -887,20 +977,22 @@ fn propagate_light_signals(
                 hits.push((fraction, receiver_index));
             }
         }
-        hits.sort_by(|(left_fraction, left_index), (right_fraction, right_index)| {
-            left_fraction
-                .total_cmp(right_fraction)
-                .then_with(|| {
-                    receiver_samples[*left_index]
-                        .channel
-                        .cmp(&receiver_samples[*right_index].channel)
-                })
-                .then_with(|| {
-                    receiver_samples[*left_index]
-                        .label
-                        .cmp(&receiver_samples[*right_index].label)
-                })
-        });
+        hits.sort_by(
+            |(left_fraction, left_index), (right_fraction, right_index)| {
+                left_fraction
+                    .total_cmp(right_fraction)
+                    .then_with(|| {
+                        receiver_samples[*left_index]
+                            .channel
+                            .cmp(&receiver_samples[*right_index].channel)
+                    })
+                    .then_with(|| {
+                        receiver_samples[*left_index]
+                            .label
+                            .cmp(&receiver_samples[*right_index].label)
+                    })
+            },
+        );
 
         let mut deactivated = false;
         for (fraction, receiver_index) in hits {
@@ -929,9 +1021,12 @@ fn propagate_light_signals(
             let reflected = receiver.mode == LightReceiverMode2d::Reflect;
             let record = SignalArrivalRecord2d {
                 packet_id: signal.packet_id,
+                emitter_tag: signal.emitter_tag,
+                payload: signal.payload,
                 receiver_label: receiver.label.clone(),
                 receiver_channel: receiver.channel,
                 coordinate_time: arrival_time,
+                signal_emission_time: signal.emission_time,
                 receiver_proper_time,
                 observed_frequency,
                 accepted,
@@ -952,12 +1047,15 @@ fn propagate_light_signals(
                 ) {
                     reflections.push(ReflectedSignal {
                         packet_id: signal.packet_id,
+                        emitter_tag: signal.emitter_tag,
+                        payload: signal.payload,
                         emission_time: arrival_time,
                         emission_position: arrival_position,
                         direction: reflected_direction,
                         coordinate_frequency: reflected_coordinate_frequency,
                         emitter_velocity: receiver.body.vel,
                         source_receiver_channel: Some(receiver.channel),
+                        target_receiver_channel: signal.source_receiver_channel,
                         maximum_coordinate_age: signal.maximum_coordinate_age,
                         pool_label: slot.pool_label.clone(),
                     });
@@ -997,6 +1095,8 @@ fn propagate_light_signals(
         };
         signal.activate(
             reflected.packet_id,
+            reflected.emitter_tag,
+            reflected.payload,
             reflected.emission_time,
             reflected.emission_position,
             reflected.direction,
@@ -1004,6 +1104,7 @@ fn propagate_light_signals(
             reflected.emitter_velocity,
             true,
             reflected.source_receiver_channel,
+            reflected.target_receiver_channel,
             reflected.maximum_coordinate_age,
         );
     }
@@ -1038,10 +1139,13 @@ fn publish_signal_view(
         if signal.active {
             view.active_signals.push(LightSignalObservation2d {
                 packet_id: signal.packet_id,
+                emitter_tag: signal.emitter_tag,
+                payload: signal.payload,
                 emission_time: signal.emission_time,
                 emission_position: signal.emission_position,
                 position: signal.position,
                 direction: signal.direction,
+                target_receiver_channel: signal.target_receiver_channel,
                 coordinate_frequency: signal.coordinate_frequency,
                 age: (coordinate_time.seconds - signal.emission_time).max(0.0),
             });
@@ -1070,7 +1174,8 @@ fn publish_signal_view(
         });
     }
     view.emitters.sort_by(|lhs, rhs| lhs.label.cmp(&rhs.label));
-    view.recent_arrivals.extend(history.arrivals.iter().cloned());
+    view.recent_arrivals
+        .extend(history.arrivals.iter().cloned());
 }
 
 fn clear_signal_view_without_live_spacetime(
@@ -1149,18 +1254,11 @@ mod tests {
 
     #[test]
     fn authoritative_receiver_and_pool_configuration_round_trip() {
-        let receiver = LightReceiver2d::reflector(
-            "test_reflector",
-            7,
-            Vec2::new(3.0, 4.0),
-        )
-        .with_passband(80.0, 120.0);
-        let receiver_bytes =
-            ambition_platformer2d_core::snapshot::encode_state(&receiver);
+        let receiver = LightReceiver2d::reflector("test_reflector", 7, Vec2::new(3.0, 4.0))
+            .with_passband(80.0, 120.0);
+        let receiver_bytes = ambition_platformer2d_core::snapshot::encode_state(&receiver);
         assert_eq!(
-            ambition_platformer2d_core::snapshot::decode_state::<LightReceiver2d>(
-                &receiver_bytes,
-            ),
+            ambition_platformer2d_core::snapshot::decode_state::<LightReceiver2d>(&receiver_bytes,),
             Some(receiver),
         );
 
@@ -1175,17 +1273,54 @@ mod tests {
     }
 
     #[test]
+    fn emitter_identity_and_game_payload_survive_snapshot_round_trip() {
+        let emitter = LightEmitter2d::new("messenger", "pool", 100.0, 0.5)
+            .with_tag(42)
+            .with_source_receiver_channel(7);
+        let bytes = ambition_platformer2d_core::snapshot::encode_state(&emitter);
+        assert_eq!(
+            ambition_platformer2d_core::snapshot::decode_state::<LightEmitter2d>(&bytes),
+            Some(emitter),
+        );
+
+        let mut signal = LightSignal2d::inactive();
+        signal.activate(
+            9,
+            42,
+            0xfeed_beef,
+            1.25,
+            Vec2::new(3.0, 4.0),
+            Vec2::new(0.6, 0.8),
+            123.0,
+            Vec2::new(5.0, -2.0),
+            false,
+            Some(7),
+            Some(12),
+            8.0,
+        );
+        let bytes = ambition_platformer2d_core::snapshot::encode_state(&signal);
+        let decoded = ambition_platformer2d_core::snapshot::decode_state::<LightSignal2d>(&bytes)
+            .expect("signal snapshot should decode");
+        assert_eq!(decoded.emitter_tag, 42);
+        assert_eq!(decoded.payload, 0xfeed_beef);
+        assert_eq!(decoded, signal);
+    }
+
+    #[test]
     fn analytic_signal_position_uses_coordinate_time_and_is_null() {
         let c = InvariantSpeed::new(10.0).unwrap();
         let mut signal = LightSignal2d::inactive();
         signal.activate(
             1,
+            0,
+            0,
             2.0,
             Vec2::new(3.0, 4.0),
             Vec2::X,
             100.0,
             Vec2::ZERO,
             false,
+            None,
             None,
             10.0,
         );

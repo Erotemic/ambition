@@ -19,11 +19,11 @@
 //! base; a content technique OVERRIDES whatever base action shares its slot
 //! (Sanic's spin claims the Attack slot in place of any moveset attack).
 
-use ambition_platformer2d_core::{AbilitySet, Edge};
 use ambition_entity_catalog::action_scheme::{
     ids, ActionGate, ActionId, ActionSchemeContract, ActionSpec, ControlSlot, CANONICAL_SLOT_ORDER,
 };
 use ambition_entity_catalog::MovesetContract;
+use ambition_platformer2d_core::{AbilitySet, Edge};
 use bevy::prelude::Component;
 
 use crate::actor::control::ActorControlFrame;
@@ -283,7 +283,11 @@ fn movement_actions(abilities: &AbilitySet) -> Vec<ActionSpec> {
             ids::DASH,
         ),
         (abilities.blink, ControlSlot::Blink, ids::BLINK),
-        (abilities.fly, ControlSlot::Utility, ids::FLY_TOGGLE),
+        (
+            abilities.fly && abilities.fly_toggle,
+            ControlSlot::Utility,
+            ids::FLY_TOGGLE,
+        ),
         (abilities.shield, ControlSlot::QuickAction, ids::SHIELD),
     ];
     table
@@ -350,8 +354,7 @@ fn combat_actions(
         }
     };
     push(
-        has_directional_verb(ids::ATTACK)
-            || action_set.is_some_and(|a| a.melee.is_some()),
+        has_directional_verb(ids::ATTACK) || action_set.is_some_and(|a| a.melee.is_some()),
         ControlSlot::Attack,
         ids::ATTACK,
     );
@@ -361,8 +364,7 @@ fn combat_actions(
         ids::RANGED,
     );
     push(
-        has_directional_verb(ids::SPECIAL)
-            || action_set.is_some_and(|a| a.special.is_some()),
+        has_directional_verb(ids::SPECIAL) || action_set.is_some_and(|a| a.special.is_some()),
         ControlSlot::Special,
         ids::SPECIAL,
     );
@@ -422,6 +424,7 @@ mod tests {
     use super::*;
     use ambition_entity_catalog::action_scheme::{ActionGate, VisualId};
     use ambition_entity_catalog::{ClipBinding, MoveSpec};
+    use ambition_platformer2d_core::AbilityGrant;
     use std::collections::BTreeMap;
 
     fn abilities(f: impl FnOnce(&mut AbilitySet)) -> AbilitySet {
@@ -497,6 +500,15 @@ mod tests {
         let scheme = derive_action_scheme(&ab, Some(&ms), None, &[]);
         assert!(scheme.has_slot(ControlSlot::Attack));
         assert!(scheme.has_slot(ControlSlot::Special));
+    }
+
+    #[test]
+    fn permanent_free_flight_has_interact_but_no_jump_or_toggle_button() {
+        let ab = AbilityGrant::FreeFlight.to_set();
+        let scheme = derive_action_scheme(&ab, None, None, &[]);
+        assert_eq!(slots(&scheme), vec![ControlSlot::Interact]);
+        assert!(!scheme.has_slot(ControlSlot::Jump));
+        assert!(!scheme.has_slot(ControlSlot::Utility));
     }
 
     #[test]

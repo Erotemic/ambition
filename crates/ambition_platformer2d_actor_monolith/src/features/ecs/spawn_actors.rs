@@ -762,6 +762,9 @@ fn boss_actor_cluster(
     let caps = crate::combat::CombatCapabilities::default();
     let movement_kit = ae::AbilitySet {
         fly: true,
+        // See `enemies::movement_kit` — `NONE` leaves this false, which means
+        // permanent flight rather than the toggled kind a boss has always had.
+        fly_toggle: true,
         ..ae::AbilitySet::NONE
     };
     // Body-contact is now the SHARED `apply_actor_contact_damage` path (fable AD2):

@@ -1,6 +1,6 @@
 # Relativity capability
 
-> **Status (2026-08-05): SR-3 adds observer-local causal targeting and TwinTrack's retarded-image pursuit challenge on top of the SR-2 observatory; local Rust compile and visible-feel validation remain.**
+> **Status (2026-08-06): SR-5 polishes the 2D Relativity Plaza into a guided festival. Proper-time clock presentation, labeled light packets, exact octave Doppler feedback, progressively unassisted light tag, and a scrub-able worldline/signal replay now exercise the existing SR systems without adding another simulation authority. Local Rust compile and visible-feel validation remain.**
 
 Ambition treats special relativity as the first exact spacetime model, not as a
 bag of visual effects. The reusable boundary is:
@@ -23,7 +23,7 @@ Minkowski now; analytic/sampled/evolved GR later
   session-owned spacetime provider, writes the existing `ProperTimeScale`,
   accumulates f64 proper time, propagates analytic null signals, measures local
   receiver frequency, records bounded arrival/worldline telemetry, solves
-  retarded compact-source events, and publishes observer-specific presentation
+  light-delayed compact-source events, and publishes observer-specific presentation
   read models.
 - A provider owns the selected spacetime model and coordinate-time epoch.
   TwinTrack selects Minkowski with an authored invariant speed.
@@ -45,10 +45,13 @@ differences between inertial frames. These are coordinate transforms, not
 claims about optical appearance. TwinTrack uses this surface to report a real
 arrival event relative to the traveler's instantaneous inertial frame.
 
-### Analytic null signals
+### Analytic null signals and messages
 
 A light signal is canonical state defined by an emission event, normalized
-chart direction, chart frequency, packet identity, and invariant speed. Its
+chart direction, chart frequency, packet identity, stable emitter tag, opaque
+game payload, and invariant speed. The signal layer does not interpret the
+payload: TwinTrack uses it for clock requests/replies, Doppler notes, and light
+tag, while another game can carry different finite-speed information. Its
 position is evaluated analytically rather than integrated as an ordinary
 projectile. Swept signal/receiver intersections prevent tunneling and are sorted
 by coordinate-arrival fraction before effects are applied.
@@ -61,9 +64,9 @@ that photon frequency against its own local four-velocity. Passbands are
 content policy; the measurement is reusable engine work.
 
 Reflect mode is a coherent retroreflector: the incoming frequency measured in
-the receiver frame becomes the outgoing source-local frequency for a reversed
-chart direction. This is exact for the one-dimensional TwinTrack use and leaves
-room for later tetrad/specular policies in more dimensions.
+the receiver frame becomes the outgoing source-local frequency for the returned
+chart direction. The packet retains identity and payload. More general
+specular/tetrad policies remain additive work.
 
 ### Coordinate and proper timers
 
@@ -102,7 +105,7 @@ read model. For each active observer, the adapter solves the earliest future
 constant-velocity intersection between a newly emitted null ray and the target
 worldline. It publishes four deliberately separate facts:
 
-- the target's retarded apparent direction from the optical view;
+- the target's light-delayed apparent direction from the optical view;
 - the direction to its current coordinate position;
 - the exact chart direction to the future intercept event;
 - that firing direction transformed into the observer's local inertial frame.
@@ -115,13 +118,20 @@ steers an actor, moves a target, or mutates a signal. This is the same separatio
 a future GR implementation needs, although curved providers will replace the
 closed-form Minkowski intercept with null-geodesic boundary-value solving.
 
-### Proper-velocity foundation
+### Proper-velocity free flight
 
 The pure crate exposes algebraic conversions between coordinate velocity and
-spatial proper velocity (`w = gamma v`). They guarantee subluminal coordinate
-velocity for every finite proper-velocity input and provide the mathematical
-seam for a future relativistic movement authority. SR-3 does not install that
-authority: ordinary Ambition movement remains the only body pose writer.
+spatial proper velocity (`w = gamma v`). The shared axis-swept flight limb can
+optionally integrate acceleration and drag in spatial proper velocity and then
+convert back to coordinate velocity. This guarantees subluminal output for
+finite inputs while retaining an authored coordinate-speed terminal.
+
+This is not a relativity-owned pose writer. It is an optional tuning mode of the
+same movement authority used by ordinary flying bodies. Radial terminal-speed
+enforcement prevents diagonal input from reaching `sqrt(2)` times the authored
+cap. `AbilitySet` separately represents flight capability and permission to
+expose a flight-toggle action, allowing permanent 2D flight with no phantom Jump
+or Toggle button.
 
 ## Cost contract
 
@@ -140,9 +150,11 @@ Costs are proportional only to opted-in data:
   transform per marked target and active observer;
 - presentation: observer views rebuild only when a live spacetime exists.
 
-There is no universal shader, global history buffer, velocity clamp, or
-relativity scan over ordinary bodies. TwinTrack alone opts into a second
-presentation camera and a small synthetic star field.
+There is no universal shader, global history buffer, or relativity scan over
+ordinary bodies. Proper-velocity flight runs only for a body whose normal
+movement tuning opts into an invariant speed. TwinTrack alone installs the
+relativity plugin, marks clocks/sources, and activates the full-screen optical
+presentation and synthetic star field.
 
 ## GR growth path
 
@@ -166,8 +178,23 @@ commitment to physical 2+1-dimensional gravity.
 - curved metrics and timelike/null geodesic solvers;
 - dynamic spacetime or backreaction;
 - general relativistic collision response;
-- retarded rendering of arbitrary extended/tile geometry;
+- light-delayed rendering of arbitrary extended/tile geometry;
 - Doppler/aberration full-screen shaders or full radiative transfer;
-- a relativistic movement authority or global speed clamp;
+- a separate relativity movement authority or global speed clamp;
 - accelerated-target or curved-spacetime intercept solvers;
 - the future 3D Slower Light game.
+
+## SR-5 festival polish boundary
+
+SR-5 adds no new relativistic law. It improves the game-facing consumers of the
+existing exact systems:
+
+- proper-time clocks drive world-space hands/readouts;
+- packet payloads drive presentation labels without changing signal authority;
+- continuous Doppler preview is derived from body state and the Minkowski
+  measurement helper rather than stored as canonical state;
+- multi-round assistance changes only presentation declarations; every hit still
+  uses the same exact null-intercept and swept receiver path;
+- TwinTrack raises the opt-in worldline/arrival history capacities for its own
+  replay, so other games retain zero runtime and allocation cost unless they
+  install and configure the relativity capability.

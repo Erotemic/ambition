@@ -70,7 +70,12 @@ pub fn arrive_body_in_room(
     let incoming = clusters.kinematics.vel;
     let fly_enabled = clusters.flight.fly_enabled;
     crate::reset_body_clusters(model, clusters, spawn, air_jumps_default);
-    clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
+    let abilities = clusters.abilities.abilities;
+    clusters.flight.fly_enabled = if abilities.fly && !abilities.fly_toggle {
+        true
+    } else {
+        fly_enabled && abilities.fly
+    };
     if momentum == ArrivalMomentum::Preserve {
         // ⛔ **AND THE RITUAL REGREW INSIDE THE FUNCTION WRITTEN TO KILL IT.**
         //
@@ -263,7 +268,13 @@ mod tests {
         let (pos, vel) = {
             let mut clusters = scratch.as_mut();
             clusters.sweep = Some(&mut sample);
-            arrive_body_in_room(&mut model, &mut clusters, arrival, 1, ArrivalMomentum::Reset);
+            arrive_body_in_room(
+                &mut model,
+                &mut clusters,
+                arrival,
+                1,
+                ArrivalMomentum::Reset,
+            );
             (clusters.kinematics.pos, clusters.kinematics.vel)
         };
 

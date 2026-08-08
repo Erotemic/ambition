@@ -55,7 +55,7 @@ pub(super) fn apply_fly_toggle(
     input: InputState,
     events: &mut FrameEvents,
 ) {
-    if input.fly_toggle_pressed() && abilities.abilities.fly {
+    if input.fly_toggle_pressed() && abilities.abilities.fly && abilities.abilities.fly_toggle {
         flight.fly_enabled = !flight.fly_enabled;
         if flight.fly_enabled {
             state.fast_falling = false;

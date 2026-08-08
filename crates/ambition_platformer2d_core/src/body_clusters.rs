@@ -617,7 +617,10 @@ pub fn reset_body_clusters(
         charges_available: dash_charges,
         ..Default::default()
     };
-    *clusters.flight = BodyFlightState::default();
+    *clusters.flight = BodyFlightState {
+        fly_enabled: abilities.fly && !abilities.fly_toggle,
+        ..BodyFlightState::default()
+    };
     *clusters.blink = BodyBlinkState::default();
     *clusters.ledge = BodyLedgeState::default();
     *clusters.dodge = BodyDodgeState::default();

@@ -62,7 +62,40 @@ consumers.
 ## 2026-08-05 causal-pursuit amendment
 
 TwinTrack's SR-3 causal-pursuit slice makes observer relativity mechanically
-consequential: the apparent retarded source direction is not the direction that
+consequential: the light-delayed apparent source direction is not the direction that
 a newly emitted signal must follow. A separate derived targeting view solves the
 future null intercept and exposes observer-local aim, while ordinary control,
 body movement, and signal propagation retain their existing authorities.
+
+
+## 2026-08-06 Relativity Plaza amendment
+
+TwinTrack's SR-4 slice establishes that relativity gameplay need not be a rail
+experiment or an instrument panel. A permanent `FreeFlight` grant separates
+flight capability from permission to expose a runtime flight toggle. The shared
+axis-swept movement authority optionally integrates 2D acceleration in spatial
+proper velocity, converts back to guaranteed-subluminal coordinate velocity,
+and enforces one radial terminal speed. Relativity remains a consumer of that
+canonical worldline rather than a second pose writer.
+
+Light signals now carry stable emitter identity and an opaque game payload,
+which makes finite-speed dialogue and social mechanics first-class without
+baking TwinTrack rules into the signal engine. Clock reports, Doppler music, and
+light tag are content interpretations of the same emission/arrival vocabulary.
+The demo's player-facing language uses “light-delayed” and “when this message
+left”; standard specialist terminology remains available in research code and
+advanced documentation.
+
+The optional 2+1D spacetime sculpture is a derived teaching projection of the
+same worldlines, signals, and observer event. It never becomes an authoritative
+3D simulation or a steering requirement.
+
+## SR-5 festival polish (2026-08-06)
+
+TwinTrack now exposes existing SR state through visible clocks, labeled light
+packets, a continuous exact Doppler-note instrument, progressively reduced
+light-tag assistance, and a post-reunion replay. The continuous pitch preview is
+derived, not added to canonical rollback state. The guided phase, attempts/hits,
+and replay cursor are canonical because they alter course progression or
+participant-controlled presentation across rewind; rollback schema v15 records
+the changed `TwinTrackExperiment` encoding.

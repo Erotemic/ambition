@@ -1,15 +1,12 @@
-//! TwinTrack — a compact special-relativity signal observatory.
+//! TwinTrack — a character-driven 2D special-relativity plaza.
 //!
-//! The controlled traveler must emit a forward light pulse while moving fast
-//! enough for a stationary receiver to measure the pulse inside its Doppler
-//! passband. The same null signal continues to a radar reflector and returns as
-//! an echo. The transmitter recharges in traveler proper time, laboratory
-//! machinery runs in coordinate time, and reunion still compares the twins'
-//! elapsed proper times. A private observer viewport adds exact point-source
-//! aberration/Doppler and compact-source past-light-cone images without changing
-//! the authoritative laboratory chart. After the radar echo, the participant
-//! must ignore the retarded image of a moving beacon and lead a null signal into
-//! its exact future intercept event.
+//! The controlled traveler uses the engine's shared free-flight limb with a
+//! proper-velocity controller. Other clock-bearing characters follow authored
+//! worldlines, exchange clock reports over finite-speed light signals, dance
+//! when Doppler-shifted into a passband, and play light tag from their visible
+//! light-delayed positions. A full-screen optical view and an optional 2+1D
+//! spacetime sculpture explain the same authoritative simulation without
+//! becoming another movement or game-state path.
 
 mod chase_beacon;
 #[cfg(feature = "visible")]
@@ -18,30 +15,30 @@ mod observatory;
 pub use observatory::ObservatoryCamera;
 
 use ambition_platformer2d::engine_core as ae;
-use ambition_platformer2d::platformer::lifecycle::{SessionRoot, SessionScopedEntity};
+use ambition_platformer2d::platformer::lifecycle::{
+    SessionRoot, SessionScopeId, SessionScopedEntity,
+};
 use ambition_platformer2d::platformer::schedule::{
     Platformer2dSimulationPhaseMonolith, PlayerInputSet, SimScheduleExt, WorldPrepSet,
 };
 use ambition_platformer2d::provider::{AuthoredCatalogFragments, PlatformerExperienceAuthoring};
+use ambition_platformer2d::relativity::{
+    coordinate_photon_direction_from_observer, minkowski_doppler_measurement,
+    solve_null_intercept_constant_velocity, InvariantSpeed,
+};
 use ambition_platformer2d::relativity2d::{
     ActiveSpacetime2d, LightEmissionRequest2d, LightEmitter2d, LightReceiver2d, LightSignal2d,
     LightSignalPoolSlot2d, OpticalSource2d, ProperTimeCooldown2d, ProperTimeElapsed,
     RelativisticClock2d, RelativisticObserver2d, RelativisticOpticalView2d, RelativisticTarget2d,
     RelativisticTargetingView2d, Relativity2dPlugin, Relativity2dSet, RelativityClockLabel,
     RelativityClockView2d, RelativitySignalView2d, SignalArrival2d, SignalArrivalHistory2d,
-    SpacetimeCoordinateTime2d, WorldlineTracked2d,
+    SpacetimeCoordinateTime2d, WorldlineHistoryView2d, WorldlineTracked2d,
 };
-// Drawn only by the gizmo course and the observatory, so the headless build must
-// not import them: an unconditional `use` is an unused-import warning in exactly
-// the configuration the acceptance tests run in.
-#[cfg(feature = "visible")]
-use ambition_platformer2d::relativity2d::{LightReceiverMode2d, WorldlineHistoryView2d};
 use ambition_platformer2d::runtime::demo_fixture::{
     ActiveRoomMetadata, LdtkRuntimeIndex, RoomSet, StartingCharacter,
 };
 use ambition_platformer2d::runtime::rollback::AmbitionRollbackApp;
 use ambition_platformer2d::runtime::PreparedPlatformerSource;
-use ambition_platformer2d::time::WorldTime;
 use ambition_platformer2d::world::rooms::RoomSpec;
 use bevy::prelude::*;
 
@@ -49,46 +46,78 @@ pub const TWINTRACK_EXPERIENCE: &str = "twintrack";
 pub const TWINTRACK_GAMEPLAY_ROUTE: &str = "twintrack_gameplay";
 pub const TWINTRACK_LAUNCHER_ROUTE: &str = "twintrack_launcher";
 pub const TWINTRACK_CHARACTER_ID: &str = "twintrack_traveler";
-pub const TWINTRACK_ROOM_ID: &str = "twintrack_lab";
+pub const TWINTRACK_ROOM_ID: &str = "twintrack_plaza";
 
 pub const INVARIANT_SPEED: f32 = 600.0;
 pub const TARGET_SPEED: f32 = 540.0;
-pub const EMITTED_FREQUENCY: f64 = 100.0;
-pub const DOPPLER_PASSBAND_MIN: f64 = 380.0;
-pub const DOPPLER_PASSBAND_MAX: f64 = 480.0;
-pub const TRANSMITTER_COOLDOWN_PROPER_SECONDS: f64 = 0.75;
-pub const LAB_X: f32 = 112.0;
-pub const DOPPLER_RECEIVER_X: f32 = 690.0;
-pub const RADAR_REFLECTOR_X: f32 = 1_315.0;
-pub const TURNAROUND_X: f32 = 1_470.0;
+pub const EMITTED_FREQUENCY: f64 = 98.0;
+pub const DOPPLER_TARGET_FREQUENCY: f64 = 196.0;
+pub const DOPPLER_PASSBAND_MIN: f64 = 190.0;
+pub const DOPPLER_PASSBAND_MAX: f64 = 202.0;
+pub const TRANSMITTER_COOLDOWN_PROPER_SECONDS: f64 = 0.45;
+
+pub const ROOM_WIDTH: f32 = 1_440.0;
+pub const ROOM_HEIGHT: f32 = 900.0;
+pub const LAB_POS: Vec2 = Vec2::new(150.0, 450.0);
+pub const VIEW_CONSOLE_POS: Vec2 = Vec2::new(160.0, 760.0);
+pub const DJ_POS: Vec2 = Vec2::new(1_165.0, 670.0);
+pub const TAG_START_POS: Vec2 = Vec2::new(750.0, 300.0);
+const TAG_ORBIT_CENTER: Vec2 = Vec2::new(750.0, 4_300.0);
+const TAG_ORBIT_RADIUS: f32 = 4_000.0;
+const TAG_SPEED: f32 = 60.0;
+
 pub const TRAVELER_RECEIVER_CHANNEL: u8 = 0;
-pub const DOPPLER_RECEIVER_CHANNEL: u8 = 1;
-pub const RADAR_RECEIVER_CHANNEL: u8 = 2;
-pub const PURSUIT_RECEIVER_CHANNEL: u8 = 3;
-pub const PURSUIT_TARGET_START_X: f32 = 790.0;
-pub const PURSUIT_TARGET_START_Y: f32 = 138.0;
-pub const PURSUIT_TARGET_VELOCITY_X: f32 = 118.0;
-pub const PURSUIT_TARGET_VELOCITY_Y: f32 = -34.0;
+pub const COURIER_RECEIVER_CHANNEL: u8 = 10;
+pub const DRIFTER_RECEIVER_CHANNEL: u8 = 11;
+pub const SPINNER_RECEIVER_CHANNEL: u8 = 12;
+pub const DJ_RECEIVER_CHANNEL: u8 = 13;
+pub const TAG_RECEIVER_CHANNEL: u8 = 14;
 
-const FLOOR_TOP: f32 = 320.0;
-const ROOM_HEIGHT: f32 = 420.0;
-const DEPARTURE_X: f32 = LAB_X + 72.0;
-const REUNION_X: f32 = LAB_X + 52.0;
-const COMPLETE_HOLD_SECONDS: f32 = 7.0;
-const SIGNAL_POOL_LABEL: &str = "twintrack_signal_pool";
-const SIGNAL_POOL_SIZE: u16 = 8;
-const TRANSMITTER_LABEL: &str = "traveler_transmitter";
+pub const TRAVELER_TAG: u64 = 100;
+pub const COURIER_ID: u8 = 1;
+pub const DRIFTER_ID: u8 = 2;
+pub const SPINNER_ID: u8 = 3;
+pub const DJ_ID: u8 = 4;
+pub const TAGGER_ID: u8 = 5;
 
-pub const STATUS_HUD_SLOT: &str = "twintrack_status";
+const SIGNAL_POOL_LABEL: &str = "twintrack_plaza_signals";
+const SIGNAL_POOL_SIZE: u16 = 32;
+const CLOCK_REPORT_MASK: u8 = 0b111;
+const INTERACTION_RADIUS: f32 = 180.0;
+const VIEW_CONSOLE_RADIUS: f32 = 110.0;
+const LAB_REUNION_RADIUS: f32 = 125.0;
+const INTRO_DRIFT_DISTANCE: f32 = 230.0;
+const INTRO_RELATIVISTIC_SPEED_FRACTION: f32 = 0.50;
+pub const LIGHT_TAG_ROUNDS: u32 = 3;
+pub const TWINTRACK_WORLDLINE_HISTORY_SAMPLES: usize = 12_000;
+
+const SFX_CLOCK_REPORT: &str = "twintrack.clock_report";
+const SFX_DOPPLER_G2: &str = "twintrack.doppler.g2";
+const SFX_DOPPLER_B2: &str = "twintrack.doppler.b2";
+const SFX_DOPPLER_D3: &str = "twintrack.doppler.d3";
+const SFX_DOPPLER_F3: &str = "twintrack.doppler.f3";
+const SFX_DOPPLER_G3: &str = "twintrack.doppler.g3";
+const SFX_TAG_HIT: &str = "twintrack.light_tag_hit";
+
+const PAYLOAD_KIND_SHIFT: u32 = 56;
+const PAYLOAD_ACTOR_SHIFT: u32 = 48;
+const PAYLOAD_DATA_MASK: u64 = (1_u64 << 48) - 1;
+const PAYLOAD_ASK_CLOCK: u8 = 1;
+const PAYLOAD_CLOCK_REPORT: u8 = 2;
+const PAYLOAD_DOPPLER_NOTE: u8 = 3;
+const PAYLOAD_LIGHT_TAG: u8 = 4;
+
+pub const OBJECTIVE_HUD_SLOT: &str = "twintrack_objective";
 pub const CLOCKS_HUD_SLOT: &str = "twintrack_clocks";
-pub const SIGNALS_HUD_SLOT: &str = "twintrack_signals";
+pub const DIALOGUE_HUD_SLOT: &str = "twintrack_dialogue";
+pub const TEACHER_HUD_SLOT: &str = "twintrack_teacher";
 pub const RESULT_HUD_SLOT: &str = "twintrack_result";
 
 const TWINTRACK_CATALOG_RON: &str = r#"(
     brain_presets: { "stand_still": StandStill },
     action_set_presets: {
         "peaceful": (
-            move_style: Walk,
+            move_style: Float,
             melee: None,
             ranged: None,
             special: None,
@@ -100,32 +129,37 @@ const TWINTRACK_CATALOG_RON: &str = r#"(
             spritesheet: "sprites/mary_o_v2_spritesheet.png",
             manifest: "sprites/mary_o_v2_spritesheet.ron",
             tier: MainHall,
-            body_kind: Standard,
+            body_kind: Floating,
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
-            abilities: Some([RunJump]),
+            abilities: Some([FreeFlight]),
             axis_tuning: Some((
                 horizontal_law: Responsive,
                 jump_law: VelocityCut,
-                gravity: 1800.0,
+                gravity: 0.0,
                 air_jumps: 0,
                 jump_speed: 0.0,
                 max_run_speed: 540.0,
-                run_accel: 1800.0,
-                air_accel: 900.0,
+                run_accel: 960.0,
+                air_accel: 960.0,
                 max_fall_speed: 540.0,
                 coyote_time: 0.0,
                 jump_buffer: 0.0,
+                flight_accel: 700.0,
+                flight_drag: 180.0,
+                flight_terminal_speed: 540.0,
+                flight_direct_velocity: false,
+                flight_invariant_speed: Some(600.0),
             )),
             max_health: Some(1),
             playable_kit: Authored,
-            tags: ["player", "relativity", "signal_course", "observatory"],
+            tags: ["participant", "relativity", "free_flight", "plaza"],
             barks: (
                 hall: [
-                    "Tune the pulse with velocity.",
-                    "The echo knows where I was.",
-                    "Lead the light, not the image.",
+                    "Ask everyone what their own clock reads.",
+                    "What reaches you now left them earlier.",
+                    "Lead the visible image in light tag.",
                 ],
             ),
         ),
@@ -138,78 +172,144 @@ pub struct TravelerTwin;
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct LaboratoryTwin;
 
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct TwinTrackChaseBeacon;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TwinTrackRole {
+    ClockCitizen,
+    DopplerDj,
+    LightTagger,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TwinTrackTrajectory {
+    Stationary,
+    Orbit {
+        center: Vec2,
+        radius: f32,
+        angular_speed: f32,
+        phase: f32,
+    },
+}
+
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct TwinTrackCharacter {
+    pub id: u8,
+    pub label: String,
+    pub role: TwinTrackRole,
+    pub receiver_channel: u8,
+    pub trajectory: TwinTrackTrajectory,
+}
+
+impl TwinTrackCharacter {
+    fn clock_citizen(
+        id: u8,
+        label: &str,
+        receiver_channel: u8,
+        center: Vec2,
+        radius: f32,
+        speed: f32,
+        phase: f32,
+    ) -> Self {
+        Self {
+            id,
+            label: label.to_owned(),
+            role: TwinTrackRole::ClockCitizen,
+            receiver_channel,
+            trajectory: TwinTrackTrajectory::Orbit {
+                center,
+                radius,
+                angular_speed: speed / radius,
+                phase,
+            },
+        }
+    }
+
+    fn stationary(id: u8, label: &str, role: TwinTrackRole, receiver_channel: u8) -> Self {
+        Self {
+            id,
+            label: label.to_owned(),
+            role,
+            receiver_channel,
+            trajectory: TwinTrackTrajectory::Stationary,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TwinTrackViewMode {
     #[default]
-    Dual,
-    OpticalFocus,
-    LaboratoryFocus,
+    Laboratory,
+    Optical,
+    Spacetime,
 }
 
 impl TwinTrackViewMode {
     fn next(self) -> Self {
         match self {
-            Self::Dual => Self::OpticalFocus,
-            Self::OpticalFocus => Self::LaboratoryFocus,
-            Self::LaboratoryFocus => Self::Dual,
+            Self::Laboratory => Self::Optical,
+            Self::Optical => Self::Spacetime,
+            Self::Spacetime => Self::Laboratory,
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum TwinTrackIntroStep {
+    #[default]
+    Synchronize,
+    Drift,
+    Accelerate,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TwinTrackPhase {
-    Ready,
-    DopplerLock,
-    AwaitEcho,
-    Pursuit,
-    Inbound,
+    #[default]
+    Introduction,
+    ClockCensus,
+    DopplerDance,
+    LightTag,
+    Reunion,
     Complete,
 }
 
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct TwinTrackExperiment {
     pub phase: TwinTrackPhase,
+    pub intro_step: TwinTrackIntroStep,
     pub view_mode: TwinTrackViewMode,
     pub aim_direction: Vec2,
-    pub peak_beta: f32,
-    pub qualified_packet_id: u64,
+    pub clock_report_mask: u8,
+    pub last_speaker_id: u8,
+    pub last_report_clock: f64,
+    pub last_receive_clock: f64,
+    pub last_receive_lab_time: f64,
+    pub last_message_departure_time: f64,
     pub doppler_frequency: f64,
-    pub doppler_arrival_time: f64,
-    pub radar_arrival_time: f64,
-    pub echo_arrival_time: f64,
-    pub echo_receiver_proper_time: f64,
-    pub pursuit_start_time: f64,
-    pub pursuit_hit_time: f64,
-    pub pursuit_hits: u32,
-    pub accepted_packets: u32,
+    pub tag_attempts: u32,
+    pub tag_hits: u32,
+    pub replay_cursor: f32,
     pub result_lab_time: f64,
     pub result_traveler_time: f64,
-    pub complete_elapsed: f32,
 }
 
 impl Default for TwinTrackExperiment {
     fn default() -> Self {
         Self {
-            phase: TwinTrackPhase::Ready,
-            view_mode: TwinTrackViewMode::Dual,
+            phase: TwinTrackPhase::Introduction,
+            intro_step: TwinTrackIntroStep::Synchronize,
+            view_mode: TwinTrackViewMode::Laboratory,
             aim_direction: Vec2::X,
-            peak_beta: 0.0,
-            qualified_packet_id: 0,
+            clock_report_mask: 0,
+            last_speaker_id: 0,
+            last_report_clock: 0.0,
+            last_receive_clock: 0.0,
+            last_receive_lab_time: 0.0,
+            last_message_departure_time: 0.0,
             doppler_frequency: 0.0,
-            doppler_arrival_time: 0.0,
-            radar_arrival_time: 0.0,
-            echo_arrival_time: 0.0,
-            echo_receiver_proper_time: 0.0,
-            pursuit_start_time: 0.0,
-            pursuit_hit_time: 0.0,
-            pursuit_hits: 0,
-            accepted_packets: 0,
+            tag_attempts: 0,
+            tag_hits: 0,
+            replay_cursor: 1.0,
             result_lab_time: 0.0,
             result_traveler_time: 0.0,
-            complete_elapsed: 0.0,
         }
     }
 }
@@ -219,101 +319,89 @@ impl ambition_platformer2d::engine_core::snapshot::SnapshotState for TwinTrackEx
         use ambition_platformer2d::engine_core::snapshot::{
             put_f32, put_u32, put_u64, put_u8, put_vec2,
         };
-        put_u8(
-            out,
-            match self.phase {
-                TwinTrackPhase::Ready => 0,
-                TwinTrackPhase::DopplerLock => 1,
-                TwinTrackPhase::AwaitEcho => 2,
-                TwinTrackPhase::Pursuit => 3,
-                TwinTrackPhase::Inbound => 4,
-                TwinTrackPhase::Complete => 5,
-            },
-        );
-        put_u8(
-            out,
-            match self.view_mode {
-                TwinTrackViewMode::Dual => 0,
-                TwinTrackViewMode::OpticalFocus => 1,
-                TwinTrackViewMode::LaboratoryFocus => 2,
-            },
-        );
+        put_u8(out, self.phase as u8);
+        put_u8(out, self.intro_step as u8);
+        put_u8(out, self.view_mode as u8);
         put_vec2(out, self.aim_direction);
-        put_f32(out, self.peak_beta);
-        put_u64(out, self.qualified_packet_id);
+        put_u8(out, self.clock_report_mask);
+        put_u8(out, self.last_speaker_id);
+        put_u64(out, self.last_report_clock.to_bits());
+        put_u64(out, self.last_receive_clock.to_bits());
+        put_u64(out, self.last_receive_lab_time.to_bits());
+        put_u64(out, self.last_message_departure_time.to_bits());
         put_u64(out, self.doppler_frequency.to_bits());
-        put_u64(out, self.doppler_arrival_time.to_bits());
-        put_u64(out, self.radar_arrival_time.to_bits());
-        put_u64(out, self.echo_arrival_time.to_bits());
-        put_u64(out, self.echo_receiver_proper_time.to_bits());
-        put_u64(out, self.pursuit_start_time.to_bits());
-        put_u64(out, self.pursuit_hit_time.to_bits());
-        put_u32(out, self.pursuit_hits);
-        put_u32(out, self.accepted_packets);
+        put_u32(out, self.tag_attempts);
+        put_u32(out, self.tag_hits);
+        put_f32(out, self.replay_cursor);
         put_u64(out, self.result_lab_time.to_bits());
         put_u64(out, self.result_traveler_time.to_bits());
-        put_f32(out, self.complete_elapsed);
     }
 
     fn decode(
         reader: &mut ambition_platformer2d::engine_core::snapshot::Reader<'_>,
     ) -> Option<Self> {
-        Some(Self {
-            phase: match reader.u8()? {
-                0 => TwinTrackPhase::Ready,
-                1 => TwinTrackPhase::DopplerLock,
-                2 => TwinTrackPhase::AwaitEcho,
-                3 => TwinTrackPhase::Pursuit,
-                4 => TwinTrackPhase::Inbound,
-                5 => TwinTrackPhase::Complete,
-                _ => return None,
-            },
-            view_mode: match reader.u8()? {
-                0 => TwinTrackViewMode::Dual,
-                1 => TwinTrackViewMode::OpticalFocus,
-                2 => TwinTrackViewMode::LaboratoryFocus,
-                _ => return None,
-            },
+        let phase = match reader.u8()? {
+            0 => TwinTrackPhase::Introduction,
+            1 => TwinTrackPhase::ClockCensus,
+            2 => TwinTrackPhase::DopplerDance,
+            3 => TwinTrackPhase::LightTag,
+            4 => TwinTrackPhase::Reunion,
+            5 => TwinTrackPhase::Complete,
+            _ => return None,
+        };
+        let intro_step = match reader.u8()? {
+            0 => TwinTrackIntroStep::Synchronize,
+            1 => TwinTrackIntroStep::Drift,
+            2 => TwinTrackIntroStep::Accelerate,
+            _ => return None,
+        };
+        let view_mode = match reader.u8()? {
+            0 => TwinTrackViewMode::Laboratory,
+            1 => TwinTrackViewMode::Optical,
+            2 => TwinTrackViewMode::Spacetime,
+            _ => return None,
+        };
+        let value = Self {
+            phase,
+            intro_step,
+            view_mode,
             aim_direction: reader.vec2()?,
-            peak_beta: reader.f32()?,
-            qualified_packet_id: reader.u64()?,
+            clock_report_mask: reader.u8()?,
+            last_speaker_id: reader.u8()?,
+            last_report_clock: f64::from_bits(reader.u64()?),
+            last_receive_clock: f64::from_bits(reader.u64()?),
+            last_receive_lab_time: f64::from_bits(reader.u64()?),
+            last_message_departure_time: f64::from_bits(reader.u64()?),
             doppler_frequency: f64::from_bits(reader.u64()?),
-            doppler_arrival_time: f64::from_bits(reader.u64()?),
-            radar_arrival_time: f64::from_bits(reader.u64()?),
-            echo_arrival_time: f64::from_bits(reader.u64()?),
-            echo_receiver_proper_time: f64::from_bits(reader.u64()?),
-            pursuit_start_time: f64::from_bits(reader.u64()?),
-            pursuit_hit_time: f64::from_bits(reader.u64()?),
-            pursuit_hits: reader.u32()?,
-            accepted_packets: reader.u32()?,
+            tag_attempts: reader.u32()?,
+            tag_hits: reader.u32()?,
+            replay_cursor: reader.f32()?.clamp(0.0, 1.0),
             result_lab_time: f64::from_bits(reader.u64()?),
             result_traveler_time: f64::from_bits(reader.u64()?),
-            complete_elapsed: reader.f32()?,
-        })
+        };
+        Some(value)
     }
 }
 
 pub fn twintrack_room() -> RoomSpec {
-    let size = ae::Vec2::new(1_680.0, ROOM_HEIGHT);
+    let size = ae::Vec2::new(ROOM_WIDTH, ROOM_HEIGHT);
+    let wall = 32.0;
     let world = ae::World::new(
-        "TwinTrack Minkowski Signal Laboratory",
+        "TwinTrack Relativity Plaza",
         size,
-        ae::Vec2::new(LAB_X, FLOOR_TOP - 64.0),
+        LAB_POS,
         vec![
+            ae::Block::solid("plaza_top", Vec2::ZERO, Vec2::new(size.x, wall)),
             ae::Block::solid(
-                "twintrack_floor",
-                ae::Vec2::new(0.0, FLOOR_TOP),
-                ae::Vec2::new(size.x, 64.0),
+                "plaza_bottom",
+                Vec2::new(0.0, size.y - wall),
+                Vec2::new(size.x, wall),
             ),
+            ae::Block::solid("plaza_left", Vec2::ZERO, Vec2::new(wall, size.y)),
             ae::Block::solid(
-                "laboratory_clock_pedestal",
-                ae::Vec2::new(LAB_X - 38.0, FLOOR_TOP - 48.0),
-                ae::Vec2::new(28.0, 48.0),
-            ),
-            ae::Block::solid(
-                "turnaround_beacon",
-                ae::Vec2::new(TURNAROUND_X + 64.0, FLOOR_TOP - 112.0),
-                ae::Vec2::new(28.0, 112.0),
+                "plaza_right",
+                Vec2::new(size.x - wall, 0.0),
+                Vec2::new(wall, size.y),
             ),
         ],
     );
@@ -348,15 +436,72 @@ pub fn install_twintrack_content(app: &mut App) {
             )
             .with_sheet("mary_o_v2")
             .with_voice([
-                "Coordinate time launches the pulse.",
-                "My transmitter recharges in proper time.",
+                "Ask what their own clocks read.",
+                "The visible image is old light.",
             ]),
         );
     }
     app.register_audio_catalog_fragment(
-        AudioCatalogFragment::new(TWINTRACK_EXPERIENCE, None, None)
-            .expect("TwinTrack explicitly declares silence"),
+        AudioCatalogFragment::new(
+            TWINTRACK_EXPERIENCE,
+            None,
+            Some(ambition_platformer2d::audio::spec::SfxRegistry {
+                sample_rate: 44_100,
+                sfx: twintrack_sfx_specs(),
+            }),
+        )
+        .expect("TwinTrack procedural teaching cues should be valid"),
     );
+}
+
+fn twintrack_sfx_specs() -> Vec<ambition_platformer2d::audio::spec::SfxSpec> {
+    use ambition_platformer2d::audio::spec::WaveformSpec as Wave;
+    vec![
+        twintrack_sfx(SFX_CLOCK_REPORT, Wave::Triangle, 720.0, 920.0, 0.12, 0.24),
+        twintrack_sfx(SFX_DOPPLER_G2, Wave::Sine, 98.0, 98.0, 0.24, 0.30),
+        twintrack_sfx(SFX_DOPPLER_B2, Wave::Sine, 123.47, 123.47, 0.24, 0.30),
+        twintrack_sfx(SFX_DOPPLER_D3, Wave::Sine, 146.83, 146.83, 0.24, 0.30),
+        twintrack_sfx(SFX_DOPPLER_F3, Wave::Sine, 174.61, 174.61, 0.24, 0.30),
+        twintrack_sfx(SFX_DOPPLER_G3, Wave::Triangle, 196.0, 392.0, 0.34, 0.34),
+        twintrack_sfx(SFX_TAG_HIT, Wave::Square, 560.0, 1_120.0, 0.16, 0.28),
+    ]
+}
+
+fn twintrack_sfx(
+    id: &str,
+    waveform: ambition_platformer2d::audio::spec::WaveformSpec,
+    frequency: f32,
+    frequency_end: f32,
+    duration: f32,
+    volume: f32,
+) -> ambition_platformer2d::audio::spec::SfxSpec {
+    ambition_platformer2d::audio::spec::SfxSpec {
+        cue: None,
+        id: Some(id.to_owned()),
+        waveform,
+        frequency,
+        frequency_end,
+        duration,
+        volume,
+        attack: 0.008,
+        release: (duration * 0.35).min(0.08),
+        noise: 0.0,
+    }
+}
+
+fn doppler_feedback_sfx(frequency: f64, accepted: bool) -> &'static str {
+    if accepted {
+        return SFX_DOPPLER_G3;
+    }
+    if frequency < 111.0 {
+        SFX_DOPPLER_G2
+    } else if frequency < 135.0 {
+        SFX_DOPPLER_B2
+    } else if frequency < 161.0 {
+        SFX_DOPPLER_D3
+    } else {
+        SFX_DOPPLER_F3
+    }
 }
 
 pub struct TwinTrackExperiencePlugin;
@@ -376,16 +521,18 @@ impl Plugin for TwinTrackExperiencePlugin {
             "ambition_demo_twintrack",
             "twintrack.laboratory",
         )
-        .rollback_component_clone::<TwinTrackChaseBeacon>(
+        .rollback_component_clone_probed::<TwinTrackCharacter>(
             "ambition_demo_twintrack",
-            "twintrack.chase_beacon",
+            "twintrack.character",
+            |character| u64::from(character.id),
         );
 
         PlatformerExperienceAuthoring::new(
             TWINTRACK_EXPERIENCE,
             TWINTRACK_GAMEPLAY_ROUTE,
             "TwinTrack",
-            "Doppler-lock a pulse, catch its echo, then lead a null signal past a target's retarded image",
+            "Meet moving characters, exchange light-delayed clock reports, \
+             Doppler-shift a song, and play light tag",
             "Prepare TwinTrack",
             AuthoredCatalogFragments::new(TWINTRACK_CHARACTER_ID, TWINTRACK_EXPERIENCE),
         )
@@ -395,15 +542,15 @@ impl Plugin for TwinTrackExperiencePlugin {
         .with_hud(
             ambition_platformer2d::presentation::HudDeclaration::new()
                 .slot(
-                    ambition_platformer2d::presentation::HudSlotSpec::new(STATUS_HUD_SLOT)
+                    ambition_platformer2d::presentation::HudSlotSpec::new(OBJECTIVE_HUD_SLOT)
                         .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
-                        .with_font_size(19.0),
+                        .with_font_size(16.0),
                 )
                 .slot(
-                    ambition_platformer2d::presentation::HudSlotSpec::new(SIGNALS_HUD_SLOT)
+                    ambition_platformer2d::presentation::HudSlotSpec::new(DIALOGUE_HUD_SLOT)
                         .with_region(ambition_platformer2d::presentation::SurroundRegion::Top)
                         .with_order(2)
-                        .with_font_size(17.0),
+                        .with_font_size(15.0),
                 )
                 .slot(
                     ambition_platformer2d::presentation::HudSlotSpec::new(CLOCKS_HUD_SLOT)
@@ -411,10 +558,16 @@ impl Plugin for TwinTrackExperiencePlugin {
                         .with_font_size(18.0),
                 )
                 .slot(
+                    ambition_platformer2d::presentation::HudSlotSpec::new(TEACHER_HUD_SLOT)
+                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Bottom)
+                        .with_order(2)
+                        .with_font_size(14.0),
+                )
+                .slot(
                     ambition_platformer2d::presentation::HudSlotSpec::new(RESULT_HUD_SLOT)
-                        .with_order(99)
-                        .with_font_size(25.0)
-                        .centered(),
+                        .with_region(ambition_platformer2d::presentation::SurroundRegion::Bottom)
+                        .with_order(3)
+                        .with_font_size(17.0),
                 ),
         )
         .install(app, twintrack_prepared_session_world);
@@ -431,25 +584,17 @@ impl Plugin for TwinTrackExperiencePlugin {
         )
         .add_systems(
             sim,
-            update_twintrack_experiment
-                .run_if(ambition_platformer2d::runtime::in_mode(
-                    TWINTRACK_EXPERIENCE,
-                ))
-                .after(Relativity2dSet::ResolveClocks)
-                .in_set(WorldPrepSet::BeforeIntegrate),
-        )
-        .add_systems(
-            sim,
-            chase_beacon::update_twintrack_chase_beacon
+            chase_beacon::update_twintrack_character_worldlines
                 .run_if(ambition_platformer2d::runtime::in_mode(
                     TWINTRACK_EXPERIENCE,
                 ))
                 .after(Relativity2dSet::AdvanceCoordinateTime)
+                .before(Relativity2dSet::ResolveClocks)
                 .in_set(WorldPrepSet::BeforeIntegrate),
         )
         .add_systems(
             sim,
-            capture_twintrack_transmitter_input
+            capture_twintrack_interaction
                 .run_if(ambition_platformer2d::runtime::in_mode(
                     TWINTRACK_EXPERIENCE,
                 ))
@@ -471,29 +616,6 @@ impl Plugin for TwinTrackExperiencePlugin {
             )),
         );
 
-        // ⚠ **`Gizmos` needs `GizmoConfigStore`, and being in the right MODE is
-        // not the same as having a renderer.** The workspace suite builds this
-        // experience with the `visible` feature but without Bevy's `GizmoPlugin`,
-        // and a `Gizmos` param whose store is missing fails validation and
-        // PANICS the schedule rather than skipping the system — which is exactly
-        // how it failed: `Parameter Res<GizmoConfigStore> failed validation:
-        // Resource does not exist`. The mode condition cannot see that; the
-        // resource condition can.
-        //
-        // ⛔ **the SR-3 overlay dropped this condition**, comment included, and
-        // the panic came back in `the_full_multi_game_lifecycle_is_leak_free` —
-        // the FOURTH fix that overlay reverted. An overlay is written against
-        // the tree as it stood when the previous one shipped.
-        #[cfg(feature = "visible")]
-        app.add_systems(
-            Update,
-            draw_twintrack_sr_course
-                .run_if(ambition_platformer2d::runtime::in_mode(
-                    TWINTRACK_EXPERIENCE,
-                ))
-                .run_if(bevy::prelude::resource_exists::<bevy::gizmos::config::GizmoConfigStore>),
-        );
-
         #[cfg(feature = "visible")]
         observatory::install(app);
     }
@@ -513,6 +635,7 @@ fn twintrack_prepared_session_world() -> PreparedPlatformerSource {
 
 fn install_twintrack_session(
     mut commands: Commands,
+    mut worldlines: ResMut<WorldlineHistoryView2d>,
     roots: Query<(Entity, &SessionRoot, &ActiveRoomMetadata), Without<ActiveSpacetime2d>>,
     traveler: Query<
         Entity,
@@ -522,119 +645,168 @@ fn install_twintrack_session(
         ),
     >,
 ) {
-    let Ok((root_entity, root, metadata)) = roots.single() else {
+    let (Ok((root_entity, root, metadata)), Ok(traveler_entity)) =
+        (roots.single(), traveler.single())
+    else {
         return;
     };
     if metadata.0.mode.as_deref() != Some(TWINTRACK_EXPERIENCE) {
         return;
     }
-    let Ok(traveler_entity) = traveler.single() else {
-        return;
-    };
+
+    worldlines.capacity_per_track = TWINTRACK_WORLDLINE_HISTORY_SAMPLES;
 
     commands.entity(root_entity).insert((
         ActiveSpacetime2d::minkowski(INVARIANT_SPEED as f64)
             .expect("TwinTrack invariant speed is finite and positive"),
         SpacetimeCoordinateTime2d::default(),
-        SignalArrivalHistory2d::default(),
+        SignalArrivalHistory2d {
+            capacity: 256,
+            ..default()
+        },
     ));
     commands.entity(traveler_entity).insert((
         TravelerTwin,
+        ae::BodyFlightState {
+            fly_enabled: true,
+            ..default()
+        },
         RelativisticClock2d,
         RelativityClockLabel("traveler".to_owned()),
         WorldlineTracked2d::new("traveler"),
         RelativisticObserver2d("traveler".to_owned()),
         LightEmitter2d::new(
-            TRANSMITTER_LABEL,
+            "traveler_transmitter",
             SIGNAL_POOL_LABEL,
             EMITTED_FREQUENCY,
             TRANSMITTER_COOLDOWN_PROPER_SECONDS,
         )
+        .with_tag(TRAVELER_TAG)
         .with_source_receiver_channel(TRAVELER_RECEIVER_CHANNEL),
         ProperTimeCooldown2d::default(),
         LightReceiver2d::observer(
-            "traveler_echo_receiver",
+            "traveler_messages",
             TRAVELER_RECEIVER_CHANNEL,
-            Vec2::new(22.0, 36.0),
+            Vec2::splat(72.0),
         )
         .consuming(),
     ));
+
     commands.spawn((
         LaboratoryTwin,
         RelativisticClock2d,
         RelativityClockLabel("laboratory".to_owned()),
         WorldlineTracked2d::new("laboratory"),
-        OpticalSource2d::new("laboratory", 180.0, 1.0, 15.0),
+        OpticalSource2d::new("laboratory", 180.0, 1.0, 18.0),
         ProperTimeElapsed::ZERO,
         TwinTrackExperiment::default(),
         ae::BodyKinematics {
-            pos: Vec2::new(LAB_X - 26.0, FLOOR_TOP - 76.0),
+            pos: LAB_POS,
             vel: Vec2::ZERO,
-            size: Vec2::splat(24.0),
+            size: Vec2::splat(32.0),
             facing: 1.0,
         },
         SessionScopedEntity(root.0),
-        ambition_platformer2d::platformer::sim_id::SimId::placement("twintrack_lab_clock"),
+        ambition_platformer2d::platformer::sim_id::SimId::placement("twintrack_laboratory"),
     ));
-    commands.spawn((
-        RelativisticClock2d,
-        WorldlineTracked2d::new("doppler_passband"),
-        OpticalSource2d::new("doppler_passband", 260.0, 1.15, 18.0),
-        LightReceiver2d::observer(
-            "doppler_passband",
-            DOPPLER_RECEIVER_CHANNEL,
-            Vec2::new(12.0, 80.0),
-        )
-        .with_passband(DOPPLER_PASSBAND_MIN, DOPPLER_PASSBAND_MAX),
-        ae::BodyKinematics {
-            pos: Vec2::new(DOPPLER_RECEIVER_X, FLOOR_TOP - 86.0),
-            vel: Vec2::ZERO,
-            size: Vec2::new(24.0, 160.0),
-            facing: 1.0,
-        },
-        SessionScopedEntity(root.0),
-        ambition_platformer2d::platformer::sim_id::SimId::placement("twintrack_doppler_receiver"),
-    ));
-    commands.spawn((
-        RelativisticClock2d,
-        WorldlineTracked2d::new("radar_reflector"),
-        OpticalSource2d::new("radar_reflector", 120.0, 1.35, 21.0),
-        LightReceiver2d::reflector(
-            "radar_reflector",
-            RADAR_RECEIVER_CHANNEL,
-            Vec2::new(14.0, 92.0),
+
+    spawn_character(
+        &mut commands,
+        root.0,
+        TwinTrackCharacter::clock_citizen(
+            COURIER_ID,
+            "Courier",
+            COURIER_RECEIVER_CHANNEL,
+            Vec2::new(410.0, 260.0),
+            145.0,
+            210.0,
+            0.0,
         ),
-        ae::BodyKinematics {
-            pos: Vec2::new(RADAR_REFLECTOR_X, FLOOR_TOP - 96.0),
-            vel: Vec2::ZERO,
-            size: Vec2::new(28.0, 184.0),
-            facing: -1.0,
+        150.0,
+        1.0,
+        19.0,
+    );
+    spawn_character(
+        &mut commands,
+        root.0,
+        TwinTrackCharacter::clock_citizen(
+            DRIFTER_ID,
+            "Drifter",
+            DRIFTER_RECEIVER_CHANNEL,
+            Vec2::new(900.0, 245.0),
+            175.0,
+            330.0,
+            1.7,
+        ),
+        205.0,
+        1.15,
+        21.0,
+    );
+    spawn_character(
+        &mut commands,
+        root.0,
+        TwinTrackCharacter::clock_citizen(
+            SPINNER_ID,
+            "Spinner",
+            SPINNER_RECEIVER_CHANNEL,
+            Vec2::new(610.0, 680.0),
+            125.0,
+            450.0,
+            3.1,
+        ),
+        260.0,
+        1.3,
+        22.0,
+    );
+
+    let dj = TwinTrackCharacter::stationary(
+        DJ_ID,
+        "DJ Blue Shift",
+        TwinTrackRole::DopplerDj,
+        DJ_RECEIVER_CHANNEL,
+    );
+    spawn_character_at(
+        &mut commands,
+        root.0,
+        dj,
+        DJ_POS,
+        320.0,
+        1.4,
+        24.0,
+        Some((DOPPLER_PASSBAND_MIN, DOPPLER_PASSBAND_MAX)),
+        true,
+    );
+
+    let tagger = TwinTrackCharacter {
+        id: TAGGER_ID,
+        label: "Photon Fox".to_owned(),
+        role: TwinTrackRole::LightTagger,
+        receiver_channel: TAG_RECEIVER_CHANNEL,
+        trajectory: TwinTrackTrajectory::Orbit {
+            // A huge-radius arc is effectively inertial over the light-tag
+            // encounter, so the engine's constant-velocity null-intercept
+            // solution remains an honest predictor while the character stays
+            // inside the finite plaza for a useful play window.
+            center: TAG_ORBIT_CENTER,
+            radius: TAG_ORBIT_RADIUS,
+            angular_speed: TAG_SPEED / TAG_ORBIT_RADIUS,
+            phase: -std::f32::consts::FRAC_PI_2,
         },
-        SessionScopedEntity(root.0),
-        ambition_platformer2d::platformer::sim_id::SimId::placement("twintrack_radar_reflector"),
-    ));
-    commands.spawn((
-        TwinTrackChaseBeacon,
-        WorldlineTracked2d::new("chase_beacon"),
-        OpticalSource2d::new("chase_beacon", 210.0, 1.55, 20.0),
-        RelativisticTarget2d("chase_beacon".to_owned()),
-        LightReceiver2d::observer(
-            "pursuit_target",
-            PURSUIT_RECEIVER_CHANNEL,
-            Vec2::splat(28.0),
-        )
-        .consuming(),
-        ae::BodyKinematics {
-            // ONE source for the start event: the module that prescribes the
-            // worldline also says where it begins.
-            pos: chase_beacon::beacon_start(),
-            vel: Vec2::ZERO,
-            size: Vec2::splat(28.0),
-            facing: 1.0,
-        },
-        SessionScopedEntity(root.0),
-        ambition_platformer2d::platformer::sim_id::SimId::placement("twintrack_chase_beacon"),
-    ));
+    };
+    let tag_entity = spawn_character_at(
+        &mut commands,
+        root.0,
+        tagger,
+        TAG_START_POS,
+        220.0,
+        1.6,
+        25.0,
+        None,
+        true,
+    );
+    commands
+        .entity(tag_entity)
+        .insert(RelativisticTarget2d("Photon Fox".to_owned()));
 
     for slot_index in 0..SIGNAL_POOL_SIZE {
         let signal_id = format!("twintrack_signal_slot_{slot_index}");
@@ -647,276 +819,476 @@ fn install_twintrack_session(
     }
 }
 
-fn reset_course_state(
-    traveler_clock: &mut ProperTimeElapsed,
-    lab_clock: &mut ProperTimeElapsed,
-    coordinate_time: &mut SpacetimeCoordinateTime2d,
-    arrival_history: &mut SignalArrivalHistory2d,
-    cooldown: &mut ProperTimeCooldown2d,
-    emitter: &mut LightEmitter2d,
-    signals: &mut Query<&mut LightSignal2d>,
-) {
-    traveler_clock.reset();
-    lab_clock.reset();
-    coordinate_time.reset();
-    arrival_history.clear();
-    cooldown.reset();
-    emitter.next_packet_id = 1;
-    for mut signal in signals.iter_mut() {
-        *signal = LightSignal2d::inactive();
-    }
+fn spawn_character(
+    commands: &mut Commands,
+    // ⚠ a `SessionScopeId`, not an `Entity` — `SessionRoot` stopped carrying a
+    // raw handle, and `SessionScopedEntity` is what consumes this.
+    root: SessionScopeId,
+    character: TwinTrackCharacter,
+    rest_frequency: f64,
+    intensity: f32,
+    radius: f32,
+) -> Entity {
+    let position = match character.trajectory {
+        TwinTrackTrajectory::Stationary => Vec2::ZERO,
+        TwinTrackTrajectory::Orbit {
+            center,
+            radius,
+            phase,
+            ..
+        } => center + Vec2::from_angle(phase) * radius,
+    };
+    spawn_character_at(
+        commands,
+        root,
+        character,
+        position,
+        rest_frequency,
+        intensity,
+        radius,
+        None,
+        true,
+    )
 }
 
 #[allow(clippy::too_many_arguments)]
-fn update_twintrack_experiment(
-    time: Res<WorldTime>,
-    // ⭐ **the whole cluster, not just `BodyKinematics`.** The experiment
-    // RELOCATES the traveler at the end of the hold and STOPS it dead at the
-    // reunion; both are discrete relocations, and `transit_body` is the
-    // authority for those. It needs the motion model and the sibling clusters to
-    // invalidate the contacts, attachment and collapsed sweep that were true
-    // only where the body used to be. See the two calls below.
-    mut traveler: Query<
-        (
-            ae::BodyClusterQueryData,
-            &mut ambition_platformer2d::actors::features::MotionModel,
-            &mut ProperTimeElapsed,
-            &mut ProperTimeCooldown2d,
-            &mut LightEmitter2d,
-        ),
-        (With<TravelerTwin>, Without<LaboratoryTwin>),
-    >,
-    mut lab: Query<
-        (&mut ProperTimeElapsed, &mut TwinTrackExperiment),
-        (With<LaboratoryTwin>, Without<TravelerTwin>),
-    >,
-    mut spacetime: Query<
-        (&mut SpacetimeCoordinateTime2d, &mut SignalArrivalHistory2d),
-        (With<SessionRoot>, With<ActiveSpacetime2d>),
-    >,
-    mut signals: Query<&mut LightSignal2d>,
-    relativity: Query<&ambition_platformer2d::relativity2d::RelativityState2d, With<TravelerTwin>>,
-) {
-    let (
-        Ok((mut cluster_item, mut motion_model, mut traveler_clock, mut cooldown, mut emitter)),
-        Ok((mut lab_clock, mut experiment)),
-        Ok((mut coordinate_time, mut arrival_history)),
-    ) = (
-        traveler.single_mut(),
-        lab.single_mut(),
-        spacetime.single_mut(),
+fn spawn_character_at(
+    commands: &mut Commands,
+    // A `SessionScopeId`, not an `Entity` — see `spawn_character`.
+    root: SessionScopeId,
+    character: TwinTrackCharacter,
+    position: Vec2,
+    rest_frequency: f64,
+    intensity: f32,
+    radius: f32,
+    passband: Option<(f64, f64)>,
+    consuming: bool,
+) -> Entity {
+    let receiver_radius = match character.role {
+        TwinTrackRole::ClockCitizen => radius.max(72.0),
+        TwinTrackRole::DopplerDj => radius.max(50.0),
+        TwinTrackRole::LightTagger => radius.max(42.0),
+    };
+    let receiver = LightReceiver2d::observer(
+        format!("{}_receiver", character.label),
+        character.receiver_channel,
+        Vec2::splat(receiver_radius),
+    );
+    let receiver = if let Some((minimum, maximum)) = passband {
+        receiver.with_passband(minimum, maximum)
+    } else {
+        receiver
+    };
+    let receiver = if consuming {
+        receiver.consuming()
+    } else {
+        receiver
+    };
+    let stable = format!("twintrack_character_{}", character.id);
+    commands
+        .spawn((
+            character.clone(),
+            RelativisticClock2d,
+            RelativityClockLabel(character.label.clone()),
+            WorldlineTracked2d::new(character.label.clone()),
+            OpticalSource2d::new(character.label.clone(), rest_frequency, intensity, radius),
+            LightEmitter2d::new(
+                format!("{}_transmitter", character.label),
+                SIGNAL_POOL_LABEL,
+                EMITTED_FREQUENCY,
+                0.0,
+            )
+            .with_tag(u64::from(character.id))
+            .with_source_receiver_channel(character.receiver_channel),
+            ProperTimeCooldown2d::default(),
+            receiver,
+            ae::BodyKinematics {
+                pos: position,
+                vel: Vec2::ZERO,
+                size: Vec2::splat(radius * 1.3),
+                facing: 1.0,
+            },
+            SessionScopedEntity(root),
+            ambition_platformer2d::platformer::sim_id::SimId::placement(&stable),
+        ))
+        .id()
+}
+
+fn payload(kind: u8, actor_id: u8, data: u64) -> u64 {
+    (u64::from(kind) << PAYLOAD_KIND_SHIFT)
+        | (u64::from(actor_id) << PAYLOAD_ACTOR_SHIFT)
+        | (data & PAYLOAD_DATA_MASK)
+}
+
+fn payload_parts(value: u64) -> (u8, u8, u64) {
+    (
+        (value >> PAYLOAD_KIND_SHIFT) as u8,
+        (value >> PAYLOAD_ACTOR_SHIFT) as u8,
+        value & PAYLOAD_DATA_MASK,
     )
-    else {
-        return;
-    };
-    let mut clusters = cluster_item.as_clusters_mut();
-    // Read the pose ONCE: the phase machine only asks where the traveler is and
-    // which way it is going, and every WRITE goes through `transit_body`, which
-    // needs `&mut clusters` and cannot coexist with a long-lived member borrow.
-    let body = ae::BodyKinematics {
-        pos: clusters.kinematics.pos,
-        vel: clusters.kinematics.vel,
-        ..*clusters.kinematics
-    };
+}
 
-    let beta = relativity
-        .single()
-        .ok()
-        .map(|state| state.beta_squared.max(0.0).sqrt())
-        .unwrap_or(0.0);
-    experiment.peak_beta = experiment.peak_beta.max(beta);
+fn encoded_clock_seconds(seconds: f64) -> u64 {
+    (seconds.max(0.0) * 1_000.0).round() as u64
+}
 
-    match experiment.phase {
-        TwinTrackPhase::Ready => {
-            if body.pos.x >= DEPARTURE_X && body.vel.x > 0.0 {
-                reset_course_state(
-                    &mut traveler_clock,
-                    &mut lab_clock,
-                    &mut coordinate_time,
-                    &mut arrival_history,
-                    &mut cooldown,
-                    &mut emitter,
-                    &mut signals,
-                );
-                experiment.peak_beta = beta;
-                experiment.phase = TwinTrackPhase::DopplerLock;
-            }
-        }
-        TwinTrackPhase::DopplerLock | TwinTrackPhase::AwaitEcho | TwinTrackPhase::Pursuit => {}
-        TwinTrackPhase::Inbound => {
-            if body.pos.x <= REUNION_X && body.vel.x < 0.0 {
-                experiment.result_lab_time = lab_clock.seconds;
-                experiment.result_traveler_time = traveler_clock.seconds;
-                experiment.complete_elapsed = 0.0;
-                experiment.phase = TwinTrackPhase::Complete;
-                // Stops dead at the reunion. Through the authority even though
-                // the position does not change: a bare `vel = ZERO` leaves the
-                // collapsed §3.1 sweep still describing the inbound run.
-                ae::movement::transit_body(
-                    &mut motion_model,
-                    &mut clusters,
-                    body.pos,
-                    ae::movement::TransitVelocity::Zero,
-                );
-            }
-        }
-        TwinTrackPhase::Complete => {
-            experiment.complete_elapsed += time.sim_dt();
-            if experiment.complete_elapsed >= COMPLETE_HOLD_SECONDS {
-                // ⛔ **this wrote `pos` and `vel` directly** — a discrete
-                // relocation performed outside the movement authority, leaving
-                // contacts, ledge grab, model-private attachment and the
-                // collapsed sweep describing the reunion point (GPT 5.6, review
-                // through `f0f97f5`; fixed in `edad6a5e9`).
-                //
-                // ⛔ **and the SR-3 causal-pursuit overlay reverted it a second
-                // time**, comments included, because each overlay is written
-                // against the tree as it stood when the previous one was cut.
-                // The lesson is about the OVERLAYS, not about this line: an
-                // overlay is a proposal, and a fix it predates has to be
-                // re-applied on top of it by hand every time.
-                ae::movement::transit_body(
-                    &mut motion_model,
-                    &mut clusters,
-                    Vec2::new(LAB_X, FLOOR_TOP - 64.0),
-                    ae::movement::TransitVelocity::Zero,
-                );
-                reset_course_state(
-                    &mut traveler_clock,
-                    &mut lab_clock,
-                    &mut coordinate_time,
-                    &mut arrival_history,
-                    &mut cooldown,
-                    &mut emitter,
-                    &mut signals,
-                );
-                *experiment = TwinTrackExperiment::default();
-            }
-        }
+fn decoded_clock_seconds(milliseconds: u64) -> f64 {
+    milliseconds as f64 / 1_000.0
+}
+
+fn character_name(id: u8) -> &'static str {
+    match id {
+        COURIER_ID => "Courier",
+        DRIFTER_ID => "Drifter",
+        SPINNER_ID => "Spinner",
+        DJ_ID => "DJ Blue Shift",
+        TAGGER_ID => "Photon Fox",
+        _ => "Unknown traveler",
     }
 }
 
-fn capture_twintrack_transmitter_input(
-    time: Res<WorldTime>,
+fn report_bit(id: u8) -> u8 {
+    match id {
+        COURIER_ID => 0b001,
+        DRIFTER_ID => 0b010,
+        SPINNER_ID => 0b100,
+        _ => 0,
+    }
+}
+
+fn coordinate_direction_to_moving_target(source: Vec2, target: &ae::BodyKinematics) -> Vec2 {
+    let relative = target.pos - source;
+    let Ok(c) = InvariantSpeed::new(f64::from(INVARIANT_SPEED)) else {
+        return relative.normalize_or_zero();
+    };
+    solve_null_intercept_constant_velocity(
+        [f64::from(relative.x), f64::from(relative.y), 0.0],
+        [f64::from(target.vel.x), f64::from(target.vel.y), 0.0],
+        c,
+    )
+    .map(|solution| {
+        Vec2::new(
+            solution.emission_direction[0] as f32,
+            solution.emission_direction[1] as f32,
+        )
+    })
+    .unwrap_or_else(|| relative.normalize_or_zero())
+}
+
+pub(crate) fn musical_note_name(frequency: f64) -> String {
+    if !frequency.is_finite() || frequency <= 0.0 {
+        return "—".to_owned();
+    }
+    const NAMES: [&str; 12] = [
+        "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B",
+    ];
+    let midi = (69.0 + 12.0 * (frequency / 440.0).log2()).round() as i32;
+    let name = NAMES[midi.rem_euclid(12) as usize];
+    let octave = midi.div_euclid(12) - 1;
+    format!("{name}{octave}")
+}
+
+pub(crate) fn doppler_frequency_for_target(
+    source: &ae::BodyKinematics,
+    target: &ae::BodyKinematics,
+) -> Option<f64> {
+    let c = InvariantSpeed::new(f64::from(INVARIANT_SPEED)).ok()?;
+    let direction = coordinate_direction_to_moving_target(source.pos, target);
+    minkowski_doppler_measurement(
+        EMITTED_FREQUENCY,
+        [f64::from(direction.x), f64::from(direction.y), 0.0],
+        [f64::from(source.vel.x), f64::from(source.vel.y), 0.0],
+        [f64::from(target.vel.x), f64::from(target.vel.y), 0.0],
+        c,
+    )
+    .map(|measurement| measurement.observed_frequency)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn capture_twintrack_interaction(
     traveler: Query<
         (
             Entity,
             &ambition_platformer2d::actors::control::PlayerInputFrame,
             &ae::BodyKinematics,
+            &ProperTimeElapsed,
         ),
         With<TravelerTwin>,
     >,
+    characters: Query<(Entity, &TwinTrackCharacter, &ae::BodyKinematics)>,
+    lab: Query<(&ae::BodyKinematics, &ProperTimeElapsed), With<LaboratoryTwin>>,
+    coordinate_time: Query<&SpacetimeCoordinateTime2d>,
     mut experiment: Query<&mut TwinTrackExperiment, With<LaboratoryTwin>>,
     mut requests: MessageWriter<LightEmissionRequest2d>,
 ) {
-    let (Ok((entity, input, body)), Ok(mut experiment)) =
-        (traveler.single(), experiment.single_mut())
+    let (
+        Ok((traveler_entity, input, traveler_body, traveler_clock)),
+        Ok(mut experiment),
+        Ok((lab_body, lab_clock)),
+    ) = (traveler.single(), experiment.single_mut(), lab.single())
     else {
         return;
     };
 
     let direct_aim = Vec2::new(input.frame.aim_x, -input.frame.aim_y);
+    let movement_aim = Vec2::new(input.frame.axis_x, input.frame.axis_y);
     if direct_aim.length_squared() > 0.04 {
         experiment.aim_direction = direct_aim.normalize();
-    } else if input.frame.axis_y.abs() > 0.15 {
-        const AIM_RADIANS_PER_SECOND: f32 = 1.9;
-        let angle = experiment.aim_direction.y.atan2(experiment.aim_direction.x)
-            - input.frame.axis_y * AIM_RADIANS_PER_SECOND * time.sim_dt();
-        experiment.aim_direction = Vec2::from_angle(angle);
+    } else if movement_aim.length_squared() > 0.04 {
+        experiment.aim_direction = movement_aim.normalize();
+    } else if traveler_body.vel.length_squared() > 1.0 {
+        experiment.aim_direction = traveler_body.vel.normalize();
     }
 
-    if input.frame.special_pressed {
-        experiment.view_mode = experiment.view_mode.next();
-    }
-
-    if input.frame.interact_pressed {
-        let facing = if body.facing < 0.0 { -1.0 } else { 1.0 };
-        requests.write(LightEmissionRequest2d::new(entity, Vec2::new(facing, 0.0)));
-    }
-    if experiment.phase == TwinTrackPhase::Pursuit
-        && (input.frame.projectile_pressed || input.frame.attack_pressed)
+    if experiment.phase == TwinTrackPhase::Complete
+        && experiment.view_mode == TwinTrackViewMode::Spacetime
+        && input.frame.axis_x.abs() > 0.08
     {
-        let coordinate_direction =
-            ambition_platformer2d::relativity::InvariantSpeed::new(f64::from(INVARIANT_SPEED))
-                .ok()
-                .and_then(|invariant_speed| {
-                    ambition_platformer2d::relativity::coordinate_photon_direction_from_observer(
-                        [
-                            f64::from(experiment.aim_direction.x),
-                            f64::from(experiment.aim_direction.y),
-                            0.0,
-                        ],
-                        [f64::from(body.vel.x), f64::from(body.vel.y), 0.0],
-                        invariant_speed,
-                    )
-                })
-                .map(|direction| Vec2::new(direction[0] as f32, direction[1] as f32))
-                .unwrap_or(experiment.aim_direction);
-        requests.write(LightEmissionRequest2d::new(entity, coordinate_direction));
+        experiment.replay_cursor =
+            (experiment.replay_cursor + input.frame.axis_x * 0.008).clamp(0.0, 1.0);
+    }
+
+    if experiment.phase == TwinTrackPhase::Introduction {
+        match experiment.intro_step {
+            TwinTrackIntroStep::Synchronize => {
+                if input.frame.interact_pressed
+                    && traveler_body.pos.distance(lab_body.pos) <= LAB_REUNION_RADIUS
+                {
+                    experiment.intro_step = TwinTrackIntroStep::Drift;
+                    experiment.last_speaker_id = 0;
+                }
+            }
+            TwinTrackIntroStep::Drift => {
+                if traveler_body.pos.distance(lab_body.pos) >= INTRO_DRIFT_DISTANCE {
+                    experiment.intro_step = TwinTrackIntroStep::Accelerate;
+                }
+            }
+            TwinTrackIntroStep::Accelerate => {
+                if traveler_body.vel.length() >= INVARIANT_SPEED * INTRO_RELATIVISTIC_SPEED_FRACTION
+                {
+                    experiment.phase = TwinTrackPhase::ClockCensus;
+                    experiment.last_speaker_id = 0;
+                }
+            }
+        }
+        return;
+    }
+
+    if !input.frame.interact_pressed {
+        return;
+    }
+
+    // Full-screen teaching views must never trap the participant away from the
+    // world-space console. The completed spacetime view is a replay: left/right
+    // scrubs it, while Interact returns to the laboratory map.
+    if experiment.view_mode == TwinTrackViewMode::Spacetime {
+        experiment.view_mode = TwinTrackViewMode::Laboratory;
+        return;
+    }
+    if experiment.view_mode == TwinTrackViewMode::Optical
+        && experiment.phase != TwinTrackPhase::LightTag
+    {
+        experiment.view_mode = TwinTrackViewMode::Spacetime;
+        if experiment.phase == TwinTrackPhase::Complete {
+            experiment.replay_cursor = 1.0;
+        }
+        return;
+    }
+
+    if traveler_body.pos.distance(VIEW_CONSOLE_POS) <= VIEW_CONSOLE_RADIUS {
+        experiment.view_mode = experiment.view_mode.next();
+        if experiment.phase == TwinTrackPhase::Complete
+            && experiment.view_mode == TwinTrackViewMode::Spacetime
+        {
+            experiment.replay_cursor = 1.0;
+        }
+        return;
+    }
+
+    match experiment.phase {
+        TwinTrackPhase::Introduction => {}
+        TwinTrackPhase::ClockCensus => {
+            let nearest = characters
+                .iter()
+                .filter(|(_, character, _)| character.role == TwinTrackRole::ClockCitizen)
+                .map(|row @ (_, _, body)| (body.pos.distance(traveler_body.pos), row))
+                .filter(|(distance, _)| *distance <= INTERACTION_RADIUS)
+                .min_by(|(left, _), (right, _)| left.total_cmp(right));
+            let Some((_, (_, character, body))) = nearest else {
+                return;
+            };
+            let direction = coordinate_direction_to_moving_target(traveler_body.pos, body);
+            requests.write(
+                LightEmissionRequest2d::new(traveler_entity, direction)
+                    .to_receiver(character.receiver_channel)
+                    .with_payload(payload(PAYLOAD_ASK_CLOCK, character.id, 0)),
+            );
+        }
+        TwinTrackPhase::DopplerDance => {
+            let Some((_, dj, body)) = characters
+                .iter()
+                .find(|(_, character, _)| character.role == TwinTrackRole::DopplerDj)
+            else {
+                return;
+            };
+            let direction = coordinate_direction_to_moving_target(traveler_body.pos, body);
+            requests.write(
+                LightEmissionRequest2d::new(traveler_entity, direction)
+                    .to_receiver(dj.receiver_channel)
+                    .with_payload(payload(PAYLOAD_DOPPLER_NOTE, dj.id, 0)),
+            );
+        }
+        TwinTrackPhase::LightTag => {
+            let Ok(c) = InvariantSpeed::new(f64::from(INVARIANT_SPEED)) else {
+                return;
+            };
+            let local = experiment.aim_direction.normalize_or_zero();
+            if local == Vec2::ZERO {
+                return;
+            }
+            let coordinate = coordinate_photon_direction_from_observer(
+                [f64::from(local.x), f64::from(local.y), 0.0],
+                [
+                    f64::from(traveler_body.vel.x),
+                    f64::from(traveler_body.vel.y),
+                    0.0,
+                ],
+                c,
+            )
+            .map(|direction| Vec2::new(direction[0] as f32, direction[1] as f32))
+            .unwrap_or(local);
+            requests.write(
+                LightEmissionRequest2d::new(traveler_entity, coordinate)
+                    .to_receiver(TAG_RECEIVER_CHANNEL)
+                    .with_payload(payload(PAYLOAD_LIGHT_TAG, TAGGER_ID, 0)),
+            );
+            experiment.tag_attempts = experiment.tag_attempts.saturating_add(1);
+            experiment.last_message_departure_time = coordinate_time
+                .single()
+                .map_or(experiment.last_message_departure_time, |time| time.seconds);
+            if experiment.view_mode == TwinTrackViewMode::Optical {
+                experiment.view_mode = TwinTrackViewMode::Laboratory;
+            }
+        }
+        TwinTrackPhase::Reunion => {
+            if traveler_body.pos.distance(lab_body.pos) <= LAB_REUNION_RADIUS {
+                experiment.phase = TwinTrackPhase::Complete;
+                experiment.replay_cursor = 1.0;
+                experiment.result_lab_time = lab_clock.seconds;
+                experiment.result_traveler_time = traveler_clock.seconds;
+            }
+        }
+        TwinTrackPhase::Complete => {}
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn consume_twintrack_signal_arrivals(
     mut arrivals: MessageReader<SignalArrival2d>,
-    targeting: Res<RelativisticTargetingView2d>,
+    traveler: Query<(Entity, &ae::BodyKinematics, &ProperTimeElapsed), With<TravelerTwin>>,
+    characters: Query<(
+        Entity,
+        &TwinTrackCharacter,
+        &ae::BodyKinematics,
+        &ProperTimeElapsed,
+    )>,
+    lab_clock: Query<&ProperTimeElapsed, With<LaboratoryTwin>>,
     mut experiment: Query<&mut TwinTrackExperiment, With<LaboratoryTwin>>,
+    mut requests: MessageWriter<LightEmissionRequest2d>,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    let Ok(mut experiment) = experiment.single_mut() else {
+    let (Ok((traveler_entity, traveler_body, traveler_clock)), Ok(lab_clock), Ok(mut experiment)) = (
+        traveler.single(),
+        lab_clock.single(),
+        experiment.single_mut(),
+    ) else {
         return;
     };
-    for message in arrivals.read() {
-        let arrival = &message.0;
-        match arrival.receiver_channel {
-            DOPPLER_RECEIVER_CHANNEL if arrival.accepted && !arrival.signal_was_reflected => {
-                experiment.qualified_packet_id = arrival.packet_id;
+
+    for SignalArrival2d(arrival) in arrivals.read() {
+        let (kind, actor_id, data) = payload_parts(arrival.payload);
+        match kind {
+            PAYLOAD_ASK_CLOCK => {
+                let Some((entity, character, body, clock)) =
+                    characters.iter().find(|(_, character, _, _)| {
+                        character.id == actor_id
+                            && character.receiver_channel == arrival.receiver_channel
+                    })
+                else {
+                    continue;
+                };
+                let reported = arrival.receiver_proper_time.unwrap_or(clock.seconds);
+                let direction = coordinate_direction_to_moving_target(body.pos, traveler_body);
+                requests.write(
+                    LightEmissionRequest2d::new(entity, direction)
+                        .to_receiver(TRAVELER_RECEIVER_CHANNEL)
+                        .with_payload(payload(
+                            PAYLOAD_CLOCK_REPORT,
+                            character.id,
+                            encoded_clock_seconds(reported),
+                        )),
+                );
+            }
+            PAYLOAD_CLOCK_REPORT if arrival.receiver_channel == TRAVELER_RECEIVER_CHANNEL => {
+                experiment.clock_report_mask |= report_bit(actor_id);
+                experiment.last_speaker_id = actor_id;
+                experiment.last_report_clock = decoded_clock_seconds(data);
+                experiment.last_receive_clock = arrival
+                    .receiver_proper_time
+                    .unwrap_or(traveler_clock.seconds);
+                experiment.last_receive_lab_time = lab_clock.seconds;
+                experiment.last_message_departure_time = arrival.signal_emission_time;
+                sfx.write_from(
+                    TWINTRACK_EXPERIENCE,
+                    ambition_platformer2d::sfx::SfxMessage::Play {
+                        id: ambition_platformer2d::sfx::SfxId::from_static(SFX_CLOCK_REPORT),
+                        pos: arrival.position,
+                    },
+                );
+                if experiment.clock_report_mask == CLOCK_REPORT_MASK {
+                    experiment.phase = TwinTrackPhase::DopplerDance;
+                }
+            }
+            PAYLOAD_DOPPLER_NOTE if arrival.receiver_channel == DJ_RECEIVER_CHANNEL => {
                 experiment.doppler_frequency = arrival.observed_frequency;
-                experiment.doppler_arrival_time = arrival.coordinate_time;
-                experiment.accepted_packets = experiment.accepted_packets.saturating_add(1);
-                if matches!(
-                    experiment.phase,
-                    TwinTrackPhase::DopplerLock | TwinTrackPhase::AwaitEcho
-                ) {
-                    experiment.phase = TwinTrackPhase::AwaitEcho;
+                experiment.last_speaker_id = DJ_ID;
+                experiment.last_report_clock = arrival.receiver_proper_time.unwrap_or_default();
+                experiment.last_receive_lab_time = lab_clock.seconds;
+                experiment.last_message_departure_time = arrival.signal_emission_time;
+                let cue = doppler_feedback_sfx(arrival.observed_frequency, arrival.accepted);
+                sfx.write_from(
+                    TWINTRACK_EXPERIENCE,
+                    ambition_platformer2d::sfx::SfxMessage::Play {
+                        id: ambition_platformer2d::sfx::SfxId::from_static(cue),
+                        pos: arrival.position,
+                    },
+                );
+                if arrival.accepted {
+                    experiment.phase = TwinTrackPhase::LightTag;
                 }
             }
-            RADAR_RECEIVER_CHANNEL
-                if arrival.packet_id == experiment.qualified_packet_id
-                    && experiment.qualified_packet_id != 0 =>
-            {
-                experiment.radar_arrival_time = arrival.coordinate_time;
-            }
-            TRAVELER_RECEIVER_CHANNEL
-                if arrival.packet_id == experiment.qualified_packet_id
-                    && experiment.qualified_packet_id != 0
-                    && arrival.signal_was_reflected =>
-            {
-                experiment.echo_arrival_time = arrival.coordinate_time;
-                experiment.echo_receiver_proper_time =
-                    arrival.receiver_proper_time.unwrap_or_default();
-                experiment.pursuit_start_time = arrival.coordinate_time;
-                experiment.view_mode = TwinTrackViewMode::OpticalFocus;
-                if let Some(target) = targeting
-                    .targets
-                    .iter()
-                    .find(|target| target.label == "chase_beacon")
-                {
-                    experiment.aim_direction = target
-                        .apparent_source_direction
-                        .unwrap_or(target.observer_local_emission_direction);
+            PAYLOAD_LIGHT_TAG if arrival.receiver_channel == TAG_RECEIVER_CHANNEL => {
+                experiment.tag_hits = experiment.tag_hits.saturating_add(1);
+                experiment.last_speaker_id = TAGGER_ID;
+                experiment.last_receive_clock = traveler_clock.seconds;
+                experiment.last_receive_lab_time = lab_clock.seconds;
+                experiment.last_message_departure_time = arrival.signal_emission_time;
+                sfx.write_from(
+                    TWINTRACK_EXPERIENCE,
+                    ambition_platformer2d::sfx::SfxMessage::Play {
+                        id: ambition_platformer2d::sfx::SfxId::from_static(SFX_TAG_HIT),
+                        pos: arrival.position,
+                    },
+                );
+                if experiment.tag_hits >= LIGHT_TAG_ROUNDS {
+                    experiment.phase = TwinTrackPhase::Reunion;
                 }
-                experiment.phase = TwinTrackPhase::Pursuit;
-            }
-            PURSUIT_RECEIVER_CHANNEL
-                if experiment.phase == TwinTrackPhase::Pursuit && !arrival.signal_was_reflected =>
-            {
-                experiment.pursuit_hit_time = arrival.coordinate_time;
-                experiment.pursuit_hits = experiment.pursuit_hits.saturating_add(1);
-                experiment.view_mode = TwinTrackViewMode::Dual;
-                experiment.phase = TwinTrackPhase::Inbound;
             }
             _ => {}
         }
     }
+
+    let _ = traveler_entity;
 }
 
 fn publish_twintrack_hud(
@@ -924,6 +1296,8 @@ fn publish_twintrack_hud(
     signals: Res<RelativitySignalView2d>,
     optics: Res<RelativisticOpticalView2d>,
     targeting: Res<RelativisticTargetingView2d>,
+    traveler_body: Query<&ae::BodyKinematics, With<TravelerTwin>>,
+    characters: Query<(&TwinTrackCharacter, &ae::BodyKinematics)>,
     experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
     mut readouts: ResMut<ambition_platformer2d::presentation::HudReadouts>,
 ) {
@@ -932,395 +1306,216 @@ fn publish_twintrack_hud(
         clocks.clocks.get("laboratory"),
         experiment.single(),
     ) else {
-        readouts.clear_slot(STATUS_HUD_SLOT);
-        readouts.clear_slot(CLOCKS_HUD_SLOT);
-        readouts.clear_slot(SIGNALS_HUD_SLOT);
-        readouts.clear_slot(RESULT_HUD_SLOT);
+        for slot in [
+            OBJECTIVE_HUD_SLOT,
+            CLOCKS_HUD_SLOT,
+            DIALOGUE_HUD_SLOT,
+            TEACHER_HUD_SLOT,
+            RESULT_HUD_SLOT,
+        ] {
+            readouts.clear_slot(slot);
+        }
         return;
     };
 
-    let instruction = match experiment.phase {
-        TwinTrackPhase::Ready => "HOLD RIGHT — DEPART THE LAB",
-        TwinTrackPhase::DopplerLock => {
-            "AT HIGH SPEED PRESS INTERACT/F/RB — BLUE-SHIFT INTO THE PASSBAND"
+    let doppler_preview = traveler_body
+        .single()
+        .ok()
+        .and_then(|traveler_body| {
+            characters
+                .iter()
+                .find(|(character, _)| character.role == TwinTrackRole::DopplerDj)
+                .and_then(|(_, dj_body)| doppler_frequency_for_target(traveler_body, dj_body))
+        })
+        .unwrap_or(EMITTED_FREQUENCY);
+
+    let objective = match experiment.phase {
+        TwinTrackPhase::Introduction => match experiment.intro_step {
+            TwinTrackIntroStep::Synchronize => {
+                "1/4 START — PRESS INTERACT BESIDE THE LAB TWIN".to_owned()
+            }
+            TwinTrackIntroStep::Drift => {
+                "1/4 START — DRIFT AWAY; BOTH CLOCKS STILL FEEL NORMAL".to_owned()
+            }
+            TwinTrackIntroStep::Accelerate => {
+                "1/4 START — ACCELERATE PAST 50% OF LIGHT SPEED".to_owned()
+            }
+        },
+        TwinTrackPhase::ClockCensus => {
+            let remaining = 3 - experiment.clock_report_mask.count_ones();
+            format!("2/4 CLOCK CENSUS — ASK THE MOVING CHARACTERS ({remaining} LEFT)")
         }
-        TwinTrackPhase::AwaitEcho => "QUALIFIED PULSE SENT — CHASE THE RADAR ECHO",
-        TwinTrackPhase::Pursuit => {
-            "OPTICAL PURSUIT — AIM WITH STICK/UP-DOWN, FIRE ATTACK/PROJECTILE; SPECIAL CYCLES VIEWS"
+        TwinTrackPhase::DopplerDance => format!(
+            "3/4 DOPPLER MUSIC — TUNE G2 INTO G3: {}  {:.1} Hz",
+            musical_note_name(doppler_preview),
+            doppler_preview,
+        ),
+        TwinTrackPhase::LightTag => format!(
+            "4/4 LIGHT TAG — ROUND {}/{}: LEAD PHOTON FOX'S VISIBLE IMAGE",
+            (experiment.tag_hits + 1).min(LIGHT_TAG_ROUNDS),
+            LIGHT_TAG_ROUNDS,
+        ),
+        TwinTrackPhase::Reunion => "REUNION — RETURN TO THE LAB TWIN AND PRESS INTERACT".to_owned(),
+        TwinTrackPhase::Complete => {
+            "COMPLETE — USE THE VIEW CONSOLE; SPACE + TIME IS NOW A SCRUBBABLE REPLAY".to_owned()
         }
-        TwinTrackPhase::Inbound => "CAUSAL INTERCEPT CONFIRMED — TURN AROUND AND REUNITE",
-        TwinTrackPhase::Complete => "REUNION EVENT — WORLDLINES AND SIGNAL EVENTS COMPARED",
     };
-    let emitter = signals
-        .emitters
-        .iter()
-        .find(|emitter| emitter.label == TRANSMITTER_LABEL);
-    let cooldown = emitter.map_or(0.0, |emitter| emitter.cooldown_remaining);
-    let pursuit = targeting
-        .targets
-        .iter()
-        .find(|target| target.label == "chase_beacon");
-    let aim_error_degrees = pursuit.map_or(180.0, |target| {
-        experiment
-            .aim_direction
-            .normalize_or_zero()
-            .dot(target.observer_local_emission_direction)
-            .clamp(-1.0, 1.0)
-            .acos()
-            .to_degrees()
-    });
-    let view_mode = match experiment.view_mode {
-        TwinTrackViewMode::Dual => "DUAL",
-        TwinTrackViewMode::OpticalFocus => "OPTICAL",
-        TwinTrackViewMode::LaboratoryFocus => "LAB",
+    let view = match experiment.view_mode {
+        TwinTrackViewMode::Laboratory => "LAB MAP",
+        TwinTrackViewMode::Optical => "WHAT REACHES YOU NOW",
+        TwinTrackViewMode::Spacetime => "SPACE + TIME",
+    };
+    let view_instruction = match experiment.view_mode {
+        TwinTrackViewMode::Laboratory => "VIEW CONSOLE: INTERACT TO CHANGE VIEW",
+        TwinTrackViewMode::Optical if experiment.phase == TwinTrackPhase::LightTag => {
+            "ALIGN CYAN AIM; INTERACT FIRES"
+        }
+        TwinTrackViewMode::Optical => "INTERACT: OPEN SPACE + TIME",
+        TwinTrackViewMode::Spacetime if experiment.phase == TwinTrackPhase::Complete => {
+            "LEFT/RIGHT: SCRUB REPLAY   INTERACT: RETURN"
+        }
+        TwinTrackViewMode::Spacetime => "INTERACT: RETURN TO LAB MAP",
     };
     readouts.set(
-        STATUS_HUD_SLOT,
+        OBJECTIVE_HUD_SLOT,
         ambition_platformer2d::presentation::HudReadout::bare(format!(
-            // ⚠ **BROKEN INTO LINES ON PURPOSE.** One long line ran under the
-            // observatory panel, which starts at ~58% of the width — and the
-            // panel is not the thing to move: a readout wide enough to reach it
-            // is wide enough to reach anything. Multi-line is safe now that
-            // `place_declared_hud` measures a slot's real height (2026-08-05);
-            // before that it would have been drawn through by the next slot.
-            "{instruction}\n\
-             SPEED {:>5.1}/{:.0}    beta {:.3}    gamma {:.3}    dτ/dt {:.3}    VIEW {view_mode}",
-            traveler.relative_velocity.length(),
-            traveler.invariant_speed,
-            traveler.beta_squared.max(0.0).sqrt(),
-            traveler.lorentz_factor,
-            traveler.proper_time_rate,
+            "{objective}\n{view} — {view_instruction}"
         )),
     );
 
-    let last_arrival = signals.recent_arrivals.last().map_or_else(
-        || "NO SIGNAL ARRIVALS YET".to_owned(),
-        |arrival| {
-            let traveler_coordinates =
-                ambition_platformer2d::relativity::InvariantSpeed::new(signals.invariant_speed)
-                    .ok()
-                    .and_then(|invariant_speed| {
-                        ambition_platformer2d::relativity::lorentz_boost_event(
-                            ambition_platformer2d::relativity::MinkowskiEvent {
-                                coordinate_time: arrival.coordinate_time - signals.coordinate_time,
-                                position: [
-                                    f64::from(arrival.position.x - traveler.position.x),
-                                    f64::from(arrival.position.y - traveler.position.y),
-                                    0.0,
-                                ],
-                            },
-                            [
-                                f64::from(traveler.coordinate_velocity.x),
-                                f64::from(traveler.coordinate_velocity.y),
-                                0.0,
-                            ],
-                            invariant_speed,
-                        )
-                    })
-                    .map_or_else(
-                        || "traveler frame unavailable".to_owned(),
-                        |event| {
-                            format!(
-                                "traveler-frame offset Δt'={:+.3}s Δx'={:+.1}",
-                                event.coordinate_time, event.position[0]
-                            )
-                        },
-                    );
-            format!(
-                "LAST: packet {} -> {} at lab t={:.3}s  measured {:.1}Hz  {}  |  {}",
-                arrival.packet_id,
-                arrival.receiver_label,
-                arrival.coordinate_time,
-                arrival.observed_frequency,
-                if arrival.accepted {
-                    "ACCEPTED"
-                } else {
-                    "OUT OF BAND"
-                },
-                traveler_coordinates,
-            )
-        },
-    );
-    let optical_fact = optics
-        .sources
-        .iter()
-        .find(|source| source.label == "chase_beacon")
-        .map_or_else(
-            || "OPTICAL BEACON outside retained light cone".to_owned(),
-            |source| {
-                format!(
-                    "OPTICAL BEACON age {:.3}s  apparent range {:.0}  shift x{:.3}",
-                    source.light_age, source.apparent_range, source.doppler_factor
-                )
-            },
-        );
-    let pursuit_fact = if experiment.phase == TwinTrackPhase::Pursuit {
-        pursuit.map_or_else(
-            || "PURSUIT solution unavailable".to_owned(),
-            |target| {
-                format!(
-                    "PURSUIT aim error {:.1}deg  intercept +{:.3}s  apparent/lead separation {:.1}deg  {}",
-                    aim_error_degrees,
-                    target.time_to_intercept,
-                    target.apparent_to_intercept_angle.unwrap_or_default().to_degrees(),
-                    if aim_error_degrees <= 4.0 { "LOCKED" } else { "ADJUST AIM" },
-                )
-            },
-        )
-    } else {
-        "PURSUIT STANDBY".to_owned()
-    };
-    readouts.set(
-        SIGNALS_HUD_SLOT,
-        ambition_platformer2d::presentation::HudReadout::bare(format!(
-            "TRANSMITTER {:.0}Hz  COOLDOWN {:.3}s proper  TARGET {:.0}-{:.0}Hz\n\
-             ACTIVE PULSES {}  {pursuit_fact}\n\
-             {optical_fact}\n\
-             {last_arrival}",
-            EMITTED_FREQUENCY,
-            cooldown,
-            DOPPLER_PASSBAND_MIN,
-            DOPPLER_PASSBAND_MAX,
-            signals.active_signals.len(),
-        )),
-    );
     readouts.set(
         CLOCKS_HUD_SLOT,
         ambition_platformer2d::presentation::HudReadout::bare(format!(
-            "COORDINATE TIME {:>7.3}s    LAB CLOCK {:>7.3}s\n\
-             TRAVELER CLOCK {:>7.3}s    DIFFERENCE {:>7.3}s",
-            signals.coordinate_time,
-            lab.proper_time_seconds,
+            "YOUR CLOCK {:>6.2} s    LAB {:>6.2} s    SPEED {:>5.1}% OF LIGHT",
             traveler.proper_time_seconds,
-            lab.proper_time_seconds - traveler.proper_time_seconds,
+            lab.proper_time_seconds,
+            100.0 * traveler.relative_velocity.length() / traveler.invariant_speed.max(1.0),
         )),
     );
+
+    let active_tag_signal = signals
+        .active_signals
+        .iter()
+        .any(|signal| payload_parts(signal.payload).0 == PAYLOAD_LIGHT_TAG);
+    let dialogue = match experiment.phase {
+        TwinTrackPhase::Introduction => match experiment.intro_step {
+            TwinTrackIntroStep::Synchronize => {
+                "LAB TWIN: “WE START TOGETHER. YOUR CLOCK WILL ALWAYS FEEL NORMAL TO YOU.”"
+                    .to_owned()
+            }
+            TwinTrackIntroStep::Drift => {
+                "LAB TWIN: “COAST AWAY. SPEED CHANGES HOW MUCH TIME OUR PATHS ACCUMULATE.”"
+                    .to_owned()
+            }
+            TwinTrackIntroStep::Accelerate => {
+                "LAB TWIN: “NOW PUSH HARD. WATCH YOUR CLOCK FALL BEHIND MINE.”".to_owned()
+            }
+        },
+        TwinTrackPhase::ClockCensus
+            if matches!(experiment.last_speaker_id, COURIER_ID | DRIFTER_ID | SPINNER_ID) =>
+        {
+            let travel =
+                (experiment.last_receive_lab_time - experiment.last_message_departure_time)
+                    .max(0.0);
+            format!(
+                "{}: “WHEN THIS MESSAGE LEFT, MY CLOCK READ {:.2} s.”\nARRIVED AT YOUR {:.2} s · LAB {:.2} s · LIGHT TRAVEL {:.2} s",
+                character_name(experiment.last_speaker_id),
+                experiment.last_report_clock,
+                experiment.last_receive_clock,
+                experiment.last_receive_lab_time,
+                travel,
+            )
+        }
+        TwinTrackPhase::ClockCensus => {
+            "FLY CLOSE AND INTERACT. THE QUESTION AND REPLY BOTH TRAVEL AS LIGHT."
+                .to_owned()
+        }
+        TwinTrackPhase::DopplerDance if experiment.doppler_frequency <= 0.0 => format!(
+            "DJ BLUE SHIFT: “YOUR TRANSMITTER PLAYS G2 ({EMITTED_FREQUENCY:.0} Hz). APPROACH UNTIL I HEAR G3 ({DOPPLER_TARGET_FREQUENCY:.0} Hz).”"
+        ),
+        TwinTrackPhase::DopplerDance if experiment.doppler_frequency < DOPPLER_PASSBAND_MIN => {
+            format!(
+                "DJ BLUE SHIFT: “I HEARD {} AT {:.1} Hz—STILL FLAT. APPROACH FASTER.”",
+                musical_note_name(experiment.doppler_frequency),
+                experiment.doppler_frequency,
+            )
+        }
+        TwinTrackPhase::DopplerDance => format!(
+            "DJ BLUE SHIFT: “I HEARD {} AT {:.1} Hz—TOO SHARP. EASE OFF.”",
+            musical_note_name(experiment.doppler_frequency),
+            experiment.doppler_frequency,
+        ),
+        TwinTrackPhase::LightTag if active_tag_signal => {
+            "PHOTON FOX: “YOUR LIGHT IS ON THE WAY. MY VISIBLE IMAGE CANNOT DODGE IT.”"
+                .to_owned()
+        }
+        TwinTrackPhase::LightTag if experiment.tag_attempts > experiment.tag_hits => format!(
+            "PHOTON FOX: “MISSED. ROUND {}/{}—AIM FARTHER AHEAD OF THE OLD LIGHT.”",
+            (experiment.tag_hits + 1).min(LIGHT_TAG_ROUNDS),
+            LIGHT_TAG_ROUNDS,
+        ),
+        TwinTrackPhase::LightTag if experiment.tag_hits > 0 => format!(
+            "PHOTON FOX: “HIT {}! THE NEXT ROUND HIDES MORE HELP.”",
+            experiment.tag_hits,
+        ),
+        TwinTrackPhase::LightTag => format!(
+            "DJ BLUE SHIFT: “PERFECT G3. NOW TAG THE FOX THREE TIMES; EACH ROUND HIDES A GUIDE.”"
+        ),
+        TwinTrackPhase::Reunion => {
+            "PHOTON FOX: “THREE HITS! NOW MEET THE LAB TWIN AND COMPARE CLOCKS.”"
+                .to_owned()
+        }
+        TwinTrackPhase::Complete => format!(
+            "LAB TWIN: “WE MET AGAIN. MY CLOCK READ {:.2} s; YOURS READ {:.2} s.”",
+            experiment.result_lab_time, experiment.result_traveler_time,
+        ),
+    };
+    readouts.set(
+        DIALOGUE_HUD_SLOT,
+        ambition_platformer2d::presentation::HudReadout::bare(dialogue),
+    );
+
+    if experiment.view_mode == TwinTrackViewMode::Spacetime {
+        let target = targeting
+            .targets
+            .iter()
+            .find(|target| target.label == "Photon Fox");
+        let image_age = optics
+            .sources
+            .iter()
+            .find(|source| source.label == "Photon Fox")
+            .map_or(0.0, |source| source.light_age);
+        let lead = target
+            .and_then(|target| target.apparent_to_intercept_angle)
+            .map_or(0.0, f32::to_degrees);
+        readouts.set(
+            TEACHER_HUD_SLOT,
+            ambition_platformer2d::presentation::HudReadout::bare(format!(
+                "INSTRUMENTS  β {:.3}  γ {:.3}  dτ/dt {:.3}  LIGHT {}  FOX IMAGE AGE {:.2} s  LEAD {:.1}°  REPLAY {:>3}%",
+                traveler.beta_squared.max(0.0).sqrt(),
+                traveler.lorentz_factor,
+                traveler.proper_time_rate,
+                signals.active_signals.len(),
+                image_age,
+                lead,
+                (experiment.replay_cursor * 100.0).round() as u32,
+            )),
+        );
+    } else {
+        readouts.clear_slot(TEACHER_HUD_SLOT);
+    }
 
     if experiment.phase == TwinTrackPhase::Complete {
         readouts.set(
             RESULT_HUD_SLOT,
             ambition_platformer2d::presentation::HudReadout::bare(format!(
-                concat!(
-                    "TWINTRACK SIGNAL COURSE COMPLETE\n",
-                    "DOPPLER {:.1}Hz at t={:.3}s    RADAR t={:.3}s    ECHO t={:.3}s / traveler τ={:.3}s\n",
-                    "PURSUIT HIT t={:.3}s    LAB {:.3}s    TRAVELER {:.3}s    AGED {:.3}s LESS    PEAK beta {:.3}",
-                ),
-                experiment.doppler_frequency,
-                experiment.doppler_arrival_time,
-                experiment.radar_arrival_time,
-                experiment.echo_arrival_time,
-                experiment.echo_receiver_proper_time,
-                experiment.pursuit_hit_time,
+                "REUNION — LAB {:.2} s · YOU {:.2} s · DIFFERENCE {:.2} s",
                 experiment.result_lab_time,
                 experiment.result_traveler_time,
-                experiment.result_lab_time - experiment.result_traveler_time,
-                experiment.peak_beta,
+                (experiment.result_lab_time - experiment.result_traveler_time).abs(),
             )),
         );
     } else {
         readouts.clear_slot(RESULT_HUD_SLOT);
-    }
-}
-
-#[cfg(feature = "visible")]
-fn draw_twintrack_sr_course(
-    mut gizmos: Gizmos,
-    signals: Res<RelativitySignalView2d>,
-    targeting: Res<RelativisticTargetingView2d>,
-    worldlines: Res<WorldlineHistoryView2d>,
-    experiment: Query<&TwinTrackExperiment, With<LaboratoryTwin>>,
-) {
-    fn to_bevy(position: Vec2) -> Vec2 {
-        Vec2::new(position.x, ROOM_HEIGHT - position.y)
-    }
-
-    fn draw_box(gizmos: &mut Gizmos, center: Vec2, half: Vec2, color: Color) {
-        let min = center - half;
-        let max = center + half;
-        let top_left = Vec2::new(min.x, max.y);
-        let top_right = max;
-        let bottom_right = Vec2::new(max.x, min.y);
-        let bottom_left = min;
-        gizmos.line_2d(top_left, top_right, color);
-        gizmos.line_2d(top_right, bottom_right, color);
-        gizmos.line_2d(bottom_right, bottom_left, color);
-        gizmos.line_2d(bottom_left, top_left, color);
-    }
-
-    for receiver in &signals.receivers {
-        let center = to_bevy(receiver.position);
-        let half = Vec2::new(receiver.half_extents.x, receiver.half_extents.y);
-        let color = match receiver.mode {
-            _ if receiver.channel == PURSUIT_RECEIVER_CHANNEL => Color::srgb(1.0, 0.22, 0.72),
-            LightReceiverMode2d::Reflect => Color::srgb(1.0, 0.72, 0.12),
-            LightReceiverMode2d::Observe if receiver.accepted_frequency.is_some() => {
-                Color::srgb(0.20, 0.95, 0.72)
-            }
-            LightReceiverMode2d::Observe => Color::srgb(0.72, 0.82, 1.0),
-        };
-        draw_box(&mut gizmos, center, half, color);
-    }
-
-    for signal in &signals.active_signals {
-        let head = to_bevy(signal.position);
-        let direction = Vec2::new(signal.direction.x, -signal.direction.y);
-        let tail = head - direction * 72.0;
-        let ratio = signal.coordinate_frequency / EMITTED_FREQUENCY;
-        let color = if ratio > 1.5 {
-            Color::srgb(0.15, 0.72, 1.0)
-        } else if ratio < 0.75 {
-            Color::srgb(1.0, 0.22, 0.12)
-        } else {
-            Color::srgb(0.95, 0.95, 0.78)
-        };
-        gizmos.line_2d(tail, head, color);
-        gizmos.line_2d(
-            head + Vec2::new(-8.0, -8.0),
-            head + Vec2::new(8.0, 8.0),
-            color,
-        );
-        gizmos.line_2d(
-            head + Vec2::new(-8.0, 8.0),
-            head + Vec2::new(8.0, -8.0),
-            color,
-        );
-    }
-
-    if let (Ok(experiment), Some(target)) = (
-        experiment.single(),
-        targeting
-            .targets
-            .iter()
-            .find(|target| target.label == "chase_beacon"),
-    ) {
-        let observer = to_bevy(targeting.observer_position);
-        let chart_aim =
-            ambition_platformer2d::relativity::InvariantSpeed::new(f64::from(INVARIANT_SPEED))
-                .ok()
-                .and_then(|invariant_speed| {
-                    ambition_platformer2d::relativity::coordinate_photon_direction_from_observer(
-                        [
-                            f64::from(experiment.aim_direction.x),
-                            f64::from(experiment.aim_direction.y),
-                            0.0,
-                        ],
-                        [
-                            f64::from(targeting.observer_velocity.x),
-                            f64::from(targeting.observer_velocity.y),
-                            0.0,
-                        ],
-                        invariant_speed,
-                    )
-                })
-                .map(|direction| Vec2::new(direction[0] as f32, -direction[1] as f32))
-                .unwrap_or(Vec2::new(
-                    experiment.aim_direction.x,
-                    -experiment.aim_direction.y,
-                ));
-        let aim_screen = chart_aim;
-        let intercept_screen = Vec2::new(target.emission_direction.x, -target.emission_direction.y);
-        let retarded_screen = target.retarded_position.map(to_bevy);
-        let aim_color = if experiment
-            .aim_direction
-            .normalize_or_zero()
-            .dot(target.observer_local_emission_direction)
-            >= 0.997_5
-        {
-            Color::srgb(0.25, 1.0, 0.45)
-        } else {
-            Color::srgb(0.20, 0.78, 1.0)
-        };
-        gizmos.line_2d(observer, observer + aim_screen * 270.0, aim_color);
-        gizmos.line_2d(
-            observer,
-            observer + intercept_screen * 250.0,
-            Color::srgb(0.25, 1.0, 0.45),
-        );
-        if let Some(retarded_screen) = retarded_screen {
-            gizmos.line_2d(observer, retarded_screen, Color::srgb(1.0, 0.28, 0.32));
-        }
-        let future = to_bevy(Vec2::new(
-            target.intercept_event.position[0] as f32,
-            target.intercept_event.position[1] as f32,
-        ));
-        gizmos.line_2d(
-            future + Vec2::new(-10.0, -10.0),
-            future + Vec2::new(10.0, 10.0),
-            Color::srgb(0.25, 1.0, 0.45),
-        );
-        gizmos.line_2d(
-            future + Vec2::new(-10.0, 10.0),
-            future + Vec2::new(10.0, -10.0),
-            Color::srgb(0.25, 1.0, 0.45),
-        );
-    }
-
-    let window = 8.0;
-    // Keyed by TRACK ID, not caption — see `observatory.rs`.
-    for (track, samples) in &worldlines.tracks {
-        let color = if track.as_str() == "traveler" {
-            Color::srgb(0.25, 1.0, 0.38)
-        } else {
-            Color::srgb(1.0, 0.82, 0.22)
-        };
-        let points: Vec<_> = samples
-            .iter()
-            .filter_map(|sample| {
-                let age = signals.coordinate_time - sample.coordinate_time;
-                (age >= 0.0 && age <= window).then(|| {
-                    to_bevy(Vec2::new(
-                        sample.position.x,
-                        28.0 + (age / window) as f32 * 120.0,
-                    ))
-                })
-            })
-            .collect();
-        for pair in points.windows(2) {
-            gizmos.line_2d(pair[0], pair[1], color);
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn room_declares_the_twintrack_mode() {
-        assert_eq!(
-            twintrack_room().metadata.mode.as_deref(),
-            Some(TWINTRACK_EXPERIENCE)
-        );
-    }
-
-    #[test]
-    fn target_speed_is_timelike_and_visibly_dilated() {
-        let c =
-            ambition_platformer2d::relativity::InvariantSpeed::new(INVARIANT_SPEED as f64).unwrap();
-        let result = ambition_platformer2d::relativity::minkowski_clock_rate(
-            (TARGET_SPEED * TARGET_SPEED) as f64,
-            c,
-        );
-        assert_eq!(
-            result.interval_kind,
-            ambition_platformer2d::relativity::IntervalKind::Timelike
-        );
-        assert!(result.proper_time_rate.get() < 0.5);
-    }
-
-    #[test]
-    fn target_speed_tunes_the_transmitter_into_the_station_passband() {
-        let c =
-            ambition_platformer2d::relativity::InvariantSpeed::new(INVARIANT_SPEED as f64).unwrap();
-        let measurement = ambition_platformer2d::relativity::minkowski_doppler_measurement(
-            EMITTED_FREQUENCY,
-            [1.0, 0.0, 0.0],
-            [f64::from(TARGET_SPEED), 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-            c,
-        )
-        .unwrap();
-        assert!(measurement.observed_frequency >= DOPPLER_PASSBAND_MIN);
-        assert!(measurement.observed_frequency <= DOPPLER_PASSBAND_MAX);
     }
 }

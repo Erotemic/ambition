@@ -692,9 +692,43 @@ pub(super) fn integrate_flight_clusters(
         // (`stick × terminal` == its `velocity_target`), so take it verbatim — no
         // accel ramp, drag, hover-bob, or deadzone. Byte-identical to a SNAP float
         // (`step_floating_body`, `accel: None`) so a boss flies through the ONE
-        // pipeline without a motion change. The clamp below is a harmless no-op
-        // (`|stick| ≤ 1` already bounds this to ±terminal).
+        // pipeline without a motion change.
         (target_run, target_descend)
+    } else if let Some(invariant_speed) = tuning.flight.invariant_speed {
+        // Relativistic free flight still runs through the ONE shared flight limb.
+        // Acceleration and drag act on spatial proper velocity w = gamma*v; the
+        // conversion back to coordinate velocity guarantees |v| < c. The authored
+        // terminal remains a coordinate-speed cap and therefore a game-feel knob.
+        let c = invariant_speed.abs().max(f32::EPSILON);
+        let terminal = tuning.flight.terminal_speed.abs().min(c * (1.0 - 1.0e-5));
+        let current_v = crate::Vec2::new(vel_run, vel_descend);
+        let current_speed_squared = current_v.length_squared().min(c * c * (1.0 - 1.0e-6));
+        let current_gamma = 1.0 / (1.0 - current_speed_squared / (c * c)).sqrt();
+        let mut proper_velocity = current_v * current_gamma;
+
+        let target_v = if local_stick.length_squared() > 1.0 {
+            local_stick.normalize() * terminal
+        } else {
+            local_stick * terminal
+        };
+        let target_speed_squared = target_v.length_squared().min(c * c * (1.0 - 1.0e-6));
+        let target_gamma = 1.0 / (1.0 - target_speed_squared / (c * c)).sqrt();
+        let target_w = target_v * target_gamma;
+        let delta = target_w - proper_velocity;
+        let max_step = tuning.flight.accel.max(0.0) * dt;
+        if delta.length_squared() > max_step * max_step && max_step > 0.0 {
+            proper_velocity += delta.normalize() * max_step;
+        } else {
+            proper_velocity = target_w;
+        }
+        if local_stick.length_squared() <= 0.01 {
+            let speed = proper_velocity.length();
+            let reduced = (speed - tuning.flight.drag.max(0.0) * dt).max(0.0);
+            proper_velocity = proper_velocity.normalize_or_zero() * reduced;
+        }
+        let coordinate_velocity =
+            proper_velocity / (1.0 + proper_velocity.length_squared() / (c * c)).sqrt();
+        (coordinate_velocity.x, coordinate_velocity.y)
     } else {
         let mut new_run = approach(vel_run, target_run, tuning.flight.accel * dt);
         let mut new_descend = approach(vel_descend, target_descend, tuning.flight.accel * dt);
@@ -711,7 +745,18 @@ pub(super) fn integrate_flight_clusters(
     new_run = new_run.clamp(-tuning.flight.terminal_speed, tuning.flight.terminal_speed);
     new_descend = new_descend.clamp(-tuning.flight.terminal_speed, tuning.flight.terminal_speed);
 
-    kinematics.vel = frame.to_world(crate::Vec2::new(new_run, new_descend));
+    let mut local_velocity = crate::Vec2::new(new_run, new_descend);
+    if tuning.flight.invariant_speed.is_some() {
+        // Relativistic flight authors one radial coordinate-speed cap. Keeping
+        // this opt-in preserves the established per-axis behavior of ordinary
+        // flight bodies while preventing a diagonal command from exceeding the
+        // experiment's terminal or invariant speed.
+        let terminal_squared = tuning.flight.terminal_speed * tuning.flight.terminal_speed;
+        if local_velocity.length_squared() > terminal_squared && terminal_squared > 0.0 {
+            local_velocity = local_velocity.normalize() * tuning.flight.terminal_speed;
+        }
+    }
+    kinematics.vel = frame.to_world(local_velocity);
 }
 
 /// Wall ability ride: while local side input presses into a wall, engage

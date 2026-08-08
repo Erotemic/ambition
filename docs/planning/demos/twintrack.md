@@ -1,117 +1,208 @@
-# TwinTrack
+# TwinTrack — Relativity Plaza
 
-> **Status (2026-08-05): SR-3 causal-pursuit prototype landed — compiled, five
-> acceptance tests green, and PHOTOGRAPHED.** `capture_twintrack` is the
-> instrument; it found three presentation defects the headless tests could not
-> see (a clear that erased the laboratory, a camera whose near plane culled half
-> the panel, a layout that asked the window how big it was). ▢ **still open: the
-> four HUD slots overlap into unreadable text in the top-left** — that predates
-> this work and is the demo's biggest remaining readability problem.
+> **Status (2026-08-06): SR-5 Relativity Festival polish implemented.** TwinTrack
+> now teaches its systems through a guided opening, visible character clocks,
+> labeled light-message packets, continuous Doppler-note feedback, three rounds
+> of progressively less-assisted light tag, and a scrub-able post-experiment
+> spacetime replay. The default HUD remains small; numerical diagnostics stay in
+> the teaching view.
 
-TwinTrack is the 2D executable acceptance game for Ambition's flat-spacetime
-relativity stack. The controlled traveler leaves a laboratory, accelerates on a
-one-dimensional rail, and emits a light pulse from an onboard transmitter. A
-second observatory viewport renders an observer-local synthetic sky and compact
-source images selected from the traveler event's past light cone. A
-stationary passband receiver accepts the pulse only when relativistic Doppler
-shift moves its source-local frequency into range. The same packet reaches a
-radar retroreflector and returns at the invariant speed. Receiving the echo
-starts a causal-pursuit challenge: a compact beacon begins a known inertial
-worldline, its red retarded image diverges from its current and future position,
-and the participant must aim a new null signal along the exact green intercept
-direction before returning to reunite.
+TwinTrack is Ambition's executable acceptance game for flat-spacetime
+relativity. Its first duty remains technical: prove that clocks, worldlines,
+light signals, local measurements, observer views, and rollback compose through
+normal engine seams. Its second duty is now equally explicit: show recognizable
+gameplay ideas that could grow into a visually strange relativity game.
 
-The prototype deliberately combines coordinate-time and proper-time systems:
+## Player-facing premise
 
-- laboratory machinery, signal propagation, and receiver events use the
-  Minkowski chart's coordinate time;
-- traveler clocks, animation, and transmitter recharge use traveler proper
-  time;
-- received frequency is measured in the receiver's local inertial frame;
-- the HUD reports real arrival events in both laboratory coordinates and the
-  traveler's instantaneous inertial coordinates;
-- the observatory applies exact point-source aberration and Doppler shift,
-  while a bounded spacetime strip plots worldlines, null packets, and the
-  traveler's past light cone;
-- a causal-targeting view publishes the target's retarded apparent direction,
-  coordinate-now direction, exact constant-velocity null intercept, and the
-  observer-local firing direction without steering the controlled body.
+Everyone starts with a clock. The controlled participant flies around a plaza
+and asks moving characters what their own clocks read. Questions and replies
+travel as light, so the answer is already old when it arrives. The participant
+then Doppler-shifts a fixed onboard note into DJ Blue Shift's preferred band,
+plays light tag with Photon Fox by leading the visible image, and returns to the
+laboratory twin to compare clocks.
 
-## Consumes
+Player-facing language uses:
 
-- the normal provider/session lifecycle;
-- ordinary platformer movement and collision as the sole controlled-traveler motion authority;
-- `ambition_relativity` Minkowski events, clocks, Lorentz boosts, and Doppler
-  measurement;
-- `ambition_relativity2d` proper clocks, analytic null signals, local emitters
-  and receivers, event history, and bounded worldline telemetry;
-- observer past-light-cone solving and photon-local measurement;
-- declared HUD, optional visible gizmos, and a private-layer observatory camera.
+- **your clock** for proper time;
+- **laboratory time** for the authored Minkowski coordinate chart;
+- **what reaches you now** or **light-delayed image** for the source event whose
+  light arrives at the observer now;
+- **when this message left** for the signal emission event;
+- **speed as a percentage of light speed** instead of requiring beta/gamma.
 
-## Owns
+The standard technical term *retarded event* remains valid in research code and
+advanced notes, but is not used in game text because it is a needless classroom
+distraction.
 
-- the laboratory's authored invariant speed (`c = 600` world units/s);
-- a traveler tuned to a subluminal `0.9c` maximum rail speed;
-- the transmitter's `100 Hz` proper frequency and `0.75 s` proper-time cooldown;
-- the stationary Doppler station's accepted frequency band;
-- the radar reflector, causal-pursuit phase, turnaround, reunion, and result rules;
-- a deterministic inertial chase beacon used as both a retarded-image source
-  and a swept light receiver;
-- observer-local aim state and lab/dual/optical-focus instrument modes;
-- course wording, spectral colors, receiver markers, the synthetic star field,
-  and the compact spacetime trace.
+## Engine capabilities exercised
 
-## Play loop
+- permanent gravity-free 2D movement through the shared flight limb;
+- spatial proper-velocity control with an authored invariant-speed limit;
+- radial rather than per-axis terminal-speed enforcement;
+- Minkowski proper-time accumulation for every marked character;
+- analytic null-signal propagation at the invariant speed;
+- stable emitter identity, opaque game payloads, and destination channels
+  carried by light packets;
+- receiver-local Doppler measurement and authored passbands;
+- bounded worldline and arrival histories;
+- past-light-cone source selection, aberration, and Doppler presentation;
+- exact constant-velocity null interception for light tag;
+- rollback-safe experiment phase, clocks, signals, cooldowns, and dialogue facts.
 
-1. Hold right to depart and accelerate.
-2. Press Interact/F/RB near maximum speed. The forward pulse is blue-shifted
-   into the stationary station's passband.
-3. Continue toward the radar station while the pulse propagates exactly at
-   `c`.
-4. The radar station coherently retroreflects the same packet. Catch the echo.
-5. The view expands into optical-focus mode. The moving beacon's red marker is
-   its retarded image; the green marker is the null-intercept direction. Aim the
-   cyan reticle with the observer-local aim controls and fire a pursuit pulse.
-6. After the pulse intersects the beacon's future worldline, turn around and
-   reunite with the laboratory clock.
-7. Compare coordinate arrivals, receiver proper time, pursuit intercept time,
-   both twins' elapsed proper times, and the transformed event facts.
+Relativity never becomes a second body-motion authority. The controlled body
+uses Ambition's ordinary shared movement kernel. Plaza characters own
+prescribed content worldlines, written once before relativity samples their
+clocks.
+
+## Festival presentation contract
+
+The plaza communicates relativity through characters and world objects before
+asking the participant to read instruments:
+
+- every clock-bearing character has a visible numerical clock and hand driven by
+  that character's proper time;
+- questions, replies, notes, and tag shots carry short labels on the moving light
+  packet itself;
+- the opening asks the participant to synchronize at the lab, drift away, and
+  then exceed 50% of light speed before the station sequence begins;
+- DJ Blue Shift publishes a continuous visual pitch meter. The authored note is
+  G2 at 98 Hz; a 0.6c approach shifts it by exactly one octave into G3 at 196 Hz;
+- light tag has three hits. Round one shows visible/current/intercept/aim facts,
+  round two hides coordinate-now, and round three hides the intercept marker;
+- after reunion, the space+time view becomes a replay. Left/right scrubs the
+  recorded worldlines and completed signal paths; Interact returns to the map.
+
+The pitch meter is continuous and exact. Each transmitted sample also plays a
+provider-owned procedural tone quantized to a nearby teaching note; a successful
+G3 lock resolves as a short octave flourish. The visual meter remains the precise
+measurement authority, while the audible sample supplies immediate classroom
+feedback without adding audio state to the simulation.
+
+## Plaza stations
+
+### 1. Clock census
+
+Courier, Drifter, and Spinner follow different 2D worldlines. Interacting near a
+character sends a light-speed request. The character replies with the value of
+their proper-time clock **when the reply left**. The received dialogue shows:
+
+- the sender's clock at emission;
+- the participant's clock at reception;
+- laboratory time at reception;
+- signal travel time.
+
+This makes delayed dialogue a mechanic rather than an instant UI query.
+
+### 2. Doppler dance
+
+The onboard transmitter emits G2 at 98 Hz in its own rest frame. DJ Blue Shift
+accepts G3 around 196 Hz. At a 0.6c approach the longitudinal SR Doppler factor
+is exactly two, so the correct movement produces an octave rather than an
+arbitrary numeric passband. The participant changes relative
+velocity and sends the note. Rejected notes report the measured frequency and
+say whether it was too low or too high; the DJ dances only when the locally
+measured frequency falls inside the authored passband.
+
+### 3. Light tag
+
+Photon Fox follows a broad, near-inertial arc whose curvature is negligible
+during the encounter. In optical mode the visible image is
+where the arriving light left Fox, not Fox's coordinate position now. The
+participant sends a light pulse toward the future intercept event. The engine
+computes the exact observer-local emission direction. During this teaching
+station, red marks the light-delayed image, yellow marks coordinate-now, green
+marks the future intercept, and cyan marks the participant's local aim.
+
+### 4. Reunion
+
+The participant returns to the laboratory twin and compares clocks at one
+shared event. Existing entity-local animation/timing systems consume the same
+proper-time scale as the displayed clock.
+
+## Movement and controls
+
+TwinTrack authors `FreeFlight`, not `RunJump`:
+
+- the movement stick changes spatial proper velocity in 2D;
+- inertia continues after release and authored drag provides braking;
+- coordinate speed approaches the terminal below `c`;
+- diagonal input cannot exceed the radial speed cap;
+- no jump or flight-toggle action is advertised;
+- Interact sends messages, changes the view display, or completes reunion.
+
+The reusable distinction is `fly` versus `fly_toggle`: a body can have permanent
+flight without exposing a meaningless on-screen toggle button.
+
+## Three views
+
+### Laboratory map
+
+Shows authoritative coordinate positions. It is the readable navigation and
+social-play view. Characters, labels, active light pulses, dialogue bubbles,
+the laboratory twin, and the view console are visible in world space.
+
+### What reaches you now
+
+A full-screen observer presentation shows a synthetic star field and compact
+character emitters transformed for the controlled observer:
+
+- photon directions undergo exact flat-spacetime aberration;
+- frequencies undergo exact local Doppler measurement;
+- source images come from light-delayed worldline events;
+- brightness uses a documented point-source beaming proxy.
+
+It is exact for ideal point sources and compact proxies, not a claim of complete
+optical reconstruction for extended sprites or tile geometry.
+
+### 2+1D spacetime sculpture
+
+The optional teaching view represents two spatial dimensions plus time:
+
+- one axis for x position;
+- one axis for y position;
+- one upward time axis;
+- colored character worldline trails;
+- yellow light-signal paths;
+- blue past-light-cone edges;
+- explicit labels and a legend;
+- an isometric projection that can later become an orbitable 3D teaching view.
+
+The sculpture explains or replays the same simulation. It is not required for
+steering and does not become a second game world. After reunion it uses the
+festival's extended worldline history and arrival records: the horizontal input
+scrubs a normalized replay cursor over the completed experiment.
 
 ## Acceptance
 
-- the provider runs standalone and in `ambition_app`;
-- one session-scoped Minkowski provider owns coordinate time;
-- the traveler and laboratory clocks are present and rollback-safe;
-- a forced `0.9c` worldline accumulates proper time at approximately
-  `sqrt(1 - 0.9^2)` times the laboratory rate;
-- a scripted participant can accelerate, emit one qualifying packet, observe
-  ordered arrivals at the passband station and radar reflector, catch the
-  reflected packet, acquire an observer-local lead solution, hit the moving
-  beacon with a null signal, reverse, and reunite;
-- the passband measurement matches the exact emitter-to-receiver Doppler
-  calculation;
-- signal crossings are processed in coordinate-arrival order, independent of
-  ECS/channel iteration order;
-- transmitter cooldown advances in proper time;
-- worldline telemetry discards samples from abandoned rollback futures and
-  from prior coordinate-time epochs;
-- leaving the session removes the spacetime provider and clears derived views;
-- the moving chase beacon is published at a past-light-cone event whose
-  separation from reception is null within the sampled solver tolerance;
-- the constant-velocity intercept solves `|r + vt| = ct`, returns the earliest
-  future root, and rejects targets whose worldlines are not timelike;
-- converting the exact chart firing direction into observer-local aim and back
-  round-trips within numerical tolerance;
-- the red apparent marker, yellow coordinate-now marker, green intercept marker,
-  and cyan participant aim remain explicitly distinct in the observatory;
-- the optical star field and compact-source proxies respond to observer
-  aberration, Doppler factor, and a documented point-source beaming proxy;
-- no relativity system changes body position or velocity; TwinTrack alone owns the beacon's prescribed inertial content worldline.
+- the provider runs standalone and inside `ambition_app`;
+- the controlled body's action scheme contains Interact but no Jump or Fly
+  Toggle;
+- shared free flight moves diagonally and remains below both the authored
+  terminal speed and invariant speed;
+- a forced 0.9c worldline matches the analytic SR proper-time ratio;
+- seven named clocks are published: participant, laboratory, and five plaza
+  characters;
+- clock requests and replies carry stable character identity and clock values
+  as light-signal payloads;
+- the guided opening requires synchronization, spatial separation, and at least
+  50% of light speed before the census;
+- all three clock reports return before the course advances;
+- continuous Doppler feedback identifies the G2/G3 notes and the DJ passband
+  accepts the exact 0.6c octave shift;
+- Photon Fox's visible direction and future light-intercept direction differ;
+- three light-tag hits advance through progressively reduced assistance;
+- one complete scripted course reaches reunion with the laboratory clock ahead
+  of the participant clock;
+- switching views changes presentation only;
+- a completed experiment can scrub its canonical replay cursor over the retained
+  derived worldline and signal history;
+- leaving the session removes its spacetime provider and derived views.
 
-TwinTrack is not Slower Light. Its observatory is exact for ideal distant
-point sources and for compact emitters represented by one sampled worldline,
-but it does not transform arbitrary nearby tile/sprite geometry, perform full
-radiative transfer, vary `c`, or provide a 3D observer view. The main viewport
-remains the laboratory coordinate chart; the private observatory camera renders
-only derived proxies. This grounds the clock, event, null-signal, observer, and
-past-light-cone machinery those later systems need.
+## Deliberate limits
+
+TwinTrack remains special relativity in flat spacetime. It does not vary the
+invariant speed spatially, evolve a gravitational metric, ray-trace arbitrary
+extended geometry, or reconstruct a complete 3D optical world. Those are
+separate future capabilities. The plaza is the grounded testbed from which the
+3D Slower Light game and later GR research can grow.

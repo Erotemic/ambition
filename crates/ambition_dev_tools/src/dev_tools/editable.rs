@@ -20,6 +20,7 @@ pub struct EditableAbilitySet {
     pub dash: bool,
     pub double_dash: bool,
     pub fly: bool,
+    pub fly_toggle: bool,
     pub blink: bool,
     pub precision_blink: bool,
     pub blink_through_soft_walls: bool,
@@ -54,6 +55,7 @@ impl EditableAbilitySet {
             dash: self.dash,
             double_dash: self.double_dash,
             fly: self.fly,
+            fly_toggle: self.fly_toggle,
             blink: self.blink,
             precision_blink: self.precision_blink,
             blink_through_soft_walls: self.blink_through_soft_walls,
@@ -88,6 +90,7 @@ impl From<ae::AbilitySet> for EditableAbilitySet {
             dash: value.dash,
             double_dash: value.double_dash,
             fly: value.fly,
+            fly_toggle: value.fly_toggle,
             blink: value.blink,
             precision_blink: value.precision_blink,
             blink_through_soft_walls: value.blink_through_soft_walls,
@@ -227,6 +230,7 @@ impl EditableMovementTuning {
             // The editable dev tuning drives the PLAYER body (smoothed flight);
             // direct-velocity is a per-body opt-in the boss sets in its own tuning.
             flight_direct_velocity: false,
+            flight_invariant_speed: None,
             coyote_time: self.coyote_time,
             jump_buffer: self.jump_buffer,
             pogo_speed: self.pogo_speed,

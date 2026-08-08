@@ -23,6 +23,16 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v18 (2026-08-08): TwinTrack's Relativity Plaza/Festival encodings.**
+/// Two overlay changes land together, so they are ONE bump rather than the two
+/// the overlay carried: `AbilitySet` separates a body's flight CAPABILITY from
+/// permission to expose a runtime flight toggle (permanent free flight is a
+/// spacecraft, not a body with a button it must not press); axis-swept flight
+/// tuning optionally carries an invariant speed; light emitters, signals and
+/// arrival history preserve stable emitter identity, opaque payloads and
+/// optional destination channels; and the experiment component carries the
+/// guided-introduction step, multi-round light-tag attempts and the
+/// spacetime-replay cursor. A v17 peer decodes every one of those shifted.
 /// ⚠ **v17 (2026-08-08): being IN a fight becomes a component of its own.**
 /// `CombatStanding` read `RulesetOwnsDeath` — whose question is whose business a
 /// body's death is — and the stand-down rule read `MatchSeat`, which an
@@ -84,7 +94,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 17;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 18;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

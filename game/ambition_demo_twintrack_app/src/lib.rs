@@ -54,7 +54,7 @@ pub fn build_windowed_demo_app_with(render: RenderMode) -> App {
         .set(WindowPlugin {
             primary_window: match render {
                 RenderMode::Windowed => Some(Window {
-                    title: "TwinTrack — Special Relativity Laboratory".into(),
+                    title: "TwinTrack — Relativity Plaza".into(),
                     resolution: (1280, 720).into(),
                     ..default()
                 }),

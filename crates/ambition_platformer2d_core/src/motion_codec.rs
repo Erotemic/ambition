@@ -10,9 +10,7 @@
 //! point: a wildcard from a crate that depends on twenty others hides what a
 //! codec actually needs.
 
-use crate::snapshot::{
-    put_bool, put_f32, put_u32, put_u8, put_vec2, Reader, SnapshotState,
-};
+use crate::snapshot::{put_bool, put_f32, put_u32, put_u8, put_vec2, Reader, SnapshotState};
 
 /// The body's explicit movement policy: identity, authored parameters, and
 /// policy-private runtime state — everything a deterministic continuation
@@ -207,9 +205,7 @@ fn put_ledge_grab(out: &mut Vec<u8>, grab: &Option<crate::LedgeGrabState>) {
 }
 
 fn ledge_grab(r: &mut Reader<'_>) -> Option<Option<crate::LedgeGrabState>> {
-    use crate::ledge_grab::{
-        LedgeContact, LedgeGetupKind, LedgeGrabQuality, LedgeGrabState,
-    };
+    use crate::ledge_grab::{LedgeContact, LedgeGetupKind, LedgeGrabQuality, LedgeGrabState};
     Some(if r.bool()? {
         Some(LedgeGrabState {
             contact: LedgeContact {
@@ -353,6 +349,13 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, f.hover_speed);
     put_f32(out, f.hover_hz);
     put_bool(out, f.direct_velocity);
+    match f.invariant_speed {
+        Some(speed) => {
+            put_bool(out, true);
+            put_f32(out, speed);
+        }
+        None => put_bool(out, false),
+    }
 }
 
 fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
@@ -419,6 +422,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             hover_speed: r.f32()?,
             hover_hz: r.f32()?,
             direct_velocity: r.bool()?,
+            invariant_speed: if r.bool()? { Some(r.f32()?) } else { None },
         },
     })
 }

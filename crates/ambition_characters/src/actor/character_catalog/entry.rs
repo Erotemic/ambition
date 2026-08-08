@@ -258,6 +258,21 @@ pub struct AxisTuningSpec {
     /// Pre-landing jump input buffer.
     #[serde(default = "at_jump_buffer")]
     pub jump_buffer: f32,
+    /// Free-flight acceleration toward the commanded 2D velocity.
+    #[serde(default = "at_flight_accel")]
+    pub flight_accel: f32,
+    /// Free-flight braking/idle drag.
+    #[serde(default = "at_flight_drag")]
+    pub flight_drag: f32,
+    /// Magnitude cap for free-flight coordinate velocity.
+    #[serde(default = "at_flight_terminal_speed")]
+    pub flight_terminal_speed: f32,
+    /// Whether the flight limb takes stick × terminal speed immediately.
+    #[serde(default)]
+    pub flight_direct_velocity: bool,
+    /// Optional invariant speed for proper-velocity flight.
+    #[serde(default)]
+    pub flight_invariant_speed: Option<f32>,
 }
 
 fn at_gravity() -> f32 {
@@ -288,6 +303,18 @@ fn at_jump_buffer() -> f32 {
     ae::DEFAULT_TUNING.jump_buffer
 }
 
+fn at_flight_accel() -> f32 {
+    ae::DEFAULT_TUNING.flight_accel
+}
+
+fn at_flight_drag() -> f32 {
+    ae::DEFAULT_TUNING.flight_drag
+}
+
+fn at_flight_terminal_speed() -> f32 {
+    ae::DEFAULT_TUNING.flight_terminal_speed
+}
+
 fn at_air_jumps() -> u8 {
     ae::DEFAULT_TUNING.air_jumps
 }
@@ -310,6 +337,11 @@ impl Default for AxisTuningSpec {
             max_fall_speed: at_max_fall_speed(),
             coyote_time: at_coyote_time(),
             jump_buffer: at_jump_buffer(),
+            flight_accel: at_flight_accel(),
+            flight_drag: at_flight_drag(),
+            flight_terminal_speed: at_flight_terminal_speed(),
+            flight_direct_velocity: false,
+            flight_invariant_speed: None,
         }
     }
 }
@@ -332,6 +364,11 @@ impl AxisTuningSpec {
             max_fall_speed: self.max_fall_speed,
             coyote_time: self.coyote_time,
             jump_buffer: self.jump_buffer,
+            flight_accel: self.flight_accel,
+            flight_drag: self.flight_drag,
+            flight_terminal_speed: self.flight_terminal_speed,
+            flight_direct_velocity: self.flight_direct_velocity,
+            flight_invariant_speed: self.flight_invariant_speed,
             ..ae::DEFAULT_TUNING
         }
     }

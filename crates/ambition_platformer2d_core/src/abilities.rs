@@ -40,10 +40,18 @@ pub struct AbilitySet {
     pub dash: bool,
     /// Upgrade that gives two dash charges before refresh.
     pub double_dash: bool,
-    /// Free-flight sandbox/test movement mode. When toggled on, movement input
-    /// applies acceleration toward a terminal velocity instead of normal
-    /// ground/air platformer steering.
+    /// Free-flight movement capability. When the body is in flight mode,
+    /// movement input applies acceleration toward a terminal velocity instead
+    /// of normal ground/air platformer steering.
     pub fly: bool,
+    /// Whether the controlled body may toggle flight mode at runtime.
+    ///
+    /// Floating bodies such as TwinTrack's spacecraft can author permanent
+    /// free flight (`fly = true`, `fly_toggle = false`) so the action scheme
+    /// does not advertise a meaningless mode switch. Existing authored data
+    /// defaults this to true to preserve the historical fly-button behavior.
+    #[serde(default = "default_fly_toggle")]
+    pub fly_toggle: bool,
     /// Short-range teleport. Quick release blinks immediately along input/facing.
     pub blink: bool,
     /// Upgrade for blink: holding the blink button enters aim/bullet-time mode
@@ -178,6 +186,7 @@ impl AbilitySet {
             dash: false,
             double_dash: false,
             fly: false,
+            fly_toggle: false,
             blink: false,
             precision_blink: false,
             blink_through_soft_walls: false,
@@ -211,6 +220,7 @@ impl AbilitySet {
             dash: true,
             double_dash: true,
             fly: true,
+            fly_toggle: true,
             blink: true,
             precision_blink: true,
             blink_through_soft_walls: true,
@@ -249,6 +259,7 @@ impl AbilitySet {
             dash: true,
             double_dash: true,
             fly: true,
+            fly_toggle: true,
             blink: true,
             precision_blink: true,
             blink_through_soft_walls: true,
@@ -289,6 +300,7 @@ impl AbilitySet {
         dash: false,
         double_dash: false,
         fly: false,
+        fly_toggle: false,
         blink: false,
         precision_blink: false,
         blink_through_soft_walls: false,
@@ -328,6 +340,7 @@ impl AbilitySet {
             dash: self.dash || other.dash,
             double_dash: self.double_dash || other.double_dash,
             fly: self.fly || other.fly,
+            fly_toggle: self.fly_toggle || other.fly_toggle,
             blink: self.blink || other.blink,
             precision_blink: self.precision_blink || other.precision_blink,
             blink_through_soft_walls: self.blink_through_soft_walls
@@ -371,6 +384,7 @@ impl AbilitySet {
             dash: self.dash && mask.dash,
             double_dash: self.double_dash && mask.double_dash,
             fly: self.fly && mask.fly,
+            fly_toggle: self.fly_toggle && mask.fly_toggle,
             blink: self.blink && mask.blink,
             precision_blink: self.precision_blink && mask.precision_blink,
             blink_through_soft_walls: self.blink_through_soft_walls
@@ -443,6 +457,9 @@ impl AbilitySet {
         if self.fly && !self.move_horizontal {
             warnings.push("fly is enabled but move_horizontal is disabled");
         }
+        if self.fly_toggle && !self.fly {
+            warnings.push("fly_toggle is enabled but fly is disabled");
+        }
         if self.precision_blink && !self.blink {
             warnings.push("precision_blink is enabled but blink is disabled");
         }
@@ -464,6 +481,13 @@ impl AbilitySet {
         }
         warnings
     }
+}
+
+/// `serde` default for [`AbilitySet::fly_toggle`]. Historical authored bodies
+/// that granted flight also exposed the toggle; the action scheme additionally
+/// requires `fly`, so old non-flying bodies do not gain a phantom button.
+fn default_fly_toggle() -> bool {
+    true
 }
 
 /// `serde` default for [`AbilitySet::interact`]: data that does not mention the
@@ -510,6 +534,10 @@ pub enum AbilityGrant {
     FastFall,
     /// The curated mid-game subset ([`AbilitySet::sane_subset`]).
     SaneSubset,
+    /// Permanent gravity-free 2D steering with interaction, but no jump or
+    /// flight-toggle button. Intended for spacecraft, swimmers in a dedicated
+    /// free-movement game, and other bodies whose base locomotion is flight.
+    FreeFlight,
     /// Every implemented verb ([`AbilitySet::sandbox_all`]).
     SandboxAll,
 }
@@ -535,6 +563,13 @@ impl AbilityGrant {
             },
             Self::FastFall => AbilitySet {
                 fast_fall: true,
+                ..AbilitySet::NONE
+            },
+            Self::FreeFlight => AbilitySet {
+                move_horizontal: true,
+                fly: true,
+                fly_toggle: false,
+                interact: true,
                 ..AbilitySet::NONE
             },
             Self::SaneSubset => AbilitySet::sane_subset(),
@@ -676,6 +711,64 @@ mod tests {
             !run_jump.dash && !run_jump.blink && !run_jump.attack && !run_jump.wall_jump,
             "run-jump must NOT grant sandbox verbs"
         );
+    }
+
+    #[test]
+    fn free_flight_is_permanent_two_dimensional_movement_without_a_jump_button() {
+        let kit = AbilityGrant::FreeFlight.to_set();
+        assert!(kit.move_horizontal);
+        assert!(kit.fly);
+        assert!(kit.interact);
+        assert!(!kit.jump);
+        assert!(!kit.variable_jump);
+        assert!(!kit.fly_toggle);
+        assert!(kit.compatibility_warnings().is_empty());
+    }
+
+    /// **Granting `fly` through a `..NONE` spread grants PERMANENT flight**, and
+    /// the trap is that it reads as "this body can fly".
+    ///
+    /// ⛔ two shipped kits did exactly that when `fly_toggle` was introduced —
+    /// `enemies::movement_kit` and the boss kit in `spawn_actors` — and the cost
+    /// was worse than a wrong default. Permanent flight is latched into
+    /// `BodyFlightState` when the cluster is BUILT (`fly && !fly_toggle`), so a
+    /// body whose brain expects to toggle flight on later never flies at all.
+    /// The duel PCA pressed the toggle 128 times over 30 seconds with
+    /// `fly_frames = 0`.
+    ///
+    /// ⚠ this test does not forbid the permanent kind — TwinTrack's spacecraft
+    /// is exactly that, and says so. It pins that the two spellings are
+    /// DIFFERENT, so a caller reaching for the ordinary one has to say the word.
+    #[test]
+    fn granting_flight_without_the_toggle_is_a_different_kit() {
+        // `move_horizontal` because flight without it warns for an unrelated
+        // reason; the subject here is the toggle alone.
+        let permanent = AbilitySet {
+            fly: true,
+            move_horizontal: true,
+            ..AbilitySet::NONE
+        };
+        assert!(permanent.fly);
+        assert!(
+            !permanent.fly_toggle,
+            "a `..NONE` spread leaves the toggle off, which is PERMANENT flight"
+        );
+
+        let toggled = AbilitySet {
+            fly: true,
+            fly_toggle: true,
+            move_horizontal: true,
+            ..AbilitySet::NONE
+        };
+        assert_ne!(
+            permanent, toggled,
+            "the two kits must not be interchangeable — a body that flies on \
+             command and a body that is always flying are different bodies"
+        );
+        // Neither spelling is malformed; the warning list is about `fly_toggle`
+        // WITHOUT `fly`, which is the one that means nothing.
+        assert!(permanent.compatibility_warnings().is_empty());
+        assert!(toggled.compatibility_warnings().is_empty());
     }
 
     #[test]

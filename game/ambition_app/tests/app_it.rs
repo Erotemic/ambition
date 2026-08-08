@@ -100,6 +100,7 @@ mod shell_host_startup;
 mod sim_phase_pins;
 mod smash_in_the_host;
 mod smash_roster_movesets;
+mod starting_character_selection;
 mod stocks;
 mod symmetry_attunement;
 mod unified_body_movement;

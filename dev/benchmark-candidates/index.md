@@ -60,6 +60,7 @@ Use this index before refactors or when planning validation. Benchmark candidate
 | Cargo test command grammar / single filter rule | [`cargo-test-single-filter-question-2026-05-11.md`](cargo-test-single-filter-question-2026-05-11.md) |
 | Meta-process loop derails artifact delivery | [`meta-process-derailment-loop-tentative-2026-05-12.md`](meta-process-derailment-loop-tentative-2026-05-12.md) |
 | Autonomous long-run session vs interactive-default safety rules ("stop and ask") | [`autonomous-long-run-never-stop-2026-05-21.md`](autonomous-long-run-never-stop-2026-05-21.md) |
+| One question validated at two sites: the earlier one short-circuits, so fixing the later one repairs nothing and leaves a comment claiming it did (a green unit test covered the unreachable copy) | [`one-question-two-checkers-only-the-first-runs-2026-08-08.md`](one-question-two-checkers-only-the-first-runs-2026-08-08.md) |
 
 ## Adding a benchmark candidate
 

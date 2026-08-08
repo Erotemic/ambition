@@ -644,9 +644,26 @@ From `untracked/jonnotes-FIXES.md`, verified state in deep-review §8:
   adaptation*. Identity is possession-aware; nothing yet makes an NPC say a
   different line because of who is wearing the body in front of it.
   `$speaker_is_self` is the one adaptation that exists.
-- `AMBITION_START_CHARACTER=sanic`: trace why the persona grants
-  blink/fireballs and loses move/jump in the full app — per-character
-  ActionScheme data + host input hookups; fix as data/seams, not special cases.
+- ✔ **`AMBITION_START_CHARACTER=sanic` — FIXED 2026-08-08, and it was not an
+  ActionScheme question at all.** Traced in the composed host: *any* selection
+  other than the experience's authored default failed the preparation barrier's
+  `validate-provider-defaults` work item (`retryable(false)`), so the session
+  **never activated** — no world, no body, no message. Sanic was only the id Jon
+  typed; `goblin` and `capture_scene --character <id>` were equally dead.
+  ⭐ **the seam: a provider's authored DEFAULT and a session's SELECTION are two
+  facts.** The identical equality check had already been deleted from
+  `prepare_platformer_content` on 2026-07-29 under a comment saying exactly
+  that — but the twin in `PlatformerPreparation::prepare` runs FIRST and returns
+  early, so the corrected copy was unreachable by the case it was written for.
+  The barrier now owns only the audio-provider question; resolvability has ONE
+  owner. Measured after the fix (`app_it -- starting_character_selection`, and a
+  three-way probe): Sanic wears its own name and `SurfaceMomentum` row, runs
+  449px/60t vs the protagonist's 265 and jumps 103px vs 83, carries **no**
+  `ChargesProjectiles` and an empty moveset. So the *fireballs* half was already
+  gone (the 2026-07-05 `overlay_character_moveset` deletion); *blink* is the home
+  body's own traversal grant (dev `EditableAbilitySet`), not something the
+  persona grants — that is the documented "the box keeps its traversal kit"
+  design, and a separate product question if Jon wants it changed.
 
 **Exit:** each item demonstrated in the real app (feel ships blind where
 visual; behavior verified headless where steppable).

@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 20 open, added 2026-08-08
+## ⇥ INDEX — 19 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -25,7 +25,6 @@ is the only ordering a maintainer can triage from.
 
 | Question | Blocks | State |
 |---|---|---|
-| **Size the character quad from the BBOX instead of the FRAME?** | the 116-row humanoid pass, the snake, the Hall's 1.69x spread | ⭐ **measured 2026-08-08 — coupling CONFIRMED, and it is 4 sites not 3** |
 | Does the world FREEZE during a death beat? | the death-beat feel | ⭐ **half-answered by the dialogue ruling below** |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
 | Is a crate name part of the rollback wire format? | rollback schema policy | recommendation present |
@@ -197,7 +196,15 @@ SECONDS rather than pixels. That is recorded at the Sanic constant and needs a
 third game, not this row.
 
 ---
-## Size the character quad from the BBOX instead of the FRAME? (2026-08-07)
+## ✔ ANSWERED 2026-08-08 — Size the character quad from the BBOX instead of the FRAME?
+
+> **Jon: *"I think the bbox route sounds ok."*** — TAKE IT. Moved to
+> [`maintainer-decisions.md`](maintainer-decisions.md). ⚠ a softer yes than his
+> capability ruling the same day; it authorises the route, not haste. The
+> analysis below is kept because the FOUR coupled sites and the stretch
+> measurement are what the work needs, not the fork.
+
+### (the analysis that produced the answer)
 
 Carries two of Jon's reports that turn out to be one decision: *"the Hall
 characters are inconsistent sizes"* and *"the snake's sprite does not match its
@@ -271,7 +278,13 @@ is the fallback for sheets publishing no body. What actually broke placement was
 scale, floating the snake ~8px off the floor. Same defect class, different
 field: a frame-normalised placement outliving the crop. Both must move.
 
-### ⭐⭐ AND THE ROUTE DOES NOT FIX JON'S ACTUAL COMPLAINT — measured 2026-08-08
+### ⭐⭐ THE ROUTE **IS** THE REMAINING FIX — after a reading error that reversed it
+
+⛔ **this heading used to read "AND THE ROUTE DOES NOT FIX JON'S ACTUAL
+COMPLAINT"**, which was the wrong conclusion below. The body was corrected the
+same day and the heading was not — so a reader scanning headings got the
+opposite answer from a reader reading prose. Fixed 2026-08-08 when Jon accepted
+the route.
 
 `enemy_body_scale::print_enemy_bodies_against_the_player`, run for the first time
 since it was written:

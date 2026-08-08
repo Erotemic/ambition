@@ -375,7 +375,6 @@ dependencies = [
  "ambition_sfx",
  "ambition_sprite_sheet",
  "ambition_time",
- "ambition_ui_nav",
  "ambition_vfx",
  "avian2d",
  "bevy",

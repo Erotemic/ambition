@@ -660,7 +660,6 @@ dependencies = [
  "ambition_sim_view",
  "ambition_sprite_sheet",
  "ambition_time",
- "ambition_ui_nav",
  "ambition_vfx",
  "avian2d",
  "bevy",

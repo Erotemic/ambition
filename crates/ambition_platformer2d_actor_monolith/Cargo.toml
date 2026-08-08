@@ -296,7 +296,14 @@ physics_debris = ["dep:avian2d"]
 input = [
     "dep:leafwing-input-manager",
     "ambition_input/input",
-    "ambition_ui_nav/input",
+    # ⛔ `ambition_ui_nav/input` USED TO BE FORWARDED HERE, and the forward was
+    # doubly redundant: `ambition_dialog/input` below already enables it, and
+    # `ambition_ui_nav/input` is itself only `ambition_input/input`, which the
+    # line above already enables. The `ambition_ui_nav` dependency existed for
+    # nothing but this forward — this crate names no ui_nav path — so removing
+    # the forward removed a declared Cargo edge and one of the capability crates
+    # a movement-only consumer inherits. See
+    # `docs/planning/engine/actor-monolith-decomposition.md`.
     "ambition_dialog/input",
 ]
 # Mobile / Android touch input. Pulls `virtual_joystick` for the
@@ -404,13 +411,6 @@ ambition_platformer2d_ldtk = { path = "../ambition_platformer2d_ldtk", default-f
 # sandbox `input` feature forwards to this crate's `input` feature. See
 # docs/current/state.md.
 ambition_input = { path = "../ambition_input" }
-# Reusable UI/menu nav primitives (windowed list math, pointer activation, drag
-# scroll). This crate names NO ui_nav path: the dependency exists only as a
-# conduit so the `input` feature can forward `ambition_ui_nav/input` (the
-# MenuInputFrame scroll helper). Consumers reach the crate as `ambition_platformer2d::ui_nav`
-# through the facade, not through here — so it is optional and compiles only
-# when that forward actually fires.
-ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
 # 3D-cube OoT inventory/pause UI (bevy_lunex). The unified menu (cube + grid) is
 # the one menu, compiled unconditionally (Phase D2); runtime-toggleable cube vs

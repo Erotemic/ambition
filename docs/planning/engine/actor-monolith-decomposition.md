@@ -206,6 +206,93 @@ only for literal artifacts or environments whose actual role is an experimental
 sandbox. Prefer game, experience, session, runtime, host, world, room, dev policy,
 or body capability according to the owner being described.
 
+## Measured 2026-08-08 — the baseline holds, and the leak is not what it looks like
+
+Re-measured before working the plan, per its own rule that generated data is
+navigation evidence rather than source authority.
+
+**The 2026-08-07 baseline is CURRENT, not stale.** 110,911 → **112,020** lines
+(the narrative ledger and the item/shop appliers landed since), internal
+`ambition_*` dependencies 28 → **29**. The largest root areas are unchanged in
+rank and within ~200 lines each. Both decomposition triggers still hold.
+
+### ⭐ The dependency leak is not 15 independent edges
+
+The most useful thing measured: **how many monolith root modules name each
+declared dependency.** A dep named by one or two modules is a carve that removes
+a Cargo edge; a dep named by thirty is the actor kernel itself.
+
+| declared dep | root modules naming it | reading |
+|---|---:|---|
+| `ambition_ui_nav` | **0** | ⛔ a conduit edge, nothing else — REMOVED, see below |
+| `ambition_menu`, `ambition_gameplay_trace` | 1 | one module each (`menu`, `dev`) |
+| `ambition_causal`, `ambition_cutscene`, `ambition_items`, `ambition_settings_menu`, `ambition_sim_view` | 2 | cheapest real candidates |
+| `ambition_dialog`, `ambition_interaction`, `ambition_platformer2d_ldtk` | 3 | `features` is the third in each |
+| `ambition_characters`, `ambition_platformer2d_core`, `ambition_platformer2d_shared_tangle` | 32–35 | the kernel; not carve candidates |
+
+⚠ **`features` appears in almost every low-count row**, which is the same finding
+the plan already states from the other direction: the outer capabilities are
+nearly peeled, and what pins them is the actor-update machinery. A two-module dep
+where the second module is `features` is a carve blocked on one file, not on a
+domain.
+
+### Slice landed: the `ambition_ui_nav` conduit edge
+
+The monolith declared `ambition_ui_nav` and **named no ui_nav path anywhere** —
+its own manifest comment said so. The dependency existed only so the `input`
+feature could forward `ambition_ui_nav/input`, and that forward was **doubly
+redundant**: `ambition_dialog/input` (forwarded on the next line) already enables
+it, and `ambition_ui_nav/input` is itself only `ambition_input/input`, which the
+line above already enables. Removed: one declared Cargo edge, zero lines of code
+moved. This is the plan's step 3 — *repoint compatibility imports first* — in its
+cheapest possible form.
+
+⛔ **and the movement-only footprint did NOT shrink, which is the finding.** It
+is still *40 crates linked, 15 a movement-only game never asked for*. `ui_nav`
+still arrives, by this path:
+
+```text
+minimal_game → ambition_platformer2d → …_actor_monolith → ambition_dialog → ambition_ui_nav
+```
+
+So **the 15 leaked capability crates are not leaked by 15 removable edges.** Some
+of them ride on another leaked crate, and cutting the direct edge changes nothing
+a consumer can observe. `ui_nav` leaves when DIALOGUE leaves, and not before.
+
+⭐ **The scorecard needs reading in that light**: criterion 1 (a Cargo edge
+disappears) and criterion 2 (the consumer footprint shrinks) are not the same
+measurement, and a slice can honestly satisfy the first while the second stays
+flat. Before claiming a footprint win, run
+`cargo tree --offline --edges normal -i <crate>` from `fixtures/minimal_game` and
+look at who else pulls it.
+
+⚠ **a manifest edit fails the contracts job until the fixture lock is
+regenerated**, with an opaque `cargo tree --locked` traceback that names nothing.
+`cd fixtures/minimal_game && cargo tree --offline …` regenerates it; commit the
+lock WITH the manifest.
+
+### Re-derived: the `conversation` module's carve accounting
+
+`conversation/mod.rs` carries an accounting written before the narrative ledger
+was added to it. Re-derived from source rather than from that prose:
+
+- **inward edges: still exactly TWO**, both in `rules.rs`, both the BARK
+  (`features::npc_ambient_bark_line`, `character_runtime::PreparedCharacterRegistry`).
+  The ledger added none, so the module's own claim survives its own growth.
+- **outward edges GAINED**: `ambition_time` (`SimTick`),
+  `ambition_platformer2d_core` (`ConfirmedFrameBoundary`), and
+  `ambition_platformer2d_shared_tangle` (`SimId`, the schedule sets). All three
+  are below the monolith, so none would cycle.
+
+⛔ **but it is a BAD first slice, by this plan's own scorecard.** 1,907 lines, and
+it removes no Cargo edge: every crate it names is named by something else in the
+monolith. *"Moving files without improving any of those measures is not a
+successful carve."* The right unit is the DIALOGUE domain — `conversation` +
+`dialog` + the Yarn bindings together — because that is what takes
+`ambition_dialog` (and with it `ambition_ui_nav`) out of the graph. Its blocker
+is the third `features` reference, which is the same blocker every other
+low-count row has.
+
 ## Candidate extraction waves
 
 These are **priority hypotheses**, not a promise to create one crate per row.

@@ -1938,6 +1938,10 @@ fn open_kaleidoscope_menu(
     // Never leave the standalone map panel open underneath the cube.
     map.open = false;
     if matches!(mode, GameMode::Playing) {
+        ambition_platformer2d::platformer::world_log::note_game_mode_request(
+            GameMode::Paused,
+            "menu_cube_open",
+        );
         next_mode.set(GameMode::Paused);
     }
 }
@@ -1955,6 +1959,10 @@ fn close_kaleidoscope_menu(
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {
+        ambition_platformer2d::platformer::world_log::note_game_mode_request(
+            GameMode::Playing,
+            "menu_cube_close",
+        );
         next_mode.set(GameMode::Playing);
     }
 }

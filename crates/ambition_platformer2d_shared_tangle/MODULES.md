@@ -36,8 +36,9 @@
 | [`time`](src/time.rs) | Neutral simulation-time resource for the platformer runtime. |
 | [`transit`](src/transit.rs) | Generic body-transit velocity math for platformer mechanics. |
 | [`world_item_art`](src/world_item_art.rs) | Provider-contributed art declarations for walk-into world items. |
+| [`world_log`](src/world_log.rs) | `[game-mode]` / `[world-event]` — the coarse world-state log. |
 
-_30 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_31 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

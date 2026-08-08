@@ -105,6 +105,10 @@ fn sync_dialogue_game_mode(
         ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue
     ) && !dialogue.active()
     {
+        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+            ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+            "dialogue_closed",
+        );
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
     }
 }

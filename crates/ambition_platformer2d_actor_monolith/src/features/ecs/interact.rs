@@ -182,6 +182,10 @@ pub fn interact_ecs_actors_and_switches(
             super::super::npcs::npc_message(interactable, &identity.name, false),
             2.6,
         );
+        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+            ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue,
+            "npc_interact",
+        );
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
         quest_advance.write(QuestAdvanceRequested(
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),

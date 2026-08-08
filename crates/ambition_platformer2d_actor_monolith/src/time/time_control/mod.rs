@@ -128,8 +128,9 @@ pub struct ClockScaleRequest {
     pub requester: ClockRequester,
     /// Telemetry/debug label only — not read by `apply_clock_scale_requests`.
     /// Kept on the request so traces and the debug overlay can attribute a
-    /// scale change to its source without an additional out-of-band lookup.
-    #[allow(dead_code)]
+    /// scale change to its source without an additional out-of-band lookup;
+    /// [`report_sim_clock_changes`] is what prints it, which is why a
+    /// `[sim-clock]` line can name the cause without a provenance system.
     pub reason: &'static str,
 }
 
@@ -143,8 +144,8 @@ pub struct ClockScaleRequest {
 pub struct ClockResetRequest {
     pub domain: ClockDomain,
     pub requester: ClockRequester,
-    /// Telemetry/debug label only. Keep labels short and grep-able.
-    #[allow(dead_code)]
+    /// Telemetry/debug label only. Keep labels short and grep-able — a
+    /// `[sim-clock]` line prints it verbatim as the cause of a clock change.
     pub reason: &'static str,
 }
 
@@ -426,6 +427,105 @@ pub fn apply_suspended_time_scale_system(
 ) {
     clock.time_scale = 0.0;
     target.sim_clock = 0.0;
+}
+
+/// A scale this close to zero means the world is not advancing. Comparing against
+/// an epsilon rather than `== 0.0` because [`smooth_sim_clock_toward_target_system`]
+/// ramps, so the live scale approaches zero asymptotically-looking values before
+/// `move_toward` clamps it.
+const SIM_CLOCK_FROZEN_EPS: f32 = 1e-4;
+
+/// **`[sim-clock]` — is the simulation actually advancing?**
+///
+/// ⭐ A pause in this engine is **two globals, not one**: `GameMode` and this
+/// clock. A previous investigation into a frozen game got a completely clean
+/// `GameMode` census back and lost the session to it — the culprit was
+/// [`ClockState::time_scale`] sitting at zero (see the test docstring on
+/// `game/ambition_app/tests/smash_in_the_host.rs`, "two globals the pause writes
+/// and the session does not own"). `[game-mode]` alone would reproduce exactly
+/// that dead end, so the clock reports beside it under the same frame number.
+///
+/// **Edge-triggered, never per-frame.** Two things are worth a line: the live
+/// scale crossing the frozen/running boundary (the simulation stopped or started),
+/// and [`RequestedClockScale::sim_clock`] moving (somebody decided a new pace).
+/// The frames in between are a smoother ramp toward an already-reported target and
+/// say nothing new, so bullet-time costs two lines, not sixty.
+///
+/// Causation comes free: [`ClockScaleRequest`] and [`ClockResetRequest`] already
+/// carry `requester` + a grep-able `reason`, so the line names who asked. A change
+/// with no request attached is the [`apply_suspended_time_scale_system`] path —
+/// i.e. `GameMode`, and the `[game-mode]` line on the same frame completes it.
+pub fn report_sim_clock_changes(
+    clock: Res<ClockState>,
+    target: Res<RequestedClockScale>,
+    mut scale_requests: MessageReader<ClockScaleRequest>,
+    mut reset_requests: MessageReader<ClockResetRequest>,
+    mut last: Local<Option<(f32, f32)>>,
+) {
+    let live = clock.time_scale;
+    let want = target.sim_clock;
+    let previous = last.replace((live, want));
+
+    let report = match previous {
+        None => true,
+        Some((previous_live, previous_want)) => {
+            frozen_label(previous_live) != frozen_label(live)
+                || (want - previous_want).abs() > SIM_CLOCK_FROZEN_EPS
+        }
+    };
+    if !report {
+        // The cursors still advance every frame. `emit_player_time_intent_system`
+        // writes a request on EVERY playing frame (the ladder always resolves,
+        // even to "default"), so a cursor left to lag would eventually staple a
+        // stale reason onto an unrelated change.
+        scale_requests.clear();
+        reset_requests.clear();
+        return;
+    }
+
+    let mut causes = String::new();
+    for request in scale_requests.read() {
+        if !causes.is_empty() {
+            causes.push_str(", ");
+        }
+        causes.push_str(&format!(
+            "{}@{:.3} by {:?}",
+            request.reason, request.scale, request.requester
+        ));
+    }
+    for request in reset_requests.read() {
+        if !causes.is_empty() {
+            causes.push_str(", ");
+        }
+        causes.push_str(&format!(
+            "{} reset by {:?}",
+            request.reason, request.requester
+        ));
+    }
+    if causes.is_empty() {
+        causes.push_str("no clock request this frame (see [game-mode])");
+    }
+
+    let Some((previous_live, previous_want)) = previous else {
+        ambition_platformer2d_shared_tangle::world_log::sim_clock(format_args!(
+            "initial {:<7} live={live:.3} target={want:.3}",
+            frozen_label(live)
+        ));
+        return;
+    };
+    ambition_platformer2d_shared_tangle::world_log::sim_clock(format_args!(
+        "{:<7} live {previous_live:.3} -> {live:.3}  target {previous_want:.3} -> {want:.3}  \
+         cause: {causes}",
+        frozen_label(live)
+    ));
+}
+
+fn frozen_label(scale: f32) -> &'static str {
+    if scale.abs() <= SIM_CLOCK_FROZEN_EPS {
+        "FROZEN"
+    } else {
+        "running"
+    }
 }
 
 #[cfg(test)]

@@ -34,7 +34,9 @@ include_perf_script="no"
 timeline_chunks="12"
 # Scenario markers AND the in-process censuses. A frame spike that does not
 # appear next to the chunk it happened in is a spike nobody can attribute.
-marker_regex='room|boss|encounter|title|session|menu|spawn|load|demo|frame-spike|frame-census|image-census|sprite-bind|sprite-size'
+# `game-mode`/`sim-clock`/`world-event` are the world-state log: a frozen world
+# is two globals, and a timeline that shows neither cannot say which one froze.
+marker_regex='room|boss|encounter|title|session|menu|spawn|load|demo|frame-spike|frame-census|image-census|sprite-bind|sprite-size|game-mode|sim-clock|world-event'
 
 usage() {
     cat <<'USAGE'

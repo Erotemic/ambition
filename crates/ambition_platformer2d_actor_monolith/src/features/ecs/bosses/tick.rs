@@ -108,6 +108,9 @@ pub fn sync_boss_encounter_phase(
                         prev,
                         phase,
                     );
+                    ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                        "boss-phase {boss_id} {prev:?} -> {phase:?}"
+                    ));
                     last_logged.insert(boss_id.clone(), phase);
                 }
                 None => {

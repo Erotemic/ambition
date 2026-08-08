@@ -151,6 +151,14 @@ fn detect_android_suspend_state(
             was,
             next
         );
+        // The same edge on the marker channel, carrying the FRAME. The tracing
+        // line above is what a 2026-08-08 device log showed for a spurious
+        // 0.6s suspend/resume pair, and it could not be ordered against the
+        // menu close that happened between them because neither line knew what
+        // frame it was on.
+        ambition_platformer2d::platformer::world_log::world_event(format_args!(
+            "android-suspend-edge suspended {was} -> {next}"
+        ));
     }
 }
 
@@ -170,23 +178,71 @@ fn apply_android_suspend_to_game_mode(
     if !state.just_changed {
         return;
     }
+    // ⚠ INSTRUMENTED, NOT FIXED (2026-08-08). The resume branch below `take()`s
+    // the saved mode BEFORE it checks whether the guard will accept it, so a
+    // refused restore consumes the value and there is no second chance. That is
+    // the leading suspect for an Android freeze after a visual-quality change,
+    // where a spurious 0.6s suspend/resume pair interleaved with a menu close.
+    // The logging here says which of the three outcomes actually happened; the
+    // behaviour is deliberately unchanged so the fix can be written against
+    // evidence rather than against this reading of the code.
+    let observed = *mode.get();
     if state.suspended {
         // Only flip into Paused if gameplay was actually active.
         // Leaving Dialogue alone avoids stomping a mid-NPC
         // conversation when the user briefly checks notifications;
         // Paused / RoomTransition are already non-playing states.
-        if matches!(mode.get(), GameMode::Playing | GameMode::Cutscene) {
-            state.mode_before_suspend = Some(*mode.get());
+        if matches!(observed, GameMode::Playing | GameMode::Cutscene) {
+            ambition_platformer2d::platformer::world_log::world_event(format_args!(
+                "android-suspend captured={} (forcing paused)",
+                observed.label()
+            ));
+            state.mode_before_suspend = Some(observed);
+            ambition_platformer2d::platformer::world_log::note_game_mode_request(
+                GameMode::Paused,
+                "android_suspend",
+            );
             next_mode.set(GameMode::Paused);
+        } else {
+            ambition_platformer2d::platformer::world_log::world_event(format_args!(
+                "android-suspend captured=none (mode={} is not Playing/Cutscene, so the \
+                 resume edge will have nothing to restore)",
+                observed.label()
+            ));
         }
     } else if let Some(prev) = state.mode_before_suspend.take() {
         // Resume edge: restore the pre-suspend mode, but only if the
         // suspend-induced Paused is still the current mode. If the user
         // opened a menu or otherwise moved off it while backgrounded,
         // leave their navigation alone.
-        if matches!(mode.get(), GameMode::Paused) {
+        if matches!(observed, GameMode::Paused) {
+            ambition_platformer2d::platformer::world_log::world_event(format_args!(
+                "android-resume saved={} observed={} -> RESTORED",
+                prev.label(),
+                observed.label()
+            ));
+            ambition_platformer2d::platformer::world_log::note_game_mode_request(
+                prev,
+                "android_resume",
+            );
             next_mode.set(prev);
+        } else {
+            // ⭐ THE LINE THIS WHOLE PROBE EXISTS FOR. `take()` above already
+            // consumed the saved mode; the guard just refused to use it, so
+            // nothing will ever restore it. If a freeze report shows this, the
+            // ordering question is answered.
+            ambition_platformer2d::platformer::world_log::world_event(format_args!(
+                "android-resume saved={} observed={} -> DROPPED (saved mode consumed and \
+                 discarded; no second chance)",
+                prev.label(),
+                observed.label()
+            ));
         }
+    } else {
+        ambition_platformer2d::platformer::world_log::world_event(format_args!(
+            "android-resume saved=none observed={}",
+            observed.label()
+        ));
     }
 }
 

@@ -164,6 +164,21 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_persistence::quest::QuestRegistry>()
             .init_resource::<ambition_platformer2d_actor_monolith::boss_encounter::BossEncounterRegistry>();
 
+        // ── The world-state log ───────────────────────────────────────────
+        //
+        // `[game-mode]` + `[sim-clock]`: the two globals a "frozen game" report
+        // has to distinguish between, stamped with the FRAME they changed on so
+        // a deferred `NextState` transition can be ordered against the systems
+        // that read the mode. Registered here, in the engine group, rather than
+        // app-side beside `[frame-census]` — an Android freeze and a headless
+        // repro must produce the same log, and only the engine group is common
+        // to both.
+        ambition_platformer2d_shared_tangle::world_log::install(app);
+        app.add_systems(
+            PostUpdate,
+            ambition_platformer2d_actor_monolith::time::time_control::report_sim_clock_changes,
+        );
+
         // The engine's own construction recipes. `init_resource` above never
         // clobbers a provider's pre-inserted registry, and registration is
         // idempotent, so composing this plugin twice is not an error.

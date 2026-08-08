@@ -396,6 +396,10 @@ pub fn commit_ready_room_transition_system(
         }
         loads.retire(&active.barrier.load_id);
         transition_state.active = None;
+        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+            ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+            "room_commit_failed",
+        );
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
         bevy::log::warn!(target: "ambition_platformer2d::room_transition", "{detail}");
         return;
@@ -579,6 +583,10 @@ pub fn commit_ready_room_transition_system(
     } else {
         loads.retire(&active.barrier.load_id);
         transition_state.active = None;
+        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+            ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+            "room_commit_uncovered",
+        );
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
     }
 }

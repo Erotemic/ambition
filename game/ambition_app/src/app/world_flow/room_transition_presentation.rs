@@ -467,6 +467,10 @@ fn drive_room_transition_presentation(
     );
     loads.retire(&active_snapshot.barrier.load_id);
     transitions.active = None;
+    ambition_platformer2d::platformer::world_log::note_game_mode_request(
+        GameMode::Playing,
+        "room_transition_retire",
+    );
     next_mode.set(GameMode::Playing);
     runtime.sequence = None;
     runtime.commit_observed_at = None;
@@ -551,6 +555,10 @@ fn handle_room_transition_presentation_events(
                 presentation.write(LoadPresentationCommand::Cancel {
                     owner: expected_owner,
                 });
+                ambition_platformer2d::platformer::world_log::note_game_mode_request(
+                    GameMode::Playing,
+                    "room_transition_cancelled",
+                );
                 next_mode.set(GameMode::Playing);
             }
         }

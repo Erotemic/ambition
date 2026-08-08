@@ -18,11 +18,11 @@ use bevy::prelude::{
     DetectChanges, MessageReader, MessageWriter, NextState, Res, ResMut, Resource,
 };
 
-use ambition_platformer2d_actor_monolith::rooms;
 use ambition_load::{
     BarrierReadiness, LoadBarrierRef, LoadBarrierSpec, LoadCommitRejection, LoadCoordinator,
     LoadEvent, LoadFailure, LoadId, LoadPlanSpec, LoadWorkId, LoadWorkSpec, LoadWorkState,
 };
+use ambition_platformer2d_actor_monolith::rooms;
 use ambition_time::SimTick;
 
 const ROOM_READY_BARRIER: &str = "room-transition.ready";
@@ -93,8 +93,12 @@ impl RoomTransitionContentEpoch {
 /// Advance the transition content epoch when any construction input changes.
 pub fn advance_room_transition_content_epoch_system(
     room_set: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<rooms::RoomSet>,
-    placement_lowering: Res<ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry>,
-    content_staging: Res<ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry>,
+    placement_lowering: Res<
+        ambition_platformer2d_actor_monolith::world::placements::PlacementLoweringRegistry,
+    >,
+    content_staging: Res<
+        ambition_platformer2d_actor_monolith::features::RoomContentStagingRegistry,
+    >,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>,
     boss_catalog: Res<ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
@@ -401,6 +405,10 @@ pub fn begin_room_transition_load_system(
             );
         }
 
+        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+            ambition_platformer2d_shared_tangle::schedule::GameMode::RoomTransition,
+            "room_transition_begin",
+        );
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::RoomTransition);
 
         let cover_required = presentation_available.is_some();
@@ -422,6 +430,15 @@ pub fn begin_room_transition_load_system(
             target: "ambition_platformer2d::room_transition::performance",
             "room transition {sequence} BEGIN {source_room_id} -> {target_label}              (cover_required={cover_required})",
         );
+        // The same fact on the `[world-event]` marker channel. Not a second
+        // emission point: the transition is announced here and only here, and
+        // this is that announcement reaching the sink that survives to Android
+        // logcat and to a profile timeline, carrying the frame number the
+        // tracing line has no room for.
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "room-transition begin seq={sequence} {source_room_id} -> {target_label} \
+             cover_required={cover_required}"
+        ));
         let mut active = ActiveRoomTransitionLoad {
             sequence,
             content_epoch: content_epoch.get(),
@@ -797,6 +814,10 @@ pub fn finalize_unpresented_room_transition_failure_system(
         },
     );
     loads.retire(&active.barrier.load_id);
+    ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+        ambition_platformer2d_shared_tangle::schedule::GameMode::Playing,
+        "room_transition_abandoned",
+    );
     next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Playing);
 }
 

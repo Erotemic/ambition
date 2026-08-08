@@ -124,6 +124,9 @@ pub fn reset_ecs_room_features(
         target: "ambition_platformer2d::room_reset",
         "room features reset: reasons={reasons:?}",
     );
+    ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+        "room-reset reasons={reasons:?}"
+    ));
     // In-flight enemy volleys belong to the previous attempt; clear
     // them so the room reset doesn't leave hostile shots sailing
     // through the spawn point. Combat slot reservations are dropped

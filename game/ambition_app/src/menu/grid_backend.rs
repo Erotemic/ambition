@@ -420,6 +420,10 @@ fn open_grid_unified_menu(
     system_nav.open_entry = None;
     seed_cursor_for_tab(active_tab, cursor);
     if matches!(mode, GameMode::Playing) {
+        ambition_platformer2d::platformer::world_log::note_game_mode_request(
+            GameMode::Paused,
+            "menu_grid_open",
+        );
         next_mode.set(GameMode::Paused);
     }
 }
@@ -445,6 +449,10 @@ pub(crate) fn close_grid_unified_menu(
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {
+        ambition_platformer2d::platformer::world_log::note_game_mode_request(
+            GameMode::Playing,
+            "menu_grid_close",
+        );
         next_mode.set(GameMode::Playing);
     }
 }

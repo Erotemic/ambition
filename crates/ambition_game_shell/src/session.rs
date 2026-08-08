@@ -552,9 +552,23 @@ fn translate_shell_session_lifecycle(
                     // for the same reason — every one of them describes a live
                     // world, and this one has just been retired.
                     if let Some(mode) = game_mode.as_mut() {
+                        ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+                            GameMode::default(),
+                            "session_retire",
+                        );
                         mode.set(GameMode::default());
                     }
                     active_scope.clear_if_current(scope);
+                    // Session lifetime was logged NOWHERE: the word "session"
+                    // matched zero lines across a 258-second desktop capture.
+                    // This system is the only translator from shell routing to
+                    // gameplay-session lifetime, so both edges are marked here.
+                    ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                        "session-end experience={} activation={:?} scope={}",
+                        activation.experience_id.as_str(),
+                        activation.activation_id,
+                        scope.0
+                    ));
                     session_events.write(GameplaySessionEvent::Retiring {
                         activation: activation.clone(),
                         scope,
@@ -591,6 +605,12 @@ fn translate_shell_session_lifecycle(
                     },
                     world: None,
                 });
+                ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+                    "session-start experience={} activation={:?} scope={}",
+                    activation.experience_id.as_str(),
+                    activation.activation_id,
+                    scope.0
+                ));
                 session_events.write(GameplaySessionEvent::Activated {
                     activation: activation.clone(),
                     scope,

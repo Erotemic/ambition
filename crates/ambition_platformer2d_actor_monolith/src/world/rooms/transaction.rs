@@ -226,6 +226,13 @@ fn verify_and_publish(
 
     let published = fatal == 0;
     if published {
+        // The success branch was silent — only the failure branch spoke — so a
+        // capture could not tell "the room never loaded" from "the room loaded
+        // and something after it broke". This is the single writer of
+        // `RoomLoaded`, so the marker belongs on it.
+        ambition_platformer2d_shared_tangle::world_log::world_event(format_args!(
+            "room-loaded {room_id}"
+        ));
         world.write_message(crate::rooms::RoomLoaded {
             room_id: room_id.clone(),
         });

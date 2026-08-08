@@ -25,6 +25,7 @@ pub mod projectile;
 pub mod schedule;
 pub mod time;
 pub mod transit;
+pub mod world_log;
 
 pub mod feature_kind;
 pub mod block_nudge;

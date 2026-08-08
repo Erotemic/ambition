@@ -623,6 +623,10 @@ fn pause_sim(mode: &Option<Res<State<GameMode>>>, next: &mut Option<ResMut<NextS
     // RoomTransition / Cutscene modes a game may already be in.
     if let (Some(mode), Some(next)) = (mode, next) {
         if *mode.get() == GameMode::Playing {
+            ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+                GameMode::Paused,
+                "shell_pause_menu",
+            );
             next.set(GameMode::Paused);
         }
     }
@@ -631,6 +635,10 @@ fn pause_sim(mode: &Option<Res<State<GameMode>>>, next: &mut Option<ResMut<NextS
 fn resume_sim(mode: &Option<Res<State<GameMode>>>, next: &mut Option<ResMut<NextState<GameMode>>>) {
     if let (Some(mode), Some(next)) = (mode, next) {
         if *mode.get() == GameMode::Paused {
+            ambition_platformer2d_shared_tangle::world_log::note_game_mode_request(
+                GameMode::Playing,
+                "shell_pause_menu",
+            );
             next.set(GameMode::Playing);
         }
     }

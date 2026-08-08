@@ -64,15 +64,21 @@ marked commit and ask — round-trips are expensive, reverts are cheap.
 
 ## Render-to-disk — LANDED (corrected 2026-07-19)
 
-This was written as a horizon; it exists. `game/ambition_app/src/bin/capture_scene.rs`
+This was written as a horizon; it exists. `game/ambition_app_tools/src/bin/capture_scene.rs`
 runs the **real presentation plugins**, forces the main camera through the same
 `CameraSnapshot2d` policy for an arbitrary focus point, renders into an offscreen
 target, and writes that target to a PNG:
 
 ```
 cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] \
-    [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui] [--show-window]
+    [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui]
 ```
+
+⭐ **it composes through `build_visible_app_with`, the same builder the desktop
+binary uses** (2026-08-08). It used to hand-assemble a second app for rooms, and
+that copy silently lost five features including the entire room; `--show-window`
+went with the fork, having only ever opened a blank window (every camera is
+retargeted to the offscreen image).
 
 So an agent CAN spot-check visuals the same way it spot-checks simulation, and
 "always draw blind" work should produce an image rather than assert it cannot.

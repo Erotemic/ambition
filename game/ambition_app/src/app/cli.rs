@@ -628,6 +628,38 @@ pub enum VisibleRenderMode {
 /// already `not(wasm32)`; the browser entry is `run_web`.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
+    build_visible_app_with(render, shell_hosted, |_| {})
+}
+
+/// [`build_visible_app`], plus the ONE moment a caller can reach: after the App
+/// exists, before the simulation plugin builds.
+///
+/// ⛔ **this exists because the alternative was a second app builder, and that
+/// fork cost five bugs.** `StartRoomOverride`, `StartRoomMustResolve`,
+/// `StartingCharacterOverride` and `SeatsAMatchInsteadOfAHomeBody` are
+/// COMPOSITION INPUTS: `init_sandbox_resources` removes them while the
+/// simulation plugin builds, so a caller who wants to set one has to write it
+/// into a world that already exists and has not yet built that plugin. There was
+/// no such moment. `capture_scene` therefore spelled the whole composition out
+/// by hand — and the hand-spelled copy silently lost the `--route` positional,
+/// the headless display surface, `--dev-overlays`, `--combat-overlay`, and
+/// (2026-08-06 → 08-08, for two days) *the entire room*, because
+/// `install_ambition_shell_visuals` was never added to it.
+///
+/// ⚠ **a closure rather than a struct of known inputs.** A struct would have to
+/// enumerate the composition inputs, and the fifth one added elsewhere would not
+/// be reachable here — which is the same "a caller cannot say this" hole, one
+/// release later. The hook says *when*, and the resources say *what*.
+///
+/// It runs AFTER [`insert_starting_character_override`] reads
+/// `AMBITION_START_CHARACTER`, so an explicit caller wins over the environment,
+/// and after `AmbitionShellHosted`, so nothing here can be undone by the builder.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn build_visible_app_with(
+    render: VisibleRenderMode,
+    shell_hosted: bool,
+    compose_inputs: impl FnOnce(&mut App),
+) -> App {
     let asset_config = GameAssetConfig::from_args();
     let asset_root = desktop_asset_root();
     eprintln!("ambition_app: asset root = {asset_root}");
@@ -827,6 +859,10 @@ pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     // carries the build-time root AND the activation's, which is two canonical
     // roots and a panic on the first read.
     app.insert_resource(super::shell_host::AmbitionShellHosted);
+    // **THE PRE-SIMULATION HOOK** — see [`build_visible_app_with`]. The last
+    // instruction before the simulation plugin builds, which is the deadline
+    // every composition input has.
+    compose_inputs(&mut app);
     match render {
         VisibleRenderMode::Windowed => {
             app.add_plugins((

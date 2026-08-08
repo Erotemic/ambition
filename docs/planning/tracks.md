@@ -284,17 +284,46 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   2026-08-04, both recorded in `plugins.rs`) and was caught in minutes each time.
   It did not panic here because the missing piece was a SPAWN system, not a `Res`
   reader. **A composition that half-runs is worse than one that refuses to.**
-  ⚠ **the fork itself SURVIVES, and naming it is the honest status.** There is no
-  composer a room capture can call: `compose_ambition_gameplay_host` is the
+  ✔ **THE FORK IS DELETED (2026-08-08, same day).** The item named below —
+  a pre-simulation hook on `build_visible_app` — is
+  `build_visible_app_with(render, shell_hosted, |app| …)`, one closure run after
+  `AmbitionShellHosted` and before the simulation plugin builds, which is the
+  deadline every composition input has. `build_visible_app` is now that function
+  with an empty closure, so there is exactly ONE visible builder in the tree.
+  `capture_scene` calls it for a ROOM and for a ROUTE; the two differ by the
+  boolean that picks the initial route and by which capture systems get added,
+  and by nothing else. Its second app builder, its copy of `desktop_asset_root`,
+  its `pin_the_clock`, its guarded `HostGameplayPresentationPlugin` add and
+  `--show-window` (which only ever opened a blank window — every camera is
+  retargeted to the offscreen image) are all gone: **−288 lines of composition,
+  +36 of hook.**
+  ⭐ **four of the five drifts are now STRUCTURALLY impossible**, because there is
+  no second composition to forget: the display surface, the shell visuals, the
+  audio/persistence redirect and the asset root are stated once and inherited.
+  `--dev-overlays` and `--combat-overlay` remain possible — they are *systems*,
+  and `install_room_capture` / `install_route_capture` still list theirs
+  separately, which is the irreducible half (a room needs the snapshot
+  applier, a route needs camera adoption).
+  ⚠ what the shared builder ALSO brought, unasked and correct: room captures now
+  run the GGRS simulation host, `serialize_frame_schedules`, and the `game://`
+  asset source, none of which the hand-assembled app had. Measured: the sim pose
+  is byte-identical (`950.0000, 904.0000` after 12 warmup ticks, both runs), and
+  27 pixels of the robot's foot differ by one animation step.
+  ⚠ and one thing it took away, put back deliberately: `OffscreenGpu` disables
+  `LogPlugin` (right for tests that build several Apps per process, wrong for a
+  binary that builds one), which silenced every engine `INFO`/`WARN` a room
+  capture used to print. `capture_scene` re-adds it after the group, for both
+  modes — route mode had been running without them since it was written.
+
+  The historical reasoning, kept because the *next* tool will hit it: there was no
+  composer a room capture could call. `compose_ambition_gameplay_host` is the
   sim-only shorthand (a visible host must build presentation between the
   simulation and the shell, which is why `build_visible_app` also spells the three
-  steps out), and `build_visible_app` cannot be used because `StartRoomOverride` /
-  `StartRoomMustResolve` / `StartingCharacterOverride` are consumed at
-  PLUGIN-BUILD time by `init_sandbox_resources`. So `capture_scene` still hand
-  -assembles, and that hand-assembly has now silently eaten five things: `--route`
-  as a positional, the headless display surface, `--dev-overlays`,
-  `--combat-overlay`, and the room. **Giving `build_visible_app` a pre-simulation
-  hook is the item that closes it.**
+  steps out), and `build_visible_app` could not be used because `StartRoomOverride`
+  / `StartRoomMustResolve` / `StartingCharacterOverride` are consumed at
+  PLUGIN-BUILD time by `init_sandbox_resources`. So `capture_scene` hand-assembled,
+  and that hand-assembly silently ate five things: `--route` as a positional, the
+  headless display surface, `--dev-overlays`, `--combat-overlay`, and the room.
   ⚠ **two different things are named `direct_entry`**: `shell_host.rs:51` records
   its own as already deleted, while `cli.rs:245,271,886` carries a live
   `cli_direct_entry()`. K2b.2/K2b.3 below refer to the first.

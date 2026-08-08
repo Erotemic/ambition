@@ -8,22 +8,24 @@
 //! render target to disk. It intentionally knows nothing about portals; portals
 //! can later reuse the same "snapshot -> render target" seam.
 //!
+//! ⭐ **ONE APP, built by [`ambition_app::app::build_visible_app_with`]** — the
+//! same function the desktop binary and every rendered test call. A room and a
+//! route differ by the INITIAL ROUTE and by which capture systems get installed,
+//! and by nothing else. Read `build_capture_app` before adding anything to this
+//! file that sounds like composition.
+//!
 //! Usage:
-//!   cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui] [--show-window]
+//!   cargo run -p ambition_app_tools --bin capture_scene -- <ROOM_ID> <X,Y|player> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--character ID] [--include-ui]
 //!   cargo run -p ambition_app_tools --bin capture_scene -- c136 1200,480 /tmp/c136_game.png 1280x720
 //!   # center on the player, spawned AS the pirate admiral:
 //!   cargo run -p ambition_app_tools --bin capture_scene -- central_hub_main player /tmp/p.png --character npc_pirate_admiral --warmup 40
 
 use std::path::PathBuf;
 
-use ambition_app::app::{
-    AmbitionGameLdtkRuntimePlugin, AmbitionGamePresentationPlugin, AmbitionGameSimulationPlugin,
-    PresentationSetupSet, StartRoomOverride,
-};
+use ambition_app::app::{PresentationSetupSet, StartRoomOverride};
 use ambition_platformer2d::actors::character_runtime::{CharacterLoadDemand, CharacterLoadStates};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::camera_layers::{FrontHudCamera, MainCamera};
-use ambition_platformer2d::platformer::schedule::GameMode;
 use ambition_platformer2d::render::rendering::{
     camera_follow, sync_parallax_layers, CameraViewState,
 };
@@ -31,15 +33,11 @@ use ambition_platformer2d::sim_view::camera_snapshot::{
     resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshotResolveInput,
     CameraSnapshotResolveMode,
 };
-use ambition_platformer2d::sprite_sheet::game_assets::GameAssetConfig;
 use bevy::app::AppExit;
-use bevy::app::{PluginGroup, ScheduleRunnerPlugin};
 use bevy::camera::{ImageRenderTarget, RenderTarget};
 use bevy::prelude::*;
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use bevy::render::render_resource::{TextureFormat, TextureUsages};
-use bevy::window::{ExitCondition, Window, WindowPlugin, WindowResolution};
-use std::time::Duration;
 
 #[derive(Resource, Clone, Debug)]
 struct SceneCaptureConfig {
@@ -49,7 +47,6 @@ struct SceneCaptureConfig {
     size: UVec2,
     warmup_frames: u32,
     include_ui: bool,
-    show_window: bool,
     /// **Frame the whole ROOM instead of a point** (`--fit-room`).
     ///
     /// ⭐ the focus positional answers *"what is happening here"*; this answers
@@ -174,110 +171,106 @@ fn main() {
         Err(error) => {
             eprintln!("{error}");
             eprintln!(
-                "Usage: capture_scene <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--include-ui] [--show-window]"
+                "Usage: capture_scene <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT] [--warmup N] [--include-ui]"
             );
             std::process::exit(2);
         }
     };
 
-    let asset_config = GameAssetConfig::from_args();
-    let active_profile = asset_config.asset_profile;
-    let asset_root = desktop_asset_root();
-    eprintln!(
-        "capture_scene: room={} focus=({:.1},{:.1}) size={}x{} out={} asset_root={}",
-        config.room_id,
-        config.focus.x,
-        config.focus.y,
-        config.size.x,
-        config.size.y,
-        config.output.display(),
-        asset_root,
+    match config.route.as_deref() {
+        Some(route) => eprintln!(
+            "capture_scene: route={route} size={}x{} out={}",
+            config.size.x,
+            config.size.y,
+            config.output.display(),
+        ),
+        None => eprintln!(
+            "capture_scene: room={} focus=({:.1},{:.1}) size={}x{} out={}",
+            config.room_id,
+            config.focus.x,
+            config.focus.y,
+            config.size.x,
+            config.size.y,
+            config.output.display(),
+        ),
+    }
+
+    let mut app = build_capture_app(&config);
+
+    match config.route.clone() {
+        Some(route_id) => install_route_capture(&mut app, route_id),
+        None => install_room_capture(&mut app),
+    }
+    app.run();
+}
+
+/// **THE ONE APP THIS TOOL BUILDS.**
+///
+/// ⛔ **there used to be two, and the second one cost five bugs.** A room
+/// capture spelled the whole composition out by hand — `DefaultPlugins`, the
+/// window, the state, the asset config, the plugin trio, the shell, its visuals,
+/// the asset source — because the three composition inputs it needs
+/// (`StartRoomOverride`, `StartRoomMustResolve`, `StartingCharacterOverride`)
+/// are consumed by `init_sandbox_resources` at PLUGIN-BUILD time and
+/// `build_visible_app` built the plugins for you. There was no moment to insert
+/// them in, so the tool built its own app instead, and that copy silently lost
+/// the `--route` positional, the headless display surface, `--dev-overlays`,
+/// `--combat-overlay`, and — for two days — **the entire room**, because nothing
+/// added `install_ambition_shell_visuals` to it.
+///
+/// ⭐ `build_visible_app_with` is the moment that did not exist. With it, a ROOM
+/// and a ROUTE differ by one boolean (which route the shell boots into) and by
+/// which capture systems get installed. Everything a player's composition gains
+/// from here on, both capture modes gain with it — including the two side
+/// effects a capture must not have, which this function no longer states: the
+/// host redirects audio away from the speakers and the save away from
+/// `~/.local/share/ambition/` for every windowless build it makes, and it pins
+/// `Time` to a fixed 1/60 step so N warmup frames mean N ticks rather than N
+/// units of whatever the CPU managed (two identical runs used to differ by ~132
+/// pixels of idle-bob, measured 2026-07-29).
+fn build_capture_app(config: &SceneCaptureConfig) -> App {
+    // The offscreen-GPU mode, always. The older no-window one sets
+    // `backends: None` and therefore has no render app at all — a readback under
+    // it can never complete, which is what three eliminated hypotheses were
+    // circling (queue Z1).
+    let mut app = ambition_app::app::build_visible_app_with(
+        ambition_app::app::VisibleRenderMode::OffscreenGpu,
+        // ⚠ this boolean chooses the INITIAL ROUTE, not whether a shell exists —
+        // since K2b both arms are shell-hosted. `true` boots the launcher, which
+        // is where a `--route` capture navigates from; `false` boots straight to
+        // the gameplay route, which is what `--direct` and every `--start-room`
+        // alias mean and what a ROOM capture is.
+        config.route.is_some(),
+        |app| {
+            if config.route.is_none() {
+                app.insert_resource(StartRoomOverride(config.room_id.clone()));
+                // A capture that photographs a DIFFERENT room than the one asked
+                // for is the worst failure this tool has, and it had it: two real
+                // room ids and one invented one all produced the hub, each
+                // writing a valid PNG and exiting 0.
+                app.insert_resource(ambition_app::app::StartRoomMustResolve);
+            }
+            // Optional "play as this character" override. Set for BOTH modes:
+            // it is the same composition input either way, and route mode
+            // accepting `--character` and silently ignoring it was the fork's
+            // sixth free gift waiting to be found.
+            if let Some(character_id) = config.character.clone() {
+                eprintln!("capture_scene: player wears character '{character_id}'");
+                app.insert_resource(ambition_app::app::StartingCharacterOverride(
+                    ambition_platformer2d::actors::avatar::StartingCharacter::new(character_id),
+                ));
+            }
+        },
     );
-
-    // A ROUTE is photographed through the composition a PLAYER runs: the shell
-    // host, built by the same `build_visible_app` the desktop binary uses, on
-    // the offscreen-GPU render mode. That mode exists because the older
-    // no-window one sets `backends: None` and therefore has no render app at
-    // all — a readback under it can never complete, which is what three
-    // eliminated hypotheses were circling (queue Z1).
-    if let Some(route_id) = config.route.clone() {
-        run_route_capture(config, route_id);
-        return;
-    }
-
-    let show_window = config.show_window;
-    let mut app = App::new();
-    let plugins = DefaultPlugins.set(bevy::asset::AssetPlugin {
-        file_path: asset_root,
-        ..default()
-    });
-    if show_window {
-        app.add_plugins(plugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Ambition capture_scene".into(),
-                resolution: WindowResolution::new(config.size.x, config.size.y),
-                ..default()
-            }),
-            exit_condition: ExitCondition::DontExit,
-            ..default()
-        }));
-    } else {
-        // Default capture is a faithful offscreen render to an Image target.
-        // Camera policy produces snapshots; the render backend consumes the
-        // snapshot without a primary window or Winit event loop.
-        app.add_plugins(
-            plugins
-                .set(WindowPlugin {
-                    primary_window: None,
-                    exit_condition: ExitCondition::DontExit,
-                    ..default()
-                })
-                .disable::<bevy::winit::WinitPlugin>(),
-        );
-        app.add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_millis(0)));
-    }
-    pin_the_clock(&mut app);
-    // **THE TWO SIDE EFFECTS A CAPTURE MUST NOT HAVE** — the third, the clock,
-    // is `pin_the_clock` directly above, and these are its siblings.
+    // **THE SURFACE THIS RUN DRAWS TO.** (queue Z′8)
     //
-    // `build_visible_app` states the rule for every windowless host it builds:
-    // *"a windowless host is a test, a capture, or a headless acceptance run —
-    // none of them is a player"*, so it redirects audio away from the speakers
-    // and the save/settings away from `~/.local/share/ambition/`. ROUTE mode is
-    // built by that function and gets both; ROOM mode assembles its own App and
-    // got neither, so every room capture since has read and written the user's
-    // real save and played music at them. The BEFORE run of this change logs
-    // `simple_music target=long_lofi_drift` and a first owned SFX play attempt.
-    //
-    // ⚠ **unconditional, where `build_visible_app` keys it on the render mode.**
-    // What earns the exemption there is being a PLAYER's window; `--show-window`
-    // is still a screenshot tool with a window on it, and a capture that
-    // overwrites a save is no less wrong for being visible.
-    app.insert_resource(ambition_platformer2d::audio::AudioOutputMode::Recording);
-    app.insert_resource(ambition_platformer2d::persistence::PersistenceRoot::isolated());
-    app.init_state::<GameMode>();
-    app.insert_resource(asset_config);
-    app.insert_resource(StartRoomOverride(config.room_id.clone()));
-    // A capture that photographs a DIFFERENT room than the one asked for is the
-    // worst failure this tool has, and it had it: two real room ids and one
-    // invented one all produced the hub, each writing a valid PNG and exiting 0.
-    app.insert_resource(ambition_app::app::StartRoomMustResolve);
-    // Optional "play as this character" override, inserted BEFORE the sandbox
-    // preparation consumes it before publishing the exact session world.
-    if let Some(character_id) = config.character.clone() {
-        eprintln!("capture_scene: player wears character '{character_id}'");
-        app.insert_resource(ambition_app::app::StartingCharacterOverride(
-            ambition_platformer2d::actors::avatar::StartingCharacter::new(character_id),
-        ));
-    }
-    // **THE SURFACE THIS RUN DRAWS TO.**
-    //
-    // There is no `Window` here, so the host's layout resolver found none and
-    // returned — leaving `ResolvedGameplayPresentation` at its DEFAULT, whose
-    // display rect is 1600x900. Every HUD position was therefore laid out for a
-    // 1600x900 screen and then rendered into whatever the capture size is: a card
-    // centred at x=800 lands right of centre in a 960-wide image, on top of a
-    // fighter (queue Z′8, measured 2026-07-29).
+    // A windowless host has no `Window` for the layout resolver to find, so
+    // `ResolvedGameplayPresentation` keeps its DEFAULT — whose display rect is
+    // `WINDOW_W x WINDOW_H`, 1600x900. Every HUD slot then lays out for a
+    // 1600x900 screen and is rendered into whatever the capture size is: a card
+    // declared `.centered()` centres at x=800 and lands right of centre in a
+    // 960-wide image, on top of a fighter. It reads as a game bug that a real
+    // window does not have (measured 2026-07-29).
     //
     // A capture that cannot show a layout is worse than no capture, because it
     // shows a DIFFERENT layout convincingly.
@@ -289,88 +282,34 @@ fn main() {
             ),
         ),
     );
-    app.insert_resource(config);
+    // **THE ENGINE'S OWN LOG, which every windowless host disables.**
+    //
+    // `build_visible_app` drops `LogPlugin` from `NoWindow` and `OffscreenGpu`
+    // for a reason that is true of tests and false of this binary: *"tests build
+    // several Apps per process; the tracing subscriber is process-global."* A
+    // capture builds exactly one App and then exits.
+    //
+    // ⚠ measured, not assumed: composing through the shared builder silenced
+    // `room 'central_hub_complex' has 38 neighbours…`, `encounter registry: 1
+    // encounter entit(ies) spawned from LDtk` and the presentation layout line —
+    // every engine `INFO`/`WARN` a room capture used to print. A verification
+    // tool that stops reporting what the engine complained about is a worse tool,
+    // and ROUTE mode had been running without them since it was written.
+    //
+    // Added after the group rather than by un-disabling it, so it applies to both
+    // capture modes at once and cannot be half-wired the way five flags were.
+    app.add_plugins(bevy::log::LogPlugin::default());
+    app.insert_resource(config.clone());
     app.insert_resource(SceneCaptureRuntime::default());
-    // ⭐ **K2b edit 5: the SHELL host, booted to gameplay.** This composed the
-    // simulation plugin alone and took the `SessionRoot` it published at
-    // plugin-build time. That publisher is deleted, so a capture composed the
-    // old way photographs a world with no session in it — and this tool's worst
-    // failure mode is writing a valid PNG of the wrong thing and exiting 0.
-    //
-    // ⚠ inserted BEFORE the plugins build, for the same reason everywhere else:
-    // it is what the rest of the app reads to know which composition this is.
-    app.insert_resource(ambition_app::app::shell_host::AmbitionShellHosted);
-    app.add_plugins((
-        AmbitionGameSimulationPlugin,
-        AmbitionGameLdtkRuntimePlugin,
-        AmbitionGamePresentationPlugin,
-        // **THE LAYOUT RESOLVER**, which the sandbox plugins do not install.
-        //
-        // Without it `ResolvedGameplayPresentation` stays at its DEFAULT, whose
-        // display rect is `WINDOW_W x WINDOW_H` (1600x900) — so every HUD slot
-        // laid out for a 1600x900 screen and was then rendered into whatever the
-        // capture size is. A card centred at x=800 lands right of centre in a
-        // 960-wide image, on top of a fighter, and reads as a game bug that a
-        // window would not have (measured 2026-07-29).
-        //
-        // A capture that cannot show a layout is worse than no capture, because
-        // it shows a DIFFERENT layout convincingly.
-    ));
-    // The shell, once the simulation it adapts is composed — that order is
-    // load-bearing (`compose_ambition_gameplay_host` explains why).
-    ambition_app::app::shell_host::compose_ambition_shell_host_booting_to(
-        &mut app,
-        ambition_app::app::shell_host::AMBITION_GAMEPLAY_ROUTE,
-    );
-    // ⛔ **AND THE SHELL'S VISUALS — the half of the shell composition this tool
-    // was missing, and the reason it photographed a VOID (D10 / K2b.1).**
-    //
-    // Under the shell, a room's parallax and static visuals are spawned on
-    // session ACTIVATION by `ambition_activate_session_visuals` +
-    // `SessionRoomVisualsPlugin`, and `install_ambition_shell_visuals` is the
-    // only thing that installs either. Composing the shell without it leaves a
-    // host that activates a session and never draws the world it activated.
-    //
-    // ⚠ **this is what a half-finished migration looks like from the outside.**
-    // K2b edit 5 moved this builder onto the shell and deleted the build-time
-    // session root; the Startup path that used to spawn the room went with the
-    // `direct_entry` gate (K2b edit 3). Nothing replaced it here, and nothing
-    // failed: the capture still exited 0, still wrote a valid 640x360 PNG, and
-    // still drew the HUD, the touch bezel, the player and an NPC — everything
-    // that hangs off the session rather than off the room. Only the ROOM was
-    // gone, so the picture read as "a capture of a dark corner" rather than as a
-    // broken composition, and the migration was signed off on that image.
-    //
-    // ⭐ the general lesson this file keeps re-learning: ROUTE mode is built by
-    // `build_visible_app` and gets this for free; ROOM mode assembles its own
-    // App and gets only what is spelled out here. That fork has now silently
-    // eaten `--route` as a positional, the headless display surface,
-    // `--dev-overlays`, `--combat-overlay`, and the entire room.
-    ambition_app::app::shell_host::install_ambition_shell_visuals(&mut app);
-    // The layout resolver, if this composition does not already have it. Guarded
-    // because the two capture modes build their apps differently and only one of
-    // them goes through `build_visible_app`.
-    if !app
-        .is_plugin_added::<ambition_platformer2d::host::gameplay_presentation::HostGameplayPresentationPlugin>()
-    {
-        app.add_plugins(ambition_platformer2d::host::gameplay_presentation::HostGameplayPresentationPlugin);
-    }
-    app.add_plugins(
-        ambition_platformer2d::actors::assets::platformer_assets::AmbitionAssetSourcePlugin::for_profile(
-            active_profile,
-            &ambition_content::worlds::world_manifest(),
-        ),
-    );
+    app
+}
+
+/// The systems a ROOM capture adds on top of [`build_capture_app`].
+fn install_room_capture(app: &mut App) {
     app.add_systems(Startup, setup_capture_target.after(PresentationSetupSet));
     app.add_systems(
         Update,
         (
-            // ⚠ ROOM mode needs this as much as route mode does, and the first
-            // version wired it only into route mode — so `--dev-overlays` was
-            // silently ignored for half the tool's invocations. Same
-            // two-app-builders shape as the `--route` positional bug and the
-            // headless-surface insert; third time in one session, which is why
-            // this comment names it rather than just fixing it (2026-07-29).
             silence_dev_overlays,
             force_combat_overlay,
             apply_capture_snapshot
@@ -381,7 +320,6 @@ fn main() {
             fail_after_timeout,
         ),
     );
-    app.run();
 }
 
 /// One step of a `--press` sequence.
@@ -486,7 +424,6 @@ impl SceneCaptureConfig {
         let mut include_ui = false;
         let mut dev_overlays = false;
         let mut combat_overlay = false;
-        let mut show_window = false;
         let mut fit_room = false;
         let mut character: Option<String> = None;
         let mut route: Option<String> = None;
@@ -535,10 +472,14 @@ impl SceneCaptureConfig {
                     fit_room = true;
                     1
                 }
-                "--show-window" => {
-                    show_window = true;
-                    1
-                }
+                // ⛔ **`--show-window` was DELETED with the second app builder
+                // (2026-08-08), and it had never worked.** It made a window and
+                // then `setup_capture_target` pointed every camera at the
+                // offscreen image, so the window it opened rendered nothing —
+                // a blank rectangle for the whole run. Keeping it would have
+                // forced this tool to keep TWO render modes, which is the fork
+                // that ate five features; a flag that shows an empty window is
+                // not worth the composition that has to branch for it.
                 "--character" => {
                     let Some(value) = args.get(i + 1) else {
                         return Err("--character requires a catalog id".to_string());
@@ -643,7 +584,6 @@ impl SceneCaptureConfig {
                 // A route IS its UI. Capturing one without it would photograph
                 // an empty clear colour and call it the launcher.
                 include_ui: true,
-                show_window,
                 fit_room,
                 character,
                 follow_player: false,
@@ -685,7 +625,6 @@ impl SceneCaptureConfig {
             size,
             warmup_frames,
             include_ui,
-            show_window,
             fit_room,
             character,
             dev_overlays,
@@ -823,59 +762,9 @@ fn force_combat_overlay(
     }
 }
 
-/// **A frame of warmup must mean the same amount of TIME every run.**
-///
-/// The capture advances the app with `ScheduleRunnerPlugin::run_loop(ZERO)` —
-/// as fast as the machine goes — and Bevy's default clock advances by the real
-/// duration each frame actually took. So `--warmup 60` bought sixty frames of
-/// *whatever the CPU managed*, and two runs of the same binary with identical
-/// arguments landed on different animation poses.
-///
-/// That was measured, not assumed: two identical runs differed by ~132 pixels,
-/// and an unrelated change measured 800–1450 — a number I nearly filed as a
-/// rendering regression before tiling the two images and seeing the same
-/// silhouette with its arms in a different part of the idle bob (2026-07-29).
-///
-/// It matters beyond tidiness. This tool is the repository's eyes: every "the
-/// room renders", "the sprite is distinct", "nothing changed" conclusion is a
-/// pixel comparison, and a comparison against a moving baseline is only as good
-/// as the gap between signal and noise. Pinning the clock makes a zero-diff
-/// evidence instead of a coincidence.
-///
-/// 60 Hz, matching `ambition_platformer2d_runtime::SIM_TICK_HZ`, so a warmup frame is a sim
-/// tick and `--warmup N` reads as "N ticks in".
-fn pin_the_clock(app: &mut App) {
-    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
-        Duration::from_secs_f64(1.0 / ambition_platformer2d::runtime::SIM_TICK_HZ),
-    ));
-}
-
-fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
-    let mut app = ambition_app::app::build_visible_app(
-        ambition_app::app::VisibleRenderMode::OffscreenGpu,
-        true,
-    );
-    // **THE SURFACE THIS RUN DRAWS TO.** (queue Z′8)
-    //
-    // `OffscreenGpu` sets `primary_window: None`, so the host's layout resolver
-    // finds no window and `ResolvedGameplayPresentation` keeps its DEFAULT —
-    // whose display rect is `WINDOW_W x WINDOW_H`, 1600x900. Every HUD slot then
-    // lays out for a 1600x900 screen and is rendered into whatever the capture
-    // size is: a card declared `.centered()` centres at x=800 and lands right of
-    // centre in a 960-wide image, on top of a fighter. It reads as a game bug
-    // that a real window does not have (measured 2026-07-29).
-    //
-    // ⚠ the ROOM-mode builder below needs the same insert, and each mode builds
-    // its own app — which is exactly how the first attempt at this missed.
-    app.insert_resource(
-        ambition_platformer2d::host::gameplay_presentation::HeadlessDisplaySurface(
-            ambition_platformer2d::engine_core::Vec2::new(
-                config.size.x as f32,
-                config.size.y as f32,
-            ),
-        ),
-    );
-
+/// The systems a ROUTE capture adds on top of [`build_capture_app`], plus the
+/// two things only a route needs to be told.
+fn install_route_capture(app: &mut App, route_id: String) {
     // **THE STARTUP RUN-IN IS COMPOSED BY THE GAME BINARY, NOT BY
     // `build_visible_app`** — so `--route ambition_startup` reported "unknown
     // route", and the FIRST surface a player sees was the one frontend surface
@@ -887,7 +776,7 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
     // also makes startup the INITIAL route, which is correct here and would put
     // a card in front of every other capture.
     if route_id == ambition_app::app::shell_host::AMBITION_STARTUP_ROUTE {
-        ambition_app::app::shell_host::compose_ambition_startup_sequence(&mut app);
+        ambition_app::app::shell_host::compose_ambition_startup_sequence(app);
     }
 
     let known: Vec<String> = {
@@ -906,26 +795,11 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
         std::process::exit(2);
     }
 
-    // ⚠ **AND THE CLOCK, in BOTH builders.** Room mode pins it too; this tool
-    // has now shipped the same half-wired flag three times (the `--route`
-    // positional, the headless surface above, `--dev-overlays`) because each
-    // mode assembles its own app and a change to one reads as done.
-    pin_the_clock(&mut app);
-
-    app.insert_resource(config.clone());
-    app.insert_resource(SceneCaptureRuntime::default());
     app.add_systems(Startup, setup_route_capture_target);
     app.add_systems(
         Update,
         (
             silence_dev_overlays,
-            // ⚠ **the same system the ROOM builder installs.** It was in one
-            // builder only, so `--route ... --combat-overlay` accepted the
-            // option and silently photographed no volumes — and the route path
-            // is how you reach a playable surface. This file's own comment two
-            // screens up already warns that each mode assembles its own app and
-            // "a change to one reads as done"; that is now four flags this has
-            // happened to.
             force_combat_overlay,
             go_to_route,
             adopt_route_cameras,
@@ -935,7 +809,6 @@ fn run_route_capture(config: SceneCaptureConfig, route_id: String) {
         )
             .chain(),
     );
-    app.run();
 }
 
 /// Drive the shell to the requested route — **unless it is already there.**
@@ -1554,28 +1427,20 @@ fn parse_image_size(text: &str) -> Option<UVec2> {
     Some(UVec2::new(w.trim().parse().ok()?, h.trim().parse().ok()?))
 }
 
-/// **THE Z′14 BUG, and it was one character.**
-///
-/// This carried its own copy of the asset-root rule, and the copy said
-/// `crates/ambition_platformer2d::actors/assets` — a `::` where the crate name has a `_`. No
-/// such directory can exist, `canonicalize` failed every time, and the fallback
-/// pointed the room composition at the workspace-root `assets/` tree, which
-/// holds IPFS metadata and none of the actor sprites, shaders or sounds.
-///
-/// So room-mode capture wrote a valid PNG of a room whose art never resolved,
-/// and exited 0. Six measurements narrowed it to "the entities exist and the
-/// sprite half does not"; this is why (GPT 5.6, 2026-07-29). Route mode goes
-/// through the visible app and its own correct root, which is exactly why
-/// `--route` looked fine while rooms did not.
-///
-/// ⚠ the lesson is the duplication, not the typo. `ambition_asset_manager`
-/// exists *because* a demo that rendered nothing standalone was this same
-/// divergence, and the fix then was to make one helper the single source of
-/// truth. A second copy in a verification tool is worse than a second copy
-/// anywhere else: the tool's whole job is to tell you what is on screen.
-fn desktop_asset_root() -> String {
-    if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
-        return "assets".to_string();
-    }
-    ambition_platformer2d::asset_manager::actors_desktop_asset_root()
-}
+// **`desktop_asset_root` was DELETED here on 2026-08-08, and the Z′14 bug it
+// carried is why the deletion matters more than the function did.**
+//
+// This file kept its own copy of the asset-root rule, and the copy said
+// `crates/ambition_platformer2d::actors/assets` — a `::` where the crate name
+// has a `_`. No such directory can exist, `canonicalize` failed every time, and
+// the fallback pointed the room composition at the workspace-root `assets/`
+// tree, which holds IPFS metadata and none of the actor sprites, shaders or
+// sounds. Room-mode capture wrote a valid PNG of a room whose art never
+// resolved, and exited 0. Route mode went through the visible app and its own
+// correct root, which is exactly why `--route` looked fine while rooms did not
+// (GPT 5.6, 2026-07-29).
+//
+// ⭐ **the lesson was always the duplication, not the typo**, and the copy
+// survived the fix for ten days because room mode had its own `App` to feed.
+// It has no app of its own now: `build_visible_app_with` resolves the root, and
+// there is nothing here left to disagree with it.

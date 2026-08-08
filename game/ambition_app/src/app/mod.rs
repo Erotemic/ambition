@@ -55,8 +55,8 @@ pub use cli::run_web;
 #[cfg(not(target_arch = "wasm32"))]
 pub use cli::{
     SHARED_HOST_HEADLESS_TICK_HZ, SharedHostAcceptanceReport, SharedHostHeadlessReport,
-    VisibleRenderMode, build_visible_app, run_shared_host_acceptance_cycle,
-    run_shared_host_headless, shared_host_startup_ticks,
+    VisibleRenderMode, build_visible_app, build_visible_app_with,
+    run_shared_host_acceptance_cycle, run_shared_host_headless, shared_host_startup_ticks,
 };
 pub use feedback::{GameplayFeedbackWriters, ProgressionResources};
 pub use hud::update_quest_panel;

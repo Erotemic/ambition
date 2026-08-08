@@ -100,6 +100,31 @@ M11 replace rather than bridge pre-release · M12 runtime owns global ordering.
 | M26 | Room transitions are readiness-gated and progressively disclosed: the source room remains authoritative until one-shot target commit; fast loads avoid loading foregrounds, and slow or expensive commits occur behind a rendered cover without exposing partial rooms. | [`engine/room-transition-loading.md`](engine/room-transition-loading.md) |
 | M28 | The actor monolith is decomposed incrementally by semantic ownership, with compile isolation and minimal-consumer dependency closure as explicit success measures. | [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md) |
 
+⚠ **M28's two success measures were MEASURED on 2026-08-08, and they do not
+behave alike.** The decision names *"compile isolation and minimal-consumer
+dependency closure as explicit success measures"*:
+
+* **compile isolation** responds, weakly. `scripts/compile_ratchet.py` prices the
+  one carve that is ready (`conversation`, zero inward edges) at **−1.94%** of
+  the largest recompilation unit, and **0%** for edits to the carved module
+  itself — six monolith files name it, so the new crate lands below the monolith
+  and the isolation runs one direction only.
+* **minimal-consumer dependency closure does NOT respond at all.** Of the fifteen
+  capability crates a movement-only consumer inherits, exactly one has the
+  monolith as its only direct dependent; `ambition_platformer2d_runtime` declares
+  ten and is a direct facade dependency. **No carve of the monolith moves that
+  number** — only `optional = true` dependencies do, and they would have to be
+  optional in the runtime as much as in the monolith.
+
+So M28's second measure is not a bar this mechanism can clear, and the honest
+options are to change the measure or to change the mechanism. That is a
+maintainer question and it is already written up as *"May a game compose this
+engine WITHOUT a given capability?"* in
+[`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md).
+⚠ related and unresolved: `AGENTS.md:68` still states the monolith *"is not
+awaiting a size-driven carve"*, which these numbers support more than
+`status.md` and `tracks.md:488` do.
+
 ## Durable uncertainties
 
 - **LDtk at scale:** retain a backend-neutral world IR while actively developing one editor path.

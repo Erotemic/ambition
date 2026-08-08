@@ -1,0 +1,243 @@
+# What actually drives compile cost — 2026-08-08
+
+Companion to `compile-time-and-disk-2026-08-07.md`, which established that the
+cost is codegen rather than link or frontend, and that a cold build and a rebuild
+want opposite fixes. This one asks the next question: **given that, which crates
+are expensive and why?**
+
+Short answer, held loosely: **lines do not predict cost, the backend does, and a
+large part of the backend's cost looks per-CRATE rather than per-line.** That
+last clause is the one with consequences — if it holds, splitting a crate
+multiplies a fixed toll.
+
+Machine: 8 cores, mold. Numbers do not transfer; the method does.
+
+---
+
+## 0. Qualitative assessment — how much to believe any of this
+
+⛔ **Read this before acting on anything below.** The quantitative results are
+checked in and reproducible. What follows is my *judgement*, which has a bad day
+behind it: **I was wrong six times on this exact topic today**, each time
+confidently, and each correction was found by a check rather than by foresight.
+That is a reason to discount my newest position too, not to trust it because it
+is newest.
+
+| claim | confidence | why |
+|---|---|---|
+| Lines do not predict cost per line | **high** | 52 crates, negative in every config separately, three independent framings agree |
+| The cost is the backend, not the frontend | **high** | 4.4% frontend measured directly; consistent with the 2026-08-07 codegen finding at much larger n |
+| ThinLTO specifically is the largest single pass | **medium-high** | measured twice on one crate, including against its own confound (50.7% / 58.7%) |
+| Backend cost is largely **per-crate** | **medium-low** | ⚠ **n = 3, and two of the three are warm-cache recompiles.** The monotone trend is suggestive, not established |
+| Therefore **carving multiplies the toll** | **low-medium** | this is an inference from the row above, and it is the claim with the biggest consequence. It is the one I would bet against myself on |
+| Incremental makes *release* 2.2x faster | **low** | one sample, two target dirs, plausible mechanism, nothing else |
+
+⭐ **The asymmetry that matters**: the claims I am confident about are the
+*negative* ones — what does **not** explain the cost (lines, own generics, system
+density, dependency size). Those were each killed by a specific check. The
+positive story is one crate deep and three crates wide.
+
+⚠ **What would change my mind on the carving corollary**, which is the only claim
+here that should move a decision:
+
+* `-Ztime-passes` on 5–10 more crates spanning sizes, all **cold, incremental
+  off, uncontended**, so the trend is not three points with two contaminated;
+* an actual before/after — carve one module out and measure the full build both
+  ways. **Nothing here measures a carve. It measures crates that already exist**,
+  and infers what a carve would do. That inference is the weakest link.
+* the parallelism half, which I have not measured at all: more crates means more
+  units in flight, and a real build is core-bound during its cold phase. That
+  effect points the *other* way and could plausibly dominate.
+
+⭐ **So the honest position on lane C is not "do not carve".** It is: *the
+compile-time argument FOR carving is not supported, and there is some evidence
+against it, so carve on architectural grounds and stop citing build time in
+either direction until someone measures an actual carve.* That is a weaker claim
+than §4 reads, and §4 should be read through it.
+
+---
+
+## 1. Lines do not predict cost
+
+Across all 52 first-party crates ≥300 lines, using measured release seconds from
+`dev/compile_units.jsonl`:
+
+| predictor | corr with seconds |
+|---|---|
+| own lines | +0.576 |
+| transitive dependency lines | +0.497 |
+| number of dependencies | +0.514 |
+
+and for cost **per line** against size, `corr(ms/line, lines) = −0.23` — slightly
+*negative*. It stays negative inside every build configuration separately:
+−0.11 (release/opt-3), −0.27 (test/opt-1), −0.78 (test/opt-0).
+
+**Bigger crates are cheaper per line.** That matters because line count is the
+unit every carve discussion in `docs/planning` has used, and it is the unit three
+of `compile_ratchet.py`'s four guarded numbers are denominated in.
+
+## 2. Three explanations, tested and killed
+
+Each was plausible, and each died to a cheap check before it could become a
+finding.
+
+1. **The crate's own generics.** `ambition_relativity2d` is the density outlier
+   (2,840 lines, the highest ms/line in the workspace). It contains **no
+   `impl<`, no `macro_rules!`, and 21 generic fns.** Dead.
+2. **Bevy system density.** `corr(ms/line, add_systems+add_observer per kloc) =
+   +0.42` — real but moderate, with two counterexamples that kill the simple
+   story: `ambition_app` has 4.6 systems/kloc and is the third *cheapest* per
+   line; `ambition_demo_twintrack` has 1.8 and is third most expensive.
+3. **Instantiation in the consumer** — the idea that small crates pay codegen for
+   generics defined in their big dependencies. Tested by inverting
+   `direct_dependents` in the ratchet baseline to get transitive dependencies:
+   dependency size (+0.497) does **not** beat own size (+0.576). The case that
+   kills it: `ambition_content`, `ambition_demo_mary_o` and `ambition_demo_sanic`
+   have *identical* transitive dependency lines (364,978 — the demos depend on
+   everything) and cost 124.0 / 93.8 / 58.5 s. Dependency size cannot order them;
+   their own lines order them exactly.
+
+⚠ the third test's weakness, stated: `deplines` saturates, so it has little
+discriminating power and a null from it is weak evidence.
+
+At that point **no structural variable available in the repo explained the
+outlier**, which is what justified spending a profile on it.
+
+## 3. `-Z time-passes` — it is the backend, and mostly ThinLTO
+
+```
+cargo +nightly rustc -p ambition_relativity2d --release -- -Ztime-passes
+```
+
+| pass | s | share |
+|---|---|---|
+| `LLVM_thinlto` | 6.47 | **50.7%** |
+| `codegen_crate` | 4.28 | 33.5% |
+| `LLVM_passes` | 4.20 | 32.9% |
+| `monomorphization_collector_graph_walk` | 1.41 | 11.0% |
+| frontend (typeck + borrowck + coherence + expand) | **0.56** | **4.4%** |
+
+(passes overlap — `codegen_crate` spawns the LLVM work — so they do not sum.)
+**Type-checking the whole crate is 0.196 s.** Over half the compile is one LLVM
+pass.
+
+### The confound, checked
+
+`.cargo/config.toml` sets `incremental = true` workspace-wide, and incremental
+uses many small codegen units — so the ThinLTO share might have been manufactured
+by the repo's own setting rather than by the release profile. Re-run identically
+with `CARGO_INCREMENTAL=0` in a fresh target dir:
+
+| config | total | ThinLTO | share |
+|---|---|---|---|
+| `incremental = true` | 12.77 s | 6.47 s | 50.7% |
+| `CARGO_INCREMENTAL=0` | 28.40 s | 16.68 s | **58.7%** |
+
+**ThinLTO dominates either way.** The finding survives.
+
+⛔ **and the prediction had the wrong sign.** The reasoning was "incremental
+manufactures ThinLTO work, so removing it shrinks the share". It grew. A
+plausible mechanism is not a direction — and this only avoided becoming a
+published finding because the discriminating run was queued *before* the
+explanation was written down. **Queue the experiment before you write the
+story.**
+
+⚠ banked, one sample, not acted on: incremental OFF made this *release* build
+2.2x slower. Probable mechanism is CGU count — many small units parallelise
+better on 8 cores even though each optimises less.
+
+## 4. The shape across three sizes — and the consequence
+
+| crate | lines | total | ms/line | ThinLTO | share | ThinLTO ms/line |
+|---|---|---|---|---|---|---|
+| `relativity2d` | 2,840 | 12.77 | 4.50 | 6.47 | **50.7%** | **2.28** |
+| `platformer2d_runtime` | 14,747 | 65.99 | 4.48 | 24.47 | 37.1% | 1.66 |
+| `actor_monolith` | 111,790 | 76.07 | **0.68** | 15.46 | **20.3%** | **0.14** |
+
+⚠ the latter two are warm-cache recompiles (built once as dependencies, then
+rebuilt with `-Ztime-passes`). Their **backend** figures are the usable half;
+their frontend ones are not — see §6.
+
+* ThinLTO's share falls monotonically with crate size, **50.7% → 37.1% →
+  20.3%**, and its per-line cost falls **16x**. The monolith has **39x** the
+  lines of `relativity2d` and **2.4x** the ThinLTO.
+* The monolith at 111,790 lines costs 76.07 s against the runtime's 65.99 s at
+  14,747 — **7.6x the code for 15% more time**, machine to itself.
+
+⭐ **the reading this suggests** — and it is a reading of three points, not a
+result — is that a substantial part of backend cost is **per-CRATE rather than
+per-line**: every crate pays a fixed toll and a big one amortizes it. That would
+explain §1's negative correlation directly, which is the main thing recommending
+it.
+
+⚠ **but three crates is not a trend, and two of them are contaminated.** A
+monotone sequence of length three happens by chance often. Before this is used
+for anything, it wants 5–10 crates spanning sizes, cold, incremental off,
+uncontended. See §0.
+
+**The consequence people will want to draw** — that splitting one crate into N
+multiplies the toll by N — follows from the reading, not from the measurement.
+⛔ **nothing here measures a carve.** It measures crates that already exist and
+infers what carving would do, and that inference is the weakest link in the
+document.
+
+⚠ **Two things point the other way** and neither has been measured: more crates
+means more units in flight, and a cold build is core-bound — so parallelism could
+plausibly dominate the per-crate toll. And pipelined compilation releases a
+dependent at its predecessor's `rmeta`, so a carve can shorten the serial path
+even when it adds total work.
+
+⭐ **So the defensible position is narrower than "carving costs compile time":**
+the compile-time argument *for* carving is not supported, there is some evidence
+against it, and neither side should be cited until someone measures an actual
+carve both ways. Carve for the serial chain, dependency direction and
+architecture — the grounds that were always the real ones.
+
+## 5. Two numbers, two questions
+
+`ambition_relativity2d` costs **68.1 s** in `dev/compile_units.jsonl` and
+**12.77 s** under `-Ztime-passes`. Both are correct and they answer different
+questions:
+
+* a unit's duration in `cargo --timings` is wall time **inside a real build**,
+  sharing 8 cores with sibling rustc processes that are each internally parallel
+  → the input for **prioritising** ("what does this cost the build I run");
+* `-Ztime-passes` on `cargo rustc -p X` gives the crate **the whole machine** →
+  the input for **diagnosing** ("what does it intrinsically cost, and where").
+
+⛔ Do not compare one to the other. Same error family as treating `cargo check`
+as a build's frontend phase. The ratio has been consistent (5.3x, 4.1x), about
+what 8-core sharing predicts.
+
+## 6. Method errors made here, and what caught each
+
+Kept because the failure modes are more reusable than the numbers.
+
+| error | what caught it |
+|---|---|
+| **Pooled debug and release** in a per-crate average, then compared two crates that did not share an opt level | checking CV before reporting the mean — 51–73% is not noise, it is a mixed population |
+| **Pooled cache states** within a profile after fixing the first one | someone else deriving cache state from `build_fresh_units` instead of the label |
+| **Quoted a superlative** ("cheapest crate per line") that held in 1 of 8 builds — the one with 669 of 688 units cached, ranking 17 crates not 55 | reading the per-build view instead of the aggregate |
+| **Called the ledger "inflated"** against the profile | asking what each instrument actually measures |
+| **Read `type_check_crate` = 0.019 s** for a 14,747-line crate | plausibility — less than a 2,840-line crate is impossible; it was incremental reuse |
+| **Predicted the confound's direction** and got the sign backwards | having queued the run before writing the hypothesis |
+
+⭐ The one that generalises: **a build measurement's atomic unit is a BUILD,
+identified by its own counters. A configuration label can lie about what a build
+did** — one row here is labelled `dev/first-party` with `build_fresh_units: 0`,
+having recompiled all 688 units in 540 s against two honest rebuilds at 188 s and
+210 s. Grouping by that label corrupts every average it touches.
+
+## 7. What is not answered
+
+* **The `incremental` axis of the telemetry.** All 2,145 collector rows read
+  `false`; the column exists and has only ever been set one way. One collector
+  run with `CARGO_INCREMENTAL=1` closes it.
+* **Whether the 2.2x release/incremental result reproduces** on a second crate.
+* **Third-party cost** — 5,133 s of the dev cold build, `bevy_pbr` alone 334 s,
+  `avian2d` 210 s. Visible in the data, never surfaced.
+* **Whether tuning `codegen-units` / `lto` for release is worth it.** There is
+  **no `[profile.release]` section** in `Cargo.toml` at all — the `lto = "thin"`
+  and `codegen-units = 1` near it belong to `[profile.android-size]`. Dev carries
+  hand-picked `opt-level = 0` overrides for the three worst crates; release has
+  had no attention. Given §3, that is where the lever is.

@@ -179,6 +179,29 @@
   panicked. **A composition that half-runs beats one that refuses to — right up
   until you believe the photograph.**
 
+* ✔ **`capture_scene --show-window` NEVER WORKED, and three other things you may
+  have assumed about that tool** (2026-08-08, `8bbbfc273` — the two-builder fork
+  closed). It opened a window and then `setup_capture_target` retargeted every
+  camera to the offscreen image, so the window rendered a **blank rectangle**.
+  Deleted rather than fixed: a screenshot tool does not need one.
+  ⭐ **`--character` was accepted and ignored for route captures** — same commit.
+  ⭐⭐ **room captures now run the GGRS host a player runs.** The hand-assembled
+  app was missing `set_simulation_host(Ggrs)`, `serialize_frame_schedules` and the
+  `"game"` asset source too — so the fork was **wider than the five drifts we
+  knew about**. The visible consequence is tiny and worth stating: of 230,400
+  pixels, **27 differ and all 27 are the robot's foot**, one animation step apart.
+  Sim pose byte-identical.
+  ⛔ **and route captures had been running BLIND since they were written.** The
+  shared builder disables `LogPlugin` (correct for tests, which build several Apps
+  per process; wrong for a binary that builds one), so composing through it
+  silences every engine `INFO`/`WARN`. Put back for both modes — measured by an
+  empty log on the first run after, not predicted.
+  ⚠ **4 of the 5 known drifts are now structurally impossible** (display surface,
+  shell visuals, audio/persistence redirect, asset root) because there is one
+  builder to forget them in. **2 remain possible** — `--dev-overlays` and
+  `--combat-overlay` are systems, and room vs route genuinely install different
+  ones. That is the irreducible half.
+
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 
 * ✔ **`maryo flashes when her fireball hits an enemy` — FIXED, and now GUARDED (2026-08-07).**

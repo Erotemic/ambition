@@ -507,6 +507,46 @@ slot with no attached pad cannot be set to controller.
   ⚠ it remains three coupled changes (aspect + drawn sub-rect + `feet_anchor_norm`
   moving with the crop), and that has not changed.
 
+  ⭐⭐ **[agent-found, measured 2026-08-08] THE BBOX ROUTE IS ALREADY IN THE TREE,
+  and it is not three coupled changes.** `character_sprites::posed_body` builds
+  exactly the geometry this row asks for, and it sidesteps the stretch worry
+  rather than solving it:
+
+  ```text
+  collision     = body bbox           x world_per_pixel
+  render (quad) = the FULL FRAME      x world_per_pixel     ← not resized, so not stretched
+  sprite_offset = frame centre - bbox centre                ← puts the art ON the box
+  ```
+
+  So there is **no drawn sub-rect to crop and no `feet_anchor_norm` to move**:
+  the quad keeps the frame's own aspect and the OFFSET does the aligning.
+  `sync_sprite_posed_bodies` re-derives all three every tick from the pose, and
+  writes `ActorRenderSize` / `ActorSpriteOffset`, which the renderer already
+  prefers over `collision x collision_scale`. ⛔ **"decide the bbox route first"
+  is therefore already decided — it shipped.**
+
+  ⚠ **and the real blocker is DATA, not design: 2 of 190 sheets.**
+  `find -L …/assets/sprites -name '*_spritesheet.ron'` is 190 records; exactly
+  **two** declare `authored_body: true` (`player_robot_v3`, `vera_ruin`). The
+  other 188 fall back to `collision_scale`, and they cannot be switched by an
+  engine edit: `authored_body_pixel_size` deliberately REFUSES a measured alpha
+  bbox, because a measured box is the extent of the drawing — hat, antenna and
+  outstretched arms — and using it as a body is how a collision box ends up 1.28x
+  the character inside it. A sheet joins the route by AUTHORING its box
+  (`body_metrics_fn` or a fractional `body_inset` in the renderer), which is a
+  per-sheet content act.
+
+  ⭐ **so the reordering worry dissolves.** `--suggest` and the bbox route are not
+  competing routes to the same end — `report_character_scale.py --suggest`
+  suggests a `collision_scale` (the legacy number), and the bbox route deletes
+  that number for any sheet that authors a box. They are the stopgap and the fix,
+  and the fix is available per character TODAY without waiting for anything.
+
+  ⭐ **the smallest useful next step is one sheet, not 116**: author a body box
+  for the snake, regenerate, and read `enemy_quad_matches_its_box` — that is the
+  ratchet this row already names, and it turns the whole question into a measured
+  before/after on the creature Jon actually complained about.
+
   ▢ **what this does NOT decide**: what the numbers should BE. The instrument
   asserts no ratio on purpose — what counts as too big is Jon's call, and a limit
   written by a test would be a taxonomy nobody chose. What it does say is that

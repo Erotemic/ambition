@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 5 open, added 2026-08-08
+## ⇥ INDEX — 3 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -26,8 +26,6 @@ is the only ordering a maintainer can triage from.
 | Question | Blocks | State |
 |---|---|---|
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
-| The top four ladder rungs ship a knob that makes them worse | ladder calibration | no recommendation |
-| Can a flying fighter shield? | duel rules | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
 | **Could a spawned thing collide with an authored one's identity?** *(no symptom today; ~70 sites to make impossible)* | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
 
@@ -826,7 +824,12 @@ it wants its own probe — two types with the same final segment in different
 crates must be REJECTED loudly, not silently merged. That check is the work item
 attached to choosing (b), and it should land in the same commit.
 
-## The top four ladder rungs ship a knob that measurably makes them worse (2026-08-02)
+## ⊘ DEFERRED BY JON 2026-08-03 — the top four ladder rungs ship a knob that makes them worse
+
+> **He answered this and the row stayed on the pending index anyway**, so it read
+> as owed for five days. *"Not sure about balance, we are most concerned with
+> architecture right now."* Removed from the index 2026-08-08. The measurement
+> below stands and needs no re-deriving when balance comes up.
 
 > **JON, 2026-08-03: "not sure about balance, we are most concerned with
 > architecture right now."**
@@ -928,7 +931,15 @@ agree. This decision is about the value, not about the drift.
 
 ---
 
-## 9. Can a flying fighter shield? (queue 08-03 F7-duel)
+## ⊘ 9. ANSWERED BY JON 2026-08-03; architecture LANDED 2026-08-07 — can a flying fighter shield?
+
+> **He answered the engine question and the row stayed on the pending index**,
+> so it read as owed. *"Not in smash. In other games it's up to the game. I'm not
+> sure about ambition itself yet."* `SmashCfg::shield_requires_ground` now carries
+> the rule and defaults to `true`, so **Ambition's answer is an AUTHORING act, not
+> a code change** — the duel fixture states which rule it fights under. ⚠ it went
+> live rather than hypothetical on 2026-08-08 when he ruled the PCA can fly.
+> Removed from the index 2026-08-08.
 
 ⚠ **NO LONGER BLOCKING ANY TEST (2026-08-03).** The two duel tests this was filed
 against now pass — `app_it` is 287/0 — and the fix was in ranged AIM, not shields:

@@ -636,6 +636,26 @@ slot with no attached pad cannot be set to controller.
   leave the two characters you complained about untouched.
   ⚠ the code was reverted, not landed — this is evidence for your open decision,
   not a change made on your behalf.
+  ⭐⭐ **AND THE ROUTE DOES NOT FIX "way too big" — your two complaints are two
+  different problems.** Ran `enemy_body_scale` for the first time since it was
+  written:
+
+  |          target | collision | render | x vs player | y vs player |
+  |---|---|---|---|---|
+  | player_robot_v3 | 57x91   | 224x224 | 1.00x | 1.00x |
+  | solid_snake     | 117x52  | 128x128 | **2.05x** | 0.57x |
+  | ai_slop         | 257x167 | 271x232 | **4.51x** | **1.84x** |
+  | mary_o_v2       | 64x120  | 160x192 | 1.12x | 1.32x |
+
+  Those are the **collision bodies**. The slop's BODY is already 4.51x your
+  player's width; the snake's is 2.05x. So they are not just drawn too big —
+  they ARE too big. The bbox route makes the picture match the box, so a 4.51x
+  box becomes a 4.51x picture: correct, and still too big.
+  ⭐ **the size half needs no decision from you, only a number.** Your own row
+  already says it — *"the snake at 41 x 18 world and the slop at 28 x 18 against
+  Mary-O's 48 tall are one number each, and both now live where stating a
+  different one is a one-line edit rather than a hunt."* Say the numbers and that
+  half is done, whatever you decide about the quad.
 
   ▢ **what this does NOT decide**: what the numbers should BE. The instrument
   asserts no ratio on purpose — what counts as too big is Jon's call, and a limit

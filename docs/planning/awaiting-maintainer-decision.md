@@ -269,7 +269,45 @@ is the fallback for sheets publishing no body. What actually broke placement was
 scale, floating the snake ~8px off the floor. Same defect class, different
 field: a frame-normalised placement outliving the crop. Both must move.
 
-⛔ **THE REAL CORRECTION: there are TWO independent render-size publishers, and
+### ⭐⭐ AND THE ROUTE DOES NOT FIX JON'S ACTUAL COMPLAINT — measured 2026-08-08
+
+`enemy_body_scale::print_enemy_bodies_against_the_player`, run for the first time
+since it was written:
+
+```text
+           target     collision        render   x_vs_p   y_vs_p
+  player_robot_v3     57x91        224x224       1.00x    1.00x
+      solid_snake    117x52        128x128       2.05x    0.57x
+          ai_slop    257x167       271x232       4.51x    1.84x
+        mary_o_v2     64x120       160x192       1.12x    1.32x
+```
+
+Jon's report is *"the snake and AI slop are still way too big visually."* **These
+are the COLLISION BODIES** — the AI slop's body is already **4.51x the player's
+width and 1.84x its height**, and the snake's is 2.05x wide. So the enemies are
+not merely *drawn* too big; **their bodies are that big.**
+
+⛔ **which means this decision, taken in full, does not fix the complaint.** The
+bbox route makes the picture match the box. If the box is 4.51x the player, the
+picture becomes 4.51x the player — correctly, and still too big. **Two distinct
+problems have been travelling as one:**
+
+1. **quad ≠ box** — the 2.46x disagreement. This decision fixes it.
+2. **the box itself is too big** — a single authored number per creature, which
+   this decision does not touch and cannot.
+
+⭐ the observations file already said so and it was read as a footnote: *"the
+SIZES themselves — the snake at 41 x 18 world and the slop at 28 x 18 against
+Mary-O's 48 tall — are one number each, and both now live where stating a
+different one is a one-line edit rather than a hunt."* **That is the cheaper half
+of Jon's complaint and it needs no decision at all** — only a number he states.
+
+⚠ context, not an argument for a rule: the catalog's 136 characters span
+**14.58x** in body height (`perfect_cellular_automaton` 452px,
+`npc_puppy_slug` 31px). Most of that is creatures, which the humanoid pass
+explicitly excludes.
+
+⛔ **THE OTHER CORRECTION: there are TWO independent render-size publishers, and
 this row names only one.**
 
 * `posed_body_geometry` → `ActorRenderSize` → `ActorRenderIndex.render_size` —

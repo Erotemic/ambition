@@ -1333,3 +1333,27 @@ really measuring.
 ⭐ **what does NOT need the answer**, and is already done: the bark port, which
 was the only design work in the carve, and which is worth having regardless —
 continuity no longer reaches into the cast to ask what a character says.
+
+### ⭐ 2026-08-08 — this row is becoming answerable, and Jon asked for the reason
+
+He asked, independently and about something else, for compile-time tracking:
+*"measuring if we get any wins from making crate carves. I want to quantify those
+compile wins as we do those."* (queue rows D8/D9.)
+
+**That is the missing half of this decision.** Option (b) concedes that carves
+happen *"for compile isolation only"* — and this row cannot weigh that against
+option (a)'s campaign cost, because **nobody can say what compile isolation is
+worth here.** The number is unmeasured, so the choice currently reads as "a
+campaign" versus "a vague benefit", which is not a fair comparison and is a large
+part of why the question is hard to state.
+
+Once the instrument lands, this row gains a concrete input: **what lifting
+`conversation`'s 2,164 lines out of a 111k-line recompilation unit actually does
+to the edit→feedback loop.** If it is a rounding error, (b) is much more
+attractive and the ratchet should be honestly relabelled. If a 2% carve measurably
+moves the loop, then the fifteen crates are worth a campaign and (a) is the
+answer — with evidence rather than premise.
+
+⚠ **the decision itself does not change** — it is still a product question about
+what the engine IS, and a measurement cannot answer that. What changes is that
+one side of it stops being a guess.

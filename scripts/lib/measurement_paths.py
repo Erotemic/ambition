@@ -122,9 +122,11 @@ def unavailable_reason(path: Path | str) -> str | None:
     `RUN_TESTS_COST_LEDGER`, and a caller that redirected the ledger somewhere
     else has taken the question away from us.
     """
+    # Resolved on both branches: `MEASUREMENTS` is built from a resolved
+    # `__file__`, so an unresolved argument would compare against a different
+    # spelling of the same directory and quietly report "safe".
     target = Path(path)
-    if not target.is_absolute():
-        target = (REPO / target).resolve()
+    target = (target if target.is_absolute() else REPO / target).resolve()
     if not target.is_relative_to(MEASUREMENTS):
         return None
     return submodule_reason()

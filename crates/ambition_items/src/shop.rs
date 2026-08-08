@@ -2,14 +2,56 @@
 //! [`BodyWallet`] and the 24-item [`OwnedItems`] catalog.
 //!
 //! Kept ECS-free and pure so they're unit-testable; the Yarn `<<buy_item>>` /
-//! `<<sell_item>>` commands wrap these with a
-//! player-wallet query, which is the design-intended shape for shops in Ambition
-//! (the `merchant_seed` node + Vault Keeper dialogue call for "a dialogue node
-//! with inventory, prices, requirements, consequences"). A bespoke shop overlay
-//! UI can later wrap the same primitives.
+//! `<<sell_item>>` commands ASK for one through [`ShopTransactionRequested`] and
+//! a simulation system runs it, which is the design-intended shape for shops in
+//! Ambition (the `merchant_seed` node + Vault Keeper dialogue call for "a
+//! dialogue node with inventory, prices, requirements, consequences"). A bespoke
+//! shop overlay UI can later ask for the same transaction.
 
 use crate::{Item, OwnedItems};
 use ambition_characters::actor::BodyWallet;
+use bevy::prelude::Message;
+
+/// Which way the goods move.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShopSide {
+    Buy,
+    Sell,
+}
+
+/// **Somebody asked for a transaction; the simulation runs it.**
+///
+/// ⛔ **the Yarn commands used to call [`buy`]/[`sell`] DIRECTLY**, from a
+/// presentation system, against `OwnedItems` and `BodyWallet` — both of them
+/// rollback state. A rewind restored the balance and the bag and did not
+/// re-execute the command, because the Yarn runner is not rewound and does not
+/// run between resimulated ticks. The purchase silently un-happened, or worse,
+/// happened on a timeline that was corrected away and stayed.
+///
+/// So the command records the REQUEST in the conversation's narrative ledger and
+/// a simulation system applies it on the tick it was stamped for — every replay
+/// of that tick included.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct ShopTransactionRequested {
+    pub item: Item,
+    /// What the merchant is charging (buy) or paying (sell).
+    pub price: i32,
+    pub side: ShopSide,
+}
+
+impl ShopTransactionRequested {
+    /// Run this transaction against a wallet and a bag.
+    ///
+    /// Here rather than at the applier so the two sides cannot drift: a caller
+    /// that had to remember which of [`buy`]/[`sell`] matches which
+    /// [`ShopSide`] is one `match` away from paying the player for a purchase.
+    pub fn apply(&self, wallet: &mut BodyWallet, owned: &mut OwnedItems) -> ShopTx {
+        match self.side {
+            ShopSide::Buy => buy(wallet, owned, self.item, self.price),
+            ShopSide::Sell => sell(wallet, owned, self.item, self.price),
+        }
+    }
+}
 
 /// Outcome of a buy/sell attempt, for logging + (future) UI feedback.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

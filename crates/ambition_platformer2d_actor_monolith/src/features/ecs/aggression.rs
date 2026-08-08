@@ -142,10 +142,72 @@ pub const CHALLENGE_GRACE_S: f32 = 2.0;
 /// because the victim-side damage system is gated off during dialog, the player's
 /// post-hit i-frame never got set, so the actor's body-contact FX streamed every
 /// frame with no separation. The grace gives the player a chance to move away.
+/// ⚠ **rollback state, and it was not** — `<<challenge>>` inserted it from
+/// `Update` while [`tick_pending_challenges`] removes it in the sim schedule. A
+/// rewind restored the simulation to before the removal and left the removal
+/// standing, which is the `InventoryRestored` latch failure in another domain:
+/// the flag that says work is done outlives the work. It rewinds now, and the
+/// insert is a simulation decision like every other.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct PendingChallenge {
     pub challenger: Option<Entity>,
     pub grace: f32,
+}
+
+impl bevy::ecs::entity::MapEntities for PendingChallenge {
+    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
+        if let Some(challenger) = self.challenger.as_mut() {
+            *challenger = mapper.get_mapped(*challenger);
+        }
+    }
+}
+
+/// **A conversation asked for a fight, by stable identity.**
+///
+/// ⛔ **`<<challenge>>` used to INSERT [`PendingChallenge`] from `Update`**,
+/// which is two defects at once: a structural write into the simulation from
+/// outside it, and an entity handle captured on the presentation side of a
+/// boundary that remaps handles. The `SimId` routing is the one
+/// [`crate::features::BrainCommand`] already uses, and for the same stated
+/// reason — *"so the runtime switch is deterministic and snapshot-safe"*.
+#[derive(Message, Clone, Debug, PartialEq, Eq)]
+pub struct ChallengeRequested {
+    /// The body being challenged.
+    pub target: ambition_platformer2d_shared_tangle::sim_id::SimId,
+    /// Who challenged it. `None` when nobody in the world did.
+    pub challenger: Option<ambition_platformer2d_shared_tangle::sim_id::SimId>,
+}
+
+/// **Arm a challenge the narrative asked for.** (sim)
+///
+/// ARMS rather than flips: the player is still in the dialog box (and likely
+/// overlapping the NPC) when `<<challenge>>` fires, so
+/// [`tick_pending_challenges`] emits the actual stimulus only after the box
+/// closes and the grace elapses. See [`PendingChallenge`].
+pub fn arm_requested_challenges(
+    mut requests: MessageReader<ChallengeRequested>,
+    bodies: Query<(Entity, &ambition_platformer2d_shared_tangle::sim_id::SimId)>,
+    mut commands: Commands,
+) {
+    for request in requests.read() {
+        let entity_of = |wanted: &ambition_platformer2d_shared_tangle::sim_id::SimId| {
+            bodies
+                .iter()
+                .find(|(_, id)| *id == wanted)
+                .map(|(entity, _)| entity)
+        };
+        let Some(target) = entity_of(&request.target) else {
+            warn!(
+                target: "ambition_platformer2d_actor_monolith::features::aggression",
+                "challenge for {} names no live body; ignoring", request.target,
+            );
+            continue;
+        };
+        commands.entity(target).insert(PendingChallenge {
+            challenger: request.challenger.as_ref().and_then(entity_of),
+            grace: CHALLENGE_GRACE_S,
+        });
+    }
 }
 
 /// Count down each armed [`PendingChallenge`] and, once its grace elapses, emit the

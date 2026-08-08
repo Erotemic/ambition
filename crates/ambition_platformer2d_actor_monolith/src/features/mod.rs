@@ -139,16 +139,17 @@ pub use ecs::actor_tuning::{ActorTuning, CharacterBrainSpec, CharacterBrainTempl
 pub use ecs::{
     advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
-    apply_spawn_actor_requests, apply_summon_effects, boss_anim_state_for, boss_is_cleared,
-    boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs, collect_ecs_pickups,
-    damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes, dissolve_settled_grudges,
-    drive_boss_animators, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
-    ecs_boss_animation_frame_sample, ecs_breakable_state, ecs_chest_opened,
-    ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
-    enforce_mount_rider_link, fan_out_limb_intents, integrate_boss_bodies, integrate_sim_bodies,
-    interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
-    project_boss_attack_state_from_move, rebuild_feature_ecs_world_overlay,
-    reconcile_autonomous_actors, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
+    apply_spawn_actor_requests, apply_summon_effects, arm_requested_challenges,
+    boss_anim_state_for, boss_is_cleared, boss_spawn_hurtboxes, can_damage,
+    clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands, derive_boss_sprite_metrics,
+    derive_pogo_target_volumes, dissolve_settled_grudges, drive_boss_animators,
+    ecs_boss_anim_state, ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
+    ecs_breakable_state, ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
+    ecs_hit_event_hits_breakable, enforce_mount_rider_link, fan_out_limb_intents,
+    integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
+    magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move,
+    rebuild_feature_ecs_world_overlay, reconcile_autonomous_actors,
+    refresh_body_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, route_boss_strikes_to_limbs,
     select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
     spawn_room_feature_entities_from_plan, steer_mount_from_rider,
@@ -160,7 +161,7 @@ pub use ecs::{
     update_ecs_bosses, update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards,
     ActorConstructionContext, ActorSteering, BossClusterQueryData, BossClusterRef,
     BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef, CanPilot,
-    ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
+    ChallengeRequested, ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
     FeatureWorldOverlaySet, FriendlyFire, HazardFeature, HazardTickSet, HeldItem, Hitbox,
     HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime, Limb, LimbIntents, LimbRig,
     LimbRouteState, LimbSlot, Mass, MountClass, MountDeathImpact, MountDied,
@@ -200,6 +201,19 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
         app.add_systems(
             sim,
             (
+                // **What the narrative asked the simulation to do**, applied
+                // here rather than by the Yarn command that asked. Each of these
+                // used to be a presentation-side write into rollback state or
+                // into a channel the host clears on rollback; the ledger hands
+                // them over on the tick they were stamped for. See
+                // `crate::conversation::ledger`.
+                //
+                // ⚠ ARMING a challenge is first, so the grace that
+                // `tick_pending_challenges` counts down starts on the tick the
+                // narrative asked for it rather than the one after.
+                ecs::arm_requested_challenges,
+                crate::items::narrative::apply_item_grants,
+                crate::items::narrative::apply_shop_transactions,
                 bus::apply_flag_effects,
                 bus::apply_quest_effects,
                 bus::apply_switch_effects,
@@ -742,9 +756,22 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // was TOLD is how the replay reaches a different answer. The plugin
         // installs the ledger, its release at the head of the sim frame, and the
         // prune that ages a record out once its tick can never be replayed.
-        app.add_plugins(crate::conversation::NarrativeInputPlugin::<
-            crate::conversation::ConversationEnded,
-        >::default());
+        //
+        // ⚠ **one per payload, and the list IS the classification** — the
+        // counterpart to the table in `crate::dialog::yarn_bindings`. A
+        // gameplay-bearing Yarn command has a ledger here or it has no replay
+        // story; a presentation-facing one must NOT be here, because deferring
+        // a sound to a simulation tick would delay it for no reason. Content
+        // registers its own vocabulary the same way, so this names no content.
+        app.add_plugins((
+            crate::conversation::NarrativeInputPlugin::<crate::conversation::ConversationEnded>::default(),
+            crate::conversation::NarrativeInputPlugin::<ambition_combat::events::SetFlagRequested>::default(),
+            crate::conversation::NarrativeInputPlugin::<crate::features::ChallengeRequested>::default(),
+            crate::conversation::NarrativeInputPlugin::<crate::features::BrainCommand>::default(),
+            crate::conversation::NarrativeInputPlugin::<crate::features::ReleaseProvocation>::default(),
+            crate::conversation::NarrativeInputPlugin::<ambition_items::ItemGrantRequested>::default(),
+            crate::conversation::NarrativeInputPlugin::<ambition_items::shop::ShopTransactionRequested>::default(),
+        ));
         // The TWO presentation halves of the seam: one projects the box from the
         // authority (and detaches from it), one observes the runner finishing and
         // records it for the simulation. Neither runs in the sim schedule, which

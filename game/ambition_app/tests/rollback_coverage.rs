@@ -1235,10 +1235,13 @@ const RESOURCE_WAIVED: &[(&str, &str)] = &[
         "::cut_rope::arena::CutRopeBossArenaState",
         "per-frame mirror of the FallingHazard entity, rebuilt each frame",
     ),
-    (
-        "::cut_rope::PendingCutRopeRoomReplay",
-        "dialog-flow latch consumed by the room-reset flow, presentation-gated",
-    ),
+    // ⛔ `::cut_rope::PendingCutRopeRoomReplay` USED TO BE WAIVED HERE as a
+    // "dialog-flow latch … presentation-gated", and the waiver was answering the
+    // wrong question. It is a latch that BRIDGES TICKS: the choice is made while
+    // the last line is on screen and the reset fires whenever the player
+    // dismisses it. It is written and cleared by the simulation now and gated on
+    // the conversation authority rather than on `DialogState`, so it is
+    // registered rather than excused.
     // ── The SHIPPED composition's categories (2026-08-03) ────────────────────
     //
     // The sandbox sweep never saw these: it boots `Platformer2dSimHarness`, and

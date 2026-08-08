@@ -53,11 +53,11 @@ pub(crate) use brain_builders::enemy_default_brain;
 pub use brain_builders::project_authored_fighter_ladder;
 mod brain_effects;
 pub mod chests;
-pub mod dormancy;
 mod damage;
 pub mod damage_apply;
 mod damage_drops;
 mod damage_predicates;
+pub mod dormancy;
 pub mod effect_bus;
 mod encounter_rewards;
 #[cfg(test)]
@@ -97,7 +97,8 @@ pub use actors::{
     LimbRig, LimbRouteState, LimbSlot, MomentumMotion, MotionModel,
 };
 pub use aggression::{
-    apply_actor_stimuli, tick_pending_challenges, PendingChallenge, CHALLENGE_GRACE_S,
+    apply_actor_stimuli, arm_requested_challenges, tick_pending_challenges, ChallengeRequested,
+    PendingChallenge, CHALLENGE_GRACE_S,
 };
 pub use anim_helpers::{
     advance_actor_anim_overlays, boss_anim_state_for, ecs_boss_anim_state,

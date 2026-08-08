@@ -21,6 +21,23 @@ const OWNER: &str = "ambition_platformer2d_runtime";
 /// Register everything the items domain needs rewound.
 pub(in crate::rollback) fn register(app: &mut App) {
     app.rollback_resource_clone::<ambition_items::OwnedItems>(OWNER, "resource.owned_items");
+    // **What a merchant conversation agreed to**, and what one gave away.
+    //
+    // ⛔ **both used to be a direct mutation of `OwnedItems` from `Update`** —
+    // the Yarn command system, on the presentation side of the boundary,
+    // writing the rollback resource registered right above. A rewind restored
+    // the bag and nothing re-ran the command, because the Yarn runner is not
+    // rewound and does not execute between resimulated ticks. Cleared on load
+    // like every other released narrative fact: the resimulated tick is handed
+    // the request again by the ledger rather than remembering it.
+    app.clear_message_on_rollback::<ambition_items::ItemGrantRequested>(
+        OWNER,
+        "message.item_grant_requested",
+    );
+    app.clear_message_on_rollback::<ambition_items::shop::ShopTransactionRequested>(
+        OWNER,
+        "message.shop_transaction_requested",
+    );
     // ⛔ **the LATCH rewinds with the state it guards, 2026-08-04.**
     // `InventoryRestored` is an "already applied" flag, and all three things it
     // coordinates were rollback-registered while it was not:

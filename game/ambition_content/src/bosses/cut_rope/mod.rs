@@ -14,6 +14,10 @@ use bevy::sprite::Anchor;
 /// This boss's claim on the encounter layer's priority music tier.
 const CUT_ROPE_MUSIC_OWNER: &str = "cut_rope_boss";
 
+use ambition_characters::brain::ActorControl;
+use ambition_characters::brain::BossAttackState;
+use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
+use ambition_encounter::EncounterParticipants;
 use ambition_platformer2d_actor_monolith::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterEffect, EncounterScript, EncounterTrigger,
     ReleaseOnDeath,
@@ -25,10 +29,6 @@ use ambition_platformer2d_actor_monolith::features::{
     PogoTargetVolumes, PostBossNpc,
 };
 use ambition_platformer2d_actor_monolith::rooms::{PropSpec, RoomSet};
-use ambition_characters::brain::ActorControl;
-use ambition_characters::brain::BossAttackState;
-use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
-use ambition_encounter::EncounterParticipants;
 use ambition_platformer2d_core::config::world_to_bevy;
 use ambition_platformer2d_core::{self as ae, AabbExt};
 use ambition_render::rendering::PropVisual;
@@ -65,9 +65,27 @@ pub fn is_cut_rope_boss(id: &str) -> bool {
 // `session::reset::RoomReplayRequested` — content emits it; no
 // content-named replay message exists.
 
-/// Latched by the Yarn `<<reset_cut_rope_room>>` command once the player chooses the
-/// replay option. The actual room reset intentionally waits until the dialog UI has
-/// closed, so the final NPC line remains visible until the player dismisses it.
+/// **The player chose "try again".**
+///
+/// Recorded in the conversation's narrative ledger by `<<reset_cut_rope_room>>`
+/// and released to the simulation on the tick it was stamped for. ⛔ the command
+/// used to set [`PendingCutRopeRoomReplay`] directly from `Update`, which is a
+/// presentation-side write into state a sim system consumes: a rewind restored
+/// the latch and nothing re-set it, because the Yarn runner does not run between
+/// resimulated ticks.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CutRopeRoomReplayRequested;
+
+/// Latched once the player chooses the replay option. The actual room reset
+/// intentionally waits until the conversation is over, so the final NPC line
+/// remains visible until the player dismisses it.
+///
+/// ⚠ **rollback state, because it BRIDGES TICKS.** The choice is made while the
+/// last line is still on screen and the reset happens whenever the player
+/// dismisses it — an unbounded number of ticks later. A latch that spans ticks
+/// and is written by the simulation is simulation state; leaving it out meant a
+/// rewind across the choice kept the intention and a rewind across the reset
+/// lost it.
 #[derive(Resource, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PendingCutRopeRoomReplay {
     pub requested: bool,
@@ -130,21 +148,36 @@ impl CutRopeHeavyObjectCycle {
     }
 }
 
-/// Convert a pending dialogue-authored replay into the ENGINE's generic
+/// Convert a dialogue-authored replay choice into the ENGINE's generic
 /// [`RoomReplayRequested`](ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested)
-/// after the final dialog line has been dismissed. Registered in the engine's
+/// once the conversation is over. Registered in the engine's
 /// `ContentDialogueFollowupSet` slot by `AmbitionBossContentPlugin`, so the
 /// host never names this system.
-pub fn emit_cut_rope_room_replay_after_dialogue_closes(
-    dialogue: Res<ambition_dialog::DialogState>,
+///
+/// ⛔ **it used to wait on `DialogState::active()`, and that is a sim system
+/// branching on presentation state that rollback does not rewind.** On a
+/// resimulated tick the read returned the LIVE text box rather than the box as
+/// it was, so a replay could fire on a tick the original run had not — which for
+/// a ROOM RESET means despawning the world on a tick the other timeline did not.
+/// The conversation authority answers the same question deterministically, and
+/// it is the thing the box is a projection of.
+pub fn emit_cut_rope_room_replay_after_the_conversation_ends(
+    conversation: Res<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
+    mut chosen: MessageReader<CutRopeRoomReplayRequested>,
     mut pending: ResMut<PendingCutRopeRoomReplay>,
-    mut replay_requests: MessageWriter<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>,
+    mut replay_requests: MessageWriter<
+        ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested,
+    >,
 ) {
-    if !pending.requested || dialogue.active() {
+    if chosen.read().next().is_some() {
+        pending.requested = true;
+    }
+    if !pending.requested || conversation.is_live() {
         return;
     }
     pending.requested = false;
-    replay_requests.write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested);
+    replay_requests
+        .write(ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested);
 }
 
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
@@ -198,11 +231,15 @@ pub fn reset_cut_rope_boss_attempt(
 /// the host consumer never names cut-rope. Both read the same message the frame
 /// it is emitted (independent reader cursors).
 pub fn reset_cut_rope_attempt_on_replay(
-    mut replay_requests: MessageReader<ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested>,
+    mut replay_requests: MessageReader<
+        ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested,
+    >,
     registry: Res<BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_persistence::save::AmbitionGameSave>>,
     mut music: Option<
-        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<ambition_encounter::EncounterMusicRequest>,
+        ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
+            ambition_encounter::EncounterMusicRequest,
+        >,
     >,
     bosses: Query<&BossConfig>,
 ) {

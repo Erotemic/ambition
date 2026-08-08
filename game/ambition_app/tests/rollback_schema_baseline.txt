@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v15
+ggrs-rollback-schema-v16
 actor.action_set	component-clone	ambition_characters::brain::action_set::ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.aggression	component-clone-cursor	ambition_combat::components::actors::ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 actor.anim_override	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -38,6 +38,7 @@ actor.move_playback	component-clone-resolved	ambition_combat::moveset::MovePlayb
 actor.moveset	component-clone	ambition_combat::moveset::ActorMoveset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.moveset_melee	component-clone	ambition_combat::moveset::MovesetMelee	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.moveset_ranged	component-clone	ambition_characters::brain::MovesetRanged	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.pending_challenge	component-clone	ambition_platformer2d_actor_monolith::features::ecs::aggression::PendingChallenge	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 actor.perception	component-canonical	ambition_platformer2d_actor_monolith::features::ecs::perception::Perception	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.perception_memory	component-canonical	ambition_platformer2d_actor_monolith::features::ecs::perception::PerceptionMemory	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.persona_baseline	component-clone	ambition_platformer2d_actor_monolith::avatar::starting_character::PersonaBaseline	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -122,6 +123,7 @@ content.minima_trap_state	component-canonical	ambition_content::bosses::specials
 content.mode_collapse_state	component-canonical	ambition_content::bosses::specials::mode_collapse::ModeCollapseState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.overfit_volley_state	component-canonical	ambition_content::bosses::specials::gradient_sentinel::OverfitVolleyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 content.overflow_state	component-canonical	ambition_content::bosses::specials::overflow_flood::OverflowState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.pending_cut_rope_room_replay	resource-clone-custom-checksum	ambition_content::bosses::cut_rope::PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends
 content.saddle_point_state	component-clone-cursor	ambition_content::bosses::specials::gradient_sentinel::SaddlePointState	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
 content.sanic_act_state	component-clone	ambition_demo_sanic::SanicActState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.sanic_ball_dash	component-clone	ambition_demo_sanic::ball_dash::BallDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -242,6 +244,7 @@ map.limb_member	entity-mapping	ambition_platformer2d_actor_monolith::features::e
 map.limb_rig	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbRig	bevy_ggrs LoadWorld entity-reference remapping
 map.mount_slot	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs::mount::MountSlot	bevy_ggrs LoadWorld entity-reference remapping
 map.move_playback	entity-mapping	ambition_combat::moveset::MovePlayback	bevy_ggrs LoadWorld entity-reference remapping
+map.pending_challenge	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs::aggression::PendingChallenge	bevy_ggrs LoadWorld entity-reference remapping
 map.projectile_owner	entity-mapping	ambition_projectiles::entity::ProjectileOwner	bevy_ggrs LoadWorld entity-reference remapping
 map.resource.active_conversation	resource-entity-mapping	ambition_platformer2d_actor_monolith::conversation::authority::ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
 map.resource.encounter_registry	resource-entity-mapping	ambition_encounter::registry::EncounterRegistry	bevy_ggrs LoadWorld resource entity-reference remapping
@@ -260,9 +263,12 @@ message.actor_stimulus	message-clear	ambition_combat::events::ActorStimulus	clea
 message.body_knocked_out	message-clear	ambition_combat::stocks::BodyKnockedOut	clear abandoned-future message buffer in LoadWorld::Mapping
 message.body_teleported	message-clear	ambition_portal2d::transit::BodyTeleported	clear abandoned-future message buffer in LoadWorld::Mapping
 message.brain_command	message-clear	ambition_platformer2d_actor_monolith::features::brain_command::BrainCommand	clear abandoned-future message buffer in LoadWorld::Mapping
+message.challenge_requested	message-clear	ambition_platformer2d_actor_monolith::features::ecs::aggression::ChallengeRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clear_portals	message-clear	ambition_portal2d::messages::ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_reset_request	message-clear	ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_scale_request	message-clear	ambition_platformer2d_actor_monolith::time::time_control::ClockScaleRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.conversation_ended	message-clear	ambition_platformer2d_actor_monolith::conversation::ui_bridge::ConversationEnded	clear abandoned-future message buffer in LoadWorld::Mapping
+message.cut_rope_room_replay_requested	message-clear	ambition_content::bosses::cut_rope::CutRopeRoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.debris_burst	message-clear	ambition_vfx::vfx::DebrisBurstMessage	clear abandoned-future message buffer in LoadWorld::Mapping
 message.drop_portal_gun	message-clear	ambition_portal2d::messages::DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
 message.effect_request	message-clear	ambition_vfx::EffectRequest	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -276,6 +282,7 @@ message.fireworks_request	message-clear	ambition_vfx::vfx::FireworksRequest	clea
 message.gameplay_banner_requested	message-clear	ambition_combat::events::GameplayBannerRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.gameplay_sfx_requested	message-clear	ambition_combat::events::GameplaySfxRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.hit_event	message-clear	ambition_combat::events::HitEvent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.item_grant_requested	message-clear	ambition_items::ItemGrantRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.light_emission_request_2d	message-clear	ambition_relativity2d::signals::LightEmissionRequest2d	clear abandoned-future message buffer in LoadWorld::Mapping
 message.mount_died	message-clear	ambition_platformer2d_actor_monolith::features::ecs::mount::MountDied	clear abandoned-future message buffer in LoadWorld::Mapping
 message.move_event	message-clear	ambition_combat::moveset::MoveEventMessage	clear abandoned-future message buffer in LoadWorld::Mapping
@@ -303,6 +310,7 @@ message.room_replay_requested	message-clear	ambition_platformer2d_actor_monolith
 message.room_transition_requested	message-clear	ambition_platformer2d_world::rooms::room_graph::RoomTransitionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.sandbox_reset_committed	message-clear	ambition_platformer2d_actor_monolith::session::reset::NewGameResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
 message.set_flag_requested	message-clear	ambition_combat::events::SetFlagRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.shop_transaction_requested	message-clear	ambition_items::shop::ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.signal_arrival_2d	message-clear	ambition_relativity2d::signals::SignalArrival2d	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_actor_request	message-clear	ambition_platformer2d_actor_monolith::features::ecs::spawn_actors::SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.spawn_projectile	message-clear	ambition_projectiles::spawn_message::SpawnProjectile	clear abandoned-future message buffer in LoadWorld::Mapping

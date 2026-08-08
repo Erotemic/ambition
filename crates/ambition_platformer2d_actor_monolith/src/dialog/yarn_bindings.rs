@@ -29,6 +29,42 @@
 //! markup can authored dialogue invoke" surface lives here as a
 //! single source of truth. Couples to `AmbitionGameSave`, `SfxMessage`,
 //! `GameplayEffect`, etc. — that's the bridge's whole job.
+//!
+//! ## ⛔ Which side of the rollback boundary each command is on
+//!
+//! **This table is the classification, and it is the point of the module.**
+//! Every command here runs in `Update`, driven by a Yarn runner that is content
+//! executing in real time — outside the simulation and outside rollback,
+//! deliberately, because rewinding a typewriter would stutter the box. A command
+//! that reaches from there into the simulation has no replay story: the channels
+//! it writes are cleared on rollback, the resources it mutates are restored, and
+//! the runner does not execute between resimulated ticks to produce either
+//! again.
+//!
+//! So a **gameplay-bearing** command records a request in the conversation's
+//! [`NarrativeInputLedger`](crate::conversation::NarrativeInputLedger) and a
+//! simulation system applies it on the tick it was stamped for. A
+//! **presentation-facing** command writes its own channel exactly as before,
+//! because its consumer is already downstream of the effect quarantine's release
+//! and nothing about it is authoritative.
+//!
+//! | command | crosses into the sim? | how |
+//! |---|---|---|
+//! | `set_flag` / `clear_flag` | yes — save flags drive quests and content | ledger → `SetFlagRequested` |
+//! | `challenge` | yes — it starts a fight | ledger → `ChallengeRequested` |
+//! | `use_brain` / `restore_brain` | yes — it changes autonomous behaviour | ledger → `BrainCommand` / `ReleaseProvocation` |
+//! | `give_item` | yes — `OwnedItems` is rollback state | ledger → `ItemGrantRequested` |
+//! | `buy_item` / `sell_item` | yes — so is `BodyWallet` | ledger → `ShopTransactionRequested` |
+//! | `play_sfx` | **no** — reaches the speakers, never read back | its own channel |
+//! | `spawn_fireworks` | **no** — a visual sequence | its own channel |
+//! | `spawn_chest`, `camera_zoom` | **no** — logged stubs with no consumer | nothing |
+//!
+//! ⚠ **persistent metadata is a third category and stays where it is.** Dialogue
+//! visit counts and quest advancement are SAVE state, not simulation state: they
+//! are not rewound, nothing in the sim branches on them within a tick, and
+//! routing them through a rollback-shaped seam would be machinery for a
+//! guarantee they do not need. Classified deliberately rather than by whichever
+//! side happens to call them.
 
 //! The generic binding machinery (the [`YarnStateMirror`] shape, the
 //! [`ambition_dialog::YarnPresentationCue`], the [`ambition_dialog::YarnContentBindings`] installer seam, and
@@ -48,6 +84,9 @@ use crate::features::SetFlagRequested;
 use ambition_persistence::save::AmbitionGameSave;
 
 use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
+
+use crate::conversation::NarrativeInputWriter;
+use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 /// The host installer: registers Ambition's generic Yarn vocabulary
 /// (commands + functions) on the runner. Pushed into
@@ -128,15 +167,15 @@ pub fn refresh_yarn_state_mirror(
 // to a typed message channel.
 
 /// `<<set_flag "id">>` — flip a save flag to `true`. Routes through
-/// `GameplayEffect::SetFlag` so existing consumers (quest advance
+/// `SetFlagRequested` so existing consumers (quest advance
 /// listeners, save mirror) see the change.
-pub fn cmd_set_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRequested>) {
-    effects.write(SetFlagRequested { id: name, on: true });
+pub fn cmd_set_flag(In(name): In<String>, mut narrative: NarrativeInputWriter<SetFlagRequested>) {
+    narrative.write(SetFlagRequested { id: name, on: true });
 }
 
 /// `<<clear_flag "id">>` — flip a save flag to `false`.
-pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRequested>) {
-    effects.write(SetFlagRequested {
+pub fn cmd_clear_flag(In(name): In<String>, mut narrative: NarrativeInputWriter<SetFlagRequested>) {
+    narrative.write(SetFlagRequested {
         id: name,
         on: false,
     });
@@ -156,23 +195,30 @@ pub fn cmd_challenge(
     // gameplay consequence read a resource that rollback does not rewind.
     conversation: Res<crate::conversation::ActiveConversation>,
     player: Query<Entity, With<crate::actor::PlayerEntity>>,
-    mut commands: Commands,
+    sim_ids: Query<&SimId>,
+    mut narrative: NarrativeInputWriter<crate::features::ChallengeRequested>,
 ) {
     let Some(actor) = conversation.talker() else {
         warn!("<<challenge>>: no speaker entity in dialogue context; ignoring");
         return;
     };
-    // ARM a deferred challenge rather than flipping hostile this instant: the
-    // player is still in the dialog box (and likely overlapping the NPC) when
-    // `<<challenge>>` fires. `tick_pending_challenges` emits the actual
-    // `Challenged` stimulus only after the box closes + a grace period, so the
-    // fight doesn't start point-blank-in-the-body. See [`PendingChallenge`].
-    commands
-        .entity(actor)
-        .insert(crate::features::PendingChallenge {
-            challenger: player.iter().next(),
-            grace: crate::features::CHALLENGE_GRACE_S,
-        });
+    let Ok(target) = sim_ids.get(actor) else {
+        warn!("<<challenge>>: speaker has no SimId; ignoring");
+        return;
+    };
+    // ⛔ **this used to INSERT `PendingChallenge` from here**, which is a
+    // structural write into the simulation from a system that is not part of it,
+    // carrying an `Entity` across a boundary that remaps entity handles. The
+    // simulation arms it now (`arm_requested_challenges`), which is also what
+    // makes the armed state rollback state — see `PendingChallenge`.
+    narrative.write(crate::features::ChallengeRequested {
+        target: target.clone(),
+        challenger: player
+            .iter()
+            .next()
+            .and_then(|player| sim_ids.get(player).ok())
+            .cloned(),
+    });
 }
 
 /// `<<use_brain "preset">>` — switch the NPC the player is talking to onto an
@@ -186,8 +232,8 @@ pub fn cmd_challenge(
 pub fn cmd_use_brain(
     In(preset): In<String>,
     conversation: Res<crate::conversation::ActiveConversation>,
-    sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-    mut commands: MessageWriter<crate::features::BrainCommand>,
+    sim_ids: Query<&SimId>,
+    mut narrative: NarrativeInputWriter<crate::features::BrainCommand>,
 ) {
     let Some(actor) = conversation.talker() else {
         warn!("<<use_brain>>: no speaker entity in dialogue context; ignoring");
@@ -197,7 +243,7 @@ pub fn cmd_use_brain(
         warn!("<<use_brain>>: speaker has no SimId; ignoring");
         return;
     };
-    commands.write(crate::features::BrainCommand::use_preset(
+    narrative.write(crate::features::BrainCommand::use_preset(
         sim_id.clone(),
         ambition_characters::actor::character_catalog::BrainPresetId::new(preset),
     ));
@@ -211,8 +257,8 @@ pub fn cmd_use_brain(
 /// would restore only the brain/source, leaving a provoked NPC still hostile.)
 pub fn cmd_restore_brain(
     conversation: Res<crate::conversation::ActiveConversation>,
-    sim_ids: Query<&ambition_platformer2d_shared_tangle::sim_id::SimId>,
-    mut commands: MessageWriter<crate::features::ReleaseProvocation>,
+    sim_ids: Query<&SimId>,
+    mut narrative: NarrativeInputWriter<crate::features::ReleaseProvocation>,
 ) {
     let Some(actor) = conversation.talker() else {
         warn!("<<restore_brain>>: no speaker entity in dialogue context; ignoring");
@@ -222,7 +268,7 @@ pub fn cmd_restore_brain(
         warn!("<<restore_brain>>: speaker has no SimId; ignoring");
         return;
     };
-    commands.write(crate::features::ReleaseProvocation::new(sim_id.clone()));
+    narrative.write(crate::features::ReleaseProvocation::new(sim_id.clone()));
 }
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding
@@ -232,20 +278,16 @@ pub fn cmd_restore_brain(
 /// and ignored.
 pub fn cmd_give_item(
     In((kind, count)): In<(String, f32)>,
-    mut owned: ResMut<crate::items::OwnedItems>,
+    mut narrative: NarrativeInputWriter<crate::items::ItemGrantRequested>,
 ) {
-    let granted = apply_give_item(&mut owned, &kind, count);
-    if granted == 0 {
+    let Some(request) = item_grant(&kind, count) else {
         warn!(
             target: "ambition_platformer2d_actor_monolith::dialog::yarn",
             "give_item: ignored kind={kind:?} count={count} (unknown item or non-positive count)",
         );
-    } else {
-        info!(
-            target: "ambition_platformer2d_actor_monolith::dialog::yarn",
-            "give_item: granted {granted}x {kind:?}",
-        );
-    }
+        return;
+    };
+    narrative.write(request);
 }
 
 /// `<<buy_item "id" price>>` — spend `price` from the player's wallet and grant
@@ -253,65 +295,53 @@ pub fn cmd_give_item(
 /// a purchase choice; the affordability check lives in [`crate::shop::buy`].
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
-    mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<
-        &mut ambition_characters::actor::BodyWallet,
-        With<crate::actor::PrimaryPlayer>,
-    >,
+    mut narrative: NarrativeInputWriter<crate::shop::ShopTransactionRequested>,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_platformer2d_actor_monolith::dialog::yarn", "buy_item: unknown item {id:?}");
         return;
     };
-    let Ok(mut wallet) = wallets.single_mut() else {
-        return;
-    };
-    let outcome = crate::shop::buy(&mut wallet, &mut owned, item, price.max(0.0) as i32);
-    info!(
-        target: "ambition_platformer2d_actor_monolith::dialog::yarn",
-        "buy_item: {id:?} @ {price} -> {outcome:?} (balance now {})", wallet.balance,
-    );
+    narrative.write(crate::shop::ShopTransactionRequested {
+        item,
+        price: price.max(0.0) as i32,
+        side: crate::shop::ShopSide::Buy,
+    });
 }
 
 /// `<<sell_item "id" price>>` — remove one of the catalog item and credit the
 /// wallet if the player owns it. See [`crate::shop::sell`].
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
-    mut owned: ResMut<crate::items::OwnedItems>,
-    mut wallets: Query<
-        &mut ambition_characters::actor::BodyWallet,
-        With<crate::actor::PrimaryPlayer>,
-    >,
+    mut narrative: NarrativeInputWriter<crate::shop::ShopTransactionRequested>,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_platformer2d_actor_monolith::dialog::yarn", "sell_item: unknown item {id:?}");
         return;
     };
-    let Ok(mut wallet) = wallets.single_mut() else {
-        return;
-    };
-    let outcome = crate::shop::sell(&mut wallet, &mut owned, item, price.max(0.0) as i32);
-    info!(
-        target: "ambition_platformer2d_actor_monolith::dialog::yarn",
-        "sell_item: {id:?} @ {price} -> {outcome:?} (balance now {})", wallet.balance,
-    );
+    narrative.write(crate::shop::ShopTransactionRequested {
+        item,
+        price: price.max(0.0) as i32,
+        side: crate::shop::ShopSide::Sell,
+    });
 }
 
-/// Pure core of [`cmd_give_item`]: add `count` (floored to a
-/// non-negative integer) of the named item to the bag. Returns the
-/// number actually granted (0 when the kind is unknown or the count
-/// is non-positive) so the command can log and tests can assert
-/// without a live `World`.
-fn apply_give_item(owned: &mut crate::items::OwnedItems, kind: &str, count: f32) -> u32 {
+/// Pure core of [`cmd_give_item`]: resolve a loosely-spelled kind and a Yarn
+/// `f32` count into the grant the simulation should apply, or `None` when the
+/// kind is unknown or the count is non-positive.
+///
+/// ⚠ **the flooring lives here, not at the applier.** Yarn arithmetic is
+/// `f32`-typed, so "1.9 potions" is a parsing question and belongs on the side
+/// that speaks Yarn. An applier that re-decided it would be a second place for
+/// the rule to live and drift.
+fn item_grant(kind: &str, count: f32) -> Option<crate::items::ItemGrantRequested> {
     if count <= 0.0 {
-        return 0;
+        return None;
     }
-    let Some(item) = crate::items::Item::from_dialog_id(kind) else {
-        return 0;
-    };
-    let n = count as u32;
-    owned.grant(item, n);
-    n
+    let item = crate::items::Item::from_dialog_id(kind)?;
+    Some(crate::items::ItemGrantRequested {
+        item,
+        count: count as u32,
+    })
 }
 
 /// `<<spawn_chest "id">>` — spawn a reward chest by id. Logged-stub;
@@ -525,24 +555,30 @@ mod tests {
     }
 
     #[test]
-    fn apply_give_item_adds_known_kinds_and_ignores_bad_input() {
-        let mut bag = OwnedItems::default();
+    fn item_grant_resolves_known_kinds_and_ignores_bad_input() {
         // The legacy "health_potion" / "healthpotion" alias resolves to HealthCell.
-        assert_eq!(bag.count(Item::HealthCell), 0);
+        assert_eq!(
+            item_grant("health_potion", 2.0),
+            Some(crate::items::ItemGrantRequested {
+                item: Item::HealthCell,
+                count: 2
+            })
+        );
+        // Loose spelling resolves, and the count is FLOORED — Yarn arithmetic is
+        // f32-typed, so "1.9 potions" is a real thing an author can write.
+        assert_eq!(
+            item_grant("HealthPotion", 1.9),
+            Some(crate::items::ItemGrantRequested {
+                item: Item::HealthCell,
+                count: 1
+            })
+        );
 
-        // Loose spelling resolves and grants.
-        assert_eq!(apply_give_item(&mut bag, "health_potion", 2.0), 2);
-        assert_eq!(bag.count(Item::HealthCell), 2);
-        // Granting stacks (floored count) — consumables stack.
-        assert_eq!(apply_give_item(&mut bag, "HealthPotion", 1.9), 1);
-        assert_eq!(bag.count(Item::HealthCell), 3);
-
-        // Unknown kind grants nothing.
-        assert_eq!(apply_give_item(&mut bag, "definitely_not_an_item", 5.0), 0);
-        // Non-positive count grants nothing.
-        assert_eq!(apply_give_item(&mut bag, "DataChip", 0.0), 0);
-        assert_eq!(apply_give_item(&mut bag, "DataChip", -3.0), 0);
-        assert_eq!(bag.count(Item::DataChip), 0);
+        // Unknown kind asks for nothing.
+        assert_eq!(item_grant("definitely_not_an_item", 5.0), None);
+        // Non-positive count asks for nothing.
+        assert_eq!(item_grant("DataChip", 0.0), None);
+        assert_eq!(item_grant("DataChip", -3.0), None);
     }
 
     #[test]

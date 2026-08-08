@@ -577,6 +577,24 @@ impl Default for OwnedItems {
     }
 }
 
+/// **Somebody asked for an item to be granted; the simulation grants it.**
+///
+/// ⛔ **`<<give_item>>` used to mutate [`OwnedItems`] directly**, from a
+/// presentation system, against a rollback-registered resource. A rewind
+/// restored the bag and did not re-run the command — the Yarn runner is not
+/// rewound, and it does not execute between resimulated ticks — so the grant
+/// silently un-happened, leaving the authoritative inventory disagreeing with
+/// the history the player had already been shown.
+///
+/// The `count` is already floored to a whole number here: parsing "1.9 potions"
+/// is the command's business, and an applier that had to re-decide it would be a
+/// second place for the rule to live.
+#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemGrantRequested {
+    pub item: Item,
+    pub count: u32,
+}
+
 impl OwnedItems {
     pub fn count(&self, item: Item) -> u32 {
         self.counts[item.index()]

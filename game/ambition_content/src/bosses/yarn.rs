@@ -15,7 +15,7 @@ use ambition_combat::SetFlagRequested;
 use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
 use ambition_persistence::save::AmbitionGameSave;
 
-use super::{CutRopeHeavyObjectCycle, PendingCutRopeRoomReplay};
+use super::CutRopeHeavyObjectCycle;
 
 /// Mirror-extras key for the heavy object currently hanging in the
 /// cut-rope room.
@@ -26,12 +26,16 @@ const HEAVY_OBJECT_KEY: &str = "cut_rope_heavy_object";
 /// TODO(web-open): desktop builds could optionally open the URL in the user's
 /// browser after a settings/privacy opt-in. For now the Yarn line presents the
 /// link and this command records the choice as a save flag for traceability.
-pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<SetFlagRequested>) {
+pub fn cmd_watch_cut_rope_video(
+    mut narrative: ambition_platformer2d_actor_monolith::conversation::NarrativeInputWriter<
+        SetFlagRequested,
+    >,
+) {
     info!(
         target: "ambition_platformer2d_actor_monolith::dialog::yarn",
         "watch_cut_rope_video: TODO optional browser launch for https://www.youtube.com/watch?v=ucLGm27DDL0",
     );
-    effects.write(SetFlagRequested {
+    narrative.write(SetFlagRequested {
         id: "smirking_behemoth_video_suggested".into(),
         on: true,
     });
@@ -40,14 +44,18 @@ pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<SetFlagRequested>) {
 /// `<<reset_cut_rope_room>>` — replay the Smirking Behemoth room from the start.
 ///
 /// The command is reached by Yarn immediately after the NPC's final line is
-/// presented, before the player has dismissed that line. Latch a pending replay
-/// resource instead of resetting immediately; the simulation emits the real
-/// replay request once `DialogState` is inactive.
-pub fn cmd_reset_cut_rope_room(mut pending: ResMut<PendingCutRopeRoomReplay>) {
-    pending.requested = true;
+/// presented, before the player has dismissed that line. Record the CHOICE
+/// against the live conversation; the simulation latches it and emits the real
+/// replay request once that conversation is over.
+pub fn cmd_reset_cut_rope_room(
+    mut narrative: ambition_platformer2d_actor_monolith::conversation::NarrativeInputWriter<
+        super::CutRopeRoomReplayRequested,
+    >,
+) {
+    narrative.write(super::CutRopeRoomReplayRequested);
     info!(
         target: "ambition_platformer2d_actor_monolith::dialog::yarn",
-        "reset_cut_rope_room: latched Smirking Behemoth room replay until dialogue closes",
+        "reset_cut_rope_room: recorded a Smirking Behemoth room replay for this conversation",
     );
 }
 

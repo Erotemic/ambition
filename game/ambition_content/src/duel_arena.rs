@@ -26,7 +26,9 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 
 use ambition_platformer2d_actor_monolith::combat::components::ActorFaction;
-use ambition_platformer2d_actor_monolith::features::{RoomContentStagingRegistry, SpawnActorKind, SpawnActorRequest};
+use ambition_platformer2d_actor_monolith::features::{
+    RoomContentStagingRegistry, SpawnActorKind, SpawnActorRequest,
+};
 
 /// Feature id of the duel's PCA fighter.
 pub const DUEL_PCA_ID: &str = "duel_pca";
@@ -122,7 +124,13 @@ fn cmd_duel(
         &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
         ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
     >,
-    mut spawns: MessageWriter<SpawnActorRequest>,
+    // ⛔ **not `MessageWriter`.** Spawning two fighters is a simulation act, and
+    // `SpawnActorRequest` is cleared on rollback by a host that will not re-run
+    // this presentation-side command — so a rewind past the duel deleted the
+    // request and the duellists never appeared.
+    mut spawns: ambition_platformer2d_actor_monolith::conversation::NarrativeInputWriter<
+        SpawnActorRequest,
+    >,
 ) {
     let Some(kin) = player.iter().next() else {
         warn!("<<duel>>: no player to center the duel on; ignoring");

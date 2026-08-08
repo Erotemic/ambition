@@ -370,6 +370,24 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "map.riding_on",
     );
+    // **An ARMED challenge, counting down to a fight.**
+    //
+    // ⛔ **it was not rollback state, and it is the `InventoryRestored` failure
+    // in another domain.** `tick_pending_challenges` REMOVES it in the sim
+    // schedule; a rewind past that removal restored everything the removal
+    // implied and left the removal itself standing, so the fight the narrative
+    // armed was quietly disarmed by a rollback. The insert is a simulation
+    // decision now (`arm_requested_challenges`), so it belongs in the snapshot
+    // like every other simulation decision.
+    app.rollback_component_clone_entity_set::<ambition_platformer2d_actor_monolith::features::PendingChallenge>(
+        OWNER,
+        "actor.pending_challenge",
+        |pending| pending.challenger.into_iter().collect(),
+    );
+    app.rollback_map_entities::<ambition_platformer2d_actor_monolith::features::PendingChallenge>(
+        OWNER,
+        "map.pending_challenge",
+    );
     app.rollback_component_clone::<ambition_platformer2d_actor_monolith::features::BossOverrides>(
         OWNER,
         "boss.overrides",
@@ -725,6 +743,15 @@ pub(in crate::rollback) fn register(app: &mut App) {
     app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::BrainCommand>(
         OWNER,
         "message.brain_command",
+    );
+    // **What a conversation asked the simulation for**, released by the
+    // narrative ledger at the head of the tick it was stamped for. Cleared on
+    // load for the same reason as every other released fact: the resimulated
+    // tick is handed it again from the ledger rather than remembering it from
+    // the branch that was abandoned.
+    app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::ChallengeRequested>(
+        OWNER,
+        "message.challenge_requested",
     );
     app.clear_message_on_rollback::<ambition_platformer2d_actor_monolith::features::ReleaseProvocation>(
         OWNER,

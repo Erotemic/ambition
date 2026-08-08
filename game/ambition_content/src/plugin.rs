@@ -140,15 +140,13 @@ impl Plugin for AmbitionContentPlugin {
         // that builds brains, and a fighter is constructed at the leaf of a spawn
         // tree whose roots include a thrown ability. `project_authored_fighter_ladder`
         // applies it at insertion.
-        app.insert_resource(
-            ambition_characters::brain::fighter::AuthoredFighterLadder(
-                ambition_characters::brain::fighter::content_schema::lowered_fighter_brain_ladder(
-                    crate::pack::prepared(),
-                )
-                .cloned()
-                .expect("the fighter-ladder schema lowers its rungs for every pack that compiles"),
-            ),
-        );
+        app.insert_resource(ambition_characters::brain::fighter::AuthoredFighterLadder(
+            ambition_characters::brain::fighter::content_schema::lowered_fighter_brain_ladder(
+                crate::pack::prepared(),
+            )
+            .cloned()
+            .expect("the fighter-ladder schema lowers its rungs for every pack that compiles"),
+        ));
 
         // The spectator duel is the arena room's registered content staging:
         // part of room construction (every path — activation, transition,
@@ -167,6 +165,16 @@ impl Plugin for AmbitionContentPlugin {
                 .installers
                 .push(super::duel_arena::install_duel_yarn_binding);
         }
+        // `<<duel>>` stages two fighters, which is a simulation act reached from
+        // the non-rewound Yarn runner — so the request is stamped against the
+        // conversation and released on the tick it belongs to. Registered
+        // unconditionally: the ledger and its release are `ui`-free, and only
+        // the command that fills it is behind the runner.
+        app.add_plugins(
+            ambition_platformer2d_actor_monolith::conversation::NarrativeInputPlugin::<
+                ambition_platformer2d_actor_monolith::features::SpawnActorRequest,
+            >::default(),
+        );
 
         app.add_plugins(super::quests::AmbitionQuestContentPlugin);
         app.add_plugins(super::bosses::AmbitionBossContentPlugin);

@@ -25,12 +25,13 @@ pub mod yarn;
 
 pub use banter::{install_boss_banter, tick_boss_idle_barks};
 pub use cut_rope::{
-    detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_dialogue_closes, is_cut_rope_boss,
-    reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,
+    detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_the_conversation_ends,
+    is_cut_rope_boss, reset_cut_rope_attempt_on_replay, reset_cut_rope_boss_arena_on_room_reset,
     reset_cut_rope_boss_attempt, setup_cut_rope_encounter, spawn_cut_rope_victory_npc,
     sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor, CutRopeBossArenaState,
-    CutRopeHeavyObjectCycle, PendingCutRopeRoomReplay, SmirkingBehemothVictoryNpc,
-    CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID, CUT_ROPE_VICTORY_NPC_ID,
+    CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested, PendingCutRopeRoomReplay,
+    SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
+    CUT_ROPE_VICTORY_NPC_ID,
 };
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
@@ -293,6 +294,16 @@ impl Plugin for AmbitionBossContentPlugin {
         app.init_resource::<CutRopeBossArenaState>();
         app.init_resource::<CutRopeHeavyObjectCycle>();
         app.init_resource::<PendingCutRopeRoomReplay>();
+        // **Content's own narrative vocabulary**, registered the same way the
+        // engine registers its own — which is the whole reason the ledger is
+        // generic. `<<reset_cut_rope_room>>` is a gameplay-bearing choice
+        // (a room replay despawns the world), so it crosses the boundary with a
+        // stamped record rather than by setting a resource from `Update`.
+        app.add_plugins(
+            ambition_platformer2d_actor_monolith::conversation::NarrativeInputPlugin::<
+                CutRopeRoomReplayRequested,
+            >::default(),
+        );
         // The cycle advances on room reset, and a reset can be sim-triggered
         // (`NewGameResetRequested` is rollback state) — so a rewound reset that
         // replays must not advance the choice twice. Copy-cheap; registered
@@ -302,6 +313,30 @@ impl Plugin for AmbitionBossContentPlugin {
             app.rollback_resource_clone::<CutRopeHeavyObjectCycle>(
                 "ambition_content::bosses",
                 "content.cut_rope_heavy_object_cycle",
+            );
+            // ⛔ **the replay latch was WAIVED as "presentation-gated", and it
+            // spans ticks.** The choice is recorded while the last line is still
+            // on screen; the reset fires whenever the player dismisses it, an
+            // unbounded number of ticks later. A rewind across the choice kept
+            // the intention and a rewind across the reset lost it. Now that both
+            // ends are simulation systems, it is ordinary sim state.
+            //
+            // ⭐ **CHECKSUMMED, unlike the `InventoryRestored` latch it looks
+            // like.** That one is set in literal `Update`, outside resimulation,
+            // so projecting it into the checksum made it disagree with the ticks
+            // the checksum covers. Both ends of this one are simulation systems
+            // now, so it moves in step — and a one-bool resource whose only
+            // probe is PRESENCE is probed by nothing at all, because presence is
+            // `true` from `init_resource` onwards.
+            app.rollback_resource_clone_checksum::<PendingCutRopeRoomReplay>(
+                "ambition_content::bosses",
+                "content.pending_cut_rope_room_replay",
+                "the dialogue-authored room replay, latched until the conversation ends",
+                |pending| u64::from(pending.requested),
+            );
+            app.clear_message_on_rollback::<CutRopeRoomReplayRequested>(
+                "ambition_content::bosses",
+                "message.cut_rope_room_replay_requested",
             );
         }
 
@@ -321,7 +356,7 @@ impl Plugin for AmbitionBossContentPlugin {
             (
                 reset_cut_rope_boss_arena_on_room_reset
                     .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentRoomResetSet),
-                emit_cut_rope_room_replay_after_dialogue_closes
+                emit_cut_rope_room_replay_after_the_conversation_ends
                     .in_set(ambition_platformer2d_actor_monolith::session::reset::ContentDialogueFollowupSet),
                 // The content half of an in-place room replay: clear the cut-rope
                 // boss's per-attempt state. The host anchors this slot before its
@@ -457,7 +492,6 @@ mod apple_rain_animation_key_tests {
              Update the fold's row in the 72h queue rather than just this test"
         );
     }
-
 }
 
 #[cfg(test)]
@@ -474,10 +508,11 @@ mod encounter_book_tests {
     /// ignored it and reparsed, which is the exact defect being closed.
     #[test]
     fn the_encounter_book_the_runtime_loads_is_the_one_the_compiler_merged() {
-        let book = ambition_characters::brain::boss_pattern::content_schema::lowered_boss_encounters(
-            crate::pack::prepared(),
-        )
-        .expect("the encounter schema merges its files for every pack that compiles");
+        let book =
+            ambition_characters::brain::boss_pattern::content_schema::lowered_boss_encounters(
+                crate::pack::prepared(),
+            )
+            .expect("the encounter schema merges its files for every pack that compiles");
         assert_eq!(
             book.len(),
             super::BOSS_ENCOUNTERS.len(),

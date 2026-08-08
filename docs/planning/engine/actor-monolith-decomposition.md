@@ -293,6 +293,37 @@ successful carve."* The right unit is the DIALOGUE domain — `conversation` +
 is the third `features` reference, which is the same blocker every other
 low-count row has.
 
+### C4b measured — the dialogue "domain" is two things with different owners
+
+Measured 2026-08-08 after `features` was unpinned (`69b53c42d`). The remaining
+`ambition_dialog` namers inside the monolith are `dialog/` and `conversation/`,
+and they do not belong in the same place:
+
+- **`dialog/` is ONE file** — `yarn_bindings.rs`, 609 lines — and its inward
+  edges are `items` (13), `features` (9), `shop` (8), `conversation` (5),
+  `actor` (4), `save` (2). ⭐ **its own module docstring already says what it
+  is**: *"This module keeps only what is genuinely Ambition-side."* It is NAMED
+  GAME VOCABULARY (`<<give_item>>`, `<<buy_item>>`, `<<challenge>>`), and
+  `ambition_dialog` already exposes the `YarnContentBindings` installer seam
+  precisely so a host pushes that from outside. `game/ambition_content` already
+  pushes two installers through it (the duel, the cut-rope commands). **Its
+  owner is the content crate, not a dialogue crate.**
+- **`conversation/` is the reusable half** — the authority, the ledger, the
+  hold, the break rule, the opening port — and it keeps the `ambition_dialog`
+  edge wherever it lives, because that is the runtime it projects onto.
+
+⛔ **so "lift the dialogue domain as one crate" was the wrong shape**, and
+measuring is what showed it. There is no single dialogue domain in the monolith:
+there is a reusable continuity authority and a pile of this game's Yarn verbs.
+
+⚠ **and neither move satisfies the scorecard above on its own.** Moving
+`yarn_bindings.rs` to `ambition_content` removes no Cargo edge (conversation
+still names `ambition_dialog`) and shrinks no consumer footprint. It is an
+OWNERSHIP correction — named content leaving an engine crate, which this
+repository cares about independently — and it should be recorded as that rather
+than banked as a decomposition win. The measured win still requires both halves
+to leave, and `conversation` leaving is what removes the edge.
+
 ## Candidate extraction waves
 
 These are **priority hypotheses**, not a promise to create one crate per row.

@@ -1630,3 +1630,49 @@ while a cold build is CORE-bound, and on a rebuild halving the frontend is worth
 **5.2x** what halving codegen is. A rebuild is what an agent pays before one test
 runs — so shortening the chain helps the loop that is actually paid, which is a
 better argument for decomposition than the 1% line figure above.
+
+---
+
+## Should an AUTHORED id be unspellable by a runtime spawn? (raised 2026-08-08)
+
+**The last of four identity-contract violations found on one day**, and the only
+one that cannot be fixed by construction without a decision.
+
+`netcode.md` N3.1 has said since 2026-07-06 that a dynamically-spawned entity
+takes `(spawner SimId, per-spawner counter)`. Three sites diverged: drops minted
+nothing, the construction executor minted an id with no counter, and
+`spawn_split_offspring` mints **`SimId::placement(..)` — the AUTHORED namespace —
+for a runtime spawn.** The first two are now impossible (`#[require(SimIdCounter)]`
+welds the pair). The third is not.
+
+**Why it is not a checker.** Measured: **70 `SimId::placement` call sites**, and
+nearly all are correct — the construction executor naming authored features, room
+staging, probes, tests. The distinction a checker needs is semantic: *was this
+entity authored in a room spec, or minted while the sim ran?* Only the call site
+knows, and a contract that cannot tell them apart is noise that teaches a reader
+to waive it.
+
+**The decision:**
+
+* **(a) Make it unspellable.** `SimId::placement` takes a `PlacementId` carried
+  out of the room spec instead of a `&str` anyone can hand it. A runtime spawner
+  then cannot name an authored id **because it has nothing to name it with** —
+  the same shape as `#[require(SimIdCounter)]`, which is what made the counter
+  half stop being a thing to remember. ⚠ **~70 call sites**, and the newtype has
+  to be threaded out of the room spec to each one. A real refactor, not a slice.
+* **(b) Fix the one site and leave the rule to prose.** `spawn_split_offspring`
+  starts minting `SimId::spawned(parent, n)` like everything else, and the
+  namespace rule stays a convention `SimId::as_str`'s doc already states. Cheap,
+  and the next runtime spawner can make the same mistake.
+* **(c) Leave it.** ⚠ **defensible today**: the offspring are claimed as staged
+  actors, so nothing is player-visible. It is an identity-provenance defect with
+  no current symptom.
+
+⚠ **what makes this yours rather than mine**: (a) is the only answer that matches
+how the other three were fixed — make the wrong thing unrepresentable — and it is
+also the only one with a cost you would notice. **The three cheap fixes today all
+turned out to be one-line consequences of a type; this one is not.**
+
+⭐ **what does NOT need the answer**: the counter half is already closed, and the
+whole contract is now written up in [`engine/netcode.md`](engine/netcode.md) with
+the three violations and which are impossible now.

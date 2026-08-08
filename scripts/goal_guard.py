@@ -396,6 +396,16 @@ def record_check_cost(
     already excludes.** A recorder that dirties the tree would fail the very run
     it measures — the instrument becoming the defect.
 
+    ⛔ **AND THE MOTIVATING NUMBER FOR THIS WAS OVERSTATED — corrected here
+    rather than quietly dropped.** The claim was that the same 688-unit build
+    measured 833.9s and 540.0s "because of this guard". `dev/compile_units.jsonl`
+    records contention per build, and the 540.0s run has
+    `build_foreign_cargo_peak: 0` — it was CLEAN. The 833.9s run predates
+    contention stamping, so it has no such field. **The cause of that difference
+    is not established**, and attributing it to the guard was a story that fit.
+    The reason to stamp contention stands on its own: a duration without one
+    cannot be compared to anything.
+
     ⚠ **`foreign_builds` is a POINT-IN-TIME sample and is noisy** — build
     processes come and go between samples, and a zero here has been verified
     against `/proc` to be real rather than a broken counter. `load_before` /

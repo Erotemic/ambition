@@ -343,3 +343,35 @@ point** — but it is the point that says the ratchet is guarding something real
 `awaiting-maintainer-decision.md`: the win is **not** uniform. A prose turn pays
 156 s it cannot possibly need. A floor-crate turn pays 397 s it absolutely does.
 **Any subset rule must be driven by what changed, never by a fixed budget.**
+
+## ⛔ Correction — the "35% contention swing" was never established
+
+Repeated several times on 2026-08-08, including into `goal_guard.py`'s own
+docstring: *"the same 688-unit build measured 833.9 s and 540.0 s, and the
+biggest contender is the goal guard."*
+
+`dev/compile_units.jsonl` stamps contention per build — `build_load_mean`,
+`build_load_max`, **`build_foreign_cargo_peak`**, `build_cores`. Reading them:
+
+| build | dirty | wall | load mean | foreign cargo peak |
+|---|---|---|---|---|
+| `dev/cold` | 688 | 833.9 s | — | — (predates stamping) |
+| `dev/first-party` | 688 | **540.0 s** | 9.22 | **0** |
+| `release/cold` | 541 | 987.1 s | 16.26 | 1 |
+| `release/first-party` | 57 | 360.1 s | 14.65 | 1 |
+
+⭐ **the 540 s run was CLEAN — zero foreign cargo — and the 833.9 s run has no
+contention data at all.** So the two cannot be compared on contention, and the
+cause of the difference is **not established**. Attributing it to the goal guard
+was a story that fit the numbers I had in front of me.
+
+⭐ **and the load figures mean something different from what I assumed.** Load
+14–16 on 8 cores with a foreign peak of 1 is the build's OWN parallelism — cargo
+running ~8 rustc processes, each internally threaded for codegen. That is normal
+for a real build, not interference. It does still explain why a unit's in-build
+duration exceeds its alone-on-the-machine duration (§5), which was the part that
+was right.
+
+⚠ **the lesson is the cheap one**: the data that settles this was in the ledger
+the whole time, under field names I had already read. I speculated about
+contention for hours while `build_foreign_cargo_peak` sat in every row.

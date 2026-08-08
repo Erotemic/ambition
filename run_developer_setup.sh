@@ -35,6 +35,12 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
+# Host packages go through the shared helper so that a checkout which is
+# already provisioned never invokes sudo at all. See scripts/lib/apt_ensure.sh.
+APT_ENSURE_LOG_PREFIX='[developer-setup]'
+# shellcheck source=scripts/lib/apt_ensure.sh
+. "$repo_root/scripts/lib/apt_ensure.sh"
+
 skip_system_packages=0
 skip_rust=0
 skip_submodules=0
@@ -93,16 +99,12 @@ have() {
     command -v "$1" >/dev/null 2>&1
 }
 
-pkg_installed() {
-    dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q "install ok installed"
-}
-
 install_system_packages() {
     if [ "$skip_system_packages" -eq 1 ]; then
         log "skipping host package install"
         return 0
     fi
-    if ! have apt-get || ! have dpkg-query; then
+    if ! apt_ensure_supported; then
         warn "apt-get/dpkg-query not found; skipping Debian/Ubuntu package install"
         return 0
     fi
@@ -179,47 +181,13 @@ install_system_packages() {
         log "skipping profiling toolchain packages (--no-profile)"
     fi
 
-    local -a missing_pkgs=()
-    local -a missing_optional=()
-    local pkg
-
-    for pkg in "${required_pkgs[@]}"; do
-        pkg_installed "$pkg" || missing_pkgs+=("$pkg")
-    done
-    for pkg in "${optional_pkgs[@]}"; do
-        pkg_installed "$pkg" || missing_optional+=("$pkg")
-    done
-
-    if [ "${#missing_pkgs[@]}" -eq 0 ] && [ "${#missing_optional[@]}" -eq 0 ]; then
-        log "host packages already installed"
-        return 0
-    fi
-
-    local -a apt_cmd
-    if [ "$(id -u)" -eq 0 ]; then
-        apt_cmd=(apt-get)
-    elif have sudo; then
-        apt_cmd=(sudo apt-get)
-    else
-        fatal "host packages are missing and sudo is unavailable: ${missing_pkgs[*]}"
-    fi
-
-    log "refreshing apt metadata"
-    "${apt_cmd[@]}" update
-
-    if [ "${#missing_pkgs[@]}" -gt 0 ]; then
-        log "installing required host packages: ${missing_pkgs[*]}"
-        DEBIAN_FRONTEND=noninteractive "${apt_cmd[@]}" install -y "${missing_pkgs[@]}"
-    fi
-
-    for pkg in "${missing_optional[@]}"; do
-        if apt-cache show "$pkg" >/dev/null 2>&1; then
-            log "installing optional host package: $pkg"
-            DEBIAN_FRONTEND=noninteractive "${apt_cmd[@]}" install -y "$pkg"
-        else
-            warn "$pkg is unavailable from the configured apt repositories"
-        fi
-    done
+    # Required first, and fatal on failure: nothing downstream builds without
+    # these. Optional packages are attempted separately and never escalate on
+    # their own, so a headless box that will never carry the Tracy GUI
+    # libraries does not prompt for a password on every single setup run.
+    apt_ensure "${required_pkgs[@]}" \
+        || fatal "required host packages could not be installed (see the apt output above)"
+    apt_ensure_optional "${optional_pkgs[@]}"
 }
 
 ensure_rust() {
@@ -648,7 +616,6 @@ check_desktop_target() {
     cargo check --locked -p ambition_app --bin ambition_game_bin
 }
 
-check_cargo_target_dir_is_reachable
 # ⛔ **The committed `target-dir` is one user's home, and a bare `cargo build` by
 # anyone else dies with `Permission denied` at a path they never chose.**
 #
@@ -686,6 +653,7 @@ check_cargo_target_dir_is_reachable() {
     log "   is absolute in the first place (virtiofs cache separation)."
 }
 
+check_cargo_target_dir_is_reachable
 install_system_packages
 ensure_rust
 ensure_profiling_tools

@@ -41,6 +41,10 @@ log() { printf '[web-prereq] %s\n' "$*"; }
 warn() { printf '[web-prereq] warning: %s\n' "$*" >&2; }
 fatal() { printf '[web-prereq] error: %s\n' "$*" >&2; exit 1; }
 
+APT_ENSURE_LOG_PREFIX='[web-prereq]'
+# shellcheck source=lib/apt_ensure.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/apt_ensure.sh"
+
 DOCTOR=false
 WITH_SERVER=false
 SKIP_APT=false
@@ -165,52 +169,6 @@ run_doctor() {
         echo "[web-prereq] doctor found missing prerequisites"
     fi
     return "$missing"
-}
-
-# Idempotent apt installer. Skips sudo + `apt update` + `apt install`
-# entirely when every requested package is already installed, so a
-# re-run of this script on a setup machine is a fast no-op.
-#
-# Environment:
-#   UPDATE   non-empty value runs `apt update` before installing any
-#            missing packages. Skipped when nothing is missing.
-apt_ensure() {
-    if ! command -v dpkg-query >/dev/null 2>&1; then
-        warn "dpkg-query not found; skipping host package install ($*)"
-        return 0
-    fi
-    if ! command -v apt-get >/dev/null 2>&1; then
-        warn "apt-get not found; skipping host package install ($*)"
-        return 0
-    fi
-    local args=("$@")
-    local miss_pkgs=()
-    local hit_pkgs=()
-    local _sudo=""
-    if [[ "$(whoami)" != "root" ]]; then
-        _sudo="sudo "
-    fi
-    local pkg
-    for pkg in "${args[@]}"; do
-        if dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
-            hit_pkgs+=("$pkg")
-        else
-            miss_pkgs+=("$pkg")
-        fi
-    done
-
-    if [[ "${#hit_pkgs[@]}" -gt 0 ]]; then
-        log "apt: already installed: ${hit_pkgs[*]}"
-    fi
-    if [[ "${#miss_pkgs[@]}" -eq 0 ]]; then
-        log "apt: no missing packages; skipping sudo apt-get"
-        return 0
-    fi
-    log "apt: installing missing packages: ${miss_pkgs[*]}"
-    if [[ -n "${UPDATE:-}" ]]; then
-        ${_sudo}apt-get update -y
-    fi
-    DEBIAN_FRONTEND=noninteractive ${_sudo}apt-get install -y "${miss_pkgs[@]}"
 }
 
 install_host_packages() {

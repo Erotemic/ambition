@@ -836,6 +836,10 @@ fn realize_seat(
                 // a KO runs the exploration economy — a bounty coin, a heart, an
                 // in-place respawn timer — none of which an arena has a use for.
                 crate::combat::components::RulesetOwnsDeath,
+                // And it is IN the fight — which is a different fact from whose
+                // business its death is, and the one every other combat system
+                // actually wants. Removed again when the fighter is eliminated.
+                crate::combat::components::ActiveCombatant,
                 // WITHOUT THIS THE FIGHTER IS INVISIBLE: the authored render pass
                 // only spawns visuals for `spec.enemy_spawns`, so a directly
                 // staged actor would render nothing.

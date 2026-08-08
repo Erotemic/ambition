@@ -35,6 +35,9 @@ pub fn apply_actor_stimuli(
             &mut ActorIntent,
             &mut ActorCooldowns,
             super::actor_clusters::ActorClusterQueryData,
+            // Is this body in a fight? A provoked body's read model is rebuilt
+            // here, and a combatant keeps its attack state through the rebuild.
+            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -60,6 +63,7 @@ pub fn apply_actor_stimuli(
             mut intent,
             mut cooldowns,
             mut cq,
+            in_a_fight,
         )) = actors.get_mut(actor)
         else {
             continue;
@@ -122,6 +126,7 @@ pub fn apply_actor_stimuli(
         sync_actor_components_from_cluster(
             &em,
             *disposition,
+            in_a_fight,
             &mut identity,
             &mut combat,
             &mut intent,

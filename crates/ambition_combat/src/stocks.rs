@@ -105,6 +105,14 @@ pub fn spend_fighter_stocks(
         let remaining = stocks.remaining;
         if eliminated {
             commands.entity(knockout.body).try_insert(FighterEliminated);
+            // ⭐ **and it stops being IN the fight**, which is the other half of
+            // being out of it. The body stays standing until a ruleset removes
+            // it, so without this it goes on holding attack state and a place on
+            // the anti-clump board — a corpse crowding the fighters who are still
+            // playing. See `ActiveCombatant`.
+            commands
+                .entity(knockout.body)
+                .remove::<crate::components::ActiveCombatant>();
         } else if let Ok(mut health) = meters.get_mut(knockout.body) {
             // A fighter coming back comes back FRESH. The meter is the reason
             // it was knocked off the stage; carrying it into the next stock

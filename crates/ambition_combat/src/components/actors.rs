@@ -64,6 +64,35 @@ impl ActorIdentity {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RulesetOwnsDeath;
 
+/// **This body is IN a fight right now.**
+///
+/// ⛔ **the engine had TWO proxies for this fact and neither one was it.**
+/// [`CombatStanding::of`] asked [`RulesetOwnsDeath`] — which answers *"who owns
+/// the consequence when this body dies"*, a different question that happens to
+/// correlate in today's Smash implementation. The stand-down guard in
+/// `reconcile_autonomous_actors` asked `Has<MatchSeat>` — a SEATING fact, and an
+/// eliminated fighter keeps its seat. So a body could be damageable and standing
+/// down, or standing on the slot board with no stocks left, and no single thing
+/// could be asked whether it was fighting.
+///
+/// ⭐ **presence is the whole component**, and its lifecycle is the two moments
+/// that already decide this: a ruleset attaches it when it enters a body into a
+/// fight (`prepared_match`'s seating, beside [`RulesetOwnsDeath`]) and removes it
+/// when the body is out (`spend_fighter_stocks`, with
+/// [`FighterEliminated`](crate::stocks::FighterEliminated)). Any other ruleset —
+/// rounds, lives, a training mode, a pre-round freeze — has the same two moments.
+///
+/// ⚠ **it is not a disposition and must never become one.**
+/// [`ActorDisposition`] is an AI/SOCIAL fact — does this actor chase and attack —
+/// and the state a platform fighter is in for most of a round is the one that was
+/// inexpressible while those were one field:
+///
+/// ```text
+/// active combatant · human controlled · socially non-hostile · damageable · able to attack
+/// ```
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ActiveCombatant;
+
 /// **How many times this fighter may still be killed.** (Smash Siblings)
 ///
 /// Jon's spec for the mode is *"3 stock, no items"* and *"when you lose your
@@ -176,18 +205,30 @@ pub enum CombatStanding {
 }
 
 impl CombatStanding {
-    /// `ruleset_owns_death` is the `RulesetOwnsDeath` marker a match seat wears:
-    /// the one place that says "this body's death belongs to a ruleset, not to
-    /// the world's exploration economy", which is the same decision as "this
-    /// body is in a fight".
-    pub fn of(disposition: ActorDisposition, ruleset_owns_death: bool) -> Self {
-        if ruleset_owns_death {
+    /// `active_combatant` is the [`ActiveCombatant`] marker.
+    ///
+    /// ⛔ **this used to ask `RulesetOwnsDeath`, and the two are different
+    /// questions.** That one answers *"who owns the consequence when this body
+    /// dies"*; it correlates with being in a fight in today's Smash
+    /// implementation and does not mean it. A pre-round fighter, an eliminated
+    /// one, a training dummy and a ruleset-managed body outside an active phase
+    /// each break the correlation, and the eliminated case is reachable today —
+    /// the body stays standing until a ruleset removes it.
+    pub fn of(disposition: ActorDisposition, active_combatant: bool) -> Self {
+        if active_combatant {
             Self::Combatant
         } else if disposition.is_hostile() {
             Self::Hostile
         } else {
             Self::Bystander
         }
+    }
+
+    /// Whether this body is in a fight — so it keeps its attack state, holds its
+    /// place on the anti-clump board, and does not stand down for want of an AI
+    /// target it was never going to have.
+    pub fn is_combatant(self) -> bool {
+        matches!(self, Self::Combatant)
     }
 
     /// Whether a landed hit takes health, rather than provoking.
@@ -912,5 +953,67 @@ mod combat_kit_tests {
             "a capability was lost crossing the durable baseline; the brain would \
              stop using it while the moveset still contained it"
         );
+    }
+
+    /// **The state a platform fighter is in for most of a round.**
+    ///
+    /// ⛔ it was inexpressible while one field answered two questions: a fighter
+    /// somebody entered into a match had to be socially `Hostile` merely to be
+    /// damageable, and AI targeting hunts live foes for a BRAIN — so two
+    /// human-driven fighters held no target, both stood down to `Peaceful`, and
+    /// neither could hurt the other.
+    #[test]
+    fn a_combatant_is_damageable_however_its_brain_feels() {
+        let standing = CombatStanding::of(ActorDisposition::Peaceful, true);
+        assert_eq!(standing, CombatStanding::Combatant);
+        assert!(
+            standing.takes_damage(),
+            "a human-driven fighter is socially hostile toward nobody and is \
+             still in the fight"
+        );
+        assert!(
+            standing.is_combatant(),
+            "and it keeps its attack state — a body that can be hit and cannot \
+             swing is half a fighter"
+        );
+    }
+
+    /// **A town NPC is unchanged**, which is the half that must not regress:
+    /// striking one PROVOKES it rather than hurting it.
+    #[test]
+    fn a_bystander_is_provoked_rather_than_hurt() {
+        let standing = CombatStanding::of(ActorDisposition::Peaceful, false);
+        assert_eq!(standing, CombatStanding::Bystander);
+        assert!(!standing.takes_damage());
+    }
+
+    /// **Being in a fight is not the same fact as whose business your death
+    /// is**, and the eliminated fighter is where the two come apart.
+    ///
+    /// ⚠ `CombatStanding::of` used to be handed `RulesetOwnsDeath`. An
+    /// eliminated fighter still carries that marker — the match still owns its
+    /// KO — and its body stays standing until a ruleset removes it, so it went
+    /// on being a damageable combatant with no stocks left, holding attack state
+    /// and a place on the anti-clump board.
+    #[test]
+    fn an_eliminated_fighter_is_no_longer_a_combatant() {
+        // Elimination removes the participation marker and leaves death
+        // ownership alone; this is the standing that results.
+        let standing = CombatStanding::of(ActorDisposition::Peaceful, false);
+        assert_ne!(
+            standing,
+            CombatStanding::Combatant,
+            "a fighter that is OUT is not in the fight, however the match feels \
+             about its corpse"
+        );
+    }
+
+    /// **Social hostility still stands on its own**, for every AI body that
+    /// joins a fight without a ruleset putting it in one.
+    #[test]
+    fn a_hostile_body_needs_no_ruleset() {
+        let standing = CombatStanding::of(ActorDisposition::Hostile, false);
+        assert_eq!(standing, CombatStanding::Hostile);
+        assert!(standing.takes_damage());
     }
 }

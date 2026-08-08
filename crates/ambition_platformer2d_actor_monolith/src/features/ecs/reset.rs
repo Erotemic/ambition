@@ -42,10 +42,7 @@ pub fn reset_ecs_room_features(
     // dropped are both "spawned by the run, cleared with the run".
     run_spawned: Query<
         Entity,
-        bevy::prelude::Or<(
-            With<crate::features::PostBossNpc>,
-            With<SpawnedThisAttempt>,
-        )>,
+        bevy::prelude::Or<(With<crate::features::PostBossNpc>, With<SpawnedThisAttempt>)>,
     >,
     mut breakables: Query<
         (Entity, &mut BreakableFeature, Option<&mut StandTimer>),
@@ -63,6 +60,9 @@ pub fn reset_ecs_room_features(
             Option<&ActorInteraction>,
             &mut crate::features::MotionModel,
             super::actor_clusters::ActorClusterQueryData,
+            // Is this body in a fight? A room reset restores fight state, and a
+            // combatant's attack windup is part of the read model it restores.
+            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
         ),
         // Bosses are reset by the disjoint `bosses` query below. Both this
         // query (via `ActorClusterQueryData`) and the boss query take
@@ -169,6 +169,7 @@ pub fn reset_ecs_room_features(
         interaction,
         mut motion_model,
         mut cq,
+        in_a_fight,
     ) in &mut actors
     {
         // Restore authored spawn state for EVERY actor through the unified
@@ -199,6 +200,7 @@ pub fn reset_ecs_room_features(
         sync_actor_components_from_cluster(
             &em,
             *disposition,
+            in_a_fight,
             &mut identity,
             &mut combat,
             &mut intent,

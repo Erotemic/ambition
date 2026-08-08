@@ -35,6 +35,9 @@ pub fn sync_ecs_actors_with_save(
             // `npc_<id>_hostile` provoke flag.
             Option<&ActorInteraction>,
             super::actor_clusters::ActorClusterQueryData,
+            // Is this body in a fight? A loaded save restores a body's read
+            // model, and a combatant's attack state is part of it.
+            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -59,6 +62,7 @@ pub fn sync_ecs_actors_with_save(
         held_item,
         interaction,
         mut cq,
+        in_a_fight,
     ) in &mut actors
     {
         let id = cq.as_actor_mut().config.id.clone();
@@ -114,6 +118,7 @@ pub fn sync_ecs_actors_with_save(
         sync_actor_components_from_cluster(
             &em,
             *disposition,
+            in_a_fight,
             &mut identity,
             &mut combat,
             &mut intent,

@@ -23,6 +23,13 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v17 (2026-08-08): being IN a fight becomes a component of its own.**
+/// `CombatStanding` read `RulesetOwnsDeath` — whose question is whose business a
+/// body's death is — and the stand-down rule read `MatchSeat`, which an
+/// eliminated fighter keeps. `ActiveCombatant` is the one authority, and unlike
+/// the marker it replaces it is REMOVED during a match, so a v16 peer rewinding
+/// past an elimination puts back a fighter that is out and this one does not.
+/// The two would disagree about who is still playing.
 /// ⚠ **v16 (2026-08-07): every narrative fact crosses through a LEDGER, and the
 /// ledger holds more than one.** `ObservedNarrativeEnd` held exactly one record
 /// and justified it by arguing a player has to read the first conversation
@@ -77,7 +84,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 16;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 17;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

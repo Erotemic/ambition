@@ -34,6 +34,16 @@ impl SnapshotState for crate::components::RulesetOwnsDeath {
     }
 }
 
+// Presence IS the value, exactly as above — but unlike the marker above, this
+// one is REMOVED during a match (on elimination), so the presence it encodes is
+// a fact that changes rather than one fixed at seating.
+impl SnapshotState for crate::components::ActiveCombatant {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::components::ActiveCombatant)
+    }
+}
+
 // S4 — the stocks loop's own state. A stock count that is not rollback state
 // UN-SPENDS itself on a rewind: the body comes back, the count does not, and a
 // fighter can lose the same stock twice or never lose it at all. Elimination is

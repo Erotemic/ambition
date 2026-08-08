@@ -102,6 +102,15 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.ruleset_owns_death",
     );
+    // **Is this body IN a fight?** Registered beside the death-ownership marker
+    // it was standing in for, and for the same reason that one is: elimination
+    // REMOVES it, so a rewind past an elimination has to put it back or the
+    // replayed branch runs with a fighter that is out of a match it has not lost
+    // yet. See `ActiveCombatant`.
+    app.rollback_component_canonical::<ambition_combat::components::ActiveCombatant>(
+        OWNER,
+        "actor.active_combatant",
+    );
     app.rollback_component_canonical::<ambition_combat::components::ActorIntent>(
         OWNER,
         "actor.intent",

@@ -101,6 +101,10 @@ pub(crate) fn apply_actor_hit(
     // Does a RULESET own this body's death? A match fighter's KO belongs to the
     // match, not to the world's exploration economy.
     ruleset_owns_death: bool,
+    // Is this body IN a fight right now? See `ActiveCombatant` — a different
+    // question from the one above, and the one that decides whether a landed hit
+    // takes health.
+    active_combatant: bool,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
     // The body's explicit movement policy, for typed policy operations (the
     // crawler cling-break detach).
@@ -134,12 +138,15 @@ pub(crate) fn apply_actor_hit(
     // `Brain::Player` fighters hold no AI target, so both stood down and neither
     // could hurt the other.
     //
-    // ⭐ a ruleset owning this body's death is the stated decision that it is in
-    // a fight, and it outranks whatever its brain currently thinks. The
-    // provoke-before-damage behaviour a town NPC needs is unchanged, because a
-    // town NPC has no ruleset.
-    if !crate::combat::components::CombatStanding::of(disposition, ruleset_owns_death)
-        .takes_damage()
+    // ⭐ being IN a fight is the stated decision, and it outranks whatever this
+    // body's brain currently thinks. The provoke-before-damage behaviour a town
+    // NPC needs is unchanged, because a town NPC is in no fight.
+    //
+    // ⚠ **and it is `ActiveCombatant`, not `RulesetOwnsDeath`** — this asked the
+    // death-ownership marker, which correlates and does not mean the same thing.
+    // An eliminated fighter's body keeps standing, its death still belongs to
+    // the match, and it is not fighting; the correlation breaks exactly there.
+    if !crate::combat::components::CombatStanding::of(disposition, active_combatant).takes_damage()
     {
         // Body-generic post-hit i-frame — the same consume-time gate
         // `resolve_body_hit` applies to a hostile body: a body that registered

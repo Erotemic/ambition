@@ -213,9 +213,18 @@ pub fn apply_feature_hit_events(
             // `RulesetOwnsDeath`: does a RULESET own this body's death? A match
             // fighter's KO is the match's business; the world's death economy is
             // not invited.
+            //
+            // `ActiveCombatant`: is this body IN a fight right now? ⛔ **a
+            // different question, and one flag used to answer both.** Death
+            // ownership decides what happens AFTER a KO; participation decides
+            // whether a landed hit takes health at all. They correlate for a
+            // fighter mid-round and diverge the moment it is eliminated — the
+            // body stays standing, its death still belongs to the match, and it
+            // is not fighting any more.
             (
                 Option<&'static crate::combat::CombatTuning>,
                 bevy::prelude::Has<crate::combat::components::RulesetOwnsDeath>,
+                bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
             ),
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
@@ -379,7 +388,7 @@ pub fn apply_feature_hit_events(
             mut motion_model,
             wallet_shield,
             mut cq,
-            (combat_tuning, ruleset_owns_death),
+            (combat_tuning, ruleset_owns_death, active_combatant),
         ) in &mut actors
         {
             // Pre-resolved actor victim: apply ONLY to that entity.
@@ -426,6 +435,7 @@ pub fn apply_feature_hit_events(
                 actor_entity,
                 *disposition,
                 ruleset_owns_death,
+                active_combatant,
                 &mut em,
                 &mut motion_model,
                 &mut combat,
@@ -449,6 +459,7 @@ pub fn apply_feature_hit_events(
                 sync_actor_components_from_cluster(
                     &em,
                     *disposition,
+                    active_combatant,
                     &mut identity,
                     &mut combat,
                     &mut intent,

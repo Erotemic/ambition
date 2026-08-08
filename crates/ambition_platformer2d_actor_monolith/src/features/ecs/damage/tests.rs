@@ -586,11 +586,18 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
 /// could hurt the other.
 ///
 /// ⭐ the same body, struck the same way, twice: a bystander is PROVOKED, and
-/// one with a ruleset owning its death takes the blow. Nothing about its brain,
-/// its mood or its faction changed between them.
+/// one that is IN A FIGHT takes the blow. Nothing about its brain, its mood or
+/// its faction changed between them.
+///
+/// ⚠ **the authority is `ActiveCombatant`, and this test used to spawn
+/// `RulesetOwnsDeath`.** That marker answers a different question — whose
+/// business this body's death is — and it correlates with being in a fight
+/// right up until a fighter is eliminated, at which point the body keeps
+/// standing, keeps the marker, and is not fighting. The third case below is
+/// exactly that body.
 #[test]
-fn a_peaceful_body_a_ruleset_owns_takes_damage_instead_of_barking() {
-    fn strike(ruleset_owns_death: bool) -> (i32, usize) {
+fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
+    fn strike(in_a_fight: bool, ruleset_owns_death: bool) -> (i32, usize) {
         let mut app = App::new();
         app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
         app.insert_resource(crate::features::enemies::test_roster());
@@ -608,6 +615,11 @@ fn a_peaceful_body_a_ruleset_owns_takes_damage_instead_of_barking() {
             app.world_mut()
                 .entity_mut(body)
                 .insert(crate::combat::components::RulesetOwnsDeath);
+        }
+        if in_a_fight {
+            app.world_mut()
+                .entity_mut(body)
+                .insert(crate::combat::components::ActiveCombatant);
         }
         let event_volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
         app.world_mut().write_message(HitEvent {
@@ -628,7 +640,7 @@ fn a_peaceful_body_a_ruleset_owns_takes_damage_instead_of_barking() {
         )
     }
 
-    let (bystander_hp, bystander_bubbles) = strike(false);
+    let (bystander_hp, bystander_bubbles) = strike(false, false);
     assert_eq!(
         bystander_hp, 9,
         "a town NPC must still be PROVOKED rather than hurt — the \
@@ -636,16 +648,30 @@ fn a_peaceful_body_a_ruleset_owns_takes_damage_instead_of_barking() {
     );
     assert_eq!(bystander_bubbles, 1, "and it barks about it");
 
-    let (combatant_hp, combatant_bubbles) = strike(true);
+    let (combatant_hp, combatant_bubbles) = strike(true, true);
     assert!(
         combatant_hp < 9,
-        "a body whose death a RULESET owns is in a fight, and a fighter that \
-         cannot be hurt cannot lose: {combatant_hp}"
+        "a body IN a fight takes the blow, and a fighter that cannot be hurt \
+         cannot lose: {combatant_hp}"
     );
     assert_eq!(
         combatant_bubbles, 0,
         "and it does not bark a provocation line at somebody it is fighting"
     );
+
+    // ⛔ **THE POISON, and it is the eliminated fighter.** Death ownership
+    // without participation: the match still owns this body's KO and the body is
+    // out of the fight. Asking `RulesetOwnsDeath` — which is what this test used
+    // to do — reports it as a live combatant, so a corpse with no stocks left
+    // goes on absorbing hits, holding attack state, and standing on the
+    // anti-clump board among the fighters who are still playing.
+    let (eliminated_hp, eliminated_bubbles) = strike(false, true);
+    assert_eq!(
+        eliminated_hp, 9,
+        "a fighter that is OUT is not in the fight, however the match feels \
+         about its corpse: {eliminated_hp}"
+    );
+    assert_eq!(eliminated_bubbles, 1);
 }
 
 #[test]

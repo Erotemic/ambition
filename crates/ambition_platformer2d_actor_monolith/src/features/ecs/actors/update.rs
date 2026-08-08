@@ -240,11 +240,20 @@ pub fn tick_actor_brains(
                 // prop) has no kit, and an empty kit is the honest answer.
                 Option<&crate::combat::moveset::ActorMoveset>,
             ),
-            // **IS THIS BODY IN A MATCH?** Read for the stand-down rule below,
-            // which pacifies a hostile actor that holds no combat target — and a
-            // peaceful body cannot be damaged. A match declares its fighters
-            // combatants; that is not a fact targeting is allowed to revoke.
-            bevy::prelude::Has<crate::character_runtime::MatchSeat>,
+            // **IS THIS BODY IN A FIGHT?** Read for the stand-down rule below,
+            // which pacifies a hostile actor that holds no combat target, and
+            // for the read-model rebuild that would otherwise drop a
+            // combatant's attack windup every frame. A ruleset declares its
+            // fighters combatants; that is not a fact AI targeting is allowed to
+            // revoke.
+            //
+            // ⛔ **this was `Has<MatchSeat>`, and a seat is not participation.**
+            // An eliminated fighter keeps its seat — the body stays standing
+            // until a ruleset removes it — so it went on holding attack state and
+            // a place on the anti-clump board with no stocks left. It was also
+            // the SECOND proxy for a fact `apply_actor_hit` was reading off a
+            // third component; one authority answers all of them now.
+            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
         ),
         // The player carries the unified `BodyKinematics` too, and
         // `player_query` above reads it; exclude the player here so this
@@ -385,16 +394,22 @@ pub fn tick_actor_brains(
         _,
         _,
         (clusters, _, faction, _, _, _, _),
-        _,
+        in_a_fight,
     ) in &actors
     {
         if let Some(c) = &clusters {
             alive_by_entity.insert(entity, c.health.alive());
             entity_to_id.insert(entity, c.config.id.clone());
         }
-        // Only hostile actors compete for combat slots; peaceful actors don't
-        // crowd the board ("enemy" == hostile disposition now).
-        if disposition.is_hostile() {
+        // Only bodies IN a fight compete for combat slots; a bystander does not
+        // crowd the board.
+        //
+        // ⚠ **the two arms are the two ways to be in one.** Social hostility is
+        // how an AI body joins a fight; `ActiveCombatant` is how a ruleset puts
+        // one in. A human-driven fighter is the second without ever being the
+        // first — it holds no AI target, so asking only the disposition left it
+        // off the board it is standing in the middle of.
+        if crate::combat::components::CombatStanding::of(*disposition, in_a_fight).takes_damage() {
             if let Some(c) = clusters {
                 if c.health.alive() {
                     requests.push((c.config.id.clone(), c.kin.pos, c.config.tuning.slot_kind()));
@@ -465,7 +480,7 @@ pub fn tick_actor_brains(
         action_set,
         _mounted,
         (clusters, resolved_frame, faction, aggression, mut perception_memory, perception, moveset),
-        in_a_match,
+        in_a_fight,
     ) in &mut actors
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
@@ -523,7 +538,7 @@ pub fn tick_actor_brains(
         // `Brain::Player` on the first hit, which turned a human's fighter into
         // an AI body that acquired a target — so the fighters were hostile by
         // accident. Fixing that seizure (`d657a0e22`) is what exposed this.
-        if disposition.is_hostile() && target.entity.is_none() && !in_a_match {
+        if disposition.is_hostile() && target.entity.is_none() && !in_a_fight {
             *disposition = ActorDisposition::Peaceful;
         }
         // `target.pos` is populated by `select_actor_targets`
@@ -1279,6 +1294,11 @@ pub fn sync_actor_read_model(
             &mut ActorIntent,
             &mut ActorCooldowns,
             Option<super::super::actor_clusters::ActorClusterQueryData>,
+            // Is this body in a fight? A combatant keeps its attack windup and
+            // swing timers through the rebuild; `BodyCombat::peaceful` drops
+            // them every frame, so a socially non-hostile fighter could be hit
+            // and could not swing.
+            bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
         ),
         (
             With<FeatureSimEntity>,
@@ -1292,7 +1312,8 @@ pub fn sync_actor_read_model(
         ),
     >,
 ) {
-    for (disposition, mut identity, mut combat, mut intent, mut cooldowns, clusters) in &mut actors
+    for (disposition, mut identity, mut combat, mut intent, mut cooldowns, clusters, in_a_fight) in
+        &mut actors
     {
         let Some(mut cq) = clusters else {
             continue;
@@ -1301,6 +1322,7 @@ pub fn sync_actor_read_model(
         sync_actor_components_from_cluster(
             &em,
             *disposition,
+            in_a_fight,
             &mut identity,
             &mut combat,
             &mut intent,
@@ -1770,11 +1792,19 @@ fn build_enemy_brain_snapshot(
 
 /// Mirror the authoritative actor cluster onto the ECS read-model components
 /// consumers read. Disposition is OWNED by spawn/provoke (not derived from the
-/// cluster), so it is read here (to pick peaceful vs hostile `BodyCombat`)
-/// but never written.
+/// cluster), so it is read here (with `in_a_fight`, to pick peaceful vs hostile
+/// `BodyCombat`) but never written.
+///
+/// ⚠ **`in_a_fight` is the caller's `Has<ActiveCombatant>`**, and it is a
+/// parameter rather than a lookup so every caller has to answer it. A body that
+/// is in a fight keeps its attack windup and swing timers in the read-model;
+/// `BodyCombat::peaceful` drops them every frame, so a socially non-hostile
+/// combatant — which is what a human-driven fighter is for most of a round —
+/// could be hit and could not SWING.
 pub fn sync_actor_components_from_cluster(
     em: &super::super::actor_clusters::ActorMut<'_>,
     disposition: ActorDisposition,
+    in_a_fight: bool,
     identity: &mut ActorIdentity,
     combat: &mut BodyCombat,
     intent: &mut ActorIntent,
@@ -1804,17 +1834,18 @@ pub fn sync_actor_components_from_cluster(
     let hitstun_timer = combat.hitstun_timer;
     let recoil_lock_timer = combat.recoil_lock_timer;
     let hitstop_timer = combat.hitstop_timer;
-    *combat = if disposition.is_hostile() {
-        BodyCombat::hostile(
-            em.health.alive(),
-            hit_flash,
-            em.attack.windup_remaining(),
-            em.attack.active_remaining(),
-            em.config.tuning.is_sandbag,
-        )
-    } else {
-        BodyCombat::peaceful(0, hit_flash)
-    };
+    *combat =
+        if crate::combat::components::CombatStanding::of(disposition, in_a_fight).takes_damage() {
+            BodyCombat::hostile(
+                em.health.alive(),
+                hit_flash,
+                em.attack.windup_remaining(),
+                em.attack.active_remaining(),
+                em.config.tuning.is_sandbag,
+            )
+        } else {
+            BodyCombat::peaceful(0, hit_flash)
+        };
     // (`hit_flash` is carried through the rebuild via the constructor param above;
     // the other reaction timers — post-hit i-frame + the §A2 stagger set — aren't
     // constructor fields, so restore them explicitly.)

@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 19 open, added 2026-08-08
+## ⇥ INDEX — 17 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -41,8 +41,6 @@ is the only ordering a maintainer can triage from.
 | Mary-O 1-1's first ?-block drops its wand into a pit | one level | no recommendation |
 | Does `apple_rain`'s damageable box follow the head row? | one boss volume | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
-| **Should the goal guard run a SMALLER suite on a prose-only turn?** | ~5 h of suite per 11 h of run; `app_it` is 94.6% of check time | ⭐ added 2026-08-08, MEASURED; (a) leave, (b) whitelist outside `docs/`, (c) blacklist ⛔not recommended |
-| **Should "declared no abilities" mean "give it the dev kit"?** | the character-capability seam in the decomposition brief; the broader half of your own Sanic-blink question | ⭐ added 2026-08-08; (a) base-kit-by-default, (b) keep it, (c) split by host |
 | **Should an AUTHORED id be unspellable by a runtime spawn?** | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
 
 ⚠ **the first two are the only ones blocking a lane.** Everything below them is
@@ -1639,7 +1637,11 @@ proceed either way. Only flipping the default is blocked.
 
 ---
 
-## Should the goal guard run a SMALLER suite on a prose-only turn? (raised 2026-08-08)
+## ✔ ANSWERED 2026-08-08 — Should the guard run a SMALLER suite on a prose-only turn?
+
+> **Jon: *"I want to bias towards running less tests to balance out the agent urge
+> to run more. So yes run a much much smaller suite for docs only changes. We will
+> catch regressions eventually."*** YES — moved to `maintainer-decisions.md`.
 
 ⭐ **this one has measurements, which is why it is askable at all.** `goal_guard.py`
 now times its own checks (`.goal/check_cost.jsonl`, landed `0af0e718b`).

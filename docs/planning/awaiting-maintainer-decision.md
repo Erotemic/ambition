@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 1 open, added 2026-08-08
+## ⇥ INDEX — 2 open, corrected 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -25,12 +25,23 @@ is the only ordering a maintainer can triage from.
 
 | Question | Blocks | State |
 |---|---|---|
+| **Is a crate name part of the rollback wire format?** (S30) | ⛔ the WHOLE carve campaign | ⚠ answered by agent — **(b)**, see below + queue D37 |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 
-⚠ **the one row above is the only thing blocking a lane**, and per Jon's
-2026-08-08 operating note (*"I've left rollback design to agents"*) it is being
-answered rather than asked. Everything below it is scoped, small, and waiting —
-none is blocked on unknowns, which is this file's entry condition.
+⛔ **THE INDEX SAID "1 OPEN" AND OMITTED S30, WHICH IS THE ONE THAT BLOCKS
+MOST.** Corrected 2026-08-08. An index that undercounts is worse than no index:
+its own header says a decision file that stops being readable stops being read,
+and a row invisible to the index is a row nobody triages. S30 had been sitting
+below the fold gating every crate carve in the workspace — including the
+cheapest three-crate cut available anywhere (`ambition_input`, which imports
+exactly ONE item from core).
+
+Both rows are being **answered rather than asked**, per Jon's 2026-08-07 note
+(*"I've left rollback design to agents"*). ⚠ S30's answer is a behaviour change
+to a determinism-critical hash and is flagged as such in queue D37 rather than
+presented as settled — Jon can overrule it. Everything below the table is
+scoped, small, and waiting; none is blocked on unknowns, which is this file's
+entry condition.
 
 ---
 
@@ -626,6 +637,32 @@ symlinks and recursive grep does not follow them without `-S`. A first pass here
 concluded `head_down` "is not authored anywhere", which is the opposite of true.
 
 ## Is a crate name part of the rollback wire format? (queue S30, 2026-08-01)
+
+> ### ⚠ ANSWERED BY AGENT 2026-08-08 — **(b)**. Jon can overrule.
+>
+> Taken under Jon's 2026-08-07 note *"I've left rollback design to agents"*, and
+> recorded here rather than only in a commit because it changes a
+> **determinism-critical hash**. Implementation and the mandatory same-commit
+> probe are queue row **D37**; it waits on D33 step 2/3, which touches the same
+> baseline.
+>
+> ⭐ **What settled it was a measurement, not the argument below.** While this row
+> was being read, D33 step 2 moved two rollback-registered components across
+> crates and `rollback_schema_baseline.txt` changed exactly two lines — stable
+> names `actor.anim_override` and `player.blink_camera_state` **identical**,
+> schema still v19, **only the `type_name` column moved**. Nothing a peer can
+> observe changed, and under (a) that is a compatibility break. The row predicted
+> this exact diff; the campaign then produced it.
+>
+> The deciding precedent is one level down and already shipped: **v5 stopped
+> hashing the registration owner** because *"which module registered this"* is not
+> a wire-format fact. `type_name`'s module path is the same category of
+> organisational label — and unlike the owner, nobody chose to hash it, it
+> arrived inside a string that was being used for identity.
+>
+> ⛔ **not optional, and it lands in the same commit**: two types with the same
+> final segment in different crates must be **rejected loudly**, not silently
+> merged.
 
 **In your terms:** *if we rename a crate, do saved replays and netplay against
 anyone on the old build break?* Rollback identifies each piece of saved state by

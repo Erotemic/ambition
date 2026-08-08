@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 10 open, added 2026-08-08
+## ⇥ INDEX — 9 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -32,7 +32,6 @@ is the only ordering a maintainer can triage from.
 | The top four ladder rungs ship a knob that makes them worse | ladder calibration | no recommendation |
 | Can a flying fighter shield? | duel rules | no recommendation |
 | Should a crawler's collision volume ORIENT with its attachment? | the adhesive-crawler bug | no recommendation |
-| **Your `?`-blocks don't show a question mark** — per-block art, or move 1-1 to LDtk? | authoring direction | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
 | **Could a spawned thing collide with an authored one's identity?** *(no symptom today; ~70 sites to make impossible)* | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
 
@@ -1091,7 +1090,30 @@ currently bounded at 26 px by
 ⚠ **I have not touched it** — F5 is marked open by your call and I am treating that
 as standing. This is the number, not a fix.
 
-## 14. Per-block art seam, or move Mary-O 1-1 to LDtk? (queue B13 / D11, 2026-08-03)
+## ⊘ 14. WITHDRAWN 2026-08-08 — the premise was stale; `?`-blocks already wear their own art
+
+> **Jon: *"I thought the blocks do show an interrobang. It looked fine to me last
+> time I saw it."*** He is right and this row was wrong.
+
+⛔ **verified against the tree.** `MaryOBlockLook::Question`
+(`game/ambition_demo_mary_o/src/ldtk_vocabulary.rs`) is documented as *"The
+?-block. **Wears its own texture**, and an inert one once spent"*, and dresses to
+`BonusBlockTile` — the interrobang plate. Mary-O owns a LOOK vocabulary layered
+over the engine's `BlockKind`, deliberately (*"the engine must not interpret
+Mary-O's progression: LDtk authors WHICH block and WHERE, and this crate decides
+what that means"*).
+
+⭐ **what this row got wrong, and it is the day's recurring shape**: it read
+`block_tile_sprite(BlockKind)` — the ENGINE resolver, which really does map
+`Solid` to one tile — and concluded every block looks the same. It never checked
+whether the GAME uses that path for authored blocks. **Mechanism read correctly,
+consumer never checked.**
+
+⚠ **the maintainer's recollection beat the document**, which is worth recording:
+he answered from having looked at the game, and the row was written from having
+read one function.
+
+### (the original analysis, kept for the mechanism it describes)
 
 **In your terms:** *your `?`-blocks do not show a question mark.* Every solid
 block in Mary-O 1-1 draws the same tile, because art is chosen from the block's

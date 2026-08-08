@@ -1,6 +1,19 @@
 //! Yarn command + function + markup registrations — the "vocabulary"
 //! that authored `.yarn` content can invoke at runtime.
 //!
+//! ⛔ **this lived in the ENGINE crate**
+//! (`ambition_platformer2d_actor_monolith::dialog::yarn_bindings`) and named
+//! this game's items, shop, brains and save flags from inside it. That is an
+//! ownership error, not a decomposition one: `ambition_dialog` already exposes
+//! [`YarnContentBindings`](ambition_dialog::YarnContentBindings) precisely so a
+//! HOST pushes its own vocabulary in from outside, and this crate already
+//! pushed two installers through that seam (the duel, the cut-rope commands).
+//! It is the third.
+//!
+//! ⚠ **and it is not a decomposition win** — the monolith still names
+//! `ambition_dialog` through `conversation`, so no Cargo edge moved. Recorded as
+//! what it is in `docs/planning/engine/actor-monolith-decomposition.md`.
+//!
 //! The bindings split into three concerns:
 //!
 //! **Commands** (`<<set_flag X>>` syntax). Bevy systems with
@@ -42,7 +55,7 @@
 //! again.
 //!
 //! So a **gameplay-bearing** command records a request in the conversation's
-//! [`NarrativeInputLedger`](crate::conversation::NarrativeInputLedger) and a
+//! [`NarrativeInputLedger`](ambition_platformer2d_actor_monolith::conversation::NarrativeInputLedger) and a
 //! simulation system applies it on the tick it was stamped for. A
 //! **presentation-facing** command writes its own channel exactly as before,
 //! because its consumer is already downstream of the effect quarantine's release
@@ -80,17 +93,17 @@ use ambition_platformer2d_core as ae;
 use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
 
-use crate::features::SetFlagRequested;
 use ambition_persistence::save::AmbitionGameSave;
+use ambition_platformer2d_actor_monolith::features::SetFlagRequested;
 
 use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
 
-use crate::conversation::NarrativeInputWriter;
+use ambition_platformer2d_actor_monolith::conversation::NarrativeInputWriter;
 use ambition_platformer2d_shared_tangle::sim_id::SimId;
 
 /// The host installer: registers Ambition's generic Yarn vocabulary
 /// (commands + functions) on the runner. Pushed into
-/// [`ambition_dialog::YarnContentBindings`] by [`crate::dialog::YarnBindingsPlugin`] so the
+/// [`ambition_dialog::YarnContentBindings`] by [`crate::plugin::AmbitionContentPlugin`] so the
 /// reusable bridge names no game-specific command. It owns only generic
 /// presentation commands such as `present_speaker` and `portrait_clip`.
 pub fn install_game_bindings(
@@ -108,8 +121,11 @@ pub fn install_game_bindings(
 /// the data is small (flags/bosses/quests are short Vecs).
 pub fn refresh_yarn_state_mirror(
     save: Option<Res<AmbitionGameSave>>,
-    owned: Option<Res<crate::items::OwnedItems>>,
-    wallet: Query<&ambition_characters::actor::BodyWallet, With<crate::actor::PrimaryPlayer>>,
+    owned: Option<Res<ambition_platformer2d_actor_monolith::items::OwnedItems>>,
+    wallet: Query<
+        &ambition_characters::actor::BodyWallet,
+        With<ambition_platformer2d_actor_monolith::actor::PrimaryPlayer>,
+    >,
     mirror: Res<YarnStateMirror>,
 ) {
     let mut snap = mirror.0.write().expect("YarnStateMirror poisoned");
@@ -122,7 +138,7 @@ pub fn refresh_yarn_state_mirror(
     // catalog dialog id, plus a legacy alias (e.g. "healthpotion" → HealthCell)
     // so older scripts keep resolving.
     if let Some(owned) = owned.as_deref() {
-        for item in crate::items::Item::ALL {
+        for item in ambition_platformer2d_actor_monolith::items::Item::ALL {
             let count = owned.count(item);
             snap.inventory_counts
                 .insert(item.dialog_id().to_string(), count);
@@ -143,13 +159,19 @@ pub fn refresh_yarn_state_mirror(
     }
     snap.bosses_cleared.clear();
     for boss in &data.bosses {
-        if matches!(boss.state, crate::save::PersistedEncounterState::Cleared) {
+        if matches!(
+            boss.state,
+            ambition_platformer2d_actor_monolith::save::PersistedEncounterState::Cleared
+        ) {
             snap.bosses_cleared.insert(boss.id.clone());
         }
     }
     snap.quests_active.clear();
     for quest in &data.quests {
-        if matches!(quest.state, crate::save::PersistedQuestState::InProgress) {
+        if matches!(
+            quest.state,
+            ambition_platformer2d_actor_monolith::save::PersistedQuestState::InProgress
+        ) {
             snap.quests_active.insert(quest.id.clone());
         }
     }
@@ -193,10 +215,12 @@ pub fn cmd_challenge(
     // ⛔ **the AUTHORITY, not `DialogState`.** This command provokes a fight, so
     // it is a simulation effect; keying it off the UI read-model meant a
     // gameplay consequence read a resource that rollback does not rewind.
-    conversation: Res<crate::conversation::ActiveConversation>,
-    player: Query<Entity, With<crate::actor::PlayerEntity>>,
+    conversation: Res<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
+    player: Query<Entity, With<ambition_platformer2d_actor_monolith::actor::PlayerEntity>>,
     sim_ids: Query<&SimId>,
-    mut narrative: NarrativeInputWriter<crate::features::ChallengeRequested>,
+    mut narrative: NarrativeInputWriter<
+        ambition_platformer2d_actor_monolith::features::ChallengeRequested,
+    >,
 ) {
     let Some(actor) = conversation.talker() else {
         warn!("<<challenge>>: no speaker entity in dialogue context; ignoring");
@@ -211,29 +235,33 @@ pub fn cmd_challenge(
     // carrying an `Entity` across a boundary that remaps entity handles. The
     // simulation arms it now (`arm_requested_challenges`), which is also what
     // makes the armed state rollback state — see `PendingChallenge`.
-    narrative.write(crate::features::ChallengeRequested {
-        target: target.clone(),
-        challenger: player
-            .iter()
-            .next()
-            .and_then(|player| sim_ids.get(player).ok())
-            .cloned(),
-    });
+    narrative.write(
+        ambition_platformer2d_actor_monolith::features::ChallengeRequested {
+            target: target.clone(),
+            challenger: player
+                .iter()
+                .next()
+                .and_then(|player| sim_ids.get(player).ok())
+                .cloned(),
+        },
+    );
 }
 
 /// `<<use_brain "preset">>` — switch the NPC the player is talking to onto an
 /// explicit brain preset at runtime, changing its AUTONOMOUS behaviour (a
 /// dialogue outcome like "fight me" pairs this with the `<<challenge>>` command
 /// for the disposition change). Emits a
-/// [`BrainCommand`](crate::features::BrainCommand) routed by the speaker's stable
+/// [`BrainCommand`](ambition_platformer2d_actor_monolith::features::BrainCommand) routed by the speaker's stable
 /// id, so the runtime switch is deterministic and snapshot-safe; it never edits
 /// the `Brain` component directly. No-ops (with a log) if the speaker has no
 /// stable id (scripted/anonymous dialogue).
 pub fn cmd_use_brain(
     In(preset): In<String>,
-    conversation: Res<crate::conversation::ActiveConversation>,
+    conversation: Res<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
     sim_ids: Query<&SimId>,
-    mut narrative: NarrativeInputWriter<crate::features::BrainCommand>,
+    mut narrative: NarrativeInputWriter<
+        ambition_platformer2d_actor_monolith::features::BrainCommand,
+    >,
 ) {
     let Some(actor) = conversation.talker() else {
         warn!("<<use_brain>>: no speaker entity in dialogue context; ignoring");
@@ -243,22 +271,26 @@ pub fn cmd_use_brain(
         warn!("<<use_brain>>: speaker has no SimId; ignoring");
         return;
     };
-    narrative.write(crate::features::BrainCommand::use_preset(
-        sim_id.clone(),
-        ambition_characters::actor::character_catalog::BrainPresetId::new(preset),
-    ));
+    narrative.write(
+        ambition_platformer2d_actor_monolith::features::BrainCommand::use_preset(
+            sim_id.clone(),
+            ambition_characters::actor::character_catalog::BrainPresetId::new(preset),
+        ),
+    );
 }
 
 /// `<<restore_brain>>` — free the NPC the player is talking to ("you are free"):
 /// the inverse of `<<challenge>>`. Emits a
-/// [`ReleaseProvocation`](crate::features::ReleaseProvocation) by the speaker's
+/// [`ReleaseProvocation`](ambition_platformer2d_actor_monolith::features::ReleaseProvocation) by the speaker's
 /// stable id, which restores BOTH the peaceful disposition and the catalog-default
 /// autonomous source + complete config. (A bare `BrainCommand::RestoreDefault`
 /// would restore only the brain/source, leaving a provoked NPC still hostile.)
 pub fn cmd_restore_brain(
-    conversation: Res<crate::conversation::ActiveConversation>,
+    conversation: Res<ambition_platformer2d_actor_monolith::conversation::ActiveConversation>,
     sim_ids: Query<&SimId>,
-    mut narrative: NarrativeInputWriter<crate::features::ReleaseProvocation>,
+    mut narrative: NarrativeInputWriter<
+        ambition_platformer2d_actor_monolith::features::ReleaseProvocation,
+    >,
 ) {
     let Some(actor) = conversation.talker() else {
         warn!("<<restore_brain>>: no speaker entity in dialogue context; ignoring");
@@ -268,17 +300,21 @@ pub fn cmd_restore_brain(
         warn!("<<restore_brain>>: speaker has no SimId; ignoring");
         return;
     };
-    narrative.write(crate::features::ReleaseProvocation::new(sim_id.clone()));
+    narrative.write(
+        ambition_platformer2d_actor_monolith::features::ReleaseProvocation::new(sim_id.clone()),
+    );
 }
 
 /// `<<give_item "kind" count>>` — grant the player an item by adding
 /// to the live `OwnedItems` catalog resource. The kind string is
-/// resolved through [`crate::items::Item::from_dialog_id`]
+/// resolved through [`ambition_platformer2d_actor_monolith::items::Item::from_dialog_id`]
 /// (loose spelling); an unknown kind or non-positive count is logged
 /// and ignored.
 pub fn cmd_give_item(
     In((kind, count)): In<(String, f32)>,
-    mut narrative: NarrativeInputWriter<crate::items::ItemGrantRequested>,
+    mut narrative: NarrativeInputWriter<
+        ambition_platformer2d_actor_monolith::items::ItemGrantRequested,
+    >,
 ) {
     let Some(request) = item_grant(&kind, count) else {
         warn!(
@@ -292,37 +328,45 @@ pub fn cmd_give_item(
 
 /// `<<buy_item "id" price>>` — spend `price` from the player's wallet and grant
 /// one of the catalog item if affordable. A merchant dialogue node calls this on
-/// a purchase choice; the affordability check lives in [`crate::shop::buy`].
+/// a purchase choice; the affordability check lives in [`ambition_platformer2d_actor_monolith::shop::buy`].
 pub fn cmd_buy_item(
     In((id, price)): In<(String, f32)>,
-    mut narrative: NarrativeInputWriter<crate::shop::ShopTransactionRequested>,
+    mut narrative: NarrativeInputWriter<
+        ambition_platformer2d_actor_monolith::shop::ShopTransactionRequested,
+    >,
 ) {
-    let Some(item) = crate::items::Item::from_dialog_id(&id) else {
+    let Some(item) = ambition_platformer2d_actor_monolith::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_platformer2d_actor_monolith::dialog::yarn", "buy_item: unknown item {id:?}");
         return;
     };
-    narrative.write(crate::shop::ShopTransactionRequested {
-        item,
-        price: price.max(0.0) as i32,
-        side: crate::shop::ShopSide::Buy,
-    });
+    narrative.write(
+        ambition_platformer2d_actor_monolith::shop::ShopTransactionRequested {
+            item,
+            price: price.max(0.0) as i32,
+            side: ambition_platformer2d_actor_monolith::shop::ShopSide::Buy,
+        },
+    );
 }
 
 /// `<<sell_item "id" price>>` — remove one of the catalog item and credit the
-/// wallet if the player owns it. See [`crate::shop::sell`].
+/// wallet if the player owns it. See [`ambition_platformer2d_actor_monolith::shop::sell`].
 pub fn cmd_sell_item(
     In((id, price)): In<(String, f32)>,
-    mut narrative: NarrativeInputWriter<crate::shop::ShopTransactionRequested>,
+    mut narrative: NarrativeInputWriter<
+        ambition_platformer2d_actor_monolith::shop::ShopTransactionRequested,
+    >,
 ) {
-    let Some(item) = crate::items::Item::from_dialog_id(&id) else {
+    let Some(item) = ambition_platformer2d_actor_monolith::items::Item::from_dialog_id(&id) else {
         warn!(target: "ambition_platformer2d_actor_monolith::dialog::yarn", "sell_item: unknown item {id:?}");
         return;
     };
-    narrative.write(crate::shop::ShopTransactionRequested {
-        item,
-        price: price.max(0.0) as i32,
-        side: crate::shop::ShopSide::Sell,
-    });
+    narrative.write(
+        ambition_platformer2d_actor_monolith::shop::ShopTransactionRequested {
+            item,
+            price: price.max(0.0) as i32,
+            side: ambition_platformer2d_actor_monolith::shop::ShopSide::Sell,
+        },
+    );
 }
 
 /// Pure core of [`cmd_give_item`]: resolve a loosely-spelled kind and a Yarn
@@ -333,15 +377,20 @@ pub fn cmd_sell_item(
 /// `f32`-typed, so "1.9 potions" is a parsing question and belongs on the side
 /// that speaks Yarn. An applier that re-decided it would be a second place for
 /// the rule to live and drift.
-fn item_grant(kind: &str, count: f32) -> Option<crate::items::ItemGrantRequested> {
+fn item_grant(
+    kind: &str,
+    count: f32,
+) -> Option<ambition_platformer2d_actor_monolith::items::ItemGrantRequested> {
     if count <= 0.0 {
         return None;
     }
-    let item = crate::items::Item::from_dialog_id(kind)?;
-    Some(crate::items::ItemGrantRequested {
-        item,
-        count: count as u32,
-    })
+    let item = ambition_platformer2d_actor_monolith::items::Item::from_dialog_id(kind)?;
+    Some(
+        ambition_platformer2d_actor_monolith::items::ItemGrantRequested {
+            item,
+            count: count as u32,
+        },
+    )
 }
 
 /// `<<spawn_chest "id">>` — spawn a reward chest by id. Logged-stub;
@@ -371,7 +420,10 @@ pub fn cmd_spawn_fireworks(
     mut fireworks: MessageWriter<ambition_vfx::vfx::FireworksRequest>,
     // SLOT-0 BY DESIGN: Yarn's `$player_x`/`$player_y` are authored against the
     // local player's position — dialogue is told to a human, not to a body.
-    player_q: Query<&crate::actor::BodyKinematics, crate::actor::PrimaryPlayerOnly>,
+    player_q: Query<
+        &ambition_platformer2d_actor_monolith::actor::BodyKinematics,
+        ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
+    >,
 ) {
     let origin = player_q
         .single()
@@ -480,7 +532,7 @@ fn mirror_inventory_has(data: &YarnStateMirrorData, item: &str) -> bool {
 
 /// Normalize an authored item id for `inventory_has` lookups:
 /// lowercase and strip every non-alphanumeric character. Mirrors how
-/// [`crate::items::Item::dialog_id`] is keyed, so authored
+/// [`ambition_platformer2d_actor_monolith::items::Item::dialog_id`] is keyed, so authored
 /// dialogue can spell the item loosely.
 fn normalize_item_id(raw: &str) -> String {
     raw.chars()
@@ -524,7 +576,7 @@ pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::items::{Item, OwnedItems};
+    use ambition_platformer2d_actor_monolith::items::{Item, OwnedItems};
 
     #[test]
     fn normalize_item_id_collapses_spelling_variants() {
@@ -559,19 +611,23 @@ mod tests {
         // The legacy "health_potion" / "healthpotion" alias resolves to HealthCell.
         assert_eq!(
             item_grant("health_potion", 2.0),
-            Some(crate::items::ItemGrantRequested {
-                item: Item::HealthCell,
-                count: 2
-            })
+            Some(
+                ambition_platformer2d_actor_monolith::items::ItemGrantRequested {
+                    item: Item::HealthCell,
+                    count: 2
+                }
+            )
         );
         // Loose spelling resolves, and the count is FLOORED — Yarn arithmetic is
         // f32-typed, so "1.9 potions" is a real thing an author can write.
         assert_eq!(
             item_grant("HealthPotion", 1.9),
-            Some(crate::items::ItemGrantRequested {
-                item: Item::HealthCell,
-                count: 1
-            })
+            Some(
+                ambition_platformer2d_actor_monolith::items::ItemGrantRequested {
+                    item: Item::HealthCell,
+                    count: 1
+                }
+            )
         );
 
         // Unknown kind asks for nothing.

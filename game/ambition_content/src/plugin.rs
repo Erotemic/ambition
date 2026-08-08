@@ -164,6 +164,24 @@ impl Plugin for AmbitionContentPlugin {
                 .resource_mut::<ambition_dialog::YarnContentBindings>()
                 .installers
                 .push(super::duel_arena::install_duel_yarn_binding);
+            // ⭐ **the game's OWN vocabulary**, pushed through the same seam as
+            // the two content installers beside it. It lived in the engine crate
+            // until 2026-08-08, where it named this game's items, shop, brains
+            // and save flags from inside `ambition_platformer2d_actor_monolith`.
+            app.world_mut()
+                .resource_mut::<ambition_dialog::YarnContentBindings>()
+                .installers
+                .push(super::yarn_vocabulary::install_game_bindings);
+            // The per-frame mirror the Yarn `<<if>>` functions read. It joins the
+            // CONSUMER side of `YarnStateMirrorRefreshed`, which is where a
+            // game's own mirror belongs — the engine's set has one member and it
+            // is not this.
+            app.add_systems(
+                bevy::prelude::Update,
+                super::yarn_vocabulary::refresh_yarn_state_mirror
+                    .in_set(ambition_dialog::YarnStateMirrorRefreshed)
+                    .after(ambition_dialog::YarnPresentationCueCleared),
+            );
         }
         // `<<duel>>` stages two fighters, which is a simulation act reached from
         // the non-rewound Yarn runner — so the request is stamped against the

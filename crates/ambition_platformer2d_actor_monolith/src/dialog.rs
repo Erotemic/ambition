@@ -5,29 +5,29 @@
 //! lives in the `ambition_dialog` crate. This module keeps only what is genuinely
 //! Ambition-side:
 //!
-//! - [`yarn_bindings`] — Ambition's Yarn *commands* (`<<give_item>>`,
-//!   `<<challenge>>`, shop verbs) and *functions* (`<<if boss_cleared("x")>>`),
-//!   plus the per-frame [`yarn_bindings::refresh_yarn_state_mirror`] that fills
-//!   the shared mirror from `AmbitionGameSave`. These reference actor/save state, so
-//!   they register onto the reusable runtime through the
-//!   [`ambition_dialog::YarnContentBindings`] installer seam.
+//! ⛔ **the game VOCABULARY left on 2026-08-08.** `<<give_item>>`,
+//! `<<buy_item>>`, `<<challenge>>` and the save-mirror refresh named this
+//! game's items, shop, brains and flags from inside an engine crate;
+//! `ambition_dialog` already exposes the `YarnContentBindings` installer seam so
+//! a HOST pushes that in from outside, and `ambition_content` already pushed two
+//! installers through it. What is left here is the generic wiring any dialogue
+//! composition needs.
+//!
 //! - [`sync_dialogue_game_mode`] — the one host↔runtime coupling: the dialogue
 //!   runtime owns no session `GameMode`, it just flips
 //!   [`ambition_dialog::DialogState::active`]. This system maps "dialogue ended"
 //!   back onto `GameMode::Playing`.
 
-/// Ambition's game-specific Yarn vocabulary + the mirror refresh.
-#[cfg(feature = "ui")]
-pub mod yarn_bindings;
-
 #[cfg(feature = "ui")]
 use bevy::prelude::*;
 
 /// Host-side dialogue bindings plugin: brings up the reusable binding
-/// resources ([`ambition_dialog::YarnBindingsPlugin`]), schedules Ambition's
-/// per-frame state-mirror refresh (after the generic cue reset — content
-/// extras still run `.after(refresh_yarn_state_mirror)`), and registers
-/// Ambition's game vocabulary through the installer seam.
+/// resources ([`ambition_dialog::YarnBindingsPlugin`]) and the dialogue
+/// input/reveal presentation pair.
+///
+/// ⚠ it registers NO vocabulary. A game pushes its own commands and its own
+/// state-mirror refresh through `ambition_dialog::YarnContentBindings` and
+/// `YarnStateMirrorRefreshed`; this plugin only guarantees both seams exist.
 #[cfg(feature = "ui")]
 pub struct YarnBindingsPlugin;
 
@@ -35,12 +35,6 @@ pub struct YarnBindingsPlugin;
 impl Plugin for YarnBindingsPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ambition_dialog::YarnBindingsPlugin);
-        app.add_systems(
-            Update,
-            yarn_bindings::refresh_yarn_state_mirror
-                .in_set(ambition_dialog::YarnStateMirrorRefreshed)
-                .after(ambition_dialog::YarnPresentationCueCleared),
-        );
         // ⛔ a system that has only ever run in ONE composition has UNTESTED
         // requirements, and moving it turns them into panics rather than skips.
         // `dialog_input` takes a NON-optional `Res<MenuControlFrame>`; the app
@@ -76,10 +70,9 @@ impl Plugin for YarnBindingsPlugin {
                 )
                 .run_if(ambition_platformer2d_shared_tangle::lifecycle::session_world_exists),
         );
-        app.world_mut()
-            .resource_mut::<ambition_dialog::YarnContentBindings>()
-            .installers
-            .push(yarn_bindings::install_game_bindings);
+        // ⭐ **no installer is pushed from here any more.** A game's vocabulary
+        // arrives through `YarnContentBindings` from the crate that owns the
+        // content — see `ambition_content::yarn_vocabulary`.
     }
 }
 

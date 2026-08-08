@@ -76,6 +76,15 @@ pub mod presentation;
 pub mod projectiles;
 pub mod quest;
 pub mod quests;
+/// **This game's Yarn vocabulary** — `<<give_item>>`, `<<buy_item>>`,
+/// `<<challenge>>` and the save-state mirror its `<<if>>` functions read.
+///
+/// ⛔ it lived in the ENGINE crate until 2026-08-08. `ambition_dialog` exposes
+/// `YarnContentBindings` so a host pushes its own commands in from outside, and
+/// this crate already pushed two installers through it; this is the third and
+/// largest.
+#[cfg(feature = "ui")]
+pub mod yarn_vocabulary;
 // ⛔ no `vanity_card` module. The startup card USED to be a manifest of nine
 // rendered frames read from here and composed by the host as an image sequence;
 // it is now drawn by `presentation::vanity_card_made_this_meme` from baked rig

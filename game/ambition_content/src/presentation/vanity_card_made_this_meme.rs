@@ -21,9 +21,15 @@
 //!
 //! ## What it costs at boot, since this is the first thing the game shows
 //!
-//! One texture — 41 parts are packed into a single 288 KB sheet, so the card is
+//! One texture — 41 parts are packed into a single 309 KB sheet, so the card is
 //! *one* asset load rather than 41, and fewer than the nine-frame sequence it
 //! replaces. The per-frame work is setting a transform on ~40 nodes.
+//!
+//! Every part is baked several times denser than the 640x360 canvas it is placed
+//! on, because the card plays full-screen: a part's sheet rect is its detail, and
+//! its `w`/`h` here are canvas units. The two are not the same number, and the
+//! one time they were — the gamepad, alone, at 1:1 — that prop was the only thing
+//! on the card that looked soft on a device.
 //!
 //! It is a shell SEGMENT, not a special case: the host registers
 //! [`MADE_THIS_MEME_CARD_SEGMENT_KIND`] as one card in the startup run-in, this

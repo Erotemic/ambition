@@ -449,10 +449,15 @@ which is that the runtime still names every gameplay domain one directory down.
 - **The dependency-leak trigger points at the wrong crate.** A movement-only
   game's fifteen unwanted crates are mostly the RUNTIME's, and the largest single
   mechanism is the central rollback schema enumerating every domain.
-- **`ambition_platformer2d_ldtk` is the ONE capability a monolith carve can shed
-  on its own** — one root module (`world`), one file naming it, no other
-  dependent. If a slice wants a footprint win from this plan as written, that is
-  the only one available.
+- **`ambition_platformer2d_ldtk` is the only capability whose ONLY dependent is
+  the monolith** — but it is not therefore sheddable. ⛔ measured: the single
+  production reference is `world/ldtk_world/mod.rs`'s blanket
+  `pub use ambition_platformer2d_ldtk::*`, which looks like a stale facade and is
+  not one. **Seven production files in SEVEN different root modules** consume
+  LDtk types through it — `assets/platformer_assets`, `encounter/{loading,systems}`,
+  `features`, `menu/map`, `persistence/settings`, `session/setup`. The monolith
+  genuinely uses LDtk; there is no slice here, and **no footprint win is
+  available from this plan as written.**
 - **Everything else needs the same maintainer answer** filed for dialogue in
   `awaiting-maintainer-decision.md`: may a game compose the engine without a
   capability? Only optional dependencies move this number, and they would have to

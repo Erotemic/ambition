@@ -1208,11 +1208,20 @@ today.
 
 ---
 
-## May a game compose this engine WITHOUT dialogue?
+## May a game compose this engine WITHOUT a given capability?
 
-**Raised 2026-08-08**, by the actor-monolith decomposition measuring what a carve
-actually buys. See
+**Raised 2026-08-08** as a dialogue question, **broadened the same day** once
+the measurement showed it was never dialogue-specific. See
 [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
+
+⛔ **The measurement that broadened it.** Of the fifteen capability crates a
+movement-only game inherits, exactly ONE has the monolith as its only direct
+dependent (`ambition_platformer2d_ldtk`) — and that one is not sheddable either,
+because seven of the monolith's root modules genuinely use LDtk types.
+`ambition_platformer2d_runtime` declares ten of the fifteen and is a direct
+facade dependency. **So no carve, of anything, moves this number.** Only optional
+dependencies do, and they would have to be optional in the runtime as much as in
+the monolith.
 
 **The situation.** `conversation` is now fully liftable — 2,164 lines, ZERO
 inward edges since the bark port (`a7013ef82`), every outward edge already below
@@ -1241,23 +1250,27 @@ why the unasked-for footprint is fifteen crates rather than two.
 
 **The decision:**
 
-* **(a) dialogue is an OPTIONAL capability** — a game may compose the engine with
-  no conversation system at all, and the interact dispatch becomes feature-gated
-  along with it. Buys the footprint win here and sets the precedent for the
-  other thirteen. ⚠ costs: a `#[cfg]` seam through `features/ecs/interact.rs`
-  and `schedule/input_systems.rs`, and every composition has to say whether it
-  wants dialogue.
-* **(b) dialogue is part of the engine** — the carve happens for compile
-  isolation, the footprint stays 15, and
-  `capability-footprint-may-not-grow` is a ratchet on a number that will not move
-  much until the answer is (a) for several capabilities at once.
-* **(c) not yet** — leave `conversation` in the monolith. It is liftable whenever
-  the answer arrives, and nothing about the bark port needs undoing.
+* **(a) capabilities are OPTIONAL** — a game may compose the engine without
+  dialogue, without cutscenes, without menus, and each becomes a feature on both
+  the monolith AND the runtime. This is the only answer that moves the number,
+  and it is a campaign rather than a slice: `#[cfg]` seams through the interact
+  dispatch, the input capture, and ten `rollback/domains/*.rs` registrations.
+* **(b) capabilities are part of the engine** — the fifteen stay, carves happen
+  for compile isolation only, and `capability-footprint-may-not-grow` is honestly
+  a ratchet on a number that is not going to move. ⚠ then say so in
+  `api-1.0-campaign.md`, whose premise is that a movement-only consumer should
+  not inherit them.
+* **(c) not yet** — nothing is undone by waiting. `conversation` is liftable the
+  moment an answer arrives, and the bark port that made it liftable is worth
+  having regardless.
 
 ⚠ **no recommendation, because this is a product question about what the engine
 IS** rather than an implementation trade. The API-1.0 campaign's whole premise is
-that a movement-only consumer should not inherit fifteen capability crates; if
-that premise stands, the answer is (a) and it is bigger than dialogue.
+that a movement-only consumer should not inherit fifteen capability crates. If
+that premise stands the answer is (a), and (a) is a campaign spanning the
+monolith, the runtime, and the central rollback schema — not a decomposition
+slice. If it does not stand, (b) is honest and the ratchet should say what it is
+really measuring.
 
 ⭐ **what does NOT need the answer**, and is already done: the bark port, which
 was the only design work in the carve, and which is worth having regardless —

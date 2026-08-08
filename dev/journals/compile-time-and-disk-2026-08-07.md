@@ -139,3 +139,83 @@ build, not the edit→feedback loop that is actually being paid for.
 source file, runs a real cargo command, reverts, appends a row. It refuses to
 run on a dirty target file and restores saved bytes rather than calling
 `git checkout`, which would delete uncommitted work.
+
+---
+
+# Addendum, 2026-08-08 — the deterministic half, and two numbers that did not
+# reproduce
+
+Jon: *"what will be valuable is tracking compile times and measuring if we get
+any wins from making crate carves. I want to quantify those compile wins as we do
+those. And to guard against compile time regressions."*
+
+The gate is `scripts/compile_ratchet.py`; the schema is
+`dev/compile_telemetry_schema.md`. **It never builds anything** — every number
+comes from `cargo tree`'s resolved graph and from line counts — because a
+wall-clock threshold on a shared box fails randomly, gets waived, and then gets
+ignored. Wall clock stays in the ledgers and is never a gate.
+
+## ⛔ The `conversation` carve buys 0.87%, and 0.00% for the thing it was for
+
+C4e concluded the `conversation` carve is "a COMPILE-ISOLATION win, not a
+footprint win", and nobody could say how big. Simulated from the graph
+(`--carve crates/ambition_platformer2d_actor_monolith/src/conversation`):
+
+| | before | after | |
+|---|---|---|---|
+| largest recompilation unit | 111,579 | 109,412 | **−1.94%** |
+| edit cost, rest of the monolith | 248,672 | 246,505 | **−0.87%** |
+| **edit cost, `conversation` itself** | 248,672 | 248,672 | **±0.00%** |
+| critical path (crates) | 12 | 12 | 0 |
+
+⭐ **the isolation runs ONE direction only, and that is the whole finding.** Six
+files in the monolith name `crate::conversation`, so the new crate lands BELOW
+the monolith and an edit to it still rebuilds the monolith and all 16 crates
+above. What the carve buys is the other direction: edits to the remaining 109k
+lines stop rebuilding these 2,167.
+
+⚠ so the compile-time argument for this carve is **worth about 1%**, and the
+architectural argument (zero inward edges, all outward edges already below the
+monolith, the carve is a `Cargo.toml`) is the entire case. That is a decision
+somebody can now make. The journal above already predicted this shape — *"a carve
+sold on compile time alone would disappoint"* — and the simulator now prices it.
+
+⛔ **and the shape that WOULD pay is a SIBLING carve**: a module nothing in the
+owner names, which lands beside the crate instead of under it, compiles in
+parallel with it, and skips it entirely on an edit. The simulator derives which
+of the two you get from the coupling rather than letting a proposal assert it.
+
+## ⚠ Two numbers above did not reproduce, and one of them is this file's headline
+
+`cargo build --timings` writes an HTML report that **embeds the identical
+per-unit JSON** as `const UNIT_DATA`, including the frontend/codegen split. Two
+of those reports were still on disk from 2026-08-07 and are now ingested into
+`dev/compile_units.jsonl` (19 rows, real durations). Re-derived from the
+artifact:
+
+```
+total 313.6s   frontend 94.7s (30%)   codegen 197.6s (63%)   unattributed 21.4s (7%)
+```
+
+* **"255 of 313 unit-seconds are codegen" does not reproduce** — from either
+  report. The reproducible figure is **197.6s (63%)**, or 218.9s (70%) if you
+  define codegen as `duration − frontend`. Neither is 255.
+* **"aimed at 18% of the problem" does not reproduce** — the frontend is **30%**.
+
+⭐ **the direction survives, the magnitude does not.** The build is still
+codegen-dominant and the three eliminated suspects are still eliminated. But 63%
+is not 82%, and the difference matters to anything that gets prioritised on it.
+The 21.4s unattributed is the three `ambition_app` units, which carry no codegen
+section at all — that is the link, and it is 7%, consistent with the 9.3s relink
+measured above.
+
+The lesson is the ledger, not the arithmetic: these numbers were read off a
+report by hand and could not be re-checked until the report was parsed into rows.
+They can be now.
+
+## ⚠ `[profile.dev.package."*"]` does not apply to workspace members
+
+The first draft of the per-unit `opt_level` column reported the monolith at
+opt-level **3**. It builds at **1** — the glob applies to dependencies only, and
+`Cargo.toml` says so in prose two lines above the table. A ledger that
+contradicts its own manifest is worse than one with the column missing.

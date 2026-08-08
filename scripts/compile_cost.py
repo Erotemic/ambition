@@ -60,10 +60,12 @@ import argparse
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -179,6 +181,41 @@ def measure(scenario: Scenario, env: dict[str, str], *, verbose: bool = True) ->
     }
 
 
+def build_config() -> dict:
+    """The dimensions a measurement is only comparable WITHIN — as columns.
+
+    ⛔ **this used to be a stringly-typed side effect of how the run was
+    invoked**, and the four schema-0 rows in the ledger disagree with each other
+    because of it: `machine_cargo_incremental` reads `"1"` in two of them and
+    `"(config default)"` in two, and `"(config default)"` meant OFF before
+    `.cargo/config.toml` turned incremental on and ON after. A dimension encoded
+    that way cannot be regressed against. The normalisation for those four rows
+    is written out in `dev/compile_telemetry_schema.md`; they are not rewritten,
+    because this ledger is append-only.
+
+    ⚠ `opt_level` is the WORKSPACE default. It is not uniform — `runtime`,
+    `render` and `app` are pinned to 0 in `Cargo.toml` — and per-crate opt-levels
+    belong on the per-unit rows in `dev/compile_units.jsonl`, where there is a
+    crate to attach them to. A scenario row covers a whole command.
+    """
+    import tomllib
+
+    manifest = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
+    dev = manifest.get("profile", {}).get("dev", {})
+
+    env_flag = os.environ.get("CARGO_INCREMENTAL")
+    if env_flag is not None:
+        incremental = env_flag not in ("0", "")
+    else:
+        config = ROOT / ".cargo" / "config.toml"
+        text = config.read_text(encoding="utf-8") if config.exists() else ""
+        incremental = bool(re.search(r"^\s*incremental\s*=\s*true", text, re.M))
+    return {
+        "incremental": incremental,
+        "opt_level": str(dev.get("opt-level", 0)),
+    }
+
+
 def machine_facts() -> dict:
     linker = "unknown"
     config = ROOT / ".cargo" / "config.toml"
@@ -222,6 +259,10 @@ def main(argv: list[str] | None = None) -> int:
 
     chosen = [BY_NAME[name] for name in (args.scenario or sorted(BY_NAME))]
     facts = machine_facts()
+    config = build_config()
+    if "CARGO_INCREMENTAL" in env:
+        config["incremental"] = env["CARGO_INCREMENTAL"] not in ("0", "")
+    run_id = uuid.uuid4().hex[:12]
     if env.get("CARGO_INCREMENTAL"):
         facts["cargo_incremental"] = env["CARGO_INCREMENTAL"]
 
@@ -231,10 +272,20 @@ def main(argv: list[str] | None = None) -> int:
         row = measure(scenario, env)
         row.update(
             {
+                # The shared envelope — `dev/compile_telemetry_schema.md` §1.
+                # Copied by hand rather than imported: this script is the one
+                # that must keep working when everything else is mid-edit.
+                "schema": 1,
+                "kind": "scenario",
                 "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
                 "commit": git("rev-parse", "--short=12", "HEAD") or "unknown",
                 "dirty": bool(git("status", "--porcelain")),
+                "run_id": run_id,
                 "label": args.label,
+                # `test` when the command builds a test target, else `dev`. The
+                # cargo timing report calls the same thing `Profile:`.
+                "profile": "test" if "test" in scenario.command else "dev",
+                **config,
                 "env": env,
                 **{f"machine_{k}": v for k, v in facts.items()},
             }

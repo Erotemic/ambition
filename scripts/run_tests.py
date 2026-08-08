@@ -410,6 +410,22 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         jobs.append(Job("roadmap claims match source",
                         [sys.executable, "scripts/check_roadmap_evidence.py",
                          "--check"]))
+        # ⭐ **the compile-cost ratchet** (Jon, 2026-08-08: *"I want to quantify
+        # those compile wins as we do those. And to guard against compile time
+        # regressions."*). Guards the DETERMINISTIC cause — largest
+        # recompilation unit, blast radius of an edit, and the serial chain
+        # length that parallelism cannot compress — against a frozen baseline in
+        # `dev/`. ⛔ deliberately NOT a wall-clock threshold: a timing gate on a
+        # shared machine fails randomly, gets waived, and then gets ignored.
+        # ⚠ **it costs ~1.6s and runs NO build.** `cargo metadata --offline` and
+        # `cargo tree --offline` resolve manifests; neither compiles anything, so
+        # this is safe beside any other cargo work and cannot be the job that
+        # fills the disk.
+        # ⚠ and it needs no `--check`: a violation exits 1 by default, because
+        # an optional enforcement flag is how `check_roadmap_evidence.py` above
+        # spent its whole life green.
+        jobs.append(Job("compile-cost ratchet (graph, not stopwatch)",
+                        [sys.executable, "scripts/compile_ratchet.py"]))
         # The LDtk AUTHORING toolchain, which is the path every room in the
         # game is built through and was the second Python suite nothing ran.
         # Found 2026-07-28 with 11 of 149 RED, all of them pointing at asset
@@ -714,6 +730,56 @@ def completed_rows(results: list[JobResult]) -> list[dict]:
     ]
 
 
+def telemetry_envelope() -> dict:
+    """The columns every compile-telemetry row carries, whatever its grain.
+
+    ⚠ **best-effort, like the ledger it feeds.** Nothing here is allowed to fail
+    a suite: an unreadable manifest or a missing git binary yields `None` for
+    that column rather than an exception. A missing value is a gap in a
+    statistic; a raised exception is a red run for a bookkeeping reason.
+    """
+    def git(*args: str) -> str | None:
+        try:
+            out = subprocess.run(["git", *args], cwd=REPO, capture_output=True,
+                                 text=True, check=False)
+            return out.stdout.strip() or None
+        except OSError:
+            return None
+
+    opt_level = None
+    try:
+        manifest = tomllib.loads((REPO / "Cargo.toml").read_text(encoding="utf-8"))
+        opt_level = str(manifest["profile"]["dev"].get("opt-level", 0))
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        pass
+
+    return {
+        "schema": 1,
+        "kind": "job",
+        "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "commit": git("rev-parse", "--short=12", "HEAD") or "unknown",
+        "dirty": bool(git("status", "--porcelain")),
+        "run_id": os.urandom(6).hex(),
+        "label": os.environ.get("RUN_TESTS_LABEL", ""),
+        "profile": "test",
+        "opt_level": opt_level,
+        # ⚠ the suite forces this OFF for itself while the dev loop runs with it
+        # ON (`.cargo/config.toml` vs `run()`'s env), and until now no row said
+        # which of the two it was. That is the single largest confounder in this
+        # ledger's own numbers.
+        #
+        # ⛔ **the default is "0", not the config file, and the first draft got
+        # this backwards.** `run()` builds `env = dict(os.environ)` — a COPY —
+        # and then `setdefault`s `CARGO_INCREMENTAL=0` on it, so the PARENT
+        # process this function runs in has the variable UNSET on every ordinary
+        # suite run. Reading it with no default reported `incremental: true` for
+        # exactly the runs that are incremental-off: a column wrong precisely
+        # when it matters, which is worse than no column. Mirror the runner's
+        # own default, and if that `setdefault` ever changes, change this with it.
+        "incremental": os.environ.get("CARGO_INCREMENTAL", "0") not in ("0", ""),
+    }
+
+
 def append_cost_ledger(results: list[JobResult], exhaustive: bool,
                        filtered: bool) -> Path | None:
     """Record what this run COST, on every run, so two runs can be compared.
@@ -731,6 +797,17 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
     ledger = Path(os.environ.get("RUN_TESTS_COST_LEDGER",
                                  REPO / "dev" / "run_tests_cost.jsonl"))
     row = {
+        # The shared compile-telemetry envelope — `dev/compile_telemetry_schema.md`
+        # §1. Added 2026-08-08 because the first 75 rows carry no commit, no
+        # profile and no opt-level, so a year of them cannot answer "did that
+        # change help" or "was this the incremental config". ⚠ these are the
+        # columns that CANNOT be back-filled; `finished` stays for the rows that
+        # already have it.
+        #
+        # ⛔ copied by hand rather than imported from `compile_ratchet.py`: this
+        # is the suite's own entry point and must not gain an import of a module
+        # that itself imports a 1,500-line checker.
+        **telemetry_envelope(),
         "finished": time.time(),
         "jobs": len(results),
         "seconds": round(sum(r.seconds for r in results), 1),

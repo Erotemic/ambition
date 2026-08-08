@@ -682,6 +682,20 @@ From `untracked/jonnotes-FIXES.md`, verified state in deep-review §8:
 - morph-ball (and transform-mode generally): worn presentation follows the
   body's active mode — design it as the general transform/worn-identity rule,
   not a morph-ball special case;
+  ⭐ **CHECKED 2026-08-08 — the general rule is already there; what is missing is
+  ART.** `BodyMode` is not player-specific: it is `BodyModeState` on the body
+  cluster (`platformer2d_core/src/body_clusters.rs`), read by **53 files**, and
+  `player_state.rs:172` derives the player's view *from* the cluster rather than
+  owning it. So there is no player-centric mode concept to generalise.
+  ⚠ **the special case that does exist is a placeholder for missing art, and it
+  documents its own exit**: `render/rendering/morph_ball.rs` generates an RGBA
+  circle at startup because *"the shipped player spritesheet has no `MorphBall`
+  row"*, and says future art replaces it *"by setting the `MorphBallSprite`
+  handle to a loaded asset — and the same toggle logic applies."*
+  ⛔ **so this reads as a design row and is an art row.** ⚠ and one small
+  correction while here: that file's comment says the sprite shows *"while
+  `Player::body_mode == MorphBall`"* — the state is on the CLUSTER, not on
+  `Player`, and the comment is what made this look player-centric on first read.
 - shrine + glider sprite repair (shrine mechanic itself is still a stub);
 - kernel-guide NPC: peaceful-state patrol around a home base (authored brain
   policy, existing vocabulary);

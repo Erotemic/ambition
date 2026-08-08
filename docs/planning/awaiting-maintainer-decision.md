@@ -1384,3 +1384,35 @@ answer — with evidence rather than premise.
 ⚠ **the decision itself does not change** — it is still a product question about
 what the engine IS, and a measurement cannot answer that. What changes is that
 one side of it stops being a guess.
+
+### ⭐⭐ THE NUMBER, measured 2026-08-08 (`scripts/compile_ratchet.py`, `a29feca22`)
+
+Lifting `conversation/` into its own crate:
+
+```text
+largest recompilation unit    111,579 → 109,412    −1.94%
+edit cost, rest of monolith   248,672 → 246,505    −0.87%
+edit cost, conversation       248,672 → 248,672    ±0.00%
+critical path                      12 →      12         0
+```
+
+**Six production files in the monolith name `crate::conversation`, so the new
+crate lands BELOW it and the isolation runs one direction only.** Editing
+`conversation` still rebuilds everything above it — which is the whole monolith.
+So the third row is the important one: the carve does not make the *dialogue*
+work cheaper, only everything else marginally so.
+
+**C4e's "COMPILE-ISOLATION win" therefore prices at about 1%.** That is a real
+number and a small one, and it settles the comparison this row could not make:
+
+* it is **not** an argument for (a) on compile grounds — a campaign spanning the
+  monolith, the runtime and the rollback schema does not pay for itself at 1%;
+* it **is** an argument that the architectural case has to stand on its own. And
+  it does: `conversation` has zero inward edges, verified two ways, and the bark
+  port that achieved that was worth having regardless.
+
+⚠ **and one number nobody was watching**: `critical_path_crates`. A carve that
+inserts a layer *lengthens* the serial dependency chain, so every size metric can
+improve while the wall clock gets worse. This carve leaves it at 12 — but that is
+now measured rather than assumed, and it is the number that would have made a
+"free" carve quietly expensive.

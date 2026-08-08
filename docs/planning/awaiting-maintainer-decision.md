@@ -16,6 +16,40 @@ be the one choosing.
 
 ---
 
+## ⇥ INDEX — 18 open, added 2026-08-08
+
+This file is 1,300+ lines and had no index. Its own header warns that a decision
+file which stops being readable stops being read; length does that as surely as
+stale rows do. **⚠ ordered by what each one BLOCKS**, not by date, because that
+is the only ordering a maintainer can triage from.
+
+| Question | Blocks | State |
+|---|---|---|
+| **May a game compose this engine WITHOUT a given capability?** | the whole monolith-decomposition lane, and M28's second success measure | ⭐ Jon's PROVISIONAL *"I think… yes"*; **priced 2026-08-08: the ready carve buys ~1%** |
+| **Size the character quad from the BBOX instead of the FRAME?** | the 116-row humanoid pass, the snake, the Hall's 1.69x spread | ⭐ **measured 2026-08-08 — coupling CONFIRMED, and it is 4 sites not 3** |
+| Does the world FREEZE during a death beat? | the death-beat feel | ⭐ **half-answered by the dialogue ruling below** |
+| Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
+| Is a crate name part of the rollback wire format? | rollback schema policy | recommendation present |
+| How should the portal map convention stop being a process global? | portal authoring | recommendation present |
+| Which of the 33 engine design documents have become history? | the `docs/planning` line budget (31,690 vs 10,500) | needs someone who knows what is live |
+| Should the Hall cast and content bosses declare dormancy? | 129 no-op brain ticks | recommendation: bosses yes, Hall wait |
+| Are the three named robot heavies characters, or variant art? | casting | recommendation present |
+| Does the Perfect Cellular Automaton fly when it fights? | one fighter's kit | recommendation present |
+| The top four ladder rungs ship a knob that makes them worse | ladder calibration | no recommendation |
+| Hitstun keeps ATTACK and strips RECOVERY — right for a body knocked OFF? | combat feel | no recommendation |
+| Can a flying fighter shield? | duel rules | no recommendation |
+| Should a crawler's collision volume ORIENT with its attachment? | the adhesive-crawler bug | no recommendation |
+| Per-block art seam, or move Mary-O 1-1 to LDtk? | authoring direction | no recommendation |
+| Mary-O 1-1's first ?-block drops its wand into a pit | one level | no recommendation |
+| Does `apple_rain`'s damageable box follow the head row? | one boss volume | no recommendation |
+| Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
+
+⚠ **the first two are the only ones blocking a lane.** Everything below them is
+scoped, small, and waiting — none is blocked on unknowns, which is this file's
+entry condition.
+
+---
+
 > **Rows 1–7 were deleted 2026-08-05.** Jon answered all seven on 2026-07-29
 > and every answer is a row in [`maintainer-decisions.md`](maintainer-decisions.md)
 > — nameplates are low priority, `Interact` needs a design discussion, BUILD the
@@ -943,6 +977,24 @@ run (`SpentPowerBlocks` records the strike, the item exists at a known position)
 
 **This is the same decision as the dialogue one above, wearing different
 clothes** — decide them together or the answers will disagree.
+
+> ⭐ **AND THE DIALOGUE HALF IS NOW ANSWERED (Jon, 2026-08-06), so this row has a
+> precedent it did not have when it was written.** Offered the same three-way
+> choice, he picked *"Build it, default to per-seat"* — **over** the conservative
+> recommendation — so dialogue claims only the TALKER's input, NPCs keep
+> patrolling through a conversation, and a couch seat is no longer frozen because
+> somebody else is talking (`maintainer-decisions.md`, 2026-08-06).
+>
+> This row's own argument is that the two must agree, and its "freeze it" branch
+> carries exactly the objection he decided against: *"on a couch, one player dying
+> freezes the other mid-jump."* Applied consistently, that ruling selects **freeze
+> only the ACTORS** or **leave it**, and rules out the global freeze.
+>
+> ⚠ **it does not close the row**, and deliberately: a death is not a
+> conversation, `RoomTransition` and `Cutscene` were explicitly excluded from that
+> ruling as a different question, and which of the two survivors to take is still
+> a judgement. But the fork is narrower than three, and the "decide them together"
+> instruction is half discharged.
 
 **Your report** (`JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`): *"When maryo-dies the
 enemies seem to reset before the death animation is finished. The level reset

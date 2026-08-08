@@ -102,8 +102,33 @@
   offspring in the same set were drawn, so it discriminates rather than passing on
   everything.
 
-* ⛔ **THE GRADIENT SENTINEL'S SUMMON DOES NOTHING** (found 2026-08-08, NOT fixed
-  — queued as D20). Its Minima Trap is authored to summon a *"Puppy Slug"*
+* ✔ **THE GRADIENT SENTINEL SUMMONS NOW — it never had** (found and fixed
+  2026-08-08, `da1563ec1`). **A Puppy Slug actually appears**, measured in the real
+  app in `sandbox:basement_boss` (LDtk `BossSpawn-0158`, brain
+  `PhaseScript:clockwork_warden`), emitting the Minima Trap's own request:
+
+  ```text
+  before  counter=None      descendants: []                       'Puppy Slug': []
+  after   counter=Some(0)   descendants: ["…BossSpawn-0158/0"]    'Puppy Slug': ["Puppy Slug"]
+  ```
+
+  ⭐ **the fix is a type property, not a patch.** `SimId` is now
+  `#[require(SimIdCounter)]`. `SimId::spawned` is the only way to name a
+  dynamically-spawned entity and it needs a counter **on the spawner** — so
+  *"identified"* and *"able to be descended from"* are the same condition, and
+  making it the type's business removes what **six** mint sites had to remember.
+  Two of the six remembered; the executor that builds every authored boss did not.
+  ⚠ **rollback cost, checked**: no registration moved, so the schema version and
+  both baselines are untouched. Every `SimId` carrier snapshots 8 more bytes, and
+  a required component is supplied only when ABSENT — so a restore putting back
+  `SimIdCounter(7)` keeps 7 rather than re-minting.
+  ⭐ **the guard is built THROUGH the real executor** — it authors a `boss_spawns`
+  row, runs the construction plan, finds the boss by querying the world for its
+  `SimId`, and only then summons. Nothing about the summoner is hand-built, which
+  is the whole reason the old test was green over a dead feature.
+
+* ~~⛔ **THE GRADIENT SENTINEL'S SUMMON DOES NOTHING** (found 2026-08-08, NOT fixed
+  — queued as D20).~~ Its Minima Trap is authored to summon a *"Puppy Slug"*
   minion (`bosses/specials/gradient_sentinel.rs:604`, and a second site at `:860`);
   the boss ships with a sheet, a cutscene intro and a derived encounter
   (`clockwork_warden`). **The minion never appears.**

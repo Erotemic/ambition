@@ -434,7 +434,7 @@ pub fn install_twintrack_content(app: &mut App) {
                 "TwinTrack Traveler",
                 TWINTRACK_EXPERIENCE,
             )
-            .with_sheet("mary_o_v2")
+            .with_sheet("patent_clerk")
             .with_voice([
                 "Ask what their own clocks read.",
                 "The visible image is old light.",

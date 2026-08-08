@@ -23,11 +23,17 @@ use ambition_platformer2d_core as ae;
 /// completely. A body dies once and drops at most one coin, one heart and one
 /// ability pickup, so a counter would number a thing that cannot repeat.
 ///
-/// There is also nothing to count with. A construction-built body carries a
-/// `SimId` from the executor and **no `SimIdCounter`** — `ensure_sim_id`, which
-/// mints the pair, is filtered `Without<SimId>` and so never sees it. Measured
-/// 2026-08-08 on `proving_grounds`: every enemy reads
-/// `sim=placement:EnemySpawn-… counter=None`.
+/// ⛔ **this paragraph used to add "and there is nothing to count with" — a
+/// construction-built body was measured carrying a `SimId` and no
+/// `SimIdCounter`. `da1563ec1` made `SimId` `#[require(SimIdCounter)]` two
+/// commits later, so every body that has an identity now has a counter and the
+/// old measurement no longer reproduces.** The reason above is unaffected and
+/// was always the real one: `(parent, kind)` determines the drop, so there is
+/// nothing to count, whether or not a counter is available.
+///
+/// ⭐ and now that a counter EXISTS, the choice is worth stating rather than
+/// inherited: a counter is rollback state and a derivation is not, so deriving
+/// keeps these ordinals stable across a rewind for free.
 ///
 /// ⚠ these ordinals reach snapshots inside `SpawnOrigin`. Append, never
 /// renumber.

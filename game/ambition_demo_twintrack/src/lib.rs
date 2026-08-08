@@ -126,8 +126,8 @@ const TWINTRACK_CATALOG_RON: &str = r#"(
     characters: {
         "twintrack_traveler": (
             display_name: "TwinTrack Traveler",
-            spritesheet: "sprites/mary_o_v2_spritesheet.png",
-            manifest: "sprites/mary_o_v2_spritesheet.ron",
+            spritesheet: "sprites/patent_clerk_spritesheet.png",
+            manifest: "sprites/patent_clerk_spritesheet.ron",
             tier: MainHall,
             body_kind: Floating,
             composition: None,

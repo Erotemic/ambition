@@ -93,9 +93,21 @@ fixtures, supplying exactly what production omitted.
 ⭐⭐ **the durable fix was to make the pairing unforgettable rather than
 remembered**: `SimId` is now `#[require(SimIdCounter)]`, so *"identified"* and
 *"able to be descended from"* are one condition rather than two facts six mint
-sites had to keep in step. ⚠ **the namespace half is still unenforced** — nothing
-stops a runtime spawn spelling `SimId::placement(..)`, which is what
-`spawn_split_offspring` does and what `SimId::as_str`'s own doc forbids.
+sites had to keep in step. ⚠ **the namespace half is still unenforced**, and ⛔ **it cannot be enforced the
+same way.** Measured: **70 `SimId::placement` call sites**, and nearly all are
+correct — the construction executor naming authored features, room staging,
+probes, tests. A grep contract cannot separate them from a runtime spawn wearing
+the authored namespace, because the distinction is semantic: *was this entity
+authored in a room spec, or minted while the sim ran?* Only the call site knows,
+and a checker that cannot tell them apart is noise a reader learns to waive.
+
+⭐ **the type-level move that WOULD work, by analogy with the counter fix**: make
+`SimId::placement` take something only authored content can produce — a
+`PlacementId` newtype carried out of the room spec — rather than a `&str` anyone
+can hand it. Then a runtime spawner cannot spell an authored id because it has
+nothing to spell it with, exactly as `#[require(SimIdCounter)]` means no mint site
+can forget the counter. ⚠ that is a real refactor across 70 sites, not a slice;
+recorded as the shape of the answer rather than as a plan.
 - A session captures the exact `PreparedContentIdentity` and deterministic
   rollback-registration fingerprint. Any change removes the active session
   before another GGRS frame runs.

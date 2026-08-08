@@ -179,7 +179,7 @@ the expensive option keeps getting chosen.
 ## ⭐ RESULT (2026-08-03): 63 minutes → 25.5, and the disk cost is gone
 
 Fronts 0 and 1 landed and the suite measured itself. Every number below comes
-from `dev/run_tests_cost.jsonl`, which Front 0 exists so that nobody has to read
+from `dev/ambition_dev_measurements/run_tests_cost.jsonl`, which Front 0 exists so that nobody has to read
 another log by hand:
 
 | | before (08-02, hand-read) | after (08-03, from the ledger) |

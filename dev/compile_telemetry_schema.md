@@ -50,7 +50,7 @@ third writer appears, revisit — not before.
 
 ---
 
-## 2. `dev/compile_graph.jsonl` — `kind: "graph"`
+## 2. `dev/ambition_dev_measurements/compile_graph.jsonl` — `kind: "graph"`
 
 **Deterministic. No build required. Populated today.** Written by
 `scripts/compile_ratchet.py --update`; the same object is frozen as
@@ -74,7 +74,7 @@ third writer appears, revisit — not before.
 | `headroom_fraction` *(baseline only)* | the budget the gate applies, both directions | ✅ |
 
 ⭐ **`unit_weights` is the join back to §3.** It is `ms/line` per crate, taken
-from `dev/compile_units.jsonl` filtered to ONE profile and ONE cache class, and
+from `dev/ambition_dev_measurements/compile_units.jsonl` filtered to ONE profile and ONE cache class, and
 FROZEN here rather than recomputed — so appending a build's rows cannot move a
 guarded number without an explicit `--update`. A crate with no measurement is
 priced at the population median and named in `unpriced_crates`, which raises an
@@ -99,7 +99,7 @@ reliable for one crate against *itself* over time. Use it for the second thing.
 
 ---
 
-## 3. `dev/compile_units.jsonl` — `kind: "unit"`
+## 3. `dev/ambition_dev_measurements/compile_units.jsonl` — `kind: "unit"`
 
 **Per-module wall time. Needs a real build.** 19 real rows today, back-filled from
 the 2026-08-07 report that produced the journal's findings.
@@ -265,7 +265,7 @@ Two phases per configuration, because they answer different questions:
 * **`first-party`** — a real one-line edit appended to **every** first-party
   crate's `src/lib.rs`, then rebuilt, then the original bytes written back
   (⛔ never `git checkout --`). This is the recompilation the repo pays, and the
-  phase to regress against `dev/compile_graph.jsonl`.
+  phase to regress against `dev/ambition_dev_measurements/compile_graph.jsonl`.
 
 ⭐ **the two phases are in different REGIMES and want opposite optimisations.**
 Compare *total unit-seconds ÷ cores* against the *dependency floor*: whichever
@@ -284,7 +284,7 @@ comparison is warm.
 
 ---
 
-## 4. `dev/compile_cost.jsonl` — `kind: "scenario"`
+## 4. `dev/ambition_dev_measurements/compile_cost.jsonl` — `kind: "scenario"`
 
 **The edit→rebuild stopwatch.** Written by `scripts/compile_cost.py`. 4 rows
 today; the grain is one *scenario* (warm, edit, rebuild, revert), not one unit.
@@ -317,7 +317,7 @@ which is precisely why the field could not stay stringly typed.
 
 ---
 
-## 5. `dev/run_tests_cost.jsonl` — `kind: "job"`
+## 5. `dev/ambition_dev_measurements/run_tests_cost.jsonl` — `kind: "job"`
 
 **Test time.** Written by `scripts/run_tests.py`; 75 rows predate this schema.
 Grain: one suite invocation, with a `per_job` array of commands.
@@ -346,7 +346,7 @@ loop runs with it on, and until now nothing recorded which of the two a row was.
 
 ---
 
-## 6. `dev/carve_lineage.jsonl` — `kind: "carve"`
+## 6. `dev/ambition_dev_measurements/carve_lineage.jsonl` — `kind: "carve"`
 
 ⛔ **the only dimension with NO other source.** `git log --follow` approximates a
 file move, gives up on a module split across two homes, and records nothing about

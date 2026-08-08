@@ -60,7 +60,7 @@ than §4 reads, and §4 should be read through it.
 ## 1. Lines do not predict cost
 
 Across all 52 first-party crates ≥300 lines, using measured release seconds from
-`dev/compile_units.jsonl`:
+`dev/ambition_dev_measurements/compile_units.jsonl`:
 
 | predictor | corr with seconds |
 |---|---|
@@ -195,7 +195,7 @@ architecture — the grounds that were always the real ones.
 
 ## 5. Two numbers, two questions
 
-`ambition_relativity2d` costs **68.1 s** in `dev/compile_units.jsonl` and
+`ambition_relativity2d` costs **68.1 s** in `dev/ambition_dev_measurements/compile_units.jsonl` and
 **12.77 s** under `-Ztime-passes`. Both are correct and they answer different
 questions:
 
@@ -350,7 +350,7 @@ Repeated several times on 2026-08-08, including into `goal_guard.py`'s own
 docstring: *"the same 688-unit build measured 833.9 s and 540.0 s, and the
 biggest contender is the goal guard."*
 
-`dev/compile_units.jsonl` stamps contention per build — `build_load_mean`,
+`dev/ambition_dev_measurements/compile_units.jsonl` stamps contention per build — `build_load_mean`,
 `build_load_max`, **`build_foreign_cargo_peak`**, `build_cores`. Reading them:
 
 | build | dirty | wall | load mean | foreign cargo peak |
@@ -383,7 +383,7 @@ contention for hours while `build_foreign_cargo_peak` sat in every row.
 Settles the question §3 could not: this crate is the most expensive first-party
 unit in 3 of 3 release builds on 1/8 the monolith's lines, and an external review
 attributed it to *"a surprisingly expensive frontend phase"* — 23.32 s of
-frontend on 14.7k lines, read off `dev/compile_units.jsonl`.
+frontend on 14.7k lines, read off `dev/ambition_dev_measurements/compile_units.jsonl`.
 
 ⛔ **Two things everyone believed about this crate are wrong, and the second one
 is the expensive one.**

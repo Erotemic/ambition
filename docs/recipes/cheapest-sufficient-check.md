@@ -53,7 +53,7 @@ verbatim here, which is where a reader who needs them is already looking. -->
 ## The cheapest sufficient command — MEASURED costs
 
 Pick the narrowest row that covers what you changed. **Every number below was
-measured on 2026-08-03 against a warm target directory** (`dev/run_tests_cost.jsonl`
+measured on 2026-08-03 against a warm target directory** (`dev/ambition_dev_measurements/run_tests_cost.jsonl`
 plus direct timings); they are the real loop cost, not an estimate.
 
 | I changed… | run | s | what it does NOT cover |
@@ -202,7 +202,7 @@ for both.
   `target/run_tests_status.json` (`state`: running/done/crashed, plus
   `current_job` and `current_started` so a slow job is distinguishable from a
   wedged one, and `completed` with each finished job's seconds). Every run also
-  appends what it cost to `dev/run_tests_cost.jsonl` — wall clock, and how much
+  appends what it cost to `dev/ambition_dev_measurements/run_tests_cost.jsonl` — wall clock, and how much
   of it was libtest actually executing rather than cargo building. ⛔ never poll
   with `pgrep -f <script>`: the polling shell's own command line contains the
   pattern, so it matches ITSELF and the loop sleeps forever (seven stranded,

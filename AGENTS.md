@@ -214,7 +214,10 @@ optimising anything that touches this room.
   touched concept; which command that is, and what each costs, is the recipe
   linked above.
 - To wait on a long command, read state it WROTE, never the process table —
-  `target/run_tests_status.json` and `dev/run_tests_cost.jsonl`. ⛔ never poll
+  `target/run_tests_status.json` and
+  `dev/ambition_dev_measurements/run_tests_cost.jsonl` (⚠ a submodule since
+  2026-08-08 — `git submodule update --init dev/ambition_dev_measurements` if
+  it is empty). ⛔ never poll
   with `pgrep -f <script>`: the polling shell's own command line contains the
   pattern, so it matches ITSELF and the loop sleeps forever (seven stranded,
   2026-07-31). Better still, don't poll — a backgrounded command reports its

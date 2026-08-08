@@ -376,7 +376,7 @@ runs, and this repo has been prioritising it with the cold build's number.**
 
 ⚠ **AUDITED 2026-08-08 — which half of this is data and which is a MODEL.**
 
-*Verifiable by summing per-unit fields in `dev/compile_units.jsonl`:*
+*Verifiable by summing per-unit fields in `dev/ambition_dev_measurements/compile_units.jsonl`:*
 
 ```text
                  units/run   frontend   codegen     work   work/8
@@ -553,7 +553,7 @@ agreeing is a strong reason to measure next, not a substitute for measuring.
 Two independent measurements now name the same crate, and it is not the one this
 plan is about.
 
-**Frontend seconds, first-party, dev cold build** (`dev/compile_units.jsonl`):
+**Frontend seconds, first-party, dev cold build** (`dev/ambition_dev_measurements/compile_units.jsonl`):
 
 | crate | frontend | lines | ms/line |
 |---|---:|---:|---:|

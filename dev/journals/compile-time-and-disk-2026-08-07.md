@@ -6,7 +6,7 @@ tests."*
 
 Everything below was measured on this box — **8 cores, mold, warm tree** — with
 `scripts/compile_cost.py`, which was written during this session and records to
-`dev/compile_cost.jsonl`. Numbers do not transfer across machines; the method
+`dev/ambition_dev_measurements/compile_cost.jsonl`. Numbers do not transfer across machines; the method
 does.
 
 ## The headline
@@ -198,7 +198,7 @@ of the two you get from the coupling rather than letting a proposal assert it.
 `cargo build --timings` writes an HTML report that **embeds the identical
 per-unit JSON** as `const UNIT_DATA`, including the frontend/codegen split. Two
 of those reports were still on disk from 2026-08-07 and are now ingested into
-`dev/compile_units.jsonl` (19 rows, real durations). Re-derived from the
+`dev/ambition_dev_measurements/compile_units.jsonl` (19 rows, real durations). Re-derived from the
 artifact:
 
 ```

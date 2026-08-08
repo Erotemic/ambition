@@ -862,12 +862,16 @@ pub fn held_projectile_step(
         ),
         With<crate::features::FeatureSimEntity>,
     >,
+    // `Option<&DamageableVolumes>` so a thrown bolt does not terminate on a body
+    // that published no hurtbox and would take no damage. Optional, never required:
+    // requiring it would drop every actor without one from the query.
     ecs_actors: Query<
         (
             &crate::features::FeatureId,
             &crate::features::CenteredAabb,
             &crate::features::ActorDisposition,
             &ambition_characters::actor::BodyCombat,
+            Option<&crate::features::DamageableVolumes>,
         ),
         (
             With<crate::features::FeatureSimEntity>,

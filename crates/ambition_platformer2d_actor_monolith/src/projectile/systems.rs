@@ -13,8 +13,8 @@ use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
 use crate::features::{
     damage_lands, ActorAggression, ActorDisposition, ActorFaction, BossClusterRef, BossConfig,
-    BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent, HitKnockback,
-    HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
+    BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId, FeatureSimEntity, HitEvent,
+    HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
@@ -454,8 +454,18 @@ pub fn step_projectiles(
     >,
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    // `Option<&DamageableVolumes>` so the Player-faction hit PREDICTION refuses a
+    // body that published no hurtbox, the same state the hostile victim loop below
+    // refuses via `is_intangible`. Optional, never required: requiring it would drop
+    // every actor without one from the query and make the prediction a partial no-op.
     ecs_actors: Query<
-        (&FeatureId, &CenteredAabb, &ActorDisposition, &BodyCombat),
+        (
+            &FeatureId,
+            &CenteredAabb,
+            &ActorDisposition,
+            &BodyCombat,
+            Option<&DamageableVolumes>,
+        ),
         (With<FeatureSimEntity>, Without<BossConfig>),
     >,
     ecs_bosses: Query<

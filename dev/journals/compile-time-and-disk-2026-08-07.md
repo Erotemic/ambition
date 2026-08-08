@@ -472,3 +472,30 @@ is the number that would have made the day quietly expensive.
 drifted on the first ordinary day it was exposed to, which is what distinguishes
 a ratchet that is measuring from one that cannot fail. The headroom is two-sided,
 so the same run reports a CARVE as stale slack rather than passing silently.
+
+## 2026-08-08 — the contention cost, measured: 833.9s → 540.0s for the same 688 units
+
+A second collection run, taken deliberately on a QUIET machine after the last
+worker finished. It is not the 57-unit rebuild that was wanted — the telemetry
+target dir was cold, so it built 688 units — **which by accident makes it directly
+comparable to the original cold build.**
+
+```text
+  688 units  833.9s   load 14–18, goal-guard cargo running   (2026-08-08 early)
+  688 units  540.0s   load 9.22, foreign cargo peak 0        (2026-08-08 late)
+```
+
+⭐ **the same work, 35% faster, with nothing changed but the machine.** That is
+the price of the goal guard's own Stop-hook checks (`cargo check -p ambition_app`
+plus the 318-test `app_it`) running on the default target dir every time a turn
+ended — and it is the first direct measurement of it rather than an inference
+from two identical rebuilds differing 12%.
+
+⛔ **so every absolute second in the earlier session is inflated by roughly a
+third**, and the ratios that survived contention are the only figures from it
+worth quoting. The regime split, the codegen share and the rank orders all hold;
+the seconds do not.
+
+⚠ **and the tree moved ~70 commits between the two runs**, so this is not a clean
+controlled comparison — a same-tree A/B would need the goal disarmed for one run.
+The direction and rough magnitude are what it supports, not the exact 35%.

@@ -471,6 +471,14 @@ slot with no attached pad cannot be set to controller.
   which is a good sign about both instruments and NOT a new finding. What the
   re-measurement adds is the ruler: that test reads against a 32-unit TILE, and
   against the PLAYER the snake is **2.05x his width**.
+  ⚠ **2026-08-08 — that "2.05x", and the "4.51x" below, are SHEET-PIXEL ratios
+  across sheets with different pixel densities, so they do not describe in-game
+  size.** In world units the snake is **1.00x** Mary-O's width and the slop
+  **1.09x**. The conclusion drawn below is unaffected — it was about the box's
+  SHAPE (a square over a 1.54:1 animal), which no ratio was needed to see — but
+  the numbers should not be read as sizes. Annotated because I made the identical
+  slip from the identical column three days later, which suggests the instrument's
+  output invites it.
   ⛔⛔ **AI SLOP HAS NO SUCH TEST AND IS WORSE, and this part IS new.**
   `enemy_quad_matches_its_box` covers the snake only. The slop's sheet publishes
   **257x167** — a 1.54:1 animal, and **4.51x the player's width** — while
@@ -636,9 +644,13 @@ slot with no attached pad cannot be set to controller.
   leave the two characters you complained about untouched.
   ⚠ the code was reverted, not landed — this is evidence for your open decision,
   not a change made on your behalf.
-  ⭐⭐ **AND THE ROUTE DOES NOT FIX "way too big" — your two complaints are two
-  different problems.** Ran `enemy_body_scale` for the first time since it was
-  written:
+  ⭐⭐ **THE ROUTE IS THE FIX FOR "way too big", and the body sizes are already
+  right.** ⛔ this heading said the opposite for two hours — *"the route does not
+  fix it, your two complaints are two different problems"* — while the correction
+  sat in the paragraphs below it. **That is the same defect I fixed in a design
+  doc this morning**, repeated by me in this file the same day: a heading is a
+  claim, and it gets corrected in the same edit as the body.
+  Ran `enemy_body_scale` for the first time since it was written:
 
   |          target | collision | render | x vs player | y vs player |
   |---|---|---|---|---|

@@ -44,7 +44,8 @@ append**, and readers do not:
 
 ⚠ **`dev/compile_ratchet_baseline.json` deliberately did NOT move** and is
 declared here so that the reason travels with the paths. It is a GATE INPUT —
-`compile_ratchet.py --check` reads it on every run — and a gate whose baseline
+`python3 scripts/compile_ratchet.py` reads it on every run (⚠ the BARE
+invocation is the gate; there is no `--check` flag) — and a gate whose baseline
 sits behind an uninitialised submodule cannot run at all. It is also bounded: one
 frozen snapshot, rewritten rather than appended, so it never had the problem the
 ledgers have.

@@ -158,8 +158,9 @@ not re-declare a ledger path in a script; three scripts used to and that is what
 made this move expensive.
 
 ⚠ **`dev/compile_ratchet_baseline.json` deliberately stayed in this repo.** It is
-a GATE INPUT — `compile_ratchet.py --check` reads it on every run — and a gate
-whose baseline sits behind an uninitialised submodule cannot run. It is bounded
+a GATE INPUT — the bare `python3 scripts/compile_ratchet.py` gate reads it on
+every run — and a gate whose baseline sits behind an uninitialised submodule
+cannot run. It is bounded
 too: one frozen snapshot, rewritten rather than appended.
 
 | ledger (under `dev/ambition_dev_measurements/`) | `kind` | written by | measures |

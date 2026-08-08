@@ -49,8 +49,9 @@ def test_a_generated_file_and_a_submodule_pointer_are_not_skippable():
     measurements submodule on 2026-08-08 and is now the one thing that IS
     skippable — so keeping it would have inverted the case it was written for.
     `dev/compile_ratchet_baseline.json` is the generated file that stayed behind:
-    `compile_ratchet.py --check` reads it on every run, so a change to it changes
-    what a check decides, which is exactly what "not prose" has to mean.
+    the bare `python3 scripts/compile_ratchet.py` gate reads it on every run, so
+    a change to it changes what a check decides, which is exactly what "not
+    prose" has to mean.
     """
     assert not gate.is_skippable_only(["dev/compile_ratchet_baseline.json"])
     assert not gate.is_skippable_only([".agent/index/catalog.json"])

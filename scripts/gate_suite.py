@@ -37,9 +37,10 @@ the exemption twice over.
 * Nothing in the build or test graph reads it. This script runs
   `cargo test -p ambition_app --test app_it`, and no row of telemetry can change
   what that reports. ⚠ the one measurement artifact that IS an input to a check —
-  `dev/compile_ratchet_baseline.json`, which `compile_ratchet.py --check` reads on
-  every run — deliberately stayed OUT of the submodule and is still non-prose, so
-  it still forces the full suite when it moves.
+  `dev/compile_ratchet_baseline.json`, which the bare
+  `python3 scripts/compile_ratchet.py` gate reads on every run — deliberately
+  stayed OUT of the submodule and is still non-prose, so it still forces the
+  full suite when it moves.
 * Without the exemption the prose-only case would be dead within one suite run.
   `run_tests.py` appends a row to `run_tests_cost.jsonl` on EVERY run, which
   leaves the submodule's working tree dirty, which `git status --porcelain` in

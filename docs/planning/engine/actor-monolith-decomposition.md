@@ -478,12 +478,46 @@ dependency, while exactly one belongs to the monolith. So the runtime is both
 the dependency problem and the frontend-cost problem, measured two entirely
 different ways.
 
-⚠ **this does not retarget the plan by itself** — nobody has looked at what
-inside `runtime` costs 24.8s of frontend, and 1.68 ms/line is a symptom rather
-than a diagnosis (generics, macro expansion and trait resolution all land there).
-**But every future "which crate should we carve" argument should start here
-rather than at line count**, which is the measure this plan opened with and which
-ranks the monolith first for a cost it does not have.
+### ⭐ And it localises: 94% of the runtime's generic surface is in `rollback/`
+
+Structural scan (`grep`, not timing — see the caveat below):
+
+| crate / area | lines | generic fns / kloc | `where` / kloc |
+|---|---:|---:|---:|
+| `..._runtime` **whole** | 14,747 | **5.35** | **8.13** |
+| `..._runtime::rollback` | 8,649 | **8.55** | **11.09** |
+| `..._runtime::room_transition` | 1,723 | **0.00** | 0.58 |
+| `..._runtime` everything else | 4,375 | 1.14 | — |
+| `..._actor_monolith` | 111,579 | 0.35 | 2.57 |
+| `..._platformer2d_core` | 29,062 | 0.65 | 2.85 |
+| `ambition_characters` | 35,475 | 0.28 | 3.80 |
+
+**The runtime carries 15x the monolith's generic-function density, and 74 of its
+79 generic functions live in `rollback/`.** Generic functions and `where` clauses
+are precisely what the FRONTEND pays for — trait resolution and instantiation —
+which is the phase a rebuild is bound by.
+
+⭐ **the mechanism is per-type registration.** `rollback/registry.rs` exposes a
+family of `fn rollback_component_clone<T>`, `..._cursor<T>`, `..._canonical<T>`,
+`..._resolved<T>`, `..._clone_entity_ref<T>`, `..._clone_entity_set<T>` — each
+instantiated once per registered type, and the schema currently holds **83
+encoded types across 11 crates** (`rollback-wire-format-is-frozen`).
+
+⚠ **and C7 already met this from the other side and did not recognise it.** That
+row concluded the declare/install halves *"cannot be split by data alone —
+installation is generic per type and `T` is not recoverable from a
+`type_name`."* It recorded that as a blocker to a refactor. It is also the
+description of the workspace's densest frontend cost.
+
+⛔ **stated as a HYPOTHESIS, because grep counts are not seconds.** Confirming it
+needs per-module attribution, which cargo cannot give — its unit is a crate — so
+it wants nightly `-Z self-profile`. What is measured is the crate-level 8x, and
+what is counted is where the generics are; the join between them is inference.
+
+⚠ **this does not retarget the plan by itself.** **But every future "which crate
+should we carve" argument should start here rather than at line count**, which is
+the measure this plan opened with and which ranks the monolith first for a cost
+it does not have.
 
 ## ⛔ Measured 2026-08-08: the dependency leak is mostly NOT the monolith's
 

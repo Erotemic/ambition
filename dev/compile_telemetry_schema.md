@@ -60,14 +60,32 @@ third writer appears, revisit — not before.
 |---|---|---|
 | `consumer` | constant — `ambition_app`, the AGENTS.md gate | ✅ |
 | `line_unit` | constant; states the units so the ledger is readable in a year | ✅ |
-| `first_party_crates` / `first_party_lines` | `cargo tree` ∩ `cargo metadata` | ✅ |
+| `first_party_crates` / `first_party_lines` / `first_party_seconds` | `cargo tree` ∩ `cargo metadata`, priced by `unit_weights` | ✅ |
 | `largest_unit` | `{crate, lines}` — the biggest recompilation unit | ✅ |
+| `largest_unit_seconds` | `{crate, seconds}` — the most EXPENSIVE one, which is a different crate | ✅ |
 | `worst_edit_cost` | `{crate, lines, crates}` — the most an edit can force | ✅ |
-| `watched_edit_cost` | same, for crates named in `WATCHED` | ✅ |
+| `worst_edit_cost_seconds` | `{crate, seconds, crates}` — the same closure in measured seconds | ✅ |
+| `watched_edit_cost` | both, for crates named in `WATCHED` | ✅ |
 | `critical_path_crates` | longest serial chain of first-party crates | ✅ |
+| `unit_weights` | the frozen ms/line table + the config and builds it came from | ✅ |
+| `unpriced_crates` | crates in the graph with no measurement, priced at the median | ✅ |
 | `crate_lines` | `{crate: lines}` for every first-party crate | ✅ |
-| `crates` *(baseline only)* | the full per-crate table, incl. `direct_dependents` | ✅ |
-| `headroom_fraction` *(baseline only)* | the budget the gate applies | ✅ |
+| `crates` *(baseline only)* | the full per-crate table, incl. `direct_dependents`, `ms_per_line`, `seconds`, `edit_cost_seconds` | ✅ |
+| `headroom_fraction` *(baseline only)* | the budget the gate applies, both directions | ✅ |
+
+⭐ **`unit_weights` is the join back to §3.** It is `ms/line` per crate, taken
+from `dev/compile_units.jsonl` filtered to ONE profile and ONE cache class, and
+FROZEN here rather than recomputed — so appending a build's rows cannot move a
+guarded number without an explicit `--update`. A crate with no measurement is
+priced at the population median and named in `unpriced_crates`, which raises an
+`UNPRICED` finding: a least-squares fit of `seconds ~ a + b·lines` over the 55
+first-party crates reads **R² = 0.12**, so no arithmetic over a crate's size can
+substitute for measuring it.
+
+⛔ **`build_label` is recorded in `unit_weights.builds[].untrusted_label` and
+never selected on.** The cache class comes from `build_fresh_units` /
+`build_dirty_units`; see §3's note on the build that says `first-party` and
+recompiled everything.
 
 **Units, stated on purpose:** `lines` is *physical* lines of `<crate>/src/**/*.rs`
 — blanks, comments and inline `#[cfg(test)]` modules included. Not statements,
@@ -178,8 +196,25 @@ units of which 669 were cached at duration 0. "How long did nothing take" is not
 a statistic, and 669 zero rows per build would bury the 19 that matter. The cache
 state survives as `build_fresh_units` / `build_dirty_units`.
 
+⛔ **the cache state is in the COUNTERS, and `build_label` contradicts them.**
+The build at `2026-08-08T11:17` is labelled `collector: dev/first-party` and has
+`build_fresh_units: 0` — it recompiled all 688 units and took 539.9s, against two
+honest first-party rebuilds at 187.7s and 210.4s. Any selection that trusts the
+label admits a cold build's durations into a rebuild's statistics and inflates
+them 2–4x with nothing in the output saying so. ⚠ **and `run_id` is not the
+build**: the collector reuses one `run_id` across its cold and warm passes, so
+four of the eight recorded builds share a `run_id` with another. Group by
+`build_source`.
+
 ⚠ **`backfilled: true` means `lines` and `commit` describe the tree at INGEST,
 not at build.** Drop those rows before regressing seconds against lines.
+
+⚠ **`seconds` is a unit's WALL duration inside a real parallel build**, sharing 8
+cores with sibling rustc processes — nightly `-Ztime-passes` reads 12.77s for
+`ambition_relativity2d` where this ledger reads 68.1s. Both are real measurements
+of different questions: this one prioritises ("what does it cost the build I
+run"), that one diagnoses ("what does it intrinsically cost"). The ratchet weights
+use this one on purpose. Do not compare them.
 
 ### The collector — `scripts/compile_collect.py`, landed 2026-08-08
 

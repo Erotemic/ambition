@@ -25,10 +25,10 @@ counts. They do not move when the machine is busy. They move precisely when
 somebody changes the shape of the build — which is the only thing a carve is
 allowed to claim credit for.
 
-## The four guarded numbers, and why these four
+## The five guarded numbers, and why these five
 
-Each catches a regression class the other three cannot see. That is the whole
-selection rule; a fifth number that reddens on the same event as one of these is
+Each catches a regression class the others cannot see. That is the whole
+selection rule; a sixth number that reddens on the same event as one of these is
 a dashboard entry, not a guard.
 
 1. **`largest_unit_lines`** — the biggest single first-party crate, in lines.
@@ -57,6 +57,53 @@ a dashboard entry, not a guard.
    and the wall clock gets worse. A decomposition campaign with no guard here is
    optimising a number that is not the cost.
 
+5. **`worst_edit_cost_seconds`** — the same dependent closure as (2), summed
+   with a MEASURED per-crate weight instead of a line count. ⛔ **this is the
+   one the first four let through, and the hole is not hypothetical.** In the
+   release rebuild the monolith compiles at **0.61 ms/line** and
+   `ambition_platformer2d_runtime` at **14.77** — 24x — so moving 10,000 lines
+   out of the monolith into a runtime-shaped crate *lowers* `largest_unit_lines`
+   by 9%, leaves `worst_edit_cost_lines` and `critical_path_crates` untouched,
+   and makes the build ~2 minutes slower. Every line number reads it as a win.
+   `corr(ms/line, lines) = -0.23` across 52 crates: bigger crates are CHEAPER
+   per line, so a line count is not merely imprecise here, it points the wrong
+   way.
+
+## The seconds number is a WEIGHT, not a stopwatch
+
+⛔ **the weights come from `dev/compile_units.jsonl`, a committed ledger, and
+never from timing anything at gate time.** Everything §"Why this is not a timing
+threshold" says still holds: this file builds nothing, reads no clock, and
+returns the same answer on a busy machine as on an idle one. What changed is the
+weight each node in the walk contributes, not how the walk is done or when.
+
+⭐ **a stale weight is a known, reviewable number in a file.** That is the trade,
+made deliberately. The alternative — recomputing weights from the ledger on every
+run — means `scripts/compile_collect.py` appending 57 rows turns the gate red on
+a tree nobody edited, which is the false-red this instrument exists to avoid. So
+the weights are FROZEN into the baseline by `--update`, alongside the numbers
+they price, and they move only when somebody re-freezes and says so.
+
+Three ways to get a plausible wrong weight, each found the hard way on
+2026-08-08 and each closed here:
+
+* ⛔ **configurations are not pooled.** The ledger mixes `release/opt-3`,
+  `test/opt-1` and `test/opt-0`; averaging across them compares crates that do
+  not share an opt level. `unit_weights()` selects ONE config — see
+  `WEIGHT_PROFILE` for which and why.
+* ⛔ **cache state comes from the counters, never from the label.** The build at
+  `2026-08-08T11:17` is labelled `collector: dev/first-party` and has
+  `build_fresh_units: 0` — it recompiled all 688 units in 540s against two
+  honest first-party rebuilds' 188s and 210s. The label lied; `fresh`/`dirty`
+  did not.
+* ⚠ **the ledger's `seconds` is a unit's wall duration inside a real parallel
+  build**, sharing 8 cores with sibling rustc processes — nightly
+  `-Ztime-passes` reads 12.77s for `ambition_relativity2d` where the ledger
+  reads 68.1s. **That is the right number for this gate**, chosen on purpose: a
+  blast-radius guard asks "what does this cost the build I actually run", and
+  the ledger answers exactly that question. The intrinsic cost answers a
+  different one.
+
 ## ⭐ These four were TESTED against seconds on 2026-08-08, and three held
 
 The premise — that these numbers predict compile cost — went two days without a
@@ -83,6 +130,17 @@ in four builds:
   210.5s. The hop count is still the right thing to GUARD — it is deterministic
   and a new layer still makes the chain longer — but do not price it in seconds
   by multiplying. `dev/journals/compile-time-and-disk-2026-08-07.md`, addendum 2.
+
+## ⛔ The line numbers STAY guarded, and that is an arithmetic answer
+
+The obvious reading of the above is "lines do not predict cost, so stop failing
+on lines". Measured against this tree, that would LOSE sensitivity rather than
+trade it: the monolith's 2%-of-lines budget is ~2,240 lines, which at its
+measured 0.61 ms/line is **1.4 seconds** — far inside the seconds budget. Delete
+the line guard and the biggest crate in the workspace can grow by a subsystem a
+week without any number moving. The two guards are tight in different places, on
+purpose: lines catch growth in a CHEAP crate, seconds catch growth in a DENSE one
+and every edge that changes what an edit reaches. Neither is a superset.
 
 ## What is deliberately NOT guarded here
 
@@ -114,6 +172,7 @@ Usage:
     python3 scripts/compile_ratchet.py --diff          # what moved since the baseline
     python3 scripts/compile_ratchet.py --update        # re-freeze + append a snapshot
     python3 scripts/compile_ratchet.py --carve crates/<crate>/src/<module>
+    python3 scripts/compile_ratchet.py --carve <path> --new-crate-rate 14.77
     python3 scripts/compile_ratchet.py --ingest-timings <cargo-timing.html>
     python3 scripts/compile_ratchet.py --record-carve --from <path> --to <path> --why '...'
 
@@ -127,6 +186,7 @@ import argparse
 import functools
 import json
 import re
+import statistics
 import subprocess
 import sys
 import time
@@ -177,6 +237,36 @@ WATCHED = [
 # the next 2,200 lines of growth land silently. `check_absence_contracts.py`
 # calls the same rule STALE and demands the prune in the same commit.
 HEADROOM_FRACTION = 0.02
+
+# The ONE build configuration the seconds weights are read from.
+#
+# ⛔ **release, because it is the only config in which all 55 first-party crates
+# share an opt level.** `Cargo.toml` pins `ambition_platformer2d_runtime`,
+# `ambition_render` and `ambition_app` to `opt-level = 0` under `[profile.dev]`
+# and has no `[profile.release]` table at all, so a `test`-profile weight table
+# prices three crates on a different setting from the other 52 — comparing them
+# is the pooling trap arriving inside a single build. Release also holds no
+# override, so it is where the cost this guard exists to see is largest and
+# where nobody has already mitigated it by hand.
+#
+# ⚠ **this is not the profile an agent's `cargo test` runs**, and that is a real
+# cost of the choice. It buys mutual comparability of the 55 weights, which is
+# what a SUM over a dependency closure needs; a table where three entries are
+# priced differently from the rest sums to a number that means nothing.
+WEIGHT_PROFILE = "release"
+
+# A build is a REBUILD when most of its units were already cached, and COLD
+# otherwise. Derived from the build's own `fresh`/`dirty` counters — see the
+# module docstring for the build whose LABEL says the opposite of its counters.
+#
+# ⭐ **rebuild is the class that matches the question.** Blast radius is "an edit
+# to this crate forces these crates to recompile" — dependencies cached, first
+# party dirty. That is a rebuild, and the two release builds on record differ by
+# more than 4x on the monolith (68.1s rebuild, 309.0s cold) precisely because
+# the cold one is also paying for 500 third-party units competing for the same 8
+# cores. Averaging the two would describe neither.
+WEIGHT_CACHE_CLASS = "rebuild"
+REBUILD_DIRTY_FRACTION = 0.5
 
 
 # ---------------------------------------------------------------------------
@@ -336,18 +426,160 @@ def crate_lines(directory: Path) -> dict[str, int]:
     return {"lines": lines, "files": files, "test_file_lines": test_lines}
 
 
+# ---------------------------------------------------------------------------
+# the weights
+# ---------------------------------------------------------------------------
+
+
+def cache_class(row: dict) -> str:
+    """`"rebuild"` or `"cold"` for the BUILD a unit row came from.
+
+    ⛔ **from the counters, never from `build_label` or `build_profile`'s
+    neighbours.** `dev/compile_units.jsonl` holds a build labelled
+    `collector: dev/first-party` with `build_fresh_units: 0` — it rebuilt all 688
+    units and took 540s, against two honestly-labelled first-party rebuilds at
+    188s and 210s. Selecting on that label puts a cold build's durations into a
+    rebuild's weight table, and every weight comes out 2-4x high with nothing in
+    the output saying so.
+
+    The atomic unit is a BUILD, and a build's own `fresh`/`dirty` counters are
+    the only thing in the row that cannot be mislabelled by the caller that
+    invoked cargo.
+    """
+    fresh = row.get("build_fresh_units") or 0
+    dirty = row.get("build_dirty_units") or 0
+    total = fresh + dirty
+    if not total:
+        return "unknown"
+    return "rebuild" if dirty / total <= REBUILD_DIRTY_FRACTION else "cold"
+
+
+def load_unit_rows(ledger: Path | None = None) -> list[dict]:
+    path = ledger or UNIT_LEDGER
+    if not path.exists():
+        return []
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            rows.append(json.loads(line))
+    return rows
+
+
+def unit_weights(rows: list[dict] | None = None) -> dict:
+    """The per-crate compile weight, in **ms per line**, from the committed ledger.
+
+    ⭐ **a RATE, not a duration, and that is the whole modelling decision.** A
+    frozen duration cannot answer "what if 10,000 lines moved", which is the
+    question a carve asks; a frozen rate multiplied by today's line count can.
+    It also composes exactly the way this file already believes the two
+    measurements behave — see `crate_lines`: lines are wrong by 17x BETWEEN
+    crates and right for one crate against ITSELF over time. So the measured
+    rate carries the between-crate spread that a line count gets wrong, and the
+    line count carries the within-crate movement that a frozen duration gets
+    wrong. Each does the half it is good at.
+
+    Selection, in order, and every filter is here because dropping it produces a
+    plausible wrong number:
+
+    * `first_party` — third-party units are cached and never in a blast radius.
+    * ONE profile (`WEIGHT_PROFILE`) and ONE cache class (`WEIGHT_CACHE_CLASS`),
+      because the ledger mixes three configurations and two cache states.
+    * ⛔ `backfilled` rows are DROPPED. A backfilled row's `lines` column
+      describes the tree at ingest, not the tree that was built, so
+      `seconds / lines` divides a measurement by an unrelated number.
+
+    All of a crate's units are summed before dividing — lib, test, bin and build
+    script are one crate's contribution to one build, which is also how
+    `scripts/compile_report.py` counts so the two readers of this ledger cannot
+    disagree. Across builds the per-crate rate is the MEDIAN, so a single odd
+    build cannot carry the table.
+    """
+    rows = load_unit_rows() if rows is None else rows
+    selected = [
+        row
+        for row in rows
+        if row.get("first_party")
+        and row.get("build_profile") == WEIGHT_PROFILE
+        and cache_class(row) == WEIGHT_CACHE_CLASS
+        and not row.get("backfilled")
+        and row.get("seconds")
+        and row.get("lines")
+    ]
+
+    per_build: dict[str, dict[str, list[dict]]] = {}
+    for row in selected:
+        source = row.get("build_source") or ""
+        per_build.setdefault(source, {}).setdefault(row["unit"], []).append(row)
+
+    rates: dict[str, list[float]] = {}
+    for units in per_build.values():
+        for name, unit_rows in units.items():
+            seconds = sum(r["seconds"] for r in unit_rows)
+            # One crate has ONE line count however many units it compiles into.
+            lines = max(r["lines"] for r in unit_rows)
+            rates.setdefault(name, []).append(seconds * 1000.0 / lines)
+
+    table = {name: round(statistics.median(v), 4) for name, v in sorted(rates.items())}
+    builds = [
+        {
+            "source": source,
+            "started_at": sample["build_build_started_at"],
+            "commit": sample["commit"],
+            "fresh_units": sample["build_fresh_units"],
+            "dirty_units": sample["build_dirty_units"],
+            "wall_clock": sample["build_total_seconds"],
+            # ⚠ recorded for the reader, NEVER selected on. See `cache_class`.
+            "untrusted_label": sample.get("build_label"),
+        }
+        for source, units in sorted(per_build.items())
+        for sample in [next(iter(units.values()))[0]]
+    ]
+    return {
+        "weight_unit": "milliseconds of rustc wall time per physical line of src/**/*.rs",
+        "profile": WEIGHT_PROFILE,
+        "cache_class": WEIGHT_CACHE_CLASS,
+        "opt_levels": sorted({str(r.get("opt_level")) for r in selected}),
+        "ledger": str(
+            UNIT_LEDGER.relative_to(ROOT)
+            if UNIT_LEDGER.is_relative_to(ROOT)
+            else UNIT_LEDGER
+        ),
+        "builds": sorted(builds, key=lambda b: b["started_at"]),
+        "crates_measured": len(table),
+        # ⛔ the fallback for a crate nobody has measured, and it is a GUESS.
+        # A least-squares fit of `seconds ~ a + b*lines` over these 55 crates
+        # reads R^2 = 0.12 and predicts 24.7s for a 10,000-line crate against
+        # the median rate's 25.6s — the same answer, from a fitted parameter
+        # that explains an eighth of the variance. Size does not predict a new
+        # crate's cost, so no arithmetic over sizes will. The median is used
+        # because the number still has to be computable, and `evaluate` raises
+        # an UNPRICED finding so that nobody mistakes it for a measurement.
+        "median_ms_per_line": round(statistics.median(table.values()), 4) if table else 0.0,
+        "ms_per_line": table,
+    }
+
+
 def snapshot(
     consumer: str = CONSUMER,
     *,
     override_lines: dict[str, int] | None = None,
     extra_edges: dict[str, set[str]] | None = None,
+    weights: dict | None = None,
 ) -> dict:
     """Every number this file guards, plus the per-crate table behind them.
 
-    `override_lines` and `extra_edges` exist so `--carve` can ask the same
-    question of a graph that does not exist yet. A simulator that reimplements
-    the metric is a simulator that answers a different question.
+    `override_lines`, `extra_edges` and `weights` exist so `--carve` can ask the
+    same question of a graph that does not exist yet. A simulator that
+    reimplements the metric is a simulator that answers a different question.
+
+    `weights` is a `unit_weights()` payload. The gate passes the one FROZEN in
+    the baseline so that appending to `dev/compile_units.jsonl` cannot move a
+    guarded number without a re-freeze; `--update` passes None and reads the
+    ledger.
     """
+    weights = unit_weights() if weights is None else weights
+    rate_table = weights.get("ms_per_line") or {}
+    median_rate = weights.get("median_ms_per_line") or 0.0
     dirs = workspace_dirs()
     measured = {name: crate_lines(path) for name, path in dirs.items()}
     edges, root = resolved_edges(consumer)
@@ -391,6 +623,19 @@ def snapshot(
         """Longest chain of first-party crates from `name` up to a consumer."""
         return 1 + max((height(p) for p in reverse.get(name, ())), default=0)
 
+    def crate_seconds(name: str) -> float:
+        """The measured cost of compiling this crate, at its CURRENT size.
+
+        ⚠ **the fallback is the population median RATE, and it is a placeholder
+        rather than an estimate.** A crate nobody has built has no measurement,
+        and nothing in the population predicts one — `unit_weights` records why.
+        Zero would be worse in the one direction that matters: it makes a new
+        crate free, which is exactly the shape of the carve this guard exists to
+        price. `unpriced_crates` below carries the names so the report can say
+        which numbers rest on the guess.
+        """
+        return rate_table.get(name, median_rate) * line_count(name) / 1000.0
+
     table: dict[str, dict] = {}
     for name in sorted(first_party):
         closure = dependents(name)
@@ -399,6 +644,10 @@ def snapshot(
             "lines": line_count(name),
             "edit_cost_lines": sum(line_count(x) for x in closure),
             "edit_cost_crates": len(closure),
+            "ms_per_line": rate_table.get(name, median_rate),
+            "seconds": round(crate_seconds(name), 3),
+            "seconds_source": "measured" if name in rate_table else "estimated",
+            "edit_cost_seconds": round(sum(crate_seconds(x) for x in closure), 3),
             "depth": height(name),
             # DIRECT first-party dependents — not the transitive closure that
             # `edit_cost_crates` counts. Recorded because it is what makes a
@@ -410,6 +659,14 @@ def snapshot(
 
     largest = max(table.items(), key=lambda kv: (kv[1]["lines"], kv[0]))
     worst = max(table.items(), key=lambda kv: (kv[1]["edit_cost_lines"], kv[0]))
+    # ⚠ maximised INDEPENDENTLY of the lines version, and it has to be: the
+    # crate whose closure holds the most lines need not be the crate whose
+    # closure costs the most seconds. When they agree that is a fact about this
+    # tree, not an invariant.
+    worst_seconds = max(
+        table.items(), key=lambda kv: (kv[1].get("edit_cost_seconds", 0.0), kv[0])
+    )
+    dearest = max(table.items(), key=lambda kv: (kv[1].get("seconds", 0.0), kv[0]))
 
     return {
         "schema": SCHEMA,
@@ -418,21 +675,45 @@ def snapshot(
         "line_unit": "physical lines of <crate>/src/**/*.rs, inline #[cfg(test)] included",
         "first_party_crates": len(first_party),
         "first_party_lines": sum(table[n]["lines"] for n in table),
+        "first_party_seconds": round(sum(table[n].get("seconds", 0.0) for n in table), 3),
         "largest_unit": {"crate": largest[0], "lines": largest[1]["lines"]},
+        # ⚠ REPORTED, not guarded. It moves on the same events as
+        # `largest_unit_lines` and `worst_edit_cost_seconds` between them, and
+        # the file's own selection rule says that makes it a dashboard entry.
+        # It is here because it is the single most surprising number in the
+        # table: the most expensive recompilation unit is not the biggest one.
+        "largest_unit_seconds": {
+            "crate": dearest[0],
+            "seconds": dearest[1].get("seconds", 0.0),
+        },
         "worst_edit_cost": {
             "crate": worst[0],
             "lines": worst[1]["edit_cost_lines"],
             "crates": worst[1]["edit_cost_crates"],
         },
+        "worst_edit_cost_seconds": {
+            "crate": worst_seconds[0],
+            "seconds": worst_seconds[1].get("edit_cost_seconds", 0.0),
+            "crates": worst_seconds[1]["edit_cost_crates"],
+        },
         "watched_edit_cost": {
             name: {
                 "lines": table[name]["edit_cost_lines"],
                 "crates": table[name]["edit_cost_crates"],
+                "seconds": table[name].get("edit_cost_seconds", 0.0),
             }
             for name in WATCHED
             if name in table
         },
         "critical_path_crates": max(entry["depth"] for entry in table.values()),
+        "unpriced_crates": sorted(
+            name for name in table if table[name].get("seconds_source") == "estimated"
+        ),
+        # The whole payload, rate table included, so `freeze` writes a baseline
+        # the gate can read back verbatim. Reconstructing it from the per-crate
+        # column would silently promote every ESTIMATED crate to measured, since
+        # both store a number and only this table knows which are real.
+        "unit_weights": weights,
         "crates": table,
     }
 
@@ -442,23 +723,37 @@ def snapshot(
 # ---------------------------------------------------------------------------
 
 
-def _compare(label: str, current: int, frozen: int, headroom: int) -> tuple[str, str] | None:
+def _lines(value: float) -> str:
+    return f"{int(value):,}"
+
+
+def _seconds(value: float) -> str:
+    return f"{value:,.1f}s"
+
+
+def _compare(
+    label: str,
+    current: float,
+    frozen: float,
+    headroom: float,
+    fmt=_lines,
+) -> tuple[str, str] | None:
     """`(severity, message)` for one number, or None when it is inside budget."""
     if current > frozen + headroom:
         return (
             "REGRESSED",
-            f"{label}: {frozen:,} -> {current:,} (+{current - frozen:,}, budget "
-            f"+{headroom:,}). Something got bigger or grew a dependency edge. If "
-            f"this is a deliberate landing, say so and re-freeze; if it is a "
-            f"module that belongs in its own crate, that is the finding.",
+            f"{label}: {fmt(frozen)} -> {fmt(current)} (+{fmt(current - frozen)}, "
+            f"budget +{fmt(headroom)}). Something got bigger or grew a dependency "
+            f"edge. If this is a deliberate landing, say so and re-freeze; if it "
+            f"is a module that belongs in its own crate, that is the finding.",
         )
     if current < frozen - headroom:
         return (
             "CARVED",
-            f"{label}: {frozen:,} -> {current:,} ({current - frozen:,}). This is a "
-            f"WIN and the baseline is now stale — re-freeze it in this commit "
-            f"(`--update`), or the guard is holding {frozen - current:,} lines of "
-            f"slack and the next regression that size lands silently.",
+            f"{label}: {fmt(frozen)} -> {fmt(current)} ({fmt(current - frozen)}). "
+            f"This is a WIN and the baseline is now stale — re-freeze it in this "
+            f"commit (`--update`), or the guard is holding {fmt(frozen - current)} "
+            f"of slack and the next regression that size lands silently.",
         )
     return None
 
@@ -472,6 +767,50 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
         result = _compare(label, now, then, max(1, int(then * fraction)))
         if result:
             findings.append(result)
+
+    def seconds_check(label: str, now: float, then: float) -> None:
+        result = _compare(label, now, then, max(0.1, then * fraction), fmt=_seconds)
+        if result:
+            findings.append(result)
+
+    # ⛔ a baseline frozen before the seconds guard existed has no number to
+    # compare against, and skipping it silently is precisely "a check that
+    # CANNOT FAIL". Say so and go red; `--update` is one command.
+    if "worst_edit_cost_seconds" not in frozen:
+        findings.append(
+            (
+                "STALE",
+                "the frozen baseline predates `worst_edit_cost_seconds`, so the "
+                "seconds guard checked nothing this run. Re-freeze with "
+                "`--update` and commit it.",
+            )
+        )
+    else:
+        seconds_check(
+            f"worst_edit_cost_seconds ({current['worst_edit_cost_seconds']['crate']})",
+            current["worst_edit_cost_seconds"]["seconds"],
+            frozen["worst_edit_cost_seconds"]["seconds"],
+        )
+
+    # ⚠ a crate priced by the fallback is a crate this guard cannot see, and the
+    # carve that adds one is exactly the carve worth pricing. Loud on purpose.
+    new_unpriced = sorted(
+        set(current.get("unpriced_crates", ())) - set(frozen.get("unpriced_crates", ()))
+    )
+    if new_unpriced:
+        rate = current["unit_weights"]["median_ms_per_line"]
+        findings.append(
+            (
+                "UNPRICED",
+                f"no measured compile cost for {', '.join(new_unpriced)}. They are "
+                f"priced at the population median {rate} ms/line, which is a "
+                f"PLACEHOLDER — size predicts a crate's compile cost with R^2 = "
+                f"0.12, so the seconds numbers above under- or over-state these "
+                f"crates by an unknown factor. Run `python3 "
+                f"scripts/compile_collect.py` to measure them and re-freeze, or "
+                f"say in the commit that the guess is accepted for now.",
+            )
+        )
 
     line_check(
         f"largest_unit_lines ({current['largest_unit']['crate']})",
@@ -512,6 +851,12 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
             current["watched_edit_cost"][name]["lines"],
             frozen_entry["lines"],
         )
+        if "seconds" in frozen_entry:
+            seconds_check(
+                f"edit_cost_seconds ({name})",
+                current["watched_edit_cost"][name]["seconds"],
+                frozen_entry["seconds"],
+            )
 
     # ⛔ EXACT, both directions, and deliberately not budgeted. This number only
     # moves when the SHAPE of the graph changes, which never happens by
@@ -534,15 +879,35 @@ def evaluate(current: dict, frozen: dict) -> list[tuple[str, str]]:
             )
         )
 
-    order = {"REGRESSED": 0, "PATH": 1, "MOVED": 2, "GONE": 3, "CARVED": 4}
+    order = {
+        "REGRESSED": 0,
+        "PATH": 1,
+        "STALE": 2,
+        "UNPRICED": 3,
+        "MOVED": 4,
+        "GONE": 5,
+        "CARVED": 6,
+    }
     findings.sort(key=lambda item: order.get(item[0], 9))
     return findings
 
 
 def report(current: dict, frozen: dict) -> None:
+    worst_seconds = current.get("worst_edit_cost_seconds", {})
+    dearest = current.get("largest_unit_seconds", {})
+    weights = current.get("unit_weights", {})
     print(f"  consumer                {current['consumer']}  "
           f"({current['first_party_crates']} first-party crates, "
-          f"{current['first_party_lines']:,} lines)")
+          f"{current['first_party_lines']:,} lines, "
+          f"{current.get('first_party_seconds', 0):,.0f}s)")
+    print(f"  worst_edit_cost_seconds {worst_seconds.get('seconds', 0):>8,.1f}s  "
+          f"{worst_seconds.get('crate', '?')} "
+          f"({worst_seconds.get('crates', 0)} crates)")
+    for name, entry in current["watched_edit_cost"].items():
+        print(f"  edit_cost_seconds       {entry.get('seconds', 0):>8,.1f}s  {name} "
+              f"({entry['crates']} crates)")
+    print(f"  critical_path_crates    {current['critical_path_crates']:>9}  "
+          f"longest serial chain")
     print(f"  largest_unit_lines      {current['largest_unit']['lines']:>9,}  "
           f"{current['largest_unit']['crate']}")
     print(f"  worst_edit_cost_lines   {current['worst_edit_cost']['lines']:>9,}  "
@@ -551,8 +916,17 @@ def report(current: dict, frozen: dict) -> None:
     for name, entry in current["watched_edit_cost"].items():
         print(f"  edit_cost_lines         {entry['lines']:>9,}  {name} "
               f"({entry['crates']} crates)")
-    print(f"  critical_path_crates    {current['critical_path_crates']:>9}  "
-          f"longest serial chain")
+    print(f"  · largest_unit_seconds  {dearest.get('seconds', 0):>8,.1f}s  "
+          f"{dearest.get('crate', '?')}  (context, not guarded)")
+    if weights:
+        estimated = current.get("unpriced_crates", [])
+        print(f"\n  weights   {weights.get('profile')}/opt-"
+              f"{','.join(weights.get('opt_levels') or ['?'])} "
+              f"{weights.get('cache_class')}, "
+              f"{len(weights.get('builds') or [])} build(s), "
+              f"{weights.get('crates_measured', 0)} crates measured"
+              + (f", {len(estimated)} at the median {weights.get('median_ms_per_line')} "
+                 f"ms/line ({', '.join(estimated)})" if estimated else ""))
     print(f"\n  baseline frozen at {frozen.get('commit', '?')} "
           f"({frozen.get('recorded_at', '?')}), "
           f"headroom {frozen.get('headroom_fraction', HEADROOM_FRACTION):.0%}")
@@ -572,15 +946,19 @@ def diff(current: dict, frozen: dict) -> None:
         then = frozen.get("crates", {}).get(name, {})
         moved = now.get("lines", 0) - then.get("lines", 0)
         cost = now.get("edit_cost_lines", 0) - then.get("edit_cost_lines", 0)
-        if moved or cost:
-            rows.append((abs(moved), moved, cost, name, bool(then), bool(now)))
+        # ⚠ the seconds column is what makes the other two readable: 10,000
+        # lines leaving a cheap crate for a dense one shows as a wash in `lines`
+        # and a win in `edit cost`, and only here as the regression it is.
+        secs = now.get("edit_cost_seconds", 0.0) - then.get("edit_cost_seconds", 0.0)
+        if moved or cost or round(secs, 1):
+            rows.append((abs(moved), moved, cost, secs, name, bool(then), bool(now)))
     if not rows:
         print("  nothing moved.")
         return
-    print(f"  {'lines':>9}  {'edit cost':>10}  crate")
-    for _, moved, cost, name, was, now in sorted(rows, reverse=True):
+    print(f"  {'lines':>9}  {'edit cost':>10}  {'edit cost s':>12}  crate")
+    for _, moved, cost, secs, name, was, now in sorted(rows, reverse=True):
         tag = "" if (was and now) else ("  [NEW CRATE]" if now else "  [GONE]")
-        print(f"  {moved:>+9,}  {cost:>+10,}  {name}{tag}")
+        print(f"  {moved:>+9,}  {cost:>+10,}  {secs:>+11,.1f}s  {name}{tag}")
 
 
 # ---------------------------------------------------------------------------
@@ -662,7 +1040,11 @@ def module_coupling(module: Path) -> tuple[set[str], set[str], int]:
     return inward, outward, lines
 
 
-def simulate_carve(module: Path, new_crate: str | None = None) -> None:
+def simulate_carve(
+    module: Path,
+    new_crate: str | None = None,
+    new_crate_rate: float | None = None,
+) -> None:
     module = module.resolve()
     if not module.exists():
         raise SystemExit(f"⛔ {module} does not exist")
@@ -673,7 +1055,19 @@ def simulate_carve(module: Path, new_crate: str | None = None) -> None:
     new_crate = new_crate or f"ambition_{module.stem if module.is_file() else module.name}"
 
     inward, outward, lines = module_coupling(module)
-    before = snapshot()
+    # ⛔ the new crate's ms/line is the one number a simulation cannot measure,
+    # and it decides the answer. Left at the population median a carve into a
+    # `relativity2d`-shaped crate (22.9 ms/line, 9x the median) reads as nearly
+    # free. `--new-crate-rate` is how you ask the honest question — "and if it
+    # compiles like the runtime?" — rather than accepting the optimistic default
+    # silently.
+    weights = unit_weights()
+    if new_crate_rate is not None:
+        weights = {
+            **weights,
+            "ms_per_line": {**weights["ms_per_line"], new_crate: new_crate_rate},
+        }
+    before = snapshot(weights=weights)
     if owner not in before["crates"]:
         raise SystemExit(f"⛔ {owner} is not in {CONSUMER}'s resolved graph")
 
@@ -698,11 +1092,28 @@ def simulate_carve(module: Path, new_crate: str | None = None) -> None:
         extra = extra or {before["consumer"]: {new_crate}}
     else:
         extra = {owner: {new_crate}}
-    after = snapshot(override_lines=override, extra_edges=extra)
+    # ⛔ **and the new crate keeps the owner's own dependencies.** Leaving them
+    # out — which the first version did — gives the simulated crate NO
+    # dependencies at all, so it falls out of every floor crate's dependent
+    # closure and `worst_edit_cost` reports the carve as removing its lines from
+    # the graph entirely. It does not: a module lifted out of the monolith still
+    # names `ambition_geometry`. Inheriting the whole set is an UPPER bound (the
+    # module surely uses a subset) and errs toward "a carve is not free", which
+    # is the direction this file is deliberately biased.
+    extra[new_crate] = {
+        name
+        for name, entry in before["crates"].items()
+        if owner in entry.get("direct_dependents", ())
+    }
+    after = snapshot(override_lines=override, extra_edges=extra, weights=weights)
 
+    assumed_rate = weights["ms_per_line"].get(new_crate, weights["median_ms_per_line"])
     print(f"CARVE SIMULATION  {module.relative_to(ROOT)}")
-    print(f"  owner crate            {owner}")
-    print(f"  proposed crate         {new_crate}  ({lines:,} lines)")
+    print(f"  owner crate            {owner}  "
+          f"({before['crates'][owner]['ms_per_line']} ms/line, measured)")
+    print(f"  proposed crate         {new_crate}  ({lines:,} lines at "
+          f"{assumed_rate} ms/line, "
+          f"{'ASSUMED via --new-crate-rate' if new_crate_rate is not None else 'the population MEDIAN — a placeholder, not a measurement'})")
     print(f"  inward edges           "
           + ("NONE — no file in the owner names it"
              if sibling
@@ -739,6 +1150,49 @@ def simulate_carve(module: Path, new_crate: str | None = None) -> None:
         before["critical_path_crates"],
         after["critical_path_crates"],
     )
+
+    def line_seconds(label: str, a: float, b: float) -> None:
+        delta = b - a
+        pct = (delta / a * 100) if a else 0.0
+        print(f"  {label:<28} {a:>8,.1f}s -> {b:>8,.1f}s   {delta:>+8,.1f}s  ({pct:+.2f}%)")
+
+    print()
+    # ⭐ the rows the four line numbers above cannot produce. Total seconds is
+    # the one that answers "does the BUILD get faster", and it is free to
+    # disagree with every percentage above it — that disagreement is the entire
+    # reason this section exists.
+    line_seconds(
+        "first_party_seconds",
+        before["first_party_seconds"],
+        after["first_party_seconds"],
+    )
+    line_seconds(
+        "worst_edit_cost_seconds",
+        before["worst_edit_cost_seconds"]["seconds"],
+        after["worst_edit_cost_seconds"]["seconds"],
+    )
+    line_seconds(
+        "edit_cost_s(rest of owner)",
+        before["crates"][owner]["edit_cost_seconds"],
+        after["crates"][owner]["edit_cost_seconds"],
+    )
+    line_seconds(
+        "edit_cost_s(the module)",
+        before["crates"][owner]["edit_cost_seconds"],
+        after["crates"][new_crate]["edit_cost_seconds"],
+    )
+    if after["first_party_seconds"] > before["first_party_seconds"]:
+        print(f"\n  ⛔ **this carve makes the BUILD SLOWER** by "
+              f"{after['first_party_seconds'] - before['first_party_seconds']:,.1f}s "
+              f"of first-party rustc time, whatever the line rows above say. "
+              f"{lines:,} lines leave {owner} at "
+              f"{before['crates'][owner]['ms_per_line']} ms/line and arrive at "
+              f"{assumed_rate} ms/line"
+              + ("." if new_crate_rate is not None else
+                 ", the population MEDIAN. Re-run with `--new-crate-rate` for a "
+                 "denser assumption; the four densest crates in the workspace are "
+                 "all small consumers at 12.8-22.9 ms/line, which is the shape a "
+                 "carved crate has."))
     print()
     if sibling:
         print("  ⭐ SIBLING carve. An edit to the module no longer rebuilds "
@@ -1090,6 +1544,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="simulate lifting a module into its own crate")
     parser.add_argument("--new-crate", metavar="NAME",
                         help="name for the simulated crate (default ambition_<module>)")
+    parser.add_argument("--new-crate-rate", type=float, metavar="MS_PER_LINE",
+                        help="assumed compile density of the simulated crate "
+                             "(default: the population median, which small "
+                             "consumer crates measure far above)")
     parser.add_argument("--ingest-timings", metavar="HTML",
                         help="append per-unit rows from a `cargo build --timings` report")
     parser.add_argument("--label", default="", help="free-text tag for an ingested run")
@@ -1119,13 +1577,14 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.carve:
-        simulate_carve(Path(args.carve), args.new_crate)
+        simulate_carve(Path(args.carve), args.new_crate, args.new_crate_rate)
         return 0
 
-    current = snapshot()
-
     if args.update:
-        freeze(current)
+        # ⚠ the ONLY path that re-reads the ledger. Everything else prices the
+        # graph with the weights the baseline froze, so appending a build's rows
+        # cannot turn the gate red on a tree nobody touched.
+        freeze(snapshot())
         return 0
 
     if not BASELINE.exists():
@@ -1135,6 +1594,7 @@ def main(argv: list[str] | None = None) -> int:
             "program that cannot fail."
         )
     frozen = json.loads(BASELINE.read_text(encoding="utf-8"))
+    current = snapshot(weights=frozen.get("unit_weights"))
 
     if args.diff:
         diff(current, frozen)

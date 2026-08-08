@@ -412,11 +412,16 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
                          "--check"]))
         # ⭐ **the compile-cost ratchet** (Jon, 2026-08-08: *"I want to quantify
         # those compile wins as we do those. And to guard against compile time
-        # regressions."*). Guards the DETERMINISTIC cause — largest
-        # recompilation unit, blast radius of an edit, and the serial chain
-        # length that parallelism cannot compress — against a frozen baseline in
-        # `dev/`. ⛔ deliberately NOT a wall-clock threshold: a timing gate on a
-        # shared machine fails randomly, gets waived, and then gets ignored.
+        # regressions."*). Guards the DETERMINISTIC cause — blast radius of an
+        # edit in measured SECONDS, largest recompilation unit, and the serial
+        # chain length that parallelism cannot compress — against a frozen
+        # baseline in `dev/`.
+        # ⛔ **still not a wall-clock threshold**, which is what the renamed job
+        # is saying. The seconds are per-crate WEIGHTS read from the committed
+        # `dev/compile_units.jsonl` and frozen into the baseline; nothing is
+        # timed while the gate runs, so it cannot fail randomly on a busy
+        # machine. A stale weight is a known number in a reviewable file, which
+        # is the trade this instrument was built to make.
         # ⚠ **it costs ~1.6s and runs NO build.** `cargo metadata --offline` and
         # `cargo tree --offline` resolve manifests; neither compiles anything, so
         # this is safe beside any other cargo work and cannot be the job that
@@ -424,7 +429,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # ⚠ and it needs no `--check`: a violation exits 1 by default, because
         # an optional enforcement flag is how `check_roadmap_evidence.py` above
         # spent its whole life green.
-        jobs.append(Job("compile-cost ratchet (graph, not stopwatch)",
+        jobs.append(Job("compile-cost ratchet (frozen weights, not a stopwatch)",
                         [sys.executable, "scripts/compile_ratchet.py"]))
         # The LDtk AUTHORING toolchain, which is the path every room in the
         # game is built through and was the second Python suite nothing ran.

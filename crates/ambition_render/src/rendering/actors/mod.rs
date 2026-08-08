@@ -191,6 +191,10 @@ pub fn bind_worn_character_presentation(
                 PlayerSpriteCharacter {
                     id: worn.id().to_string(),
                 },
+                // Which realization this presentation came from. Without it the
+                // quality binder later in this same chain would see an unstamped
+                // body and immediately rebuild what was just built.
+                BoundSpriteQuality { scale: asset.tier },
             ));
         } else {
             // No sheet for this identity: draw the colored-rectangle fallback and
@@ -204,6 +208,7 @@ pub fn bind_worn_character_presentation(
                 .try_remove::<CharacterAnimator>()
                 .try_remove::<bevy::sprite::Anchor>()
                 .try_remove::<PlayerSpriteBaseline>()
+                .try_remove::<BoundSpriteQuality>()
                 .try_insert((
                     Sprite::from_color(Color::srgba(0.80, 0.95, 1.0, 1.0), player_collision),
                     PlayerSpriteCharacter {
@@ -588,10 +593,24 @@ fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<En
     }
 }
 
-/// Marker recording which sprite texture scale the current presentation handles
-/// were bound for. `GameAssets` can be rebuilt in place after a confirmed
-/// visual-quality change, but already-spawned Bevy entities keep their cached
-/// image/atlas handles until a render system overwrites those components.
+/// Which quality tier the presentation currently on this entity was built from.
+///
+/// Already-spawned entities keep their cached image/atlas handles until a render
+/// system overwrites those components, so this is the only record of which
+/// generation of the art a body is actually SHOWING.
+///
+/// ⭐ **for a character it is copied from the realization
+/// ([`CharacterSpriteAsset::tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::tier)),
+/// never from the active setting.** Those are different facts and the difference
+/// is the whole bug: the setting moves the instant Apply is pressed, while the
+/// realization moves whenever the decode finishes — some frames later. Stamping
+/// from the setting marks a body converged while it is still drawing old pixels,
+/// and then it is never revisited. Comparing against the realization asks the
+/// only question with an answer: *is this body drawn from the sheet the table
+/// currently holds?*
+///
+/// ⚠ props still stamp from the active setting; they have no per-realization
+/// tier yet, and giving them one is the ultrapack pass, not this one.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundSpriteQuality {
     pub scale: TextureResolutionScale,
@@ -645,7 +664,6 @@ pub fn actor_sprite_path_owns(id: &str, boss_render: &ambition_sim_view::BossRen
 pub fn upgrade_actor_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
-    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     images: Res<Assets<Image>>,
     feature_views: Res<FeatureViewIndex>,
     features: Query<(
@@ -670,8 +688,6 @@ pub fn upgrade_actor_sprites(
     let Some(assets) = assets else {
         return;
     };
-    let assets_changed = assets.is_changed();
-    let scale = active_sprite_scale(quality.as_deref());
     for (entity, visual, bound, bound_quality) in &features {
         let Some(view) = feature_views.get(&visual.id) else {
             continue;
@@ -680,18 +696,18 @@ pub fn upgrade_actor_sprites(
             continue;
         }
         let collision = BVec2::new(view.size.x, view.size.y);
-        // Already bound to the correct kind and collision footprint — nothing
-        // to do this frame. The collision-size check is still useful for rare
-        // intentional runtime size changes, but shark riders should normally
-        // keep the same visual/collision scale across mount and dismount.
+        // Bound to the correct kind and collision footprint. The collision-size
+        // check is still useful for rare intentional runtime size changes, but
+        // shark riders should normally keep the same visual/collision scale
+        // across mount and dismount.
+        //
+        // ⚠ this is only HALF of "nothing to do": the quality half cannot be
+        // answered until the realization is in hand, so the early-out moves
+        // below the lookup. It used to sit here, keyed on the active setting and
+        // guarded by `assets.is_changed()` — a ONE-FRAME window that closes
+        // before an `asset_server.load` finishes decoding, which is why a body
+        // could sit on retired pixels forever after a quality change.
         let kind_bound = bound.is_some_and(|b| b.matches(view.kind, view.size));
-        let quality_bound = bound_quality.is_some_and(|q| q.scale == scale);
-        if kind_bound && quality_bound {
-            continue;
-        }
-        if kind_bound && !quality_bound && !assets_changed {
-            continue;
-        }
         // IDENTITY decides which upgrader owns a body, not which one ran first.
         if !actor_sprite_path_owns(&visual.id, &boss_render) {
             continue;
@@ -724,6 +740,14 @@ pub fn upgrade_actor_sprites(
             // a deliberate goblin, so nobody ever went and drew it. Ambition's own
             // enemies visibly regress until each gets art, which is the point: it
             // turns silent debt into visible work.
+            //
+            // ⚠ but a body that is ALREADY bound is drawing something valid, and
+            // its sheet being momentarily absent means a quality transition
+            // retired the realization and the new one has not landed yet. The
+            // warning is about placeholders, so it stays about placeholders.
+            if kind_bound {
+                continue;
+            }
             if let Some(missed) = override_name.or(actor_name) {
                 if warned_sprite_names.insert(missed.to_string()) {
                     // Name what the table actually knows, so a TYPO and an
@@ -748,11 +772,21 @@ pub fn upgrade_actor_sprites(
             }
             continue;
         };
+        // The other half of "nothing to do": this body's presentation was built
+        // from a realization at the tier the table still holds.
+        if kind_bound && bound_quality.is_some_and(|q| q.scale == character_asset.tier) {
+            continue;
+        }
         // Android loads assets out of the APK asynchronously, and missing or
         // platform-rejected images still have a Handle. Do not replace the
         // colored fallback with an atlas sprite until the texture is actually
         // present in Assets<Image>; otherwise a failed or delayed load renders
         // the NPC/enemy invisible.
+        //
+        // ⭐ this is also the DELAY the quality transition is allowed: the body
+        // keeps showing the old pixels until the new ones decode, and because
+        // the decision above is a comparison rather than a one-frame event, the
+        // next frame asks again.
         if images.get(&character_asset.texture).is_none() {
             continue;
         }
@@ -798,21 +832,33 @@ pub fn upgrade_actor_sprites(
             anchor,
             CharacterAnimator::new(character_asset),
             BoundFeatureKind::new(view.kind, collision),
-            BoundSpriteQuality { scale },
+            BoundSpriteQuality {
+                scale: character_asset.tier,
+            },
         ));
     }
 }
 
-/// Rebind the controlled-body sprite after `GameAssets` is rebuilt for a
-/// confirmed quality-profile change. This is intentionally component-local:
-/// no room entities are despawned, and the gameplay/body components are left
-/// untouched. The animator is rebuilt from the new asset once per scale change,
-/// restoring the original spawn-time animation invariants instead of trying to
-/// preserve an old atlas cursor across a different texture/layout.
-pub fn refresh_player_sprites_on_game_assets_change(
+/// **Keep the controlled body drawn from the realization the table holds.**
+///
+/// Deferred sheets finishing their decode, and a confirmed quality change
+/// retiring a realization for one at another tier, are the same event seen from
+/// here: the sheet behind this character is not the sheet this body is showing.
+/// Intentionally component-local — no room entities are despawned and the
+/// gameplay/body components are untouched. The animator is rebuilt from the new
+/// asset, restoring the spawn-time animation invariants rather than trying to
+/// carry an atlas cursor across a different texture and layout.
+///
+/// ⛔ **it used to return early unless `GameAssets.is_changed()`, and that is
+/// exactly what made a quality change not converge.** The new pages are
+/// `asset_server.load`ed, so they arrive several frames after the table changed —
+/// by which time the one-frame change window has closed, `images.get` had been
+/// answering `None` throughout it, and nothing looked again. The condition that
+/// remains is a comparison against the realization's own tier, which is true for
+/// as long as the body is stale and stops being true the moment it is not.
+pub fn refresh_player_sprites_for_resident_quality(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
-    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     images: Res<Assets<Image>>,
     players: Query<
         (
@@ -827,10 +873,6 @@ pub fn refresh_player_sprites_on_game_assets_change(
     let Some(assets) = assets else {
         return;
     };
-    if !assets.is_changed() {
-        return;
-    }
-    let scale = active_sprite_scale(quality.as_deref());
     for (entity, pose, bound_quality, character) in &players {
         // Rebind the sheet of whichever character the sprite was originally
         // bound from. If an old test fixture lacks the marker, fall back to the
@@ -841,22 +883,24 @@ pub fn refresh_player_sprites_on_game_assets_change(
         let Some(asset) = assets.characters.sheet(start_id) else {
             continue;
         };
-        if images.get(&asset.texture).is_none() {
+        // Cheapest first: a body already built from this realization's tier is
+        // current, and that is almost every body on almost every frame.
+        if bound_quality.is_some_and(|q| q.scale == asset.tier) {
             continue;
         }
-        if bound_quality.is_some_and(|q| q.scale == scale) {
+        if images.get(&asset.texture).is_none() {
             continue;
         }
         let collision = BVec2::new(pose.base_size.x, pose.base_size.y);
         let render = player_placeholder_render_size(&asset.spec, collision);
-        // The counterpart line to the one in `bind_worn_character_sprites`.
-        // This one fires when GameAssets changes -- i.e. when deferred sheets
-        // finish decoding -- so a size that differs from the earlier bind is
-        // the visible mid-launch pop, timestamped.
+        // The counterpart line to the one in `bind_worn_character_presentation`.
+        // This one fires when the RESIDENT realization moved — a deferred sheet
+        // landing, or a quality transition — so a size that differs from the
+        // earlier bind is the visible mid-launch pop, timestamped.
         eprintln!(
             "[sprite-bind] rebind character '{}' collision={:.0}x{:.0} render={:.0}x{:.0} \
-             (seed: live pose, trigger: assets changed)",
-            start_id, collision.x, collision.y, render.x, render.y,
+             tier={:?} (seed: live pose, trigger: resident realization moved)",
+            start_id, collision.x, collision.y, render.x, render.y, asset.tier,
         );
         // `try_insert`: REPRODUCED (queue L24). Same `PlayerVisual` target as the
         // bare-player safety net, reached on a very different frame — a
@@ -871,7 +915,7 @@ pub fn refresh_player_sprites_on_game_assets_change(
                 standing_render: render,
                 standing_collision: collision,
             },
-            BoundSpriteQuality { scale },
+            BoundSpriteQuality { scale: asset.tier },
         ));
     }
 }
@@ -917,6 +961,8 @@ pub fn refresh_prop_sprites_on_game_assets_change(
     }
 }
 
+#[cfg(test)]
+mod quality_convergence_tests;
 #[cfg(test)]
 mod worn_binder_tests;
 

@@ -313,6 +313,23 @@ pub(crate) fn setup_host_presentation_system(
     }
 }
 
+/// Rebuild the asset families that have no residency model of their own —
+/// entity sprites, boss sheets, parallax layers — for a confirmed quality change.
+///
+/// ⛔ **the CHARACTER sheet table is deliberately NOT rebuilt here.** It has an
+/// owner: the engine's character runtime retires each stale realization back to
+/// `Declared` and re-demands it
+/// (`character_runtime::converge_character_residency_to_active_quality`), which
+/// is what makes a body already on screen converge instead of waiting for a room
+/// load. Replacing the table wholesale defeated exactly that — a fresh table has
+/// 140 declarations and zero residents, so there is nothing left to *notice* is
+/// stale and nothing re-demands anything.
+///
+/// ⭐ and it took two other things with it that nobody ever put back: the
+/// per-`Prop.kind` sheets and the realizations a host published itself
+/// (`publish_under`, the intro's NPCs). Both installers are one-shot, so before
+/// this every quality change silently deleted the intro's faces and props for
+/// the rest of the process.
 pub(crate) fn reload_visual_quality_assets_on_scale_change(
     quality: Res<ambition_platformer2d::render::quality::ResolvedVisualQuality>,
     asset_config: Res<GameAssetConfig>,
@@ -338,7 +355,7 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
     let Some(game_assets) = game_assets.as_deref_mut() else {
         return;
     };
-    *game_assets = actor_game_assets::load_game_assets(
+    let rebuilt = actor_game_assets::load_game_assets(
         &asset_config,
         &catalogs.characters,
         &catalogs.sheets,
@@ -349,4 +366,9 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
         &room_set.active_spec().metadata,
         Some(&quality.budget),
     );
+    *game_assets = game_assets::GameAssets {
+        // Owned by the engine's quality transition; see above.
+        characters: std::mem::take(&mut game_assets.characters),
+        ..rebuilt
+    };
 }

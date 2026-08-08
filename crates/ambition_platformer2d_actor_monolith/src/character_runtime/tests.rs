@@ -36,6 +36,7 @@ fn any_baked_sheet() -> ambition_sprite_sheet::character::CharacterSpriteAsset {
         layout: Handle::default(),
         spec,
         pages: Vec::new(),
+        tier: ambition_persistence::settings::TextureResolutionScale::Full,
     }
 }
 
@@ -90,13 +91,15 @@ fn no_character_id_is_privileged_by_the_sheet_table() {
 }
 
 #[test]
-fn publishing_a_sheet_clears_every_token_that_declared_it() {
+fn publishing_a_sheet_reaches_every_token_that_declared_it() {
     let mut sprites = declared_sprites(&[("mary_o", "Mary-O")]);
     sprites.publish("mary_o", any_baked_sheet());
 
-    // Both the id and the display name now resolve to the decoded sheet, and
-    // neither is still declared — a token left in both maps would let a later
-    // demand re-decode a sheet that already exists.
+    // Both the id and the display name now resolve to the realization, and
+    // neither reads as still-awaiting-a-decode. (The DECLARATION outlives the
+    // publish — it is the recipe a quality transition needs to remake the
+    // realization — but `Ready` wins the lookup, so a later demand short-circuits
+    // instead of re-decoding.)
     assert!(matches!(
         sprites.sheet_state("mary_o"),
         CharacterSheetState::Ready(_)
@@ -532,4 +535,456 @@ fn the_decode_path_declares_a_registered_character_itself() {
     let mut sprites = CharacterSpriteAssets::default();
     declare_registered_character_into(&mut sprites, &registry, "mary_oh", "mary_oh");
     assert!(sprites.sheet_state("mary_oh").is_unknown());
+}
+
+// ── Live quality Apply: the residency transition ───────────────────────────────
+
+mod live_quality_apply {
+    use super::*;
+    use ambition_asset_manager::AssetProfile;
+    use ambition_persistence::settings::{
+        TextureResolutionScale, UserSettings, VisualQualityProfile,
+    };
+    use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
+
+    /// A composition with a REAL asset pipeline, at `profile`.
+    ///
+    /// ⚠ `AssetProfile::AndroidBundle`, on purpose: its load gate *trusts the
+    /// packager* and never pre-checks the host filesystem, so the materializer
+    /// runs its production path end to end without the fixture depending on
+    /// which gitignored PNGs happen to be on this machine. The one thing that
+    /// must be present is the BAKED sheet-record table (`build.rs`), and
+    /// [`a_character_with_a_scaled_variant`] returns `None` when it is not.
+    fn quality_pipeline_app(profile: VisualQualityProfile) -> App {
+        quality_pipeline_app_for(profile, crate::character_roster::catalog())
+    }
+
+    fn quality_pipeline_app_for(
+        profile: VisualQualityProfile,
+        characters: ambition_characters::actor::character_catalog::CharacterCatalog,
+    ) -> App {
+        let mut app = App::new();
+        // The IO pool: `asset_server.load` spawns onto it, and without the
+        // plugin the materializer panics inside the pool rather than failing.
+        app.add_plugins(bevy::app::TaskPoolPlugin::default());
+        app.add_plugins(bevy::asset::AssetPlugin::default());
+        app.init_asset::<Image>();
+        app.init_asset::<bevy::image::TextureAtlasLayout>();
+        app.add_plugins(CharacterRuntimePlugin);
+
+        let config = GameAssetConfig {
+            asset_profile: AssetProfile::AndroidBundle,
+            ..Default::default()
+        };
+        let catalog = crate::assets::platformer_assets::build_platformer2d_asset_catalog(
+            &config,
+            &characters,
+            &crate::boss_encounter::BossCatalog::default(),
+            &crate::session::data::MusicRegistry {
+                default_track: String::new(),
+                tracks: Vec::new(),
+            },
+            &crate::ldtk_world::WorldManifest::default(),
+        );
+
+        let mut settings = UserSettings::default();
+        settings.video.quality.profile = profile;
+
+        let mut assets = GameAssets::default();
+        {
+            let world = app.world_mut();
+            let asset_server = world.resource::<AssetServer>().clone();
+            let mut layouts = world.resource_mut::<Assets<bevy::image::TextureAtlasLayout>>();
+            assets.characters = crate::character_sprites::load_character_sprites_in(
+                &Default::default(),
+                &characters,
+                &catalog,
+                &asset_server,
+                &mut layouts,
+                None,
+            );
+        }
+
+        app.insert_resource(characters);
+        app.insert_resource(catalog);
+        app.insert_resource(config);
+        app.insert_resource(settings);
+        app.insert_resource(assets);
+        app
+    }
+
+    /// A catalog id whose sheet has a baked HALF-tier variant, so the two tiers
+    /// this transition moves between are both actually reachable.
+    fn a_character_with_a_scaled_variant() -> Option<String> {
+        use ambition_sprite_sheet::character::sheets::{
+            try_load_spec_for_target_scaled, SheetTuning,
+        };
+        let catalog = crate::character_roster::catalog();
+        let mut ids: Vec<&str> = catalog.iter().map(|(cid, _)| cid.as_str()).collect();
+        ids.sort_unstable();
+        for cid in ids {
+            let Some(target) = catalog.get(cid).and_then(|e| e.manifest_target()) else {
+                continue;
+            };
+            if try_load_spec_for_target_scaled(
+                target,
+                &SheetTuning::default(),
+                ambition_sprite_sheet::character::TextureResolutionScale::Half,
+            )
+            .is_some()
+            {
+                return Some(cid.to_string());
+            }
+        }
+        None
+    }
+
+    /// The asset PATH the resident realization of `token` points at — the one
+    /// observable that says which pixels a body is actually drawn from.
+    fn resident_image_path(app: &App, token: &str) -> Option<String> {
+        let asset = app
+            .world()
+            .resource::<GameAssets>()
+            .characters
+            .sheet(token)?;
+        app.world()
+            .resource::<AssetServer>()
+            .get_path(asset.texture.id())
+            .map(|path| path.to_string())
+    }
+
+    /// Hit Apply, and let the transition settle.
+    fn apply(app: &mut App, profile: VisualQualityProfile) {
+        app.world_mut()
+            .resource_mut::<UserSettings>()
+            .video
+            .quality
+            .profile = profile;
+        // Two steps: the first retires and re-demands, the second is where a
+        // transition that needed another frame would show up. A delay is
+        // acceptable; not converging is not.
+        finalize_and_update(app);
+        finalize_and_update(app);
+    }
+
+    /// **A body already on screen must converge to the applied quality.**
+    ///
+    /// Not "the profile changed" and not "`load_game_assets` ran" — both are
+    /// already true while the feature is broken. This asks the only question
+    /// that matters: after Apply, do the pixels behind a character that was
+    /// ALREADY resident come from the new tier?
+    ///
+    /// ⭐ **the red, before the fix (2026-08-08):**
+    /// ```text
+    /// assertion `left != right` failed: the running game must converge to the
+    /// applied quality: `goblin` is still drawn from
+    /// `sprites_0_5x/goblin_spritesheet.png`
+    ///   left: "sprites_0_5x/goblin_spritesheet.png"
+    ///  right: "sprites_0_5x/goblin_spritesheet.png"
+    /// ```
+    #[test]
+    fn apply_converges_an_already_resident_character_to_the_new_tier() {
+        let Some(cid) = a_character_with_a_scaled_variant() else {
+            panic!("no baked half-tier sheet variant: this fixture cannot prove anything");
+        };
+        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        app.world_mut()
+            .resource_mut::<CharacterLoadDemand>()
+            .request(cid.clone());
+        finalize_and_update(&mut app);
+
+        let before = resident_image_path(&app, &cid)
+            .unwrap_or_else(|| panic!("`{cid}` must materialize under the Medium profile"));
+        assert!(
+            before.contains("sprites_0_5x"),
+            "the fixture must START on the half tier, or it proves nothing (got `{before}`)"
+        );
+
+        // APPLY. Medium (Half) -> High (Full). Nothing else changes: the same
+        // body keeps the same identity and the same demand history.
+        apply(&mut app, VisualQualityProfile::High);
+
+        let after = resident_image_path(&app, &cid)
+            .unwrap_or_else(|| panic!("`{cid}` must still be resident after Apply"));
+        assert_ne!(
+            before, after,
+            "the running game must converge to the applied quality: `{cid}` is still \
+             drawn from `{before}`"
+        );
+        assert!(
+            !after.contains("sprites_0_5x"),
+            "`{cid}` must be resident at the FULL tier after Apply, got `{after}`"
+        );
+
+        // LOGICAL IDENTITY IS UNTOUCHED. The realization moved; the character
+        // did not. Both tokens still reach it, and the cast still names the id.
+        let display = crate::character_roster::catalog()
+            .get(&cid)
+            .map(|entry| entry.display_name.clone())
+            .expect("the fixture character has a catalog row");
+        assert!(
+            app.world()
+                .resource::<GameAssets>()
+                .characters
+                .sheet_state(&display)
+                .is_ready(),
+            "`{display}` (the display-name token) must resolve to the NEW realization too"
+        );
+        assert!(
+            app.world()
+                .resource::<CharacterLoadStates>()
+                .cast()
+                .contains(&cid),
+            "a quality change must not disturb the session cast"
+        );
+    }
+
+    /// **And downward, which is the direction memory behaves differently in.**
+    ///
+    /// Full -> Half has to actually release the big pixels, not merely stop
+    /// growing: the half realization replaces the full one under every token.
+    #[test]
+    fn apply_converges_downward_too() {
+        let Some(cid) = a_character_with_a_scaled_variant() else {
+            panic!("no baked half-tier sheet variant: this fixture cannot prove anything");
+        };
+        let mut app = quality_pipeline_app(VisualQualityProfile::High);
+        app.world_mut()
+            .resource_mut::<CharacterLoadDemand>()
+            .request(cid.clone());
+        finalize_and_update(&mut app);
+        let before = resident_image_path(&app, &cid).expect("materializes at Full");
+        assert!(!before.contains("sprites_0_5x"), "starts full: `{before}`");
+
+        apply(&mut app, VisualQualityProfile::Low);
+
+        let after = resident_image_path(&app, &cid).expect("still resident");
+        assert!(
+            after.contains("sprites_0_5x"),
+            "`{cid}` must fall to the half tier on the way down, got `{after}`"
+        );
+    }
+
+    /// ⛔ **A DIFFERENT PROFILE IS NOT A DIFFERENT TIER, and this is the guard
+    /// that says so.**
+    ///
+    /// `Low` and `Medium` both realize sheets at `Half`. A transition keyed on
+    /// "the participant applied something" would retire and re-decode the whole
+    /// cast to arrive at byte-identical pixels — a visible hitch, on a setting
+    /// that changed nothing about sheets. The poison for the fix above.
+    #[test]
+    fn a_profile_change_that_keeps_the_tier_retires_nothing() {
+        let Some(cid) = a_character_with_a_scaled_variant() else {
+            panic!("no baked half-tier sheet variant: this fixture cannot prove anything");
+        };
+        let mut app = quality_pipeline_app(VisualQualityProfile::Low);
+        app.world_mut()
+            .resource_mut::<CharacterLoadDemand>()
+            .request(cid.clone());
+        finalize_and_update(&mut app);
+        let handle = app
+            .world()
+            .resource::<GameAssets>()
+            .characters
+            .sheet(&cid)
+            .expect("resident")
+            .texture
+            .clone();
+
+        apply(&mut app, VisualQualityProfile::Medium);
+
+        assert_eq!(
+            app.world()
+                .resource::<GameAssets>()
+                .characters
+                .sheet(&cid)
+                .expect("still resident")
+                .texture,
+            handle,
+            "Low and Medium realize the same Half pixels; re-decoding for that is \
+             a hitch the participant did not ask for"
+        );
+    }
+
+    /// ⭐ **The invariant: after Apply completes there is exactly ONE active
+    /// quality generation across the live residency set** — including a
+    /// character that was materialized only AFTER the transition.
+    ///
+    /// A survivor and a newcomer sharing one tier is the whole claim. Two tiers
+    /// resident means some body on screen is drawn from pixels nobody asked for.
+    #[test]
+    fn after_apply_exactly_one_tier_is_resident_survivors_and_newcomers_alike() {
+        let mut variants = characters_with_scaled_variants(2);
+        let (Some(newcomer), Some(survivor)) = (variants.pop(), variants.pop()) else {
+            panic!("need two baked half-tier sheet variants to tell a survivor from a newcomer");
+        };
+
+        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        app.world_mut()
+            .resource_mut::<CharacterLoadDemand>()
+            .request(survivor.clone());
+        finalize_and_update(&mut app);
+        assert_eq!(
+            app.world()
+                .resource::<GameAssets>()
+                .characters
+                .resident_tiers(),
+            [TextureResolutionScale::Half].into_iter().collect(),
+            "the survivor must start at Half or this proves nothing"
+        );
+
+        apply(&mut app, VisualQualityProfile::High);
+
+        // A body that arrives AFTER the transition — a room's next enemy, a
+        // summon — must land on the same generation the survivor moved to.
+        app.world_mut()
+            .resource_mut::<CharacterLoadDemand>()
+            .request(newcomer.clone());
+        finalize_and_update(&mut app);
+
+        let tiers = app
+            .world()
+            .resource::<GameAssets>()
+            .characters
+            .resident_tiers();
+        assert_eq!(
+            tiers,
+            [TextureResolutionScale::Full].into_iter().collect(),
+            "one generation for the whole live residency set; got {tiers:?}"
+        );
+        for cid in [&survivor, &newcomer] {
+            assert!(
+                app.world()
+                    .resource::<GameAssets>()
+                    .characters
+                    .sheet(cid)
+                    .is_some(),
+                "`{cid}` must be resident after the transition"
+            );
+        }
+    }
+
+    /// ⛔ **A TIER WITH NO BAKED VARIANT MUST SETTLE, NOT THRASH.**
+    ///
+    /// Not every sheet has every variant generated, so a `Half` budget
+    /// legitimately loads the authored full-res PNG for some characters. Stamp
+    /// that realization with the tier its BYTES came from and it is permanently
+    /// unequal to the active tier — so the transition retires it, remakes it
+    /// identically, and does that again next frame, forever. A loop that
+    /// re-issues an `asset_server.load` at 60Hz is a worse bug than the one
+    /// being fixed, and it is invisible in a fixture whose every character
+    /// happens to have variants.
+    #[test]
+    fn a_character_with_no_baked_variant_settles_at_the_requested_tier() {
+        // A character whose catalog row names a manifest target nothing baked,
+        // so the scaled-variant lookup CANNOT resolve and the materializer is
+        // forced down its fallback arm — while `goblin` still resolves a base
+        // spec by id, so the character does materialize.
+        //
+        // ⚠ constructed rather than found: every character in the shipped roster
+        // currently has every variant baked, and a fixture that goes looking for
+        // a gap would pass vacuously on this checkout and describe a state a
+        // fresh clone (no variants generated at all) is entirely made of.
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(
+                r#"(
+                    brain_presets: { "stand_still": StandStill },
+                    action_set_presets: {
+                        "peaceful": (move_style: Walk, melee: None, ranged: None, special: None),
+                    },
+                    characters: {
+                        "goblin": (
+                            display_name: "Fallback Goblin",
+                            spritesheet: "sprites/goblin_spritesheet.png",
+                            manifest: "sprites/a_target_nobody_baked.ron",
+                            tier: MainHall, body_kind: Standard, composition: None,
+                            default_brain: "stand_still", default_action_set: "peaceful",
+                        ),
+                    },
+                )"#,
+            ),
+        );
+        let mut app = quality_pipeline_app_for(VisualQualityProfile::Low, catalog);
+        app.world_mut()
+            .resource_mut::<CharacterLoadDemand>()
+            .request("goblin");
+        finalize_and_update(&mut app);
+        let settled = resident_image_path(&app, "goblin").expect("resident");
+        assert!(
+            !settled.contains("sprites_0_5x"),
+            "the fixture must FALL BACK to the authored PNG, or it proves \
+             nothing (got `{settled}`)"
+        );
+
+        for _ in 0..3 {
+            finalize_and_update(&mut app);
+            assert!(
+                app.world().resource::<CharacterLoadDemand>().is_empty(),
+                "`goblin` is being re-demanded every frame: the transition never \
+                 reaches a fixed point"
+            );
+            assert_eq!(
+                resident_image_path(&app, "goblin").as_deref(),
+                Some(settled.as_str()),
+                "and it is being retired and remade every frame"
+            );
+        }
+    }
+
+    /// ⛔ **Art the engine did not build is not the engine's to delete.**
+    ///
+    /// A host that publishes its own realization
+    /// ([`CharacterSpriteAssets::publish_under`]) leaves no declaration behind,
+    /// so there is no recipe to remake it. Retiring it on a quality change would
+    /// be a one-way deletion — the intro's NPCs would lose their faces the first
+    /// time anybody touched the quality slider.
+    #[test]
+    fn a_host_published_realization_survives_the_transition() {
+        let mut app = quality_pipeline_app(VisualQualityProfile::Medium);
+        app.world_mut()
+            .resource_mut::<GameAssets>()
+            .characters
+            .publish_under("A Bespoke Extra", any_baked_sheet());
+        finalize_and_update(&mut app);
+
+        apply(&mut app, VisualQualityProfile::Potato);
+
+        assert!(
+            app.world()
+                .resource::<GameAssets>()
+                .characters
+                .sheet("A Bespoke Extra")
+                .is_some(),
+            "a realization the engine cannot remake must not be retired"
+        );
+    }
+
+    /// Up to `n` catalog ids whose sheets have baked half-tier variants.
+    fn characters_with_scaled_variants(n: usize) -> Vec<String> {
+        use ambition_sprite_sheet::character::sheets::{
+            try_load_spec_for_target_scaled, SheetTuning,
+        };
+        let catalog = crate::character_roster::catalog();
+        let mut ids: Vec<&str> = catalog.iter().map(|(cid, _)| cid.as_str()).collect();
+        ids.sort_unstable();
+        let mut out = Vec::new();
+        for cid in ids {
+            if out.len() == n {
+                break;
+            }
+            let Some(target) = catalog.get(cid).and_then(|e| e.manifest_target()) else {
+                continue;
+            };
+            if try_load_spec_for_target_scaled(
+                target,
+                &SheetTuning::default(),
+                ambition_sprite_sheet::character::TextureResolutionScale::Half,
+            )
+            .is_some()
+            {
+                out.push(cid.to_string());
+            }
+        }
+        out
+    }
 }

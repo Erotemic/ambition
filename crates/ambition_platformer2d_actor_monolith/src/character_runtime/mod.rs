@@ -382,10 +382,11 @@ impl CharacterLoadStates {
 /// is where that gets reported).
 ///
 /// Deliberately NOT resolved through the sprite table, which is the other place a
-/// token → id alias exists: `CharacterSpriteAssets::publish` consumes its
-/// declarations, so after the sheet decodes `sheet_state` answers `Ready` and the
-/// id is no longer recoverable from it. An authority that stops answering once
-/// the art arrives cannot be the one that names the cast.
+/// token → id alias exists. The table answers about ART, and the cast is a roster
+/// that has to be right for a character whose art never resolves at all — a
+/// composition with no asset pipeline has an empty sheet table and a full cast.
+/// (Its declarations do now outlive the decode, so it COULD answer; that makes it
+/// a convenience, not an authority.)
 pub fn canonical_character_id<'a>(
     registry: &'a PreparedCharacterRegistry,
     catalog: &'a CharacterCatalog,
@@ -646,6 +647,67 @@ pub fn demand_worn_character_sheets(
     for identity in &worn {
         demand.request(identity.id());
     }
+}
+
+/// **A quality Apply converges the art a session is already showing.**
+///
+/// The one thing the pipeline could not do. Demand was a one-way street:
+/// `Declared → Ready`, and nothing ever re-demanded a character that was already
+/// `Ready`. So a participant who applied a new quality profile mid-play got new
+/// characters at the new tier and every body already on screen at the old one,
+/// forever — Jon's ruling (2026-08-08) is that this is not acceptable and
+/// "it applies on the next room load" is not an answer.
+///
+/// The transition is three moves and no new machinery:
+///
+/// 1. compare each resident realization's TIER against the active one;
+/// 2. retire the stale ones back to `Declared` — dropping the
+///    [`CharacterSpriteAsset`](ambition_sprite_sheet::character::CharacterSpriteAsset)
+///    drops its strong `Handle<Image>`, and Bevy frees the image once the last
+///    strong handle goes, so residency FALLS with no evictor anywhere;
+/// 3. demand them again, which the materializer four systems later satisfies at
+///    the new tier.
+///
+/// Logical identity never moves: the same `character_id`, the same demand token,
+/// the same body entity, the same gameplay authority. Only the physical
+/// realization is replaced.
+///
+/// ⚠ **the TIER decides, never the profile.** `Low` and `Medium` realize sheets
+/// at the same `Half` pixels, so keying this on "the profile changed" would
+/// retire and re-decode the whole cast to arrive at a byte-identical result —
+/// and a test asserting "the profile changed" would pass while the feature was
+/// broken, which is how this defect survived.
+///
+/// ⚠ **`UserSettings`, the same source the materializer reads.** Comparing
+/// against one authority and stamping from another is how a transition becomes a
+/// loop: every frame retires a realization that is immediately remade with the
+/// tier it just failed.
+pub fn converge_character_residency_to_active_quality(
+    // NOT `Res`: this writes. But it is READ first (see below), because a
+    // `ResMut` deref-mut marks `GameAssets` changed for every reader downstream,
+    // every frame, forever.
+    assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
+    demand: Option<ResMut<CharacterLoadDemand>>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+) {
+    let (Some(mut assets), Some(mut demand)) = (assets, demand) else {
+        return;
+    };
+    let budget = settings.map(|settings| settings.video.quality.resolved_budget());
+    let active = crate::character_sprites::character_sprite_tier(budget.as_ref());
+    // Read through the immutable deref: nothing is stale on almost every frame,
+    // and taking the mutable borrow anyway would republish `GameAssets` at 60Hz.
+    if !assets.characters.has_stale_realizations(active) {
+        return;
+    }
+    let stale = assets.characters.demote_stale_realizations(active);
+    bevy::log::info!(
+        target: "ambition_platformer2d::character_sprites",
+        "quality transition to {active:?}: retired {} character realization(s) and \
+         re-demanded them",
+        stale.len(),
+    );
+    demand.request_all(stale);
 }
 
 /// **A new session gets a new cast.**
@@ -948,6 +1010,11 @@ impl Plugin for CharacterRuntimePlugin {
                             >,
                         ),
                     ),
+                    // AFTER the audit and immediately BEFORE the drain: the
+                    // demand this re-raises is satisfied in the same frame, so
+                    // §4.9's readiness barrier never sees a transient unsettled
+                    // character that a quality change created.
+                    converge_character_residency_to_active_quality,
                     materialize_demanded_character_sheets.run_if(
                         bevy::ecs::schedule::common_conditions::resource_exists::<CharacterCatalog>,
                     ),

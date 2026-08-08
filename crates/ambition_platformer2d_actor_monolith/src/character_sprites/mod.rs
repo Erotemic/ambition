@@ -60,16 +60,15 @@ pub use posed_body::{
 // one-way edge is why this module is the region's cleanest extraction candidate;
 // the other three names were making its surface look four times as entangled as
 // it is. The functions stay `pub` for the module's own tests.
-pub use attack_hitbox::authored_attack_volume_resolver;
 #[allow(
     unused_imports,
     reason = "sheet_for_character_id is the public catalog→spec entry; consumed by tests under content::character_catalog::tests (not by non-test crate code today). Public surface for future spawn-site callers."
 )]
 pub use assets::{
     all_character_sprite_filenames_in, build_npc_sprite_asset, build_prop_sprite_asset,
-    build_prop_sprite_asset_packed, load_character_sprites_in, load_prop_sheet_for_target,
-    materialize_declared_character_sprite, sheet_for_character_id_in, SpriteMaterialization,
-    portrait_for_declared_character,
-    sheet_for_declared_character,
-    sprite_body_collision_for_character_id_in, SpriteBodyCollision,
+    build_prop_sprite_asset_packed, character_sprite_tier, load_character_sprites_in,
+    load_prop_sheet_for_target, materialize_declared_character_sprite,
+    portrait_for_declared_character, sheet_for_character_id_in, sheet_for_declared_character,
+    sprite_body_collision_for_character_id_in, SpriteBodyCollision, SpriteMaterialization,
 };
+pub use attack_hitbox::authored_attack_volume_resolver;

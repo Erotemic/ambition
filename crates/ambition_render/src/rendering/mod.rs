@@ -85,11 +85,11 @@ mod wielded_item_visuals;
 mod world;
 
 pub use actors::{
-    BossAnimation, PlayerSpriteCharacter, actor_sprite_path_owns, animate_bosses,
-    animate_characters, animate_feature_sprites, animate_player, apply_hide_sprites_override,
-    apply_placeholder_sprites_override, refresh_player_sprites_on_game_assets_change,
-    refresh_prop_sprites_on_game_assets_change, sync_visuals, upgrade_actor_sprites,
-    upgrade_boss_sprites,
+    actor_sprite_path_owns, animate_bosses, animate_characters, animate_feature_sprites,
+    animate_player, apply_hide_sprites_override, apply_placeholder_sprites_override,
+    refresh_player_sprites_for_resident_quality, refresh_prop_sprites_on_game_assets_change,
+    sync_visuals, upgrade_actor_sprites, upgrade_boss_sprites, BossAnimation,
+    PlayerSpriteCharacter,
 };
 // `BoundFeatureKind` lives with the foundation feature taxonomy; re-exported
 // here so existing render call sites resolve unchanged.
@@ -101,33 +101,33 @@ pub use ambition_platformer2d_shared_tangle::feature_kind::BoundFeatureKind;
 pub use ambition_sim_view::camera_snapshot::{CameraSnapshot2d, SceneCaptureRequest};
 #[cfg(feature = "portal_render")]
 pub use camera::publish_portal_camera_clamp;
-pub use camera::{CameraViewState, camera_follow};
+pub use camera::{camera_follow, CameraViewState};
 /// The presentation FLOOR's marker: a feature the sim published that no render
 /// family has drawn. Exported because it is the readable form of "this room is
 /// not presentable yet" — the room-transition cover waits on it.
 pub use features::UnclaimedBodyPlaceholder;
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use label_layout::{
-    WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin, WorldLabelLayoutSet,
-    WorldLabelLayoutSettings, layout_world_labels,
+    layout_world_labels, WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin, WorldLabelLayoutSet,
+    WorldLabelLayoutSettings,
 };
 pub use nameplates::{
-    ActorNameplatePresentationPlugin, ActorNameplateSet, ActorNameplateSettings,
-    ActorNameplateVisual, DoorNameplateSource, sync_actor_nameplates,
+    sync_actor_nameplates, ActorNameplatePresentationPlugin, ActorNameplateSet,
+    ActorNameplateSettings, ActorNameplateVisual, DoorNameplateSource,
 };
 #[cfg(feature = "portal_render")]
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
+    ensure_active_room_parallax_theme,
+    refresh_parallax_layers_on_quality_change,
+    spawn_parallax_layers,
+    sync_parallax_layers,
     // ⚠ the MARKER, not just the systems. A consumer could install the whole
     // parallax family and had no way to ask whether a backdrop existed — the
     // component was behind a private module, so "is my sky drawn" was a question
     // only this crate could answer. `fixtures/external_consumer` asks it now,
     // which is the consumer that makes this worth exporting.
     ParallaxLayerVisual,
-    ensure_active_room_parallax_theme,
-    refresh_parallax_layers_on_quality_change,
-    spawn_parallax_layers,
-    sync_parallax_layers,
 };
 pub use primitives::{
     BlockArt, BlockVisual, FeatureVisual, HudText, LoadingZoneVisual, PlayerSpriteBaseline,
@@ -425,7 +425,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // they need no order between them. Nesting also keeps this chained
                 // tuple within Bevy's 20-system arity after the pose-rebuild add.
                 (
-                    actors::refresh_player_sprites_on_game_assets_change,
+                    actors::refresh_player_sprites_for_resident_quality,
                     actors::refresh_prop_sprites_on_game_assets_change,
                 ),
                 actors::upgrade_boss_sprites,

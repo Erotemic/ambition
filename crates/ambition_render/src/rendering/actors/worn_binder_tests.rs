@@ -24,6 +24,7 @@ fn fixture(sheet_root: &str) -> CharacterSpriteAsset {
         layout: Handle::default(),
         spec,
         pages: Vec::new(),
+        tier: ambition_persistence::settings::TextureResolutionScale::Full,
     }
 }
 

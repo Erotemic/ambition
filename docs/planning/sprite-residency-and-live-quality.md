@@ -1,7 +1,25 @@
 # Sprite residency and live quality Apply
 
-**Status: planned, 2026-08-08.** Jon's ruling plus a GPT 5.6 architecture brief
-he forwarded. This file is the plan of record; the ledger row points here.
+**Status: step 1 LANDED 2026-08-08; steps 2–5 planned.** Jon's ruling plus a GPT
+5.6 architecture brief he forwarded. This file is the plan of record; the ledger
+row points here.
+
+**Step 1, as built.** `CharacterSpriteAsset` carries the tier it answers;
+`CharacterSpriteAssets` keeps its declarations past the decode so `Declared` is
+reachable from `Ready`; `character_runtime::converge_character_residency_to_active_quality`
+retires every stale realization the engine owns and re-demands it, one system
+before the materializer. Presentation stamps `BoundSpriteQuality` from the
+realization instead of from the active setting, which is what lets a body
+converge on a LATER frame than the one the table changed on — the new pages are
+`asset_server.load`ed and land several frames after Apply. The app's
+`reload_visual_quality_assets_on_scale_change` no longer rebuilds the character
+table (it was replacing it with 140 declarations and zero residents, leaving
+nothing for the transition to notice, and silently deleting props and
+`publish_under` art on the way).
+
+Two things step 1 deliberately did NOT converge, both step 2's: per-`Prop.kind`
+sheets, and realizations a host published itself — the engine has no recipe to
+remake either, so retiring them would be a one-way deletion.
 
 ---
 
@@ -112,8 +130,13 @@ ownership answers *why is this still alive*; the generation transition answers
 
 ## Order of work
 
-1. **Tier stamp + return edge + Apply transition** for character sprites. The
-   core, and it is the slice that makes the feature true.
+1. ~~**Tier stamp + return edge + Apply transition** for character sprites. The
+   core, and it is the slice that makes the feature true.~~ **Done 2026-08-08.**
+   ⚠ one thing the design above did not anticipate: the stamp must be the tier a
+   realization ANSWERS, not the tier its bytes came from. Not every sheet has
+   every variant baked (a fresh clone has none), so a `Half` budget legitimately
+   loads a full-res PNG — and stamping that `Full` leaves it permanently unequal
+   to the active tier, so the transition rebuilds it every frame forever.
 2. **Migrate consumers to ultrapack**; delete the per-sheet runtime roots; make
    fallback explicit and observable.
 3. **Residency cohorts** in `pack_plan.yaml` mapped to session/room/encounter.

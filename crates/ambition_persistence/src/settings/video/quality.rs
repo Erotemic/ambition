@@ -62,7 +62,14 @@ pub fn default_visual_quality_profile() -> VisualQualityProfile {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// ⚠ **`Ord` is declaration order, which is ascending quality** (Potato <
+/// Quarter < Half < Full). Derived so a set of tiers has a deterministic
+/// iteration order for diagnostics; nothing decides policy by comparing two
+/// tiers, and nothing should — "which is better" is not the same question as
+/// "which did we load".
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
+)]
 pub enum TextureResolutionScale {
     /// Bare-minimum "potato" textures. The generator shrinks each sheet toward
     /// ~1% of its authored size but floors every frame at 8px so atlases stay
@@ -141,6 +148,28 @@ pub struct PortalCaptureBudget {
 pub struct SpriteTextureBudget {
     pub resolution_scale: TextureResolutionScale,
     pub prefer_scaled_variants: bool,
+}
+
+impl SpriteTextureBudget {
+    /// **The tier a sprite sheet actually loads at under this budget.**
+    ///
+    /// Two fields, one answer, and the two are not independent: a budget that
+    /// does not `prefer_scaled_variants` loads the authored PNG whatever
+    /// `resolution_scale` says. Callers that compared `resolution_scale` alone
+    /// were asking a question the loader does not answer — `High` and a `Custom`
+    /// budget with `resolution_scale: Half, prefer_scaled_variants: false` both
+    /// load Full, and only this collapses them.
+    ///
+    /// It is also what makes "did the tier change?" decidable: `Low` and
+    /// `Medium` are different PROFILES that resolve to the same sheet pixels, so
+    /// keying a reload on the profile reloads for nothing.
+    pub fn effective_scale(&self) -> TextureResolutionScale {
+        if self.prefer_scaled_variants {
+            self.resolution_scale
+        } else {
+            TextureResolutionScale::Full
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

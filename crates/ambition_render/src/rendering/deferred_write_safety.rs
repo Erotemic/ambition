@@ -437,6 +437,7 @@ mod character_sprite_passes {
             layout: layout.clone(),
             spec,
             pages: vec![ambition_sprite_sheet::character::CharacterSpritePage { texture, layout }],
+            tier: ambition_persistence::settings::TextureResolutionScale::Full,
         })
     }
 
@@ -553,7 +554,7 @@ mod character_sprite_passes {
         >(
             &mut app,
             Update,
-            crate::rendering::actors::refresh_player_sprites_on_game_assets_change,
+            crate::rendering::actors::refresh_player_sprites_for_resident_quality,
         );
     }
 

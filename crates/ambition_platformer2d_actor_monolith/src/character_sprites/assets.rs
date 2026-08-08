@@ -33,7 +33,7 @@ use crate::assets::platformer_assets::{ids, Platformer2dAssetCatalog};
 use ambition_characters::actor::character_catalog::{
     CharacterCatalog, CharacterCatalogData, CharacterPortraitRef,
 };
-use ambition_persistence::settings::VisualQualityBudget;
+use ambition_persistence::settings::{TextureResolutionScale, VisualQualityBudget};
 use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::character::{
@@ -621,26 +621,44 @@ fn resolve_variant_pair(
     quality: Option<&VisualQualityBudget>,
 ) -> (CharacterSheetSpec, AssetId) {
     if let (Some((target, tuning)), Some(q)) = (variant, quality) {
-        if q.sprites.prefer_scaled_variants {
-            let scale = q.sprites.resolution_scale;
-            if scale != crate::persistence::settings::TextureResolutionScale::Full {
-                if let Some(variant_id) =
-                    crate::assets::platformer_assets::scaled_asset_id(base_id, scale)
-                {
-                    if catalog.try_path_for_load(&variant_id).is_some() {
-                        if let Some(spec) = sheets::try_load_spec_for_target_scaled(
-                            target,
-                            tuning,
-                            sprite_texture_scale(scale),
-                        ) {
-                            return (spec, variant_id);
-                        }
+        let scale = q.sprites.effective_scale();
+        if scale != TextureResolutionScale::Full {
+            if let Some(variant_id) =
+                crate::assets::platformer_assets::scaled_asset_id(base_id, scale)
+            {
+                if catalog.try_path_for_load(&variant_id).is_some() {
+                    if let Some(spec) = sheets::try_load_spec_for_target_scaled(
+                        target,
+                        tuning,
+                        sprite_texture_scale(scale),
+                    ) {
+                        return (spec, variant_id);
                     }
                 }
             }
         }
     }
     (base_spec.clone(), base_id.clone())
+}
+
+/// **The tier a character sheet realizes FOR under `quality`.**
+///
+/// The one authority: the materializer stamps every realization with it and the
+/// quality transition compares against it, so the two cannot disagree.
+///
+/// ⛔ **it is the tier ASKED FOR, not the one the bytes came from, and that
+/// distinction is load-bearing.** Not every sheet has every variant baked, so a
+/// `Half` budget legitimately loads the authored full-res PNG for some
+/// characters. Stamping such a realization `Full` — "a fact about the pixels" —
+/// makes it permanently unequal to the active tier, and a transition that
+/// retires everything unequal would retire and rebuild it every single frame,
+/// forever. Stamping what it ANSWERS makes the transition idempotent by
+/// construction: whatever the materializer produces is, by definition, this
+/// tier's answer, so the next comparison is equal.
+pub fn character_sprite_tier(quality: Option<&VisualQualityBudget>) -> TextureResolutionScale {
+    quality
+        .map(|q| q.sprites.effective_scale())
+        .unwrap_or(TextureResolutionScale::Full)
 }
 
 fn build_optional_via_catalog(
@@ -656,6 +674,7 @@ fn build_optional_via_catalog(
     // Pick base-or-variant atomically so the spec rects match the loaded PNG.
     let (spec, id) = resolve_variant_pair(catalog, base_id, base_spec, variant, quality);
     let (spec, id) = (&spec, &id);
+    let tier = character_sprite_tier(quality);
     let Some(path) = catalog.try_path_for_load(id) else {
         if let Some(label) = log_label {
             eprintln!(
@@ -665,7 +684,7 @@ fn build_optional_via_catalog(
         }
         return None;
     };
-    Some(load_sprite_pages(asset_server, layouts, &path, spec))
+    Some(load_sprite_pages(asset_server, layouts, &path, spec, tier))
 }
 
 /// Build one `(texture, layout)` per page image and assemble the sprite
@@ -678,6 +697,10 @@ fn load_sprite_pages(
     layouts: &mut Assets<TextureAtlasLayout>,
     page0_path: &str,
     spec: &CharacterSheetSpec,
+    // The tier `page0_path` and `spec` both came from. Threaded rather than
+    // re-derived: this function is the ONE place a realization is built, so it
+    // is the one place that can stamp what it actually loaded.
+    tier: TextureResolutionScale,
 ) -> CharacterSpriteAsset {
     let parent = page0_path
         .rsplit_once('/')
@@ -737,6 +760,7 @@ fn load_sprite_pages(
         layout,
         spec: spec.clone(),
         pages,
+        tier,
     }
 }
 
@@ -796,7 +820,13 @@ pub fn build_prop_sprite_asset_packed(
     // page 0's directory (the pack pages all share the tier dir).
     let id = crate::assets::platformer_assets::ids::sprite_pack_page0(tier);
     let path = catalog.try_path_for_load(&id)?;
-    Some(load_sprite_pages(asset_server, layouts, &path, &spec))
+    Some(load_sprite_pages(
+        asset_server,
+        layouts,
+        &path,
+        &spec,
+        scale,
+    ))
 }
 
 pub fn build_prop_sprite_asset(
@@ -826,7 +856,14 @@ pub fn load_prop_sheet_for_target(
 ) -> Option<CharacterSpriteAsset> {
     let spec = sheets::try_load_spec_for_target(target, tuning)?;
     let page0_path = format!("{sprite_folder}/{target}_spritesheet.png");
-    Some(load_sprite_pages(asset_server, layouts, &page0_path, &spec))
+    // Base resolution only, and the stamp says so.
+    Some(load_sprite_pages(
+        asset_server,
+        layouts,
+        &page0_path,
+        &spec,
+        TextureResolutionScale::Full,
+    ))
 }
 
 #[cfg(test)]

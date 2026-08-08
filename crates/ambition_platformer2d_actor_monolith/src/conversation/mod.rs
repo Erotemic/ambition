@@ -1,7 +1,6 @@
 //! **Conversation continuity: the authority, the hold, and the break rule.**
 //!
-//! ⛔ **this was three places, and the split was the bug** (GPT 5.6 review
-//! through `c32e690`, finding 1). The break rule and the hold lived inside
+//! ⛔ **this was three places, and the split was the bug.** The break rule and the hold lived inside
 //! `features/ecs/interact.rs` — a module whose subject is "player presses
 //! Interact at a switch or an NPC" — while the state they reasoned about lived
 //! in `ambition_dialog::DialogState`, a UI read-model that is not rewound. A

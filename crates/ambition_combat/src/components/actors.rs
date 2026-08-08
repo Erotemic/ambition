@@ -173,7 +173,7 @@ impl ActorDisposition {
 /// about anybody.
 ///
 /// ⛔ **[`ActorDisposition`] was answering two questions, and one of them was
-/// not its own** (GPT 5.6, 2026-08-07, finding 4). `apply_actor_hit` reads the
+/// not its own.** `apply_actor_hit` reads the
 /// disposition first: a `Peaceful` body takes NO health damage — it accumulates
 /// strikes and barks instead, which is exactly right for a town NPC and exactly
 /// wrong for a fighter somebody entered into a match. So a human-driven match

@@ -30,26 +30,58 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-# ⛔ **the consuming crate's name is NOT this script's to know.** It has been
-# `ambition_actors`, it is `ambition_platformer2d_actor_monolith`, and it moves
-# again when the monolith is decomposed. `scripts/lib/asset_roots.sh` is where
-# this repo declares it, `regen_music.sh` passes it in, and the default below
-# only keeps a bare `python3 scripts/regen_music_registry.py` working for
-# somebody poking at it by hand. Two readers of one declaration, never two
-# declarations. (2026-08-07: the renderer submodule and this script disagreed
-# about that name, so 69 cues were published into a directory nothing reads and
-# the registry reported success without them.)
-DEFAULT_GENERATED_DIR = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_platformer2d_actor_monolith"
-    / "assets"
-    / "audio"
-    / "music"
-    / "generated"
-)
+ASSET_ROOTS_SH = REPO_ROOT / "scripts" / "lib" / "asset_roots.sh"
+
+
+def _declared_asset_crate() -> str:
+    """The consuming crate's name, read from the ONE place that declares it.
+
+    ⛔ **this script used to carry its own copy of that name as a fallback
+    default**, immediately below a comment reading *"two readers of one
+    declaration, never two declarations"*. It has been `ambition_actors`, it is
+    `ambition_platformer2d_actor_monolith`, and it moves again when the monolith
+    is decomposed — and a second copy is wrong for every value it does not hold.
+    That is not hypothetical here: on 2026-08-07 the renderer submodule and this
+    repo disagreed about the name, 69 cues were published into a directory
+    nothing reads, and both halves reported success.
+
+    ⚠ **parsed, not imported**, because the declaration is a shell file the shell
+    tools source. One regex over one line is the whole reader; a missing or
+    unparseable declaration RAISES rather than falling back, for the same reason
+    the renderer's `publish_root()` raises: a wrong guess is how the 69 cues got
+    lost, and a missing declaration is a question rather than something to answer
+    on the caller's behalf.
+    """
+    text = ASSET_ROOTS_SH.read_text()
+    match = re.search(
+        r'^AMBITION_ASSET_CRATE="\$\{AMBITION_ASSET_CRATE:-([A-Za-z0-9_]+)\}"',
+        text,
+        re.MULTILINE,
+    )
+    if not match:
+        raise SystemExit(
+            f"cannot read AMBITION_ASSET_CRATE from {ASSET_ROOTS_SH}. That file "
+            "is where this repo declares which crate's assets/ ships to the "
+            "game; this script will not guess it."
+        )
+    return match.group(1)
+
+
+# `regen_music.sh` sources the declaration and exports this, which is the normal
+# path. The fallback keeps a bare `python3 scripts/regen_music_registry.py`
+# working for somebody poking at it by hand — and it now READS the declaration
+# rather than restating it.
 GENERATED_DIR = Path(
-    os.environ.get("AMBITION_MUSIC_PUBLISH_ROOT") or DEFAULT_GENERATED_DIR
+    os.environ.get("AMBITION_MUSIC_PUBLISH_ROOT")
+    or (
+        REPO_ROOT
+        / "crates"
+        / _declared_asset_crate()
+        / "assets"
+        / "audio"
+        / "music"
+        / "generated"
+    )
 )
 ACTIVE_SCORES_DIR = (
     REPO_ROOT / "tools" / "ambition_music_renderer" / "scores" / "active"

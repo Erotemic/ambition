@@ -43,6 +43,34 @@
 //! `participant_seat` owns its one correspondence with `PlayerSlot`. A third
 //! newtype for the same integer would be a third thing to keep in step; what was
 //! missing is the SOURCE, and the map.
+//!
+//! ## ⛔ …and that spelling is a LEAK, not the model
+//!
+//! The behavioural defect above is fixed. The identity conflation under it is
+//! not, and new code must not harden it. The chain this engine is heading for:
+//!
+//! ```text
+//! LocalInputSource / InputSourceId   what somebody picked up
+//!   → ParticipantId                  the PERSON — survives relaunch, seat
+//!                                    reassignment, possession, a dead body
+//!   → SessionSeatId                  a seat in THIS session's topology
+//!   → ControlChannelId               a deterministic input channel
+//!   → PlayerSlot                     what the simulation reads
+//!   → the controlled actor
+//! ```
+//!
+//! Two of those do not exist, and this type currently uses [`ParticipantId`] for
+//! the fourth. The lifetimes are genuinely different: a participant outlives the
+//! session, a channel belongs to one session's topology and dies with it.
+//! `participant_seat`'s own docs already say the two "only currently share a
+//! number and should eventually become a data mapping".
+//!
+//! **The standing rule until they are separated:** do not add new ARITHMETIC
+//! equality between `ParticipantId` and `PlayerSlot` or a GGRS handle. Route
+//! through [`LocalChannelPlan`], which is the map, and let a future
+//! `ControlChannelId` replace the spelling in one place instead of in every
+//! caller that did the arithmetic itself. Tracked in
+//! `docs/planning/tracks.md`.
 
 use crate::participant::ParticipantId;
 

@@ -579,6 +579,31 @@ Landed; moved verbatim to [the archive](../archive/tracks-landed-sections.md).
 
 Small non-blocking work when it does not collide with the campaigns:
 
+- ▢ **materialize `SessionSeatId` / `ControlChannelId` when seating/topology
+  next moves substantially** [opus]. ⛔ **not a campaign to start on its own** —
+  the GPT 5.6 review through `43373f72d` says so explicitly, and the
+  behavioural defect underneath it is already fixed (`LocalChannelPlan`, which
+  must not be undone). What remains is an identity conflation:
+
+  ```text
+  LocalInputSource   what somebody picked up          — sparse, separated ✔
+  ParticipantId      the PERSON                       — outlives the session
+  SessionSeatId      a seat in this session's topology — MISSING
+  ControlChannelId   a deterministic input channel    — MISSING
+  PlayerSlot         what the simulation reads
+  ```
+
+  One number carries three of those. The lifetimes genuinely differ: a
+  participant survives relaunch, seat reassignment and possession; a channel
+  belongs to one session's topology and dies with it. **The standing rule until
+  they separate** — stated in `ambition_input/src/channels.rs` and
+  `participant_seat.rs`, which is where somebody about to break it is reading —
+  is that new code must not add ARITHMETIC equality between `ParticipantId` and
+  `PlayerSlot`/a GGRS handle; route through `LocalChannelPlan`, so a future
+  `ControlChannelId` replaces the spelling in one place instead of in every
+  caller. ⭐ the review's own lesson, worth keeping: *a reproduction can be
+  fixed while the identity model that enabled it remains conflated.*
+
 - finish the bounded boss animator fold [opus]: converge `BossAnim`/boss frame
   projection toward the shared `CharacterAnim` vocabulary and retire obsolete
   `target_pos`-style mirrors where still live. Do **not** reopen boss body

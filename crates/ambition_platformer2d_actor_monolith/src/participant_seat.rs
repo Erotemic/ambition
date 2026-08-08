@@ -29,6 +29,29 @@
 //! When the split happens, the honest home is a seating/topology authority that
 //! owns the mapping as DATA rather than as arithmetic — at which point these two
 //! functions become lookups and every caller keeps compiling.
+//!
+//! ## ⚠ there is a THIRD identity in the same number, and it is the one that bit
+//!
+//! `LocalChannelPlan` (2026-08-07) separated the *physical source* — which pad
+//! somebody picked up — from the dense rollback channel, after a sparse source
+//! number reached GGRS as a handle and a fighter was deaf for a whole match.
+//! That fix is real and must not be undone. But it spells the CHANNEL
+//! `ParticipantId` too, so the number now carries three concepts rather than
+//! two:
+//!
+//! ```text
+//! LocalInputSource   what somebody picked up          — sparse, separated ✔
+//! ParticipantId      the PERSON                       — outlives the session
+//! SessionSeatId      a seat in this session's topology — does not exist yet
+//! ControlChannelId   a deterministic input channel    — does not exist yet
+//! PlayerSlot         what the simulation reads
+//! ```
+//!
+//! ⛔ **so the rule above extends to the channel**: new code must not add
+//! arithmetic equality between a participant and a channel/handle either. Route
+//! through `ambition_input::LocalChannelPlan`, whose whole job is being that map.
+//! The remaining split is tracked in `docs/planning/tracks.md`; a reproduction
+//! being fixed is not the identity model being separated.
 
 use ambition_characters::brain::PlayerSlot;
 use ambition_input::ParticipantId;

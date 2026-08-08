@@ -130,8 +130,8 @@ pub(crate) fn apply_actor_hit(
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.session_spawn_scope();
-    // ⛔ **THE QUESTION IS COMBAT STANDING, NOT SOCIAL MOOD** (GPT 5.6,
-    // 2026-08-07, finding 4). This asked `disposition.is_peaceful()`, which made
+    // ⛔ **THE QUESTION IS COMBAT STANDING, NOT SOCIAL MOOD.** This asked
+    // `disposition.is_peaceful()`, which made
     // `ActorDisposition` answer two things at once: *how does this actor regard
     // combat* and *may this body be hurt*. A fighter somebody entered into a
     // match had to stay `Hostile` merely to be damageable — and two

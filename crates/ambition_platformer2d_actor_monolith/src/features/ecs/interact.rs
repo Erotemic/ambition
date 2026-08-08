@@ -158,8 +158,8 @@ pub fn interact_ecs_actors_and_switches(
         // how far apart they are, whether either can hold station, whether
         // either was hit — and none of that can be asked of a character id.
         //
-        // ⛔ **AND THE TEXT BOX IS NO LONGER OPENED FROM HERE** (GPT 5.6,
-        // 2026-08-07). This system runs in the SIM schedule, so a rollback across
+        // ⛔ **AND THE TEXT BOX IS NO LONGER OPENED FROM HERE.** This system
+        // runs in the SIM schedule, so a rollback across
         // the tick somebody pressed Interact replays it — and
         // `DialogState::start` is not a harmless setter: it resets the line, the
         // options and the typewriter and enqueues a `runner.start_node`.

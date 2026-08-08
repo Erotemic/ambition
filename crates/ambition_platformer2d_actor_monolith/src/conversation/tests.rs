@@ -161,7 +161,7 @@ fn a_conversation_survives_a_tick_before_the_narrative_end_applies() {
     );
 }
 
-/// **THE REWIND, both halves.** (GPT 5.6, 2026-08-07, finding 2)
+/// **THE REWIND, both halves.**
 ///
 /// ⛔ the message this replaced was cleared on rollback, and the system that
 /// wrote it — presentation, watching the live runner — does not execute between
@@ -251,7 +251,7 @@ fn an_end_from_the_previous_conversation_does_not_close_the_next_one() {
     );
 }
 
-/// **A REWIND DOES NOT RESTART THE TEXT BOX.** (GPT 5.6, 2026-08-07, finding 2)
+/// **A REWIND DOES NOT RESTART THE TEXT BOX.**
 ///
 /// ⛔ opening the runner used to be a `DialogState::start` call inside the
 /// INTERACTION system, which runs in the sim schedule. `DialogState` is left out
@@ -507,8 +507,8 @@ fn a_conversation_blanks_the_npcs_brain_and_releases_it_when_it_ends() {
 /// **A rewind must not be able to strand the hold half-applied.**
 ///
 /// ⛔ **the hold is written by TWO components with different rollback
-/// authority**, and that is the defect this pins (GPT 5.6 review through
-/// `c32e690`, finding 1). `ScriptedControl` is rollback-registered;
+/// authority**, and that is the defect this pins. `ScriptedControl` is
+/// rollback-registered;
 /// [`HeldByConversation`] is not, and neither is `DialogState` — which used to
 /// be what these systems read. Both run in `sim_schedule()`, which under a
 /// rollback host IS the GGRS schedule, so both resimulate.

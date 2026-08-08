@@ -147,6 +147,38 @@
   before being written down; the first search said *"only constructed in tests"*
   and that was `head -6` cutting off the two production sites.
 
+* ⛔ **`capture_scene` HAS BEEN READING AND WRITING YOUR REAL SAVE, and playing
+  music at whoever ran it** (found and fixed 2026-08-08, `fb8755333`). Not from a
+  report — found while checking whether the tool composes the game the way a
+  player does. `build_visible_app` redirects audio off the speakers and
+  persistence out of `~/.local/share/ambition/` for every windowless host; ROUTE
+  mode is built by it and **room mode had neither**.
+  ⭐ **the evidence is in the captures themselves**: the money readout reads
+  **`$115` before the fix and `$0` after** — the before-run was reading your
+  actual save. Now redirected unconditionally rather than by render mode, because
+  `--show-window` is still a screenshot tool.
+
+* ⛔⛔ **AND FOR TWO DAYS THE PHONE PROXY PHOTOGRAPHED A VOID WITH A HUD ON IT.**
+  Same commit. `capture_scene` migrated to composing the shell on 2026-08-06 and
+  **never installed `install_ambition_shell_visuals`** — the only registrar of the
+  systems that spawn parallax, static room visuals, signage and the LDtk spine
+  **on activation**. The Startup path that used to do it was deleted with the
+  `direct_entry` gate.
+  **Before**: a black frame with the player, an NPC, the HUD, the touch bezel and
+  the menu buttons — and **no floor, walls, doors, signage or backdrop**.
+  **After**: the room. Subject pose identical in both (`950.0000, 904.0000` at 12
+  warmup ticks), so the fix added the world without moving anything.
+  ⚠ **why nobody caught it**: everything hanging off the SESSION drew, and only
+  what hangs off the ROOM was missing — so the image read as *"a dark corner"*
+  rather than as a broken tool. The 08-06 commit message was true word for word
+  (*"draws the robot, the HUD, the touch bezel and an NPC"*).
+  ⭐ **this is the Bevy param-panic class arriving SILENTLY.** The same fork
+  panicked loudly twice before (`VisualQualityPlugin` 07-31,
+  `sync_portal_quality_budget` 08-04) and was caught in minutes each time. Here
+  the missing piece was a SPAWN system rather than a `Res` reader, so nothing
+  panicked. **A composition that half-runs beats one that refuses to — right up
+  until you believe the photograph.**
+
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 
 * ✔ **`maryo flashes when her fireball hits an enemy` — FIXED, and now GUARDED (2026-08-07).**

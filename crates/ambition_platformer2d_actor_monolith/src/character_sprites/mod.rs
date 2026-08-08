@@ -42,14 +42,21 @@ pub use posed_body::{
     authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies, PosedBodyGeometry,
     SpritePosedBody,
 };
-#[allow(
-    unused_imports,
-    reason = "manifest_attack_hitbox_world is the reusable core; player_attack_hitbox_world is the live consumer (the debug-overlay hitbox source)."
-)]
-pub use attack_hitbox::{
-    actor_attack_hitbox_world, authored_attack_volume_resolver, manifest_attack_hitbox_world,
-    player_attack_hitbox_world,
-};
+// ⚠ this re-exported four names under an `#[allow(unused_imports)]` whose stated
+// reason was *"player_attack_hitbox_world is the live consumer (the debug-overlay
+// hitbox source)"*. Measured 2026-08-08: that symbol has NO consumer anywhere in
+// the workspace — it appears only in its own definition, this re-export, and its
+// own tests, and the same was true of `actor_attack_hitbox_world` and
+// `manifest_attack_hitbox_world`. The waiver was silencing the compiler with a
+// citation that named a caller which does not exist.
+//
+// ⭐ only `authored_attack_volume_resolver` is reached from outside, by
+// `ambition_platformer2d_runtime::combat_schedule` — which sits ABOVE this crate,
+// so `attack_hitbox` answers upward and nothing in the monolith names it. That
+// one-way edge is why this module is the region's cleanest extraction candidate;
+// the other three names were making its surface look four times as entangled as
+// it is. The functions stay `pub` for the module's own tests.
+pub use attack_hitbox::authored_attack_volume_resolver;
 // SheetRecord and SheetRegistry are kept in the module's public surface
 // for future consumers that want per-frame anchors / body bbox queries;
 // they're already loaded at startup by SheetRegistryPlugin. Re-export

@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 21 open, added 2026-08-08
+## ⇥ INDEX — 20 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -25,7 +25,6 @@ is the only ordering a maintainer can triage from.
 
 | Question | Blocks | State |
 |---|---|---|
-| **May a game compose this engine WITHOUT a given capability?** | the whole monolith-decomposition lane, and M28's second success measure | ⭐ Jon's PROVISIONAL *"I think… yes"*; **priced 2026-08-08: the ready carve buys ~1%** |
 | **Size the character quad from the BBOX instead of the FRAME?** | the 116-row humanoid pass, the snake, the Hall's 1.69x spread | ⭐ **measured 2026-08-08 — coupling CONFIRMED, and it is 4 sites not 3** |
 | Does the world FREEZE during a death beat? | the death-beat feel | ⭐ **half-answered by the dialogue ruling below** |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
@@ -1505,152 +1504,18 @@ today.
 
 ---
 
-## May a game compose this engine WITHOUT a given capability?
+## ✔ ANSWERED 2026-08-08 — May a game compose this engine WITHOUT a given capability?
 
-> **Jon, 2026-08-08 — PROVISIONAL: *"I think the answer to compose this engine
-> with capability is yes, but I don't entirely understand the question yet so
-> it's not a final answer."*** So the working assumption is **(a)**, and it is
-> NOT yet a mandate: nothing here starts the campaign on a provisional answer.
-> ⭐ what the answer needs in order to become final is below — the question is
-> genuinely hard to state, and the measurement that produced it is the part
-> worth reading first.
+> **Jon, verbatim: *"it's a resounding yes on compose without capability. I think
+> the portal crate is close to that. but we need to carefully design it. I don't
+> want it to add overhead. it should add conceptual clarity."***
 
-**Raised 2026-08-08** as a dialogue question, **broadened the same day** once
-the measurement showed it was never dialogue-specific. See
-[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
-
-⛔ **The measurement that broadened it.** Of the fifteen capability crates a
-movement-only game inherits, exactly ONE has the monolith as its only direct
-dependent (`ambition_platformer2d_ldtk`) — and that one is not sheddable either,
-because seven of the monolith's root modules genuinely use LDtk types.
-`ambition_platformer2d_runtime` declares ten of the fifteen and is a direct
-facade dependency. **So no carve, of anything, moves this number.** Only optional
-dependencies do, and they would have to be optional in the runtime as much as in
-the monolith.
-
-**The situation.** `conversation` is now fully liftable — 2,164 lines, ZERO
-inward edges since the bark port (`a7013ef82`), every outward edge already below
-the monolith. Lifting it to `ambition_conversation` is mechanical.
-
-⛔ **but it buys compile isolation only, not the dependency-footprint win**, and
-the reason is structural rather than incidental. Five production files in the
-monolith consume `crate::conversation` — the interact dispatch, the bark
-responder, the input-capture read, the schedule. So the new crate is a
-NON-OPTIONAL dependency of the monolith, and everything it needs stays in a
-movement-only game's resolved graph:
-
-```text
-minimal_game → ambition_platformer2d → …_actor_monolith
-             → ambition_conversation → ambition_dialog → ambition_ui_nav
-```
-
-`capability-footprint-may-not-grow` stays at *15 crates a movement-only game
-never asked for*. Two of those fifteen are `ambition_dialog` and
-`ambition_ui_nav`, and they leave together or not at all.
-
-**What would change it.** Making the monolith's dependency `optional = true`
-behind a `dialogue` feature. ⚠ that is not the pattern here: `ambition_causal` is
-the only optional `ambition_*` dependency the monolith has, which is precisely
-why the unasked-for footprint is fifteen crates rather than two.
-
-**The decision:**
-
-* **(a) capabilities are OPTIONAL** — a game may compose the engine without
-  dialogue, without cutscenes, without menus, and each becomes a feature on both
-  the monolith AND the runtime. This is the only answer that moves the number,
-  and it is a campaign rather than a slice: `#[cfg]` seams through the interact
-  dispatch, the input capture, and ten `rollback/domains/*.rs` registrations.
-* **(b) capabilities are part of the engine** — the fifteen stay, carves happen
-  for compile isolation only, and `capability-footprint-may-not-grow` is honestly
-  a ratchet on a number that is not going to move. ⚠ then say so in
-  `api-1.0-campaign.md`, whose premise is that a movement-only consumer should
-  not inherit them.
-* **(c) not yet** — nothing is undone by waiting. `conversation` is liftable the
-  moment an answer arrives, and the bark port that made it liftable is worth
-  having regardless.
-
-⚠ **no recommendation, because this is a product question about what the engine
-IS** rather than an implementation trade. The API-1.0 campaign's whole premise is
-that a movement-only consumer should not inherit fifteen capability crates. If
-that premise stands the answer is (a), and (a) is a campaign spanning the
-monolith, the runtime, and the central rollback schema — not a decomposition
-slice. If it does not stand, (b) is honest and the ratchet should say what it is
-really measuring.
-
-⭐ **what does NOT need the answer**, and is already done: the bark port, which
-was the only design work in the carve, and which is worth having regardless —
-continuity no longer reaches into the cast to ask what a character says.
-
-### ⭐ 2026-08-08 — this row is becoming answerable, and Jon asked for the reason
-
-He asked, independently and about something else, for compile-time tracking:
-*"measuring if we get any wins from making crate carves. I want to quantify those
-compile wins as we do those."* (queue rows D8/D9.)
-
-**That is the missing half of this decision.** Option (b) concedes that carves
-happen *"for compile isolation only"* — and this row cannot weigh that against
-option (a)'s campaign cost, because **nobody can say what compile isolation is
-worth here.** The number is unmeasured, so the choice currently reads as "a
-campaign" versus "a vague benefit", which is not a fair comparison and is a large
-part of why the question is hard to state.
-
-Once the instrument lands, this row gains a concrete input: **what lifting
-`conversation`'s 2,164 lines out of a 111k-line recompilation unit actually does
-to the edit→feedback loop.** If it is a rounding error, (b) is much more
-attractive and the ratchet should be honestly relabelled. If a 2% carve measurably
-moves the loop, then the fifteen crates are worth a campaign and (a) is the
-answer — with evidence rather than premise.
-
-⚠ **the decision itself does not change** — it is still a product question about
-what the engine IS, and a measurement cannot answer that. What changes is that
-one side of it stops being a guess.
-
-### ⭐⭐ THE NUMBER, measured 2026-08-08 (`scripts/compile_ratchet.py`, `a29feca22`)
-
-Lifting `conversation/` into its own crate:
-
-```text
-largest recompilation unit    111,579 → 109,412    −1.94%
-edit cost, rest of monolith   248,672 → 246,505    −0.87%
-edit cost, conversation       248,672 → 248,672    ±0.00%
-critical path                      12 →      12         0
-```
-
-**Five production files in the monolith name `crate::conversation`** —
-`features/{mod,npcs}.rs`, `features/ecs/{mod,interact}.rs`,
-`schedule/input_systems.rs` — **so the new crate lands BELOW it and the isolation
-runs one direction only.** (⚠ reported as six and re-counted on integration; the
-conclusion is unchanged, the number was not.) Editing
-`conversation` still rebuilds everything above it — which is the whole monolith.
-So the third row is the important one: the carve does not make the *dialogue*
-work cheaper, only everything else marginally so.
-
-**C4e's "COMPILE-ISOLATION win" therefore prices at about 1%.** That is a real
-number and a small one, and it settles the comparison this row could not make:
-
-* it is **not** an argument for (a) on compile grounds — a campaign spanning the
-  monolith, the runtime and the rollback schema does not pay for itself at 1%;
-* it **is** an argument that the architectural case has to stand on its own. And
-  it does: `conversation` has zero inward edges, verified two ways, and the bark
-  port that achieved that was worth having regardless.
-
-⚠ **and one number nobody was watching**: `critical_path_crates`. A carve that
-inserts a layer *lengthens* the serial dependency chain, so every size metric can
-improve while the wall clock gets worse. This carve leaves it at 12 — but that is
-now measured rather than assumed, and it is the number that would have made a
-"free" carve quietly expensive.
-⛔ **corrected by a real timed build the same day: it is right in HOPS and wrong
-by 2.2x in SECONDS**, because rustc releases a dependent at the predecessor's
-`rmeta`, so only the frontend is serial across a chain edge. Keep it as a hop
-count; do not read it as time.
-⭐ **and the correction strengthens the case for carving rather than weakening
-it.** A rebuild is DEPENDENCY-bound (123.9s of work against a 168.4s chain floor)
-while a cold build is CORE-bound, and on a rebuild halving the frontend is worth
-**5.2x** what halving codegen is. A rebuild is what an agent pays before one test
-runs — so shortening the chain helps the loop that is actually paid, which is a
-better argument for decomposition than the 1% line figure above.
-
----
+**Moved to [`maintainer-decisions.md`](maintainer-decisions.md).** The analysis
+that produced the question is in git; what survives here is the constraint,
+because it is the part that shapes the work: **no overhead, and it must add
+conceptual clarity.** That excludes the mechanical implementation — `#[cfg]`
+threaded through the interact dispatch, the input capture and ten rollback
+registrations — and it names an exemplar to generalise from instead.
 
 ## Should an AUTHORED id be unspellable by a runtime spawn? (raised 2026-08-08)
 

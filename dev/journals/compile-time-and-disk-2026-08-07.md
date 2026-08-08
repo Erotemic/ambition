@@ -448,3 +448,27 @@ content edit read 0.77s, still fresh, because **incremental is ON**, so it timed
 the cost of adding one function. Only `cargo clean -p` forces the full recheck.
 ⭐ **an implausible number is a broken instrument, not a result**; ask what the
 smallest plausible value is before interpreting any timing.
+
+---
+
+## 2026-08-08 — the ratchet's first reading on a real day's work
+
+Landed at 00:47 and re-run after ~60 commits of ordinary work (seven bug fixes,
+a fork closure, two guards). It **passes**, and every guarded number moved:
+
+| | baseline | after a day | Δ |
+|---|---:|---:|---:|
+| `largest_unit_lines` | 111,579 | 111,805 | **+226** |
+| `worst_edit_cost_lines` | 427,218 | 427,635 | **+417** |
+| `edit_cost_lines` (monolith) | 248,672 | 248,965 | **+293** |
+| `critical_path_crates` | 12 | 12 | 0 |
+
+⭐ **this is the answer to "quantify the wins as we do those", pointed the other
+way**: a day of fixes cost **226 lines** on the largest recompilation unit, all
+of it inside the 2% headroom, and **the serial chain did not lengthen** — which
+is the number that would have made the day quietly expensive.
+
+⚠ **and it is a live instrument rather than a green tick.** Every guarded figure
+drifted on the first ordinary day it was exposed to, which is what distinguishes
+a ratchet that is measuring from one that cannot fail. The headroom is two-sided,
+so the same run reports a CARVE as stale slack rather than passing silently.

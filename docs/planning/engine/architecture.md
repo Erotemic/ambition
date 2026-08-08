@@ -83,10 +83,21 @@ They may share small demonstrated primitives, not one universal sequence DSL.
 assembly, control routing, perception, integration, body/contact consequences,
 actor/world adapters, and publication of simulation facts.
 
-It remains one crate because those responsibilities share runtime authority and
-splitting them by size would risk rebuilding player/enemy/boss paths. This ruling
-does not protect misplaced named content and does not pre-decide a boss carve
-after action convergence.
+⚠ **it is not carved BY SIZE** — those responsibilities share runtime authority,
+and splitting them by line count would risk rebuilding player/enemy/boss paths.
+That caution stands and this ruling does not protect misplaced named content or
+pre-decide a boss carve after action convergence.
+
+⛔ **but "not by size" is not "not at all", and reading this paragraph as a
+standing refusal is a mistake.** The active ruling is
+[`decomposition.md`](decomposition.md): incremental decomposition, retired from
+the July-era *"no further carve owed"* once a movement-only consumer was
+measured still inheriting 15 unrelated capability crates through this one. The
+grounds are DEPENDENCY DIRECTION, not mass — which is also why line count is the
+wrong instrument here (lines correlate with compile cost at **−0.23** in this
+repo). ⭐ the test a proposed boundary must pass is whether an edit to the
+extracted code stops forcing a monolith rebuild; a carve that lands BELOW the
+monolith does not, however many lines it moves.
 
 ### Tier 4 — observation and picture
 

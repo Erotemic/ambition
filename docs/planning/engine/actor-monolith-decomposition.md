@@ -324,7 +324,31 @@ repository cares about independently — and it should be recorded as that rathe
 than banked as a decomposition win. The measured win still requires both halves
 to leave, and `conversation` leaving is what removes the edge.
 
-### C4e answered — `ambition_conversation` IS a footprint win, if `dialog.rs` goes too
+### C4e answered — `ambition_conversation` is a COMPILE-ISOLATION win worth ~1%, and NOT a footprint win
+
+⛔ **this heading said the opposite until 2026-08-08** — *"IS a footprint win, if
+`dialog.rs` goes too"* — for a day after the body below it was corrected. The
+correction landed in the paragraphs and the heading kept asserting the refuted
+claim, which is the only part a reader scanning the outline sees. **Correct the
+heading in the same edit as the body**; a heading is a claim, not a label.
+
+⭐ **AND THE PAYOFF IS NOW A NUMBER** (`scripts/compile_ratchet.py`, 2026-08-08):
+
+```text
+largest recompilation unit    111,579 → 109,412    −1.94%
+edit cost, rest of monolith   248,672 → 246,505    −0.87%
+edit cost, conversation       248,672 → 248,672    ±0.00%
+critical path (crates)             12 →      12         0
+```
+
+The third row is the one that matters and it follows from the five files below:
+the carved crate lands BELOW the monolith, so **editing `conversation` still
+rebuilds everything above it, which is the whole monolith.** The carve makes
+every OTHER edit marginally cheaper and dialogue work no cheaper at all.
+
+⚠ `critical_path_crates` is guarded because a carve that inserts a layer
+*lengthens* the serial chain — every size metric can improve while the wall clock
+gets worse. This carve leaves it at 12, measured rather than assumed.
 
 The row was told to answer its own payoff before starting. Measured 2026-08-08:
 

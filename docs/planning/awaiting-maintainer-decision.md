@@ -1448,8 +1448,11 @@ edit cost, conversation       248,672 → 248,672    ±0.00%
 critical path                      12 →      12         0
 ```
 
-**Six production files in the monolith name `crate::conversation`, so the new
-crate lands BELOW it and the isolation runs one direction only.** Editing
+**Five production files in the monolith name `crate::conversation`** —
+`features/{mod,npcs}.rs`, `features/ecs/{mod,interact}.rs`,
+`schedule/input_systems.rs` — **so the new crate lands BELOW it and the isolation
+runs one direction only.** (⚠ reported as six and re-counted on integration; the
+conclusion is unchanged, the number was not.) Editing
 `conversation` still rebuilds everything above it — which is the whole monolith.
 So the third row is the important one: the carve does not make the *dialogue*
 work cheaper, only everything else marginally so.

@@ -251,6 +251,25 @@
   kit"* design. **Whether Sanic should keep blink is product, not repair** — say
   the word either way.
 
+* ⛔ **A SWORD RESPECTS AN AUTHORED HURTBOX. A BOLT NEVER HAS.** Found 2026-08-08
+  while naming a shared entity view (`614f098f2`); **NOT fixed** — it is a combat
+  behaviour change and is filed as its own card rather than riding a structural
+  commit.
+  `apply_hitbox_damage` (melee) and `apply_feature_hit_events` both ask
+  `strike_reaches_victim`, which consults `DamageableVolumes`. **`step_projectiles`
+  never consults it at all** — it tests the coarse `CenteredAabb`. So a published
+  silhouette (an authored hurtbox timeline, a boss's active parts, an **empty list
+  meaning intangible**) decides whether a sword lands and has never decided
+  whether a bolt does.
+  ⭐ **the cause is arity, and the tell is a comment.** The tuple that would have
+  carried the silhouette had run out of room — `step_projectiles` sat at Bevy's
+  16-parameter ceiling with an explicit packed-tuple workaround — while its own
+  comment claimed it *"Mirrors `ambition_combat::hitbox`'s unified melee victims
+  query."* **A tuple at the ceiling does not fail to build; it fails to ask a
+  question, and the comment above it keeps claiming the question is asked.**
+  ⚠ closing it also retires `strict_intersects` for projectiles, so it changes how
+  bolts connect. Your call on the feel.
+
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 
 * ✔ **`maryo flashes when her fireball hits an enemy` — FIXED, and now GUARDED (2026-08-07).**

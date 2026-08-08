@@ -33,8 +33,11 @@
 //! `-p` and `--workspace` alike.
 
 use ambition_demo_mary_o::level_1_2::LEVEL_1_2_ROOM_ID;
+use ambition_demo_mary_o::powerups::{SpentPowerBlocks, STAR_WAND_ID};
+use ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID;
 use ambition_demo_mary_o::LEVEL_1_1_ROOM_ID;
 use ambition_demo_mary_o_app::build_demo_app;
+use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::AabbExt;
 use ambition_platformer2d::input::ControlFrame;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
@@ -194,9 +197,8 @@ fn she_walks_out_of_one_room_and_into_another() {
         let set = query.iter(world).next().expect("a RoomSet");
         set.rooms[set.active].world.size
     };
-    let inside = |pos: Vec2| {
-        pos.x >= 0.0 && pos.x <= world_size.x && pos.y >= 0.0 && pos.y <= world_size.y
-    };
+    let inside =
+        |pos: Vec2| pos.x >= 0.0 && pos.x <= world_size.x && pos.y >= 0.0 && pos.y <= world_size.y;
     let mut pos = player_pos(&mut app);
     for _ in 0..120 {
         if inside(pos) {
@@ -394,9 +396,10 @@ fn bank_the_vault_coins(app: &mut App) {
 /// value an emitter had just written. So each clause here reads state that
 /// crossing the boundary would plausibly clobber, on both sides of the crossing.
 ///
-/// ⚠ NOT covered yet: crossing while GROWN. Getting her powered takes a real
-/// ?-block bonk (`level_1_acceptance` owns that ladder), and a set-up equip
-/// would prove the transition preserves something a player never obtained.
+/// ⚠ crossing while GROWN was the gap this note used to name, and it is covered
+/// now by [`she_crosses_wearing_the_form_she_earned`] below — separately,
+/// because powering her up is a whole beat of its own and folding it in here
+/// would make one failure mean four things.
 #[test]
 fn the_run_survives_the_crossing() {
     let mut app = boot();
@@ -462,4 +465,227 @@ fn run_state(app: &mut App) -> (u8, u32) {
         .next()
         .expect("the mode owner exists in gameplay");
     (state.lives, state.score)
+}
+
+// ── The fourth quantity: the form she is WEARING ────────────────────────────
+
+/// **She crosses in the form she is wearing.**
+///
+/// The last of the four the continuity row asks about — *score, coins, lives,
+/// and worn power across the transition* — and the only one nothing held.
+/// [`the_run_survives_the_crossing`] covers the first three and named this one
+/// as its own gap.
+///
+/// ⚠ **the form is a component ON THE BODY, and that is the whole design of the
+/// row.** `WornEquipment` is the authority: the exclusive `mary_o_form` slot she
+/// wears IS her power state. Her tall sheet, her hurtbox and the HUD are all
+/// re-derived from it every frame by `sync_grown_form` and
+/// `reconcile_equipment_grants` — so asserting any of THOSE would be asserting
+/// the emitter's bookkeeping, and would pass on a body that arrived naked for as
+/// long as the deriving system had not yet run. The row is read off the body.
+///
+/// ⛔ **and she has to have EARNED it.** Inserting a `WornEquipment` by hand
+/// would prove the transition preserves something no player can obtain. So the
+/// wand is knocked out of the level's OWN authored ?-block by a real head
+/// contact — `bonk_power_blocks` mints it — and picked up by the engine's own
+/// touch-to-collect, which is the only thing here that writes the component.
+///
+/// ⚠ what is skipped is the WALK to the block, the same concession the crossing
+/// proof above makes: 1-1 is 3328px of platforming and this is not a
+/// playthrough. The strike and the pickup are played.
+#[test]
+fn she_crosses_wearing_the_form_she_earned() {
+    let mut app = boot();
+
+    earn_the_star_wand(&mut app);
+    assert!(
+        wears(&mut app, STAR_WAND_ID),
+        "she never ended up wearing the wand she knocked out of the block, so \
+         there is no form for the crossing to carry",
+    );
+    // The tall sheet is the VISIBLE consequence of the row — recorded here so
+    // the post-crossing clause can say she is still the same shape, not merely
+    // that a row survived in a body drawn small.
+    let sheet_before = worn_character(&mut app);
+    assert_ne!(
+        sheet_before, MARY_O_CHARACTER_ID,
+        "she wears the wand but is still drawn as small Mary-O, so the form \
+         never actually took and this proves nothing about carrying it",
+    );
+
+    reach_level_1_2(&mut app);
+    // Settle well past the commit, for the reason the crossing proof above gives:
+    // a clobber one frame late is still a clobber.
+    for _ in 0..120 {
+        step(&mut app, ControlFrame::default());
+    }
+
+    assert_eq!(
+        active_room(&mut app),
+        LEVEL_1_2_ROOM_ID,
+        "she did not stay in 1-2",
+    );
+    assert!(
+        wears(&mut app, STAR_WAND_ID),
+        "the crossing STRIPPED her form: `WornEquipment` on her body no longer \
+         carries `{STAR_WAND_ID}` in 1-2, though she walked into the pole \
+         wearing it. She is drawn as '{}' now (she left as '{sheet_before}'). \
+         A room is a place, not a save file — and unlike her coins, her lives \
+         and her score, the form she is wearing had nothing holding it.",
+        worn_character(&mut app),
+    );
+    assert_eq!(
+        worn_character(&mut app),
+        sheet_before,
+        "she still WEARS the wand after the crossing but is no longer drawn in \
+         its form, so the row survived and the body it dresses did not — the \
+         sheet is re-derived from the worn set every frame, so this is a \
+         reconcile that stopped running, not a stale mirror",
+    );
+}
+
+/// Knock the wand out of 1-1's own ?-block and put it on, entirely through the
+/// shipped systems: the demo's block rule mints the reward, the engine's
+/// touch-to-collect equips it, and nothing here writes any worn state.
+fn earn_the_star_wand(app: &mut App) {
+    let block = first_power_block();
+    // `+y` is screen-down, so the block's `max.y` is the face she bonks.
+    let underside = block.aabb.max.y;
+
+    // Set her down beneath it, at the height she is ALREADY standing at: 1-1's
+    // surface runs unbroken from her spawn to this block, so sliding her along
+    // that floor needs no guess about where the ground is (and a guessed y is
+    // how a placement ends up inside masonry).
+    let start_y = player_body(app).0.y;
+    place_player(app, Vec2::new(block.aabb.center().x, start_y));
+    for _ in 0..30 {
+        step(app, ControlFrame::default());
+    }
+
+    // ⭐ **the variable jump, steered off GEOMETRY rather than a frame count.**
+    // A bare tap rises ~33px and the underside is 48px above her head, so a tap
+    // falls short; a held jump rises ~145px and sails clean over. Hold while her
+    // head is still below the underside and release the instant it arrives —
+    // the measurement lives in `level_1_acceptance`'s bonk beat, and steering
+    // off the geometry is what keeps this true if her jump tuning or the block's
+    // row ever moves.
+    let mut head_best = f32::MAX;
+    let mut struck = false;
+    for _ in 0..400 {
+        let (pos, size) = player_body(app);
+        let head = pos.y - size.y * 0.5;
+        head_best = head_best.min(head);
+        // Head still BELOW the face (larger y is lower) ⇒ keep rising.
+        let frame = if head > underside {
+            with_jump(ControlFrame::default())
+        } else {
+            ControlFrame::default()
+        };
+        step(app, frame);
+        if block_is_spent(app, &block.id) {
+            struck = true;
+            break;
+        }
+    }
+    assert!(
+        struck,
+        "she never struck 1-1's first ?-block, so no reward was ever minted and \
+         there is no form to carry anywhere. Best head height reached: \
+         {head_best:.1} (needs <= {underside:.1}, lower number is higher)",
+    );
+
+    // The wand rises out of the block and then TRAVELS, so it is chased rather
+    // than waited for. Walking her onto it is what collects it: the equip is
+    // `collect_world_items`, on overlap, exactly as a player gets it.
+    let mut worn = false;
+    for _ in 0..400 {
+        if let Some(item) = pending_item_pos(app) {
+            place_player(app, item);
+        }
+        step(app, ControlFrame::default());
+        if wears(app, STAR_WAND_ID) {
+            worn = true;
+            break;
+        }
+    }
+    assert!(
+        worn,
+        "the ?-block spent itself but she never picked up what it popped — \
+         either nothing was spawned or touch-to-collect did not claim it",
+    );
+}
+
+/// 1-1's first authored ?-block.
+///
+/// ⭐ found by what the AUTHOR marked it, never by an id reconstructed from a
+/// Rust constant — the same rule `power_loop`'s harness follows, and for the
+/// same reason: a ?-block is wherever the level says it is.
+fn first_power_block() -> ae::world::Block {
+    let room = ambition_demo_mary_o::level_1_1();
+    room.world
+        .blocks
+        .iter()
+        .find(|block| {
+            ambition_demo_mary_o::ldtk_vocabulary::block_look_of(&block.name)
+                == Some(ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockLook::Question)
+        })
+        .expect("1-1 authors a ?-block")
+        .clone()
+}
+
+fn player_body(app: &mut App) -> (Vec2, Vec2) {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+    let kin = query
+        .iter(app.world())
+        .next()
+        .expect("gameplay has a primary player");
+    (kin.pos, kin.size)
+}
+
+/// Hold jump. `jump_pressed` rides along with `jump_held` because her jump is an
+/// EDGE — a frame that only holds continues an ascent, it cannot start one.
+fn with_jump(mut frame: ControlFrame) -> ControlFrame {
+    frame.jump_pressed = true;
+    frame.jump_held = true;
+    frame
+}
+
+fn block_is_spent(app: &App, id: &ae::GeoId) -> bool {
+    app.world()
+        .get_resource::<SpentPowerBlocks>()
+        .is_some_and(|spent| spent.is_spent(id))
+}
+
+/// Where the reward the block popped is right now, if one is still uncollected.
+fn pending_item_pos(app: &mut App) -> Option<Vec2> {
+    let mut query = app
+        .world_mut()
+        .query::<&ambition_platformer2d::actors::items::WorldItem>();
+    query.iter(app.world()).next().map(|item| item.pos)
+}
+
+/// **The form, read off the BODY.** `WornEquipment` is the authority the row's
+/// instruction names; everything else about being grown is derived from it.
+fn wears(app: &mut App, row_id: &str) -> bool {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ambition_platformer2d::characters::equipment::WornEquipment, With<PrimaryPlayer>>();
+    query
+        .iter(app.world())
+        .next()
+        .is_some_and(|worn| worn.wears(row_id))
+}
+
+/// Which sheet she is wearing — the derived consequence of the row above.
+fn worn_character(app: &mut App) -> String {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ambition_platformer2d::characters::actor::WornCharacter, With<PrimaryPlayer>>();
+    query
+        .iter(app.world())
+        .next()
+        .map(|worn| worn.0.clone())
+        .unwrap_or_default()
 }

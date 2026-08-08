@@ -27,18 +27,18 @@ is the only ordering a maintainer can triage from.
 |---|---|---|
 | Does the world FREEZE during a death beat? | the death-beat feel | ⭐ **half-answered by the dialogue ruling below** |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
-| Is a crate name part of the rollback wire format? | rollback schema policy | recommendation present |
-| How should the portal map convention stop being a process global? | portal authoring | recommendation present |
+| **Do crate renames break saved replays and netplay?** *(was: "is a crate name part of the rollback wire format")* | rollback schema policy | recommendation present |
+| **Two games in one binary cannot disagree about portal orientation** *(was: "portal map convention as a process global")* | portal authoring | recommendation present |
 | Which of the 33 engine design documents have become history? | **stale reporting that never gets cleaned up** — ⛔ NOT a line budget, see the row below | ⚠ **Jon, 2026-08-08: not the priority right now** |
 | Should the Hall cast and content bosses declare dormancy? | 129 no-op brain ticks | recommendation: bosses yes, Hall wait |
 | The top four ladder rungs ship a knob that makes them worse | ladder calibration | no recommendation |
 | Can a flying fighter shield? | duel rules | no recommendation |
 | Should a crawler's collision volume ORIENT with its attachment? | the adhesive-crawler bug | no recommendation |
-| Per-block art seam, or move Mary-O 1-1 to LDtk? | authoring direction | no recommendation |
-| Mary-O 1-1's first ?-block drops its wand into a pit | one level | no recommendation |
-| Does `apple_rain`'s damageable box follow the head row? | one boss volume | no recommendation |
+| **Your `?`-blocks don't show a question mark** — per-block art, or move 1-1 to LDtk? | authoring direction | no recommendation |
+| **1-1's first `?`-block drops the wand into a pit where you can't get it** | one level | no recommendation |
+| **During GNU-ton's apple rain, can you hit its body or only its head?** | one boss volume | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
-| **Should an AUTHORED id be unspellable by a runtime spawn?** | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
+| **Could a spawned thing collide with an authored one's identity?** *(no symptom today; ~70 sites to make impossible)* | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
 
 ⚠ **the first two are the only ones blocking a lane.** Everything below them is
 scoped, small, and waiting — none is blocked on unknowns, which is this file's
@@ -565,6 +565,13 @@ argument value, which is what this file is for.
 
 ## Does `apple_rain`'s damageable box follow the head row when no sprite sample exists? (2026-08-01)
 
+**In your terms:** *during GNU-ton's apple-rain attack, can you hurt it by
+hitting its body, or only its head?* The art says head — the sheet author drew a
+descending head hurtbox for exactly those 9 frames. The code currently falls back
+to the whole body when it has no sprite to sample, which is what happens in
+headless tests and for the first frames before sprites load. Honour the art, or
+keep the larger box a live boss has always had.
+
 One line of content blocks the `BossAnim`→`CharacterAnim` fold's first slice.
 Pinned by `apple_rain_claims_no_animation_rows_which_is_why_the_fold_is_blocked`
 (`ambition_content`), which fails on either answer so neither happens silently.
@@ -631,6 +638,13 @@ symlinks and recursive grep does not follow them without `-S`. A first pass here
 concluded `head_down` "is not authored anywhere", which is the opposite of true.
 
 ## Is a crate name part of the rollback wire format? (queue S30, 2026-08-01)
+
+**In your terms:** *if we rename a crate, do saved replays and netplay against
+anyone on the old build break?* Rollback identifies each piece of saved state by
+a string that currently contains the crate's name, so renaming a crate silently
+changes the wire format. The decision is whether that is fine (rename freely,
+bump the schema version, old replays are dead) or whether the name and the wire
+identity should be decoupled so renames are free.
 
 **Newly blocking.** This sat as a queue row for days without costing anything.
 It now blocks a specific next step, which is why it is here.
@@ -1083,6 +1097,11 @@ as standing. This is the number, not a fix.
 
 ## 14. Per-block art seam, or move Mary-O 1-1 to LDtk? (queue B13 / D11, 2026-08-03)
 
+**In your terms:** *your `?`-blocks do not show a question mark.* Every solid
+block in Mary-O 1-1 draws the same tile, because art is chosen from the block's
+KIND and a `?`-block is just a solid. The fork is whether to give blocks
+per-block art, or to move 1-1 into LDtk where art is authored per tile.
+
 Your `?`-blocks do not show a question mark, and the reason is structural rather
 than artistic. `spawn_block` resolves art from `BlockKind` alone
 (`block_tile_sprite(Solid) → EntitySprite::SolidTile`), so **every solid block in a
@@ -1114,6 +1133,10 @@ going; (a) is more aligned with what exists today. That is a product call.
 ---
 
 ## #15 — Mary-O 1-1's first ?-block drops its wand into a pit, and it is uncatchable
+
+**In your terms:** *the first `?`-block in 1-1 gives you a wand, and the wand
+falls straight into a pit where you cannot get it.* It is a level-layout
+question — move the block, move the pit, or change how the drop travels.
 
 **Measured 2026-08-04, after fixing the two things that were hiding it.** The
 acceptance run could never strike that block (it held jump, and a held Mary-O
@@ -1397,6 +1420,11 @@ across a rewind, which is a rollback-ownership call.
 
 ## How should the portal map convention stop being a process global? (raised 2026-08-07)
 
+**In your terms:** *portal orientation is decided by one switch shared by the
+whole process, so two games running in one binary cannot disagree about it —
+and nothing owns the switch.* It works today because only one game uses portals.
+The decision is where that convention should live instead.
+
 `closeout-review-followups-2026-07-20.md` §2 recorded this and it is still true:
 `ambition_platformer2d_shared_tangle::math` holds
 `static PORTAL_MAP_ROTATION: AtomicBool`, and `portal_map_vec` dispatches on it.
@@ -1526,6 +1554,12 @@ threaded through the interact dispatch, the input capture and ten rollback
 registrations — and it names an exemplar to generalise from instead.
 
 ## Should an AUTHORED id be unspellable by a runtime spawn? (raised 2026-08-08)
+
+**In your terms:** *could something spawned during play accidentally end up
+with the same identity as something you authored in a level?* Today the id
+formats overlap, so it is possible in principle. **No symptom exists today** —
+nothing in the game currently spells a colliding id. Making it impossible costs
+a ~70-site change; leaving it means the rule is "nobody has done it yet".
 
 **The last of four identity-contract violations found on one day**, and the only
 one that cannot be fixed by construction without a decision.

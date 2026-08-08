@@ -13,6 +13,11 @@
 #     crates/ambition_platformer2d_actor_monolith/assets/sprites/.
 #   - Tack-on targets (sandbag, mockingbird): rendered into the renderer's
 #     generated/ dir then installed into crates/ambition_platformer2d_actor_monolith/assets/sprites/.
+#   - Shared-page ultrapack atlases, one per quality tier, into
+#     crates/ambition_platformer2d_actor_monolith/assets/sprite_packs/<tier>/.
+#   - Reduced-resolution per-sheet quality variants (sprites_0_5x / _0_25x /
+#     _potato). ⛔ this step is what a phone loads; skipping it silently falls
+#     the device back to full-resolution art.
 #
 # Usage:
 #   ./regen_sprites.sh                  # render + install everything (cache-skipped if fresh)
@@ -24,9 +29,16 @@
 # Environment:
 #   AMBITION_SPRITE_PYTHON=/path/to/python  Override the sprite tool .venv.
 #   AMBITION_LDTK_PYTHON=/path/to/python    Override the LDtk tool .venv.
+#   AMBITION_ULTRAPACK=0                    Skip the shared-page atlas step.
+#   AMBITION_ULTRAPACK_DEBUG=1              Emit per-page pack diagnostics.
+#   AMBITION_QUALITY_VARIANTS=0             Skip the reduced-resolution variants.
 #   LINE_PROFILE=1                         Profile expensive renderer subprocesses.
 #   AMBITION_LINE_PROFILE_DIR=/path         Override the profile report root.
 #   AMBITION_LINE_PROFILE_TEXT=1            Also write one detailed .txt sidecar.
+#
+# Focused variant work does not need this script at all:
+#   ./regen_visual_quality_variants.sh --target patent_clerk
+#   ./regen_visual_quality_variants.sh --target 'pirate_*' --tier 0_5x
 #
 # Caching:
 #   The renderer's Python sources + configs are fingerprinted into
@@ -203,6 +215,15 @@ run_renderer_python() {
 # `<seconds> <label>` for every renderer subprocess this run has finished.
 regen_timings=()
 
+# ⛔ **checks RECORD here; only the end of the script exits.** A postcondition
+# that exits where it stands cancels every stage after it, and this pipeline's
+# most expensive stages — ultrapack, and now the quality variants — are last.
+# One stale filename in a hand-maintained list used to throw away 1:13 of
+# rendering and leave the packs ten days old, while the run's own output still
+# read like it had finished. Failures are printed where they are found, the
+# remaining stages still run, and the exit code is settled at the bottom.
+regen_failures=()
+
 # What the run COST, slowest first. Printed at the end of a full batch and after
 # `--target`, so a one-target check answers the same question a full run does.
 print_regen_timings() {
@@ -214,7 +235,14 @@ print_regen_timings() {
     done
     echo ""
     echo "==> render cost: ${#regen_timings[@]} subprocess(es), ${total}s total"
-    printf '%s\n' "${regen_timings[@]}" | sort -rn | head -12 | while read -r seconds label; do
+    # ⚠ awk rather than `head -12`, because this now runs at the END of a full
+    # batch (it used to run only after `--target`, where there are one or two
+    # rows). `head` closes the pipe once it has its twelfth line, which can
+    # SIGPIPE `sort`, and under `set -euo pipefail` that is a non-zero status
+    # for the last command of a run in which every stage succeeded. Not observed
+    # here — bash's short input never made `sort` write past the close — but the
+    # cost of not depending on that is one word.
+    printf '%s\n' "${regen_timings[@]}" | sort -rn | awk 'NR <= 12' | while read -r seconds label; do
         printf '    %5ss  %s\n' "$seconds" "$label"
     done
 }
@@ -336,6 +364,365 @@ if [ "${#target_names[@]}" -gt 0 ]; then
     exit 0
 fi
 
+# --- Publish roster -------------------------------------------------------
+# ⭐ **ONE list of what this script publishes, and it is a list of TARGETS.**
+#
+# ⛔ there used to be a second list here, of 328 expected FILENAMES, and the two
+# drifted the way two lists always do. `player_robot_spritesheet.{png,yaml,ron}`
+# sat in it for months after the player sheet became `player_robot_v3`; no
+# target produced it and none could, so the postcondition was unsatisfiable —
+# and because it ran BEFORE the ultrapack step, every full regen aborted after
+# 1:13 of rendering with the packs left ten days stale, while the run's own
+# output still read like it had finished. In the other direction `patent_clerk`
+# was published and never listed, so a run whose patent-clerk render failed
+# reported every expected file present.
+#
+# The filenames are now DERIVED from these arrays by asking the renderer what
+# each target declares it installs (`Target.claimed_install_names`). A target
+# added below is covered the moment it is added, and a filename that no target
+# produces cannot be named at all.
+
+review_cues=(
+    # Toon-target NPC variants already promoted.
+    absurd_general architect kernel_guide vault_keeper
+    merchant_prototype oiler erdish raid_enforcer fascist_enforcer
+    # Named characters whose YAML manifests already live in $sprites_dir.
+    alice bob craig eve general_hero judy mallory olivia
+    peggy sybil trent trudy victor walter
+    # Phase 6 + bonus follow-up: every review config is now an
+    # actual catalog character. Install the rest so the Hall of
+    # Characters has a sprite for each.
+)
+
+# Faction-leader cues copied out of the `draw-factions` scratch render. Their
+# YAML lives in configs/factions/, which no discovery surface registers, so
+# these are named products rather than registered targets.
+faction_cues=(goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor)
+
+tackon_targets=(
+    sandbag
+    burning_flying_shark
+    pipi_tau
+    sanic
+    super_sanic
+    sanic_ring_prop
+    creator
+    creator_lab_props
+    gnu_ton_boss
+    interdimensional_gate
+    intro_cart
+    intro_lab_tileset
+    lasersword
+    lasersword_with_guns
+    # Hand-held weapon props + attack-effect overlays. Authored
+    # pointing right (+X); the game pins them at the `grip`/`origin`
+    # anchor and rotates to the swing/aim direction at runtime.
+    pirate_heavy_axe
+    throwing_javelin
+    portal_gun_blue
+    portal_gun_orange
+    hunting_bow
+    bow_arrow
+    robot_slash
+    news_board
+    town_tileset
+    # Intro / cut-the-rope content (loaded by ambition_content's intro
+    # sprites + cut_rope boss) and catalog-referenced characters that
+    # were missing from this list — a fresh clone rendered them as
+    # colored rectangles.
+    cut_rope_anvil
+    cut_rope_piano
+    cut_rope_rope
+    # Super Mary-O playable protagonist for the SMB1 demo (M-track).
+    # Its catalog row (game/ambition_demo_smb1) references
+    # sprites/super_mary_o_spritesheet.*; without this publish a fresh
+    # clone renders the demo character as a colored rectangle.
+    super_mary_o
+    # Her power forms are SEPARATE targets in the same module (each a distinct
+    # SHEET, not a scaled copy): the grown form (`mary_o_tall` catalog row) and
+    # the fire-flower form (`mary_o_fire`, Jon bug #10). Both must publish or a
+    # fresh clone draws the powered-up player as a colored rectangle.
+    super_mary_o_tall
+    super_mary_o_fire
+    # Mary-O's gameplay provider binds these generated pickups through
+    # WorldItemArt at sprites/props/<name>.png. Publish the source targets
+    # here, then copy their canonical poses into props/.
+    #
+    # Her two power pickups. Jon replaced the milk carton with the magical
+    # girl's star wand and the spark blossom with the lantern (cinder beacon);
+    # the retired carton/blossom targets still render on request but nothing
+    # publishes or references them.
+    super_mary_o_star_wand
+    super_mary_o_cinder_beacon
+    # The star. Its shader has existed since it landed with nothing to switch
+    # it on; the pickup that does is `star.rs`.
+    super_mary_o_cosmic_quasar
+    # Fixed-canvas construction pieces. The pipe and pole body targets repeat
+    # vertically; their top/finial and flag stay separate so level code can
+    # build arbitrary heights without stretching any sprite.
+    super_mary_o_pipe_body
+    super_mary_o_pipe_top
+    super_mary_o_flag_pole_body
+    super_mary_o_flag_pole_top
+    super_mary_o_flag
+    generic_explosions
+    smirking_behemoth_boss
+    solid_snake
+    snakes_on_a_paper_plane
+    snakes_on_a_cartesian_plane
+    stochastic_parrot
+    stochastic_parrot_v2
+    imperfect_cellular_automaton
+    # Phase 6 + bonus follow-up: every tack-on character listed by
+    # `list-targets` now has a catalog entry; publish them all so the
+    # Hall of Characters has a sprite for each.
+    agent_swarm
+    ai_slop
+    bear_mauler
+    colonial_statesman
+    dark_lord
+    flying_spaghetti_monster_boss
+    galwah
+    ghoul_skulker
+    girdle
+    hand_saint
+    helpful_liar
+    mantis_lancer
+    ninja_heavy
+    pirate_cutlass_viper
+    president_portrait
+    puppy_slug_variant2
+    raptor_stalker
+    # robot_heavy is a multi-variant rig whose publisher doesn't
+    # install (renders only to generated/, no install method).
+    # Skipping it here keeps the working tree clean. Catalog
+    # entry was dropped along with the publisher work.
+    smart_house
+    spaghetti_event
+    synthetic_friend
+    trex_enemy
+    viking_heavy_shieldmaiden
+    viking_heavy_warrior
+    viking_shieldmaiden
+    viking_warrior
+    # weird_hermit's publisher was fixed 2026-05-24 to emit the
+    # canonical `<target>_spritesheet.{png,ron,yaml}` filenames + the
+    # runtime's standard SheetRow schema. Catalog entry now resolves.
+    weird_hermit
+    # Catalog-backed Hall characters that previously depended on manually
+    # generated local assets and therefore disappeared on a fresh clone.
+    willson
+    ramen_nujan
+    jeff_hinter
+    jeff_hinter_armored
+    m_leblanc
+    puppy_slug_velvet
+    player_robot_fable
+    # ⛔ **The same class again, found 2026-08-05.** `mary_o_v2` and its two
+    # forms were in NO batch — their sheets existed only on machines that had
+    # once rendered them by hand, exactly like the five above. FOUR surfaces
+    # name them: the Mary-O demo's three forms, `pocket_runner`,
+    # `twintrack_traveler`, and Ambition's own versus arena (`arena_duelist_close`).
+    #
+    # ⚠ how it was NOTICED is the part worth keeping: not by a clone failing,
+    # but by six blank faces in a new character-select grid. `publish` emits a
+    # target's PORTRAIT products as well as its sheet, so a target no batch
+    # publishes has neither — and the portrait half is what was visible, because
+    # `super_mary_o_portraits.png` sat next door looking like coverage.
+    mary_o_v2
+    mary_o_v2_fire
+    mary_o_v2_tall
+    # ⛔⛔ **AND THEN THE CENSUS, 2026-08-05.** Jon, on being told George Booul
+    # does not regen: *"Are there other characters that don't regen? If there
+    # are we need to fix that."* There were TWENTY-SIX — every catalog sheet
+    # stem this script never named, cross-checked against
+    # `sprite2d_renderer list`, and all 26 are registered targets that simply
+    # nothing ran.
+    #
+    # ⭐ they are almost all ONE cast: the mathematician / scientist NPCs of the
+    # Hall. Their art has existed on developer machines for months and would
+    # have been absent from a fresh clone, which is the same defect the five
+    # rows above were added for and the same one `mary_o_v2` was.
+    #
+    # ⚠ **a hand-maintained allowlist is why this keeps happening.** Every
+    # character added since the last audit is orphaned by default, and the
+    # failure is invisible on any machine that once rendered it. The durable fix
+    # is a check that compares the assembled catalog against what this script
+    # publishes; until that exists, this list is what stands in for it.
+    admiral_grass_hopper
+    anne_druid
+    carl_runga
+    carl_stargan
+    data_lovelace
+    davy_hylbert
+    genghis_can
+    genghis_cant
+    georg_canter
+    george_booul
+    hunny_horror_boss
+    hypatia_prime
+    joseph_furrier
+    le_beast
+    leib_knives
+    mami_marzakhani
+    marie_curry
+    martin_cutta
+    neil_ongras_turfson
+    busy_beaver
+    charley_beagle_svg
+    niels_boar
+    vera_ruin
+    paradox_barber
+    patent_clerk
+    paul_diracula
+    player_robot_v2
+    player_robot_v3
+    python_goras
+    richard_duckling
+    yuclid
+)
+
+# Rigged characters authored as GUI `.rig.json` documents auto-register as
+# targets named after the file stem. Include them in the same explicit batch as
+# the ordinary tack-ons so registry discovery is paid once for the whole group.
+rig_targets=()
+for rig in "$renderer_dir"/ambition_sprite2d_renderer/targets/characters/rigged/*.rig.json; do
+    [ -f "$rig" ] || continue
+    rig_targets+=("$(basename "$rig" .rig.json)")
+done
+
+pirate_targets=(
+    pirate_admiral
+    pirate_lookout
+    pirate_navigator
+    pirate_quartermaster
+    pirate_raider
+    # pirate_heavy fans out into three variants (broadside_bess, iron_mary,
+    # salt_annet) — its module-level install copies all three flat into
+    # $sprites_dir as `pirate_heavy_<slug>_spritesheet.{png,yaml,ron}`.
+    pirate_heavy
+)
+
+# render-target-name -> runtime props/ basename
+held_prop_map=(
+    "pirate_heavy_axe:axe"
+    "throwing_javelin:javelin"
+    "lasersword_with_guns:gunsword"
+    "portal_gun_blue:portal_gun_blue"
+    "portal_gun_orange:portal_gun_orange"
+    "super_mary_o_star_wand:super_mary_o_star_wand"
+    "super_mary_o_cinder_beacon:super_mary_o_cinder_beacon"
+    "super_mary_o_cosmic_quasar:super_mary_o_cosmic_quasar"
+)
+
+construction_prop_map=(
+    "super_mary_o_pipe_body:mary_o_pipe_body"
+    "super_mary_o_pipe_top:mary_o_pipe_top"
+    "super_mary_o_flag_pole_body:mary_o_flag_pole_body"
+    "super_mary_o_flag_pole_top:mary_o_flag_pole_top"
+    "super_mary_o_flag:mary_o_flag"
+)
+
+# Every registered target this script publishes. `draw-all`'s main configs are
+# NOT here: they are rendered unconditionally from configs/*.yaml, so the
+# helper below adds them from the renderer's own view of that directory.
+publish_targets=(
+    entities
+    "${review_cues[@]}"
+    "${tackon_targets[@]}"
+    "${rig_targets[@]}"
+    "${pirate_targets[@]}"
+    puppy_slug
+    mockingbird_boss
+)
+
+# The runtime-required file list. Consumed twice: by the cache fast-path below
+# (a deleted asset re-triggers a render) and by the postcondition at the end.
+#
+# ⚠ diagnostics are excluded because `sweep_runtime_diagnostics.py` MOVES them
+# out of the runtime root at the end of every run — requiring them would make
+# the fast path unsatisfiable and force a full re-render every time.
+# `*_actor.ron` and the tileset/manifest `.ron` sidecars are excluded because
+# the installer copies them opportunistically: 21 registered targets declare one
+# and do not ship it.
+declare_expected_files() {
+    (
+        cd "$renderer_dir"
+        "$python_bin" - "$@" <<'DECLARE_EXPECTED'
+import sys
+from pathlib import Path
+
+from ambition_sprite2d_renderer.registry import discover_all_targets, load_jobs
+
+DIAGNOSTIC_SUFFIXES = (
+    "_canonical.png",
+    "_canonical_transparent.png",
+    "_preview_labeled.png",
+    "_parts_debug.png",
+    "_debug.png",
+)
+
+
+def runtime_required(rel: str) -> bool:
+    name = Path(rel).name
+    if name == "canonicals_contact_sheet.png" or name.endswith(DIAGNOSTIC_SUFFIXES):
+        return False
+    if rel.endswith(".ron") and not (
+        rel.endswith("_spritesheet.ron") or rel.endswith("_portraits.ron")
+    ):
+        return False
+    return True
+
+
+report = discover_all_targets()
+names = list(sys.argv[1:])
+names += [
+    job.output_stem(path)
+    for path, job in load_jobs(Path("ambition_sprite2d_renderer/configs"))
+]
+
+unknown = sorted({n for n in names if n not in report.targets})
+if unknown:
+    for name in unknown:
+        print(f"publish roster names an unregistered target: {name}", file=sys.stderr)
+    print("Run ./regen_sprites.sh --list to see registered targets.", file=sys.stderr)
+    raise SystemExit(2)
+
+emitted = []
+seen = set()
+for name in names:
+    for rel in report.targets[name].claimed_install_names():
+        if runtime_required(rel) and rel not in seen:
+            seen.add(rel)
+            emitted.append(rel)
+print("\n".join(emitted))
+DECLARE_EXPECTED
+    )
+}
+
+expected_list="$(declare_expected_files "${publish_targets[@]}")"
+mapfile -t expected_files <<< "$expected_list"
+# Products this script copies by hand rather than installing through a target.
+for cue in "${faction_cues[@]}"; do
+    expected_files+=(
+        "${cue}_spritesheet.png" "${cue}_spritesheet.yaml" "${cue}_spritesheet.ron"
+        "${cue}_portraits.png" "${cue}_portraits.ron"
+    )
+done
+for pair in "${held_prop_map[@]}" "${construction_prop_map[@]}"; do
+    expected_files+=("props/${pair##*:}.png")
+done
+
+# ⚠ a derivation that silently returns nothing would make both the fast path and
+# the postcondition vacuously true — the failure mode of every generated check.
+# The roster has published 800+ files for a year; anything under half that means
+# the helper broke, not that the roster shrank.
+if [ "${#expected_files[@]}" -lt 400 ]; then
+    echo "expected-file derivation produced only ${#expected_files[@]} entries" >&2
+    echo "— the roster or the renderer registry is broken; refusing to run" >&2
+    exit 1
+fi
+
 # --- Fingerprint cache ----------------------------------------------------
 # Hash every .py and .yaml under the renderer module + the boss generator
 # script. If the hash matches the cached value AND every expected sheet
@@ -344,212 +731,6 @@ fi
 # The expected-files list is the same one the postcondition validates at
 # the end. Keeping a single source of truth means deleting one published
 # sheet, manifest, or portrait trips both the fast-path and postcondition.
-expected_files=(
-    # Adapter targets (draw-all).
-    boss_spritesheet.png boss_spritesheet.yaml boss_spritesheet.ron
-    raid_enforcer_spritesheet.png raid_enforcer_spritesheet.yaml raid_enforcer_spritesheet.ron
-    goblin_spritesheet.png goblin_spritesheet.yaml goblin_spritesheet.ron
-    ninja_shadow_duelist_spritesheet.png ninja_shadow_duelist_spritesheet.yaml ninja_shadow_duelist_spritesheet.ron
-    ninja_shadow_oni_leader_spritesheet.png ninja_shadow_oni_leader_spritesheet.yaml ninja_shadow_oni_leader_spritesheet.ron
-    player_robot_spritesheet.png player_robot_spritesheet.yaml player_robot_spritesheet.ron
-    robot_spritesheet.png robot_spritesheet.yaml robot_spritesheet.ron
-    sandbag_spritesheet.png sandbag_spritesheet.yaml sandbag_spritesheet.ron
-    # Sandbox combat-variety enemies (draw-all). ⚠ the kiter — `ranged_skirmisher`
-    # — left with the 2026-08-05 clone cut; the two volatile mites stayed, because
-    # Jon marked them "iffy" rather than cut.
-    exploding_mite_spritesheet.png exploding_mite_spritesheet.yaml exploding_mite_spritesheet.ron
-    dividing_mite_spritesheet.png dividing_mite_spritesheet.yaml dividing_mite_spritesheet.ron
-    # Review-config NPCs (draw-review → copied).
-    absurd_general_spritesheet.png absurd_general_spritesheet.yaml absurd_general_spritesheet.ron
-    fascist_enforcer_spritesheet.png fascist_enforcer_spritesheet.yaml fascist_enforcer_spritesheet.ron
-    alice_spritesheet.png alice_spritesheet.yaml alice_spritesheet.ron
-    alice_portraits.png alice_portraits.ron
-    architect_spritesheet.png architect_spritesheet.yaml architect_spritesheet.ron
-    bob_spritesheet.png bob_spritesheet.yaml bob_spritesheet.ron
-    erdish_spritesheet.png erdish_spritesheet.yaml erdish_spritesheet.ron
-    kernel_guide_spritesheet.png kernel_guide_spritesheet.yaml kernel_guide_spritesheet.ron
-    merchant_prototype_spritesheet.png merchant_prototype_spritesheet.yaml merchant_prototype_spritesheet.ron
-    oiler_spritesheet.png oiler_spritesheet.yaml oiler_spritesheet.ron
-    oiler_portraits.png oiler_portraits.ron
-    vault_keeper_spritesheet.png vault_keeper_spritesheet.yaml vault_keeper_spritesheet.ron
-    # Faction-leader sheets (draw-factions → copied).
-    goblin_cantina_chieftain_spritesheet.png goblin_cantina_chieftain_spritesheet.yaml goblin_cantina_chieftain_spritesheet.ron
-    pulse_voyager_captain_spritesheet.png pulse_voyager_captain_spritesheet.yaml pulse_voyager_captain_spritesheet.ron
-    tech_bro_disruptor_spritesheet.png tech_bro_disruptor_spritesheet.yaml tech_bro_disruptor_spritesheet.ron
-    # Tack-on targets that produce character sheets.
-    burning_flying_shark_spritesheet.png burning_flying_shark_spritesheet.yaml burning_flying_shark_spritesheet.ron
-    pipi_tau_spritesheet.png pipi_tau_spritesheet.yaml pipi_tau_spritesheet.ron
-    pipi_tau_portraits.png pipi_tau_portraits.ron
-    sanic_spritesheet.png sanic_spritesheet.yaml sanic_spritesheet.ron
-    super_sanic_spritesheet.png super_sanic_spritesheet.yaml super_sanic_spritesheet.ron
-    sanic_ring_prop_spritesheet.png sanic_ring_prop_spritesheet.yaml sanic_ring_prop_spritesheet.ron
-    creator_spritesheet.png creator_spritesheet.yaml creator_spritesheet.ron
-    creator_lab_props_spritesheet.png creator_lab_props_spritesheet.yaml creator_lab_props_spritesheet.ron
-    interdimensional_gate_portal_spritesheet.png interdimensional_gate_portal_spritesheet.yaml interdimensional_gate_portal_spritesheet.ron
-    interdimensional_gate_ring_spritesheet.png interdimensional_gate_ring_spritesheet.yaml interdimensional_gate_ring_spritesheet.ron
-    intro_cart_spritesheet.png intro_cart_spritesheet.yaml intro_cart_spritesheet.ron
-    news_board_spritesheet.png news_board_spritesheet.yaml news_board_spritesheet.ron
-    # Pirate sheets (standalone publisher).
-    pirate_admiral_spritesheet.png pirate_admiral_spritesheet.yaml pirate_admiral_spritesheet.ron
-    pirate_lookout_spritesheet.png pirate_lookout_spritesheet.yaml pirate_lookout_spritesheet.ron
-    pirate_navigator_spritesheet.png pirate_navigator_spritesheet.yaml pirate_navigator_spritesheet.ron
-    pirate_quartermaster_spritesheet.png pirate_quartermaster_spritesheet.yaml pirate_quartermaster_spritesheet.ron
-    pirate_raider_spritesheet.png pirate_raider_spritesheet.yaml pirate_raider_spritesheet.ron
-    # Pirate-heavy variants (three named bruisers sharing one rig).
-    pirate_heavy_broadside_bess_spritesheet.png pirate_heavy_broadside_bess_spritesheet.yaml pirate_heavy_broadside_bess_spritesheet.ron
-    pirate_heavy_iron_mary_spritesheet.png pirate_heavy_iron_mary_spritesheet.yaml pirate_heavy_iron_mary_spritesheet.ron
-    pirate_heavy_salt_annet_spritesheet.png pirate_heavy_salt_annet_spritesheet.yaml pirate_heavy_salt_annet_spritesheet.ron
-    # No flat `pirate_heavy_spritesheet.png` ships: pirate_heavy is
-    # a multi-variant rig (broadside_bess/iron_mary/salt_annet are the
-    # real characters). Per Jon's 2026-05-24 feedback the catalog
-    # dropped its bare `npc_pirate_heavy` entry rather than
-    # shoehorning a placeholder.
-    # Small enemy sprites.
-    puppy_slug_spritesheet.png puppy_slug_spritesheet.yaml puppy_slug_spritesheet.ron
-    # Phase 6 + bonus follow-up: every catalog-referenced tackon
-    # character sprite, published by the tackon_targets loop below.
-    agent_swarm_spritesheet.png agent_swarm_spritesheet.ron
-    ai_slop_spritesheet.png ai_slop_spritesheet.ron
-    bear_mauler_spritesheet.png bear_mauler_spritesheet.ron
-    colonial_statesman_spritesheet.png colonial_statesman_spritesheet.ron
-    dark_lord_spritesheet.png dark_lord_spritesheet.ron
-    flying_spaghetti_monster_boss_spritesheet.png flying_spaghetti_monster_boss_spritesheet.ron
-    snakes_on_a_cartesian_plane_spritesheet.png snakes_on_a_cartesian_plane_spritesheet.ron
-    snakes_on_a_paper_plane_spritesheet.png snakes_on_a_paper_plane_spritesheet.ron
-    busy_beaver_spritesheet.png busy_beaver_spritesheet.ron
-    busy_beaver_portraits.png busy_beaver_portraits.ron
-    charley_beagle_svg_spritesheet.png charley_beagle_svg_spritesheet.ron
-    charley_beagle_svg_portraits.png charley_beagle_svg_portraits.ron
-    niels_boar_spritesheet.png niels_boar_spritesheet.ron
-    niels_boar_portraits.png niels_boar_portraits.ron
-    vera_ruin_spritesheet.png vera_ruin_spritesheet.ron
-    vera_ruin_portraits.png vera_ruin_portraits.ron
-    galwah_spritesheet.png galwah_spritesheet.ron
-    ghoul_skulker_spritesheet.png ghoul_skulker_spritesheet.ron
-    girdle_spritesheet.png girdle_spritesheet.ron
-    hand_saint_spritesheet.png hand_saint_spritesheet.ron
-    helpful_liar_spritesheet.png helpful_liar_spritesheet.ron
-    mantis_lancer_spritesheet.png mantis_lancer_spritesheet.ron
-    ninja_heavy_spritesheet.png ninja_heavy_spritesheet.ron
-    pirate_cutlass_viper_spritesheet.png pirate_cutlass_viper_spritesheet.ron
-    president_portrait_spritesheet.png president_portrait_spritesheet.ron
-    puppy_slug_variant2_spritesheet.png puppy_slug_variant2_spritesheet.ron
-    raptor_stalker_spritesheet.png raptor_stalker_spritesheet.ron
-    # robot_heavy publishes as variants (bastion/arsenal/...); main
-    # spritesheet doesn't ship until a publisher like pirate_heavy
-    # lands. Catalog entry falls back to colored rectangle.
-    smart_house_spritesheet.png smart_house_spritesheet.ron
-    spaghetti_event_spritesheet.png spaghetti_event_spritesheet.ron
-    synthetic_friend_spritesheet.png synthetic_friend_spritesheet.ron
-    trex_enemy_spritesheet.png trex_enemy_spritesheet.ron
-    viking_heavy_shieldmaiden_spritesheet.png viking_heavy_shieldmaiden_spritesheet.ron
-    viking_heavy_warrior_spritesheet.png viking_heavy_warrior_spritesheet.ron
-    viking_shieldmaiden_spritesheet.png viking_shieldmaiden_spritesheet.ron
-    viking_warrior_spritesheet.png viking_warrior_spritesheet.ron
-    weird_hermit_spritesheet.png weird_hermit_spritesheet.ron
-    willson_spritesheet.png willson_spritesheet.ron
-    ramen_nujan_spritesheet.png ramen_nujan_spritesheet.ron
-    jeff_hinter_spritesheet.png jeff_hinter_spritesheet.ron
-    jeff_hinter_armored_spritesheet.png jeff_hinter_armored_spritesheet.ron
-    m_leblanc_spritesheet.png m_leblanc_spritesheet.ron
-    puppy_slug_velvet_spritesheet.png puppy_slug_velvet_spritesheet.ron
-    player_robot_fable_spritesheet.png player_robot_fable_spritesheet.ron
-    # Intro / cut-the-rope content + catalog characters (see the
-    # matching tackon_targets block).
-    cut_rope_anvil_spritesheet.png cut_rope_anvil_spritesheet.ron
-    cut_rope_piano_spritesheet.png cut_rope_piano_spritesheet.ron
-    cut_rope_rope_spritesheet.png cut_rope_rope_spritesheet.ron
-    super_mary_o_spritesheet.png super_mary_o_spritesheet.ron
-    super_mary_o_tall_spritesheet.png super_mary_o_tall_spritesheet.ron
-    super_mary_o_fire_spritesheet.png super_mary_o_fire_spritesheet.ron
-    # Mary-O's OTHER lineage, which four surfaces name and no batch published
-    # until 2026-08-05. The portraits are listed as well as the sheets: they are
-    # what made the gap visible, and listing only the sheet would let the same
-    # half-publish pass the postcondition again.
-    mary_o_v2_spritesheet.png mary_o_v2_spritesheet.ron
-    mary_o_v2_portraits.png mary_o_v2_portraits.ron
-    mary_o_v2_fire_spritesheet.png mary_o_v2_fire_spritesheet.ron
-    mary_o_v2_fire_portraits.png mary_o_v2_fire_portraits.ron
-    mary_o_v2_tall_spritesheet.png mary_o_v2_tall_spritesheet.ron
-    mary_o_v2_tall_portraits.png mary_o_v2_tall_portraits.ron
-    # The 26 orphans the 2026-08-05 census found; see `tackon_targets`.
-    admiral_grass_hopper_spritesheet.png admiral_grass_hopper_spritesheet.ron
-    anne_druid_spritesheet.png anne_druid_spritesheet.ron
-    carl_runga_spritesheet.png carl_runga_spritesheet.ron
-    carl_stargan_spritesheet.png carl_stargan_spritesheet.ron
-    data_lovelace_spritesheet.png data_lovelace_spritesheet.ron
-    davy_hylbert_spritesheet.png davy_hylbert_spritesheet.ron
-    genghis_can_spritesheet.png genghis_can_spritesheet.ron
-    genghis_cant_spritesheet.png genghis_cant_spritesheet.ron
-    georg_canter_spritesheet.png georg_canter_spritesheet.ron
-    george_booul_spritesheet.png george_booul_spritesheet.ron
-    hunny_horror_boss_spritesheet.png hunny_horror_boss_spritesheet.ron
-    hypatia_prime_spritesheet.png hypatia_prime_spritesheet.ron
-    joseph_furrier_spritesheet.png joseph_furrier_spritesheet.ron
-    le_beast_spritesheet.png le_beast_spritesheet.ron
-    leib_knives_spritesheet.png leib_knives_spritesheet.ron
-    mami_marzakhani_spritesheet.png mami_marzakhani_spritesheet.ron
-    marie_curry_spritesheet.png marie_curry_spritesheet.ron
-    martin_cutta_spritesheet.png martin_cutta_spritesheet.ron
-    neil_ongras_turfson_spritesheet.png neil_ongras_turfson_spritesheet.ron
-    paradox_barber_spritesheet.png paradox_barber_spritesheet.ron
-    # ⚠ **`patent_clerk` was in the render batch and NOT in this postcondition**
-    # — added to `tackon_targets` on 2026-08-05 and never listed here, so a run
-    # whose patent-clerk render failed still reported every expected output
-    # present. That is the exact half-publish the mary_o_v2 rows above were
-    # added for, one list apart.
-    patent_clerk_spritesheet.png patent_clerk_spritesheet.ron
-    paul_diracula_spritesheet.png paul_diracula_spritesheet.ron
-    player_robot_v2_spritesheet.png player_robot_v2_spritesheet.ron
-    player_robot_v3_spritesheet.png player_robot_v3_spritesheet.ron
-    python_goras_spritesheet.png python_goras_spritesheet.ron
-    richard_duckling_spritesheet.png richard_duckling_spritesheet.ron
-    yuclid_spritesheet.png yuclid_spritesheet.ron
-    props/super_mary_o_star_wand.png
-    props/super_mary_o_cinder_beacon.png
-    props/super_mary_o_cosmic_quasar.png
-    # Composable Mary-O construction pieces. Runtime level code can stack the
-    # body segments without stretching and attach the separately animated flag.
-    props/mary_o_pipe_body.png
-    props/mary_o_pipe_top.png
-    props/mary_o_flag_pole_body.png
-    props/mary_o_flag_pole_top.png
-    props/mary_o_flag.png
-    generic_explosions_spritesheet.png generic_explosions_spritesheet.ron
-    smirking_behemoth_boss_spritesheet.png smirking_behemoth_boss_spritesheet.ron
-    solid_snake_spritesheet.png solid_snake_spritesheet.ron
-    snakes_on_a_paper_plane_spritesheet.png snakes_on_a_paper_plane_spritesheet.ron
-    snakes_on_a_cartesian_plane_spritesheet.png snakes_on_a_cartesian_plane_spritesheet.ron
-    stochastic_parrot_spritesheet.png stochastic_parrot_spritesheet.ron
-    stochastic_parrot_v2_spritesheet.png stochastic_parrot_v2_spritesheet.ron
-    imperfect_cellular_automaton_spritesheet.png imperfect_cellular_automaton_spritesheet.ron
-    # Review-config NPCs added to review_cues for full hall coverage.
-    # Rigged (bone-toolkit) characters auto-discovered under
-    # targets/characters/rigged/*.rig.json.
-    noether_spritesheet.png noether_spritesheet.ron
-    # Boss subdirectories (custom install paths).
-    #
-    # ⚠ **NOT DEAD, and no string search can tell you that.** A 2026-08-05
-    # census of "sheets no catalog names" flagged `gnu_ton_boss_body` and
-    # `gnu_ton_boss_hands`, because nothing anywhere spells those stems: the
-    # boss assembles part paths by SUFFIX at load, and the encounter reads the
-    # sibling `giant_gnu_*` family by literal. Both families really are
-    # published into this directory and both are read.
-    #
-    # ⛔ the same census nearly cost the powerup pickups: `super_mary_o` looks
-    # superseded because its three form sheets are, and the SAME target
-    # publishes `super_mary_o_star_wand`, `_cinder_beacon` and `_cosmic_quasar`,
-    # which Mary-O's live code names. **A target is not its sheets, and a sheet
-    # nobody spells is not unused.** Ask the code that BUILDS names before
-    # cutting anything here.
-    gnu_ton_boss/gnu_ton_boss_spritesheet.png
-    gnu_ton_boss/gnu_ton_boss_body_spritesheet.png
-    gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png
-    gnu_ton_boss/gnu_ton_boss_spritesheet.ron
-    gnu_ton_boss/gnu_ton_boss_actor.ron
-    mockingbird_boss/mockingbird_boss_spritesheet.png
-    mockingbird_boss/mockingbird_boss_spritesheet.ron
-)
 
 cache_dir="$renderer_dir/.cache"
 fingerprint_file="$cache_dir/regen-fingerprint"
@@ -818,24 +999,13 @@ echo "==> review NPC sheets (toon-target NPCs) → $sprites_dir"
 # variants such as absurd_general, architect, kernel_guide). We
 # render to a scratch dir, then copy the specific sheets we use
 # in-game into $sprites_dir. Promoting a review config to a
-# permanent runtime sheet means: add the cue id to the copy list
-# below AND give it a `character_catalog.ron` entry (specs are built
+# permanent runtime sheet means: add the cue id to `review_cues` in
+# the publish roster AND give it a `character_catalog.ron` entry (specs are built
 # from the sheet RON at load; the old `*_SHEET` statics in
 # character_sprites are gone).
 review_scratch="$renderer_dir/generated/review"
 mkdir -p "$review_scratch"
 run_renderer_python draw-review -m ambition_sprite2d_renderer draw-review --out-dir "$review_scratch"
-review_cues=(
-    # Toon-target NPC variants already promoted.
-    absurd_general architect kernel_guide vault_keeper
-    merchant_prototype oiler erdish raid_enforcer fascist_enforcer
-    # Named characters whose YAML manifests already live in $sprites_dir.
-    alice bob craig eve general_hero judy mallory olivia
-    peggy sybil trent trudy victor walter
-    # Phase 6 + bonus follow-up: every review config is now an
-    # actual catalog character. Install the rest so the Hall of
-    # Characters has a sprite for each.
-)
 # `ron` is included because the sandbox SheetRegistry parses RON at
 # startup (see `presentation::character_sprites::registry`). Without
 # the copy step the .ron in $sprites_dir would drift from the
@@ -882,7 +1052,7 @@ echo "==> faction-leader sheets (robot-target leaders) → $sprites_dir"
 factions_scratch="$renderer_dir/generated/factions"
 mkdir -p "$factions_scratch"
 run_renderer_python draw-factions -m ambition_sprite2d_renderer draw-factions --out-dir "$factions_scratch"
-for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
+for cue in "${faction_cues[@]}"; do
     for ext in png yaml ron; do
         src="$factions_scratch/${cue}_spritesheet.$ext"
         if [ -f "$src" ]; then
@@ -900,201 +1070,11 @@ for cue in goblin_cantina_chieftain pulse_voyager_captain tech_bro_disruptor; do
 done
 
 echo "==> tack-on targets (render-publish into $sprites_dir)"
-# Every registered module target whose manifest the runtime loads.
-# The registry is `registry/discovery.py` (auto-discovered from
-# targets/<category>/ — run `list` to see it); keep this list covering
-# every target the game references (mockingbird_boss has its own driver
-# below; pirates go through the standalone publisher).
-tackon_targets=(
-    sandbag
-    burning_flying_shark
-    pipi_tau
-    sanic
-    super_sanic
-    sanic_ring_prop
-    creator
-    creator_lab_props
-    gnu_ton_boss
-    interdimensional_gate
-    intro_cart
-    intro_lab_tileset
-    lasersword
-    lasersword_with_guns
-    # Hand-held weapon props + attack-effect overlays. Authored
-    # pointing right (+X); the game pins them at the `grip`/`origin`
-    # anchor and rotates to the swing/aim direction at runtime.
-    pirate_heavy_axe
-    throwing_javelin
-    portal_gun_blue
-    portal_gun_orange
-    hunting_bow
-    bow_arrow
-    robot_slash
-    news_board
-    town_tileset
-    # Intro / cut-the-rope content (loaded by ambition_content's intro
-    # sprites + cut_rope boss) and catalog-referenced characters that
-    # were missing from this list — a fresh clone rendered them as
-    # colored rectangles.
-    cut_rope_anvil
-    cut_rope_piano
-    cut_rope_rope
-    # Super Mary-O playable protagonist for the SMB1 demo (M-track).
-    # Its catalog row (game/ambition_demo_smb1) references
-    # sprites/super_mary_o_spritesheet.*; without this publish a fresh
-    # clone renders the demo character as a colored rectangle.
-    super_mary_o
-    # Her power forms are SEPARATE targets in the same module (each a distinct
-    # SHEET, not a scaled copy): the grown form (`mary_o_tall` catalog row) and
-    # the fire-flower form (`mary_o_fire`, Jon bug #10). Both must publish or a
-    # fresh clone draws the powered-up player as a colored rectangle.
-    super_mary_o_tall
-    super_mary_o_fire
-    # Mary-O's gameplay provider binds these generated pickups through
-    # WorldItemArt at sprites/props/<name>.png. Publish the source targets
-    # here, then copy their canonical poses into props/.
-    #
-    # Her two power pickups. Jon replaced the milk carton with the magical
-    # girl's star wand and the spark blossom with the lantern (cinder beacon);
-    # the retired carton/blossom targets still render on request but nothing
-    # publishes or references them.
-    super_mary_o_star_wand
-    super_mary_o_cinder_beacon
-    # The star. Its shader has existed since it landed with nothing to switch
-    # it on; the pickup that does is `star.rs`.
-    super_mary_o_cosmic_quasar
-    # Fixed-canvas construction pieces. The pipe and pole body targets repeat
-    # vertically; their top/finial and flag stay separate so level code can
-    # build arbitrary heights without stretching any sprite.
-    super_mary_o_pipe_body
-    super_mary_o_pipe_top
-    super_mary_o_flag_pole_body
-    super_mary_o_flag_pole_top
-    super_mary_o_flag
-    generic_explosions
-    smirking_behemoth_boss
-    solid_snake
-    snakes_on_a_paper_plane
-    snakes_on_a_cartesian_plane
-    stochastic_parrot
-    stochastic_parrot_v2
-    imperfect_cellular_automaton
-    # Phase 6 + bonus follow-up: every tack-on character listed by
-    # `list-targets` now has a catalog entry; publish them all so the
-    # Hall of Characters has a sprite for each.
-    agent_swarm
-    ai_slop
-    bear_mauler
-    colonial_statesman
-    dark_lord
-    flying_spaghetti_monster_boss
-    galwah
-    ghoul_skulker
-    girdle
-    hand_saint
-    helpful_liar
-    mantis_lancer
-    ninja_heavy
-    pirate_cutlass_viper
-    president_portrait
-    puppy_slug_variant2
-    raptor_stalker
-    # robot_heavy is a multi-variant rig whose publisher doesn't
-    # install (renders only to generated/, no install method).
-    # Skipping it here keeps the working tree clean. Catalog
-    # entry was dropped along with the publisher work.
-    smart_house
-    spaghetti_event
-    synthetic_friend
-    trex_enemy
-    viking_heavy_shieldmaiden
-    viking_heavy_warrior
-    viking_shieldmaiden
-    viking_warrior
-    # weird_hermit's publisher was fixed 2026-05-24 to emit the
-    # canonical `<target>_spritesheet.{png,ron,yaml}` filenames + the
-    # runtime's standard SheetRow schema. Catalog entry now resolves.
-    weird_hermit
-    # Catalog-backed Hall characters that previously depended on manually
-    # generated local assets and therefore disappeared on a fresh clone.
-    willson
-    ramen_nujan
-    jeff_hinter
-    jeff_hinter_armored
-    m_leblanc
-    puppy_slug_velvet
-    player_robot_fable
-    # ⛔ **The same class again, found 2026-08-05.** `mary_o_v2` and its two
-    # forms were in NO batch — their sheets existed only on machines that had
-    # once rendered them by hand, exactly like the five above. FOUR surfaces
-    # name them: the Mary-O demo's three forms, `pocket_runner`,
-    # `twintrack_traveler`, and Ambition's own versus arena (`arena_duelist_close`).
-    #
-    # ⚠ how it was NOTICED is the part worth keeping: not by a clone failing,
-    # but by six blank faces in a new character-select grid. `publish` emits a
-    # target's PORTRAIT products as well as its sheet, so a target no batch
-    # publishes has neither — and the portrait half is what was visible, because
-    # `super_mary_o_portraits.png` sat next door looking like coverage.
-    mary_o_v2
-    mary_o_v2_fire
-    mary_o_v2_tall
-    # ⛔⛔ **AND THEN THE CENSUS, 2026-08-05.** Jon, on being told George Booul
-    # does not regen: *"Are there other characters that don't regen? If there
-    # are we need to fix that."* There were TWENTY-SIX — every catalog sheet
-    # stem this script never named, cross-checked against
-    # `sprite2d_renderer list`, and all 26 are registered targets that simply
-    # nothing ran.
-    #
-    # ⭐ they are almost all ONE cast: the mathematician / scientist NPCs of the
-    # Hall. Their art has existed on developer machines for months and would
-    # have been absent from a fresh clone, which is the same defect the five
-    # rows above were added for and the same one `mary_o_v2` was.
-    #
-    # ⚠ **a hand-maintained allowlist is why this keeps happening.** Every
-    # character added since the last audit is orphaned by default, and the
-    # failure is invisible on any machine that once rendered it. The durable fix
-    # is a check that compares the assembled catalog against what this script
-    # publishes; until that exists, this list is what stands in for it.
-    admiral_grass_hopper
-    anne_druid
-    carl_runga
-    carl_stargan
-    data_lovelace
-    davy_hylbert
-    genghis_can
-    genghis_cant
-    georg_canter
-    george_booul
-    hunny_horror_boss
-    hypatia_prime
-    joseph_furrier
-    le_beast
-    leib_knives
-    mami_marzakhani
-    marie_curry
-    martin_cutta
-    neil_ongras_turfson
-    busy_beaver
-    charley_beagle_svg
-    niels_boar
-    vera_ruin
-    paradox_barber
-    patent_clerk
-    paul_diracula
-    player_robot_v2
-    player_robot_v3
-    python_goras
-    richard_duckling
-    yuclid
-)
-# Rigged characters authored as GUI `.rig.json` documents auto-register as
-# targets named after the file stem. Include them in the same explicit batch as
-# the ordinary tack-ons so registry discovery is paid once for the whole group.
-rig_targets=()
-for rig in "$renderer_dir"/ambition_sprite2d_renderer/targets/characters/rigged/*.rig.json; do
-    [ -f "$rig" ] || continue
-    rig_targets+=("$(basename "$rig" .rig.json)")
-done
+# `tackon_targets` in the publish roster is every registered module target
+# whose manifest the runtime loads. The registry is `registry/discovery.py`
+# (auto-discovered from targets/<category>/ — run `list` to see it); keep that
+# roster covering every target the game references (mockingbird_boss and the
+# pirates ride the late-targets batch below).
 publish_cached_batch tackons "${tackon_targets[@]}" "${rig_targets[@]}"
 
 echo "==> held-item prop canonicals (single-pose → $sprites_dir/props)"
@@ -1104,17 +1084,6 @@ echo "==> held-item prop canonicals (single-pose → $sprites_dir/props)"
 # runtime asset paths (`sprites/props/<name>.png`) resolve on a fresh clone.
 props_dir="$sprites_dir/props"
 mkdir -p "$props_dir"
-# render-target-name -> runtime props/ basename
-held_prop_map=(
-    "pirate_heavy_axe:axe"
-    "throwing_javelin:javelin"
-    "lasersword_with_guns:gunsword"
-    "portal_gun_blue:portal_gun_blue"
-    "portal_gun_orange:portal_gun_orange"
-    "super_mary_o_star_wand:super_mary_o_star_wand"
-    "super_mary_o_cinder_beacon:super_mary_o_cinder_beacon"
-    "super_mary_o_cosmic_quasar:super_mary_o_cosmic_quasar"
-)
 for pair in "${held_prop_map[@]}"; do
     src_target="${pair%%:*}"
     dst_name="${pair##*:}"
@@ -1131,13 +1100,6 @@ echo "==> Mary-O construction-piece canonicals (fixed canvas → $props_dir)"
 # These are level-construction sprites rather than held items. Keep their
 # transparent fixed canvases: seam coordinates and attachment anchors are part
 # of the authoring contract, so they must never be auto-cropped here.
-construction_prop_map=(
-    "super_mary_o_pipe_body:mary_o_pipe_body"
-    "super_mary_o_pipe_top:mary_o_pipe_top"
-    "super_mary_o_flag_pole_body:mary_o_flag_pole_body"
-    "super_mary_o_flag_pole_top:mary_o_flag_pole_top"
-    "super_mary_o_flag:mary_o_flag"
-)
 for pair in "${construction_prop_map[@]}"; do
     src_target="${pair%%:*}"
     dst_name="${pair##*:}"
@@ -1169,38 +1131,30 @@ echo "==> Mark/Recall world beacon prop (procedural crystal → $props_dir)"
 # `mark_recall::sync_mark_beacon_visual` (stands at the dropped recall mark).
 (cd "$renderer_dir" && "$python_bin" -c "from ambition_sprite2d_renderer.targets.icons.item_icons import write_mark_beacon_prop as w; w('$props_dir')")
 
-echo "==> standalone pirate sheets (publish into $sprites_dir)"
-# Pirates are registered as tack-on `[characters]` targets and publish
-# through the same machinery as the other tack-ons above. Kept as its
-# own loop so the runtime-required pirate list stays explicit.
-pirate_targets=(
-    pirate_admiral
-    pirate_lookout
-    pirate_navigator
-    pirate_quartermaster
-    pirate_raider
-    # pirate_heavy fans out into three variants (broadside_bess, iron_mary,
-    # salt_annet) — its module-level install copies all three flat into
-    # $sprites_dir as `pirate_heavy_<slug>_spritesheet.{png,yaml,ron}`.
-    pirate_heavy
-)
 echo "==> pirate, small-enemy, and multipart-boss target batch → $sprites_dir"
-# These late targets share the same publishing contract. Keep their explicit
-# roster but render them together so the registry and YAML configs are loaded
-# once rather than once per target.
+# Pirates are registered as tack-on `[characters]` targets and publish through
+# the same machinery as the other tack-ons. These late targets share one
+# publishing contract, so they render together and the registry + YAML configs
+# are loaded once rather than once per target.
 publish_cached_batch late-targets \
     "${pirate_targets[@]}" \
     puppy_slug \
     mockingbird_boss
 
 echo "==> postcondition: every runtime-required sprite file present"
-# Walk the list of files the sandbox crate actually loads at runtime
-# and fail loudly if any are missing after regen. Keeps the regen
-# pipeline honest as new sprite consumers are added.
+# Walk the derived list of files the runtime actually loads and REPORT any that
+# are missing. The list comes from the publish roster near the top of this
+# script (it's also consumed by the cache-skip check), so adding a target is
+# all it takes to cover its products.
 #
-# The expected-files list is defined near the top of this script
-# (it's also consumed by the cache-skip check). When adding a new
-# sprite consumer, update that list.
+# ⛔ **this records a failure; it does not exit.** It used to `exit 1` here,
+# which meant a single wrong filename cancelled the ultrapack step, the LDtk
+# manifest, and (now) the quality variants — 1:13 of rendering thrown away and
+# the packs left ten days stale, over an entry no target had produced since
+# February. A check that can kill the work after it is a check whose blast
+# radius is the whole pipeline. The exit code is settled at the END of the run,
+# after every stage has had its turn; the fingerprint is not cached when
+# anything failed, so a failing run still re-renders next time.
 missing=()
 for rel in "${expected_files[@]}"; do
     if [ ! -f "$sprites_dir/$rel" ]; then
@@ -1212,9 +1166,10 @@ if [ "${#missing[@]}" -gt 0 ]; then
     for rel in "${missing[@]}"; do
         echo "    $sprites_dir/$rel" >&2
     done
-    exit 1
+    regen_failures+=("postcondition: ${#missing[@]} runtime-required file(s) missing")
+else
+    echo "  ok: ${#expected_files[@]} expected files present"
 fi
-echo "  ok: ${#expected_files[@]} expected files present"
 
 # Coverage is a REPORT, not a gate. `inspect_hall_portraits` exits 1 whenever any
 # catalog row lacks a portrait — useful for a `--check` caller, fatal here under
@@ -1309,18 +1264,43 @@ then
             echo "  WARN: ultrapack tier '$tname' failed (non-fatal)"
     done
     echo "  packs installed under $pack_root/{full,half,quarter,potato}/"
-    # Postcondition: every tier packs the SAME target set. A transient IO
-    # flake once silently dropped 59 targets from one tier — scale must
-    # never change coverage, so unequal sets are a hard regen failure.
-    "$python_bin" - "$pack_root" <<'PYEOF'
+    # Postcondition. Two questions, and the second one is why this exists:
+    #
+    #   1. Do the tiers agree with EACH OTHER? A transient IO flake once
+    #      silently dropped 59 targets from one tier — scale must never change
+    #      coverage, so unequal sets are a hard failure.
+    #   2. Do they agree with WHAT WAS RENDERED? ⛔ (1) alone cannot see
+    #      staleness: four equally-old tiers agree perfectly. The packs sat ten
+    #      days old at 167 targets while a fresh pack held 181, and this check
+    #      passed happily on every one of those days. So each catalog is also
+    #      compared against the published sheets it claims to pool — by name
+    #      (a packed target whose sheet is gone is a stale pack) and by MTIME
+    #      (a catalog older than the newest sheet is a stale pack, whatever the
+    #      counts say).
+    #
+    # ⚠ the sheets a pack does NOT cover are reported, not failed: ultrapack
+    # skips manifests with no standard frame rows (bespoke targets, which it
+    # names on stderr as it goes), and that set is content, not a defect.
+    if ! "$python_bin" - "$pack_root" "$sprites_dir" <<'PYEOF'
 import json, sys
 from pathlib import Path
 root = Path(sys.argv[1])
+sheets = Path(sys.argv[2])
+
+# What ultrapack pools: the top-level published sheets (see
+# `ultrapack_rendered`, which globs `*_spritesheet.yaml` at the sheet root).
+rendered = {p.name[: -len("_spritesheet.yaml")] for p in sheets.glob("*_spritesheet.yaml")}
+newest_sheet = max(
+    (p.stat().st_mtime for p in sheets.glob("*_spritesheet.*")), default=0.0
+)
+
 sets = {}
+stamps = {}
 for tier in ("full", "half", "quarter", "potato"):
     cat = root / tier / "ultrapack.json"
     if cat.exists():
         sets[tier] = set(json.loads(cat.read_text())["targets"])
+        stamps[tier] = cat.stat().st_mtime
 if not sets:
     sys.exit("  ERROR: no tier catalogs found under %s" % root)
 ref_tier = "full" if "full" in sets else sorted(sets)[0]
@@ -1334,10 +1314,26 @@ for tier, s in sorted(sets.items()):
         print(f"  ERROR: tier '{tier}' target set differs from '{ref_tier}' "
               f"(missing {len(ref - s)}: {missing}… / extra {len(s - ref)}: {extra}…)",
               file=sys.stderr)
+    orphaned = sorted(s - rendered)
+    if orphaned:
+        bad = True
+        print(f"  ERROR: tier '{tier}' packs {len(orphaned)} target(s) with no "
+              f"published sheet — the pack is stale: {orphaned[:5]}…", file=sys.stderr)
+    if stamps[tier] < newest_sheet:
+        bad = True
+        age = (newest_sheet - stamps[tier]) / 3600.0
+        print(f"  ERROR: tier '{tier}' catalog is {age:.1f}h older than the newest "
+              f"published sheet — the pack is stale", file=sys.stderr)
 if bad:
     sys.exit(1)
-print(f"  ok: {len(sets)} tiers x {len(ref)} targets — coverage identical")
+unpacked = sorted(rendered - ref)
+note = f"; {len(unpacked)} sheet(s) not pooled: {', '.join(unpacked)}" if unpacked else ""
+print(f"  ok: {len(sets)} tiers x {len(ref)} targets — identical, current with "
+      f"{len(rendered)} published sheet(s){note}")
 PYEOF
+    then
+        regen_failures+=("ultrapack postcondition: tier coverage disagrees or is stale")
+    fi
 else
     echo "  (skipped — sprite renderer not importable from $python_bin)"
 fi
@@ -1438,10 +1434,49 @@ else
     echo "  (skipped — ambition_ldtk_tools not importable from $ldtk_python)"
 fi
 
+# --- Reduced-resolution quality variants ----------------------------------
+# ⛔ **a sprite regen that does not run this leaves the phone on full-res art.**
+# The half / quarter / potato roots are what the runtime loads under the Low /
+# Medium / Potato quality profiles, and a sheet with no variant silently falls
+# back to full resolution. `regen_assets.sh` chained backgrounds → sprites →
+# variants and this script did not, so every standalone `./regen_sprites.sh`
+# re-opened that drift; 25 sheets — Mary-O's and the player's among them — had
+# no half-res sibling when it was measured.
+#
+# It is cheap to chain because the generator is incremental: a run where nothing
+# changed costs ~4s, and one changed character ~7s (a full rebuild is ~2m15s).
+#   AMBITION_QUALITY_VARIANTS=0  skip it (same idiom as AMBITION_ULTRAPACK=0)
+echo "==> reduced-resolution quality variants (sprites):"
+if [ "${AMBITION_QUALITY_VARIANTS:-1}" = "0" ]; then
+    echo "  (skipped — AMBITION_QUALITY_VARIANTS=0)"
+elif ! "$python_bin" "$repo_root/scripts/generate_visual_quality_variants.py" \
+    --asset-root "$repo_root/crates/ambition_platformer2d_actor_monolith/assets" \
+    --sprites-only 2>&1 | sed 's/^/  /'
+then
+    regen_failures+=("quality variants: generator reported a failure")
+fi
+
+# --- Verdict --------------------------------------------------------------
+# Every stage has now run. Fail here, once, for anything any of them recorded —
+# and leave the fingerprint uncached so the next run re-renders rather than
+# reporting a cache hit over a broken tree.
+if [ "${#regen_failures[@]}" -gt 0 ]; then
+    print_regen_timings
+    echo "" >&2
+    echo "==> regen FAILED — ${#regen_failures[@]} problem(s):" >&2
+    for failure in "${regen_failures[@]}"; do
+        echo "    $failure" >&2
+    done
+    echo "    (fingerprint not cached; the next run re-renders)" >&2
+    exit 1
+fi
+
 # --- Write fingerprint on success ----------------------------------------
 mkdir -p "$cache_dir"
 echo "$current_fingerprint" > "$fingerprint_file"
 echo "  cached regen fingerprint at $fingerprint_file"
+
+print_regen_timings
 
 if [ "$line_profile_enabled" -eq 1 ]; then
     echo "==> line profile reports: $line_profile_run_dir"
@@ -1449,3 +1484,5 @@ if [ "$line_profile_enabled" -eq 1 ]; then
 fi
 
 echo "==> done"
+echo "    file://$sprites_dir"
+echo "    file://$repo_root/crates/ambition_platformer2d_actor_monolith/assets"

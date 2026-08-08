@@ -302,6 +302,31 @@ beside Mario."* Both landed **2026-08-06**, and the snake's own doc names Jon's
 report as what it fixed: *"before this it was 41.0 world units against her 25.6 —
 1.6x her width … that is the 'way too big' Jon reported twice."*
 
+### ⭐⭐ THE "DATA BLOCKER" DOES NOT APPLY TO THIS ROUTE — measured 2026-08-08
+
+The observations row records *"the blocker is data: 2 of 190 sheets declare
+`authored_body`"*. **That count is correct and it is about the wrong field.**
+
+```text
+  sheets in assets/sprites/     190
+  declaring authored_body         2   (player_robot_v3, vera_ruin)
+  declaring body_pixel_bbox     184   ← 97%
+```
+
+`authored_body` gates `authored_body_pixel_size`, which sizes the **collision
+box**. **This decision sizes the QUAD, and the quad comes from
+`body_pixel_bbox`** — which 184 of 190 sheets already publish, because the
+renderer measures the alpha bbox on every regeneration. **So the fork is not
+data-blocked.** The six without one are the population to look at, not the 188.
+
+⛔ **and finding this needed a different search, which is a tooling trap worth
+carrying**: `grep -r` in this repo **silently skips gitignored files**, and
+sprite sheets are gitignored (`.gitignore:110`). A recursive grep for
+`body_pixel_bbox` returns **0** across 190 files that contain it. `--no-ignore-files`
+fixes it, or `find … | xargs grep`. ⚠ this is the sibling of the known
+symlink trap (`grep -r` needs `-S` for symlinked assets) — **two independent
+reasons a recursive grep silently misses this repo's art.**
+
 ⭐ **and the picture agrees, checked 2026-08-08 against the broken-capture
 scare.** `capture_mary_o` composes through `build_windowed_demo_app_with_home`,
 NOT the `capture_scene` path that spent two days photographing a void — and the

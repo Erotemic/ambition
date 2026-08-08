@@ -37,7 +37,37 @@ use bevy::prelude::Component;
 /// Ordered, so a snapshot's entity rows sort into a canonical sequence regardless
 /// of the archetype layout Bevy's `Query` happened to walk (see
 /// `ambition_platformer2d_runtime::rollback` checksum projections).
+///
+/// ## An identity ALWAYS carries the stream its descendants are minted from
+///
+/// [`SimIdCounter`] is not a separate opt-in fact: [`SimId::spawned`] is the only
+/// way to name a dynamically-spawned entity, and it needs a counter *on the
+/// spawner*. So "identified" and "able to be descended from" are the same
+/// condition, and the pairing is structural rather than remembered at each mint
+/// site.
+///
+/// ⛔ **it was remembered at two of the six sites that mint an id.**
+/// `ensure_sim_id` and Sanic's scattered rings inserted the pair; the
+/// construction executor — which is how every authored actor, including every
+/// boss, reaches the world — inserted the `SimId` alone. Because `ensure_sim_id`
+/// is filtered `Without<SimId>` it then skipped those bodies entirely, so they
+/// were never backfilled. `apply_summon_effects` requires both, so **the gradient
+/// sentinel's Minima Trap warned and summoned nothing** — a shipped boss with a
+/// dead special. Measured 2026-08-08 in the real app on `sandbox:basement_boss`:
+/// `sim=placement:BossSpawn-0158 counter=None`, no minion, no "Puppy Slug".
+///
+/// `#[require]` rather than an insert in the executor: the executor is one site
+/// of six, and repairing it alone leaves the same hole at the rest — the
+/// split-offspring path and the strike-volume path each mint a bare `SimId` too.
+/// A required component makes the invariant a property of the TYPE, so a future
+/// mint site cannot omit it.
+///
+/// ⚠ **it never overwrites.** A required component is supplied only when absent,
+/// so a snapshot restore that puts back `SimIdCounter(7)` keeps 7, and nothing
+/// double-mints on rollback. `Default` is `0`, which is what a freshly built body
+/// has anyway.
 #[derive(Component, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[require(SimIdCounter)]
 pub struct SimId(String);
 
 /// Make one authored segment safe to concatenate.
@@ -164,6 +194,11 @@ impl std::fmt::Display for SimId {
 
 /// A spawner's per-spawner sequence counter. Lives on the spawner ENTITY, so it is
 /// snapshot state like everything else, and so two spawners never share a stream.
+///
+/// **Required by [`SimId`]** — every identified entity is a potential spawner, and
+/// an id whose descendants have nowhere to draw a sequence from is only half an
+/// identity. No mint site inserts this by hand; see `SimId`'s docs for the shipped
+/// boss whose summon died of exactly that omission.
 ///
 /// Wrapping is not handled and does not need to be: at 60 Hz, a single body would
 /// have to emit one entity per tick for nine billion years.

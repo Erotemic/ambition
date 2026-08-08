@@ -11,7 +11,6 @@ use super::*;
 // field the sim reads is a restore that silently rewinds to a different world; the
 // round-trip oracle in this module's tests is what catches one.
 
-
 /// **A unit enum's wire discriminant, written down.**
 ///
 /// The mapping is EXPLICIT and the numbers are load-bearing: reordering a variant in
@@ -156,7 +155,7 @@ pub fn ensure_sim_id(
         ),
     >,
 ) {
-    use ambition_platformer2d_shared_tangle::sim_id::{SimId, SimIdCounter};
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
     for (entity, feature_id, primary) in &unidentified {
         let id = match (feature_id, primary) {
             (Some(id), _) => SimId::placement(&id.0),
@@ -164,11 +163,12 @@ pub fn ensure_sim_id(
             // Not identifiable from an authored fact. Its spawn site must mint it.
             (None, None) => continue,
         };
-        // Every identified body is a potential spawner (a boss summons, a player
-        // fires), and its counter is snapshot state.
-        commands
-            .entity(entity)
-            .insert((id, SimIdCounter::default()));
+        // The `SimIdCounter` rides along: every identified body is a potential
+        // spawner (a boss summons, a player fires), so `SimId` REQUIRES it. This
+        // used to insert the pair by hand, which is why the construction executor
+        // — the other place an authored body gets its id — could ship a boss that
+        // could not summon.
+        commands.entity(entity).insert(id);
     }
 }
 
@@ -337,4 +337,3 @@ pub fn heal_projectile_owners(
 // values participate in sync-test/desync checks as well.
 
 // ── GGRS resource/state additions ───────────────────────────────────────────
-

@@ -462,7 +462,8 @@ fn a_summoned_minion_is_planned_as_a_dynamic_child_of_its_summoner() {
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
         ConstructionScope {
-            binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
+            binding:
+                ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
             room: None,
         },
         vec![request],
@@ -508,7 +509,8 @@ fn two_summons_from_one_summoner_do_not_collide() {
     let live: std::collections::BTreeSet<SimId> = [summoner.clone()].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
         ConstructionScope {
-            binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
+            binding:
+                ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
             room: None,
         },
         vec![
@@ -531,7 +533,8 @@ fn a_summon_under_an_unknown_summoner_is_rejected() {
     let summoner = SimId::placement("ghost_boss");
     let error = ConstructionPlan::<ActorConstruction>::prepare(
         ConstructionScope {
-            binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
+            binding:
+                ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
             room: None,
         },
         vec![summoned_minion_request(
@@ -620,14 +623,23 @@ fn run_summon(world: &mut World, summoner: Entity, spec: ambition_vfx::SummonSpe
     world.flush();
 }
 
-fn summon_world() -> World {
-    let mut world = World::new();
+/// Everything `apply_summon_effects` reads, into a world that already exists.
+///
+/// Separate from [`summon_world`] so a summoner the REAL construction executor
+/// built can be handed to the SAME executor — see
+/// [`a_boss_the_construction_executor_built_can_summon`].
+fn insert_summon_resources(world: &mut World) {
     world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     world.init_resource::<crate::character_sprites::AuthoredSheets>();
     world.insert_resource(crate::features::enemies::test_roster());
     world.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     world.insert_resource(engine_construction_registry());
+}
+
+fn summon_world() -> World {
+    let mut world = World::new();
+    insert_summon_resources(&mut world);
     world
 }
 
@@ -641,6 +653,68 @@ fn summon_spec(id: &str) -> ambition_vfx::SummonSpec {
         encounter_id: "enc_1".into(),
         faction: ambition_vfx::HitSide::Enemy,
     }
+}
+
+/// ⛔ **The summoner is built by the REAL construction executor, not by hand.**
+///
+/// Every other test in this section spawns it as
+/// `(SimId::placement(..), SimIdCounter::default())` — the fixture hand-supplying
+/// exactly the component the shipped path omitted. So the section was thorough
+/// about the executor and green over a DEAD FEATURE: the gradient sentinel's
+/// Minima Trap summons a "Puppy Slug", and on a construction-built boss
+/// `apply_summon_effects` read `counter=None`, warned, and built nothing.
+///
+/// ⭐ the general rule this pins: *a test that constructs its subject's
+/// preconditions by hand cannot detect that production never establishes them.*
+/// The only assertion that can is one whose subject came out of the shipped
+/// builder — here `RoomFeatureConstructionPlan::prepare` →
+/// `spawn_room_feature_entities_from_plan` → `ConstructionPlan::commit_entity`,
+/// which is the one and only path an authored boss reaches the world by.
+#[test]
+fn a_boss_the_construction_executor_built_can_summon() {
+    let mut room = empty_room("hall");
+    room.boss_spawns.push(crate::rooms::Authored::new(
+        "warden",
+        "clockwork_warden",
+        ae::Aabb::new(ae::Vec2::new(100.0, 20.0), ae::Vec2::splat(30.0)),
+        ambition_entity_catalog::placements::BossBrain::PhaseScript {
+            script_id: "clockwork_warden".into(),
+        },
+    ));
+    let plan = prepare(
+        &room,
+        &crate::features::RoomContentStagingRegistry::default(),
+        &engine_construction_registry(),
+    )
+    .expect("the boss room plans");
+
+    let mut app = commit(plan);
+    insert_summon_resources(app.world_mut());
+    let world = app.world_mut();
+
+    let boss = {
+        let mut query = world.query::<(Entity, &SimId)>();
+        query
+            .iter(world)
+            .find(|(_, sim)| sim.as_str() == "placement:warden")
+            .map(|(entity, _)| entity)
+            .expect("the construction executor built the boss")
+    };
+
+    run_summon(world, boss, summon_spec("minima_trap_add"));
+
+    let mut minions = world.query::<&SimId>();
+    let minted: Vec<String> = minions
+        .iter(world)
+        .map(|id| id.as_str().to_string())
+        .filter(|id| id.starts_with("placement:warden/"))
+        .collect();
+    assert_eq!(
+        minted,
+        vec!["placement:warden/0".to_string()],
+        "a boss the construction executor built can summon: its identity comes \
+         with the counter its descendants' identities are minted from"
+    );
 }
 
 /// A real summon reaches the world with a dynamic identity under its summoner
@@ -867,7 +941,8 @@ fn every_parameter_variant_constructs_its_root() {
     let live: std::collections::BTreeSet<SimId> = [summoner].into_iter().collect();
     let plan = ConstructionPlan::<ActorConstruction>::prepare(
         ConstructionScope {
-            binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
+            binding:
+                ambition_platformer2d_shared_tangle::construction::ContentBinding::RuntimeDynamic,
             room: None,
         },
         requests,
@@ -883,7 +958,7 @@ fn every_parameter_variant_constructs_its_root() {
     let services = ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-        &Default::default(),
+            &Default::default(),
             &crate::features::enemies::test_roster(),
         ),
         boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
@@ -951,11 +1026,20 @@ fn a_rejected_summon_batch_spends_no_identity() {
 
 /// A summoner with no `SimIdCounter` at all is refused before anything is built
 /// — not discovered afterwards, when the minions already exist.
+///
+/// ⚠ **the state is now UNREACHABLE by ordinary means**: `SimId` requires
+/// `SimIdCounter`, so an identified entity is born able to be descended from.
+/// It is stripped explicitly here because the refusal is still the correct
+/// answer if something ever tears the pair apart, and a branch nothing can enter
+/// is a branch nothing checks.
 #[test]
 fn a_summoner_without_a_counter_is_refused_before_spawning() {
     let mut world = summon_world();
     // Identified, but carrying no counter to reserve from.
     let boss = world.spawn(SimId::placement("boss_1")).id();
+    world
+        .entity_mut(boss)
+        .remove::<ambition_platformer2d_shared_tangle::sim_id::SimIdCounter>();
 
     run_summon(&mut world, boss, summon_spec("slop_add"));
 
@@ -1257,7 +1341,7 @@ fn test_services() -> ActorConstructionServices {
     ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(
             &ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-        &Default::default(),
+            &Default::default(),
             &crate::features::enemies::test_roster(),
         ),
         boss_catalog: crate::boss_encounter::test_boss_catalog().clone(),
@@ -2465,7 +2549,9 @@ fn the_limb_and_mount_relations_reach_the_registry_dump() {
         "{dump}"
     );
     assert!(
-        dump.contains("relation\tambition.mount\tambition_platformer2d_actor_monolith\tmount-link\t"),
+        dump.contains(
+            "relation\tambition.mount\tambition_platformer2d_actor_monolith\tmount-link\t"
+        ),
         "{dump}"
     );
 }

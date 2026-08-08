@@ -2020,9 +2020,10 @@ pub fn scatter_rings_on_hit(
                 scope,
                 &authored,
             );
+            // No `SimIdCounter` by hand: `SimId` requires it, so a ring is born
+            // able to be descended from like every other identified entity.
             commands.entity(ring).insert((
                 ring_id.clone(),
-                ambition_platformer2d::platformer::sim_id::SimIdCounter::default(),
                 ambition_platformer2d::platformer::construction::SpawnOrigin::Dynamic {
                     parent: player_id.clone(),
                     sequence: seq,

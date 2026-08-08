@@ -1,8 +1,10 @@
 //! Lightweight FPS / frame-time overlay.
 //!
 //! Wraps Bevy's built-in [`FrameTimeDiagnosticsPlugin`] in a small
-//! Bevy plugin that spawns a `Text` node in the bottom-right corner
-//! and refreshes it with the running FPS + rolling frame-time average.
+//! Bevy plugin that spawns a `Text` node and refreshes it with the
+//! running FPS + rolling frame-time average. It sits under the
+//! Menu/Back row where there is one, and in a corner where there is
+//! not — see [`position_fps_overlay`].
 //!
 //! **Visible by default on every platform** — desktop, browser,
 //! Android. Toggle via the **Video settings page → "FPS Overlay"** row
@@ -25,9 +27,16 @@ use bevy::prelude::*;
 
 use ambition_platformer2d::persistence::settings::UserSettings;
 use ambition_platformer2d::platformer::developer_hotkeys::DeveloperAction;
+use ambition_platformer2d::presentation::gameplay_presentation::ResolvedGameplayPresentation;
 use ambition_platformer2d::render::ui_fonts::{UiFontWeight, UiFonts};
 
 const FPS_OVERLAY_REFRESH_SECONDS: f32 = 0.25;
+
+/// Gap between the Menu/Back row and the counter tucked under it.
+const FPS_OVERLAY_GAP: f32 = 6.0;
+
+/// Inset from the corner when there is no on-screen control row to sit under.
+const FPS_OVERLAY_MARGIN: f32 = 8.0;
 
 /// Runtime mirror of [`UserSettings::video::show_fps`]. Updated by
 /// [`sync_fps_overlay_state_from_settings`] when the persisted flag
@@ -80,16 +89,20 @@ impl Plugin for FpsOverlayPlugin {
                     toggle_fps_overlay_from_hotkey,
                     update_fps_overlay_text,
                     update_fps_overlay_visibility,
+                    position_fps_overlay,
                 ),
             );
     }
 }
 
-/// Spawn the overlay `Text` node in the bottom-right corner. Runs
-/// once at Startup. The text body is updated each frame by
-/// [`update_fps_overlay_text`]; we spawn an empty `Text` here so the
-/// node exists from frame zero (otherwise the first second is
+/// Spawn the overlay `Text` node. Runs once at Startup. The text body is
+/// updated each frame by [`update_fps_overlay_text`]; we spawn an empty `Text`
+/// here so the node exists from frame zero (otherwise the first second is
 /// blank).
+///
+/// The corner set here is only where it STARTS: [`position_fps_overlay`] moves
+/// it under the Menu/Back row on the first frame a layout is published, and
+/// leaves it here when none ever is.
 fn spawn_fps_overlay(
     mut commands: Commands,
     state: Res<FpsOverlayState>,
@@ -107,8 +120,8 @@ fn spawn_fps_overlay(
         TextColor(Color::srgba(0.82, 0.95, 1.0, 0.88)),
         Node {
             position_type: PositionType::Absolute,
-            right: Val::Px(8.0),
-            bottom: Val::Px(8.0),
+            right: Val::Px(FPS_OVERLAY_MARGIN),
+            bottom: Val::Px(FPS_OVERLAY_MARGIN),
             ..default()
         },
         // Initial visibility matches the resource default.
@@ -120,6 +133,60 @@ fn spawn_fps_overlay(
         Name::new("FPS Overlay"),
         FpsOverlayText,
     ));
+}
+
+/// Tuck the counter under the Menu/Back row instead of leaving it in a corner.
+///
+/// The bottom-right corner is where the action cluster goes on a touch device,
+/// so the counter spent every phone session sitting underneath the buttons —
+/// present, updating, and unreadable (Jon, 2026-08-08).
+///
+/// ⚠ the row's rectangle is READ, not re-derived. `ResolvedGameplayPresentation`
+/// says of itself that no camera, HUD, touch or pointer system should
+/// independently recalculate margins, and a hardcoded top offset would be
+/// exactly that: the row moves with the safe-area insets and with its own
+/// resolved scale, so a constant would be right on one device and wrong on the
+/// next. `ScreenRect` is logical pixels — the same space `Val::Px` is in, which
+/// is why no scale factor appears here (`set_node_rect` in the touch overlay
+/// assigns from these rects the same way).
+///
+/// With no row published — a keyboard session publishes no touch footprint —
+/// there is nothing to sit under and the counter keeps its corner.
+fn position_fps_overlay(
+    presentation: Option<Res<ResolvedGameplayPresentation>>,
+    mut overlays: Query<&mut Node, With<FpsOverlayText>>,
+) {
+    let menu_row = presentation
+        .as_deref()
+        .and_then(|presentation| presentation.controls.system_controls)
+        .map(|placed| placed.rect);
+
+    let (left, top, right, bottom) = match menu_row {
+        Some(rect) => (
+            Val::Px(rect.min.x),
+            Val::Px(rect.max.y + FPS_OVERLAY_GAP),
+            Val::Auto,
+            Val::Auto,
+        ),
+        None => (
+            Val::Auto,
+            Val::Auto,
+            Val::Px(FPS_OVERLAY_MARGIN),
+            Val::Px(FPS_OVERLAY_MARGIN),
+        ),
+    };
+
+    for mut node in &mut overlays {
+        // Compared before writing: `Node` is change-detected and this runs every
+        // frame, so assigning unconditionally would dirty UI layout forever over
+        // a value that only moves on a resize or a rotation.
+        if node.left != left || node.top != top || node.right != right || node.bottom != bottom {
+            node.left = left;
+            node.top = top;
+            node.right = right;
+            node.bottom = bottom;
+        }
+    }
 }
 
 /// The canonical developer action (F6 by default) toggles the FPS overlay by writing to

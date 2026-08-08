@@ -1903,17 +1903,22 @@ severity = "error"
 forbid = ["pub use ambition_dialog", "DialogChoice", "DialogChoiceSlot", "DialogueRunnerEntity"]
 file = "crates/ambition_platformer2d_actor_monolith/src/dialog.rs"
 
-[[policy]]
-id = "engine.actor-yarn-no-runtime-reexport"
-scope = "engine"
-kind = "file-omits"
-owners = ["ambition_platformer2d_actor_monolith"]
-watch_paths = ["crates/ambition_platformer2d_actor_monolith/src/dialog/yarn_bindings.rs"]
-rationale = "actor Yarn bindings do not re-export generic Yarn vocabulary"
-source_doc = "docs/architecture/architecture-boundaries.md"
-severity = "error"
-forbid = ["pub use ambition_dialog"]
-file = "crates/ambition_platformer2d_actor_monolith/src/dialog/yarn_bindings.rs"
+# ⛔ `engine.actor-yarn-no-runtime-reexport` was RETIRED on 2026-08-08 and should
+# not be re-added at a new path. It watched
+# `…/src/dialog/yarn_bindings.rs` and forbade `pub use ambition_dialog` there.
+# `73873491b` moved this game's Yarn vocabulary — give_item, buy_item,
+# sell_item, challenge, use_brain, restore_brain and the save-state mirror — out
+# to `ambition_content` through `ambition_dialog`'s `YarnContentBindings`
+# installer seam, and `dialog/` is now empty of content. **A file-omits policy
+# whose file does not exist is not a passing guard, it is a panic**, which is how
+# this surfaced: `every_watch_path_exists` and `engine_policies` both failed on
+# the one missing path.
+# ⭐ the boundary it defended is now STRUCTURAL and stronger than the rule: an
+# engine crate cannot re-export vocabulary it no longer contains. Nothing in
+# `crates/` or `game/` re-exports `ambition_dialog` except the umbrella facade
+# (`ambition_platformer2d`), which is deliberately the public API surface.
+# Re-pointing it at `ambition_content` would be a DIFFERENT policy — different
+# scope, different owner, and guarding a game crate rather than an engine one.
 
 
 # was: architecture_boundaries_actor_persistence_keeps_no_dev_tools_alias

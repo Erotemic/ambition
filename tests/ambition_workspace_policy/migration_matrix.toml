@@ -188,7 +188,12 @@ policies = ["game.menu-map-state-home", "game.actor-menu-map-model-gone", "game.
 [[entry]]
 old_test = "architecture_boundaries_actor_dialog_keeps_only_game_bindings"
 disposition = "declarative"
-policies = ["engine.actor-dialog-no-runtime-reexport", "engine.actor-yarn-no-runtime-reexport"]
+# ⚠ this listed a second policy, `engine.actor-yarn-no-runtime-reexport`, until
+# 2026-08-08. It was retired with the file it watched — `73873491b` moved this
+# game's Yarn vocabulary out to `ambition_content`, so the actor dialog module
+# now keeps NOT ONLY game bindings but none at all, which is what the old test
+# was reaching for. engine.toml carries the full reasoning.
+policies = ["engine.actor-dialog-no-runtime-reexport"]
 
 [[entry]]
 old_test = "architecture_boundaries_actor_persistence_keeps_no_dev_tools_alias"

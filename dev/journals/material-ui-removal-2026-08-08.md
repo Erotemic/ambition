@@ -2,6 +2,13 @@
 
 2026-08-08. Investigation before deletion. Raw observations first.
 
+⭐ **What this campaign is, stated plainly up front:** removing a dependency
+nothing imports, and deleting a `⛔` warning that was false. It also removes
+160 s of rustc work from a clean build — a real but secondary benefit, worth
+~20 s of wall clock (see the compile section for why it is not 160 s). **It is
+not a compile-performance win**, and framing it as one would repeat the very
+error that produced the comment being deleted.
+
 ## The claim under test
 
 `game/ambition_app/src/app/plugins.rs` carried (since 2026-08-03) a comment saying
@@ -145,3 +152,125 @@ dependency removal.
    20px row label first (probe index 2, title at index 12) — i.e. the exact
    condition that produced the old false failure is still present — and the fixed
    test passes. The guard defends the gap, not just the fix.
+
+---
+
+# Measurements after removal
+
+## Tests
+
+| job | result |
+|---|---|
+| `cargo test -p ambition_app` | **320 passed, 0 failed, 10 ignored** + 1 doc-test, 135.9 s |
+| `python3 -m pytest scripts/tests -q` (repo tooling / contracts) | **251 passed** |
+| `python3 scripts/check_absence_contracts.py --check` | **25 of 25 hold** |
+| `cargo check -p ambition_app --all-targets` | clean, 23.1 s |
+
+⚠ **the repo-tooling job failed on the first run and the reason is a standing
+lesson biting again.** `test_sub_workspace_lockfiles_are_current` reported
+`fixtures/external_consumer/Cargo.lock is STALE`. I had checked for sibling
+lockfiles with `git ls-files '*Cargo.lock'`, which returned four paths and NOT
+that one — because `fixtures/external_consumer/.gitignore:2` ignores it
+deliberately (Outlander is an external consumer; its lock is generated locally,
+not committed). **A git-aware search cannot see a gitignored file, and the
+checker discovers sub-workspaces from the FILESYSTEM.** Fixed with
+`cd fixtures/external_consumer && cargo update --workspace --offline`; nothing to
+commit, since the file is ignored by design.
+
+⭐ and that refresh reported something the main lock diff confirms: **five
+packages left the graph, not two.** `bevy_material_ui`,
+`google-material-design-icons-bin`, `hct-cam16`, `lz4_flex`, `png`.
+
+## Update schedule census — Material's ACTUAL share
+
+Measured with `update_schedule_census::census_of_how_much_of_update_is_inside_a_set`,
+same App (`build_visible_app(NoWindow, true)`), same command, Material re-added
+temporarily for the "before" and reverted by editing the bytes back.
+
+| | `Update` total | in a set | in NONE |
+|---|---|---|---|
+| with Material | 482 | 231 | 251 (52%) |
+| without | 456 | 231 | 225 (49%) |
+| **delta** | **−26** | **0** | **−26** |
+
+`GgrsSchedule` is unchanged at 534 either way. The independent
+`[schedule-census]` instrument agrees exactly: `Update` 463 → 437, also −26.
+
+⚠ **so the number in the deleted comment, "584 → 428", was not Material's
+share** — it was the whole schedule before and after trimming the full
+30-plugin `MaterialUiPlugin` bundle down to the core+dialog pair, which happened
+on 2026-08-03 and is already landed. What the pair still cost was **26 systems**:
+5.4% of `Update`, and 10.4% of its unsetted population. Every one of the 26 was
+unsetted — the count of systems inside a set did not move by one.
+
+## Compile — CPU WORK REMOVED, not wall time saved
+
+One apples-to-apples build: commit `03878f81b`, **profile `test`**,
+`collector: dev/first-party`, `dirty=false`, 533 units, rustc 1.95.0,
+`max_concurrency: 7 (jobs=8 ncpu=8)`.
+
+| unit | frontend | codegen | total |
+|---|---|---|---|
+| `bevy_material_ui` | 14.31 | 132.49 | **146.80 s** |
+| `google-material-design-icons-bin` | 1.13 | 12.12 | **13.25 s** |
+| **the two named units** | | | **160.05 s** |
+| `png` (two units) | 1.70 | 3.13 | 4.83 s |
+| `hct-cam16` | 0.13 | 0.34 | 0.47 s |
+| `lz4_flex` | 0.14 | 0.03 | 0.17 s |
+| with the three transitives that also left | | | 165.52 s |
+
+**After: the units do not exist.** `cargo tree -i bevy_material_ui` and
+`-i google-material-design-icons-bin` both answer *"did not match any
+packages"*, and all five are gone from `Cargo.lock`,
+`fixtures/minimal_game/Cargo.lock` and `fixtures/external_consumer/Cargo.lock`.
+That is exact, not estimated — there is no "after" row to quote because there is
+no unit. It is a correctness check, and it passes.
+
+### ⛔ 160 s of rustc work is NOT 160 s off the build, and it is not even 160 s off a COLD build
+
+Two independent reasons, both measured on that same build:
+
+1. **The build is already saturated.** 4153.3 s of unit work completes in
+   539.9 s of wall clock — average parallelism **7.69 of 8 cores**. Removing
+   160.05 s is **3.9% of total work**, so the wall-clock order is
+   `160 / 7.69 ≈ 20 s of 540 s`.
+2. **`bevy_material_ui` is not on the critical path.** It runs 358.6 → 505.4 and
+   finishes **19 s before** the tail even begins:
+   `monolith (385.4 → 524.4) → ambition_app (524.4 → 539.9)`. Units in flight
+   are 8/8 at t=500 s, 6 at t=515 s, 1 at t=530 s — the last 35 s are the serial
+   chain this crate is not in.
+
+⚠ **and ~20 s is below this measurement's noise floor.** Two clean dev builds
+are on record at 539.9 s and 833.7 s — a 54% spread. A single before/after pair
+cannot resolve a 20 s difference, so producing one would be noise presented as a
+result. **No clean build was run for this campaign, deliberately.**
+
+⛔ It is also not a REBUILD win at all: these are third-party units, compiled
+once and cached for every subsequent build. The edit→test loop is unchanged.
+
+⭐ **So the honest framing of this whole campaign: it removes a dependency
+nothing imports and deletes a false `⛔` warning. The 160 s is CPU work that no
+longer happens on a clean build — a real but secondary benefit, worth ~20 s of
+wall clock and unresolvable against this build's run-to-run spread.** It is not
+a compile-performance win, and calling it one would repeat the exact error that
+produced the comment this campaign deleted.
+
+⚠ **the error being avoided, named**: quoting a per-unit ledger number as if it
+were a build number. `dev/journals/compile-cost-what-actually-drives-it-2026-08-08.md`
+§5 already says a unit's `cargo --timings` duration is wall time *inside a real
+build sharing 8 cores* — the input for PRIORITISING, never a subtractable build
+cost. I wrote the pooled "160–236 s" version of this claim before checking, and
+that range pooled dev with release across four commits.
+
+## What was NOT done, deliberately
+
+- Row-label typography. Every launcher row and the tab head are 20.0px with no
+  `MenuTextHeightFraction`, so they do not scale with the window while the title
+  and footer do. Real, unrelated to this, and a layout decision.
+- The `crates/ambition_game_shell/src/launcher.rs:65-85` TOFU mystery ("why the
+  default handle fails here is NOT settled"). Untouched. This investigation did
+  produce one adjacent datum for whoever picks it up: `spawn_control` sets the
+  font handle and leaves `font_size` at `..default()`, so the row labels take the
+  resolved `MenuFont` handle and Bevy's default SIZE — the two halves of
+  `TextFont` are set from different places, which is the kind of split that
+  mystery lives in.

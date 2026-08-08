@@ -26,6 +26,7 @@ Use this index before refactors or when planning validation. Benchmark candidate
 | Sandbox runtime mirror + engine state machine both own the same gameplay invariant; double-write yields one-frame off-by-ones | [`boss-runtime-mirror-vs-engine-state-2026-05-20.md`](boss-runtime-mirror-vs-engine-state-2026-05-20.md) |
 | Deciding whether a `register_*_systems` helper moves to a domain module or stays in the app orchestrator | [`module-local-bevy-plugin-extraction-2026-05-20.md`](module-local-bevy-plugin-extraction-2026-05-20.md) |
 | Per-player-component mirrors: only readers that run AFTER the sync system see this-frame data; mid-chain readers must stay on the source resource | [`per-player-component-mirror-schedule-boundary-2026-05-20.md`](per-player-component-mirror-schedule-boundary-2026-05-20.md) |
+| A test finds an entity by the TEXT it displays, two entities carry that label, and archetype order picks the answer — so an unrelated plugin becomes a "load-bearing dependency" a bisect confirms and no grep can explain | [`global-label-search-makes-content-text-an-identity-2026-08-08.md`](global-label-search-makes-content-text-an-identity-2026-08-08.md) |
 
 ## Movement / collision invariants
 

@@ -373,6 +373,33 @@ frontend saves **101.1s** and **61.6s**. So codegen wins 2.8x on a cold build an
 the frontend wins **5.2x** on a rebuild — reproduced 3.6x/4.0x/4.1x/5.2x across
 four rebuild-shaped runs. **The rebuild is what an agent pays before one test
 runs, and this repo has been prioritising it with the cold build's number.**
+
+⚠ **AUDITED 2026-08-08 — which half of this is data and which is a MODEL.**
+
+*Verifiable by summing per-unit fields in `dev/compile_units.jsonl`:*
+
+```text
+                 units/run   frontend   codegen     work   work/8
+  dev cold             688     1120.4    4597.6   6345.8    793.2
+  dev rebuild (x2)      57      241.7     700.2    961.6    120.2
+```
+
+Those are measured, and the codegen share follows from them directly.
+
+*NOT in the ledger — produced by the collector's DAG simulation:* the
+**dependency floor** (418.9s cold / 168.4s rebuild) and **every halve-a-phase
+delta** (−282.7 / −11.8, −101.1 / −61.6). ⛔ **so the headline "frontend wins
+5.2x on a rebuild" rests on a model, not on a stopwatch.** The model is
+well-motivated — rustc releases a dependent at the predecessor's `rmeta`, so only
+the frontend is serial on a chain edge, and the naive chain-of-durations
+overshoots a real build by 2.2x, which is itself evidence the pipelining is real —
+but nobody has re-derived the floor independently.
+⭐ **the cheap confirmation, if this is ever load-bearing**: halve nothing and
+predict. Run a rebuild after a change that touches ONE leaf crate and check the
+DAG model's predicted wall against the measured one. A model that predicts an
+unmodified build is worth trusting about a counterfactual one.
+⚠ recorded because this figure is now the main argument for carving at all, and
+the 1% line figure it displaced was measured rather than modelled.
 A carve that shortens the chain therefore helps the loop that is actually paid,
 which is a better argument for decomposition than the line count ever was.
 

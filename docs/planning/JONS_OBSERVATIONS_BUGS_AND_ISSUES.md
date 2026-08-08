@@ -227,7 +227,29 @@
   and a green unit test covered the copy that cannot run.
   ⭐ **the seam**: a provider's authored DEFAULT and a session's SELECTION are two
   facts, and exactly ONE site may answer *"does the selection resolve"*. Both
-  sites now point at each other so the pair cannot drift again.
+  sites now point at each other so the pair cannot drift again. **No character is
+  named anywhere** — a special case was not available even in principle, because
+  the defect never knew which character it was rejecting.
+
+  ⭐⭐ **AND NOW THAT IT RUNS, HERE IS WHAT SANIC ACTUALLY IS** — measured through
+  the shipped composition, and it is the opposite of the report:
+
+  | selection | worn | motion | run/60t | jump apex | fireballs |
+  |---|---|---|---:|---:|---|
+  | default | `player_robot_v3` | AxisSwept | 265px | 83px | yes |
+  | `goblin` | `goblin` | AxisSwept | 265px | 83px | no |
+  | **`sanic`** | `sanic` | **SurfaceMomentum** | **449px** | **103px** | no |
+
+  **He moves further and jumps higher than the protagonist**, from his own
+  authored `momentum` row. `capture_scene central_hub_complex player --character
+  sanic` now writes a picture of him standing in Ambition's central hub.
+  ✔ **fireballs were already gone** — fixed 2026-07-05 when
+  `overlay_character_moveset` was deleted.
+  ▢ **blink is still there, and it is a QUESTION FOR YOU rather than a bug.** It
+  comes from the home body's own `AbilitySet` (the dev `EditableAbilitySet` grants
+  the full traversal kit), which is the documented *"the box keeps its traversal
+  kit"* design. **Whether Sanic should keep blink is product, not repair** — say
+  the word either way.
 
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 

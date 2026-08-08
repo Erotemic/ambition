@@ -470,6 +470,44 @@ unchanged here because the ratchet's live invariant (the SET may not grow) is
 still enforced correctly and rewriting the annotation is a separate, careful
 edit — but do not reason from that field.
 
+### Could a domain register its OWN rollback schema? Measured: not without a cost
+
+The finding above — that `rollback/domains/{cutscene,items}.rs` is the runtime's
+ONLY reason to name those crates — suggests an obvious inversion: let each domain
+declare its own schema, the way `ambition_content` already declares
+`content.cut_rope_heavy_object_cycle`. Ten runtime edges would invert at once.
+
+**It does not work below the runtime, and the reason is structural.**
+
+- `ambition_content` can do it because it sits **above** the runtime. Every
+  crate in the never-asked-for list except `ambition_persistence` sits **below**
+  it, so a domain naming `AmbitionRollbackApp` is a cycle.
+- The vocabulary cannot simply move down. `registry.rs` is *"a thin Ambition
+  registration layer over `bevy_ggrs`"* and imports it directly; moving the trait
+  to `ambition_platformer2d_core` would drag `bevy_ggrs` to the FLOOR, so a
+  movement-only game would link a rollback backend to compile a jump.
+- ⭐ **the declaration/installation split already exists — in one direction
+  only.** `register_app_descriptor` records the descriptor in every composition
+  and installs `bevy_ggrs` machinery only under a GGRS host, which is why a
+  fixed-tick game already carries exact schema identity without paying for
+  snapshots. But both halves live inside the same generic trait method, so a
+  caller must name the runtime to reach either.
+- ⛔ **and the halves cannot be separated by data alone.** Installation is
+  generic per type (`ComponentSnapshotPlugin::<T>`), and `T` cannot be recovered
+  from a descriptor's `type_name` string. Splitting them needs the domain to
+  supply a monomorphised `fn(&mut App)` — whose body names `bevy_ggrs`, which
+  puts the dependency back on the domain.
+
+**So the honest options are the same two the capability question already has**:
+put a rollback backend below the domains and make every consumer link it, or
+make the domains optional. C7 is therefore **not independently answerable** — it
+collapses into
+[`../awaiting-maintainer-decision.md`](../awaiting-maintainer-decision.md)'s
+"may a game compose this engine without a given capability".
+
+⚠ recorded so the inversion is not attempted as a slice. It looks like a free
+architectural win from the dependency table and it is not one.
+
 ## Candidate extraction waves
 
 These are **priority hypotheses**, not a promise to create one crate per row.

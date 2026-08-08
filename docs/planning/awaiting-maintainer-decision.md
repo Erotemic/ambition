@@ -1205,3 +1205,60 @@ here rather than in a queue.
 contradiction is expressible; and the note that assembly must not REJECT
 contradictions until this is settled, because rejecting would refuse the PCA
 today.
+
+---
+
+## May a game compose this engine WITHOUT dialogue?
+
+**Raised 2026-08-08**, by the actor-monolith decomposition measuring what a carve
+actually buys. See
+[`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).
+
+**The situation.** `conversation` is now fully liftable — 2,164 lines, ZERO
+inward edges since the bark port (`a7013ef82`), every outward edge already below
+the monolith. Lifting it to `ambition_conversation` is mechanical.
+
+⛔ **but it buys compile isolation only, not the dependency-footprint win**, and
+the reason is structural rather than incidental. Five production files in the
+monolith consume `crate::conversation` — the interact dispatch, the bark
+responder, the input-capture read, the schedule. So the new crate is a
+NON-OPTIONAL dependency of the monolith, and everything it needs stays in a
+movement-only game's resolved graph:
+
+```text
+minimal_game → ambition_platformer2d → …_actor_monolith
+             → ambition_conversation → ambition_dialog → ambition_ui_nav
+```
+
+`capability-footprint-may-not-grow` stays at *15 crates a movement-only game
+never asked for*. Two of those fifteen are `ambition_dialog` and
+`ambition_ui_nav`, and they leave together or not at all.
+
+**What would change it.** Making the monolith's dependency `optional = true`
+behind a `dialogue` feature. ⚠ that is not the pattern here: `ambition_causal` is
+the only optional `ambition_*` dependency the monolith has, which is precisely
+why the unasked-for footprint is fifteen crates rather than two.
+
+**The decision:**
+
+* **(a) dialogue is an OPTIONAL capability** — a game may compose the engine with
+  no conversation system at all, and the interact dispatch becomes feature-gated
+  along with it. Buys the footprint win here and sets the precedent for the
+  other thirteen. ⚠ costs: a `#[cfg]` seam through `features/ecs/interact.rs`
+  and `schedule/input_systems.rs`, and every composition has to say whether it
+  wants dialogue.
+* **(b) dialogue is part of the engine** — the carve happens for compile
+  isolation, the footprint stays 15, and
+  `capability-footprint-may-not-grow` is a ratchet on a number that will not move
+  much until the answer is (a) for several capabilities at once.
+* **(c) not yet** — leave `conversation` in the monolith. It is liftable whenever
+  the answer arrives, and nothing about the bark port needs undoing.
+
+⚠ **no recommendation, because this is a product question about what the engine
+IS** rather than an implementation trade. The API-1.0 campaign's whole premise is
+that a movement-only consumer should not inherit fifteen capability crates; if
+that premise stands, the answer is (a) and it is bigger than dialogue.
+
+⭐ **what does NOT need the answer**, and is already done: the bark port, which
+was the only design work in the carve, and which is worth having regardless —
+continuity no longer reaches into the cast to ask what a character says.

@@ -336,15 +336,39 @@ The row was told to answer its own payoff before starting. Measured 2026-08-08:
 | `dialog.rs` | 110 | **yes** — `ambition_dialog`, `ambition_input`, `ambition_platformer2d_shared_tangle`, and **zero `crate::` edges** |
 | `features/ecs/{tests,interact/tests}.rs` | — | test code → `[dev-dependencies]`, which does not propagate |
 
-⭐ **so the edge does leave, and the carve is a footprint win rather than a
-compile-isolation win** — but only if BOTH go. Carving `conversation` alone
-leaves `dialog.rs` naming `ambition_dialog` from the monolith and nothing about a
-movement-only game's graph changes. That was worth knowing before starting, and
-is exactly why the row demanded it.
+⛔ **CORRECTED 2026-08-08, and the correction is the finding.** The paragraph
+that stood here said the edge leaves and the carve is a footprint win. **It is
+not**, and the error is the SAME CLASS as the `ui_nav` one recorded above — made
+immediately after writing the warning against it.
 
-⭐ **and `ambition_ui_nav` leaves with it**, closing the loop on the earlier
-finding: `ui_nav` reaches a movement-only game only through `ambition_dialog`, so
-the footprint drops by TWO of the fifteen unasked-for crates, not one.
+Asking *"who names `ambition_dialog`?"* is the wrong question. The right one is
+*"would the new crate itself still be pulled in?"* — and it would:
+
+```text
+minimal_game → ambition_platformer2d → …_actor_monolith
+             → ambition_conversation → ambition_dialog → ambition_ui_nav
+```
+
+**Five production files in the monolith consume `crate::conversation`** —
+`features/{mod,npcs}.rs`, `features/ecs/{mod,interact}.rs`,
+`schedule/input_systems.rs` — so `ambition_conversation` would be a
+non-optional dependency of the monolith and every one of its own dependencies
+stays in a movement-only game's resolved graph. The footprint stays at 15.
+
+⭐ **So the carve is a COMPILE-ISOLATION win, and the footprint win needs a
+separate decision**: whether a game may compose the engine WITHOUT dialogue,
+i.e. whether the monolith's dependency on the conversation crate is `optional =
+true` behind a `dialogue` feature. ⚠ that is not the established pattern here —
+`ambition_causal` is the only optional `ambition_*` dep the monolith has, which
+is exactly why the unasked-for footprint is fifteen crates. **It is a product
+decision about engine composability and belongs to the maintainer**, not to a
+slice in flight.
+
+⚠ **the generalisable rule, now paid for twice**: a carve's payoff is measured on
+the CONSUMER's resolved graph, never on which files name a crate. Run
+`cargo tree --offline --edges normal -i <crate>` from `fixtures/minimal_game`
+BEFORE writing down what a slice will buy — including when the slice is your
+own.
 
 **The work, in order:**
 

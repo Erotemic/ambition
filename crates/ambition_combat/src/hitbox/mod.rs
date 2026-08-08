@@ -89,6 +89,12 @@ pub fn strike_reaches_victim(
     victim_aabb: &super::components::CenteredAabb,
 ) -> bool {
     match victim_damageable {
+        // Intangible: published, and published nothing. Spelled as its own arm
+        // because it is the one answer every damage family owes whatever its
+        // geometry — see [`DamageableVolumes::intangible`], which
+        // `step_projectiles` asks directly while it is still a coarse-box
+        // consumer.
+        Some(published) if published.intangible() => false,
         // Shape against shape: a published part may be a hull (an arm, a wing),
         // and testing the strike against its bounding box instead would let a
         // blade land in the dead corner of a rectangle nobody authored. The
@@ -182,6 +188,17 @@ impl StrikeVictimItem<'_, '_> {
     /// A dead body is an intangible corpse — the strike passes through it.
     pub fn is_corpse(&self) -> bool {
         crate::util::body_is_corpse(self.health)
+    }
+
+    /// **This body published NO hurtbox: nothing can reach it.**
+    ///
+    /// For a family that has not adopted [`Self::reached_by`] — a consumer whose
+    /// strike geometry is still its own — this is the part of the shared rule it
+    /// owes anyway. A caller that asks [`Self::reached_by`] gets it for free and
+    /// must not ask twice.
+    pub fn is_intangible(&self) -> bool {
+        self.volumes
+            .is_some_and(super::components::DamageableVolumes::intangible)
     }
 
     /// Does `world_volume` reach the geometry this body actually published?

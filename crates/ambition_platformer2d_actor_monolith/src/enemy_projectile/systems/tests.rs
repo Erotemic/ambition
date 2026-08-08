@@ -543,6 +543,109 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     );
 }
 
+/// **The tangibility gate at the PROJECTILE boundary.** The bolt-side twin of
+/// `ambition_combat::hitbox::tests::a_dead_victim_is_intangible_to_a_swing`.
+///
+/// An EMPTY published `DamageableVolumes` means *this body cannot be hit
+/// anywhere* — `strike_reaches_victim` keys its coarse-box fallback on the
+/// component's ABSENCE precisely so that an emptied list stays a miss instead of
+/// degrading into the bounding rectangle. Melee and feature hits both ask it.
+/// `step_projectiles` asked nobody: it tested the coarse `CenteredAabb`, so a
+/// silhouette decided whether a sword landed and never decided whether a bolt
+/// did (`614f098f2`, queue row D23).
+///
+/// The empty list here is produced **the way production produces it** — the
+/// shipped `refresh_body_damageable_volumes` clears a corpse, and a corpse
+/// outlives its own death (`spend_fighter_stocks`: *"the body stays standing
+/// until a ruleset removes it"*). So the two halves of this test differ in
+/// exactly one authored fact, the body's HP, and the live half is what keeps the
+/// miss from being the uninteresting kind — a bolt that reaches nothing hits
+/// nothing.
+///
+/// ⚠ **the INTANGIBILITY half of D23 only.** A bolt still tests the coarse box
+/// against a body that published a real silhouette; making it test the authored
+/// rectangles retires `strict_intersects` for projectiles and changes how every
+/// shot connects, which is Jon's feel call.
+#[test]
+fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
+    use ambition_characters::actor::{BodyHealth, Health};
+
+    /// One Enemy-owned bolt already overlapping one Player-faction body, with
+    /// the shipped volume publisher running ahead of the stepper exactly as the
+    /// production schedule runs it.
+    fn arena_with_victim_hp(current: i32) -> (App, Entity) {
+        let mut app = arena_projectile_app(crate::features::FactionRelations::default());
+        app.add_systems(
+            Update,
+            crate::features::refresh_body_damageable_volumes
+                .before(crate::projectile::step_projectiles),
+        );
+        let pos = ae::Vec2::new(300.0, 100.0);
+        let victim = app
+            .world_mut()
+            .spawn((
+                crate::features::FeatureSimEntity,
+                crate::features::FeatureId::new("arena_fighter"),
+                crate::features::CenteredAabb::new(pos, ae::Vec2::new(16.0, 24.0)),
+                crate::combat::components::ActorFaction::Player,
+                // Carrying this is what makes a body a damage target at all.
+                crate::combat::components::DamageableVolumes::default(),
+                BodyHealth::new(Health {
+                    current,
+                    max: 3,
+                    invulnerable: Default::default(),
+                }),
+            ))
+            .id();
+        spawn_overlapping_enemy_glider(&mut app, pos);
+        app.update();
+        (app, victim)
+    }
+
+    // ── Live control: the publisher publishes the coarse box, the bolt lands ──
+    let (live, victim) = arena_with_victim_hp(3);
+    assert!(
+        live.world()
+            .get::<crate::combat::components::DamageableVolumes>(victim)
+            .expect("the shipped publisher ran")
+            .published(),
+        "the publisher must have spoken for this body, or 'published nothing' is \
+         not a distinction this world can make"
+    );
+    assert!(
+        live.world()
+            .resource::<CapturedHits>()
+            .0
+            .iter()
+            .any(|e| e.target == crate::features::HitTarget::Actor(victim)),
+        "a living body in the bolt's path is struck — otherwise the miss below \
+         proves only that the geometry never overlapped"
+    );
+
+    // ── Intangible: published, and published NOTHING ──
+    let (mut dead, victim) = arena_with_victim_hp(0);
+    let published = dead
+        .world()
+        .get::<crate::combat::components::DamageableVolumes>(victim)
+        .expect("the shipped publisher ran");
+    assert!(
+        published.published() && published.volumes.is_empty(),
+        "the premise: the publisher emptied this body's silhouette, which is a \
+         DECISION (intangible), not an absence"
+    );
+    assert!(
+        dead.world().resource::<CapturedHits>().0.is_empty(),
+        "a body that published NO hurtbox cannot be hit anywhere — a bolt must \
+         pass through it, exactly as a swing does"
+    );
+    assert_eq!(
+        enemy_projectile_bodies(&mut dead).len(),
+        1,
+        "and the shot is not absorbed: an intangible body must not eat a bolt \
+         that should have flown on to whatever was behind it"
+    );
+}
+
 /// The spawn executor carries the shot's open `visual_id` forward onto a
 /// `ProjectileVisualId` component — the render layer's single art-selection
 /// input, set without reading `owner_id`.

@@ -439,7 +439,9 @@ pub fn step_projectiles(
     // used to claim this loop shared "the SAME published hurtbox" as melee; it did
     // not, because the tuple that would have carried `DamageableVolumes` had run
     // out of arity and the claim was never anything but prose. Sharing the type
-    // makes the claim checkable — and see the loop below for what it exposed.
+    // makes the claim checkable — and it exposed a bolt landing on a body a sword
+    // passes through. The INTANGIBILITY half of that is closed in the loop below;
+    // the precision half is still open, and says so there.
     //
     // ⚠ NO `With` filter on the vulnerability cluster, deliberately, and unlike
     // melee: a shot must be able to hit any body with a hurtbox and a faction,
@@ -641,17 +643,26 @@ pub fn step_projectiles(
                     continue;
                 }
                 let victim_body = victim.aabb.aabb();
-                // ⚠ **THE COARSE BOX, while melee and feature hits both ask
-                // `strike_reaches_victim`.** Naming the victim role put
-                // `victim.volumes` in reach here for the first time and thereby
-                // exposed the gap: a body's published silhouette — an authored
-                // hurtbox timeline, a boss's active parts, an EMPTY list meaning
-                // intangible — decides whether a sword or a feature strike lands
-                // on it, and has never decided whether a BOLT does. Closing it is
-                // `victim.reached_by(&kin.aabb().into())`, which is a combat
-                // behaviour change (it also retires `strict_intersects`, which
-                // rejects edge-touching where the shared rule accepts it) and so
-                // wants its own card rather than a ride on a structural one.
+                // **Nothing published ⇒ nothing to hit.** A body carrying
+                // `DamageableVolumes` with an EMPTY list has been spoken for and
+                // offers no target — an authored invulnerable window, or a corpse
+                // `refresh_body_damageable_volumes` cleared. Melee and feature
+                // hits inherit that from `strike_reaches_victim`; this loop tested
+                // the coarse box and asked nobody, so a bolt landed on (and was
+                // eaten by) a body a sword passes straight through. Absence is
+                // NOT emptiness: a body with no component at all has simply never
+                // been published for, and keeps the coarse box below.
+                if victim.is_intangible() {
+                    continue;
+                }
+                // ⚠ **STILL THE COARSE BOX for a body that published a real
+                // silhouette**, while melee and feature hits ask
+                // `strike_reaches_victim` for the geometry too. That remaining
+                // half of the gap is `victim.reached_by(&kin.aabb().into())`, and
+                // it is deliberately NOT taken here: it retires
+                // `strict_intersects` for projectiles (which rejects edge-touching
+                // where the shared rule accepts it) and changes how every shot
+                // connects, so it is a feel call and it is Jon's. Queue row D23.
                 if !kin.aabb().strict_intersects(victim_body) {
                     continue;
                 }

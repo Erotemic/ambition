@@ -180,6 +180,22 @@ impl DamageableVolumes {
         self.published
     }
 
+    /// **Published, and published NOTHING: this body can be hit nowhere.**
+    ///
+    /// The third state above, named — an authored invulnerable window, or a
+    /// corpse the publisher cleared. It is the half of the victim-geometry rule
+    /// that is *family-universal*: whether a strike reaches a published
+    /// silhouette depends on the strike's own precision, but "there is nothing
+    /// to reach" is the same answer for a blade, a bolt and a blast.
+    ///
+    /// So it is asked by [`strike_reaches_victim`](crate::hitbox::strike_reaches_victim)
+    /// as that rule's first arm, and separately by consumers that are not (yet)
+    /// on the shared geometry rule — `step_projectiles` still tests the coarse
+    /// box, and must nonetheless refuse a body that offers no target at all.
+    pub fn intangible(&self) -> bool {
+        self.published && self.volumes.is_empty()
+    }
+
     /// Publish "intangible": this body can be hit nowhere.
     pub fn clear(&mut self) {
         self.volumes.clear();

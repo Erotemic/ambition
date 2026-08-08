@@ -658,12 +658,47 @@ Deep-review §5; BIFURCATION entries in code_smells.md 2026-07-19:
   Left OPEN below, deliberately: closing it is a combat behaviour change (it also
   retires `strict_intersects`, which rejects edge-touching where the shared rule
   accepts it) and does not belong riding on a structural commit.
+- ~~a bolt must not hit a body that published NO hurtbox~~ **DONE 2026-08-08** —
+  the finding above SPLIT, and this is the half with a correctness argument
+  rather than a feel one. An EMPTY published `DamageableVolumes` means *this body
+  cannot be hit anywhere*; there is no reading of "how projectiles should connect"
+  that wants a bolt landing on something authored as intangible.
+  **LIVE, not latent, and measured that way.** The shipped
+  `refresh_body_damageable_volumes` empties a CORPSE's list, and a corpse outlives
+  its own death (`spend_fighter_stocks`: *"the body stays standing until a ruleset
+  removes it"*; `actors/update.rs`: *"a corpse that has not been cleaned up yet is
+  still out there"*). Versus/smash seats alternate `Player`/`Enemy`
+  (`prepared_match::faction_for`), so seat 1's bolts route through exactly this
+  hostile loop at seat 0's standing corpse — and the loop had no corpse check
+  either, so the bolt both "hit" it and was EATEN by it. The probe ran red on the
+  shipped publisher + the shipped stepper before the fix and green after.
+  ⚠ **the authored-invulnerability trigger, by contrast, is LATENT**: swept every
+  `.ron` under `crates/` and `game/` for an empty volume list and the only hits are
+  ATTACK windows in `character_archetypes.ron` (`Startup`/`Recovery` frames of
+  `cellular_pulse` and `theorem_chain`). No shipped HURTBOX doc authors an empty
+  window yet — the corpse is what makes this live today.
+  **The shape:** `DamageableVolumes::intangible()` names the third state, is
+  `strike_reaches_victim`'s first arm, and is asked directly by `step_projectiles`
+  via `StrikeVictimItem::is_intangible()` — one predicate, so the two paths cannot
+  answer differently. Pinned by
+  `enemy_projectile::systems::tests::a_bolt_passes_through_a_body_that_published_no_hurtbox`,
+  which carries its live control (the same body at HP 3 IS hit).
 - ▢ **make a projectile hit the silhouette its victim published**, i.e. swap
   `step_projectiles`' coarse-box test for `victim.reached_by(..)` — the one-line
   call the card above put within reach, plus the test that pins it and a
-  re-baseline of whatever projectile-range expectations move. Authored
-  invulnerability windows and boss part-hitboxes currently do not apply to
-  projectiles at all.
+  re-baseline of whatever projectile-range expectations move. Boss part-hitboxes
+  and authored silhouettes still do not narrow a projectile at all.
+  ⚠ **JON'S CALL, and the reason this row did not land with the intangibility
+  half above**: it retires `strict_intersects` for projectiles and changes how
+  every shot connects. That is feel, not correctness.
+  ⚠ **and it owns one more coarse-box site**, found while fixing the other half:
+  a PLAYER-faction shot does not run the victim loop at all — it asks
+  `ecs_hit_event_hits_actor`, which tests the coarse box and gates on
+  `BodyCombat.alive` rather than on `BodyHealth` or on published volumes. So it
+  spares a corpse (by a *different* aliveness source) but would still be eaten by
+  an authored invulnerable window that `apply_feature_hit_events` then refuses to
+  damage. Latent today — no shipped hurtbox doc authors an empty window — and it
+  is the same predicate this row replaces, so it belongs here.
 
 **Exit:** no `is_player` branch selects an effect payload anywhere in combat;
 a moveset volume can author its own strike/hit effects and the goblin swipe

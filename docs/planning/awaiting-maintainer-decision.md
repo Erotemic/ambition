@@ -31,7 +31,7 @@ is the only ordering a maintainer can triage from.
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
 | Is a crate name part of the rollback wire format? | rollback schema policy | recommendation present |
 | How should the portal map convention stop being a process global? | portal authoring | recommendation present |
-| Which of the 33 engine design documents have become history? | the `docs/planning` line budget (**31,844** vs 10,500 — ⚠ **and it grew today despite 1,471 lines being archived**: this session added ~1,625, over 1,000 of them to the live ledger, which went 297 → 1,312. **A day spent on planning-doc discipline made the budget worse.** Recorded rather than quietly left, because it is evidence about what this decision is actually up against: the lines arrive from ordinary work, faster than archiving removes them.) | needs someone who knows what is live |
+| Which of the 33 engine design documents have become history? | **stale reporting that never gets cleaned up** — ⛔ NOT a line budget, see the row below | ⚠ **Jon, 2026-08-08: not the priority right now** |
 | Should the Hall cast and content bosses declare dormancy? | 129 no-op brain ticks | recommendation: bosses yes, Hall wait |
 | Are the three named robot heavies characters, or variant art? | casting | recommendation present |
 | Does the Perfect Cellular Automaton fly when it fights? | one fighter's kit | recommendation present |
@@ -388,9 +388,25 @@ fill, which is evidence it is the right constant, not proof.
 ---
 ## Which of the 33 engine design documents have become history? (2026-08-01)
 
-`check_agent_kb` warns that `docs/planning` is **30,708 lines against a 10,500
-soft budget**. The warning is non-fatal and has been standing for a while; this
-is the measurement that says why it cannot be closed by a rule.
+⛔⛔ **THE LINE BUDGET IS NOT JON'S, AND THIS ROW HAD IT BACKWARDS.**
+
+> **Jon, 2026-08-08, verbatim:** *"I never set the budget for doc's planning. An
+> agent picked that because I said that it was getting too big. I actually
+> changed it from a hard budget to a soft budget so we could continue to expand
+> it because we have a lot of ambition through this game and we need to plan. But
+> I do think some of the reporting in the docs gets stale and doesn't get cleaned
+> up, but that's not the priority right now."*
+
+So `PLANNING_TOTAL_SOFT_BUDGET = 10_500` in `scripts/check_agent_kb.py` is **an
+agent's number**, and the script already says what Jon says: *"Size is NEVER a
+build-failing gate here … a human decides if a plan actually needs pruning."*
+⭐ **Jon deliberately downgraded it from hard to soft so planning could GROW.**
+
+⚠ **so "31,844 against 10,500" was a framing error, repeated by me today.** An
+invented threshold got cited as a target, and a doc tree doing its job read as a
+violation. ⭐ **the real question is STALENESS, not size** — reporting that
+accumulates and never gets cleaned up — **and Jon has said it is not the priority
+right now.** Leave the size number out of it.
 
 ```text
   docs/planning/*.md   11,508   the queues and live plans

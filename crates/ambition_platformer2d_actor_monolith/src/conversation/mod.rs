@@ -33,13 +33,16 @@
 //!   `ambition_characters` (`ScriptedControl`, `BodyCombat`, `Brain`, the
 //!   catalog), `ambition_interaction`, `ambition_vfx`, and `ambition_input`
 //!   (`ParticipantId`). None of them depend on the monolith, so none would cycle.
-//! - **⚠ TWO inward edges, and both are the BARK**:
+//! - **⭐ ZERO inward edges, as of 2026-08-08.** There were two, both in
+//!   [`rules`], and both were the BARK:
 //!   `crate::features::npcs::npc_ambient_bark_line` and
-//!   `crate::character_runtime::PreparedCharacterRegistry`, both in
-//!   [`rules`]. Neither is about continuity — they answer "what line does this
-//!   character say", which is a CAST question. A carve would put a small port
-//!   here ("give me a bark for this character in this situation") and leave the
-//!   cast lookup behind.
+//!   `crate::character_runtime::PreparedCharacterRegistry`. Neither was about
+//!   continuity — they answer "what line does this character say", which is a
+//!   CAST question needing the catalog, the prepared registry and the
+//!   `Interactable` → character-id resolution. [`rules::ConversationCutBark`] is
+//!   the port that replaced them: continuity says WHO should speak, the cast
+//!   answers WHAT they say, on the same tick.
+//!   ⭐ it took `ambition_vfx` with it — the bubble is the responder's to write.
 //!
 //! ⛔ **and the third edge that ALMOST landed is the instructive one.**
 //! [`opening`] arrived deriving `ConversationInputOwner` itself, which meant
@@ -52,8 +55,10 @@
 //! other — see the `SessionSeatId`/`ControlChannelId` row in
 //! `docs/planning/tracks.md`.
 //!
-//! That is the whole list. Nothing else in this module reaches into the
-//! monolith, and the carve is a port plus a `Cargo.toml`.
+//! That is the whole list, and it is now empty: **nothing in this module reaches
+//! into the monolith at all.** The carve is a `Cargo.toml` — see the five
+//! ordered steps in `docs/planning/engine/actor-monolith-decomposition.md`, of
+//! which step 1 (this port) is done.
 //!
 //! ## The files
 //!
@@ -91,7 +96,7 @@ pub use ledger::{
     release_narrative_inputs, NarrativeInputLedger, NarrativeInputPlugin, NarrativeInputWriter,
 };
 pub use opening::{character_id_of, DialogueDispatch};
-pub use rules::break_dialogue_on_hit_or_separation;
+pub use rules::{break_dialogue_on_hit_or_separation, ConversationCutBark};
 pub use ui_bridge::{
     close_conversation_on_narrative_end, project_the_dialog_ui_from_the_conversation,
     publish_the_narrative_end, ConversationEnded,

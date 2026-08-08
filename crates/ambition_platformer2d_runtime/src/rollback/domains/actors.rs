@@ -236,6 +236,13 @@ pub(in crate::rollback) fn register(app: &mut App) {
     app.clear_message_on_rollback::<
         ambition_platformer2d_actor_monolith::conversation::ConversationEnded,
     >(OWNER, "message.conversation_ended");
+    // **The continuity → cast port.** The break rule asks for a bark; the cast
+    // answers on the same tick. Cleared on load like every other in-tick sim
+    // channel: a resimulated break asks again, and a request from a branch the
+    // host abandoned must not reach the cast at all.
+    app.clear_message_on_rollback::<
+        ambition_platformer2d_actor_monolith::conversation::ConversationCutBark,
+    >(OWNER, "message.conversation_cut_bark");
     app.rollback_resource_clone::<ambition_platformer2d_actor_monolith::encounter::SwitchActivationQueue>(
         OWNER,
         "resource.switch_activation_queue",

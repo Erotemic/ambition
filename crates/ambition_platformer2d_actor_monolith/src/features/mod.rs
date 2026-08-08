@@ -106,7 +106,7 @@ pub(crate) use ecs::{spawn_runtime_minion, spawn_runtime_minion_into};
 // the whole `npcs` module, because when the conversation module is carved out
 // this single function IS its port — and a `pub(crate) mod` would have hidden
 // how small the remaining coupling is.
-pub(crate) use npcs::npc_ambient_bark_line;
+pub use npcs::speak_conversation_cut_barks;
 
 pub use components::{
     ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,
@@ -749,6 +749,13 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
         // simulation schedule, so a rewind cannot un-close a box the player
         // already watched close.
         app.init_resource::<crate::conversation::ActiveConversation>();
+        // ⛔ **REGISTER THE CHANNEL THE PORT ASKS THROUGH.** The break rule
+        // writes it and the cast answers it, both in this plugin's chain — so
+        // this plugin owns the registration. Leaving it to whoever else wanted
+        // the message is how the effect quarantine once worked in a shipped app
+        // and nowhere else; here it failed parameter validation on frame one of
+        // the sandbox harness.
+        app.add_message::<crate::conversation::ConversationCutBark>();
         // ⚠ **the ledger is NOT rollback state, and that is the whole design.**
         // It is the record of what the narrative — which runs outside the
         // simulation — told the simulation, stamped with the tick it applies
@@ -807,6 +814,10 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
                 // read. Both use the same `strict_intersects` reach, so a
                 // conversation cannot begin and immediately break.
                 crate::conversation::break_dialogue_on_hit_or_separation,
+                // The CAST half of the break: continuity said who should speak,
+                // this says what they say. Immediately after, so the bubble
+                // lands on the same tick the conversation ended.
+                npcs::speak_conversation_cut_barks,
                 // The hold is PROJECTED after, in the same chain: whatever the
                 // rule above decided — a break, a body that stopped existing, or
                 // nothing at all — the world is made to match the authority on

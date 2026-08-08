@@ -268,6 +268,7 @@ message.challenge_requested	message-clear	ambition_platformer2d_actor_monolith::
 message.clear_portals	message-clear	ambition_portal2d::messages::ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_reset_request	message-clear	ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest	clear abandoned-future message buffer in LoadWorld::Mapping
 message.clock_scale_request	message-clear	ambition_platformer2d_actor_monolith::time::time_control::ClockScaleRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.conversation_cut_bark	message-clear	ambition_platformer2d_actor_monolith::conversation::rules::ConversationCutBark	clear abandoned-future message buffer in LoadWorld::Mapping
 message.conversation_ended	message-clear	ambition_platformer2d_actor_monolith::conversation::ui_bridge::ConversationEnded	clear abandoned-future message buffer in LoadWorld::Mapping
 message.cut_rope_room_replay_requested	message-clear	ambition_content::bosses::cut_rope::CutRopeRoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.debris_burst	message-clear	ambition_vfx::vfx::DebrisBurstMessage	clear abandoned-future message buffer in LoadWorld::Mapping

@@ -27,11 +27,10 @@ fn body(app: &mut App, at: ae::Vec2) -> Entity {
 fn talking_app() -> (App, Entity, Entity) {
     let mut app = App::new();
     app.init_resource::<ActiveConversation>();
-    // The break can BARK, so its output channel exists here as it does in the
-    // production schedule. Registering it in the fixture rather than wrapping the
-    // writer in `Option` — that waiver would answer "may this be absent" when the
-    // question is who owns registering it.
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    // ⭐ the break ASKS for a bark now rather than writing a bubble, so the
+    // fixture registers the REQUEST channel and no VFX at all. What the cast
+    // says in answer is tested where the cast lives.
+    app.add_message::<super::ConversationCutBark>();
     app.add_systems(
         Update,
         (

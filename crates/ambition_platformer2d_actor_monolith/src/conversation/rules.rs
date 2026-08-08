@@ -9,21 +9,35 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCatalog};
 use ambition_characters::actor::BodyCombat;
-use ambition_combat::ActorInteraction;
 use ambition_dialog::DialogueBreak;
-use ambition_platformer2d_core as ae;
 // ⚠ `CenteredAabb` through core's re-export, NOT `ambition_geometry` where it is
 // defined: the monolith does not depend on that crate directly, and reaching for
 // the definition site would add a dependency edge — which the contracts job
 // fails until `fixtures/minimal_game/Cargo.lock` is regenerated, for a type that
 // is already in reach.
 use ambition_platformer2d_core::{AabbExt, CenteredAabb};
-use ambition_platformer2d_shared_tangle::body::BodyKinematics;
-use ambition_vfx::vfx::VfxMessage;
 
 use super::authority::ActiveConversation;
+
+/// **A conversation was cut, and this body should say so.**
+///
+/// ⛔ **the PORT, and it is why this module can leave the crate.** Asking "what
+/// line does this character say" is a CAST question — it needs the character
+/// catalog, the prepared registry, and the character-id lookup that resolves an
+/// `Interactable` to a voice, none of which is about continuity. Doing it here
+/// meant continuity reached back into `crate::features` and
+/// `crate::character_runtime` for the only two inward edges this module has.
+///
+/// ⭐ so continuity says WHO should speak and the cast answers WHAT they say.
+/// The speaking body is named; the responder owns the pool, the fallback, the
+/// rotation and the bubble.
+#[derive(Message, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConversationCutBark {
+    /// The body that should speak — the one carrying an `ActorInteraction`, so
+    /// its character id and therefore its voice can be found.
+    pub speaker: Entity,
+}
 
 /// **Break a conversation the world has carried its participants out of.**
 ///
@@ -51,20 +65,7 @@ use super::authority::ActiveConversation;
 pub fn break_dialogue_on_hit_or_separation(
     mut conversation: ResMut<ActiveConversation>,
     bodies: Query<(&CenteredAabb, Option<&BodyCombat>)>,
-    // The bark's speaker and its anchor. Only the NPC participant carries an
-    // `ActorInteraction`, which is how its character id — and therefore its
-    // voice — is found.
-    speaker: Query<(&BodyKinematics, &ActorInteraction)>,
-    // ⚠ **OPTIONAL here, REQUIRED in the idle-bark ticker, and the divergence is
-    // deliberate.** That ticker takes it as a hard `Res` so a mis-composed
-    // production App cannot silently erase provider-authored dialogue — losing
-    // ambient chatter is its whole output. This system's output is the BREAK;
-    // the bark is an extra. A composition with no catalog (a demo, a headless
-    // fixture) must still stop a conversation its participants walked out of,
-    // and failing the break to guarantee a line would be the wrong trade.
-    character_catalog: Option<Res<CharacterCatalog>>,
-    prepared_cast: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
-    mut vfx: MessageWriter<VfxMessage>,
+    mut barks: MessageWriter<ConversationCutBark>,
 ) {
     if !conversation.is_live() {
         return;
@@ -105,27 +106,13 @@ pub fn break_dialogue_on_hit_or_separation(
     // bubble for one event would be worse than none. `wants_its_own_bark` is
     // where that lives, beside the reason it is about.
     //
-    // ⚠ **an empty pool is SILENCE, and that is the finished behaviour**,
-    // exactly as `Idle` and `Hall` document it. No character has a
-    // `conversation_cut` line yet because those are Jon's voice to write, not
-    // the engine's to invent. The mechanism is complete; the content is a seam.
+    // ⭐ **and this ASKS rather than answers.** Which line, from which pool,
+    // with which fallback, is a CAST question; see [`ConversationCutBark`]. An
+    // empty pool is still SILENCE, and that is still the finished behaviour —
+    // the responder decides it, and no character has a `conversation_cut` line
+    // yet because those are Jon's voice to write, not the engine's to invent.
     if reason.wants_its_own_bark() {
-        if let Some((kin, interaction)) = speaker.get(*b).ok().or_else(|| speaker.get(*a).ok()) {
-            if let Some(line) = character_catalog.as_deref().and_then(|catalog| {
-                crate::features::npc_ambient_bark_line(
-                    catalog,
-                    prepared_cast.as_deref(),
-                    &interaction.interactable,
-                    BarkSituation::ConversationCut,
-                    0,
-                )
-            }) {
-                vfx.write(VfxMessage::SpeechBubble {
-                    pos: kin.pos + ae::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0),
-                    text: line.to_string(),
-                });
-            }
-        }
+        barks.write(ConversationCutBark { speaker: *b });
     }
     conversation.close();
 }

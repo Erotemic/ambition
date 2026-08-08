@@ -453,7 +453,10 @@ mod tests {
             "vacuity check: with no prepared cast the engine speaks, which is what \
              made this a defect rather than a preference"
         );
-        assert_eq!(npc_hostile_bark_line(&catalog, None, &npc), GENERIC_HOSTILE_BARK);
+        assert_eq!(
+            npc_hostile_bark_line(&catalog, None, &npc),
+            GENERIC_HOSTILE_BARK
+        );
 
         assert_eq!(
             npc_hit_bark_line(&catalog, Some(&registry), &npc, 1),
@@ -502,7 +505,10 @@ mod tests {
         assert_eq!(npc_hit_bark_line(&first, None, &npc, 1), "first hit");
         assert_eq!(npc_hit_bark_line(&second, None, &npc, 1), "second hit");
         assert_eq!(npc_hostile_bark_line(&first, None, &npc), "first provoked");
-        assert_eq!(npc_hostile_bark_line(&second, None, &npc), "second provoked");
+        assert_eq!(
+            npc_hostile_bark_line(&second, None, &npc),
+            "second provoked"
+        );
         assert_eq!(
             npc_ambient_bark_line(&first, None, &npc, BarkSituation::Idle, 0),
             Some("first idle")
@@ -511,5 +517,54 @@ mod tests {
             npc_ambient_bark_line(&second, None, &npc, BarkSituation::Idle, 0),
             Some("second idle")
         );
+    }
+}
+
+/// **Answer a cut conversation's bark request.** (sim)
+///
+/// ⭐ **the CAST half of the continuity port.** `conversation::rules` decides a
+/// conversation broke and says WHO should speak; this decides WHAT they say,
+/// because that needs the character catalog, the prepared registry and the
+/// `Interactable` → character-id resolution — none of which is about continuity.
+/// Splitting it this way is what removes `conversation`'s only two edges back
+/// into this crate (`docs/planning/engine/actor-monolith-decomposition.md`).
+///
+/// ⚠ **an empty pool is SILENCE, and that is the finished behaviour.** No
+/// character has a `conversation_cut` line yet; those are Jon's voice to write,
+/// not the engine's to invent. The mechanism is complete and the content is a
+/// seam.
+///
+/// ⚠ the catalog is OPTIONAL for the reason the break rule's was: a composition
+/// with no catalog (a demo, a headless fixture) must still break conversations,
+/// and losing an unwritten line is not worth failing over.
+pub fn speak_conversation_cut_barks(
+    mut requests: bevy::prelude::MessageReader<crate::conversation::ConversationCutBark>,
+    speakers: bevy::prelude::Query<(
+        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+        &ambition_combat::ActorInteraction,
+    )>,
+    character_catalog: Option<bevy::prelude::Res<CharacterCatalog>>,
+    prepared_cast: Option<bevy::prelude::Res<crate::character_runtime::PreparedCharacterRegistry>>,
+    mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,
+) {
+    for request in requests.read() {
+        let Ok((kin, interaction)) = speakers.get(request.speaker) else {
+            continue;
+        };
+        let Some(line) = character_catalog.as_deref().and_then(|catalog| {
+            npc_ambient_bark_line(
+                catalog,
+                prepared_cast.as_deref(),
+                &interaction.interactable,
+                BarkSituation::ConversationCut,
+                0,
+            )
+        }) else {
+            continue;
+        };
+        vfx.write(ambition_vfx::vfx::VfxMessage::SpeechBubble {
+            pos: kin.pos + ambition_platformer2d_core::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0),
+            text: line.to_string(),
+        });
     }
 }

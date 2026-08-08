@@ -416,6 +416,35 @@ inbound references and one open mark.** It is cited as structure by nine other
 documents; archiving it on the grounds that its campaign closed would break all
 nine. The row's guess was reasonable and the measurement does not support it.
 
+### ⛔ `triage/` is NOT the easy 2,712 lines it looks like
+
+Ten files, 2,712 lines, **zero open marks in any of them**, and five with **zero
+inbound references**. By line count that reads as the cheapest archive in the
+directory. It is not, and the reason is the failure this README already names:
+*"six sections of `tracks.md` were open assignments with no mark at all."*
+**Zero marks is not evidence of closure when a file never used marks.**
+
+Sampled the largest zero-inbound one, `bevy-system-parameter-architecture.md`
+(566 lines). Its own header: *"State: TRIAGE — PROPOSED DIRECTION"*, and
+*"Promote bounded slices into `../tracks.md` only when they can name the systems,
+invariants, performance measurements, and deletion target owned by that slice."*
+It carries a **six-card migration plan**. Zero inbound references means **nobody
+ever promoted a card** — that is unstarted design direction, not history.
+
+⭐⭐ **and its thesis is being followed WITHOUT it.** `conversation/opening.rs`
+groups its dependencies into one `SystemParam` and explains why: *"the interact
+system is already at Bevy's parameter ceiling — a signal that a system reaching
+for this many worlds should name its sub-worlds."* That is this document's title
+(*"name the seams, do not pack the ceiling"*) arrived at independently, in a
+2026-08-08 carve, with no citation. **The direction is live; only the document is
+orphaned.**
+
+⚠ so the decision for `triage/` is a different question from the one this row
+poses about `engine/`: not *"is this design history?"* but *"was this
+investigation ever finished, and did anything absorb its conclusion?"* A
+zero-inbound triage file is as likely to be dropped work as completed work, and
+telling them apart needs reading, not counting.
+
 ⚠ only **5 of the 36** carry any open mark at all
 (`competitive-2d-platformer-engine-roadmap` 4, `participant-action-system` 2,
 `api-1.0-campaign` 1, `character-definition-design` 1), so "has open work" does

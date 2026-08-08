@@ -507,10 +507,27 @@ slot with no attached pad cannot be set to controller.
   ⚠ it remains three coupled changes (aspect + drawn sub-rect + `feet_anchor_norm`
   moving with the crop), and that has not changed.
 
-  ⭐⭐ **[agent-found, measured 2026-08-08] THE BBOX ROUTE IS ALREADY IN THE TREE,
-  and it is not three coupled changes.** `character_sprites::posed_body` builds
-  exactly the geometry this row asks for, and it sidesteps the stretch worry
-  rather than solving it:
+  ⛔⛔ **[agent-found 2026-08-08 — THE ANNOTATION BELOW WAS WRONG, corrected the
+  same day.]** I wrote that "the bbox route is already in the tree". It is not.
+  `posed_body_geometry` returns `render: Vec2::new(frame_w, frame_h)` — **the
+  quad is the FULL FRAME on both paths**, so none of the decision's three coupled
+  sites has shipped:
+  the quad's width still comes from the frame's aspect (site 1), nothing draws a
+  bbox sub-rect (site 2), and `feet_anchor_norm` is still normalised against the
+  frame (site 3). The measured overhang confirms it: the snake's quad is
+  **2.46x** its body's height and the ratchet is green at that value.
+
+  ⭐ **what IS in the tree is a different mechanism, and it is worth knowing
+  about**: `character_sprites::posed_body` derives the COLLISION box from the
+  bbox and emits a `sprite_offset` that puts the art's rectangle on that box.
+  That solves the STRETCH the decision worries about — the quad keeps the
+  frame's aspect, so nothing is squashed — without sizing the quad from the body.
+  The overhang that remains is transparent padding, not a stretched creature.
+
+  ⚠ **so the decision is still open and still needs the three sites**, and the
+  honest correction to my own claim is that "already shipped" confused *"the art
+  is aligned to the box"* with *"the quad is the box"*. Original annotation
+  follows, kept because its measurement of the DATA is still true:
 
   ```text
   collision     = body bbox           x world_per_pixel
@@ -542,10 +559,19 @@ slot with no attached pad cannot be set to controller.
   that number for any sheet that authors a box. They are the stopgap and the fix,
   and the fix is available per character TODAY without waiting for anything.
 
-  ⭐ **the smallest useful next step is one sheet, not 116**: author a body box
-  for the snake, regenerate, and read `enemy_quad_matches_its_box` — that is the
-  ratchet this row already names, and it turns the whole question into a measured
-  before/after on the creature Jon actually complained about.
+  ⛔ **and "author a body box for the snake" would change NOTHING**, which the
+  correction above is what reveals: the snake's sheet already publishes a
+  117 x 52 body inside a 128 x 128 frame, and `render` is the frame regardless of
+  whether that body is authored or measured. `authored_body` gates
+  `authored_body_pixel_size` (which SIZES the collision box), not the quad. The
+  data measurement below stands; the conclusion drawn from it did not.
+
+  ⭐ **the smallest useful next step is therefore site 1 alone** — return
+  `render` from the bbox in `posed_body_geometry` and see what the ratchet and a
+  `capture_scene` say. If the art visibly stretches, sites 2 and 3 are required
+  and the decision's "three coupled changes" was right; if it does not, the
+  coupling is smaller than the decision assumes. Either answer is worth more than
+  more reading.
 
   ▢ **what this does NOT decide**: what the numbers should BE. The instrument
   asserts no ratio on purpose — what counts as too big is Jon's call, and a limit

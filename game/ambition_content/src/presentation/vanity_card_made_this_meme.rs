@@ -367,13 +367,22 @@ fn spawn_vanity_card(
 /// Uniform scale, so the card letterboxes instead of stretching; every position
 /// in the baked table then means the same thing at 640x360 and at 4K, and the
 /// speech text scales with the art rather than growing out of its bubble.
+///
+/// ⚠ the measurement is converted to LOGICAL pixels before it is compared to the
+/// canvas. `ComputedNode::size()` is PHYSICAL, and the stage is sized in `Val::Px`
+/// — which bevy_ui has already multiplied by the display scale factor — so
+/// dividing the raw sizes asks "how many device pixels fit in a logical canvas"
+/// and answers with a scale inflated by exactly that factor. A desktop at 1.0
+/// cannot tell the difference, which is why every check of this passed; a phone
+/// at 2.0-3.5 drew the card zoomed several times past the edges of the screen
+/// (Android, 2026-08-08).
 fn fit_card_to_display(
     viewports: Query<(&ComputedNode, &Children), With<VanityCardViewport>>,
     mut stages: Query<&mut UiTransform, With<VanityCardStage>>,
 ) {
     let (canvas_w, canvas_h) = card().canvas;
     for (computed, children) in &viewports {
-        let size = computed.size();
+        let size = computed.size() * computed.inverse_scale_factor();
         if size.x <= 0.0 || size.y <= 0.0 {
             continue;
         }

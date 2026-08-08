@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 9 open, added 2026-08-08
+## ⇥ INDEX — 6 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -25,13 +25,10 @@ is the only ordering a maintainer can triage from.
 
 | Question | Blocks | State |
 |---|---|---|
-| Does the world FREEZE during a death beat? | the death-beat feel | ⭐ **half-answered by the dialogue ruling below** |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
 | Which of the 33 engine design documents have become history? | **stale reporting that never gets cleaned up** — ⛔ NOT a line budget, see the row below | ⚠ **Jon, 2026-08-08: not the priority right now** |
-| Should the Hall cast and content bosses declare dormancy? | 129 no-op brain ticks | recommendation: bosses yes, Hall wait |
 | The top four ladder rungs ship a knob that makes them worse | ladder calibration | no recommendation |
 | Can a flying fighter shield? | duel rules | no recommendation |
-| Should a crawler's collision volume ORIENT with its attachment? | the adhesive-crawler bug | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
 | **Could a spawned thing collide with an authored one's identity?** *(no symptom today; ~70 sites to make impossible)* | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
 

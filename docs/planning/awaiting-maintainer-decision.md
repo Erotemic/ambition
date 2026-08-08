@@ -1210,6 +1210,14 @@ today.
 
 ## May a game compose this engine WITHOUT a given capability?
 
+> **Jon, 2026-08-08 — PROVISIONAL: *"I think the answer to compose this engine
+> with capability is yes, but I don't entirely understand the question yet so
+> it's not a final answer."*** So the working assumption is **(a)**, and it is
+> NOT yet a mandate: nothing here starts the campaign on a provisional answer.
+> ⭐ what the answer needs in order to become final is below — the question is
+> genuinely hard to state, and the measurement that produced it is the part
+> worth reading first.
+
 **Raised 2026-08-08** as a dialogue question, **broadened the same day** once
 the measurement showed it was never dialogue-specific. See
 [`engine/actor-monolith-decomposition.md`](engine/actor-monolith-decomposition.md).

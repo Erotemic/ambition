@@ -514,7 +514,19 @@ def copy_composed_tree(source_files: dict[str, SourceFile], output: Path) -> Non
         item = source_files[rel]
         destination = output / PurePosixPath(rel)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(item.source, destination, follow_symlinks=False)
+        # ⭐ DEREFERENCE. This was `follow_symlinks=False`, which recreates a
+        # symlink at the destination — and a packaged tree may not contain one
+        # (`walk_package_tree` rejects it, and so does the archive check, because
+        # an APK/zip cannot carry a working link into an Android install).
+        #
+        # That pairing was coherent while `iter_regular_files` skipped symlinks
+        # outright: none could ever reach here. Now that the six LDtk worlds are
+        # reached through tracked symlinks into `game/ambition_map_assets`, the
+        # source may legitimately BE a link and the package must hold its BYTES.
+        # Copying through the link is what makes the destination a regular file
+        # and keeps the no-symlinks-in-the-package invariant true by construction
+        # rather than by exclusion.
+        shutil.copy2(item.source, destination, follow_symlinks=True)
 
 
 def walk_package_tree(root: Path) -> dict[str, Path]:

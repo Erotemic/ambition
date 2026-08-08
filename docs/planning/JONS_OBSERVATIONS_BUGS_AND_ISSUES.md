@@ -76,6 +76,32 @@
   busy beaver, charley beagle, niels boar and vera ruin were cast on 2026-08-05,
   and `npc_pirate_heavy` is a family rather than a character by your own answer.
 
+* ✔ **YOU HAVE BEEN COLLECTING MAGENTA BOXES, and never reported it** (found and
+  fixed 2026-08-08, `014678998`). Not from a report of yours — a room-transition
+  fixture measured it in passing, which is why it is worth telling you: **every
+  Ambition drop since drops existed has been drawn as the floor's deliberately-ugly
+  diagnostic stand-in instead of as a coin, a heart or an ability pickup.**
+  ⭐ **cause**: `rebuild_dynamic_feature_views` is the only pass that can draw loot
+  the simulation minted, and it selects by construction PROVENANCE — correctly, since
+  *"this pickup was not in the room spec"* is exactly when the room-load pass could
+  not have seen it. But its query REQUIRES a `SpawnOrigin`, and all three drop
+  functions stamped none. Every drop fell out of the query, nothing claimed it, and
+  `draw_unclaimed_feature_views` did its job.
+  **Measured through the shipped app**: `proving_grounds` at 0 stand-ins clean and
+  **8 after seven defeats**; through the real render stack the log carried
+  ``no render family claimed `coin:EnemySpawn-5910` (Pickup)`` before and **nothing
+  after**.
+  ⚠ **`dd73a3087` did not fix this** — that one stopped a coin FOLLOWING you between
+  rooms. This is the room the coin fell in.
+  ⭐ **and a second bug was queued behind it**: once drops draw, they would have
+  drawn a heart wearing a coin's sprite. The sprite now resolves from the pickup's
+  live kind.
+  ⚠ **the guard asserts against the ids the death path MINTED, not a count** — the
+  stand-in population is re-spawned per room, so "it grew" is answerable by a room
+  that merely has more in it. Probed red: 8 of 12 minted views undrawn while 4 split
+  offspring in the same set were drawn, so it discriminates rather than passing on
+  everything.
+
 * For the web build we can't use kaledioscope because lunex doesn't support wasm
 
 * ✔ **`maryo flashes when her fireball hits an enemy` — FIXED, and now GUARDED (2026-08-07).**

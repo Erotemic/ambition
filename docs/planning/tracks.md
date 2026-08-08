@@ -253,19 +253,29 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   SESSION scope marker construction provenance, the way a ROOM scope marker
   is?"*). Summarised rather than restated so the two cannot drift.
 
-  ▢ **K2b-ii — edits 2-4 remain BLOCKED for a measured reason.** The build-time
-  root is not dead: `run_headless` and `Platformer2dSimHarness::build` compose
-  `AmbitionGameSimulationPlugin` WITHOUT the CLI, so they never insert
-  `AmbitionShellHosted` and still get their root at build time. Deleting either
-  now changes headless behaviour rather than removing a dead path. **The work is
-  migrating those two composers to compose the shell**, which the settle helper
-  already prepared them for.
-  **Staging:** (K2b.1) migrate `headless`/`rl_sim`/`capture_scene` to compose the
-  shell and settle, keeping the build-time root as a fallback and proving both
-  paths agree; (K2b.2) delete the build-time root and the four `direct_entry`
-  gates; (K2b.3) delete `AmbitionShellHosted` / `shell_host::direct_entry` once
-  nothing reads them, folding in `PlatformerExperienceAuthoring::with_world_manifest`
-  while that builder is open.
+  ▢ **K2b-ii — RE-MEASURED 2026-08-08, and what is left is ONE FILE.** The text
+  below described two blocked composers; both have since migrated, and the row
+  had not been updated.
+  * `headless.rs:132` — **migrated** (`compose_ambition_gameplay_host`), its own
+    comment naming K2b.
+  * `rl_sim/mod.rs:84` — **migrated** (K2b edit 2), and the build-time publisher
+    it worked around is *gone*.
+  * `capture_scene.rs:286` — **still composes `AmbitionGameSimulationPlugin`
+    directly.** This is the whole remaining row.
+  ⭐ **and it is the one worth having**: `capture_scene` is the phone proxy and
+  the composition already on record as an unrun probe for the Bevy param-panic
+  class, so the last unexercised way to start a game is the tooling one.
+  ⛔ **do not re-derive this with a grep for `AmbitionGameSimulationPlugin`** —
+  the *import* survives migration, so that search does not merely fail to help,
+  it points the wrong way. Read the composition call.
+  ⚠ **two different things are named `direct_entry`**: `shell_host.rs:51` records
+  its own as already deleted, while `cli.rs:245,271,886` carries a live
+  `cli_direct_entry()`. K2b.2/K2b.3 below refer to the first.
+  **Staging, as it now stands:** (K2b.1) migrate `capture_scene` and prove both
+  paths agree; (K2b.2) delete the build-time root and the remaining
+  `direct_entry` gates; (K2b.3) delete `AmbitionShellHosted` once nothing reads
+  it, folding in `PlatformerExperienceAuthoring::with_world_manifest` while that
+  builder is open.
 
 **Bounded hygiene** — [sonnet unless noted]
 - ✅ **The smallest inventory smoke worth keeping — RESOLVED 2026-08-07**, and two of its three prescribed parts turned out not to be the right work. Narrative archived to [`../archive/tracks-landed-sections.md`](../archive/tracks-landed-sections.md).

@@ -162,6 +162,14 @@ than a mistake.
 `python3 scripts/compile_collect.py --analyze` reads the ledgers back and builds
 nothing.
 
+`python3 scripts/compile_report.py` is the other reader: it renders all five
+ledgers into one self-contained HTML page at `dev/compile_report.html` (gitignored
+— it regenerates in under a second and would otherwise churn a 236 KB diff on
+every append), and `--print-summary` gives the same digest as text. It runs no
+build and invokes no cargo. ⚠ **it labels its own thin data**: where a ledger has
+one row the page draws one point and says so, because a trend line through a
+single sample is the prettiest way this instrument could lie.
+
 The auto-memory at
 `/home/agent/.claude/projects/-home-joncrall-code-ambition/memory/`
 is a parallel layer for **per-conversation** continuity (user

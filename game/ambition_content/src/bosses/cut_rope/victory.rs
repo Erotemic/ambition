@@ -16,7 +16,7 @@ pub fn spawn_cut_rope_victory_npc(
     room_set: ambition_platformer2d::platformer::lifecycle::SessionWorldRef<RoomSet>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    authored_sheets: Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     character_roster: Res<ambition_platformer2d_actor_monolith::features::CharacterRoster>,
     mut released: MessageReader<ambition_platformer2d_actor_monolith::boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
@@ -75,7 +75,7 @@ fn victory_npc_size() -> ae::Vec2 {
 fn spawn_victory_npc_entity(
     commands: &mut Commands,
     character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
-    authored_sheets: &ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets,
+    authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     character_roster: &ambition_platformer2d_actor_monolith::features::CharacterRoster,
     pos: ae::Vec2,
 ) -> Entity {

@@ -200,7 +200,7 @@ impl Plugin for PlatformerAssetsPlugin {
 fn bind_game_assets(
     config: Res<GameAssetConfig>,
     character_catalog: Res<CharacterCatalog>,
-    authored_sheets: Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     boss_catalog: Res<BossCatalog>,
     catalog: Res<Platformer2dAssetCatalog>,
     room: Res<AssetBindRoom>,

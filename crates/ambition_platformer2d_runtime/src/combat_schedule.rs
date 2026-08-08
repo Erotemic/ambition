@@ -40,13 +40,13 @@ impl Plugin for CombatSchedulePlugin {
         // combat's and the metadata is not — and this crate links both, so this
         // is the seam where the two meet. `refresh_authored_volume_resolver`
         // below keeps the captured copy current.
-        app.init_resource::<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>();
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
         app.insert_resource(authored_volume_resolver_for(&Default::default()));
         app.add_systems(
             bevy::app::Update,
             refresh_authored_volume_resolver.run_if(
                 bevy::ecs::schedule::common_conditions::resource_changed::<
-                    ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets,
+                    ambition_sprite_sheet::character::sheets::AuthoredSheets,
                 >,
             ),
         );
@@ -414,7 +414,7 @@ mod tests {
 /// resolves. Registration happens at plugin build, so the clone is paid once per
 /// change and never per hit.
 fn authored_volume_resolver_for(
-    sheets: &ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets,
+    sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
 ) -> ambition_platformer2d_actor_monolith::combat::authored_volumes::AuthoredAttackVolumeResolver {
     let sheets = sheets.clone();
     ambition_platformer2d_actor_monolith::combat::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
@@ -441,7 +441,7 @@ fn authored_volume_resolver_for(
 /// baked table while resolving everything else from its own sheet.
 fn refresh_authored_volume_resolver(
     sheets: bevy::prelude::Res<
-        ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets,
+        ambition_sprite_sheet::character::sheets::AuthoredSheets,
     >,
     mut resolver: bevy::prelude::ResMut<
         ambition_platformer2d_actor_monolith::combat::authored_volumes::AuthoredAttackVolumeResolver,

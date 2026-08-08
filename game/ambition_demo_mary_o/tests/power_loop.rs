@@ -634,7 +634,7 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     // The damage path sizes split offspring from their sheets (U1 stage B), so
     // the authored registry is required authority here too. This fixture
     // authors none.
-    app.init_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
     app.init_resource::<ProjectileSeqCounter>();
@@ -798,7 +798,7 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     // The damage path sizes split offspring from their sheets (U1 stage B), so
     // the authored registry is required authority here too. This fixture
     // authors none.
-    app.init_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
@@ -931,7 +931,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     // The damage path sizes split offspring from their sheets (U1 stage B), so
     // the authored registry is required authority here too. This fixture
     // authors none.
-    app.init_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();
@@ -1062,7 +1062,7 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     // The damage path sizes split offspring from their sheets (U1 stage B), so
     // the authored registry is required authority here too. This fixture
     // authors none.
-    app.init_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_platformer2d::character::AuthoredSheets>();
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<ambition_platformer2d::actors::boss_encounter::BossCatalog>();
     app.init_resource::<FeatureEcsWorldOverlay>();

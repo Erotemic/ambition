@@ -2,6 +2,8 @@
 
 use super::*;
 
+use ambition_sprite_sheet::character::sheets::record_for_target;
+
 /// Page-local flat atlas index via the shared frame algebra over the const's
 /// grid-only synthetic record — the same path the runtime takes when no
 /// published sheet RON exists.
@@ -40,7 +42,7 @@ fn boss_sheet_render_basis_diverges_from_the_baked_sheet_dims() {
     ];
     let mut any_divergent = false;
     for (target, spec) in known_divergent {
-        let Some(record) = crate::character_sprites::record_for_target(target) else {
+        let Some(record) = record_for_target(target) else {
             continue;
         };
         if spec.frame_width as u64 * record.frame_height as u64
@@ -194,7 +196,7 @@ fn giant_gnu_baked_record_drives_the_packed_pixels() {
     // an alpha-trim/packed sheet. The published record must (a) line up with the
     // const so it drives the pixels, (b) be trimmed, and (c) stay single-page
     // (a multi-page sibling would resolve the wrong page's filename).
-    let record = crate::character_sprites::record_for_target("giant_gnu")
+    let record = record_for_target("giant_gnu")
         .expect("baked giant_gnu record present (run regen_sprites.sh)");
     assert!(
         record_aligns_with_const(record, &GIANT_GNU_SHEET),

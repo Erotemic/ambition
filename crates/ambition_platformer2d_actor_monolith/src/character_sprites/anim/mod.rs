@@ -1,8 +1,10 @@
 //! Animation pickers over gameplay-core actor/player state.
 
-#[allow(unused_imports)]
-pub(crate) use ambition_sprite_sheet::character::non_looping;
-pub use ambition_sprite_sheet::character::CharacterAnim;
+#[allow(
+    unused_imports,
+    reason = "`non_looping` is read by this module's tests"
+)]
+use ambition_sprite_sheet::character::{non_looping, CharacterAnim};
 
 use ambition_platformer2d_core as ae;
 

@@ -306,7 +306,7 @@ pub fn begin_room_transition_load_system(
         Res<ambition_platformer2d_actor_monolith::construction::ActorConstructionRegistry>,
         // Provider-authored sheets (U1 stage B): room construction sizes bodies
         // from their sheets, so a transition needs it beside the catalog.
-        Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
+        Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     ),
     asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
     mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,

@@ -38,10 +38,10 @@ fn seating_app() -> App {
     let mut app = App::new();
     app.init_resource::<PreparedCharacterRegistry>();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<crate::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     // Seating sizes each body from its sheet (U1 stage B), so the authored
     // registry is authority the system requires. A fixture authors none.
-    app.init_resource::<crate::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.init_resource::<crate::features::CharacterRoster>();
     // A room whose authored spawn is the stage centre.
     let world = ambition_platformer2d_core::World::new(

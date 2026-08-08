@@ -9,19 +9,29 @@
 //!
 //! ## Submodule layout
 //!
-//! - [`anim`] — `CharacterAnim` enum, the one shared `pick_body_anim` priority
-//!   ladder over a `BodyAnimView`, and the thin per-body adapters that build it
-//!   (`pick_player_anim`, `pick_actor_anim` + `ActorAnimState`).
-//! - `ambition_sprite_sheet::character::sheets` — lower authority for
-//!   `CharacterSheetSpec`, atlas/geometry helpers, baked manifest lookup, and
-//!   the `SheetRegistryPlugin` installed by app/content crates.
+//! - [`anim`] — the one shared `pick_body_anim` priority ladder over a
+//!   `BodyAnimView`, and the thin per-body adapters that build it
+//!   (`pick_player_anim`, `pick_actor_anim` + `ActorAnimState`). The
+//!   `CharacterAnim` vocabulary itself belongs to `ambition_sprite_sheet`.
 //! - [`assets`] — actor/content join for `load_character_sprites_in`,
 //!   `sheet_for_character_id`, catalog-driven body collision, and prop sprite
 //!   construction.
-//! - `ambition_sprite_sheet::character::animator` — lower authority for the
-//!   `CharacterAnimator` per-entity cursor component.
 //! - [`posed_body`] — the sheet as the AUTHORITY for an actor's collision box,
 //!   sprite quad, and quad placement, resolved per pose.
+//!
+//! ## What this module does NOT re-export
+//!
+//! Sheet vocabulary — `AuthoredSheets`, `CharacterSheetSpec`, `SheetRecord`,
+//! `SheetRegistry`, `SheetRegistryPlugin`, `CharacterAnim`, `CharacterAnimator`,
+//! `CharacterSpriteAssets`, `record_for_target`, `baked_sheet_registry` and the
+//! rest — is OWNED by `ambition_sprite_sheet` and is named from there. This
+//! module used to pass 22 such names through, on the argument that "every
+//! consumer of character art already imports this module, so a crate that
+//! threads it does not need a new dependency edge". Measured 2026-08-08 that
+//! convenience was buying an illusion: 52 files appeared to consume
+//! `character_sprites` and 29 actually did — the rest were reaching
+//! `ambition_sprite_sheet` through a module that merely stood in the way of
+//! seeing the real edge. Name the owner.
 
 mod anim;
 mod assets;
@@ -31,13 +41,7 @@ mod posed_body;
 #[cfg(test)]
 mod tests;
 
-pub use ambition_sprite_sheet::character::{CharacterAnimator, RenderBasis};
-pub use ambition_sprite_sheet::{baked_sheet_registry, SheetRegistryPlugin};
-/// The provider-authored sheet registry (queue U1), re-exported here because
-/// this is the module every consumer of character art already imports — a crate
-/// that threads it does not need a new dependency edge to name it.
-pub use ambition_sprite_sheet::character::sheets::AuthoredSheets;
-pub use anim::{pick_actor_anim, pick_player_anim, ActorAnimState, CharacterAnim};
+pub use anim::{pick_actor_anim, pick_player_anim, ActorAnimState};
 pub use posed_body::{
     authored_body_pixel_size, posed_body_geometry, sync_sprite_posed_bodies, PosedBodyGeometry,
     SpritePosedBody,
@@ -57,24 +61,6 @@ pub use posed_body::{
 // the other three names were making its surface look four times as entangled as
 // it is. The functions stay `pub` for the module's own tests.
 pub use attack_hitbox::authored_attack_volume_resolver;
-// SheetRecord and SheetRegistry are kept in the module's public surface
-// for future consumers that want per-frame anchors / body bbox queries;
-// they're already loaded at startup by SheetRegistryPlugin. Re-export
-// gated to silence the unused-import warning until something outside
-// the registry module actually queries them.
-#[allow(
-    unused_imports,
-    reason = "Public sheet constants are consumed by tests and future spawn-site callers."
-)]
-pub use ambition_sprite_sheet::character::sheets::{
-    build_atlas_layout, build_character_sprite, build_character_sprite_with_render_size,
-    feet_anchor_for, feet_anchor_for_render_size, player_placeholder_render_size,
-    record_for_target, sprite_render_size, try_load_spec_for_target, CharacterSheetSpec,
-    SheetTuning,
-};
-pub use ambition_sprite_sheet::character::{CharacterSpriteAsset, CharacterSpritePage};
-#[allow(unused_imports)]
-pub use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 #[allow(
     unused_imports,
     reason = "sheet_for_character_id is the public catalog→spec entry; consumed by tests under content::character_catalog::tests (not by non-test crate code today). Public surface for future spawn-site callers."
@@ -85,5 +71,5 @@ pub use assets::{
     materialize_declared_character_sprite, sheet_for_character_id_in, SpriteMaterialization,
     portrait_for_declared_character,
     sheet_for_declared_character,
-    sprite_body_collision_for_character_id_in, CharacterSpriteAssets, SpriteBodyCollision,
+    sprite_body_collision_for_character_id_in, SpriteBodyCollision,
 };

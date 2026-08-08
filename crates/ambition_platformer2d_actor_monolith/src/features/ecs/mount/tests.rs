@@ -727,7 +727,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // (2) The `npc_giant_gnu` catalog id resolves a character sprite — the mount
     // renders through the character-sprite path. Gated on the baked sheet being
     // present (sprites are gitignored/regenerated; a fresh clone has none).
-    if crate::character_sprites::record_for_target("giant_gnu").is_some() {
+    if ambition_sprite_sheet::character::sheets::record_for_target("giant_gnu").is_some() {
         assert!(
             crate::character_sprites::sheet_for_character_id_in(
                 &Default::default(),
@@ -1064,7 +1064,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     let mut app = App::new();
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<crate::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_time::WorldTime>();

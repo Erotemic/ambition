@@ -252,7 +252,7 @@ pub fn boss_spawn_hurtboxes(
     aabb: ae::Aabb,
     brain: ambition_entity_catalog::placements::BossBrain,
 ) -> Vec<ae::CombatVolume> {
-    let registry = crate::character_sprites::baked_sheet_registry();
+    let registry = ambition_sprite_sheet::baked_sheet_registry();
     let mut boss =
         super::super::boss_clusters::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);
     if let Some((metrics, _)) =

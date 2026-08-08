@@ -119,7 +119,7 @@ pub(super) fn handle_ldtk_hot_reload(
     catalogs: (
         Res<ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
         Res<ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog>,
-        Res<ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+        Res<ambition_platformer2d::character::AuthoredSheets>,
         Res<ambition_platformer2d::actors::features::CharacterRoster>,
         Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
         Res<ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry>,
@@ -366,7 +366,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     watch_path: &std::path::Path,
     catalog: &ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog,
     character_catalog: &ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog,
-    authored_sheets: &ambition_platformer2d::actors::character_sprites::AuthoredSheets,
+    authored_sheets: &ambition_platformer2d::character::AuthoredSheets,
     character_roster: &ambition_platformer2d::actors::features::CharacterRoster,
     boss_catalog: &ambition_platformer2d::actors::boss_encounter::BossCatalog,
     placement_lowering: &ambition_platformer2d::actors::world::placements::PlacementLoweringRegistry,

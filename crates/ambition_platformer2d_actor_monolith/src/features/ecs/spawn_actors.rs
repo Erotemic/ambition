@@ -1963,7 +1963,7 @@ mod runtime_giant_refusal_tests {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.init_resource::<crate::character_sprites::AuthoredSheets>();
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
         app.init_resource::<crate::boss_encounter::BossCatalog>();
         app.init_resource::<ActiveSessionScope>();
         app.world_mut().resource_mut::<ActiveSessionScope>().begin();

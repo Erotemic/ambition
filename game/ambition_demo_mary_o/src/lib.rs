@@ -1592,7 +1592,7 @@ fn mary_o_setup(
         >,
     >,
     authored_sheets: bevy::prelude::Res<
-        ambition_platformer2d::actors::character_sprites::AuthoredSheets,
+        ambition_platformer2d::character::AuthoredSheets,
     >,
     character_roster: bevy::prelude::Res<ambition_platformer2d::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,

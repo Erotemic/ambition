@@ -19,7 +19,7 @@ use super::{advance_time, min_app, projectile_test_app, ActorIdentity, BodyHealt
 fn fireball_damages_enemy_on_intersect() {
     let mut app = min_app();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<crate::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(
         Startup,

@@ -130,7 +130,7 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<crate::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(
         Update,
@@ -263,7 +263,7 @@ fn boss_spawn_attaches_brain_components() {
 fn encounter_mob_spawns_with_brain_components() {
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<crate::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(
         Update,

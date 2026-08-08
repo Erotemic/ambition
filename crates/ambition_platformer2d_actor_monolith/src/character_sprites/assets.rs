@@ -37,13 +37,11 @@ use ambition_persistence::settings::VisualQualityBudget;
 use ambition_platformer2d_core as ae;
 use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::character::{
-    CharacterSheetSpec, CharacterSpriteAsset, CharacterSpritePage,
+    CharacterSheetSpec, CharacterSpriteAsset, CharacterSpriteAssets, CharacterSpritePage,
     TextureResolutionScale as SpriteTextureResolutionScale,
 };
 use ambition_sprite_sheet::BodyMetrics;
 use ambition_sprite_sheet::PortraitSheetRegistry;
-
-pub use ambition_sprite_sheet::character::CharacterSpriteAssets;
 
 /// Look up the [`CharacterSheetSpec`] for a catalog `character_id` —
 /// fully DATA-driven (Stage 20 / B3):

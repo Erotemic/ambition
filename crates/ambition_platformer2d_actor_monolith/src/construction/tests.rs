@@ -631,7 +631,7 @@ fn run_summon(world: &mut World, summoner: Entity, spec: ambition_vfx::SummonSpe
 fn insert_summon_resources(world: &mut World) {
     world.init_resource::<bevy::ecs::message::Messages<ambition_vfx::EffectRequest>>();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    world.init_resource::<crate::character_sprites::AuthoredSheets>();
+    world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     world.insert_resource(crate::features::enemies::test_roster());
     world.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     world.insert_resource(engine_construction_registry());
@@ -953,7 +953,7 @@ fn every_parameter_variant_constructs_its_root() {
 
     let mut world = World::new();
     world.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    world.init_resource::<crate::character_sprites::AuthoredSheets>();
+    world.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     world.insert_resource(crate::features::enemies::test_roster());
     let services = ActorConstructionServices {
         context: crate::world::placements::ActorPlacementContext::new(

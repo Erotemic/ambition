@@ -200,7 +200,7 @@ pub(crate) fn load_intro_npc_sprites_system(
     game_assets: Option<ResMut<GameAssets>>,
     catalog: Option<Res<ambition_asset_manager::platformer_assets::Platformer2dAssetCatalog>>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    authored_sheets: Res<ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
+    authored_sheets: Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
 ) {
     if installed.0 {
         return;

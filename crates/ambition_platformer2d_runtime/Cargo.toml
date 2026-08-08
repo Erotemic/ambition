@@ -51,6 +51,14 @@ ambition_dev_tools = { path = "../ambition_dev_tools" }
 # The authored world IR — `ActiveRoomMetadata` is what the mode-scope seam
 # (D-C) reads to decide which hosted ruleset is awake.
 ambition_platformer2d_world = { path = "../ambition_platformer2d_world" }
+# `AuthoredSheets`, the provider-authored sheet registry the combat schedule
+# snapshots into `AuthoredAttackVolumeResolver`. This edge was always here — it
+# was laundered through `ambition_platformer2d_actor_monolith::character_sprites`,
+# a facade that re-exported 22 `ambition_sprite_sheet` names purely so consumers
+# would not have to name the owner. The facade is gone (2026-08-08); the edge is
+# now visible. `ambition_sprite_sheet` is a leaf asset/vocabulary crate below the
+# monolith this crate already depends on, so it adds no graph depth.
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 blake3 = "1"
 bevy_ggrs = "0.21"

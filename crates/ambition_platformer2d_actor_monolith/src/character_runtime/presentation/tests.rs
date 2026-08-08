@@ -24,7 +24,7 @@ fn session_app() -> App {
     // which is exactly the arrangement that hid the `ActorMoveset` retraction bug.
     app.add_plugins(crate::action_scheme::ActionSchemePlugin);
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<crate::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.init_resource::<ambition_platformer2d_shared_tangle::lifecycle::ActiveSessionScope>();
     begin_session(&mut app, 1);
     app

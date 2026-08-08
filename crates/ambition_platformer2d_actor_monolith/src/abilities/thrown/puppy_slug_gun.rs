@@ -127,10 +127,10 @@ mod tests {
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );
-        app.init_resource::<crate::character_sprites::AuthoredSheets>();
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
         // Summoned bodies size themselves from their sheets (U1 stage B); a
         // fixture authors none, and empty resolves as it always did.
-        app.init_resource::<crate::character_sprites::AuthoredSheets>();
+        app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app
     }

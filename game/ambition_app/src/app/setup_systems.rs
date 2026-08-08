@@ -26,7 +26,7 @@ pub(crate) struct PresentationCatalogs<'w> {
     /// Provider-authored sheets (U1). Grouped with the catalogs because it is
     /// the same question — what did this app's providers declare — asked about
     /// art instead of identity.
-    sheets: Res<'w, ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+    sheets: Res<'w, ambition_platformer2d::character::AuthoredSheets>,
     bosses: Res<'w, ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     assets:
         Res<'w, ambition_platformer2d::asset_manager::platformer_assets::Platformer2dAssetCatalog>,
@@ -59,7 +59,7 @@ pub(crate) struct CharacterAuthorities<'w> {
     prepared: Option<
         Res<'w, ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>,
     >,
-    sheets: Res<'w, ambition_platformer2d::actors::character_sprites::AuthoredSheets>,
+    sheets: Res<'w, ambition_platformer2d::character::AuthoredSheets>,
     roster: Res<'w, ambition_platformer2d::actors::features::CharacterRoster>,
 }
 

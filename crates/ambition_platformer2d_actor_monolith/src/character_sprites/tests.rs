@@ -5,8 +5,8 @@
 
 use bevy::prelude::Vec2;
 
-use super::anim::CharacterAnim;
 use super::assets::sheet_for_character_id_in;
+use ambition_sprite_sheet::character::CharacterAnim;
 
 fn test_catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
     crate::character_roster::catalog()
@@ -466,7 +466,6 @@ fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
 /// driven into any state, and its sheet decides how richly it reads.
 #[test]
 fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
-    use super::CharacterAnim;
     // The admiral's generated set is idle / walk / slash / taunt / hurt / death —
     // no dash / run / jump / fly / directional-tilt rows.
     let spec = sheet_for_character_id("npc_pirate_admiral").expect("admiral resolves a sheet");

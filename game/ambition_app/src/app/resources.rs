@@ -146,7 +146,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     // sprite rows resolve exactly as before when it is.
     let authored_sheets = app
         .world()
-        .get_resource::<ambition_platformer2d::actors::character_sprites::AuthoredSheets>()
+        .get_resource::<ambition_platformer2d::character::AuthoredSheets>()
         .cloned()
         .unwrap_or_default();
 

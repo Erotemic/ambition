@@ -1152,7 +1152,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
     authored_sheets:
-        Res<'w, ambition_platformer2d_actor_monolith::character_sprites::AuthoredSheets>,
+        Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     character_roster: Res<'w, ambition_platformer2d_actor_monolith::features::CharacterRoster>,
     boss_catalog: Res<'w, ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
     placement_lowering:

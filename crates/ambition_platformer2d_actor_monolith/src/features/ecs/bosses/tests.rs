@@ -7,7 +7,7 @@ use crate::boss_encounter::behavior::BossBehaviorProfileExt;
 
 /// The extracted pure metrics derivation (`boss_sprite_metrics_from_registry`)
 /// reproduces GNU-ton's metrics without the ECS system, via
-/// `crate::character_sprites::baked_sheet_registry()` (no Bevy `App`). It pins a
+/// `ambition_sprite_sheet::baked_sheet_registry()` (no Bevy `App`). It pins a
 /// non-obvious structural fact discovered while extracting it:
 /// GNU-ton's combat geometry comes entirely from its **per-animation
 /// hurtboxes** (the `animations` map), not from static
@@ -37,7 +37,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
 
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<crate::character_sprites::AuthoredSheets>();
+    app.init_resource::<ambition_sprite_sheet::character::sheets::AuthoredSheets>();
     app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();
     app.init_resource::<ambition_time::WorldTime>();
     app.world_mut()
@@ -129,7 +129,7 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
 fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     use crate::features::bosses::BossBehaviorProfile;
 
-    let registry = crate::character_sprites::baked_sheet_registry();
+    let registry = ambition_sprite_sheet::baked_sheet_registry();
     let pos = ae::Vec2::new(500.0, 400.0);
     let mut behavior = BossBehaviorProfile::gnu_ton_rider();
     // Aim the lookup at the mount's sheet: the giant is what carries the head.
@@ -209,7 +209,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
 fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     use crate::features::bosses::BossBehaviorProfile;
 
-    let registry = crate::character_sprites::baked_sheet_registry();
+    let registry = ambition_sprite_sheet::baked_sheet_registry();
     let behavior = BossBehaviorProfile::mockingbird();
     // The behavior must map to the sheet target the RON declares (its authored
     // `sprite_target`), otherwise the registry lookup misses (the masked half of

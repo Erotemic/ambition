@@ -584,7 +584,26 @@ slot with no attached pad cannot be set to controller.
 ----
 
 
-Interesting bug, that's a big smell. When you play a round of smash and choose
+✔ **FIXED — your call, 2026-08-08: *"the oni leader bug was fixed"*.** Recorded
+here because this entry carried no triage mark of any kind, which is the only
+reason it cost anything: it read as untouched work and a 2026-08-08 survey
+re-opened it as a queue row before you said otherwise.
+
+The fix is `game/ambition_demo_smash/src/lib.rs:1307`, and it quotes your
+reproduction. The smash experience now releases the roster, `PreparedMatch`, the
+select state, the cursor and the seating source — each **by OWNER**, never by
+type, because another game stages its own cast into the same resources and a
+type-level removal deletes their match. Your "some persistent state that is
+likely a global resource that is not reset" was exactly right, and it was more
+than one.
+
+⚠ **one gap, recorded and not reopened**: the guard that defends this is the
+scope declaration plus the smash tests. `the_full_multi_game_lifecycle_is_leak_free`
+walks Sanic → Mary-O → Pocket → TwinTrack → Ambition → Sanic and never runs
+**smash → ambition**, so it is not the regression test for this even though its
+name sounds like it.
+
+  *(your words, kept)* Interesting bug, that's a big smell. When you play a round of smash and choose
 your character, that becomes your character if you quit to title and play
 ambition itself. That is a big architecture problem. Playing one game should
 have no impact on the others. A quit to title and restart a game should also

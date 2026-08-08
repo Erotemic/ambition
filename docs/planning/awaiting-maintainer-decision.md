@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 14 open, added 2026-08-08
+## ⇥ INDEX — 10 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -27,16 +27,12 @@ is the only ordering a maintainer can triage from.
 |---|---|---|
 | Does the world FREEZE during a death beat? | the death-beat feel | ⭐ **half-answered by the dialogue ruling below** |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
-| **Do crate renames break saved replays and netplay?** *(was: "is a crate name part of the rollback wire format")* | rollback schema policy | recommendation present |
-| **Two games in one binary cannot disagree about portal orientation** *(was: "portal map convention as a process global")* | portal authoring | recommendation present |
 | Which of the 33 engine design documents have become history? | **stale reporting that never gets cleaned up** — ⛔ NOT a line budget, see the row below | ⚠ **Jon, 2026-08-08: not the priority right now** |
 | Should the Hall cast and content bosses declare dormancy? | 129 no-op brain ticks | recommendation: bosses yes, Hall wait |
 | The top four ladder rungs ship a knob that makes them worse | ladder calibration | no recommendation |
 | Can a flying fighter shield? | duel rules | no recommendation |
 | Should a crawler's collision volume ORIENT with its attachment? | the adhesive-crawler bug | no recommendation |
 | **Your `?`-blocks don't show a question mark** — per-block art, or move 1-1 to LDtk? | authoring direction | no recommendation |
-| **1-1's first `?`-block drops the wand into a pit where you can't get it** | one level | no recommendation |
-| **During GNU-ton's apple rain, can you hit its body or only its head?** | one boss volume | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
 | **Could a spawned thing collide with an authored one's identity?** *(no symptom today; ~70 sites to make impossible)* | the last of four identity-contract violations | ⭐ added 2026-08-08; ~70-site refactor, or leave it (no symptom today) |
 

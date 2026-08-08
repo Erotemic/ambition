@@ -4,7 +4,7 @@
 `compile_ratchet.py` is the gate (deterministic, builds nothing).
 `compile_cost.py` is the stopwatch for ONE edit (one number per scenario).
 This is the **collector**: it builds the whole graph under a configuration it
-owns, and writes one row per compile unit into `dev/compile_units.jsonl`.
+owns, and writes one row per compile unit into `dev/ambition_dev_measurements/compile_units.jsonl`.
 
 Jon, 2026-08-08: *"time per module, lines of code in the module at time of
 compile … debug vs release, optimization mode … so we can build statistics and
@@ -46,7 +46,7 @@ script never backgrounds a build.
 * **`first-party`** — a real one-line edit appended to EVERY first-party crate's
   lib root, then rebuilt. This is the recompilation the repo actually pays, it
   is directly comparable to the 19 back-filled rows from 2026-08-07, and it is
-  the phase to regress against `dev/compile_graph.jsonl`'s line counts.
+  the phase to regress against `dev/ambition_dev_measurements/compile_graph.jsonl`'s line counts.
 
 ⛔ **the edit is reverted by writing the original bytes back, never by git.**
 Same rule as `compile_cost.py`: a `git checkout --` here would delete whatever
@@ -75,8 +75,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 
 import compile_ratchet as ratchet  # noqa: E402
+import measurement_paths  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 UNIT_LEDGER = ratchet.UNIT_LEDGER
@@ -928,7 +930,7 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--analyze", action="store_true",
-                        help="read dev/compile_units.jsonl and print what it says; builds nothing")
+                        help="read dev/ambition_dev_measurements/compile_units.jsonl and print what it says; builds nothing")
     parser.add_argument("--config", action="append", choices=sorted(CONFIGS),
                         help="repeatable; default: dev")
     parser.add_argument("--phase", action="append", choices=["cold", "first-party"],
@@ -936,7 +938,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target-root", default=str(DEFAULT_TARGET_ROOT),
                         help="parent of the per-configuration CARGO_TARGET_DIRs")
     parser.add_argument("--no-record", action="store_true",
-                        help="measure without appending to dev/compile_units.jsonl")
+                        help="measure without appending to dev/ambition_dev_measurements/compile_units.jsonl")
     parser.add_argument("--list", action="store_true", help="print the configurations and exit")
     args = parser.parse_args(argv)
 
@@ -951,6 +953,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if shutil.which("cargo") is None:
         raise SystemExit("⛔ cargo not on PATH; this measures cargo and cannot proxy it")
+
+    # ⛔ checked HERE, before a cold build that costs 9 minutes. `ingest_timings`
+    # checks again at the append — this one exists so the refusal arrives before
+    # the wait rather than after it.
+    if not args.no_record:
+        measurement_paths.require_writable(ratchet.UNIT_LEDGER)
 
     configs = [CONFIGS[name] for name in (args.config or ["dev"])]
     phases = args.phase or ["cold", "first-party"]

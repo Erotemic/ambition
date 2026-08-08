@@ -6,6 +6,15 @@ writes no ledger. `scripts/compile_collect.py` and `scripts/compile_cost.py` are
 the writers; `dev/compile_telemetry_schema.md` is the contract between them and
 this file. If a column here disagrees with that document, the document wins.
 
+⭐ **being a reader is what lets this file DEGRADE where a writer must refuse.**
+The ledgers live in the `dev/ambition_dev_measurements` submodule, so on a clone
+without `--recursive` every one of them is absent. That is the same case as a
+fresh clone that has run no collector, which this page already renders honestly —
+`load_jsonl` reports `missing`, every section prints its own n, and each empty
+section names the path it looked at. A writer in that situation would create a
+stray file inside an uninitialised submodule and must refuse instead; see
+`scripts/lib/measurement_paths.py`.
+
 Jon, 2026-08-08: *"basically we should start recording this so we can build
 statistics and gain more insights into how to optimize compile time in maybe non
 obvious ways."* The recording landed first. This is the half that looks at it.
@@ -13,7 +22,7 @@ obvious ways."* The recording landed first. This is the half that looks at it.
 ## The honesty rules this page obeys
 
 ⛔ **a trend line through one sample is the prettiest way this work could lie.**
-`dev/compile_graph.jsonl` and `dev/carve_lineage.jsonl` hold ONE row each. Where
+`compile_graph.jsonl` and `carve_lineage.jsonl` hold ONE row each. Where
 there is one point this draws one point and says "1 snapshot" on the page, in the
 place a reader would otherwise infer a series. Every section prints its own n.
 
@@ -59,17 +68,31 @@ import statistics
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+
+import measurement_paths  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DEV = ROOT / "dev"
 
-UNITS_LEDGER = DEV / "compile_units.jsonl"
-JOBS_LEDGER = DEV / "run_tests_cost.jsonl"
-SCENARIO_LEDGER = DEV / "compile_cost.jsonl"
-GRAPH_LEDGER = DEV / "compile_graph.jsonl"
-CARVE_LEDGER = DEV / "carve_lineage.jsonl"
+# ⛔ declared in ONE place — `scripts/lib/measurement_paths.py`. This file used to
+# re-declare the same five paths `compile_ratchet.py` already declared, which is
+# how the two readers of one ledger get to disagree about where it is.
+MEASUREMENTS = measurement_paths.MEASUREMENTS
+LEDGERS = measurement_paths.LEDGERS
 
+UNITS_LEDGER = measurement_paths.UNIT_LEDGER
+JOBS_LEDGER = measurement_paths.JOBS_LEDGER
+SCENARIO_LEDGER = measurement_paths.SCENARIO_LEDGER
+GRAPH_LEDGER = measurement_paths.GRAPH_LEDGER
+CARVE_LEDGER = measurement_paths.CARVE_LEDGER
+
+# ⚠ the OUTPUT stays in `dev/` and is gitignored. It is a view, regenerated in
+# under a second, and it is not a measurement — nothing about it wants the
+# submodule's history.
 DEFAULT_OUTPUT = DEV / "compile_report.html"
 
 # The crate the "cheapest per line" claim is about, and the crate that turned out
@@ -100,6 +123,19 @@ class LedgerLoad:
     @property
     def n(self) -> int:
         return len(self.rows)
+
+    @property
+    def label(self) -> str:
+        """Where this page LOOKED, repo-relative.
+
+        ⛔ every empty section used to hard-code its own copy of the path, so
+        moving the ledgers into `dev/ambition_dev_measurements` would have left
+        four sections telling a reader to look somewhere the file has not been
+        for a while. The load knows where it went; ask it.
+        """
+        if self.path.is_absolute() and self.path.is_relative_to(ROOT):
+            return str(self.path.relative_to(ROOT))
+        return str(self.path)
 
 
 def load_jsonl(path: Path) -> LedgerLoad:
@@ -1541,9 +1577,9 @@ def section_codegen(builds: list[Build], unit_rows: list[dict]) -> str:
 
 def section_tests(load: LedgerLoad, jobs: list[JobCost], totals: SuiteTotals, series: list[dict]) -> str:
     if not load.rows:
-        return """
+        return f"""
 <section id="tests"><h2>Test time as a first-class cost</h2>
-<p class="empty">dev/run_tests_cost.jsonl has no rows.</p></section>"""
+<p class="empty">{html.escape(load.label)} has no rows.</p></section>"""
 
     top = jobs[:14]
     bars = [
@@ -1626,9 +1662,9 @@ def section_tests(load: LedgerLoad, jobs: list[JobCost], totals: SuiteTotals, se
 
 def section_scenarios(load: LedgerLoad) -> str:
     if not load.rows:
-        return """
+        return f"""
 <section id="scenarios"><h2>The edit → rebuild stopwatch</h2>
-<p class="empty">dev/compile_cost.jsonl has no rows.</p></section>"""
+<p class="empty">{html.escape(load.label)} has no rows.</p></section>"""
 
     scenarios = [normalise_scenario(r) for r in load.rows]
     rows, classes = [], []
@@ -1689,9 +1725,9 @@ def section_scenarios(load: LedgerLoad) -> str:
 
 def section_graph(load: LedgerLoad) -> str:
     if not load.rows:
-        return """
+        return f"""
 <section id="graph"><h2>Dependency-graph shape</h2>
-<p class="empty">dev/compile_graph.jsonl has no rows.</p></section>"""
+<p class="empty">{html.escape(load.label)} has no rows.</p></section>"""
 
     snapshot = load.rows[-1]
     crate_lines: dict[str, int] = snapshot.get("crate_lines") or {}
@@ -1761,9 +1797,9 @@ def section_graph(load: LedgerLoad) -> str:
 
 def section_carve(load: LedgerLoad) -> str:
     if not load.rows:
-        return """
+        return f"""
 <section id="carve"><h2>Carve lineage</h2>
-<p class="empty">dev/carve_lineage.jsonl has no rows — no carve has recorded itself yet.</p></section>"""
+<p class="empty">{html.escape(load.label)} has no rows — no carve has recorded itself yet.</p></section>"""
 
     cards = []
     for row in load.rows:

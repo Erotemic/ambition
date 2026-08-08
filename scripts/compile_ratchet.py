@@ -71,7 +71,7 @@ a dashboard entry, not a guard.
 
 ## The seconds number is a WEIGHT, not a stopwatch
 
-⛔ **the weights come from `dev/compile_units.jsonl`, a committed ledger, and
+⛔ **the weights come from `dev/ambition_dev_measurements/compile_units.jsonl`, a committed ledger, and
 never from timing anything at gate time.** Everything §"Why this is not a timing
 threshold" says still holds: this file builds nothing, reads no clock, and
 returns the same answer on a busy machine as on an idle one. What changed is the
@@ -148,8 +148,8 @@ and every edge that changes what an edit reaches. Neither is a superset.
   `capability-footprint-may-not-grow` in `check_absence_contracts.py`, against
   `fixtures/minimal_game`. A second guard on one fact is how a suite starts
   getting waived.
-* **Wall-clock anything.** It lives in `dev/compile_cost.jsonl` and
-  `dev/compile_units.jsonl`, is plotted, and is never a gate. See above.
+* **Wall-clock anything.** It lives in `dev/ambition_dev_measurements/compile_cost.jsonl` and
+  `dev/ambition_dev_measurements/compile_units.jsonl`, is plotted, and is never a gate. See above.
 
 ## ⛔ There is no `--check` flag, and that is deliberate
 
@@ -194,15 +194,23 @@ import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 
+import measurement_paths  # noqa: E402
 from check_absence_contracts import cargo_binary, strip_comments_for  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 
-BASELINE = ROOT / "dev" / "compile_ratchet_baseline.json"
-GRAPH_LEDGER = ROOT / "dev" / "compile_graph.jsonl"
-UNIT_LEDGER = ROOT / "dev" / "compile_units.jsonl"
-LINEAGE = ROOT / "dev" / "carve_lineage.jsonl"
+# ⛔ declared in ONE place — `scripts/lib/measurement_paths.py` — because these
+# same paths used to be spelled out here, in `compile_report.py` and in
+# `compile_cost.py` independently. The ledgers now live in the
+# `dev/ambition_dev_measurements` submodule; the BASELINE deliberately does not,
+# because it is this gate's input and a gate cannot depend on a submodule
+# somebody may not have initialised. The module docstring holds the full reason.
+BASELINE = measurement_paths.RATCHET_BASELINE
+GRAPH_LEDGER = measurement_paths.GRAPH_LEDGER
+UNIT_LEDGER = measurement_paths.UNIT_LEDGER
+LINEAGE = measurement_paths.CARVE_LEDGER
 
 SCHEMA = 1
 
@@ -284,8 +292,8 @@ def envelope(kind: str, *, run_id: str = "", label: str = "") -> dict:
     """The columns EVERY compile-telemetry row carries, whatever its grain.
 
     ⚠ **this is the part that cannot be back-filled, so it lands before any
-    collector does.** `dev/run_tests_cost.jsonl` has 75 rows and no commit, no
-    machine, no profile and no opt-level; `dev/compile_cost.jsonl` has 4 rows
+    collector does.** `dev/ambition_dev_measurements/run_tests_cost.jsonl` has 75 rows and no commit, no
+    machine, no profile and no opt-level; `dev/ambition_dev_measurements/compile_cost.jsonl` has 4 rows
     that encode the incremental setting as `machine_cargo_incremental:
     "(config default)"` in two of them and `"1"` in the other two — the same
     dimension, stringly typed, as a side effect of how the run was invoked. A
@@ -435,7 +443,7 @@ def cache_class(row: dict) -> str:
     """`"rebuild"` or `"cold"` for the BUILD a unit row came from.
 
     ⛔ **from the counters, never from `build_label` or `build_profile`'s
-    neighbours.** `dev/compile_units.jsonl` holds a build labelled
+    neighbours.** `dev/ambition_dev_measurements/compile_units.jsonl` holds a build labelled
     `collector: dev/first-party` with `build_fresh_units: 0` — it rebuilt all 688
     units and took 540s, against two honestly-labelled first-party rebuilds at
     188s and 210s. Selecting on that label puts a cold build's durations into a
@@ -573,7 +581,7 @@ def snapshot(
     reimplements the metric is a simulator that answers a different question.
 
     `weights` is a `unit_weights()` payload. The gate passes the one FROZEN in
-    the baseline so that appending to `dev/compile_units.jsonl` cannot move a
+    the baseline so that appending to `dev/ambition_dev_measurements/compile_units.jsonl` cannot move a
     guarded number without a re-freeze; `--update` passes None and reads the
     ledger.
     """
@@ -1399,6 +1407,7 @@ def ingest_timings(
         )
 
     if record:
+        measurement_paths.require_writable(UNIT_LEDGER)
         UNIT_LEDGER.parent.mkdir(parents=True, exist_ok=True)
         with UNIT_LEDGER.open("a", encoding="utf-8") as handle:
             for row in rows:
@@ -1503,6 +1512,7 @@ def record_carve(args: argparse.Namespace) -> int:
         "recorded_from": args.recorded_from,
         "happened_in": args.happened_in,
     }
+    measurement_paths.require_writable(LINEAGE)
     LINEAGE.parent.mkdir(parents=True, exist_ok=True)
     with LINEAGE.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(row, sort_keys=True) + "\n")
@@ -1515,6 +1525,12 @@ def record_carve(args: argparse.Namespace) -> int:
 
 
 def freeze(current: dict) -> None:
+    # ⛔ checked BEFORE the baseline is written, not between the two writes. This
+    # function makes TWO records — the gate's baseline in the parent repo and a
+    # trend row in the submodule's ledger — and a freeze that lands the first and
+    # loses the second leaves a guarded number with no snapshot behind it.
+    measurement_paths.require_writable(GRAPH_LEDGER)
+
     frozen = {**envelope("graph"), **current, "headroom_fraction": HEADROOM_FRACTION}
     frozen["recorded_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     BASELINE.parent.mkdir(parents=True, exist_ok=True)

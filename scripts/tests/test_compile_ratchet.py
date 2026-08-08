@@ -69,7 +69,7 @@ def live() -> dict:
 def test_cache_state_comes_from_the_counters_never_from_the_build_label():
     """⛔ the naive draft selects rebuilds by `build_label`.
 
-    `dev/compile_units.jsonl` holds a build labelled `collector: dev/first-party`
+    `dev/ambition_dev_measurements/compile_units.jsonl` holds a build labelled `collector: dev/first-party`
     with `build_fresh_units: 0` — it recompiled all 688 units and took 540s
     against two honest first-party rebuilds at 188s and 210s. A label-based
     filter admits it and every weight comes out multiples high, with nothing in

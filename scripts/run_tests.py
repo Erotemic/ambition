@@ -89,6 +89,17 @@ STATUS_NAME = "run_tests_status.json"
 # `cargo test --workspace` typed directly never reaches it. A guard only one
 # caller can run is a guard for one caller.
 from check_disk_headroom import MIN_FREE_GB, free_gb_on_target, target_dir  # noqa: E402
+
+# ⭐ the cost ledger's PATH is imported for the same reason the disk guard is:
+# it was inlined here, declared again in three other scripts, and the ledgers
+# have since moved into the `dev/ambition_dev_measurements` submodule.
+# ⚠ `scripts/lib/measurement_paths.py` imports nothing but `pathlib`, which is
+# what makes it importable from the suite's own entry point — the telemetry
+# ENVELOPE below still stays hand-copied, because that would mean importing a
+# 1,500-line checker.
+sys.path.insert(0, str(REPO / "scripts" / "lib"))
+import measurement_paths  # noqa: E402
+
 CARGO = os.path.expanduser("~/.cargo/bin/cargo")
 if not os.path.exists(CARGO):
     CARGO = "cargo"
@@ -418,7 +429,7 @@ def build_jobs(only: list[str], heavy: bool, libtest_args: list[str],
         # baseline in `dev/`.
         # ⛔ **still not a wall-clock threshold**, which is what the renamed job
         # is saying. The seconds are per-crate WEIGHTS read from the committed
-        # `dev/compile_units.jsonl` and frozen into the baseline; nothing is
+        # `dev/ambition_dev_measurements/compile_units.jsonl` and frozen into the baseline; nothing is
         # timed while the gate runs, so it cannot fail randomly on a busy
         # machine. A stale weight is a known number in a reviewable file, which
         # is the trade this instrument was built to make.
@@ -800,7 +811,21 @@ def append_cost_ledger(results: list[JobResult], exhaustive: bool,
     small enough to keep forever.
     """
     ledger = Path(os.environ.get("RUN_TESTS_COST_LEDGER",
-                                 REPO / "dev" / "run_tests_cost.jsonl"))
+                                 measurement_paths.JOBS_LEDGER))
+
+    # ⛔ the ledger lives in a submodule, and on a clone without `--recursive`
+    # its directory exists and is EMPTY — so `open("a")` would succeed, write a
+    # real row into a file inside an uninitialised submodule mount, and lose it
+    # to the next `git submodule update` without ever appearing in `git status`.
+    # ⚠ this is the one writer that must NOT hard-fail: a cost record is worth
+    # having and never worth failing a suite over (same rule as the `OSError`
+    # below). It refuses to write and says why; it does not raise.
+    unavailable = measurement_paths.unavailable_reason(ledger)
+    if unavailable:
+        print(f"  (cost NOT recorded: {unavailable}"
+              f" — fix with `{measurement_paths.INIT_COMMAND}`)")
+        return None
+
     row = {
         # The shared compile-telemetry envelope — `dev/compile_telemetry_schema.md`
         # §1. Added 2026-08-08 because the first 75 rows carry no commit, no

@@ -1102,7 +1102,7 @@
     ],
     "cache_class": "rebuild",
     "crates_measured": 55,
-    "ledger": "dev/compile_units.jsonl",
+    "ledger": "dev/ambition_dev_measurements/compile_units.jsonl",
     "median_ms_per_line": 2.557,
     "ms_per_line": {
       "ambition_app": 2.5207,

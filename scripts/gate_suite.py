@@ -20,15 +20,32 @@ stays large would be disobeying the ruling, not being careful.
 
 ## Whitelist, never blacklist
 
-Only `docs/` counts as prose. Everything else — source, assets, `.ron` data the
-tests read, generated files, submodule pointers, `Cargo.toml`, this script —
-forces the full suite.
+Only `docs/` and the measurements submodule are skippable. Everything else —
+source, assets, `.ron` data the tests read, generated files, other submodule
+pointers, `Cargo.toml`, this script — forces the full suite.
 
 The asymmetry is deliberate and is the whole safety argument: **the failure mode
 of the RULE is a slower turn, and the failure mode of the SUITE is a later
 catch.** A blacklist ("skip when no `.rs` changed") inverts that — assets and
 generated files are not `.rs` and do change behaviour — so it is not offered even
 as an option.
+
+⭐ **`dev/ambition_dev_measurements` is the second entry and it is NOT prose**, so
+it is named for what it is: a write-only RECORD of what past runs cost. It earns
+the exemption twice over.
+
+* Nothing in the build or test graph reads it. This script runs
+  `cargo test -p ambition_app --test app_it`, and no row of telemetry can change
+  what that reports. ⚠ the one measurement artifact that IS an input to a check —
+  `dev/compile_ratchet_baseline.json`, which `compile_ratchet.py --check` reads on
+  every run — deliberately stayed OUT of the submodule and is still non-prose, so
+  it still forces the full suite when it moves.
+* Without the exemption the prose-only case would be dead within one suite run.
+  `run_tests.py` appends a row to `run_tests_cost.jsonl` on EVERY run, which
+  leaves the submodule's working tree dirty, which `git status --porcelain` in
+  the PARENT reports as a modified `dev/ambition_dev_measurements`. So the next
+  turn — the pure-prose one this ruling exists for — would see a non-prose path
+  and run the full suite, for a file it did not touch and cannot be affected by.
 
 ## What the smoke subset is FOR
 
@@ -51,6 +68,11 @@ REPO = Path(__file__).resolve().parents[1]
 
 #: The ONLY prefix that counts as prose. See the whitelist note above.
 PROSE_PREFIXES = ("docs/",)
+
+#: Prose, plus the append-only measurement submodule — everything whose change
+#: cannot alter what the suite would report. ⛔ this is the whole whitelist; a
+#: prefix added here is a class of change nobody gates on again.
+SKIPPABLE_PREFIXES = PROSE_PREFIXES + ("dev/ambition_dev_measurements",)
 
 #: Named smoke modules, each with the reason it is here. ⛔ do not add a module
 #: because it is fast, and do not remove one because it is slow — the question is
@@ -100,16 +122,16 @@ def changed_paths(since: str | None) -> list[str]:
     return sorted(paths)
 
 
-def is_prose_only(paths: list[str]) -> bool:
-    """True when EVERY changed path is prose.
+def is_skippable_only(paths: list[str]) -> bool:
+    """True when EVERY changed path is one the full suite cannot have an opinion about.
 
-    ⛔ an empty change set is NOT prose-only. "Nothing changed" and "only docs
+    ⛔ an empty change set is NOT skippable. "Nothing changed" and "only docs
     changed" are different states, and answering the first with a smoke suite
     would mean a turn that somehow reported no diff silently skips the gate.
     """
     if not paths:
         return False
-    return all(p.startswith(PROSE_PREFIXES) for p in paths)
+    return all(p.startswith(SKIPPABLE_PREFIXES) for p in paths)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -120,19 +142,20 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     paths = changed_paths(args.since)
-    prose = is_prose_only(paths)
+    skippable = is_skippable_only(paths)
 
-    if prose:
+    if skippable:
         filters = list(SMOKE_MODULES)
-        why = f"prose-only ({len(paths)} path(s), all under {'/'.join(PROSE_PREFIXES)})"
+        why = (f"{len(paths)} path(s), all under "
+               f"{' or '.join(SKIPPABLE_PREFIXES)}")
     else:
         filters = []
-        offenders = [p for p in paths if not p.startswith(PROSE_PREFIXES)]
-        why = (f"{len(offenders)} non-prose path(s), first: "
+        offenders = [p for p in paths if not p.startswith(SKIPPABLE_PREFIXES)]
+        why = (f"{len(offenders)} gated path(s), first: "
                f"{offenders[0] if offenders else '(none — empty diff)'}")
 
-    print(f"gate_suite: {'SMOKE' if prose else 'FULL'} — {why}")
-    if prose:
+    print(f"gate_suite: {'SMOKE' if skippable else 'FULL'} — {why}")
+    if skippable:
         for name, reason in SMOKE_MODULES.items():
             print(f"  + {name}: {reason}")
 

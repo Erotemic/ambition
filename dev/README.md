@@ -9,13 +9,14 @@ project's pattern of past mistakes, and take fewer of them.
 
 The search entry point is [`SEARCH.md`](SEARCH.md). It gives grep patterns and routing rules so agents search this memory instead of reading it all.
 
-The two subtrees today:
+The subtrees today:
 
 ```text
 dev/
-  SEARCH.md               # How to search engineering memory
-  benchmark-candidates/   # Distilled hard questions from real refactor mistakes
-  journals/               # >1hr-debug-time bug postmortems
+  SEARCH.md                  # How to search engineering memory
+  benchmark-candidates/      # Distilled hard questions from real refactor mistakes
+  journals/                  # >1hr-debug-time bug postmortems
+  ambition_dev_measurements/ # SUBMODULE — the append-only cost ledgers (below)
 ```
 
 `dev/` is **not** a TODO list (use `TODO.md`), **not** a feature log
@@ -123,18 +124,45 @@ docs/              -> how things work today
 crates/            -> the game itself
 tools/             -> authoring + build tooling
 dev/               -> long-running engineering memory (you are here)
-  benchmark-candidates/   -> distilled "hard question" corpus from real mistakes
-  journals/               -> >1hr-debug-time bug postmortems
-  *_cost.jsonl            -> cost ledgers (see below)
+  benchmark-candidates/     -> distilled "hard question" corpus from real mistakes
+  journals/                 -> >1hr-debug-time bug postmortems
+  ambition_dev_measurements/ -> SUBMODULE: the cost ledgers (see below)
+  compile_ratchet_baseline.json -> the ratchet's frozen input; NOT in the submodule
+  compile_telemetry_schema.md   -> the ledgers' field-by-field contract
 ```
 
-## Cost ledgers
+## Cost ledgers — `dev/ambition_dev_measurements/` (a submodule)
 
 Append-only JSONL, one row per measured run. They exist so "this got slower" is
 a diff rather than an impression, and so an optimisation can be shown to have
 worked instead of asserted to have.
 
-| ledger | `kind` | written by | measures |
+⭐ **they live in a submodule** (`https://github.com/Erotemic/ambition_dev_measurements.git`)
+because they grow monotonically and every checkout paid for the growth: on
+2026-08-08 these five files were **3.88 MB of a 43.95 MB tracked tree**. A cost
+ledger's value IS its history, so there is no pruning policy that would have
+fixed it. Get them with:
+
+```sh
+git submodule update --init dev/ambition_dev_measurements
+```
+
+⛔ **without that, the directory still EXISTS and is empty** — git creates the
+mount point on any clone. So every writer checks before it appends and refuses
+loudly rather than creating a stray file that the next `git submodule update`
+deletes and `git status` never mentions. Readers degrade instead, the same way
+they already do on a fresh clone that has run no collector. The paths, the check,
+and the full reasoning are declared once in
+[`scripts/lib/measurement_paths.py`](../scripts/lib/measurement_paths.py) — ⛔ do
+not re-declare a ledger path in a script; three scripts used to and that is what
+made this move expensive.
+
+⚠ **`dev/compile_ratchet_baseline.json` deliberately stayed in this repo.** It is
+a GATE INPUT — `compile_ratchet.py --check` reads it on every run — and a gate
+whose baseline sits behind an uninitialised submodule cannot run. It is bounded
+too: one frozen snapshot, rewritten rather than appended.
+
+| ledger (under `dev/ambition_dev_measurements/`) | `kind` | written by | measures |
 |---|---|---|---|
 | `run_tests_cost.jsonl` | `job` | `scripts/run_tests.py` | wall + per-job cost of the suite |
 | `compile_cost.jsonl` | `scenario` | `scripts/compile_cost.py` | what an EDIT costs to rebuild |

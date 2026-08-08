@@ -51,7 +51,7 @@ def test_cost_per_line_is_computed_per_build_never_pooled_across_builds():
     """⛔ the naive draft sums seconds and lines over the whole ledger.
 
     Two builds of the SAME crate at different speeds pool into a single
-    meaningless average. `dev/compile_units.jsonl` holds seven builds across
+    meaningless average. `dev/ambition_dev_measurements/compile_units.jsonl` holds seven builds across
     three configurations, so pooling is not a hypothetical.
     """
     rows = [
@@ -238,9 +238,15 @@ def test_the_page_renders_from_any_subset_of_the_five_ledgers():
     `compile_units.jsonl` produced zero builds, and the coverage section indexed
     `span_units[0]` on an empty list. A fresh clone that has run one collector
     and not the others is the ordinary case, so every subset must render.
+
+    ⭐ **and it is now the FRESH-CLONE case too.** The ledgers moved into the
+    `dev/ambition_dev_measurements` submodule on 2026-08-08, so a clone without
+    `--recursive` has none of the five. Degrading here rather than failing is
+    exactly why the report is allowed to be a reader with no submodule guard —
+    see `scripts/lib/measurement_paths.py`.
     """
-    names = ["compile_units", "run_tests_cost", "compile_cost", "compile_graph", "carve_lineage"]
-    real = {name: report.load_jsonl(report.DEV / f"{name}.jsonl") for name in names}
+    real = {name: report.load_jsonl(path) for name, path in report.LEDGERS.items()}
+    names = list(real)
     empty = report.LedgerLoad(path=Path("x.jsonl"), rows=[])
 
     for present in [set(), {"compile_units"}, {"carve_lineage"}, {"run_tests_cost"}, set(names)]:

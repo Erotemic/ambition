@@ -398,7 +398,7 @@ def record_check_cost(
 
     ⛔ **AND THE MOTIVATING NUMBER FOR THIS WAS OVERSTATED — corrected here
     rather than quietly dropped.** The claim was that the same 688-unit build
-    measured 833.9s and 540.0s "because of this guard". `dev/compile_units.jsonl`
+    measured 833.9s and 540.0s "because of this guard". `dev/ambition_dev_measurements/compile_units.jsonl`
     records contention per build, and the 540.0s run has
     `build_foreign_cargo_peak: 0` — it was CLEAN. The 833.9s run predates
     contention stamping, so it has no such field. **The cause of that difference

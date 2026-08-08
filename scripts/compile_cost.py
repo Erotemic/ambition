@@ -69,8 +69,15 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+
+import measurement_paths  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
-LEDGER = ROOT / "dev" / "compile_cost.jsonl"
+
+# ⛔ declared in ONE place — `scripts/lib/measurement_paths.py`. Three scripts
+# used to spell these paths out independently.
+LEDGER = measurement_paths.SCENARIO_LEDGER
 
 # The marker is appended and removed; it is a plain private fn so it compiles in
 # any Rust module and triggers a real recompile rather than an mtime-only one.
@@ -195,7 +202,7 @@ def build_config() -> dict:
 
     ⚠ `opt_level` is the WORKSPACE default. It is not uniform — `runtime`,
     `render` and `app` are pinned to 0 in `Cargo.toml` — and per-crate opt-levels
-    belong on the per-unit rows in `dev/compile_units.jsonl`, where there is a
+    belong on the per-unit rows in `dev/ambition_dev_measurements/compile_units.jsonl`, where there is a
     crate to attach them to. A scenario row covers a whole command.
     """
     import tomllib
@@ -249,6 +256,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if shutil.which("cargo") is None:
         raise SystemExit("⛔ cargo not on PATH; this measures cargo and cannot proxy it")
+
+    # ⛔ checked HERE, before a single build runs. Every scenario below is a real
+    # cargo invocation measured in minutes, and finding out afterwards that the
+    # ledger is unreachable throws the measurement away along with the wait.
+    if not args.no_record:
+        measurement_paths.require_writable(LEDGER)
 
     env: dict[str, str] = {}
     for pair in args.env:

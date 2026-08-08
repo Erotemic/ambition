@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v18
+ggrs-rollback-schema-v19
 actor.action_set	component-clone	ambition_characters::brain::action_set::ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ambition_combat::components::actors::ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ambition_combat::components::actors::ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection

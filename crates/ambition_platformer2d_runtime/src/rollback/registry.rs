@@ -23,6 +23,21 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v19 (2026-08-08): a conversation's identity includes what YARN is entered
+/// with.** `ConversationInstanceId` named the tick, the node and the two bodies'
+/// `SimId`s; the `DialogueContext` — `$speaker_id`, `$listener_id`,
+/// `$speaker_is_self`, which content branches on — sat beside it, and the speaker
+/// resolves from the initiator's `WornCharacter`, which is rollback-owned and
+/// runtime-mutable. So two corrected timelines could agree on all four body facts
+/// while entering the node as different characters, and a v18 peer calls those
+/// ONE conversation: it applies an abandoned branch's ledger records to the
+/// corrected one and leaves the text box attached, running with the old
+/// `$speaker_id` in Yarn's variable storage. That is a different history, not a
+/// different encoding of one — and the checksum moves with it, because the
+/// context now arrives inside the hashed instance id instead of as three fields
+/// hashed after it (GPT 5.6 review, D29). Note the descriptor list is
+/// byte-identical: this is the wire-change class only the version constant can
+/// see. `speaker_name` stays out of both — it is a display string.
 /// ⚠ **v18 (2026-08-08): TwinTrack's Relativity Plaza/Festival encodings.**
 /// Two overlay changes land together, so they are ONE bump rather than the two
 /// the overlay carried: `AbilitySet` separates a body's flight CAPABILITY from
@@ -94,7 +109,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 18;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 19;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

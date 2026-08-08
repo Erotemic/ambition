@@ -60,13 +60,127 @@ fn talking_app() -> (App, Entity, Entity) {
 /// matched against.
 fn live_at(node: &str, tick: u64) -> super::LiveConversation {
     super::LiveConversation {
-        instance: super::ConversationInstanceId::mint(tick, node, None, None),
+        instance: super::ConversationInstanceId::mint(
+            tick,
+            node,
+            None,
+            None,
+            &ambition_dialog::DialogueContext::scripted(),
+        ),
         ..super::LiveConversation::for_test(None, None, node, ConversationInputOwner::Primary)
     }
 }
 
 fn talking(app: &App) -> bool {
     app.world().resource::<ActiveConversation>().is_live()
+}
+
+/// **Open a conversation the way the interaction system opens one**, with the
+/// initiator wearing `worn`, and hand back the instance id it minted.
+///
+/// ⚠ **through [`super::DialogueDispatch`], not by hand.** The whole subject
+/// below is what the OPENING derives, and a fixture that minted an id itself
+/// would be asserting about its own arguments. So the speaker id comes from
+/// `speaker_id()` — which, for a body with neither an `ActorInteraction` nor an
+/// `ActorIdentity` (the home avatar), is the character it is WEARING.
+///
+/// Everything else is pinned: the same tick, the same node, the same two
+/// `SimId`s, the same listener.
+fn instance_wearing(worn: &str) -> super::ConversationInstanceId {
+    use ambition_platformer2d_shared_tangle::sim_id::SimId;
+
+    let mut app = App::new();
+    app.init_resource::<ActiveConversation>();
+    app.init_resource::<ambition_dialog::DialogueNodeIndex>();
+    app.insert_resource(ambition_time::SimTick(100));
+
+    let initiator = app
+        .world_mut()
+        .spawn((
+            SimId::placement("player"),
+            ambition_characters::actor::WornCharacter::new(worn),
+        ))
+        .id();
+    let talker = app.world_mut().spawn(SimId::placement("npc_admiral")).id();
+
+    let mut state: bevy::ecs::system::SystemState<super::DialogueDispatch> =
+        bevy::ecs::system::SystemState::new(app.world_mut());
+    {
+        let mut dialogue = state.get_mut(app.world_mut());
+        let speaker = dialogue
+            .speaker_id(initiator, None, None)
+            .expect("a body with no authored identity speaks as the character it wears");
+        assert_eq!(
+            speaker, worn,
+            "precondition: the WORN character is the speaker"
+        );
+        assert!(dialogue.open_between(
+            initiator,
+            talker,
+            "chat",
+            "The Admiral",
+            &speaker,
+            "npc_admiral",
+            ConversationInputOwner::Primary,
+        ));
+    }
+    state.apply(app.world_mut());
+
+    app.world()
+        .resource::<ActiveConversation>()
+        .instance()
+        .expect("the conversation opened")
+        .clone()
+}
+
+/// **A corrected timeline that re-wears the initiator is a DIFFERENT
+/// conversation.**
+///
+/// ⛔ the defect (GPT 5.6 review, D29). `WornCharacter` is rollback-owned and
+/// runtime-mutable — the rollback registration's own docs discuss *"a rewind that
+/// restores an EARLIER `WornCharacter`"* — and it is what decides the initiator's
+/// dialogue identity for a body with no authored one. So two authoritative
+/// openings can agree on the tick, the node and BOTH bodies' `SimId`s while Yarn
+/// is entered with a different `$speaker_id`. Under an id built from the four
+/// body facts alone those were one conversation, and two authorities keyed on
+/// that id got it wrong in opposite directions:
+///
+/// * the text box's projection concluded "already attached" and left Yarn's
+///   variable storage carrying the ABANDONED branch's `$speaker_id`, so content
+///   branching on it ran as somebody else;
+/// * every retained [`super::NarrativeInputLedger`] record is instance-gated, so
+///   a grant or an ending observed under the old identity matched the corrected
+///   conversation.
+///
+/// ⭐ **the invariant**: if two authoritative openings can make Yarn observe
+/// different narrative semantics, they must not have the same instance identity.
+#[test]
+fn two_worn_characters_are_two_conversations() {
+    assert_ne!(
+        instance_wearing("mary_o"),
+        instance_wearing("sanic"),
+        "a corrected timeline that re-wore the initiator opened a conversation \
+         Yarn enters with a different $speaker_id, and the id called it the same \
+         conversation — so the abandoned branch's narrative records apply to it \
+         and the text box never re-enters the node under the identity that is \
+         actually speaking"
+    );
+}
+
+/// **And the round trip still holds**: a resimulation of the opening tick, with
+/// the restored `WornCharacter`, re-mints an EQUAL id.
+///
+/// ⚠ this is the half a nonce cannot have, and it is why the fix is a content
+/// field rather than a counter. Without it every record from the original run
+/// stops matching its own conversation on the first replayed tick.
+#[test]
+fn re_minting_from_the_restored_identity_is_equal() {
+    assert_eq!(
+        instance_wearing("mary_o"),
+        instance_wearing("mary_o"),
+        "the same opening, resimulated, minted a different id — a narrative \
+         record from the original run would no longer find its own conversation"
+    );
 }
 
 /// An app with the narrative-end half of the seam wired as the sim wires it:

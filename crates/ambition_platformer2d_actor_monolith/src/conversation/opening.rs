@@ -127,22 +127,27 @@ impl DialogueDispatch<'_, '_> {
             return false;
         };
         self.conversation.open(LiveConversation {
-            // WHICH conversation this is: when it opened, which node, and which
-            // two bodies — every ingredient read off the world at this tick, so
-            // a resimulation of it mints an equal id and a narrative record from
-            // the original run still finds its own conversation.
+            // WHICH conversation this is: when it opened, which node, which two
+            // bodies, and what Yarn is entered with — every ingredient read off
+            // the world at this tick, so a resimulation of it mints an equal id
+            // and a narrative record from the original run still finds its own
+            // conversation.
             // ⚠ `SimId`, never these entities: `LoadWorld` remaps handles.
+            // ⭐ **and the CONTEXT, not just the bodies.** `speaker_id` above
+            // falls back to the initiator's `WornCharacter`, which is
+            // rollback-owned: two corrected timelines can agree on the tick, the
+            // node and both `SimId`s while entering Yarn as different characters.
             instance: ConversationInstanceId::mint(
                 self.tick.as_ref().map_or(0, |tick| tick.0),
                 entry_node,
                 self.sim_ids.get(initiator).ok().cloned(),
                 self.sim_ids.get(talker).ok().cloned(),
+                &context,
             ),
             initiator: Some(initiator),
             talker: Some(talker),
             input_owner,
             speaker_name: speaker_name.to_owned(),
-            context,
         });
         true
     }

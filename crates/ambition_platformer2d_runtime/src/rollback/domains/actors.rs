@@ -177,6 +177,19 @@ pub(in crate::rollback) fn register(app: &mut App) {
     // Listing its parts here was a second place to keep in step, and the kind
     // that goes quietly stale.
     //
+    // ⭐ **which is what happened to the dialogue context, hashed separately here
+    // until D29.** Hashing it was a correct reading of the DESYNC question and a
+    // standing signal that the type whose whole job is identity did not carry it;
+    // it does now, so the context arrives inside `live.instance` and the three
+    // lines are gone rather than kept as a second opinion that can only agree.
+    //
+    // ⚠ **`input_owner` stays, and that is not the same judgement.** It is
+    // deliberately NOT part of conversation identity — it publishes nothing into
+    // Yarn and a correction re-derives it every tick — but a peer disagreeing
+    // about which seats the box captures is resimulating a different game. This
+    // probe asks "do two peers agree about the live conversation", which is
+    // broader than "is this the same conversation".
+    //
     // ⚠ **no raw entity numbers in the fingerprint.** Those differ across a load
     // by design, which is exactly why the entity half is probed through
     // identities. This is the complement, not a second answer to it.
@@ -194,9 +207,6 @@ pub(in crate::rollback) fn register(app: &mut App) {
                 };
                 let mut hasher = std::collections::hash_map::DefaultHasher::new();
                 live.instance.hash(&mut hasher);
-                live.context.speaker_id.hash(&mut hasher);
-                live.context.listener_id.hash(&mut hasher);
-                live.context.speaker_is_self.hash(&mut hasher);
                 match live.input_owner {
                     ambition_platformer2d_actor_monolith::conversation::ConversationInputOwner::Participant(id) => {
                         (1u8, id.slot()).hash(&mut hasher)

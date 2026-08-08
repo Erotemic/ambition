@@ -39,12 +39,11 @@ pub enum ConversationInputOwner {
 /// The live conversation's deterministic facts. Nothing presentational.
 ///
 /// ⚠ **"deterministic" is the test, not "the simulation branches on it".** The
-/// display name and the [`ambition_dialog::DialogueContext`] below are here
-/// because they are DECIDED by the simulation — read off the two bodies at the
-/// tick somebody pressed Interact — and because the text box has to be able to
-/// open from this and nothing else. The alternative is the simulation reaching
-/// into the runner while it decides, which is what put a presentation side
-/// effect inside a replayable system.
+/// display name below is here because it is DECIDED by the simulation — read off
+/// the two bodies at the tick somebody pressed Interact — and because the text
+/// box has to be able to open from this and nothing else. The alternative is the
+/// simulation reaching into the runner while it decides, which is what put a
+/// presentation side effect inside a replayable system.
 #[derive(Clone, Debug, PartialEq)]
 pub struct LiveConversation {
     /// **WHICH conversation this is** — see [`ConversationInstanceId`].
@@ -58,9 +57,19 @@ pub struct LiveConversation {
     /// — a rewind restores the authority unchanged, and a projection that could
     /// not tell would restart the runner under a player who is mid-sentence.
     ///
-    /// ⚠ **the Yarn node lives in here**, not beside it. It is one of the four
-    /// facts that make a conversation that conversation, and a second copy on
-    /// this struct would be a second answer to keep in step.
+    /// ⚠ **the Yarn node lives in here**, not beside it. It is one of the facts
+    /// that make a conversation that conversation, and a second copy on this
+    /// struct would be a second answer to keep in step.
+    ///
+    /// ⛔ **and so does the [`ambition_dialog::DialogueContext`], which used to
+    /// be a SIBLING of this field** (GPT 5.6 review, D29). It is not decoration:
+    /// the bridge publishes it as `$speaker_id`, `$listener_id` and
+    /// `$speaker_is_self`, and the speaker resolves from the initiator's
+    /// `WornCharacter` — rollback-owned and runtime-mutable. So two corrected
+    /// timelines could differ in what Yarn observes and still mint the same
+    /// instance id, which made the projection's attachment memo and every
+    /// instance-gated ledger record wrong at once. Identity is this field's whole
+    /// job; the fact belongs IN it, and [`Self::context`] reads it back out.
     pub instance: ConversationInstanceId,
     /// The body that walked up and started it. `None` for a scripted
     /// conversation with no in-world initiator.
@@ -74,11 +83,22 @@ pub struct LiveConversation {
     /// The body being talked TO — the one a hold applies to. Same handle-vs-identity
     /// split as [`Self::initiator`].
     pub talker: Option<Entity>,
+    /// **Who owns input while this is live** — see [`ConversationInputOwner`].
+    ///
+    /// ⚠ **deliberately NOT part of [`Self::instance`].** It publishes nothing
+    /// into Yarn and selects no node; `declare_in_session_input_contexts`
+    /// re-reads it off this rollback-owned authority every tick, so a correction
+    /// repairs it without identity's help. Keying on it would make "somebody
+    /// possessed the body mid-sentence" a different conversation and restart the
+    /// runner from the top. The reasoning is in [`ConversationInstanceId`]'s
+    /// module docs, with the presentation field below.
     pub input_owner: ConversationInputOwner,
     /// The display name the box shows when a line carries no speaker prefix.
+    ///
+    /// ⛔ **PRESENTATION, and the one field here that is.** A localization
+    /// changing it is not a different conversation and Yarn never sees it, so it
+    /// is out of the instance id and out of the desync fingerprint alike.
     pub speaker_name: String,
-    /// The identity context Yarn is entered with.
-    pub context: ambition_dialog::DialogueContext,
 }
 
 impl LiveConversation {
@@ -98,12 +118,17 @@ impl LiveConversation {
         input_owner: ConversationInputOwner,
     ) -> Self {
         Self {
-            instance: ConversationInstanceId::mint(0, dialogue_id, None, None),
+            instance: ConversationInstanceId::mint(
+                0,
+                dialogue_id,
+                None,
+                None,
+                &ambition_dialog::DialogueContext::scripted(),
+            ),
             initiator,
             talker,
             input_owner,
             speaker_name: String::new(),
-            context: ambition_dialog::DialogueContext::scripted(),
         }
     }
 
@@ -111,6 +136,14 @@ impl LiveConversation {
     /// rather than keeping its own idea of what is running.
     pub fn dialogue_id(&self) -> &str {
         self.instance.node()
+    }
+
+    /// **The identity context Yarn is entered with.**
+    ///
+    /// ⭐ read back out of [`Self::instance`], because it is part of what makes
+    /// this conversation this conversation — see that type's docs.
+    pub fn context(&self) -> ambition_dialog::DialogueContext {
+        self.instance.context()
     }
 
     /// The `SimTick` this conversation opened on.

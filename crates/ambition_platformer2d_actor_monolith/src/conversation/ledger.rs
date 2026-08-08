@@ -342,7 +342,13 @@ mod tests {
     struct Spoke(u32);
 
     fn instance(node: &str, tick: u64) -> ConversationInstanceId {
-        ConversationInstanceId::mint(tick, node, None, None)
+        ConversationInstanceId::mint(
+            tick,
+            node,
+            None,
+            None,
+            &ambition_dialog::DialogueContext::scripted(),
+        )
     }
 
     /// **The release is an EDGE.** A grant is not idempotent, so a level rule

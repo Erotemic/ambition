@@ -164,5 +164,10 @@ pub fn project_the_dialog_ui_from_the_conversation(
         return;
     }
     *attached = Some(live.instance.clone());
-    dialog.start(live.dialogue_id(), &live.speaker_name, live.context.clone());
+    // ⭐ **the memo and the context now come from the SAME value**, which is what
+    // makes "am I already attached" a sound question to ask (D29). While the
+    // context was a sibling of the instance id, a correction that re-wore the
+    // initiator produced an equal id, this returned early above, and Yarn kept
+    // running with the abandoned branch's `$speaker_id` in its variable storage.
+    dialog.start(live.dialogue_id(), &live.speaker_name, live.context());
 }

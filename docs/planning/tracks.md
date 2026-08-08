@@ -573,9 +573,21 @@ From `untracked/jonnotes-FIXES.md`, verified state in deep-review §8:
 - shrine + glider sprite repair (shrine mechanic itself is still a stub);
 - kernel-guide NPC: peaceful-state patrol around a home base (authored brain
   policy, existing vocabulary);
-- possession-aware dialog: speaker/listener identity derives from the actors
-  in the conversation, not "the player" (dialog already has stable identity;
-  model listener-side adaptation);
+- ~~possession-aware dialog: speaker/listener identity derives from the actors
+  in the conversation, not "the player"~~ **DONE 2026-08-08**, landed as a side
+  effect of the GPT 5.6 review campaign rather than as this item. Verified:
+  `interact.rs:118` takes `speaker_id` from the **subject body** — whatever is
+  driving, possessed or not — and `:138` takes `listener_id` from the
+  interactable's own character id. **No `is_player` or "the player" branch exists
+  anywhere in the conversation path.** `conversation::opening::driving_slot`
+  answers "whose body is this" from the `Brain`, so a seat that possessed an
+  actor and walked it to an NPC is attributed correctly *without the module
+  knowing possession exists*, and `ConversationInstanceId` carries **both**
+  bodies' `SimId`s.
+  ⚠ **what is genuinely NOT done is the second clause**: *model listener-side
+  adaptation*. Identity is possession-aware; nothing yet makes an NPC say a
+  different line because of who is wearing the body in front of it.
+  `$speaker_is_self` is the one adaptation that exists.
 - `AMBITION_START_CHARACTER=sanic`: trace why the persona grants
   blink/fireballs and loses move/jump in the full app — per-character
   ActionScheme data + host input hookups; fix as data/seams, not special cases.

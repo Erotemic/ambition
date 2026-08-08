@@ -380,6 +380,47 @@ someone who knows what is still live:
 message warns against, and it is what the pressure produces when the only
 reachable lines are the ones still being used.
 
+### ⭐ MEASURED 2026-08-08 — the judgement has a defensible proxy
+
+It is **36 docs and 17,020 lines** now, not 33 and 15,257. Three cheap signals
+turn "is this history?" into a shortlist, and none of them is taste:
+**inbound references** (how many other docs point at it), **last touched**, and
+**open marks**.
+
+⭐ **inbound count is the load-bearing one.** A doc nothing points at can be
+archived without breaking a reader's path; a doc thirty things point at is
+structure, whatever its age.
+
+**Archive candidates — few inbound, untouched since July, nothing open:**
+
+| doc | lines | inbound | last touched |
+|---|---:|---:|---|
+| `presentation-and-shell-audit.md` | 237 | **1** | 2026-07-27 |
+| `sprite-renderer.md` | 174 | **1** | 2026-07-19 |
+| `character-bone-rig-conversion.md` | 168 | **1** | 2026-07-24 |
+| `shell-vanity-sequence.md` | 217 | **2** | 2026-07-19 |
+| `svg-component-character-migration.md` | 375 | 3 | 2026-07-23 |
+
+That is ~1,171 lines on five judgements, each of which is *"is this design still
+being read?"* rather than *"is the engine done with it?"*
+
+⛔ **NOT archive candidates, despite being the largest** — these are what the
+"biggest files first" instinct would have picked:
+`immutable-content-and-transactional-construction.md` (2,406 lines but **12**
+inbound), `architecture.md` (218 lines and **30** inbound — the directory's
+hub), `decomposition.md` (187 lines, **21** inbound). Size and liveness are
+uncorrelated here.
+
+⚠ **and `api-1.0-campaign.md`, the row's own "most likely candidate", has 9
+inbound references and one open mark.** It is cited as structure by nine other
+documents; archiving it on the grounds that its campaign closed would break all
+nine. The row's guess was reasonable and the measurement does not support it.
+
+⚠ only **5 of the 36** carry any open mark at all
+(`competitive-2d-platformer-engine-roadmap` 4, `participant-action-system` 2,
+`api-1.0-campaign` 1, `character-definition-design` 1), so "has open work" does
+not discriminate — which is exactly why this needed a different signal.
+
 ⊘ **not proposed: raising the budget.** A soft ceiling nobody can meet stops
 being read, but so does one that is raised whenever it is inconvenient. It should
 move because somebody decided what belongs in `docs/planning`, not to silence a

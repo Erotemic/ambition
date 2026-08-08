@@ -241,3 +241,71 @@ having recompiled all 688 units in 540 s against two honest rebuilds at 188 s an
   and `codegen-units = 1` near it belong to `[profile.android-size]`. Dev carries
   hand-picked `opt-level = 0` overrides for the three worst crates; release has
   had no attention. Given §3, that is where the lever is.
+
+---
+
+# Addendum — the REAL loop, measured (2026-08-08, later)
+
+Everything above measures builds staged for measurement. Jon's response was that
+the useful measurement is *"the effect of real workflows on compile and test
+time … inform how often we should be running some of these commands versus
+adding code in batches, or working in the background while compiles and tests
+run."*
+
+Nothing was collecting that. The goal guard runs `cargo check -p ambition_app`
+and the whole `app_it` suite every time a turn ends — `.goal/state.json` recorded
+**114 such runs between 01:48 and 13:05** with no duration kept for any of them.
+`goal_guard.py` now times each check and appends a row to
+`.goal/check_cost.jsonl` (under `.goal/`, which the uncommitted-tree check
+excludes, so the recorder cannot fail the run it measures).
+
+## First five rows
+
+| # | total | `cargo check` | `app_it` | contracts | load before→after | cargo procs |
+|---|---|---|---|---|---|---|
+| 1 | 161.1 | 0.5 | 158.4 | 2.0 | 2.32 → 5.90 | 0 |
+| 2 | 134.3 | 0.5 | 131.9 | 1.8 | 2.03 → 5.33 | 0 |
+| 3 | 212.0 | 0.7 | 208.8 | 2.4 | 1.56 → 13.92 | 0 |
+| 4 | 208.8 | **20.9** | 185.2 | 2.5 | 4.84 → 9.82 | 2 |
+| 5 | 235.3 | **16.7** | 216.0 | 2.5 | 7.37 → 14.02 | 0 |
+
+**`app_it` is 94.6% of all check time so far.** Every question about cadence is
+a question about that one command.
+
+## Two things visible at n=5
+
+⭐ **`cargo check` spreads 41x — 0.5 s to 20.9 s.** Warm it is free; after a Rust
+edit it is 17–21 s. So "should I check more often, or batch edits?" has an easy
+half: **checking is not what costs.** Batching edits to avoid `cargo check` saves
+nothing worth having.
+
+⚠ **the suite spreads 1.64x — 131.9 s to 216.0 s — and it orders PERFECTLY by
+load.** Sorted by `load_after`: 5.33 → 131.9, 5.90 → 158.4, 9.82 → 185.2,
+13.92 → 208.8, 14.02 → 216.0. Five points in exact order is a 1-in-120
+coincidence if load did nothing.
+
+⛔ **but do not take that as measured yet, for a specific reason**: `load_after`
+is sampled *after* the suite ran, so it is not independent of the thing being
+measured — the suite contributes to its own reading. `load_before` does NOT order
+the same way (row 3 has the lowest load_before and the second-highest suite
+time), which is exactly the kind of disagreement that means the causal story is
+not settled. What is needed is more rows, and a `load` sample taken *during* the
+suite rather than around it.
+
+## What it already says about working in the background
+
+If the ordering holds, **running a subagent while the Stop check runs costs
+roughly 45% more suite time** (rows 1–2 average 145 s at low load; rows 3 and 5
+average 212 s at high load). That is a direct answer to Jon's third question, and
+an uncomfortable one for how this session has been operating: the supervisor
+dispatches an agent, the agent compiles, and the guard's suite — which gates
+every turn — runs into it.
+
+⭐ **the honest framing is a trade, not a mistake.** Background work is why more
+gets done per hour; it is not free, and the tax lands on the one command that is
+94.6% of the checking budget. The fix is probably not "stop working in the
+background" but **make the gate cheaper for turns that cannot have broken it** —
+a docs-only turn running the full combat suite is pure tax.
+
+⚠ n=5. This section exists to say what is being collected and what it hints at,
+not to conclude. Re-read it at n=50.

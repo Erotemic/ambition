@@ -133,7 +133,12 @@ audio = [
     "ambition_content/audio",
     "dep:bevy_kira_audio",
 ]
-ui = ["ambition_platformer2d/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
+# `ui` is the DIALOGUE/YARN umbrella, not a widget-framework switch. It stopped
+# pulling `bevy_material_ui` on 2026-08-08: nothing named a type from that crate
+# and the one thing believed to depend on its plugins (the launcher title's font
+# size) was measured identical without them. What `ui` still buys is the Yarn
+# runtime and `ambition_dialog/ui` downstream. Ambition's own UI is plain Bevy UI.
+ui = ["ambition_platformer2d/ui", "ambition_content/ui", "dep:bevy_yarnspinner"]
 physics_debris = ["ambition_platformer2d/physics_debris"]
 input = ["ambition_platformer2d/input", "dep:leafwing-input-manager"]
 mobile_touch = ["input", "ambition_platformer2d/mobile_touch"]
@@ -166,7 +171,6 @@ ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope", optional 
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy_yarnspinner = { version = "0.8", optional = true }
-bevy_material_ui = { version = "0.2.7", default-features = false, features = ["bevy_minimal"], optional = true }
 bevy_asset_loader = { version = "0.26", optional = true }
 bevy_ecs_ldtk = { version = "0.14", optional = true }
 bevy-inspector-egui = { version = "0.36", optional = true }

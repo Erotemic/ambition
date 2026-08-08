@@ -750,15 +750,75 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
 /// Pinning "the footer is 3.8" would make a design tweak a test failure while
 /// still passing if somebody made the rows tiny too; what matters is that the
 /// footer is legible next to the thing it sits under.
+///
+/// ⛔ **and it may never identify a text node by its STRING alone.** (2026-08-08.)
+/// `"Ambition"` is on this screen TWICE and always was: it is the title of the
+/// launcher AND the label of the first game in the roster, which is the game
+/// called Ambition. The title is a `MenuNode::Text` (60.5px, carries
+/// [`MenuTextHeightFraction`]); the row label is a control's child (20.0px,
+/// Bevy's `TextFont` default, no fraction — `spawn_control` sets the font HANDLE
+/// and nothing else). A global `find(label == "Ambition")` therefore returns
+/// whichever of the two the query's archetype order reaches first, which is not
+/// a property of the launcher at all.
+///
+/// That is exactly what happened: this test passed for five days only because
+/// `bevy_material_ui`'s plugins shifted archetype/table creation order enough to
+/// put the title's archetype ahead of the control-label archetype. Removing them
+/// flipped the order, the `find` returned the 20px ROW, and the failure was read
+/// as "menu typography stopped resolving" and written into `add_ui_plugins` as a
+/// load-bearing dependency. It was neither: the title measured 60.48px in both
+/// compositions, and `resolve_menu_text_size` is a provable no-op here (this App
+/// has no primary window, so the resolver writes back the reference size the
+/// spawner already wrote).
+///
+/// So the two typographic roles are found by ROLE — a launcher-scoped text node
+/// carrying [`MenuTextHeightFraction`] — and the lookup asserts the match is
+/// UNIQUE, so a future duplicate label fails loudly instead of picking one.
+///
+/// [`MenuTextHeightFraction`]: ambition_platformer2d::menu::MenuTextHeightFraction
 #[test]
 fn the_title_screen_says_choose_game_and_is_readable() {
+    use ambition_platformer2d::menu::MenuTextHeightFraction;
+
     let mut app = rendered_app();
     settle(&mut app);
 
-    let mut texts = app.world_mut().query::<(&Text, &TextFont)>();
-    let rendered: Vec<(String, f32)> = texts
+    // Every text under the launcher UI root, tagged with whether it is one of
+    // the menu's own typographic nodes or a control's label.
+    let launcher = {
+        let mut roots = app
+            .world_mut()
+            .query_filtered::<Entity, With<BasicShellUiRoot>>();
+        let mut found = roots.iter(app.world());
+        let root = found.next().expect("the launcher UI root is not on screen");
+        assert!(
+            found.next().is_none(),
+            "more than one launcher UI root; this test would be reading an \
+             arbitrary one"
+        );
+        root
+    };
+    let mut parents = app.world_mut().query::<(Entity, &ChildOf)>();
+    let parent_of: std::collections::HashMap<Entity, Entity> =
+        parents.iter(app.world()).map(|(e, c)| (e, c.0)).collect();
+    let under_launcher = |mut entity: Entity| -> bool {
+        for _ in 0..32 {
+            match parent_of.get(&entity) {
+                Some(parent) if *parent == launcher => return true,
+                Some(parent) => entity = *parent,
+                None => return false,
+            }
+        }
+        false
+    };
+
+    let mut texts = app
+        .world_mut()
+        .query::<(Entity, &Text, &TextFont, Option<&MenuTextHeightFraction>)>();
+    let rendered: Vec<(String, f32, bool)> = texts
         .iter(app.world())
-        .map(|(text, font)| (text.0.clone(), font.font_size))
+        .filter(|(entity, ..)| under_launcher(*entity))
+        .map(|(_, text, font, fraction)| (text.0.clone(), font.font_size, fraction.is_some()))
         .collect();
     assert!(
         !rendered.is_empty(),
@@ -767,26 +827,37 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     );
 
     assert!(
-        rendered.iter().any(|(label, _)| label == "Choose Game"),
+        rendered.iter().any(|(label, ..)| label == "Choose Game"),
         "the game-select screen still heads itself with a verb: {:?}",
-        rendered.iter().map(|(l, _)| l).collect::<Vec<_>>()
+        rendered.iter().map(|(l, ..)| l).collect::<Vec<_>>()
     );
     assert!(
-        !rendered.iter().any(|(label, _)| label == "Play"),
+        !rendered.iter().any(|(label, ..)| label == "Play"),
         "'Play' is still on the select screen; it belongs on the confirm button"
     );
 
-    // Assert the LAUNCHER's own three text roles by name, not a global min/max
-    // over every text node. The first version of this test did the latter and
-    // was measuring the wrong population: the touch-control overlay ("Dash",
+    // Assert the LAUNCHER's own text roles by role, not a global min/max over
+    // every text node. The first version of this test did the latter and was
+    // measuring the wrong population: the touch-control overlay ("Dash",
     // "Blink") and the FPS readout are legitimately small and are not what Jon
     // was reading.
-    let size_of = |wanted: &str| -> f32 {
-        rendered
+    //
+    // `typography_sized` selects among the launcher's `MenuNode::Text` nodes
+    // only — never a control's label — and REQUIRES the match to be unique.
+    let typography_sized = |matches: &dyn Fn(&str) -> bool, wanted: &str| -> f32 {
+        let hits: Vec<f32> = rendered
             .iter()
-            .find(|(label, _)| label == wanted)
-            .map(|(_, size)| *size)
-            .unwrap_or_else(|| panic!("{wanted:?} is not on the title screen: {rendered:?}"))
+            .filter(|(label, _, has_fraction)| *has_fraction && matches(label))
+            .map(|(_, size, _)| *size)
+            .collect();
+        assert_eq!(
+            hits.len(),
+            1,
+            "expected exactly one launcher text node for {wanted}, found \
+             {}: {rendered:?}",
+            hits.len()
+        );
+        hits[0]
     };
 
     // The title. It rendered at FIVE PIXELS, and the cause was not the launcher:
@@ -797,7 +868,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     // as a percentage, so every heading the flat renderer drew was two to five
     // pixels tall. `MenuTextHeightFraction` makes the percentage the meaning and
     // `resolve_menu_text_size` converts it against the live window.
-    let title = size_of("Ambition");
+    let title = typography_sized(&|label| label == "Ambition", "the title");
     assert!(
         title >= 32.0,
         "the title renders at {title:.1}px — this is the units bug, not a taste \
@@ -805,11 +876,7 @@ fn the_title_screen_says_choose_game_and_is_readable() {
     );
 
     // The footer. Jon: "the text at the bottom is WAY too small." It was 2.6px.
-    let footer = rendered
-        .iter()
-        .find(|(label, _)| label.contains("Enter launches"))
-        .map(|(_, size)| *size)
-        .expect("the launcher footer is not on screen");
+    let footer = typography_sized(&|label| label.contains("Enter launches"), "the footer");
     assert!(
         footer >= 14.0,
         "the footer renders at {footer:.1}px, which is small print in the sense \

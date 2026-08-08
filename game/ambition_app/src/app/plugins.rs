@@ -389,7 +389,11 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(ambition_platformer2d::sprite_sheet::SheetRegistryPlugin);
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
-    add_ui_plugins(app);
+    // No UI-widget-framework plugin is installed here, and there is no
+    // `add_ui_plugins` to call. This app's UI is plain Bevy UI plus the
+    // typography Ambition owns (`MenuFont`, `MenuTextHeightFraction`,
+    // `resolve_menu_text_size`). See the note on the `ui` feature in
+    // `Cargo.toml` for what that feature still buys.
     // Input bindings/bridge live in `ambition_platformer2d::host::HostInputBindingsPlugin`
     // (E5 step 5). The app-local preset→InputMap resync that sat here
     // (`sync_preset_input_map`) is deleted: it reached its participant with
@@ -799,54 +803,35 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
 #[cfg(not(feature = "physics_debris"))]
 pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 
-/// Install UI-shell plugins: bevy_material_ui's styling layer. Ambition's
-/// dialogue presenter is mounted by `AmbitionPresentationPlugin` and draws with Bevy's
-/// core UI primitives and stays installed unconditionally; only
-/// the optional plugins live behind `ui`.
-///
-/// `YarnSpinnerPlugin` is mounted alongside the bridge in
-/// `build_sandbox_simulation_plugins` so the yarn runtime,
-/// the bridge observers, and the binding registrations all spawn
-/// in one place. Don't re-mount it here.
-/// ⭐ **THE TWO PIECES THIS GAME DRAWS, not the bundle of thirty.**
-///
-/// `MaterialUiPlugin` is a convenience bundle: `MaterialUiCorePlugin` (theme,
-/// icons, focus, ripple) plus **29 component plugins** — button, fab, card,
-/// checkbox, radio, switch, slider, text field, progress, dialog, list, menu,
-/// tabs, select, button group, motion, snackbar, chip, app bar, badge, tooltip,
-/// scroll, DATE PICKER, TIME PICKER, search, toolbar, loading indicator,
-/// adaptive. The crate's own docs offer the core separately for exactly this
-/// reason. Ambition draws no Material date picker.
-///
-/// MEASURED (2026-08-03, `tests/update_schedule_census.rs`): the full bundle put
-/// **182 systems into `Update` — 31% of the entire schedule**, half of every
-/// system in it belonging to no set, running every frame including the title
-/// screen. That is precisely where `dev/journals/code_smells.md` measured the
-/// executor spending 10–18% of CPU self-time. Trimmed: **584 → 428 systems.**
-///
-/// ⚠ **`DialogPlugin` is load-bearing and was found by BISECT, not by reading.**
-/// `git grep bevy_material_ui` returns one file — this one — so nothing names a
-/// type from the crate, and I first concluded it was unused. Removing it
-/// entirely fails `the_title_screen_says_choose_game_and_is_readable`: the title
-/// renders at 20.0px, Bevy's default, because menu typography stops resolving. A
-/// plugin contributes SYSTEMS AND RESOURCES, not names, so no grep could have
-/// shown this. Six bisect steps against that one test found the pair.
-///
-/// ⛔ **so do not "simplify" this back to `MaterialUiPlugin`**, and do not drop
-/// `DialogPlugin` because nothing appears to use it. Both moves have been tried
-/// and measured here. If a Material widget is added later, add ITS plugin beside
-/// these two.
-#[cfg(feature = "ui")]
-pub(super) fn add_ui_plugins(app: &mut App) {
-    app.add_plugins((
-        bevy_material_ui::MaterialUiCorePlugin,
-        bevy_material_ui::dialog::DialogPlugin,
-    ));
-}
-
-#[cfg(not(feature = "ui"))]
-pub(super) fn add_ui_plugins(_app: &mut App) {}
-
+// `bevy_material_ui` used to be installed here (`MaterialUiCorePlugin` +
+// `dialog::DialogPlugin`) and is GONE as of 2026-08-08. Nothing replaced it: no
+// widget framework, no new typography layer. Ambition's UI is plain Bevy UI plus
+// the typography it already owns — `MenuFont`, `MenuTextHeightFraction` and
+// `resolve_menu_text_size` in `ambition_menu`.
+//
+// ⚠ **the comment that stood here claimed `DialogPlugin` was LOAD-BEARING for
+// menu typography. It was not, and the claim is worth recording because of how
+// convincing it looked.** It came from a six-step bisect: removing the pair made
+// `the_title_screen_says_choose_game_and_is_readable` read the title at 20.0px,
+// so the conclusion drawn was "menu typography stops resolving". The bisect was
+// real; the mechanism was invented.
+//
+// What was actually measured on 2026-08-08, by dumping every `Text` entity in
+// the settled launcher with and without the plugins: **the two worlds are the
+// same.** 29 text entities either way, same labels, and the launcher title is
+// 60.48px in BOTH. What changed was the order a global
+// `Query<(&Text, &TextFont)>` walked its archetypes — and `"Ambition"` is on
+// that screen twice, as the launcher's title AND as the roster row for the game
+// called Ambition (20.0px, `TextFont`'s default size, spawned by
+// `spawn_control`). The test's `find(label == "Ambition")` was reading whichever
+// came first, and these plugins were shifting archetype/table creation order.
+// `resolve_menu_text_size` could not have been the cause at all: that App has no
+// primary window, so the resolver writes back exactly the reference size the
+// spawner already wrote.
+//
+// The test now selects the title by ROLE inside the launcher root and asserts
+// the match is unique, so this cannot recur.
+//
 // The leafwing input bindings + the device→ControlFrame bridge live in
 // `ambition_platformer2d::host::HostInputBindingsPlugin` (E5 step 5); the dev
 // preset-input-map sync stays registered app-side (dev_runtime).

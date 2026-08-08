@@ -31,7 +31,7 @@ is the only ordering a maintainer can triage from.
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
 | Is a crate name part of the rollback wire format? | rollback schema policy | recommendation present |
 | How should the portal map convention stop being a process global? | portal authoring | recommendation present |
-| Which of the 33 engine design documents have become history? | the `docs/planning` line budget (31,690 vs 10,500) | needs someone who knows what is live |
+| Which of the 33 engine design documents have become history? | the `docs/planning` line budget (**31409** vs 10,500) | needs someone who knows what is live |
 | Should the Hall cast and content bosses declare dormancy? | 129 no-op brain ticks | recommendation: bosses yes, Hall wait |
 | Are the three named robot heavies characters, or variant art? | casting | recommendation present |
 | Does the Perfect Cellular Automaton fly when it fights? | one fighter's kit | recommendation present |

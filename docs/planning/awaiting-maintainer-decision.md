@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 6 open, added 2026-08-08
+## ⇥ INDEX — 5 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -26,7 +26,6 @@ is the only ordering a maintainer can triage from.
 | Question | Blocks | State |
 |---|---|---|
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
-| Which of the 33 engine design documents have become history? | **stale reporting that never gets cleaned up** — ⛔ NOT a line budget, see the row below | ⚠ **Jon, 2026-08-08: not the priority right now** |
 | The top four ladder rungs ship a knob that makes them worse | ladder calibration | no recommendation |
 | Can a flying fighter shield? | duel rules | no recommendation |
 | Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |

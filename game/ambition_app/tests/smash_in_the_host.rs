@@ -807,7 +807,15 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     assert!(
         moved_one.abs() < moved_two.abs() * 0.25,
         "the pad moved the KEYBOARD player's fighter ({moved_one:.2}px against the \
-         pad player's {moved_two:.2}px) - the two seats are reading the same source"
+         pad player's {moved_two:.2}px) - the two seats are reading the same source.\n\
+         ⚠ READ THE SIGNS BEFORE BELIEVING THAT SENTENCE. Two seats on one device \
+         move the SAME way. Opposite signs — especially the presser going BACKWARDS \
+         — is CONTACT push-apart between two overlapping fighters, which this \
+         message reported as crosstalk for a day on 2026-08-07 (it was \
+         `realize_seat` keying a body by its CHARACTER, so a mirror match put both \
+         seats on one anti-clump slot; fixed in 65d31c116). The bodies are {:.2}px \
+         apart on x at this measurement.",
+        (x(&app, body_two) - x(&app, body_one)).abs()
     );
 
     // Let the pad player settle, then do it the other way round.
@@ -834,7 +842,12 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
     assert!(
         keyboard_moved_two.abs() < keyboard_moved_one.abs() * 0.25,
         "the keyboard moved the PAD player's fighter ({keyboard_moved_two:.2}px \
-         against the keyboard player's {keyboard_moved_one:.2}px)"
+         against the keyboard player's {keyboard_moved_one:.2}px).\n\
+         ⚠ SAME WARNING AS THE PAD HALF ABOVE — check the signs and the separation \
+         ({:.2}px apart on x here) before concluding the seats share a source. This \
+         is the assertion that misreported contact push-apart as crosstalk on \
+         2026-08-07.",
+        (x(&app, body_two) - x(&app, body_one)).abs()
     );
 }
 

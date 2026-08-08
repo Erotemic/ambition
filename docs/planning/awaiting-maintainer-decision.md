@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 17 open, added 2026-08-08
+## ⇥ INDEX — 14 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -31,10 +31,7 @@ is the only ordering a maintainer can triage from.
 | How should the portal map convention stop being a process global? | portal authoring | recommendation present |
 | Which of the 33 engine design documents have become history? | **stale reporting that never gets cleaned up** — ⛔ NOT a line budget, see the row below | ⚠ **Jon, 2026-08-08: not the priority right now** |
 | Should the Hall cast and content bosses declare dormancy? | 129 no-op brain ticks | recommendation: bosses yes, Hall wait |
-| Are the three named robot heavies characters, or variant art? | casting | recommendation present |
-| Does the Perfect Cellular Automaton fly when it fights? | one fighter's kit | recommendation present |
 | The top four ladder rungs ship a knob that makes them worse | ladder calibration | no recommendation |
-| Hitstun keeps ATTACK and strips RECOVERY — right for a body knocked OFF? | combat feel | no recommendation |
 | Can a flying fighter shield? | duel rules | no recommendation |
 | Should a crawler's collision volume ORIENT with its attachment? | the adhesive-crawler bug | no recommendation |
 | Per-block art seam, or move Mary-O 1-1 to LDtk? | authoring direction | no recommendation |

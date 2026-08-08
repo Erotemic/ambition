@@ -245,7 +245,14 @@
   sanic` now writes a picture of him standing in Ambition's central hub.
   ✔ **fireballs were already gone** — fixed 2026-07-05 when
   `overlay_character_moveset` was deleted.
-  ▢ **blink is still there, and it is a QUESTION FOR YOU rather than a bug.** It
+  ✔ **ANSWERED 2026-08-08: Sanic does NOT have blink** (Jon: *"sanic should not
+  have blink"*). ⭐ **not a hard-coded exception** — he ruled the same day that
+  capabilities are authored and explicit, and Sanic gets blink today precisely by
+  INHERITING the dev set he declares nothing against. So his kit becomes
+  authored and blink is simply absent from it; special-casing him would rebuild
+  the defect. See `maintainer-decisions.md`.
+  The original note:
+  ⊙ **blink is still there, and it is a QUESTION FOR YOU rather than a bug.** It
   comes from the home body's own `AbilitySet` (the dev `EditableAbilitySet` grants
   the full traversal kit), which is the documented *"the box keeps its traversal
   kit"* design. **Whether Sanic should keep blink is product, not repair** — say

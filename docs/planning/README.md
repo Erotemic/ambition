@@ -8,8 +8,18 @@ plans, and review evidence belong under [`docs/archive/`](../archive/).
 
 **Two files, and `▢` is the index into both.**
 
-* [`queue-72h-2026-08-06.md`](queue-72h-2026-08-06.md) — the live run ledger,
-  lanes A–F. This is the current work.
+* [`queue-72h-2026-08-08.md`](queue-72h-2026-08-08.md) — **the live run ledger**,
+  lanes A–D. This is the current work.
+  ⛔ **this pointer is dated and it goes stale the moment a run is replaced —
+  update it in the same commit that opens the new ledger.** It named the
+  2026-08-06 run until 2026-08-08, two days after that run ended, so the file
+  whose own heading is *"Where the open work is"* sent every new reader to a
+  retired ledger carrying **24 `▢` marks that are not things to do** — while
+  three paragraphs below declaring that `▢` means a thing to do and nothing else.
+  * [`queue-72h-2026-08-06.md`](queue-72h-2026-08-06.md) — the RETIRED previous
+    run. Read it for the standing state it recorded, never for its open rows;
+    its two genuinely-open rows were carried into the live ledger as **D13** on
+    2026-08-08.
 * [`tracks.md`](tracks.md) — the standing executable queue, longer-lived than any
   one run.
 

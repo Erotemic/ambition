@@ -89,6 +89,7 @@ mod rollback_match_activation;
 mod rollback_room_transition;
 mod rollback_schema_baseline;
 mod rollback_seat_devices;
+mod room_boundary_unclaimed_views;
 mod room_replay_seam;
 mod room_spatial_integrity;
 mod scripted_gameplay;

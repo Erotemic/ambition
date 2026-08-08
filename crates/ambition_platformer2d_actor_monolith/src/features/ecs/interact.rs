@@ -4,8 +4,19 @@
 //! reward/persistence path; this system covers the conversational
 //! and switch-activation interactions that share the
 //! `PlayerInteractionState` buffered-press contract.
+//!
+//! ⚠ **the DIALOGUE half moved to `crate::conversation::opening`.** This module
+//! owns the interaction facts — a body, a reach box, a buffered press — and the
+//! world-side consequences of a conversation starting (the banner, the flags,
+//! the quest pump, the mode flip). Deciding whether the pair has anything to say
+//! and what the conversation IS belongs to the dialogue domain, and keeping it
+//! here was the last thing pinning `ambition_dialog` into `features`.
 
 use super::*;
+
+// ⭐ the ONLY dialogue name this module has left, and it is a port rather than a
+// type from `ambition_dialog`. See `crate::conversation::opening`.
+use crate::conversation::DialogueDispatch;
 
 /// Handle interactions with ECS switches and peaceful NPCs. Chests stay in
 /// `open_ecs_chests` because they have their own reward/persistence path.
@@ -104,9 +115,11 @@ pub fn interact_ecs_actors_and_switches(
     // would make dialogue authority depend on whichever provider initialized
     // first in this process. A speaker-less body skips dialogue but still
     // works switches below.
-    let speaker_id =
-        dialogue_identity(interactions.get(subject).ok(), identities.get(subject).ok())
-            .or_else(|| dialogue.worn.get(subject).ok().map(|w| w.id().to_string()));
+    let speaker_id = dialogue.speaker_id(
+        subject,
+        interactions.get(subject).ok(),
+        identities.get(subject).ok(),
+    );
     for (actor_entity, aabb, disposition, identity, interaction_payload, health) in &actors {
         let Some(speaker_id) = speaker_id.as_deref() else {
             break;
@@ -122,24 +135,29 @@ pub fn interact_ecs_actors_and_switches(
         }
         let request =
             super::super::npcs::npc_dialogue_request(interactable, &identity.name, &identity.id);
-        let listener_id = character_id_of(interactable).unwrap_or(&identity.id);
-        let context = ambition_dialog::DialogueContext::between(speaker_id, listener_id);
+        let listener_id =
+            crate::conversation::character_id_of(interactable).unwrap_or(&identity.id);
 
-        // SELF-TALK. The speaker IS the listener — the player possessed this body,
-        // or wears the character it is. By default a body has nothing to say to
-        // itself, and the interaction is SUPPRESSED here, BEFORE the banner, the
-        // flags, the quest pump, and the mode flip: an interaction that does not
-        // happen must leave no trace. Content opts in by authoring a
-        // `<dialogue_id>__self` node, which becomes the node we enter.
+        // **THE DIALOGUE DECISION IS THE DIALOGUE DOMAIN'S.** Whether this pair
+        // has anything to say — a self-conversation needs an authored `__self`
+        // branch — and what the conversation IS are both answered there; this
+        // system owns the INTERACTION facts (a body, a reach box, a buffered
+        // press) and the world-side consequences below.
         //
-        // `continue`, not `return`: another body in reach may still be talkable,
-        // and the buffered press has not been consumed.
-        let Some(entry_node) = dialogue
-            .nodes
-            .entry_node(&request.dialogue_id, context.speaker_is_self)
-        else {
+        // ⚠ `continue`, not `return`: another body in reach may still be
+        // talkable, and the buffered press has not been consumed. An
+        // interaction that does not happen must leave no trace — no banner, no
+        // flags, no quest pump, no mode flip.
+        if !dialogue.open_between(
+            subject,
+            actor_entity,
+            &request.dialogue_id,
+            &request.npc_name,
+            speaker_id,
+            listener_id,
+        ) {
             continue;
-        };
+        }
 
         slot_gestures.primary_mut().clear();
         anim.interact_anim_timer = INTERACT_ANIM_HOLD_SECS;
@@ -147,49 +165,6 @@ pub fn interact_ecs_actors_and_switches(
             super::super::npcs::npc_message(interactable, &identity.name, false),
             2.6,
         );
-        // **THE AUTHORITY, in one call.** ⛔ this was `start()` then
-        // `set_speaker_entity()` then `set_initiator_entity()` — three calls to
-        // establish one fact, where a conversation existed and was missing a
-        // participant in between. Both bodies and the seat that owns the
-        // conversation are now settled at the moment it opens or not at all.
-        //
-        // ⭐ and the OTHER participant is here symmetrically: a conversation the
-        // world keeps running through has to be able to ask about both bodies —
-        // how far apart they are, whether either can hold station, whether
-        // either was hit — and none of that can be asked of a character id.
-        //
-        // ⛔ **AND THE TEXT BOX IS NO LONGER OPENED FROM HERE.** This system
-        // runs in the SIM schedule, so a rollback across
-        // the tick somebody pressed Interact replays it — and
-        // `DialogState::start` is not a harmless setter: it resets the line, the
-        // options and the typewriter and enqueues a `runner.start_node`.
-        // `DialogState` is left out of rollback so a rewind does not stutter the
-        // box, and replaying this call stuttered it anyway. The box is a
-        // PROJECTION of the authority now, opened by
-        // `open_dialog_ui_when_the_conversation_starts` outside the sim
-        // schedule — so everything it needs is stated here, at the tick the
-        // decision is made.
-        let input_owner = conversation_owner(&dialogue.driver, subject);
-        dialogue
-            .conversation
-            .open(crate::conversation::LiveConversation {
-                // WHICH conversation this is: when it opened, which node, and
-                // which two bodies — every ingredient read off the world at this
-                // tick, so a resimulation of it mints an equal id and a narrative
-                // record from the original run still finds its own conversation.
-                // ⚠ `SimId`, never these entities: `LoadWorld` remaps handles.
-                instance: crate::conversation::ConversationInstanceId::mint(
-                    dialogue.tick.map_or(0, |tick| tick.0),
-                    entry_node.clone(),
-                    dialogue.sim_ids.get(subject).ok().cloned(),
-                    dialogue.sim_ids.get(actor_entity).ok().cloned(),
-                ),
-                initiator: Some(subject),
-                talker: Some(actor_entity),
-                input_owner,
-                speaker_name: request.npc_name.clone(),
-                context,
-            });
         next_mode.set(ambition_platformer2d_shared_tangle::schedule::GameMode::Dialogue);
         quest_advance.write(QuestAdvanceRequested(
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
@@ -234,115 +209,6 @@ pub fn interact_ecs_actors_and_switches(
         });
         // Switch activation is per-target; once we flip one we stop.
         return;
-    }
-}
-
-/// The dialogue-dispatch seam: everything `interact_*` needs to decide WHETHER a
-/// conversation happens and WHO it is between.
-///
-/// Grouped into one `SystemParam` because they are one concern, and because the
-/// interact system is already at Bevy's parameter ceiling — a signal that a
-/// system reaching for this many worlds should name its sub-worlds.
-#[derive(bevy::ecs::system::SystemParam)]
-pub struct DialogueDispatch<'w, 's> {
-    /// What the SIMULATION believes about the live conversation. Rollback-owned.
-    ///
-    /// ⛔ **`DialogState` used to be here beside it, and its removal is the
-    /// point.** The UI read-model is not rewound — deliberately, because
-    /// rewinding a typewriter would stutter the text box — so a simulation
-    /// system that TOUCHED it, in either direction, was reaching across the
-    /// rollback boundary. Reading it would branch on another timeline's state;
-    /// writing it (which this did, to open the runner) replays the write. The
-    /// box follows this resource now and this system never names it.
-    pub conversation: ResMut<'w, crate::conversation::ActiveConversation>,
-    /// WHEN a conversation opened, which is part of what it IS — see
-    /// `LiveConversation::opened_at`. `Option` for the same reason preparation's
-    /// is: a composition with no timeline has no replay to disagree with.
-    pub tick: Option<Res<'w, ambition_time::SimTick>>,
-    /// Who drives a body, for attributing the conversation to a seat.
-    ///
-    /// ⭐ the brain is what actually answers "whose body is this" — possession is
-    /// a brain transfer, so a possessed actor's conversation belongs to the seat
-    /// that possessed it without this needing to know possession exists.
-    pub driver: Query<'w, 's, &'static ambition_characters::brain::Brain>,
-    /// The two bodies' STABLE identities, for the conversation's instance id.
-    ///
-    /// ⛔ not the entities beside them: GGRS remaps entity handles on
-    /// `LoadWorld`, so an id built from one names a different body after a
-    /// restore. A body with no `SimId` yields `None`, which is a weaker id
-    /// rather than a wrong one — see [`crate::conversation::ConversationInstanceId`].
-    pub sim_ids: Query<'w, 's, &'static ambition_platformer2d_shared_tangle::sim_id::SimId>,
-    /// Which Yarn nodes content compiled. Read to decide whether a
-    /// self-conversation has a branch to enter; an unpopulated index never
-    /// suppresses.
-    pub nodes: Res<'w, ambition_dialog::DialogueNodeIndex>,
-    /// The character a speaking body is WEARING — read from the ENTITY's canonical
-    /// [`WornCharacter`] identity, not the app-local startup selection resource, so
-    /// after a runtime re-wear or snapshot restore the home avatar speaks as the
-    /// character it currently IS.
-    pub worn: Query<'w, 's, &'static ambition_characters::actor::WornCharacter>,
-}
-
-/// The catalog character this interactable IS, if it is a character at all.
-///
-/// A Hall pedestal, a hub NPC, a possessed body — each authors a `character_id`.
-/// A switch, a chest, a nameless prop does not.
-fn character_id_of(interactable: &ambition_interaction::Interactable) -> Option<&str> {
-    match &interactable.kind {
-        ambition_interaction::InteractionKind::Npc { character_id, .. } => character_id.as_deref(),
-        _ => None,
-    }
-}
-
-/// The id that answers "who is this body?" for dialogue purposes.
-///
-/// CHARACTER identity wins over PLACEMENT identity. A character id names a
-/// person; a placement id names a spot on a map. `$speaker_is_self` is only a
-/// useful signal under the first reading: it must fire when you walk up to the
-/// Hall pedestal of the character you are wearing, not merely when a body
-/// somehow interacts with its own placement.
-///
-/// Returns `None` for a body with neither — the home avatar, whose identity is
-/// the character it wears.
-fn dialogue_identity(
-    interaction: Option<&ActorInteraction>,
-    identity: Option<&ActorIdentity>,
-) -> Option<String> {
-    if let Some(character_id) = interaction.and_then(|i| character_id_of(&i.interactable)) {
-        return Some(character_id.to_string());
-    }
-    identity.map(|identity| identity.id.clone())
-}
-
-/// **Which seat owns a conversation this body just started.**
-///
-/// ⛔ **there is no "nobody said, so capture everybody" arm, and that absence is
-/// the fix** (GPT 5.6 review through `c32e690`, finding 2). Dialogue used to
-/// claim every participant's input, so one person talking to an NPC took
-/// gameplay away from everyone else at the couch — while the world kept running
-/// around them.
-///
-/// ⭐ the question is answered by the initiator's BRAIN, not by an entity index
-/// or a device slot that happens to share a number with a seat. Possession is a
-/// brain transfer, so a seat that possessed an actor and walked it up to an NPC
-/// owns that conversation without this function knowing possession exists.
-///
-/// ⚠ **the non-player arm is a DECISION, not a fallback.** A body with no player
-/// brain cannot have pressed Interact under its own steam, so this is a
-/// composition that drove the interaction some other way; the primary seat owns
-/// the box, because somebody has to be able to advance it and capturing the
-/// whole couch for a conversation nobody at it started is the behaviour being
-/// removed.
-fn conversation_owner(
-    driver: &Query<&'static ambition_characters::brain::Brain>,
-    initiator: Entity,
-) -> crate::conversation::ConversationInputOwner {
-    use crate::conversation::ConversationInputOwner;
-    match driver.get(initiator) {
-        Ok(ambition_characters::brain::Brain::Player(slot)) => {
-            ConversationInputOwner::Participant(crate::participant_seat::participant_of(*slot))
-        }
-        _ => ConversationInputOwner::Primary,
     }
 }
 

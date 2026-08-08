@@ -406,37 +406,3 @@ fn an_unpopulated_node_index_never_suppresses() {
     assert!(state.active(), "not knowing is not grounds for suppressing");
     assert_eq!(state.dialogue_id(), "hall_player");
 }
-
-/// A body with a character identity speaks as that character, not as its
-/// placement. This is what makes `$speaker_is_self` fire at the Hall.
-#[test]
-fn character_identity_beats_placement_identity() {
-    let interactable = ambition_interaction::Interactable::new(
-        "some_ldtk_placement_iid",
-        "Talk",
-        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
-        ambition_interaction::InteractionKind::Npc {
-            character_id: Some("player_robot_v3".into()),
-            dialogue_id: Some("hall_player".into()),
-            patrol_radius: 0.0,
-            patrol_path_id: None,
-            brain_override: None,
-        },
-    );
-    let interaction = ActorInteraction {
-        interactable,
-        talk_radius: 40.0,
-    };
-    let identity = ActorIdentity::new("some_ldtk_placement_iid", "Player");
-    assert_eq!(
-        dialogue_identity(Some(&interaction), Some(&identity)).as_deref(),
-        Some("player_robot_v3"),
-    );
-    // A body with no character identity falls back to its placement.
-    assert_eq!(
-        dialogue_identity(None, Some(&identity)).as_deref(),
-        Some("some_ldtk_placement_iid"),
-    );
-    // The home avatar has neither; the caller supplies its worn character.
-    assert_eq!(dialogue_identity(None, None), None);
-}

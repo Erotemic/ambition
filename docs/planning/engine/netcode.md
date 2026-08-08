@@ -70,6 +70,32 @@ or compatibility wrapper behind the new API.
   persistence.
 - Only authoritative family anchors require `Rollback`; `SimId` alone does not
   pull presentation-only entities into frame history.
+
+⛔ **The runtime-spawn half of this contract was violated THREE ways, and all
+three surfaced on 2026-08-08 from unrelated investigations.** N3.1 has said since
+2026-07-06 that *"dynamically-spawned sim entities (projectiles, dropped items,
+spawned adds) get a deterministic sequence id minted at spawn — `(spawner SimId,
+per-spawner counter)`"*. What the tree actually did:
+
+| site | what it minted | symptom |
+|---|---|---|
+| enemy drops (coin/heart/ability) | **no id, no provenance at all** | every drop drew as a magenta stand-in — the player collected a diagnosis box |
+| `spawn_split_offspring` | `SimId::placement(..)` — the **authored** namespace | none visible; offspring are claimed as staged actors |
+| construction executor (every authored boss) | a `SimId` with **no counter** | a shipped boss's summon warned and built nothing |
+
+⭐ **the contract was right and the enforcement was absent.** Each site was
+correct about the half it remembered and silent about the half it did not, and
+each failure was invisible in a different way — one was loudly wrong on screen,
+one was silently wrong in the data, one was a feature that simply never happened.
+None of the three tests covering these paths could see it: they hand-built their
+fixtures, supplying exactly what production omitted.
+
+⭐⭐ **the durable fix was to make the pairing unforgettable rather than
+remembered**: `SimId` is now `#[require(SimIdCounter)]`, so *"identified"* and
+*"able to be descended from"* are one condition rather than two facts six mint
+sites had to keep in step. ⚠ **the namespace half is still unenforced** — nothing
+stops a runtime spawn spelling `SimId::placement(..)`, which is what
+`spawn_split_offspring` does and what `SimId::as_str`'s own doc forbids.
 - A session captures the exact `PreparedContentIdentity` and deterministic
   rollback-registration fingerprint. Any change removes the active session
   before another GGRS frame runs.

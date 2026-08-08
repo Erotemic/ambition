@@ -60,10 +60,16 @@ impl Plugin for PlayerSchedulePlugin {
         // hit on a rectangle instead. Jon's ruling: a thing that works for an enemy
         // and not a player is a smell, not a special case.
         //
-        // Default is EMPTY, which the damage path reads as intangible — safe only
-        // because the publisher is pinned to run every tick between
-        // `PlayerSimulation` and `Combat`, so no tick resolves damage against an
-        // unpublished player.
+        // The default is UNPUBLISHED, not intangible — the distinction the
+        // component exists to make. `DamageableVolumes::intangible()` is
+        // `published && volumes.is_empty()`, so a body that has never run the
+        // publisher reads as "no answer yet" and every consumer falls back to the
+        // coarse box. A freshly required component cannot make the player a ghost.
+        //
+        // The publisher's ordering still matters, for PRECISION rather than for
+        // existence: `register_damage_facing_volume_publication` pins it after
+        // `CombatSet::Playback` and before `CombatSet::Resolve`, so damage resolves
+        // against this tick's authored silhouette instead of the coarse box.
         app.register_required_components::<ambition_platformer2d_actor_monolith::actor::PlayerEntity, ambition_combat::components::DamageableVolumes>();
 
         // ── PlayerInput, part A: the frame's time snapshot ────────────────

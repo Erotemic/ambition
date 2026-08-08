@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 2 open, added 2026-08-08
+## ⇥ INDEX — 1 open, added 2026-08-08
 
 This file is 1,300+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -25,12 +25,12 @@ is the only ordering a maintainer can triage from.
 
 | Question | Blocks | State |
 |---|---|---|
-| Is a SESSION scope marker construction provenance? | tracks K2b-i | recommendation present |
-| Is `bevy_material_ui` adopted, or 31% of the frame for nothing? | frame budget | no recommendation |
+| Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 
-⚠ **the first two are the only ones blocking a lane.** Everything below them is
-scoped, small, and waiting — none is blocked on unknowns, which is this file's
-entry condition.
+⚠ **the one row above is the only thing blocking a lane**, and per Jon's
+2026-08-08 operating note (*"I've left rollback design to agents"*) it is being
+answered rather than asked. Everything below it is scoped, small, and waiting —
+none is blocked on unknowns, which is this file's entry condition.
 
 ---
 
@@ -1006,48 +1006,36 @@ the fighter used to write raw world x into the body-local `locomotion`, so its
 movement, closing speeds, and flight decision all changed when that was
 corrected. The tests were calibrated against the buggy movement.
 
-## 11. Is `bevy_material_ui` being adopted, or is it 31% of the frame for nothing?
-
-**`MaterialUiPlugin` contributes 182 systems to `Update` — 31% of the entire
-schedule, and half of every system in it that belongs to no set.** They run every
-frame, title screen included, which is exactly where `code_smells.md` measured the
-executor spending 10–18% of CPU self-time.
-
-`git grep bevy_material_ui` across every `.rs` in the workspace returns **one
-file**: the line that installs the plugin, and a doc comment above it. No type,
-component, system or helper from the crate is named anywhere.
-
-⚠ **but it is load-bearing.** Removing it fails
-`the_title_screen_says_choose_game_and_is_readable` — the title renders at 20.0px,
-Bevy's default font size, so menu typography stops resolving. A plugin contributes
-systems and resources, not names; the grep could not have told me that.
-
-⭐ **and `MaterialUiPlugin` is a BUNDLE**: `MaterialUiCorePlugin` plus 29 component
-plugins, including a date picker, a time picker, snackbars, chips, an app bar and
-a toolbar. The crate's own documentation offers the core separately so a consumer
-installs only what it draws.
-
-✔ **TRIMMED, 2026-08-03** — `MaterialUiCorePlugin` + `DialogPlugin` only, found by
-a six-step bisect against the one failing test. **584 → 428 systems**, 156 off
-every frame. `app_it` 284/2 (the duel pair alone, exactly the baseline).
-
-⚠ `DialogPlugin` is load-bearing for MENU TYPOGRAPHY, which no one would have
-guessed — two reasoned guesses (the core alone; the core plus the *adaptive
-layout* plugin) were wrong before the mechanical bisect found it.
-
-**So the question left for you is narrower than it was, and it is about intent:**
-
-- **(a) Leave it trimmed.** Ambition draws no Material date picker, time picker,
-  snackbar or toolbar, and adding one later means adding its plugin beside the
-  two — one line.
-- **(b) Put the bundle back.** If Material UI is a direction you are part-way
-  into and you want the whole widget set available while you build with it, say
-  so and it reverts to `MaterialUiPlugin` in one line. The 31% is then a cost you
-  are choosing, which is a completely different thing from one nobody noticed.
-
-⚠ **I am not treating "unused by grep" as "unused"** — that inference was already
-wrong once here. This is a question about your INTENT for the dependency, which no
-measurement can answer.
+> **Row 11 (`bevy_material_ui`: adopted, or 31% of the frame for nothing?) was
+> deleted 2026-08-08 — it DISSOLVED rather than being answered, and one of its
+> own premises was false.** Working: queue row **D35**.
+>
+> It asked Jon to rule on his *intent*: leave the dependency trimmed, or put the
+> full bundle back because Material is a direction he is part-way into. There is
+> nothing to be part-way into. Zero types, components, systems or helpers from
+> the crate are named anywhere in the workspace; every menu, the dialogue box and
+> the HUD are plain `bevy_ui` with typography this repo owns
+> (`MenuFont`, `MenuTextHeightFraction`, `resolve_menu_text_size`). A question
+> about intent needs something to intend.
+>
+> ⛔ **and the row's `⚠ but it is load-bearing` paragraph was WRONG** — the part
+> that made the question feel like it needed him. The six-step bisect proved
+> *"removing `DialogPlugin` flips the title test"*; the row recorded *"menu
+> typography stops resolving"*. Upstream `dialog.rs:25` and `lib.rs:524` install
+> no typography at all, and the arithmetic refutes it without reading them: menu
+> text spawns at `reference_pixels()` = **60px** and the resolver only corrects
+> that, so a dead resolver still passes `>= 32.0`. The 20px reading is Bevy's
+> `TextFont::default()` — a different entity.
+>
+> ⭐ **the lesson is about how the wrong sentence got written down.** The row was
+> scrupulous in one direction — *"I am not treating 'unused by grep' as
+> 'unused'"* — and credulous in the other, promoting a bisect's correlation to a
+> mechanism. Doubting the cheap evidence is not the same as checking the
+> expensive evidence.
+>
+> ⚠ **Jon's override stays cheap and open**: if Material UI *is* a direction he
+> wants, saying so puts `MaterialUiPlugin` back in one line. The reason this row
+> left is that nothing is waiting on him, not that the door closed.
 
 ## 13. Should a crawler's collision volume ORIENT with its attachment? (queue F5, 2026-08-03)
 

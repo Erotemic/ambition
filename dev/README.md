@@ -134,16 +134,33 @@ Append-only JSONL, one row per measured run. They exist so "this got slower" is
 a diff rather than an impression, and so an optimisation can be shown to have
 worked instead of asserted to have.
 
-| ledger | written by | measures |
-|---|---|---|
-| `run_tests_cost.jsonl` | `scripts/run_tests.py` | wall + per-job cost of the suite |
-| `compile_cost.jsonl` | `scripts/compile_cost.py` | what an EDIT costs to rebuild |
+| ledger | `kind` | written by | measures |
+|---|---|---|---|
+| `run_tests_cost.jsonl` | `job` | `scripts/run_tests.py` | wall + per-job cost of the suite |
+| `compile_cost.jsonl` | `scenario` | `scripts/compile_cost.py` | what an EDIT costs to rebuild |
+| `compile_units.jsonl` | `unit` | `scripts/compile_collect.py` | seconds, frontend/codegen split and LOC per compile unit |
+| `compile_graph.jsonl` | `graph` | `scripts/compile_ratchet.py --update` | the deterministic build-shape numbers the gate guards |
+| `carve_lineage.jsonl` | `carve` | `scripts/compile_ratchet.py --record-carve` | what a module split from, and why |
+
+**Every row in all five carries the same seven-key envelope, and `kind` is the
+discriminator that lets them be read as one table.** The field-by-field contract
+— including which columns are populated, which are reserved, and how the four
+pre-schema rows in `compile_cost.jsonl` normalise — is
+[`dev/compile_telemetry_schema.md`](compile_telemetry_schema.md). Read it before
+adding a column.
 
 `compile_cost.py` perturbs a real source file, runs a real cargo command, and
 reverts — because the number that matters is the edit→feedback loop, not a cold
-build. Read its module docstring before comparing rows: a run is only comparable
-to another on the same machine, linker, and `CARGO_INCREMENTAL` setting, and
-those are recorded on every row for exactly that reason.
+build. `compile_collect.py` does the same thing at the scale of the whole graph
+and records one row per crate. Read their module docstrings before comparing
+rows: a run is only comparable to another on the same machine, linker, profile
+and `CARGO_INCREMENTAL` setting, and all four are recorded on every row for
+exactly that reason. ⛔ **never run two of these at once** — two builds sharing a
+target dir made a warm no-op read 222s, which looks like a slow machine rather
+than a mistake.
+
+`python3 scripts/compile_collect.py --analyze` reads the ledgers back and builds
+nothing.
 
 The auto-memory at
 `/home/agent/.claude/projects/-home-joncrall-code-ambition/memory/`

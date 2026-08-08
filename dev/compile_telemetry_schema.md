@@ -111,7 +111,67 @@ embeds the identical per-unit JSON as `const UNIT_DATA`, including the per-unit
 | `build_fresh_units` / `build_dirty_units` / `build_total_units` | HTML header | ✅ |
 | `build_total_seconds` / `build_max_concurrency` / `build_rustc` / `build_targets` / `build_started_at` | HTML header | ✅ |
 | `build_source` | path of the ingested report | ✅ |
-| `incremental` | **RESERVED** — the report does not carry it; the collector must record the env it built under | ❌ |
+| `incremental` | the env the build ran under — **the collector sets it, never inherits it** | ✅ from 2026-08-08 |
+| `opt_level_source` | `rustc-argv` · `rustc-argv-ambiguous` · `manifest` | ✅ from 2026-08-08 |
+| `codegen_units` | `-C codegen-units=` on the rustc line | ✅ from 2026-08-08 |
+| `config` / `phase` | the named configuration, and `cold` or `first-party` | ✅ from 2026-08-08 |
+| `build_wall_seconds` / `build_target_dir` | wall clock of the whole build, and where it wrote | ✅ from 2026-08-08 |
+| `build_load_mean` / `build_load_max` / `build_cores` / `build_foreign_cargo_peak` | contention during the build | ✅ from 2026-08-08 |
+| `unblocks_at_rmeta` / `unblocks_at_completion` | successor unit names, split by WHEN cargo released them | ✅ from 2026-08-08 (four `dev` runs predate them) |
+
+### ⭐ `unblocks_at_rmeta` is the column that makes a critical path computable
+
+rustc's **pipelined compilation** releases a dependent when the predecessor's
+*metadata* lands, not when the predecessor finishes. So on a pipelined edge only
+the FRONTEND is serial and the predecessor's codegen overlaps everything
+downstream. Without these two columns a ledger of durations cannot tell the
+difference, and the naive reading — sum the durations along the longest chain —
+produced **377.9s for a build that took 210.5s**. Recorded as unit *names*
+rather than the report's local indices, which mean nothing outside their file.
+
+⚠ **a unit with `unblocks_at_rmeta: []` is the same unit whose
+`frontend_seconds`/`codegen_seconds` are null**, and for the same reason: it
+emitted no metadata. Proc-macro crates, build scripts, bins, tests — and
+`ambition_app`, the one lib in this workspace declaring a `cdylib`.
+
+⚠ **the names are not unique in a COLD build.** A package compiled twice — host
+against target, or two feature sets — yields two units with the same
+`name` + first target token, and they collapse onto one node. 105 of a cold
+build's 688 units did on 2026-08-08, so a cold DAG covers ~97% of the
+unit-seconds and is approximate; `--analyze` prints the shortfall. A
+`first-party` phase has no collisions and is exact, which is the phase the
+conclusions were drawn from.
+
+### ⚠ contention is RECORDED, not assumed away
+
+⛔ two builds in ONE target dir invalidate each other — the 222s warm no-op. Two
+builds in DIFFERENT target dirs corrupt nothing and simply share eight cores,
+which inflates every duration and also *looks like a slow machine rather than a
+mistake*. On 2026-08-08 a parallel agent held `cargo test`/`cargo check` on the
+default target dir through an entire collection at load 14–18. So the collector
+samples `getloadavg` every 10s and counts foreign `cargo` processes by
+`/proc/<pid>/comm` (⛔ never `pgrep -f`, which matches its own shell). **Compare
+ratios and rank orders across load levels; compare absolute seconds only within
+one.**
+
+### ⛔ `opt_level` is READ OFF THE RUSTC COMMAND LINE, not modelled
+
+`scripts/compile_collect.py` passes `-v`, so cargo prints every rustc
+invocation, and the collector takes `-C opt-level=`, `-C codegen-units=` and the
+presence of `-C incremental=` from the line cargo actually issued. That is the
+answer to a defect this repo has already shipped once —
+`[profile.dev.package."*"]` does not apply to workspace members, and the first
+draft of `package_opt_levels` reported the monolith at 3 when it builds at 1.
+The modelled value survives as the fallback for a hand ingest of an old report,
+and `opt_level_source` is the column that says which one a row got. ⚠ a
+dependency's rustc line is keyed only by crate name, so `build_script_build`
+collides across packages and those rows read `rustc-argv-ambiguous`.
+
+⚠ **`incremental` is SET, not inherited.** `scripts/run_tests.py` copies the
+environment and then `setdefault`s `CARGO_INCREMENTAL=0` for its children, so a
+collector reading its own `os.environ` reports `true` for exactly the runs that
+are off. The collector exports the variable for every build and records what it
+exported, then cross-checks it against `-C incremental=` per unit.
 
 ⚠ **only units that did WORK are recorded.** The 2026-08-07 report lists 688
 units of which 669 were cached at duration 0. "How long did nothing take" is not
@@ -121,17 +181,43 @@ state survives as `build_fresh_units` / `build_dirty_units`.
 ⚠ **`backfilled: true` means `lines` and `commit` describe the tree at INGEST,
 not at build.** Drop those rows before regressing seconds against lines.
 
-### What the collector still has to do
+### The collector — `scripts/compile_collect.py`, landed 2026-08-08
 
-1. Run `cargo build --timings` (or `cargo test --no-run --timings`) with **its own
-   `CARGO_TARGET_DIR`**, or strictly sequenced against every other cargo process.
-   ⛔ `compile_cost.py`'s docstring records a warm no-op reading **222s** because
-   two builds shared a target dir; that reading looks like a slow machine, not
-   like a mistake.
-2. Ingest the report **in the commit that produced it**, so `lines` and `commit`
-   are true and `backfilled` stays false.
-3. Pass `--label` naming the configuration, and set `incremental` once the
-   collector owns the env rather than inheriting it.
+```
+python3 scripts/compile_collect.py --config dev --config release
+python3 scripts/compile_collect.py --analyze      # builds nothing
+```
+
+It does the three things this section used to ask for. Each named configuration
+gets **its own `CARGO_TARGET_DIR`** under `~/ambition-telemetry-target/<config>`
+and the phases run strictly in sequence — ⛔ `compile_cost.py`'s docstring
+records a warm no-op reading **222s** because two builds shared a target dir,
+and that reading looks like a slow machine rather than a mistake. The report is
+ingested in the commit that produced it, so `backfilled` stays false.
+
+Two phases per configuration, because they answer different questions:
+
+* **`cold`** — a fresh target dir, so every unit including third-party compiles.
+  The only phase that can price a dependency.
+* **`first-party`** — a real one-line edit appended to **every** first-party
+  crate's `src/lib.rs`, then rebuilt, then the original bytes written back
+  (⛔ never `git checkout --`). This is the recompilation the repo pays, and the
+  phase to regress against `dev/compile_graph.jsonl`.
+
+⭐ **the two phases are in different REGIMES and want opposite optimisations.**
+Compare *total unit-seconds ÷ cores* against the *dependency floor*: whichever
+is larger is what the build is paying. Measured 2026-08-08 — cold: 767.6s of
+packing against a 418.9s floor, so **core-bound**; the 55-crate rebuild: 123.9s
+of packing against a 168.4s floor, so **dependency-bound**. Codegen is ~73% of
+the work in both, and moves the rebuild's floor by a sixth of what the frontend
+does. `--analyze` prints both bounds for every run; the write-up is
+`dev/journals/compile-time-and-disk-2026-08-07.md`, addendum 2.
+
+A configuration may also carry `manifest_edits` — exact-text substitutions
+applied for the run and reverted by writing the original bytes back. That is how
+`dev-app-rlib-only` prices the app's `cdylib`: a manifest knob is a dimension no
+cargo flag can express, and it shares the base configuration's target dir so the
+comparison is warm.
 
 ---
 

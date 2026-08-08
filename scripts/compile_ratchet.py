@@ -57,6 +57,33 @@ a dashboard entry, not a guard.
    and the wall clock gets worse. A decomposition campaign with no guard here is
    optimising a number that is not the cost.
 
+## ⭐ These four were TESTED against seconds on 2026-08-08, and three held
+
+The premise — that these numbers predict compile cost — went two days without a
+test because the seconds did not exist yet. `scripts/compile_collect.py` now
+produces them, and `--analyze` prints the regression. Verdicts, over 55 crates
+in four builds:
+
+* `largest_unit_lines` — ✅ **rho +0.83 … +0.86** against per-crate seconds.
+  Strong in RANK, weak in magnitude: ms/line spans 29x–68x between crates, so
+  lines order crates well and price them badly. Which is what §`crate_lines`
+  already said, now measured against a clock.
+* `worst_edit_cost_lines` / `watched_edit_cost_lines` — ✅ **rho +0.99** against
+  the measured seconds over the same dependent closure.
+  ⛔ **but the LINE WEIGHTING contributes nothing.** A bare count of crates in
+  the closure predicts those seconds equally well (rho +0.988 vs +0.991; by
+  Pearson in a rebuild the unweighted count WINS, +0.984 vs +0.977). Both are
+  sums over nested closures, so the ordering is carried by closure size. The
+  guard is sound and it is really guarding **how many crates an edit reaches**.
+* `critical_path_crates` — ⚠️ **right in hops, wrong by 2.2x in seconds.** The
+  comment below says "parallelism cannot compress a serial chain". Pipelined
+  compilation does exactly that: rustc releases a dependent when the
+  predecessor's METADATA lands, so on a pipelined edge only the FRONTEND is
+  serial. The naive chain-of-durations reads 377.9s for a build that finished in
+  210.5s. The hop count is still the right thing to GUARD — it is deterministic
+  and a new layer still makes the chain longer — but do not price it in seconds
+  by multiplying. `dev/journals/compile-time-and-disk-2026-08-07.md`, addendum 2.
+
 ## What is deliberately NOT guarded here
 
 * **The set of crates a small consumer links.** Already guarded, by
@@ -738,8 +765,27 @@ _UNIT_DATA = re.compile(r"const UNIT_DATA = (\[.*?\n\]);", re.S)
 _HEAD_ROW = re.compile(r"<td>([^<]{1,40}?):</td>\s*<td>(.*?)</td>", re.S)
 
 
-def ingest_timings(html: Path, *, label: str = "", record: bool = True) -> list[dict]:
+def ingest_timings(
+    html: Path,
+    *,
+    label: str = "",
+    record: bool = True,
+    run_id: str = "",
+    profile: str = "dev",
+    extra: dict | None = None,
+    unit_extra=None,
+) -> list[dict]:
     """Turn one `cargo build --timings` report into per-unit ledger rows.
+
+    `extra` is merged into every row and `unit_extra(unit) -> dict` overrides
+    per-unit fields. Both exist for `scripts/compile_collect.py`, which owns the
+    environment its build ran under and can therefore fill the two columns this
+    report cannot carry: `incremental`, and an `opt_level` read off the rustc
+    command line rather than modelled from the manifest. ⛔ **that modelling is
+    exactly what went wrong once already** — `[profile.dev.package."*"]` does not
+    apply to workspace members — so a row carries `opt_level_source` saying which
+    of the two it is, and a hand ingest of an old report still gets the modelled
+    value rather than a null.
 
     ⭐ **the HTML is the source, and that is a finding rather than a fallback.**
     `--timings=json` is `-Z unstable-options` on stable cargo, so ADR 0013's
@@ -778,7 +824,7 @@ def ingest_timings(html: Path, *, label: str = "", record: bool = True) -> list[
 
     rustc = re.sub(r"<br>.*", "", head.get("rustc", "")).strip() or None
     build = {
-        "run_id": uuid.uuid4().hex[:12],
+        "run_id": run_id or uuid.uuid4().hex[:12],
         "source": str(html),
         "profile": (head.get("Profile") or "").strip() or None,
         "targets": (head.get("Targets") or "").strip() or None,
@@ -794,8 +840,9 @@ def ingest_timings(html: Path, *, label: str = "", record: bool = True) -> list[
 
     dirs = workspace_dirs()
     lines_now = {name: crate_lines(path)["lines"] for name, path in dirs.items()}
-    profiles = package_opt_levels()
+    profiles = package_opt_levels(profile)
     shared = envelope("unit", run_id=build["run_id"], label=label)
+    shared.update(extra or {})
 
     # ⚠ **`backfilled` exists because LOC is read at INGEST, not at build.** A
     # report ingested in the commit that produced it has honest `lines` and
@@ -804,15 +851,42 @@ def ingest_timings(html: Path, *, label: str = "", record: bool = True) -> list[
     # regression of seconds against lines can drop the rows that would poison it.
     # Derived rather than asked for: a flag nobody remembers to pass is a column
     # that is wrong exactly when it matters.
+    #
+    # ⛔ **the timestamp heuristic BREAKS when another session is committing**,
+    # which is not hypothetical: on 2026-08-08 a parallel agent landed five
+    # `docs/planning/` commits while a collection was running, so HEAD's commit
+    # time moved past the build's start and every row would have been marked a
+    # backfill despite no `.rs` file having changed. A caller that built the tree
+    # itself KNOWS the answer and passes it in `extra`; the heuristic is the
+    # fallback for a hand ingest, where it is still right.
     head_epoch = git("log", "-1", "--format=%cI")
-    shared["backfilled"] = bool(
-        build["build_started_at"] and head_epoch
-        and build["build_started_at"] < head_epoch
-    )
-    if shared["backfilled"]:
+    if "backfilled" not in shared:
+        shared["backfilled"] = bool(
+            build["build_started_at"] and head_epoch
+            and build["build_started_at"] < head_epoch
+        )
+    if shared["backfilled"] and record:
         print(f"⚠ this report predates HEAD ({build['build_started_at']} < "
               f"{head_epoch}); rows are marked backfilled=true and their `lines` "
               f"column describes the tree NOW, not the tree that was built.")
+
+    # ⭐ **the DAG is the dimension that turns durations into a critical path**,
+    # and it is only in the report. `unblocked_rmeta_units` are the successors
+    # cargo released when this unit's METADATA appeared — rustc's pipelined
+    # compilation — and `unblocked_units` are the ones that had to wait for the
+    # whole unit. The difference is the entire reason a build whose "serial
+    # chain" sums to 242s can finish in 188s: on a pipelined edge only the
+    # FRONTEND is serial and the successor's work overlaps the predecessor's
+    # codegen. Recorded as unit NAMES rather than the report's local indices,
+    # which mean nothing once the row leaves the file.
+    def label_of(index: int) -> str:
+        other = by_index.get(index)
+        if not other:
+            return f"?{index}"
+        target = (other.get("target") or "").strip()
+        return f"{other['name']}{' ' + target.split()[0] if target else ''}"
+
+    by_index = {unit["i"]: unit for unit in units}
 
     rows: list[dict] = []
     for unit in units:
@@ -854,7 +928,19 @@ def ingest_timings(html: Path, *, label: str = "", record: bool = True) -> list[
                 )
                 or None,
                 "features": unit.get("features") or [],
+                # ⚠ successors released at RMETA vs at COMPLETION. A unit that
+                # emits no metadata — a proc-macro, a build script, a bin, a
+                # test, or a lib declaring a `cdylib` — appears here with an
+                # empty `unblocks_at_rmeta` and is also the unit whose
+                # `frontend_seconds`/`codegen_seconds` are null. Same cause.
+                "unblocks_at_rmeta": [
+                    label_of(i) for i in (unit.get("unblocked_rmeta_units") or [])
+                ],
+                "unblocks_at_completion": [
+                    label_of(i) for i in (unit.get("unblocked_units") or [])
+                ],
                 **{f"build_{k}": v for k, v in build.items() if k != "run_id"},
+                **(unit_extra(unit) if unit_extra else {}),
             }
         )
 
@@ -868,8 +954,23 @@ def ingest_timings(html: Path, *, label: str = "", record: bool = True) -> list[
     return rows
 
 
-def package_opt_levels() -> dict[str, str]:
-    """`opt-level` per package for the dev profile, from `Cargo.toml`.
+# Cargo's own defaults when a profile table says nothing, plus which profile
+# each one inherits from. `test` is `dev` and `bench` is `release`, so a
+# `cargo test --no-run` build applies `[profile.dev.package.*]` and a
+# `--release` one applies nothing this repo writes — `Cargo.toml` has no
+# `[profile.release]` table at all.
+_PROFILE_BASE = {"dev": "dev", "test": "dev", "release": "release", "bench": "release"}
+_PROFILE_DEFAULT_OPT = {"dev": 0, "release": 3}
+
+
+def package_opt_levels(profile: str = "dev") -> dict[str, str]:
+    """`opt-level` per package for a profile, from `Cargo.toml`.
+
+    ⚠ **this is the MODEL, and the collector does not use it.**
+    `scripts/compile_collect.py` reads the level off the rustc command line
+    cargo printed, because the model below has been wrong once already. This is
+    the fallback for ingesting a report by hand, and rows say which they got via
+    `opt_level_source`.
 
     Recorded per unit because it is the dimension Jon named that nothing else
     captures, and because it is genuinely non-uniform here: `runtime`, `render`
@@ -886,13 +987,15 @@ def package_opt_levels() -> dict[str, str]:
     """
     import tomllib
 
+    base = _PROFILE_BASE.get(profile, profile)
     manifest = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
-    dev = manifest.get("profile", {}).get("dev", {})
+    dev = manifest.get("profile", {}).get(base, {})
     packages = dev.get("package") or {}
+    fallback = _PROFILE_DEFAULT_OPT.get(base, 0)
     levels = {
-        "_workspace_default": str(dev.get("opt-level", 0)),
+        "_workspace_default": str(dev.get("opt-level", fallback)),
         "_dependency_default": str((packages.get("*") or {}).get(
-            "opt-level", dev.get("opt-level", 0))),
+            "opt-level", dev.get("opt-level", fallback))),
     }
     for name, table in packages.items():
         if name != "*" and "opt-level" in table:

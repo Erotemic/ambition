@@ -219,3 +219,181 @@ The first draft of the per-unit `opt_level` column reported the monolith at
 opt-level **3**. It builds at **1** — the glob applies to dependencies only, and
 `Cargo.toml` says so in prose two lines above the table. A ledger that
 contradicts its own manifest is worse than one with the column missing.
+
+---
+
+# Addendum 2, 2026-08-08 — the COLLECTOR ran, and the build has two regimes
+
+`scripts/compile_collect.py` runs real builds under named configurations, each
+in its own `CARGO_TARGET_DIR`, and writes one row per compile unit. Four dev
+runs landed (a cold build, two identical 55-crate rebuilds, one manifest probe)
+plus a release configuration. `--analyze` reads them back and builds nothing.
+
+⚠ **every number below was measured on a CONTENDED box and says so.** A parallel
+agent was running `cargo test`/`cargo check` against the default target dir
+throughout, at load 14–18 on 8 cores. Different target dirs, so nothing was
+invalidated — but the durations are inflated by the overlap, which is why the
+collector now samples `getloadavg` and counts foreign `cargo` processes onto
+every row. **Ratios and rank orders survive contention; absolute seconds do
+not.**
+
+## ⭐⭐ The finding: a COLD build and a REBUILD want opposite optimisations
+
+Two bounds decide a build's wall clock, and whichever is larger is the one you
+are paying:
+
+* **perfect packing** = total unit-seconds ÷ cores. No scheduler beats it.
+* **the dependency floor** = the longest chain, with rustc's *pipelined*
+  semantics: a dependent is released when the predecessor's **metadata** lands,
+  not when it finishes. Infinite cores do not beat it.
+
+```
+                          work/8    dep floor   actual   binding constraint
+  dev cold, 583 units     767.6s      418.9s    833.9s   CORES
+  dev rebuild, 57 units   123.9s      168.4s    210.5s   THE DEPENDENCY CHAIN
+  release rebuild, 57     163.4s      262.6s    360.1s   THE DEPENDENCY CHAIN
+```
+
+⭐ **the cold build is core-bound and the rebuild is dependency-bound, and the
+two want OPPOSITE optimisations.** Halving one half of the work moves both
+bounds, so the achievable saving is `max(new floor, new work ÷ cores)` — quoting
+the floor alone overstates it. Done honestly:
+
+```
+                        halve CODEGEN   halve the FRONTEND
+  cold, 583 units          −282.7s            −101.1s      codegen wins 2.8x
+  rebuild, 57 units         −11.8s             −61.6s      frontend wins 5.2x
+```
+
+⭐ **the same lever is worth 2.8x in one build and a fifth as much in the
+other.** In the cold build cores are the limit, so removing work removes clock
+and codegen is 73% of the work — the original journal's conclusion, and it holds
+*for a cold build*. In the rebuild the chain is the limit, and on a pipelined
+edge **only the frontend is serial**, so a quarter of the work carries almost
+all of the wait. Reproduced across all four rebuild-shaped runs (frontend
+leverage 3.6x, 4.0x, 5.2x, 4.1x). **The rebuild is what an agent pays before a
+single test runs, and it is the one the repo has been prioritising with the cold
+build's number.**
+
+⚠ **and the naive serial chain overstates by 2.2x.** `critical_path_crates`
+models the chain as a sum of full unit durations: 377.9s for a build that took
+210.5s. Summing durations along a chain of a build that finished sooner is not a
+paradox, it is the proof that the chain is not serial.
+
+## Do the ratchet's four guarded numbers predict seconds? Mostly yes, one no
+
+Nobody had tested this. Both halves now exist, so:
+
+| guarded number | tested against | verdict |
+|---|---|---|
+| `largest_unit_lines` | per-crate seconds, n=55 | ✅ **rho +0.83 … +0.86** across four runs |
+| `worst_edit_cost_lines` | seconds over the same dependent closure | ✅ **rho +0.99** — but see below |
+| `watched_edit_cost_lines` | same | ✅ same |
+| `critical_path_crates` | the measured chain | ⚠️ **right in hops, wrong by 2.2x in seconds** |
+
+⛔ **the LINE WEIGHTING in `edit_cost_lines` contributes nothing.** Replacing
+lines with a bare count of crates in the closure — `edit_cost_crates`, no
+weighting at all — predicts the measured seconds *equally well* (rho +0.988 vs
++0.991 cold; **+0.984 vs +0.977 by Pearson in the rebuild, where the null model
+wins**). Both quantities are sums over nested closures, so the rank order is
+carried by closure size and the LOC is decoration. The guard is sound; what it
+is really guarding is **how many crates an edit reaches**, and it should be read
+that way.
+
+⚠ `seconds vs lines` is **rho +0.86, r +0.66-0.84** — strong in rank, weak in
+magnitude, because ms/line spans **29x to 39x between crates**. Lines rank
+crates well and price them badly, which is exactly what the schema doc already
+warned.
+
+⭐ **and the monolith-is-cheapest finding reproduces at n=55, not n=6.**
+0.67 ms/line, **3rd cheapest of 55 crates**, against a median of 3.18 and
+`ambition_inventory_ui` at 13.99. Codegen share tracks it (rho +0.49): the
+cheap-per-line crates are 0–60% codegen, the expensive ones 79–88%.
+
+## The frontend/codegen split, measured fresh — and which prior figure was right
+
+| source | frontend | codegen | unattributed |
+|---|---|---|---|
+| journal headline (2026-08-07, by hand) | 18% | **81%** ("255 of 313") | — |
+| addendum 1, re-derived from that artifact | 30% | **63%** (197.6 / 313.6) | 7% |
+| **fresh: dev cold, 688 units, 6,346 unit-s** | **18%** | **72%** | 10% |
+| **fresh: dev rebuild, 57 units, 932 unit-s** | **25%** | **73%** | 2% |
+| **fresh: release cold, 541 units, 7,164 unit-s** | 19% | **80%** | 1% |
+| **fresh: release rebuild, 57 units, 1,307 unit-s** | 17% | **78%** | 5% |
+
+**Addendum 1 is right about the artifact** — 197.6/313.6 is exactly 63.0% and
+the original's "255" does not reproduce from that report by any reading. But
+**63% is not the repo's split**; it is one 19-unit partial rebuild. Four fresh
+builds, the largest an order of magnitude bigger, say **72–80% codegen and
+17–25% frontend**. So the correct statement is: the original arithmetic was
+wrong, addendum 1's arithmetic was right *about its artifact*, and neither
+percentage is the general figure — **codegen is 72–80% depending on profile, and
+that is the number to prioritise on.**
+
+⛔ **and the "unattributed 7% is the link" guess in addendum 1 is wrong.** The
+unattributed bucket is **every unit rustc compiles without emitting rmeta** —
+in the cold build that is 89 units, overwhelmingly proc-macro crates
+(`derive_more` 53.4s, `serde_derive` 34.2s, `bevy_reflect_derive` 29.0s). Same
+cause as their missing frontend/codegen split, and the same cause as the next
+section.
+
+## ⛔ `ambition_app` is the only lib in the workspace that cannot pipeline
+
+It is the only crate declaring `crate-type = ["rlib", "cdylib"]` — the Android
+`.so`. A unit emitting a cdylib emits no metadata, so cargo cannot pipeline it
+**in either direction**: `ambition_app` waits for `ambition_content`'s full
+codegen instead of its rmeta, and its own test and bin targets wait for the
+whole thing. It is the one unit in every report with `sections: null`, which is
+how it was found.
+
+Probed by flipping the manifest to `["rlib"]` and rebuilding — `--config
+dev-app-rlib-only`, which shares the `dev` target dir so the comparison is warm:
+
+* ✅ **the mechanism is confirmed by measurement**: `ambition_app` gains a
+  frontend/codegen split, and `ambition_content` stops being a
+  wait-for-completion edge.
+* **the dependency floor drops 168.4s → 151.4s (−10%)** — and the rlib-only run
+  carried *more* total work (1102 vs 991 unit-seconds, it was more contended),
+  so the drop is if anything understated.
+* ⚠ **the wall clock did not move: 210.5s → 211.2s.** The second run ran at 12%
+  higher load with three foreign cargo processes against one. A 17s effect
+  cannot be resolved against that. **Unresolved, not disproved** — and it will
+  stay unresolved on an 8-core box that is already saturated.
+
+The fix, if it is taken, is not deleting the cdylib — Android needs it. It is
+moving it to its own thin crate so the app's lib stays pipelineable.
+
+## debug vs release, with the opt-level READ OFF THE RUSTC LINE
+
+⛔ every `opt_level` here came from `cargo -v`'s rustc invocation, not from the
+manifest. The manifest model has been wrong once already (`package."*"` does not
+apply to workspace members), and the release profile is not in `Cargo.toml` at
+all — a model would have had to guess cargo's defaults. All 55 first-party libs
+read **3** in release; in dev, **52 read 1 and 3 read 0** (`runtime`, `render`,
+`app` — exactly the three the manifest pins, confirming the model *and* the
+measurement agree once the model is right).
+
+| | dev (`test` profile) | release | |
+|---|---|---|---|
+| wall, 55-crate rebuild | 210.5s | **360.1s** | 1.71x |
+| first-party lib seconds | 982.0s | 1,281.0s | 1.30x |
+| **frontend** | 253.7s | **216.8s** | **0.85x — it goes DOWN** |
+| codegen | 717.6s | 1,023.9s | 1.43x |
+| dependency floor | 168.4s | 262.6s | 1.56x |
+
+⭐ **opt-level is a pure codegen tax; the frontend gets cheaper.** So release
+moves the build back toward the codegen-bound regime, and the two levers even
+out: halving codegen saves 44.4s, halving the frontend 43.6s. The per-crate
+sensitivity is 1.5x–4.9x and it is not uniform —
+`ambition_platformer2d_provider` **4.88x**, `ambition_app` 3.74x,
+`ambition_demo_mary_o` 3.24x, against `ambition_render` 1.48x. A crate's
+opt-level sensitivity is a property worth knowing before pinning one, and it is
+now a column.
+
+## What a cold build actually spends on
+
+**81% of a cold build is dependencies** (5,133 of 6,346 unit-seconds, 627 units)
+and every one of the 525 measured is at **opt-level 3**, from
+`[profile.dev.package."*"]`. `bevy_pbr` alone is 334.3s — 1.7x the monolith.
+That is the price of the fast-dependencies trade, it is paid once per target
+dir, and it is why a new feature variant is expensive.

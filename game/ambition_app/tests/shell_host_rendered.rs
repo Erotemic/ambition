@@ -759,21 +759,13 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
 /// Bevy's `TextFont` default, no fraction — `spawn_control` sets the font HANDLE
 /// and nothing else). A global `find(label == "Ambition")` therefore returns
 /// whichever of the two the query's archetype order reaches first, which is not
-/// a property of the launcher at all.
+/// a property of the launcher at all — **display text is not identity.**
 ///
-/// That is exactly what happened: this test passed for five days only because
-/// `bevy_material_ui`'s plugins shifted archetype/table creation order enough to
-/// put the title's archetype ahead of the control-label archetype. Removing them
-/// flipped the order, the `find` returned the 20px ROW, and the failure was read
-/// as "menu typography stopped resolving" and written into `add_ui_plugins` as a
-/// load-bearing dependency. It was neither: the title measured 60.48px in both
-/// compositions, and `resolve_menu_text_size` is a provable no-op here (this App
-/// has no primary window, so the resolver writes back the reference size the
-/// spawner already wrote).
-///
-/// So the two typographic roles are found by ROLE — a launcher-scoped text node
-/// carrying [`MenuTextHeightFraction`] — and the lookup asserts the match is
-/// UNIQUE, so a future duplicate label fails loudly instead of picking one.
+/// So the title is selected by ROLE — a launcher-scoped text node carrying
+/// [`MenuTextHeightFraction`] — and the lookup asserts the match is UNIQUE, so a
+/// future duplicate label fails loudly instead of silently picking one. An
+/// unrelated plugin once shifted that archetype order and cost five days;
+/// `dev/journals/material-ui-removal-2026-08-08.md` has the account.
 ///
 /// [`MenuTextHeightFraction`]: ambition_platformer2d::menu::MenuTextHeightFraction
 #[test]

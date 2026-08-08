@@ -803,34 +803,15 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
 #[cfg(not(feature = "physics_debris"))]
 pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 
-// `bevy_material_ui` used to be installed here (`MaterialUiCorePlugin` +
-// `dialog::DialogPlugin`) and is GONE as of 2026-08-08. Nothing replaced it: no
-// widget framework, no new typography layer. Ambition's UI is plain Bevy UI plus
-// the typography it already owns — `MenuFont`, `MenuTextHeightFraction` and
-// `resolve_menu_text_size` in `ambition_menu`.
+// Ambition's UI is plain Bevy UI, and no widget framework is installed here.
+// Typography is owned by `ambition_menu` — `MenuFont`,
+// `MenuTextHeightFraction`, `resolve_menu_text_size`.
 //
-// ⚠ **the comment that stood here claimed `DialogPlugin` was LOAD-BEARING for
-// menu typography. It was not, and the claim is worth recording because of how
-// convincing it looked.** It came from a six-step bisect: removing the pair made
-// `the_title_screen_says_choose_game_and_is_readable` read the title at 20.0px,
-// so the conclusion drawn was "menu typography stops resolving". The bisect was
-// real; the mechanism was invented.
-//
-// What was actually measured on 2026-08-08, by dumping every `Text` entity in
-// the settled launcher with and without the plugins: **the two worlds are the
-// same.** 29 text entities either way, same labels, and the launcher title is
-// 60.48px in BOTH. What changed was the order a global
-// `Query<(&Text, &TextFont)>` walked its archetypes — and `"Ambition"` is on
-// that screen twice, as the launcher's title AND as the roster row for the game
-// called Ambition (20.0px, `TextFont`'s default size, spawned by
-// `spawn_control`). The test's `find(label == "Ambition")` was reading whichever
-// came first, and these plugins were shifting archetype/table creation order.
-// `resolve_menu_text_size` could not have been the cause at all: that App has no
-// primary window, so the resolver writes back exactly the reference size the
-// spawner already wrote.
-//
-// The test now selects the title by ROLE inside the launcher root and asserts
-// the match is unique, so this cannot recur.
+// ⚠ `bevy_material_ui` sat here until 2026-08-08 under a comment calling its
+// `DialogPlugin` LOAD-BEARING for menu typography. Measured false: the launcher
+// renders the same 29 text entities at the same sizes either way. Do not
+// reinstate it on that reasoning — `dev/journals/material-ui-removal-2026-08-08.md`
+// has the forensics.
 //
 // The leafwing input bindings + the device→ControlFrame bridge live in
 // `ambition_platformer2d::host::HostInputBindingsPlugin` (E5 step 5); the dev

@@ -309,3 +309,37 @@ a docs-only turn running the full combat suite is pure tax.
 
 ⚠ n=5. This section exists to say what is being collected and what it hints at,
 not to conclude. Re-read it at n=50.
+
+## Addendum update at n=9 — the load story weakened, and a better one appeared
+
+⛔ **the "perfect ordering by load" from n=5 did not survive.** At n=9,
+`corr(suite, load_after)` is **+0.640** — real, but nothing like the exact
+ordering that looked like a 1-in-120 coincidence four rows earlier.
+`corr(suite, load_before)` is **+0.382**. This is exactly why that section said
+*"re-read it at n=50"*, and it is a cheap reminder that **a perfect pattern in
+five points is a property of five points.**
+
+⭐ **what replaced it is more useful — the cost of a turn is set by WHICH CRATE
+you edited**, which the `cargo check` time reveals for free:
+
+| turn class | n | mean `cargo check` | mean `app_it` |
+|---|---|---|---|
+| prose only | 6 | 0.5 s | **156.2 s** |
+| app-level edit | 2 | 18.8 s | 200.6 s |
+| floor-crate edit | 1 | **64.5 s** | **396.7 s** |
+
+The single floor-crate row is a `crates/ambition_platformer2d_core` edit
+(`movement/tuning.rs`) — a crate with **44 dependents**. It cost 64.5 s to check
+and 396.7 s to test: **3.3x the cheapest turn end to end.**
+
+⭐⭐ **that is a bridge between the two halves of this journal.**
+`compile_ratchet.py` measures *edit blast radius* from the dependency graph;
+`.goal/check_cost.jsonl` now measures *what a turn actually cost*. They are
+measuring the same thing from opposite ends, and the floor-crate row is the first
+point where the graph's prediction and the wall clock can be compared. ⚠ **one
+point** — but it is the point that says the ratchet is guarding something real.
+
+⚠ and it sharpens the cheaper-gate proposal in
+`awaiting-maintainer-decision.md`: the win is **not** uniform. A prose turn pays
+156 s it cannot possibly need. A floor-crate turn pays 397 s it absolutely does.
+**Any subset rule must be driven by what changed, never by a fixed budget.**

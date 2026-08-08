@@ -450,6 +450,44 @@ It takes the owner as a parameter now. Anything else leaving this crate meets th
 same wall, because `participant_seat` exists precisely because `ambition_input`
 and `ambition_characters` are siblings that cannot see each other.
 
+## ⭐⭐⭐ 2026-08-08: THREE INDEPENDENT FINDINGS CONVERGE ON `rollback/domains/`
+
+Twelve files, **2,130 lines**, one per capability domain — `actors`, `characters`,
+`combat`, `cutscene`, `encounter`, `items`, `lifecycle`, `portal`, `primitives`,
+`projectiles`, `vfx`. Each file's whole job is *"this domain's types are
+rollback-registered."* Three separate investigations, run for three unrelated
+reasons, all landed here:
+
+1. **It is the DEPENDENCY LEAK.** C5 found that for `ambition_cutscene` and
+   `ambition_items` the runtime's only reason is `rollback/domains/*.rs`.
+   Re-verified: `ambition_cutscene` appears in **exactly one file**
+   (`domains/cutscene.rs`, 5 references) and `ambition_items` in exactly one
+   (`domains/items.rs`, 4). Two of the fifteen crates a movement-only game never
+   asked for reach it through 9 lines of registration.
+2. **It is the FRONTEND COST CENTRE.** The runtime costs 24.8s of frontend
+   against the monolith's 23.9s from 7.6x fewer lines, and **74 of its 79 generic
+   functions are in `rollback/`**. **211 of the ~222 call sites** of the
+   `rollback_component_*<T>` family are inside the runtime itself, so the
+   instantiations land here rather than in callers.
+3. **It is why C7's refactor was blocked.** That row concluded the declare/install
+   halves *"cannot be split by data alone — installation is generic per type and
+   `T` is not recoverable from a `type_name`."* The same property that blocks the
+   split is what generates the instantiations.
+
+⭐ **So the carve target this plan has been looking for is probably not in the
+monolith at all.** It is 2,130 lines in the runtime, where a capability crate's
+presence in a movement-only game's graph, the workspace's densest frontend cost,
+and a known-hard refactor are all the same fact: **per-type rollback registration
+performed by name, in one file per capability.**
+
+⚠ **what is MEASURED and what is INFERRED**, because this convergence is
+seductive: measured — the file-level dependency isolation (grep), the 211 call
+sites (grep), the crate-level 8x frontend cost per line (timed build). Inferred —
+that the generics *cause* the frontend cost. Cargo cannot attribute time below a
+crate, so confirming the join needs nightly `-Z self-profile`.
+⛔ **do not start a carve on this without that measurement.** Three findings
+agreeing is a strong reason to measure next, not a substitute for measuring.
+
 ## ⭐⭐ Measured 2026-08-08: the FRONTEND cost points at the runtime, not the monolith
 
 Two independent measurements now name the same crate, and it is not the one this

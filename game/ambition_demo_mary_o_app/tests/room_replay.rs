@@ -32,13 +32,35 @@ fn count_room_resets(
     seen.0 += resets.read().count();
 }
 
+/// Every death the app published this run, as (victim, why).
+///
+/// ⭐ **the CAUSE is the anti-fake guard.** A fixture that claims to drive one
+/// death route and actually drives another is green for the wrong reason, and
+/// the cause is the only thing in the world that can tell them apart:
+/// `HitSource::LeftTheWorld` on the controlled body is written by exactly one
+/// system, `publish_kernel_reset_death`, from `PlayerBodyFrameOutput.reset`.
+#[derive(Resource, Default)]
+struct DeathsSeen(Vec<(Entity, ambition_platformer2d::combat::HitSource)>);
+
+fn record_deaths(
+    mut seen: ResMut<DeathsSeen>,
+    mut deaths: MessageReader<ambition_platformer2d::actors::ActorDiedMessage>,
+) {
+    seen.0.extend(
+        deaths
+            .read()
+            .map(|death| (death.victim, death.cause.source.clone())),
+    );
+}
+
 fn boot() -> App {
     let mut app = build_demo_app();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
         std::time::Duration::from_secs_f32(1.0 / 60.0),
     ));
     app.init_resource::<RoomResetsSeen>();
-    app.add_systems(Last, count_room_resets);
+    app.init_resource::<DeathsSeen>();
+    app.add_systems(Last, (count_room_resets, record_deaths));
     app
 }
 
@@ -49,8 +71,11 @@ fn player_pos(app: &mut App) -> Option<Vec2> {
     query.iter(app.world()).next().map(|k| k.pos)
 }
 
-/// The room's authored spawn — where a replay must put her back.
-fn room_spawn(app: &mut App) -> Vec2 {
+/// The room she is actually standing in — spawn, size, blast margin and the
+/// authored block list, all read from the LIVE session rather than from the
+/// level constructor, so every coordinate below follows the room if Jon moves
+/// it.
+fn room(app: &mut App) -> ae::World {
     let mut query = app
         .world_mut()
         .query_filtered::<&ae::RoomGeometry, With<ambition_platformer2d::platformer::lifecycle::SessionRoot>>();
@@ -59,7 +84,12 @@ fn room_spawn(app: &mut App) -> Vec2 {
         .next()
         .expect("an active session publishes its room geometry")
         .0
-        .spawn
+        .clone()
+}
+
+/// The room's authored spawn — where a replay must put her back.
+fn room_spawn(app: &mut App) -> Vec2 {
+    room(app).spawn
 }
 
 fn settle_until_playable(app: &mut App) -> Vec2 {
@@ -310,5 +340,201 @@ fn a_fatal_hit_returns_her_to_spawn_when_the_beat_ends() {
         "she is at spawn but the room was never put back — the body came home by \
          some other route and this fixture is watching the wrong thing (how many \
          times the request is drained is the sibling test's question)"
+    );
+}
+
+/// **THE THIRD DEATH ROUTE: A PIT.** The kernel resets her, and the room has to
+/// come back — the body AND the per-attempt block state.
+///
+/// Three systems in the whole app write `ActorDiedMessage`, and until now only
+/// two of them were proven to replay the room end to end: `death_respawn_player`
+/// (a fatal hit, the sibling above) and the level timeout. The third is
+/// `publish_kernel_reset_death` — *a pit, a spike, any hazard, the reset verb*
+/// — which reads `PlayerBodyFrameOutput.reset` and never touches health at all.
+/// If Jon's *"when you die the level doesn't restart"* and *"some blocks from
+/// the last run remain spent"* have one cause, the untested route is it.
+///
+/// ## ⛔ How she is killed, and why it is not the obvious way
+///
+/// **`BodyHealth.health.current = 0` does NOT kill her.** Nothing polls the
+/// controlled body's health for death; measured 2026-08-09, a hand-zeroed
+/// Mary-O walked this room at `hp = 0` for 120 frames and the beat never armed
+/// (`death_reset_timing::deal_a_lethal_hit` and `versus_stage.rs:784` both
+/// record it). Writing the reset flag by hand would be worse: the flag IS the
+/// thing under test.
+///
+/// So she is **dropped into the pit and left to fall.** The fixture relocates
+/// her below the room floor — through `transit_body`, the engine's own
+/// relocation authority — and then only steps frames. Gravity carries her past
+/// `World::blast_margin`, the movement kernel's out-of-bounds gate raises
+/// `ResetCause::LeftTheWorld`, `integrate_home_body` turns that into
+/// `BodyReset`, and `publish_kernel_reset_death` publishes the death. Nothing in
+/// this test writes a death, a reset, a health value or a replay request.
+///
+/// ⚠ **and the CAUSE is asserted**, because "I drove the route I meant to" is
+/// exactly the claim a fixture fakes by accident. `HitSource::LeftTheWorld`
+/// charged to the controlled body has one writer in the entire app, and it is
+/// the system this test exists for.
+///
+/// ## ✔ POISONED, not trusted — and the red is BOTH of Jon's reports
+///
+/// Deleting `restart_level_after_death`'s `replay.write(..)` — the same poison
+/// the fatal-hit sibling uses — turns this red with
+///
+/// ```text
+/// SHE DIED IN A PIT AND maryo_block:Question:TowardLantern:MaryOBlock-106885
+/// IS STILL SPENT: the room was put back 0 time(s), she is at
+/// Vec2(78.0, 973.375) and spawn is Vec2(78.0, 375.0)
+/// ```
+///
+/// ⭐ **both of his sentences at once, from one deleted line**: a block from the
+/// last run still spent, and a body 598 px from spawn after a death. Measured
+/// 2026-08-09.
+///
+/// ⚠ **that the POSITION term survives the poison had to be measured, not
+/// assumed.** A kernel reset teleports the body to `world.spawn` by itself
+/// (`reset_body_clusters` in `integrate_home_body`) and she is held over the
+/// void, so the honest expectation was that the void would carry her home and
+/// leave only the block state discriminating. It does not — under the poison
+/// she is still in the pit when the window closes. Both terms are real here;
+/// the block is stated first because it is the one nothing but the replay can
+/// restore.
+///
+/// ⚠ **it names a SPECIFIC block** rather than asserting the set is empty —
+/// `rearm_all` empties its own set trivially, so an emptiness check is green by
+/// construction. The block is taken from the LIVE room's geometry, and it is
+/// marked spent through the same public write `bonk_power_blocks` performs.
+/// ⛔ this does NOT claim there is no third kind of per-attempt block state;
+/// that is D70's open question and this fixture is not its answer.
+#[test]
+fn a_pit_death_returns_her_to_spawn_and_rearms_a_spent_block() {
+    use ambition_demo_mary_o::powerups::SpentPowerBlocks;
+
+    let mut app = boot();
+    settle_until_playable(&mut app);
+    // ⚠ **the room is still arriving when the body first exists.** Activation
+    // emits `RoomLoaded` for two or three more frames and a `Manual` room reset
+    // after it, and BOTH re-arm the blocks — so a block spent the frame she
+    // becomes queryable is wiped by the load that was still finishing, and the
+    // assertion below caught exactly that. Let the boot settle first.
+    for _ in 0..60 {
+        app.update();
+    }
+    let world = room(&mut app);
+    let spawn = world.spawn;
+
+    // A `?`-block that is really in the room she is standing in, spent the way
+    // a bonk spends it.
+    let question = world
+        .blocks
+        .iter()
+        .find(|block| {
+            ambition_demo_mary_o::ldtk_vocabulary::block_look_of(&block.name)
+                == Some(ambition_demo_mary_o::ldtk_vocabulary::MaryOBlockLook::Question)
+        })
+        .map(|block| (block.id.clone(), block.name.clone()))
+        .expect("the demo's first room authors at least one ?-block to spend");
+    app.world_mut()
+        .resource_mut::<SpentPowerBlocks>()
+        .spend(question.0.clone());
+    app.update();
+    assert!(
+        app.world()
+            .resource::<SpentPowerBlocks>()
+            .is_spent(&question.0),
+        "the fixture failed to spend {} — nothing below can say a replay \
+         re-armed a block that was never spent",
+        question.1
+    );
+
+    app.world_mut().resource_mut::<RoomResetsSeen>().0 = 0;
+    app.world_mut().resource_mut::<DeathsSeen>().0.clear();
+    let her = {
+        let mut query = app
+            .world_mut()
+            .query_filtered::<Entity, With<PrimaryPlayer>>();
+        query
+            .iter(app.world())
+            .next()
+            .expect("gameplay has a primary player")
+    };
+
+    // ⭐ **the pit.** Below the room floor but INSIDE the blast margin, so the
+    // fall itself is what takes her out of the world — this hands the kernel a
+    // body in a pit, not a body already past the edge.
+    displace(
+        &mut app,
+        Vec2::new(spawn.x, world.size.y + world.blast_margin * 0.5),
+    );
+
+    let mut armed_after = None;
+    for frame in 0..600 {
+        app.update();
+        if crate::death_reset_timing::beat_remaining(&mut app).unwrap_or(0.0) > 0.0 {
+            armed_after = Some(frame);
+            break;
+        }
+    }
+    let armed_after = armed_after.expect(
+        "she fell into the pit and the death beat never armed within 600 frames \
+         — the fixture killed nothing, so everything it measures next is vacuous",
+    );
+
+    // ⛔ **WHICH death, asserted before anything is concluded from it.** A hit,
+    // a timeout and a kernel reset all arm the same beat; only the cause says
+    // which system published it.
+    let deaths = app.world().resource::<DeathsSeen>().0.clone();
+    assert!(
+        deaths.iter().any(|(victim, source)| *victim == her
+            && *source == ambition_platformer2d::combat::HitSource::LeftTheWorld),
+        "the beat armed on f{armed_after} but no death charged to the controlled \
+         body ({her:?}) came from the kernel's out-of-bounds gate — this fixture \
+         is NOT exercising publish_kernel_reset_death, whatever it goes on to \
+         prove. Deaths seen: {deaths:?}"
+    );
+
+    // The beat pins her at `BodyReset.origin`, which is where she left the
+    // world — so this reads the pit, not the respawn the kernel already did.
+    let held = player_pos(&mut app).expect("she is still in the world");
+    assert!(
+        held.distance(spawn) > 200.0,
+        "the beat must be holding her AWAY from spawn (died in the pit after \
+         {armed_after} frames of falling; she is at {held:?}, spawn is \
+         {spawn:?}) — otherwise 'she ends up at spawn' is satisfied by her never \
+         having left it"
+    );
+
+    let beat_frames = (ambition_demo_mary_o::death::DEATH_DWELL / (1.0 / 60.0)).ceil() as usize;
+    for _ in 0..beat_frames + 60 {
+        app.update();
+    }
+
+    let resets = app.world().resource::<RoomResetsSeen>().0;
+    let still_spent = app
+        .world()
+        .resource::<SpentPowerBlocks>()
+        .is_spent(&question.0);
+    let home = player_pos(&mut app).expect("she is still in the world");
+
+    // ⭐ the strong term first: only a replay puts this block back.
+    assert!(
+        !still_spent,
+        "SHE DIED IN A PIT AND {} IS STILL SPENT: the room was put back {resets} \
+         time(s), she is at {home:?} and spawn is {spawn:?}. This is Jon's \
+         'some blocks from the last run remain spent' reproduced on the one \
+         death route that had no test.",
+        question.1
+    );
+    assert!(
+        resets >= 1,
+        "a pit death never put the room back ({resets} resets) — \
+         publish_kernel_reset_death's death does not reach the replay the way a \
+         fatal hit's does"
+    );
+    assert!(
+        home.distance(spawn) < 64.0,
+        "SHE DIED AND THE LEVEL DID NOT RESTART: she is still at {home:?}, spawn \
+         is {spawn:?}, she was held at {held:?} through the beat, and the room \
+         was put back {resets} time(s)."
     );
 }

@@ -1227,8 +1227,13 @@ pub fn sync_touch_stick_visibility_from_context(
     // opposite of the buttons' bug, where hidden ones stayed live.)
     //
     // ⚠ the rule is still "a control nobody can use must not be on screen" —
-    // the Empty context, where nothing owns the seat and neither binding routes,
-    // still hides it.
+    // the Empty context still hides it. ⛔ but NOT because "neither binding
+    // routes", which is what this said and is not true: the menu lane is
+    // ungated, exactly as the paragraph above states, so `MenuStick` reaches
+    // `SeatMenuFrames` in every context. What `Empty` means is that nothing
+    // published a cue and nothing claimed the seat, so no surface is READING
+    // those frames — the stick would steer nothing. `surface_prompt` in
+    // `ambition_sim_view::control_prompt` is where that judgement is made.
     let steers_something = gameplay
         || matches!(
             prompt.context,

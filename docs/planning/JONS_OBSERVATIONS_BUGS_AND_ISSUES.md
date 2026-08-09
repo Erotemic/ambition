@@ -10,12 +10,17 @@
 
 
 * The Sanic music is much louder than the rest of the tunes, and the SFX sanic uses are also way too loud. We need a way to programmatically inspect the relative levels of different SFX and music scores so we identify things that might blow somebodies ear out and then fix them. 
+  * ✔ `scripts/audio_levels.py` reports all 782 sounds on one page; the loud SFX are fixed (the procedural path had no loudness target and sat +8.4 dB over the packed one).
+  * ⊙ but your premise about the music was wrong — Sanic's score is 19th of 77 and only +2.2 LU over its cohort, so nothing was lowered there.
 
 * Sanic hitting the spikes should not be an insta kill. It should hurt him and knock out his rings. Sanic should only die after getting hit with 0 rings (or crushed, but there is no way to do that in the demo yet). This needs to be a fairly faithful reimplementation of sonic physics and mechanics.
+  * ✔ Fixed — the ring mechanic already existed and four places were treating a reset as damage.
 
 * The goblins in the goblin encounter don't have sprites anymore. They have magenta boxes. I think "Goblin" was never a proper enemy multi-instance character.
+  * ⊙ You are right about the cause, and the fix needs your call in `awaiting-maintainer-decision.md`: is an enemy a character, or an archetype wearing one?
 
 * Sanic still says "fly" instead of "super transform" or "untransform" which is what that button maps to. 
+  * ✔ Fixed — the button reads "Transform".
 
 * Sanic should not pick up anything that turns him into super sanic in the level. 
 
@@ -67,6 +72,7 @@
 
 
 * The pirates in the pirate sky no longer ride their sharks. 
+  * ◐ Diagnosed: your own 2026-07-06 edit in the LDtk editor wrote every mount `EntityRef` in `sandbox.ldtk` back as null (48 of them). A guard now pins it; the refs still need re-authoring.
 
 * In the sky enemy the instance of iron marry doesn't use her swordgun, she shoots fireballs, which is not something her character should be able to do. I suppose we do need a distinction between unique characters and re spawning archetype characters.
 
@@ -81,8 +87,10 @@
 
 
 * The main character shield sprite has the bubble in the wrong place, just kinda to the upper left. 
+  * ◐ Not a code bug — the engine's bubble is centred on you correctly, and the misplaced ring is painted into robot v3's `block` spritesheet row. Needs an art regen.
 
 * In smash, choosing robot v3, if you do your attack (among other issues with smash combat right now) the VFX happens in the top left corner, not in the authored area for the character.  
+  * ◐ A slash whose owner could not be found was being drawn at the world origin; that now warns instead. The attack art is measured clean, so please reproduce it once and tell me if a warning appears.
 
 * NOTE: developing out the smash combat system and the ambition combat system should be very similar and feed each other, because I want the combat in ambition to feel a little smash like. I want kockback to increase depending on how damaged you are. The ambition game will have health, and not percent, so there will be a limit, and maybe some enemy characters won't have this property, but the main character will. The knockback is what will make this game fun.
 

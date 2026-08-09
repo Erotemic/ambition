@@ -236,6 +236,18 @@ pub(crate) fn spawn_slash_effects(
         ) else {
             continue;
         };
+        // ⛔ **no owner, no slash.** This used to fall back to `Vec2::ZERO` and
+        // draw the swing at the world origin — see `owner_pos`.
+        let Some(at) = owner_pos(&owners, *owner) else {
+            bevy::log::warn!(
+                target: "ambition_platformer2d::render",
+                "a slash cue names {owner:?}, which publishes no `BodyPoseView`; \
+                 skipping the effect rather than drawing it at the world origin. \
+                 Some spawn path is producing a swing whose owner the pose \
+                 read-model does not cover."
+            );
+            continue;
+        };
         spawn_one(
             &mut commands,
             session_scope,
@@ -243,7 +255,7 @@ pub(crate) fn spawn_slash_effects(
             &source,
             *shape,
             *owner,
-            owner_pos(&owners, *owner),
+            at,
             *kind,
             *pose,
         );
@@ -318,14 +330,33 @@ fn spawn_one(
 /// blade placed on the sim pose shudders against a body that looks perfectly
 /// stable. That is the same trap the debug overlay's own box fell into and
 /// fixed by sampling `draw_pos`.
+/// Where the swinging body is drawn, or `None` if it cannot be found.
+///
+/// ⛔ **this used to end `.unwrap_or(ae::Vec2::ZERO)`, and that turned "I cannot
+/// find the swinging body" into "draw the swing at the world origin."** In a
+/// room whose content sits at positive coordinates that is the top-left corner:
+/// the failure stopped being invisible and started being *garbage in a corner*,
+/// which reads like an art or anchor bug and sends the next person into the
+/// sprite pipeline.
+///
+/// ⭐ **an absent owner is now an absent slash** — nothing drawn, one warning
+/// naming the entity. That is legible, greppable, and cannot be mistaken for a
+/// placement defect. See queue D54.
+///
+/// ⚠ **this is NOT known to be the cause of Jon's top-left smash VFX.** The
+/// population here is filled by `rebuild_body_pose_views`, which
+/// `FeatureViewSyncSchedulePlugin` installs from the runtime that smash
+/// composes — so the miss may never happen. The fix stands on its own: a
+/// fallback that invents an answer is wrong whether or not it is currently
+/// firing.
 fn owner_pos(
     owners: &Query<(&ambition_sim_view::BodyPoseView, Option<&PresentedPose>)>,
     owner: Entity,
-) -> ae::Vec2 {
+) -> Option<ae::Vec2> {
     owners
         .get(owner)
+        .ok()
         .map(|(pose, presented)| presented.map_or(pose.pos, |p| p.presented()))
-        .unwrap_or(ae::Vec2::ZERO)
 }
 
 /// **Keep every live slash on the body that is swinging it.**

@@ -178,14 +178,18 @@ fn apply_android_suspend_to_game_mode(
     if !state.just_changed {
         return;
     }
-    // ⚠ INSTRUMENTED, NOT FIXED (2026-08-08). The resume branch below `take()`s
-    // the saved mode BEFORE it checks whether the guard will accept it, so a
-    // refused restore consumes the value and there is no second chance. That is
-    // the leading suspect for an Android freeze after a visual-quality change,
-    // where a spurious 0.6s suspend/resume pair interleaved with a menu close.
-    // The logging here says which of the three outcomes actually happened; the
-    // behaviour is deliberately unchanged so the fix can be written against
-    // evidence rather than against this reading of the code.
+    // ✔ FIXED 2026-08-09; the instrumentation stays. The resume branch used to
+    // `take()` the saved mode before the guard decided whether to accept it, so
+    // a refused restore consumed the value with no second chance. It now peeks
+    // and clears only on the branch that restores — see the comment there for
+    // why the guard refuses more often than it looks (`NextState` is deferred).
+    // The three world-log outcomes below are unchanged and still say which one
+    // happened, because that is how a device report gets ordered.
+    //
+    // ⛔ BLIND FIX: written without a device. No `adb` here, so this is reasoned
+    // from the 2026-08-08 log and the code, not observed. What it makes
+    // unreachable is the unrecoverable state; whether it is the freeze Jon hit
+    // needs a device run to confirm.
     let observed = *mode.get();
     if state.suspended {
         // Only flip into Paused if gameplay was actually active.
@@ -210,12 +214,45 @@ fn apply_android_suspend_to_game_mode(
                 observed.label()
             ));
         }
-    } else if let Some(prev) = state.mode_before_suspend.take() {
+    } else if let Some(prev) = state.mode_before_suspend {
         // Resume edge: restore the pre-suspend mode, but only if the
         // suspend-induced Paused is still the current mode. If the user
         // opened a menu or otherwise moved off it while backgrounded,
         // leave their navigation alone.
+        //
+        // ⛔ **PEEKED, NOT TAKEN — and that is the whole fix (2026-08-09).**
+        // This was `.take()`, which consumed the saved mode before the guard
+        // below decided whether to use it. A refused restore therefore threw
+        // the value away and no later resume could recover it.
+        //
+        // ⚠ **and the guard refuses more often than it looks, because
+        // `NextState` is DEFERRED.** The suspend edge calls
+        // `next_mode.set(GameMode::Paused)`; the transition applies later. On a
+        // spurious short suspend/resume pair — a 0.6 s one is in the
+        // 2026-08-08 device log — the resume edge can run while `observed` is
+        // still the PRE-pause mode, so `matches!(observed, Paused)` is false,
+        // the restore is refused, and the deferred `Paused` lands immediately
+        // afterwards. Under `.take()` that left the game paused with the only
+        // thing that could unpause it already discarded, which matches Jon's
+        // report exactly: *"I can still do the menu … but I can't move my
+        // character."*
+        //
+        // Keeping the value is safe in the other direction: a genuinely
+        // navigated-away user either suspends again (the capture branch
+        // overwrites it) or eventually resumes from the forced `Paused`, which
+        // is precisely when restoring is what they want.
+        //
+        // ⚠ **THIS MAKES THE FREEZE RECOVERABLE, NOT IMPOSSIBLE.** This whole
+        // function early-returns unless `just_changed`, so a refused restore is
+        // only retried on the NEXT suspend/resume edge — background and
+        // foreground once more and the mode comes back. A player who never
+        // backgrounds again is still stuck. Closing that needs the guard to stop
+        // inferring "we forced this pause" from `observed`, either by consulting
+        // the pending `NextState` or by recording the fact on the capture edge.
+        // Both change behaviour on a platform with no test here, so they wait
+        // for a device — see the queue row.
         if matches!(observed, GameMode::Paused) {
+            state.mode_before_suspend = None;
             ambition_platformer2d::platformer::world_log::world_event(format_args!(
                 "android-resume saved={} observed={} -> RESTORED",
                 prev.label(),
@@ -227,13 +264,14 @@ fn apply_android_suspend_to_game_mode(
             );
             next_mode.set(prev);
         } else {
-            // ⭐ THE LINE THIS WHOLE PROBE EXISTS FOR. `take()` above already
-            // consumed the saved mode; the guard just refused to use it, so
-            // nothing will ever restore it. If a freeze report shows this, the
-            // ordering question is answered.
+            // ⭐ THE LINE THIS WHOLE PROBE EXISTS FOR — and it no longer
+            // reports a loss. The guard refused, and the saved mode is KEPT for
+            // the next resume edge instead of being discarded. A freeze report
+            // still ordered against this line answers the same question; it
+            // just no longer answers it with an unrecoverable state.
             ambition_platformer2d::platformer::world_log::world_event(format_args!(
-                "android-resume saved={} observed={} -> DROPPED (saved mode consumed and \
-                 discarded; no second chance)",
+                "android-resume saved={} observed={} -> DEFERRED (guard refused; saved mode \
+                 KEPT for a later resume edge)",
                 prev.label(),
                 observed.label()
             ));

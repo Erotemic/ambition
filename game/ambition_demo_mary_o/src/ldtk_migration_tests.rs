@@ -119,6 +119,77 @@ fn every_named_block_the_runtime_looks_for_survives_conversion() {
     }
 }
 
+/// **A pole with no flag on it is still a pole to every other check.**
+///
+/// Jon, 2026-08-09: *"In mary-o 1-2 the flagpole doesn't have a flag."* He was
+/// right, and the dressing code was not wrong: `scenery_for_authored_room`
+/// matches `goal_pole` → shaft, `goal_pole_knob` → finial, `goal_pole_banner` →
+/// flag, and its `_ => {}` arm means **an unauthored name produces no prop and
+/// no complaint**. 1-1 authored all three; 1-2 authored only the shaft.
+///
+/// ⛔ **the load-bearing name is exactly backwards from how the bug presents.**
+/// [`crate::authored_pole`] panics if `goal_pole` is missing, so the piece the
+/// player cannot see is mandatory and the two pieces they look at are optional.
+/// Nothing between the file and the screen had an opinion about the flag.
+///
+/// ⭐ **so this pins the CLASS, not the level**: any room that stands a shaft
+/// dresses it completely. A third level authored with a bare pole fails here
+/// rather than shipping, which is the whole point of not spelling `mary_o_1_2`
+/// anywhere below.
+///
+/// ⚠ **asserted on the PROPS, not on the block names**, because the prop is what
+/// Jon looked at. A rename on either side of the `match` is a silently missing
+/// picture again, and a name list would still be green through it.
+///
+/// ⚠ `test_course` is deliberately out of scope: it builds its shaft in Rust as
+/// a scripted-run fixture that nothing renders, so dressing it would be a
+/// costume for a test harness.
+#[test]
+fn every_authored_pole_wears_its_finial_and_its_flag() {
+    let room_set = crate::authored_world();
+
+    let mut shafts = 0usize;
+    let mut bare: Vec<String> = Vec::new();
+
+    for room in &room_set.rooms {
+        let has_block = |name: &str| room.world.blocks.iter().any(|b| b.name == name);
+        if !has_block(crate::GOAL_POLE_PREFIX) {
+            continue;
+        }
+        shafts += 1;
+        let props = crate::scenery_for_authored_room(room);
+        let has_prop = |id: &str| props.iter().any(|p| p.id == id);
+        for (prop, block) in [
+            ("goal_pole_finial_art", "goal_pole_knob"),
+            ("goal_pole_banner_art", "goal_pole_banner"),
+        ] {
+            if !has_prop(prop) {
+                bare.push(format!(
+                    "{}: stands a `{}` shaft but draws no `{prop}`, because the room \
+                     authors no `{block}` block",
+                    room.id,
+                    crate::GOAL_POLE_PREFIX,
+                ));
+            }
+        }
+    }
+
+    assert!(
+        bare.is_empty(),
+        "an authored flagpole is missing its dressing:\n{}",
+        bare.join("\n"),
+    );
+    // ⚠ the floor, and it is the half of this that could rot silently: the
+    // failure mode of a "for every room that …" check is that no room ever
+    // matches, which reads exactly like a pass. Both authored levels finish on a
+    // pole, so anything under two means the loop stopped seeing them.
+    assert!(
+        shafts >= 2,
+        "both authored levels finish on a flagpole; only {shafts} shaft(s) reached \
+         this check, so it is not looking at the levels"
+    );
+}
+
 /// ⚠ **ONE instrument, `#[ignore]`d so it never runs in the suite** — what the
 /// authored file actually contains, when a claim about it needs settling.
 ///

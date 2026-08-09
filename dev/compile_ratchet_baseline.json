@@ -1,17 +1,17 @@
 {
-  "commit": "6c68921cf765",
+  "commit": "b96408829309",
   "consumer": "ambition_app",
   "crates": {
     "ambition_app": {
       "depth": 1,
       "direct_dependents": [],
       "edit_cost_crates": 1,
-      "edit_cost_lines": 26354,
-      "edit_cost_seconds": 66.431,
+      "edit_cost_lines": 26527,
+      "edit_cost_seconds": 66.867,
       "files": 57,
-      "lines": 26354,
+      "lines": 26527,
       "ms_per_line": 2.5207,
-      "seconds": 66.431,
+      "seconds": 66.867,
       "seconds_source": "measured",
       "test_file_lines": 2341
     },
@@ -26,8 +26,8 @@
         "ambition_sprite_sheet"
       ],
       "edit_cost_crates": 20,
-      "edit_cost_lines": 267115,
-      "edit_cost_seconds": 1009.836,
+      "edit_cost_lines": 269932,
+      "edit_cost_seconds": 1019.069,
       "files": 26,
       "lines": 4555,
       "ms_per_line": 1.4555,
@@ -45,12 +45,12 @@
         "ambition_platformer2d_provider"
       ],
       "edit_cost_crates": 20,
-      "edit_cost_lines": 265899,
-      "edit_cost_seconds": 1007.295,
+      "edit_cost_lines": 268575,
+      "edit_cost_seconds": 1016.289,
       "files": 23,
-      "lines": 7026,
+      "lines": 7262,
       "ms_per_line": 3.1753,
-      "seconds": 22.31,
+      "seconds": 23.059,
       "seconds_source": "measured",
       "test_file_lines": 268
     },
@@ -70,12 +70,12 @@
         "ambition_sim_view"
       ],
       "edit_cost_crates": 24,
-      "edit_cost_lines": 313806,
-      "edit_cost_seconds": 1055.461,
+      "edit_cost_lines": 316897,
+      "edit_cost_seconds": 1065.0,
       "files": 72,
-      "lines": 35475,
+      "lines": 35593,
       "ms_per_line": 0.8708,
-      "seconds": 30.892,
+      "seconds": 30.994,
       "seconds_source": "measured",
       "test_file_lines": 10682
     },
@@ -89,8 +89,8 @@
         "ambition_sim_view"
       ],
       "edit_cost_crates": 18,
-      "edit_cost_lines": 263931,
-      "edit_cost_seconds": 983.578,
+      "edit_cost_lines": 266343,
+      "edit_cost_seconds": 991.776,
       "files": 34,
       "lines": 14861,
       "ms_per_line": 1.2895,
@@ -104,12 +104,12 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 47850,
-      "edit_cost_seconds": 179.661,
+      "edit_cost_lines": 48038,
+      "edit_cost_seconds": 180.176,
       "files": 79,
-      "lines": 21496,
+      "lines": 21511,
       "ms_per_line": 5.2675,
-      "seconds": 113.23,
+      "seconds": 113.309,
       "seconds_source": "measured",
       "test_file_lines": 3386
     },
@@ -125,8 +125,8 @@
         "ambition_platformer2d"
       ],
       "edit_cost_crates": 28,
-      "edit_cost_lines": 333902,
-      "edit_cost_seconds": 1105.241,
+      "edit_cost_lines": 337257,
+      "edit_cost_seconds": 1115.577,
       "files": 8,
       "lines": 3267,
       "ms_per_line": 2.112,
@@ -145,8 +145,8 @@
         "ambition_touch_input"
       ],
       "edit_cost_crates": 18,
-      "edit_cost_lines": 250062,
-      "edit_cost_seconds": 965.225,
+      "edit_cost_lines": 252474,
+      "edit_cost_seconds": 973.422,
       "files": 1,
       "lines": 992,
       "ms_per_line": 0.8165,
@@ -160,12 +160,12 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 41464,
-      "edit_cost_seconds": 159.55,
+      "edit_cost_lines": 41635,
+      "edit_cost_seconds": 159.974,
       "files": 26,
-      "lines": 15110,
+      "lines": 15108,
       "ms_per_line": 6.1628,
-      "seconds": 93.12,
+      "seconds": 93.108,
       "seconds_source": "measured",
       "test_file_lines": 1706
     },
@@ -175,8 +175,8 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 26607,
-      "edit_cost_seconds": 73.151,
+      "edit_cost_lines": 26780,
+      "edit_cost_seconds": 73.587,
       "files": 1,
       "lines": 253,
       "ms_per_line": 26.5613,
@@ -190,14 +190,14 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 34060,
-      "edit_cost_seconds": 118.848,
+      "edit_cost_lines": 34388,
+      "edit_cost_seconds": 120.338,
       "files": 8,
-      "lines": 7706,
+      "lines": 7861,
       "ms_per_line": 6.8021,
-      "seconds": 52.417,
+      "seconds": 53.471,
       "seconds_source": "measured",
-      "test_file_lines": 3892
+      "test_file_lines": 3946
     },
     "ambition_demo_smash": {
       "depth": 2,
@@ -205,8 +205,8 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 32026,
-      "edit_cost_seconds": 106.44,
+      "edit_cost_lines": 32199,
+      "edit_cost_seconds": 106.876,
       "files": 6,
       "lines": 5672,
       "ms_per_line": 7.0539,
@@ -220,8 +220,8 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 29641,
-      "edit_cost_seconds": 108.541,
+      "edit_cost_lines": 29814,
+      "edit_cost_seconds": 108.977,
       "files": 3,
       "lines": 3287,
       "ms_per_line": 12.8111,
@@ -240,8 +240,8 @@
         "ambition_sim_view"
       ],
       "edit_cost_crates": 18,
-      "edit_cost_lines": 251082,
-      "edit_cost_seconds": 979.415,
+      "edit_cost_lines": 253494,
+      "edit_cost_seconds": 987.613,
       "files": 9,
       "lines": 2012,
       "ms_per_line": 7.4553,
@@ -259,8 +259,8 @@
         "ambition_sim_view"
       ],
       "edit_cost_crates": 18,
-      "edit_cost_lines": 252066,
-      "edit_cost_seconds": 974.545,
+      "edit_cost_lines": 254478,
+      "edit_cost_seconds": 982.743,
       "files": 10,
       "lines": 2996,
       "ms_per_line": 3.3812,
@@ -278,14 +278,14 @@
         "ambition_sim_view"
       ],
       "edit_cost_crates": 18,
-      "edit_cost_lines": 252008,
-      "edit_cost_seconds": 969.485,
+      "edit_cost_lines": 254616,
+      "edit_cost_seconds": 978.021,
       "files": 16,
-      "lines": 2938,
+      "lines": 3134,
       "ms_per_line": 1.7257,
-      "seconds": 5.07,
+      "seconds": 5.408,
       "seconds_source": "measured",
-      "test_file_lines": 195
+      "test_file_lines": 315
     },
     "ambition_entity_catalog": {
       "depth": 11,
@@ -304,8 +304,8 @@
         "ambition_sprite_sheet"
       ],
       "edit_cost_crates": 39,
-      "edit_cost_lines": 367502,
-      "edit_cost_seconds": 1193.241,
+      "edit_cost_lines": 370690,
+      "edit_cost_seconds": 1203.037,
       "files": 4,
       "lines": 3385,
       "ms_per_line": 3.5451,
@@ -321,12 +321,12 @@
         "ambition_platformer2d_provider"
       ],
       "edit_cost_crates": 12,
-      "edit_cost_lines": 98106,
-      "edit_cost_seconds": 495.073,
+      "edit_cost_lines": 98475,
+      "edit_cost_seconds": 496.678,
       "files": 18,
-      "lines": 7898,
+      "lines": 7926,
       "ms_per_line": 1.6979,
-      "seconds": 13.41,
+      "seconds": 13.458,
       "seconds_source": "measured",
       "test_file_lines": 1470
     },
@@ -337,8 +337,8 @@
         "ambition_projectiles"
       ],
       "edit_cost_crates": 19,
-      "edit_cost_lines": 253439,
-      "edit_cost_seconds": 971.855,
+      "edit_cost_lines": 255851,
+      "edit_cost_seconds": 980.052,
       "files": 6,
       "lines": 1903,
       "ms_per_line": 1.9075,
@@ -354,8 +354,8 @@
         "ambition_vfx"
       ],
       "edit_cost_crates": 46,
-      "edit_cost_lines": 427768,
-      "edit_cost_seconds": 1249.606,
+      "edit_cost_lines": 431335,
+      "edit_cost_seconds": 1259.629,
       "files": 7,
       "lines": 2710,
       "ms_per_line": 0.7343,
@@ -384,8 +384,8 @@
         "ambition_ui_nav"
       ],
       "edit_cost_crates": 33,
-      "edit_cost_lines": 302693,
-      "edit_cost_seconds": 1092.986,
+      "edit_cost_lines": 305723,
+      "edit_cost_seconds": 1102.544,
       "files": 19,
       "lines": 8160,
       "ms_per_line": 2.4252,
@@ -405,8 +405,8 @@
         "ambition_sprite_sheet"
       ],
       "edit_cost_crates": 21,
-      "edit_cost_lines": 274662,
-      "edit_cost_seconds": 1007.62,
+      "edit_cost_lines": 277635,
+      "edit_cost_seconds": 1017.056,
       "files": 1,
       "lines": 305,
       "ms_per_line": 1.6393,
@@ -420,8 +420,8 @@
         "ambition_platformer2d"
       ],
       "edit_cost_crates": 10,
-      "edit_cost_lines": 85727,
-      "edit_cost_seconds": 451.707,
+      "edit_cost_lines": 86068,
+      "edit_cost_seconds": 453.264,
       "files": 3,
       "lines": 288,
       "ms_per_line": 9.0278,
@@ -438,8 +438,8 @@
         "ambition_platformer2d_runtime"
       ],
       "edit_cost_crates": 18,
-      "edit_cost_lines": 250727,
-      "edit_cost_seconds": 966.365,
+      "edit_cost_lines": 253139,
+      "edit_cost_seconds": 974.562,
       "files": 5,
       "lines": 1657,
       "ms_per_line": 1.1768,
@@ -457,8 +457,8 @@
         "ambition_platformer2d_runtime"
       ],
       "edit_cost_crates": 16,
-      "edit_cost_lines": 119944,
-      "edit_cost_seconds": 835.427,
+      "edit_cost_lines": 120622,
+      "edit_cost_seconds": 841.596,
       "files": 6,
       "lines": 1273,
       "ms_per_line": 4.5876,
@@ -473,8 +473,8 @@
         "ambition_platformer2d_provider"
       ],
       "edit_cost_crates": 11,
-      "edit_cost_lines": 90208,
-      "edit_cost_seconds": 481.663,
+      "edit_cost_lines": 90549,
+      "edit_cost_seconds": 483.22,
       "files": 7,
       "lines": 1905,
       "ms_per_line": 3.7585,
@@ -493,8 +493,8 @@
         "ambition_platformer2d_runtime"
       ],
       "edit_cost_crates": 21,
-      "edit_cost_lines": 264866,
-      "edit_cost_seconds": 999.395,
+      "edit_cost_lines": 267306,
+      "edit_cost_seconds": 1007.64,
       "files": 7,
       "lines": 3376,
       "ms_per_line": 2.0853,
@@ -508,8 +508,8 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 28971,
-      "edit_cost_seconds": 73.801,
+      "edit_cost_lines": 29144,
+      "edit_cost_seconds": 74.237,
       "files": 8,
       "lines": 2617,
       "ms_per_line": 2.8162,
@@ -536,12 +536,12 @@
         "ambition_touch_input"
       ],
       "edit_cost_crates": 26,
-      "edit_cost_lines": 282929,
-      "edit_cost_seconds": 1048.436,
+      "edit_cost_lines": 285959,
+      "edit_cost_seconds": 1057.994,
       "files": 16,
-      "lines": 4646,
+      "lines": 4675,
       "ms_per_line": 2.557,
-      "seconds": 11.88,
+      "seconds": 11.954,
       "seconds_source": "measured",
       "test_file_lines": 400
     },
@@ -558,8 +558,8 @@
         "ambition_sim_harness"
       ],
       "edit_cost_crates": 9,
-      "edit_cost_lines": 85439,
-      "edit_cost_seconds": 449.107,
+      "edit_cost_lines": 85780,
+      "edit_cost_seconds": 450.664,
       "files": 6,
       "lines": 3717,
       "ms_per_line": 7.9526,
@@ -578,14 +578,14 @@
         "ambition_touch_input"
       ],
       "edit_cost_crates": 17,
-      "edit_cost_lines": 249070,
-      "edit_cost_seconds": 964.415,
+      "edit_cost_lines": 251482,
+      "edit_cost_seconds": 972.612,
       "files": 332,
-      "lines": 111904,
+      "lines": 113218,
       "ms_per_line": 0.6102,
-      "seconds": 68.284,
+      "seconds": 69.086,
       "seconds_source": "measured",
-      "test_file_lines": 33074
+      "test_file_lines": 33685
     },
     "ambition_platformer2d_core": {
       "depth": 11,
@@ -617,14 +617,14 @@
         "ambition_time"
       ],
       "edit_cost_crates": 44,
-      "edit_cost_lines": 424270,
-      "edit_cost_seconds": 1244.966,
+      "edit_cost_lines": 427837,
+      "edit_cost_seconds": 1254.989,
       "files": 66,
-      "lines": 29062,
+      "lines": 29183,
       "ms_per_line": 0.3331,
-      "seconds": 9.681,
+      "seconds": 9.721,
       "seconds_source": "measured",
-      "test_file_lines": 11597
+      "test_file_lines": 11659
     },
     "ambition_platformer2d_host": {
       "depth": 4,
@@ -632,8 +632,8 @@
         "ambition_platformer2d"
       ],
       "edit_cost_crates": 10,
-      "edit_cost_lines": 88412,
-      "edit_cost_seconds": 500.757,
+      "edit_cost_lines": 88753,
+      "edit_cost_seconds": 502.314,
       "files": 4,
       "lines": 2973,
       "ms_per_line": 17.373,
@@ -648,12 +648,12 @@
         "ambition_platformer2d_actor_monolith"
       ],
       "edit_cost_crates": 18,
-      "edit_cost_lines": 255072,
-      "edit_cost_seconds": 984.735,
+      "edit_cost_lines": 257524,
+      "edit_cost_seconds": 993.068,
       "files": 19,
-      "lines": 6002,
+      "lines": 6042,
       "ms_per_line": 3.3855,
-      "seconds": 20.32,
+      "seconds": 20.455,
       "seconds_source": "measured",
       "test_file_lines": 149
     },
@@ -663,8 +663,8 @@
         "ambition_platformer2d"
       ],
       "edit_cost_crates": 10,
-      "edit_cost_lines": 88303,
-      "edit_cost_seconds": 474.503,
+      "edit_cost_lines": 88644,
+      "edit_cost_seconds": 476.06,
       "files": 4,
       "lines": 2864,
       "ms_per_line": 8.8673,
@@ -682,12 +682,12 @@
         "ambition_relativity2d"
       ],
       "edit_cost_crates": 13,
-      "edit_cost_lines": 108868,
-      "edit_cost_seconds": 809.017,
+      "edit_cost_lines": 109518,
+      "edit_cost_seconds": 815.139,
       "files": 42,
-      "lines": 14752,
+      "lines": 15061,
       "ms_per_line": 14.7725,
-      "seconds": 217.924,
+      "seconds": 222.489,
       "seconds_source": "measured",
       "test_file_lines": 333
     },
@@ -717,12 +717,12 @@
         "ambition_touch_input"
       ],
       "edit_cost_crates": 29,
-      "edit_cost_lines": 329040,
-      "edit_cost_seconds": 1135.524,
-      "files": 50,
-      "lines": 17691,
+      "edit_cost_lines": 332339,
+      "edit_cost_seconds": 1145.331,
+      "files": 51,
+      "lines": 17949,
       "ms_per_line": 0.7255,
-      "seconds": 12.835,
+      "seconds": 13.022,
       "seconds_source": "measured",
       "test_file_lines": 5259
     },
@@ -741,8 +741,8 @@
         "ambition_sprite_sheet"
       ],
       "edit_cost_crates": 21,
-      "edit_cost_lines": 269807,
-      "edit_cost_seconds": 1024.396,
+      "edit_cost_lines": 272624,
+      "edit_cost_seconds": 1033.629,
       "files": 17,
       "lines": 4781,
       "ms_per_line": 3.6352,
@@ -762,8 +762,8 @@
         "ambition_projectiles"
       ],
       "edit_cost_crates": 20,
-      "edit_cost_lines": 263464,
-      "edit_cost_seconds": 1006.715,
+      "edit_cost_lines": 265876,
+      "edit_cost_seconds": 1014.913,
       "files": 23,
       "lines": 5379,
       "ms_per_line": 2.3982,
@@ -780,8 +780,8 @@
         "ambition_render"
       ],
       "edit_cost_crates": 13,
-      "edit_cost_lines": 117143,
-      "edit_cost_seconds": 593.228,
+      "edit_cost_lines": 117933,
+      "edit_cost_seconds": 596.062,
       "files": 15,
       "lines": 6549,
       "ms_per_line": 3.9075,
@@ -796,8 +796,8 @@
         "ambition_vfx"
       ],
       "edit_cost_crates": 31,
-      "edit_cost_lines": 329910,
-      "edit_cost_seconds": 1138.284,
+      "edit_cost_lines": 333209,
+      "edit_cost_seconds": 1148.091,
       "files": 1,
       "lines": 82,
       "ms_per_line": 1.3415,
@@ -816,8 +816,8 @@
         "ambition_sim_view"
       ],
       "edit_cost_crates": 18,
-      "edit_cost_lines": 251536,
-      "edit_cost_seconds": 968.225,
+      "edit_cost_lines": 253948,
+      "edit_cost_seconds": 976.422,
       "files": 18,
       "lines": 2466,
       "ms_per_line": 1.545,
@@ -832,8 +832,8 @@
         "ambition_relativity2d"
       ],
       "edit_cost_crates": 11,
-      "edit_cost_lines": 89008,
-      "edit_cost_seconds": 514.387,
+      "edit_cost_lines": 89349,
+      "edit_cost_seconds": 515.944,
       "files": 1,
       "lines": 729,
       "ms_per_line": 0.4664,
@@ -847,8 +847,8 @@
         "ambition_platformer2d"
       ],
       "edit_cost_crates": 10,
-      "edit_cost_lines": 88279,
-      "edit_cost_seconds": 514.047,
+      "edit_cost_lines": 88620,
+      "edit_cost_seconds": 515.604,
       "files": 5,
       "lines": 2840,
       "ms_per_line": 22.8662,
@@ -865,12 +865,12 @@
         "ambition_touch_input"
       ],
       "edit_cost_crates": 12,
-      "edit_cost_lines": 110594,
-      "edit_cost_seconds": 567.638,
-      "files": 45,
-      "lines": 17497,
+      "edit_cost_lines": 111384,
+      "edit_cost_seconds": 570.472,
+      "files": 46,
+      "lines": 17885,
       "ms_per_line": 2.5376,
-      "seconds": 44.4,
+      "seconds": 45.385,
       "seconds_source": "measured",
       "test_file_lines": 130
     },
@@ -882,8 +882,8 @@
         "ambition_platformer2d_actor_monolith"
       ],
       "edit_cost_crates": 20,
-      "edit_cost_lines": 261192,
-      "edit_cost_seconds": 985.935,
+      "edit_cost_lines": 263632,
+      "edit_cost_seconds": 994.18,
       "files": 7,
       "lines": 2319,
       "ms_per_line": 0.4097,
@@ -907,8 +907,8 @@
         "ambition_vfx"
       ],
       "edit_cost_crates": 25,
-      "edit_cost_lines": 288216,
-      "edit_cost_seconds": 1046.108,
+      "edit_cost_lines": 290892,
+      "edit_cost_seconds": 1055.102,
       "files": 3,
       "lines": 1206,
       "ms_per_line": 2.5373,
@@ -923,8 +923,8 @@
         "ambition_sfx"
       ],
       "edit_cost_crates": 26,
-      "edit_cost_lines": 288755,
-      "edit_cost_seconds": 1047.178,
+      "edit_cost_lines": 291431,
+      "edit_cost_seconds": 1056.172,
       "files": 1,
       "lines": 539,
       "ms_per_line": 1.9852,
@@ -938,8 +938,8 @@
         "ambition_app"
       ],
       "edit_cost_crates": 2,
-      "edit_cost_lines": 28198,
-      "edit_cost_seconds": 71.941,
+      "edit_cost_lines": 28371,
+      "edit_cost_seconds": 72.377,
       "files": 9,
       "lines": 1844,
       "ms_per_line": 2.9881,
@@ -958,12 +958,12 @@
         "ambition_touch_input"
       ],
       "edit_cost_crates": 16,
-      "edit_cost_lines": 137166,
-      "edit_cost_seconds": 896.131,
+      "edit_cost_lines": 138264,
+      "edit_cost_seconds": 903.527,
       "files": 10,
-      "lines": 6116,
+      "lines": 6115,
       "ms_per_line": 3.3083,
-      "seconds": 20.234,
+      "seconds": 20.23,
       "seconds_source": "measured",
       "test_file_lines": 0
     },
@@ -975,18 +975,19 @@
         "ambition_platformer2d_actor_monolith",
         "ambition_platformer2d_host",
         "ambition_platformer2d_provider",
+        "ambition_platformer2d_runtime",
         "ambition_render",
         "ambition_sim_view"
       ],
       "edit_cost_crates": 18,
-      "edit_cost_lines": 256558,
-      "edit_cost_seconds": 982.886,
+      "edit_cost_lines": 259335,
+      "edit_cost_seconds": 991.984,
       "files": 23,
-      "lines": 7488,
+      "lines": 7853,
       "ms_per_line": 2.4668,
-      "seconds": 18.471,
+      "seconds": 19.372,
       "seconds_source": "measured",
-      "test_file_lines": 780
+      "test_file_lines": 877
     },
     "ambition_time": {
       "depth": 9,
@@ -1001,8 +1002,8 @@
         "ambition_sim_view"
       ],
       "edit_cost_crates": 19,
-      "edit_cost_lines": 264411,
-      "edit_cost_seconds": 985.488,
+      "edit_cost_lines": 266823,
+      "edit_cost_seconds": 993.686,
       "files": 2,
       "lines": 480,
       "ms_per_line": 3.9792,
@@ -1016,12 +1017,12 @@
         "ambition_platformer2d"
       ],
       "edit_cost_crates": 10,
-      "edit_cost_lines": 90124,
-      "edit_cost_seconds": 471.587,
+      "edit_cost_lines": 90526,
+      "edit_cost_seconds": 473.437,
       "files": 8,
-      "lines": 4685,
+      "lines": 4746,
       "ms_per_line": 4.7983,
-      "seconds": 22.48,
+      "seconds": 22.773,
       "seconds_source": "measured",
       "test_file_lines": 450
     },
@@ -1037,8 +1038,8 @@
         "ambition_touch_input"
       ],
       "edit_cost_crates": 24,
-      "edit_cost_lines": 269104,
-      "edit_cost_seconds": 1012.435,
+      "edit_cost_lines": 271544,
+      "edit_cost_seconds": 1020.68,
       "files": 4,
       "lines": 954,
       "ms_per_line": 0.3249,
@@ -1058,8 +1059,8 @@
         "ambition_render"
       ],
       "edit_cost_crates": 20,
-      "edit_cost_lines": 267185,
-      "edit_cost_seconds": 990.038,
+      "edit_cost_lines": 269597,
+      "edit_cost_seconds": 998.236,
       "files": 2,
       "lines": 788,
       "ms_per_line": 3.3629,
@@ -1071,22 +1072,22 @@
   "critical_path_crates": 12,
   "dirty": true,
   "first_party_crates": 55,
-  "first_party_lines": 449830,
-  "first_party_seconds": 1307.868,
+  "first_party_lines": 453633,
+  "first_party_seconds": 1318.64,
   "headroom_fraction": 0.02,
   "kind": "graph",
   "label": "",
   "largest_unit": {
     "crate": "ambition_platformer2d_actor_monolith",
-    "lines": 111904
+    "lines": 113218
   },
   "largest_unit_seconds": {
     "crate": "ambition_platformer2d_runtime",
-    "seconds": 217.924
+    "seconds": 222.489
   },
   "line_unit": "physical lines of <crate>/src/**/*.rs, inline #[cfg(test)] included",
-  "recorded_at": "2026-08-08T09:17:14-0400",
-  "run_id": "bc35d34eeafb",
+  "recorded_at": "2026-08-09T01:02:41-0400",
+  "run_id": "b97483244880",
   "schema": 1,
   "unit_weights": {
     "builds": [
@@ -1171,23 +1172,23 @@
   "watched_edit_cost": {
     "ambition_platformer2d_actor_monolith": {
       "crates": 17,
-      "lines": 249070,
-      "seconds": 964.415
+      "lines": 251482,
+      "seconds": 972.612
     },
     "ambition_platformer2d_core": {
       "crates": 44,
-      "lines": 424270,
-      "seconds": 1244.966
+      "lines": 427837,
+      "seconds": 1254.989
     }
   },
   "worst_edit_cost": {
     "crate": "ambition_geometry",
     "crates": 46,
-    "lines": 427768
+    "lines": 431335
   },
   "worst_edit_cost_seconds": {
     "crate": "ambition_geometry",
     "crates": 46,
-    "seconds": 1249.606
+    "seconds": 1259.629
   }
 }

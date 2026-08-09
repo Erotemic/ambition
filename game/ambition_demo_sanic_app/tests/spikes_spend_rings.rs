@@ -127,6 +127,39 @@ fn displace(app: &mut App, to: Vec2) {
     );
 }
 
+/// **Hold Right for one frame, through whatever input path this build HAS.**
+///
+/// ⛔ **this used to write `ControlFrame` directly, and that made all four cases
+/// pass ONLY in the build where input does not exist** (found 2026-08-09, queue
+/// D57). Under `--features input` the standard bridge rewrites the frame from
+/// the leafwing `ActionState` every tick, so the direct write was overwritten
+/// before the movement phase read it: the body never left the spot and
+/// `max_right` came out at exactly `RUN_UP_X + half_width`. **0 of 4 passed with
+/// the feature, 4 of 4 without** — and the prescribed test command does not
+/// enable it, so every gate reported these green.
+///
+/// ⚠ **the two arms are not a fork, they are two different compositions.** With
+/// the feature there IS a device→`ControlFrame` bridge and the honest way in is
+/// the keyboard, exactly as `tests/standard_input_path.rs` does it. Without the
+/// feature no bridge exists, and `ControlFrame` is the only seam there is — the
+/// spike/ring mechanics are still worth covering there, so that arm stays rather
+/// than the file being gated off and losing its default-build coverage.
+#[cfg(feature = "input")]
+fn hold_right(app: &mut App) {
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(KeyCode::ArrowRight);
+}
+
+#[cfg(not(feature = "input"))]
+fn hold_right(app: &mut App) {
+    let mut frame = app
+        .world_mut()
+        .resource_mut::<ambition_platformer2d::input::ControlFrame>();
+    frame.axis_x = 1.0;
+    frame.right_pressed = true;
+}
+
 /// Park Sanic on the floor at `from_x` holding `rings`, then hold Right until
 /// something happens to him or `frames` elapse.
 fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> Outcome {
@@ -175,13 +208,7 @@ fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> 
         max_right: from_x + half_width,
     };
     for _ in 0..frames {
-        {
-            let mut frame = app
-                .world_mut()
-                .resource_mut::<ambition_platformer2d::input::ControlFrame>();
-            frame.axis_x = 1.0;
-            frame.right_pressed = true;
-        }
+        hold_right(&mut app);
         app.update();
         let at = pos(&mut app);
         out.max_right = out.max_right.max(at.x + half_width);

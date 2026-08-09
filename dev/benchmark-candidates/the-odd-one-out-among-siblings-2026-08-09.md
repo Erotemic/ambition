@@ -30,6 +30,7 @@ the fix              →  the majority, and its comment says why
 | `body_pixel_extent` implemented twice, disagreeing up to **1.30×** | — | two crates |
 | the held item did not arbitrate the Attack press | two systems already arbitrate their slot | same crate |
 | two catalog-join fns sat above the types they use | every other consumer sits below | crate boundary |
+| `player_robot_v3`'s `block` row paints a **detached** shield ring, 1.77× wider and 1.45× taller than its idle | **36 of 37** sheets with a `block` row draw in front of the body at near-idle size | the asset tree |
 
 ⭐ **In five of the seven the sibling carried a comment stating the rule**, e.g.
 *"The DRAWN position, not the simulated one … a stand-in placed on the sim pose
@@ -67,6 +68,27 @@ here.
 this session the majority's comment named a constraint the obvious fix would have
 broken: revoking a moveset verb would have removed the touch button, and moving a
 `SpritePosedBody` constructor up would have split a grant from its retraction.
+
+### ⭐ The eighth instance generalised the method past code
+
+The shield-bubble bug survived **six** wrong mechanisms, every one of them an
+expression in the renderer, because the investigation never left the code. What
+killed it was a **population query over the assets**: *of the 37 sheets that have
+both an `idle` and a `block` row, how does each one's `block` differ from its
+`idle`?* One answer was 1.77× wider and 1.45× taller; the other 36 clustered near
+1.0 or grew in one axis only.
+
+⇒ **the siblings do not have to be call sites.** Anything the project has many of
+— spritesheet rows, `.ron` archetypes, LDtk entity instances, manifest entries,
+config blocks — supports the same query, and the outlier is found by *ratio to
+its own baseline*, not by absolute value. A sheet being large means nothing; a
+sheet being large **only in the row that misbehaves** is the finding.
+
+⚠ **and this is the case where reading the code cannot work at all.** The engine
+was correct to the last decimal — `pos == kin.pos`, offset `(+0.00, +0.00)`,
+one entity, no duplicate texture draw. There was no wrong expression to find.
+⛔ **when a measurement says every code path is clean and the artefact is still on
+screen, the population to enumerate is the DATA, not the callers.**
 
 ⭐ **the strongest version of this is deletion.** After fixing the prop stamp, its
 helper `active_sprite_scale` had no callers left — because its ONLY caller was

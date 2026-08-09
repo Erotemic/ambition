@@ -63,9 +63,15 @@ they are the contract under test.
 
 ## Seeing a picture, and which renderer to reach for
 
-Three paths exist and they are not interchangeable. Reaching for the wrong one
-costs a lot: measured 2026-08-02, the geometry render below took **0.43 s** and
-`capture_scene` did not produce a frame in **forty minutes**.
+Three paths exist and they are not interchangeable, but the gap is **0.43 s vs
+167 s**, not "seconds vs never": the geometry render below was measured at
+0.43 s on 2026-08-02, and `capture_scene` at **167 s on 2026-08-09** —
+⚠ **re-measured, because this line used to say it never finished at all.** See
+§2 for the correction and why the stale version was expensive.
+
+⇒ pick by WHAT YOU NEED TO SEE, not by cost: geometry draws boxes without art,
+`capture_scene` draws the real thing. **A question about art cannot be answered
+by the fast one at any price.**
 
 ### 1. Geometry — `render_room_geometry` (sub-second, no GPU)
 
@@ -103,13 +109,37 @@ sprite ART. Two flags matter for combat work:
   reads as N sim ticks into the move (the phase colour tells you whether you
   landed in the active window: red is active).
 
-⛔ **It does not currently finish on the dev VM.** Measured: forty minutes,
-single-threaded, spinning CPU, no log line, no graphics library mapped and no
-asset file opened. That profile points at startup work in a 688 MB debug binary
-(the baked sheet RONs are `include_str!`'d), NOT at the GPU — software Vulkan is
-installed (`/usr/share/vulkan/icd.d/lvp_icd.json`, lavapipe), and there is no
-`DISPLAY`, no `/dev/dri` and no Xvfb. If you need it, try a release build first
-and budget real time.
+✔✔ **IT WORKS, AND THIS PARAGRAPH USED TO SAY IT DID NOT. Re-measured
+2026-08-09: 167 s wall, image written.**
+
+```
+$ /usr/bin/time cargo run -p ambition_app_tools --bin capture_scene -- \
+      hall_of_characters player out.png 640x360 --warmup 60
+capture_scene: wrote out.png (640x360 px)
+WALL=167.30 s          # on a box already at load average 15
+```
+
+⛔ **the stale ⛔ below cost real verification.** A worker fixing the goblin
+encounter on 2026-08-09 skipped its visual check and cited this line — for a bug
+whose entire symptom is visual. **A recipe that wrongly forbids a tool is worse
+than no recipe**, because it is believed.
+
+<details><summary>What the old measurement said, kept so the change is legible</summary>
+
+> Measured: forty minutes, single-threaded, spinning CPU, no log line, no
+> graphics library mapped and no asset file opened. That profile pointed at
+> startup work in a 688 MB debug binary (the baked sheet RONs are
+> `include_str!`'d), NOT at the GPU — software Vulkan is installed
+> (`/usr/share/vulkan/icd.d/lvp_icd.json`, lavapipe), and there is no `DISPLAY`,
+> no `/dev/dri` and no Xvfb.
+
+</details>
+
+⚠ **what changed is not established.** `2f9fd6085` moved six binaries out of
+`ambition_app` (21.7 s → 15.1 s) and is the obvious candidate, but nobody
+bisected it. ⇒ **if it hangs for you, re-measure and say so with a number rather
+than restoring the old paragraph** — that is what let this one sit wrong.
+⚠ the 167 s is a WARM build plus the run. A cold build is on top.
 
 ### 3. Art against its own volume — composite it yourself
 

@@ -109,18 +109,27 @@ fn authored(look: MaryOBlockLook) -> ae::world::Block {
     found.remove(0)
 }
 
-/// The image the live render entity for this block is drawing.
+/// The image the live render entity for this block is drawing, or `None` when
+/// NOTHING is drawing it.
 ///
 /// ⚠ keyed by `geo_id`, which is what a bonk arrives with, not by the human
 /// name — the two are kept side by side on `BlockVisual` for this reason.
-fn drawn_image(app: &mut App, geo_id: &ae::GeoId) -> Handle<Image> {
+///
+/// ⛔ **`Option`, not a panic, because "there is no visual" is an ANSWER here.**
+/// Queue D69 is precisely a block whose entity is despawned mid-run, and a
+/// helper that panics on the absent case reports it as a broken probe.
+fn drawn_image_opt(app: &mut App, geo_id: &ae::GeoId) -> Option<Handle<Image>> {
     let mut query = app.world_mut().query::<(&BlockVisual, &Sprite)>();
     let world = app.world();
-    let (_, sprite) = query
+    query
         .iter(world)
         .find(|(visual, _)| &visual.geo_id == geo_id)
-        .unwrap_or_else(|| panic!("no block visual is drawing {geo_id:?}"));
-    sprite.image.clone()
+        .map(|(_, sprite)| sprite.image.clone())
+}
+
+fn drawn_image(app: &mut App, geo_id: &ae::GeoId) -> Handle<Image> {
+    drawn_image_opt(app, geo_id)
+        .unwrap_or_else(|| panic!("no block visual is drawing {geo_id:?}"))
 }
 
 /// The catalog's handle for a named sprite — what "wearing that art" MEANS.
@@ -209,84 +218,28 @@ fn a_painted_block_nobody_dresses_keeps_its_flat_quad() {
 fn the_invisible_brick_triggers_from_below() {
     let mut app = cavern();
     let hidden = authored(MaryOBlockLook::Hidden);
-
-    // Stand her on the nearest floor under the block. Derived from the room so
-    // this follows the level if Jon moves the brick, and it is the only way to
-    // be sure the jump below starts from footing rather than from mid-air.
-    let column = hidden.aabb.center().x;
     let underside = hidden.aabb.max.y;
-    let floor_top = level_1_2()
-        .world
-        .blocks
-        .iter()
-        .filter(|block| !matches!(block.kind, ae::BlockKind::BonkOnly))
-        .filter(|block| block.aabb.min.x <= column && column <= block.aabb.max.x)
-        .filter(|block| block.aabb.min.y > underside)
-        .map(|block| block.aabb.min.y)
-        .fold(f32::INFINITY, f32::min);
-    assert!(
-        floor_top.is_finite(),
-        "nothing to stand on under the invisible brick at x={column}",
-    );
-
-    let half_height = player_box(&mut app).y * 0.5;
-    place_player(&mut app, Vec2::new(column, floor_top - half_height - 1.0));
-
-    // ⛔ **her FOOTING is the first term, and it is observed rather than
-    // assumed.** A jump script that never gets her off the ground reports
-    // "the trigger is dead" — a falsifier watching the wrong thing, and this
-    // beat is precisely where that mistake is cheap to make.
-    let mut grounded = false;
-    for _ in 0..90 {
-        step(&mut app, ControlFrame::default());
-        if player_on_ground(&mut app) {
-            grounded = true;
-            break;
-        }
-    }
-    assert!(
-        grounded,
-        "she never found footing under the invisible brick — the probe cannot \
-         say anything about the trigger. floor top y={floor_top}, box \
-         {:?}, she ended at {:?}",
-        player_box(&mut app),
-        player_pos(&mut app),
-    );
-
-    let launched_from = player_pos(&mut app);
-    let purse_before = player_purse(&mut app);
-    let mut apex_head = f32::INFINITY;
-    let mut spent = false;
-    for _ in 0..120 {
-        step(&mut app, hold_jump());
-        apex_head = apex_head.min(player_pos(&mut app).y - half_height);
-        if app
-            .world()
-            .resource::<SpentPowerBlocks>()
-            .is_spent(&hidden.id)
-        {
-            spent = true;
-            break;
-        }
-    }
+    let strike = jump_into_from_below(&mut app, &hidden);
 
     // ⭐ **the SECOND term: her head actually got there.** Asserted BEFORE the
     // payout so a probe that could not reach the block says so in its own name
     // instead of convicting the game.
     assert!(
-        apex_head <= underside + 2.0,
+        strike.apex_head <= underside + 2.0,
         "the probe never got her head into the brick, so it proves nothing \
-         about the trigger. She left the floor at {launched_from:?}, her head \
-         peaked at y={apex_head} and the brick's underside is at y={underside} \
-         (y grows downward)",
+         about the trigger. She left the floor at {:?}, her head peaked at \
+         y={} and the brick's underside is at y={underside} (y grows downward)",
+        strike.launched_from,
+        strike.apex_head,
     );
 
     assert!(
-        spent,
+        strike.spent,
         "she jumped into the invisible brick from below, her head reached \
-         y={apex_head} against an underside at y={underside}, and it never paid \
+         y={} against an underside at y={underside}, and it never paid \
          out. The trigger is dead, which is a DIFFERENT bug from not being able \
          to draw itself.",
+        strike.apex_head,
     );
 
     // ⭐ **the EFFECT a player would see.** A coin block credits the purse
@@ -294,10 +247,167 @@ fn the_invisible_brick_triggers_from_below() {
     // and `SpentPowerBlocks` alone would go green on a block that acknowledged
     // the strike and gave nothing.
     assert!(
-        player_purse(&mut app) > purse_before,
-        "the brick was marked spent but paid nothing: purse {purse_before} → {}",
+        player_purse(&mut app) > strike.purse_before,
+        "the brick was marked spent but paid nothing: purse {} → {}",
+        strike.purse_before,
         player_purse(&mut app),
     );
+}
+
+/// ⛔ **A DISCOVERED HIDDEN BLOCK PAID OUT AND THEN HAD ITS PICTURE DELETED**
+/// (queue D69). `dress_authored_blocks` promises a hidden block *"reveals itself
+/// by being used"*; observed 2026-08-09 it did the opposite — the strike landed,
+/// the coin landed, and the block's entity was gone
+/// (`overlay.removed=["maryo_block:Hidden:AlwaysCoin:…"]`, `visual_present=false`
+/// after 60 frames).
+///
+/// ⭐ **the mechanism is a REPLACEMENT read as a DELETION.**
+/// `contribute_discovered_hidden_blocks_to_overlay` promotes the struck
+/// `BonkOnly` to a `Solid` by pushing the block's own name into
+/// `removed_block_names` AND the promoted block into `blocks` — the same name,
+/// the same box, the same `GeoId`. `sync_removed_block_visuals` read only the
+/// first half and despawned the sprite that the second half is asking for.
+///
+/// ⚠ **this is a SECOND test rather than more assertions on the trigger test**,
+/// because they fail for different reasons and a merged one cannot say which.
+///
+/// ⛔ **LANDED RED AND `#[ignore]`d, 2026-08-09** — the run was paused mid-fix and
+/// this is the probe, not a regression. It FAILS today and that failure is the
+/// finding. ⇒ un-ignore it as the first act of fixing D69; it is already written
+/// and already correct.
+#[test]
+#[ignore = "red-first PROBE for queue D69, preserved when the run paused: a discovered \
+            hidden block is despawned by the removal half of its own replacement. \
+            Un-ignore this to work D69."]
+fn a_discovered_hidden_block_reveals_itself() {
+    let mut app = cavern();
+    let hidden = authored(MaryOBlockLook::Hidden);
+
+    // ⭐ **the pre-assertion: it IS drawn before it is struck** — as a fully
+    // transparent quad, which is the whole trick. A probe that started from a
+    // block nothing was drawing could not tell "the reveal is broken" from
+    // "this block was never in the render world".
+    assert!(
+        drawn_image_opt(&mut app, &hidden.id).is_some(),
+        "nothing is drawing the hidden block BEFORE it is struck, so this probe \
+         cannot say anything about what discovery does to its picture",
+    );
+
+    let strike = jump_into_from_below(&mut app, &hidden);
+    assert!(
+        strike.spent,
+        "she never struck the hidden block (head peaked at y={}, underside \
+         y={}), so the reveal was never asked for",
+        strike.apex_head,
+        hidden.aabb.max.y,
+    );
+
+    // Well past the promotion: the overlay is rebuilt every frame and the
+    // renderer reconciles against it every frame, so a picture that survives 60
+    // of them is not a one-frame accident.
+    for _ in 0..60 {
+        step(&mut app, ControlFrame::default());
+    }
+
+    // ⚠ **re-asserted AFTER the wait, not just before it.** `SpentPowerBlocks`
+    // is re-armed by `RoomLoaded` and by a replay; if one of those fired during
+    // the wait the block is no longer discovered and the picture assertion below
+    // would be asking the wrong question.
+    assert!(
+        app.world()
+            .resource::<SpentPowerBlocks>()
+            .is_spent(&hidden.id),
+        "the block un-spent itself during the wait — something re-armed it, and \
+         this probe is no longer looking at a discovered block",
+    );
+
+    assert_eq!(
+        drawn_image_opt(&mut app, &hidden.id),
+        Some(art(&app, EntitySprite::SpentBlockTile)),
+        "a discovered hidden block is not wearing the spent plate. `None` means \
+         its picture was DELETED: the promotion put its name in \
+         `removed_block_names` and the render side read that as a deletion \
+         rather than the replacement it is (queue D69)",
+    );
+}
+
+/// What a strike from below observed, so the two probes above can each assert
+/// the term they are about.
+struct Strike {
+    /// Where she was standing the frame she left the floor.
+    launched_from: Vec2,
+    /// The highest her head reached — y grows DOWNWARD, so the minimum.
+    apex_head: f32,
+    /// Her coin count the frame she left the floor.
+    purse_before: i32,
+    /// Whether the block ended up in `SpentPowerBlocks`.
+    spent: bool,
+}
+
+/// **Stand her on the nearest floor under `block` and jump into its underside.**
+///
+/// Derived from the room so this follows the level if Jon moves the brick, and
+/// it is the only way to be sure the jump starts from footing rather than from
+/// mid-air.
+///
+/// ⛔ **her FOOTING is asserted HERE, inside the setup.** A jump script that
+/// never gets her off the ground reports "the block is broken" — a falsifier
+/// watching the wrong thing, and this beat is precisely where that mistake is
+/// cheap to make.
+fn jump_into_from_below(app: &mut App, block: &ae::world::Block) -> Strike {
+    let column = block.aabb.center().x;
+    let underside = block.aabb.max.y;
+    let floor_top = level_1_2()
+        .world
+        .blocks
+        .iter()
+        .filter(|candidate| !matches!(candidate.kind, ae::BlockKind::BonkOnly))
+        .filter(|candidate| candidate.aabb.min.x <= column && column <= candidate.aabb.max.x)
+        .filter(|candidate| candidate.aabb.min.y > underside)
+        .map(|candidate| candidate.aabb.min.y)
+        .fold(f32::INFINITY, f32::min);
+    assert!(
+        floor_top.is_finite(),
+        "nothing to stand on under the block at x={column}",
+    );
+
+    let half_height = player_box(app).y * 0.5;
+    place_player(app, Vec2::new(column, floor_top - half_height - 1.0));
+
+    let mut grounded = false;
+    for _ in 0..90 {
+        step(app, ControlFrame::default());
+        if player_on_ground(app) {
+            grounded = true;
+            break;
+        }
+    }
+    assert!(
+        grounded,
+        "she never found footing under the block — the probe cannot say \
+         anything about it. floor top y={floor_top}, box {:?}, she ended at {:?}",
+        player_box(app),
+        player_pos(app),
+    );
+
+    let launched_from = player_pos(app);
+    let purse_before = player_purse(app);
+    let mut apex_head = f32::INFINITY;
+    let mut spent = false;
+    for _ in 0..120 {
+        step(app, hold_jump());
+        apex_head = apex_head.min(player_pos(app).y - half_height);
+        if app.world().resource::<SpentPowerBlocks>().is_spent(&block.id) {
+            spent = true;
+            break;
+        }
+    }
+    Strike {
+        launched_from,
+        apex_head,
+        purse_before,
+        spent,
+    }
 }
 
 fn player_pos(app: &mut App) -> Vec2 {

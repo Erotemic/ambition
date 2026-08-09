@@ -35,6 +35,7 @@ mod content_dormancy;
 mod crouch_stability;
 mod dash_stability;
 mod declared_art_resolves;
+mod d71_transaction_census;
 mod desync_canary;
 mod direct_and_shell_agree;
 mod dive_drill_reachability;

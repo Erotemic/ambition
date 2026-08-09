@@ -22,8 +22,26 @@
 //! `ActorDiedMessage`.** Writing the message would prove the beat gates the
 //! reset when the beat is armed by hand — which is the one case nobody doubted.
 //! The pit is the path a player takes.
+//!
+//! ## Two deaths, and the second one is here because the first cannot see
+//!
+//! The pit death drops her `y = 4000`, which is ≥3500 px from every enemy in the
+//! level — and both Mary-O enemies carry `AwakeNearObservers { radius: 720 }`,
+//! so **every enemy is dormant for the whole beat.** `enemy_signature` sits
+//! constant across 94% of it, and it would do that whether or not the world was
+//! frozen. ⛔ **a dormant world looks exactly like a frozen one**, so that
+//! fixture reports *"the world holds still"* unconditionally: if the open
+//! *freeze it?* decision is ever answered yes, this is the thing that would
+//! confirm an implementation that never ran.
+//!
+//! ⚠ **the 4000 stays.** It is how she dies *in a pit*, which is the death the
+//! first fixture is about; moving her within 720 px of an enemy would change the
+//! cause of death. So the repair is the SECOND fixture below, which kills her
+//! where she stands — beside four woken enemies — and asserts that the
+//! instrument can see the world move before it reports anything about the beat.
 
 use ambition_demo_mary_o_app::build_demo_app;
+use ambition_platformer2d::actors::features::ecs::dormancy::{DormancyPolicy, Dormant};
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
 use bevy::prelude::*;
@@ -169,6 +187,27 @@ pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
     );
 }
 
+/// How many bodies that declare a dormancy policy are AWAKE right now, out of
+/// how many exist.
+///
+/// The gate this counts is the whole reason the second fixture exists: a
+/// sleeping brain writes nothing, so a body behind a shut gate contributes a
+/// constant to [`enemy_signature`] forever.
+fn awake_bodies(app: &mut App) -> (usize, usize) {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<Has<Dormant>, (Without<PrimaryPlayer>, With<DormancyPolicy>)>();
+    let mut total = 0usize;
+    let mut awake = 0usize;
+    for dormant in query.iter(app.world()) {
+        total += 1;
+        if !dormant {
+            awake += 1;
+        }
+    }
+    (awake, total)
+}
+
 /// A cheap signature of every non-player body's placement, so "the enemies moved
 /// back" is observable without naming any particular enemy.
 fn enemy_signature(app: &mut App) -> (usize, i64) {
@@ -274,6 +313,104 @@ fn the_room_resets_no_earlier_than_the_death_beat_ends() {
          first world motion during the beat: {enemy_moved:?}"
     );
     for line in &log {
+        println!("{line}");
+    }
+}
+
+/// **The same beat, measured somewhere the instrument can see.**
+///
+/// She dies WHERE SHE STANDS, so no coordinate is authored here at all — her
+/// `PlayerStart` has four enemies inside the 720 px wake radius, the nearest at
+/// 210 px, which is how the dormancy gate ends up open without the fixture
+/// arranging anything.
+///
+/// ⚠ **it asserts what the instrument CAN SEE and only prints what it saw.**
+/// Whether the world should hold still during a death beat is an open design
+/// question, and pinning today's answer either way would be a regression test
+/// over unpolished behaviour — the same reason the pit fixture prints its
+/// measurement instead of asserting it. What is asserted is that this fixture
+/// could tell the difference: a fixture that cannot detect motion cannot detect
+/// its absence, and that is the entire defect being repaired.
+#[test]
+fn the_death_beat_is_measured_with_the_world_awake() {
+    let mut app = boot();
+    settle_until_playable(&mut app);
+
+    // A live window first: she is alive, the room is running, and the question
+    // is whether this instrument moves at all.
+    let mut alive_window = Vec::new();
+    for _ in 0..60 {
+        app.update();
+        alive_window.push(enemy_signature(&mut app));
+    }
+    let (awake_alive, policy_bodies) = awake_bodies(&mut app);
+    assert!(
+        policy_bodies > 0,
+        "no body in this room declares a dormancy policy, so this fixture is \
+         measuring a gate that does not exist"
+    );
+    assert!(
+        awake_alive > 0,
+        "the dormancy gate is SHUT where she stands ({awake_alive}/{policy_bodies} \
+         awake) — every enemy is asleep, so the signature below is constant for \
+         reasons that have nothing to do with a death beat"
+    );
+    assert!(
+        alive_window.windows(2).any(|a| a[0] != a[1]),
+        "the signature never moved across 60 frames of a LIVE room \
+         ({:?} throughout) — the instrument cannot see motion, so it cannot see \
+         its absence either",
+        alive_window.first()
+    );
+
+    // Kill her where she stands. The four woken enemies stay woken because the
+    // beat pins her exactly here for its whole duration.
+    let swings = deal_a_lethal_hit(&mut app);
+
+    let mut beat_log: Vec<String> = Vec::new();
+    let mut awake_floor = usize::MAX;
+    let mut moved = false;
+    let mut previous = enemy_signature(&mut app);
+    for _ in 0..600 {
+        let Some(remaining) = beat_remaining(&mut app) else {
+            break;
+        };
+        if remaining <= 0.0 {
+            break;
+        }
+        let (awake, total) = awake_bodies(&mut app);
+        let signature = enemy_signature(&mut app);
+        awake_floor = awake_floor.min(awake);
+        moved |= signature != previous;
+        previous = signature;
+        beat_log.push(format!(
+            "remaining={remaining:.3} awake={awake}/{total} enemies={signature:?}"
+        ));
+        app.update();
+    }
+
+    assert!(
+        beat_log.len() > 100,
+        "the beat was only observed for {} frames — too few to say anything \
+         about a 3.2s dwell",
+        beat_log.len()
+    );
+    assert!(
+        awake_floor > 0,
+        "the world fell asleep DURING the beat ({awake_floor} awake at the \
+         floor), which is the exact blindness this fixture exists to remove — \
+         the pit fixture already measures a dormant world and cannot tell one \
+         from a frozen one"
+    );
+
+    println!(
+        "[death beat, awake world] {swings} swings to kill her; \
+         {awake_alive}/{policy_bodies} bodies awake beside her; \
+         {} frames of beat observed, at least {awake_floor} awake throughout; \
+         the world MOVED during the beat: {moved}",
+        beat_log.len()
+    );
+    for line in &beat_log {
         println!("{line}");
     }
 }

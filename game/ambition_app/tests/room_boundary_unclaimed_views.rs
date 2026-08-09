@@ -72,6 +72,11 @@ const HUB_ROOM: &str = "central_hub_complex";
 const COMBAT_ROOM: &str = "proving_grounds";
 /// The hub's authored door into the combat room, and the combat room's back.
 const HUB_TO_COMBAT_ZONE: &str = "proving_grounds_hub_door";
+/// Into the **Hall of Characters** — 129 bodies, the heaviest room the app has.
+/// ⭐ the flash test needs this one: the hub→combat crossing draws **no
+/// unclaimed placeholder at all** (measured 2026-08-09), so it cannot say
+/// anything about a cover hiding one.
+const HUB_TO_HALL_ZONE: &str = "hall_of_characters_door";
 const COMBAT_TO_HUB_ZONE: &str = "proving_grounds_to_hub";
 
 /// Frames a crossing may take to change the active room before we call it wedged.
@@ -89,6 +94,23 @@ const QUIET_FRAMES: usize = 40;
 fn step(app: &mut App) {
     app.update();
     std::thread::sleep(Duration::from_millis(4));
+}
+
+/// Step one frame and give the asset threads NOTHING.
+///
+/// ⭐ **the sleep in [`step`] is the difference between a settled population and
+/// a transient one, and D46 is about the transient one.** Measured 2026-08-09:
+/// crossing into the Hall of Characters — 129 bodies, the heaviest room the app
+/// has — with [`step`] draws **zero** unclaimed placeholders at any point,
+/// because 4 ms per frame is enough for every decode to land before the view is
+/// published. The window the magenta flash lives in does not exist under that
+/// driver.
+///
+/// ⚠ **that makes [`step`] correct for its own test and structurally blind for
+/// this one** — an instrument whose noise floor is above the signal. Compare
+/// [[reference_causal_instrument_gotchas]]: a narrowed seam silences a domain.
+fn step_fast(app: &mut App) {
+    app.update();
 }
 
 fn active_room(app: &mut App) -> String {
@@ -201,6 +223,37 @@ fn gameplay_app() -> App {
 /// resolved through the live room graph, not synthesised — and return the room
 /// it landed in.
 fn cross(app: &mut App, zone_id: &str) -> String {
+    cross_observing(app, zone_id, &mut |_| {})
+}
+
+/// [`cross`], with a per-frame observer.
+///
+/// ⭐ exists because the interesting frames of a crossing are the ones `cross`
+/// swallows: it returns the instant the active room flips, and the transition
+/// COVER is up for part of the window before that. A test that wants to know
+/// "was the cover ever actually up" cannot ask afterwards.
+fn cross_observing(
+    app: &mut App,
+    zone_id: &str,
+    observe: &mut dyn FnMut(&mut App),
+) -> String {
+    cross_observing_with(app, zone_id, observe, step)
+}
+
+/// [`cross_observing`], with the frame driver chosen by the caller.
+///
+/// ⛔ **the driver is not an implementation detail here, it is the experiment.**
+/// [`step`] sleeps 4 ms per frame *"so the asset threads make progress"*, which
+/// is right for a test about a SETTLED population — and structurally fatal for a
+/// test about a TRANSIENT one, because it hands the decode exactly the time the
+/// unclaimed window needs to not exist. See
+/// [`no_magenta_placeholder_is_visible_while_the_cover_is_down`].
+fn cross_observing_with(
+    app: &mut App,
+    zone_id: &str,
+    observe: &mut dyn FnMut(&mut App),
+    drive: fn(&mut App),
+) -> String {
     let from = active_room(app);
     let transition = {
         let world = app.world_mut();
@@ -229,7 +282,8 @@ fn cross(app: &mut App, zone_id: &str) -> String {
     let mut trace: Vec<String> = Vec::new();
     let mut last = String::new();
     for frame in 0..CROSSING_CAP {
-        step(app);
+        drive(app);
+        observe(app);
         let report = transaction_report(app);
         if report != last {
             trace.push(format!("  frame {frame}: {report}"));
@@ -317,6 +371,143 @@ fn published_view_ids(app: &mut App) -> BTreeSet<String> {
         .iter()
         .map(|(id, _)| id.to_string())
         .collect()
+}
+
+/// Is the opaque transition cover on screen right now?
+///
+/// ⚠ **matched on the debug `Name`, because `RoomTransitionCoverRoot` is
+/// private** and widening it for a test would put a presentation marker in the
+/// app's public surface. The name is authored one line below the marker
+/// (`"room transition cover {sequence}"`), so the two move together — but this
+/// IS a coupling to a string, and if it ever silently returns `false` the
+/// assertion below goes vacuous in the reassuring direction. The companion test
+/// is what stops that.
+fn cover_is_up(app: &mut App) -> bool {
+    let mut query = app.world_mut().query::<&Name>();
+    let world = app.world();
+    query
+        .iter(world)
+        .any(|name| name.as_str().starts_with("room transition cover"))
+}
+
+/// **⭐ D46's FALSIFIER — does a magenta placeholder ever reach the screen?**
+///
+/// Jon, 2026-08-08: *"Changing rooms flashes magenta squares for a brief moment.
+/// We need to have cleaner transitions between rooms than that."*
+///
+/// The cover exists to hide exactly that, and it is NOT giving up: a real 290 s
+/// desktop session logged **190 `no render family claimed` and 0 `cover gave up
+/// waiting`**. So either the flash comes from a placeholder spawned AFTER the
+/// cover retires — the cover's condition is `unclaimed.count() == 0`, a snapshot
+/// rather than a settled state — or it comes from somewhere this test will not
+/// find, and the D46 hypothesis is wrong.
+///
+/// ⛔ **this samples PAST the room change**, which the other test in this file
+/// does not: `cross()` returns the instant the active room flips, and the whole
+/// suspicion is about the frames after that.
+///
+/// ## ⛔⛔ `#[ignore]`d, AND THE REASON IS THE FINDING
+///
+/// **This harness never draws a magenta placeholder at all**, so it cannot say
+/// anything about one being visible. Three attempts, 2026-08-09, each refuted:
+///
+/// | attempt | result |
+/// |---|---|
+/// | cross hub → `proving_grounds` | **0** placeholders ever drawn |
+/// | cross hub → Hall of Characters (129 bodies, the heaviest room) | **0** |
+/// | …with the 4 ms asset sleep removed ([`step_fast`]) | **0** |
+///
+/// ⭐ **the vacuity guards below are what caught all three.** The very first run
+/// PASSED — and meant nothing, because the condition it checks
+/// (`placeholders && !cover`) was never once evaluated with placeholders
+/// present. A green from this test without `saw_placeholders` is a green about
+/// nothing, which is why that assertion exists and why it is not negotiable.
+///
+/// ⇒ **the flash is not reproducible in `build_visible_app` on desktop.** The
+/// 190 `no render family claimed` lines in the 290 s desktop profile came from
+/// somewhere this composition does not reach — a different route, or the
+/// windowed app's own presentation wiring
+/// ([[reference_app_only_presentation_class]] is the standing warning that a
+/// composition can be a silent half-engine). ⛔ **do not tune
+/// `presentation_settle_deadline` on the strength of this file** — it has not
+/// observed the phenomenon.
+///
+/// **Un-ignore it the moment something makes a placeholder appear here**: the
+/// assertion, the sampling and the guards are all correct and ready. What is
+/// missing is a crossing that actually produces the transient.
+#[test]
+#[ignore = "cannot observe the magenta flash: this harness draws no unclaimed placeholder at all — see the doc comment, queue D46"]
+fn no_magenta_placeholder_is_visible_while_the_cover_is_down() {
+    let mut app = gameplay_app();
+    settle(&mut app);
+
+    let before = active_room(&mut app);
+
+    // ⛔ **THE TWO FACTS THAT KEEP THIS FROM BEING VACUOUS.** A green here means
+    // nothing unless the cover was ACTUALLY OBSERVED UP (else `cover_is_up`'s
+    // name match is broken and the guard can never fire) and placeholders were
+    // ACTUALLY DRAWN at some point (else there was never anything to expose).
+    // Both are asserted below.
+    let mut saw_cover_up = false;
+    let mut saw_placeholders = false;
+    let mut exposed: Vec<String> = Vec::new();
+    let mut frame = 0usize;
+
+    let mut sample = |app: &mut App| {
+        let up = cover_is_up(app);
+        let stand_ins = stand_in_ids(app);
+        saw_cover_up |= up;
+        saw_placeholders |= !stand_ins.is_empty();
+        if !stand_ins.is_empty() && !up {
+            exposed.push(format!(
+                "  frame {frame}: {} uncovered — {:?}",
+                stand_ins.len(),
+                stand_ins
+            ));
+        }
+        frame += 1;
+    };
+
+    let after = cross_observing_with(&mut app, HUB_TO_HALL_ZONE, &mut sample, step_fast);
+
+    // Keep sampling well past the commit: the placeholders that matter are the
+    // ones a late `Commands` flush spawns once the cover has already gone.
+    for _ in 0..SETTLE_CAP {
+        step_fast(&mut app);
+        sample(&mut app);
+    }
+    drop(sample);
+
+    assert_ne!(before, after, "the crossing did not change rooms");
+    assert!(
+        saw_cover_up,
+        "the transition cover was never observed during a real crossing, so the \
+         assertion below could not have failed. Either `cover_is_up`'s name match \
+         (`\"room transition cover\"`) has drifted from what \
+         `room_transition_presentation.rs` spawns, or this crossing gets no cover \
+         at all — the module doc says only a VISIBLE transition gets one. Fix the \
+         handle before trusting a green here."
+    );
+    assert!(
+        saw_placeholders,
+        "no unclaimed-body placeholder was drawn at any point in this crossing, so \
+         there was never anything for the cover to hide and this test proves \
+         nothing about flashes. If the room genuinely resolves all its art \
+         same-frame now, pick a heavier room."
+    );
+
+    assert!(
+        exposed.is_empty(),
+        "a magenta unclaimed-body placeholder was on screen with NO transition \
+         cover over it, entering '{after}':\n{}\n\n\
+         That is the flash Jon reported. The cover retires on \
+         `unclaimed.iter().count() == 0` — a SNAPSHOT, not a settled state — so a \
+         feature view published one flush later spawns a placeholder with nothing \
+         left to hide it. ⛔ Do NOT lengthen `presentation_settle_deadline`: the \
+         cover has already legitimately retired by then, and a longer deadline \
+         cannot reach this. See queue D46.",
+        exposed.join("\n")
+    );
 }
 
 #[test]

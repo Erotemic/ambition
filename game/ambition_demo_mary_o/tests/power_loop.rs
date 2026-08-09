@@ -599,7 +599,7 @@ fn the_authored_spark_arcs_bounces_and_expires() {
 fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     use ambition_platformer2d::actors::features::{
         apply_feature_hit_events, spawn_encounter_mob, ActorIdentity, CharacterRoster,
-        FeatureEcsWorldOverlay, GameplayBanner, HitEvent, SetFlagRequested,
+        EncounterMobSeed, FeatureEcsWorldOverlay, GameplayBanner, HitEvent, SetFlagRequested,
     };
     use ambition_platformer2d::actors::projectile::{step_projectiles, ProjectileBody};
     use ambition_platformer2d::characters::actor::{
@@ -687,10 +687,13 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
             &roster,
             SessionSpawnScope::UNSCOPED,
             "mary_o_spark_range",
-            "snake_under_fire".into(),
-            CharacterBrain::Custom("mary_o_snake".into()),
-            SNAKE_POS,
-            ae::Vec2::new(28.0, 32.0),
+            EncounterMobSeed {
+                id: "snake_under_fire".into(),
+                character: None,
+                brain: CharacterBrain::Custom("mary_o_snake".into()),
+                pos: SNAKE_POS,
+                size: ae::Vec2::new(28.0, 32.0),
+            },
         );
     }
     app.update();
@@ -768,8 +771,8 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
 fn a_stomp_shells_a_snake_alive_it_never_dies() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::actors::features::{
-        spawn_encounter_mob, ActorConfig, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
-        GameplayBanner, HitEvent,
+        spawn_encounter_mob, ActorConfig, ActorIdentity, CharacterRoster, EncounterMobSeed,
+        FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
     };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::{BodyCombat, BodyHealth};
@@ -835,10 +838,13 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
             &roster,
             SessionSpawnScope::UNSCOPED,
             "mary_o_stomp_range",
-            "stomped_snake".into(),
-            CharacterBrain::Custom("mary_o_snake".into()),
-            SNAKE_POS,
-            ae::Vec2::new(28.0, 32.0),
+            EncounterMobSeed {
+                id: "stomped_snake".into(),
+                character: None,
+                brain: CharacterBrain::Custom("mary_o_snake".into()),
+                pos: SNAKE_POS,
+                size: ae::Vec2::new(28.0, 32.0),
+            },
         );
     }
     app.update(); // flush the spawn
@@ -904,8 +910,8 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
 fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::actors::features::{
-        spawn_encounter_mob, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
-        GameplayBanner, HitEvent, HitSource, HitTarget,
+        spawn_encounter_mob, ActorIdentity, CharacterRoster, EncounterMobSeed,
+        FeatureEcsWorldOverlay, GameplayBanner, HitEvent, HitSource, HitTarget,
     };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
@@ -970,10 +976,13 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
             &roster,
             SessionSpawnScope::UNSCOPED,
             "mary_o_shell_range",
-            "sliding_snake".into(),
-            CharacterBrain::Custom("mary_o_snake".into()),
-            SNAKE_POS,
-            ae::Vec2::new(28.0, 32.0),
+            EncounterMobSeed {
+                id: "sliding_snake".into(),
+                character: None,
+                brain: CharacterBrain::Custom("mary_o_snake".into()),
+                pos: SNAKE_POS,
+                size: ae::Vec2::new(28.0, 32.0),
+            },
         );
     }
     app.update(); // flush the spawn
@@ -1034,8 +1043,8 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     use ambition_demo_mary_o::snake::{run_snake_shells, SnakeShell};
     use ambition_platformer2d::actors::features::{
-        spawn_encounter_mob, ActorIdentity, CharacterRoster, FeatureEcsWorldOverlay,
-        GameplayBanner, HitEvent,
+        spawn_encounter_mob, ActorIdentity, CharacterRoster, EncounterMobSeed,
+        FeatureEcsWorldOverlay, GameplayBanner, HitEvent,
     };
     use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
     use ambition_platformer2d::characters::actor::BodyHealth;
@@ -1098,10 +1107,13 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
             &roster,
             SessionSpawnScope::UNSCOPED,
             "mary_o_corpse_range",
-            "dead_snake".into(),
-            CharacterBrain::Custom("mary_o_snake".into()),
-            SNAKE_POS,
-            ae::Vec2::new(28.0, 32.0),
+            EncounterMobSeed {
+                id: "dead_snake".into(),
+                character: None,
+                brain: CharacterBrain::Custom("mary_o_snake".into()),
+                pos: SNAKE_POS,
+                size: ae::Vec2::new(28.0, 32.0),
+            },
         );
     }
     app.update(); // flush the spawn

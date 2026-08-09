@@ -24,7 +24,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use ambition_content_pack::{
-    CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome, FacetSource,
+    CapabilityId, ContentSchemaHandler, DiagnosticCode, FacetOutcome, FacetSource, PendingRef,
     RuntimeDisposition, SchemaId, SchemaRegistration, SchemaVersion,
 };
 
@@ -38,6 +38,17 @@ pub const ENCOUNTER_WAVES_SCHEMA: &str = "encounter_waves";
 
 /// The schema version this handler reads.
 pub const ENCOUNTER_WAVES_VERSION: SchemaVersion = SchemaVersion(1);
+
+/// The identity kind a mob's `character` names — minted by `character_catalog`,
+/// which lives in `ambition_characters`.
+///
+/// ⭐ **a cross-schema reference is by SCHEMA ID, so this crate needs no
+/// dependency on the one that owns the family.** `boss_encounter` names a
+/// `music_track` across exactly the same kind of boundary. What resolves the
+/// name is the pack: every identity it defines is matched by
+/// `<namespace>:<schema>/<name>`, and a character the pack never defined is an
+/// `UnresolvedReference` before the game starts.
+const CHARACTER_SCHEMA: &str = "character";
 
 /// What a prepared pack lowers a validated wave book to.
 pub type EncounterWaveBook = HashMap<String, Vec<EncounterWaveSpec>>;
@@ -136,6 +147,26 @@ fn declare(facet: &FacetSource<'_>, book: &EncounterWaveBook, out: &mut FacetOut
         }
 
         for (index, wave) in waves.iter().enumerate() {
+            // ⛔ **the character a mob names must EXIST, and a compiler is the
+            // only place that can say so.** The runtime cannot: an unresolvable
+            // character resolves to no sheet, and §4.10's ruling is that there
+            // is no fallback sheet — the body draws the placeholder rectangle
+            // and the game keeps running. A misspelling therefore looks exactly
+            // like authoring nothing, right up until somebody walks into the
+            // room. That is the same silence `favourite_snack: "worms"` bought,
+            // one level down.
+            for mob in &wave.mobs {
+                let Some(character) = mob.character.as_deref() else {
+                    continue;
+                };
+                out.refer(PendingRef::new(
+                    SchemaId::new(CHARACTER_SCHEMA),
+                    character,
+                    "character",
+                    facet.content_id(trimmed),
+                    "character",
+                ));
+            }
             if wave.mobs.is_empty() {
                 out.report(
                     facet

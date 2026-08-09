@@ -168,8 +168,8 @@ pub use spawn::{
 };
 pub(crate) use spawn::{spawn_runtime_minion, spawn_runtime_minion_into};
 pub use spawn_actors::{
-    apply_spawn_actor_requests, apply_summon_effects, BossOverrides, GiantHandPlan, SpawnActorKind,
-    SpawnActorRequest,
+    apply_spawn_actor_requests, apply_summon_effects, BossOverrides, EncounterMobSeed,
+    GiantHandPlan, SpawnActorKind, SpawnActorRequest,
 };
 pub(crate) use spawn_actors::{
     giant_hand_plans, populate_giant_hand_into, populate_giant_host_into,

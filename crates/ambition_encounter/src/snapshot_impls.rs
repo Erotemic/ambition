@@ -13,8 +13,7 @@
 //! authored per variant so inserting one never renumbers the rest.
 
 use ambition_platformer2d_core::snapshot::{
-    put_bool, put_f32, put_str, put_u32, put_u8,
-    Reader, SnapshotResolve, SnapshotState,
+    put_bool, put_f32, put_str, put_u32, put_u8, Reader, SnapshotResolve, SnapshotState,
 };
 
 impl SnapshotState for crate::EncounterLifecycle {
@@ -67,10 +66,7 @@ impl SnapshotState for crate::EncounterParticipants {
         for member in &self.members {
             put_str(out, &member.id);
             put_u8(out, encounter_role_tag(member.role));
-            put_bool(
-                out,
-                matches!(member.ownership, crate::Ownership::Spawned),
-            );
+            put_bool(out, matches!(member.ownership, crate::Ownership::Spawned));
             put_bool(out, member.alive);
             // `member.entity` is deliberately NOT here — an entity index is an
             // allocator slot, not an identity. Re-resolved live from the id.
@@ -114,6 +110,12 @@ impl SnapshotResolve for crate::EncounterWaves {
         put_u32(out, self.run.pending.len() as u32);
         for mob in &self.run.pending {
             put_str(out, &mob.kind);
+            // ⚠ **VERBATIM means every field.** `character` is authored content
+            // and cannot diverge between peers, so omitting it would not have
+            // desynced anything — but the comment above promises the whole mob,
+            // and a field added to `EncounterMobSpec` that this loop silently
+            // drops is how that promise stops being true one field at a time.
+            put_str(out, mob.character.as_deref().unwrap_or(""));
             put_f32(out, mob.spawn[0]);
             put_f32(out, mob.spawn[1]);
             put_f32(out, mob.size[0]);

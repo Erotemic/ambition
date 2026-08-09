@@ -133,13 +133,25 @@ fn fallback_waves_from_enemy_spawns(
         }
         let kind = crate::ldtk_world::field_string(entity, "brain")
             .unwrap_or_else(|| "medium_striker".into());
-        wave_mobs.push(EncounterMobSpec::new(
+        let mut mob = EncounterMobSpec::new(
             kind,
             [
                 entity.px[0] as f32 + entity.width as f32 * 0.5,
                 entity.px[1] as f32 + entity.height as f32 * 0.5,
             ],
-        ));
+        );
+        // ⭐ **the marker's own art identity, when it authors one.** This is the
+        // SAME `character_id` field `convert_enemy_spawn` reads for a placed
+        // enemy — a marker-derived wave mob is the same body reached by a
+        // different road, so it must not be the one path left wearing its
+        // instance id. A marker without the field keeps today's behaviour.
+        if let Some(character) = crate::ldtk_world::field_string(entity, "character_id")
+            .map(|character| character.trim().to_string())
+            .filter(|character| !character.is_empty())
+        {
+            mob = mob.with_character(character);
+        }
+        wave_mobs.push(mob);
     }
     if wave_mobs.is_empty() {
         Vec::new()

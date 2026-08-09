@@ -33,12 +33,15 @@ fn fireball_damages_enemy_on_intersect() {
                 &roster,
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "projectile_test",
-                "test_enemy".into(),
-                ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "medium_striker".into(),
-                ),
-                ae::Vec2::new(400.0, 300.0),
-                ae::Vec2::new(28.0, 46.0),
+                crate::features::EncounterMobSeed {
+                    id: "test_enemy".into(),
+                    character: None,
+                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                        "medium_striker".into(),
+                    ),
+                    pos: ae::Vec2::new(400.0, 300.0),
+                    size: ae::Vec2::new(28.0, 46.0),
+                },
             );
         },
     );

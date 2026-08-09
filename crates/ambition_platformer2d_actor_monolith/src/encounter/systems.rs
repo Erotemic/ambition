@@ -254,7 +254,9 @@ pub fn drive_wave_encounters(
     // 3. Drive the active-area wave director while its lifecycle is Active
     //    (the reducer's phase from this frame's Progression pass — the
     //    adapters read the authority, one frame behind at most).
-    let mut spawn_commands: Vec<(String, String, [f32; 2], [f32; 2])> = Vec::new();
+    // (instance id, character, brain kind, pos, size) — the three identity
+    // questions kept apart all the way to the spawner.
+    let mut spawn_commands: Vec<(String, Option<String>, String, [f32; 2], [f32; 2])> = Vec::new();
     for (enc, lifecycle, mut waves, mut participants) in &mut encounters {
         if enc.id != active_area || ending_this_tick.contains(&enc.id) {
             continue;
@@ -294,12 +296,19 @@ pub fn drive_wave_encounters(
                 for event in events {
                     if let EncounterEvent::SpawnCommand {
                         id,
+                        character,
                         kind,
                         pos,
                         size,
                     } = &event
                     {
-                        spawn_commands.push((id.clone(), kind.clone(), *pos, *size));
+                        spawn_commands.push((
+                            id.clone(),
+                            character.clone(),
+                            kind.clone(),
+                            *pos,
+                            *size,
+                        ));
                     }
                     events_out.write(EncounterEventMsg::new(&enc.id, event));
                 }
@@ -316,7 +325,7 @@ pub fn drive_wave_encounters(
     }
 
     // 4. Apply spawn commands to ECS actor entities.
-    for (id, kind, pos, size) in spawn_commands {
+    for (id, character, kind, pos, size) in spawn_commands {
         crate::features::spawn_encounter_mob(
             &mut commands,
             &session_content.1,
@@ -324,10 +333,13 @@ pub fn drive_wave_encounters(
             &session_content.2,
             session_scope,
             active_area.clone(),
-            id,
-            ambition_entity_catalog::placements::CharacterBrain::Custom(kind),
-            ae::Vec2::new(pos[0], pos[1]),
-            ae::Vec2::new(size[0], size[1]),
+            crate::features::EncounterMobSeed {
+                id,
+                character: character.as_deref(),
+                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(kind),
+                pos: ae::Vec2::new(pos[0], pos[1]),
+                size: ae::Vec2::new(size[0], size[1]),
+            },
         );
     }
 

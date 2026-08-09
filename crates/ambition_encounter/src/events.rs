@@ -27,10 +27,16 @@ pub enum EncounterEvent {
     /// Trace-only "an enemy is about to spawn" marker. The actual
     /// spawn happens via `SpawnCommand`.
     EnemySpawned { kind: String },
-    /// Side-effect: spawn a real ECS encounter mob with the given id /
-    /// brain / world position / size (wave director).
+    /// Side-effect: spawn a real ECS encounter mob (wave director).
+    ///
+    /// The three identity questions travel separately: `id` is WHICH body
+    /// instance (minted per spawn, unique across attempts), `character` is WHO
+    /// it is (a catalog character id, `None` for a marker-derived mob that
+    /// names none), and `kind` is HOW IT THINKS (the `CharacterBrain::Custom`
+    /// archetype payload).
     SpawnCommand {
         id: String,
+        character: Option<String>,
         kind: String,
         pos: [f32; 2],
         size: [f32; 2],

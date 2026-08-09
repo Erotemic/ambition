@@ -155,6 +155,7 @@ impl EncounterWaves {
                 });
                 events.push(EncounterEvent::SpawnCommand {
                     id: id.clone(),
+                    character: mob.character.clone(),
                     kind: mob.kind.clone(),
                     pos: mob.spawn,
                     size: mob.size,

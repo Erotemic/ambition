@@ -2313,10 +2313,15 @@ fn an_encounter_wave_giant_is_refused_before_it_spawns() {
             &roster,
             SessionSpawnScope::UNSCOPED,
             "enc",
-            "wave_gnu".to_string(),
-            ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
-            ae::Vec2::ZERO,
-            ae::Vec2::splat(120.0),
+            crate::features::EncounterMobSeed {
+                id: "wave_gnu".to_string(),
+                character: None,
+                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                    "giant_gnu".into(),
+                ),
+                pos: ae::Vec2::ZERO,
+                size: ae::Vec2::splat(120.0),
+            },
         );
     }
     world.flush();

@@ -5,6 +5,7 @@
 //! This keeps the active ECS path readable without changing the entity shapes
 //! or scheduling surfaces that callers use.
 
+use super::spawn_actors::EncounterMobSeed;
 use crate::boss_encounter::BossCatalog;
 use crate::features::CharacterRoster;
 use ambition_characters::actor::character_catalog::CharacterCatalog;
@@ -493,6 +494,8 @@ pub fn spawn_room_feature_entities_from_plan(
 ///
 /// The encounter system still owns wave timing, but the mob itself is a normal
 /// feature entity queried by actor, projectile, rendering, and health systems.
+/// [`EncounterMobSeed`] says which body, which character, and which brain — and
+/// documents why those are three answers rather than one.
 pub fn spawn_encounter_mob(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
@@ -500,10 +503,7 @@ pub fn spawn_encounter_mob(
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
-    id: String,
-    brain: ambition_entity_catalog::placements::CharacterBrain,
-    pos: ambition_platformer2d_core::Vec2,
-    size: ambition_platformer2d_core::Vec2,
+    mob: EncounterMobSeed<'_>,
 ) {
     super::spawn_actors::spawn_encounter_mob(
         commands,
@@ -512,10 +512,7 @@ pub fn spawn_encounter_mob(
         roster,
         session_scope,
         encounter_id,
-        id,
-        brain,
-        pos,
-        size,
+        mob,
     );
 }
 

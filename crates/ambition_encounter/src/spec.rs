@@ -78,6 +78,35 @@ pub struct EncounterMobSpec {
     /// `CharacterBrain::Custom(kind)` payload — picks the archetype
     /// (`small_skitter`, `medium_striker`, `large_brute`, ...).
     pub kind: String,
+    /// **WHAT IT LOOKS LIKE** — a catalog character id.
+    ///
+    /// ⚠ **read this against `EnemySpawnSpec` next door**
+    /// (`ambition_platformer2d_world::rooms`), because the two are the same
+    /// question on two spawn paths and the near-identical names would otherwise
+    /// invite a guess. There, `brain` is *what it DOES* and `character_id` is
+    /// *what it LOOKS LIKE*, reached only through `art_identity()`. **This field
+    /// means exactly that and no more**: the sheet, the sprite-derived collision
+    /// box, hurt feedback, the catalog bark pool, and the display label.
+    ///
+    /// ⛔ **it does NOT pick up the catalog's `default_brain` or
+    /// `default_action_set`.** `kind` above answers *what it DOES*, through the
+    /// archetype roster, and it keeps answering it. Whether an enemy IS a
+    /// character or merely WEARS one is an open design question; naming a
+    /// character here does not quietly decide it.
+    ///
+    /// ⭐ **three fields, three questions** — and two of them were one field
+    /// until 2026-08-09. The spawner passed the wave director's minted
+    /// `encounter:<id>:w<n>:<n>` as the actor's name as well as its id, so the
+    /// art lookup asked the catalog for a character called
+    /// `encounter:goblin_encounter:w0:1`, no sheet resolved, and every mob in
+    /// the goblin lab drew the unclaimed-body placeholder.
+    ///
+    /// ⚠ `Option`, and that is not laziness — the same call `EnemySpawnSpec`
+    /// made. An encounter with no entry in the wave book is assembled from its
+    /// level's LDtk `EnemySpawn` markers, so `None` must keep resolving exactly
+    /// as it did.
+    #[serde(default)]
+    pub character: Option<String>,
     /// Spawn position in active-area-local coordinates (the mob's
     /// center, not top-left).
     pub spawn: [f32; 2],
@@ -92,10 +121,17 @@ impl EncounterMobSpec {
     pub fn new(kind: impl Into<String>, spawn: [f32; 2]) -> Self {
         Self {
             kind: kind.into(),
+            character: None,
             spawn,
             size: [22.0, 38.0],
             delay: 0.0,
         }
+    }
+
+    /// Name the catalog character this mob wears.
+    pub fn with_character(mut self, character: impl Into<String>) -> Self {
+        self.character = Some(character.into());
+        self
     }
 
     pub fn with_size(mut self, size: [f32; 2]) -> Self {

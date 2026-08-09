@@ -1614,10 +1614,60 @@ pub(crate) fn spawn_interactable_into(
     }
 }
 
+/// One encounter wave mob, as the wave director describes it.
+///
+/// ⭐ **the three questions a body's identity answers, and they are separate.**
+/// The vocabulary is deliberately [`crate::rooms::EnemySpawnSpec`]'s, the
+/// neighbouring spawn path, so the two structs read against each other:
+///
+/// | question | here | `EnemySpawnSpec` |
+/// |---|---|---|
+/// | what it LOOKS LIKE | `character` | `character_id` |
+/// | what it DOES | `brain` | `brain` |
+/// | which BODY | `id` | the authored placement's own id |
+///
+/// ⛔ **a struct rather than five more positional arguments**, because the
+/// interesting value here is `character: None` — and a bare `None` in argument
+/// position 8 tells a reader nothing about which of three questions was
+/// declined.
+pub struct EncounterMobSeed<'a> {
+    /// **WHICH BODY.** Minted per spawn by the wave director
+    /// (`encounter:<trigger>:w<wave>:<n>`) so ids never collide across attempts,
+    /// and the key the encounter's own `FeatureId` liveness refresh looks a mob
+    /// up by. ⛔ never the character: two goblins in one wave are two bodies.
+    pub id: String,
+    /// **WHAT IT LOOKS LIKE.** A catalog character id — art only, exactly as far
+    /// as [`crate::rooms::EnemySpawnSpec::character_id`] reaches: the sheet, the
+    /// sprite-derived collision box, hurt feedback, and the display label its
+    /// banners and barks are keyed by. ⛔ **it does NOT select the catalog's
+    /// `default_brain` or `default_action_set`** — `brain` below does that, and
+    /// whether an enemy IS a character or merely WEARS one is an open design
+    /// question, not something this field quietly answers.
+    ///
+    /// `None` is the older road and stays open: an encounter assembled from LDtk
+    /// `EnemySpawn` markers that name no `character_id` has no character to give.
+    pub character: Option<&'a str>,
+    /// **WHAT IT DOES.** The roster archetype key, as
+    /// `CharacterBrain::Custom(kind)` — health, speed, reach, melee/ranged kit.
+    pub brain: ambition_entity_catalog::placements::CharacterBrain,
+    /// Spawn centre, world space.
+    pub pos: ae::Vec2,
+    /// Body size. A HINT: a named character resizes to its authored sprite's
+    /// collision, the same as a peaceful NPC of that character.
+    pub size: ae::Vec2,
+}
+
 /// Spawn one hostile actor for an encounter wave.
 ///
 /// The encounter system still owns wave timing, but the mob itself is a normal
 /// feature entity queried by actor, projectile, rendering, and health systems.
+///
+/// ⛔ **[`EncounterMobSeed::character`] used to have nowhere to live, and the
+/// mob wore its instance id as a costume.** Both the art identity and the
+/// display name were the minted `id`, so
+/// `id_for_authored_identity("encounter:goblin_encounter:w0:1")` resolved
+/// nothing, no render family claimed the body, and the goblin lab drew the
+/// unclaimed-body placeholder for every mob in all three waves.
 pub(super) fn spawn_encounter_mob(
     commands: &mut Commands,
     catalog: &CharacterCatalog,
@@ -1625,20 +1675,53 @@ pub(super) fn spawn_encounter_mob(
     roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
-    id: String,
-    brain: ambition_entity_catalog::placements::CharacterBrain,
-    pos: ae::Vec2,
-    size: ae::Vec2,
+    mob: EncounterMobSeed<'_>,
 ) {
+    let EncounterMobSeed {
+        id,
+        character,
+        brain,
+        pos,
+        size,
+    } = mob;
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(pos, size * 0.5);
+    // ⚠ **the DISPLAY name is what the renderer binds a sheet from.**
+    // `rebuild_actor_render_index` publishes `ActorConfig::name`, and
+    // `upgrade_actor_sprites` resolves name-first against the character
+    // registry — it never reads the seed's resolved `sprite_character_id`. So
+    // naming the art identity alone would fix the collision box and leave the
+    // placeholder on screen. The label follows `npc_display_label`: the
+    // character's own display name, and a loud fallback when it names a row
+    // that does not exist, because that is a content bug rather than a
+    // preference.
+    let label = character.map_or_else(
+        || id.clone(),
+        |character_id| match catalog.display_name(character_id) {
+            Some(display_name) => display_name.to_string(),
+            None => {
+                warn!(
+                    character_id,
+                    mob_id = id.as_str(),
+                    "encounter mob names a character with no catalog row; it will draw the \
+                     unclaimed-body placeholder"
+                );
+                id.clone()
+            }
+        },
+    );
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
         authored_sheets,
         catalog,
         roster,
+        // The instance identity. ⛔ NOT the character: two goblins in one wave
+        // are two bodies, and every id-keyed index in the actor runtime — the
+        // encounter's own `FeatureId` liveness lookup included — would collapse
+        // them into one. The same rule a mirror match's `#seat<n>` obeys.
         id.clone(),
-        id.clone(),
-        None,
+        label.clone(),
+        // The ART identity, id-first: it survives a display-name rename.
+        character,
         aabb,
         brain,
         &[],
@@ -1653,7 +1736,7 @@ pub(super) fn spawn_encounter_mob(
     let entity = EnemyActorSpawnPlan::hostile(
         format!("Encounter mob: {id}"),
         id.clone(),
-        id.clone(),
+        label,
         feature_aabb,
         enemy,
     )
@@ -1664,7 +1747,7 @@ pub(super) fn spawn_encounter_mob(
     if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
         authored_sheets,
         catalog,
-        &id,
+        character.unwrap_or(&id),
         size * 0.5 * 2.0,
     ) {
         commands

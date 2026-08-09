@@ -4,6 +4,7 @@
 use super::super::brain_builders::{enemy_default_action_set, enemy_default_brain};
 use super::super::spawn_actors::spawn_boss_with_overrides_into;
 use super::*;
+use crate::features::enemies::ArchetypeSpecExt;
 use crate::features::{
     ActorAggression, ActorConfig, ActorCooldowns, ActorDisposition, ActorIdentity, ActorIntent,
     AggressionMode, CombatKit,
@@ -14,7 +15,6 @@ use ambition_characters::brain::{
 };
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{App, Commands, Update};
-use crate::features::enemies::ArchetypeSpecExt;
 
 fn make_enemy(brain_key: &str) -> ActorConfig {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
@@ -39,10 +39,10 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
 #[test]
 fn room_features_lower_through_the_caller_supplied_registry() {
     use crate::world::placements::{LoweringCtx, PlacementLoweringRegistry, PlacementRecord};
-    use ambition_platformer2d_core::Vec2;
     use ambition_entity_catalog::placements::{
         DamageKind, DamageTeam, HazardRespawn, HazardSpec, PlacementKind, PlacementSchema,
     };
+    use ambition_platformer2d_core::Vec2;
     use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 
     #[derive(bevy::prelude::Component)]
@@ -146,12 +146,15 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
                 &roster,
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
-                "test_mob".to_string(),
-                ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "medium_striker".into(),
-                ),
-                ae::Vec2::new(100.0, 100.0),
-                ae::Vec2::new(20.0, 30.0),
+                crate::features::EncounterMobSeed {
+                    id: "test_mob".to_string(),
+                    character: None,
+                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                        "medium_striker".into(),
+                    ),
+                    pos: ae::Vec2::new(100.0, 100.0),
+                    size: ae::Vec2::new(20.0, 30.0),
+                },
             );
         },
     );
@@ -279,12 +282,15 @@ fn encounter_mob_spawns_with_brain_components() {
                 &roster,
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
-                "test_mob".to_string(),
-                ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "medium_striker".into(),
-                ),
-                ae::Vec2::new(100.0, 100.0),
-                ae::Vec2::new(20.0, 30.0),
+                crate::features::EncounterMobSeed {
+                    id: "test_mob".to_string(),
+                    character: None,
+                    brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                        "medium_striker".into(),
+                    ),
+                    pos: ae::Vec2::new(100.0, 100.0),
+                    size: ae::Vec2::new(20.0, 30.0),
+                },
             );
         },
     );

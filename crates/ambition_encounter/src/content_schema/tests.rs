@@ -51,6 +51,76 @@ fn refuse(name: &str, waves: &str) -> ambition_content_pack::CompileFailure {
         .expect_err("this wave book must be refused")
 }
 
+// ── a stand-in cast, so the character reference has something to resolve ────
+//
+// The `character` schema is minted by `character_catalog`, which lives in
+// `ambition_characters` — a crate this one does not depend on and must not.
+// ⭐ **a cross-schema reference is by SCHEMA ID, not by Rust type**, which is
+// exactly how `boss_encounter` names a `music_track` across the same kind of
+// boundary. So the whole fixture is a handler that mints `character` identities
+// from a whitespace-separated list; what it proves is what the compiler
+// actually does — match `ambition:character/<name>` against the pack's defined
+// rows.
+
+const CAST_SCHEMA: &str = "test_cast";
+
+struct CastSchema;
+
+impl ContentSchemaHandler for CastSchema {
+    fn check(&self, facet: &FacetSource<'_>, out: &mut FacetOutcome) {
+        for name in facet.text.split_whitespace() {
+            out.define(facet.content_id_in(CHARACTER_SCHEMA, name), name);
+        }
+    }
+}
+
+fn registry_with_cast() -> SchemaRegistry {
+    let mut registry = registry();
+    registry
+        .register(SchemaRegistration {
+            id: SchemaId::new(CAST_SCHEMA),
+            version: SchemaVersion(1),
+            capability: CapabilityId::new("test_cast"),
+            // Nothing lowers: this fixture exists to DEFINE identities, and
+            // saying so is what keeps the compiler from demanding an artifact.
+            disposition: RuntimeDisposition::AuthoringOnly,
+            doc: "test fixture: mints `character` identities from a name list",
+            handler: Arc::new(CastSchema),
+        })
+        .expect("fresh registry");
+    registry
+}
+
+fn draft_with_cast(name: &str, waves: &str, cast: &str) -> ContentPackDraft {
+    let root = std::env::temp_dir().join(format!("ambition_encounter_schema_test/{name}"));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("temp dir");
+    std::fs::write(root.join("waves.ron"), waves).expect("write waves");
+    std::fs::write(root.join("cast.txt"), cast).expect("write cast");
+    ContentPackDraft::read_manifest(
+        root,
+        ContentPackManifest {
+            id: PackId("test_encounters".into()),
+            version: PackVersion("1.0.0".into()),
+            namespace: ModuleNamespace("test".into()),
+            requires: Vec::new(),
+            sources: vec![
+                SourceDeclaration {
+                    path: "cast.txt".into(),
+                    schema: SchemaId::new(CAST_SCHEMA),
+                    version: SchemaVersion(1),
+                },
+                SourceDeclaration {
+                    path: "waves.ron".into(),
+                    schema: SchemaId::new(ENCOUNTER_WAVES_SCHEMA),
+                    version: ENCOUNTER_WAVES_VERSION,
+                },
+            ],
+        },
+    )
+    .expect("draft reads")
+}
+
 /// A book with waves compiles and LOWERS — the runtime path this replaces.
 #[test]
 fn a_compiled_pack_carries_the_wave_book_the_runtime_will_load() {
@@ -190,6 +260,56 @@ fn a_field_the_schema_does_not_know_is_refused_at_every_level() {
             .iter()
             .any(|d| d.code == DiagnosticCode::UnknownField),
         "a wave field nothing reads must be reported as unknown: {}",
+        failure.render()
+    );
+}
+
+/// ⛔ **A MOB NAMING A CHARACTER NOBODY DEFINES IS REFUSED AT LOAD.**
+///
+/// A wave mob answers three separate questions — `character` (who it is), the
+/// minted instance id (which body), `kind` (how it thinks) — and until
+/// `character` existed the first had nowhere to live. The goblin encounter
+/// therefore spawned bodies whose only identity was
+/// `encounter:goblin_encounter:w0:1`, no sheet resolved, and every mob drew the
+/// unclaimed-body placeholder.
+///
+/// ⭐ **the invariant is the MISSPELLING, not the fix.** "the goblins resolve
+/// now" is true forever once the RON is right and defends nothing; a character
+/// the pack does not define looks exactly like a character it does, right up
+/// until a magenta box appears in a room nobody re-tested.
+/// [[feedback_a_guard_that_pins_the_fix_defends_the_gap]]
+#[test]
+fn a_mob_naming_a_character_the_pack_does_not_define_is_refused() {
+    let book = |character: &str| {
+        format!(
+            r#"{{"goblin_encounter": [(label: "first", mobs: [(kind: "medium_striker", \
+               character: Some("{character}"), spawn: (1180.0, 580.0), size: (22.0, 38.0), \
+               delay: 0.0)])]}}"#
+        )
+        .replace("\\\n               ", "")
+    };
+    // The cast this pack defines. `goblin` is spelled correctly here and nowhere
+    // else, which is what makes the poison below discriminating: a refusal that
+    // fired for every character would prove nothing.
+    const CAST: &str = "goblin sandbag";
+
+    compile(
+        &draft_with_cast("named_character", &book("goblin"), CAST),
+        &registry_with_cast(),
+        &AssetsUnchecked,
+    )
+    .expect("a mob naming a character the pack defines compiles");
+
+    let failure = compile(
+        &draft_with_cast("misspelled_character", &book("gobln"), CAST),
+        &registry_with_cast(),
+        &AssetsUnchecked,
+    )
+    .expect_err("a mob naming a character nothing defines must be refused");
+    assert!(
+        failure.has(DiagnosticCode::UnresolvedReference),
+        "a misspelled character must be an UNRESOLVED REFERENCE — an unknown field or a \
+         parse error would mean the reference was never emitted: {}",
         failure.render()
     );
 }

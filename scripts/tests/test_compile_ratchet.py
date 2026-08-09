@@ -322,21 +322,31 @@ def test_the_same_carve_at_the_median_rate_is_inside_budget_and_still_flagged():
     UNPRICED finding is the only thing standing there. Recorded as a test so the
     limit is a known one.
 
-    ⛔ **the carve size is DERIVED, and the constant it replaced is why.** This
-    read `moved = 10_000` with a docstring saying *"the same 10,000 lines cost
-    +19.5s, inside a 25s budget"*. Both numbers went stale as the tree grew: by
-    2026-08-09 that carve cost **+26.4s against a +25.2s budget** and the test
-    went red — **clearing the budget by 1.2s, 4.7%.**
+    ⛔ **the carve size is DERIVED, and it took three tries.** Kept in full,
+    because each draft failed for a different and instructive reason:
 
-    ⇒ the old assertion was pinning a COINCIDENCE. *"No magnitude finding"* was
-    never a property of the guard; it was a fact about where the tree happened to
-    sit relative to one budget, and it was always going to flip. Re-freezing would
-    have raised the budget and re-hidden the limitation; flipping the assertion
-    would pin the same coincidence from the other side.
+    1. `moved = 10_000`, with a docstring saying *"the same 10,000 lines cost
+       +19.5s, inside a 25s budget"*. Both numbers went stale as the tree grew;
+       by 2026-08-09 that carve cost **+26.4s against +25.2s** and went red,
+       **clearing by 1.2s — 4.7%.** ⇒ the assertion had been pinning a
+       COINCIDENCE: *"no magnitude finding"* was never a property of the guard,
+       only a fact about where the tree sat relative to one budget.
+    2. Sized to **half the budget** from a probe — and red again within hours.
+       ⛔ **because it measured against the LIVE tree and asserted against the
+       FROZEN baseline.** Two denominators. The live tree had already spent
+       +13.1s of the +25.2s budget (an unpriced carve, priced at the median), so
+       half-the-budget from `live` still landed at +25.8s from `baseline`.
+       ⚠ its comment claimed *"a margin no plausible tree growth erases"*. One
+       ordinary 369-line commit erased it.
+    3. **This version sizes against the headroom that is actually LEFT** —
+       `budget - (live - baseline)` — which is the same quantity a real carve
+       faces, so the claim under test got more honest rather than more forgiving.
+       It `skip`s, loudly, when the tree has spent everything.
 
-    So `moved` is now measured from a probe and sized to about HALF the budget.
-    The claim under test — magnitude does not catch it, UNPRICED does — holds at
-    any tree size, and nobody has to re-derive a magic number.
+    ⇒ the durable lesson is #2's: **name both denominators before dividing.** A
+    number sized against one reference and judged against another is wrong by
+    exactly the drift between them, and it fails intermittently as that drift
+    moves — which reads like flakiness rather than like a bug.
     """
     weights = baseline()["unit_weights"]
     before = live()
@@ -362,23 +372,43 @@ def test_the_same_carve_at_the_median_rate_is_inside_budget_and_still_flagged():
             - before["worst_edit_cost_seconds"]["seconds"]
         )
 
+    # ⛔ TWO DENOMINATORS, and getting them confused is what broke the previous
+    # two versions of this test. `grew_by` measures against the LIVE tree;
+    # `ratchet.evaluate` compares against the FROZEN baseline. The live tree has
+    # usually already spent part of the budget, so "half the budget" measured
+    # from `live` can still land over the budget measured from `baseline`.
+    #
+    # Size against the headroom that is actually LEFT — which is also what a real
+    # carve faces, so the claim under test gets more honest rather than less.
+    spent = (
+        before["worst_edit_cost_seconds"]["seconds"]
+        - baseline()["worst_edit_cost_seconds"]["seconds"]
+    )
+    remaining = budget - spent
+    if remaining <= 0:
+        pytest.skip(
+            f"the live tree has already spent the whole budget "
+            f"({spent:.1f}s of {budget:.1f}s); there is no headroom to size a "
+            f"carve into, and that is a fact about the tree, not this test"
+        )
+
     # Probe once to learn this tree's median-rate premium per moved line, then
-    # size the real carve at half the budget. Linear in `moved`: the moved lines
-    # are repriced from the owner's measured rate to the population median.
+    # size the real carve at half the REMAINING headroom. Linear in `moved`: the
+    # moved lines are repriced from the owner's measured rate to the median.
     probe_moved = 10_000
     per_line = grew_by(carve(probe_moved)) / probe_moved
     assert per_line > 0, "moving lines to the median rate must cost something"
-    moved = int(budget * 0.5 / per_line)
+    moved = int(remaining * 0.5 / per_line)
 
     after = carve(moved)
     grew = grew_by(after)
-    # Inside budget, and by a margin no plausible tree growth erases — the bug
-    # this replaces was a 4.7% margin that did erase.
-    assert 0 < grew < budget * 0.75
+    assert 0 < grew < remaining * 0.75
 
     severities = [severity for severity, _ in ratchet.evaluate(after, baseline())]
     assert "REGRESSED" not in severities, (
-        f"a {moved:,}-line carve costing +{grew:.1f}s against a {budget:.1f}s budget "
-        f"should clear the magnitude arm; the UNPRICED finding is the gate here"
+        f"a {moved:,}-line carve costing +{grew:.1f}s should clear the magnitude "
+        f"arm: the live tree has spent {spent:.1f}s of its {budget:.1f}s budget, "
+        f"leaving {remaining:.1f}s, and this carve uses half of that. The UNPRICED "
+        f"finding is the gate here, not magnitude"
     )
     assert "UNPRICED" in severities

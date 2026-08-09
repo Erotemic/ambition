@@ -45,6 +45,7 @@ use ambition_platformer2d::character::{
     portrait_for_declared_character, CharacterCatalog, PortraitSheetRegistry,
     PreparedCharacterRegistry,
 };
+use bevy::input::touch::Touches;
 use bevy::prelude::*;
 
 use crate::select::{SlotOccupant, SlotPick, SmashRoster, SmashSelect, MAX_SMASH_SEATS};
@@ -765,10 +766,12 @@ pub fn drive_the_cursor(
     fighters: Res<SmashRoster>,
     windows: Query<&Window>,
     mouse: Option<Res<ButtonInput<MouseButton>>>,
+    touches: Option<Res<Touches>>,
     seat_frames: Option<Res<ambition_platformer2d::input::SeatMenuFrames>>,
     global_frame: Option<Res<ambition_platformer2d::input::MenuControlFrame>>,
     devices: Option<Res<ambition_platformer2d::input::LocalDeviceOrder>>,
     mut last_mouse: Local<Option<Vec2>>,
+    mut driving_finger: Local<Option<u64>>,
 ) {
     let layout = current_layout(&windows, &fighters);
     let targets = layout.targets();
@@ -813,6 +816,50 @@ pub fn drive_the_cursor(
             pointer.move_to(position);
         }
         *last_mouse = Some(position);
+    }
+
+    // ── the finger ───────────────────────────────────────────────────────
+    // A touch reports a POSITION, so it is the mouse's arm and not the pad's:
+    // `Touches` already speaks logical window pixels with a top-left origin,
+    // which is the space `HitRect` is measured in, so there is nothing to
+    // convert. This is the fifth driver of one `move_to`, not a touch path.
+    //
+    // ⭐ **no move-gate, unlike the mouse.** A stationary mouse reports the same
+    // position forever and would fight the arrows for the cursor; a touch
+    // position exists only while a finger is on the glass, so there is no
+    // stale report to suppress — and gating on travel would skip the frame a
+    // tap ARRIVES on (a fresh touch's delta is zero), arbitrating the press at
+    // wherever the cursor used to be.
+    //
+    // ⚠ **ONE finger drives it, and it keeps driving until it lifts.** Four
+    // people share one cursor here, exactly as they share one mouse, and a
+    // second button does not relocate a mouse — so a second finger neither
+    // moves the cursor nor clicks. Re-choosing the driver every frame is not
+    // enough to promise that: `Touches::iter` walks a `HashMap`, so "the first
+    // one" is arbitrary, and Android RECYCLES pointer ids, so a finger that
+    // lands after another lifts can be handed an id BELOW one still down —
+    // "lowest id wins" would hand the cursor over mid-drag and drop somebody's
+    // token on the wrong fighter. Lowest id only breaks the tie when there is
+    // no driver yet, where it is a deterministic answer instead of a lucky one.
+    let finger = touches.as_deref().and_then(|touches| {
+        let driving = driving_finger
+            .and_then(|id| {
+                // A lift is still this finger's frame: the release edge that
+                // ends a drag has to land where the finger actually left.
+                touches
+                    .get_pressed(id)
+                    .or_else(|| touches.iter_just_released().find(|touch| touch.id() == id))
+            })
+            .or_else(|| touches.iter().min_by_key(|touch| touch.id()))
+            .or_else(|| touches.iter_just_released().min_by_key(|touch| touch.id()))
+            .copied();
+        *driving_finger = driving
+            .map(|touch| touch.id())
+            .filter(|id| touches.get_pressed(*id).is_some());
+        driving
+    });
+    if let Some(finger) = finger {
+        pointer.move_to(finger.position());
     }
 
     // ── the arrows, d-pad and stick ──────────────────────────────────────
@@ -862,6 +909,13 @@ pub fn drive_the_cursor(
     if let Some(mouse) = mouse.as_deref() {
         pressed |= mouse.just_pressed(MouseButton::Left);
         released |= mouse.just_released(MouseButton::Left);
+    }
+    // Touching the glass IS the button — and only the driving finger's edges
+    // count, so a second finger landing during a drag cannot arbitrate a press
+    // at the first one's position.
+    if let (Some(touches), Some(finger)) = (touches.as_deref(), finger) {
+        pressed |= touches.just_pressed(finger.id());
+        released |= touches.just_released(finger.id());
     }
 
     // Back puts a carried token down where it came from, which is the only undo
@@ -1263,5 +1317,214 @@ fn set_rect(node: &mut Node, rect: HitRect) {
         if *field != value {
             *field = value;
         }
+    }
+}
+
+#[cfg(test)]
+mod touch_tests {
+    use super::*;
+    use crate::select::SlotOccupant;
+    use bevy::input::touch::{TouchInput, TouchPhase, Touches};
+
+    /// The screen, driven headlessly, with the REAL touch path in front of it.
+    ///
+    /// ⚠ nothing here writes `Touches` directly — it cannot, the collections are
+    /// private, and that is a mercy: the test sends the `TouchInput` messages
+    /// winit emits and lets Bevy's own `touch_screen_input_system` fold them, so
+    /// a fixture that stopped resembling Android would stop compiling rather
+    /// than stay green.
+    ///
+    /// No window and no `UiPlugin`: the rectangles come from [`layout`], which
+    /// lays out against `HEADLESS_VIEWPORT` when there is none.
+    fn screen() -> App {
+        let mut app = App::new();
+        app.init_resource::<SmashSelect>();
+        app.init_resource::<SmashRoster>();
+        app.init_resource::<SelectCursor>();
+        app.init_resource::<StartRequested>();
+        app.init_resource::<Touches>();
+        app.add_message::<TouchInput>();
+        app.add_systems(PreUpdate, bevy::input::touch::touch_screen_input_system);
+        app.add_systems(Update, drive_the_cursor);
+        app
+    }
+
+    fn finger(app: &mut App, id: u64, phase: TouchPhase, at: Vec2) {
+        app.world_mut()
+            .resource_mut::<Messages<TouchInput>>()
+            .write(TouchInput {
+                phase,
+                position: at,
+                window: Entity::PLACEHOLDER,
+                force: None,
+                id,
+            });
+    }
+
+    fn headless_layout() -> SelectLayout {
+        SelectLayout::for_viewport(None, SmashRoster::default().cell_count())
+    }
+
+    /// Where slot 0's token is sitting, asked of the same function the screen
+    /// hit-tests with.
+    fn token_of_slot_zero(app: &App, layout: &SelectLayout) -> HitRect {
+        token_rect(layout, app.world().resource::<SmashSelect>(), 0)
+            .expect("slot 0 is participating, so it owns a token")
+    }
+
+    /// **A FINGER PLAYS THIS SCREEN.**
+    ///
+    /// Tap the token, tap a portrait — the two-tap idiom a pad already uses,
+    /// which is the one a finger can perform without a hover state. Every
+    /// assertion below is a seam a touch has to cross: the cursor moved to the
+    /// finger, the press edge arrived, the lift did NOT undo the pick-up, and
+    /// the second tap committed the choice.
+    #[test]
+    fn a_finger_moves_the_cursor_and_chooses_a_fighter() {
+        let mut app = screen();
+        app.world_mut()
+            .resource_mut::<SmashSelect>()
+            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+
+        let layout = headless_layout();
+        let token = token_of_slot_zero(&app, &layout);
+        let portrait = layout.portrait(1).expect("the default roster draws a grid");
+
+        // A frame with nothing touching, so the cursor's initial placement is
+        // spent before the finger arrives and cannot be mistaken for its work.
+        app.update();
+        assert_ne!(
+            app.world().resource::<SelectCursor>().position,
+            token.center(),
+            "the cursor already sat on the token, so this test cannot see a \
+             finger move it"
+        );
+
+        finger(&mut app, 7, TouchPhase::Started, token.center());
+        app.update();
+        assert_eq!(
+            app.world().resource::<SelectCursor>().position,
+            token.center(),
+            "a finger on slot 0's token did not move the cursor to it"
+        );
+        assert_eq!(
+            app.world().resource::<SelectCursor>().carrying,
+            Some(0),
+            "the touch press never reached the screen's click arbitration"
+        );
+
+        // Lifting without travelling is the first half of a two-tap place, not
+        // a drop — the same rule that keeps a pad's pick-up in hand.
+        finger(&mut app, 7, TouchPhase::Ended, token.center());
+        app.update();
+        assert_eq!(
+            app.world().resource::<SelectCursor>().carrying,
+            Some(0),
+            "lifting the finger put the token straight back down"
+        );
+
+        finger(&mut app, 8, TouchPhase::Started, portrait.center());
+        app.update();
+        assert_eq!(
+            app.world().resource::<SelectCursor>().position,
+            portrait.center(),
+            "the second tap did not move the cursor onto the portrait"
+        );
+        assert_eq!(
+            app.world().resource::<SmashSelect>().slot(0).pick,
+            Some(SlotPick::Fighter(1)),
+            "a finger tapped a portrait and the slot did not take that fighter"
+        );
+    }
+
+    /// **AND A FINGER CAN DRAG**, which is the idiom Jon's spec actually names:
+    /// *"the cursor can pick up and drag to select a character"*.
+    ///
+    /// ⚠ this is the half that needs the RELEASE edge, and the release edge is
+    /// the one a lifted finger nearly loses: by the time it fires the touch is
+    /// gone from `Touches::iter`, so a driver that only ever looks at what is
+    /// still down reports nothing and the token never lands.
+    #[test]
+    fn a_finger_can_drag_a_token_onto_a_portrait_in_one_stroke() {
+        let mut app = screen();
+        app.world_mut()
+            .resource_mut::<SmashSelect>()
+            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+
+        let layout = headless_layout();
+        let token = token_of_slot_zero(&app, &layout);
+        let portrait = layout.portrait(0).expect("the default roster draws a grid");
+
+        finger(&mut app, 3, TouchPhase::Started, token.center());
+        app.update();
+        finger(&mut app, 3, TouchPhase::Moved, portrait.center());
+        app.update();
+        assert_eq!(
+            app.world().resource::<SelectCursor>().carrying,
+            Some(0),
+            "the token came out of the cursor's hand part-way through the drag"
+        );
+
+        finger(&mut app, 3, TouchPhase::Ended, portrait.center());
+        app.update();
+        assert_eq!(
+            app.world().resource::<SmashSelect>().slot(0).pick,
+            Some(SlotPick::Fighter(0)),
+            "the finger let go over a portrait and the token did not land on it"
+        );
+        assert_eq!(
+            app.world().resource::<SelectCursor>().carrying,
+            None,
+            "the drag ended with the token still in hand"
+        );
+    }
+
+    /// **A SECOND FINGER IS NOT A SECOND CURSOR.**
+    ///
+    /// One person drags a token; somebody else's finger — or the same person's
+    /// palm — lands on a portrait. The cursor must stay where the driving finger
+    /// is and the stray press must not arbitrate, or the drag ends by dropping
+    /// the token wherever the intruder touched.
+    ///
+    /// ⚠ the intruder is given the LOWER id on purpose. Android recycles pointer
+    /// ids, so a finger that lands after another lifts really can be handed an id
+    /// below one still down; "the lowest id wins" would hand the cursor over here
+    /// and this is the only assertion that can tell the two rules apart.
+    #[test]
+    fn a_second_finger_neither_moves_the_cursor_nor_clicks() {
+        let mut app = screen();
+        app.world_mut()
+            .resource_mut::<SmashSelect>()
+            .set_occupant(0, SlotOccupant::Controller { device: 0 });
+
+        let layout = headless_layout();
+        let token = token_of_slot_zero(&app, &layout);
+        let portrait = layout.portrait(1).expect("the default roster draws a grid");
+
+        finger(&mut app, 5, TouchPhase::Started, token.center());
+        app.update();
+        assert_eq!(
+            app.world().resource::<SelectCursor>().carrying,
+            Some(0),
+            "the driving finger never picked the token up"
+        );
+
+        finger(&mut app, 2, TouchPhase::Started, portrait.center());
+        app.update();
+        assert_eq!(
+            app.world().resource::<SelectCursor>().position,
+            token.center(),
+            "a second finger stole the cursor from the one that was dragging"
+        );
+        assert_eq!(
+            app.world().resource::<SelectCursor>().carrying,
+            Some(0),
+            "the second finger's press arbitrated, so the drag let go of the token"
+        );
+        assert_eq!(
+            app.world().resource::<SmashSelect>().slot(0).pick,
+            Some(SlotPick::Random),
+            "a stray finger committed a fighter nobody chose"
+        );
     }
 }

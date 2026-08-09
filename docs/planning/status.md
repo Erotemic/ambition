@@ -165,6 +165,19 @@ defect is the system working**, the same judgement recorded above for
 `AbilitySet`'s private defaults, so extracting them would widen a private API,
 which `test-placement.md` forbids.
 
+⚠ **One crossed on 2026-08-08 giving the procedural SFX path a loudness target**
+(`aa9fbeb6b`): `ambition_audio/src/render.rs` reached **232** test lines. The
+four new tests are the behavioural contract of the change and could not be
+written anywhere else — equal `volume` is equal loudness across 4 waveforms × 3
+noise mixes; `volume` is still a 6-dB-per-halving trim; no authored volume can
+clip, probed on the peakiest body the synth can make; a longer release does not
+relevel the body. ⭐ **that third one replaced a guarantee the old code got for
+free** — under the peak rule `peak == volume ≤ 1` made clipping impossible, and
+an RMS target does not, so the invariant had to become an assertion. They read
+`audio_source_from_sfx_spec`'s private synthesis, so `behavioral-local` and
+review-pending.
+
+<!-- planning-evidence: inline-test path=crates/ambition_audio/src/render.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_platformer2d_core/src/abilities.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_cutscene/src/lib.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_input/src/bindings.rs kind=behavioral-local disposition=maintainer-review-pending -->

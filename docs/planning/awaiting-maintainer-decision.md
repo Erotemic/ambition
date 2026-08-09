@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **1 open, and it blocks nothing** (updated 2026-08-09)
+## ⇥ INDEX — **2 open** (updated 2026-08-09)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -31,6 +31,7 @@ its own header warns about, one level up.
 
 | Question | Blocks | State |
 |---|---|---|
+| **Is an enemy a CHARACTER, or an ARCHETYPE wearing one?** (queue D48) | goblins/Iron Mary art + behaviour | ▢ **scoped 2026-08-09, needs Jon** — see below |
 | ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 
@@ -56,6 +57,78 @@ scoped, small, and waiting; none is blocked on unknowns, which is this file's
 entry condition.
 
 ---
+
+## Is an enemy a CHARACTER, or an ARCHETYPE wearing one? (queue D48, 2026-08-09)
+
+Jon, from play: *"In the sky enemy the instance of iron marry doesn't use her
+swordgun, she shoots fireballs, which is not something her character should be
+able to do. **I suppose we do need a distinction between unique characters and
+re-spawning archetype characters.**"*
+
+### The fact
+
+`EnemySpawnSpec` separates two questions in its own doc comments and provides no
+third:
+
+```rust
+/// What it DOES: the roster brain key the archetype is selected by.
+pub brain: CharacterBrain,
+/// What it LOOKS LIKE: a catalog character id.
+pub character_id: Option<String>,
+```
+
+⇒ **there is no slot for *which character this is*.** Iron Mary's catalog row
+declares `default_brain: "melee_brute_brute"` and
+`default_action_set: "brute_lunge"`; nothing on the enemy-spawn path ever reads
+them. Her fireballs are the shark-rider brain doing exactly what it was told.
+
+### ⭐ The authored content ALREADY makes the split — measured 2026-08-09
+
+Every `EnemySpawn` name checked against the catalog's 125 display names:
+
+```text
+65 EnemySpawn instances, all four worlds
+  41 (11 distinct)  the name IS a catalog character   Iron Mary, Pirate Raider,
+                                                      Burning Flying Shark, …
+  24 (21 distinct)  the name is NOT                   Skirmisher, Target,
+                                                      pg_goblin_a/b/c, small skitter,
+                                                      medium striker, large brute,
+                                                      lab finite sandbag, patrol cutter
+```
+
+⇒ **whoever authored these was already making your distinction**, as a naming
+convention nothing reads. ⚠ and `medium striker` / `large brute` appear as
+*names* — the same strings the encounter system uses as `kind`s — so the
+archetype vocabulary is already leaking into the name field.
+
+### The fork
+
+* **(a) an enemy IS a character**, and the brain is an override on its catalog
+  default. Iron Mary in the sky is Iron Mary, so she lunges unless the level says
+  otherwise.
+  **Cost: ~24 spawns** need a character named or an explicit archetype marker;
+  the other 41 already name one. Makes unique characters cheap, archetypes
+  slightly more verbose.
+* **(b) an enemy is an ARCHETYPE wearing a character** — today's model, made
+  explicit and honest. Iron Mary in the sky is a shark rider that looks like Iron
+  Mary.
+  **Cost: near zero to declare**, but it recasts 41 authored spawns as costumes
+  and unique characters then need a marker to get their own kit.
+
+⭐ **the numbers lean (a)**, and so does the content: (b) would make *"Iron Mary"*
+a costume, which is plainly not what whoever typed it meant.
+
+⚠ **this is a product question, not an engineering one** — it decides whether
+naming an enemy in a level grants it a kit. Both arms are implementable; I am not
+choosing which game you are making.
+
+⛔ **do not answer this by fixing the goblins** — that already landed (queue D39)
+and it deliberately made `character` mean ART ONLY, cross-referenced to
+`EnemySpawnSpec::character_id`, precisely so this question stayed open and yours.
+
+⚠ **whichever arm wins, queue D56 must land with it**: the renderer keys its
+sheet lookup on the DISPLAY NAME, so authoring character ids without fixing that
+un-arts the very spawns it is meant to fix.
 
 > **Rows 1–7 were deleted 2026-08-05.** Jon answered all seven on 2026-07-29
 > and every answer is a row in [`maintainer-decisions.md`](maintainer-decisions.md)

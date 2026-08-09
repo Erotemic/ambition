@@ -1,0 +1,367 @@
+//! **A block the level PAINTED must still be able to change its picture.**
+//!
+//! ⛔ **one line in `level_1_2()` opted every block in the cavern out of art
+//! updates, permanently.** The level paints its stone —
+//! `for block in &mut room.world.blocks { block.art_color = Some(UNDERGROUND_STONE) }`
+//! — and `spawn_block` read that authored colour as *"content has said this
+//! shape has no sprite yet"*, dropped the sprite key on the floor and therefore
+//! attached no `BoundEntitySprite`. `apply_block_art`, the ONE system that
+//! changes a block's picture mid-run, queries `&mut BoundEntitySprite`. No
+//! binding, no match, no repaint — ever (queue D67).
+//!
+//! ⭐ **`art_color` was saying two things at once**: *"draw me as a flat coloured
+//! quad"*, which is what the author meant, and *"never update my picture
+//! again"*, which is an accident of how the first was implemented. These tests
+//! pin the second meaning out of existence: a painted block keeps its flat quad
+//! until a game NAMES art for it, and naming art is what takes the paint off.
+//!
+//! ⚠ **the third test is about the EFFECT, not the picture, and that is how it
+//! caught a SECOND bug.** Jon reported *"in 1-2 jumping into the invisible brick
+//! from below doesn't seem to trigger it"*, which is exactly what a working
+//! trigger with no way to draw itself would look like — so this asks
+//! `SpentPowerBlocks` and the coin count instead of the screen. The trigger was
+//! genuinely dead, for an unrelated reason in the collision resolver, and asking
+//! the picture would have hidden that behind the art bug.
+
+#![cfg(feature = "visible")]
+
+use bevy::prelude::*;
+
+use ambition_demo_mary_o::ldtk_vocabulary::{block_look_of, MaryOBlockLook};
+use ambition_demo_mary_o::level_1_2::{level_1_2, LEVEL_1_2_ROOM_ID};
+use ambition_demo_mary_o::powerups::SpentPowerBlocks;
+use ambition_demo_mary_o_app::{build_windowed_demo_app_entering, RenderMode};
+use ambition_platformer2d::actors::assets::game_assets::EntitySprite;
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::AabbExt;
+use ambition_platformer2d::input::ControlFrame;
+use ambition_platformer2d::platformer::markers::PrimaryPlayer;
+use ambition_platformer2d::render::rendering::BlockVisual;
+use ambition_platformer2d::view::GameAssets;
+
+/// The scripted stick, written where the participant pipeline has finished
+/// writing `ControlFrame` and before the fixed-tick latch reads it. Copied from
+/// `two_rooms.rs`, whose header explains why both edges are load-bearing: a
+/// `PreUpdate` write is silently overwritten under `--workspace` feature
+/// unification, and the file that guessed otherwise was red for months.
+#[derive(Resource, Clone, Copy, Default)]
+struct ScriptedStick(ControlFrame);
+
+fn apply_scripted_stick(stick: Res<ScriptedStick>, mut frame: ResMut<ControlFrame>) {
+    *frame = stick.0;
+}
+
+/// The cavern, entered directly. `--room` exists for exactly this reason
+/// (queue D65): before it, reaching 1-2 meant playing 3328 px of 1-1.
+fn cavern() -> App {
+    let mut app = build_windowed_demo_app_entering(
+        RenderMode::Headless,
+        ambition_demo_mary_o::MARY_O_GAMEPLAY_ROUTE,
+        LEVEL_1_2_ROOM_ID,
+    );
+    app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+        std::time::Duration::from_secs_f32(1.0 / 60.0),
+    ));
+    app.init_resource::<ScriptedStick>();
+    app.add_systems(
+        Update,
+        apply_scripted_stick
+            .after(ambition_platformer2d::input::InputSet::Route)
+            .before(ambition_platformer2d::engine_core::accumulate_control_frame_latch),
+    );
+    for _ in 0..90 {
+        app.update();
+    }
+    app
+}
+
+fn step(app: &mut App, frame: ControlFrame) {
+    app.world_mut().resource_mut::<ScriptedStick>().0 = frame;
+    app.update();
+}
+
+fn hold_jump() -> ControlFrame {
+    ControlFrame {
+        jump_pressed: true,
+        jump_held: true,
+        ..ControlFrame::default()
+    }
+}
+
+/// The one block in 1-2 the author gave this look, read off the level rather
+/// than off a constant — the room is authored in LDtk and Jon edits it.
+fn authored(look: MaryOBlockLook) -> ae::world::Block {
+    let room = level_1_2();
+    let mut found: Vec<_> = room
+        .world
+        .blocks
+        .iter()
+        .filter(|block| block_look_of(&block.name) == Some(look))
+        .cloned()
+        .collect();
+    assert_eq!(
+        found.len(),
+        1,
+        "1-2 should author exactly one {look:?} block; found {} ({:?})",
+        found.len(),
+        found.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(),
+    );
+    found.remove(0)
+}
+
+/// The image the live render entity for this block is drawing.
+///
+/// ⚠ keyed by `geo_id`, which is what a bonk arrives with, not by the human
+/// name — the two are kept side by side on `BlockVisual` for this reason.
+fn drawn_image(app: &mut App, geo_id: &ae::GeoId) -> Handle<Image> {
+    let mut query = app.world_mut().query::<(&BlockVisual, &Sprite)>();
+    let world = app.world();
+    let (_, sprite) = query
+        .iter(world)
+        .find(|(visual, _)| &visual.geo_id == geo_id)
+        .unwrap_or_else(|| panic!("no block visual is drawing {geo_id:?}"));
+    sprite.image.clone()
+}
+
+/// The catalog's handle for a named sprite — what "wearing that art" MEANS.
+fn art(app: &App, key: EntitySprite) -> Handle<Image> {
+    app.world()
+        .get_resource::<GameAssets>()
+        .expect("a drawn composition has GameAssets")
+        .entities
+        .get(key)
+        .unwrap_or_else(|| panic!("the catalog holds no image for {key:?}"))
+        .clone()
+}
+
+/// ⭐ **the probe.** A `?`-block in the painted cavern wears the bonus plate,
+/// and wears the spent plate once it has paid. Red before D67: it wore a flat
+/// plum quad in both states, because nothing could reach it.
+#[test]
+fn a_question_block_in_the_painted_cavern_wears_its_own_art() {
+    let mut app = cavern();
+    let block = authored(MaryOBlockLook::Question);
+
+    assert_eq!(
+        drawn_image(&mut app, &block.id),
+        art(&app, EntitySprite::BonusBlockTile),
+        "the cavern's ?-block is not drawing the bonus plate — the level painted \
+         it and the paint took its art away",
+    );
+
+    app.world_mut()
+        .resource_mut::<SpentPowerBlocks>()
+        .spend(block.id.clone());
+    for _ in 0..4 {
+        app.update();
+    }
+
+    assert_eq!(
+        drawn_image(&mut app, &block.id),
+        art(&app, EntitySprite::SpentBlockTile),
+        "a spent ?-block in 1-2 still does not look spent",
+    );
+}
+
+/// ⚠ **the poison.** A block nobody names art for keeps the flat quad the level
+/// painted. The fix must not turn "no art yet" into "the kind's texture,
+/// eventually" — that would repaint every honest placeholder in the engine.
+#[test]
+fn a_painted_block_nobody_dresses_keeps_its_flat_quad() {
+    let mut app = cavern();
+    let stone = level_1_2()
+        .world
+        .blocks
+        .iter()
+        .find(|block| block_look_of(&block.name).is_none())
+        .expect("1-2 authors terrain")
+        .clone();
+
+    assert_eq!(
+        drawn_image(&mut app, &stone.id),
+        Handle::default(),
+        "the cavern's own stone bound a texture — the authored colour is \
+         supposed to be the whole picture for a block no game has dressed",
+    );
+}
+
+/// ⛔ **Jon: *"In 1-2 jumping into the invisible brick from below doesn't seem
+/// to trigger it."*** He was right, and it was NOT the art bug wearing a
+/// disguise. Her head was stopped dead at the block's underside and no contact
+/// was reported at all: `resolve_axis` gave `BlockKind::BonkOnly` an arm of its
+/// own in an `if / else if` chain, under a comment claiming it "falls through
+/// to the ordinary face resolution below" — which is where the head contact is
+/// built. Chains do not fall through. Fixed in
+/// `ambition_platformer2d_core::movement::collision`, and pinned there too.
+///
+/// ⭐ **this asks the game's own record and then the COIN COUNT**, never the
+/// screen — the report came from a block that could not draw itself, so the
+/// picture is exactly the wrong witness.
+///
+/// ▢ **the reveal is still missing and this test deliberately does not claim
+/// it.** `dress_authored_blocks` says a hidden block *"reveals itself by being
+/// used"*; observed 2026-08-09, it does not, for a reason downstream of
+/// everything above. Discovery promotes the block to a `Solid` through
+/// `FeatureEcsWorldOverlay`, whose `removed_block_names` despawns the block's
+/// visual, and the overlay's ADDED blocks have no render pass at all. The payout
+/// lands and the picture is deleted. Separate row; do not fold it in here.
+#[test]
+fn the_invisible_brick_triggers_from_below() {
+    let mut app = cavern();
+    let hidden = authored(MaryOBlockLook::Hidden);
+
+    // Stand her on the nearest floor under the block. Derived from the room so
+    // this follows the level if Jon moves the brick, and it is the only way to
+    // be sure the jump below starts from footing rather than from mid-air.
+    let column = hidden.aabb.center().x;
+    let underside = hidden.aabb.max.y;
+    let floor_top = level_1_2()
+        .world
+        .blocks
+        .iter()
+        .filter(|block| !matches!(block.kind, ae::BlockKind::BonkOnly))
+        .filter(|block| block.aabb.min.x <= column && column <= block.aabb.max.x)
+        .filter(|block| block.aabb.min.y > underside)
+        .map(|block| block.aabb.min.y)
+        .fold(f32::INFINITY, f32::min);
+    assert!(
+        floor_top.is_finite(),
+        "nothing to stand on under the invisible brick at x={column}",
+    );
+
+    let half_height = player_box(&mut app).y * 0.5;
+    place_player(&mut app, Vec2::new(column, floor_top - half_height - 1.0));
+
+    // ⛔ **her FOOTING is the first term, and it is observed rather than
+    // assumed.** A jump script that never gets her off the ground reports
+    // "the trigger is dead" — a falsifier watching the wrong thing, and this
+    // beat is precisely where that mistake is cheap to make.
+    let mut grounded = false;
+    for _ in 0..90 {
+        step(&mut app, ControlFrame::default());
+        if player_on_ground(&mut app) {
+            grounded = true;
+            break;
+        }
+    }
+    assert!(
+        grounded,
+        "she never found footing under the invisible brick — the probe cannot \
+         say anything about the trigger. floor top y={floor_top}, box \
+         {:?}, she ended at {:?}",
+        player_box(&mut app),
+        player_pos(&mut app),
+    );
+
+    let launched_from = player_pos(&mut app);
+    let purse_before = player_purse(&mut app);
+    let mut apex_head = f32::INFINITY;
+    let mut spent = false;
+    for _ in 0..120 {
+        step(&mut app, hold_jump());
+        apex_head = apex_head.min(player_pos(&mut app).y - half_height);
+        if app
+            .world()
+            .resource::<SpentPowerBlocks>()
+            .is_spent(&hidden.id)
+        {
+            spent = true;
+            break;
+        }
+    }
+
+    // ⭐ **the SECOND term: her head actually got there.** Asserted BEFORE the
+    // payout so a probe that could not reach the block says so in its own name
+    // instead of convicting the game.
+    assert!(
+        apex_head <= underside + 2.0,
+        "the probe never got her head into the brick, so it proves nothing \
+         about the trigger. She left the floor at {launched_from:?}, her head \
+         peaked at y={apex_head} and the brick's underside is at y={underside} \
+         (y grows downward)",
+    );
+
+    assert!(
+        spent,
+        "she jumped into the invisible brick from below, her head reached \
+         y={apex_head} against an underside at y={underside}, and it never paid \
+         out. The trigger is dead, which is a DIFFERENT bug from not being able \
+         to draw itself.",
+    );
+
+    // ⭐ **the EFFECT a player would see.** A coin block credits the purse
+    // directly rather than dropping a pickup, so the coin count IS the payout —
+    // and `SpentPowerBlocks` alone would go green on a block that acknowledged
+    // the strike and gave nothing.
+    assert!(
+        player_purse(&mut app) > purse_before,
+        "the brick was marked spent but paid nothing: purse {purse_before} → {}",
+        player_purse(&mut app),
+    );
+}
+
+fn player_pos(app: &mut App) -> Vec2 {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+    query
+        .iter(app.world())
+        .next()
+        .expect("gameplay has a primary player")
+        .pos
+}
+
+/// Her live collision box, asked of the sim rather than hardcoded — her forms
+/// are different sizes and the sheets author them.
+fn player_box(app: &mut App) -> Vec2 {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+    query
+        .iter(app.world())
+        .next()
+        .expect("gameplay has a primary player")
+        .size
+}
+
+fn player_on_ground(app: &mut App) -> bool {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ae::BodyGroundState, With<PrimaryPlayer>>();
+    query
+        .iter(app.world())
+        .next()
+        .is_some_and(|ground| ground.on_ground)
+}
+
+/// The coin count. A coin BLOCK credits this directly — it spawns no pickup —
+/// so this is the payout a player actually sees.
+fn player_purse(app: &mut App) -> i32 {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ambition_platformer2d::characters::actor::BodyWallet, With<PrimaryPlayer>>();
+    query
+        .iter(app.world())
+        .next()
+        .map(|wallet| wallet.balance)
+        .unwrap_or(0)
+}
+
+fn place_player(app: &mut App, pos: Vec2) {
+    let mut query = app.world_mut().query_filtered::<(
+        ae::BodyClusterQueryData,
+        &mut ambition_platformer2d::actors::features::MotionModel,
+    ), With<PrimaryPlayer>>();
+    let world = app.world_mut();
+    let (mut cluster_item, mut motion_model) = query
+        .iter_mut(world)
+        .next()
+        .expect("gameplay has a primary player");
+    let mut clusters = cluster_item.as_clusters_mut();
+    ae::movement::transit_body(
+        &mut motion_model,
+        &mut clusters,
+        pos,
+        ae::movement::TransitVelocity::Zero,
+    );
+}

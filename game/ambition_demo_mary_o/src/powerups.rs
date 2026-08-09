@@ -1259,24 +1259,32 @@ pub fn dress_power_blocks(
             Some(MaryOBlockLook::Hidden) if is_spent => {
                 Some(BlockArt(EntitySprite::SpentBlockTile))
             }
-            // ⭐ **A BRICK WEARS THE LEVEL'S MASONRY.** Jon: *"the breakable
-            // bricks should use the same brick texture as the level bricks."*
+            // ⭐ **A BRICK WEARS THE LEVEL'S MASONRY — and is left ALONE to do
+            // it.** Jon: *"the breakable bricks should use the same brick
+            // texture as the level bricks."*
             //
-            // It drew as `EntitySprite::SolidBlock` — the generic dark slab with
-            // a 2x2 cross — because an unclaimed block falls back to its
-            // `BlockKind`, and this dresser only ever handled `Question` and
-            // `Quasar`. Meanwhile the level's own solid surfaces, which come
-            // from the IntGrid rather than from an entity, already draw
-            // `SolidTile`: the seamless brick pattern. Two spawn paths, one
-            // `BlockKind::Solid`, two different textures — that asymmetry IS the
-            // bug, and no new art was needed to fix it.
+            // This used to answer `BlockArt(SolidTile)`, because an unclaimed
+            // block once fell back to `EntitySprite::SolidBlock` (the generic
+            // dark slab) while the level's own IntGrid surfaces drew `SolidTile`.
+            // That fork is gone: `spawn_block` resolves every `BlockKind::Solid`
+            // through `block_tile_sprite`, so a brick built from an entity and a
+            // wall built from cells already draw the same tile. The override
+            // said nothing the kind was not already saying.
             //
-            // ⚠ **the same texture whether or not it has paid.** A loaded brick
-            // is Jon's cammo block, and the whole point is that it looks like
-            // masonry; giving a spent one the used-block plate would announce
-            // afterwards which brick had been the special one. It cannot be
-            // bonked twice regardless — `spent` already gates that.
-            Some(MaryOBlockLook::Brick) => Some(BlockArt(EntitySprite::SolidTile)),
+            // ⛔ **and once `apply_block_art` could reach a painted block (queue
+            // D67) the redundant override stopped being harmless.** Naming art
+            // for a block clears the level's authored colour — it must, or a
+            // hidden block's reveal stays transparent — so in a level that paints
+            // its own stone this would have stripped the paint off exactly the
+            // brick that is supposed to be indistinguishable from the wall. Jon's
+            // cammo block would have announced itself, in the one level that has
+            // one. Saying nothing is what keeps it hidden.
+            //
+            // ⚠ **the same texture whether or not it has paid**, which falls out
+            // of saying nothing: a spent brick would otherwise get the used-block
+            // plate and announce afterwards which brick had been the special one.
+            // It cannot be bonked twice regardless — `spent` already gates that.
+            Some(MaryOBlockLook::Brick) => None,
             _ => None,
         };
         let Some(want) = want else {

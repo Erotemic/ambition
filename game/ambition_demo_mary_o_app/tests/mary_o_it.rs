@@ -21,6 +21,7 @@ mod exit_3;
 mod hud_placement;
 mod level_1_acceptance;
 mod ov1_draws_the_world;
+mod painted_blocks_still_change_their_art;
 mod presentation_schedule_handoff;
 mod rollback_registration;
 mod rollback_restore;

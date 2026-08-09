@@ -614,19 +614,67 @@ impl BoundEntitySprite {
 /// ⚠ **a block with no `BlockArt` is not touched at all.** The kind-derived
 /// texture stays the default for every block in every game; this seam exists for
 /// the ones a game has something to say about.
+///
+/// ⛔ **it used to require a binding it could not create, and one line of CONTENT
+/// could therefore take a whole level out of this seam.** The query read
+/// `&mut BoundEntitySprite`, which `spawn_block` attaches only when the kind
+/// resolved a texture — so a block drawn as an authored flat quad
+/// (`ae::Block::art_color`) or a kind with no art at all (`BonkOnly`) simply did
+/// not match, forever. Mary-O's 1-2 paints every block in the room, and the
+/// result was a cavern whose ?-blocks could not wear a bonus plate and whose
+/// spent blocks could not look spent (queue D67). The binding is CREATED here
+/// now: an authored colour says what to draw *until* a game names art, and
+/// naming art is what ends it.
+///
+/// ▢ **this does not by itself make a HIDDEN block reveal itself**, and the
+/// reason is worth knowing before someone re-diagnoses it here: Mary-O promotes
+/// a discovered `BonkOnly` block to a `Solid` through
+/// `FeatureEcsWorldOverlay`, which pushes the block's name into
+/// `removed_block_names` — so `sync_removed_block_visuals` despawns the very
+/// entity this pass would have dressed, and nothing on the render side spawns a
+/// visual for the overlay's ADDED blocks (only `gate_solids` has one, in
+/// `sync_lock_wall_visuals`). Observed 2026-08-09, not inferred: the payout
+/// lands, the visual is gone, and the replacement block is collision-only.
+///
+/// ⚠ **and it clears the authored tint when it takes over.** `Sprite::color`
+/// multiplies into the image, so leaving a placeholder colour on would stain the
+/// named art — and a fully transparent placeholder (how a hidden block is drawn
+/// before discovery) would bind the reveal texture and still draw nothing. That
+/// case is the proof the clear is required rather than tidy.
 pub fn apply_block_art(
+    mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     mut blocks: Query<
-        (&BlockArt, &mut BoundEntitySprite, &mut Sprite),
+        (
+            Entity,
+            &BlockArt,
+            Option<&mut BoundEntitySprite>,
+            &mut Sprite,
+        ),
         Or<(Changed<BlockArt>, Added<BoundEntitySprite>)>,
     >,
 ) {
     let Some(assets) = assets else {
         return;
     };
-    for (BlockArt(art), mut bound, mut sprite) in &mut blocks {
-        if bound.key != *art {
-            bound.key = *art;
+    for (entity, BlockArt(art), bound, mut sprite) in &mut blocks {
+        match bound {
+            Some(mut bound) => {
+                if bound.key != *art {
+                    bound.key = *art;
+                }
+            }
+            // ⚠ `try_insert`, and the reason is this crate's own harness
+            // (`deferred_write_safety`): a block visual is room-scoped, so a room
+            // transition can despawn it between this query and the frame's
+            // command flush, and a plain `insert` panics inside Bevy's command
+            // error handler when it does. `flinch_struck_blocks` reaches the same
+            // population and made the same call.
+            None => {
+                commands
+                    .entity(entity)
+                    .try_insert(BoundEntitySprite::new(*art));
+            }
         }
         // ⛔ **a missing handle used to be a SILENT no-op**, which is how this
         // seam shipped, passed its crate's tests and drew nothing: a game names
@@ -644,6 +692,14 @@ pub fn apply_block_art(
         };
         if sprite.image != *handle {
             sprite.image = handle.clone();
+        }
+        // The authored placeholder colour (or the kind's fallback tint) has been
+        // superseded: a game has named this block's picture, and a tint is a
+        // multiplier over that picture rather than a look of its own. Done AFTER
+        // the handle check on purpose — art the catalog cannot supply leaves the
+        // block exactly as it was rather than half-applied and white.
+        if sprite.color != Color::WHITE {
+            sprite.color = Color::WHITE;
         }
     }
 }
@@ -722,10 +778,23 @@ pub fn spawn_block(
     let tile_key = game_assets::block_tile_sprite(block.kind);
     let is_tiled_surface = tile_key.is_some();
     let sprite_key = tile_key.or_else(|| game_assets::point_block_sprite(block.kind));
-    // An authored placeholder colour wins over every art path: content has said
-    // this shape has no sprite yet, and a flat quad is the honest way to draw it.
-    // Taken BEFORE the art lookup so no texture is bound at all — the block keeps
-    // its placeholder look even once the shared art for its kind exists.
+    // An authored placeholder colour wins over every art path AT SPAWN: content
+    // has said this shape has no sprite yet, and a flat quad is the honest way to
+    // draw it. Taken BEFORE the art lookup so no texture is bound — the block
+    // keeps its placeholder look even once the shared art for its kind exists,
+    // and `refresh_entity_sprite_handles_on_game_assets_change` (which rebinds
+    // from `BoundEntitySprite`) cannot quietly paint over it on the next asset
+    // reload.
+    //
+    // ⛔ **it also used to mean "and never change this block's picture again",
+    // which was an ACCIDENT of how the flat quad is implemented.** Binding no
+    // sprite key means no `BoundEntitySprite`, and `apply_block_art` — the only
+    // system that changes a block's picture mid-run — matched on that component.
+    // So `mary_o::level_1_2`, which paints its cavern from one stone in a single
+    // loop, opted every block in the room out of art updates permanently: queue
+    // D67. The colour now says what to draw UNTIL a game names art for this
+    // block; `apply_block_art` creates the binding when it takes over, so the
+    // absence below is a starting look and not a gag order.
     let placeholder = block
         .art_color
         .map(|c| Sprite::from_color(Color::srgba(c[0], c[1], c[2], c[3]), render));

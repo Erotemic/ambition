@@ -228,10 +228,22 @@ fixture speculatively rather than aimed. ⛔ **What I will not do is go hunting
 through the composed app for a failure the tests say does not occur**; that is
 how a day gets spent proving something already true.
 
-⚠ **and one thing your answer does NOT settle**: you also reported that *"some
-blocks from the last run remain spent"*. That was coupled to this question and is
-now **un-coupled** — the replay provably fires, so those stale blocks are their
-own bug (queue D70) whatever you answer here.
+⚠ **and your answer probably settles a SECOND report too** — I said the opposite
+an hour ago and then checked it.
+
+You also reported *"some blocks from the last run remain spent"*. I first
+un-coupled it from this question, then went looking for the block kind that is
+not cleaned up — **and there isn't one.** Broken bricks and spent `?`-blocks are
+both cleared on a replay, a discovered hidden block is tracked as a `?`-block so
+it clears with them, and the art re-derives from that same state every frame. All
+of it present, registered, correctly ordered, and provably reached.
+
+⇒ ⭐ **so both of your reports now say the same thing** — *"the restart does not
+clean up"* — **about machinery that demonstrably works on every route that has a
+test.** The common suspect is not the cleanup. It is **which death you took**,
+which is the one variable no test covers.
+
+⇒ **one line from you probably closes both.**
 
 
 ## Give rust-analyzer its own target dir? (queue D59, 2026-08-09)

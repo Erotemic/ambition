@@ -19,7 +19,7 @@ diff them            →  two use `asset.tier`, one uses the requested setting
 the fix              →  the majority, and its comment says why
 ```
 
-## Seven instances, one session (2026-08-09)
+## Eleven instances, one session (2026-08-09)
 
 | the odd one out | its siblings | distance |
 |---|---|---|
@@ -32,8 +32,10 @@ the fix              →  the majority, and its comment says why
 | two catalog-join fns sat above the types they use | every other consumer sits below | crate boundary |
 | `player_robot_v3`'s `block` row paints a **detached** shield ring, 1.77× wider and 1.45× taller than its idle | **36 of 37** sheets with a `block` row draw in front of the body at near-idle size | the asset tree |
 | `drop_ability_pickup` never marks its drop `RoomScopedEntity` | the coin and health drops both do, and the coin's marker carries a **19-line comment** naming the black screen it caused | **same file** |
+| `mary_o_1_2` authors a `goal_pole` block and nothing else | `mary_o_1_1` authors the shaft **and** the finial **and** the banner | one `.ldtk` |
+| Mary-O's audio fragment never declares `world.coin.pickup` | Sanic declares that exact id **and pins it with a test**; the engine emits it for both | two demo crates |
 
-⭐ **In five of the seven the sibling carried a comment stating the rule**, e.g.
+⭐ **In five of the first seven the sibling carried a comment stating the rule**, e.g.
 *"The DRAWN position, not the simulated one … a stand-in placed on the sim pose
 shudders against a body drawn from the presented one."* The knowledge was
 present, adjacent, and explained. One caller had not received it.

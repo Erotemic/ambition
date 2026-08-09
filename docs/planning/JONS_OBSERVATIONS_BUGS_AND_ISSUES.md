@@ -60,6 +60,8 @@
 * In mary-o when you die the level doesn't restart you just stay right where you were. When you die you should restart the level with 1 less life. For now let's allow lives to go negative and the user to play forever, so no game over screen yet.
 
 * Spent blocks in 1-2 don't look spent. There are is also no tile texture in 1-2.
+  * ✔ Spent blocks fixed — every block in the cavern was opted out of art updates, because an authored colour meant "no sprite yet" and nothing could ever repaint it.
+  * ⊙ The missing tile texture is separate and is your call: the colour sweep is doing what you asked. Making it a tint instead lands near black, because those constants are fill values, so it needs your colours re-picked.
 
 * JON (2026-08-08 STILL OPEN) The snake and AI slop are still way too big visually, and the sprite might not match the box for the snake.
 
@@ -71,6 +73,8 @@
 * Low priority: For the web build we can't use kaledioscope because lunex doesn't support wasm
 
 * In 1-2 jumping into the invisible brick from below doesn't seem to trigger it.
+  * ✔ Fixed — you were right and I was wrong; it genuinely never fired. A `BonkOnly` branch skipped the head-contact arm under a comment claiming it fell through, which `else if` does not do.
+  * ▢ It still pays out invisibly: a discovered hidden block gets promoted and its picture deleted, because promoted blocks have no render pass. Filed separately.
 
 * The pirates in the cover are horribly miss-sized. The heavies need to get a little smaller (this should probably be something done in data by the sprite renderer, not in code) and the other pirates need to probably scale up 2x, They are as tall as the player robot who is supposed to be chibi
 

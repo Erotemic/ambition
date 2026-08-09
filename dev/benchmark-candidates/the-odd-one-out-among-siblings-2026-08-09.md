@@ -31,6 +31,7 @@ the fix              →  the majority, and its comment says why
 | the held item did not arbitrate the Attack press | two systems already arbitrate their slot | same crate |
 | two catalog-join fns sat above the types they use | every other consumer sits below | crate boundary |
 | `player_robot_v3`'s `block` row paints a **detached** shield ring, 1.77× wider and 1.45× taller than its idle | **36 of 37** sheets with a `block` row draw in front of the body at near-idle size | the asset tree |
+| `drop_ability_pickup` never marks its drop `RoomScopedEntity` | the coin and health drops both do, and the coin's marker carries a **19-line comment** naming the black screen it caused | **same file** |
 
 ⭐ **In five of the seven the sibling carried a comment stating the rule**, e.g.
 *"The DRAWN position, not the simulated one … a stand-in placed on the sim pose

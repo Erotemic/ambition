@@ -134,6 +134,26 @@ and it deliberately made `character` mean ART ONLY, cross-referenced to
 sheet lookup on the DISPLAY NAME, so authoring character ids without fixing that
 un-arts the very spawns it is meant to fix.
 
+⭐ **and the pairing is FORCED, not a preference — measured 2026-08-09.** The
+field D56 needs is already on the struct the renderer reads
+(`ActorConfig::sprite_character_id`), and its own doc says it is resolved
+*"via its display name"*. ⇒ **the two hold the same value today**, which makes
+the deadlock exact and symmetric:
+
+* **D56 alone is invisible** — nothing yet makes the two differ, so the fix looks
+  like a no-op and a reviewer would be right to reject it as churn;
+* **this decision alone is a REGRESSION** — authoring `character_id` is precisely
+  what makes them differ, and the renderer would still key on the name.
+
+⇒ **neither is landable alone, and each looks pointless or broken without the
+other.** Nothing is owed from you here beyond the answer above; this is recorded
+so that whoever implements it does not ship half.
+
+⚠ **one thing this does NOT fix, so you are not surprised**: the sky Iron Mary
+also lost her shark, because Jon's 2026-07-06 editor session nulled the mount
+references in `sandbox.ldtk`. That is queue D49, a separate mechanical restore of
+four values, already in flight. **Same entity, different bug.**
+
 > **Rows 1–7 were deleted 2026-08-05.** Jon answered all seven on 2026-07-29
 > and every answer is a row in [`maintainer-decisions.md`](maintainer-decisions.md)
 > — nameplates are low priority, `Interact` needs a design discussion, BUILD the

@@ -91,7 +91,8 @@
 
 
 * The main character shield sprite has the bubble in the wrong place, just kinda to the upper left. 
-  * ◐ Not a code bug — the engine's bubble is centred on you correctly, and the misplaced ring is painted into robot v3's `block` spritesheet row. Needs an art regen.
+  * ✔ Fixed — the block row drew the shield at a hardcoded (64,63) while your torso is at (112,129), so it landed 48px left and 66px high. It now centres on the torso anchor.
+  * ⊙ The bubble surrounds your torso and your head pokes above it. That is a radius, not a bug — say if you want it to cover the whole robot.
 
 * In smash, choosing robot v3, if you do your attack (among other issues with smash combat right now) the VFX happens in the top left corner, not in the authored area for the character.  
   * ◐ A slash whose owner could not be found was being drawn at the world origin; that now warns instead. The attack art is measured clean, so please reproduce it once and tell me if a warning appears.

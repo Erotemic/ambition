@@ -113,10 +113,16 @@ fn displace(app: &mut App, to: Vec2) {
     );
 }
 
+/// Seconds left on the death window, or `None` when nobody is dying.
+///
+/// ⚠ **it rides the BODY now** (ADR 0033), not the level owner — the beat is the
+/// participant's, and the component is absent entirely when no window is open.
+/// `None` therefore means "nobody is dying", where the old level-owned component
+/// answered `Some(0.0)` for the same state.
 pub(crate) fn beat_remaining(app: &mut App) -> Option<f32> {
     let mut query = app
         .world_mut()
-        .query::<&ambition_demo_mary_o::death::MaryODeathSequence>();
+        .query::<&ambition_platformer2d::combat::death_rules::DeathInterlude>();
     query.iter(app.world()).next().map(|s| s.remaining)
 }
 
@@ -245,13 +251,20 @@ fn the_room_resets_no_earlier_than_the_death_beat_ends() {
         let remaining = beat_remaining(&mut app);
         let signature = enemy_signature(&mut app);
 
-        if let Some(r) = remaining {
-            if r > 0.0 && beat_started.is_none() {
-                beat_started = Some(frame);
+        // ⚠ **the window is REMOVED when it closes** (ADR 0033), it does not sit
+        // at zero — so "ended" is `None` after having been `Some`, not
+        // `Some(0.0)`. A fixture that only watched for `<= 0.0` would wait
+        // forever and report the beat as never having run down.
+        match remaining {
+            Some(r) if r > 0.0 => {
+                if beat_started.is_none() {
+                    beat_started = Some(frame);
+                }
             }
-            if r <= 0.0 && beat_started.is_some() && beat_ended.is_none() {
+            _ if beat_started.is_some() && beat_ended.is_none() => {
                 beat_ended = Some(frame);
             }
+            _ => {}
         }
         // Only interesting once the beat is running: before that she is walking
         // around a live room and everything in it is legitimately moving.
@@ -315,6 +328,168 @@ fn the_room_resets_no_earlier_than_the_death_beat_ends() {
     for line in &log {
         println!("{line}");
     }
+}
+
+/// **HOW MANY TIMES DOES ONE FALL ASK THE WORLD TO RESET?**
+///
+/// Jon, from play (2026-08-09): *"I've noticed enemies respawning immediately
+/// when she dies even though the animation and music is still playing. That is
+/// not correct."*
+///
+/// The fixture above says the room resets exactly once, after the beat — and it
+/// is right about THIS host. `build_demo_app` is the standalone Mary-O binary,
+/// and the standalone binary does not carry `apply_home_reset_policy`; the
+/// hosted `ambition_app` does (`game/ambition_app/src/app/player_tick.rs:40`).
+/// That system writes `ResetRoomFeaturesEvent { reason: PlayerDeath }` on **every
+/// frame `PlayerBodyFrameOutput.reset` is `Some`**, with no other condition than
+/// `gameplay_allowed`.
+///
+/// ⭐ **so the fact to measure here is the INPUT that system reads**, which this
+/// host produces identically: the beat pins her at the place she died, that place
+/// is outside the world, and the kernel's gate is a position test. Every frame of
+/// the pin re-flags the reset. The count below is therefore the number of room
+/// resets the HOSTED app performs during one death — measured on a host where
+/// nothing consumes them.
+///
+/// ⚠ **anti-vacuity first.** A run where she never died at all would report
+/// "no re-flags" by reporting nothing, so the beat must have armed and a life
+/// must have been spent before any count below means anything.
+#[test]
+fn the_pinned_death_pose_reflags_the_world_reset_every_frame_of_the_beat() {
+    let mut app = boot();
+    settle_until_playable(&mut app);
+    // The level owner is staged after the body, and the beat + lives both ride
+    // it — seeding the fall before it exists measures nothing.
+    let mut staged = false;
+    for _ in 0..600 {
+        app.update();
+        if level_lives(&mut app).is_some() {
+            staged = true;
+            break;
+        }
+    }
+    assert!(staged, "the level owner never appeared, so there is no run to lose");
+    // Let the room settle before the fall is seeded.
+    for _ in 0..60 {
+        app.update();
+    }
+
+    let start_pos = player_pos(&mut app).expect("she is on the level before she falls");
+    let start_lives = level_lives(&mut app).expect("the level owner carries the lives counter");
+
+    // One fall, through the door a player uses: below the room is the pit.
+    displace(&mut app, Vec2::new(200.0, 4000.0));
+
+    let mut beat_armings: Vec<usize> = Vec::new();
+    let mut lives_timeline: Vec<(usize, u8)> = Vec::new();
+    let mut reflagged_during_beat = 0usize;
+    let mut reflag_causes: Vec<String> = Vec::new();
+    let mut previous_active = false;
+    let mut previous_lives = start_lives;
+    // Two dwells' worth of frames: one whole beat, plus room to see what the
+    // frame after it does.
+    let frames = ((ambition_demo_mary_o::death::DEATH_DWELL * 2.0 + 2.0) * 60.0) as usize;
+    for _ in 0..frames {
+        app.update();
+        let frame = app.world().resource::<FrameCounter>().0;
+        let active = beat_remaining(&mut app).unwrap_or(0.0) > 0.0;
+        if active && !previous_active {
+            beat_armings.push(frame);
+        }
+        previous_active = active;
+        if let Some(lives) = level_lives(&mut app) {
+            if lives != previous_lives {
+                lives_timeline.push((frame, lives));
+                previous_lives = lives;
+            }
+        }
+        // THE INPUT the hosted app's home-reset policy reads. One `Some` here is
+        // one `ResetRoomFeaturesEvent { PlayerDeath }` there.
+        if active {
+            if let Some(reset) = kernel_reset_flag(&mut app) {
+                reflagged_during_beat += 1;
+                if reflag_causes.len() < 4 {
+                    reflag_causes.push(format!("f{frame}: {reset:?}"));
+                }
+            }
+        }
+    }
+
+    let resets = app.world().resource::<ResetFrames>().0.clone();
+    let end_pos = player_pos(&mut app);
+    println!(
+        "[one fall] start {start_pos:?} lives {start_lives}; beats armed on {beat_armings:?}; \
+         lives {lives_timeline:?}; room resets seen by THIS host {resets:?}; \
+         she ended at {end_pos:?}"
+    );
+    println!(
+        "[one fall] kernel re-flagged the world reset on {reflagged_during_beat} frames \
+         DURING the beat — in the hosted app that is {reflagged_during_beat} \
+         `ResetRoomFeaturesEvent {{ PlayerDeath }}` while the death music plays. \
+         First few: {reflag_causes:?}"
+    );
+
+    assert!(
+        !beat_armings.is_empty(),
+        "she never died falling 4000 units below the room — nothing below this \
+         line means anything"
+    );
+    assert!(
+        !lives_timeline.is_empty(),
+        "the beat armed on {beat_armings:?} and the lives counter never moved, \
+         so this fixture cannot see a life being spent"
+    );
+    // ⭐ **ONE, and it is the frame she died on.** That frame IS the death: the
+    // kernel flags it, `publish_kernel_reset_death` turns it into the fact, and
+    // `open_death_interlude` marks her out of play in the same frame's Outcome
+    // set — so from the next frame the gate skips her and stays silent for the
+    // whole dwell. Before ADR 0033 this was 192 of 192, because the beat pinned
+    // her outside the world and the gate is a position test; in the hosted app
+    // every one of those frames was a full room-feature reset while the death
+    // music played.
+    assert_eq!(
+        reflagged_during_beat, 1,
+        "one fall must flag the world exactly once — the frame it happened. \
+         {reflagged_during_beat} says the world is still acting on a body whose \
+         attempt is over. Causes: {reflag_causes:?}"
+    );
+    assert_eq!(
+        beat_armings.len(),
+        1,
+        "and one fall is one death beat: {beat_armings:?}, lives {lives_timeline:?}"
+    );
+    assert_eq!(
+        lives_timeline.len(),
+        1,
+        "and costs exactly one life: {lives_timeline:?}"
+    );
+}
+
+/// The kernel's world-reset flag for the controlled body THIS frame — the fact
+/// `apply_home_reset_policy` turns into a room-feature reset in the hosted app.
+fn kernel_reset_flag(
+    app: &mut App,
+) -> Option<ambition_platformer2d::actors::avatar::BodyReset> {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput, With<PrimaryPlayer>>();
+    query.iter(app.world()).next().and_then(|out| out.reset)
+}
+
+/// The controlled body's position right now, if she has one.
+fn player_pos(app: &mut App) -> Option<Vec2> {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ae::BodyKinematics, With<PrimaryPlayer>>();
+    query.iter(app.world()).next().map(|kin| kin.pos)
+}
+
+/// The level owner's lives counter, if the level is staged.
+fn level_lives(app: &mut App) -> Option<u8> {
+    let mut query = app
+        .world_mut()
+        .query::<&ambition_demo_mary_o::MaryOLevelState>();
+    query.iter(app.world()).next().map(|level| level.lives)
 }
 
 /// **The same beat, measured somewhere the instrument can see.**

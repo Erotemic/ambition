@@ -102,6 +102,19 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "actor.ruleset_owns_death",
     );
+    // **The death interlude** (ADR 0033) — the window between a participant's
+    // death and its consequence, and the state that keeps the world's hands off
+    // the body while it is open. Both change mid-run, so both rewind: without
+    // them a rewound branch resimulates with a body the world has stopped
+    // touching for a death that has not happened in that branch.
+    app.rollback_component_canonical::<ambition_combat::death_rules::OutOfPlay>(
+        OWNER,
+        "actor.out_of_play",
+    );
+    app.rollback_component_canonical::<ambition_combat::death_rules::DeathInterlude>(
+        OWNER,
+        "actor.death_interlude",
+    );
     // **Is this body IN a fight?** Registered beside the death-ownership marker
     // it was standing in for, and for the same reason that one is: elimination
     // REMOVES it, so a rewind past an elimination has to put it back or the

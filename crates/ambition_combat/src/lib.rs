@@ -15,6 +15,9 @@ pub mod components;
 /// The `character_archetypes` authored-content schema this capability owns.
 #[cfg(feature = "content_pack")]
 pub mod content_schema;
+/// What a death MEANS for the run — the interlude and the roster question that
+/// decides a level reset (ADR 0033).
+pub mod death_rules;
 pub mod events;
 pub mod falling_chest;
 pub mod hazard_runtime;
@@ -33,6 +36,7 @@ pub mod util;
 pub mod variation;
 
 pub use components::*;
+pub use death_rules::{DeathInterlude, DeathRules, LevelReset, OutOfPlay};
 pub use events::*;
 // `FeatureSimEntity` is the generic entity-marker queried by the reusable
 // mechanics; its definition lives DOWN in

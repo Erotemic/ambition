@@ -332,66 +332,18 @@ pub fn resolve_body_hit(
     BodyHitResolution::Damaged { damage, died }
 }
 
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn death_respawn_player(
-    // WHO died — see `ActorDiedMessage::victim`. Threaded rather than re-derived:
-    // `handle_player_damage_events` already holds it as `player_entity`.
-    victim: Entity,
-    world: &ae::World,
-    sfx: &mut SfxWriter,
-    // G1: the dying body's own presentation source. A death is the most
-    // character-specific sound a body makes and it was the one most reliably
-    // attributed to the session owner.
-    victim_source: Option<&ambition_sfx::PresentationSourceId>,
-    vfx: &mut MessageWriter<VfxMessage>,
-    died: &mut MessageWriter<ActorDiedMessage>,
-    clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut RoomTransitionCooldown,
-    clock_resets: &mut MessageWriter<ClockResetRequest>,
-    safety: &mut PlayerSafetyState,
-    banner_requests: &mut MessageWriter<GameplayBannerRequested>,
-    player_health: Option<&mut BodyHealth>,
-    tuning: ae::MovementTuning,
-    feel: Platformer2dFeelTuningMonolith,
-    from: ae::Vec2,
-    cause: crate::DeathCause,
-    anim: &mut BodyAnimFacts,
-    combat: &mut BodyCombat,
-    motion_model: &mut ae::MotionModel,
-) {
-    let to = world.spawn;
-    // The follow-up `refresh_movement_resources_clusters` that used to sit here is
-    // GONE: the reset takes the live air-jump count now and already restores dash
-    // charges from the same `BodyAbilities`, so the second call restated its
-    // answer. Four of five call sites performed that ritual and one did not,
-    // which is the whole argument for folding it in.
-    ae::reset_body_clusters(motion_model, clusters, world.spawn, tuning.air_jumps);
-    clusters.mana.meter.refill_full();
-    safety.last_safe_pos = world.spawn;
-    clock_resets.write(ClockResetRequest::sim_clock(
-        ClockRequester::Engine,
-        "death_respawn",
-    ));
-    sim_state.remaining = 0.0;
-    anim.reset();
-    combat.reset();
-    if let Some(health) = player_health {
-        health.reset();
-    }
-    combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
-    combat.hit_flash = feel.reset_flash_time.max(0.35);
-    banner_requests.write(GameplayBannerRequested::new(
-        "PLAYER DOWN: respawned at room start with full HP",
-        2.4,
-    ));
-    sfx.write_for_body(victim_source, SfxMessage::Death { pos: from });
-    vfx.write(VfxMessage::ResetEffects { from, to });
-    died.write(ActorDiedMessage {
-        victim,
-        pos: from,
-        cause,
-    });
-}
+// ⛔ **`death_respawn_player` IS DELETED** (ADR 0033). It was the engine's death
+// handler and it was a RESPAWN handler: teleport to `world.spawn`, refill mana,
+// re-anchor safety, reset the sim clock, `anim.reset()`, `combat.reset()`,
+// `health.reset()` to full, i-frames, a banner — and then, last, announce that a
+// death had happened. Every ruleset that wanted a death to MEAN something had to
+// claw the body back from that, which is what Mary-O's death beat was: six
+// counter-measures, none of them about dying.
+//
+// The respawn is a CONSEQUENCE now. It happens through the one shared road
+// (`reset_sandbox`, reached by `RoomReplayRequested`) when the game's authored
+// `DeathRules` say so, or inside a ruleset that owns its own — never as a reflex
+// in the frame the body died.
 
 /// **The two things a death ANNOUNCES**, bundled because Bevy caps a system at
 /// 16 parameters and the player-damage system was at the cap.
@@ -634,59 +586,45 @@ pub(crate) fn handle_player_damage_events(
                 }
             }
         }
-        BodyHitResolution::Damaged { died: true, .. } if ruleset_owns_death => {
-            // A RULESET owns this body's death (`RulesetOwnsDeath`). The health
-            // is already zero and it STAYS zero: no teleport to the room spawn,
-            // no full heal, no banner. A match cannot count a round it is never
-            // allowed to observe, and the exploration respawn ran before any
-            // rules layer could look — so seat 0 could not lose (GPT 5.6,
-            // 2026-07-27).
+        BodyHitResolution::Damaged { died: true, .. } => {
+            // ⭐ **ONE DEATH ARM** (ADR 0033). This used to be two: a
+            // `RulesetOwnsDeath` arm that voiced the death and left the body
+            // alone, and an exploration arm that teleported the body to spawn,
+            // full-healed it, printed *"PLAYER DOWN: respawned at room start
+            // with full HP"*, and only THEN announced the death. The second was
+            // an undo racing everything that wanted to react — and it was
+            // unreachable for a match, which is how seat 0 came to be unable to
+            // lose (GPT 5.6, 2026-07-27).
             //
-            // But it still DIES OUT LOUD. What the ruleset owns is the
-            // CONSEQUENCE — where the body goes, what it costs, who scores it —
-            // and none of that is the sound of losing. Without this, seat 0
-            // being knocked out of a versus round was completely silent, which
-            // is the same defect the actor path had one `else if` deeper: the
-            // death drama had been nested inside the exploration arm, so
-            // "the world does not own this death" was read as "nothing
-            // happened".
+            // Both arms want the same thing, and the ruleset arm was already
+            // it: the body DIES OUT LOUD and stays where it is. Health stays at
+            // zero for whoever owns the consequence to see. Where the body goes
+            // next, what it costs, and who scores it are all authored — a level
+            // reset, a stock, a bubble — and none of that is the sound of
+            // losing.
+            //
+            // `ruleset_owns_death` no longer selects an arm. It is still read to
+            // decide whether the world's OTHER consequences apply (the enemy
+            // death economy), which is the question it actually answers.
             sfx.write_for_body(
                 victim_source,
                 SfxMessage::Death {
                     pos: clusters.kinematics.pos,
                 },
             );
-            false
-        }
-        BodyHitResolution::Damaged { died: true, .. } => {
             // Attribution for the death fact: the killing hit's source category
             // plus its attacker entity when the source carries one.
-            let cause = crate::DeathCause {
-                source: damage.source.clone(),
-                attacker: damage.attacker,
-            };
-            death_respawn_player(
-                player_entity,
-                world,
-                sfx,
-                victim_source,
-                vfx,
-                &mut death_writers.died,
-                clusters,
-                sim_state,
-                clock_resets,
-                safety,
-                banner_requests,
-                player_health,
-                tuning,
-                feel,
-                impact_pos,
-                cause,
-                anim,
-                combat,
-                motion_model,
-            );
-            true
+            death_writers.died.write(ActorDiedMessage {
+                victim: player_entity,
+                pos: impact_pos,
+                cause: crate::DeathCause {
+                    source: damage.source.clone(),
+                    attacker: damage.attacker,
+                },
+            });
+            // The caller's `bool` is "did this reaction relocate the body". It
+            // never does now — nothing here moves anything.
+            false
         }
         BodyHitResolution::Damaged { died: false, .. } => match damage.mode {
             crate::combat::HitMode::SafeRespawn => {
@@ -1286,7 +1224,17 @@ pub fn apply_player_hit_events(
         // banner, the safe-position rewind. Actor-vs-actor damage runs through
         // `apply_actor_hit_events` on the same `HitEvent` stream; the two differ
         // only in the feel/save consequences the local human is owed.
-        PrimaryPlayerOnly,
+        //
+        // ⛔ **AND A BODY THAT HAS ALREADY LOST IS NOT A TARGET** (ADR 0033).
+        // Jon, from play: *"when maryo is in her death animation, she still gets
+        // hit by enemies."* Mary-O answered that by granting herself
+        // `Invulnerability::SCRIPTED` for the beat — a game holding a grant open
+        // for a state the engine could see all along. "Out of play" IS "no
+        // hurtbox", so the filter says it once, here, for every game.
+        (
+            PrimaryPlayerOnly,
+            bevy::prelude::Without<ambition_combat::death_rules::OutOfPlay>,
+        ),
     >,
 ) {
     let primary = primary_q.single().ok();

@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v20
+ggrs-rollback-schema-v21
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -21,6 +21,7 @@ actor.combo_trace	component-canonical	BodyComboTrace	bevy_ggrs canonical codec s
 actor.config	component-clone	ActorConfig	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.control	component-canonical	ActorControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.cooldowns	component-canonical	ActorCooldowns	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.death_interlude	component-canonical	DeathInterlude	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.disposition	component-canonical	ActorDisposition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.dormancy_policy	component-clone	DormancyPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 actor.dormant	component-clone	Dormant	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -39,6 +40,7 @@ actor.move_playback	component-clone-resolved	MovePlayback	bevy_ggrs clone snapsh
 actor.moveset	component-clone	ActorMoveset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.moveset_melee	component-clone	MovesetMelee	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.moveset_ranged	component-clone	MovesetRanged	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.out_of_play	component-canonical	OutOfPlay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.pending_challenge	component-clone	PendingChallenge	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 actor.perception	component-canonical	Perception	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.perception_memory	component-canonical	PerceptionMemory	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
@@ -112,7 +114,6 @@ content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggr
 content.level_destination	derived	LevelDestination	where the ACTIVE room's goal leads; re-derived from RoomSet on every room change
 content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
-content.mary_o_death_sequence	component-clone	MaryODeathSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
 content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum

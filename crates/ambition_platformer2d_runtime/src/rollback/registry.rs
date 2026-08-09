@@ -122,7 +122,19 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 20;
+/// ⚠ **v21 (2026-08-09): the DEATH INTERLUDE joins the wire format** (ADR
+/// 0033). `actor.out_of_play` and `actor.death_interlude` carry whether a
+/// participant's attempt has ended, how long its window still has to run, and
+/// whether it still owes the game its consequence. All of that changes mid-run
+/// and all of it is gameplay truth: a peer that cannot reconstruct it
+/// resimulates with a body the world has stopped touching for a death that has
+/// not happened in its branch, or replays a level reset that already did.
+///
+/// ⭐ they REPLACE a game-side registration. `content.mary_o_death_sequence`
+/// carried the same facts for one game and was clone-probed rather than
+/// checksummed, so this is the wire format gaining truth it was already relying
+/// on, not gaining a feature.
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 21;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

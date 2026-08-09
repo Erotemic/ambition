@@ -44,6 +44,39 @@ impl SnapshotState for crate::components::ActiveCombatant {
     }
 }
 
+// **The death interlude and its state** (ADR 0033). Both are authoritative sim
+// state and both CHANGE during a run, so a rewind that restored neither would
+// resimulate with a body that has died in a branch it has not died in yet — or
+// worse, put a live body back into a level reset that no longer has a cause.
+//
+// ⭐ registered by the ENGINE, so a game that states death rules cannot forget
+// to make them rollback-safe. Mary-O's hand-registered beat is exactly the thing
+// this replaces, and its own comment records that it *"was simply missed"* the
+// first time.
+impl SnapshotState for crate::death_rules::OutOfPlay {
+    fn encode(&self, _out: &mut Vec<u8>) {}
+    fn decode(_r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::death_rules::OutOfPlay)
+    }
+}
+
+impl SnapshotState for crate::death_rules::DeathInterlude {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.remaining);
+        // The DEBT, and it is the field that makes this rollback-safe: the level
+        // reset it triggers is written late in one frame and consumed early in
+        // the next, so a rewind across that boundary must be able to ask "has
+        // the consequence already run" from state.
+        put_bool(out, self.consequence_pending);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(crate::death_rules::DeathInterlude {
+            remaining: r.f32()?,
+            consequence_pending: r.bool()?,
+        })
+    }
+}
+
 // S4 — the stocks loop's own state. A stock count that is not rollback state
 // UN-SPENDS itself on a rewind: the body comes back, the count does not, and a
 // fighter can lose the same stock twice or never lose it at all. Elimination is

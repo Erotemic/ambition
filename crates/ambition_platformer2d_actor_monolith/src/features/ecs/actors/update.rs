@@ -1145,6 +1145,10 @@ pub fn integrate_sim_bodies(
             // The ridden-surface presentation fact this integration publishes
             // (the roll righting reflex tilts a rider's feet onto it).
             Option<&mut ambition_platformer2d_shared_tangle::orientation::SurfaceUpright>,
+            // Has this participant's attempt already ended (ADR 0033)? The
+            // world's reset gate must not act on a body that has already lost —
+            // see the guard inside `integrate_home_body`.
+            bevy::prelude::Has<ambition_combat::death_rules::OutOfPlay>,
         ),
         With<crate::actor::PlayerEntity>,
     >,
@@ -1237,6 +1241,7 @@ pub fn integrate_sim_bodies(
         mut motion_facts,
         authored_tuning,
         mut surface_upright,
+        out_of_play,
     ) in &mut players
     {
         // Per-body feel: an authored protagonist keeps its own tuning; the
@@ -1256,6 +1261,7 @@ pub fn integrate_sim_bodies(
                 h.health.invulnerable
             }),
             motion_facts.dodge_rolling,
+            out_of_play,
             &mut hurtbox,
             &mut frame_out,
             &platform_set.0,

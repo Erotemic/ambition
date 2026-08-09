@@ -41,10 +41,18 @@ use ambition_vfx::VfxMessage;
 /// "back to spawn" means. Callers own the POLICY of when to reset; this owns
 /// what a reset IS.
 ///
-/// Moves the body, refills movement resources and mana, re-anchors the respawn
-/// safety point, snaps the sim clock back to 1.0, and clears the melee swing,
-/// anim, combat, gesture, and blink-camera state. Emits the reset SFX/VFX pair
-/// from the before/after positions.
+/// Moves the body, refills movement resources, mana **and health**, re-anchors
+/// the respawn safety point, snaps the sim clock back to 1.0, and clears the
+/// melee swing, anim, combat, gesture, and blink-camera state. Emits the reset
+/// SFX/VFX pair from the before/after positions.
+///
+/// ⭐ **the health restore and the respawn i-frames arrived here from
+/// `death_respawn_player`** when that was deleted (ADR 0033). Jon asked a level
+/// reset to be *"a mostly complete level reset"*, and a body put back at spawn
+/// still holding the zero HP that killed it is not a respawn — it is a corpse at
+/// the start of the level. The one reset authority owes the whole answer;
+/// `health` is `Option` only because a scratch body without a meter is a valid
+/// thing to reset.
 #[allow(clippy::too_many_arguments)]
 pub fn reset_sandbox(
     world: &ae::World,
@@ -58,6 +66,7 @@ pub fn reset_sandbox(
     attack: &mut Option<ambition_platformer2d_actor_monolith::MeleeSwing>,
     anim: &mut ambition_platformer2d_actor_monolith::actor::BodyAnimFacts,
     combat: &mut ambition_characters::actor::BodyCombat,
+    health: Option<&mut ambition_characters::actor::BodyHealth>,
     interaction: &mut ambition_platformer2d_actor_monolith::control::SlotGestures,
     blink_cam: &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
@@ -75,6 +84,13 @@ pub fn reset_sandbox(
     *attack = None;
     anim.reset();
     combat.reset();
+    if let Some(health) = health {
+        health.reset();
+    }
+    // The grace a body is owed for coming back somewhere it did not choose to
+    // be — inherited from the deleted `death_respawn_player`, which is the only
+    // thing that used to grant it.
+    combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hit_flash = feel.reset_flash_time;
     interaction.reset();
     blink_cam.reset();
@@ -134,6 +150,9 @@ pub fn apply_room_replay_request_system(
             &mut ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState,
             &mut ambition_platformer2d_actor_monolith::actor::BodyMelee,
             &mut ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState,
+            // A body put back at spawn comes back ALIVE (ADR 0033). `Option`
+            // because a scratch body without a meter is a valid thing to reset.
+            Option<&mut ambition_characters::actor::BodyHealth>,
         ),
         ambition_platformer2d_actor_monolith::actor::PrimaryPlayerOnly,
     >,
@@ -151,6 +170,7 @@ pub fn apply_room_replay_request_system(
         mut blink_cam,
         mut attack,
         mut safety,
+        health,
     )) = player_q.single_mut()
     else {
         reset_room_features.write(ResetRoomFeaturesEvent {
@@ -172,6 +192,7 @@ pub fn apply_room_replay_request_system(
         &mut attack.swing,
         &mut anim,
         &mut combat,
+        health.map(|h| h.into_inner()),
         slot_gestures.primary_mut(),
         &mut blink_cam,
         active_tuning.0,

@@ -943,6 +943,18 @@ fn every_component_in_the_falling_sand_room_is_registered_derived_or_waived() {
 /// would be meaningless or harmful, with the reason. Crate-prefix waivers from
 /// [`WAIVED`] apply here too; this list holds the resource-specific remainder.
 const RESOURCE_WAIVED: &[(&str, &str)] = &[
+    // **The game's death rules** (ADR 0033): how long a death holds, and the
+    // roster question that decides a level reset.
+    //
+    // AUTHORED CONSTANTS, stated once when the game's plugin is built and never
+    // written by any system. A rewind cannot change what a game's rules are —
+    // rewinding them would be rewinding the ruleset itself, not the simulation
+    // it governs. The state the rules PRODUCE (`DeathInterlude`, `OutOfPlay`)
+    // is per-body and IS registered, in the combat domain.
+    (
+        "ambition_combat::death_rules::DeathRules",
+        "authored rules stated at plugin build; the state they produce is registered per body",
+    ),
     // The rollback localizer's own state: the probe table and its audit ledger.
     //
     // Diagnostic instrumentation ABOUT the rollback, not state the rollback

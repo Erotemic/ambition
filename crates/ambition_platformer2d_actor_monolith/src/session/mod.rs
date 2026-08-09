@@ -10,6 +10,9 @@
 //! schedule wiring) calls into.
 
 pub mod data;
+/// The death interlude and the roster question that decides a level reset
+/// (ADR 0033).
+pub mod death;
 pub mod lifecycle_commit;
 pub mod reset;
 pub mod setup;

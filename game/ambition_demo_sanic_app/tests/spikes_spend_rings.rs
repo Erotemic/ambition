@@ -237,7 +237,14 @@ fn walk_right_into(from_x: f32, rings: i32, super_form: bool, frames: usize) -> 
         // successful hit re-collects the rings he just dropped (they are real
         // pickups and he is still holding Right), and the first draft of this
         // read 14 rings back at the finish line and called the spend a failure.
-        if out.rings != rings || out.hp != hp0 {
+        // ⚠ **unless he DIED, in which case keep going** (ADR 0033). The reset
+        // is a CONSEQUENCE now rather than a same-frame reflex inside the hit
+        // resolver, so the frame his HP changes is no longer the frame he
+        // arrives back at the start line — the two used to coincide, and the
+        // `sent_home` check above happened to win the race. The ring-recollection
+        // hazard this break exists for cannot bite on a death: he is out of play
+        // and the level is about to be put back.
+        if out.deaths == 0 && (out.rings != rings || out.hp != hp0) {
             break;
         }
         // Clear of the strip and unharmed: nothing is going to happen now.

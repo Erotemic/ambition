@@ -1153,6 +1153,19 @@ impl Plugin for SanicRulesPlugin {
         // cycle does. The engine registers this in a full app; a thin
         // rules-only harness may not, and `add_message` is idempotent.
         app.add_message::<ambition_platformer2d::actors::session::reset::RoomReplayRequested>();
+        // **SANIC'S DEATH RULES** (ADR 0033). No interlude — losing a run in a
+        // speed game is instant, and he has no death beat authored — and the act
+        // goes back when nobody is left in play.
+        //
+        // ⚠ **stating this is not optional.** The engine's default is `Never`,
+        // which is correct for a versus stage and wrong for anything with a
+        // level: a pit that resets nothing leaves the body falling out of the
+        // world forever. That is exactly how this landed — `the_pit_still_
+        // swallows_him_at_any_ring_count` went red with `sent_home: false`
+        // the moment the reflex respawn was deleted and Sanic had said nothing.
+        app.insert_resource(
+            ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0),
+        );
         app.init_resource::<ambition_platformer2d::actors::features::FeatureEcsWorldOverlay>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition_platformer2d::platformer::schedule::SimScheduleExt::sim_schedule(app);

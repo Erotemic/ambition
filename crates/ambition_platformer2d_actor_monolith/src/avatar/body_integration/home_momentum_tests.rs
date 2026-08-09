@@ -60,6 +60,8 @@ fn step_as(
         &BodyCombat::default(),
         invulnerable,
         false,
+        // In play: this rig is about momentum, not about dying.
+        false,
         &mut r.hurtbox,
         &mut r.frame_out,
         &[],
@@ -174,15 +176,30 @@ fn momentum_home_body_rides_ordinary_block_floors() {
     );
 }
 
+/// **Falling out REPORTS, and does not relocate** (ADR 0033).
+///
+/// ⛔ **this used to assert `pos == world.spawn`**, because the movement phase
+/// teleported the body home in the frame it flagged the reset. That reflex is
+/// deleted: a death is a fact the engine publishes, and where the body goes next
+/// is a consequence the game authors. Asserting the teleport would now be
+/// pinning a product decided against.
+///
+/// ⭐ **and the new assertion is the one that earns its keep.** "She dies where
+/// she died" was a 300-line death beat in Mary-O — a pose pinned every frame,
+/// re-armed against a respawn that had already happened — and the pin, being
+/// outside the world, re-fired this very gate 192 times per death. Nothing moves
+/// the body now, so dying in place is what falls out for free.
 #[test]
-fn momentum_home_body_dies_in_pits_and_respawns_airborne() {
+fn momentum_home_body_flags_the_pit_and_is_left_where_it_fell() {
     // The chain ends mid-world; running off it drops the body past the
     // world bottom — the Q16 hazard/OOB parity gate must fire.
     let mut r = rig(chain_world());
     let mut run = ActorControlFrame::neutral();
     run.locomotion.x = 1.0;
     let mut saw_reset = false;
+    let mut where_it_fell = r.scratch.kinematics.pos;
     for _ in 0..1800 {
+        where_it_fell = r.scratch.kinematics.pos;
         step(&mut r, run);
         if r.frame_out.reset.is_some() {
             saw_reset = true;
@@ -190,9 +207,16 @@ fn momentum_home_body_dies_in_pits_and_respawns_airborne() {
         }
     }
     assert!(saw_reset, "fell out and the reset flagged");
-    assert_eq!(
+    assert_ne!(
         r.scratch.kinematics.pos, r.world.spawn,
-        "engine-level body reset to spawn"
+        "the movement phase must NOT teleport a body home on the frame it \
+         reports a death — the respawn is an authored consequence now"
+    );
+    assert!(
+        r.scratch.kinematics.pos.y > where_it_fell.y,
+        "it is still out there, still falling: {:?} was {:?}",
+        r.scratch.kinematics.pos,
+        where_it_fell
     );
     assert!(
         matches!(
@@ -202,7 +226,8 @@ fn momentum_home_body_dies_in_pits_and_respawns_airborne() {
                 ..
             })
         ),
-        "respawns airborne, never 'riding' a chain it left"
+        "and it is airborne rather than still 'riding' the chain it left — \
+         which the fall itself establishes, with no reset needed to fix it up"
     );
 }
 

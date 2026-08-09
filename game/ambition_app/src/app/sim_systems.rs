@@ -72,6 +72,8 @@ pub fn apply_player_reset_input_system(
             &mut ambition_platformer2d::platformer::camera_ease::PlayerBlinkCameraState,
             &mut ambition_platformer2d::actors::actor::BodyMelee,
             &mut ambition_platformer2d::actors::avatar::PlayerSafetyState,
+            // A body put back at spawn comes back ALIVE (ADR 0033).
+            Option<&mut ambition_platformer2d::characters::actor::BodyHealth>,
         ),
         ambition_platformer2d::actors::actor::PrimaryPlayerOnly,
     >,
@@ -90,6 +92,7 @@ pub fn apply_player_reset_input_system(
         mut blink_cam,
         mut attack,
         mut safety,
+        health,
     )) = player_q.single_mut()
     else {
         return;
@@ -112,6 +115,7 @@ pub fn apply_player_reset_input_system(
         &mut attack.swing,
         &mut anim,
         &mut combat,
+        health.map(|h| h.into_inner()),
         slot_gestures.primary_mut(),
         &mut blink_cam,
         active_tuning.0,

@@ -4,7 +4,7 @@
 //! Jon: *"if mary-o is small and she takes damage she should die and use her
 //! death animation, then restart the level."*
 //!
-//! Two halves, and only one of them is code.
+//! Two halves, and neither of them is a state machine any more.
 //!
 //! ## The fragility is DATA
 //!
@@ -14,25 +14,30 @@
 //! absorbs the hit, and when there is nothing left the next one is fatal. No
 //! demo system reads "is she small"; being small IS having spent the armor.
 //!
-//! ## The beat is a sequence, exactly like the flagpole's
+//! ## The beat is ENGINE vocabulary now (ADR 0033)
 //!
-//! The engine respawns a dead player IMMEDIATELY — that is why her `Death` row
-//! was unreachable however good the sheet was. So this holds the level for a
-//! beat after the death and drives the body the way [`crate::flag`] drives it
-//! during the slide: the pose is an external kinematic constraint (ADR 0024),
-//! the controls are blanked, and the death row plays through the shared
-//! `BodyAnimFacts::death_anim_timer` the engine now carries for exactly this.
+//! ⛔ **this module used to be six counter-measures and none of them were about
+//! dying.** The engine resolved a death in the frame it happened — teleport to
+//! spawn, full heal, `BodyAnimFacts::reset()`, a room-feature reset — and then
+//! announced it. So [`MaryODeathSequence`] pinned her body back at the place she
+//! died every frame, re-armed the death row every tick because the respawn kept
+//! wiping it, carried a `life_spent` latch because a body pinned outside the
+//! world is reported dead forever, granted itself scripted control and scripted
+//! immunity, and carried a `replay_pending` debt. Measured 2026-08-09: the pin
+//! re-fired the world's blast-zone gate on 192 of the 192 frames of one dwell,
+//! and in the hosted app every one of those was a full room reset while the
+//! death music played — Jon: *"enemies respawning immediately when she dies even
+//! though the animation and music is still playing."*
 //!
-//! She dies WHERE SHE DIED, not at spawn: [`ActorDiedMessage`] carries the
-//! position, and holding her there is the difference between a death you read
-//! and a body that blinks across the screen.
+//! ⭐ **all six are gone, and Mary-O states a rule instead.** The engine holds
+//! the body out of play for the interlude, plays the death row, refuses hits,
+//! blanks control, and asks the ROSTER whether the level goes back. She dies
+//! where she died because nothing moves her — there is nothing left to pin.
 //!
-//! When the beat ends the level replays, which is the same seam the flag tally
-//! uses — a death and a clear leave by the same door.
+//! What remains here is what is genuinely hers: how long the beat lasts, the
+//! music that plays over it, and the lives it costs.
 
 use bevy::prelude::*;
-
-use ambition_platformer2d::engine_core as ae;
 
 /// How long the level holds on her death before it starts again.
 ///
@@ -42,127 +47,18 @@ use ambition_platformer2d::engine_core as ae;
 /// through the tumble, so the sting never resolved; Jon reported it as "death
 /// isn't long enough for the entire death music to play". If the score's tempo
 /// or bar count changes, this number changes with it.
-pub const DEATH_DWELL: f32 = 3.2;
-
-/// The death beat's live state. Rides the same owner entity as the level clock
-/// and the flag sequence, so all three are torn down together.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
-pub struct MaryODeathSequence {
-    /// Seconds left in the beat, or `0.0` when nothing is happening.
-    pub remaining: f32,
-    /// Where she died — the body is held here for the whole beat.
-    ///
-    /// `None` when nothing could say where: a rules-only harness with no
-    /// kinematic body, or a lost attempt reported without one. The beat still
-    /// runs and still restarts the level; there is simply no pose to hold, which
-    /// is the honest answer rather than holding it at the origin.
-    pub at: Option<ae::Vec2>,
-    /// Whether the attempt this beat is playing has already cost a life.
-    ///
-    /// A lost attempt costs ONE life however many times it is reported, and a
-    /// body pinned exactly where it died keeps getting reported: she is still in
-    /// the pit. The beat is what knows an attempt is being lost right now, so it
-    /// is what carries the debt. Armed false by [`Self::begin`] and spent once.
-    pub life_spent: bool,
-    /// This beat still owes the level a replay. Armed by [`Self::begin`],
-    /// spent by [`restart_level_after_death`] when the dwell runs out.
-    ///
-    /// The edge used to live in a `Local<bool>` inside that system, which put
-    /// "has the level already been restarted for this death" outside the
-    /// rollback envelope — so a rewind across the end of a beat could replay
-    /// twice or not at all, and nothing in the sim could tell which had
-    /// happened. As a debt the beat carries it rides the same snapshot as the
-    /// rest of the beat, and spending it is idempotent because it is a state
-    /// rather than an observation of the previous frame.
-    pub replay_pending: bool,
-}
-
-impl MaryODeathSequence {
-    /// Is the beat playing? While true the level clock stops, the controls are
-    /// ignored, and the level does not replay yet.
-    pub fn active(&self) -> bool {
-        self.remaining > 0.0
-    }
-
-    /// Start the beat at `at`, unless one is already playing.
-    ///
-    /// Returns whether it started, so a caller can voice the death exactly once.
-    /// A second death landing mid-beat is ignored rather than restarting it: a
-    /// body still overlapping whatever killed it would otherwise extend its own
-    /// death indefinitely.
-    pub fn begin(&mut self, at: Option<ae::Vec2>) -> bool {
-        if self.active() {
-            return false;
-        }
-        self.remaining = DEATH_DWELL;
-        self.at = at;
-        self.replay_pending = true;
-        self.life_spent = false;
-        true
-    }
-}
-
-/// Start the beat on the frame she dies.
 ///
-/// Reads the engine's own death fact rather than watching her health, so every
-/// way of dying — a hit that got past her armor, a pit, the clock — arrives
-/// here by the same door.
-pub fn begin_death_sequence(
-    mut deaths: MessageReader<ambition_platformer2d::actors::ActorDiedMessage>,
-    mut sequences: Query<&mut MaryODeathSequence>,
-    subject: Option<
-        bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
-    >,
-    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-) {
-    // ⭐ **filter by VICTIM, not "the last death".** This used to take whatever
-    // died most recently and apply it to the controlled subject, which is right
-    // only while one body can die at all. It is still drained unconditionally so
-    // a death that landed during a load cannot be re-read and charged to the next
-    // attempt (the same rule the life counter follows) — the filter narrows what
-    // is USED, not what is consumed (GPT 5.6 review, 2026-08-04).
-    let mine = subject.as_deref().and_then(|subject| subject.0);
-    let Some(death) = deaths
-        .read()
-        .filter(|death| mine.is_none_or(|body| death.victim == body))
-        .last()
-        .cloned()
-    else {
-        return;
-    };
-    let Ok(mut sequence) = sequences.single_mut() else {
-        return;
-    };
-    if !sequence.begin(Some(death.pos)) {
-        return;
-    }
-    // The engine's shared reset cue voices the moment itself; the music the beat
-    // plays over is `play_death_music` below.
-    //
-    // H2: hers. `ActorDiedMessage` carries the position and not the body, so this
-    // reads the CONTROLLED subject — the death beat only ever runs for the body the
-    // player is driving, which is the same body the message came from.
-    match subject.and_then(|s| s.0) {
-        Some(body) => sfx.write_for(
-            body,
-            ambition_platformer2d::sfx::SfxMessage::Reset { pos: death.pos },
-        ),
-        // I3: the COURSE, not the session. A shell host's session provider is the
-        // launcher, which does not author this cue.
-        None => sfx.write_from(
-            crate::provider::MARY_O_EXPERIENCE,
-            ambition_platformer2d::sfx::SfxMessage::Reset { pos: death.pos },
-        ),
-    }
-}
+/// This is the value Mary-O hands the engine as her interlude
+/// ([`ambition_platformer2d::combat::death_rules::DeathRules`]).
+pub const DEATH_DWELL: f32 = 3.2;
 
 /// **Her death has its own music.**
 ///
 /// Written into the encounter layer's PRIORITY tier — the same slot a focused
 /// fight claims — because that is the one tier that outranks the room's own
-/// theme. It is claimed every frame the beat is live and released the frame it
-/// ends, so the level theme returns on its own with no second system to keep in
-/// sync and nothing to leak if the beat is interrupted.
+/// theme. It is claimed every frame a death interlude is open on her body and
+/// released the frame it closes, so the level theme returns on its own with no
+/// second system to keep in sync and nothing to leak if the beat is interrupted.
 ///
 /// It CLAIMS rather than assigns. The tier used to be a bare `Option<String>`
 /// that every writer cleared when it had nothing to say, and the boss system —
@@ -174,18 +70,22 @@ pub fn begin_death_sequence(
 /// The track is authorized by Mary-O's audio fragment
 /// ([`crate::provider::MARY_O_DEATH_MUSIC_TRACK`]); under provider-relative
 /// playback an undeclared id is gated to silence however loudly it is requested.
+///
+/// ⚠ **it reads the BODY's window, not a level-owned flag.** In co-op the
+/// interlude belongs to the participant who died, and a level-owned beat could
+/// not say which of two players is dying.
 pub fn play_death_music(
-    sequences: Query<&MaryODeathSequence>,
+    dying: Query<&ambition_platformer2d::combat::death_rules::DeathInterlude>,
     music: Option<
         ambition_platformer2d::platformer::lifecycle::SessionWorldMut<
             ambition_platformer2d::actors::encounter::EncounterMusicRequest,
         >,
     >,
 ) {
-    let (Ok(sequence), Some(mut music)) = (sequences.single(), music) else {
+    let Some(mut music) = music else {
         return;
     };
-    if sequence.active() {
+    if dying.iter().any(|window| window.open()) {
         music.claim_priority(DEATH_MUSIC_OWNER, crate::provider::MARY_O_DEATH_MUSIC_TRACK);
     } else {
         music.release_priority(DEATH_MUSIC_OWNER);
@@ -195,110 +95,47 @@ pub fn play_death_music(
 /// This beat's claim on the encounter layer's priority music tier.
 const DEATH_MUSIC_OWNER: &str = "mary_o_death";
 
-/// Hold her at the place she died, in the death pose, for the beat.
+/// Voice the moment she dies.
 ///
-/// The body is DRIVEN rather than frozen — the same choice the flag sequence
-/// makes and for the same reason: a frozen body is still a body, and gravity
-/// would walk it out from under the pose.
-pub fn run_death_sequence(
-    time: Res<ambition_platformer2d::time::WorldTime>,
-    subject: Option<Res<ambition_platformer2d::platformer::markers::ControlledSubject>>,
-    mut commands: Commands,
-    mut sequences: Query<&mut MaryODeathSequence>,
-    mut bodies: Query<(
-        &mut ae::BodyKinematics,
-        &mut ambition_platformer2d::actors::actor::BodyAnimFacts,
-        Option<&mut ambition_platformer2d::characters::actor::BodyHealth>,
-    )>,
+/// The one line of presentation the engine does not owe her: the kernel's death
+/// road (a pit, the clock, a hazard tile) never reaches the hit resolver, so
+/// nothing plays a cue for it. The music the beat runs over is
+/// [`play_death_music`] above.
+pub fn voice_her_death(
+    mut deaths: MessageReader<ambition_platformer2d::actors::ActorDiedMessage>,
+    subject: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
+    >,
+    mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
 ) {
-    let Ok(mut sequence) = sequences.single_mut() else {
+    // ⭐ **filter by VICTIM, not "the last death".** This used to take whatever
+    // died most recently and apply it to the controlled subject, which is right
+    // only while one body can die at all. It is still drained unconditionally so
+    // a death that landed during a load cannot be re-read and charged to the next
+    // attempt — the filter narrows what is USED, not what is consumed (GPT 5.6
+    // review, 2026-08-04).
+    let mine = subject.as_deref().and_then(|subject| subject.0);
+    let Some(death) = deaths
+        .read()
+        .filter(|death| mine.is_none_or(|body| death.victim == body))
+        .last()
+        .cloned()
+    else {
         return;
     };
-    if !sequence.active() {
-        return;
+    match mine {
+        // H2: hers. The cue belongs to the body that died.
+        Some(body) => sfx.write_for(
+            body,
+            ambition_platformer2d::sfx::SfxMessage::Reset { pos: death.pos },
+        ),
+        // I3: the COURSE, not the session. A shell host's session provider is the
+        // launcher, which does not author this cue.
+        None => sfx.write_from(
+            crate::provider::MARY_O_EXPERIENCE,
+            ambition_platformer2d::sfx::SfxMessage::Reset { pos: death.pos },
+        ),
     }
-    sequence.remaining = (sequence.remaining - time.scaled_dt).max(0.0);
-    let Some(entity) = subject.and_then(|s| s.0) else {
-        return;
-    };
-    let Ok((mut kin, mut anim, health)) = bodies.get_mut(entity) else {
-        return;
-    };
-    if let Some(at) = sequence.at {
-        ae::movement::constrain_body_pose(&mut kin, at, ae::Vec2::ZERO);
-    }
-    // The beat OWNS the body while it plays. Blanking the control frame here
-    // used to be this system's job and never worked: this phase runs after
-    // everything that reads the frame, and the brain refills it before the next
-    // reader anyway. `ScriptedControl` moves that blanking to the one position
-    // where it is observable, and takes her out of the pickup pass with it.
-    //
-    // The early return above means the beat was live on entry, so the `else` is
-    // exactly the frame the dwell ran out — she gets the body back for the
-    // replay rather than staying blanked into the next attempt.
-    // ⛔ **AND SHE IS UNTOUCHABLE WHILE IT PLAYS.** Jon, from play: *"when maryo is
-    // in her death animation, she still gets hit by enemies."* The beat already
-    // owned her CONTROLS and her POSE and left her hurtbox live, so a snake
-    // walking into a body that has already lost still landed a hit.
-    //
-    // ⭐ `Invulnerability::SCRIPTED` is the engine's word for exactly this: *"a
-    // game or scripted sequence asserting it directly"*. It is a REASON BIT in a
-    // set rather than a bool, so this cannot clobber a beacon's or a transform
-    // beat's claim on the same frame — which is why the engine made it a set.
-    //
-    // Held on the same lines that hold `ScriptedControl`, so the immunity and the
-    // control blanking share ONE lifetime and cannot drift apart. The release is
-    // as load-bearing as the claim: an immunity a scripted beat forgets to drop
-    // would walk her through the replay invincible.
-    if sequence.remaining > 0.0 {
-        commands
-            .entity(entity)
-            .try_insert(ambition_platformer2d::characters::brain::ScriptedControl);
-        if let Some(mut health) = health {
-            health.health.invulnerable.set(
-                ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED,
-                true,
-            );
-        }
-    } else {
-        commands
-            .entity(entity)
-            .remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
-        if let Some(mut health) = health {
-            health.health.invulnerable.set(
-                ambition_platformer2d::characters::actor::Invulnerability::SCRIPTED,
-                false,
-            );
-        }
-    }
-    // Re-armed every tick rather than set once: the engine's respawn calls
-    // `BodyAnimFacts::reset()`, so a single arming would be wiped on the very
-    // frame the death happened.
-    anim.death_anim_timer = sequence.remaining.max(time.scaled_dt);
-}
-
-/// End the beat: restart the level.
-///
-/// Split from the tick so the replay is requested on the frame the dwell runs
-/// out and never on the frame the death lands — a replay in the same frame as
-/// the death would cancel the beat it is supposed to follow.
-///
-/// "Has this beat already replayed?" is answered by the beat itself rather than
-/// by comparing against the previous frame. A beat that has run down and not yet
-/// asked is the ONE state that asks, so the request happens exactly once however
-/// many times the frame is simulated.
-pub fn restart_level_after_death(
-    mut sequences: Query<&mut MaryODeathSequence>,
-    mut replay: MessageWriter<ambition_platformer2d::actors::session::reset::RoomReplayRequested>,
-) {
-    let Ok(mut sequence) = sequences.single_mut() else {
-        return;
-    };
-    if sequence.active() || !sequence.replay_pending {
-        return;
-    }
-    sequence.replay_pending = false;
-    replay.write(ambition_platformer2d::actors::session::reset::RoomReplayRequested);
 }
 
 #[cfg(test)]

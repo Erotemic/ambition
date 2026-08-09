@@ -117,10 +117,16 @@ pub fn ledge_platform_carry(
 /// every verb the simulation consumes. The hitstun gate applies inside
 /// `engine_input_from_actor_control`.
 ///
-/// On a flagged reset (drown / hazard / out-of-bounds / death) the body teleports
-/// to spawn (engine-level body reset, the same on every body) and `frame_out.reset`
-/// is set. The SANDBOX reset + ROOM reset are HOME POLICY, run by a separate phase
-/// that reads this flag — this function never performs them.
+/// On a flagged reset (drown / hazard / out-of-bounds) the body teleports to
+/// spawn (engine-level body reset, the same on every body) and `frame_out.reset`
+/// is set.
+///
+/// ⛔ **but only while the participant is still IN PLAY** (ADR 0033). A body
+/// whose attempt has already ended is not teleported, not reset, and not
+/// re-flagged — the world stops acting on it and the ruleset owns what happens
+/// next. The room-feature reset that used to ride this flag every frame
+/// (`apply_home_reset_policy`, deleted) is now a consequence the game authors
+/// through `DeathRules`.
 ///
 /// ⛔ **except a hazard a body that cannot be hurt walked into**, which is where
 /// this function decides. [`ae::ResetCause`]'s own contract is *"the kernel
@@ -140,6 +146,11 @@ pub fn integrate_home_body(
     combat: &BodyCombat,
     invulnerable: ambition_characters::actor::Invulnerability,
     dodge_rolling: bool,
+    // Has this participant's attempt already ended (`OutOfPlay`, ADR 0033)? An
+    // input for the same reason `invulnerable` is one: the predicate for "may
+    // the world act on this body" is applied HERE, in one place, so a second
+    // caller cannot invent a slightly different rule.
+    out_of_play: bool,
     hurtbox: &mut ae::CenteredAabb,
     frame_out: &mut PlayerBodyFrameOutput,
     moving_platforms: &[MovingPlatformState],
@@ -254,19 +265,44 @@ pub fn integrate_home_body(
                 clusters.shield,
                 combat,
             );
-        (!untouched).then(|| BodyReset {
+        // ⛔ **AND A BODY THAT IS ALREADY OUT OF PLAY IS NOT KILLED AGAIN**
+        // (ADR 0033). The gate above is a POSITION TEST and re-fires every tick
+        // a body is past the margin — the ACTOR path has always known this and
+        // writes `em.health.alive() && …` for exactly this reason, and this
+        // path never got the same guard. Measured 2026-08-09: one fall into a
+        // Mary-O pit re-flagged the reset on 192 of the 192 frames of her death
+        // beat, and in the hosted app every one of those frames was a full
+        // room-feature reset — Jon, from play: *"enemies respawning immediately
+        // when she dies even though the animation and music is still playing.
+        // That is not correct."*
+        //
+        // ⭐ she goes on FALLING, which is the classic behaviour and now costs
+        // nothing: the body is simply no longer teleported out from under its
+        // own death. The pose pin that used to fake this is deleted.
+        (!untouched && !out_of_play).then(|| BodyReset {
             cause,
             origin: clusters.kinematics.pos,
         })
     });
-    if reset.is_some() {
-        // ⚠ `axis_tuning.air_jumps`, not the engine default. This site was the
-        // ONE of five that never followed the reset with
-        // `refresh_movement_resources_clusters`, so a player under non-default
-        // tuning came back from a pit with default air jumps. Now the reset
-        // takes the answer and there is no follow-up to forget.
-        ae::reset_body_clusters(motion_model, clusters, world.spawn, axis_tuning.air_jumps);
-    }
+    // ⛔ **AND THE BODY IS NOT TELEPORTED HOME** (ADR 0033). This used to call
+    // `reset_body_clusters(.., world.spawn, ..)` right here, which is why every
+    // ruleset that wanted a death to MEAN something had to claw the body back:
+    // Mary-O's beat pinned her at the place she died precisely because the
+    // engine had already moved her to spawn, and the pin — outside the world —
+    // is what re-fired the gate 192 times per death.
+    //
+    // ⭐ **the respawn is a CONSEQUENCE now, not a reflex.** A reset is
+    // reported, `publish_kernel_reset_death` turns it into the death fact, and
+    // the game's authored `DeathRules` decides what happens: a level reset puts
+    // her back through the one shared road (`reset_sandbox`, via
+    // `RoomReplayRequested`), and a ruleset that owns its own respawn — a versus
+    // stock — does it there instead. Until then she keeps falling, which is what
+    // a classic platformer death looks like and now costs nothing to get.
+    //
+    // (The `axis_tuning.air_jumps` argument this used to thread lives on at the
+    // remaining call sites; the note it carried — that this site was the one of
+    // five that forgot the follow-up refresh — is answered by there being one
+    // fewer site.)
 
     *frame_out = PlayerBodyFrameOutput {
         reset,

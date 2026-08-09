@@ -357,10 +357,49 @@ impl Plugin for PlayerSchedulePlugin {
                 // is open is still a death, and dropping it would leave the
                 // body respawned with no consumer ever told why.
                 ambition_platformer2d_actor_monolith::features::ecs::damage_apply::publish_kernel_reset_death,
+                // ADR 0033 — the death fact is published, and then the ruleset
+                // owns everything after it. Opening the window in the SAME
+                // frame as the fact is what stops the world acting on the body:
+                // from here the blast-zone gate skips it, so a corpse in a pit
+                // cannot re-flag a reset (192 times per death, measured).
+                //
+                // Ticked and closed in the same chain so an interlude of zero —
+                // the default for a composition that states no rules — opens
+                // and closes on the death frame rather than leaking a window
+                // nobody will ever close.
+                ambition_platformer2d_actor_monolith::session::death::open_death_interlude,
+                ambition_platformer2d_actor_monolith::session::death::tick_death_interlude,
             )
                 .chain()
                 .in_set(PlayerSimulationSet::Outcome),
         );
+        // ⛔ **CLOSING runs NEXT FRAME, immediately before the replay consumer,
+        // and the split is a ROLLBACK requirement rather than taste.**
+        //
+        // The consequence it requests is `RoomReplayRequested`, and that channel
+        // is `clear_message_on_rollback`. Written here in `Outcome` it would be
+        // consumed by `apply_room_replay_request_system` in the NEXT frame's
+        // `PlayerInput` — so a rewind across that boundary wipes the message,
+        // the resimulated branch never resets the level, and the two runs
+        // diverge. Measured: a GGRS sync-test checksum mismatch at the first
+        // death, on a route that was green before.
+        //
+        // Everything this system reads — the window and the roster — is SNAPSHOT
+        // state, so running it in the same frame as the consumer makes the whole
+        // request re-derivable during a resimulation. Opening still happens in
+        // `Outcome`, in the same frame as the death fact, for the mirror-image
+        // reason: `ActorDiedMessage` is cleared on rollback too, so it must be
+        // read in the frame it was written.
+        app.add_systems(
+            sim,
+            ambition_platformer2d_actor_monolith::session::death::close_death_interlude
+                .in_set(Platformer2dSimulationPhaseMonolith::PlayerInput)
+                .before(crate::sandbox_reset::RoomReplayApplied),
+        );
+        // Every respawn in the workspace announces itself through the derived
+        // `BodyRestarted`, so returning a body to play needs no line at any of
+        // the call sites that bring one back.
+        app.add_observer(ambition_platformer2d_actor_monolith::session::death::clear_out_of_play_on_restart);
 
         // ── PresentationSync: player ECS write-back + timer decay ──────────
         //

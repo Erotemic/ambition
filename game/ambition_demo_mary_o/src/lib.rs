@@ -1438,15 +1438,10 @@ pub fn install_mary_o_content(app: &mut App) {
                 "content.mary_o_flag_sequence",
                 rollback_probes::flag_sequence,
             )
-            // The death beat rides the same owner entity as those two and was
-            // simply missed: it decides how long the level is held, where the
-            // body is pinned, and whether the replay has been asked for, none of
-            // which a rewind could reproduce without it.
-            .rollback_component_clone_probed::<death::MaryODeathSequence>(
-                "ambition_demo_mary_o",
-                "content.mary_o_death_sequence",
-                rollback_probes::death_sequence,
-            )
+            // (The death beat used to be registered here as a third owner-entity
+            // component. It is engine state now — `DeathInterlude` / `OutOfPlay`
+            // on the body — and the engine registers it, so a game that states
+            // death rules cannot forget to make them rollback-safe. ADR 0033.)
             // A snake's shell phase (and its stage timers) is authoritative sim
             // state — two sims that disagree on where a shell is in its withdraw
             // are in different states. It rides on the snake BODY, which the
@@ -1741,6 +1736,21 @@ impl Plugin for MaryORulesPlugin {
         // does not, and a missing message is a hard system-param panic rather
         // than a skip. Idempotent, same as the rest of this block.
         app.add_message::<ambition_platformer2d::actors::ActorDiedMessage>();
+        // **MARY-O'S DEATH RULES** (ADR 0033), and they are the whole of what
+        // used to be a 300-line beat: hold for as long as the music takes, then
+        // put the level back when nobody is left in play.
+        //
+        // ⭐ **`WhenNoParticipantRemains` is the CO-OP value too.** Jon: *"say we
+        // make maryo 2 player like NSMB, the level reset would only happen if a
+        // player dies and all other players are also dead."* With a roster of one
+        // that condition is met by the first death, so single player needs no
+        // special case — it is the one-element case of the co-op rule, not the
+        // base case the co-op rule is an exception to.
+        app.insert_resource(
+            ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(
+                death::DEATH_DWELL,
+            ),
+        );
         // The snake stager reads room-load facts and writes spawn requests; the
         // engine registers both in a full app, but a thin rules-only test harness
         // may not, and `add_message` is idempotent.
@@ -1790,18 +1800,18 @@ impl Plugin for MaryORulesPlugin {
             flag::run_flag_sequence,
             flag::play_victory_music,
             tick_level_clock,
-            // The engine's death fact arms the beat before the life counter runs,
-            // so a hit death and a timeout reach `spend_lives_on_death` in the
-            // same state and it can treat them identically.
-            death::begin_death_sequence,
-            // Reads the clock the tick above just settled, so a timeout is spent
-            // on the frame it happens rather than one late.
+            // Reads the clock the tick above just settled, so a timeout leaves by
+            // the SAME door a pit does — as a published death fact, on the frame
+            // it happens rather than one late.
+            publish_timeout_death,
+            // Both roads are facts by the time the life counter runs, so it can
+            // treat them identically. What follows the fact — the interlude, the
+            // death row, the level reset — is the ENGINE's now (ADR 0033); this
+            // crate states the rules in `MaryORulesPlugin::build` and keeps only
+            // what is genuinely hers.
             spend_lives_on_death,
-            // Then the beat itself: hold her in the death pose where she fell,
-            // and restart the level only once it has played out.
-            death::run_death_sequence,
+            death::voice_her_death,
             death::play_death_music,
-            death::restart_level_after_death,
             cycle_level_on_flag_tally,
         )
             .chain()
@@ -2017,11 +2027,11 @@ fn spawn_mary_o_mode_owner(
         commands
             .spawn_session_scoped(
                 spawn_scope,
-                (
-                    MaryOLevelState::default(),
-                    flag::FlagSequence::default(),
-                    death::MaryODeathSequence::default(),
-                ),
+                // The death beat used to ride this owner as a third component.
+                // It rides the BODY now, as the engine's `DeathInterlude` — a
+                // participant's death is that participant's, and a level-owned
+                // beat could not say which of two players is dying (ADR 0033).
+                (MaryOLevelState::default(), flag::FlagSequence::default()),
             )
             .insert(
                 ambition_platformer2d::platformer::lifecycle::ModeScopedEntity(
@@ -2035,13 +2045,13 @@ fn spawn_mary_o_mode_owner(
 /// as they slow everything else. It clamps at zero rather than going negative.
 fn tick_level_clock(
     time: bevy::prelude::Res<ambition_platformer2d::time::WorldTime>,
-    mut level: bevy::prelude::Query<(
-        &mut MaryOLevelState,
-        &flag::FlagSequence,
-        &death::MaryODeathSequence,
-    )>,
+    mut level: bevy::prelude::Query<(&mut MaryOLevelState, &flag::FlagSequence)>,
+    // The engine's death window, on the BODY (ADR 0033). A level-owned beat
+    // could not say which participant is dying once there are two.
+    dying: bevy::prelude::Query<&ambition_platformer2d::combat::death_rules::DeathInterlude>,
 ) {
-    for (mut state, flag, dying) in &mut level {
+    let anybody_dying = dying.iter().any(|window| window.open());
+    for (mut state, flag) in &mut level {
         state.intro_card = (state.intro_card - time.scaled_dt).max(0.0);
         // A level whose flag has been grabbed is over. The clock stopping is what
         // turns the remaining time from a threat into a score.
@@ -2050,7 +2060,7 @@ fn tick_level_clock(
         // attempt has already been decided, and a clock that kept draining
         // through the death beat would eat the fresh attempt's time before she
         // ever got it.
-        if flag.active() || dying.active() {
+        if flag.active() || anybody_dying {
             continue;
         }
         state.time_remaining = (state.time_remaining - time.scaled_dt).max(0.0);
@@ -2089,16 +2099,9 @@ fn tick_level_clock(
 /// starting values and the room replays. That is the arcade loop — a game over
 /// is a fresh run, not a stuck screen.
 fn spend_lives_on_death(
-    mut level: bevy::prelude::Query<(&mut MaryOLevelState, &mut death::MaryODeathSequence)>,
-    // The KINEMATICS are optional on purpose. Whether a life is spent must not
-    // depend on being able to read a position — a body that exists is what says
-    // an attempt was in progress, and requiring more silently skipped the whole
-    // system for any body without the extra component.
+    mut level: bevy::prelude::Query<&mut MaryOLevelState>,
     bodies: bevy::prelude::Query<
-        (
-            bevy::prelude::Entity,
-            Option<&ambition_platformer2d::engine_core::BodyKinematics>,
-        ),
+        bevy::prelude::Entity,
         ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
     >,
     mut deaths: bevy::prelude::MessageReader<ambition_platformer2d::actors::ActorDiedMessage>,
@@ -2112,54 +2115,26 @@ fn spend_lives_on_death(
     // skip the drain — that is the invariant this comment has always been about.
     let victims: Vec<bevy::prelude::Entity> = deaths.read().map(|death| death.victim).collect();
 
-    let Ok((mut level, mut death_beat)) = level.single_mut() else {
+    let Ok(mut level) = level.single_mut() else {
         return;
     };
-    // No body, no attempt in progress — so nothing to lose. This matters for
-    // the TIMEOUT branch specifically: the level owner can exist for frames
-    // before a body does, and a clock that reaches zero in that window is a
-    // level that never started, not a life the player spent. (The old counter
-    // version got this for free by querying the body's `BodyLifetime`; the
-    // authoritative signal does not need the body, so the guard is now
-    // explicit.)
-    let Some((body, kin)) = bodies.iter().next() else {
+    let Some(body) = bodies.iter().next() else {
         return;
     };
     // ⭐ **HER death, not any death.** This used to count every `ActorDiedMessage`
     // in the frame, which is right only while one body can die: an enemy dying
     // would have spent one of her lives the moment anything else emitted the
     // fact (GPT 5.6 review, 2026-08-04).
-    let died = victims.contains(&body);
-    let died_at = kin.map(|kin| kin.pos);
-
-    // The clock reaching zero is its own death, and it must not fire twice
-    // while the replay is in flight — restoring the clock below is what
-    // disarms it.
-    let timed_out = level.time_remaining <= 0.0;
-    if !died && !timed_out {
+    if !victims.contains(&body) {
         return;
     }
-    // The RESTART is the death beat's, not this system's. Every lost attempt —
-    // a hit that got past her armor, a pit, the clock running out — plays the
-    // same death and leaves by the same door, so a timeout cannot silently skip
-    // the beat a death gets. A hit death has already armed it from the engine's
-    // own death fact one system earlier; a timeout has no such fact, so arming
-    // here from where she stands is what makes the two identical by the time the
-    // life is counted.
-    death_beat.begin(died_at);
 
-    // ONE attempt lost costs ONE life, however many ways it was reported. A
-    // frame can carry both a lethal hit and a hazard reset for the same fall —
-    // and a death during the DWELL is the same attempt too. She is pinned
-    // exactly where she fell, so a pit keeps reporting her, and without this
-    // she spent a life on every frame of her own death animation until the run
-    // was over. The beat carries the debt because the beat is what knows which
-    // attempt is being lost.
-    if death_beat.life_spent {
-        return;
-    }
-    death_beat.life_spent = true;
-
+    // ⭐ **THE `life_spent` LATCH IS GONE, and nothing replaced it** (ADR 0033).
+    // It existed because a body pinned exactly where it fell is still in the pit,
+    // so the world reported the same death on every frame of the dwell and she
+    // spent a life for each one. Nothing pins her now and the world stops acting
+    // on a body that is out of play, so ONE attempt produces ONE death fact by
+    // construction — which is what a latch was always a substitute for.
     level.lives = level.lives.saturating_sub(1);
     level.time_remaining = STARTING_TIME;
     // A fresh attempt gets a fresh card — it is how the player reads how many
@@ -2171,6 +2146,71 @@ fn spend_lives_on_death(
         level.lives = STARTING_LIVES;
         level.score = 0;
     }
+}
+
+/// **Running out of time is a death, so it goes out the same door.**
+///
+/// The clock reaching zero used to arm the death beat directly, because a
+/// timeout has no engine death fact behind it and the beat was a component this
+/// crate owned. Now that the beat is the engine's, a timeout that armed anything
+/// itself would be a second death road — the exact fork this demo keeps being
+/// the example of. It publishes the FACT instead, and everything downstream (the
+/// interlude, the death row, the life, the level reset) happens for a timeout
+/// exactly as it happens for a pit.
+///
+/// The `Without<OutOfPlay>` filter is the whole re-entrancy guard: her clock is
+/// restored when the life is spent, and until then she is already out of play, so
+/// this cannot fire twice for one timeout.
+fn publish_timeout_death(
+    level: bevy::prelude::Query<&MaryOLevelState>,
+    // ⚠ **the KINEMATICS are optional on purpose**, and this comment is older
+    // than this system. Whether an attempt ends must not depend on being able to
+    // read a position — a body that EXISTS is what says an attempt was in
+    // progress — and requiring more silently skips the whole system for any body
+    // without the extra component. (Reintroduced as a hard `&` while this was
+    // being rewritten for ADR 0033, and caught within the hour by the fixture
+    // that spawns a bare rules-only body: *"the clock hitting zero kills"*, 3
+    // lives instead of 2.)
+    bodies: bevy::prelude::Query<
+        (
+            bevy::prelude::Entity,
+            Option<&ambition_platformer2d::engine_core::BodyKinematics>,
+        ),
+        (
+            ambition_platformer2d::platformer::markers::PrimaryPlayerOnly,
+            bevy::prelude::Without<ambition_platformer2d::combat::death_rules::OutOfPlay>,
+        ),
+    >,
+    mut deaths: bevy::prelude::MessageWriter<ambition_platformer2d::actors::ActorDiedMessage>,
+) {
+    let Ok(level) = level.single() else {
+        return;
+    };
+    if level.time_remaining > 0.0 {
+        return;
+    }
+    // No body, no attempt in progress — so nothing to lose. The level owner can
+    // exist for frames before a body does, and a clock that reaches zero in that
+    // window is a level that never started, not a life the player spent.
+    let Some((body, kin)) = bodies.iter().next() else {
+        return;
+    };
+    deaths.write(ambition_platformer2d::actors::ActorDiedMessage {
+        victim: body,
+        // Where she stood when the clock beat her, or the origin when nothing
+        // can say. The position is presentation — a cue and a VFX burst — and a
+        // timeout that cannot name a place is still a timeout.
+        pos: kin.map(|kin| kin.pos).unwrap_or_default(),
+        // The same anonymous world-killed-you category a pit uses. The engine
+        // charges a voluntary reset here too, for the reason its own
+        // `death_source_of` gives: no vocabulary exists for "the rules ended
+        // your attempt", and inventing one would only be honest if something
+        // read it.
+        cause: ambition_platformer2d::actors::DeathCause {
+            source: ambition_platformer2d::actors::combat::HitSource::Hazard,
+            attacker: None,
+        },
+    });
 }
 
 /// **The secret pipe.** Press DOWN on the surface mouth and you fall out of the
@@ -4153,14 +4193,6 @@ mod rollback_probes {
             .map(|at| (at.x.to_bits() as u64) ^ ((at.y.to_bits() as u64) << 32))
             .unwrap_or(0);
         phase ^ driven.rotate_left(17)
-    }
-
-    pub(super) fn death_sequence(sequence: &death::MaryODeathSequence) -> u64 {
-        let at = sequence
-            .at
-            .map(|at| (at.x.to_bits() as u64) ^ ((at.y.to_bits() as u64) << 32))
-            .unwrap_or(0);
-        (sequence.remaining.to_bits() as u64) ^ at.rotate_left(13)
     }
 
     pub(super) fn snake_shell(shell: &snake::SnakeShell) -> u64 {

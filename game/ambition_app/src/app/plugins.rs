@@ -35,7 +35,7 @@ use super::dev_runtime::{
     handle_debug_hotkeys, handle_ldtk_hot_reload, restart_local_ggrs_after_hot_reload,
 };
 use super::hud::{update_hud, update_quest_panel};
-use super::player_tick::{apply_home_reset_policy, sync_player_presentation};
+use super::player_tick::sync_player_presentation;
 use super::resources::init_sandbox_resources;
 use super::setup_systems::{
     reload_visual_quality_assets_on_scale_change, setup_host_presentation_system,
@@ -163,6 +163,14 @@ fn register_app_local_sim_systems(app: &mut App) {
     // produces its `ActorControl` in `PlayerInput` (before the control phase
     // consumes it); the transform sync runs in `PresentationSync` after the
     // shared simulation has moved it.
+    // **Ambition's own death rules** (ADR 0033). Exploration's answer: no
+    // interlude, and the room goes back when nobody is left in play. That is
+    // exactly what `apply_home_reset_policy` used to do by reflex — a pit fall
+    // returns you to spawn with the room's features restored — except that it is
+    // now stated rather than assumed, it happens ONCE rather than on every frame
+    // the gate re-fires, and it travels through the same road every other host
+    // uses.
+    app.insert_resource(ambition_platformer2d::combat::death_rules::DeathRules::replay_level_after(0.0));
     app.init_resource::<crate::app::player_clone::PlayerCloneClock>()
         .init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
         .add_systems(
@@ -194,20 +202,25 @@ fn register_app_local_sim_systems(app: &mut App) {
                 .after(ambition_platformer2d::actors::session::reset::NewGameResetDecided),
         );
 
-    // ── The PlayerSimulation gap: home reset policy + home presentation ───
+    // ── The PlayerSimulation gap: home presentation ───────────────────────
     //
     // Slotted between the possession release and the hit-event drain (the
-    // exact position they held in the old inline chain).
+    // exact position it held in the old inline chain).
+    //
+    // ⛔ **`apply_home_reset_policy` is GONE** (ADR 0033), and this app is why
+    // the defect it caused was invisible: it lived HERE and not in the demo
+    // binaries, so the hosted app and the standalone Mary-O disagreed about what
+    // a pit death does. It turned every frame of `PlayerBodyFrameOutput.reset`
+    // into a `ResetRoomFeaturesEvent { PlayerDeath }`, and a death beat that
+    // pinned the body outside the world re-flagged that gate for its whole
+    // dwell — 192 full room resets per death, while the death music played.
+    // What it did is now a CONSEQUENCE the game authors through `DeathRules`,
+    // delivered once through the one shared road (`RoomReplayRequested`).
     app.add_systems(
         sim,
         (
-            // HOME RESET POLICY. Movement already integrated the home body in
-            // `WorldPrep` and flagged any reset in `PlayerBodyFrameOutput`;
-            // this owns the home-only sandbox + room reset on that flag (an
-            // actor never teleports to the player spawn). Moves no body.
-            apply_home_reset_policy.run_if(gameplay_allowed),
             // HOME PRESENTATION — screen shake + landing SFX + the per-op
-            // anim/SFX/VFX — reads the same hand-off. Moves no body.
+            // anim/SFX/VFX — reads the movement phase's hand-off. Moves no body.
             sync_player_presentation.run_if(gameplay_allowed),
         )
             .chain()

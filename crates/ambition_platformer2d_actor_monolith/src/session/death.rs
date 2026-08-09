@@ -1,0 +1,176 @@
+//! **The death interlude and its consequence** (ADR 0033).
+//!
+//! The engine publishes the fact that a participant died and then does nothing.
+//! This module owns the window that follows and the one question that decides a
+//! level reset. The vocabulary itself — [`DeathRules`], [`LevelReset`],
+//! [`OutOfPlay`], [`DeathInterlude`] — lives down in `ambition_combat`, because
+//! it is pure data with no ECS wiring; the systems are here, where the room
+//! replay request and the participant markers are.
+//!
+//! # The three beats
+//!
+//! 1. [`open_death_interlude`] — a participant died: it goes [`OutOfPlay`] and
+//!    its window opens. From this instant the world stops acting on the body,
+//!    which is the whole reason the state exists.
+//! 2. [`tick_death_interlude`] — the window counts down on the sim clock.
+//! 3. [`close_death_interlude`] — the window ended: ask the ROSTER whether the
+//!    level goes back.
+//!
+//! # Nothing here returns a body to play
+//!
+//! [`clear_out_of_play_on_restart`] is an observer on
+//! [`ae::BodyRestarted`](ambition_platformer2d_core::BodyRestarted), which is
+//! DERIVED from `reset_body_clusters` — so every respawn in the workspace clears
+//! the state without knowing this module exists: the level replay, a room
+//! arrival, Smash's `place_respawning_fighters`. That is deliberate, and it is
+//! the same lesson `BodyRestarted`'s own doc records about its seven call sites:
+//! *"a doc comment cannot make seven call sites remember."*
+
+use bevy::prelude::*;
+
+use ambition_combat::death_rules::{DeathInterlude, DeathRules, LevelReset, OutOfPlay};
+use ambition_platformer2d_shared_tangle::markers::PlayerEntity;
+
+use crate::session::reset::RoomReplayRequested;
+use crate::ActorDiedMessage;
+
+/// A participant died: mark it out of play and open its window.
+///
+/// ⚠ **scoped to PARTICIPANT bodies.** An enemy's death is answered by the
+/// authored respawn policy (ADR 0022) and has nothing to do with a run ending.
+///
+/// The `Without<OutOfPlay>` filter is what makes a repeated report harmless: a
+/// body already out of play cannot re-open its own window, so the death that a
+/// still-falling corpse might report costs nothing. That used to be Mary-O's
+/// `life_spent` latch, and it was game-side because the engine had nowhere to
+/// put it.
+pub fn open_death_interlude(
+    mut commands: Commands,
+    mut deaths: MessageReader<ActorDiedMessage>,
+    rules: Option<Res<DeathRules>>,
+    participants: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
+) {
+    // Drained unconditionally so a death reported during a load cannot be
+    // re-read later and charged to the next attempt — the same rule every other
+    // reader of this channel follows.
+    let victims: Vec<Entity> = deaths.read().map(|death| death.victim).collect();
+    let interlude = rules.map(|rules| rules.interlude).unwrap_or_default();
+    for victim in victims {
+        if participants.get(victim).is_err() {
+            continue;
+        }
+        commands.entity(victim).try_insert((
+            OutOfPlay,
+            DeathInterlude {
+                remaining: interlude,
+                consequence_pending: true,
+            },
+            // A dead body does not answer input. `ScriptedControl` is the
+            // engine's existing word for exactly this, and its doc already
+            // names Mary-O's death as the case that reinvented it badly —
+            // she blanked the control frame a full phase after everything
+            // that reads it. Its one caveat is a FEATURE here: *"gravity
+            // will happily walk an undriven body out from under its pose"*
+            // is precisely the classic pit death.
+            ambition_characters::brain::ScriptedControl,
+        ));
+    }
+}
+
+/// Count the open windows down on the SIM clock, and play the death row for as
+/// long as one is open.
+///
+/// ⭐ **arming the death animation is the ENGINE's job now.** `death_anim_timer`
+/// had exactly one writer in the workspace — Mary-O's beat — which re-armed it
+/// EVERY TICK because the engine's respawn called `BodyAnimFacts::reset()` on
+/// the very frame she died. Nothing resets it out from under the interlude any
+/// more, and every game's death row plays without each one discovering the timer
+/// for itself. The anim view already reads it (`v.dead = death_anim_timer > 0.0`),
+/// so "dead" and "out of play with a window open" are now the same fact.
+pub fn tick_death_interlude(
+    time: Res<ambition_time::WorldTime>,
+    mut windows: Query<(
+        &mut DeathInterlude,
+        Option<&mut ambition_characters::actor::BodyAnimFacts>,
+    )>,
+) {
+    let dt = time.sim_dt();
+    for (mut window, anim) in &mut windows {
+        if window.remaining > 0.0 {
+            window.remaining = (window.remaining - dt).max(0.0);
+        }
+        // ⚠ **only while the window is OPEN.** The component OUTLIVES the window
+        // (it carries the consequence debt until the body restarts), so arming
+        // unconditionally would hold every corpse in its death row forever.
+        if let Some(mut anim) = anim {
+            if window.open() {
+                // At least one frame's worth, so the row is visible on the frame
+                // the window closes rather than blinking out one tick early —
+                // the same `.max(dt)` Mary-O's beat carried.
+                anim.death_anim_timer = window.remaining.max(dt);
+            }
+        }
+    }
+}
+
+/// The window closed: ask the roster whether the level goes back.
+///
+/// ⭐ **the question is about the ROSTER, never about the death.** Hanging a
+/// level reset off an individual death is player-centric and invisible in single
+/// player, where the two are the same event. Asking "is anybody still in play"
+/// makes NSMB co-op and a one-participant platformer the same rule.
+///
+/// The closing window is REMOVED here, so this fires exactly once however many
+/// times the frame is simulated — a state rather than an observation of the
+/// previous frame, which is what keeps it inside the rollback envelope.
+pub fn close_death_interlude(
+    rules: Option<Res<DeathRules>>,
+    mut closing: Query<&mut DeathInterlude>,
+    still_playing: Query<Entity, (With<PlayerEntity>, Without<OutOfPlay>)>,
+    mut replay: MessageWriter<RoomReplayRequested>,
+) {
+    let mut any_closed = false;
+    for mut window in &mut closing {
+        if window.open() || !window.consequence_pending {
+            continue;
+        }
+        // Spent, not removed. The window lives on until the body restarts, so a
+        // rewind across the frame this fired can answer "did it already?" from
+        // state rather than from a component that is no longer there.
+        window.consequence_pending = false;
+        any_closed = true;
+    }
+    if !any_closed {
+        return;
+    }
+    let level_reset = rules.map(|rules| rules.level_reset).unwrap_or_default();
+    if level_reset != LevelReset::WhenNoParticipantRemains {
+        return;
+    }
+    // Nobody left in play — the run is over, so the level goes back. In co-op
+    // this is false while a teammate is still running the level, which is the
+    // entire reason the condition is a query rather than a flag on the death.
+    if still_playing.iter().next().is_some() {
+        return;
+    }
+    replay.write(RoomReplayRequested);
+}
+
+/// A body that restarted is back IN play.
+///
+/// An observer on the derived restart announcement rather than a line in each
+/// respawn: every caller of `reset_body_clusters` raises it, so the level
+/// replay, a room arrival and a ruleset's own respawn all clear this without
+/// naming it.
+pub fn clear_out_of_play_on_restart(
+    restart: On<ambition_platformer2d_core::BodyRestarted>,
+    mut commands: Commands,
+    out: Query<Entity, With<OutOfPlay>>,
+) {
+    if out.get(restart.entity).is_ok() {
+        commands
+            .entity(restart.entity)
+            .remove::<(OutOfPlay, DeathInterlude)>()
+            .remove::<ambition_characters::brain::ScriptedControl>();
+    }
+}

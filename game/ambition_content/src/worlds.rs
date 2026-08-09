@@ -24,8 +24,8 @@
 
 use std::path::Path;
 
-use ambition_platformer2d_actor_monolith::ldtk_world::{WorldManifest, WorldSource};
 use ambition_asset_manager::AssetId;
+use ambition_platformer2d_actor_monolith::ldtk_world::{WorldManifest, WorldSource};
 
 macro_rules! static_world_text {
     ($name:ident, $path:literal) => {
@@ -102,6 +102,101 @@ pub fn world_manifest() -> WorldManifest {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **The authored `mounted_on` refs have to survive all the way to a
+    /// `RoomSpec`, and for a month they did not.** Jon, 2026-08-08: *"The
+    /// pirates in the pirate sky no longer ride their sharks."* An LDtk editor
+    /// session (`6e48e5988`) rewrote `sandbox.ldtk` while a different level was
+    /// open and brought every `EntityRef` in the file back as `null`; the four
+    /// refs were restored from the `5e4d6448e` blob on 2026-08-09.
+    ///
+    /// ⭐ **the boss side of this chain was already pinned and the ENEMY side
+    /// was not.** `bosses::gnu_ton::tests::arena_spawns_the_adr0020_linked_pair`
+    /// covers `convert_boss_spawn`; `convert_enemy_spawn` carries its own copy
+    /// of the same four lines (`entity_converters.rs`) and nothing exercised it
+    /// against a real world file. This does, off the shipped `sandbox.ldtk`.
+    ///
+    /// ⚠ scoped to the one level, exactly as the GNU-ton test is: composing the
+    /// whole sandbox pulls in portal entities whose feature is off in this test
+    /// build. `pirate_sky_lookout` authors none.
+    #[test]
+    fn the_pirate_sky_riders_lower_into_authored_mount_links() {
+        use ambition_entity_catalog::placements::CharacterBrain;
+        use ambition_platformer2d_actor_monolith::ldtk_world::{LdtkProject, LdtkVocabulary};
+        use ambition_platformer2d_core::AabbExt;
+
+        const LOOKOUT: &str = "pirate_sky_lookout";
+
+        let manifest = world_manifest();
+        let mut project =
+            LdtkProject::load_default_for_dev(&manifest).expect("sandbox LDtk should load");
+        project.levels.retain(|level| level.identifier == LOOKOUT);
+        let room_set = project
+            .to_room_set(&manifest, &LdtkVocabulary::engine())
+            .expect("pirate_sky_lookout composes");
+        let lookout = room_set
+            .rooms
+            .iter()
+            .find(|room| room.id == LOOKOUT)
+            .expect("pirate_sky_lookout room exists");
+
+        // Every rider in the room reaches a mount — asserted against the room's
+        // OWN rider census rather than a typed-in four, so a fifth pirate is
+        // covered the day it is authored and a deleted one cannot quietly lower
+        // the bar.
+        let riders: Vec<&str> = lookout
+            .enemy_spawns
+            .iter()
+            .filter(|spawn| {
+                matches!(&spawn.payload.brain, CharacterBrain::Custom(id) if id.ends_with("_shark_rider"))
+            })
+            .map(|spawn| spawn.id.as_str())
+            .collect();
+        assert!(
+            !riders.is_empty(),
+            "no shark rider is authored in {LOOKOUT}, so this test checks nothing"
+        );
+        let mounted: Vec<&str> = lookout
+            .mount_links
+            .iter()
+            .map(|(rider, _)| rider.as_str())
+            .collect();
+        for rider in &riders {
+            assert!(
+                mounted.contains(rider),
+                "{rider} is a shark rider with no authored mount link; the room \
+                 lowered {:?}",
+                lookout.mount_links,
+            );
+        }
+
+        // And each link's far end is a shark the rider is standing on. A ref
+        // that resolves to the wrong body spawns a pirate riding thin air just
+        // as convincingly as no ref at all.
+        for (rider_id, mount_id) in &lookout.mount_links {
+            let mount = lookout
+                .enemy_spawns
+                .iter()
+                .find(|spawn| &spawn.id == mount_id)
+                .unwrap_or_else(|| panic!("mount link {rider_id} -> {mount_id} dangles"));
+            assert!(
+                matches!(&mount.payload.brain, CharacterBrain::Custom(id) if id == "burning_flying_shark"),
+                "{rider_id} rides {mount_id}, which is {:?} and not a shark",
+                mount.payload.brain,
+            );
+            let rider = lookout
+                .enemy_spawns
+                .iter()
+                .find(|spawn| &spawn.id == rider_id)
+                .unwrap_or_else(|| panic!("mount link source {rider_id} is not a spawn"));
+            assert!(
+                rider.aabb.strict_intersects(mount.aabb),
+                "{rider_id} at {:?} does not touch the {mount_id} it rides at {:?}",
+                rider.aabb,
+                mount.aabb,
+            );
+        }
+    }
 
     #[test]
     fn manifest_names_the_four_worlds_and_the_hub_entry() {

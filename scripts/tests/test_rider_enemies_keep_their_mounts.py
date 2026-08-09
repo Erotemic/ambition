@@ -21,16 +21,21 @@ never rewriting a `.ldtk` is aimed at TOOLS; here the writer was the editor,
 which is where authoring is supposed to happen. That is why this is a test and
 not a comment.
 
-## Why a RATCHET and not a flat assertion
+## What is asserted, and why it is not a COUNT
 
-The four broken refs are **not repaired yet, deliberately** — the queue row
-(D49) says not to re-author them until somebody knows what the editor did to
-them, because a repair the next session deletes is worse than the bug. So this
-pins the known-bad set and fails when it GROWS.
+The four refs were restored on 2026-08-09 from the `5e4d6448e` blob (`entityIid`
+only — the three container iids come from today's file). ⛔ **A count of mount
+refs is the wrong guard**: it goes green again the day an editor nulls them and
+somebody adds four unrelated refs. What is actually true of a mount link is
+**geometric** — a rider sits ON its mount, so the two authored boxes TOUCH. That
+catches a mis-paste, a dangling iid, and the original nulling, and it needs no
+allow-list to stay true when the next pair is authored.
 
-⚠ **That makes the number in `KNOWN_UNMOUNTED` a defect count, not a
-baseline to keep comfortable.** When the refs are repaired it goes to zero and
-this becomes the flat assertion it wants to be.
+⚠ **the invariant is OVERLAP, not equal `px`.** The seven shark pairs do share
+their top-left pixel exactly, and it is tempting to assert that — but GNU-ton
+(`BossSpawn-6837` at `[869, 754]` aboard `EnemySpawn-6836` at `[786, 832]`) is
+authored standing on his mount's BACK, 83 right and 78 up from its corner.
+Equal-`px` would call the game's one working boss mount a defect.
 """
 
 from __future__ import annotations
@@ -42,50 +47,97 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 
-#: Where the worlds really live (reached from `game/` through tracked symlinks).
-WORLDS = REPO / "game" / "ambition_map_assets" / "ambition_content" / "worlds"
+#: The map submodule. Every `.ldtk` under it is authored content, reached from
+#: `game/<crate>/assets/worlds` through tracked symlinks.
+MAP_ASSETS = REPO / "game" / "ambition_map_assets"
 
 #: A brain whose name says it rides something. Substring match on purpose — the
-#: authored values are `pirate_shark_rider`, `pirate_heavy_shark_rider`, and the
-#: pre-`5e4d6448e` fused spellings were `pirate_on_shark` / `pirate_heavy_on_shark`.
+#: authored values are `pirate_shark_rider`, `pirate_heavy_shark_rider`,
+#: `PhaseScript:gnu_ton_rider`, and the pre-`5e4d6448e` fused spellings were
+#: `pirate_on_shark` / `pirate_heavy_on_shark`.
 #: ⚠ matching the CAPABILITY the name claims, not an enumerated list, so a new
 #: rider archetype is covered the day it is authored.
 RIDER_MARKERS = ("_rider", "_on_shark")
 
-#: ⛔ THE DEFECT COUNT, NOT A BUDGET. Every entry is a rider drawn without the
-#: mount it was authored with, and the goal is zero. See the module docstring for
-#: why they are not repaired yet.
-KNOWN_UNMOUNTED = 4
+#: The field that carries the link.
+MOUNT_FIELD = "mounted_on"
 
 
-def _enemy_spawns() -> list[tuple[str, str, dict]]:
-    """`(world, level, fields)` for every `EnemySpawn` in every authored world.
+class Spawn:
+    """One authored entity instance, with the geometry the invariant needs."""
 
-    ⚠ parsed, not grepped: the worlds are gitignored-adjacent submodule content
-    reached through symlinks, and a `grep -r` skips both.
+    def __init__(self, world: str, level: str, entity: dict) -> None:
+        self.world = world
+        self.level = level
+        self.iid = entity.get("iid")
+        self.identifier = entity.get("__identifier")
+        self.px = tuple(entity.get("px") or (0, 0))
+        self.size = (entity.get("width") or 0, entity.get("height") or 0)
+        self.fields = {
+            f["__identifier"]: f.get("__value") for f in entity.get("fieldInstances", [])
+        }
+
+    @property
+    def brain(self) -> str:
+        return self.fields.get("brain") or ""
+
+    @property
+    def is_rider(self) -> bool:
+        return any(marker in self.brain for marker in RIDER_MARKERS)
+
+    @property
+    def mount_iid(self) -> str | None:
+        """The `entityIid` this instance's `mounted_on` names, if it has one.
+
+        ⚠ LDtk stores a set EntityRef as `{entityIid, layerIid, levelIid,
+        worldIid}` and an unset one as `null`; some exporters flatten it to the
+        bare iid string. `field_entity_ref` (Rust) reads both, so this does too —
+        a check that only understood one shape would go green on the other.
+        """
+        value = self.fields.get(MOUNT_FIELD)
+        if isinstance(value, dict):
+            return value.get("entityIid") or None
+        if isinstance(value, str) and value:
+            return value
+        return None
+
+    def overlaps(self, other: "Spawn") -> bool:
+        ax, ay = self.px
+        aw, ah = self.size
+        bx, by = other.px
+        bw, bh = other.size
+        return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
+
+    def __str__(self) -> str:
+        return (
+            f"{self.world}:{self.level} {self.identifier} {self.iid} "
+            f"{self.fields.get('name')!r} brain={self.brain!r} "
+            f"px={list(self.px)} size={list(self.size)}"
+        )
+
+
+def _levels() -> list[tuple[str, str, list[Spawn]]]:
+    """`(world, level, spawns)` for every authored level in the map submodule.
+
+    ⚠ parsed, not grepped: the worlds are submodule content reached through
+    symlinks, and a `grep -r` skips those.
     """
-    rows: list[tuple[str, str, dict]] = []
-    for path in sorted(WORLDS.glob("*.ldtk")):
+    out: list[tuple[str, str, list[Spawn]]] = []
+    for path in sorted(MAP_ASSETS.rglob("*.ldtk")):
         data = json.loads(path.read_text(encoding="utf8"))
         for level in data.get("levels", []):
-            for layer in level.get("layerInstances", []):
-                for entity in layer.get("entityInstances", []):
-                    if entity.get("__identifier") != "EnemySpawn":
-                        continue
-                    fields = {
-                        f["__identifier"]: f["__value"]
-                        for f in entity.get("fieldInstances", [])
-                    }
-                    rows.append((path.name, level.get("identifier", "?"), fields))
-    return rows
+            level_id = level.get("identifier", "?")
+            spawns = [
+                Spawn(path.name, level_id, entity)
+                for layer in level.get("layerInstances", [])
+                for entity in layer.get("entityInstances", [])
+            ]
+            out.append((path.name, level_id, spawns))
+    return out
 
 
-def _riders() -> list[tuple[str, str, dict]]:
-    return [
-        row
-        for row in _enemy_spawns()
-        if any(marker in (row[2].get("brain") or "") for marker in RIDER_MARKERS)
-    ]
+def _riders() -> list[Spawn]:
+    return [s for _, _, spawns in _levels() for s in spawns if s.is_rider]
 
 
 @pytest.fixture(scope="module")
@@ -97,7 +149,7 @@ def worlds_present() -> None:
     hits it. Failing here would turn a deliberate state into a red on every
     non-recursive clone.
     """
-    if not WORLDS.is_dir() or not any(WORLDS.glob("*.ldtk")):
+    if not MAP_ASSETS.is_dir() or not any(MAP_ASSETS.rglob("*.ldtk")):
         pytest.skip("game/ambition_map_assets is not checked out")
 
 
@@ -110,46 +162,74 @@ def test_there_are_rider_enemies_at_all(worlds_present: None) -> None:
     updating, not this test deleting.
     """
     assert _riders(), (
-        f"no EnemySpawn brain matches {RIDER_MARKERS}, so every other assertion "
+        f"no spawn brain matches {RIDER_MARKERS}, so every other assertion "
         f"in this file is vacuous. Either the rider archetypes were renamed — "
         f"update RIDER_MARKERS — or they were removed, in which case delete this "
         f"file and say so."
     )
 
 
-def test_no_new_rider_loses_its_mount(worlds_present: None) -> None:
-    """The ratchet. A rider brain must carry a `mounted_on` entity-ref.
+def test_every_rider_rides_something(worlds_present: None) -> None:
+    """A rider brain must carry a `mounted_on` entity-ref.
 
     ⚠ this is the assertion an EDITOR SESSION breaks, which is the whole reason
     it exists — opening a world to move one platform can null every `EntityRef`
     in the FILE, not just in the level being edited.
     """
-    unmounted = [
-        f"{world}:{level} {fields.get('name')!r} brain={fields.get('brain')!r}"
-        for world, level, fields in _riders()
-        if not fields.get("mounted_on")
-    ]
-    assert len(unmounted) <= KNOWN_UNMOUNTED, (
-        f"{len(unmounted)} rider enemies have no mount, up from the known "
-        f"{KNOWN_UNMOUNTED}:\n  " + "\n  ".join(unmounted) + "\n\n"
+    unmounted = [str(rider) for rider in _riders() if rider.mount_iid is None]
+    assert not unmounted, (
+        f"{len(unmounted)} rider(s) have no mount:\n  " + "\n  ".join(unmounted) + "\n\n"
         f"An LDtk editor session nulls every `EntityRef` in a world file — see "
-        f"this file's docstring and queue D49. ⛔ Do NOT lower this by deleting "
-        f"riders; re-author the `mounted_on` refs."
+        f"this file's docstring and queue D49. ⛔ Do NOT satisfy this by deleting "
+        f"riders; re-author the `{MOUNT_FIELD}` refs (the tool verb is "
+        f"`entity set-field`, which resolves a target iid into a full EntityRef)."
     )
 
 
-def test_the_known_breakage_has_not_been_silently_repaired(worlds_present: None) -> None:
-    """⭐ The other half of a ratchet, and the half people forget.
+def test_every_mount_ref_lands_on_a_body_the_rider_is_touching(
+    worlds_present: None,
+) -> None:
+    """⭐ The link has to be a link: it resolves, and the two bodies TOUCH.
 
-    If somebody fixes the four refs, this fails and tells them to set
-    `KNOWN_UNMOUNTED = 0` — which converts the ratchet into the flat assertion it
-    always wanted to be. Without this, a repair leaves a permanent allowance for
-    four broken riders and the next four slip in under it.
+    Three failures collapse into one assertion — a ref naming an iid that no
+    longer exists, a ref naming an entity in some other level, and a ref naming
+    a real entity the rider is nowhere near (the shape a careless repair takes,
+    because every pirate is interchangeable in the JSON and only one of the four
+    sharks is under any given one).
     """
-    unmounted = [row for row in _riders() if not row[2].get("mounted_on")]
-    assert len(unmounted) == KNOWN_UNMOUNTED, (
-        f"only {len(unmounted)} rider enemies are unmounted, but this file still "
-        f"allows {KNOWN_UNMOUNTED}. Somebody repaired them — thank you. Set "
-        f"`KNOWN_UNMOUNTED = {len(unmounted)}` so the allowance does not outlive "
-        f"the defect it was written for."
+    broken: list[str] = []
+    checked = 0
+    for world, level, spawns in _levels():
+        by_iid = {s.iid: s for s in spawns}
+        for spawn in spawns:
+            mount_iid = spawn.mount_iid
+            if mount_iid is None:
+                continue
+            checked += 1
+            mount = by_iid.get(mount_iid)
+            if mount is None:
+                broken.append(
+                    f"{spawn} -> {MOUNT_FIELD} names {mount_iid!r}, which is not "
+                    f"an entity in {world}:{level}"
+                )
+                continue
+            if not spawn.overlaps(mount):
+                broken.append(
+                    f"{spawn} -> rides {mount_iid!r} at px={list(mount.px)} "
+                    f"size={list(mount.size)}, which its authored box does not "
+                    f"touch. A rider sits ON its mount."
+                )
+    assert not broken, "a mount ref does not land on its mount:\n  " + "\n  ".join(
+        broken
+    )
+    # ⚠ THE FLOOR, and it is derived rather than typed in. A "for every ref …"
+    # check reads exactly like a pass when there are no refs, which is precisely
+    # the state the editor left `sandbox.ldtk` in for a month. Every rider brain
+    # carries one ref, so the number of refs this loop saw can never honestly be
+    # under the number of riders in the tree.
+    riders = len(_riders())
+    assert checked >= riders, (
+        f"only {checked} `{MOUNT_FIELD}` ref(s) reached this check but the tree "
+        f"authors {riders} rider(s), so it is looking at fewer pairs than exist "
+        f"and its silence means nothing"
     )

@@ -23,9 +23,27 @@ Spec format (YAML or JSON):
           bidirectional: false
           target_zone: mockingbird_arena_locked
 
+An `EntityRef` field (ADR 0020's `mounted_on`) names the TARGET, not the
+four-key object LDtk stores:
+
+    fields:
+      mounted_on: EnemySpawn-6806        # the target's iid, and that is all
+
+⛔ **the other three keys are DERIVED from the file being edited, never
+written in a spec.** LDtk stores a ref as `{entityIid, layerIid, levelIid,
+worldIid}`; a spec that carried its own `layerIid` would keep pointing at
+whatever the container was called on the day it was typed, and a stale one
+produces a ref that resolves to nothing while looking perfectly authored.
+Naming the target and reading its containers out of the project is the only
+version of this that cannot go stale — the same rule `build_level`'s spec-local
+`ref:` handles already follow (`_resolve_entity_ref_handles`). Pass `null` to
+clear a ref.
+
 The tool errors out if:
   * the level doesn't exist;
   * no entity matches the target selector (or more than one does);
+  * an `EntityRef` names an iid that is not in the project (a dangling mount
+    link is the silent failure this whole path exists to prevent);
   * a field name isn't declared on the entity def (loud catch — silent
     write-through would leave the LDtk editor refusing to load the
     field next time).
@@ -121,6 +139,46 @@ def select_entities(layer: dict, target: dict) -> list[dict]:
     return candidates
 
 
+def resolve_entity_ref(project: dict, target) -> dict | None:
+    """Turn a spec's EntityRef TARGET into LDtk's canonical ref object.
+
+    `target` is the referenced entity's `iid` (or `null` to clear the ref). The
+    `layerIid` / `levelIid` / `worldIid` come from wherever that iid is found in
+    THIS project, so they describe the file as it is now rather than as it was
+    when somebody copied a ref out of an older one.
+    """
+    if target is None or target == "":
+        return None
+    if isinstance(target, dict):
+        raise SystemExit(
+            "an EntityRef field takes the target entity's iid, not a prebuilt "
+            f"{sorted(target)} object: the layer/level/world iids are read out of "
+            "the project so they cannot go stale. Write `mounted_on: "
+            "EnemySpawn-6806`."
+        )
+    target = str(target)
+    found: list[tuple[dict, dict]] = []
+    for level in project.get("levels", []):
+        for layer in level.get("layerInstances", []):
+            for entity in layer.get("entityInstances", []):
+                if entity.get("iid") == target:
+                    found.append((level, layer))
+    if not found:
+        raise SystemExit(
+            f"EntityRef target '{target}' is not an entity in this project. A ref "
+            f"to a missing iid loads as an unset ref and spawns the referrer alone."
+        )
+    if len(found) > 1:
+        raise SystemExit(f"EntityRef target '{target}' is not unique in this project")
+    level, layer = found[0]
+    return {
+        "entityIid": target,
+        "layerIid": layer.get("iid"),
+        "levelIid": level.get("iid"),
+        "worldIid": project.get("iid"),
+    }
+
+
 def apply_field_edit(project: dict, entity: dict, field_name: str, new_value) -> None:
     """Set `entity[fieldInstances][field_name].__value` to `new_value`,
     coercing via the entity def's declared type so booleans /
@@ -137,7 +195,10 @@ def apply_field_edit(project: dict, entity: dict, field_name: str, new_value) ->
         )
     field_def = field_defs[field_name]
     type_str = field_def.get("__type") or field_def.get("type") or "String"
-    coerced = coerce_field_value(type_str, new_value)
+    if type_str == "EntityRef":
+        coerced = resolve_entity_ref(project, new_value)
+    else:
+        coerced = coerce_field_value(type_str, new_value)
     instance_payload = make_field_instance(field_def, coerced)
     for fi in entity.setdefault("fieldInstances", []):
         if fi.get("__identifier") == field_name:

@@ -130,6 +130,21 @@ pub struct SfxSpec {
     pub frequency: f32,
     pub frequency_end: f32,
     pub duration: f32,
+    /// Loudness trim in `[0, 1]` — a fraction of the renderer's procedural
+    /// reference level, in the RMS domain.
+    ///
+    /// It is deliberately NOT a peak amplitude. Every [`WaveformSpec`] swings
+    /// +-1, so a peak-domain `volume` made the same number mean different
+    /// loudnesses for different waveforms (a square's RMS is its peak; a
+    /// triangle's is 4.8 dB below), and made a noisy cue quieter than a clean
+    /// one. As a loudness trim it means one thing: `0.5` is half the reference
+    /// level, whatever the cue is made of, and two cues at the same `volume`
+    /// are equally loud. Relative differences between cues survive — that is
+    /// what the trim is for — the level they are relative TO is now defined.
+    ///
+    /// The reference and the normalisation live in
+    /// `ambition_audio::render::PROCEDURAL_CUE_REFERENCE_RMS_DBFS`; this field
+    /// carries no level of its own without a renderer to interpret it.
     pub volume: f32,
     pub attack: f32,
     pub release: f32,

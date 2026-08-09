@@ -7,15 +7,19 @@ a confident number that is false:
 * the procedural-spec extractor still finds every provider's specs — a regex
   over Rust is the fragile part, and its failure mode is an empty list, which
   makes every downstream "no outliers" conclusion vacuously true;
-* the synthesizer port peaks at exactly the authored `volume`, which is the
-  analytic invariant the whole SFX ranking rests on.
+* the synthesizer port puts a cue's body at exactly the authored `volume` of
+  the engine's procedural reference level, whatever the cue is made of — the
+  analytic invariant the whole SFX ranking rests on, and the one the engine
+  changed `volume` from a peak to a loudness in order to have.
 
 Nothing here tests that the script prints, formats, or writes a file.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import io
+import math
 import re
 import sys
 from pathlib import Path
@@ -116,38 +120,62 @@ def _probe(waveform: str, volume: float) -> al.ProceduralSpec:
     )
 
 
-def _peak(spec: al.ProceduralSpec) -> float:
+def _rendered(spec: al.ProceduralSpec):
     import numpy as np
     import soundfile as sf
 
     frames, rate = sf.read(io.BytesIO(al.synthesize(spec)), dtype='float64', always_2d=True)
     assert rate == spec.sample_rate
     assert frames.shape[1] == 2, 'the Rust writes the same sample to both channels'
-    return float(np.abs(frames).max())
+    return np.asarray(frames[:, 0])
+
+
+def _rms_db(spec: al.ProceduralSpec) -> float:
+    import numpy as np
+
+    return float(20.0 * np.log10(np.sqrt(np.mean(_rendered(spec) ** 2))))
+
+
+def _peak(spec: al.ProceduralSpec) -> float:
+    import numpy as np
+
+    return float(np.abs(_rendered(spec)).max())
 
 
 @pytest.mark.parametrize('waveform', sorted(al.WAVEFORMS))
-def test_a_synthesized_cue_is_authored_volume_times_a_waveform_constant(waveform):
-    """`volume` is the ceiling AND the only per-cue scale factor.
+def test_a_synthesized_cue_lands_on_the_reference_level_whatever_its_waveform(waveform):
+    """`volume` is a loudness trim, and loudness is RMS.
 
-    Tone and noise are both bounded by ±1 and the envelope only attenuates, so
-    the peak can never exceed `volume`. ⚠ it does not always REACH it either:
-    a discretely sampled saw or triangle misses its apex by up to one sample
-    step. What is exact is the linearity — doubling `volume` doubles the peak —
-    and that is what "Sanic is N dB hotter than the cohort" reduces to, so it is
-    pinned rather than assumed.
+    This is the invariant every procedural row in the report is computed
+    against, so it is pinned rather than assumed. ⚠ the *whole-clip* RMS is
+    below the target by however much the envelope removes, which is why the
+    probe is measured with the envelope off — the target is a property of the
+    cue's body, not of the shape wrapped around it.
     """
-    ratios = []
+    unenveloped = dataclasses.replace(_probe(waveform, 1.0), attack=0.0, release=0.0)
+    assert _rms_db(unenveloped) == pytest.approx(al.PROCEDURAL_CUE_REFERENCE_RMS_DBFS, abs=0.05)
+
     for volume in (0.16, 0.25, 0.5):
-        peak = _peak(_probe(waveform, volume))
-        assert peak <= volume + 1e-9, f'{waveform} exceeded its authored volume'
-        assert peak > 0.9 * volume, f'{waveform} produced near-silence at volume {volume}'
-        ratios.append(peak / volume)
-    assert max(ratios) - min(ratios) < 1e-6, f'{waveform} peak is not linear in volume: {ratios}'
+        trimmed = dataclasses.replace(unenveloped, volume=volume)
+        expected = al.PROCEDURAL_CUE_REFERENCE_RMS_DBFS + 20.0 * math.log10(volume)
+        assert _rms_db(trimmed) == pytest.approx(expected, abs=0.05), waveform
+        assert _peak(trimmed) <= 1.0, f'{waveform} clipped at volume {volume}'
+
+
+def test_the_noise_mix_does_not_move_a_cue_off_its_target():
+    """Noise lowers RMS while leaving the peak at 1, so a peak-domain `volume`
+    made an airy cue quieter than a clean one at the same number. It no longer
+    does, and the report's per-owner deltas depend on that being true."""
+    levels = [
+        _rms_db(dataclasses.replace(_probe('Saw', 0.4), attack=0.0, release=0.0, noise=noise))
+        for noise in (0.0, 0.25, 0.7, 1.0)
+    ]
+    assert max(levels) - min(levels) < 0.1, levels
 
 
 def test_a_quieter_authored_volume_measures_quieter():
-    """Poison for the above: linearity alone is satisfied by a constant."""
-    loud = _peak(_probe('Square', 0.5))
-    quiet = _peak(_probe('Square', 0.16))
-    assert loud > quiet * 2.5
+    """Poison for the above: 'every cue hits the target' is also satisfied by a
+    synthesizer that ignores `volume` entirely."""
+    loud = _rms_db(_probe('Square', 0.5))
+    quiet = _rms_db(_probe('Square', 0.16))
+    assert loud - quiet == pytest.approx(20.0 * math.log10(0.5 / 0.16), abs=0.05)

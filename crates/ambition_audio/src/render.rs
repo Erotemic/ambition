@@ -27,17 +27,58 @@ pub fn audio_source_from_sfx_clip(clip: sfx::SfxClip) -> Result<KiraAudioSource,
     Ok(KiraAudioSource { sound })
 }
 
+/// Loudness of a `volume = 1.0` procedural cue: the RMS level of its sustained
+/// body, in dBFS, measured before the attack/release envelope shapes it.
+///
+/// This is the procedural path's answer to the ceiling the packed path already
+/// has — `tools/ambition_sfx_renderer` normalises every banked clip to a
+/// cue-family peak ceiling between -6 and -11 dBFS. The synthesizer had no
+/// target at all, so the two ways of producing one `sfx` sound shared a mix bus
+/// without sharing a scale, and the synthesized half measured **8.4 dB hotter**
+/// than the packed half across the whole tree.
+///
+/// The number is calibrated, not invented: it is the level at which the median
+/// of the authored procedural corpus lands on the median of the shipped bank.
+/// `python3 scripts/audio_levels.py` measures both cohorts on one axis and
+/// prints the gap, which is how to re-derive it if the corpus moves.
+pub const PROCEDURAL_CUE_REFERENCE_RMS_DBFS: f32 = -11.0;
+
 /// Deterministically synthesize one provider-authored procedural cue.
+///
+/// [`SfxSpec::volume`] is a **loudness** trim, not a peak amplitude: the cue's
+/// body is rendered at unit scale, measured, and scaled so its RMS is `volume`
+/// of [`PROCEDURAL_CUE_REFERENCE_RMS_DBFS`]. Two cues authored at the same
+/// `volume` are therefore equally loud whatever waveform and noise mix they
+/// use, which is the property the peak-domain version did not have: every
+/// waveform here swings +-1, so `volume` set the PEAK, and a square's RMS
+/// equals its peak where a sine's is 3 dB below and a triangle's 4.8 dB below.
+/// Identical numbers differed by up to 4.8 dB of perceived level purely by
+/// waveform choice, and providers that reach for square and saw — Sanic uses
+/// nothing else — collected that difference on every cue.
+///
+/// The body is measured **before** the envelope, so `attack`/`release`/
+/// `duration` stay pure shape controls. Normalising the enveloped clip would
+/// make them level controls instead: a cue with a long release would be boosted
+/// until its whole-clip average matched, leaving its body louder than a short
+/// cue authored at the same `volume`. What the target fixes is the level of the
+/// part you hear as the sound; what the envelope does to it afterwards is the
+/// sound design.
+///
+/// The noise mix IS in the measurement, because noise changes RMS: mixing
+/// uncorrelated noise into a tone lowers RMS while leaving the peak at 1.0, so
+/// under the old rule a noisy cue came out quieter than a clean one at the same
+/// `volume`. Under this one it does not.
 pub fn audio_source_from_sfx_spec(spec: &SfxSpec, sample_rate: u32) -> KiraAudioSource {
     let sample_rate = sample_rate.max(8_000);
-    let frame_count = (spec.duration.max(0.01) * sample_rate as f32).ceil() as usize;
-    let attack = spec.attack.max(0.0);
-    let release = spec.release.max(0.0);
     let duration = spec.duration.max(0.01);
+    let frame_count = ((duration * sample_rate as f32).ceil() as usize).max(2);
+    let noise_mix = spec.noise.clamp(0.0, 1.0);
+
+    // Pass 1: the cue's body — waveform and noise, at unit scale, unenveloped.
     let mut phase = 0.0_f32;
     let mut noise_state = 0x6d2b_79f5_u32;
-    let mut frames = Vec::with_capacity(frame_count.max(2));
-    for index in 0..frame_count.max(2) {
+    let mut body = Vec::with_capacity(frame_count);
+    for index in 0..frame_count {
         let t = index as f32 / sample_rate as f32;
         let progress = (t / duration).clamp(0.0, 1.0);
         let frequency = spec.frequency + (spec.frequency_end - spec.frequency) * progress;
@@ -60,22 +101,28 @@ pub fn audio_source_from_sfx_spec(spec: &SfxSpec, sample_rate: u32) -> KiraAudio
             .wrapping_mul(1_664_525)
             .wrapping_add(1_013_904_223);
         let noise = ((noise_state >> 8) as f32 / 0x00ff_ffff as f32) * 2.0 - 1.0;
+        body.push((1.0 - noise_mix) * tone + noise_mix * noise);
+    }
+
+    // Pass 2: one gain that puts that body on the target, then the envelope.
+    let gain = procedural_body_gain(&body, spec.volume.clamp(0.0, 1.0));
+    let attack = spec.attack.max(0.0);
+    let release = spec.release.max(0.0);
+    let release_start = (duration - release).max(0.0);
+    let mut frames = Vec::with_capacity(frame_count);
+    for (index, body) in body.iter().enumerate() {
+        let t = index as f32 / sample_rate as f32;
         let attack_gain = if attack > 0.0 {
             (t / attack).clamp(0.0, 1.0)
         } else {
             1.0
         };
-        let release_start = (duration - release).max(0.0);
         let release_gain = if release > 0.0 && t > release_start {
             ((duration - t) / release).clamp(0.0, 1.0)
         } else {
             1.0
         };
-        let noise_mix = spec.noise.clamp(0.0, 1.0);
-        let sample = ((1.0 - noise_mix) * tone + noise_mix * noise)
-            * spec.volume.clamp(0.0, 1.0)
-            * attack_gain
-            * release_gain;
+        let sample = body * gain * attack_gain * release_gain;
         frames.push(Frame::new(sample, sample));
     }
     KiraAudioSource {
@@ -86,6 +133,35 @@ pub fn audio_source_from_sfx_spec(spec: &SfxSpec, sample_rate: u32) -> KiraAudio
             slice: None,
         },
     }
+}
+
+/// The single scalar that puts one rendered body on the loudness target.
+///
+/// Dividing by the body's own RMS is what makes `volume` mean loudness: it
+/// cancels whatever crest factor the waveform and noise mix happen to produce.
+/// It is measured off the actual samples rather than looked up per waveform so
+/// that a new [`WaveformSpec`], a partial cycle at a very low frequency, or a
+/// pitch sweep cannot quietly fall outside a table nobody remembered to extend.
+///
+/// The `min` is a peak ceiling. An RMS target can in principle ask a very peaky
+/// body for more than full scale, and a clipped cue is a worse failure than a
+/// quiet one — the peak-domain version could not clip at all, and this keeps
+/// that guarantee. It engages on nothing shipped and has room to spare: the
+/// loudest authored cue peaks at -11.4 dBFS, and even a `volume = 1.0` cue on
+/// the peakiest body the synthesizer can produce stops around -3 dBFS.
+fn procedural_body_gain(body: &[f32], volume: f32) -> f32 {
+    if body.is_empty() {
+        return 0.0;
+    }
+    let mean_square =
+        body.iter().map(|s| (*s as f64) * (*s as f64)).sum::<f64>() / body.len() as f64;
+    let rms = mean_square.sqrt() as f32;
+    let peak = body.iter().fold(0.0_f32, |max, s| max.max(s.abs()));
+    if rms <= 0.0 || peak <= 0.0 {
+        return 0.0;
+    }
+    let target_rms = volume * 10.0_f32.powf(PROCEDURAL_CUE_REFERENCE_RMS_DBFS / 20.0);
+    (target_rms / rms).min(1.0 / peak)
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -390,6 +466,151 @@ mod tests {
                 noise: 0.0,
             }],
         }
+    }
+
+    fn cue(waveform: WaveformSpec, volume: f32, noise: f32) -> SfxSpec {
+        SfxSpec {
+            cue: None,
+            id: Some("probe".to_owned()),
+            waveform,
+            frequency: 600.0,
+            frequency_end: 900.0,
+            duration: 0.2,
+            volume,
+            attack: 0.005,
+            release: 0.05,
+            noise,
+        }
+    }
+
+    fn rendered_rms_db(spec: &SfxSpec) -> f32 {
+        let source = audio_source_from_sfx_spec(spec, 44_100);
+        let frames = &source.sound.frames;
+        let mean_square = frames
+            .iter()
+            .map(|frame| (frame.left as f64) * (frame.left as f64))
+            .sum::<f64>()
+            / frames.len() as f64;
+        20.0 * (mean_square.sqrt() as f32).log10()
+    }
+
+    fn rendered_peak(spec: &SfxSpec) -> f32 {
+        audio_source_from_sfx_spec(spec, 44_100)
+            .sound
+            .frames
+            .iter()
+            .fold(0.0_f32, |max, frame| max.max(frame.left.abs()))
+    }
+
+    /// The bug D38 names, stated as the sound a player hears.
+    ///
+    /// Sanic authors square and saw; the engine's own cues are sine and
+    /// triangle. Before this, identical `volume` numbers came out up to 4.8 dB
+    /// apart because `volume` was a peak and the four waveforms have four crest
+    /// factors. A provider cannot be expected to carry that table in its head.
+    #[test]
+    fn equal_volume_is_equal_loudness_whatever_the_cue_is_made_of() {
+        let reference = rendered_rms_db(&cue(WaveformSpec::Sine, 0.5, 0.0));
+        for waveform in [
+            WaveformSpec::Sine,
+            WaveformSpec::Square,
+            WaveformSpec::Triangle,
+            WaveformSpec::Saw,
+        ] {
+            for noise in [0.0, 0.35, 0.8] {
+                let measured = rendered_rms_db(&cue(waveform, 0.5, noise));
+                assert!(
+                    (measured - reference).abs() < 0.25,
+                    "{waveform:?} at noise {noise} measured {measured:.2} dBFS \
+                     against the sine's {reference:.2}"
+                );
+            }
+        }
+    }
+
+    /// Poison for the above: equality alone is satisfied by ignoring `volume`.
+    /// It stays a relative trim, and a halved trim is 6 dB quieter.
+    #[test]
+    fn volume_remains_a_relative_trim_in_the_loudness_domain() {
+        let loud = rendered_rms_db(&cue(WaveformSpec::Square, 0.5, 0.0));
+        let quiet = rendered_rms_db(&cue(WaveformSpec::Square, 0.25, 0.0));
+        assert!(
+            (loud - quiet - 6.02).abs() < 0.05,
+            "halving volume moved the level by {:.2} dB, not 6",
+            loud - quiet
+        );
+        // The absolute anchor, not just the ratio: an unenveloped cue at
+        // volume 1.0 IS the reference level. `scripts/audio_levels.py` carries
+        // a port of this synthesizer and the same constant by value, so this is
+        // also the number the two have to agree on for the loudness report to
+        // describe what the game plays.
+        let mut full = cue(WaveformSpec::Saw, 1.0, 0.4);
+        full.attack = 0.0;
+        full.release = 0.0;
+        let measured = rendered_rms_db(&full);
+        assert!(
+            (measured - PROCEDURAL_CUE_REFERENCE_RMS_DBFS).abs() < 0.05,
+            "volume 1.0 measured {measured:.3} dBFS, not the \
+             {PROCEDURAL_CUE_REFERENCE_RMS_DBFS} dBFS reference"
+        );
+    }
+
+    /// The peak-domain rule made clipping impossible for free (`peak == volume`,
+    /// and `volume` is clamped to 1). An RMS target does not, so the ceiling
+    /// that replaces the guarantee is asserted rather than assumed — including
+    /// on the peakiest body the synthesizer can produce.
+    #[test]
+    fn no_authored_volume_can_drive_a_cue_past_full_scale() {
+        for waveform in [
+            WaveformSpec::Sine,
+            WaveformSpec::Square,
+            WaveformSpec::Triangle,
+            WaveformSpec::Saw,
+        ] {
+            for noise in [0.0, 0.5, 1.0] {
+                let mut spec = cue(waveform, 1.0, noise);
+                // A single partial cycle: the peakiest, lowest-RMS body a spec
+                // can ask for, which is where an RMS target strains hardest.
+                spec.frequency = 1.0;
+                spec.frequency_end = 1.0;
+                spec.duration = 0.01;
+                let peak = rendered_peak(&spec);
+                assert!(peak <= 1.0, "{waveform:?}/{noise} clipped at {peak}");
+            }
+        }
+        assert!(rendered_peak(&cue(WaveformSpec::Square, 1.0, 0.0)) <= 1.0);
+    }
+
+    /// `volume` is orthogonal to the envelope: normalising the enveloped clip
+    /// would make `release` a loudness control, so a longer tail must leave the
+    /// body's level alone and only take energy out of the whole-clip average.
+    #[test]
+    fn a_longer_release_shapes_the_cue_without_relevelling_its_body() {
+        let short = cue(WaveformSpec::Triangle, 0.4, 0.0);
+        let mut long = short.clone();
+        long.release = 0.18;
+
+        let body_level = |spec: &SfxSpec| {
+            // The first 20 ms: past the 5 ms attack, before either release.
+            let source = audio_source_from_sfx_spec(spec, 44_100);
+            let window = &source.sound.frames[441..882];
+            let mean_square = window
+                .iter()
+                .map(|frame| (frame.left as f64) * (frame.left as f64))
+                .sum::<f64>()
+                / window.len() as f64;
+            20.0 * (mean_square.sqrt() as f32).log10()
+        };
+        assert!(
+            (body_level(&short) - body_level(&long)).abs() < 0.05,
+            "the release changed the body's level: {:.2} vs {:.2} dBFS",
+            body_level(&short),
+            body_level(&long)
+        );
+        assert!(
+            rendered_rms_db(&long) < rendered_rms_db(&short) - 1.0,
+            "a longer release must still take energy out of the whole clip"
+        );
     }
 
     #[test]

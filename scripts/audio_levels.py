@@ -34,10 +34,11 @@ reports *nothing at all* about the SFX complaint.
 ⚠ (3) means this script carries a Python port of the Rust synthesizer. It is the
 only way to put a procedural cue on the same axis as a rendered one without a
 cargo build, and it is the part most likely to go stale — `scripts/tests/
-test_audio_levels.py` pins the port's analytic invariant (peak == authored
-volume) and pins that the extractor still resolves every field of every provider
-spec, so a refactor of `sanic_open()` fails loudly instead of silently dropping
-Sanic from the report.
+test_audio_levels.py` pins the port's analytic invariant (an unenveloped cue's
+RMS == authored `volume` x the engine's procedural reference level, whatever the
+waveform and noise mix) and pins that the extractor still resolves every field
+of every provider spec, so a refactor of `sanic_open()` fails loudly instead of
+silently dropping Sanic from the report.
 
 ## Why ebur128, and the one place it is structurally blind
 
@@ -110,7 +111,14 @@ from rich.markup import escape as rich_escape
 # Bump when the ffmpeg filter chain or a derived metric changes; it is part of
 # the cache key, so an old cache cannot silently serve numbers for a new
 # definition.
-METRICS_VERSION = 3
+#
+# ⛔ **`synthesize()` is part of the definition too.** Procedural rows are keyed
+# by the SPEC, not by the rendered bytes (see `spec_cache_key`), so a change to
+# the synthesizer or to `PROCEDURAL_CUE_REFERENCE_RMS_DBFS` is invisible to the
+# cache: the run reports `0 fresh, N cached` and serves the OLD sound's numbers
+# for the new one, cheerfully and without a warning. That happened once already,
+# on the run that was meant to verify this file's own change.
+METRICS_VERSION = 4
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -766,13 +774,21 @@ def discover_procedural_specs() -> list[ProceduralSpec]:
 
 WAVEFORMS = {'Sine', 'Square', 'Triangle', 'Saw'}
 
+#: `ambition_audio::render::PROCEDURAL_CUE_REFERENCE_RMS_DBFS` — the loudness of
+#: a `volume = 1.0` cue, as RMS dBFS over its body. ⚠ this is the one number
+#: this port shares with the Rust by VALUE rather than by construction; if the
+#: engine moves its target and this does not, every procedural row in the report
+#: is off by the difference and nothing else notices.
+PROCEDURAL_CUE_REFERENCE_RMS_DBFS = -11.0
+
 
 def synthesize(spec: ProceduralSpec) -> bytes:
     """Port of `ambition_audio::render::audio_source_from_sfx_spec`.
 
     ⚠ a port, not a binding: it can drift from the Rust. Its analytic invariant
-    (sample peak == clamped `volume`) is pinned by the tests, which is the part
-    the report's conclusions actually rest on.
+    (body RMS == clamped `volume` x the reference level, whatever the waveform
+    and noise mix) is pinned by the tests, which is the part the report's
+    conclusions actually rest on.
     """
     import soundfile as sf
 
@@ -808,6 +824,20 @@ def synthesize(spec: ProceduralSpec) -> bytes:
     else:
         noise = np.zeros(frame_count)
 
+    # The cue's BODY, at unit scale and unenveloped, then one gain that puts it
+    # on the loudness target. `volume` is a fraction of that target in the RMS
+    # domain, so the body's own crest factor — which is what the waveform and
+    # the noise mix decide — divides out.
+    body = (1.0 - mix) * tone + mix * noise
+    volume = float(np.clip(spec.volume, 0.0, 1.0))
+    body_rms = float(np.sqrt(np.mean(body**2)))
+    body_peak = float(np.max(np.abs(body)))
+    if body_rms <= 0.0 or body_peak <= 0.0:
+        gain = 0.0
+    else:
+        target_rms = volume * 10.0 ** (PROCEDURAL_CUE_REFERENCE_RMS_DBFS / 20.0)
+        gain = min(target_rms / body_rms, 1.0 / body_peak)
+
     attack = max(spec.attack, 0.0)
     release = max(spec.release, 0.0)
     attack_gain = np.clip(t / attack, 0.0, 1.0) if attack > 0.0 else np.ones_like(t)
@@ -817,8 +847,7 @@ def synthesize(spec: ProceduralSpec) -> bytes:
     else:
         release_gain = np.ones_like(t)
 
-    volume = float(np.clip(spec.volume, 0.0, 1.0))
-    sample = ((1.0 - mix) * tone + mix * noise) * volume * attack_gain * release_gain
+    sample = body * gain * attack_gain * release_gain
 
     frames = np.stack([sample, sample], axis=1).astype(np.float32)
     buffer = io.BytesIO()

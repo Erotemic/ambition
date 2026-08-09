@@ -23,6 +23,19 @@ use super::{
 };
 
 /// Managed same-build schema version for Ambition's GGRS registration contract.
+/// ⚠ **v20 (2026-08-09): a crate name stops being part of the wire format.**
+/// [`RollbackRegistry::schema_dump`] wrote `std::any::type_name` whole, so moving
+/// a registered type between crates — or between modules of one crate — moved
+/// `SnapshotSchemaFingerprint` while nothing a peer can observe had changed. That
+/// made every carve in the decomposition campaign a netplay compatibility break.
+/// The dump now writes [`wire_type_identity`], the type's final segment alone,
+/// which is the only part of the name a carve leaves alone. This is v5's decision
+/// applied one level out: an organisational label is not a wire-format fact, and
+/// unlike the owner nobody chose to hash this one. Note the descriptor list is
+/// otherwise unchanged and every stable name is identical — but a v19 peer
+/// computes a different number over the same schema, and they must not believe
+/// they agree. [`RollbackRegistry::try_register`] now REJECTS two different types
+/// that reduce to one identity, which is what keeps the narrower form sound.
 /// ⚠ **v19 (2026-08-08): a conversation's identity includes what YARN is entered
 /// with.** `ConversationInstanceId` named the tick, the node and the two bodies'
 /// `SimId`s; the `DialogueContext` — `$speaker_id`, `$listener_id`,
@@ -109,7 +122,7 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 19;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 20;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {
@@ -213,6 +226,22 @@ pub enum RollbackRegistrationError {
         existing: RollbackRegistrationDescriptor,
         incoming: RollbackRegistrationDescriptor,
     },
+    /// Two DIFFERENT Rust types reduce to the same [`wire_type_identity`].
+    ///
+    /// This is what keeps v20's narrower identity sound. The fingerprint hashes
+    /// the type's final segment so that relocating a type is not a wire-format
+    /// change — and that is only truthful while final segments are unique. Two
+    /// crates each registering a `Cooldown` would hash equal, and a peer that
+    /// had them the other way round would be declared compatible.
+    ///
+    /// ⚠ registering ONE type under several stable names is not this. The whole
+    /// point of a stable name is that it identifies the registration; 39 of the
+    /// live rows do exactly that, and they carry identical type names.
+    TypeIdentityCollision {
+        identity: String,
+        existing: RollbackRegistrationDescriptor,
+        incoming: RollbackRegistrationDescriptor,
+    },
 }
 
 impl fmt::Display for RollbackRegistrationError {
@@ -227,6 +256,18 @@ impl fmt::Display for RollbackRegistrationError {
             } => write!(
                 f,
                 "conflicting rollback registration '{name}': existing {existing:?}, incoming {incoming:?}"
+            ),
+            Self::TypeIdentityCollision {
+                identity,
+                existing,
+                incoming,
+            } => write!(
+                f,
+                "two different types share the rollback wire identity '{identity}', which the \
+                 schema fingerprint cannot tell apart: existing {existing:?}, incoming {incoming:?}. \
+                 Since v20 the fingerprint hashes a type's FINAL SEGMENT so that moving a type \
+                 between crates or modules is not a wire-format change, and that stays sound only \
+                 while final segments are unique. Rename one of the two types."
             ),
         }
     }
@@ -259,6 +300,48 @@ fn record_probe(app: &mut App, probe: crate::rollback::ChecksumProbe) {
         .register(probe);
 }
 
+/// **The part of a type's name that a CARVE leaves alone.**
+///
+/// `std::any::type_name` spells the crate and the module path, and until v20 the
+/// whole string went into [`RollbackRegistry::schema_dump`] and therefore into
+/// the fingerprint. Moving a type then declared two peers running byte-identical
+/// snapshot logic incompatible — the same category of mistake v5 removed when it
+/// stopped hashing `owner`, except that nobody chose this one: it arrived inside
+/// a string that was being used for identity.
+///
+/// ⭐ **the final segment, and not the module path below the crate**, which is
+/// what the answer was until the diff it cited was read. D33 step 2
+/// (`24b43f93a`) moved two registered components, and the crate changed AND the
+/// path below it changed — `features::ecs::actor_clusters` → `character::anim`,
+/// `avatar::components` → `camera_ease` — because a carve puts a type where it
+/// belongs rather than merely somewhere else. Only the final segment survived
+/// either move.
+///
+/// Every path INSIDE the name is shortened, not only the outermost one, so a
+/// generic keeps its constructor: `Vec<foo::Bar>` is `Vec<Bar>` and not `Bar>`.
+/// No registration is generic today; taking a single `rsplit` would quietly give
+/// `Vec<X>` and `VecDeque<X>` one identity, and this is a hash whose entire job
+/// is telling wire formats apart.
+fn wire_type_identity(type_name: &str) -> String {
+    let mut out = String::with_capacity(type_name.len());
+    let mut path = String::new();
+    for ch in type_name.chars() {
+        if ch.is_alphanumeric() || ch == '_' || ch == ':' {
+            path.push(ch);
+        } else {
+            out.push_str(final_segment(&path));
+            path.clear();
+            out.push(ch);
+        }
+    }
+    out.push_str(final_segment(&path));
+    out
+}
+
+fn final_segment(path: &str) -> &str {
+    path.rsplit("::").next().unwrap_or(path)
+}
+
 impl RollbackRegistry {
     pub fn try_register(
         &mut self,
@@ -271,19 +354,43 @@ impl RollbackRegistry {
             return Err(RollbackRegistrationError::EmptyOwner);
         }
         match self.entries.get(&descriptor.name) {
-            None => {
-                self.entries.insert(descriptor.name.clone(), descriptor);
-                Ok(RollbackRegistrationOutcome::Inserted)
-            }
             Some(existing) if existing == &descriptor => {
-                Ok(RollbackRegistrationOutcome::Idempotent)
+                return Ok(RollbackRegistrationOutcome::Idempotent);
             }
-            Some(existing) => Err(RollbackRegistrationError::Conflict {
-                name: descriptor.name.clone(),
-                existing: existing.clone(),
-                incoming: descriptor,
-            }),
+            Some(existing) => {
+                return Err(RollbackRegistrationError::Conflict {
+                    name: descriptor.name.clone(),
+                    existing: existing.clone(),
+                    incoming: descriptor,
+                });
+            }
+            None => {}
         }
+        // **What keeps v20's narrower identity sound.** The fingerprint hashes
+        // [`wire_type_identity`] so that relocating a type is not a wire-format
+        // change; two crates each registering a `Cooldown` would then hash equal,
+        // and a peer that had the two the other way round would be declared
+        // compatible with this one. The duplicate-NAME refusal above does not
+        // reach it — these arrive under different stable names, which is exactly
+        // the case that looks legitimate.
+        let identity = wire_type_identity(&descriptor.type_name);
+        let collision = self
+            .entries
+            .values()
+            .find(|existing| {
+                existing.type_name != descriptor.type_name
+                    && wire_type_identity(&existing.type_name) == identity
+            })
+            .cloned();
+        if let Some(existing) = collision {
+            return Err(RollbackRegistrationError::TypeIdentityCollision {
+                identity,
+                existing,
+                incoming: descriptor,
+            });
+        }
+        self.entries.insert(descriptor.name.clone(), descriptor);
+        Ok(RollbackRegistrationOutcome::Inserted)
     }
 
     pub fn descriptors(&self) -> impl Iterator<Item = &RollbackRegistrationDescriptor> {
@@ -309,19 +416,23 @@ impl RollbackRegistry {
         out
     }
 
-    /// **What the schema actually IS**, with the organisational label removed.
+    /// **What the schema actually IS**, with every organisational label removed.
     ///
-    /// [`Self::deterministic_dump`] carries `owner` because a human reading a
-    /// conflict wants to know which module registered a thing. Nothing else
-    /// reads it — and until 2026-07-31 it was hashed into the fingerprint, which
-    /// made a purely organisational fact part of the WIRE FORMAT. Two peers
-    /// running identical snapshot logic would have been declared incompatible
-    /// because one of them had moved a registration to a different module.
+    /// [`Self::deterministic_dump`] carries `owner` and the type's full path
+    /// because a human reading a conflict wants to know which module registered
+    /// a thing and where the type lives. Nothing else reads either — and both
+    /// were once hashed into the fingerprint, which made purely organisational
+    /// facts part of the WIRE FORMAT. Two peers running identical snapshot logic
+    /// would have been declared incompatible because one of them had moved a
+    /// registration to a different module, or moved the TYPE to a different one.
     ///
     /// That is not hypothetical: Campaign 2 exists to move every registration
     /// out of the central runtime into domain adapters, and R3 asks each move to
     /// "verify the resulting schema fingerprint is unchanged" — which was
-    /// impossible while the fingerprint hashed who did the registering.
+    /// impossible while the fingerprint hashed who did the registering. The
+    /// decomposition campaign then hit the same wall one level out, because a
+    /// carve moves the TYPE and not only its registration. `owner` left in v5;
+    /// [`wire_type_identity`] is the second half of that decision, in v20.
     pub fn schema_dump(&self) -> String {
         let mut out = format!("ggrs-rollback-schema-v{GGRS_ROLLBACK_SCHEMA_VERSION}\n");
         for entry in self.entries.values() {
@@ -331,7 +442,7 @@ impl RollbackRegistry {
                 "{}\t{}\t{}\t{}",
                 entry.name,
                 entry.kind.canonical_name(),
-                entry.type_name,
+                wire_type_identity(&entry.type_name),
                 entry.detail
             );
         }
@@ -1579,6 +1690,130 @@ mod tests {
 
         let registry = app.world().resource::<RollbackRegistry>();
         assert_eq!(registry.descriptors().count(), 1);
+    }
+
+    fn typed_entry(name: &str, type_name: &str) -> RollbackRegistrationDescriptor {
+        RollbackRegistrationDescriptor {
+            name: name.to_owned(),
+            owner: "test-owner".to_owned(),
+            kind: RollbackEntryKind::Derived,
+            type_name: type_name.to_owned(),
+            detail: "test-only descriptor".to_owned(),
+        }
+    }
+
+    fn registry_of(rows: &[(&str, &str)]) -> RollbackRegistry {
+        let mut registry = RollbackRegistry::default();
+        for (name, type_name) in rows {
+            registry.try_register(typed_entry(name, type_name)).unwrap();
+        }
+        registry
+    }
+
+    /// **Where a type LIVES is not part of the wire format** (v20).
+    ///
+    /// The two rows are the ones D33 step 2 actually moved (`24b43f93a`), and
+    /// they are here rather than an invented pair because they refute the
+    /// narrower answer: the crate changed AND the module path below it changed,
+    /// because a carve puts a type where it belongs rather than merely
+    /// somewhere else. Only the final segment survived either move.
+    #[test]
+    fn relocating_a_type_leaves_the_fingerprint_alone() {
+        let before = registry_of(&[
+            (
+                "actor.anim_override",
+                "ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorAnimOverride",
+            ),
+            (
+                "player.blink_camera_state",
+                "ambition_platformer2d_actor_monolith::avatar::components::PlayerBlinkCameraState",
+            ),
+        ]);
+        let after = registry_of(&[
+            (
+                "actor.anim_override",
+                "ambition_sprite_sheet::character::anim::ActorAnimOverride",
+            ),
+            (
+                "player.blink_camera_state",
+                "ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState",
+            ),
+        ]);
+        assert_eq!(
+            before.schema_fingerprint(),
+            after.schema_fingerprint(),
+            "moving a rollback-registered type to another crate and another \
+             module moved the schema fingerprint. Nothing a peer can observe \
+             changed, so two peers running byte-identical snapshot logic would \
+             refuse to agree — which makes every carve in the decomposition \
+             campaign a netplay compatibility break."
+        );
+
+        // POISON. Without it this test is equally green for a fingerprint that
+        // hashes nothing about the type at all, and dropping `type_name` from
+        // the dump entirely was a real alternative — it costs the last signal
+        // that a DIFFERENT Rust type got registered under an existing name.
+        let renamed = registry_of(&[
+            (
+                "actor.anim_override",
+                "ambition_sprite_sheet::character::anim::ActorAnimOverride",
+            ),
+            (
+                "player.blink_camera_state",
+                "ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkEaseState",
+            ),
+        ]);
+        assert_ne!(
+            after.schema_fingerprint(),
+            renamed.schema_fingerprint(),
+            "a stable name that changed which TYPE it registers left the \
+             fingerprint alone, so the dump is no longer hashing the type in \
+             any form."
+        );
+    }
+
+    /// **What makes the narrower identity sound.**
+    ///
+    /// Two `Cooldown`s in two crates hash equal once the final segment is the
+    /// identity, so a peer holding them the other way round would be declared
+    /// compatible. The second half asserts the guard is not merely strict: one
+    /// type registered under two stable names is the ordinary case, and 39 of
+    /// the live rows are it.
+    #[test]
+    fn two_types_sharing_a_final_segment_are_rejected_and_one_type_twice_is_not() {
+        let mut registry = RollbackRegistry::default();
+        registry
+            .try_register(typed_entry(
+                "ability.cooldown",
+                "ambition_combat::ability::Cooldown",
+            ))
+            .unwrap();
+
+        let error = registry
+            .try_register(typed_entry(
+                "weapon.cooldown",
+                "ambition_projectiles::weapon::Cooldown",
+            ))
+            .unwrap_err();
+        assert!(
+            matches!(
+                error,
+                RollbackRegistrationError::TypeIdentityCollision { .. }
+            ),
+            "two different types whose names end in `Cooldown` were accepted, \
+             and the fingerprint cannot tell them apart: {error}"
+        );
+
+        registry
+            .try_register(typed_entry(
+                "ability.cooldown_mirror",
+                "ambition_combat::ability::Cooldown",
+            ))
+            .expect(
+                "registering ONE type under a second stable name is not a \
+                 collision — the stable name is what identifies a registration, \
+                 and refusing this would reject 39 of the live rows",
+            );
     }
 
     #[test]

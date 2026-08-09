@@ -1,424 +1,424 @@
-ggrs-rollback-schema-v19
-actor.action_set	component-clone	ambition_characters::brain::action_set::ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.active_combatant	component-canonical	ambition_combat::components::actors::ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.aggression	component-clone-cursor	ambition_combat::components::actors::ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-actor.anim_override	component-clone	ambition_sprite_sheet::character::anim::ActorAnimOverride	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.animation_facts	component-clone	ambition_characters::actor::body::BodyAnimFacts	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.attack_gesture_state	component-canonical	ambition_characters::actor::attack_gesture::AttackGestureState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.attack_gesture_tuning	component-canonical	ambition_characters::actor::attack_gesture::AttackGestureTuning	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.authored_brain_context	component-canonical	ambition_characters::actor::character_catalog::binding::AuthoredBrainContext	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.authored_hurtboxes	component-clone	ambition_platformer2d_actor_monolith::character_runtime::hurtbox::AuthoredHurtboxes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.body_combat	component-canonical	ambition_characters::actor::body::BodyCombat	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.body_envelope	component-canonical	ambition_combat::components::actors::BodyEnvelope	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.body_melee	component-canonical	ambition_combat::components::actors::BodyMelee	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.body_mode	component-canonical	ambition_platformer2d_core::body_clusters::BodyModeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.body_pose_clock	component-clone	ambition_platformer2d_actor_monolith::character_runtime::hurtbox::BodyPoseClock	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.brain	component-clone-cursor	ambition_characters::brain::Brain	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-actor.brain_binding	component-canonical	ambition_characters::actor::character_catalog::binding::BrainBinding	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.centered_aabb	component-canonical	ambition_geometry::geometry::CenteredAabb	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.charges_projectiles	component-clone	ambition_characters::brain::ChargesProjectiles	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.combo_trace	component-canonical	ambition_platformer2d_core::body_clusters::BodyComboTrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.config	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorConfig	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.control	component-canonical	ambition_characters::brain::ActorControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.cooldowns	component-canonical	ambition_combat::components::actors::ActorCooldowns	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.disposition	component-canonical	ambition_combat::components::actors::ActorDisposition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.dormancy_policy	component-clone	ambition_platformer2d_actor_monolith::features::ecs::dormancy::DormancyPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.dormant	component-clone	ambition_platformer2d_actor_monolith::features::ecs::dormancy::Dormant	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.faction	component-clone	ambition_characters::actor::pose::ActorFaction	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.held_item	component-clone	ambition_combat::held_items::HeldItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.identity	component-clone	ambition_combat::components::actors::ActorIdentity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.identity_kit	component-clone	ambition_characters::brain::action_set::IdentityKit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.intent	component-canonical	ambition_combat::components::actors::ActorIntent	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.interaction	component-clone	ambition_combat::components::actors::ActorInteraction	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.ledge	component-canonical	ambition_platformer2d_core::body_clusters::BodyLedgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.match_seat	component-canonical	ambition_platformer2d_actor_monolith::character_runtime::seating::MatchSeat	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.match_team	component-canonical	ambition_combat::targeting::MatchTeam	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.motion_model	component-canonical	ambition_platformer2d_core::movement::model::MotionModel	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.motion_path	component-clone-cursor	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorMotionPath	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-actor.move_playback	component-clone-resolved	ambition_combat::moveset::MovePlayback	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
-actor.moveset	component-clone	ambition_combat::moveset::ActorMoveset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.moveset_melee	component-clone	ambition_combat::moveset::MovesetMelee	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.moveset_ranged	component-clone	ambition_characters::brain::MovesetRanged	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.pending_challenge	component-clone	ambition_platformer2d_actor_monolith::features::ecs::aggression::PendingChallenge	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-actor.perception	component-canonical	ambition_platformer2d_actor_monolith::features::ecs::perception::Perception	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.perception_memory	component-canonical	ambition_platformer2d_actor_monolith::features::ecs::perception::PerceptionMemory	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.persona_baseline	component-clone	ambition_platformer2d_actor_monolith::avatar::starting_character::PersonaBaseline	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.player_slot	component-clone	ambition_characters::brain::PlayerSlot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.pose	component-canonical	ambition_characters::actor::pose::ActorPose	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.projected_character_kit	component-clone	ambition_platformer2d_actor_monolith::character_runtime::presentation::ProjectedCharacterKit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.proper_time_scale	component-canonical	ambition_time::ProperTimeScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.render_size	component-clone	ambition_combat::components::actors::ActorRenderSize	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.roll	component-canonical	ambition_platformer2d_shared_tangle::orientation::ActorRoll	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.ruleset_owns_death	component-canonical	ambition_combat::components::actors::RulesetOwnsDeath	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.scripted_control	component-clone	ambition_characters::brain::ScriptedControl	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.sprite_offset	component-clone	ambition_combat::components::actors::ActorSpriteOffset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.sprite_posed_body	component-clone	ambition_sprite_sheet::character::sheets::SpritePosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.stashed_action_set	component-clone	ambition_platformer2d_actor_monolith::items::pickup::StashedActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.status	component-canonical	ambition_platformer2d_actor_monolith::features::ecs::actor_clusters::ActorStatus	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.surface_state	component-canonical	ambition_platformer2d_actor_monolith::features::enemies::ActorSurfaceState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.target	component-clone-cursor	ambition_combat::components::actors::ActorTarget	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-actor.temporary_control	component-canonical	ambition_platformer2d_actor_monolith::features::temporary_control::TemporaryControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.transform_beat	component-clone	ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeat	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-actor.transform_beat_requested	component-clone	ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeatRequested	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-actor.worn_character	component-canonical	ambition_characters::actor::worn::WornCharacter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-actor.worn_equipment	component-clone	ambition_characters::equipment::WornEquipment	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-body.abilities	component-canonical	ambition_platformer2d_core::body_clusters::BodyAbilities	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.ability_base	component-clone	ambition_platformer2d_core::body_clusters::AbilityBase	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-body.action_buffer	component-canonical	ambition_platformer2d_core::body_clusters::BodyActionBuffer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.base_size	component-canonical	ambition_platformer2d_core::body_clusters::BodyBaseSize	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.blink	component-canonical	ambition_platformer2d_core::body_clusters::BodyBlinkState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.dash	component-canonical	ambition_platformer2d_core::body_clusters::BodyDashState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.dodge	component-canonical	ambition_platformer2d_core::body_clusters::BodyDodgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.flight	component-canonical	ambition_platformer2d_core::body_clusters::BodyFlightState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.ground	component-canonical	ambition_platformer2d_core::body_clusters::BodyGroundState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.health	component-canonical	ambition_characters::actor::body::BodyHealth	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.jump	component-canonical	ambition_platformer2d_core::body_clusters::BodyJumpState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.kinematics	component-canonical	ambition_platformer2d_core::body_clusters::BodyKinematics	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.lifetime	component-canonical	ambition_platformer2d_core::body_clusters::BodyLifetime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.mana	component-canonical	ambition_platformer2d_core::body_clusters::BodyMana	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.offense	component-canonical	ambition_platformer2d_core::body_clusters::BodyOffense	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.shield	component-canonical	ambition_platformer2d_core::body_clusters::BodyShieldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.sim_id_counter	component-canonical	ambition_platformer2d_shared_tangle::sim_id::SimIdCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.sweep_sample	component-canonical	ambition_platformer2d_core::body_clusters::SweepSample	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.wall	component-canonical	ambition_platformer2d_core::body_clusters::BodyWallState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-body.wallet	component-canonical	ambition_characters::actor::body::BodyWallet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-boss.attack_intent	component-canonical	ambition_characters::brain::boss_pattern::BossAttackIntent	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-boss.attack_state	component-canonical	ambition_characters::brain::boss_pattern::BossAttackState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-boss.capability	component-clone	ambition_characters::brain::boss_pattern::BossCapability	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-boss.config	component-clone	ambition_platformer2d_actor_monolith::features::ecs::boss_clusters::BossConfig	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-boss.death_animation	component-clone	ambition_combat::components::actors::BossDeathAnimation	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-boss.encounter	component-clone-cursor	ambition_platformer2d_actor_monolith::features::ecs::boss_clusters::BossEncounter	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-boss.overrides	component-clone	ambition_platformer2d_actor_monolith::features::ecs::spawn_actors::BossOverrides	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-boss.pattern_timer	component-canonical	ambition_combat::components::actors::BossPatternTimer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-boss.phase	component-canonical	ambition_combat::components::actors::BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-combat.capabilities	component-clone	ambition_combat::components::CombatCapabilities	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-combat.hitbox	component-clone	ambition_vfx::Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
-combat.hitbox_hits	component-clone	ambition_vfx::HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-combat.hitbox_lifetime	component-clone	ambition_vfx::HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-combat.hitbox_on_hit	component-clone	ambition_combat::on_hit::HitboxOnHit	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-combat.kit	component-clone	ambition_combat::components::actors::CombatKit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-combat.strike_volume	component-clone	ambition_combat::moveset::StrikeVolume	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
-combat.tuning	component-clone	ambition_combat::components::CombatTuning	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-component.boss_anim_frame	component-clone-cursor	ambition_sprite_sheet::boss::BossAnimFrame	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-component.construction_transaction_id	component-canonical	ambition_platformer2d_shared_tangle::construction::TransactionId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-component.projectile_owner	component-clone	ambition_projectiles::entity::ProjectileOwner	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
-content.apple_rain_spawn_state	component-canonical	ambition_content::bosses::specials::gradient_sentinel::AppleRainSpawnState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.cut_rope_heavy_object_cycle	resource-clone	ambition_content::bosses::cut_rope::CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.echo_fan_state	component-canonical	ambition_content::bosses::specials::echo_fan::EchoFanState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.exploding_gradient_state	component-canonical	ambition_content::bosses::specials::gradient_nova::ExplodingGradientState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.eye_beam_state	component-canonical	ambition_content::bosses::specials::eye_beam::EyeBeamState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.flag_pole	derived	ambition_demo_mary_o::flag::FlagPole	the ACTIVE room's goal geometry, mirroring its authored block; re-derived from RoomSet on every room change
-content.gradient_cascade_state	component-canonical	ambition_content::bosses::specials::gradient_sentinel::GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.level_destination	derived	ambition_demo_mary_o::LevelDestination	where the ACTIVE room's goal leads; re-derived from RoomSet on every room change
-content.mary_o_ai_slop	component-clone	ambition_demo_mary_o::ai_slop::AiSlop	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-content.mary_o_broken_bricks	resource-clone-custom-checksum	ambition_demo_mary_o::bricks::BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
-content.mary_o_death_sequence	component-clone	ambition_demo_mary_o::death::MaryODeathSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_flag_sequence	component-clone	ambition_demo_mary_o::flag::FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_level_state	component-clone	ambition_demo_mary_o::MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_pipe_entry_latch	component-clone	ambition_demo_mary_o::pipe::PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_pipe_transit	component-clone	ambition_demo_mary_o::pipe::PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_snake_shell	component-clone	ambition_demo_mary_o::snake::SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_spark_cooldown	component-clone	ambition_demo_mary_o::movement::MaryOSparkCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.mary_o_spent_power_blocks	resource-clone-custom-checksum	ambition_demo_mary_o::powerups::SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
-content.minima_trap_state	component-canonical	ambition_content::bosses::specials::gradient_sentinel::MinimaTrapState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.mode_collapse_state	component-canonical	ambition_content::bosses::specials::mode_collapse::ModeCollapseState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.overfit_volley_state	component-canonical	ambition_content::bosses::specials::gradient_sentinel::OverfitVolleyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.overflow_state	component-canonical	ambition_content::bosses::specials::overflow_flood::OverflowState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-content.pending_cut_rope_room_replay	resource-clone-custom-checksum	ambition_content::bosses::cut_rope::PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends
-content.saddle_point_state	component-clone-cursor	ambition_content::bosses::specials::gradient_sentinel::SaddlePointState	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-content.sanic_act_state	component-clone	ambition_demo_sanic::SanicActState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.sanic_ball_dash	component-clone	ambition_demo_sanic::ball_dash::BallDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.sanic_ball_dash_input	component-clone	ambition_demo_sanic::ball_dash::BallDashInput	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.sanic_scattered_ring	component-clone	ambition_demo_sanic::ScatteredRing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.sanic_spent_monitors	resource-clone-custom-checksum	ambition_demo_sanic::monitors::SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
-content.sanic_super_form_latch	component-clone	ambition_demo_sanic::SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-content.seismic_stomp_state	component-canonical	ambition_content::bosses::specials::seismic_stomp::SeismicStompState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-cutscene.last_room	resource-canonical	ambition_cutscene::LastCutsceneRoom	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
-cutscene.playback	resource-canonical	ambition_cutscene::ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
-derived.actor_action_scheme	derived	ambition_characters::action_scheme::ActorActionScheme	reconciled from abilities, moveset, and action set
-derived.actor_steering	derived	ambition_platformer2d_actor_monolith::features::ecs::actors::update::ActorSteering	rebuilt from the authoritative actor population before movement
-derived.body_environment_contact	derived	ambition_platformer2d_core::body_clusters::BodyEnvironmentContact	rewritten every movement step from body geometry and the live world
-derived.body_mode_capabilities	derived	ambition_platformer2d_actor_monolith::body_mode::BodyModeCapabilities	projected from the active body mode each frame
-derived.body_motion_facts	derived	ambition_platformer2d_core::movement::facts::BodyMotionFacts	republished from MotionModel every movement step
-derived.body_pose_view	derived	ambition_sim_view::pose_view::BodyPoseView	SimView projection rebuilt every tick
-derived.boss_animation_frame_sample	derived	ambition_platformer2d_actor_monolith::boss_encounter::attack_geometry::BossAnimationFrameSample	republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor
-derived.class_b_remap_log	derived	ambition_platformer2d_shared_tangle::class_b::ClassBRemapLog	frame-local diagnostic ledger cleared before every simulation step
-derived.control_frame	derived	ambition_platformer2d_core::control_frame::ControlFrame	per-tick input frame regenerated from the synchronized input stream
-derived.controlled_subject	derived	ambition_platformer2d_shared_tangle::markers::ControlledSubject	resolved from the entity carrying Brain::Player for the active slot
-derived.encounter_progress	derived	ambition_platformer2d_actor_monolith::boss_encounter::encounter_entity::EncounterProgress	recomputed from lifecycle and participant health every tick
-derived.encounter_switch_index	derived	ambition_platformer2d_actor_monolith::encounter::switches::EncounterSwitchIndex	rebuilt from SwitchFeature + SwitchOn components each frame
-derived.encounter_view	derived	ambition_encounter::entity::EncounterView	presentation-intent read model republished each tick
-derived.feature_ecs_world_overlay	derived	ambition_platformer2d_shared_tangle::feature_overlay::FeatureEcsWorldOverlay	collision contributions rebuilt from ECS feature state every tick
-derived.force_zones	derived	ambition_platformer2d_shared_tangle::frame_env::ForceZones	per-tick zone snapshot rebuilt by collect_force_zones
-derived.global_transform	derived	bevy_transform::components::global_transform::GlobalTransform	Bevy transform propagation rebuilds it from Transform and hierarchy
-derived.gravity_zones	derived	ambition_platformer2d_shared_tangle::gravity::GravityZones	rebuilt from authoritative GravityZone components before body integration
-derived.nearest_interactable	derived	ambition_platformer2d_actor_monolith::affordances::interactable_proximity::NearestInteractable	proximity read model recomputed per frame
-derived.perception_peers	derived	ambition_platformer2d_actor_monolith::features::ecs::perception::PerceptionPeers	perception snapshot rebuilt every tick before brains read it
-derived.perception_projectiles	derived	ambition_platformer2d_actor_monolith::features::ecs::perception::PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
-derived.player_affordances	derived	ambition_platformer2d_actor_monolith::affordances::PlayerAffordances	affordance read model recomputed per frame from body state
-derived.player_body_frame_output	derived	ambition_platformer2d_actor_monolith::avatar::body_integration::PlayerBodyFrameOutput	republished by body integration every simulation frame
-derived.player_input_frame	derived	ambition_platformer2d_actor_monolith::control::components::PlayerInputFrame	copied from GGRS PlayerInputs at the head of every frame
-derived.player_intent	derived	ambition_platformer2d_actor_monolith::affordances::intent::PlayerIntent	affordance read model recomputed per frame from control input
-derived.pogo_target_below	derived	ambition_platformer2d_actor_monolith::affordances::pogo_proximity::PogoTargetBelow	proximity read model recomputed per frame
-derived.portal_carves	derived	ambition_portal2d::transit::PortalCarves	rebuilt from placed portals and transit occupancy each frame
-derived.portal_host_depths	derived	ambition_portal2d::types::PortalHostDepths	republished from the authoritative collision world each frame
-derived.portal_player_movement_intent	derived	ambition_portal2d::transit::PlayerMovementIntent	republished from the current controller frame before portal transit
-derived.portal_transitable	derived	ambition_portal2d::transit::PortalTransitable	mirrored from the item's authoritative body every frame, before transit reads it
-derived.projectile_view	derived	ambition_sim_view::facts::ProjectileView	SimView projection rebuilt every tick
-derived.resolved_attack_gesture	derived	ambition_characters::actor::attack_gesture::ResolvedAttackGesture	republished from ActorControl and rollback-backed gesture history before move triggering
-derived.resolved_combat_tuning	derived	ambition_combat::rules::ResolvedCombatTuning	refolded from DeclaredCombatRules over the world baseline every WorldPrep
-derived.resolved_hurtboxes	derived	ambition_platformer2d_actor_monolith::character_runtime::hurtbox::ResolvedHurtboxes	recomputed from AuthoredHurtboxes plus the move and pose clocks each tick
-derived.resolved_motion_frame	derived	ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame	published every tick from the live environment
-derived.resolved_technique_edges	derived	ambition_characters::action_scheme::ResolvedTechniqueEdges	cleared and republished from current input every frame
-derived.slot_controls	derived	ambition_characters::brain::SlotControls	republished from GGRS PlayerInputs at the head of every frame
-derived.surface_upright	derived	ambition_platformer2d_shared_tangle::orientation::SurfaceUpright	republished from support facts every movement step
-dynamic.projectile	dynamic-anchor	ambition_platformer2d_shared_tangle::projectile::body::ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
-encounter.camera_zoom	component-clone	ambition_encounter::staging::EncounterCameraZoom	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-encounter.definition	component-clone	ambition_platformer2d_actor_monolith::boss_encounter::encounter_entity::EncounterDef	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-encounter.identity	component-clone	ambition_encounter::entity::Encounter	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-encounter.lifecycle	component-canonical	ambition_encounter::lifecycle::EncounterLifecycle	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-encounter.lock_wall	component-clone	ambition_encounter::staging::EncounterLockWall	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-encounter.objective	component-clone	ambition_encounter::objective::EncounterObjective	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-encounter.participants	component-clone-canonical-checksum	ambition_encounter::participants::EncounterParticipants	bevy_ggrs clone snapshot + canonical checksum; exact Entity/reference values are remapped after load
-encounter.track	component-clone	ambition_encounter::staging::EncounterTrack	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-encounter.waves	component-clone-resolved	ambition_encounter::waves::EncounterWaves	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
-entity.name	component-clone	bevy_ecs::name::Name	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-entity.sim_id	component-canonical	ambition_platformer2d_shared_tangle::sim_id::SimId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-entity.spawn_origin	component-canonical	ambition_platformer2d_shared_tangle::construction::SpawnOrigin	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-entity.transform	component-clone	bevy_transform::components::transform::Transform	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-entity:body_kinematics	required-rollback	ambition_platformer2d_core::body_clusters::BodyKinematics	component presence automatically installs bevy_ggrs::Rollback
-entity:encounter_lifecycle	required-rollback	ambition_encounter::lifecycle::EncounterLifecycle	component presence automatically installs bevy_ggrs::Rollback
-entity:feature_sim_entity	required-rollback	ambition_platformer2d_shared_tangle::lifecycle::markers::FeatureSimEntity	component presence automatically installs bevy_ggrs::Rollback
-entity:fighter_eliminated	component-canonical	ambition_combat::stocks::FighterEliminated	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-entity:fighter_stocks	component-canonical	ambition_combat::components::actors::FighterStocks	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-entity:gravity_flip_switch	required-rollback	ambition_platformer2d_actor_monolith::gravity::lifecycle::GravityFlipSwitch	component presence automatically installs bevy_ggrs::Rollback
-entity:ground_item	required-rollback	ambition_platformer2d_actor_monolith::items::pickup::GroundItem	component presence automatically installs bevy_ggrs::Rollback
-entity:heal_shrine	required-rollback	ambition_platformer2d_actor_monolith::shrine::HealShrine	component presence automatically installs bevy_ggrs::Rollback
-entity:hitbox	required-rollback	ambition_vfx::Hitbox	component presence automatically installs bevy_ggrs::Rollback
-entity:live_projectile	required-rollback	ambition_projectiles::entity::LiveProjectile	component presence automatically installs bevy_ggrs::Rollback
-entity:mary_o_mode_owner	required-rollback	ambition_demo_mary_o::MaryOLevelState	component presence automatically installs bevy_ggrs::Rollback
-entity:placed_portal	required-rollback	ambition_portal2d::types::PlacedPortal	component presence automatically installs bevy_ggrs::Rollback
-entity:portal_gun_pickup	required-rollback	ambition_portal2d::gun_pickup::PortalGunPickup	component presence automatically installs bevy_ggrs::Rollback
-entity:sanic_mode_owner	required-rollback	ambition_demo_sanic::SanicActState	component presence automatically installs bevy_ggrs::Rollback
-entity:transform_beat	required-rollback	ambition_platformer2d_actor_monolith::features::transform_beat::TransformBeat	component presence automatically installs bevy_ggrs::Rollback
-entity:world_item	required-rollback	ambition_platformer2d_actor_monolith::items::world_item::WorldItem	component presence automatically installs bevy_ggrs::Rollback
-feature.breakable	component-clone	ambition_combat::components::features::BreakableFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.chest	component-clone	ambition_combat::components::features::ChestFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.collected	component-clone	ambition_combat::components::features::Collected	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.damageable_volumes	component-clone	ambition_combat::components::features::DamageableVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.empowered	component-clone	ambition_platformer2d_actor_monolith::features::empowerment::Empowered	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-feature.hazard	component-clone	ambition_combat::hazard_runtime::HazardFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.id	component-clone	ambition_combat::components::features::FeatureId	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.name	component-clone	ambition_combat::components::features::FeatureName	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.opened	component-clone	ambition_combat::components::features::Opened	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pickup	component-clone	ambition_combat::components::features::PickupFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pickup_art	component-clone	ambition_platformer2d_actor_monolith::features::ecs::pickups::PickupArt	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pickup_collect_lock	component-clone	ambition_platformer2d_actor_monolith::features::ecs::pickups::PickupCollectLock	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pogo_policy	component-clone	ambition_combat::components::features::PogoPolicy	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pogo_target	component-clone	ambition_combat::on_hit::PogoTarget	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pogo_target_contributor	component-clone	ambition_combat::components::features::PogoTargetContributor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pogo_target_volumes	component-clone	ambition_combat::components::features::PogoTargetVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.respawn_timer	component-clone	ambition_combat::components::features::RespawnTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-feature.stand_timer	component-clone	ambition_combat::components::features::StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-feature.switch	component-clone	ambition_platformer2d_actor_monolith::encounter::switches::SwitchFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.switch_on	component-clone	ambition_platformer2d_actor_monolith::encounter::switches::SwitchOn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-gravity.flip_switch	component-clone	ambition_platformer2d_actor_monolith::gravity::lifecycle::GravityFlipSwitch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-item.ground_item	component-clone	ambition_platformer2d_actor_monolith::items::pickup::GroundItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-item.motion	component-clone	ambition_platformer2d_actor_monolith::items::item_motion::ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-item.pickup_magnet	component-clone	ambition_platformer2d_actor_monolith::features::ecs::pickups::PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-item.world_item	component-clone	ambition_platformer2d_actor_monolith::items::world_item::WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-lifecycle.player_visual	component-clone	ambition_platformer2d_shared_tangle::lifecycle::markers::PlayerVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-lifecycle.room_visual	component-clone	ambition_platformer2d_shared_tangle::lifecycle::markers::RoomVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-lifecycle.spawned_this_attempt	component-clone	ambition_platformer2d_actor_monolith::features::ecs::reset::SpawnedThisAttempt	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-limb.intents	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbIntents	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-limb.member	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::Limb	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
-limb.rig	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbRig	bevy_ggrs clone snapshot; keyed entity MAP remapped, probed with each key folded against its target's stable sim identity
-limb.route_state	component-clone	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbRouteState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-map.actor_aggression	entity-mapping	ambition_combat::components::actors::ActorAggression	bevy_ggrs LoadWorld entity-reference remapping
-map.actor_target	entity-mapping	ambition_combat::components::actors::ActorTarget	bevy_ggrs LoadWorld entity-reference remapping
-map.content.saddle_point_state	entity-mapping	ambition_content::bosses::specials::gradient_sentinel::SaddlePointState	bevy_ggrs LoadWorld entity-reference remapping
-map.encounter_participants	entity-mapping	ambition_encounter::participants::EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping
-map.hitbox	entity-mapping	ambition_vfx::Hitbox	bevy_ggrs LoadWorld entity-reference remapping
-map.hitbox_hits	entity-mapping	ambition_vfx::HitboxHits	bevy_ggrs LoadWorld entity-reference remapping
-map.hitbox_on_hit	entity-mapping	ambition_combat::on_hit::HitboxOnHit	bevy_ggrs LoadWorld entity-reference remapping
-map.limb_member	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::Limb	bevy_ggrs LoadWorld entity-reference remapping
-map.limb_rig	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs::actors::limbs::LimbRig	bevy_ggrs LoadWorld entity-reference remapping
-map.mount_slot	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs::mount::MountSlot	bevy_ggrs LoadWorld entity-reference remapping
-map.move_playback	entity-mapping	ambition_combat::moveset::MovePlayback	bevy_ggrs LoadWorld entity-reference remapping
-map.pending_challenge	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs::aggression::PendingChallenge	bevy_ggrs LoadWorld entity-reference remapping
-map.projectile_owner	entity-mapping	ambition_projectiles::entity::ProjectileOwner	bevy_ggrs LoadWorld entity-reference remapping
-map.resource.active_conversation	resource-entity-mapping	ambition_platformer2d_actor_monolith::conversation::authority::ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
-map.resource.encounter_registry	resource-entity-mapping	ambition_encounter::registry::EncounterRegistry	bevy_ggrs LoadWorld resource entity-reference remapping
-map.resource.pending_player_hit_events	resource-entity-mapping	ambition_combat::events::PendingPlayerHitEvents	bevy_ggrs LoadWorld resource entity-reference remapping
-map.resource.possession_state	resource-entity-mapping	ambition_platformer2d_actor_monolith::abilities::traversal::possession::PossessionState	bevy_ggrs LoadWorld resource entity-reference remapping
-map.riding_on	entity-mapping	ambition_platformer2d_actor_monolith::features::ecs::mount::RidingOn	bevy_ggrs LoadWorld entity-reference remapping
-map.strike_volume	entity-mapping	ambition_combat::moveset::StrikeVolume	bevy_ggrs LoadWorld entity-reference remapping
-marker.feature_sim_entity	component-clone	ambition_platformer2d_shared_tangle::lifecycle::markers::FeatureSimEntity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-marker.player_entity	component-clone	ambition_platformer2d_shared_tangle::markers::PlayerEntity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-marker.primary_body	component-clone	ambition_platformer2d_shared_tangle::body::PrimaryBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-marker.primary_player	component-clone	ambition_platformer2d_shared_tangle::markers::PrimaryPlayer	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-marker.runtime_staged_actor	component-clone	ambition_combat::components::actors::RuntimeStagedActor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-message.actor_action	message-clear	ambition_characters::brain::ActorActionMessage	clear abandoned-future message buffer in LoadWorld::Mapping
-message.actor_died	message-clear	ambition_platformer2d_actor_monolith::ActorDiedMessage	clear abandoned-future message buffer in LoadWorld::Mapping
-message.actor_stimulus	message-clear	ambition_combat::events::ActorStimulus	clear abandoned-future message buffer in LoadWorld::Mapping
-message.body_knocked_out	message-clear	ambition_combat::stocks::BodyKnockedOut	clear abandoned-future message buffer in LoadWorld::Mapping
-message.body_teleported	message-clear	ambition_portal2d::transit::BodyTeleported	clear abandoned-future message buffer in LoadWorld::Mapping
-message.brain_command	message-clear	ambition_platformer2d_actor_monolith::features::brain_command::BrainCommand	clear abandoned-future message buffer in LoadWorld::Mapping
-message.challenge_requested	message-clear	ambition_platformer2d_actor_monolith::features::ecs::aggression::ChallengeRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.clear_portals	message-clear	ambition_portal2d::messages::ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
-message.clock_reset_request	message-clear	ambition_platformer2d_actor_monolith::time::time_control::ClockResetRequest	clear abandoned-future message buffer in LoadWorld::Mapping
-message.clock_scale_request	message-clear	ambition_platformer2d_actor_monolith::time::time_control::ClockScaleRequest	clear abandoned-future message buffer in LoadWorld::Mapping
-message.conversation_cut_bark	message-clear	ambition_platformer2d_actor_monolith::conversation::rules::ConversationCutBark	clear abandoned-future message buffer in LoadWorld::Mapping
-message.conversation_ended	message-clear	ambition_platformer2d_actor_monolith::conversation::ui_bridge::ConversationEnded	clear abandoned-future message buffer in LoadWorld::Mapping
-message.cut_rope_room_replay_requested	message-clear	ambition_content::bosses::cut_rope::CutRopeRoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.debris_burst	message-clear	ambition_vfx::vfx::DebrisBurstMessage	clear abandoned-future message buffer in LoadWorld::Mapping
-message.drop_portal_gun	message-clear	ambition_portal2d::messages::DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.effect_request	message-clear	ambition_vfx::EffectRequest	clear abandoned-future message buffer in LoadWorld::Mapping
-message.encounter_command	message-clear	ambition_encounter::lifecycle::EncounterCommand	clear abandoned-future message buffer in LoadWorld::Mapping
-message.encounter_event	message-clear	ambition_encounter::events::EncounterEventMsg	clear abandoned-future message buffer in LoadWorld::Mapping
-message.encounter_gate	message-clear	ambition_encounter::timeline::EncounterGate	clear abandoned-future message buffer in LoadWorld::Mapping
-message.explosion_request	message-clear	ambition_vfx::vfx::ExplosionRequest	clear abandoned-future message buffer in LoadWorld::Mapping
-message.fighter_stock_spent	message-clear	ambition_combat::stocks::FighterStockSpent	clear abandoned-future message buffer in LoadWorld::Mapping
-message.fire_portal_gun	message-clear	ambition_portal2d::messages::FirePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.fireworks_request	message-clear	ambition_vfx::vfx::FireworksRequest	clear abandoned-future message buffer in LoadWorld::Mapping
-message.gameplay_banner_requested	message-clear	ambition_combat::events::GameplayBannerRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.gameplay_sfx_requested	message-clear	ambition_combat::events::GameplaySfxRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.hit_event	message-clear	ambition_combat::events::HitEvent	clear abandoned-future message buffer in LoadWorld::Mapping
-message.item_grant_requested	message-clear	ambition_items::ItemGrantRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.light_emission_request_2d	message-clear	ambition_relativity2d::signals::LightEmissionRequest2d	clear abandoned-future message buffer in LoadWorld::Mapping
-message.mount_died	message-clear	ambition_platformer2d_actor_monolith::features::ecs::mount::MountDied	clear abandoned-future message buffer in LoadWorld::Mapping
-message.move_event	message-clear	ambition_combat::moveset::MoveEventMessage	clear abandoned-future message buffer in LoadWorld::Mapping
-message.on_hit_effect	message-clear	ambition_combat::on_hit::OnHitEffectMessage	clear abandoned-future message buffer in LoadWorld::Mapping
-message.owned_sfx	message-clear	ambition_sfx::message::OwnedSfxMessage	clear abandoned-future message buffer in LoadWorld::Mapping
-message.payload_released	message-clear	ambition_platformer2d_actor_monolith::boss_encounter::encounter_entity::PayloadReleased	clear abandoned-future message buffer in LoadWorld::Mapping
-message.pick_up_portal_gun	message-clear	ambition_portal2d::messages::PickUpPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.player_heal_requested	message-clear	ambition_platformer2d_actor_monolith::avatar::events::PlayerHealRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_body_entered	message-clear	ambition_portal2d::messages::PortalBodyEntered	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_body_transited	message-clear	ambition_portal2d::transit::PortalBodyTransited	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_clear	message-clear	ambition_portal2d::messages::ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_fire_intent	message-clear	ambition_portal2d::messages::PortalFireIntent	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_gun_drop	message-clear	ambition_portal2d::messages::DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_gun_equipped	message-clear	ambition_portal2d::messages::PortalGunEquipped	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_gun_fire	message-clear	ambition_portal2d::messages::FirePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_gun_pick_up	message-clear	ambition_portal2d::messages::PickUpPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_gun_toggle	message-clear	ambition_portal2d::messages::TogglePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.portal_shot_fired	message-clear	ambition_portal2d::messages::PortalShotFired	clear abandoned-future message buffer in LoadWorld::Mapping
-message.quest_advance_requested	message-clear	ambition_persistence::quest::QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.release_provocation	message-clear	ambition_platformer2d_actor_monolith::features::brain_command::ReleaseProvocation	clear abandoned-future message buffer in LoadWorld::Mapping
-message.reset_room_features	message-clear	ambition_combat::events::ResetRoomFeaturesEvent	clear abandoned-future message buffer in LoadWorld::Mapping
-message.respawn_room_visuals	message-clear	ambition_platformer2d_world::rooms::RespawnRoomVisualsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.room_loaded	message-clear	ambition_platformer2d_world::rooms::room_graph::RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
-message.room_replay_requested	message-clear	ambition_platformer2d_actor_monolith::session::reset::RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.room_transition_requested	message-clear	ambition_platformer2d_world::rooms::room_graph::RoomTransitionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.sandbox_reset_committed	message-clear	ambition_platformer2d_actor_monolith::session::reset::NewGameResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
-message.set_flag_requested	message-clear	ambition_combat::events::SetFlagRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.shop_transaction_requested	message-clear	ambition_items::shop::ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
-message.signal_arrival_2d	message-clear	ambition_relativity2d::signals::SignalArrival2d	clear abandoned-future message buffer in LoadWorld::Mapping
-message.spawn_actor_request	message-clear	ambition_platformer2d_actor_monolith::features::ecs::spawn_actors::SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
-message.spawn_projectile	message-clear	ambition_projectiles::spawn_message::SpawnProjectile	clear abandoned-future message buffer in LoadWorld::Mapping
-message.stocks_match_decided	message-clear	ambition_combat::stocks::StocksMatchDecided	clear abandoned-future message buffer in LoadWorld::Mapping
-message.switch_activated	message-clear	ambition_platformer2d_actor_monolith::encounter::switches::SwitchActivated	clear abandoned-future message buffer in LoadWorld::Mapping
-message.toggle_portal_gun	message-clear	ambition_portal2d::messages::TogglePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
-message.trail_continuity_break	message-clear	ambition_platformer2d_actor_monolith::avatar::trail::TrailContinuityBreak	clear abandoned-future message buffer in LoadWorld::Mapping
-message.vfx	message-clear	ambition_vfx::vfx::VfxMessage	clear abandoned-future message buffer in LoadWorld::Mapping
-message.wallet_shield_spent	message-clear	ambition_platformer2d_actor_monolith::features::ecs::damage_apply::WalletShieldSpent	clear abandoned-future message buffer in LoadWorld::Mapping
-mount.authored_size	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::MountedSize	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.brain_cache	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::MountedBrainCache	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.can_pilot	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::CanPilot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.mass	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::Mass	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.mountable	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::Mountable	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.mounted	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::Mounted	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-mount.riding_on	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::RidingOn	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
-mount.slot	component-clone	ambition_platformer2d_actor_monolith::features::ecs::mount::MountSlot	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-player.blink_camera_state	component-clone	ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-player.local_marker	component-clone	ambition_platformer2d_actor_monolith::control::components::LocalPlayer	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-player.projectile_state	component-canonical	ambition_projectiles::state::PlayerProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-player.safety_state	component-canonical	ambition_platformer2d_actor_monolith::avatar::components::PlayerSafetyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-portal.body	component-clone	ambition_portal2d::transit::PortalBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.emission	component-clone	ambition_portal2d::transit::PortalEmission	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.gun	component-clone	ambition_portal2d::gun::PortalGun	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.gun_pickup	component-clone	ambition_portal2d::gun_pickup::PortalGunPickup	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.host_scanned	component-clone	ambition_content::portal::host_adapter::PortalHostScanned	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.placed	component-clone	ambition_portal2d::types::PlacedPortal	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.policy	component-clone	ambition_portal2d::transit::PortalPolicy	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.shot	component-clone	ambition_portal2d::gun_projectile::PortalShot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.transit	component-clone	ambition_portal2d::transit::PortalTransit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-portal.transit_cooldown	component-clone	ambition_portal2d::types::PortalTransitCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-presentation.body_source	component-clone	ambition_sfx::message::BodyPresentationSource	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-presentation.body_source_derived	component-clone	ambition_sfx::message::DerivedPresentationSource	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-projectile.enemy_marker	component-canonical	ambition_projectiles::enemy::entity::EnemyProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.gameplay	component-canonical	ambition_platformer2d_shared_tangle::projectile::body::ProjectileGameplay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.kind	component-canonical	ambition_projectiles::kind::ProjectileKind	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.live_marker	component-canonical	ambition_projectiles::entity::LiveProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.owner_id	component-canonical	ambition_projectiles::entity::ProjectileOwnerId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.player_marker	component-canonical	ambition_projectiles::entity::PlayerProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.seq	component-canonical	ambition_projectiles::entity::ProjectileSeq	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-projectile.visual_id	component-canonical	ambition_projectiles::visual::ProjectileVisualId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.active_spacetime_2d	component-clone-custom-checksum	ambition_relativity2d::ActiveSpacetime2d	provider-authored spacetime model and invariant-speed fingerprint
-relativity.clock_label_2d	component-clone	ambition_relativity2d::RelativityClockLabel	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-relativity.clock_marker_2d	component-clone	ambition_relativity2d::RelativisticClock2d	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-relativity.clock_view_2d	derived	ambition_relativity2d::RelativityClockView2d	presentation read model rebuilt every tick from RelativityState2d + ProperTimeElapsed
-relativity.coordinate_time_2d	component-canonical	ambition_relativity2d::signals::SpacetimeCoordinateTime2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.light_emitter_2d	component-canonical	ambition_relativity2d::signals::LightEmitter2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.light_receiver_2d	component-canonical	ambition_relativity2d::signals::LightReceiver2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.light_signal_2d	component-canonical	ambition_relativity2d::signals::LightSignal2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.light_signal_pool_slot_2d	component-canonical	ambition_relativity2d::signals::LightSignalPoolSlot2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.optical_observer_2d	component-canonical	ambition_relativity2d::optics::RelativisticObserver2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.optical_source_2d	component-canonical	ambition_relativity2d::optics::OpticalSource2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.optical_view_2d	derived	ambition_relativity2d::optics::RelativisticOpticalView2d	observer past-light-cone view rebuilt from canonical bodies and bounded worldline telemetry
-relativity.proper_time_cooldown_2d	component-canonical	ambition_relativity2d::signals::ProperTimeCooldown2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.proper_time_elapsed	component-canonical	ambition_relativity2d::ProperTimeElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.signal_arrival_history_2d	component-canonical	ambition_relativity2d::signals::SignalArrivalHistory2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.signal_view_2d	derived	ambition_relativity2d::signals::RelativitySignalView2d	presentation read model rebuilt from signal slots, receivers, emitters, and arrival history
-relativity.state_2d	derived	ambition_relativity2d::RelativityState2d	recomputed from canonical body kinematics and the session spacetime
-relativity.target_marker_2d	component-canonical	ambition_relativity2d::targeting::RelativisticTarget2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-relativity.targeting_view_2d	derived	ambition_relativity2d::targeting::RelativisticTargetingView2d	constant-velocity null-intercept facts rebuilt from canonical bodies and the optical view
-relativity.worldline_history_view_2d	derived	ambition_relativity2d::telemetry::WorldlineHistoryView2d	bounded tick-keyed telemetry that truncates abandoned rollback futures and rebuilds on resimulation
-relativity.worldline_tracked_2d	component-clone	ambition_relativity2d::telemetry::WorldlineTracked2d	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-resource.active_conversation	resource-clone	ambition_platformer2d_actor_monolith::conversation::authority::ActiveConversation	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
-resource.active_match	resource-canonical	ambition_platformer2d_actor_monolith::character_runtime::seating::ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
-resource.active_round_scope	resource-canonical	ambition_platformer2d_shared_tangle::lifecycle::round::ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
-resource.base_gravity	resource-canonical	ambition_platformer2d_shared_tangle::gravity::BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.clock_regime_policy	resource-canonical	ambition_platformer2d_actor_monolith::time::time_control::RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.clock_state	resource-canonical	ambition_time::ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.combat_slot_board	resource-clone-cursor	ambition_combat::slots::CombatSlotsRes	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
-resource.encounter_registry	resource-clone	ambition_encounter::registry::EncounterRegistry	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-resource.enemy_projectile_state	resource-canonical	ambition_projectiles::enemy::state::EnemyProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.faction_relations	resource-clone	ambition_combat::targeting::FactionRelations	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.friendly_fire	resource-clone	ambition_combat::targeting::FriendlyFire	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.gameplay_elapsed	resource-canonical	ambition_platformer2d_actor_monolith::features::GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.gravity_field	resource-canonical	ambition_platformer2d_shared_tangle::gravity::GravityField	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.input_stream_recorder	resource-clone	ambition_platformer2d_runtime::input_stream::InputStreamRecorder	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.inventory_restored	resource-clone	ambition_platformer2d_actor_monolith::items::persist::InventoryRestored	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.moving_platform_set	resource-canonical	ambition_platformer2d_world::collision::MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.owned_items	resource-clone	ambition_items::OwnedItems	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.pending_lifecycle_commit	resource-canonical	ambition_platformer2d_actor_monolith::session::lifecycle_commit::PendingLifecycleCommit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.pending_player_hit_events	resource-clone-custom-checksum	ambition_combat::events::PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit checksum projection
-resource.portal_frame_history	resource-clone	ambition_portal2d::eviction::PortalFrameHistory	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.possession_state	resource-clone	ambition_platformer2d_actor_monolith::abilities::traversal::possession::PossessionState	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
-resource.projectile_seq_counter	resource-canonical	ambition_projectiles::entity::ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.quest_registry	resource-clone	ambition_persistence::quest::registry::QuestRegistry	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.requested_clock_scale	resource-canonical	ambition_platformer2d_actor_monolith::time::time_control::RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.sandbox_reset_requested	resource-canonical	ambition_platformer2d_actor_monolith::session::reset::NewGameResetRequested	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.sandbox_save	resource-clone	ambition_persistence::save::AmbitionGameSave	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.sandbox_sim_state	resource-canonical	ambition_platformer2d_actor_monolith::RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.sim_dt	resource-canonical	ambition_platformer2d_shared_tangle::time::SimDt	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.sim_tick	resource-canonical	ambition_time::SimTick	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.slot_interaction_state	resource-canonical	ambition_platformer2d_actor_monolith::control::components::SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.stocks_match_settled	resource-canonical	ambition_combat::stocks::StocksMatchSettled	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-resource.switch_activation_queue	resource-clone	ambition_platformer2d_actor_monolith::encounter::switches::SwitchActivationQueue	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-resource.versus_match	resource-clone-custom-checksum	ambition_app::app::versus_rules::VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
-resource.world_time	resource-canonical	ambition_time::WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-root.active_room_metadata	component-clone	ambition_platformer2d_world::rooms::metadata::ActiveRoomMetadata	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-root.encounter_music_request	component-clone	ambition_encounter::music::EncounterMusicRequest	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-root.geometry	component-clone	ambition_platformer2d_core::world::RoomGeometry	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-root.ldtk_runtime_index	component-clone-custom-checksum	ambition_platformer2d_ldtk::bevy_runtime::asset::LdtkRuntimeIndex	bevy_ggrs clone snapshot + active LDtk area checksum
-root.room_music_request	component-clone	ambition_platformer2d_world::rooms::metadata::RoomMusicRequest	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-root.room_set	component-clone-custom-checksum	ambition_platformer2d_world::rooms::room_graph::RoomSet	bevy_ggrs clone snapshot + active/start room identity checksum
-root:room_set	required-rollback	ambition_platformer2d_world::rooms::room_graph::RoomSet	component presence automatically installs bevy_ggrs::Rollback
-scope.room	component-canonical	ambition_platformer2d_shared_tangle::lifecycle::markers::RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-scope.session	component-canonical	ambition_platformer2d_shared_tangle::lifecycle::session::SessionScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-twintrack.character	component-clone	ambition_demo_twintrack::TwinTrackCharacter	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-twintrack.experiment	component-canonical	ambition_demo_twintrack::TwinTrackExperiment	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
-twintrack.laboratory	component-clone	ambition_demo_twintrack::LaboratoryTwin	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-twintrack.traveler	component-clone	ambition_demo_twintrack::TravelerTwin	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+ggrs-rollback-schema-v20
+actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+actor.anim_override	component-clone	ActorAnimOverride	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.animation_facts	component-clone	BodyAnimFacts	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.attack_gesture_state	component-canonical	AttackGestureState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.attack_gesture_tuning	component-canonical	AttackGestureTuning	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.authored_brain_context	component-canonical	AuthoredBrainContext	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.authored_hurtboxes	component-clone	AuthoredHurtboxes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.body_combat	component-canonical	BodyCombat	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.body_envelope	component-canonical	BodyEnvelope	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.body_melee	component-canonical	BodyMelee	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.body_mode	component-canonical	BodyModeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.body_pose_clock	component-clone	BodyPoseClock	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.brain	component-clone-cursor	Brain	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+actor.brain_binding	component-canonical	BrainBinding	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.centered_aabb	component-canonical	CenteredAabb	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.charges_projectiles	component-clone	ChargesProjectiles	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.combo_trace	component-canonical	BodyComboTrace	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.config	component-clone	ActorConfig	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.control	component-canonical	ActorControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.cooldowns	component-canonical	ActorCooldowns	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.disposition	component-canonical	ActorDisposition	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.dormancy_policy	component-clone	DormancyPolicy	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.dormant	component-clone	Dormant	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.faction	component-clone	ActorFaction	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.held_item	component-clone	HeldItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.identity	component-clone	ActorIdentity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.identity_kit	component-clone	IdentityKit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.intent	component-canonical	ActorIntent	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.interaction	component-clone	ActorInteraction	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.ledge	component-canonical	BodyLedgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.match_seat	component-canonical	MatchSeat	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.match_team	component-canonical	MatchTeam	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.motion_model	component-canonical	MotionModel	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.motion_path	component-clone-cursor	ActorMotionPath	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+actor.move_playback	component-clone-resolved	MovePlayback	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
+actor.moveset	component-clone	ActorMoveset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.moveset_melee	component-clone	MovesetMelee	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.moveset_ranged	component-clone	MovesetRanged	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.pending_challenge	component-clone	PendingChallenge	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
+actor.perception	component-canonical	Perception	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.perception_memory	component-canonical	PerceptionMemory	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.persona_baseline	component-clone	PersonaBaseline	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.player_slot	component-clone	PlayerSlot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.pose	component-canonical	ActorPose	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.projected_character_kit	component-clone	ProjectedCharacterKit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.proper_time_scale	component-canonical	ProperTimeScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.render_size	component-clone	ActorRenderSize	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.roll	component-canonical	ActorRoll	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.ruleset_owns_death	component-canonical	RulesetOwnsDeath	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.scripted_control	component-clone	ScriptedControl	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.sprite_offset	component-clone	ActorSpriteOffset	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.sprite_posed_body	component-clone	SpritePosedBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.stashed_action_set	component-clone	StashedActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.status	component-canonical	ActorStatus	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.surface_state	component-canonical	ActorSurfaceState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.target	component-clone-cursor	ActorTarget	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+actor.temporary_control	component-canonical	TemporaryControl	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.transform_beat	component-clone	TransformBeat	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+actor.transform_beat_requested	component-clone	TransformBeatRequested	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+actor.worn_character	component-canonical	WornCharacter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+actor.worn_equipment	component-clone	WornEquipment	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+body.abilities	component-canonical	BodyAbilities	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.ability_base	component-clone	AbilityBase	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+body.action_buffer	component-canonical	BodyActionBuffer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.base_size	component-canonical	BodyBaseSize	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.blink	component-canonical	BodyBlinkState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.dash	component-canonical	BodyDashState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.dodge	component-canonical	BodyDodgeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.flight	component-canonical	BodyFlightState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.ground	component-canonical	BodyGroundState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.health	component-canonical	BodyHealth	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.jump	component-canonical	BodyJumpState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.kinematics	component-canonical	BodyKinematics	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.lifetime	component-canonical	BodyLifetime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.mana	component-canonical	BodyMana	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.offense	component-canonical	BodyOffense	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.shield	component-canonical	BodyShieldState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.sim_id_counter	component-canonical	SimIdCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.sweep_sample	component-canonical	SweepSample	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.wall	component-canonical	BodyWallState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+body.wallet	component-canonical	BodyWallet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+boss.attack_intent	component-canonical	BossAttackIntent	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+boss.attack_state	component-canonical	BossAttackState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+boss.capability	component-clone	BossCapability	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+boss.config	component-clone	BossConfig	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+boss.death_animation	component-clone	BossDeathAnimation	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+boss.encounter	component-clone-cursor	BossEncounter	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+boss.overrides	component-clone	BossOverrides	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+boss.pattern_timer	component-canonical	BossPatternTimer	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+boss.phase	component-canonical	BossPhase	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
+combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
+combat.hitbox_lifetime	component-clone	HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+combat.hitbox_on_hit	component-clone	HitboxOnHit	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
+combat.kit	component-clone	CombatKit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+combat.strike_volume	component-clone	StrikeVolume	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
+combat.tuning	component-clone	CombatTuning	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+component.boss_anim_frame	component-clone-cursor	BossAnimFrame	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+component.construction_transaction_id	component-canonical	TransactionId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+component.projectile_owner	component-clone	ProjectileOwner	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
+content.apple_rain_spawn_state	component-canonical	AppleRainSpawnState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.cut_rope_heavy_object_cycle	resource-clone	CutRopeHeavyObjectCycle	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+content.echo_fan_state	component-canonical	EchoFanState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.exploding_gradient_state	component-canonical	ExplodingGradientState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.eye_beam_state	component-canonical	EyeBeamState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.flag_pole	derived	FlagPole	the ACTIVE room's goal geometry, mirroring its authored block; re-derived from RoomSet on every room change
+content.gradient_cascade_state	component-canonical	GradientCascadeState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.level_destination	derived	LevelDestination	where the ACTIVE room's goal leads; re-derived from RoomSet on every room change
+content.mary_o_ai_slop	component-clone	AiSlop	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+content.mary_o_broken_bricks	resource-clone-custom-checksum	BrokenBricks	bevy_ggrs clone snapshot + an order-independent checksum over the broken names
+content.mary_o_death_sequence	component-clone	MaryODeathSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_flag_sequence	component-clone	FlagSequence	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_level_state	component-clone	MaryOLevelState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_pipe_entry_latch	component-clone	PipeEntryLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_pipe_transit	component-clone	PipeTransit	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_snake_shell	component-clone	SnakeShell	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_spark_cooldown	component-clone	MaryOSparkCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.mary_o_spent_power_blocks	resource-clone-custom-checksum	SpentPowerBlocks	bevy_ggrs clone snapshot + an order-independent checksum over the spent ids
+content.minima_trap_state	component-canonical	MinimaTrapState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.mode_collapse_state	component-canonical	ModeCollapseState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.overfit_volley_state	component-canonical	OverfitVolleyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.overflow_state	component-canonical	OverflowState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+content.pending_cut_rope_room_replay	resource-clone-custom-checksum	PendingCutRopeRoomReplay	the dialogue-authored room replay, latched until the conversation ends
+content.saddle_point_state	component-clone-cursor	SaddlePointState	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+content.sanic_act_state	component-clone	SanicActState	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_ball_dash	component-clone	BallDash	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_ball_dash_input	component-clone	BallDashInput	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_scattered_ring	component-clone	ScatteredRing	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.sanic_spent_monitors	resource-clone-custom-checksum	SpentMonitors	bevy_ggrs clone snapshot + an order-independent checksum over the spent names
+content.sanic_super_form_latch	component-clone	SuperFormLatch	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+content.seismic_stomp_state	component-canonical	SeismicStompState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+cutscene.last_room	resource-canonical	LastCutsceneRoom	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
+cutscene.playback	resource-canonical	ActiveCutscene	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
+derived.actor_action_scheme	derived	ActorActionScheme	reconciled from abilities, moveset, and action set
+derived.actor_steering	derived	ActorSteering	rebuilt from the authoritative actor population before movement
+derived.body_environment_contact	derived	BodyEnvironmentContact	rewritten every movement step from body geometry and the live world
+derived.body_mode_capabilities	derived	BodyModeCapabilities	projected from the active body mode each frame
+derived.body_motion_facts	derived	BodyMotionFacts	republished from MotionModel every movement step
+derived.body_pose_view	derived	BodyPoseView	SimView projection rebuilt every tick
+derived.boss_animation_frame_sample	derived	BossAnimationFrameSample	republished every tick by drive_boss_animators from the rewound BossAnimFrame cursor
+derived.class_b_remap_log	derived	ClassBRemapLog	frame-local diagnostic ledger cleared before every simulation step
+derived.control_frame	derived	ControlFrame	per-tick input frame regenerated from the synchronized input stream
+derived.controlled_subject	derived	ControlledSubject	resolved from the entity carrying Brain::Player for the active slot
+derived.encounter_progress	derived	EncounterProgress	recomputed from lifecycle and participant health every tick
+derived.encounter_switch_index	derived	EncounterSwitchIndex	rebuilt from SwitchFeature + SwitchOn components each frame
+derived.encounter_view	derived	EncounterView	presentation-intent read model republished each tick
+derived.feature_ecs_world_overlay	derived	FeatureEcsWorldOverlay	collision contributions rebuilt from ECS feature state every tick
+derived.force_zones	derived	ForceZones	per-tick zone snapshot rebuilt by collect_force_zones
+derived.global_transform	derived	GlobalTransform	Bevy transform propagation rebuilds it from Transform and hierarchy
+derived.gravity_zones	derived	GravityZones	rebuilt from authoritative GravityZone components before body integration
+derived.nearest_interactable	derived	NearestInteractable	proximity read model recomputed per frame
+derived.perception_peers	derived	PerceptionPeers	perception snapshot rebuilt every tick before brains read it
+derived.perception_projectiles	derived	PerceptionProjectiles	perception snapshot rebuilt every tick before brains read it
+derived.player_affordances	derived	PlayerAffordances	affordance read model recomputed per frame from body state
+derived.player_body_frame_output	derived	PlayerBodyFrameOutput	republished by body integration every simulation frame
+derived.player_input_frame	derived	PlayerInputFrame	copied from GGRS PlayerInputs at the head of every frame
+derived.player_intent	derived	PlayerIntent	affordance read model recomputed per frame from control input
+derived.pogo_target_below	derived	PogoTargetBelow	proximity read model recomputed per frame
+derived.portal_carves	derived	PortalCarves	rebuilt from placed portals and transit occupancy each frame
+derived.portal_host_depths	derived	PortalHostDepths	republished from the authoritative collision world each frame
+derived.portal_player_movement_intent	derived	PlayerMovementIntent	republished from the current controller frame before portal transit
+derived.portal_transitable	derived	PortalTransitable	mirrored from the item's authoritative body every frame, before transit reads it
+derived.projectile_view	derived	ProjectileView	SimView projection rebuilt every tick
+derived.resolved_attack_gesture	derived	ResolvedAttackGesture	republished from ActorControl and rollback-backed gesture history before move triggering
+derived.resolved_combat_tuning	derived	ResolvedCombatTuning	refolded from DeclaredCombatRules over the world baseline every WorldPrep
+derived.resolved_hurtboxes	derived	ResolvedHurtboxes	recomputed from AuthoredHurtboxes plus the move and pose clocks each tick
+derived.resolved_motion_frame	derived	ResolvedMotionFrame	published every tick from the live environment
+derived.resolved_technique_edges	derived	ResolvedTechniqueEdges	cleared and republished from current input every frame
+derived.slot_controls	derived	SlotControls	republished from GGRS PlayerInputs at the head of every frame
+derived.surface_upright	derived	SurfaceUpright	republished from support facts every movement step
+dynamic.projectile	dynamic-anchor	ProjectileGameplay	Rollback entity recreation plus the complete projectile component family
+encounter.camera_zoom	component-clone	EncounterCameraZoom	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.definition	component-clone	EncounterDef	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.identity	component-clone	Encounter	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.lifecycle	component-canonical	EncounterLifecycle	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+encounter.lock_wall	component-clone	EncounterLockWall	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.objective	component-clone	EncounterObjective	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.participants	component-clone-canonical-checksum	EncounterParticipants	bevy_ggrs clone snapshot + canonical checksum; exact Entity/reference values are remapped after load
+encounter.track	component-clone	EncounterTrack	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+encounter.waves	component-clone-resolved	EncounterWaves	bevy_ggrs clone snapshot + canonical authored-reference checksum projection
+entity.name	component-clone	Name	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+entity.sim_id	component-canonical	SimId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+entity.spawn_origin	component-canonical	SpawnOrigin	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+entity.transform	component-clone	Transform	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+entity:body_kinematics	required-rollback	BodyKinematics	component presence automatically installs bevy_ggrs::Rollback
+entity:encounter_lifecycle	required-rollback	EncounterLifecycle	component presence automatically installs bevy_ggrs::Rollback
+entity:feature_sim_entity	required-rollback	FeatureSimEntity	component presence automatically installs bevy_ggrs::Rollback
+entity:fighter_eliminated	component-canonical	FighterEliminated	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+entity:fighter_stocks	component-canonical	FighterStocks	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+entity:gravity_flip_switch	required-rollback	GravityFlipSwitch	component presence automatically installs bevy_ggrs::Rollback
+entity:ground_item	required-rollback	GroundItem	component presence automatically installs bevy_ggrs::Rollback
+entity:heal_shrine	required-rollback	HealShrine	component presence automatically installs bevy_ggrs::Rollback
+entity:hitbox	required-rollback	Hitbox	component presence automatically installs bevy_ggrs::Rollback
+entity:live_projectile	required-rollback	LiveProjectile	component presence automatically installs bevy_ggrs::Rollback
+entity:mary_o_mode_owner	required-rollback	MaryOLevelState	component presence automatically installs bevy_ggrs::Rollback
+entity:placed_portal	required-rollback	PlacedPortal	component presence automatically installs bevy_ggrs::Rollback
+entity:portal_gun_pickup	required-rollback	PortalGunPickup	component presence automatically installs bevy_ggrs::Rollback
+entity:sanic_mode_owner	required-rollback	SanicActState	component presence automatically installs bevy_ggrs::Rollback
+entity:transform_beat	required-rollback	TransformBeat	component presence automatically installs bevy_ggrs::Rollback
+entity:world_item	required-rollback	WorldItem	component presence automatically installs bevy_ggrs::Rollback
+feature.breakable	component-clone	BreakableFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.chest	component-clone	ChestFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.collected	component-clone	Collected	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.damageable_volumes	component-clone	DamageableVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.empowered	component-clone	Empowered	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+feature.hazard	component-clone	HazardFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.id	component-clone	FeatureId	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.name	component-clone	FeatureName	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.opened	component-clone	Opened	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.pickup	component-clone	PickupFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.pickup_art	component-clone	PickupArt	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.pickup_collect_lock	component-clone	PickupCollectLock	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.pogo_policy	component-clone	PogoPolicy	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.pogo_target	component-clone	PogoTarget	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.pogo_target_contributor	component-clone	PogoTargetContributor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.pogo_target_volumes	component-clone	PogoTargetVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.respawn_timer	component-clone	RespawnTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+feature.stand_timer	component-clone	StandTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+feature.switch	component-clone	SwitchFeature	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+feature.switch_on	component-clone	SwitchOn	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+gravity.flip_switch	component-clone	GravityFlipSwitch	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+item.ground_item	component-clone	GroundItem	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+item.motion	component-clone	ItemMotion	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+item.pickup_magnet	component-clone	PickupMagnet	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+item.world_item	component-clone	WorldItem	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+lifecycle.player_visual	component-clone	PlayerVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+lifecycle.room_visual	component-clone	RoomVisual	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+lifecycle.spawned_this_attempt	component-clone	SpawnedThisAttempt	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+limb.intents	component-clone	LimbIntents	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+limb.member	component-clone	Limb	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
+limb.rig	component-clone	LimbRig	bevy_ggrs clone snapshot; keyed entity MAP remapped, probed with each key folded against its target's stable sim identity
+limb.route_state	component-clone	LimbRouteState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+map.actor_aggression	entity-mapping	ActorAggression	bevy_ggrs LoadWorld entity-reference remapping
+map.actor_target	entity-mapping	ActorTarget	bevy_ggrs LoadWorld entity-reference remapping
+map.content.saddle_point_state	entity-mapping	SaddlePointState	bevy_ggrs LoadWorld entity-reference remapping
+map.encounter_participants	entity-mapping	EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping
+map.hitbox	entity-mapping	Hitbox	bevy_ggrs LoadWorld entity-reference remapping
+map.hitbox_hits	entity-mapping	HitboxHits	bevy_ggrs LoadWorld entity-reference remapping
+map.hitbox_on_hit	entity-mapping	HitboxOnHit	bevy_ggrs LoadWorld entity-reference remapping
+map.limb_member	entity-mapping	Limb	bevy_ggrs LoadWorld entity-reference remapping
+map.limb_rig	entity-mapping	LimbRig	bevy_ggrs LoadWorld entity-reference remapping
+map.mount_slot	entity-mapping	MountSlot	bevy_ggrs LoadWorld entity-reference remapping
+map.move_playback	entity-mapping	MovePlayback	bevy_ggrs LoadWorld entity-reference remapping
+map.pending_challenge	entity-mapping	PendingChallenge	bevy_ggrs LoadWorld entity-reference remapping
+map.projectile_owner	entity-mapping	ProjectileOwner	bevy_ggrs LoadWorld entity-reference remapping
+map.resource.active_conversation	resource-entity-mapping	ActiveConversation	bevy_ggrs LoadWorld resource entity-reference remapping
+map.resource.encounter_registry	resource-entity-mapping	EncounterRegistry	bevy_ggrs LoadWorld resource entity-reference remapping
+map.resource.pending_player_hit_events	resource-entity-mapping	PendingPlayerHitEvents	bevy_ggrs LoadWorld resource entity-reference remapping
+map.resource.possession_state	resource-entity-mapping	PossessionState	bevy_ggrs LoadWorld resource entity-reference remapping
+map.riding_on	entity-mapping	RidingOn	bevy_ggrs LoadWorld entity-reference remapping
+map.strike_volume	entity-mapping	StrikeVolume	bevy_ggrs LoadWorld entity-reference remapping
+marker.feature_sim_entity	component-clone	FeatureSimEntity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+marker.player_entity	component-clone	PlayerEntity	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+marker.primary_body	component-clone	PrimaryBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+marker.primary_player	component-clone	PrimaryPlayer	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+marker.runtime_staged_actor	component-clone	RuntimeStagedActor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+message.actor_action	message-clear	ActorActionMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.actor_died	message-clear	ActorDiedMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.actor_stimulus	message-clear	ActorStimulus	clear abandoned-future message buffer in LoadWorld::Mapping
+message.body_knocked_out	message-clear	BodyKnockedOut	clear abandoned-future message buffer in LoadWorld::Mapping
+message.body_teleported	message-clear	BodyTeleported	clear abandoned-future message buffer in LoadWorld::Mapping
+message.brain_command	message-clear	BrainCommand	clear abandoned-future message buffer in LoadWorld::Mapping
+message.challenge_requested	message-clear	ChallengeRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.clear_portals	message-clear	ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
+message.clock_reset_request	message-clear	ClockResetRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.clock_scale_request	message-clear	ClockScaleRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.conversation_cut_bark	message-clear	ConversationCutBark	clear abandoned-future message buffer in LoadWorld::Mapping
+message.conversation_ended	message-clear	ConversationEnded	clear abandoned-future message buffer in LoadWorld::Mapping
+message.cut_rope_room_replay_requested	message-clear	CutRopeRoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.debris_burst	message-clear	DebrisBurstMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.drop_portal_gun	message-clear	DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
+message.effect_request	message-clear	EffectRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.encounter_command	message-clear	EncounterCommand	clear abandoned-future message buffer in LoadWorld::Mapping
+message.encounter_event	message-clear	EncounterEventMsg	clear abandoned-future message buffer in LoadWorld::Mapping
+message.encounter_gate	message-clear	EncounterGate	clear abandoned-future message buffer in LoadWorld::Mapping
+message.explosion_request	message-clear	ExplosionRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.fighter_stock_spent	message-clear	FighterStockSpent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.fire_portal_gun	message-clear	FirePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
+message.fireworks_request	message-clear	FireworksRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.gameplay_banner_requested	message-clear	GameplayBannerRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.gameplay_sfx_requested	message-clear	GameplaySfxRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.hit_event	message-clear	HitEvent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.item_grant_requested	message-clear	ItemGrantRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.light_emission_request_2d	message-clear	LightEmissionRequest2d	clear abandoned-future message buffer in LoadWorld::Mapping
+message.mount_died	message-clear	MountDied	clear abandoned-future message buffer in LoadWorld::Mapping
+message.move_event	message-clear	MoveEventMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.on_hit_effect	message-clear	OnHitEffectMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.owned_sfx	message-clear	OwnedSfxMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.payload_released	message-clear	PayloadReleased	clear abandoned-future message buffer in LoadWorld::Mapping
+message.pick_up_portal_gun	message-clear	PickUpPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
+message.player_heal_requested	message-clear	PlayerHealRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_body_entered	message-clear	PortalBodyEntered	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_body_transited	message-clear	PortalBodyTransited	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_clear	message-clear	ClearPortals	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_fire_intent	message-clear	PortalFireIntent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_gun_drop	message-clear	DropPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_gun_equipped	message-clear	PortalGunEquipped	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_gun_fire	message-clear	FirePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_gun_pick_up	message-clear	PickUpPortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_gun_toggle	message-clear	TogglePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
+message.portal_shot_fired	message-clear	PortalShotFired	clear abandoned-future message buffer in LoadWorld::Mapping
+message.quest_advance_requested	message-clear	QuestAdvanceRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.release_provocation	message-clear	ReleaseProvocation	clear abandoned-future message buffer in LoadWorld::Mapping
+message.reset_room_features	message-clear	ResetRoomFeaturesEvent	clear abandoned-future message buffer in LoadWorld::Mapping
+message.respawn_room_visuals	message-clear	RespawnRoomVisualsRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.room_loaded	message-clear	RoomLoaded	clear abandoned-future message buffer in LoadWorld::Mapping
+message.room_replay_requested	message-clear	RoomReplayRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.room_transition_requested	message-clear	RoomTransitionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.sandbox_reset_committed	message-clear	NewGameResetCommitted	clear abandoned-future message buffer in LoadWorld::Mapping
+message.set_flag_requested	message-clear	SetFlagRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.shop_transaction_requested	message-clear	ShopTransactionRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.signal_arrival_2d	message-clear	SignalArrival2d	clear abandoned-future message buffer in LoadWorld::Mapping
+message.spawn_actor_request	message-clear	SpawnActorRequest	clear abandoned-future message buffer in LoadWorld::Mapping
+message.spawn_projectile	message-clear	SpawnProjectile	clear abandoned-future message buffer in LoadWorld::Mapping
+message.stocks_match_decided	message-clear	StocksMatchDecided	clear abandoned-future message buffer in LoadWorld::Mapping
+message.switch_activated	message-clear	SwitchActivated	clear abandoned-future message buffer in LoadWorld::Mapping
+message.toggle_portal_gun	message-clear	TogglePortalGun	clear abandoned-future message buffer in LoadWorld::Mapping
+message.trail_continuity_break	message-clear	TrailContinuityBreak	clear abandoned-future message buffer in LoadWorld::Mapping
+message.vfx	message-clear	VfxMessage	clear abandoned-future message buffer in LoadWorld::Mapping
+message.wallet_shield_spent	message-clear	WalletShieldSpent	clear abandoned-future message buffer in LoadWorld::Mapping
+mount.authored_size	component-clone	MountedSize	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.brain_cache	component-clone	MountedBrainCache	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.can_pilot	component-clone	CanPilot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.mass	component-clone	Mass	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.mountable	component-clone	Mountable	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.mounted	component-clone	Mounted	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+mount.riding_on	component-clone	RidingOn	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
+mount.slot	component-clone	MountSlot	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
+player.blink_camera_state	component-clone	PlayerBlinkCameraState	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+player.local_marker	component-clone	LocalPlayer	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+player.projectile_state	component-canonical	PlayerProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+player.safety_state	component-canonical	PlayerSafetyState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+portal.body	component-clone	PortalBody	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.emission	component-clone	PortalEmission	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.gun	component-clone	PortalGun	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.gun_pickup	component-clone	PortalGunPickup	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.host_scanned	component-clone	PortalHostScanned	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.placed	component-clone	PlacedPortal	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.policy	component-clone	PortalPolicy	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.shot	component-clone	PortalShot	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.transit	component-clone	PortalTransit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+portal.transit_cooldown	component-clone	PortalTransitCooldown	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+presentation.body_source	component-clone	BodyPresentationSource	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+presentation.body_source_derived	component-clone	DerivedPresentationSource	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+projectile.enemy_marker	component-canonical	EnemyProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+projectile.gameplay	component-canonical	ProjectileGameplay	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+projectile.kind	component-canonical	ProjectileKind	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+projectile.live_marker	component-canonical	LiveProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+projectile.owner_id	component-canonical	ProjectileOwnerId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+projectile.player_marker	component-canonical	PlayerProjectile	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+projectile.seq	component-canonical	ProjectileSeq	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+projectile.visual_id	component-canonical	ProjectileVisualId	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.active_spacetime_2d	component-clone-custom-checksum	ActiveSpacetime2d	provider-authored spacetime model and invariant-speed fingerprint
+relativity.clock_label_2d	component-clone	RelativityClockLabel	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+relativity.clock_marker_2d	component-clone	RelativisticClock2d	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+relativity.clock_view_2d	derived	RelativityClockView2d	presentation read model rebuilt every tick from RelativityState2d + ProperTimeElapsed
+relativity.coordinate_time_2d	component-canonical	SpacetimeCoordinateTime2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.light_emitter_2d	component-canonical	LightEmitter2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.light_receiver_2d	component-canonical	LightReceiver2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.light_signal_2d	component-canonical	LightSignal2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.light_signal_pool_slot_2d	component-canonical	LightSignalPoolSlot2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.optical_observer_2d	component-canonical	RelativisticObserver2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.optical_source_2d	component-canonical	OpticalSource2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.optical_view_2d	derived	RelativisticOpticalView2d	observer past-light-cone view rebuilt from canonical bodies and bounded worldline telemetry
+relativity.proper_time_cooldown_2d	component-canonical	ProperTimeCooldown2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.proper_time_elapsed	component-canonical	ProperTimeElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.signal_arrival_history_2d	component-canonical	SignalArrivalHistory2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.signal_view_2d	derived	RelativitySignalView2d	presentation read model rebuilt from signal slots, receivers, emitters, and arrival history
+relativity.state_2d	derived	RelativityState2d	recomputed from canonical body kinematics and the session spacetime
+relativity.target_marker_2d	component-canonical	RelativisticTarget2d	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+relativity.targeting_view_2d	derived	RelativisticTargetingView2d	constant-velocity null-intercept facts rebuilt from canonical bodies and the optical view
+relativity.worldline_history_view_2d	derived	WorldlineHistoryView2d	bounded tick-keyed telemetry that truncates abandoned rollback futures and rebuilds on resimulation
+relativity.worldline_tracked_2d	component-clone	WorldlineTracked2d	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+resource.active_conversation	resource-clone	ActiveConversation	bevy_ggrs clone snapshot; entity SET remapped and probed through the targets' stable sim identities, mixed with a projection of the value's non-entity fields
+resource.active_match	resource-canonical	ActiveMatch	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
+resource.active_round_scope	resource-canonical	ActiveRoundScope	bevy_ggrs canonical codec snapshot + presence-aware canonical checksum projection
+resource.base_gravity	resource-canonical	BaseGravity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.clock_regime_policy	resource-canonical	RegimePolicy	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.clock_state	resource-canonical	ClockState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.combat_slot_board	resource-clone-cursor	CombatSlotsRes	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
+resource.encounter_registry	resource-clone	EncounterRegistry	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
+resource.enemy_projectile_state	resource-canonical	EnemyProjectileState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.faction_relations	resource-clone	FactionRelations	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.friendly_fire	resource-clone	FriendlyFire	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.gameplay_elapsed	resource-canonical	GameplayElapsed	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.gravity_field	resource-canonical	GravityField	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.input_stream_recorder	resource-clone	InputStreamRecorder	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.inventory_restored	resource-clone	InventoryRestored	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.moving_platform_set	resource-canonical	MovingPlatformSet	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.owned_items	resource-clone	OwnedItems	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.pending_lifecycle_commit	resource-canonical	PendingLifecycleCommit	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.pending_player_hit_events	resource-clone-custom-checksum	PendingPlayerHitEvents	bevy_ggrs clone snapshot + entity-free staged-hit checksum projection
+resource.portal_frame_history	resource-clone	PortalFrameHistory	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.possession_state	resource-clone	PossessionState	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
+resource.projectile_seq_counter	resource-canonical	ProjectileSeqCounter	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.quest_registry	resource-clone	QuestRegistry	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.requested_clock_scale	resource-canonical	RequestedClockScale	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.sandbox_reset_requested	resource-canonical	NewGameResetRequested	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.sandbox_save	resource-clone	AmbitionGameSave	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.sandbox_sim_state	resource-canonical	RoomTransitionCooldown	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.sim_dt	resource-canonical	SimDt	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.sim_tick	resource-canonical	SimTick	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.slot_interaction_state	resource-canonical	SlotInteractionState	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.stocks_match_settled	resource-canonical	StocksMatchSettled	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+resource.switch_activation_queue	resource-clone	SwitchActivationQueue	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+resource.versus_match	resource-clone-custom-checksum	VersusMatch	bevy_ggrs clone snapshot + a checksum over the round, the phase and the per-team wins
+resource.world_time	resource-canonical	WorldTime	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+root.active_room_metadata	component-clone	ActiveRoomMetadata	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+root.encounter_music_request	component-clone	EncounterMusicRequest	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+root.geometry	component-clone	RoomGeometry	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+root.ldtk_runtime_index	component-clone-custom-checksum	LdtkRuntimeIndex	bevy_ggrs clone snapshot + active LDtk area checksum
+root.room_music_request	component-clone	RoomMusicRequest	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+root.room_set	component-clone-custom-checksum	RoomSet	bevy_ggrs clone snapshot + active/start room identity checksum
+root:room_set	required-rollback	RoomSet	component presence automatically installs bevy_ggrs::Rollback
+scope.room	component-canonical	RoomScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+scope.session	component-canonical	SessionScopedEntity	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+twintrack.character	component-clone	TwinTrackCharacter	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
+twintrack.experiment	component-canonical	TwinTrackExperiment	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
+twintrack.laboratory	component-clone	LaboratoryTwin	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
+twintrack.traveler	component-clone	TravelerTwin	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection

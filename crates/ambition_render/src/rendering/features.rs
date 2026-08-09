@@ -219,14 +219,35 @@ pub fn despawn_dead_dynamic_feature_visuals(
 /// pointing this chain at the room spawner would look like a fix and do nothing.
 /// The cost of the race is now one frame of magenta instead of eight seconds of
 /// black, and the schedule question is a ledger row.
+///
+/// ## ⭐⭐ TWO ANSWERS, and they used to share one entity
+///
+/// This pass publishes [`UnclaimedFeatureViews`] — *which published views have a
+/// body nobody has drawn* — and, separately and later, draws the magenta
+/// stand-in. They were one thing until 2026-08-09, and the conflation is the
+/// reason Jon saw magenta flash on every room change while the cover logged
+/// **zero** give-ups: the cover was reading the DIAGNOSTIC for a question the
+/// diagnostic does not answer. See [`UnclaimedFeatureViews`] for the two
+/// questions and why no single timing can serve both.
 pub fn draw_unclaimed_feature_views(
     mut commands: Commands,
-    world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
-        ambition_platformer2d_core::RoomGeometry,
+    // ⚠ **`Option`, and that is load-bearing.** `SessionWorldRef` is a `Single`,
+    // so an app with no session world SKIPS the whole system — including the
+    // census below, which the cover then reads a frame (or a hundred) stale.
+    // Publishing is unconditional; only the DRAWING needs a world to place a
+    // rectangle in.
+    world: Option<
+        ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<
+            ambition_platformer2d_core::RoomGeometry,
+        >,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
     views: Res<ambition_sim_view::FeatureViewIndex>,
     existing: Query<(Entity, &FeatureVisual, Has<UnclaimedBodyPlaceholder>)>,
+    mut unsettled: ResMut<UnclaimedFeatureViews>,
+    // How many consecutive frames each id has been unclaimed. The stand-in's
+    // grace period; see `UNCLAIMED_STAND_IN_GRACE_FRAMES`.
+    mut unclaimed_streak: Local<std::collections::HashMap<String, u32>>,
 ) {
     // Split the drawn ids into the REAL visuals and this system's own stand-ins,
     // in one pass, because "claimed" and "standing in for a claim" are different
@@ -250,6 +271,36 @@ pub fn draw_unclaimed_feature_views(
         }
     }
 
+    // ── The CENSUS: the cover's question, answered every frame this runs ─────
+    //
+    // ⚠ **`stand_ins` is deliberately NOT subtracted.** A stand-in is not art;
+    // a view wearing one is still a view nothing drew. That subtraction is the
+    // one place the two counts differed, and it was the whole bug.
+    let mut unclaimed_now: Vec<(&str, &ambition_sim_view::FeatureView)> = views
+        .iter()
+        .filter(|(id, view)| {
+            // Zero-sized views are read-models for things with no body (a
+            // trigger volume's state). Nothing is waiting to draw them and a
+            // rectangle of no size is not a diagnosis.
+            !known.contains(id) && view.size.x > 0.0 && view.size.y > 0.0
+        })
+        .collect();
+    // `FeatureViewIndex::iter` is hash-ordered. Presentation-only, so the order
+    // cannot enter a trajectory — but a REPORT that names these ids should read
+    // the same twice, and so should the spawn order below.
+    unclaimed_now.sort_unstable_by(|(left, _), (right, _)| left.cmp(right));
+    unsettled.ids.clear();
+    unsettled
+        .ids
+        .extend(unclaimed_now.iter().map(|(id, _)| id.to_string()));
+
+    // An id that is claimed (or gone) starts its grace over. Without this the
+    // map grows one entry per feature per room, forever.
+    unclaimed_streak.retain(|id, _| unsettled.ids.binary_search(id).is_ok());
+
+    let Some(world) = world else {
+        return;
+    };
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -257,20 +308,36 @@ pub fn draw_unclaimed_feature_views(
     };
     let already_standing: std::collections::HashSet<&str> =
         stand_ins.iter().map(|(_, id)| *id).collect();
-    for (id, view) in views.iter() {
-        if known.contains(id) || already_standing.contains(id) {
+    for (id, view) in unclaimed_now {
+        if already_standing.contains(id) {
             continue;
         }
-        // Zero-sized views are read-models for things with no body (a trigger
-        // volume's state). A rectangle of no size is not a diagnosis.
-        if view.size.x <= 0.0 || view.size.y <= 0.0 {
+        // ── The DIAGNOSIS, and it is allowed to be late ──────────────────────
+        //
+        // A view unclaimed on ONE frame is a `Commands` flush, not a bug: render
+        // families spawn deferred and a room with many actors takes several
+        // flushes to draw. Standing in immediately made this instrument 100%
+        // false positives on the happy path — 190 warnings against 0 cover
+        // give-ups in one healthy 290 s session — and put a magenta box on
+        // screen for anything the cover was not over.
+        //
+        // ⛔ this costs the REAL bug nothing: a view no family will ever claim is
+        // unclaimed forever, so it still gets its box and its warning, a few
+        // frames later, which is irrelevant for a diagnostic nobody watches in
+        // real time. `a_permanently_unclaimed_view_still_gets_its_stand_in` is
+        // the poison that keeps it that way.
+        let streak = unclaimed_streak.entry(id.to_string()).or_insert(0);
+        *streak = streak.saturating_add(1);
+        if *streak < UNCLAIMED_STAND_IN_GRACE_FRAMES {
             continue;
         }
         bevy::log::warn!(
             target: "ambition_platformer2d::render",
-            "no render family claimed `{id}` ({:?}); drawing the unclaimed-body \
-             placeholder. Some spawn path is missing its family marker.",
-            view.kind
+            "no render family claimed `{id}` ({:?}) for {} consecutive frames; \
+             drawing the unclaimed-body placeholder. Some spawn path is missing \
+             its family marker.",
+            view.kind,
+            *streak,
         );
         commands.spawn_session_scoped(
             session_scope,
@@ -291,10 +358,102 @@ pub fn draw_unclaimed_feature_views(
     }
 }
 
+/// **Presentation is dormant, so nothing is waiting on it.**
+///
+/// [`draw_unclaimed_feature_views`] is session-gated, and a `Resource` — unlike
+/// the entities it replaced — does not clean itself up when the session that
+/// produced it goes away. A stale non-zero census is a room-transition cover
+/// that holds a BLACK SCREEN to its full 8-second give-up deadline, which is
+/// exactly the regression Jon reported on 2026-08-05.
+///
+/// So the dormant answer is published as explicitly as the live one. Same
+/// statement, inverse condition, registered beside its twin.
+pub fn forget_unclaimed_feature_views_while_dormant(mut unsettled: ResMut<UnclaimedFeatureViews>) {
+    if !unsettled.ids.is_empty() {
+        unsettled.ids.clear();
+    }
+}
+
 /// This visual is the FLOOR's stand-in, not a render family's picture of the
 /// feature. See [`draw_unclaimed_feature_views`].
+///
+/// ⚠ **it is a DIAGNOSTIC and nothing else now.** It used to double as the
+/// room-transition cover's settle signal; that reader consumes
+/// [`UnclaimedFeatureViews`] instead. Do not reintroduce a dependency on this
+/// marker's population to answer "is the room drawn yet" — the two questions
+/// want opposite timings and the conflation is a filed bug (queue D46).
 #[derive(Component)]
 pub struct UnclaimedBodyPlaceholder;
+
+/// **Which published feature views nothing has drawn.**
+///
+/// Republished every frame by [`draw_unclaimed_feature_views`]: every
+/// [`ambition_sim_view::FeatureViewIndex`] row with a body (`size > 0`) that no
+/// render family has claimed with a real [`FeatureVisual`].
+///
+/// ## ⛔⛔ This is NOT "how many magenta boxes are on screen"
+///
+/// One entity used to answer two questions with opposite timing needs, and that
+/// is why a decade of tuning could not have fixed Jon's flash:
+///
+/// | role | question | wants to fire |
+/// |---|---|---|
+/// | the stand-in ([`UnclaimedBodyPlaceholder`]) | *did somebody forget a family marker?* | **late** — only once a view has stayed unclaimed long enough to be a real orphan |
+/// | this resource | *is the new room finished drawing?* | **immediately** — the instant a view is unclaimed, so the cover keeps waiting |
+///
+/// Delaying the stand-in — the obvious fix, and the one that was proposed and
+/// refuted — would have made the flash WORSE, because the room-transition cover
+/// retired on `stand_in_count == 0` and a delayed spawn makes that true *during
+/// the gap the cover exists to hide*.
+///
+/// ⚠ **a view wearing a stand-in is still counted here.** A stand-in is not art.
+/// That subtraction is the one place the two counts differed.
+///
+/// ⛔ **ORDERING.** A reader must be ordered AFTER the publisher in the SAME
+/// schedule. Entities arrived through a `Commands` flush and were roughly
+/// self-synchronising; a resource is not, and a one-frame-stale zero retires a
+/// cover exactly as early as the bug this split fixes.
+#[derive(Resource, Default, Debug)]
+pub struct UnclaimedFeatureViews {
+    /// Sorted, so a report that names them reads the same twice.
+    ids: Vec<String>,
+}
+
+impl UnclaimedFeatureViews {
+    /// How many published views are still undrawn.
+    pub fn len(&self) -> usize {
+        self.ids.len()
+    }
+
+    /// Is every published view drawn by some render family?
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+
+    /// The undrawn ids, sorted — for a report that has to say WHICH.
+    pub fn ids(&self) -> impl ExactSizeIterator<Item = &str> {
+        self.ids.iter().map(String::as_str)
+    }
+}
+
+/// Consecutive frames a view must stay unclaimed before the floor draws its
+/// magenta stand-in and warns about it.
+///
+/// Small on purpose. It is not a cover budget — the cover reads
+/// [`UnclaimedFeatureViews`] and is unaffected by this number — it is the line
+/// between *"a `Commands` flush has not landed yet"* and *"this body has no
+/// family and never will"*. Five frames is ~83 ms at 60 Hz: long enough that a
+/// multi-flush room draw never reports itself as a defect, short enough that a
+/// genuinely orphaned body is still magenta before anyone finishes looking at
+/// it.
+///
+/// ⚠ **unmeasured.** The distribution of frames between a view being published
+/// and its family claiming it has never been sampled on the desktop route where
+/// the 190 warnings came from — the app_it harness draws zero stand-ins, so it
+/// has no data to give. What a measurement would change: a long tail (tens of
+/// frames) means raising this, and costs nothing now that the cover no longer
+/// depends on it.
+const UNCLAIMED_STAND_IN_GRACE_FRAMES: u32 = 5;
 
 /// Magenta, because nobody ships magenta on purpose.
 const UNCLAIMED_BODY_COLOR: Color = Color::srgba(1.0, 0.0, 0.85, 0.85);
@@ -308,6 +467,10 @@ mod tests {
     fn app_with_a_room() -> App {
         let mut app = App::new();
         app.init_resource::<DynamicFeatureViews>();
+        // ⛔ **not optional, and its absence is silent.** `ResMut<..>` of a
+        // missing resource fails param validation, which SKIPS the system — so a
+        // fixture that forgot this would exercise nothing and pass.
+        app.init_resource::<UnclaimedFeatureViews>();
         // A real session, so the spawn path takes its scoped arm rather than the
         // unscoped fixture arm — the placeholder swap has to work where it ships.
         let mut active = ActiveSessionScope::default();
@@ -464,11 +627,14 @@ mod tests {
         );
     }
 
-    /// The poison: the floor must still DRAW a stand-in for a view nothing has
-    /// claimed. A retirement rule that also stopped it spawning would pass the
-    /// test above by deleting the diagnosis instead of resolving it.
+    /// **The poison, and it is the whole limit on the grace period.** The floor
+    /// must still DRAW a stand-in for a view nothing will ever claim. A grace
+    /// period that swallowed the permanent case would pass the transient tests
+    /// by deleting the diagnosis instead of resolving it — and the magenta box
+    /// exists precisely because a body with no picture is a bug somebody must
+    /// notice.
     #[test]
-    fn a_view_with_no_visual_at_all_still_gets_its_stand_in() {
+    fn a_permanently_unclaimed_view_still_gets_its_stand_in() {
         let mut app = app_with_a_room();
         app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
             "nobody_drew_me".to_string(),
@@ -476,7 +642,9 @@ mod tests {
         )]));
 
         app.add_systems(Update, draw_unclaimed_feature_views);
-        app.update();
+        for _ in 0..UNCLAIMED_STAND_IN_GRACE_FRAMES {
+            app.update();
+        }
 
         let world = app.world_mut();
         let mut placeholders = world.query::<(&FeatureVisual, &UnclaimedBodyPlaceholder)>();
@@ -486,7 +654,169 @@ mod tests {
                 .filter(|(v, _)| v.id == "nobody_drew_me")
                 .count(),
             1,
-            "an unclaimed view is still a bug, and still gets its marked box"
+            "a view no family will ever claim is still a bug, and still gets its \
+             marked box. The grace period is a delay on the DIAGNOSIS, never an \
+             amnesty for it."
+        );
+    }
+
+    /// ⭐⭐ **THE SPLIT, stated in one assertion.**
+    ///
+    /// On the very first frame a view is unclaimed, the cover must already know
+    /// the room is not drawn — and no magenta box may exist yet, because a
+    /// one-flush ordering gap is not a diagnosis.
+    ///
+    /// These two facts are contradictory for any design where the cover counts
+    /// placeholders, which is why every attempt to give the stand-in a grace
+    /// period made Jon's flash worse instead of better: the count the cover read
+    /// went to zero during exactly the gap the cover exists to hide.
+    #[test]
+    fn a_view_is_censused_as_unsettled_before_any_stand_in_is_drawn() {
+        let mut app = app_with_a_room();
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+            "not_drawn_yet".to_string(),
+            a_view(),
+        )]));
+
+        app.add_systems(Update, draw_unclaimed_feature_views);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<UnclaimedFeatureViews>()
+                .ids()
+                .collect::<Vec<_>>(),
+            vec!["not_drawn_yet"],
+            "the census must report an undrawn view on the FIRST frame it is \
+             undrawn. This is what the room-transition cover waits on; anything \
+             later and it retires over art that has not arrived."
+        );
+
+        let world = app.world_mut();
+        let mut placeholders = world.query_filtered::<(), With<UnclaimedBodyPlaceholder>>();
+        assert_eq!(
+            placeholders.iter(world).count(),
+            0,
+            "…and NO magenta box yet. One frame unclaimed is a `Commands` flush, \
+             not a missing family marker — 190 warnings against 0 cover give-ups \
+             in one healthy session is what drawing it immediately produced."
+        );
+    }
+
+    /// **A view published now and claimed two flushes later leaves the room
+    /// unsettled on the frames in between.**
+    ///
+    /// The guard the conflation makes impossible: once the stand-in has a grace
+    /// period, a placeholder-based count cannot express this at all — it reads
+    /// zero on frames 1 and 2 and would retire the cover into the gap.
+    #[test]
+    fn a_view_claimed_two_flushes_later_is_unsettled_until_it_is_drawn() {
+        let mut app = app_with_a_room();
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+            "late_family".to_string(),
+            a_view(),
+        )]));
+        app.add_systems(Update, draw_unclaimed_feature_views);
+
+        let mut census: Vec<usize> = Vec::new();
+        app.update();
+        census.push(app.world().resource::<UnclaimedFeatureViews>().len());
+        app.update();
+        census.push(app.world().resource::<UnclaimedFeatureViews>().len());
+
+        // The family finally draws it.
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: "late_family".into(),
+            },
+            RoomVisual,
+        ));
+        app.update();
+        census.push(app.world().resource::<UnclaimedFeatureViews>().len());
+
+        assert_eq!(
+            census,
+            vec![1, 1, 0],
+            "the census must stay non-zero for every frame the view is undrawn \
+             and drop to zero on the frame it is drawn. A zero on frame 1 or 2 is \
+             a cover retiring into the gap it exists to hide."
+        );
+    }
+
+    /// ⚠ **THE ONE PLACE THE TWO COUNTS DIFFERED, and it was the bug.**
+    ///
+    /// A stand-in is not art. A view wearing one is still a view no render
+    /// family drew, so it must still hold the cover. Subtracting the stand-ins —
+    /// which the draw loop legitimately does, so it does not spawn a second box
+    /// — is exactly the mistake that made a magenta rectangle look like a
+    /// finished room.
+    #[test]
+    fn a_view_wearing_a_stand_in_is_still_unsettled() {
+        let mut app = app_with_a_room();
+        app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+            "wearing_magenta".to_string(),
+            a_view(),
+        )]));
+        // The floor already stood in for it on an earlier frame.
+        app.world_mut().spawn((
+            FeatureVisual {
+                id: "wearing_magenta".into(),
+            },
+            DynamicFeatureVisual,
+            UnclaimedBodyPlaceholder,
+        ));
+
+        app.add_systems(Update, draw_unclaimed_feature_views);
+        app.update();
+
+        assert_eq!(
+            app.world()
+                .resource::<UnclaimedFeatureViews>()
+                .ids()
+                .collect::<Vec<_>>(),
+            vec!["wearing_magenta"],
+            "a view standing under the diagnostic rectangle is UNDRAWN. If this \
+             ever reports empty, the room-transition cover retires over a magenta \
+             box — which is the flash, exactly."
+        );
+
+        let world = app.world_mut();
+        let mut placeholders = world.query_filtered::<(), With<UnclaimedBodyPlaceholder>>();
+        assert_eq!(
+            placeholders.iter(world).count(),
+            1,
+            "…and it must not be given a SECOND box. The draw loop skips ids that \
+             already have one; only the census ignores that."
+        );
+    }
+
+    /// **Presentation is dormant, so the census must say so.**
+    ///
+    /// The publisher is session-gated. A `Resource` it stops writing keeps its
+    /// last value — unlike the session-scoped entities it replaced, which the
+    /// lifecycle sweeps — and a stale non-zero census is a transition cover
+    /// holding a black screen to its full give-up deadline.
+    #[test]
+    fn a_dormant_presentation_publishes_an_empty_census() {
+        let mut app = App::new();
+        app.init_resource::<UnclaimedFeatureViews>();
+        // What the last live frame left behind.
+        app.world_mut()
+            .resource_mut::<UnclaimedFeatureViews>()
+            .ids
+            .push("left_over_from_the_last_session".to_string());
+        assert_eq!(
+            app.world().resource::<UnclaimedFeatureViews>().len(),
+            1,
+            "the fixture has to actually leave something in the census, or the \
+             clear below proves nothing"
+        );
+
+        app.add_systems(Update, forget_unclaimed_feature_views_while_dormant);
+        app.update();
+        assert!(
+            app.world().resource::<UnclaimedFeatureViews>().is_empty(),
+            "a dormant presentation is not waiting for anything to be drawn"
         );
     }
 

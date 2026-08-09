@@ -10,11 +10,19 @@
 //! `FeatureView` for every live feature; each render family discovers its own
 //! population; and `draw_unclaimed_feature_views` is the floor beneath them — a
 //! view nobody claimed gets a deliberately-ugly magenta stand-in
-//! (`UnclaimedBodyPlaceholder`). Those stand-ins are ALSO what the transition
-//! cover waits on: `room_transition_presentation` holds the cover until none
-//! remain. So any entity that OUTLIVES the room while its picture does not
-//! parks a permanent stand-in in every room you walk into afterwards, and the
-//! cover sits out its deadline over a black screen, every crossing.
+//! (`UnclaimedBodyPlaceholder`). So any entity that OUTLIVES the room while its
+//! picture does not parks a permanent stand-in in every room you walk into
+//! afterwards.
+//!
+//! ⚠ **the stand-in stopped being the transition cover's settle signal on
+//! 2026-08-09** (queue D46). The cover waits on `UnclaimedFeatureViews` — the
+//! census of published-but-undrawn views — because the stand-in is a DIAGNOSTIC
+//! that wants to fire LATE, only once a view has stayed unclaimed long enough
+//! to be a real orphan, while the cover needs an answer that fires IMMEDIATELY.
+//! Nothing below changes: a permanently-unclaimed id produces a census row AND
+//! (a few frames later) a stand-in, so a stand-in that survives a crossing is
+//! still a census row that survives it, and the cover still sits out its full
+//! deadline over a black screen, every crossing.
 //!
 //! `dd73a3087` fixed one instance by giving two enemy drops `RoomScopedEntity`.
 //!
@@ -398,9 +406,15 @@ fn cover_is_up(app: &mut App) -> bool {
 /// The cover exists to hide exactly that, and it is NOT giving up: a real 290 s
 /// desktop session logged **190 `no render family claimed` and 0 `cover gave up
 /// waiting`**. So either the flash comes from a placeholder spawned AFTER the
-/// cover retires — the cover's condition is `unclaimed.count() == 0`, a snapshot
-/// rather than a settled state — or it comes from somewhere this test will not
-/// find, and the D46 hypothesis is wrong.
+/// cover retires — the cover's condition was `unclaimed_placeholders.count() ==
+/// 0`, a snapshot rather than a settled state — or it comes from somewhere this
+/// test will not find, and the D46 hypothesis is wrong.
+///
+/// ⚠ **that condition is HISTORY as of 2026-08-09.** The cover now waits on the
+/// `UnclaimedFeatureViews` census instead of on the diagnostic's population,
+/// which removes this mechanism as a *possible* cause — it does not prove the
+/// flash is gone, because this harness never reproduced it. Un-ignoring it is
+/// still the way to find out.
 ///
 /// ⛔ **this samples PAST the room change**, which the other test in this file
 /// does not: `cross()` returns the instant the active room flips, and the whole
@@ -500,13 +514,96 @@ fn no_magenta_placeholder_is_visible_while_the_cover_is_down() {
         exposed.is_empty(),
         "a magenta unclaimed-body placeholder was on screen with NO transition \
          cover over it, entering '{after}':\n{}\n\n\
-         That is the flash Jon reported. The cover retires on \
-         `unclaimed.iter().count() == 0` — a SNAPSHOT, not a settled state — so a \
-         feature view published one flush later spawns a placeholder with nothing \
-         left to hide it. ⛔ Do NOT lengthen `presentation_settle_deadline`: the \
-         cover has already legitimately retired by then, and a longer deadline \
-         cannot reach this. See queue D46.",
+         That is the flash Jon reported. ⛔ Do NOT lengthen \
+         `presentation_settle_deadline`: the cover has already legitimately \
+         retired by then, and a longer deadline cannot reach this. Since \
+         2026-08-09 the cover waits on the `UnclaimedFeatureViews` census rather \
+         than on this diagnostic's population, so if this fires the census went \
+         empty while a view was still undrawn — check the ordering edge \
+         (`the_room_transition_cover_is_ordered_after_the_unclaimed_census`) \
+         before anything else. See queue D46.",
         exposed.join("\n")
+    );
+}
+
+/// **⛔⛔ THE COVER MUST READ THIS FRAME'S CENSUS, NOT LAST FRAME'S.**
+///
+/// The room-transition cover retires when
+/// `UnclaimedFeatureViews` is empty — "every feature view the sim published has
+/// a picture on it". That is a `Resource`, republished at the tail of the
+/// presentation visual chain, and a resource is **not** self-synchronising:
+/// read it before its publisher runs and you get last frame's answer, so a
+/// one-frame-stale zero retires the cover during exactly the gap it exists to
+/// hide. That is the bug this whole split fixes, reintroduced silently.
+///
+/// ⚠ **and `.after` across SCHEDULES is vacuous in Bevy**, which is why the
+/// non-vacuity clauses below matter more than the edge itself: they assert both
+/// ends have members *in `Update`*. `632ecf1b4` recorded a cross-schedule
+/// warning for this exact pair of sets that turned out to be wrong, and the
+/// wrong warning cost the next person the fix — so this test asserts where the
+/// members ARE rather than reasoning from a set's name.
+#[test]
+fn the_room_transition_cover_is_ordered_after_the_unclaimed_census() {
+    use ambition_app::app::{Platformer2dSimulationPhaseMonolith, RoomTransitionCoverSet};
+    use bevy::ecs::schedule::{NodeId, Schedules, SystemSet};
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+
+    // `systems_in_set` answers only once the graph has been BUILT; an unbuilt
+    // one reports `Uninitialized` rather than an empty set, which is the good
+    // failure direction. Build it without running anything.
+    app.world_mut()
+        .resource_scope(|world, mut schedules: Mut<Schedules>| {
+            schedules
+                .get_mut(Update)
+                .expect("the app registers systems in Update")
+                .initialize(world)
+                .expect("the Update schedule builds");
+        });
+
+    let schedules = app.world().resource::<Schedules>();
+    let graph = schedules.get(Update).expect("Update exists").graph();
+
+    let census_members = graph
+        .systems_in_set(Platformer2dSimulationPhaseMonolith::PresentationVisualSync.intern())
+        .expect("PresentationVisualSync is a registered set")
+        .len();
+    assert!(
+        census_members > 0,
+        "PresentationVisualSync has NO members in `Update`, so the ordering edge \
+         below is silently vacuous and the cover reads whatever the resource \
+         happened to hold. The census is published by \
+         `draw_unclaimed_feature_views`, the tail of that chain."
+    );
+    let cover_members = graph
+        .systems_in_set(RoomTransitionCoverSet.intern())
+        .expect("RoomTransitionCoverSet is a registered set")
+        .len();
+    assert_eq!(
+        cover_members, 1,
+        "RoomTransitionCoverSet must hold exactly the cover driver in `Update`. \
+         Zero means the ordering constrains nothing; more than one means \
+         something else joined the seam and this test stopped naming the cover."
+    );
+
+    let census_key = graph
+        .system_sets
+        .get_key(Platformer2dSimulationPhaseMonolith::PresentationVisualSync.intern())
+        .expect("PresentationVisualSync must be a registered SystemSet");
+    let cover_key = graph
+        .system_sets
+        .get_key(RoomTransitionCoverSet.intern())
+        .expect("RoomTransitionCoverSet must be a registered SystemSet");
+    assert!(
+        graph
+            .dependency()
+            .graph()
+            .contains_edge(NodeId::Set(census_key), NodeId::Set(cover_key)),
+        "the `Update` dependency graph must carry PresentationVisualSync -> \
+         RoomTransitionCoverSet. Without it the cover reads a census published \
+         LAST frame: a stale zero retires it over art that has not arrived, \
+         which is the magenta flash (queue D46), and nothing about that failure \
+         is loud — it is one frame of the wrong number."
     );
 }
 

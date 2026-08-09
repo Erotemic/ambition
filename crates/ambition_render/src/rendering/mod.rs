@@ -103,9 +103,15 @@ pub use ambition_sim_view::camera_snapshot::{CameraSnapshot2d, SceneCaptureReque
 pub use camera::publish_portal_camera_clamp;
 pub use camera::{camera_follow, CameraViewState};
 /// The presentation FLOOR's marker: a feature the sim published that no render
-/// family has drawn. Exported because it is the readable form of "this room is
-/// not presentable yet" — the room-transition cover waits on it.
+/// family has drawn, and that has stayed that way long enough to be a bug.
+///
+/// ⛔ **it is a DIAGNOSTIC only.** "Is this room presentable yet" is
+/// [`UnclaimedFeatureViews`], which answers immediately where this one answers
+/// late — see that type for why one entity could not do both.
 pub use features::UnclaimedBodyPlaceholder;
+/// **"This room is not drawn yet", as a number the room-transition cover can
+/// read.** The honest settle signal, split out of the magenta diagnostic above.
+pub use features::UnclaimedFeatureViews;
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use label_layout::{
     layout_world_labels, WorldLabel, WorldLabelFamily, WorldLabelLayoutPlugin, WorldLabelLayoutSet,
@@ -347,6 +353,23 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         );
         app.init_resource::<wielded_item_visuals::WieldedItemVisualCatalog>();
         app.init_resource::<slash_visuals::SlashSources>();
+        // The presentation floor's CENSUS — "which published views is nothing
+        // drawing" — is what the room-transition cover waits on. Its publisher
+        // is the tail of the chain below; its dormant answer is the system
+        // beside it, because a `Resource` does not clean itself up when the
+        // session that filled it goes away and a stale non-zero census is an
+        // eight-second black screen.
+        app.init_resource::<features::UnclaimedFeatureViews>();
+        app.add_systems(
+            Update,
+            features::forget_unclaimed_feature_views_while_dormant
+                .in_set(
+                    ambition_platformer2d_shared_tangle::schedule::Platformer2dSimulationPhaseMonolith::PresentationVisualSync,
+                )
+                .run_if(bevy::ecs::schedule::common_conditions::not(
+                    session_presentation_is_ready,
+                )),
+        );
         // Open, content-owned projectile art registry (empty until a game's
         // content crate registers looks). The renderer resolves each in-flight
         // projectile's `ProjectileVisualId` through it.

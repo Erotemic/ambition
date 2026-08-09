@@ -22,6 +22,8 @@ use ambition_platformer2d::load_presentation::{
     LoadPresentationOwnerId, LoadPresentationSet, ReadyTransitionPolicy,
 };
 use ambition_platformer2d::platformer::schedule::GameMode;
+use ambition_platformer2d::render::rendering::UnclaimedFeatureViews;
+use ambition_platformer2d::sim::Platformer2dSimulationPhaseMonolith;
 
 use super::room_transition_assets::{
     contribute_room_transition_assets_system, poll_room_transition_asset_readiness_system,
@@ -32,6 +34,25 @@ use ambition_platformer2d::runtime::room_transition::{
 };
 
 const ROOM_TRANSITION_EXPERIENCE: &str = "ambition.room-transition";
+
+/// **Where the cover decides whether the destination room is presentable.**
+///
+/// One member ([`drive_room_transition_presentation`]), and it exists so the
+/// ordering against the presentation floor's census is a NAMED, testable edge
+/// rather than an attribute nobody can check.
+///
+/// ⛔ the edge it carries is not optional. The cover retires when
+/// [`ambition_platformer2d::render::rendering::UnclaimedFeatureViews`] is empty;
+/// that is a `Resource`, so reading it before its publisher runs yields LAST
+/// FRAME's answer, and a one-frame-stale zero retires the cover during exactly
+/// the gap it exists to hide.
+/// `room_boundary_unclaimed_views::the_room_transition_cover_is_ordered_after_the_unclaimed_census`
+/// pins both halves — that the edge exists, and that both ends have members in
+/// `Update`, because a cross-schedule `.after` is silently vacuous in Bevy.
+/// ⚠ removing the `configure_sets` below makes that test fail; measured
+/// 2026-08-09, not assumed.
+#[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RoomTransitionCoverSet;
 
 /// Visible-host policy for adaptive room-transition presentation.
 ///
@@ -48,7 +69,8 @@ pub(crate) struct RoomTransitionPresentationConfig {
     /// still performance regressions that need construction/render optimization.
     pub(crate) covered_commit_budget: Duration,
     /// How long the cover may wait, after commit, for the target room to become
-    /// PRESENTABLE — no unclaimed-body placeholders left on screen.
+    /// PRESENTABLE — every feature view the sim published has a render family's
+    /// picture on it.
     ///
     /// Generous on purpose. It is not a performance budget; it is the point at
     /// which waiting longer is worse than showing the diagnosis, and a room that
@@ -211,6 +233,12 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
     app.init_resource::<ambition_platformer2d::runtime::room_transition::RoomTransitionAssetContributor>()
         .init_resource::<super::room_transition_assets::ContributedRoomAssets>()
         .init_resource::<RoomTransitionPresentationAvailable>()
+        // The presentation floor owns this and fills it every frame. Named here
+        // too because a `Res<..>` that does not EXIST fails param validation and
+        // silently skips the system — which is a cover that never retires. A
+        // host without the render plugin then behaves as it does today: nothing
+        // is undrawn because nothing is drawing.
+        .init_resource::<UnclaimedFeatureViews>()
         .init_resource::<RoomTransitionPresentationConfig>()
         .init_resource::<RoomTransitionPresentationState>()
         .init_resource::<RoomTransitionTelemetry>()
@@ -220,10 +248,21 @@ pub(crate) fn install_room_transition_presentation(app: &mut App) {
             (
                 contribute_room_transition_assets_system,
                 poll_room_transition_asset_readiness_system,
-                drive_room_transition_presentation,
+                // ⛔ **the census must be THIS frame's.** The presentation floor
+                // republishes `UnclaimedFeatureViews` at the tail of the visual
+                // chain; the cover retires on it being empty. Both ends are in
+                // `Update` — checked, not assumed, because an `.after` across
+                // schedules is silently vacuous and this one going quiet
+                // reintroduces the exact flash it fixes.
+                drive_room_transition_presentation.in_set(RoomTransitionCoverSet),
             )
                 .chain()
                 .before(LoadPresentationSet::Observe),
+        )
+        .configure_sets(
+            Update,
+            RoomTransitionCoverSet
+                .after(Platformer2dSimulationPhaseMonolith::PresentationVisualSync),
         )
         .add_systems(
             Update,
@@ -256,7 +295,13 @@ fn drive_room_transition_presentation(
     covers: Query<(Entity, &RoomTransitionCoverRoot)>,
     // Features the sim published that no render family has drawn yet. The cover
     // waits on these: see the retirement block below.
-    unclaimed: Query<(), With<ambition_platformer2d::render::rendering::UnclaimedBodyPlaceholder>>,
+    //
+    // ⛔ **NOT the magenta placeholders.** That marker is a diagnostic with a
+    // grace period, so its population is deliberately EMPTY during the first
+    // frames of a room draw — precisely the frames the cover must not retire in.
+    // See `UnclaimedFeatureViews`, and `RoomTransitionCoverSet` for the ordering
+    // this read depends on.
+    unclaimed: Res<UnclaimedFeatureViews>,
     mut presentation: MessageWriter<LoadPresentationCommand>,
     mut loads: ResMut<LoadCoordinator>,
     mut next_mode: ResMut<NextState<GameMode>>,
@@ -397,7 +442,15 @@ fn drive_room_transition_presentation(
     // difference is load-bearing: the target room's feature views do not exist
     // until it commits, so a barrier that waited for them before committing would
     // wait forever.
-    let unsettled = unclaimed.iter().count();
+    //
+    // ⭐ **it counts UNDRAWN VIEWS, not magenta boxes, and that distinction is
+    // the 2026-08-09 fix.** Counting boxes meant the cover could not tell "the
+    // art has not arrived yet" from "the art will never arrive", because the box
+    // is a diagnosis of the second and was being read as evidence of the first.
+    // Jon saw magenta on ordinary room changes while this cover logged ZERO
+    // give-ups — the two facts were both true because the thing it waited on was
+    // never the thing it needed to know.
+    let unsettled = unclaimed.len();
     let since_commit = active_snapshot
         .committed_at
         .map(|committed| time.elapsed().saturating_sub(committed))
@@ -411,15 +464,16 @@ fn drive_room_transition_presentation(
         }
         bevy::log::warn!(
             target: "ambition_platformer2d::room_transition::performance",
-            "room transition {} {} -> {} revealed with {unsettled} unclaimed body \
-             placeholder(s) still drawn after {:.0} ms — the cover gave up waiting. \
-             Those are features the sim published and no render family claimed, so \
-             either a spawn path is missing its family marker or this room draws \
-             more slowly than the deadline allows.",
+            "room transition {} {} -> {} revealed with {unsettled} feature view(s) \
+             still undrawn after {:.0} ms — the cover gave up waiting. Those are \
+             features the sim published and no render family claimed, so either a \
+             spawn path is missing its family marker or this room draws more \
+             slowly than the deadline allows. Undrawn: {:?}",
             active_snapshot.sequence,
             active_snapshot.source_room_id,
             active_snapshot.target_room_id,
             since_commit.as_secs_f64() * 1000.0,
+            unclaimed.ids().collect::<Vec<_>>(),
         );
     }
 

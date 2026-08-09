@@ -75,3 +75,4 @@ pub use resources::{
     StartingCharacterOverride, init_sandbox_resources,
 };
 pub use sim_systems::apply_player_reset_input_system;
+pub use world_flow::RoomTransitionCoverSet;

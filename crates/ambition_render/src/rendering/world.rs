@@ -626,15 +626,17 @@ impl BoundEntitySprite {
 /// now: an authored colour says what to draw *until* a game names art, and
 /// naming art is what ends it.
 ///
-/// ▢ **this does not by itself make a HIDDEN block reveal itself**, and the
-/// reason is worth knowing before someone re-diagnoses it here: Mary-O promotes
-/// a discovered `BonkOnly` block to a `Solid` through
-/// `FeatureEcsWorldOverlay`, which pushes the block's name into
-/// `removed_block_names` — so `sync_removed_block_visuals` despawns the very
-/// entity this pass would have dressed, and nothing on the render side spawns a
-/// visual for the overlay's ADDED blocks (only `gate_solids` has one, in
-/// `sync_lock_wall_visuals`). Observed 2026-08-09, not inferred: the payout
-/// lands, the visual is gone, and the replacement block is collision-only.
+/// ✔ **and a HIDDEN block does reveal itself now** (queue D69, fixed
+/// 2026-08-09). It did not until this pass could keep the entity it dresses:
+/// Mary-O promotes a discovered `BonkOnly` block to a `Solid` through
+/// `FeatureEcsWorldOverlay`, pushing the block's name into `removed_block_names`
+/// AND the promoted block into `blocks`, and `sync_removed_block_visuals` read
+/// only the first half — despawning the very entity this pass would have
+/// dressed. Observed, not inferred: the payout landed, the visual was gone, and
+/// the replacement block was collision-only. That reconcile now skips a name the
+/// same overlay is re-adding; nothing on the render side spawns a visual for the
+/// overlay's genuinely NEW blocks (only `gate_solids` has one, in
+/// `sync_lock_wall_visuals`), which is a different gap and still open.
 ///
 /// ⚠ **and it clears the authored tint when it takes over.** `Sprite::color`
 /// multiplies into the image, so leaving a placeholder colour on would stain the
@@ -1332,6 +1334,34 @@ pub struct BlockFlinch {
 
 /// is owed here. Generic over the block name, so it serves every game the reusable
 /// presentation plugin drives, not just Mary-O's bricks.
+///
+/// # ⭐ A NAME IN BOTH LISTS IS A REPLACEMENT, AND THE REMOVAL HALF MUST NOT WIN
+///
+/// The overlay's two block lists are not independent. A contributor that changes
+/// what an authored block *is* — rather than deleting it — states that as a
+/// subtraction by name plus an addition at the same box: Mary-O's
+/// `contribute_discovered_hidden_blocks_to_overlay` promotes a struck `BonkOnly`
+/// to a `Solid` by pushing the block's own name into `removed_block_names` AND
+/// the promoted block into `blocks`, same name, same box, same `GeoId`.
+///
+/// ⛔ **reading only the first half despawned the sprite the second half was
+/// asking for** (queue D69, observed 2026-08-09): a discovered hidden block paid
+/// out and then had its picture deleted, so the mechanic that exists to make a
+/// block *reveal itself by being used* made it vanish instead.
+///
+/// ⇒ so a subtracted name that the SAME overlay is re-adding is skipped. Both
+/// lists are cleared and refilled together by
+/// `rebuild_feature_ecs_world_overlay`, so the two halves are always read from
+/// one frame's answer and there is no ordering hazard here — deliberately NOT a
+/// second reconciler racing this one.
+///
+/// ⚠ **and NOT "draw everything in `overlay.blocks`".** That list is mostly
+/// engine-contributed collision volumes that must never be drawn: pogo-bounce
+/// targets riding actors (`ecs-pogo-target …`, `BlockKind::PogoOrb`) and
+/// breakable ghosts, all carrying `GeoId::anon()` and synthesised names no
+/// authored room ever uses — so none of them can appear in `removed_block_names`
+/// and none of them is rescued here. The narrow claim is about the INTERSECTION
+/// of the two lists, which is exactly the set that means "replaced".
 pub fn sync_removed_block_visuals(
     mut commands: Commands,
     overlay: Option<
@@ -1346,13 +1376,24 @@ pub fn sync_removed_block_visuals(
         return;
     }
     for (entity, visual) in &blocks {
-        if overlay
+        if !overlay
             .removed_block_names
             .iter()
             .any(|name| name == &visual.block_name)
         {
-            commands.entity(entity).despawn();
+            continue;
         }
+        // The replacement half. See the header: this is a re-statement of the
+        // block, not its deletion, and the visual is what the replacement wants
+        // dressed.
+        if overlay
+            .blocks
+            .iter()
+            .any(|block| block.name == visual.block_name)
+        {
+            continue;
+        }
+        commands.entity(entity).despawn();
     }
 }
 
@@ -1460,6 +1501,74 @@ mod lock_wall_visual_tests {
         assert!(
             app.world().get_entity(ground).is_ok(),
             "an un-subtracted block's visual is left standing"
+        );
+    }
+
+    /// ⭐ **THE D69 INVARIANT: a name in BOTH overlay lists is a REPLACEMENT.**
+    ///
+    /// A contributor that re-states an authored block (Mary-O promoting a
+    /// discovered hidden `BonkOnly` to a `Solid`) subtracts the name and adds the
+    /// replacement in one pass. The visual must SURVIVE, because it is the thing
+    /// the replacement wants dressed.
+    ///
+    /// ⚠ **the poison is in the same test, and it is the one that matters**: an
+    /// added block under a DIFFERENT name — which is what every engine-contributed
+    /// pogo/breakable volume in `overlay.blocks` is — must not rescue an ordinary
+    /// removal. A fix that skipped the despawn whenever `blocks` was merely
+    /// non-empty would pass the first assertion and fail this one, and it would
+    /// have shipped: the same frame that discovers a hidden block also carries six
+    /// moving `PogoOrb` volumes.
+    #[test]
+    fn a_replaced_block_keeps_its_visual_while_a_removed_one_does_not() {
+        let mut app = App::new();
+        let promoted = app
+            .world_mut()
+            .spawn(BlockVisual {
+                block_name: "maryo_block:Hidden:AlwaysCoin:1".to_string(),
+                geo_id: ambition_platformer2d_core::GeoId::anon(),
+            })
+            .id();
+        let broken = app
+            .world_mut()
+            .spawn(BlockVisual {
+                block_name: "brick_1".to_string(),
+                geo_id: ambition_platformer2d_core::GeoId::anon(),
+            })
+            .id();
+        app.insert_resource(FeatureEcsWorldOverlay {
+            removed_block_names: vec![
+                "maryo_block:Hidden:AlwaysCoin:1".to_string(),
+                "brick_1".to_string(),
+            ],
+            blocks: vec![
+                // The replacement: same name as the subtraction above.
+                ae::Block::solid(
+                    "maryo_block:Hidden:AlwaysCoin:1",
+                    ae::Vec2::new(100.0, 100.0),
+                    ae::Vec2::new(16.0, 16.0),
+                ),
+                // The poison: an unrelated overlay block, the shape every
+                // engine-contributed pogo volume takes.
+                ae::Block::solid(
+                    "ecs-pogo-target 7 0",
+                    ae::Vec2::new(400.0, 200.0),
+                    ae::Vec2::new(16.0, 16.0),
+                ),
+            ],
+            ..Default::default()
+        });
+        app.add_systems(Update, sync_removed_block_visuals);
+
+        app.update();
+        assert!(
+            app.world().get_entity(promoted).is_ok(),
+            "a block the same overlay is RE-ADDING was replaced, not removed — its \
+             visual is what the replacement wants dressed (queue D69)",
+        );
+        assert!(
+            app.world().get_entity(broken).is_err(),
+            "an ordinary subtraction still despawns: an added block under another \
+             name does not rescue it",
         );
     }
 

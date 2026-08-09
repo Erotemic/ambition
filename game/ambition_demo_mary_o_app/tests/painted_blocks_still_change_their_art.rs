@@ -271,14 +271,12 @@ fn the_invisible_brick_triggers_from_below() {
 /// ⚠ **this is a SECOND test rather than more assertions on the trigger test**,
 /// because they fail for different reasons and a merged one cannot say which.
 ///
-/// ⛔ **LANDED RED AND `#[ignore]`d, 2026-08-09** — the run was paused mid-fix and
-/// this is the probe, not a regression. It FAILS today and that failure is the
-/// finding. ⇒ un-ignore it as the first act of fixing D69; it is already written
-/// and already correct.
+/// ⛔ **LANDED RED AND `#[ignore]`d, 2026-08-09** — the run was paused mid-fix,
+/// and this probe's failure WAS the finding. ✔ **un-ignored and green the same
+/// day**: `sync_removed_block_visuals` no longer treats a replacement as a
+/// deletion, so the promoted block keeps the entity `dress_power_blocks` puts
+/// the spent plate on.
 #[test]
-#[ignore = "red-first PROBE for queue D69, preserved when the run paused: a discovered \
-            hidden block is despawned by the removal half of its own replacement. \
-            Un-ignore this to work D69."]
 fn a_discovered_hidden_block_reveals_itself() {
     let mut app = cavern();
     let hidden = authored(MaryOBlockLook::Hidden);

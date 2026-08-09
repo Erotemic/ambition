@@ -36,9 +36,9 @@ its own header warns about, one level up.
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 | **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but the parent tree reads dirty until it is settled | ▢ **needs Jon**, 30 seconds — see below |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **offered as hygiene, NOT as a fix** |
+| **HOW were you dying when the level did not restart?** (queue D68, 2026-08-09) | the death-restart investigation — ⛔ **it cannot proceed without this** | ▢ **needs Jon** — a fact only he has, not a decision |
 
-⇒ **3 open** (D48, the submodule pointer, and the rust-analyzer setting), and
-**none of them blocks any work.**
+⇒ **4 open**, and **only the last one blocks anything.**
 ⚠ the heading said *"2 open"* while this line said *"1 open"* for a day — the
 third miscount, and this time the heading was accidentally right for the wrong
 reason. ⇒ **the two numbers are now derived from the same table in one edit.**
@@ -180,6 +180,58 @@ four values, already in flight. **Same entity, different bug.**
 >
 > Their reasoning is in git. What a decision file is FOR is the list of things
 > Jon still has to rule on, and every closed row on it makes that list less true.
+
+
+## HOW were you dying when the level did not restart? (queue D68, 2026-08-09)
+
+⚠ **This is a QUESTION, not a decision** — a fact only you have. It is in this
+file because the investigation genuinely stops without it, and guessing would
+mean building a third fixture for a route you may never have taken.
+
+**Your report:** *"when you die the level doesn't restart, you just stay right
+where you were."*
+
+### What is now proven, so you know what NOT to re-report
+
+A test composes Mary-O exactly as `mary_o_app` does, moves her 600 px off spawn,
+kills her **with a real hit**, runs past `DEATH_DWELL`, and asserts she is back
+at `world.spawn`. **It passes.** It was poisoned rather than trusted — deleting
+the replay request turns it red with
+
+```text
+she is still at Vec2(664.6, 384.1)
+```
+
+⇒ **that red is your sentence.** The test can see exactly the bug you describe,
+and on the fatal-hit route it does not happen.
+
+### The one thing that would explain it
+
+**Three routes publish a death**, and only two are covered end to end:
+
+| route | reaches the beat? | tested end to end |
+|---|---|---|
+| a hit (`death_respawn_player`) | yes | ✔ new, `5fddacd76` |
+| the level timeout (`spend_lives_on_death`) | yes | ✔ pre-existing |
+| **a kernel reset — a pit, a spike, any hazard** (`publish_kernel_reset_death`) | yes | ⛔ **NO** |
+
+⇒ **if you were falling in a pit or landing on a spike rather than being hit,
+that is the untested route** and the likely home of your bug.
+
+### What I need from you — one line
+
+**Roughly how were you dying?** *"an enemy hit me"* / *"I fell in a pit"* / *"a
+spike"* / *"I don't remember"*.
+
+⭐ **"I don't remember" is a fine answer** — it just means I build the third
+fixture speculatively rather than aimed. ⛔ **What I will not do is go hunting
+through the composed app for a failure the tests say does not occur**; that is
+how a day gets spent proving something already true.
+
+⚠ **and one thing your answer does NOT settle**: you also reported that *"some
+blocks from the last run remain spent"*. That was coupled to this question and is
+now **un-coupled** — the replay provably fires, so those stale blocks are their
+own bug (queue D70) whatever you answer here.
 
 
 ## Give rust-analyzer its own target dir? (queue D59, 2026-08-09)

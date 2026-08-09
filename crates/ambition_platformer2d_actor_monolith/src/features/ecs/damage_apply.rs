@@ -393,13 +393,13 @@ pub(crate) fn handle_player_damage_events(
     // holds the queries.
     attacker_source: Option<&ambition_sfx::PresentationSourceId>,
     victim_source: Option<&ambition_sfx::PresentationSourceId>,
-    world: &ae::World,
+    _world: &ae::World,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
     death_writers: &mut BodyDeathWriters<'_>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    sim_state: &mut RoomTransitionCooldown,
+    _sim_state: &mut RoomTransitionCooldown,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
@@ -417,7 +417,7 @@ pub(crate) fn handle_player_damage_events(
     difficulty_multiplier: f32,
     // The controlled body's held locomotion (local frame) for DI (CM2).
     di_input_local: ae::Vec2,
-    anim: &mut BodyAnimFacts,
+    _anim: &mut BodyAnimFacts,
     combat: &mut BodyCombat,
     motion_model: &mut ae::MotionModel,
     // The published maneuver facts (ADR 0024): dodge-roll i-frames gate at
@@ -1068,8 +1068,15 @@ fn death_source_of(cause: ae::ResetCause) -> crate::combat::HitSource {
     }
 }
 
-/// Stage this frame's victim-side hits into the rollback-registered FIFO the
-/// player resolver drains next frame.
+/// Stage this frame's hits that belong to the controlled-body victim resolver
+/// into its rollback-registered FIFO.
+///
+/// An explicit `HitTarget::Player(entity)` is already victim-resolved and wins
+/// over the legacy source-direction partition. That is what lets body-owned
+/// melee stay controller-independent: a `PlayerSlash` produced by one fighter
+/// can target another player-marked body without being thrown away as an
+/// attacker-side broadcast. Untargeted/broadcast events keep the old source
+/// filter until that separate event-vocabulary cleanup lands.
 ///
 /// Runs at the END of the Combat phase, after every `HitEvent` writer, so the
 /// hand-off from message channel to snapshot state happens same-frame; only
@@ -1079,7 +1086,7 @@ pub fn stage_player_victim_hit_events(
     mut pending: ResMut<crate::combat::events::PendingPlayerHitEvents>,
 ) {
     for event in hit_events.read() {
-        if !event.source.is_attacker_side() {
+        if matches!(event.target, HitTarget::Player(_)) || !event.source.is_attacker_side() {
             pending.0.push(event.clone());
         }
     }

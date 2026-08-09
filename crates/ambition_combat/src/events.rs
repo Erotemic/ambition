@@ -204,7 +204,7 @@ pub struct NpcDialogueRequest {
 /// Source of a hit event. Lets per-target damage logic branch on the
 /// originator and lets the trace / HUD label hits.
 ///
-/// `HitSource` partitions naturally into two directions:
+/// Legacy/broadcast `HitSource`s partition naturally into two directions:
 /// - **Attacker-side** (`PlayerSlash`, `PlayerProjectile`,
 ///   `PogoBounce`, self-destruct style enemy crashes) — consumed by
 ///   the feature-damage system to apply damage to enemies / bosses /
@@ -212,6 +212,12 @@ pub struct NpcDialogueRequest {
 /// - **Victim-side** (`Hazard`, `EnemyBody`, `EnemyAttack`,
 ///   `EnemyProjectile`, `BossBody`, `BossAttack`) — consumed by the
 ///   player-damage system to apply damage to players.
+///
+/// An explicit [`HitTarget::Actor`] or [`HitTarget::Player`] outranks that legacy
+/// direction: once a producer has already resolved a concrete body victim, the
+/// matching victim consumer accepts the event regardless of source direction.
+/// This is what lets body-owned melee use one contact resolver for every
+/// controller/faction without changing the descriptive source vocabulary.
 ///
 /// New attack sources should add a variant here rather than building
 /// a parallel `apply_*_attack` path. The canonical channel is
@@ -318,8 +324,9 @@ pub enum HitTarget {
     #[default]
     Volume,
     /// Single pre-resolved player victim. Producers that already
-    /// iterated players and picked the overlapping one stamp this
-    /// so the reader doesn't re-pick the primary by default.
+    /// iterated bodies and picked this player-marked victim stamp it so the
+    /// reader doesn't re-pick the primary by default. Explicit victim identity
+    /// outranks [`HitSource::is_attacker_side`]'s legacy broadcast direction.
     Player(bevy::prelude::Entity),
     /// Single pre-resolved NON-player actor victim. Stamped by a producer that
     /// already resolved overlap + faction hostility (`FactionRelations`) and

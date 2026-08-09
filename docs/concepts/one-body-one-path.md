@@ -48,12 +48,17 @@ does not mean "make the two behave similarly".
 This is a STATUS inventory, not the rule. It goes stale; the rule does not.
 
 **Melee is unified end to end.** The STATE (`BodyMelee` / `MeleeSwing`), the
-swing MODEL (`AttackSpec`), the slash VFX (`emit_melee_slash` in `combat::util`)
-and the strike SPAWN are one path for the player and every actor. The spawn goes
-through the moveset: `combat::moveset::trigger_moveset_moves` →
-`advance_move_playback` spawns ONE gravity-resolved volume that drives both the
-damage `Hitbox` entity and the slash, projected to body state by
-`project_moveset_melee_to_body_melee`.
+swing MODEL (`AttackSpec`), the slash VFX (`emit_melee_slash` in `combat::util`),
+the strike SPAWN, and body CONTACT RESOLUTION are one path for the controlled
+body and every actor. The spawn goes through the moveset:
+`combat::moveset::trigger_moveset_moves` → `advance_move_playback` spawns ONE
+gravity-resolved volume that drives both the damage `Hitbox` entity and the
+slash, projected to body state by `project_moveset_melee_to_body_melee`.
+`combat::hitbox::apply_hitbox_damage` then resolves every `FollowOwner` strike
+through the same victim loop: owner exclusion, relationship/team policy,
+published hurtbox geometry, per-hitbox dedup, and victim-specific knockback.
+`Player` + `World` hitboxes remain a distinct world-AOE primitive rather than a
+second melee path.
 
 ⛔ **Do not reintroduce** a `PlayerAttackState` / `ActorAttackState` split, a
 second slash emit, or a per-frame player damage loop. Every melee is an

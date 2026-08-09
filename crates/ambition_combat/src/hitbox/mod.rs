@@ -230,13 +230,13 @@ impl StrikeVictimItem<'_, '_> {
     }
 }
 
-/// Apply each live hitbox's damage to the right faction's targets.
+/// Apply each live hitbox's damage to the bodies it reaches.
 ///
-/// Enemy / Boss hitboxes hit the player and emit `HitEvent` with a
-/// victim-side `HitSource`. Player / Npc / Neutral hitboxes are
-/// routed through other paths (player slash flows as
-/// `HitSource::PlayerSlash`); this system is the catch-all for
-/// hostile melee.
+/// Body-owned melee (`FollowOwner`) resolves every attacker side through ONE
+/// victim loop: self exclusion, combat relationship, overlap, per-hitbox dedup,
+/// and victim-specific knockback are identical for human- and brain-controlled
+/// bodies. The remaining `Player` + `World` branch is deliberately not melee: it
+/// is the legacy wielded world-AOE primitive consumed as a broadcast volume.
 pub fn apply_hitbox_damage(
     mut hitboxes: Query<(Entity, &Hitbox, &mut HitboxHits)>,
     owners: Query<&super::components::CenteredAabb>,
@@ -282,25 +282,24 @@ pub fn apply_hitbox_damage(
     // The swing owner's team, looked up the same way its grudge is. Read-only,
     // so it may overlap the victim query.
     attacker_team: Query<&crate::targeting::MatchTeam>,
-    // The owner's melee swing, so a Player-faction FollowOwner strike (the player's
-    // slash — and a possessed actor's) reads the per-swing `hit_targets` for
-    // one-hit-per-target dedup and emits only while the swing is live.
+    // A player-effective FollowOwner hitbox is emitted only while the universal
+    // moveset projection says this body still has a live melee swing. This is an
+    // authority/lifetime gate only; once admitted, contact resolution is the
+    // same victim loop as every other body's melee.
     melee_owners: Query<&super::components::BodyMelee>,
-    // CM8: hostile melee overlap no longer emits hit feedback here — the ONE
-    // victim-side reaction (`emit_hit_feedback`) owns sfx/spray/debris now, so
-    // this system only needs the `VfxMessage` writer for the wielded-AOE landing
-    // cue (a Volume strike, not a per-victim reaction).
+    // CM8: melee overlap no longer emits hit feedback here — the ONE victim-side
+    // reaction (`emit_hit_feedback`) owns sfx/spray/debris now, so this system
+    // only needs the `VfxMessage` writer for the wielded-AOE landing cue (a World
+    // strike, not a body-owned melee contact).
     mut vfx: MessageWriter<VfxMessage>,
     mut hit_events: MessageWriter<HitEvent>,
 ) {
     let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     for (_hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         // Resolve the owner's collision-box center for FollowOwner tracking.
-        // Actors carry `CenteredAabb`; the PLAYER (a melee strike owner now) does
-        // NOT — it carries `BodyKinematics` (pos = box center). Try the actor box,
-        // then fall back to body kinematics, so a player-owned strike tracks too.
-        // If neither resolves (owner despawned), leave the hitbox a harmless ghost
-        // for `tick_and_despawn_hitboxes` — an owner-less hitbox has no source pos.
+        // Actors carry `CenteredAabb`; bare fixtures may carry only
+        // `BodyKinematics`. If neither resolves (owner despawned), leave the
+        // hitbox a harmless ghost for `tick_and_despawn_hitboxes`.
         let owner_pos = if let Ok(aabb) = owners.get(hitbox.owner) {
             aabb.center
         } else if let Ok(kin) = owner_kin.get(hitbox.owner) {
@@ -309,158 +308,124 @@ pub fn apply_hitbox_damage(
             continue;
         };
         let world_volume = hitbox.world_volume(owner_pos);
-
         let source_faction = actor_faction_from_hit_side(hitbox.source);
-        match hitbox.source {
-            // Aggressor melee: Enemy, Boss, OR a PROVOKED Npc (a peaceful NPC turned
-            // hostile keeps its Npc faction but fights like any aggressor). All three
-            // damage different-faction actors + an overlapping player under the
-            // physical rule; same-faction allies are spared via `can_damage`. (A
-            // PEACEFUL NPC never reaches here — with no combat target it spawns no
-            // hitbox.) Only `Neutral` is truly inert.
-            HitSide::Enemy | HitSide::Boss | HitSide::Npc => {
-                let source_kind = if matches!(hitbox.source, HitSide::Boss) {
-                    HitSource::BossAttack
-                } else {
-                    HitSource::EnemyAttack
-                };
-                // Actor-vs-actor: a swing damages any DIFFERENT-faction actor it
-                // overlaps, OR a same-faction actor the owner holds a personal grudge
-                // against (two `Npc` duelists feuding). Same-faction non-grudged allies
-                // are spared unless friendly fire is on; the attacker never hits itself
-                // (owner check). Stamped `HitTarget::Actor` so the actor-damage consumer
-                // applies it to exactly that body.
-                let owner_grudge = attacker_aggression
+
+        // ONE BODY, ONE PATH: every body-owned melee strike resolves contacts
+        // here. `HitSide` selects descriptive source vocabulary only; it does not
+        // select a different overlap/dedup/knockback algorithm.
+        let melee_source = match (hitbox.source, hitbox.anchor) {
+            (HitSide::Player, HitboxAnchor::FollowOwner { .. }) => {
+                let has_live_swing = melee_owners
                     .get(hitbox.owner)
                     .ok()
-                    .and_then(|a| a.grudge);
-                // ONE victim loop (§A3): every body with a published footprint —
-                // player, actor, boss, possessed anything — resolves through the
-                // same relational rule (`damage_lands` = different-faction ||
-                // personal grudge; `can_damage` for a Player victim is the same
-                // predicate since a player is never the aggressor's faction) and
-                // the same published hurtbox. i-frames resolve at CONSUME time
-                // for every body (`resolve_body_hit`, §A2). Victim KIND picks
-                // only policy: a player victim gets the knockback payload and
-                // the richer feedback.
-                for victim in &victims {
-                    if victim.entity == hitbox.owner {
-                        continue;
-                    }
-                    // Structural tangibility gate (Jon 2026-07-22): a dead body is
-                    // an intangible corpse — the swing passes through it. Skipping
-                    // here means NO event and NO impact VFX are produced at the
-                    // corpse, so a dead thing neither interacts nor presents. (The
-                    // consume-time `resolve_body_hit` alive check stays as defense.)
-                    if victim.is_corpse() {
-                        continue;
-                    }
-                    if !crate::targeting::damage_lands_between(
-                        source_faction,
-                        victim.effective_faction(),
-                        attacker_team.get(hitbox.owner).ok(),
-                        victim.team,
-                        friendly_fire,
-                        owner_grudge,
-                        victim.entity,
-                    ) {
-                        continue;
-                    }
-                    if hits.hit.contains(&victim.entity) {
-                        continue;
-                    }
-                    if !victim.reached_by(&world_volume) {
-                        continue;
-                    }
-                    let victim_body = victim.aabb.aabb();
-                    // §A2: the EVENT always flows — i-frames resolve at CONSUME
-                    // time in `resolve_body_hit`, the same for every body.
-                    // CM8: hit FEEDBACK (the sfx/spray/debris) is no longer
-                    // emitted here. It moved to the ONE victim-side reaction
-                    // (`emit_hit_feedback`), which fires only when the consumer's
-                    // `resolve_body_hit` reports the hit LANDED — so a dodged /
-                    // parried / i-framed hit is muted for free, without this side
-                    // recomputing vulnerability, and an enemy struck by another
-                    // enemy uses its OWN `HurtFeedback` instead of the player's
-                    // red "you got hurt" burst.
-                    let impact = midpoint(victim.aabb.center, world_volume.center());
-                    // Knockback side in the victim's LOCAL frame (§B11): under
-                    // sideways gravity the attacker and victim separate along
-                    // world-Y, exactly when a screen-X comparison degenerates.
-                    // The consumer's gravity-relative resolution keeps this as
-                    // its fallback, so the stored side must be frame-correct
-                    // too. Attached for EVERY victim (§A2 step 6): an actor
-                    // victim rides the same resolved knockback the player does.
-                    let side = victim.knockback_side();
-                    let dir = if (victim_body.center() - owner_pos).dot(side) >= 0.0 {
-                        1.0
-                    } else {
-                        -1.0
-                    };
-                    let (victim_damage_taken, victim_weight) = victim.knockback_growth_inputs();
-                    let magnitude = resolved_hitbox_knockback_magnitude(
-                        hitbox.knockback,
-                        victim_damage_taken,
-                        victim_weight,
-                    );
-                    let knockback = Some(HitKnockback {
-                        dir,
-                        magnitude,
-                        source_pos: owner_pos,
-                        impact_pos: impact,
-                        // CM1: the authored launch angle rides through to the
-                        // victim-side resolver.
-                        launch_dir: hitbox.launch_dir,
-                    });
-                    hit_events.write(HitEvent {
-                        strike_sfx: hitbox.strike_sfx,
-                        volume: world_volume.clone(),
-                        damage: hitbox.damage.max(1),
-                        source: source_kind.clone(),
-                        // The entity that spawned the hitbox is the attacker —
-                        // read on the victim side to attribute hitstun / the
-                        // death cause to the right body.
-                        attacker: Some(hitbox.owner),
-                        // Stamp the victim so the right consumer lands the hit.
-                        target: if victim.is_player {
-                            HitTarget::Player(victim.entity)
-                        } else {
-                            HitTarget::Actor(victim.entity)
-                        },
-                        mode: HitMode::Knockback,
-                        knockback,
-                        ignored_targets: Vec::new(),
-                    });
-                    hits.hit.insert(victim.entity);
+                    .and_then(|m| m.swing.as_ref())
+                    .is_some();
+                if !has_live_swing {
+                    continue;
                 }
+                Some(HitSource::PlayerSlash { knock_x: 0.0 })
             }
-            // Player-faction hitbox (a wielded boss-style AOE — see
-            // `crate::abilities::ranged::shockwave`): damage the enemies/bosses it overlaps by
-            // emitting ONE attacker-side Volume `HitEvent` that
-            // `apply_feature_hit_events` resolves against every overlapping
-            // actor + boss. This is the player end of the same primitive a boss
-            // AOE uses through the Enemy/Boss branch above — the faction is the
-            // only difference. Fires once per strike (the owner doubles as a
-            // "already fired" sentinel in `HitboxHits`, harmless since a hitbox
-            // never targets its own owner).
-            HitSide::Player => match hitbox.anchor {
-                // A FollowOwner Player strike is a MELEE SWING (the player's slash,
-                // or a possessed actor's) — the unified counterpart of the old
-                // per-frame `advance_attack` Volume emit. Emit the Volume `HitEvent`
-                // every active tick (the hitbox tracks the owner, so it connects on
-                // whatever frame it reaches the target), deduped per-swing via the
-                // owner's accumulating `MeleeSwing.hit_targets` (the universal
-                // resolver folds landed keys back in). Melee knockback rides the
-                // moveset volume's authored launch speed / `launch_dir`, so the slash
-                // event carries no signed impulse. No swing armed ⇒ no strike.
-                HitboxAnchor::FollowOwner { .. } => {
-                    let Some(swing) = melee_owners
-                        .get(hitbox.owner)
-                        .ok()
-                        .and_then(|m| m.swing.as_ref())
-                    else {
-                        continue;
-                    };
+            (HitSide::Enemy | HitSide::Npc, _) => Some(HitSource::EnemyAttack),
+            (HitSide::Boss, _) => Some(HitSource::BossAttack),
+            (HitSide::Player, HitboxAnchor::World { .. }) | (HitSide::Neutral, _) => None,
+        };
+
+        if let Some(source_kind) = melee_source {
+            let owner_grudge = attacker_aggression
+                .get(hitbox.owner)
+                .ok()
+                .and_then(|a| a.grudge);
+
+            for victim in &victims {
+                // Identity beats every relationship rule. Friendly fire, match
+                // teams, and grudges can decide whether TWO bodies may fight;
+                // none of them can make one body become its own victim.
+                if victim.entity == hitbox.owner {
+                    continue;
+                }
+                // Structural tangibility gate (Jon 2026-07-22): a dead body is
+                // an intangible corpse — the swing passes through it. Skipping
+                // here means NO event and NO impact VFX are produced at the
+                // corpse, so a dead thing neither interacts nor presents. (The
+                // consume-time `resolve_body_hit` alive check stays as defense.)
+                if victim.is_corpse() {
+                    continue;
+                }
+                if !crate::targeting::damage_lands_between(
+                    source_faction,
+                    victim.effective_faction(),
+                    attacker_team.get(hitbox.owner).ok(),
+                    victim.team,
+                    friendly_fire,
+                    owner_grudge,
+                    victim.entity,
+                ) {
+                    continue;
+                }
+                if hits.hit.contains(&victim.entity) {
+                    continue;
+                }
+                if !victim.reached_by(&world_volume) {
+                    continue;
+                }
+
+                let victim_body = victim.aabb.aabb();
+                let impact = midpoint(victim.aabb.center, world_volume.center());
+                // Knockback side in the victim's LOCAL frame (§B11): under
+                // sideways gravity the attacker and victim separate along
+                // world-Y, exactly when a screen-X comparison degenerates.
+                let side = victim.knockback_side();
+                let dir = if (victim_body.center() - owner_pos).dot(side) >= 0.0 {
+                    1.0
+                } else {
+                    -1.0
+                };
+                let (victim_damage_taken, victim_weight) = victim.knockback_growth_inputs();
+                let magnitude = resolved_hitbox_knockback_magnitude(
+                    hitbox.knockback,
+                    victim_damage_taken,
+                    victim_weight,
+                );
+                let knockback = Some(HitKnockback {
+                    dir,
+                    magnitude,
+                    source_pos: owner_pos,
+                    impact_pos: impact,
+                    launch_dir: hitbox.launch_dir,
+                });
+                hit_events.write(HitEvent {
+                    strike_sfx: hitbox.strike_sfx,
+                    volume: world_volume.clone(),
+                    damage: hitbox.damage.max(1),
+                    source: source_kind.clone(),
+                    attacker: Some(hitbox.owner),
+                    // Victim kind selects the downstream policy/feel consumer,
+                    // never the contact algorithm that chose the victim.
+                    target: if victim.is_player {
+                        HitTarget::Player(victim.entity)
+                    } else {
+                        HitTarget::Actor(victim.entity)
+                    },
+                    mode: HitMode::Knockback,
+                    knockback,
+                    ignored_targets: Vec::new(),
+                });
+                hits.hit.insert(victim.entity);
+            }
+            continue;
+        }
+
+        match hitbox.source {
+            // A World-anchored Player strike is a fixed AOE (the wielded boss-
+            // style shockwave), not body-owned melee. Keep its broadcast semantics
+            // until that separate primitive is refactored: fire once per strike via
+            // the owner sentinel and let the feature resolver fan out the volume.
+            HitSide::Player => {
+                debug_assert!(matches!(hitbox.anchor, HitboxAnchor::World { .. }));
+                if hits.hit.insert(hitbox.owner) {
+                    vfx.write(VfxMessage::Impact {
+                        pos: world_volume.center(),
+                    });
                     hit_events.write(HitEvent {
                         strike_sfx: hitbox.strike_sfx,
                         volume: world_volume.clone(),
@@ -470,33 +435,15 @@ pub fn apply_hitbox_damage(
                         target: HitTarget::Volume,
                         mode: HitMode::Knockback,
                         knockback: None,
-                        ignored_targets: swing.hit_targets.clone(),
+                        ignored_targets: Vec::new(),
                     });
                 }
-                // A World-anchored Player strike is a fixed AOE (the wielded boss-
-                // style shockwave). Fire ONCE per strike via the owner sentinel.
-                HitboxAnchor::World { .. } => {
-                    if hits.hit.insert(hitbox.owner) {
-                        vfx.write(VfxMessage::Impact {
-                            pos: world_volume.center(),
-                        });
-                        hit_events.write(HitEvent {
-                            strike_sfx: hitbox.strike_sfx,
-                            volume: world_volume.clone(),
-                            damage: hitbox.damage.max(1),
-                            source: HitSource::PlayerSlash { knock_x: 0.0 },
-                            attacker: Some(hitbox.owner),
-                            target: HitTarget::Volume,
-                            mode: HitMode::Knockback,
-                            knockback: None,
-                            ignored_targets: Vec::new(),
-                        });
-                    }
-                }
-            },
-            // Neutral never spawns a damaging hitbox (a provoked Npc is handled by
-            // the aggressor branch above with its real faction).
+            }
+            // Neutral never spawns a damaging hitbox (a provoked Npc is handled
+            // by the direct melee path above with its real faction).
             HitSide::Neutral => {}
+            // These sides were consumed by `melee_source` and continued above.
+            HitSide::Enemy | HitSide::Boss | HitSide::Npc => unreachable!(),
         }
     }
 }

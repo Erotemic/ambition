@@ -526,19 +526,7 @@ fn player_faction_hitbox_only_fires_once() {
     );
 }
 
-/// The player MELEE strike resolver path: a Player-faction FollowOwner hitbox
-/// owned by a body that has NO `CenteredAabb` (the player carries `BodyKinematics`)
-/// emits a single `PlayerSlash` Volume hit, gated on the owner having an armed
-/// `MeleeSwing` (the moveset-projected read-model). Pins owner-pos-via-kinematics +
-/// the swing gate + the Volume target in `apply_hitbox_damage`.
-#[test]
-fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
-    let mut app = App::new();
-    app.add_message::<HitEvent>();
-    app.add_message::<VfxMessage>();
-    app.init_resource::<CapturedHits>();
-    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
-
+fn armed_player_melee() -> crate::BodyMelee {
     let view = crate::AttackView {
         pos: ae::Vec2::new(100.0, 100.0),
         size: ae::Vec2::new(20.0, 40.0),
@@ -549,17 +537,112 @@ fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
         abilities_directional_primary: true,
     };
     let spec = crate::attack_spec_from_view(&view, crate::AttackIntent::Forward);
+    crate::BodyMelee {
+        swing: Some(crate::MeleeSwing::new(spec)),
+        ..Default::default()
+    }
+}
 
-    // Owner = a player-like body: BodyKinematics (NOT CenteredAabb) + armed swing.
+/// Smash regression: the attacking body may itself satisfy the universal victim
+/// query. Even with friendly fire enabled and the strike overlapping its whole
+/// hurtbox, identity excludes the owner before any relationship rule can admit
+/// damage. Before the one-body resolver, this Player-side strike emitted a
+/// broadcast `Volume` event and the downstream actor scan could hit its owner.
+#[test]
+fn player_melee_never_targets_its_owner() {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<VfxMessage>();
+    app.init_resource::<CapturedHits>();
+    app.insert_resource(crate::rules::ResolvedCombatTuning {
+        friendly_fire: true,
+        ..Default::default()
+    });
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+
     let owner = app
         .world_mut()
         .spawn((
+            ActorFaction::Player,
+            ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 40.0)),
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
+                size: ae::Vec2::new(20.0, 40.0),
                 ..Default::default()
             },
-            crate::BodyMelee {
-                swing: Some(crate::MeleeSwing::new(spec)),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+            armed_player_melee(),
+        ))
+        .id();
+    app.world_mut().spawn((
+        Hitbox {
+            strike_sfx: None,
+            owner,
+            source: HitSide::Player,
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::ZERO,
+            },
+            half_extent: ae::Vec2::new(40.0, 40.0),
+            shape: None,
+            facing: 1.0,
+            damage: 4,
+            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth: 2.0,
+            },
+            launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
+            frame_down: ae::Vec2::new(0.0, 1.0),
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+
+    app.update();
+    assert!(
+        app.world().resource::<CapturedHits>().0.is_empty(),
+        "a body-owned melee strike must never emit a hit targeting its own owner"
+    );
+}
+
+/// Smash regression: a Player-effective melee strike resolves its victim in the
+/// same hitbox loop as every other body, so the authored launch-speed payload is
+/// converted against that victim instead of being discarded by a broadcast
+/// `PlayerSlash` event.
+#[test]
+fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<VfxMessage>();
+    app.init_resource::<CapturedHits>();
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+
+    let owner = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Player,
+            ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 40.0)),
+            armed_player_melee(),
+        ))
+        .id();
+    let victim = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Enemy,
+            ae::CenteredAabb::new(ae::Vec2::new(130.0, 100.0), ae::Vec2::new(20.0, 40.0)),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+            ambition_characters::actor::BodyHealth::restored(
+                ambition_characters::actor::Health::new(100),
+                30,
+                Default::default(),
+            ),
+            crate::CombatTuning {
+                weight: 2.0,
                 ..Default::default()
             },
         ))
@@ -570,13 +653,93 @@ fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
             owner,
             source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner {
-                local_offset: ae::Vec2::new(30.0, 0.0),
+                local_offset: ae::Vec2::new(20.0, 0.0),
             },
-            half_extent: ae::Vec2::new(20.0, 20.0),
+            half_extent: ae::Vec2::new(30.0, 30.0),
             shape: None,
             facing: 1.0,
             damage: 4,
-            knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
+            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth: 2.0,
+            },
+            launch_dir: Some(ae::Vec2::new(0.6, -0.8)),
+            frame_down: ae::Vec2::new(0.0, 1.0),
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+
+    app.update();
+    let cap = app.world().resource::<CapturedHits>();
+    assert_eq!(cap.0.len(), 1, "the strike resolves exactly one victim");
+    let hit = &cap.0[0];
+    assert!(matches!(hit.source, HitSource::PlayerSlash { .. }));
+    assert_eq!(hit.target, HitTarget::Actor(victim));
+    assert_eq!(hit.attacker, Some(owner));
+    assert_eq!(hit.damage, 4);
+    let knockback = hit
+        .knockback
+        .as_ref()
+        .expect("a landed moveset melee strike preserves authored knockback");
+    assert_eq!(
+        knockback.magnitude,
+        HitKnockbackMagnitude::LaunchSpeed(150.0),
+        "30 accumulated damage at weight 2.0 applies the authored growth"
+    );
+    assert_eq!(knockback.launch_dir, Some(ae::Vec2::new(0.6, -0.8)));
+}
+
+/// Smash FFA regression: match-team identity, not the shared Player faction,
+/// decides that two fighters may hit each other. The contact resolver stamps the
+/// already-selected player-marked victim explicitly so downstream routing never
+/// falls back to a broadcast scan.
+#[test]
+fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<VfxMessage>();
+    app.init_resource::<CapturedHits>();
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+
+    let owner = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Player,
+            crate::targeting::MatchTeam::new("seat-0"),
+            ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 40.0)),
+            armed_player_melee(),
+        ))
+        .id();
+    let victim = app
+        .world_mut()
+        .spawn((
+            ambition_platformer2d_shared_tangle::markers::PlayerEntity,
+            ActorFaction::Player,
+            crate::targeting::MatchTeam::new("seat-1"),
+            ae::CenteredAabb::new(ae::Vec2::new(130.0, 100.0), ae::Vec2::new(20.0, 40.0)),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+        ))
+        .id();
+    app.world_mut().spawn((
+        Hitbox {
+            strike_sfx: None,
+            owner,
+            source: HitSide::Player,
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::new(20.0, 0.0),
+            },
+            half_extent: ae::Vec2::new(30.0, 30.0),
+            shape: None,
+            facing: 1.0,
+            damage: 4,
+            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth: 0.0,
+            },
             launch_dir: None,
             frame_down: ae::Vec2::new(0.0, 1.0),
         },
@@ -586,14 +749,9 @@ fn player_followowner_melee_strike_emits_a_swing_gated_player_slash() {
 
     app.update();
     let cap = app.world().resource::<CapturedHits>();
-    assert_eq!(cap.0.len(), 1, "the player FollowOwner strike emits a hit");
-    assert!(
-        matches!(cap.0[0].source, HitSource::PlayerSlash { .. }),
-        "the melee strike resolves as a PlayerSlash source (was {:?})",
-        cap.0[0].source,
-    );
-    assert!(matches!(cap.0[0].target, HitTarget::Volume));
-    assert_eq!(cap.0[0].damage, 4);
+    assert_eq!(cap.0.len(), 1, "the other match team is a legal victim");
+    assert_eq!(cap.0[0].target, HitTarget::Player(victim));
+    assert!(cap.0[0].knockback.is_some());
 }
 
 /// No armed swing on the owner ⇒ a Player FollowOwner hitbox deals NO damage (the

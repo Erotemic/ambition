@@ -52,6 +52,10 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             enemy.into_components(),
             crate::features::MotionModel::default(),
+            // Production hostile actors receive this from `EnemyActorBundle`.
+            // Keep the shared damage fixture structurally representative so
+            // body-generic contact resolution can see it as a `StrikeVictim`.
+            crate::features::ActorFaction::Enemy,
             identity,
             disposition,
             combat,
@@ -1462,12 +1466,11 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     );
 }
 
-/// END-TO-END isolation: a moveset player's FollowOwner strike emits a Volume
-/// HitEvent EVERY active tick; the projection + fold-back must collapse them to
-/// ONE landed hit. Victim i-frames are cleared each tick so the ONLY thing that
-/// can dedup is the `MovePlayback.hit_targets` accumulator (the projection copies
-/// it onto the swing → `apply_hitbox_damage` emits it as ignored_targets). If the
-/// accumulator fails to persist, the enemy drains every tick.
+/// END-TO-END isolation: a moveset player's FollowOwner strike stays live across
+/// multiple active ticks, but the direct body-victim resolver must emit exactly
+/// ONE targeted hit. Victim i-frames are cleared each tick so the strike's own
+/// `HitboxHits` memory is what prevents the sustained overlap from draining the
+/// enemy every frame.
 #[test]
 fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     use crate::combat::moveset::{

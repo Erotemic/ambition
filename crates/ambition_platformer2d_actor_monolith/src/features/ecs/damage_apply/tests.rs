@@ -984,6 +984,56 @@ fn kernel_reset_death_reports_the_pre_respawn_impact_position() {
     );
 }
 
+/// Explicit victim identity outranks the legacy source-direction partition.
+/// This is the downstream half of body-generic melee: a Player-effective fighter
+/// may directly resolve another player-marked body as its victim, while a legacy
+/// broadcast `PlayerSlash` remains on the feature-damage path.
+#[test]
+fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
+    let mut app = App::new();
+    app.add_message::<FeatureHitEvent>();
+    app.init_resource::<crate::combat::events::PendingPlayerHitEvents>();
+    app.add_systems(Update, stage_player_victim_hit_events);
+
+    let victim = app.world_mut().spawn_empty().id();
+    let volume: ae::CombatVolume =
+        ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into();
+    app.world_mut().write_message(FeatureHitEvent {
+        strike_sfx: None,
+        volume: volume.clone(),
+        damage: 3,
+        source: crate::combat::HitSource::PlayerSlash { knock_x: 0.0 },
+        attacker: None,
+        target: crate::combat::HitTarget::Player(victim),
+        mode: crate::combat::HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+    app.world_mut().write_message(FeatureHitEvent {
+        strike_sfx: None,
+        volume,
+        damage: 3,
+        source: crate::combat::HitSource::PlayerSlash { knock_x: 0.0 },
+        attacker: None,
+        target: crate::combat::HitTarget::Volume,
+        mode: crate::combat::HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+
+    app.update();
+    let pending = &app
+        .world()
+        .resource::<crate::combat::events::PendingPlayerHitEvents>()
+        .0;
+    assert_eq!(
+        pending.len(),
+        1,
+        "only the explicitly player-targeted attacker-side hit belongs in the player FIFO"
+    );
+    assert_eq!(pending[0].target, crate::combat::HitTarget::Player(victim));
+}
+
 /// A staged victim hit must not survive a room-lifecycle boundary: the void
 /// system clears the FIFO when either boundary fact fired this frame, and
 /// leaves it alone otherwise (the ordinary drain owns the no-boundary case).

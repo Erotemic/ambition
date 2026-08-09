@@ -52,9 +52,21 @@ message buffers are cleared on `LoadWorld`; replayed inputs regenerate the
 accepted future. Presentation/external side effects must later be released only
 from confirmed frames.
 
-Registration names, owners, kinds, concrete type names, and policy details form
-an order-independent, versioned schema fingerprint. Conflicting duplicate names
-fail during App construction.
+Registration names, kinds, type identities, and policy details form an
+order-independent, versioned schema fingerprint. Conflicting duplicate names
+fail during App construction, and so do two different types whose identities
+collide.
+
+⚠ **the fingerprint deliberately hashes no organisational label.** As accepted
+this sentence also listed OWNERS, and the type identity was the whole
+`std::any::type_name` — so which module registered a thing, and which crate and
+module a type lived in, were wire-format facts. Both were removed as the same
+mistake: schema v5 (2026-07-31) dropped `owner`, and v20 (2026-08-09) narrowed
+the type identity to the type's final segment, because a carve moves a type's
+crate AND its module path while changing nothing a peer can observe. What
+remains hashed is the stable name, the kind, the type's own name, and the policy
+detail. The duplicate-identity refusal above is what keeps the narrower form
+sound.
 
 ## Harness and networking sequence
 

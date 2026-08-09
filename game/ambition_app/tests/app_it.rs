@@ -93,6 +93,7 @@ mod room_boundary_unclaimed_views;
 mod room_replay_seam;
 mod room_spatial_integrity;
 mod scripted_gameplay;
+mod shield_ring_probe;
 mod shell_host_headless_entrypoint;
 mod shell_host_lifecycle;
 mod shell_host_rendered;

@@ -1,0 +1,573 @@
+//! **PROBE (print-only): where does the bubble-shield ring actually get put?**
+//!
+//! Jon, 2026-08-08: *"The main character shield sprite has the bubble in the
+//! wrong place, just kinda to the upper left."* Reproduced with
+//!
+//! ```text
+//! cargo run -p ambition_app_tools --bin capture_scene -- \
+//!     hall_of_characters player OUT.png 960x540 \
+//!     --press hold:e --warmup 40 --combat-overlay
+//! ```
+//!
+//! which shows TWO shield-driven artefacts at once: a glow centred on the robot,
+//! and a thin ring up and to the left. Both vanish when the shield is released.
+//! Five candidate mechanisms had already been killed by observation (alpha bbox,
+//! feet anchor, a single "one offset" visual, sim-vs-presented pose,
+//! spawn-at-world-origin), so this file deliberately **asserts nothing and fixes
+//! nothing** — it prints the numbers an explanation has to survive.
+//!
+//! It reports, at two different player positions (standing, then after walking
+//! right) so a reader can tell an anchored thing from an unanchored one:
+//!
+//! 1. `ShieldRingsView.0.len()` and every row's `pos` / `size` / `parrying`
+//! 2. the player's own `kin.pos`, `kin.size` and `PresentedPose::presented()`
+//! 3. every body whose `BodyShieldState.active` is up (so a second shielder
+//!    cannot hide behind a pooled view)
+//! 4. every `With<BubbleShieldVisual>` entity: `Transform.translation`,
+//!    `Sprite.custom_size`, `Sprite.color` and `Visibility`
+//! 5. any OTHER sprite in the world drawing the `BubbleShieldSprite` texture —
+//!    a second consumer of the same image would be invisible to 1–4
+//! 6. the active cameras, the bevy-space translation the player's own pose
+//!    converts to, and the camera's `orthographic_scale` — the divisor between
+//!    the WORLD pixels every size above is in and the SCREEN pixels a
+//!    screenshot is measured in
+//! 7. ⭐ **every sprite within 150 bevy units of the player, marker-free** —
+//!    with its `Anchor` and the drawn-centre displacement that anchor implies.
+//!    Items 1–5 can only find things already known to be the shield, and the
+//!    capture shows two artefacts; this is the one query that can see a
+//!    drawable nobody told it about. It is what found the answer.
+//!
+//! Run it:
+//!
+//! ```text
+//! cargo test -p ambition_app --test app_it -- shield_ring_probe --ignored --nocapture
+//! ```
+//!
+//! ⚠ **it lives in `ambition_app`, not `ambition_render`, for a link reason**,
+//! not an ownership one: `cargo test -p ambition_render` cannot link in the
+//! shared target dir (queue D59). `ShieldRingsView` is `ambition_sim_view` and
+//! `BubbleShieldVisual` is `ambition_render`; the app suite is the narrowest
+//! scope that can see both AND boot the composition the capture photographed.
+//!
+//! ⚠ **`NoWindow`, where the capture used `OffscreenGpu`.** The only difference
+//! is the wgpu backend — no render app, therefore no pixels — and every quantity
+//! printed here is decided on the main-world side of that line. What this
+//! harness cannot see is anything a rasterizer does with the numbers.
+//!
+//! # ⭐ WHAT IT MEASURED, 2026-08-09 — the misplaced bubble is PAINTED ART
+//!
+//! The engine's ring is innocent, and the numbers say so without appeal:
+//!
+//! * `ShieldRingsView.0.len() == 1` — one shielder, the player, no second body
+//! * that row is `pos = kin.pos` exactly and `size = kin.size` exactly, so the
+//!   quad it asks for is `46.60 x 60.00` — the textbook `(1.55, 1.25)` of a
+//!   `30.07 x 48.00` body, **not** the ~2.5x-oversized thing the ring was
+//!   suspected of being
+//! * exactly ONE `BubbleShieldVisual` entity exists, its
+//!   `Transform.translation` equals `world_to_bevy(kin.pos)` to the last decimal
+//!   at rest, its `Anchor` is dead centre, and no other sprite in the world
+//!   draws the shield texture
+//!
+//! ⇒ the ring Jon can see up and to the left is **not this sprite**. It is the
+//! character's own `block` animation frame:
+//! `assets/sprites/player_robot_v3_spritesheet.png` paints a thin cyan bubble
+//! INTO the art, beside the robot instead of around it. The tell is in the
+//! sidecar and needs no picture — every other row of that sheet is a `~71 x 101`
+//! frame at `off: (79, 57)`, and `block` is `119..126 x 144..149` at
+//! `off: (22..25, 12..17)`. That is where the sprite's `custom_size` jumps from
+//! `37.45 x 53.80` to `63.30 x 75.96` the instant the guard goes up — a `120 x
+//! 144` frame at the sheet's own `0.5275` world-per-pixel, exactly.
+//!
+//! ⚠ **`player_robot_v3` is the only sheet in the cast shaped like this**: of
+//! the 37 sheets carrying both `idle` and `block`, its block frame is `1.77x`
+//! wider and `1.45x` taller than its idle, and the next worst (alice, bob) are
+//! `1.40x` wider and the SAME height — an arm extending, which is what a guard
+//! pose should cost. Alice and Bob draw their shield arc in front of the body;
+//! v3 draws a detached circle.
+//!
+//! ⛔ so the fix is in the ART GENERATOR, not in any positioning expression, and
+//! this file must not grow one. Two things are worth knowing before anyone
+//! touches it: what Jon called "a glow centred on the robot" IS
+//! [`BubbleShieldVisual`] doing its job (`Srgba(0.5, 0.8, 1.0, 0.55)` behind the
+//! body), and the two artefacts are therefore a correct engine ring and an
+//! incorrect painted one, not two rings from one generator.
+
+use std::time::Duration;
+
+use bevy::prelude::*;
+
+use ambition_app::app::{
+    build_visible_app_with, StartRoomMustResolve, StartRoomOverride, VisibleRenderMode,
+};
+use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_platformer2d::engine_core as ae;
+use ambition_platformer2d::engine_core::body_clusters::BodyShieldState;
+use ambition_platformer2d::platformer::lifecycle::SessionRoot;
+use ambition_platformer2d::render::rendering::bubble_shield::{
+    BubbleShieldSprite, BubbleShieldVisual,
+};
+use ambition_platformer2d::sim_view::{PresentedPose, ShieldRingsView};
+
+/// The room the reported capture was taken in.
+const HALL: &str = "hall_of_characters";
+/// Frames the boot may take before we give up waiting for a player body.
+const BOOT_CAP: usize = 1200;
+
+/// Step one frame, with a sliver of wall clock so the asset threads make
+/// progress — the Hall stages ~144 characters and a body whose sheet never
+/// decodes reports a fallback size.
+fn step(app: &mut App) {
+    app.update();
+    std::thread::sleep(Duration::from_millis(4));
+}
+
+fn player_body(app: &mut App) -> Option<(Entity, BodyKinematics)> {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<(Entity, &BodyKinematics), PrimaryPlayerOnly>();
+    let world = app.world();
+    query.iter(world).next().map(|(e, kin)| (e, *kin))
+}
+
+/// Boot the shipped visible composition straight into the Hall — the same
+/// composition inputs `capture_scene <room> <character>` sets, through the same
+/// `build_visible_app_with` hook it uses.
+fn hall_app() -> App {
+    let mut app = build_visible_app_with(VisibleRenderMode::NoWindow, false, |app| {
+        app.insert_resource(StartRoomOverride(HALL.to_string()));
+        // Loud rather than quiet: a capture that photographs the hub instead of
+        // the room asked for is this tool's worst failure mode, and a probe that
+        // measures the wrong room is the same mistake wearing a test's clothes.
+        app.insert_resource(StartRoomMustResolve);
+    });
+    for _ in 0..BOOT_CAP {
+        step(&mut app);
+        if player_body(&mut app).is_some() {
+            return app;
+        }
+    }
+    panic!("no primary player body appeared within {BOOT_CAP} frames of booting `{HALL}`");
+}
+
+fn hold(app: &mut App, key: KeyCode) {
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .press(key);
+}
+
+/// The room's size, which is the whole of `world_to_bevy`'s input besides the
+/// point itself (`Vec3::new(p.x - size.x * 0.5, size.y * 0.5 - p.y, z)`).
+fn room_size(app: &mut App) -> Option<ae::Vec2> {
+    let mut query = app
+        .world_mut()
+        .query_filtered::<&ae::RoomGeometry, With<SessionRoot>>();
+    let world = app.world();
+    query.iter(world).next().map(|geometry| geometry.0.size)
+}
+
+fn print_snapshot(app: &mut App, label: &str) {
+    println!("\n================ {label} ================");
+
+    // ── 3. every raised shield in the world ─────────────────────────────────
+    let shielders: Vec<String> = {
+        let mut query = app.world_mut().query::<(
+            Entity,
+            &BodyKinematics,
+            &BodyShieldState,
+            Option<&Name>,
+            Option<&PresentedPose>,
+        )>();
+        let world = app.world();
+        query
+            .iter(world)
+            .filter(|(_, _, shield, _, _)| shield.active)
+            .map(|(entity, kin, shield, name, presented)| {
+                format!(
+                    "    {entity:?} name={:?} kin.pos=({:.2}, {:.2}) kin.size=({:.2}, {:.2}) \
+                     presented={} parrying={}",
+                    name.map(|n| n.as_str().to_string()),
+                    kin.pos.x,
+                    kin.pos.y,
+                    kin.size.x,
+                    kin.size.y,
+                    presented.map_or("<none>".to_string(), |p| format!(
+                        "({:.2}, {:.2})",
+                        p.presented().x,
+                        p.presented().y
+                    )),
+                    shield.parrying(),
+                )
+            })
+            .collect()
+    };
+
+    // ── 2. the player ───────────────────────────────────────────────────────
+    let player = {
+        let mut query = app.world_mut().query_filtered::<(
+            Entity,
+            &BodyKinematics,
+            Option<&PresentedPose>,
+            Option<&BodyShieldState>,
+        ), PrimaryPlayerOnly>();
+        let world = app.world();
+        query
+            .iter(world)
+            .next()
+            .map(|(entity, kin, presented, shield)| {
+                (
+                    entity,
+                    *kin,
+                    presented.map(|p| p.presented()),
+                    shield.map(|s| (s.active, s.parrying())),
+                )
+            })
+    };
+    match player {
+        Some((entity, kin, presented, shield)) => println!(
+            "player {entity:?}\n  kin.pos  = ({:.3}, {:.3})\n  kin.size = ({:.3}, {:.3})\n  \
+             presented = {}\n  shield (active, parrying) = {shield:?}",
+            kin.pos.x,
+            kin.pos.y,
+            kin.size.x,
+            kin.size.y,
+            presented.map_or("<no PresentedPose>".to_string(), |p| format!(
+                "({:.3}, {:.3})",
+                p.x, p.y
+            )),
+        ),
+        None => println!("player: <none>"),
+    }
+
+    // ── 1. the read-model the renderer actually positions rings from ────────
+    let rings: Vec<ambition_platformer2d::sim_view::ShieldRingFact> =
+        app.world().resource::<ShieldRingsView>().0.clone();
+    println!("ShieldRingsView.0.len() = {}", rings.len());
+    for (i, ring) in rings.iter().enumerate() {
+        println!(
+            "  [{i}] pos=({:.3}, {:.3}) size=({:.3}, {:.3}) parrying={} \
+             => custom_size would be ({:.3}, {:.3})",
+            ring.pos.x,
+            ring.pos.y,
+            ring.size.x,
+            ring.size.y,
+            ring.parrying,
+            ring.size.x * 1.55,
+            ring.size.y * 1.25,
+        );
+    }
+
+    println!(
+        "bodies with BodyShieldState.active == true: {}",
+        shielders.len()
+    );
+    for row in &shielders {
+        println!("{row}");
+    }
+
+    // ── 4. the pooled ring sprites themselves ───────────────────────────────
+    let visuals: Vec<String> = {
+        let mut query = app.world_mut().query_filtered::<(
+            Entity,
+            &Transform,
+            &GlobalTransform,
+            &Sprite,
+            &Visibility,
+            Option<&InheritedVisibility>,
+            Option<&bevy::sprite::Anchor>,
+            Option<&Name>,
+        ), With<BubbleShieldVisual>>();
+        let world = app.world();
+        query
+            .iter(world)
+            .map(
+                |(entity, transform, global, sprite, vis, inherited, anchor, name)| {
+                    format!(
+                        "  {entity:?} name={:?}\n    Transform.translation = ({:.3}, {:.3}, {:.3})\n    \
+                         GlobalTransform.translation = ({:.3}, {:.3}, {:.3})\n    \
+                         Transform.scale = ({:.3}, {:.3})\n    \
+                         Sprite.custom_size = {:?}\n    Sprite.color = {:?}\n    \
+                         Sprite.anchor = {:?}\n    Visibility = {vis:?}  InheritedVisibility = {:?}",
+                        name.map(|n| n.as_str().to_string()),
+                        transform.translation.x,
+                        transform.translation.y,
+                        transform.translation.z,
+                        global.translation().x,
+                        global.translation().y,
+                        global.translation().z,
+                        transform.scale.x,
+                        transform.scale.y,
+                        sprite.custom_size,
+                        sprite.color,
+                        anchor,
+                        inherited.map(|i| i.get()),
+                    )
+                },
+            )
+            .collect()
+    };
+    println!("entities With<BubbleShieldVisual>: {}", visuals.len());
+    for row in &visuals {
+        println!("{row}");
+    }
+
+    // ── 5. anybody ELSE drawing the shield texture ──────────────────────────
+    let handle = app
+        .world()
+        .get_resource::<BubbleShieldSprite>()
+        .map(|sprite| sprite.handle.clone());
+    match handle {
+        None => println!("BubbleShieldSprite resource: <absent>"),
+        Some(handle) => {
+            let others: Vec<String> = {
+                let mut query = app.world_mut().query_filtered::<(
+                    Entity,
+                    &Sprite,
+                    &Transform,
+                    &Visibility,
+                    Option<&Name>,
+                ), Without<BubbleShieldVisual>>();
+                let world = app.world();
+                query
+                    .iter(world)
+                    .filter(|(_, sprite, _, _, _)| sprite.image == handle)
+                    .map(|(entity, sprite, transform, vis, name)| {
+                        format!(
+                            "  {entity:?} name={:?} translation=({:.3}, {:.3}, {:.3}) \
+                             custom_size={:?} color={:?} {vis:?}",
+                            name.map(|n| n.as_str().to_string()),
+                            transform.translation.x,
+                            transform.translation.y,
+                            transform.translation.z,
+                            sprite.custom_size,
+                            sprite.color,
+                        )
+                    })
+                    .collect()
+            };
+            println!(
+                "other sprites drawing the SAME shield texture (not BubbleShieldVisual): {}",
+                others.len()
+            );
+            for row in &others {
+                println!("{row}");
+            }
+        }
+    }
+
+    // ── 6. the frame the numbers above are expressed in ─────────────────────
+    match (room_size(app), player) {
+        (Some(size), Some((_, kin, presented, _))) => {
+            let z = ae::config::WORLD_Z_PLAYER - 0.05;
+            let from_sim = ae::config::world_size_to_bevy(size, kin.pos, z);
+            println!(
+                "room size = ({:.2}, {:.2})\n  world_to_bevy(kin.pos)   = ({:.3}, {:.3}, {:.3})",
+                size.x, size.y, from_sim.x, from_sim.y, from_sim.z,
+            );
+            if let Some(presented) = presented {
+                let from_presented = ae::config::world_size_to_bevy(size, presented, z);
+                println!(
+                    "  world_to_bevy(presented) = ({:.3}, {:.3}, {:.3})",
+                    from_presented.x, from_presented.y, from_presented.z,
+                );
+            }
+        }
+        (size, _) => println!("room size = {size:?} (no player to convert)"),
+    }
+
+    // ── EVERY DRAWABLE STANDING NEAR THE PLAYER ─────────────────────────────
+    //
+    // ⭐ **the query that is not keyed to a marker, and that is the point.**
+    // Items 1–5 can only find things that are already known to be the shield;
+    // a capture taken with the shield up shows TWO ring-shaped artefacts and
+    // this crate owns exactly one of them, so the instrument has to be able to
+    // see a drawable it was not told about. Anything within 150 bevy units of
+    // the player is a short list, and the second ring is in it or it is not an
+    // entity at all.
+    if let Some((_, kin, _, _)) = player {
+        if let Some(size) = room_size(app) {
+            let anchor = ae::config::world_size_to_bevy(size, kin.pos, 0.0).truncate();
+            let mut near: Vec<(f32, String)> = {
+                let mut query = app.world_mut().query::<(
+                    Entity,
+                    &GlobalTransform,
+                    &Sprite,
+                    &Visibility,
+                    Option<&InheritedVisibility>,
+                    Option<&bevy::sprite::Anchor>,
+                    Option<&Name>,
+                )>();
+                let world = app.world();
+                query
+                    .iter(world)
+                    .filter_map(
+                        |(entity, global, sprite, vis, inherited, sprite_anchor, name)| {
+                            let at = global.translation();
+                            let offset = bevy::math::Vec2::new(at.x - anchor.x, at.y - anchor.y);
+                            (offset.length() <= 150.0).then(|| {
+                                (
+                                    offset.length(),
+                                    format!(
+                                    "  {entity:?} name={:?} offset_from_player=({:+.2}, {:+.2}) \
+                                     z={:.2} custom_size={:?} anchor={:?} \
+                                     => drawn-centre offset ({:+.2}, {:+.2}) \
+                                     color={:?} {vis:?} inherited={:?}",
+                                    name.map(|n| n.as_str().to_string()),
+                                    offset.x,
+                                    offset.y,
+                                    at.z,
+                                    sprite.custom_size,
+                                    sprite_anchor.map(|a| a.0),
+                                    // Bevy draws the quad centred at
+                                    // `translation - anchor * custom_size`, so a
+                                    // non-zero anchor is exactly a displacement
+                                    // between where an entity IS and where its
+                                    // picture LANDS.
+                                    offset.x
+                                        - sprite_anchor.map_or(0.0, |a| a.0.x)
+                                            * sprite.custom_size.map_or(0.0, |s| s.x),
+                                    offset.y
+                                        - sprite_anchor.map_or(0.0, |a| a.0.y)
+                                            * sprite.custom_size.map_or(0.0, |s| s.y),
+                                    sprite.color,
+                                    inherited.map(|i| i.get()),
+                                ),
+                                )
+                            })
+                        },
+                    )
+                    .collect()
+            };
+            near.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+            println!(
+                "sprites within 150 bevy units of the player: {}",
+                near.len()
+            );
+            for (_, row) in &near {
+                println!("{row}");
+            }
+        }
+    }
+
+    // ⭐ **THE UNIT CONVERSION, without which every number above is unfalsifiable
+    // against an eyeballed screenshot.** The sizes printed here are WORLD pixels;
+    // what Jon measured off a capture is SCREEN pixels, and the divisor between
+    // them is the orthographic scale — *"a smaller orthographic scale shows less
+    // world in the same viewport, which draws every quad bigger"*
+    // (`rendering/actors/mod.rs`). A ring that is 46.6 world px wide is not 46.6
+    // px in a photograph unless that scale happens to be 1.
+    if let Some(camera) = app
+        .world()
+        .get_resource::<ambition_platformer2d::sim_view::camera_snapshot::ResolvedCameraSnapshot>(
+    ) {
+        let snapshot = &camera.snapshot;
+        let scale = snapshot.orthographic_scale;
+        println!(
+            "camera snapshot: orthographic_scale={scale:.4} visible_view=({:.1}, {:.1}) \
+             zoom={:.3} center_world=({:.2}, {:.2}) follow_world=({:.2}, {:.2})",
+            snapshot.visible_view.x,
+            snapshot.visible_view.y,
+            snapshot.zoom_multiplier,
+            snapshot.center_world.x,
+            snapshot.center_world.y,
+            camera.follow_world.x,
+            camera.follow_world.y,
+        );
+        if scale.abs() > f32::EPSILON {
+            for (i, ring) in rings.iter().enumerate() {
+                println!(
+                    "  ring[{i}] on screen: quad {:.1} x {:.1} px; the drawn ring is \
+                     ~0.92 of that ({:.1} x {:.1} px) because the texture's outer \
+                     radius is 0.46 of its 64px extent",
+                    ring.size.x * 1.55 / scale,
+                    ring.size.y * 1.25 / scale,
+                    ring.size.x * 1.55 / scale * 0.92,
+                    ring.size.y * 1.25 / scale * 0.92,
+                );
+            }
+        }
+    }
+    if let Some(viewport) =
+        app.world()
+            .get_resource::<ambition_platformer2d::sim_view::camera_snapshot::CameraViewport>()
+    {
+        println!(
+            "camera viewport = ({:.1}, {:.1}) px",
+            viewport.px.x, viewport.px.y
+        );
+    }
+
+    let cameras: Vec<String> = {
+        let mut query = app
+            .world_mut()
+            .query::<(Entity, &Camera, &GlobalTransform, Option<&Name>)>();
+        let world = app.world();
+        query
+            .iter(world)
+            .filter(|(_, camera, _, _)| camera.is_active)
+            .map(|(entity, camera, global, name)| {
+                format!(
+                    "  {entity:?} name={:?} order={} translation=({:.3}, {:.3}, {:.3})",
+                    name.map(|n| n.as_str().to_string()),
+                    camera.order,
+                    global.translation().x,
+                    global.translation().y,
+                    global.translation().z,
+                )
+            })
+            .collect()
+    };
+    println!("active cameras: {}", cameras.len());
+    for row in &cameras {
+        println!("{row}");
+    }
+}
+
+/// **The measurement.** Print-only; it asserts nothing on purpose.
+#[test]
+#[ignore = "print-only probe for the misplaced bubble-shield ring (queue D55)"]
+fn print_where_the_bubble_shield_ring_is_put() {
+    let mut app = hall_app();
+    // Let the Hall settle before anything is pressed, so the numbers are not a
+    // half-loaded room's.
+    for _ in 0..60 {
+        step(&mut app);
+    }
+    print_snapshot(&mut app, "SHIELD DOWN (baseline)");
+
+    // ── Raise the shield through the REAL input path ────────────────────────
+    //
+    // The same key the capture used: `quick_action` is E on the default preset
+    // (`ambition_input::presets`) and `ambition_input::control` maps a pressed
+    // QuickAction to `shield_held`, which `resolve_shield` turns into
+    // `BodyShieldState.active`. `ButtonInput::press` is exactly what
+    // `capture_scene`'s `hold:e` does, and Bevy's per-frame clear only drops
+    // `just_pressed`, so one press is a held key.
+    hold(&mut app, KeyCode::KeyE);
+    for _ in 0..30 {
+        step(&mut app);
+    }
+    print_snapshot(&mut app, "SHIELD HELD, STANDING STILL");
+
+    // ── Walk right with the shield still up ─────────────────────────────────
+    //
+    // ⭐ this is the half that separates "anchored to the body" from "anchored
+    // to the camera": while the camera follows the player, BOTH read as
+    // travelling with him on screen, and only the world-space numbers tell them
+    // apart.
+    hold(&mut app, KeyCode::ArrowRight);
+    for _ in 0..90 {
+        step(&mut app);
+    }
+    print_snapshot(&mut app, "SHIELD HELD, AFTER WALKING RIGHT");
+
+    // ── Release, so a reader can see what the shield actually owns ──────────
+    {
+        let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+        keys.release(KeyCode::KeyE);
+        keys.release(KeyCode::ArrowRight);
+    }
+    for _ in 0..60 {
+        step(&mut app);
+    }
+    print_snapshot(&mut app, "SHIELD RELEASED");
+}

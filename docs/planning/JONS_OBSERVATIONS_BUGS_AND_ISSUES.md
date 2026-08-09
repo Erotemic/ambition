@@ -62,3 +62,5 @@
 * Low priority: For the web build we can't use kaledioscope because lunex doesn't support wasm
 
 * In 1-2 jumping into the invisible brick from below doesn't seem to trigger it.
+
+* The pirates in the cover are horibly miss-sized. 

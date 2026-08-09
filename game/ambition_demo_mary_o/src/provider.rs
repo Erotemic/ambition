@@ -43,6 +43,29 @@ pub const MARY_O_VICTORY_MUSIC_TRACK: &str = "mary_o_flag_victory";
 /// Declaring it here is what AUTHORIZES the session to select it.
 pub const MARY_O_STAR_MUSIC_TRACK: &str = "invincible_maryo";
 
+/// **The coin-collect ding — an id this crate DECLARES but never EMITS.**
+///
+/// Every other id in [`mary_o_sfx_specs`] is written by Mary-O's own code. This
+/// one is written by the engine: her coins are authored as `currency:1` pickups,
+/// so the shared `collect_ecs_pickups` loop emits
+/// [`ids::WORLD_COIN_PICKUP`](ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP)
+/// when one is collected, with no demo-side collection code at all.
+///
+/// ⛔ **so the sound was never missing — the AUTHORIZATION was.** The emit has
+/// always fired; under provider-relative audio a session plays only the cues its
+/// own fragment declares, and an undeclared id is dropped on the floor. That is
+/// the failure mode that reads as *"we never wrote that sound"* and is really
+/// *"we play it and then throw it away"*. Sanic's rings ride the identical path
+/// and its provider declares the identical id (`demo_sanic`'s `SFX_RING`).
+///
+/// ⚠ **voicing a PRIVATE `mary_o.coin` id here would be silence**, because the
+/// gate compares against what the engine emits, not against what reads well.
+/// [`the_coin_collect_cue_is_the_shared_currency_pickup_id`] pins this constant
+/// to that engine id so a rename on either side cannot silently re-mute the coin.
+///
+/// [`the_coin_collect_cue_is_the_shared_currency_pickup_id`]: self::tests::the_coin_collect_cue_is_the_shared_currency_pickup_id
+pub const COIN_PICKUP_SFX: &str = "world.coin.pickup";
+
 #[derive(Clone)]
 pub struct MaryOSessionWorld {
     pub geometry: ae::RoomGeometry,
@@ -239,153 +262,9 @@ impl Plugin for MaryOExperiencePlugin {
                             },
                         ],
                     }),
-                    // Mary-O AUTHORS the cues she emits. The movement kernel writes
-                    // `SfxMessage::Jump` on every jump, but under provider-relative
-                    // audio a session only plays cues its fragment declares — an
-                    // undeclared `player.jump` is gated to silence. Declaring the
-                    // Jump cue (the classic run+jump grammar's one voice) is what
-                    // makes her jump audible. Procedurally synthesized from this
-                    // spec; no asset file needed.
                     Some(ambition_platformer2d::audio::spec::SfxRegistry {
                         sample_rate: 44_100,
-                        sfx: vec![
-                            ambition_platformer2d::audio::spec::SfxSpec {
-                                cue: Some(ambition_platformer2d::audio::spec::SoundCueKey::Jump),
-                                id: None,
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
-                                frequency: 460.0,
-                                frequency_end: 720.0,
-                                duration: 0.085,
-                                volume: 0.22,
-                                attack: 0.003,
-                                release: 0.045,
-                                noise: 0.0,
-                            },
-                            // PLACEHOLDER: the brick smash. `break_bricks` emits the
-                            // engine's existing `Hit` cue rather than a bespoke
-                            // brick verb, and this is the timbre that cue resolves
-                            // to for Mary-O — a short, noisy, falling thunk that
-                            // reads as masonry giving way. Declaring it is what
-                            // makes it audible at all: under provider-relative
-                            // audio a session only voices cues its own fragment
-                            // declares, so an undeclared `player.hit` is silence.
-                            // Swap this spec (or point the cue at a real sample)
-                            // when the sound gets authored properly; the emit site
-                            // does not change, because it names a cue, not a sound.
-                            ambition_platformer2d::audio::spec::SfxSpec {
-                                cue: Some(ambition_platformer2d::audio::spec::SoundCueKey::Hit),
-                                id: None,
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Square,
-                                frequency: 190.0,
-                                frequency_end: 70.0,
-                                duration: 0.11,
-                                volume: 0.26,
-                                attack: 0.001,
-                                release: 0.075,
-                                noise: 0.65,
-                            },
-                            // PLACEHOLDER: the stomp. A short descending square
-                            // thud on the shared `Pogo` cue — the "you bounced off
-                            // something" verb a head-stomp already is.
-                            ambition_platformer2d::audio::spec::SfxSpec {
-                                cue: Some(ambition_platformer2d::audio::spec::SoundCueKey::Pogo),
-                                id: None,
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Square,
-                                frequency: 320.0,
-                                frequency_end: 120.0,
-                                duration: 0.09,
-                                volume: 0.24,
-                                attack: 0.001,
-                                release: 0.055,
-                                noise: 0.25,
-                            },
-                            // Mary-O's five form-change ids authorize distinct
-                            // packed, layered cues. These compact synth specs are
-                            // only fallbacks while the provider bank is unavailable;
-                            // normal playback upgrades to the authored bank clips.
-                            ambition_platformer2d::audio::spec::SfxSpec {
-                                cue: None,
-                                id: Some(crate::powerups::SFX_SMALL_TO_BIG.to_string()),
-                                waveform:
-                                    ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
-                                frequency: 220.0,
-                                frequency_end: 880.0,
-                                duration: 0.38,
-                                volume: 0.22,
-                                attack: 0.004,
-                                release: 0.20,
-                                noise: 0.03,
-                            },
-                            ambition_platformer2d::audio::spec::SfxSpec {
-                                cue: None,
-                                id: Some(crate::powerups::SFX_BIG_TO_FIRE.to_string()),
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
-                                frequency: 330.0,
-                                frequency_end: 1320.0,
-                                duration: 0.52,
-                                volume: 0.22,
-                                attack: 0.006,
-                                release: 0.28,
-                                noise: 0.05,
-                            },
-                            ambition_platformer2d::audio::spec::SfxSpec {
-                                cue: None,
-                                id: Some(crate::powerups::SFX_BIG_TO_SMALL.to_string()),
-                                waveform:
-                                    ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
-                                frequency: 620.0,
-                                frequency_end: 150.0,
-                                duration: 0.34,
-                                volume: 0.21,
-                                attack: 0.002,
-                                release: 0.20,
-                                noise: 0.06,
-                            },
-                            ambition_platformer2d::audio::spec::SfxSpec {
-                                cue: None,
-                                id: Some(crate::powerups::SFX_FIRE_TO_BIG.to_string()),
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
-                                frequency: 1040.0,
-                                frequency_end: 330.0,
-                                duration: 0.42,
-                                volume: 0.21,
-                                attack: 0.002,
-                                release: 0.25,
-                                noise: 0.08,
-                            },
-                            ambition_platformer2d::audio::spec::SfxSpec {
-                                cue: None,
-                                id: Some(crate::powerups::SFX_FIRE_TO_SMALL.to_string()),
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Saw,
-                                frequency: 880.0,
-                                frequency_end: 110.0,
-                                duration: 0.56,
-                                volume: 0.19,
-                                attack: 0.002,
-                                release: 0.34,
-                                noise: 0.10,
-                            },
-                            // The warp: a long DESCENDING sine slide, voiced once
-                            // when a pipe transit begins and running roughly as
-                            // long as the swallow does — so the sound is the trip,
-                            // not a click at the start of it. Falling pitch reads
-                            // as "going in / going down a tube" whichever way the
-                            // tube actually points, the same way the classic warp
-                            // cue does. Procedural like the rest; retune freely,
-                            // the emit site names the id, not the timbre.
-                            ambition_platformer2d::audio::spec::SfxSpec {
-                                cue: None,
-                                id: Some(crate::pipe::PIPE_WARP_SFX.to_string()),
-                                waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
-                                frequency: 880.0,
-                                frequency_end: 165.0,
-                                duration: 0.45,
-                                volume: 0.22,
-                                attack: 0.006,
-                                release: 0.18,
-                                noise: 0.04,
-                            },
-                        ],
+                        sfx: mary_o_sfx_specs(),
                     }),
                 )
                 .expect("Mary-O audio catalog is valid"),
@@ -519,4 +398,222 @@ fn card_text(
         ));
     }
     (level.intro_card > 0.0).then(|| format!("WORLD 1-1    MARY-O x{}", level.lives))
+}
+
+/// **The whole Mary-O SFX table.** Every entry here is both an AUTHORIZATION
+/// and a voice: under provider-relative audio a session only plays cues its
+/// own fragment declares, so a cue that is emitted but not listed here is
+/// gated to silence. (An undeclared `player.jump` is exactly that, which is
+/// why the Jump cue below is what makes her jump audible at all.) All of
+/// these are procedurally synthesized from the spec; no asset file needed.
+///
+/// ⚠ **the emitter is not always Mary-O.** Most rows voice a cue this crate
+/// writes, but [`COIN_PICKUP_SFX`] voices one the ENGINE writes on her
+/// behalf — see its doc. Declaring it is the only thing this crate does about
+/// it, and it is the whole difference between a coin that dings and one that
+/// does not.
+fn mary_o_sfx_specs() -> Vec<ambition_platformer2d::audio::spec::SfxSpec> {
+    vec![
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: Some(ambition_platformer2d::audio::spec::SoundCueKey::Jump),
+            id: None,
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
+            frequency: 460.0,
+            frequency_end: 720.0,
+            duration: 0.085,
+            volume: 0.22,
+            attack: 0.003,
+            release: 0.045,
+            noise: 0.0,
+        },
+        // PLACEHOLDER: the brick smash. `break_bricks` emits the
+        // engine's existing `Hit` cue rather than a bespoke
+        // brick verb, and this is the timbre that cue resolves
+        // to for Mary-O — a short, noisy, falling thunk that
+        // reads as masonry giving way. Declaring it is what
+        // makes it audible at all: under provider-relative
+        // audio a session only voices cues its own fragment
+        // declares, so an undeclared `player.hit` is silence.
+        // Swap this spec (or point the cue at a real sample)
+        // when the sound gets authored properly; the emit site
+        // does not change, because it names a cue, not a sound.
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: Some(ambition_platformer2d::audio::spec::SoundCueKey::Hit),
+            id: None,
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Square,
+            frequency: 190.0,
+            frequency_end: 70.0,
+            duration: 0.11,
+            volume: 0.26,
+            attack: 0.001,
+            release: 0.075,
+            noise: 0.65,
+        },
+        // PLACEHOLDER: the stomp. A short descending square
+        // thud on the shared `Pogo` cue — the "you bounced off
+        // something" verb a head-stomp already is.
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: Some(ambition_platformer2d::audio::spec::SoundCueKey::Pogo),
+            id: None,
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Square,
+            frequency: 320.0,
+            frequency_end: 120.0,
+            duration: 0.09,
+            volume: 0.24,
+            attack: 0.001,
+            release: 0.055,
+            noise: 0.25,
+        },
+        // PLACEHOLDER TIMBRE: the coin ding — the classic bright
+        // blip, a fast rising chip ping (roughly B5 up to E6, the
+        // interval the original's two-note coin walks). Square
+        // and noiseless so it cuts through the level theme at low
+        // volume; a coin is heard many times a minute and must
+        // not fatigue. Retune freely — the emit site names the
+        // id, not the timbre.
+        //
+        // ⭐ **unlike every other row here, MARY-O DOES NOT EMIT
+        // THIS.** The engine's `collect_ecs_pickups` does, on her
+        // behalf, because her coins are authored as `currency:1`
+        // pickups. So this entry is pure AUTHORIZATION: the cue
+        // was already firing and being discarded by the
+        // provider-relative gate. See `COIN_PICKUP_SFX`.
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: None,
+            id: Some(COIN_PICKUP_SFX.to_string()),
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Square,
+            frequency: 988.0,
+            frequency_end: 1319.0,
+            duration: 0.10,
+            volume: 0.18,
+            attack: 0.001,
+            release: 0.07,
+            noise: 0.0,
+        },
+        // Mary-O's five form-change ids authorize distinct
+        // packed, layered cues. These compact synth specs are
+        // only fallbacks while the provider bank is unavailable;
+        // normal playback upgrades to the authored bank clips.
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: None,
+            id: Some(crate::powerups::SFX_SMALL_TO_BIG.to_string()),
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
+            frequency: 220.0,
+            frequency_end: 880.0,
+            duration: 0.38,
+            volume: 0.22,
+            attack: 0.004,
+            release: 0.20,
+            noise: 0.03,
+        },
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: None,
+            id: Some(crate::powerups::SFX_BIG_TO_FIRE.to_string()),
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
+            frequency: 330.0,
+            frequency_end: 1320.0,
+            duration: 0.52,
+            volume: 0.22,
+            attack: 0.006,
+            release: 0.28,
+            noise: 0.05,
+        },
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: None,
+            id: Some(crate::powerups::SFX_BIG_TO_SMALL.to_string()),
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Triangle,
+            frequency: 620.0,
+            frequency_end: 150.0,
+            duration: 0.34,
+            volume: 0.21,
+            attack: 0.002,
+            release: 0.20,
+            noise: 0.06,
+        },
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: None,
+            id: Some(crate::powerups::SFX_FIRE_TO_BIG.to_string()),
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
+            frequency: 1040.0,
+            frequency_end: 330.0,
+            duration: 0.42,
+            volume: 0.21,
+            attack: 0.002,
+            release: 0.25,
+            noise: 0.08,
+        },
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: None,
+            id: Some(crate::powerups::SFX_FIRE_TO_SMALL.to_string()),
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Saw,
+            frequency: 880.0,
+            frequency_end: 110.0,
+            duration: 0.56,
+            volume: 0.19,
+            attack: 0.002,
+            release: 0.34,
+            noise: 0.10,
+        },
+        // The warp: a long DESCENDING sine slide, voiced once
+        // when a pipe transit begins and running roughly as
+        // long as the swallow does — so the sound is the trip,
+        // not a click at the start of it. Falling pitch reads
+        // as "going in / going down a tube" whichever way the
+        // tube actually points, the same way the classic warp
+        // cue does. Procedural like the rest; retune freely,
+        // the emit site names the id, not the timbre.
+        ambition_platformer2d::audio::spec::SfxSpec {
+            cue: None,
+            id: Some(crate::pipe::PIPE_WARP_SFX.to_string()),
+            waveform: ambition_platformer2d::audio::spec::WaveformSpec::Sine,
+            frequency: 880.0,
+            frequency_end: 165.0,
+            duration: 0.45,
+            volume: 0.22,
+            attack: 0.006,
+            release: 0.18,
+            noise: 0.04,
+        },
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **The coin ding must voice the id the ENGINE emits, and the registry must
+    /// authorize it.**
+    ///
+    /// Two assertions, and they fail for different reasons on purpose. The first
+    /// catches a rename: [`COIN_PICKUP_SFX`] is a string literal in this crate
+    /// standing in for a constant in another, and nothing but this line joins
+    /// them. The second catches the actual bug this test was written for — the
+    /// id being named but never DECLARED, which is silence.
+    ///
+    /// ⛔ **this went red before it went green.** Mary-O's registry authorized
+    /// nine cues and this was not one of them, so every coin in 1-1's vault and
+    /// 1-2's shelf was collected in silence while the engine dutifully emitted
+    /// the cue. Jon: *"In mary-o we need an SFX for when you collect coins."*
+    #[test]
+    fn the_coin_collect_cue_is_the_shared_currency_pickup_id() {
+        assert_eq!(
+            ambition_platformer2d::sfx::SfxId::from_static(COIN_PICKUP_SFX),
+            ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP,
+            "the coin ding must name the id `collect_ecs_pickups` emits for a \
+             Currency pickup — a private `mary_o.coin` id is gated to silence"
+        );
+        let registry = ambition_platformer2d::audio::spec::SfxRegistry {
+            sample_rate: 44_100,
+            sfx: mary_o_sfx_specs(),
+        };
+        assert!(
+            registry
+                .authorized_cue_ids()
+                .contains(&ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP),
+            "Mary-O's registry must AUTHORIZE the coin pickup cue; declaring it \
+             is the whole difference between a coin that dings and one that does \
+             not. Authorized: {:?}",
+            registry.authorized_cue_ids()
+        );
+    }
 }

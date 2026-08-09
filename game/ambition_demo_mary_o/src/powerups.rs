@@ -657,14 +657,28 @@ pub fn bonk_power_blocks(
                 if let Some(purse) = wallet.as_mut() {
                     purse.add(amount);
                 }
-                // PLACEHOLDER TIMBRE, the same choice `break_bricks` makes and
-                // for the same reason: there is no `Pickup` cue in the shared
-                // vocabulary yet, and what is emitted here is the SEMANTIC event.
-                // A bespoke coin chime replaces the authored spec later without
-                // touching this call site.
+                // ⛔ **this was the `Hit` cue — the MASONRY THUNK — and the
+                // comment justifying it went stale.** It read *"there is no
+                // `Pickup` cue in the shared vocabulary yet"*, which was true
+                // when written and is not now: the engine emits
+                // `ids::WORLD_COIN_PICKUP` for every currency pickup, and
+                // Mary-O's provider declares it (`COIN_PICKUP_SFX`).
+                //
+                // ⭐ **so a coin sounds like a coin whichever way she gets it.**
+                // Her loose coins are `currency:1` pickups voiced by the engine's
+                // `collect_ecs_pickups`; a coin BLOCK never builds a pickup at
+                // all (it credits the purse directly, three lines up), so it has
+                // to name the cue itself. Same id, same declaration, one sound —
+                // without this, popping a block for a coin played a brick
+                // smashing.
                 sfx.write_from(
                     crate::provider::MARY_O_EXPERIENCE,
-                    ambition_platformer2d::sfx::SfxMessage::Hit { pos },
+                    ambition_platformer2d::sfx::SfxMessage::Play {
+                        id: ambition_platformer2d::sfx::SfxId::from_static(
+                            crate::provider::COIN_PICKUP_SFX,
+                        ),
+                        pos,
+                    },
                 );
                 continue;
             }
@@ -2116,6 +2130,34 @@ mod tests {
             0,
             "a coin does not rise out of the block to be caught — that is the \
              entire difference between it and every other reward here"
+        );
+
+        // ⭐ **AND IT SOUNDS LIKE A COIN.** The second half of Jon's *"we need
+        // an SFX for when you collect coins"* (2026-08-09), and the half a
+        // declaration alone cannot reach: a coin BLOCK builds no pickup, so the
+        // engine's `collect_ecs_pickups` — which voices every loose coin — never
+        // sees it and this call site has to name the cue itself.
+        //
+        // ⛔ **it used to emit `Hit`, the brick-smash thunk.** That is why this
+        // asserts the exact id rather than "some sfx was written": the old code
+        // wrote a message too, so a non-empty check was already green while
+        // popping a coin sounded like masonry giving way.
+        let cues: Vec<ambition_platformer2d::sfx::SfxMessage> = app
+            .world_mut()
+            .resource_mut::<bevy::ecs::message::Messages<
+                ambition_platformer2d::sfx::OwnedSfxMessage,
+            >>()
+            .drain()
+            .map(|owned| owned.request)
+            .collect();
+        assert!(
+            cues.iter().any(|cue| matches!(
+                cue,
+                ambition_platformer2d::sfx::SfxMessage::Play { id, .. }
+                    if *id == ambition_platformer2d::sfx::ids::WORLD_COIN_PICKUP
+            )),
+            "a coin block must voice the SAME cue a loose coin does — the id the \
+             provider declares and the engine emits. Got: {cues:?}"
         );
     }
 

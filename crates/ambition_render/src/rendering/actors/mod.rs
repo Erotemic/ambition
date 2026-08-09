@@ -625,13 +625,18 @@ pub struct PlayerSpriteCharacter {
     pub id: String,
 }
 
-fn active_sprite_scale(
-    quality: Option<&crate::quality::ResolvedVisualQuality>,
-) -> TextureResolutionScale {
-    quality
-        .map(|q| q.budget.sprites.resolution_scale)
-        .unwrap_or_default()
-}
+// ⛔ **`active_sprite_scale` IS DELETED, and the reason is the whole point of
+// the D52 prop fix.** It answered *"what tier is REQUESTED"*, and its only
+// caller in this file was `refresh_prop_sprites_on_game_assets_change`, which
+// stamped that answer onto a prop rebuilt from a DIFFERENT tier's asset. Every
+// other binding site here asks the resident realization (`asset.tier`) instead.
+//
+// ⇒ removing it makes the rule structural rather than remembered: **there is no
+// longer a way to reach for the requested setting from this file**, so the next
+// binder cannot repeat the mistake by picking the convenient helper. The
+// requested tier still exists where it belongs — in the settings and in the
+// loader that resolves it — it just is not something a PRESENTATION binder may
+// stamp as fact.
 
 /// Bind an actor's visual to its character sheet once the asset is available —
 /// and re-bind when its collision footprint or the quality scale changes. ONE
@@ -928,24 +933,44 @@ pub fn refresh_player_sprites_for_resident_quality(
 pub fn refresh_prop_sprites_on_game_assets_change(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
-    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     images: Res<Assets<Image>>,
     props: Query<(Entity, &PropVisual, Option<&BoundSpriteQuality>)>,
 ) {
     let Some(assets) = assets else {
         return;
     };
-    if !assets.is_changed() {
-        return;
-    }
-    let scale = active_sprite_scale(quality.as_deref());
+    // ⛔ **THE STAMP IS THE RESIDENT REALIZATION'S TIER, NEVER THE REQUESTED
+    // SETTING** (fixed 2026-08-09; GPT 5.6 review, verified before landing).
+    //
+    // This used to read `active_sprite_scale(quality)` and stamp THAT, while
+    // rebuilding from whatever asset the preserved prop table still held. A prop
+    // resident at `Half` under a `Full` request was therefore rebuilt from the
+    // same `Half` asset and marked `Full` — after which `q.scale == scale` was
+    // true forever and nothing would look at it again. **Falsely current, and
+    // permanently.**
+    //
+    // The actor path forty lines up (`BoundSpriteQuality { scale: asset.tier }`)
+    // always did this correctly; the two disagreed inside one file. Asking the
+    // asset is also what makes the comparison self-limiting: once stamped from
+    // `asset.tier`, the next frame matches and the loop settles.
+    //
+    // ⚠ **this makes the stamp HONEST; it does not yet make the prop CURRENT.**
+    // Props carry no rematerialization recipe, so `demote_stale_realizations`
+    // cannot retire them and the table keeps the old asset — see queue D52. The
+    // difference is that a stale prop is now VISIBLE to whoever fixes that,
+    // instead of claiming to be up to date.
+    //
+    // ⛔ the `assets.is_changed()` early-out is gone with it, for the reason the
+    // actor path dropped its own: images decode asynchronously, so the frame
+    // `GameAssets` changes is not the frame the texture is usable. The
+    // tier comparison below is the convergence check and it is cheap.
     for (entity, prop, bound_quality) in &props {
-        if bound_quality.is_some_and(|q| q.scale == scale) {
-            continue;
-        }
         let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) else {
             continue;
         };
+        if bound_quality.is_some_and(|q| q.scale == asset.tier) {
+            continue;
+        }
         if images.get(&asset.texture).is_none() {
             continue;
         }
@@ -957,7 +982,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
             crate::rendering::world::prop_sprite_bundle(prop.draw, prop.flip_y, asset, prop.size);
         commands
             .entity(entity)
-            .insert((bundle, BoundSpriteQuality { scale }));
+            .insert((bundle, BoundSpriteQuality { scale: asset.tier }));
     }
 }
 

@@ -36,7 +36,7 @@ its own header warns about, one level up.
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 | **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but the parent tree reads dirty until it is settled | ▢ **needs Jon**, 30 seconds — see below |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **offered as hygiene, NOT as a fix** |
-| **HOW were you dying when the level did not restart?** (queue D68, 2026-08-09) | the death-restart investigation — ⛔ **it cannot proceed without this** | ▢ **needs Jon** — a fact only he has, not a decision |
+| **Your *"in mary-o when you die the level doesn't restart"* — was it actually Mary-O?** (queue D68, 2026-08-09) | that investigation — ⛔ **it cannot proceed without this** | ▢ **needs Jon** — a fact only he has, not a decision |
 
 ⇒ **4 open**, and **only the last one blocks anything.**
 ⚠ the heading said *"2 open"* while this line said *"1 open"* for a day — the
@@ -182,14 +182,21 @@ four values, already in flight. **Same entity, different bug.**
 > Jon still has to rule on, and every closed row on it makes that list less true.
 
 
-## HOW were you dying when the level did not restart? (queue D68, 2026-08-09)
+## Was Mary-O's "the level doesn't restart when you die" bug in Mary-O? (queue D68, 2026-08-09)
 
-⚠ **This is a QUESTION, not a decision** — a fact only you have. It is in this
-file because the investigation genuinely stops without it, and guessing would
-mean building a third fixture for a route you may never have taken.
+⚠ **This is a QUESTION, not a decision** — a fact only you have.
 
-**Your report:** *"when you die the level doesn't restart, you just stay right
-where you were."*
+⛔ **Context first, because this was asked badly once already.** This is about one
+bullet you wrote in `JONS_OBSERVATIONS_BUGS_AND_ISSUES.md`, among about forty:
+
+> *"In mary-o when you die the level doesn't restart you just stay right where
+> you were. When you die you should restart the level with 1 less life. For now
+> let's allow lives to go negative and the user to play forever, so no game over
+> screen yet."*
+
+⇒ **the LIVES half is untouched** — it is a feature that does not exist and
+nobody has started it. This section is only about the first sentence: **you died
+and the level did not put you back.**
 
 ### What is now proven, so you know what NOT to re-report
 

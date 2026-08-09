@@ -973,7 +973,18 @@ pub struct TouchActionLabel(pub TouchActionButton);
 pub struct ButtonVerb {
     /// The label baked in at spawn: what this button says when the prompt offers
     /// it no verb. Also the permanent text of the buttons that carry no
-    /// contextual meaning at all (FlyToggle / Start / Reset).
+    /// contextual meaning at all — which is Start and Reset, and ONLY those two:
+    /// they are exactly the buttons [`touch_button_slot`] answers `None` for.
+    ///
+    /// ⛔ **FlyToggle used to be listed here and never belonged.**
+    /// `touch_button_slot` maps it to [`ControlSlot::Utility`], so it has always
+    /// been as contextual as Attack — and grouping it with the two genuinely
+    /// static buttons is what made "the Fly label is a hardcoded constant"
+    /// believable to a reader diagnosing Jon's *"Sanic's transform button still
+    /// reads 'fly'"* (2026-08-08). It was not: the prompt was publishing the word
+    /// "Fly Toggle" from the ENGINE's own `fly_toggle` movement action, because
+    /// Sanic consumed the Utility edge without ever declaring what it does with
+    /// it. The fallback was never reached.
     fallback: &'static str,
     /// What the prompt says this frame, if anything. `String` (not
     /// `&'static str`) so authored `InteractVariant::Custom` prompts flow
@@ -1882,6 +1893,56 @@ mod prompt_tests {
 
         let verb = app.world().entity(text).get::<ButtonVerb>().unwrap();
         assert_eq!(verb.as_str(), "Cleave");
+    }
+
+    /// **The Utility button is named by the subject, not by the engine — and it
+    /// falls back only when the subject says nothing.**
+    ///
+    /// Both directions in one test, because the pair IS the invariant and the
+    /// half that was believed (permanently "Fly") is the half that was false.
+    ///
+    /// Poisoned on purpose: the verb is a word no game in this repo uses, so a
+    /// resolution that hardcoded any real label — "Fly", "Transform", Sanic's
+    /// anything — fails here. What is pinned is that the WORD TRAVELS, for any
+    /// game, not that some particular game's word arrives.
+    #[test]
+    fn the_utility_button_wears_whatever_the_subject_calls_that_slot() {
+        fn verb_of_fly_button(prompt: ControlPrompt) -> String {
+            let mut app = App::new();
+            app.insert_resource(prompt);
+            app.add_systems(Update, update_button_verb_from_prompt);
+            let button = app
+                .world_mut()
+                .spawn((
+                    TouchActionLabel(TouchActionButton::FlyToggle),
+                    ButtonVerb::new("Fly"),
+                ))
+                .id();
+            app.update();
+            app.world()
+                .entity(button)
+                .get::<ButtonVerb>()
+                .unwrap()
+                .as_str()
+                .to_owned()
+        }
+
+        assert_eq!(
+            verb_of_fly_button(prompt(
+                ControlContextKind::Gameplay,
+                vec![(ControlSlot::Utility, "Ensporulate")],
+            )),
+            "Ensporulate",
+            "a subject that names its Utility action puts that word on the button"
+        );
+        assert_eq!(
+            verb_of_fly_button(prompt(
+                ControlContextKind::Gameplay,
+                vec![(ControlSlot::Jump, "Jump")],
+            )),
+            "Fly",
+            "and ONLY a subject with nothing on Utility leaves the spawn label"
+        );
     }
 
     #[test]

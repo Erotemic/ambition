@@ -1036,9 +1036,7 @@ fn sanic_setup(
             ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
         >,
     >,
-    authored_sheets: bevy::prelude::Res<
-        ambition_platformer2d::character::AuthoredSheets,
-    >,
+    authored_sheets: bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>,
     character_roster: bevy::prelude::Res<ambition_platformer2d::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
@@ -1167,16 +1165,17 @@ impl Plugin for SanicRulesPlugin {
         // silently make the seam a no-op in exactly the crossover stage that
         // needs it.
         app.add_observer(ball_dash::clear_ball_dash_on_restart);
-        // BEFORE the persona gate: attach the mode-local state + DECLARE the
-        // spin-dash technique on the Attack slot, so the shared resolver inside
+        // BEFORE the persona gate: attach the mode-local state and DECLARE both of
+        // Sanic's techniques, so the shared resolver inside
         // `gate_worn_player_control` resolves Attack -> `Technique("spin_dash")`
-        // and routes its device edge into the sanctioned `ResolvedTechniqueEdges`
-        // (clearing the raw melee verb). Utility is D in the classic preset; the
-        // transform system consumes that edge so it cannot also toggle a host-code
-        // flight ability inherited by the control box.
+        // and Utility -> `Technique("transform")` and routes each device edge into
+        // the sanctioned `ResolvedTechniqueEdges` (clearing the raw verb behind
+        // it). Utility is D in the classic preset, and the gate's clear is what
+        // now keeps that press from ALSO toggling a host-code flight ability
+        // inherited by the control box — the demo no longer arranges that itself.
         let sanic_pre_gate = (
             ball_dash::attach_ball_dash,
-            toggle_sanic_form,
+            declare_sanic_techniques,
             // Once cleared, the course drives him: the goal takes the stick away
             // and brakes him, so he cannot coast off the end and die inside his
             // own results card (room-replay triage §1).
@@ -1186,10 +1185,14 @@ impl Plugin for SanicRulesPlugin {
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
             .after(ambition_platformer2d::actors::avatar::PlayerBrainTick)
             .before(ambition_platformer2d::actors::avatar::WornControlGateSet);
-        // AFTER the gate: read Sanic's spin-dash rev from the sanctioned technique
-        // edge the gate resolved — the fragile before-gate `melee_pressed`
-        // interception window is GONE (a plain melee edge is no longer the API).
-        let sanic_post_gate = ball_dash::capture_ball_dash_input
+        // AFTER the gate: read Sanic's rev and transformation from the sanctioned
+        // technique edges the gate resolved — the fragile before-gate raw-verb
+        // interception windows are GONE (neither a plain melee edge nor a raw
+        // Utility edge is the API any more).
+        let sanic_post_gate = (
+            ball_dash::capture_ball_dash_input,
+            toggle_sanic_form,
+        )
             .in_set(ambition_platformer2d::platformer::schedule::Platformer2dSimulationPhaseMonolith::PlayerInput)
             .after(ambition_platformer2d::actors::avatar::WornControlGateSet);
         if self.hosted {
@@ -1391,37 +1394,118 @@ fn emit_sanic_skid_sfx(
     *was_skidding = skidding;
 }
 
+/// The id Sanic's form toggle carries in the action scheme, and therefore the
+/// word on the control that fires it: `ActionSpec::display` title-cases the id,
+/// so this reads "Transform" — the demo's own vocabulary for the mechanic
+/// ([`SFX_TRANSFORM`], the transform beat, the super row's `"transformation"`
+/// tag). No `display_name` override, so the label cannot drift from the id.
+const TRANSFORM_TECHNIQUE_ID: &str = "transform";
+
+/// Sanic's technique declarations — what the body's bespoke mechanics are CALLED
+/// and which control each lives on. ONE writer for the whole set, upserting by
+/// slot, so no two Sanic systems race to own `ActorTechniques`.
+///
+/// Declaring is not decoration. The derived scheme is what the persona gate
+/// routes and what the control prompt renders, so a mechanic that skips this
+/// step gets its edge stolen from under the engine AND leaves its control
+/// wearing whatever generic verb happened to claim the slot. That is exactly
+/// what the transformation did: it read the raw Utility edge, so Sanic's scheme
+/// still carried the engine's `fly_toggle` movement action there and the button
+/// said "Fly Toggle" — Jon, 2026-08-08: *"Sanic's transform button still reads
+/// 'fly'."*
+fn declare_sanic_techniques(
+    mut commands: bevy::prelude::Commands,
+    subject: Option<
+        bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
+    >,
+    mut bodies: bevy::prelude::Query<
+        Option<&mut ambition_platformer2d::characters::action_scheme::ActorTechniques>,
+        bevy::prelude::With<ae::BodyKinematics>,
+    >,
+) {
+    use ambition_platformer2d::entity_catalog::action_scheme as sch;
+
+    let Some(entity) = subject.and_then(|subject| subject.0) else {
+        return;
+    };
+    let Ok(techniques) = bodies.get_mut(entity) else {
+        return;
+    };
+    let declared = [ball_dash::spin_dash_technique(), transform_technique()];
+    match techniques {
+        Some(mut techniques) => {
+            // Already correct in steady state: writing anyway would tick change
+            // detection every frame and re-derive the scheme for nothing.
+            let current: Vec<&sch::ActionSpec> = declared
+                .iter()
+                .filter_map(|spec| techniques.0.iter().find(|a| a.slot == spec.slot))
+                .collect();
+            if current.len() == declared.len()
+                && current.iter().zip(declared.iter()).all(|(a, b)| *a == b)
+            {
+                return;
+            }
+            for spec in declared {
+                techniques.0.retain(|a| a.slot != spec.slot);
+                techniques.0.push(spec);
+            }
+        }
+        None => {
+            commands.entity(entity).try_insert(
+                ambition_platformer2d::characters::action_scheme::ActorTechniques(
+                    declared.to_vec(),
+                ),
+            );
+        }
+    }
+}
+
+/// The transformation's identity in the action scheme: a technique on the
+/// mode-switch slot, which is where its input already lived.
+fn transform_technique() -> ambition_platformer2d::entity_catalog::action_scheme::ActionSpec {
+    use ambition_platformer2d::entity_catalog::action_scheme as sch;
+    sch::ActionSpec {
+        id: sch::ActionId::new(TRANSFORM_TECHNIQUE_ID),
+        slot: sch::ControlSlot::Utility,
+        display_name: None,
+        visual: None,
+        gate: sch::ActionGate::Technique(TRANSFORM_TECHNIQUE_ID.to_string()),
+    }
+}
+
 /// Toggle the controlled body between the two catalog-authored Sanic forms.
 ///
-/// This consumes the already-semantic Utility edge (`D` in the demo's classic
-/// keyboard preset), never a raw key. The super row authors the form's boosted
-/// movement and `sync_super_form_traits` derives the rest (invincibility,
-/// sparkles, badnik destroy-on-touch) from the worn identity every frame — so
-/// this toggle grants and revokes the FULL form, and `WornCharacter` stays the
-/// single gameplay + presentation authority. No timer: a future ring drain can
-/// wear the form off the same way this toggle does.
+/// Fires from the SANCTIONED technique edge the persona gate resolves onto the
+/// Utility slot — the same seam `capture_ball_dash_input` reads for the spin
+/// dash, and no longer a raw `fly_toggle_pressed` read in a before-gate window.
+/// Because the body DECLARES `transform` there, the gate routes the press here
+/// and clears the raw verb itself, so the old hand-rolled consumption (and the
+/// ordering it depended on) is the engine's job now.
+///
+/// The super row authors the form's boosted movement and `sync_super_form_traits`
+/// derives the rest (invincibility, sparkles, badnik destroy-on-touch) from the
+/// worn identity every frame — so this toggle grants and revokes the FULL form,
+/// and `WornCharacter` stays the single gameplay + presentation authority. No
+/// timer: a future ring drain can wear the form off the same way this toggle does.
 fn toggle_sanic_form(
     subject: Option<
         bevy::prelude::Res<ambition_platformer2d::platformer::markers::ControlledSubject>,
     >,
     mut bodies: bevy::prelude::Query<(
-        &mut ambition_platformer2d::characters::brain::ActorControl,
+        &ambition_platformer2d::characters::action_scheme::ResolvedTechniqueEdges,
         &mut ambition_platformer2d::characters::actor::WornCharacter,
     )>,
 ) {
     let Some(entity) = subject.and_then(|subject| subject.0) else {
         return;
     };
-    let Ok((mut control, mut worn)) = bodies.get_mut(entity) else {
+    let Ok((edges, mut worn)) = bodies.get_mut(entity) else {
         return;
     };
-    if !control.0.fly_toggle_pressed {
+    if !edges.pressed(TRANSFORM_TECHNIQUE_ID) {
         return;
     }
 
-    // Utility belongs to this mode-local transformation. Consume the edge before
-    // lower movement layers can interpret it as the generic fly toggle.
-    control.0.fly_toggle_pressed = false;
     let next = match worn.id() {
         SANIC_CHARACTER_ID => SUPER_SANIC_CHARACTER_ID,
         SUPER_SANIC_CHARACTER_ID => SANIC_CHARACTER_ID,

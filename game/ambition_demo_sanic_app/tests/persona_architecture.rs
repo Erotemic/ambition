@@ -190,6 +190,40 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
     );
 }
 
+/// **The Utility control is NAMED by the worn persona, like every other control.**
+///
+/// Jon, 2026-08-08: *"Sanic's transform button still reads 'fly'."* Each on-screen
+/// control takes its word from the controlled subject's own action scheme
+/// (`derive_action_scheme` → `ControlPrompt` → the touch button's `ButtonVerb`),
+/// and the spawn label is only the fallback for a slot the scheme says nothing
+/// about. The form toggle used to consume the raw Utility edge without DECLARING
+/// itself, so Sanic's scheme left that slot empty and the fallback — "Fly" —
+/// was, correctly, what showed.
+///
+/// Asserted on the ASSEMBLED demo on purpose: the declaration (content) and the
+/// labelling (engine) live in different crates and each is inert without the
+/// other, so a test on either half alone passes while the button still lies.
+#[test]
+fn the_utility_control_is_named_by_the_worn_persona_not_by_a_generic_fly_verb() {
+    use ambition_platformer2d::entity_catalog::action_scheme::ControlSlot;
+    use ambition_platformer2d::sim_view::ControlPrompt;
+
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    settle_until_primary_player(&mut app);
+    for _ in 0..3 {
+        app.update();
+    }
+
+    let prompt = app.world().resource::<ControlPrompt>();
+    assert_eq!(
+        prompt.label_for(ControlSlot::Utility),
+        Some("Transform"),
+        "the controlled Sanic body must say what its Utility slot DOES; \
+         published prompt was {:?}",
+        prompt.entries,
+    );
+}
+
 /// **Every authored badnik declares whether it sleeps.**
 ///
 /// The dormancy seam was built for Jon's Mary-O report — *"ai slop will just walk

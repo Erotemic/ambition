@@ -455,7 +455,13 @@ pub fn mirror_ball_anim_fact(
 /// names the on-screen button "Spin Dash". The technique's BEHAVIOR stays in
 /// this module (the crouch-rev-release chord on `ActorControl`); this only gives
 /// the mechanic an identity so the control prompt can label it honestly.
-fn spin_dash_technique() -> ambition_platformer2d::entity_catalog::action_scheme::ActionSpec {
+///
+/// Handed to `declare_sanic_techniques`, which owns `ActorTechniques` for the
+/// whole demo. Attaching it HERE alongside `BallDash` would make two systems
+/// insert the same component and the later one would silently drop the other's
+/// declaration.
+pub(crate) fn spin_dash_technique(
+) -> ambition_platformer2d::entity_catalog::action_scheme::ActionSpec {
     use ambition_platformer2d::entity_catalog::action_scheme as sch;
     sch::ActionSpec {
         id: sch::ActionId::new("spin_dash"),
@@ -477,19 +483,9 @@ pub fn attach_ball_dash(
         return;
     };
     if without.get(entity).is_ok() {
-        commands.entity(entity).insert((
-            BallDash::default(),
-            BallDashInput::default(),
-            // Declare the spin-dash in the action scheme so Sanic's Attack
-            // button reads "Spin Dash" instead of being an empty slot AND the
-            // persona gate routes its device edge as a technique. Declaring the
-            // technique auto-attaches `ResolvedTechniqueEdges` (required-component
-            // of `ActorTechniques`) — the sanctioned edge the gate writes and
-            // `capture_ball_dash_input` reads — so the seam can never be missing.
-            ambition_platformer2d::characters::action_scheme::ActorTechniques(vec![
-                spin_dash_technique(),
-            ]),
-        ));
+        commands
+            .entity(entity)
+            .insert((BallDash::default(), BallDashInput::default()));
     }
 }
 

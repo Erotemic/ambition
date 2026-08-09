@@ -616,8 +616,24 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
     assert_eq!(q.single(app.world()).unwrap().next_milestone, 1);
 }
 
+/// **The transformation fires from the DECLARED Utility technique, and the
+/// declaration is what consumes the raw verb.**
+///
+/// The demo used to read `fly_toggle_pressed` itself and clear it by hand, in a
+/// system deliberately ordered before the persona gate. Both halves are the
+/// engine's now: because the body declares `transform` on `ControlSlot::Utility`,
+/// `resolve_control_slots` routes the press to the sanctioned edge AND clears the
+/// verb, so generic flight can never see it.
+///
+/// This drives the REAL resolver rather than hand-filling the edge — otherwise it
+/// would pass with the routing arm deleted, which is precisely the half that did
+/// not exist before 2026-08-08.
 #[test]
-fn semantic_utility_toggles_both_sanic_forms_and_is_consumed() {
+fn the_declared_utility_technique_toggles_both_forms_and_eats_the_fly_verb() {
+    use ambition_platformer2d::characters::action_scheme::{
+        derive_action_scheme, resolve_control_slots, ActorTechniques, ResolvedTechniqueEdges,
+    };
+
     let mut app = App::new();
     app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
     let entity = app
@@ -626,6 +642,9 @@ fn semantic_utility_toggles_both_sanic_forms_and_is_consumed() {
             ambition_platformer2d::characters::brain::ActorControl::default(),
             ambition_platformer2d::characters::actor::WornCharacter::new(SANIC_CHARACTER_ID),
             ae::BodyKinematics::default(),
+            // `#[require]` pulls in `ResolvedTechniqueEdges` — the seam the gate
+            // writes and the toggle reads.
+            ActorTechniques(vec![super::transform_technique()]),
         ))
         .id();
     app.insert_resource(
@@ -633,41 +652,53 @@ fn semantic_utility_toggles_both_sanic_forms_and_is_consumed() {
     );
     app.add_systems(bevy::app::Update, toggle_sanic_form);
 
-    app.world_mut()
-        .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(entity)
-        .unwrap()
-        .0
-        .fly_toggle_pressed = true;
-    app.update();
-    assert_eq!(
-        app.world()
-            .get::<ambition_platformer2d::characters::actor::WornCharacter>(entity)
-            .unwrap()
-            .id(),
-        SUPER_SANIC_CHARACTER_ID
-    );
-    assert!(
-        !app.world()
-            .get::<ambition_platformer2d::characters::brain::ActorControl>(entity)
-            .unwrap()
-            .0
-            .fly_toggle_pressed,
-        "the transformation consumes Utility before generic flight can see it"
-    );
+    // The body has WINGS, so the engine's own `fly_toggle` action would otherwise
+    // claim Utility. That the technique wins is the override this relies on.
+    let mut abilities = ae::AbilitySet::basic();
+    abilities.fly = true;
+    abilities.fly_toggle = true;
+    let scheme = derive_action_scheme(&abilities, None, None, &[super::transform_technique()]);
 
-    app.world_mut()
-        .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(entity)
-        .unwrap()
-        .0
-        .fly_toggle_pressed = true;
-    app.update();
-    assert_eq!(
+    // Stand in for the persona gate: press the device verb, run THE resolver.
+    let mut press_utility = |app: &mut App| {
+        let mut control = app
+            .world_mut()
+            .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(entity)
+            .unwrap();
+        control.0.fly_toggle_pressed = true;
+        let mut frame = control.0.clone();
+        let mut edges = ResolvedTechniqueEdges::default();
+        let unroutable = resolve_control_slots(&scheme, &mut frame, &mut edges, false);
+        assert!(
+            unroutable.is_empty(),
+            "the declared Utility technique must have a wired path, got {unroutable:?}"
+        );
+        assert!(
+            !frame.fly_toggle_pressed,
+            "the resolver consumes Utility, so generic flight never sees the press"
+        );
+        app.world_mut()
+            .get_mut::<ambition_platformer2d::characters::brain::ActorControl>(entity)
+            .unwrap()
+            .0 = frame;
+        *app.world_mut()
+            .get_mut::<ResolvedTechniqueEdges>(entity)
+            .unwrap() = edges;
+        app.update();
+    };
+
+    let worn = |app: &App| {
         app.world()
             .get::<ambition_platformer2d::characters::actor::WornCharacter>(entity)
             .unwrap()
-            .id(),
-        SANIC_CHARACTER_ID
-    );
+            .id()
+            .to_string()
+    };
+
+    press_utility(&mut app);
+    assert_eq!(worn(&app), SUPER_SANIC_CHARACTER_ID);
+    press_utility(&mut app);
+    assert_eq!(worn(&app), SANIC_CHARACTER_ID);
 }
 
 /// **H2: Sanic's transformation sounds like Sanic, not like the host.**

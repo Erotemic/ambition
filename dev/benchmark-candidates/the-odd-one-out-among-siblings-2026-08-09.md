@@ -91,6 +91,24 @@ one entity, no duplicate texture draw. There was no wrong expression to find.
 ⛔ **when a measurement says every code path is clean and the artefact is still on
 screen, the population to enumerate is the DATA, not the callers.**
 
+### ⛔ The sweep produces FALSE accusations by the same mechanism — check both ways
+
+Running the sibling query repo-wide found one real defect (a drop function
+missing its lifetime marker) **and one innocent file with an identical
+signature**. The innocent one spawned a component declared
+`#[require(RoomScopedEntity)]`, so the marker was on the entity without the name
+appearing anywhere in the file.
+
+⇒ **a grep answers "is this name written here", never "is this true of the
+entity".** In an ECS with required components, inherited fields, defaulted
+config, or `Deref` re-exports, those two questions come apart — and here they
+disagreed for **2 of 5** candidates in a hand-narrowed population.
+
+⚠ **the second step is not optional and it is cheap**: for every component in the
+suspect bundle, check whether anything `#[require]`s the thing you claim is
+missing. Confirming the *real* finding needs it too — the ability drop's absence
+is only a defect because none of its four components pulls the marker in.
+
 ⭐ **the strongest version of this is deletion.** After fixing the prop stamp, its
 helper `active_sprite_scale` had no callers left — because its ONLY caller was
 the site doing it wrong. Deleting it made the rule structural: there is now no

@@ -70,7 +70,10 @@ fn a_pending_realization(app: &mut App, tier: TextureResolutionScale) -> Charact
         layout: layout.clone(),
         spec,
         pages: vec![CharacterSpritePage { texture, layout }],
-        tier,
+        // The fixture's realization got exactly the tier it asked for: these
+        // tests are about convergence, not about a fallback.
+        requested_tier: tier,
+        resolved_tier: tier,
     }
 }
 

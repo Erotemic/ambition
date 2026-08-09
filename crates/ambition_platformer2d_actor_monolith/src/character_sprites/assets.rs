@@ -299,6 +299,30 @@ pub fn all_character_sprite_filenames_in(
     all_character_sprite_filenames_from_data(character_catalog.data())
 }
 
+/// ⚠ **the tier vocabulary exists twice** — `ambition_persistence` owns the one
+/// a setting is written in, `ambition_sprite_sheet` owns the one a sheet lookup
+/// speaks — and these two functions are the whole bridge. They are written
+/// adjacent so a tier added to one enum and not the other stops compiling here
+/// rather than silently resolving as something else.
+fn persistence_texture_scale(
+    scale: SpriteTextureResolutionScale,
+) -> crate::persistence::settings::TextureResolutionScale {
+    match scale {
+        SpriteTextureResolutionScale::Potato => {
+            crate::persistence::settings::TextureResolutionScale::Potato
+        }
+        SpriteTextureResolutionScale::Quarter => {
+            crate::persistence::settings::TextureResolutionScale::Quarter
+        }
+        SpriteTextureResolutionScale::Half => {
+            crate::persistence::settings::TextureResolutionScale::Half
+        }
+        SpriteTextureResolutionScale::Full => {
+            crate::persistence::settings::TextureResolutionScale::Full
+        }
+    }
+}
+
 fn sprite_texture_scale(
     scale: crate::persistence::settings::TextureResolutionScale,
 ) -> SpriteTextureResolutionScale {
@@ -469,19 +493,28 @@ pub fn load_character_sprites_in(
 /// `try_path_for_load`, and call `asset_server.load(...)` if the gate
 /// passes. Logs a single line to `stderr` when a labeled sprite is
 /// missing (matches the prior loader's noise level).
-/// Choose the (spec, image id) pair under the quality budget. Upgrades to a
-/// scaled variant **only when both** the variant record was baked *and* the
-/// variant image resolves under the active asset profile — so the atlas rects
-/// (from the spec) always address the PNG that actually loads. Returns the base
-/// pair otherwise (and always for props / `variant: None`). Gameplay collision
-/// is untouched; it reads the base record separately.
+/// Choose the (spec, image id, **tier that image is**) triple under the quality
+/// budget. Upgrades to a scaled variant **only when both** the variant record
+/// was baked *and* the variant image resolves under the active asset profile —
+/// so the atlas rects (from the spec) always address the PNG that actually
+/// loads. Returns the base pair otherwise (and always for props /
+/// `variant: None`). Gameplay collision is untouched; it reads the base record
+/// separately.
+///
+/// ⭐ **the third element is the RESOLVED tier and it is not derivable from the
+/// budget**: only this function knows whether the upgrade happened, and both
+/// ways of failing it — no baked record, no image under the profile — land on
+/// the authored full-resolution PNG. Returning it is what lets
+/// [`CharacterSpriteAsset::resolved_tier`] be a fact rather than a hope; before
+/// it did, a `Half` budget over an unbaked sheet reported `Half` resident while
+/// full-res pixels sat in memory.
 fn resolve_variant_pair(
     catalog: &Platformer2dAssetCatalog,
     base_id: &AssetId,
     base_spec: &CharacterSheetSpec,
     variant: Option<(&str, &sheets::SheetTuning)>,
     quality: Option<&VisualQualityBudget>,
-) -> (CharacterSheetSpec, AssetId) {
+) -> (CharacterSheetSpec, AssetId, TextureResolutionScale) {
     if let (Some((target, tuning)), Some(q)) = (variant, quality) {
         let scale = q.sprites.effective_scale();
         if scale != TextureResolutionScale::Full {
@@ -494,29 +527,40 @@ fn resolve_variant_pair(
                         tuning,
                         sprite_texture_scale(scale),
                     ) {
-                        return (spec, variant_id);
+                        return (spec, variant_id, scale);
                     }
                 }
             }
         }
     }
-    (base_spec.clone(), base_id.clone())
+    // The authored PNG. Whatever was asked for, these are full-resolution
+    // pixels — that is what "the base" means.
+    (
+        base_spec.clone(),
+        base_id.clone(),
+        TextureResolutionScale::Full,
+    )
 }
 
 /// **The tier a character sheet realizes FOR under `quality`.**
 ///
-/// The one authority: the materializer stamps every realization with it and the
-/// quality transition compares against it, so the two cannot disagree.
+/// The one authority for the REQUEST: the materializer stamps every realization
+/// with it as [`CharacterSpriteAsset::requested_tier`] and the quality
+/// transition compares against that, so the two cannot disagree.
 ///
 /// ⛔ **it is the tier ASKED FOR, not the one the bytes came from, and that
 /// distinction is load-bearing.** Not every sheet has every variant baked, so a
 /// `Half` budget legitimately loads the authored full-res PNG for some
-/// characters. Stamping such a realization `Full` — "a fact about the pixels" —
-/// makes it permanently unequal to the active tier, and a transition that
-/// retires everything unequal would retire and rebuild it every single frame,
-/// forever. Stamping what it ANSWERS makes the transition idempotent by
-/// construction: whatever the materializer produces is, by definition, this
-/// tier's answer, so the next comparison is equal.
+/// characters. Keying the transition on the pixels makes such a realization
+/// permanently unequal to the active tier, so it would be retired and rebuilt
+/// every single frame, forever. Stamping what it ANSWERS makes the transition
+/// idempotent by construction: whatever the materializer produces is, by
+/// definition, this tier's answer, so the next comparison is equal.
+///
+/// ⚠ **the fact about the pixels is not discarded, it is recorded separately** —
+/// [`resolve_variant_pair`] returns it and it becomes
+/// [`CharacterSpriteAsset::resolved_tier`], which is what residency reporting
+/// reads. Two questions, two fields; this function answers only the first.
 pub fn character_sprite_tier(quality: Option<&VisualQualityBudget>) -> TextureResolutionScale {
     quality
         .map(|q| q.sprites.effective_scale())
@@ -534,9 +578,9 @@ fn build_optional_via_catalog(
     quality: Option<&VisualQualityBudget>,
 ) -> Option<CharacterSpriteAsset> {
     // Pick base-or-variant atomically so the spec rects match the loaded PNG.
-    let (spec, id) = resolve_variant_pair(catalog, base_id, base_spec, variant, quality);
+    let (spec, id, resolved) = resolve_variant_pair(catalog, base_id, base_spec, variant, quality);
     let (spec, id) = (&spec, &id);
-    let tier = character_sprite_tier(quality);
+    let requested = character_sprite_tier(quality);
     let Some(path) = catalog.try_path_for_load(id) else {
         if let Some(label) = log_label {
             eprintln!(
@@ -546,7 +590,14 @@ fn build_optional_via_catalog(
         }
         return None;
     };
-    Some(load_sprite_pages(asset_server, layouts, &path, spec, tier))
+    Some(load_sprite_pages(
+        asset_server,
+        layouts,
+        &path,
+        spec,
+        requested,
+        resolved,
+    ))
 }
 
 /// Build one `(texture, layout)` per page image and assemble the sprite
@@ -559,10 +610,17 @@ fn load_sprite_pages(
     layouts: &mut Assets<TextureAtlasLayout>,
     page0_path: &str,
     spec: &CharacterSheetSpec,
-    // The tier `page0_path` and `spec` both came from. Threaded rather than
-    // re-derived: this function is the ONE place a realization is built, so it
-    // is the one place that can stamp what it actually loaded.
-    tier: TextureResolutionScale,
+    // The tier the caller ASKED for. Threaded rather than re-derived: this
+    // function is the ONE place a realization is built, so it is the one place
+    // that can stamp both halves of the answer at once.
+    requested: TextureResolutionScale,
+    // The tier `page0_path` and `spec` actually came from — equal to
+    // `requested` when the variant existed, `Full` when the caller fell back to
+    // the authored PNG. ⛔ **the caller must not pass `requested` twice here.**
+    // Until 2026-08-09 this parameter was a single `tier` documented as "what it
+    // actually loaded" while every caller handed it the request, so a fallback
+    // realization reported the tier nobody had loaded (queue D52).
+    resolved: TextureResolutionScale,
 ) -> CharacterSpriteAsset {
     let parent = page0_path
         .rsplit_once('/')
@@ -622,7 +680,8 @@ fn load_sprite_pages(
         layout,
         spec: spec.clone(),
         pages,
-        tier,
+        requested_tier: requested,
+        resolved_tier: resolved,
     }
 }
 
@@ -677,6 +736,14 @@ pub fn build_prop_sprite_asset_packed(
     let tuning = base_spec.tuning();
     let (spec, tier) =
         sheets::try_load_pack_spec_for_target(target, &tuning, sprite_texture_scale(scale))?;
+    // ⭐ `tier` is the pack the loader LANDED on — `full` when the requested
+    // tier was never generated — and it is the physical truth about every page
+    // path below. It used to be spent on the asset id and then dropped, and the
+    // realization was stamped with `scale` twice over (queue D52).
+    let resolved = persistence_texture_scale(
+        ambition_sprite_sheet::sprite_packs::scale_for_pack_tier(tier)
+            .expect("catalog_for_scale only ever answers with a tier dir name"),
+    );
     // Profile-gate page 0 through the sandbox catalog like every other
     // sprite; sibling pages resolve from the spec's page_images against
     // page 0's directory (the pack pages all share the tier dir).
@@ -688,6 +755,7 @@ pub fn build_prop_sprite_asset_packed(
         &path,
         &spec,
         scale,
+        resolved,
     ))
 }
 
@@ -718,12 +786,15 @@ pub fn load_prop_sheet_for_target(
 ) -> Option<CharacterSpriteAsset> {
     let spec = sheets::try_load_spec_for_target(target, tuning)?;
     let page0_path = format!("{sprite_folder}/{target}_spritesheet.png");
-    // Base resolution only, and the stamp says so.
+    // Base resolution only, and the stamp says so on BOTH halves: this path
+    // never consults a quality budget, so nothing was asked for beyond `Full`
+    // and nothing but the authored PNG was loaded.
     Some(load_sprite_pages(
         asset_server,
         layouts,
         &page0_path,
         &spec,
+        TextureResolutionScale::Full,
         TextureResolutionScale::Full,
     ))
 }

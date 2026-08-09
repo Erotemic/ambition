@@ -36,7 +36,8 @@ fn any_baked_sheet() -> ambition_sprite_sheet::character::CharacterSpriteAsset {
         layout: Handle::default(),
         spec,
         pages: Vec::new(),
-        tier: ambition_persistence::settings::TextureResolutionScale::Full,
+        requested_tier: ambition_persistence::settings::TextureResolutionScale::Full,
+        resolved_tier: ambition_persistence::settings::TextureResolutionScale::Full,
     }
 }
 
@@ -862,6 +863,97 @@ mod live_quality_apply {
                 "`{cid}` must be resident after the transition"
             );
         }
+    }
+
+    /// ⛔⛔ **`resident_tiers()` answers PHYSICAL residency, and a fallback is
+    /// the only case it exists for.**
+    ///
+    /// Its own docstring promises that more than one tier in the set means
+    /// *"some body on screen is being drawn from pixels the user stopped asking
+    /// for"*. A `Half` budget that falls back to the authored full-res PNG is
+    /// precisely that body — and it was the one case the function could not see,
+    /// because the set was built from the tier each realization ANSWERS.
+    ///
+    /// Two characters, one budget. One has a baked half variant and holds half
+    /// pixels; the other's variant lookup cannot resolve and it holds FULL
+    /// pixels. ⭐ **the image paths are the second, independent route to the same
+    /// fact** — the test reads them and asserts the tier set agrees with them,
+    /// so it cannot pass by the two answers being wrong together.
+    #[test]
+    fn resident_tiers_names_the_tier_of_the_pixels_not_the_request() {
+        // Any character that is NOT the one whose manifest the fixture breaks.
+        let Some(scaled) = characters_with_scaled_variants(3)
+            .into_iter()
+            .find(|cid| cid != UNBAKED_VARIANT_CID)
+        else {
+            panic!("need a baked half-tier variant to stand for the honest half of the cast");
+        };
+
+        let mut app = quality_pipeline_app_for(
+            VisualQualityProfile::Medium,
+            roster_with_one_unbaked_variant(UNBAKED_VARIANT_CID),
+        );
+        for cid in [scaled.as_str(), UNBAKED_VARIANT_CID] {
+            app.world_mut()
+                .resource_mut::<CharacterLoadDemand>()
+                .request(cid);
+        }
+        finalize_and_update(&mut app);
+
+        // The fixture must actually be mixed, or it proves nothing.
+        let scaled_path = resident_image_path(&app, &scaled)
+            .unwrap_or_else(|| panic!("`{scaled}` must materialize under Medium"));
+        let fallback_path = resident_image_path(&app, UNBAKED_VARIANT_CID)
+            .unwrap_or_else(|| panic!("`{UNBAKED_VARIANT_CID}` must materialize under Medium"));
+        assert!(
+            scaled_path.contains("sprites_0_5x"),
+            "the honest half of the cast must hold HALF pixels (got `{scaled_path}`)"
+        );
+        assert!(
+            !fallback_path.contains("sprites_0_5x"),
+            "the fallback half of the cast must hold FULL pixels (got `{fallback_path}`)"
+        );
+
+        // ⇒ two physical tiers ARE resident. The set must say so.
+        let tiers = app
+            .world()
+            .resource::<GameAssets>()
+            .characters
+            .resident_tiers();
+        assert_eq!(
+            tiers,
+            [TextureResolutionScale::Half, TextureResolutionScale::Full]
+                .into_iter()
+                .collect(),
+            "`{scaled}` is drawn from `{scaled_path}` and `{UNBAKED_VARIANT_CID}` from \
+             `{fallback_path}` — two tiers are physically resident and the residency \
+             set reported {tiers:?}"
+        );
+    }
+
+    /// The catalog id the fixture below breaks the variant lookup for. Any id
+    /// that resolves a base spec BY ID works; this one is the roster's oldest.
+    const UNBAKED_VARIANT_CID: &str = "goblin";
+
+    /// The real roster with ONE character's manifest pointed at a target nobody
+    /// baked, so its scaled-variant lookup cannot resolve and the materializer
+    /// is forced down its fallback arm — it loads the authored full-res PNG
+    /// under a scaled budget. `try_load_spec_for_character_id` still answers for
+    /// the id, so the character does materialize.
+    ///
+    /// ⚠ constructed rather than found: every character in the shipped roster
+    /// currently has every variant baked, so a fixture that went looking for a
+    /// gap would pass vacuously on this checkout — and describe a state a fresh
+    /// clone (no variants generated at all) is entirely made of.
+    fn roster_with_one_unbaked_variant(
+        cid: &str,
+    ) -> ambition_characters::actor::character_catalog::CharacterCatalog {
+        let mut data = crate::character_roster::catalog().data().clone();
+        data.characters
+            .get_mut(cid)
+            .unwrap_or_else(|| panic!("`{cid}` must be in the shipped roster"))
+            .manifest = "sprites/a_target_nobody_baked.ron".to_string();
+        ambition_characters::actor::character_catalog::CharacterCatalog::from_data(data)
     }
 
     /// ⛔ **A TIER WITH NO BAKED VARIANT MUST SETTLE, NOT THRASH.**

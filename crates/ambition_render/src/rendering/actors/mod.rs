@@ -194,7 +194,9 @@ pub fn bind_worn_character_presentation(
                 // Which realization this presentation came from. Without it the
                 // quality binder later in this same chain would see an unstamped
                 // body and immediately rebuild what was just built.
-                BoundSpriteQuality { scale: asset.tier },
+                BoundSpriteQuality {
+                    scale: asset.resolved_tier,
+                },
             ));
         } else {
             // No sheet for this identity: draw the colored-rectangle fallback and
@@ -599,8 +601,8 @@ fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<En
 /// system overwrites those components, so this is the only record of which
 /// generation of the art a body is actually SHOWING.
 ///
-/// ⭐ **for a character it is copied from the realization
-/// ([`CharacterSpriteAsset::tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::tier)),
+/// ⭐ **it is copied from the realization's
+/// [`resolved_tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::resolved_tier),
 /// never from the active setting.** Those are different facts and the difference
 /// is the whole bug: the setting moves the instant Apply is pressed, while the
 /// realization moves whenever the decode finishes — some frames later. Stamping
@@ -609,8 +611,14 @@ fn state_aware_entity_sprite(view: &ambition_sim_view::FeatureView) -> Option<En
 /// only question with an answer: *is this body drawn from the sheet the table
 /// currently holds?*
 ///
-/// ⚠ props still stamp from the active setting; they have no per-realization
-/// tier yet, and giving them one is the ultrapack pass, not this one.
+/// ⛔ **RESOLVED, not
+/// [`requested_tier`](ambition_sprite_sheet::character::CharacterSpriteAsset::requested_tier),
+/// and the question decides it.** This component is a statement about PIXELS —
+/// which generation of the art is on screen — so it must move exactly when the
+/// pixels do. A sheet with no baked variant answers `Half` with full-resolution
+/// bytes; keyed on the request, a rebind to byte-identical pixels would look
+/// necessary. The request is the convergence key and it belongs to the loader,
+/// not to a presentation binder.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundSpriteQuality {
     pub scale: TextureResolutionScale,
@@ -629,7 +637,8 @@ pub struct PlayerSpriteCharacter {
 // the D52 prop fix.** It answered *"what tier is REQUESTED"*, and its only
 // caller in this file was `refresh_prop_sprites_on_game_assets_change`, which
 // stamped that answer onto a prop rebuilt from a DIFFERENT tier's asset. Every
-// other binding site here asks the resident realization (`asset.tier`) instead.
+// other binding site here asks the resident realization (`asset.resolved_tier`)
+// instead.
 //
 // ⇒ removing it makes the rule structural rather than remembered: **there is no
 // longer a way to reach for the requested setting from this file**, so the next
@@ -779,7 +788,7 @@ pub fn upgrade_actor_sprites(
         };
         // The other half of "nothing to do": this body's presentation was built
         // from a realization at the tier the table still holds.
-        if kind_bound && bound_quality.is_some_and(|q| q.scale == character_asset.tier) {
+        if kind_bound && bound_quality.is_some_and(|q| q.scale == character_asset.resolved_tier) {
             continue;
         }
         // Android loads assets out of the APK asynchronously, and missing or
@@ -838,7 +847,7 @@ pub fn upgrade_actor_sprites(
             CharacterAnimator::new(character_asset),
             BoundFeatureKind::new(view.kind, collision),
             BoundSpriteQuality {
-                scale: character_asset.tier,
+                scale: character_asset.resolved_tier,
             },
         ));
     }
@@ -890,7 +899,7 @@ pub fn refresh_player_sprites_for_resident_quality(
         };
         // Cheapest first: a body already built from this realization's tier is
         // current, and that is almost every body on almost every frame.
-        if bound_quality.is_some_and(|q| q.scale == asset.tier) {
+        if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
             continue;
         }
         if images.get(&asset.texture).is_none() {
@@ -905,7 +914,7 @@ pub fn refresh_player_sprites_for_resident_quality(
         eprintln!(
             "[sprite-bind] rebind character '{}' collision={:.0}x{:.0} render={:.0}x{:.0} \
              tier={:?} (seed: live pose, trigger: resident realization moved)",
-            start_id, collision.x, collision.y, render.x, render.y, asset.tier,
+            start_id, collision.x, collision.y, render.x, render.y, asset.resolved_tier,
         );
         // `try_insert`: REPRODUCED (queue L24). Same `PlayerVisual` target as the
         // bare-player safety net, reached on a very different frame — a
@@ -920,7 +929,9 @@ pub fn refresh_player_sprites_for_resident_quality(
                 standing_render: render,
                 standing_collision: collision,
             },
-            BoundSpriteQuality { scale: asset.tier },
+            BoundSpriteQuality {
+                scale: asset.resolved_tier,
+            },
         ));
     }
 }
@@ -949,10 +960,10 @@ pub fn refresh_prop_sprites_on_game_assets_change(
     // true forever and nothing would look at it again. **Falsely current, and
     // permanently.**
     //
-    // The actor path forty lines up (`BoundSpriteQuality { scale: asset.tier }`)
+    // The actor path forty lines up (`BoundSpriteQuality { scale: asset.resolved_tier }`)
     // always did this correctly; the two disagreed inside one file. Asking the
     // asset is also what makes the comparison self-limiting: once stamped from
-    // `asset.tier`, the next frame matches and the loop settles.
+    // `asset.resolved_tier`, the next frame matches and the loop settles.
     //
     // ⚠ **this makes the stamp HONEST; it does not yet make the prop CURRENT.**
     // Props carry no rematerialization recipe, so `demote_stale_realizations`
@@ -968,7 +979,7 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         let Some(asset) = assets.characters.prop_asset_for_kind(&prop.kind) else {
             continue;
         };
-        if bound_quality.is_some_and(|q| q.scale == asset.tier) {
+        if bound_quality.is_some_and(|q| q.scale == asset.resolved_tier) {
             continue;
         }
         if images.get(&asset.texture).is_none() {
@@ -980,9 +991,12 @@ pub fn refresh_prop_sprites_on_game_assets_change(
         // `animate_props` will capture the matching trim basis on its next tick.
         let bundle =
             crate::rendering::world::prop_sprite_bundle(prop.draw, prop.flip_y, asset, prop.size);
-        commands
-            .entity(entity)
-            .insert((bundle, BoundSpriteQuality { scale: asset.tier }));
+        commands.entity(entity).insert((
+            bundle,
+            BoundSpriteQuality {
+                scale: asset.resolved_tier,
+            },
+        ));
     }
 }
 

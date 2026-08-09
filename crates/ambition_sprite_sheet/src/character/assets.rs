@@ -170,25 +170,48 @@ impl CharacterSpriteAssets {
         self.declared.get(token).map(String::as_str)
     }
 
-    /// **Is anything resident at a tier that is no longer the active one?**
+    /// **Is anything resident whose REQUEST is no longer the active one?**
+    ///
+    /// ⛔ **`requested_tier`, deliberately** — the question is "has the active
+    /// setting been answered for everybody", not "what is in memory". A sheet
+    /// with no baked variant answers `Half` with full-resolution pixels, and
+    /// asking [`CharacterSpriteAsset::resolved_tier`] here would call it stale
+    /// forever: the transition below would retire it, remake it identically, and
+    /// do that again next frame. See [`CharacterSpriteAsset::requested_tier`].
     ///
     /// Read-only on purpose: the transition below takes `&mut self`, and a
     /// system that took the mutable borrow every frame would mark the whole
     /// asset resource changed every frame.
     pub fn has_stale_realizations(&self, active: TextureResolutionScale) -> bool {
-        self.sheets
-            .iter()
-            .any(|(token, asset)| asset.tier != active && self.declared.contains_key(token))
+        self.sheets.iter().any(|(token, asset)| {
+            asset.requested_tier != active && self.declared.contains_key(token)
+        })
     }
 
-    /// Every tier a resident realization was made at.
+    /// **Every tier that is PHYSICALLY resident** — the tiers the decoded bytes
+    /// came from, not the tiers that were asked for.
     ///
     /// ⭐ **the invariant this exists for: after a quality transition completes
     /// there is exactly ONE active tier across the live residency set.** More
     /// than one means some body on screen is being drawn from pixels the user
     /// stopped asking for.
+    ///
+    /// ⛔ **built from [`CharacterSpriteAsset::resolved_tier`], and that is the
+    /// whole point of the field.** While this read `requested_tier` it could not
+    /// see the one case it exists to report: a `Half` budget against a sheet
+    /// with no baked half variant holds FULL-resolution pixels and used to be
+    /// counted as `Half`, so a cast half of which had fallen back reported one
+    /// tier — "everything converged" — while two generations sat in memory. That
+    /// is the number an Android memory budget is decided from.
+    ///
+    /// ⚠ two tiers here is therefore NOT by itself a convergence failure: a
+    /// fallback is a permanent, correct disagreement. Ask
+    /// [`Self::has_stale_realizations`] whether the transition has settled.
     pub fn resident_tiers(&self) -> std::collections::BTreeSet<TextureResolutionScale> {
-        self.sheets.values().map(|asset| asset.tier).collect()
+        self.sheets
+            .values()
+            .map(|asset| asset.resolved_tier)
+            .collect()
     }
 
     /// **The return edge.** Retire every resident realization that is no longer
@@ -205,6 +228,11 @@ impl CharacterSpriteAssets {
     /// declaration came from a host that built it itself
     /// ([`Self::publish_under`]), and the engine has no recipe to remake it, so
     /// retiring it would be a one-way deletion of somebody's art.
+    ///
+    /// ⛔ staleness is [`CharacterSpriteAsset::requested_tier`] — same reason as
+    /// [`Self::has_stale_realizations`], and this is the half where getting it
+    /// wrong costs an `asset_server.load` every frame rather than a wrong
+    /// number.
     pub fn demote_stale_realizations(
         &mut self,
         active: TextureResolutionScale,
@@ -212,7 +240,9 @@ impl CharacterSpriteAssets {
         let stale: Vec<String> = self
             .sheets
             .iter()
-            .filter(|(token, asset)| asset.tier != active && self.declared.contains_key(*token))
+            .filter(|(token, asset)| {
+                asset.requested_tier != active && self.declared.contains_key(*token)
+            })
             .map(|(token, _)| token.clone())
             .collect();
         let mut ids = std::collections::BTreeSet::new();

@@ -437,7 +437,8 @@ mod character_sprite_passes {
             layout: layout.clone(),
             spec,
             pages: vec![ambition_sprite_sheet::character::CharacterSpritePage { texture, layout }],
-            tier: ambition_persistence::settings::TextureResolutionScale::Full,
+            requested_tier: ambition_persistence::settings::TextureResolutionScale::Full,
+            resolved_tier: ambition_persistence::settings::TextureResolutionScale::Full,
         })
     }
 

@@ -40,6 +40,25 @@ pub fn pack_tier_for_scale(scale: TextureResolutionScale) -> &'static str {
     }
 }
 
+/// The scale a pack tier directory name denotes — the exact inverse of
+/// [`pack_tier_for_scale`], and `None` for a name that is not a tier.
+///
+/// ⭐ **exists so a caller can record what [`catalog_for_scale`] actually
+/// resolved.** That function answers a request and may hand back `full` instead;
+/// its caller then has the physical tier only as a directory name, and stamping
+/// a realization needs it as a scale. Re-deriving the fallback rule at the call
+/// site would be a second copy of the policy — see
+/// [`crate::character::CharacterSpriteAsset::resolved_tier`].
+pub fn scale_for_pack_tier(tier: &str) -> Option<TextureResolutionScale> {
+    match tier {
+        "full" => Some(TextureResolutionScale::Full),
+        "half" => Some(TextureResolutionScale::Half),
+        "quarter" => Some(TextureResolutionScale::Quarter),
+        "potato" => Some(TextureResolutionScale::Potato),
+        _ => None,
+    }
+}
+
 /// Parse-once index of every baked pack catalog, keyed by tier name.
 ///
 /// §5 classification: **immutable asset cache** — derived from the
@@ -161,8 +180,8 @@ mod tests {
             }
             // The page images the spec names exist on disk where the asset
             // path says they are (desktop check; profile gating is separate).
-            let asset_owner_dir =
-                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../ambition_platformer2d_actor_monolith");
+            let asset_owner_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../ambition_platformer2d_actor_monolith");
             let page0 = asset_owner_dir
                 .join("assets")
                 .join(pack_page_path(tier, &spec.page_images[0]));
@@ -188,5 +207,28 @@ mod tests {
         ] {
             assert!(!pack_tier_for_scale(scale).is_empty());
         }
+    }
+
+    /// The two directions are one mapping. A tier a caller cannot turn back
+    /// into a scale is a realization that cannot record what it loaded, and the
+    /// two halves are written far enough apart to drift.
+    #[test]
+    fn a_tier_dir_name_round_trips_back_to_its_scale() {
+        for scale in [
+            TextureResolutionScale::Full,
+            TextureResolutionScale::Half,
+            TextureResolutionScale::Quarter,
+            TextureResolutionScale::Potato,
+        ] {
+            assert_eq!(
+                scale_for_pack_tier(pack_tier_for_scale(scale)),
+                Some(scale),
+                "{scale:?} does not survive the round trip"
+            );
+        }
+        // And the poison: a name that is not a tier is not silently a scale.
+        assert_eq!(scale_for_pack_tier("Full"), None);
+        assert_eq!(scale_for_pack_tier("0_5x"), None);
+        assert_eq!(scale_for_pack_tier(""), None);
     }
 }

@@ -65,6 +65,7 @@ Use this index before refactors or when planning validation. Benchmark candidate
 | One question validated at two sites: the earlier one short-circuits, so fixing the later one repairs nothing and leaves a comment claiming it did (a green unit test covered the unreachable copy) | [`one-question-two-checkers-only-the-first-runs-2026-08-08.md`](one-question-two-checkers-only-the-first-runs-2026-08-08.md) |
 | A checker ENUMERATES with `git ls-files` and VALIDATES with a filesystem walk, so anything gitignored-but-present (a nested `.gitignore`, `.goal/*.json`, the guard's own fixtures) is silently outside the population it reports on | [`enumerate-one-way-validate-another-2026-08-08.md`](enumerate-one-way-validate-another-2026-08-08.md) |
 | A measurement cache keyed by the INPUT spec cannot see a change to the RENDERER, so the run that was meant to verify the change reports `0 fresh, 782 cached` and republishes the old numbers without a word | [`cache-keyed-by-input-cannot-see-a-changed-transform-2026-08-08.md`](cache-keyed-by-input-cannot-see-a-changed-transform-2026-08-08.md) |
+| A capability EXISTS and WORKS and nothing calls it, so "the engine cannot do X" is corrected to "it can" and the adoption gap is never counted — four in one session, each degrading silently because the fallback still produces a plausible answer | [`a-capability-with-no-adopters-2026-08-09.md`](a-capability-with-no-adopters-2026-08-09.md) |
 
 ## Adding a benchmark candidate
 

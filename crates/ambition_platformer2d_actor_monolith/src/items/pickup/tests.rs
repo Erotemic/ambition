@@ -4,6 +4,14 @@
 use super::*;
 use crate::actor::BodyBaseSize;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_characters::actor::attack_gesture::{
+    AttackGestureState, AttackGestureTuning, ResolvedAttackGesture,
+};
+use ambition_combat::moveset::{ActorMoveset, MovePlayback};
+use ambition_entity_catalog::{
+    ClipBinding, MoveGates, MoveSpec, MoveWindow, MovesetContract, WindowTag,
+};
+use std::collections::BTreeMap;
 
 fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
     let entity = app
@@ -52,6 +60,195 @@ fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
         .unwrap();
     control.0.melee_pressed = attack;
     control.0.shield_held = shield;
+}
+
+// ---------------------------------------------------------------------------
+// D51: a held weapon owns the Attack press.
+//
+// Jon: "When I have the laser sword in ambition and I use it, I incorrectly
+// still use my normal jab attack. Holding an item should reroute normal attack
+// actions to the item action."
+//
+// The probe drives the REAL chain — pickup → gesture resolution → move trigger →
+// the item's own fire system — and asserts BOTH halves of the press: what the
+// item did, and what the wearer's own moveset did. A test that watched only the
+// bolt would be green in both worlds, because the bolt was never the broken
+// half.
+// ---------------------------------------------------------------------------
+
+/// One timeline named `id`, gated to `grounded` when the gate is authored.
+fn timeline(id: &str, grounded: Option<bool>) -> MoveSpec {
+    MoveSpec {
+        id: id.to_string(),
+        clip: ClipBinding {
+            clip: id.to_string(),
+            fallbacks: vec![],
+        },
+        duration_s: 0.4,
+        events: vec![],
+        windows: vec![MoveWindow {
+            start_s: 0.1,
+            end_s: 0.2,
+            tag: WindowTag::Active,
+            volumes: vec![],
+            sustain_effect: None,
+            motion_scale: 1.0,
+        }],
+        gates: MoveGates { grounded },
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+    }
+}
+
+/// A wearer whose own repertoire answers Attack on the ground AND in the air.
+///
+/// ⭐ **the aerial verb is the poison**, and it is the direction the ranged
+/// precedent (`revoke_host_owned_ranged`) says shipped broken once already: a
+/// guard that took `attack` and left `attack_air` gives the jab straight back
+/// the moment the wearer leaves the ground.
+fn jab_and_air_jab() -> MovesetContract {
+    MovesetContract {
+        verbs: BTreeMap::from([
+            ("attack".to_string(), "jab".to_string()),
+            ("attack_air".to_string(), "air_jab".to_string()),
+        ]),
+        moves: vec![
+            timeline("jab", Some(true)),
+            timeline("air_jab", Some(false)),
+        ],
+    }
+}
+
+/// Give a spawned body everything the move runtime reads, plus a moveset.
+fn with_moveset(app: &mut App, body: Entity, moveset: MovesetContract, on_ground: bool) {
+    app.world_mut().entity_mut(body).insert((
+        ActorMoveset(moveset),
+        AttackGestureState::default(),
+        AttackGestureTuning::default(),
+        ResolvedAttackGesture::default(),
+        ambition_platformer2d_core::BodyGroundState {
+            on_ground,
+            ..Default::default()
+        },
+    ));
+}
+
+/// Press Attack while holding `spec`, and report BOTH claimants of that press:
+/// the number of item bolts fired, and the move the body ended up playing
+/// (`None` when nothing did).
+fn attack_while_holding(spec: HeldItemSpec, on_ground: bool) -> (usize, Option<MoveSpec>) {
+    let mut app = App::new();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.insert_resource(ControlFrame::default());
+    app.add_systems(
+        Update,
+        (
+            pickup_held_item_system,
+            throw_held_item_system,
+            ambition_combat::moveset::resolve_attack_gestures,
+            ambition_combat::moveset::trigger_moveset_moves,
+            fire_held_ranged_system,
+        )
+            .chain(),
+    );
+    let player = spawn_player(&mut app, Vec2::new(100.0, 100.0));
+    with_moveset(&mut app, player, jab_and_air_jab(), on_ground);
+    app.world_mut().spawn(GroundItem {
+        spec,
+        pos: Vec2::new(100.0, 100.0),
+        vel: Vec2::ZERO,
+        half_extent: Vec2::splat(PICKUP_HALF),
+    });
+
+    // Tick 1: the press is spent picking the weapon up (and is consumed, so it
+    // cannot also fire it) — the same contract `pickup_consumes_the_attack_press`
+    // pins.
+    set_control(&mut app, player, true, false);
+    app.update();
+    assert!(
+        app.world().get::<HeldItem>(player).is_some(),
+        "the weapon should be in hand before the press under test"
+    );
+
+    // Tick 2: a plain Attack while holding it. THIS is the press in question.
+    set_control(&mut app, player, true, false);
+    app.update();
+
+    let bolts = {
+        let mut q = app.world_mut().query::<&HeldProjectile>();
+        q.iter(app.world()).count()
+    };
+    let played = app
+        .world()
+        .get::<MovePlayback>(player)
+        .map(|pb| pb.spec.clone());
+    (bolts, played)
+}
+
+/// The move id a body ended up playing, for a legible failure message.
+fn played_id(played: &Option<MoveSpec>) -> Option<&str> {
+    played.as_ref().map(|m| m.id.as_str())
+}
+
+/// **A plain Attack with the gun-sword shoots, and does NOT also jab.**
+#[test]
+fn the_gunsword_owns_the_attack_press_on_the_ground() {
+    let (bolts, played) = attack_while_holding(gunsword_spec(), true);
+    assert_eq!(bolts, 1, "the gun-sword fires exactly one bolt");
+    assert_eq!(
+        played_id(&played),
+        None,
+        "the wearer's own moveset must not ALSO answer a press the held weapon owns"
+    );
+}
+
+/// The same, AIRBORNE — the direction a base-verb-only guard hands back.
+#[test]
+fn the_gunsword_owns_the_attack_press_in_the_air() {
+    let (bolts, played) = attack_while_holding(gunsword_spec(), false);
+    assert_eq!(bolts, 1, "the gun-sword fires in the air too");
+    assert_eq!(
+        played_id(&played),
+        None,
+        "an airborne wearer's `attack_air` must not answer the press either"
+    );
+}
+
+/// A pure throwable: the throw is the item action, and the jab must not ride
+/// along with it.
+#[test]
+fn a_thrown_item_owns_the_attack_press_too() {
+    let (_, played) = attack_while_holding(javelin_spec(), true);
+    assert_eq!(
+        played_id(&played),
+        None,
+        "throwing the javelin is the whole of that press"
+    );
+}
+
+/// **An item that authors its OWN melee answers with THAT swing**, not with the
+/// wearer's jab and not with silence. This is the melee arm of Jon's rule ("they
+/// all route to the one action the item has").
+///
+/// ⚠ asserted on the swing's DAMAGE, not on a move id: the wearer's fixture jab
+/// carries no hit volume at all, so a swing that lands the axe's authored 3 is
+/// the axe's and could not be the wearer's under any renaming.
+#[test]
+fn a_melee_item_answers_the_attack_press_with_its_own_swing() {
+    let (_, played) = attack_while_holding(axe_spec(), true);
+    let swing = played.expect("holding a weapon that swings must still answer Attack");
+    let damage: Vec<i32> = swing
+        .windows
+        .iter()
+        .flat_map(|w| w.volumes.iter().map(|v| v.damage))
+        .collect();
+    assert_eq!(
+        damage,
+        vec![3],
+        "the swing that answered is the AXE's (damage 3), not the wearer's own \
+         volume-less jab — it played {:?}",
+        swing.id
+    );
 }
 
 #[test]

@@ -59,6 +59,19 @@ damage `Hitbox` entity and the slash, projected to body state by
 second slash emit, or a per-frame player damage loop. Every melee is an
 `"attack"`-verb moveset move riding `MovePlayback`.
 
+**A weapon in hand OWNS the Attack press, and one seam decides that.** With a
+`HeldItem` on the body, `trigger_moveset_moves` resolves Attack through the ITEM
+— its own melee verb if it authors one, otherwise nothing here, leaving the
+press to the item's own subject-generic system (throw / bolt / gauntlet). The
+wearer's `attack` verbs are NOT revoked and its timelines are NOT pruned: only
+the resolution moves, and it moves back the moment the hand is empty. ⛔ **Do not
+"fix" a double-fire by deleting the wearer's verbs** — the on-screen Attack
+button is drawn (and made touchable) only while the action scheme carries an
+Attack slot, so a verb revoke fires fine on a desktop and leaves the weapon
+untappable on a phone. ⚠ an item system that ENDS the holding (the throw) must
+also mark the press spent, because it removes `HeldItem` a schedule phase before
+the trigger looks.
+
 **The movement driver is unified at the engine entry.** The player tick is ONE
 system (`player_body_tick`) that calls the SAME combined body tick the actor uses
 (`ae::update_player_with_tuning_clusters` ≈ the actor's

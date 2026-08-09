@@ -876,6 +876,10 @@ pub fn resolve_attack_gestures(
 /// actor's melee, the PCA's signature move, a folded boss's pattern, and the
 /// player's directional repertoire (R2.5). A body authoring only `"attack"`
 /// resolves every direction to it — byte-identical to the pre-directional path.
+///
+/// ⭐ **A WEAPON IN HAND OWNS THE ATTACK PRESS** — see
+/// [`held_weapon_attack_move`]. The wearer's own `attack` verbs keep existing;
+/// they simply stop being what that press reaches.
 /// **Name the writer of a move's self-motion impulse.**
 ///
 /// Two call sites author the same impulse — the plain trigger and the CANCEL
@@ -918,6 +922,63 @@ fn record_impulse_authorship(
     );
 }
 
+/// **The swing a held weapon answers a directional Attack with** — `None` when
+/// that weapon answers the press somewhere other than the move runtime.
+///
+/// Jon, on the gun-sword: *"When I have the laser sword and I use it, I
+/// incorrectly still use my normal jab attack. Holding an item should reroute
+/// normal attack actions to the item action, which might be like throw for
+/// bombs or fire for the gun sword … the default for the gun sword is they all
+/// route to the one action the item has: shoot."*
+///
+/// The defect was **two claimants on one press**, the same shape
+/// `revoke_host_owned_ranged` fixed for ranged one slot over: equipping already
+/// cleared the item's melee out of the wearer's `ActionSet`, but the wearer's
+/// MOVESET still bound `attack`, so the jab ran beside the bolt. The `ActionSet`
+/// and the moveset are a UNION for the Attack slot
+/// (`ambition_characters::action_scheme::combat_actions`), and only one half was
+/// ever displaced.
+///
+/// So the press is arbitrated HERE, by identity, from the one authority on what
+/// a body is holding:
+///
+/// - the weapon authors a melee verb (an axe) → **its** swing answers, built
+///   through the same [`build_actor_moveset`] a spawned body's would be, so the
+///   whole directional family (tilts, aerials, the pogo down-air) comes with it;
+/// - the weapon authors no melee verb (the gun-sword's bolt, a bomb's throw, a
+///   gauntlet's bespoke system) → **nothing** answers here, and the item's own
+///   subject-generic system consumes the press it already reads.
+///
+/// ⛔ **the wearer's `attack` MOVES are not pruned, and must not be.** A
+/// timeline nothing presses is inert; deleting it on a reachability argument
+/// throws away authored content and makes unequipping a restore problem. Only
+/// the RESOLUTION moves, and it moves back the instant the hand is empty — so
+/// there is nothing to stash, and a rewind past an equip is correct for free
+/// (`HeldItem` is already rollback state).
+///
+/// ⛔ **and the slot must survive, which is why this is not a verb revoke.**
+/// `touch_action_available` draws — and admits touches for — an on-screen Attack
+/// button only while `ControlPrompt` carries a label for the Attack slot, and
+/// that label comes from the scheme's union of moveset verb and `ActionSet`
+/// melee. A guard that took the wearer's `attack` verbs away would leave the
+/// gun-sword with no Attack slot at all: still fireable on a desktop (the
+/// persona gate's `holds_item` exception keeps `melee_pressed` alive) and
+/// **untappable on a phone**. Resolving the press instead of deleting the verb
+/// keeps the button drawn.
+fn held_weapon_attack_move(
+    spec: &ambition_characters::brain::HeldItemSpec,
+    dir: AttackDir,
+    grounded: bool,
+) -> Option<MoveSpec> {
+    let melee = spec.melee.as_ref()?;
+    // Built per press rather than cached: the alternative is a second copy of
+    // the wearer's contract to keep coherent across equip / unequip / rewind,
+    // and this runs once on a press edge for the one body holding the weapon.
+    build_actor_moveset(None, Some(melee), None, None)?
+        .move_for_directional_verb(ATTACK_VERB, dir, grounded)
+        .cloned()
+}
+
 pub fn trigger_moveset_moves(
     mut commands: Commands,
     mut bodies: Query<(
@@ -939,6 +1000,9 @@ pub fn trigger_moveset_moves(
         // The playing move, if any — the CM4 cancel seam. `None` = the plain
         // trigger path.
         Option<&mut MovePlayback>,
+        // **What this body is holding.** A weapon in hand OWNS the Attack press
+        // ([`held_weapon_attack_move`]); every other verb is untouched.
+        Option<&crate::held_items::HeldItem>,
     )>,
     // ⛔ **WHO WROTE THIS BODY'S VELOCITY.** A move's `start_impulse` is a
     // velocity write outside the integrator, and the causal log reported what
@@ -954,7 +1018,7 @@ pub fn trigger_moveset_moves(
 ) {
     #[cfg(feature = "causal")]
     let mut log = log;
-    for (entity, moveset, control, gesture, resolved_frame, mut kin, ground, playback) in
+    for (entity, moveset, control, gesture, resolved_frame, mut kin, ground, playback, held) in
         &mut bodies
     {
         let body_frame = resolved_frame
@@ -964,12 +1028,17 @@ pub fn trigger_moveset_moves(
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
         // Resolve the requested verb + the names the candidate answers to
         // (verb, class, resolved move id — the ONE cancel namespace).
-        let (spec, verb_names): (_, &[&str]) = if frame.special_pressed {
+        //
+        // OWNED rather than borrowed from the contract, because a held weapon's
+        // swing is not IN the wearer's contract — it belongs to the thing in the
+        // hand, and both answers have to have the same type to be arbitrated.
+        let (spec, verb_names): (Option<MoveSpec>, &[&str]) = if frame.special_pressed {
             let dir = attack_dir_from_axis(frame.attack_axis, kin.facing);
             (
                 moveset
                     .0
-                    .move_for_directional_verb(SPECIAL_VERB, dir, grounded),
+                    .move_for_directional_verb(SPECIAL_VERB, dir, grounded)
+                    .cloned(),
                 &[SPECIAL_VERB],
             )
         } else if gesture.pressed.is_some() || frame.pogo_pressed {
@@ -992,18 +1061,28 @@ pub fn trigger_moveset_moves(
                 } else {
                     (ATTACK_VERB, AttackDir::Down, grounded)
                 };
-            let spec = moveset
-                .0
-                .move_for_directional_verb(base_verb, dir, gesture_grounded)
-                .or_else(|| {
-                    if base_verb == SMASH_VERB {
-                        moveset
-                            .0
-                            .move_for_directional_verb(ATTACK_VERB, dir, gesture_grounded)
-                    } else {
-                        None
-                    }
-                });
+            // ⭐ **A WEAPON IN HAND OWNS THIS PRESS.** With something held, the
+            // wearer's own repertoire is not consulted at all — the weapon
+            // answers with its swing, or it answers elsewhere and nothing runs
+            // here (see [`held_weapon_attack_move`] for why this arbitrates
+            // instead of revoking the wearer's verbs).
+            let spec = if let Some(held) = held {
+                held_weapon_attack_move(&held.spec, dir, gesture_grounded)
+            } else {
+                moveset
+                    .0
+                    .move_for_directional_verb(base_verb, dir, gesture_grounded)
+                    .or_else(|| {
+                        if base_verb == SMASH_VERB {
+                            moveset
+                                .0
+                                .move_for_directional_verb(ATTACK_VERB, dir, gesture_grounded)
+                        } else {
+                            None
+                        }
+                    })
+                    .cloned()
+            };
             let verb_names: &[&str] = if base_verb == SMASH_VERB {
                 &[SMASH_VERB, ATTACK_VERB, "any_attack"]
             } else {
@@ -1015,7 +1094,10 @@ pub fn trigger_moveset_moves(
             // move; its fire event spawns the projectile, sampling live aim. The move
             // plays to completion before another starts (its duration is a cadence
             // gate; the body-side refire cooldown remains the hard rate floor).
-            (moveset.0.move_for_verb(RANGED_VERB), &[RANGED_VERB])
+            (
+                moveset.0.move_for_verb(RANGED_VERB).cloned(),
+                &[RANGED_VERB],
+            )
         } else {
             (None, &[])
         };
@@ -1078,7 +1160,7 @@ pub fn trigger_moveset_moves(
                 // ⭐ **capture the aim at START, because it will be gone by the
                 // fire frame.** See `MovePlayback::aim`.
                 .insert(
-                    MovePlayback::new(spec.clone(), kin.facing)
+                    MovePlayback::new(spec, kin.facing)
                         .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy))),
                 );
             continue;
@@ -1112,7 +1194,7 @@ pub fn trigger_moveset_moves(
                 // cancel path above.** Capturing on one of the two start sites
                 // would have fixed aimed shots only for moves that interrupted
                 // another one, which is the rarer half.
-                MovePlayback::new(spec.clone(), kin.facing)
+                MovePlayback::new(spec, kin.facing)
                     .with_aim(control.0.fire.map(|req| (req.dir, req.dir_policy))),
             );
         }

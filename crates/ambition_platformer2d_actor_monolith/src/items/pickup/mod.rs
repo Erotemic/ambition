@@ -480,12 +480,22 @@ pub fn pickup_held_item_system(
 /// [`ControlledSubject`](ambition_platformer2d_shared_tangle::markers::ControlledSubject)
 /// — the body you drive throws the item it holds — reading that body's own
 /// `ActorControl`, not `PlayerInputFrame` + `PrimaryPlayer`.
+///
+/// ⭐ **and it CONSUMES the press, exactly as the pickup does.** A held weapon
+/// owns the Attack press (`trigger_moveset_moves` arbitrates that from
+/// `HeldItem`), but a throw is the one item action that ENDS the holding: it
+/// removes `HeldItem` in `PlayerSimulation`, and the move trigger looks in
+/// `Combat`, one phase later — so on the throw tick the trigger would find an
+/// empty hand and hand the very same press to the wearer's jab. Marking the
+/// press spent where it is spent is what makes "one press, one action" hold
+/// across the phase boundary; the alternative is an ordering constraint between
+/// two phases that exist to be independent.
 pub fn throw_held_item_system(
     mut commands: Commands,
     controlled: Res<ambition_platformer2d_shared_tangle::markers::ControlledSubject>,
     gravity: crate::physics::GravityCtx,
     mut bodies: Query<(
-        &ActorControl,
+        &mut ActorControl,
         &BodyKinematics,
         &mut ActionSet,
         &HeldItem,
@@ -496,7 +506,7 @@ pub fn throw_held_item_system(
     let Some(player) = controlled.0 else {
         return;
     };
-    let Ok((control, kin, mut action_set, held, stashed)) = bodies.get_mut(player) else {
+    let Ok((mut control, kin, mut action_set, held, stashed)) = bodies.get_mut(player) else {
         return;
     };
     if !control.0.melee_pressed {
@@ -508,6 +518,8 @@ pub fn throw_held_item_system(
     if !(control.0.shield_held || held.spec.throws_on_plain_attack()) {
         return;
     }
+    // The throw IS this press's action — see the note on the signature.
+    control.0.melee_pressed = false;
     if let Some(stash) = stashed {
         *action_set = stash.0.clone();
     }

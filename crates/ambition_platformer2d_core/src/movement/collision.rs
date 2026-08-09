@@ -309,13 +309,24 @@ pub(super) fn sweep_player_axis_clusters(
         let toi_fraction = sweep_fraction(hit.time_of_impact);
         kinematics.pos += axis_vec(axis, delta_along * toi_fraction);
         let body = kinematics.aabb_oriented(gravity_dir);
-        // ⚠ a `BonkOnly` hit is never a LANDING — the body was moving away from
-        // its feet to reach it — so it must not take the feet-snap arm. It falls
-        // through to the ordinary face resolution below, which is what produces
-        // the head contact the bonk reads.
-        if matches!(hit.block.kind, BlockKind::BonkOnly) {
-            // deliberately not the landing arm; see above.
-        } else if matches!(hit.block.kind, BlockKind::OneWay)
+        // ⛔ **`BonkOnly` used to hold an arm of its own here, and an `if / else
+        // if` chain DOES NOT FALL THROUGH.** The comment on that arm said *"it
+        // falls through to the ordinary face resolution below, which is what
+        // produces the head contact the bonk reads"* — a description of the
+        // intent, not of the code. Claiming the first arm skipped the head arm
+        // twelve lines down, so a hidden block STOPPED a rising head (the sweep
+        // above truncates the motion) and reported nothing at all: no contact,
+        // no bonk, no reward. Mary-O's one hidden block was unhittable, and it
+        // read as an art bug because the same block could not draw itself
+        // either (queue D67, where the probe caught this second defect).
+        //
+        // ⭐ **and the arm was never load-bearing.** Its whole stated job was
+        // "not the feet-snap arm", which the condition below already refuses on
+        // its own terms: a `BonkOnly` hit exists only when a head is RISING into
+        // the block (`bonk_strike_from_head` is the sweep filter), so
+        // `moving_toward_feet` is false and the kind is not `OneWay`. Deleting
+        // the arm is what makes its comment true.
+        if matches!(hit.block.kind, BlockKind::OneWay)
             || (role == AxisRole::Gravity && moving_toward_feet(delta, gravity_dir))
         {
             let snap = snap_feet_to_surface(body, hit.block.aabb, gravity_dir);

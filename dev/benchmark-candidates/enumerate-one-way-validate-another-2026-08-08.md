@@ -56,6 +56,23 @@ skip went unnoticed at first because `git ls-files` did not yet list the file �
 the live-tree ratchet passed while its own counter-example was untracked.
 **Green at minute zero, one level in.**
 
+**4. The symlink guard read the INDEX while the damage was in the WORKTREE
+(2026-08-08).** The six LDtk worlds are tracked symlinks. A generator wrote a
+real file over one of them, producing a **typechange**: `git status` says `T`,
+and the index still reports mode `120000`. Every assertion in
+`scripts/tests/test_map_symlinks_stay_links.py` read the index, so three passed
+and the fourth — the only one touching the filesystem — died with
+`OSError: [Errno 22] Invalid argument` out of `readlink`.
+
+⭐ **this is the nastiest variant, because the two sources agree about the PAST.**
+The index is not stale by accident; it correctly records what was committed. The
+worktree correctly records what is there now. Neither is wrong, and a check that
+consults one can be confidently, permanently blind to a break in the other.
+
+⚠ **and the first repair made it worse.** An earlier fix for that same `OSError`
+filtered the loop on the index mode — which is exactly the source that cannot
+see the problem, so it silenced the symptom and preserved the blindness.
+
 ## The rule
 
 ⭐ **Derive the population and the action from the SAME source.** If a checker

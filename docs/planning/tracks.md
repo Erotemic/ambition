@@ -246,12 +246,30 @@ this section is the bounded first wave, not a restatement. Vocabulary note
   archetype whose components are registered while the entity carries no rollback
   anchor. Narrowed 2026-08-07 to exactly ONE component: five of the six sit in
   `PROVENANCE_ONLY`, and `SessionScopedEntity` (`scope.session`,
-  `primitives.rs:110`) does not. ⚠ the question is an ASYMMETRY — `RoomScopedEntity`
-  and `SessionScopedEntity` are both write-once markers stamped at construction —
-  and it is **Jon's**, written up in full at
-  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md) (*"Is a
-  SESSION scope marker construction provenance, the way a ROOM scope marker
-  is?"*). Summarised rather than restated so the two cannot drift.
+  `primitives.rs:110`) does not.
+  ⛔ **STALE UNTIL 2026-08-09: this said the question was *Jon's*. It is
+  ANSWERED** — he delegated it 2026-08-08 (*"Yes, read `SessionScopedEntity` to
+  determine what is going on with that. I've left rollback design to agents"*),
+  and an agent answered it the same day. ⚠ **a `▢` that says "waiting on the
+  maintainer" when nobody is waiting is the most expensive kind of stale**: it
+  reads as blocked and gets skipped indefinitely.
+
+  ⇒ **and the answer inverts the row.** The asymmetry above rests on *"both are
+  write-once markers stamped at construction"*, and **possession falsifies that
+  for both** — `abilities/traversal/possession.rs` removes and re-inserts them on
+  possess/release, and the `PossessionRestoreScope` enum exists precisely to
+  remember the previous value. ⇒ `SessionScopedEntity`'s **exclusion is correct**;
+  **`RoomScopedEntity`'s PRESENCE in `PROVENANCE_ONLY` is the defect**, because
+  its exemption is justified by a write-once argument that a rewind across a
+  possess/release boundary breaks.
+
+  ▢ **what is owed, and it is not a decision**: take `RoomScopedEntity` off
+  `PROVENANCE_ONLY` — ⚠ **probe first**, a rewind across a possession asserting
+  room scope comes back, watched failing before the list edit. A list edit that
+  reddens something without a demonstrated failure produces a guard nobody
+  trusts. Full reasoning at
+  [`awaiting-maintainer-decision.md`](awaiting-maintainer-decision.md);
+  summarised rather than restated so the two cannot drift.
 
   ✔ **K2b-ii — CLOSED 2026-08-08. Every entry point composes the shell**, and the
   last one was already composing it when this row said otherwise.

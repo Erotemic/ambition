@@ -300,27 +300,19 @@ pub struct SpriteBodyCollision {
     pub render_size: ae::Vec2,
 }
 
-/// Pixel-space extent of the visible body in the sheet's idle/rest frame.
-/// Prefers the multi-part bounding box (disjoint-piece characters) and falls
-/// back to the single `body_pixel_bbox`. `None` when neither is published or
-/// the box is degenerate.
+/// Pixel-space extent of the visible body in the sheet's standing frame.
+///
+/// ⛔ **this used to be its own implementation, and that made it a FORK** (found
+/// 2026-08-08, the first time anything compared the drawn body to the collided
+/// one). It read the static `body_pixel_bbox` where the sheet-authored actor
+/// route (`posed_body_geometry`) reads `pose_body_bbox`, which prefers the
+/// per-animation `idle` hurtbox. Where a sheet publishes both and they differ,
+/// the collision box came from one rectangle and the drawn quad from the other:
+/// measured at up to **1.30x on width** (`npc_vera_ruin`) and **1.12x on
+/// height** (`npc_davy_hylbert`). One reader now, in the crate that owns the
+/// metadata.
 fn body_pixel_extent(metrics: &BodyMetrics) -> Option<(f32, f32)> {
-    if !metrics.body_pixel_parts.is_empty() {
-        let mut min_x = f32::MAX;
-        let mut min_y = f32::MAX;
-        let mut max_x = f32::MIN;
-        let mut max_y = f32::MIN;
-        for part in &metrics.body_pixel_parts {
-            min_x = min_x.min(part.x as f32);
-            min_y = min_y.min(part.y as f32);
-            max_x = max_x.max((part.x + part.w) as f32);
-            max_y = max_y.max((part.y + part.h) as f32);
-        }
-        let (w, h) = (max_x - min_x, max_y - min_y);
-        return (w > 0.0 && h > 0.0).then_some((w, h));
-    }
-    let bbox = metrics.body_pixel_bbox?;
-    (bbox.w > 0 && bbox.h > 0).then_some((bbox.w as f32, bbox.h as f32))
+    metrics.body_pixel_extent(ambition_sprite_sheet::character::CharacterAnim::Idle)
 }
 
 /// Derive a character's collision box from its published sprite body metrics,
@@ -345,11 +337,6 @@ fn sprite_body_collision_for_character_id_from_data(
     let (body_w, body_h) = body_pixel_extent(metrics)?;
     let frame_w = record.frame_width.max(1) as f32;
     let frame_h = record.frame_height.max(1) as f32;
-    // The size the renderer draws today: full frame scaled to the LDtk box.
-    let render = sheets::sprite_render_size(
-        &spec,
-        bevy::math::Vec2::new(ldtk_collision.x, ldtk_collision.y),
-    );
     // ⭐ **an authored STANDING HEIGHT overrides the room's spawn box.** Without
     // one, size is `LDtk box x collision_scale x (body / frame)` — two
     // per-character guesses and a rectangle drawn in a level editor, none of
@@ -364,13 +351,30 @@ fn sprite_body_collision_for_character_id_from_data(
         .standing_height
         .or_else(|| entry.body_kind.default_standing_height())
         .filter(|height| *height > 0.0);
-    let render = match standing_height {
-        Some(height) if body_h > 0.0 => {
-            let scale = height / body_h;
-            bevy::math::Vec2::new(frame_w * scale, frame_h * scale)
-        }
-        _ => render,
+    // Both branches are the SAME shape — `frame x scale` — and differ only in
+    // where the scale comes from. That is what lets the renderer's own sizing
+    // (`sprite_render_size`, which fits the body into whatever box it is handed)
+    // reproduce this quad exactly from the collision box below, instead of
+    // re-applying `collision_scale` to an already-sprite-derived box and
+    // ballooning the sprite. Those two publishers disagreed by up to **196%**
+    // before the bbox-quad route (queue D44, 2026-08-08).
+    let scale = match standing_height {
+        Some(height) if body_h > 0.0 => height / body_h,
+        // ⚠ **the legacy scale, written out rather than borrowed.** It used to
+        // call `sprite_render_size`, and when that function moved to the bbox
+        // route this branch silently followed — clamping every body without a
+        // stated height to its LDtk PLACEMENT rectangle, which is the opposite of
+        // "an authored rectangle says WHERE, not HOW BIG" (the duel arena's
+        // Perfect Cellular Automaton went from a 92px body to a 44px one).
+        //
+        // `CharacterBodyKind::default_standing_height` deliberately answers for
+        // `Standard` only — *"a crawler, a floating drone and a wide body have no
+        // shared height to be consistent about"* — so this population keeps the
+        // derivation it was left with, and `collision_scale` keeps doing exactly
+        // this one job until somebody authors a height for them.
+        _ => ldtk_collision.x.max(ldtk_collision.y).max(8.0) * spec.collision_scale / frame_h,
     };
+    let render = bevy::math::Vec2::new(frame_w * scale, frame_h * scale);
     // The visible body occupies (body / frame) of that render quad.
     let collision = ae::Vec2::new(body_w / frame_w * render.x, body_h / frame_h * render.y);
     Some(SpriteBodyCollision {

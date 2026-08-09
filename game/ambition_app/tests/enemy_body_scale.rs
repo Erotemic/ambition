@@ -24,6 +24,23 @@
 //! ```text
 //! cargo test -p ambition_app --test app_it enemy_body_scale -- --ignored --nocapture
 //! ```
+//!
+//! ⛔ **AND THE REPORT BELOW CANNOT ANSWER THE QUESTION IT WAS POINTED AT
+//! (2026-08-08).** `print_enemy_bodies_against_the_player` asks
+//! [`posed_body_geometry`] at `world_per_pixel = 1.0`, so its `collision` column
+//! is the sheet's body bbox in sheet pixels and its `render` column is the
+//! sheet's FRAME in sheet pixels. Both are facts about a generated `.ron` file.
+//! Its `x_vs_p` / `y_vs_p` columns divide the COLLISION column by the player's,
+//! across sheets with completely different pixel densities. **No change to any
+//! sizing code can move a single number in it** — only regenerating art can.
+//! It was cited three times as the falsifier for the bbox-quad route; it is not
+//! one.
+//!
+//! ⭐ [`print_how_the_cast_is_drawn_against_its_boxes`] is the instrument for
+//! that question. It asks the SIZING FUNCTIONS — the catalog→sheet pipeline the
+//! Hall and every spawn site actually use — and reports, in WORLD units, the
+//! drawn INK against the collision box. `ink / box = 1.00` is "the picture is
+//! the body"; anything else is the defect, per character, with a sign.
 
 use ambition_platformer2d::actors::character_sprites::posed_body_geometry;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
@@ -101,4 +118,221 @@ fn the_enemy_body_report_is_actually_measuring_something() {
             "`{target}` measured a zero-sized body or quad"
         );
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// **What the RENDERER draws, against the box the body actually collides with.**
+// ─────────────────────────────────────────────────────────────────────────────
+
+use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_platformer2d::actors::character_sprites::{
+    sheet_for_character_id_in, sprite_body_collision_for_character_id_in,
+};
+use ambition_platformer2d::characters::actor::character_catalog::CharacterCatalog;
+use ambition_platformer2d::engine_core::Vec2;
+use ambition_platformer2d::sprite_sheet::character::sprite_render_size;
+
+/// A spawn rectangle a level might draw around a character — a placement, not a
+/// claim about anybody's size.
+const LDTK_PLACEMENT: Vec2 = Vec2::new(28.0, 44.0);
+
+/// **The TWO independent render-size publishers, for one character.**
+///
+/// ⛔ **and asking only one of them is a tautology, which is how the first draft
+/// of this instrument was green before the fix it exists to prove.**
+/// `SpriteBodyCollision` returns a quad AND a box, and it derives the box FROM
+/// the quad (`collision = body/frame × render`) — so "is the ink the size of the
+/// box" is arithmetic it already did, and reads 1.00 under any sizing rule
+/// whatsoever.
+///
+/// So this asks the OTHER publisher the same question about the SAME box:
+/// [`sprite_render_size`], which is what `bind_worn_character_presentation` uses
+/// for the player and what `upgrade_actor_sprites` uses for every actor whose
+/// box was set by content rather than derived here (the AI Slop, a mounted
+/// rider, anything a demo resizes). Those two are genuinely different code, and
+/// where they disagree the SAME body is drawn at two different sizes depending
+/// on which spawn path reached it.
+struct Publishers {
+    /// The collision box — from the catalog→sheet pipeline.
+    body: Vec2,
+    /// Quad A: `SpriteBodyCollision::render_size` (the standing-height route).
+    catalog_quad: Vec2,
+    /// Quad B: `sprite_render_size(spec, body)` — the renderer, given that box.
+    render_quad: Vec2,
+    /// What the renderer's quad actually DRAWS: the sheet's body rectangle
+    /// scaled by the same quad/frame ratio the GPU applies to every pixel.
+    render_ink: Vec2,
+    /// `render_quad.x/frame_w` over `render_quad.y/frame_h`. Not 1.0 ⇒ the art
+    /// is scaled by different amounts per axis — the stretch this repo has
+    /// already paid for once.
+    stretch: f32,
+}
+
+fn publishers(catalog: &CharacterCatalog, id: &str) -> Option<Publishers> {
+    let derived = sprite_body_collision_for_character_id_in(
+        &Default::default(),
+        catalog,
+        id,
+        LDTK_PLACEMENT,
+    )?;
+    let spec = sheet_for_character_id_in(&Default::default(), catalog, id)?;
+    let frame = spec.frame_pixels();
+    let body_px = spec.body_pixel_extent(CharacterAnim::Idle)?;
+    let body = Vec2::new(derived.collision.x, derived.collision.y);
+    let render_quad = sprite_render_size(&spec, bevy::math::Vec2::new(body.x, body.y));
+    let render_quad = Vec2::new(render_quad.x, render_quad.y);
+    Some(Publishers {
+        body,
+        catalog_quad: Vec2::new(derived.render_size.x, derived.render_size.y),
+        render_quad,
+        render_ink: Vec2::new(
+            body_px.x / frame.x * render_quad.x,
+            body_px.y / frame.y * render_quad.y,
+        ),
+        stretch: (render_quad.x / frame.x) / (render_quad.y / frame.y).max(f32::EPSILON),
+    })
+}
+
+/// **The instrument for the bbox-quad route.** For every character the shipped
+/// host registers: the box it collides with, what each of the two publishers
+/// sizes its quad to, and what the renderer's quad actually draws.
+///
+/// ```text
+/// cargo test -p ambition_app --test app_it -- \
+///     enemy_body_scale::print_the_two_render_size_publishers --ignored --nocapture
+/// ```
+#[test]
+#[ignore]
+fn print_the_two_render_size_publishers() {
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let catalog = app.world().resource::<CharacterCatalog>();
+    let mut ids: Vec<&String> = catalog.iter().map(|(id, _)| id).collect();
+    ids.sort();
+
+    let mut rows: Vec<(String, Publishers)> = Vec::new();
+    for id in ids {
+        if let Some(measured) = publishers(catalog, id) {
+            rows.push((id.clone(), measured));
+        }
+    }
+    if rows.is_empty() {
+        println!("[skip] no baked character sheets — run ./regen_sprites.sh");
+        return;
+    }
+    rows.sort_by(|a, b| {
+        (a.1.render_ink.y / a.1.body.y)
+            .partial_cmp(&(b.1.render_ink.y / b.1.body.y))
+            .unwrap()
+    });
+
+    println!(
+        "{:>34} {:>13} {:>13} {:>13} {:>13} {:>8} {:>8} {:>8}",
+        "character",
+        "box",
+        "quad(catalog)",
+        "quad(render)",
+        "drawn(render)",
+        "drawn/box",
+        "y",
+        "stretch"
+    );
+    for (id, m) in &rows {
+        println!(
+            "{id:>34} {:>5.1}x{:<7.1} {:>5.1}x{:<7.1} {:>5.1}x{:<7.1} {:>5.1}x{:<7.1} \
+             {:>8.2} {:>8.2} {:>8.3}",
+            m.body.x,
+            m.body.y,
+            m.catalog_quad.x,
+            m.catalog_quad.y,
+            m.render_quad.x,
+            m.render_quad.y,
+            m.render_ink.x,
+            m.render_ink.y,
+            m.render_ink.x / m.body.x,
+            m.render_ink.y / m.body.y,
+            m.stretch,
+        );
+    }
+    let ratios: Vec<f32> = rows
+        .iter()
+        .map(|(_, m)| m.render_ink.y / m.body.y)
+        .collect();
+    let lo = ratios.iter().cloned().fold(f32::MAX, f32::min);
+    let hi = ratios.iter().cloned().fold(f32::MIN, f32::max);
+    let disagree = rows
+        .iter()
+        .map(|(_, m)| (m.render_quad.y / m.catalog_quad.y.max(f32::EPSILON) - 1.0).abs())
+        .fold(0.0f32, f32::max);
+    println!(
+        "\n{} characters measured.\n  drawn/collided height: {lo:.2} .. {hi:.2} \
+         (spread {:.2}x) — 1.00 is 'the picture is the body'.\n  \
+         worst disagreement between the two publishers: {:.1}%",
+        rows.len(),
+        hi / lo.max(f32::EPSILON),
+        disagree * 100.0,
+    );
+}
+
+/// **The picture is the body, and the two publishers say the same thing.**
+///
+/// ⚠ this asserts the CORRESPONDENCE, not a size. How tall anybody should be is
+/// Jon's call, and a limit here would be a taxonomy invented by a test; that a
+/// character's drawing and its hurtbox describe the same creature is not.
+///
+/// ⛔ **asserted over the whole population rather than a sample**, because the
+/// defect it pins was never one character: `collision_scale` was a per-sheet
+/// fudge, so a spot check on the one that happened to be tuned right reports the
+/// success condition.
+#[test]
+fn every_characters_drawing_is_the_size_of_the_body_it_collides_with() {
+    let app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    let catalog = app.world().resource::<CharacterCatalog>();
+    let mut measured = 0usize;
+    let mut wrong: Vec<String> = Vec::new();
+    let mut ids: Vec<&String> = catalog.iter().map(|(id, _)| id).collect();
+    ids.sort();
+    for id in ids {
+        let Some(m) = publishers(catalog, id) else {
+            continue;
+        };
+        measured += 1;
+        // The fit touches on the binding axis and may leave slack on the other,
+        // so both are checked for OVERSHOOT and the binding one for reaching 1.
+        let (rx, ry) = (m.render_ink.x / m.body.x, m.render_ink.y / m.body.y);
+        let publishers_agree =
+            (m.render_quad.y / m.catalog_quad.y.max(f32::EPSILON) - 1.0).abs() < 0.01;
+        if !(0.99..=1.01).contains(&rx.max(ry))
+            || rx > 1.01
+            || ry > 1.01
+            || (m.stretch - 1.0).abs() > 1e-3
+            || !publishers_agree
+        {
+            wrong.push(format!(
+                "  {id}: box {:.1}x{:.1}, drawn {:.1}x{:.1} (x {rx:.2}, y {ry:.2}), \
+                 stretch {:.3}, catalog quad {:.1}x{:.1} vs render quad {:.1}x{:.1}",
+                m.body.x,
+                m.body.y,
+                m.render_ink.x,
+                m.render_ink.y,
+                m.stretch,
+                m.catalog_quad.x,
+                m.catalog_quad.y,
+                m.render_quad.x,
+                m.render_quad.y,
+            ));
+        }
+    }
+    // ⚠ SKIP, not fail, with no baked art: sheets are generated and gitignored,
+    // so a clean checkout has none.
+    if measured == 0 {
+        eprintln!("[skip] no baked character sheets — run ./regen_sprites.sh");
+        return;
+    }
+    assert!(
+        wrong.is_empty(),
+        "{} of {measured} characters are drawn at a different size from the body \
+         they collide with, or the two render-size publishers disagree:\n{}",
+        wrong.len(),
+        wrong.join("\n"),
+    );
 }

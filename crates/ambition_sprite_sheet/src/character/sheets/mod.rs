@@ -74,9 +74,20 @@ pub struct CharacterSheetSpec {
     /// its [`ambition_sprite_sheet`] frame algebra, so the character path shares
     /// one implementation with the boss, prop, and projectile readers.
     record: SheetRecord,
-    /// Multiplier applied to the entity's collision-box max dimension to
-    /// derive the rendered sprite's height. Width is derived from the
-    /// cropped frame's aspect ratio so the character isn't squashed.
+    /// **Vestigial for any sheet that publishes a body** (181 of 183 baked),
+    /// and read only by the fallback in [`sprite_render_size_scaled`].
+    ///
+    /// It multiplied the collision box's max dimension to get the rendered
+    /// sprite's height, with the width taken from the padded frame's aspect — so
+    /// it was a per-sheet correction for how much empty space the generator's
+    /// crop happened to leave, and the 180 baked sheets spanned **10.9x** in how
+    /// big a character was drawn against its own box. The quad now comes from the
+    /// sheet's own body rectangle, which makes that ratio 1.0 by construction.
+    ///
+    /// ⚠ **turning this does nothing for a character.** Probed 2026-08-08 by
+    /// forcing every value to 777: the 136-character cast measured identically.
+    /// If a character is drawn the wrong size, its BODY RECTANGLE is wrong and
+    /// the fix is in the art pipeline, not here.
     pub collision_scale: f32,
     /// Sprite anchor y (normalized; negative shifts the sprite up so feet
     /// land near the collision-box bottom). Authoritative value lives in
@@ -204,9 +215,8 @@ impl AuthoredSheets {
     /// re-registration), or the parse error verbatim; a provider registering a
     /// broken sheet gets told which file and why.
     pub fn insert_ron(&mut self, file_root: &str, ron: &str) -> Result<usize, String> {
-        let records: Vec<SheetRecord> = ron::from_str(ron).map_err(|error| {
-            format!("authored sheet '{file_root}' is malformed RON: {error}")
-        })?;
+        let records: Vec<SheetRecord> = ron::from_str(ron)
+            .map_err(|error| format!("authored sheet '{file_root}' is malformed RON: {error}"))?;
         if records.is_empty() {
             return Err(format!("authored sheet '{file_root}' declares no records"));
         }
@@ -220,9 +230,7 @@ impl AuthoredSheets {
         let mut fresh = Vec::with_capacity(records.len());
         for record in records {
             match self.by_target.get(&record.target) {
-                Some(held)
-                    if held.origin == file_root && *held.declaration == *declaration =>
-                {
+                Some(held) if held.origin == file_root && *held.declaration == *declaration => {
                     // Same file, same bytes: idempotent, not a decision.
                 }
                 Some(held) => {

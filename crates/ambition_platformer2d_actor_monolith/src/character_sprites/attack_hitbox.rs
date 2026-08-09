@@ -7,7 +7,7 @@
 //! (`AnimationMetrics::hitbox`). We map frame pixels → world by planting
 //! the manifest's `feet_pixel` at the collision box's bottom-centre (the
 //! anchor the renderer also uses) and scaling by the *rendered* sprite
-//! size — resolved via the same `player_placeholder_render_size` the
+//! size — resolved via the same `sprite_render_size` the
 //! renderer uses, so the gameplay box lines up with the drawn blade.
 //! Facing mirrors the box's forward offset.
 
@@ -47,7 +47,7 @@ fn file_root_registry() -> &'static SheetRegistry {
 /// - `collision`: collision-box size (e.g. 30×48). Used to plant feet.
 /// - `facing`: `+1` faces right, `-1` faces left (the box mirrors).
 /// - `render_size`: the drawn sprite-quad size in world units (use the
-///   renderer's own `player_placeholder_render_size` so the box matches
+///   renderer's own `sprite_render_size` so the box matches
 ///   the visible blade).
 ///
 /// Returns `None` when the sheet has no body metrics or no hitbox for
@@ -129,7 +129,7 @@ fn player_render_size(
     collision: ae::Vec2,
 ) -> Option<ae::Vec2> {
     let spec = super::assets::sheet_for_character_id_in(authored, catalog, PLAYER_CHARACTER_ID)?;
-    Some(sheets::player_placeholder_render_size(&spec, collision))
+    Some(sheets::sprite_render_size(&spec, collision))
 }
 
 /// Resolve the player's melee attack hitbox for `animation` from the

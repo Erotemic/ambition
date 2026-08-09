@@ -20,7 +20,7 @@ use ambition_platformer2d_shared_tangle::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
-    feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
+    feet_anchor_for_render_size, sprite_render_size, CharacterAnimator,
 };
 use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
@@ -146,7 +146,7 @@ pub fn bind_worn_character_presentation(
             continue;
         }
         if let Some(asset) = asset {
-            let player_render = player_placeholder_render_size(&asset.spec, player_collision);
+            let player_render = sprite_render_size(&asset.spec, player_collision);
             let sprite = build_character_sprite_with_render_size(asset, player_render);
             let anchor = feet_anchor_for_render_size(&asset.spec, player_collision, player_render);
             // A visible sprite RESIZE mid-launch has no other trace: nothing
@@ -892,7 +892,7 @@ pub fn refresh_player_sprites_for_resident_quality(
             continue;
         }
         let collision = BVec2::new(pose.base_size.x, pose.base_size.y);
-        let render = player_placeholder_render_size(&asset.spec, collision);
+        let render = sprite_render_size(&asset.spec, collision);
         // The counterpart line to the one in `bind_worn_character_presentation`.
         // This one fires when the RESIDENT realization moved — a deferred sheet
         // landing, or a quality transition — so a size that differs from the

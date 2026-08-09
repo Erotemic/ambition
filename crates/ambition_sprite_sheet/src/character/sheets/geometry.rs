@@ -5,47 +5,98 @@
 
 use super::*;
 
-/// Per-target sprite render size. The generator's character occupies only
-/// part of the 128×128 frame, so the rendered quad must be larger than
-/// the collision box for the visible body to roughly match the hitbox.
-///
-/// TODO(gen2d-collision-aware): teach the generator to write
-/// `body_pixel_extent` + `feet_y_pixel` into the spritesheet YAML and
-/// load them at runtime, replacing these per-spec constants with values
-/// derived from each sheet's actual rendered body. The per-spec tuning
-/// already isolates the override per target so the migration is local.
+impl CharacterSheetSpec {
+    /// **Where this sheet's character actually is inside its frame**, in frame
+    /// pixels — the rectangle the generator measured (or the target authored)
+    /// for `anim`, `None` for a sheet that publishes no body at all.
+    ///
+    /// Asked of the one reader ([`crate::BodyMetrics::body_pixel_extent`]), so
+    /// the quad, the collision box and the sheet-authored actor route cannot
+    /// disagree about what the sheet says.
+    pub fn body_pixel_extent(&self, anim: CharacterAnim) -> Option<Vec2> {
+        let (w, h) = self.record.body_metrics.as_ref()?.body_pixel_extent(anim)?;
+        let extent = Vec2::new(w, h);
+        (extent.x > 0.0 && extent.y > 0.0).then_some(extent)
+    }
+
+    /// The sheet's frame, in pixels, floored at 1 so it is never a divisor of
+    /// zero.
+    pub fn frame_pixels(&self) -> Vec2 {
+        Vec2::new(
+            self.frame_width.max(1) as f32,
+            self.frame_height.max(1) as f32,
+        )
+    }
+}
+
+/// Per-target sprite render size: the sheet's frame drawn at the scale that
+/// puts the character's own body rectangle on the collision box.
 pub fn sprite_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {
     sprite_render_size_scaled(spec, collision, 1.0)
 }
 
-/// Render-size helper with an additional presentation-only scale.
+/// **The quad is the FRAME at the scale that fits the sheet's BODY into the
+/// collision box** — one uniform scale, so the art is never stretched and the
+/// drawn character is the size of the thing it collides with.
 ///
-/// The collision box remains gameplay authority; this scale is only for
-/// placeholder sprites while final art is still in flux.
+/// ⭐ **the scale is computable, which is why nothing authors it any more.** A
+/// sheet publishes `body_pixel_bbox` (184 of 190 do — the generator measures the
+/// alpha bbox on every regeneration), so `world_per_pixel = fit(collision, body)`
+/// is arithmetic. What this replaced was
+/// `max(collision.x, collision.y) * collision_scale`, in which:
+///
+/// * the height came off the collision box's LARGER axis, so a long flat animal
+///   was drawn as tall as it is wide;
+/// * the width came off the PADDED FRAME's aspect, which its own comment named
+///   as the intent — so the drawn body's size depended on how much empty space
+///   the generator's crop happened to leave around it;
+/// * `collision_scale` was the correction for that padding, hand-tuned per
+///   sheet. Since `figure = collision_scale × (body_h / frame_h)`, the 180 baked
+///   sheets spanned **10.9x** in how big a character was drawn relative to its
+///   own box — which is Jon's *"the Hall characters are inconsistent sizes"* and
+///   his *"the collision / hurt box is larger than the player sprite"*, in one
+///   number. Under this route that figure is **1.0 for every sheet, by
+///   construction**.
+///
+/// ⚠ **the whole frame is still drawn, not a crop of it.** `Sprite::custom_size`
+/// scales the entire atlas frame into the quad per axis, so sizing the quad to
+/// the BODY while still sampling the frame divides the padding into the
+/// character — measured, first try, at a 2.20x vertical squash on the snake and
+/// 0.65x horizontal on Mary-O. Keeping the quad frame-shaped and scaling it
+/// uniformly is what `posed_body_geometry` already does for sheet-authored
+/// bodies, and it needs no atlas surgery: the padding is transparent.
+///
+/// `visual_scale` is presentation-only and is a deliberate deviation from "the
+/// picture is the body" — it stays 1.0 unless somebody looking at the running
+/// game wants a character drawn off its own box on purpose.
+///
+/// Sheets with no published body (2 of 183 baked: `creator_lab_props`,
+/// `weird_hermit`) keep the old arithmetic, because there is nothing else to
+/// ask.
 pub fn sprite_render_size_scaled(
     spec: &CharacterSheetSpec,
     collision: Vec2,
     visual_scale: f32,
 ) -> Vec2 {
-    // Height is collision-driven; width preserves the cropped frame's
-    // aspect ratio so the character isn't horizontally squashed when the
-    // generator crop produces non-square frames (e.g. robot 120×128).
-    let height =
-        collision.x.max(collision.y).max(8.0) * spec.collision_scale * visual_scale.max(0.05);
-    let width = height * (spec.frame_width as f32 / spec.frame_height as f32);
-    Vec2::new(width, height)
-}
-
-/// Presentation-only scale for the temporary player sprite.
-///
-/// The robot sheet's `collision_scale` compensates for transparent/cropped
-/// frame space; this extra factor gives the placeholder a slightly more
-/// heroic read against the tuned 30×48 movement body without changing
-/// gameplay collision.
-pub const PLAYER_PLACEHOLDER_VISUAL_SCALE: f32 = 1.16;
-
-pub fn player_placeholder_render_size(spec: &CharacterSheetSpec, collision: Vec2) -> Vec2 {
-    sprite_render_size_scaled(spec, collision, PLAYER_PLACEHOLDER_VISUAL_SCALE)
+    let frame = spec.frame_pixels();
+    let scale = visual_scale.max(0.05);
+    if let Some(body) = spec.body_pixel_extent(CharacterAnim::Idle) {
+        // Fit rather than match-one-axis: the box and the art can disagree about
+        // aspect (an LDtk rectangle is a placement, not a claim about a
+        // silhouette), and the honest reading of a disagreement is that the
+        // drawn body stays INSIDE the box, touching on the axis that binds.
+        // Where the box was derived from this same rectangle — the common case,
+        // because `sprite_body_collision_for_character_id` derives it — both
+        // axes bind and the fit is exact.
+        let fit = (collision.x.max(1.0) / body.x).min(collision.y.max(1.0) / body.y);
+        if fit.is_finite() && fit > 0.0 {
+            return frame * fit * scale;
+        }
+    }
+    // No published body: height off the collision box's larger axis, width off
+    // the frame aspect, corrected by the sheet's hand-tuned `collision_scale`.
+    let height = collision.x.max(collision.y).max(8.0) * spec.collision_scale * scale;
+    Vec2::new(height * frame.x / frame.y, height)
 }
 
 /// Sprite anchor that places the rendered character's feet on the bottom

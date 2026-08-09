@@ -266,11 +266,18 @@ pub fn spawn_room_visuals(
 /// Render size + anchor for a prop's sprite, by what KIND of thing it is.
 ///
 /// Pure, because the difference is exactly the bug that shipped twice: a
-/// character's art deliberately overflows its collision box and hangs off a FEET
-/// anchor (`sprite_render_size` renders `max(w, h) * collision_scale`, widened by
-/// the frame aspect), which for a 64×32 warp-pipe piece is 128×64 — DOUBLE the
-/// collider in both axes, putting the pipe's lip well above the surface a body
-/// actually stands on. Correct for a character, wrong for anything built.
+/// character's quad is the whole sheet FRAME and hangs off a FEET anchor, so a
+/// 64×32 warp-pipe piece drew larger than the collider with its lip above the
+/// surface a body actually stands on. Correct for a character, wrong for
+/// anything built.
+///
+/// ⚠ **the magnitude changed and the rule did not** (queue D44, 2026-08-08).
+/// `sprite_render_size` used to be `max(w, h) * collision_scale` widened by the
+/// frame aspect, which drew that pipe piece at 128×64 — DOUBLE the collider.
+/// It now scales the frame so the sheet's own art lands on the collider, which
+/// leaves only the crop's transparent margin (4.9% for the pipe head). Built
+/// world still needs its own path: it wants the box EXACTLY and centred, and a
+/// feet anchor slides a block off the surface at any scale.
 pub(crate) fn prop_sprite_geometry(
     draw: PropDraw,
     spec: &ambition_sprite_sheet::character::CharacterSheetSpec,
@@ -1446,11 +1453,26 @@ mod prop_geometry_tests {
 
         // The bug, stated as the thing it broke: character sizing does NOT agree
         // with the authored box, which is exactly why built world must not use it.
-        let (decoration, _) = prop_sprite_geometry(PropDraw::Decoration, &spec, authored);
+        //
+        // ⚠ **and it no longer disagrees by 2x.** This used to require
+        // `decoration > authored * 1.5`, because character sizing was
+        // `max(box) * collision_scale` and drew a 64x32 pipe head at 128x64. The
+        // bbox-quad route (queue D44) sizes the quad so the sheet's own art lands
+        // on the box, so what is left over is the transparent margin the crop
+        // leaves — 4.9% here, not 100%. The reason built world keeps its own path
+        // is now the ANCHOR and the exactness, not the scale.
+        let (decoration, decoration_anchor) =
+            prop_sprite_geometry(PropDraw::Decoration, &spec, authored);
         assert!(
-            decoration.y > authored.y * 1.5 && decoration.x > authored.x * 1.5,
-            "character sizing overflows the box on purpose ({decoration:?} vs \
-             {authored:?}) — correct for a body, wrong for a pipe"
+            decoration.x > authored.x && decoration.y > authored.y,
+            "character sizing draws the whole FRAME, so it is still larger than the \
+             box by the crop's transparent margin ({decoration:?} vs {authored:?})"
+        );
+        assert_ne!(
+            decoration_anchor,
+            Anchor::CENTER,
+            "character sizing hangs the quad off a feet anchor, which slides a pipe \
+             head off the block a body stands on however well the quad is sized"
         );
     }
 }

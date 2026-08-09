@@ -72,24 +72,51 @@ fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
     let _ = checked; // zero is acceptable (no variants generated in this build)
 }
 
+/// **The quad puts the sheet's own body on the collision box.**
+///
+/// ⛔ **this used to be `sprite_render_size_uses_max_collision_axis`**, pinning
+/// `height = max(collision.x, collision.y) * collision_scale` — the arithmetic
+/// that drew a long flat animal as tall as it is wide and made how big a
+/// character read depend on how much transparent margin its crop left. Retired
+/// 2026-08-08 with the bbox-quad route (queue D44): the field it multiplied is
+/// inert for every sheet that publishes a body.
 #[test]
-fn sprite_render_size_uses_max_collision_axis() {
-    // Tall narrow body: render height tracks collision.y (the
-    // larger axis), scaled by collision_scale.
+fn sprite_render_size_draws_the_body_at_the_collision_box() {
+    let spec = robot_sheet();
+    let body = spec
+        .body_pixel_extent(ambition_sprite_sheet::character::CharacterAnim::Idle)
+        .expect("the robot sheet publishes a body rectangle");
+    let frame = spec.frame_pixels();
     let collision = Vec2::new(28.0, 46.0);
-    let size = sprite_render_size(&robot_sheet(), collision);
-    let expected_height = 46.0 * robot_sheet().collision_scale;
-    assert!((size.y - expected_height).abs() < 1e-3);
+    let quad = sprite_render_size(&spec, collision);
+    // What the quad actually draws: the body rectangle scaled by the same
+    // quad/frame ratio the GPU applies to every other pixel of the frame.
+    let drawn = Vec2::new(body.x / frame.x * quad.x, body.y / frame.y * quad.y);
+    // The fit touches on the binding axis and never overshoots on either.
+    assert!(
+        (drawn.x / collision.x).max(drawn.y / collision.y) > 0.999,
+        "the drawn body {drawn:?} does not reach the {collision:?} collision box"
+    );
+    assert!(
+        drawn.x <= collision.x + 1e-3 && drawn.y <= collision.y + 1e-3,
+        "the drawn body {drawn:?} overflows the {collision:?} collision box"
+    );
 }
 
+/// The 8.0 floor moved WITH the arithmetic it belonged to: it now guards only
+/// the fallback for a sheet that publishes no body. A sheet that does publish
+/// one is drawn at the size of that body, however small — a picture bigger than
+/// the box is the defect this route exists to remove, and "so micro-entities
+/// still render visibly" was a statement about the BOX.
 #[test]
-fn sprite_render_size_clamps_at_minimum_eight() {
-    // Tiny collision boxes hit the 8.0 floor so micro-entities
-    // (debris-sized actors) still render visibly.
-    let collision = Vec2::new(2.0, 1.0);
-    let size = sprite_render_size(&robot_sheet(), collision);
-    let expected_height = 8.0 * robot_sheet().collision_scale;
-    assert!((size.y - expected_height).abs() < 1e-3);
+fn a_tiny_collision_box_draws_a_tiny_body_rather_than_a_floored_one() {
+    let spec = robot_sheet();
+    let big = sprite_render_size(&spec, Vec2::new(28.0, 46.0));
+    let tiny = sprite_render_size(&spec, Vec2::new(2.0, 1.0));
+    assert!(
+        tiny.y < big.y * 0.1,
+        "a 2x1 body drew a {tiny:?} quad against the 28x46 body's {big:?}"
+    );
 }
 
 #[test]

@@ -82,3 +82,100 @@ fn spec_from_record_falls_back_to_const_when_manifest_omits_tuning() {
     assert!((spec.collision_scale - 2.1).abs() < 1e-5);
     assert_eq!(spec.frame_sample_inset, 1);
 }
+
+/// **The quad is the sheet's body rectangle scaled onto the collision box, and
+/// `collision_scale` has nothing to do with it.**
+///
+/// ⭐ **the poison is the point, not the equality.** Asserting "the drawn body
+/// equals the collision box" alone would pass under the OLD arithmetic for any
+/// sheet whose `collision_scale` happened to be tuned right — which is exactly
+/// how 116 authored values survived being useless. So this builds the same sheet
+/// twice with wildly different `collision_scale` and requires the two quads to
+/// be BYTE-IDENTICAL: the field cannot be doing work, whatever value it holds.
+#[test]
+fn a_published_body_sizes_the_quad_and_collision_scale_is_inert() {
+    // A 40x80 character sitting off-centre inside a 100x120 frame, so a quad
+    // taken from the FRAME and a quad taken from the BODY cannot coincide.
+    let ron_text = r#"
+            (
+                target: "synthetic_body",
+                image: "synthetic_body.png",
+                label_width: 0,
+                frame_width: 100,
+                frame_height: 120,
+                body_metrics: Some((
+                    body_pixel_bbox: Some((x: 12, y: 30, w: 40, h: 80)),
+                )),
+                rows: [
+                    (
+                        animation: "idle",
+                        row_index: 0,
+                        frame_count: 1,
+                        duration_ms: 100,
+                        duration_secs: 0.1,
+                    ),
+                ],
+            )
+        "#;
+    let record: SheetRecord = ron::from_str(ron_text).expect("synthetic body record parses");
+    let collision = Vec2::new(20.0, 40.0);
+
+    let timid = spec_from_record(&record, &SheetTuning::new(0.4, 1));
+    let absurd = spec_from_record(&record, &SheetTuning::new(9.9, 1));
+    let quad = sprite_render_size(&timid, collision);
+    assert_eq!(
+        quad,
+        sprite_render_size(&absurd, collision),
+        "collision_scale 0.4 and 9.9 produced different quads, so the field is \
+         still sizing characters"
+    );
+
+    // The body fills the box exactly: 40x80 body at 0.5 world units per pixel.
+    let drawn = Vec2::new(40.0 / 100.0 * quad.x, 80.0 / 120.0 * quad.y);
+    assert!(
+        (drawn - collision).length() < 1e-4,
+        "the drawn body measured {drawn:?} inside a {collision:?} collision box"
+    );
+    // Uniform: the frame's aspect survives, so the art is scaled and never
+    // stretched.
+    assert!(
+        ((quad.x / 100.0) - (quad.y / 120.0)).abs() < 1e-4,
+        "the quad {quad:?} scales the 100x120 frame by different amounts per axis"
+    );
+}
+
+/// The 2 baked sheets that publish NO body (`creator_lab_props`,
+/// `weird_hermit`) keep the old arithmetic, because there is nothing else to
+/// ask — and that fallback is the only thing `collision_scale` still drives.
+#[test]
+fn a_sheet_with_no_published_body_still_reads_collision_scale() {
+    let ron_text = r#"
+            (
+                target: "synthetic_bodyless",
+                image: "synthetic_bodyless.png",
+                label_width: 0,
+                frame_width: 64,
+                frame_height: 64,
+                rows: [
+                    (
+                        animation: "idle",
+                        row_index: 0,
+                        frame_count: 1,
+                        duration_ms: 100,
+                        duration_secs: 0.1,
+                    ),
+                ],
+            )
+        "#;
+    let record: SheetRecord = ron::from_str(ron_text).expect("bodyless record parses");
+    let collision = Vec2::new(20.0, 40.0);
+    let small = sprite_render_size(
+        &spec_from_record(&record, &SheetTuning::new(1.0, 1)),
+        collision,
+    );
+    let big = sprite_render_size(
+        &spec_from_record(&record, &SheetTuning::new(2.0, 1)),
+        collision,
+    );
+    assert!((big.y - small.y * 2.0).abs() < 1e-4);
+}

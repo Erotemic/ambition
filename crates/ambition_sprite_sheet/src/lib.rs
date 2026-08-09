@@ -368,6 +368,36 @@ impl BodyMetrics {
             .or(self.body_pixel_bbox)
             .filter(|bbox| bbox.w > 0 && bbox.h > 0)
     }
+
+    /// **How big this character IS in its own frame, for one pose** — the
+    /// extent, in frame pixels, of everything the sheet calls its body.
+    ///
+    /// A disjoint-piece character (a boss with a head, a torso and two hands)
+    /// publishes `body_pixel_parts` and its extent is their union; everything
+    /// else is [`Self::pose_body_bbox`].
+    ///
+    /// ⭐ **the single reader of this fact.** It is asked by the collision
+    /// derivation, by the sprite-quad sizing, and by the sheet-authored actor
+    /// route, and those three used to ask three subtly different questions —
+    /// so a body could be DRAWN from one rectangle and COLLIDED from another.
+    /// Whatever the answer is, it is now the same answer everywhere.
+    pub fn body_pixel_extent(&self, anim: character::CharacterAnim) -> Option<(f32, f32)> {
+        if !self.body_pixel_parts.is_empty() {
+            let mut min = (f32::MAX, f32::MAX);
+            let mut max = (f32::MIN, f32::MIN);
+            for part in &self.body_pixel_parts {
+                min = (min.0.min(part.x as f32), min.1.min(part.y as f32));
+                max = (
+                    max.0.max((part.x + part.w) as f32),
+                    max.1.max((part.y + part.h) as f32),
+                );
+            }
+            let extent = (max.0 - min.0, max.1 - min.1);
+            return (extent.0 > 0.0 && extent.1 > 0.0).then_some(extent);
+        }
+        self.pose_body_bbox(anim)
+            .map(|bbox| (bbox.w as f32, bbox.h as f32))
+    }
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]

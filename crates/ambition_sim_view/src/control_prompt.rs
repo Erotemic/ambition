@@ -26,7 +26,7 @@ use ambition_characters::action_scheme::{derive_action_scheme, ActorTechniques};
 use ambition_characters::brain::action_set::ActionSet;
 use ambition_combat::moveset::ActorMoveset;
 use ambition_entity_catalog::action_scheme::{ControlSlot, VisualId};
-use ambition_input::{ActiveUiCues, SeatInputContexts, GAMEPLAY_CONTEXT};
+use ambition_input::{ActiveUiCues, SeatInputContexts, UiCue, GAMEPLAY_CONTEXT};
 use ambition_platformer2d_actor_monolith::actor::BodyAbilities;
 use ambition_platformer2d_shared_tangle::markers::{
     ControlledSubject, PlayerEntity, PrimaryPlayer,
@@ -120,17 +120,14 @@ pub fn publish_frontend_context_prompt(
     if owner == GAMEPLAY_CONTEXT {
         return;
     }
-    let confirm = cues
-        .as_deref()
-        .and_then(|cues| cues.for_context(owner))
-        .map(|cue| cue.submit_label.clone())
-        .unwrap_or_else(|| "Select".to_owned());
-    set_prompt(
-        &mut prompt,
+    // A resolved non-gameplay owner IS the proof that a surface owns input, so
+    // this exit carries a fallback verb and never resolves `Empty`.
+    let (context, confirm) = surface_prompt(
         ControlContextKind::Menu,
-        Vec::new(),
-        Some(confirm),
+        cues.as_deref().and_then(|cues| cues.for_context(owner)),
+        Some("Select"),
     );
+    set_prompt(&mut prompt, context, Vec::new(), confirm);
 }
 
 /// **The set [`rebuild_control_prompt`] runs in — the prompt view is rebuilt.**
@@ -247,16 +244,18 @@ pub fn rebuild_control_prompt(
             return;
         }
         *last = Some((None, [false; 3], resources));
-        let (context, fallback) = match mode.get() {
+        let (kind, fallback) = match mode.get() {
             GameMode::Dialogue => (ControlContextKind::Dialogue, "Advance"),
             _ => (ControlContextKind::Menu, "Select"),
         };
-        let confirm = cues
-            .as_deref()
-            .and_then(ActiveUiCues::top)
-            .map(|cue| cue.submit_label.clone())
-            .unwrap_or_else(|| fallback.to_owned());
-        set_prompt(&mut prompt, context, Vec::new(), Some(confirm));
+        // The mode itself is the proof here: gameplay input cannot route, so
+        // something else owns the screen even if it published no cue.
+        let (context, confirm) = surface_prompt(
+            kind,
+            cues.as_deref().and_then(ActiveUiCues::top),
+            Some(fallback),
+        );
+        set_prompt(&mut prompt, context, Vec::new(), confirm);
         return;
     }
 
@@ -267,8 +266,17 @@ pub fn rebuild_control_prompt(
     let Some((abilities, moveset, action_set, techniques)) =
         subject.and_then(|e| authorities.get(e).ok())
     else {
-        // Cold start (no player yet) or a controlled body without authorities.
-        set_prompt(&mut prompt, ControlContextKind::Empty, Vec::new(), None);
+        // Cold start (no player yet) or a controlled body without authorities —
+        // and NO independent proof that anything owns the screen, because
+        // gameplay is allowed to route and no other context resolved. So this
+        // exit passes no fallback: a published cue is the only thing that can
+        // make it a Menu, and with none it stays `Empty`.
+        let (context, confirm) = surface_prompt(
+            ControlContextKind::Menu,
+            cues.as_deref().and_then(ActiveUiCues::top),
+            None,
+        );
+        set_prompt(&mut prompt, context, Vec::new(), confirm);
         *last = Some((subject, [false; 3], resources));
         return;
     };
@@ -309,6 +317,43 @@ pub fn rebuild_control_prompt(
         })
         .collect();
     set_prompt(&mut prompt, ControlContextKind::Gameplay, entries, None);
+}
+
+/// **Is the player working a SURFACE rather than driving a body — and what does
+/// its confirm control say?**
+///
+/// ⛔ **three exits used to answer this and one of them never asked the resource
+/// that knows.** The no-subject exit published [`ControlContextKind::Empty`]
+/// unconditionally, twenty lines below an exit that already folded the cue in,
+/// so a `UiCue` published by a surface with no seated body reached no reader at
+/// all — control flow never got there. `Empty` is what the touch overlay reads
+/// to hide the move stick and the confirm buttons, and a hidden node takes no
+/// drags, so such a surface drew perfectly and could not be touched. Every exit
+/// calls THIS now; the answer cannot depend on which branch arrived at it.
+///
+/// `fallback` is the caller's INDEPENDENT proof that a surface owns input — a
+/// non-gameplay `GameMode`, or a resolved non-gameplay context. An exit holding
+/// no such proof passes `None` and must earn its context from a cue alone. With
+/// neither, the honest answer is `Empty` and no verb: nothing has claimed the
+/// screen, which is the cold start `Empty` exists for.
+///
+/// ⚠ a cue is the right evidence because the menu lane is UNGATED —
+/// `populate_seat_menu_frames` folds every participant's `MenuStick` into the
+/// per-seat frames whatever owns the context, and arbitration happens at the
+/// CONSUMER. So a published cue means some surface is reading those frames, and
+/// the stick genuinely steers it.
+fn surface_prompt(
+    kind: ControlContextKind,
+    cue: Option<&UiCue>,
+    fallback: Option<&str>,
+) -> (ControlContextKind, Option<String>) {
+    match cue
+        .map(|cue| cue.submit_label.clone())
+        .or_else(|| fallback.map(str::to_owned))
+    {
+        Some(confirm) => (kind, Some(confirm)),
+        None => (ControlContextKind::Empty, None),
+    }
 }
 
 /// Write only when the prompt actually changed, so `Changed<ControlPrompt>`
@@ -586,6 +631,67 @@ mod tests {
             Some("Equip"),
             "the focused item's real verb overrides the generic Select"
         );
+    }
+
+    /// **A surface that published a cue owns input even with no body to drive.**
+    ///
+    /// The no-subject exit answered `Empty` unconditionally, twenty lines below
+    /// an exit that already folded the cue in — so a cue published by a surface
+    /// running under gameplay's own `GameMode`, with nothing seated yet, was
+    /// dropped on the floor. `Empty` is what the touch overlay reads to hide the
+    /// move stick AND the confirm buttons, and a hidden node takes no drags, so
+    /// the menu was dead rather than merely unlabelled.
+    #[test]
+    fn a_published_cue_gives_a_bodiless_surface_a_usable_menu_prompt() {
+        use ambition_input::InputContextId;
+        let mut app = app();
+        app.init_resource::<ActiveUiCues>();
+        app.world_mut()
+            .resource_mut::<ActiveUiCues>()
+            .declare(UiCue {
+                context: InputContextId("test.surface"),
+                priority: 130,
+                submit_label: "Choose".to_owned(),
+            });
+        // `GameMode` stays `Playing` and no body exists: the no-subject exit.
+        app.update();
+
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert_eq!(
+            prompt.context,
+            ControlContextKind::Menu,
+            "a cue is a surface saying it owns input; `Empty` hides the stick \
+             the surface is steered with"
+        );
+        assert_eq!(
+            prompt.menu_confirm.as_deref(),
+            Some("Choose"),
+            "and the confirm control wears that surface's own verb"
+        );
+    }
+
+    /// ⛔ **The poison: no body AND no cue is still `Empty`.**
+    ///
+    /// This is the case the original comment defends and the reason `Empty`
+    /// exists at all — a genuine cold start, where nothing has claimed the
+    /// screen and a control nobody can use must not be drawn. Widening the exit
+    /// above to answer `Menu` unconditionally would delete the state and put a
+    /// dead stick back on screen at boot.
+    #[test]
+    fn a_cold_start_with_no_cue_at_all_is_still_empty() {
+        let mut app = app();
+        // The resource EXISTS and is empty — the honest cold start, not the
+        // absent-resource case a headless sim produces.
+        app.init_resource::<ActiveUiCues>();
+        app.update();
+
+        let prompt = app.world().resource::<ControlPrompt>();
+        assert_eq!(
+            prompt.context,
+            ControlContextKind::Empty,
+            "no body and nothing claiming the screen: there is nothing to prompt"
+        );
+        assert_eq!(prompt.menu_confirm, None, "and no verb to invent");
     }
 
     /// While a frontend context owns input (the launcher, with no session and

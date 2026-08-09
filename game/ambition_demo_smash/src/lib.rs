@@ -873,6 +873,32 @@ impl bevy::prelude::Plugin for SmashSelectPlugin {
                 ambition_platformer2d::input::InputSet::ResolveContext,
             ),
         );
+        // **AND IT SAYS WHAT ITS CONFIRM CONTROL DOES.**
+        //
+        // A claim says who the presses are FOR; a cue says what confirming
+        // MEANS, in this screen's own words. They are two facts and the screen
+        // only published the first, so every prompt surface fell back to the
+        // generic "Select" — measured in the host, `top_cue` was `None` on this
+        // route while the screen was up.
+        //
+        // ⚠ **the cue is also the only evidence a prompt has when no context
+        // resolver is installed.** `publish_frontend_context_prompt` reads the
+        // resolved owner, but a composition without the host's resolver has none
+        // and falls through to the no-subject exit, which now asks for a cue and
+        // answers `Empty` without one — and `Empty` is how the touch overlay
+        // decides to hide the move stick and the confirm buttons.
+        //
+        // `init_resource` will not clobber one the host already owns
+        // (`ambition_platformer2d_host` initialises it), and cues are keyed by
+        // context, so this screen owns its KEY rather than the map.
+        app.init_resource::<ambition_platformer2d::input::ActiveUiCues>();
+        app.add_systems(
+            bevy::prelude::Update,
+            bevy::prelude::IntoScheduleConfigs::in_set(
+                publish_the_select_ui_cue,
+                ambition_platformer2d::input::InputSet::PublishCues,
+            ),
+        );
         app.add_systems(
             bevy::prelude::Update,
             bevy::prelude::IntoScheduleConfigs::in_set(
@@ -1086,10 +1112,7 @@ fn declare_the_select_input_context(
         bevy::prelude::With<ambition_platformer2d::input::InputParticipant>,
     >,
 ) {
-    let on_select = router
-        .active
-        .as_ref()
-        .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
+    let on_select = on_the_select_route(&router);
     for mut contexts in &mut participants {
         // Touch the component only when the claim actually moves.
         if contexts.is_declared(ambition_platformer2d::input::SELECT_CONTEXT) != on_select {
@@ -1102,6 +1125,39 @@ fn declare_the_select_input_context(
             );
         }
     }
+}
+
+/// **Is the select screen the active route?**
+///
+/// One answer, three askers — the context claim, the cue, and the "may I drive"
+/// gate. It was written out three times; the third copy is how a screen ends up
+/// claiming input on a route it no longer draws on.
+fn on_the_select_route(router: &ambition_platformer2d::game_shell::ShellRouter) -> bool {
+    router
+        .active
+        .as_ref()
+        .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE)
+}
+
+/// **Publish this screen's submit verb while it is up.**
+///
+/// ⚠ `sync` rather than a declare/retract pair, so LEAVING retracts. A cue left
+/// behind outlives its surface, and the next screen inherits a prompt telling
+/// the player to choose a fighter.
+fn publish_the_select_ui_cue(
+    router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
+    mut cues: bevy::prelude::ResMut<ambition_platformer2d::input::ActiveUiCues>,
+) {
+    cues.sync(
+        ambition_platformer2d::input::UiCue {
+            context: ambition_platformer2d::input::SELECT_CONTEXT,
+            priority: ambition_platformer2d::input::participant::context_priority::SELECT,
+            // What the cursor does wherever it is parked: take a role, take a
+            // fighter, press START. "Choose" is the one verb true of all three.
+            submit_label: "Choose".to_owned(),
+        },
+        on_the_select_route(&router),
+    );
 }
 
 /// **Is this screen the one the presses belong to?**
@@ -1121,11 +1177,7 @@ fn the_select_screen_owns_its_input(
     router: bevy::prelude::Res<ambition_platformer2d::game_shell::ShellRouter>,
     contexts: Option<bevy::prelude::Res<ambition_platformer2d::input::SeatInputContexts>>,
 ) -> bool {
-    let on_select = router
-        .active
-        .as_ref()
-        .is_some_and(|active| active.route_id.as_str() == SMASH_SELECT_ROUTE);
-    if !on_select {
+    if !on_the_select_route(&router) {
         return false;
     }
     contexts.as_deref().is_none_or(|contexts| {
@@ -2272,6 +2324,43 @@ mod pause_arbitration_tests {
             0,
             "the pause menu owns the presses; the screen underneath must not \
              also act on them"
+        );
+    }
+
+    /// **The screen publishes its submit verb while it is up, and takes it back
+    /// when it leaves.**
+    ///
+    /// ⚠ the retraction is the half that bites. A cue outlives its surface if
+    /// nothing withdraws it, and the next screen then inherits a prompt telling
+    /// the player to choose a fighter on a screen with no fighters.
+    #[test]
+    fn the_select_screen_publishes_its_cue_and_retracts_it_on_the_way_out() {
+        use ambition_platformer2d::input::{ActiveUiCues, SELECT_CONTEXT};
+
+        let mut app = app_with(false);
+        app.init_resource::<ActiveUiCues>();
+        app.add_systems(Update, publish_the_select_ui_cue);
+        app.update();
+        assert_eq!(
+            app.world()
+                .resource::<ActiveUiCues>()
+                .for_context(SELECT_CONTEXT)
+                .map(|cue| cue.submit_label.as_str()),
+            Some("Choose"),
+            "the lobby is up and nothing says what confirming does"
+        );
+
+        // Leave the route — the only change.
+        app.world_mut()
+            .resource_mut::<ambition_platformer2d::game_shell::ShellRouter>()
+            .active = None;
+        app.update();
+        assert!(
+            app.world()
+                .resource::<ActiveUiCues>()
+                .for_context(SELECT_CONTEXT)
+                .is_none(),
+            "a cue left behind outlives its surface"
         );
     }
 }

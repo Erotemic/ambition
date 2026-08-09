@@ -2115,3 +2115,53 @@ fn a_draw_does_not_rebuild_the_cast_it_just_finished() {
          which match it just decided"
     );
 }
+
+/// **A phone can work this lobby: the prompt says a surface owns the screen,
+/// and it says so in the screen's own words.**
+///
+/// The touch overlay reads exactly this resource to decide what is drawn and
+/// what is tappable. `ControlContextKind::Empty` hides the move stick AND the
+/// confirm buttons — and a hidden node takes no drags — so on `Empty` the only
+/// live controls are Menu and Back, and a screen steered by a cursor cannot be
+/// worked at all.
+///
+/// ⚠ **both halves, because they have different owners and either can regress
+/// alone.** The context comes from smash's capturing `SELECT_CONTEXT` claim
+/// (`declare_the_select_input_context`); the verb comes from its published
+/// `UiCue` (`publish_the_select_ui_cue`). Dropping the claim gives `Empty`;
+/// dropping the cue leaves the generic "Select" — which is why this asserts the
+/// specific verb rather than merely that some verb exists.
+#[test]
+fn the_smash_lobby_hands_a_touch_screen_a_live_prompt() {
+    use ambition_platformer2d::input::{SeatInputContexts, SELECT_CONTEXT};
+    use ambition_platformer2d::sim_view::{ControlContextKind, ControlPrompt};
+
+    let app = open_the_lobby();
+    assert_eq!(
+        active_route(&app).as_deref(),
+        Some("smash_select"),
+        "the launcher row opens character select"
+    );
+    assert_eq!(
+        app.world()
+            .resource::<SeatInputContexts>()
+            .primary()
+            .owner(),
+        Some(SELECT_CONTEXT),
+        "the screen claims the seat, so nothing else is arbitrating these presses"
+    );
+
+    let prompt = app.world().resource::<ControlPrompt>();
+    assert_eq!(
+        prompt.context,
+        ControlContextKind::Menu,
+        "`Empty` here would hide the stick and the confirm buttons, leaving a \
+         phone with no way to move the cursor"
+    );
+    assert_eq!(
+        prompt.menu_confirm.as_deref(),
+        Some("Choose"),
+        "the lobby's own verb, not the generic fallback — a `Select` here means \
+         the cue never reached the prompt"
+    );
+}

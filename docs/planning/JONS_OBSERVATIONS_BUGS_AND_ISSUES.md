@@ -44,6 +44,7 @@
 * In mary-o she can only have 1 fireball out a time. We should allow her to have 2 out a time.
 
 * In mary-o 1-2 the flagpole doesn't have a flag. 
+  * ✔ Fixed — the map authored the shaft but neither the banner nor the finial, so 1-2's pole was also missing its top knob, which you hadn't reported. A guard now fails any room that stands a shaft without both.
 
 * In mary-o when you restart the level all item blocks and enemies and anything else that is part of the stage should reset. Currently some blocks from the last run remain spent
 

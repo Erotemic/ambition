@@ -71,6 +71,37 @@ def test_every_tracked_world_is_a_symlink():
     )
 
 
+def test_the_working_tree_agrees_with_the_index():
+    """⛔ **The index alone cannot see this**, which is why it needs its own test.
+
+    A generator that writes a real file over a tracked symlink produces a
+    TYPECHANGE: `git status` says `T`, the index still reports mode 120000, and
+    every assertion above keeps passing because they all read the index. The
+    breakage is entirely in the working tree.
+
+    Caught live on 2026-08-08 when regenerating `sanic_speedway.ldtk` replaced
+    its link. ⚠ before this test, the only symptom was
+    `test_every_link_points_into_the_map_submodule` dying with a raw
+    `OSError: [Errno 22] Invalid argument` out of `readlink` — a real failure
+    wearing a stack trace nobody can act on. Now that test skips the entry and
+    this one names it.
+    """
+    broken = [
+        path
+        for mode, path in _tracked_ldtk()
+        if mode == SYMLINK_MODE and not (REPO / path).is_symlink()
+    ]
+    assert not broken, (
+        f"these worlds are TRACKED as symlinks but are REAL FILES on disk: "
+        f"{broken}\n"
+        f"A writer replaced the link instead of writing through it, so the "
+        f"world's bytes now live in the main repo again and diverge from "
+        f"{SUBMODULE}. Write the regenerated world to its real path inside the "
+        f"submodule, then restore the link:\n"
+        f"  ln -sf <relative path into {SUBMODULE}> <path>"
+    )
+
+
 def test_every_link_points_into_the_map_submodule():
     """A symlink pointing somewhere else is as wrong as a real file — it would
     make the world's real home ambiguous, and `git mv` on either end would break
@@ -82,7 +113,12 @@ def test_every_link_points_into_the_map_submodule():
     rather than a sentence anyone can act on. One defect, one readable failure.
     """
     for mode, path in _tracked_ldtk():
-        if mode != SYMLINK_MODE:
+        # ⚠ BOTH conditions, and the second is not redundant: a TYPECHANGE
+        # leaves the index saying 120000 while the worktree holds a regular
+        # file, so an index-only filter reaches `readlink` on a real file and
+        # raises `OSError: Invalid argument` instead of failing readably.
+        # `test_the_working_tree_agrees_with_the_index` owns that failure.
+        if mode != SYMLINK_MODE or not (REPO / path).is_symlink():
             continue
         target = (REPO / path).readlink()
         resolved = ((REPO / path).parent / target).resolve()

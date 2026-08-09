@@ -268,8 +268,19 @@ pub fn drop_ability_pickup(
                     ability_id: ability_id.to_string(),
                 },
             )),
+            // Room-scoped for the same reason as the coin above, and it is the
+            // reason that matters rather than the design question. Whether a
+            // boss's reward SHOULD survive the room is arguable; that its
+            // picture is a `RoomVisual` — and therefore room-scoped — is not.
+            // Session-scoped here meant the sim kept publishing a Pickup view
+            // for an entity nothing was drawing, which is the stand-in loop the
+            // coin's comment describes, on the longest-lived drop in the game.
+            RoomScopedEntity,
             dynamic_drop_origin(parent, DROP_SEQUENCE_ABILITY),
             super::reset::SpawnedThisAttempt,
         ),
     );
 }
+
+#[cfg(test)]
+mod tests;

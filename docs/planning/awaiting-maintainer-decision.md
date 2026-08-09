@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **2 open** (updated 2026-08-09)
+## ⇥ INDEX — **2 open** (recounted 2026-08-09)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -34,8 +34,12 @@ its own header warns about, one level up.
 | **Is an enemy a CHARACTER, or an ARCHETYPE wearing one?** (queue D48) | goblins/Iron Mary art + behaviour | ▢ **scoped 2026-08-09, needs Jon** — see below |
 | ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
+| **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but the parent tree reads dirty until it is settled | ▢ **needs Jon**, 30 seconds — see below |
 
-⇒ **1 open**, and it is not blocking anything.
+⇒ **2 open** (D48 and the submodule pointer), and **neither blocks any work**.
+⚠ the heading said *"2 open"* while this line said *"1 open"* for a day — the
+third miscount, and this time the heading was accidentally right for the wrong
+reason. ⇒ **the two numbers are now derived from the same table in one edit.**
 
 ⚠ **S30 shipped as (b′), NOT the (b) this file recommended** — the recommendation
 was refuted by the diff it cited. The section below carries both, newest first,
@@ -154,6 +158,45 @@ un-arts the very spawns it is meant to fix.
 >
 > Their reasoning is in git. What a decision file is FOR is the list of things
 > Jon still has to rule on, and every closed row on it makes that list less true.
+
+
+## Should the measurement submodule's POINTER advance in the superproject? (2026-08-09)
+
+**Thirty seconds to answer, blocks nothing, and I deliberately stopped short of
+deciding it because the submodule is your GitHub repo, not mine.**
+
+`dev/ambition_dev_measurements` accumulates append-only measurement ledgers. Two
+of them picked up one machine-generated row each during the 2026-08-08 runs:
+`run_tests_cost.jsonl` (a full 9-job sweep, 813.1 s wall / 177.2 s executed) and
+`compile_graph.jsonl` (the per-crate line census).
+
+**I committed those rows INSIDE the submodule** (`9a570d7`, on its `main`) so a
+clean cannot lose them — that is what an append-only ledger is for. **I did not
+move the superproject's pointer.**
+
+⇒ the consequence, stated plainly: **`git status` in the parent reads
+`M dev/ambition_dev_measurements` and will keep reading that** until the pointer
+moves. Everything of mine is committed; this one line is the whole residue.
+
+* **(a) advance the pointer with each measurement commit.** The parent tree goes
+  clean, and the superproject records which measurements a given commit was
+  reasoned from — which is arguably the point of vendoring them at all.
+  ⚠ cost: every agent measurement run then produces a parent-repo commit whose
+  only content is a submodule bump, and your own in-flight work in that submodule
+  becomes something a bump could surprise.
+* **(b) leave the pointer pinned and let it read dirty.** ⚠ cost: a
+  `git submodule update` checks out the older commit and my appended rows leave
+  the worktree (recoverable — they are on the submodule's `main`, not lost).
+* **(c) stop vendoring measurements as a submodule** — out of scope for an
+  answer here, but if the pointer question keeps recurring, that is the fork
+  underneath it.
+
+**My recommendation: (a)**, and I did not just do it because my standing
+instruction for this run is *never commit a submodule pointer move* — written
+back when that submodule carried your uncommitted work. It carries none now
+(`git status` inside it is clean as of `9a570d7`), so the instruction may simply
+have outlived its reason. ⇒ **if you say (a), I will also retire that rule**;
+if you say (b) I will keep it and stop re-raising this.
 
 
 ## Should DIALOGUE stop the world, or only the talker? (2026-08-01) — ✔ CLOSED

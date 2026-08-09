@@ -93,19 +93,49 @@ impl Default for MaryOEntryRoom {
     }
 }
 
+/// **Every room a session can be asked to enter.**
+///
+/// One list, because three things need the same answer and were each spelling it
+/// out: [`mary_o_session_world_entering`] builds the set, `capture_mary_o`
+/// validates `--room` against it, and the probe that all three ids reach their
+/// own geometry loops over it. ⚠ **that last one is why this is a constant rather
+/// than a doc sentence** — a fourth room added here is a fourth room the probe
+/// immediately demands, instead of one that quietly inherits 1-1's world the way
+/// 1-2 did (queue D65).
+pub const MARY_O_ROOM_IDS: [&str; 3] = [
+    LEVEL_1_1_ROOM_ID,
+    crate::level_1_2::LEVEL_1_2_ROOM_ID,
+    crate::test_course::TEST_COURSE_ROOM_ID,
+];
+
 pub fn mary_o_session_world() -> MaryOSessionWorld {
     mary_o_session_world_entering(LEVEL_1_1_ROOM_ID)
 }
 
-/// The same world, started in `entry`.
+/// **The same world, started in `entry`** — and now that is true of all three
+/// room ids rather than of two.
+///
+/// ⛔ **this was a FORK wearing that doc comment.** The body branched on the test
+/// course and built 1-1 for everything else, while `entry` went straight to
+/// [`RoomSet::from_parts`] — so a session entering 1-2 had 1-2 as its ACTIVE room
+/// and 1-1's `geometry` and `metadata`. Two of the three ids worked and the third
+/// returned a world that disagreed with itself, which presents as *"the wrong
+/// level loaded"* rather than as a refusal. It is the reason nobody could look at
+/// 1-2 (queue D65).
+///
+/// ⭐ **the room list is built once and the active room is READ BACK OUT of the
+/// set**, so the geometry cannot describe a room the set is not in. Selecting the
+/// entry room separately and appending the rest is what made the disagreement
+/// expressible in the first place — and the obvious repair (pick `level_1_2()`
+/// for a 1-2 entry, keep the existing `vec![room, level_1_2()]`) would have put
+/// 1-2 in the graph twice.
+///
+/// ⚠ **an id in NO list still answers, with the set's own fallback room**
+/// (`from_parts` activates index 0). That stays a silent fallback rather than a
+/// panic because this is called from a system on a resource a host inserts — but
+/// the pair is consistent now: whatever room the set activated is the room the
+/// geometry describes.
 pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
-    let room = if entry == crate::test_course::TEST_COURSE_ROOM_ID {
-        crate::test_course::test_course()
-    } else {
-        level_1_1()
-    };
-    let geometry = ae::RoomGeometry(room.world.clone());
-    let metadata = ActiveRoomMetadata(room.metadata.clone());
     // TWO rooms, linked both ways. The demo could not express this until the
     // room-transition transaction became engine-side (2026-07-25): its consumer
     // lived in `ambition_app`, which no demo depends on, so a second room would
@@ -117,11 +147,25 @@ pub fn mary_o_session_world_entering(entry: &str) -> MaryOSessionWorld {
     // contained, so its half could not be authored. Both levels are areas of
     // `mary_o.ldtk` now and every zone names its partner in
     // `target_room`/`target_zone`, so retargeting the shaft is an editor edit.
-    let room_set = RoomSet::from_parts(
-        entry,
-        vec![room, crate::level_1_2::level_1_2()],
-        crate::authored_room_links(),
-    );
+    //
+    // The fixture course is neither of them: it is a self-contained probe room
+    // with no loading zones that loops on its own goal (`exit_for_room`), so a
+    // session running it carries it INSTEAD of the shipped levels. Its links go
+    // with its rooms — an edge naming a room the set does not hold is a
+    // `from_parts` warning on stderr and nothing else, which is how the course
+    // has been printing two of them.
+    let (rooms, links) = if entry == crate::test_course::TEST_COURSE_ROOM_ID {
+        (vec![crate::test_course::test_course()], Vec::new())
+    } else {
+        (
+            vec![level_1_1(), crate::level_1_2::level_1_2()],
+            crate::authored_room_links(),
+        )
+    };
+    let room_set = RoomSet::from_parts(entry, rooms, links);
+    let active = room_set.active_spec();
+    let geometry = ae::RoomGeometry(active.world.clone());
+    let metadata = ActiveRoomMetadata(active.metadata.clone());
     MaryOSessionWorld {
         geometry,
         room_set,
@@ -580,6 +624,98 @@ fn mary_o_sfx_specs() -> Vec<ambition_platformer2d::audio::spec::SfxSpec> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The room `id` names, built WITHOUT going through the provider — so this
+    /// test's expectation comes from the level modules rather than from the seam
+    /// it is checking.
+    fn room_named(id: &str) -> ambition_platformer2d::world::rooms::RoomSpec {
+        if id == crate::level_1_2::LEVEL_1_2_ROOM_ID {
+            crate::level_1_2::level_1_2()
+        } else if id == crate::test_course::TEST_COURSE_ROOM_ID {
+            crate::test_course::test_course()
+        } else {
+            level_1_1()
+        }
+    }
+
+    /// Enough of a world to tell Mary-O's three rooms apart.
+    fn shape_of(world: &ae::World) -> (String, [f32; 2], [f32; 2], usize) {
+        (
+            world.name.clone(),
+            world.size.to_array(),
+            world.spawn.to_array(),
+            world.blocks.len(),
+        )
+    }
+
+    /// **Every room id boots into ITS OWN geometry, not into 1-1's.**
+    ///
+    /// ⛔ **this went red on `mary_o_1_2`.** The seam branched on the test course
+    /// and built 1-1 for everything else, while handing `entry` straight to
+    /// `RoomSet::from_parts` — so asking for 1-2 produced a world whose active
+    /// room WAS 1-2 and whose `geometry`/`metadata` were 1-1's. A caller got a
+    /// world that disagreed with itself instead of an error, and the symptom is
+    /// "the wrong level loaded", not "that level does not exist".
+    ///
+    /// ⚠ **all three ids, deliberately.** A probe that only asked about 1-2
+    /// would go green again the moment someone special-cased 1-2 the way the
+    /// test course was special-cased — the same defect one room along. The loop
+    /// asks the same question of every room the demo has, and the distinctness
+    /// guard above it means a future room that is a copy of another cannot make
+    /// the comparison vacuous.
+    #[test]
+    fn every_room_id_starts_in_its_own_geometry() {
+        let ids = MARY_O_ROOM_IDS;
+
+        // The poison: if two rooms cannot be told apart, every assertion below
+        // passes for the wrong reason.
+        for (i, left) in ids.iter().enumerate() {
+            for right in &ids[i + 1..] {
+                assert_ne!(
+                    shape_of(&room_named(left).world),
+                    shape_of(&room_named(right).world),
+                    "`{left}` and `{right}` are indistinguishable, so this test \
+                     cannot detect one being served in place of the other"
+                );
+            }
+        }
+
+        for id in ids {
+            let session = mary_o_session_world_entering(id);
+            let expected = room_named(id);
+
+            assert_eq!(
+                session.room_set.active_spec().id,
+                id,
+                "a session entering `{id}` must be ACTIVE in `{id}`"
+            );
+            assert_eq!(
+                shape_of(&session.geometry.0),
+                shape_of(&expected.world),
+                "a session entering `{id}` got another room's geometry"
+            );
+            assert_eq!(
+                session.metadata.0, expected.metadata,
+                "a session entering `{id}` got another room's metadata"
+            );
+
+            // ⚠ and the entry room is in the set ONCE. The obvious fix for the
+            // above — select 1-2 as the entry room and keep appending it to the
+            // room list — puts it in the graph twice, which is a second node
+            // with the same id and a transition that can resolve to either.
+            let copies = session
+                .room_set
+                .rooms
+                .iter()
+                .filter(|room| room.id == id)
+                .count();
+            assert_eq!(
+                copies, 1,
+                "`{id}` appears {copies} times in the room set; the entry room \
+                 and the room list must come from ONE source",
+            );
+        }
+    }
 
     /// **The coin ding must voice the id the ENGINE emits, and the registry must
     /// authorize it.**

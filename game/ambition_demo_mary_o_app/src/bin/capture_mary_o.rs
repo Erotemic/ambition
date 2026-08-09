@@ -15,9 +15,16 @@
 //! If a second demo needs more than this file's length, the split is in the
 //! wrong place.
 //!
+//! ⛔ **and until 2026-08-09 it could only photograph 1-1.** It boots the gameplay
+//! route and the gameplay route entered one room, so `--at` could only teleport
+//! WITHIN that room and `capture_scene` — which composes `ambition_app`, holding
+//! 72 Ambition rooms and zero Mary-O ones — could not reach the demo at all. The
+//! union of both tools could not open World 1-2, which is the level three open
+//! observations were about (queue D65). `--room` is the whole difference.
+//!
 //! ```text
-//! cargo run -p ambition_demo_mary_o_app --features visible --bin capture_mary_o \
-//!     -- OUT.png [WIDTHxHEIGHT] [--warmup N] [--walk N] [--no-ui]
+//! cargo run -p ambition_demo_mary_o_app --features capture --bin capture_mary_o \
+//!     -- OUT.png [WIDTHxHEIGHT] [--room ID] [--warmup N] [--walk N] [--at X,Y] [--no-ui]
 //! ```
 
 use std::path::PathBuf;
@@ -74,10 +81,28 @@ fn main() {
     let mut include_ui = true;
     let mut walk = 0u32;
     let mut at: Option<ae::Vec2> = None;
+    let mut room = ambition_demo_mary_o::LEVEL_1_1_ROOM_ID.to_string();
 
     let mut positional_seen = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--room" => {
+                let asked = args
+                    .next()
+                    .unwrap_or_else(|| fail("--room needs a room id"));
+                // ⛔ **validated here, because the seam it feeds does NOT refuse.**
+                // `RoomSet::from_parts` activates room 0 for an id it does not
+                // hold, so an unknown `--room` would photograph 1-1 and report
+                // success — a capture tool that silently shoots the wrong subject
+                // is worse than one that cannot shoot it at all.
+                if !ambition_demo_mary_o::provider::MARY_O_ROOM_IDS.contains(&asked.as_str()) {
+                    fail(&format!(
+                        "unknown room '{asked}'; Mary-O has {:?}",
+                        ambition_demo_mary_o::provider::MARY_O_ROOM_IDS
+                    ));
+                }
+                room = asked;
+            }
             "--warmup" => {
                 warmup = args
                     .next()
@@ -128,9 +153,10 @@ fn main() {
     // and counting frames writes a blank PNG — no amount of warmup walks a menu
     // into a level, and that is the readiness contract `capture` hands back to
     // the caller. It is also literally what the first attempt produced.
-    let mut app = ambition_demo_mary_o_app::build_windowed_demo_app_with_home(
+    let mut app = ambition_demo_mary_o_app::build_windowed_demo_app_entering(
         ambition_demo_mary_o_app::RenderMode::OffscreenGpu,
         ambition_demo_mary_o::MARY_O_GAMEPLAY_ROUTE,
+        &room,
     );
     app.insert_resource(CaptureSettings {
         output,
@@ -298,6 +324,9 @@ fn hold_right_while_walking(
 
 fn fail(message: &str) -> ! {
     eprintln!("capture_mary_o: {message}");
-    eprintln!("usage: capture_mary_o OUT.png [WIDTHxHEIGHT] [--warmup N] [--no-ui]");
+    eprintln!(
+        "usage: capture_mary_o OUT.png [WIDTHxHEIGHT] [--room ID] [--warmup N] \
+         [--walk N] [--at X,Y] [--no-ui]"
+    );
     std::process::exit(2);
 }

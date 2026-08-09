@@ -485,7 +485,8 @@ symlink trap (`grep -r` needs `-S` for symlinked assets) — **two independent
 reasons a recursive grep silently misses this repo's art.**
 
 ⭐ **and the picture agrees, checked 2026-08-08 against the broken-capture
-scare.** `capture_mary_o` composes through `build_windowed_demo_app_with_home`,
+scare.** `capture_mary_o` composes through `build_windowed_demo_app_entering`
+(named `…_with_home` when this was written; it took the entry room on 2026-08-09),
 NOT the `capture_scene` path that spent two days photographing a void — and the
 snake capture shows full room geometry (floor tiles, both ?-blocks, the spike
 platform, the backdrop), so the D3 evidence stands.

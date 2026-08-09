@@ -71,11 +71,15 @@ fn compose_mary_o_shell(app: &mut App, home_route: &str) {
 /// `tests/ov1_draws_the_world.rs` meaningful without a GPU.
 #[cfg(feature = "visible")]
 pub fn build_windowed_demo_app(render: RenderMode) -> App {
-    build_windowed_demo_app_with_home(render, ambition_demo_mary_o::MARY_O_LAUNCHER_ROUTE)
+    build_windowed_demo_app_entering(
+        render,
+        ambition_demo_mary_o::MARY_O_LAUNCHER_ROUTE,
+        ambition_demo_mary_o::LEVEL_1_1_ROOM_ID,
+    )
 }
 
-/// The windowed host with an explicitly named home route — the sibling of
-/// [`build_demo_app_with_home`], and the reason it exists is the same.
+/// The windowed host with an explicitly named home route AND entry room — the
+/// sibling of [`build_demo_app_with_home`], and the reason it exists is the same.
 ///
 /// ⚠ **a capture needs the GAMEPLAY route, not the launcher.** Booting the
 /// default home and counting frames produces a blank picture: the launcher is
@@ -83,8 +87,24 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
 /// That is not a hypothetical — it is what the first demo capture wrote
 /// (2026-08-04), and it is exactly the readiness contract
 /// `ambition_render::capture` says belongs to the caller.
+///
+/// ⛔ **and it needs the ROOM, which this could not say until 2026-08-09.** The
+/// entry room is a resource a host inserts
+/// ([`MaryOEntryRoom`](ambition_demo_mary_o::provider::MaryOEntryRoom)) and this
+/// builder inserted none, so every windowed boot — including every capture — was
+/// 1-1. There was no way to look at 1-2 at all (queue D65), which is why three
+/// open observations about it could only be argued.
+///
+/// ⚠ **the entry room is answered ONCE here**, and the asset bind room is read
+/// off the same session world rather than off `mary_o_session_world()`. Those
+/// were two independent answers, and the second was hardcoded to 1-1 — the same
+/// fork this row found in the provider, one layer up.
 #[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
-pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -> App {
+pub fn build_windowed_demo_app_entering(
+    render: RenderMode,
+    home_route: &str,
+    entry_room: &str,
+) -> App {
     use bevy::render::settings::{RenderCreation, WgpuSettings};
     use bevy::render::RenderPlugin;
     use bevy::window::{ExitCondition, WindowPlugin};
@@ -156,6 +176,13 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
         ),
     };
     ambition_platformer2d::engine::init_engine_states(&mut app);
+    // WHICH ROOM, said once. The provider installs its world source as a SYSTEM,
+    // so this resource is read on the update that prepares the session and
+    // inserting it at build time is early enough — the same seam
+    // `tests/course_playthrough.rs` uses to boot the fixture course.
+    app.insert_resource(ambition_demo_mary_o::provider::MaryOEntryRoom(
+        entry_room.to_string(),
+    ));
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
     // Visible and headless hosts share one provider/shell/session lifecycle.
@@ -176,8 +203,14 @@ pub fn build_windowed_demo_app_with_home(render: RenderMode, home_route: &str) -
         )
         // Startup asset binding precedes gameplay activation, so the theme comes
         // from the authored room rather than a session root that does not exist
-        // yet.
-        .with_room(ambition_demo_mary_o::mary_o_session_world().metadata.0),
+        // yet. ⚠ from the room this host is ENTERING — it said
+        // `mary_o_session_world()`, which is 1-1 unconditionally, so a boot into
+        // any other room bound another room's biome art.
+        .with_room(
+            ambition_demo_mary_o::provider::mary_o_session_world_entering(entry_room)
+                .metadata
+                .0,
+        ),
     );
 
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation

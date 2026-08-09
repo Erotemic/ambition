@@ -205,28 +205,45 @@ she is still at Vec2(664.6, 384.1)
 ⇒ **that red is your sentence.** The test can see exactly the bug you describe,
 and on the fatal-hit route it does not happen.
 
-### The one thing that would explain it
+### ⇥ UPDATED — I built the third fixture rather than waiting, and it is GREEN too
 
-**Three routes publish a death**, and only two are covered end to end:
+**All three routes that can publish a death are now covered end to end, and all
+three replay the room correctly:**
 
-| route | reaches the beat? | tested end to end |
+| route | tested end to end | verdict |
 |---|---|---|
-| a hit (`death_respawn_player`) | yes | ✔ new, `5fddacd76` |
-| the level timeout (`spend_lives_on_death`) | yes | ✔ pre-existing |
-| **a kernel reset — a pit, a spike, any hazard** (`publish_kernel_reset_death`) | yes | ⛔ **NO** |
+| a hit (`death_respawn_player`) | ✔ `5fddacd76` | returns her to spawn |
+| the level timeout (`spend_lives_on_death`) | ✔ pre-existing | returns her to spawn |
+| a kernel reset — **a pit, a spike, any hazard** | ✔ `4077cb2cc` | returns her to spawn **and re-arms a spent `?`-block** |
 
-⇒ **if you were falling in a pit or landing on a spike rather than being hit,
-that is the untested route** and the likely home of your bug.
+⚠ **the pit fixture drives nothing directly** — it drops her below the floor and
+only steps frames, so gravity raises the hazard itself. And it **asserts the
+death it got was `LeftTheWorld`**, so it cannot pass having quietly taken the
+hit route instead. Poisoning it (one deleted line) produces **both** of your
+sentences at once:
 
-### What I need from you — one line
+```text
+SHE DIED IN A PIT AND …:MaryOBlock-106885 IS STILL SPENT:
+the room was put back 0 time(s), she is at Vec2(78.0, 973.4) and spawn is Vec2(78.0, 375.0)
+```
 
-**Roughly how were you dying?** *"an enemy hit me"* / *"I fell in a pit"* / *"a
-spike"* / *"I don't remember"*.
+⇒ ⛔ **so "which death was it" no longer narrows anything, and I am not asking
+you to remember.** Every route works.
 
-⭐ **"I don't remember" is a fine answer** — it just means I build the third
-fixture speculatively rather than aimed. ⛔ **What I will not do is go hunting
-through the composed app for a failure the tests say does not occur**; that is
-how a day gets spent proving something already true.
+### What I need from you instead — one line, and a different one
+
+**Was it Mary-O?** These tests are all Mary-O. If you were playing **Ambition**
+(the main game) or **Sanic** when the level did not restart, then this whole
+investigation has been aimed at the wrong host, and that single word redirects
+it.
+
+If it *was* Mary-O: **roughly when** — before or after 2026-08-08? A run this
+week landed several fixes in exactly this path, and *"I saw it on Thursday"*
+would mean it is already gone.
+
+⛔ **What I will not do is hunt through the composed app for a failure three
+independent fixtures say does not occur.** That is how a day gets spent proving
+something already true.
 
 ⚠ **and your answer probably settles a SECOND report too** — I said the opposite
 an hour ago and then checked it.

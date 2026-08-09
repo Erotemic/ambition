@@ -4,9 +4,10 @@
 //! `assets/data/character_catalog.ron` (loaded by
 //! [`ambition_characters::actor::character_catalog`]). The catalog provides the
 //! display name + on-disk path; the per-character `CharacterSheetSpec`
-//! (frame/grid/anchor metadata) is resolved at startup by
-//! [`sheet_for_character_id`] — a single table that maps
-//! catalog ids to the hardcoded `*_SHEET` consts in `sheets.rs`.
+//! (frame/grid/anchor metadata) is resolved by
+//! [`catalog_join::sheet_for_character_id_from_data`], which lives in
+//! `ambition_sprite_sheet` — this module only adapts the Bevy catalog resource
+//! to it ([`sheet_for_character_id_in`]).
 //!
 //! Missing files are not errors — callers fall back to colored
 //! rectangles (the game must always run regardless of asset state).
@@ -35,64 +36,18 @@ use ambition_characters::actor::character_catalog::{
 };
 use ambition_persistence::settings::{TextureResolutionScale, VisualQualityBudget};
 use ambition_platformer2d_core as ae;
+// The catalog→sheet join lives BELOW this crate (`ambition_sprite_sheet`) —
+// nothing in either function was the monolith's. Named as a module rather than
+// imported flat: `sheet_for_character_id_from_data` and the `_in` wrapper below it differ
+// by three characters, and the qualifier is what keeps a call site honest about
+// which one it means.
+use ambition_sprite_sheet::character::catalog_join;
 use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::character::{
     CharacterSheetSpec, CharacterSpriteAsset, CharacterSpriteAssets, CharacterSpritePage,
-    TextureResolutionScale as SpriteTextureResolutionScale,
+    SpriteBodyCollision, TextureResolutionScale as SpriteTextureResolutionScale,
 };
-use ambition_sprite_sheet::BodyMetrics;
 use ambition_sprite_sheet::PortraitSheetRegistry;
-
-/// Look up the [`CharacterSheetSpec`] for a catalog `character_id` —
-/// fully DATA-driven (Stage 20 / B3):
-///
-/// 1. The catalog row names the sheet-manifest record (its own
-///    `manifest` filename root, or an explicit `sprite_target` when a
-///    character renders with another character's sheet) and carries
-///    the gameplay tuning (`sprite_tuning`: collision_scale /
-///    frame_sample_inset / feet-anchor override).
-/// 2. Ids without a catalog row fall back to the manifest-by-id load
-///    with default tuning (`sheets::try_load_spec_for_character_id`).
-///
-/// The old hardcoded `*_SHEET` statics + named match are gone — adding
-/// a character's bespoke tuning is a `character_catalog.ron` edit.
-///
-/// Returns `None` only when no manifest exists for the id — usually
-/// because the renderer hasn't been run for that target; the actor
-/// then renders the colored-rectangle placeholder.
-fn sheet_for_character_id_from_data(
-    authored: &sheets::AuthoredSheets,
-    catalog: &CharacterCatalogData,
-    character_id: &str,
-) -> Option<CharacterSheetSpec> {
-    if let Some(entry) = catalog.characters.get(character_id) {
-        if let Some(target) = entry.manifest_target() {
-            let tuning = entry
-                .sprite_tuning
-                .map(|spec| {
-                    sheets::SheetTuning::from_parts(
-                        spec.collision_scale,
-                        spec.frame_sample_inset,
-                        spec.feet_anchor_y,
-                    )
-                })
-                .unwrap_or_default();
-            if let Some(spec) = sheets::try_load_spec_for_target_authored(authored, target, &tuning)
-            {
-                return Some(spec);
-            }
-        }
-    }
-    let spec = sheets::try_load_spec_for_character_id(character_id);
-    if spec.is_none() {
-        bevy::log::debug!(
-            target: "ambition_platformer2d::character_sprites",
-            "character_sprites: no sheet manifest for catalog id '{character_id}' — \
-             actor will render the colored-rectangle placeholder",
-        );
-    }
-    spec
-}
 
 /// Resolve a declared character's sheet, with the REGISTERED definition winning.
 ///
@@ -247,12 +202,15 @@ pub fn portrait_for_declared_character(
 }
 
 /// Resolve a sheet from the caller's assembled App-local catalog.
+///
+/// The join itself is [`catalog_join::sheet_for_character_id_from_data`]; this adapts the
+/// Bevy resource to the plain catalog data it takes.
 pub fn sheet_for_character_id_in(
     authored: &sheets::AuthoredSheets,
     character_catalog: &CharacterCatalog,
     character_id: &str,
 ) -> Option<CharacterSheetSpec> {
-    sheet_for_character_id_from_data(authored, character_catalog.data(), character_id)
+    catalog_join::sheet_for_character_id_from_data(authored, character_catalog.data(), character_id)
 }
 
 /// The manifest target + resolution-independent tuning for a catalog `cid`,
@@ -279,111 +237,11 @@ fn character_variant_tuning<'a>(
     Some((target, tuning))
 }
 
-/// Collision footprint derived from a character's *published sprite body
-/// metrics*, plus the render-quad size that keeps the on-screen sprite
-/// identical to the legacy `collision_scale` render.
-///
-/// `collision` is the world-space box around the **visible body** (the
-/// `body_pixel_bbox` / `body_pixel_parts` the generator measured from the
-/// rendered art), so an actor's hitbox matches what the player sees instead
-/// of an authored LDtk rectangle.
-///
-/// `render_size` is exactly what `sprite_render_size(spec, ldtk_collision)`
-/// produces today — the caller stores it so the renderer draws the sprite at
-/// its current size even though the collision box shrank to the body. (The
-/// renderer's `collision_scale` path assumes `collision == visible body`;
-/// once the collision IS the body, the render must come from the stored size
-/// rather than re-deriving `body * collision_scale`, which double-scales.)
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SpriteBodyCollision {
-    pub collision: ae::Vec2,
-    pub render_size: ae::Vec2,
-}
-
-/// Pixel-space extent of the visible body in the sheet's standing frame.
-///
-/// ⛔ **this used to be its own implementation, and that made it a FORK** (found
-/// 2026-08-08, the first time anything compared the drawn body to the collided
-/// one). It read the static `body_pixel_bbox` where the sheet-authored actor
-/// route (`posed_body_geometry`) reads `pose_body_bbox`, which prefers the
-/// per-animation `idle` hurtbox. Where a sheet publishes both and they differ,
-/// the collision box came from one rectangle and the drawn quad from the other:
-/// measured at up to **1.30x on width** (`npc_vera_ruin`) and **1.12x on
-/// height** (`npc_davy_hylbert`). One reader now, in the crate that owns the
-/// metadata.
-fn body_pixel_extent(metrics: &BodyMetrics) -> Option<(f32, f32)> {
-    metrics.body_pixel_extent(ambition_sprite_sheet::character::CharacterAnim::Idle)
-}
-
-/// Derive a character's collision box from its published sprite body metrics,
-/// given the authored LDtk collision (used only to anchor the render scale).
-///
-/// Returns `None` when the character has no catalog row, no loadable spec, or
-/// no published `body_metrics` — the caller then keeps the LDtk bounds. This
-/// is the "sprite metadata supersedes the spawn box when present, else fall
-/// back to LDtk" rule (matching the boss `body_metrics` pipeline, generalized
-/// to ordinary catalog characters).
-fn sprite_body_collision_for_character_id_from_data(
-    authored: &sheets::AuthoredSheets,
-    catalog: &CharacterCatalogData,
-    character_id: &str,
-    ldtk_collision: ae::Vec2,
-) -> Option<SpriteBodyCollision> {
-    let entry = catalog.characters.get(character_id)?;
-    let target = entry.manifest_target()?;
-    let spec = sheet_for_character_id_from_data(authored, catalog, character_id)?;
-    let record = sheets::record_for_target(target)?;
-    let metrics = record.body_metrics.as_ref()?;
-    let (body_w, body_h) = body_pixel_extent(metrics)?;
-    let frame_w = record.frame_width.max(1) as f32;
-    let frame_h = record.frame_height.max(1) as f32;
-    // ⭐ **an authored STANDING HEIGHT overrides the room's spawn box.** Without
-    // one, size is `LDtk box x collision_scale x (body / frame)` — two
-    // per-character guesses and a rectangle drawn in a level editor, none of
-    // which is a claim about how tall anybody is. With one, the height IS the
-    // input and everything else follows the sheet: scale the frame so the
-    // visible body measures `height`, and keep the frame's aspect so the art is
-    // never stretched.
-    //
-    // ⚠ the LDtk box still decides where a character STANDS and how much room a
-    // level reserved for it; it stops deciding how big the character is.
-    let standing_height = entry
-        .standing_height
-        .or_else(|| entry.body_kind.default_standing_height())
-        .filter(|height| *height > 0.0);
-    // Both branches are the SAME shape — `frame x scale` — and differ only in
-    // where the scale comes from. That is what lets the renderer's own sizing
-    // (`sprite_render_size`, which fits the body into whatever box it is handed)
-    // reproduce this quad exactly from the collision box below, instead of
-    // re-applying `collision_scale` to an already-sprite-derived box and
-    // ballooning the sprite. Those two publishers disagreed by up to **196%**
-    // before the bbox-quad route (queue D44, 2026-08-08).
-    let scale = match standing_height {
-        Some(height) if body_h > 0.0 => height / body_h,
-        // ⚠ **the legacy scale, written out rather than borrowed.** It used to
-        // call `sprite_render_size`, and when that function moved to the bbox
-        // route this branch silently followed — clamping every body without a
-        // stated height to its LDtk PLACEMENT rectangle, which is the opposite of
-        // "an authored rectangle says WHERE, not HOW BIG" (the duel arena's
-        // Perfect Cellular Automaton went from a 92px body to a 44px one).
-        //
-        // `CharacterBodyKind::default_standing_height` deliberately answers for
-        // `Standard` only — *"a crawler, a floating drone and a wide body have no
-        // shared height to be consistent about"* — so this population keeps the
-        // derivation it was left with, and `collision_scale` keeps doing exactly
-        // this one job until somebody authors a height for them.
-        _ => ldtk_collision.x.max(ldtk_collision.y).max(8.0) * spec.collision_scale / frame_h,
-    };
-    let render = bevy::math::Vec2::new(frame_w * scale, frame_h * scale);
-    // The visible body occupies (body / frame) of that render quad.
-    let collision = ae::Vec2::new(body_w / frame_w * render.x, body_h / frame_h * render.y);
-    Some(SpriteBodyCollision {
-        collision,
-        render_size: ae::Vec2::new(render.x, render.y),
-    })
-}
-
 /// Derive sprite-body collision from the caller's App-local catalog.
+///
+/// The derivation itself is
+/// [`catalog_join::sprite_body_collision_for_character_id_from_data`]; this adapts the
+/// Bevy resource to the plain catalog data it takes.
 pub fn sprite_body_collision_for_character_id_in(
     // U1 stage B: a body's collision box is DERIVED from its sheet, so a
     // consumer-authored sheet has to reach this or a third party's character
@@ -393,7 +251,7 @@ pub fn sprite_body_collision_for_character_id_in(
     character_id: &str,
     ldtk_collision: ae::Vec2,
 ) -> Option<SpriteBodyCollision> {
-    sprite_body_collision_for_character_id_from_data(
+    catalog_join::sprite_body_collision_for_character_id_from_data(
         authored,
         character_catalog.data(),
         character_id,
@@ -873,7 +731,6 @@ pub fn load_prop_sheet_for_target(
 #[cfg(test)]
 mod sprite_body_collision_tests {
     use super::*;
-    use ambition_sprite_sheet::{BodyMetrics, NamedPixelRect, PixelRect};
 
     const CATALOG_A: &str = r#"(
         brain_presets: { "idle": StandStill },
@@ -959,79 +816,6 @@ mod sprite_body_collision_tests {
         );
     }
 
-    fn metrics_with_bbox(bbox: Option<PixelRect>, parts: Vec<NamedPixelRect>) -> BodyMetrics {
-        BodyMetrics {
-            body_pixel_bbox: bbox,
-            body_pixel_parts: parts,
-            animations: Default::default(),
-            feet_pixel: None,
-            feet_anchor_norm: None,
-            // These fixtures are about the measured path, which is the default.
-            authored_body: false,
-        }
-    }
-
-    #[test]
-    fn body_extent_prefers_single_bbox_when_no_parts() {
-        let m = metrics_with_bbox(
-            Some(PixelRect {
-                x: 8,
-                y: 5,
-                w: 106,
-                h: 83,
-            }),
-            vec![],
-        );
-        assert_eq!(body_pixel_extent(&m), Some((106.0, 83.0)));
-    }
-
-    #[test]
-    fn body_extent_bounds_disjoint_parts() {
-        // Two parts at x∈[0,32] and x∈[96,128], y∈[40,90] → bbox 128 × 50.
-        let m = metrics_with_bbox(
-            // bbox present but ignored: parts win for disjoint bodies.
-            Some(PixelRect {
-                x: 0,
-                y: 0,
-                w: 1,
-                h: 1,
-            }),
-            vec![
-                NamedPixelRect {
-                    name: "left".into(),
-                    x: 0,
-                    y: 40,
-                    w: 32,
-                    h: 50,
-                    poly: Vec::new(),
-                },
-                NamedPixelRect {
-                    name: "right".into(),
-                    x: 96,
-                    y: 40,
-                    w: 32,
-                    h: 50,
-                    poly: Vec::new(),
-                },
-            ],
-        );
-        assert_eq!(body_pixel_extent(&m), Some((128.0, 50.0)));
-    }
-
-    #[test]
-    fn body_extent_rejects_degenerate_box() {
-        let m = metrics_with_bbox(
-            Some(PixelRect {
-                x: 0,
-                y: 0,
-                w: 0,
-                h: 10,
-            }),
-            vec![],
-        );
-        assert_eq!(body_pixel_extent(&m), None);
-    }
-
     /// Contract on the real catalog→sheet pipeline: when a character has
     /// published body metrics, (1) the render quad equals exactly what the
     /// legacy `collision_scale` path produces (sprite unchanged), and (2) the
@@ -1053,7 +837,9 @@ mod sprite_body_collision_tests {
         let spec = sheet_for_character_id_in(&Default::default(), &catalog, cid).unwrap();
         let record = sheets::record_for_target(target).unwrap();
         let metrics = record.body_metrics.as_ref().unwrap();
-        let (body_w, body_h) = body_pixel_extent(metrics).unwrap();
+        let (body_w, body_h) = metrics
+            .body_pixel_extent(ambition_sprite_sheet::character::CharacterAnim::Idle)
+            .unwrap();
         let frame_w = record.frame_width.max(1) as f32;
         let frame_h = record.frame_height.max(1) as f32;
 

@@ -35,6 +35,14 @@ serde_json = "1"
 # Render-facing asset resource/model helpers moved below ambition_render.
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
 ambition_platformer2d_core = { path = "../ambition_platformer2d_core" }
+# The catalog SCHEMA, for `character::catalog_join` and nothing else — the join
+# from a catalog row to the sheet a character renders from. Already linked here
+# transitively (`ambition_interaction` depends on it), so the direct edge adds no
+# crate to any consumer's closure and cannot lengthen the serial build chain; it
+# only stops the join from having to live above both crates. ⛔ this is a
+# dependency on the catalog's TYPES, never on a catalog: nothing in this crate
+# may load, bake or own character content.
+ambition_characters = { path = "../ambition_characters" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_platformer2d_shared_tangle = { path = "../ambition_platformer2d_shared_tangle" }

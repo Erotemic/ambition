@@ -535,7 +535,7 @@ fn resolve_anim_renders_most_specific_pose_in_the_actor_anim_set() {
 /// ⭐ **queue D4 asks for exactly this** — *"a way to tell whether a given
 /// character has been done"* — and it has to run the REAL derivation rather than
 /// restate its arithmetic. A Python reimplementation of
-/// `sprite_body_collision_for_character_id_from_data` would be a second copy of
+/// `catalog_join::sprite_body_collision_for_character_id_from_data` would be a second copy of
 /// the rule, free to drift from the one the game uses, which is the mistake this
 /// row is already recovering from one level down.
 ///

@@ -13,6 +13,7 @@
 
 use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer2d_core as ae;
+use ambition_sprite_sheet::character::catalog_join;
 use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::{baked_sheet_rons, SheetRecord, SheetRegistry};
 use std::sync::OnceLock;
@@ -128,7 +129,11 @@ fn player_render_size(
     catalog: &CharacterCatalog,
     collision: ae::Vec2,
 ) -> Option<ae::Vec2> {
-    let spec = super::assets::sheet_for_character_id_in(authored, catalog, PLAYER_CHARACTER_ID)?;
+    let spec = catalog_join::sheet_for_character_id_from_data(
+        authored,
+        catalog.data(),
+        PLAYER_CHARACTER_ID,
+    )?;
     Some(sheets::sprite_render_size(&spec, collision))
 }
 
@@ -244,9 +249,9 @@ pub fn actor_attack_hitbox_world(
         .or_else(|| file_root_registry().get(file_root))?;
     // Scale by the actor's rendered sprite size (same derivation its collision
     // came from); fall back to the collision box when no sheet spec resolves.
-    let render_size = super::assets::sprite_body_collision_for_character_id_in(
+    let render_size = catalog_join::sprite_body_collision_for_character_id_from_data(
         authored,
-        catalog,
+        catalog.data(),
         character_id,
         collision,
     )

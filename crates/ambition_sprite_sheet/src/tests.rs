@@ -509,3 +509,91 @@ fn a_refused_multi_record_sheet_indexes_none_of_its_records() {
         "the record BEFORE the collision must not survive a refused file"
     );
 }
+
+/// `BodyMetrics` carrying only a static body rectangle, for the extent tests
+/// below. `animations` is empty on purpose: these fixtures are about the
+/// measured path, which is what a sheet publishing no per-pose hurtbox falls
+/// back to.
+///
+/// ⚠ these three tests lived beside the catalog join in
+/// `ambition_platformer2d_actor_monolith` until 2026-08-09, reaching the method
+/// through a one-line private wrapper. They came here with the join: they name
+/// no catalog and no character, only [`BodyMetrics::body_pixel_extent`], and it
+/// had no tests of its own in the crate that defines it.
+fn metrics_with_bbox(bbox: Option<PixelRect>, parts: Vec<NamedPixelRect>) -> BodyMetrics {
+    BodyMetrics {
+        body_pixel_bbox: bbox,
+        body_pixel_parts: parts,
+        animations: Default::default(),
+        feet_pixel: None,
+        feet_anchor_norm: None,
+        authored_body: false,
+    }
+}
+
+#[test]
+fn body_extent_prefers_single_bbox_when_no_parts() {
+    let m = metrics_with_bbox(
+        Some(PixelRect {
+            x: 8,
+            y: 5,
+            w: 106,
+            h: 83,
+        }),
+        vec![],
+    );
+    assert_eq!(
+        m.body_pixel_extent(character::CharacterAnim::Idle),
+        Some((106.0, 83.0))
+    );
+}
+
+#[test]
+fn body_extent_bounds_disjoint_parts() {
+    // Two parts at x∈[0,32] and x∈[96,128], y∈[40,90] → bbox 128 × 50.
+    let m = metrics_with_bbox(
+        // bbox present but ignored: parts win for disjoint bodies.
+        Some(PixelRect {
+            x: 0,
+            y: 0,
+            w: 1,
+            h: 1,
+        }),
+        vec![
+            NamedPixelRect {
+                name: "left".into(),
+                x: 0,
+                y: 40,
+                w: 32,
+                h: 50,
+                poly: Vec::new(),
+            },
+            NamedPixelRect {
+                name: "right".into(),
+                x: 96,
+                y: 40,
+                w: 32,
+                h: 50,
+                poly: Vec::new(),
+            },
+        ],
+    );
+    assert_eq!(
+        m.body_pixel_extent(character::CharacterAnim::Idle),
+        Some((128.0, 50.0))
+    );
+}
+
+#[test]
+fn body_extent_rejects_degenerate_box() {
+    let m = metrics_with_bbox(
+        Some(PixelRect {
+            x: 0,
+            y: 0,
+            w: 0,
+            h: 10,
+        }),
+        vec![],
+    );
+    assert_eq!(m.body_pixel_extent(character::CharacterAnim::Idle), None);
+}

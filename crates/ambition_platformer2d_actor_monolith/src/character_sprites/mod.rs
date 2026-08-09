@@ -23,9 +23,9 @@
 //!
 //! Sheet vocabulary — `AuthoredSheets`, `CharacterSheetSpec`, `SheetRecord`,
 //! `SheetRegistry`, `SheetRegistryPlugin`, `CharacterAnim`, `CharacterAnimator`,
-//! `CharacterSpriteAssets`, `SpritePosedBody`, `record_for_target`,
-//! `baked_sheet_registry` and the rest — is OWNED by `ambition_sprite_sheet` and
-//! is named from there. This
+//! `CharacterSpriteAssets`, `SpritePosedBody`, `SpriteBodyCollision`,
+//! `record_for_target`, `baked_sheet_registry` and the rest — is OWNED by
+//! `ambition_sprite_sheet` and is named from there. This
 //! module used to pass 22 such names through, on the argument that "every
 //! consumer of character art already imports this module, so a crate that
 //! threads it does not need a new dependency edge". Measured 2026-08-08 that
@@ -69,6 +69,6 @@ pub use assets::{
     build_prop_sprite_asset_packed, character_sprite_tier, load_character_sprites_in,
     load_prop_sheet_for_target, materialize_declared_character_sprite,
     portrait_for_declared_character, sheet_for_character_id_in, sheet_for_declared_character,
-    sprite_body_collision_for_character_id_in, SpriteBodyCollision, SpriteMaterialization,
+    sprite_body_collision_for_character_id_in, SpriteMaterialization,
 };
 pub use attack_hitbox::authored_attack_volume_resolver;

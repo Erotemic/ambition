@@ -61,10 +61,18 @@ pub(super) fn int_grid_value_to_block(
             size,
             ae::BlinkWallTier::Hard,
         )),
-        // Hazard tile: damages the player on contact. Static-only —
-        // moving / per-volume-tuned hazards stay on the
-        // `RoomObjectKind::DamageVolume` entity path because IntGrid
-        // can't carry per-cell motion paths or damage amounts.
+        // ⛔ **Reset tile: it returns the toucher to SPAWN, and it does not
+        // damage.** This comment said "damages the player on contact" for as
+        // long as the value has existed, and it is the paint surface — so an
+        // author who wanted spikes painted the value the comment described and
+        // got a teleport. Nothing about the tile ever reached health, currency,
+        // or an i-frame: `BlockKind::Hazard` flags `ResetCause::Hazard` and
+        // `integrate_home_body` teleports.
+        //
+        // ⇒ **a hazard that HURTS is a `DamageVolume` entity**, and it does not
+        // need to move to be one. IntGrid genuinely cannot carry a per-cell
+        // damage amount or motion path, which is why the damage road is
+        // entity-only — not because static damage is unsupported.
         INT_GRID_HAZARD => Ok(ae::Block::hazard("ldtk hazard", min, size)),
         other => Err(format!("unknown IntGrid value {other}")),
     }

@@ -48,8 +48,28 @@ pub enum SurfaceBreakability {
 pub enum SurfaceContact {
     #[default]
     None,
-    /// Damage / hazard reset (legacy `HazardBlock`).
-    Damage { amount: i32 },
+    /// **Return the toucher to spawn** — the pit floor (`HazardBlock`).
+    ///
+    /// ⛔ **This variant does not damage, and it used to say it did.** It was
+    /// `Damage { amount }`, parsed an authored `damage` field, and then
+    /// [`compile_static_surface_block`] discarded the amount and emitted
+    /// `ae::Block::hazard` — a teleport that never consults health, currency, or
+    /// an i-frame. Three places downstream repeated the claim (the IntGrid
+    /// lowering's *"damages the player on contact"*, the authoring tool's *"use
+    /// HazardBlock for static damage surfaces"*, and the editor art, which draws
+    /// this as SPIKES), and Sanic's speedway believed them: its mid-course spike
+    /// strip was a `HazardBlock`, so hitting it teleported a runner carrying 40
+    /// rings back to the start line instead of costing him the rings. Jon, from
+    /// play: *"hitting the spikes should not be an insta kill. It should hurt him
+    /// and knock out his rings."*
+    ///
+    /// ⇒ **a surface that HURTS is a `DamageVolume`**, which lowers to a hazard
+    /// placement, ticks in `ambition_combat::hazards`, and publishes an ordinary
+    /// `HitEvent` — so i-frames, a wallet shield, knockback, and death all apply
+    /// exactly as they do for any other hit. Static or moving, either works;
+    /// the motion path is optional. Naming this variant for what it does is what
+    /// stops the next game from re-authoring the speedway's bug.
+    ResetToSpawn,
     /// Refreshes pogo / movement resources (legacy `PogoOrb`).
     PogoRefresh,
     /// Applies a fixed impulse on contact (legacy `ReboundPad`).
@@ -130,6 +150,13 @@ pub struct SurfaceCompiled {
 /// the same typed `LdtkSurfaceSpec` so collision/contact/breakability code
 /// has a single conversion path. There is intentionally no canonical
 /// generic `Surface` authoring entity; the editor stays differentiated.
+///
+/// ⛔ **`HazardBlock` is the RESET volume — the pit floor — and it is the one
+/// name here that reads like something it is not.** Every authored use in the
+/// tree calls it what it does (`gap`, `the_gap`, `death_floor`, `pit_floor`,
+/// `live_floor_hazard`); it damages nothing, and a surface meant to HURT is a
+/// `DamageVolume`, which is not surface-like and never reaches this pipeline.
+/// See [`SurfaceContact::ResetToSpawn`] for the bug that came of confusing them.
 pub(super) const SURFACE_LIKE_IDENTIFIERS: &[&str] = &[
     "Solid",
     "OneWayPlatform",
@@ -191,9 +218,13 @@ pub(super) fn parse_surface_spec(
         }
         "HazardBlock" => {
             spec.collision = SurfaceCollision::None;
-            spec.contact = SurfaceContact::Damage {
-                amount: field_i32(entity, "damage").unwrap_or(1),
-            };
+            // ⚠ **no `damage` field is read, and none ever mattered.** This
+            // parsed `field_i32(entity, "damage")` into an amount the compile
+            // step then threw away, and `HazardBlock` carries no such field in
+            // the shared defs anyway — so the read was a promise made to an
+            // author who had no way to make it and no way to see it broken.
+            // See [`SurfaceContact::ResetToSpawn`].
+            spec.contact = SurfaceContact::ResetToSpawn;
         }
         "PogoOrb" => {
             spec.collision = SurfaceCollision::None;
@@ -423,11 +454,12 @@ fn compile_static_surface_block(spec: &LdtkSurfaceSpec) -> Result<Option<ae::Blo
             size,
             ae::BlinkWallTier::Hard,
         ))),
-        // Damage contact maps to the legacy hazard reset block; per-amount
-        // damage tuning today flows through `RoomObjectKind::DamageVolume`,
-        // so for now Surface damage parity stays at the BlockKind::Hazard
-        // level. TODO: emit a `DamageVolume` object when amount != 1.
-        (SurfaceCollision::None, SurfaceContact::Damage { .. }) => {
+        // The reset volume, and the kernel block it becomes is named for the
+        // same thing: `BlockKind::Hazard` is documented as *"Reset surface.
+        // Hitting this returns the player to spawn."* Damage does not travel
+        // this road at all — it travels the hazard PLACEMENT road, from a
+        // `DamageVolume`. See [`SurfaceContact::ResetToSpawn`].
+        (SurfaceCollision::None, SurfaceContact::ResetToSpawn) => {
             Ok(Some(ae::Block::hazard(name, min, size)))
         }
         (SurfaceCollision::None, SurfaceContact::PogoRefresh) => {

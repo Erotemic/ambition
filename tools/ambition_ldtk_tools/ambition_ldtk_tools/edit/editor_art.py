@@ -125,7 +125,13 @@ ENGINE_ENTITY_ART: dict[str, Any] = {
     "Solid": "solid_block",
     "OneWayPlatform": "one_way_platform",
     "BlinkWall": "soft_blink_wall",
-    "HazardBlock": "hazard_spikes",
+    # ⛔ **`HazardBlock` draws the flat reset TILE, not spikes** — and it drew
+    # spikes here until 2026-08-08, which is the visual half of the same lie the
+    # runtime told. It lowers to IntGrid `Hazard`, which this table two entries
+    # up already maps to `hazard_tile`, and the game draws `EntitySprite::HazardTile`
+    # for the block it becomes. So the editor promised damage that neither the
+    # lowering nor the renderer delivers. Spikes belong to the thing that hurts.
+    "HazardBlock": "hazard_tile",
     "DamageVolume": "hazard_spikes",
     "PogoOrb": "pogo_orb",
     "BreakablePogoOrb": "pogo_orb",

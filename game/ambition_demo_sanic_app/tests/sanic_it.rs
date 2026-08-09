@@ -22,4 +22,5 @@ mod rollback_restore;
 mod room_replay;
 mod session_isolation;
 mod shell_cycle;
+mod spikes_spend_rings;
 mod standard_input_path;

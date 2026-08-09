@@ -95,6 +95,22 @@ def rect(etype: str, px: tuple[int, int], size: tuple[int, int], **fields) -> di
 # the round `sanic_ring_prop` sprite (bound demo-side) isn't stretched; `px` is
 # its top-left, so a ring is centred on (cx, cy).
 RING_SIZE = (30, 30)
+#: The sheet each ring wears, authored on the placement.
+#:
+#: ⚠ **`PickupSpawn` does not carry a `sprite` field in the shared defs**, so
+#: `main()` mints one with `def update-entity` before the area is built. That
+#: field reached the committed world file out-of-band once (an `entity`/`def`
+#: edit run by hand), which left THIS script unable to reproduce it: a
+#: regeneration silently dropped the binding from all 35 rings and they fell
+#: back to the generic coin. Authoring it here is what makes the script the
+#: file's only author again.
+RING_SPRITE = "sanic_ring_prop"
+#: The badnik's catalog identity, authored on the spawn. Same story as
+#: `RING_SPRITE`: the demo used to rewrite every enemy's `name` in Rust after
+#: conversion, `EnemySpawn` grew a `character_id` field on 2026-08-06, and the
+#: world file was edited to use it without this script learning how.
+BADNIK_CHARACTER_ID = "sanic_badnik"
+BADNIK_DISPLAY_NAME = "Sanic Badnik"
 
 
 def ring(cx: float, cy: float) -> dict:
@@ -104,6 +120,7 @@ def ring(cx: float, cy: float) -> dict:
         RING_SIZE,
         name="ring",
         kind="currency:1",
+        sprite=RING_SPRITE,
     )
 
 
@@ -194,7 +211,25 @@ def area_spec() -> dict:
         rect("ReboundPad", (1640, 650), (72, 22), impulseX=1120, impulseY=-260),
         rect("ReboundPad", (4680, 648), (48, 24), impulseX=0, impulseY=-1000),
         rect("ReboundPad", (5152, 648), (48, 24), impulseX=700, impulseY=-700),
-        # Hazards: the pit floor (reset) and a mid-course spike strip.
+        # Hazards, and they are DIFFERENT KINDS OF HAZARD — which is the whole
+        # of Jon's *"hitting the spikes should not be an insta kill"* bug.
+        #
+        # ⛔ **`HazardBlock` has exactly one outcome: return the body to spawn.**
+        # It lowers to IntGrid value 5 → `BlockKind::Hazard` → `ResetCause::Hazard`,
+        # and no health, currency, or i-frame is ever consulted. That is RIGHT for
+        # the pit — falling out is not something that HIT you — and wrong for a
+        # row of spikes, which used to be authored with the same noun and so
+        # teleported a runner carrying 40 rings straight back to the start line.
+        # The ring shield was never broken; it was waiting for a damage event
+        # that the reset road does not emit.
+        #
+        # ⇒ the strip is a `DamageVolume`: the engine's damage hazard, which
+        # publishes an ordinary `HitEvent` and therefore reaches everything a hit
+        # already means here — the wallet shield spends the rings, they burst
+        # outward as real pickups, i-frames arm, and a super Sanic is untouched
+        # because `update_ecs_hazards` asks `body_vulnerable` like every other
+        # emitter. It also finally LOOKS like spikes: a damage volume draws
+        # `hazard_spikes` while a reset block draws the flat `hazard_tile`.
         #
         # A third strip, "finish_warning_spikes", used to sit at x=6144 — 144px
         # PAST the goal at GOAL_X=6000. It was not a warning about the finish; it
@@ -207,13 +242,20 @@ def area_spec() -> dict:
         # and the only thing it ever did was kill you after you won. A real last
         # obstacle before the line is authoring work with a route to clear it.
         rect("HazardBlock", (PIT_LEFT, 704), (PIT_RIGHT - PIT_LEFT, 16), name="pit_hazard"),
-        rect("HazardBlock", (5648, 656), (96, 16), name="mid_spikes"),
+        rect("DamageVolume", (5648, 656), (96, 16), name="mid_spikes", damage=1),
         # Badniks pace the flats (axis walkers cannot patrol chain hills yet —
         # see dev/journals/code_smells.md).
-        rect("EnemySpawn", (3136, 640), (28, 32), brain="sanic_badnik"),
-        rect("EnemySpawn", (3552, 640), (28, 32), brain="sanic_badnik"),
-        rect("EnemySpawn", (5056, 640), (28, 32), brain="sanic_badnik"),
-        rect("EnemySpawn", (5760, 640), (28, 32), brain="sanic_badnik"),
+        *(
+            rect(
+                "EnemySpawn",
+                (x, 640),
+                (28, 32),
+                brain=BADNIK_CHARACTER_ID,
+                character_id=BADNIK_CHARACTER_ID,
+                name=BADNIK_DISPLAY_NAME,
+            )
+            for x in (3136, 3552, 5056, 5760)
+        ),
     ]
     entities += ring_placements()
     return {
@@ -232,11 +274,21 @@ def area_spec() -> dict:
 # Monitors stay ENTITY instances (never IntGrid): the demo identifies them as
 # named blocks to break + grant, so `area create`'s static-collision lowering
 # must not eat their names.
+#
+# ⛔ **`OneWayPlatform`, not `Solid`, and re-running this script used to undo
+# that.** A monitor is solid from ABOVE (you stomp its lid) and passable from
+# the SIDE (you roll through it to break it) — which is exactly `BlockKind::OneWay`.
+# Authored `Solid`, they became walls the moment the momentum solver learned to
+# sweep blocks while riding (2026-07-27): Sanic stopped dead at x=1474 in front
+# of the super monitor's lid at 1490, and could not break it because breaking
+# requires rolling and rolling requires moving. That was fixed by editing the
+# .ldtk directly and this script never learned, so it sat here as a loaded
+# regression — one regeneration away from putting the wall back.
 MONITORS = {
     "level_id": "sanic_speedway",
     "entities": [
-        rect("Solid", (1490, 646), (26, 26), name="monitor_super"),
-        rect("Solid", (4650, 390), (26, 26), name="monitor_speed"),
+        rect("OneWayPlatform", (1490, 646), (26, 26), name="monitor_super"),
+        rect("OneWayPlatform", (4650, 390), (26, 26), name="monitor_speed"),
     ],
 }
 
@@ -250,21 +302,57 @@ def run_tool(*args: str) -> None:
         sys.exit(f"tool step failed: {' '.join(args)}")
 
 
+def real_target() -> Path:
+    """The file to GENERATE INTO, following `TARGET` if it is a symlink.
+
+    ⛔ **`TARGET` is a tracked symlink into the `game/ambition_map_assets`
+    submodule** (2026-08-08: the six LDtk worlds moved there so ~5 MB of dense
+    JSON leaves every checkout, and a fresh clone reaches them through the
+    links). `TARGET.unlink()` here DELETED that link and the tool chain then
+    wrote a 296 KB regular file in its place — a git TYPECHANGE that puts the
+    world's bytes back in the main repo and silently forks them from the
+    submodule's copy. `scripts/tests/test_map_symlinks_stay_links.py` is the
+    guard, and it went red the first time this script ran after the move.
+
+    Resolving here fixes it for every step at once: `world init` creates the
+    file at the REAL path, and the link above it is never touched.
+    """
+    return TARGET.resolve() if TARGET.is_symlink() else TARGET
+
+
 def main() -> None:
-    TARGET.parent.mkdir(parents=True, exist_ok=True)
-    if TARGET.exists():
-        TARGET.unlink()
-    run_tool("world", "init", str(TARGET), "--identifier", "ambition-sanic-speedway-world")
+    target = real_target()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        target.unlink()
+    run_tool("world", "init", str(target), "--identifier", "ambition-sanic-speedway-world")
+    # `world init` clones the shared defs from sandbox.ldtk, whose `PickupSpawn`
+    # has only `name` + `kind`. The rings need a third field to name their sheet,
+    # and `area create` REFUSES an unknown field rather than dropping it — so the
+    # def is extended before the area is built. See `RING_SPRITE`.
+    run_tool(
+        "def",
+        "update-entity",
+        "PickupSpawn",
+        str(target),
+        "--add-field",
+        "sprite:String:",
+        "--in-place",
+        # ⚠ the tool's own repair+validate post-pass rejects a project with no
+        # levels, and at this point there are none — `area create` is the next
+        # step. `main()`'s closing repair+validate covers the finished file.
+        "--no-repair",
+    )
     with tempfile.TemporaryDirectory() as tmp:
         spec = Path(tmp) / "sanic_speedway_area.json"
         spec.write_text(json.dumps(area_spec(), indent=2))
-        run_tool("area", "create", str(spec), "--ldtk", str(TARGET))
+        run_tool("area", "create", str(spec), "--ldtk", str(target))
         monitors = Path(tmp) / "sanic_speedway_monitors.json"
         monitors.write_text(json.dumps(MONITORS, indent=2))
-        run_tool("entity", "add", str(monitors), "--ldtk", str(TARGET), "--in-place")
-    run_tool("repair", str(TARGET), "--in-place")
-    run_tool("validate", str(TARGET))
-    print(f"authored {TARGET.relative_to(REPO)}")
+        run_tool("entity", "add", str(monitors), "--ldtk", str(target), "--in-place")
+    run_tool("repair", str(target), "--in-place")
+    run_tool("validate", str(target))
+    print(f"authored {target.relative_to(REPO)}")
 
 
 if __name__ == "__main__":

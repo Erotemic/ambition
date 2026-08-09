@@ -95,6 +95,19 @@ Remaining acceptance work is product/content work
   rings are an armor row in everything but name. Absorbing there pre-empts death
   instead of racing it, and covers the boss/actor callers for free. It would
   still miss the kernel hazard path, which no health-based scheme can reach.
+
+  ✔ **RESOLVED 2026-08-08 (D41), and point 2 was the whole of it.** The shield
+  landed as described (`resolve_body_hit` → `BodyHitResolution::WalletShielded`),
+  and Jon still reported *"hitting the spikes should not be an insta kill"* —
+  because the strip was still on the kernel hazard path, which the paragraph
+  above correctly says no health-based scheme can reach. ⇒ the strip was taken
+  OFF that path: `mid_spikes` is a `DamageVolume` now, so it publishes an
+  ordinary `HitEvent` and the shield finally hears about it. `pit_hazard` stays
+  a `HazardBlock` — falling out is not something that HIT you — and
+  `finish_warning_spikes` was deleted earlier for unrelated reasons. Sanic also
+  authors `max_health: 1`, which is what makes a ringless hit fatal rather than
+  costing 1 of 20. Four contract cases run headlessly in
+  `ambition_demo_sanic_app`'s `spikes_spend_rings`.
   Capped at 12 scattered so a big purse does not turn one hit into a shower.
   Engine change: `ambition_platformer2d_actor_monolith::features::ecs::spawn_static::spawn_pickup` is
   now PUBLIC. The engine could lower authored pickups but gave a game no way to

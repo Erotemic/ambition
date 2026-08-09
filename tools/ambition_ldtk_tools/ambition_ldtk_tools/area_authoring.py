@@ -562,8 +562,26 @@ def entity_to_intgrid_value(ent_spec: dict) -> int | None:
     Note: `DamageVolume` is intentionally NOT lowered — those
     entities can carry motion paths (`path_points`/`path_speed`)
     and per-volume damage that IntGrid cells can't represent.
-    Use HazardBlock for static damage surfaces and DamageVolume
-    only for moving / variable-damage hazards.
+
+    ⛔ **This used to end "use HazardBlock for static damage
+    surfaces and DamageVolume only for moving / variable-damage
+    hazards", and that sentence was false in the way that costs a
+    day.** `HazardBlock` damages NOTHING. It lowers to IntGrid
+    value 5 -> `BlockKind::Hazard` -> `ResetCause::Hazard`, which
+    teleports the toucher to spawn without consulting health,
+    currency, or an i-frame. Sanic's speedway followed this advice
+    for its mid-course spike strip and the strip teleported a
+    runner carrying 40 rings back to the start line -- Jon reported
+    it as *"hitting the spikes should not be an insta kill"*.
+
+    ⇒ the real rule, both halves of it:
+
+    - `HazardBlock` -- the pit floor / death gap. One outcome:
+      back to spawn. Static, paintable, free.
+    - `DamageVolume` -- anything that HURTS, **static or moving**.
+      It publishes an ordinary hit, so i-frames, a wallet shield,
+      knockback and death all apply. A motion path is optional and
+      always was; nothing requires a damage volume to move.
     """
     ident = ent_spec.get("type")
     if ident == "Solid":

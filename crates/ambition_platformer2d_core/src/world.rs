@@ -41,6 +41,19 @@ pub enum BlockKind {
     /// the only shape that keeps both.
     BonkOnly,
     /// Reset surface. Hitting this returns the player to spawn.
+    ///
+    /// ⛔ **It is not a damage surface, and the name invites reading it as one.**
+    /// Touching this flags [`crate::ResetCause::Hazard`] and the body's owner
+    /// teleports it home; no health, currency, or i-frame is consulted anywhere
+    /// on the road. That is exactly right for a pit floor — falling out is not
+    /// something that HIT you — and exactly wrong for a row of spikes, which is
+    /// what an author reaching for the word "hazard" usually means.
+    ///
+    /// ⇒ **a hazard that HURTS is an authored damage volume**
+    /// (`PlacementSchema::Hazard` → `ambition_combat::hazards`), which publishes
+    /// an ordinary hit and therefore behaves like every other hit in the game.
+    /// A whole demo's spike strip was drawn on this variant by mistake; see
+    /// `ambition_platformer2d_ldtk::SurfaceContact::ResetToSpawn`.
     Hazard,
     /// Pogo target that refreshes movement resources when struck downward.
     PogoOrb,

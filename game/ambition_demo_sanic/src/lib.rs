@@ -562,6 +562,16 @@ const SANIC_CATALOG_RON: &str = r#"(
                 jump_speed: 700.0,
                 stick_factor: 4.0,
             )),
+            // ⭐ **THE RINGS ARE THE HEALTH BAR.** Jon: *"Sanic should only die
+            // after getting hit with 0 rings."* That is one number, not a
+            // system: `max_health: 1` is the engine's classic-platformer
+            // contract — whatever armor you wear absorbs the hit, and once
+            // there is none left the next one is fatal — and the wallet shield
+            // IS that armor here. On the host's standard 20-point pool a
+            // ringless spike hit cost 1 HP and Sanic walked on with 19, which
+            // is an RPG rule wearing a Sonic sprite. Authored on the row rather
+            // than forced on the host, so Ambition's protagonist is untouched.
+            max_health: Some(1),
             barks: (
                 hall: ["The pedestal asked me to idle. I said no.", "Where am I going? Yes.", "The camera is filing a complaint."],
             ),
@@ -594,6 +604,11 @@ const SANIC_CATALOG_RON: &str = r#"(
                 jump_speed: 840.0,
                 stick_factor: 4.0,
             )),
+            // The same fragility as the base row, so wearing the form is not a
+            // health change. The super form's protection is `Health::invulnerable`
+            // (derived from the worn identity in `sync_super_form_traits`), never
+            // a bigger pool.
+            max_health: Some(1),
             barks: (
                 hall: ["The air is falling behind.", "Immortality is a ring budget.", "The universe may submit a request to slow down."],
             ),
@@ -1438,6 +1453,12 @@ const SUPER_SPARKLE_RISE: f32 = 8.0;
 ///   `body_vulnerable`, while the same hazard drawn as a TILE became an
 ///   unconditional teleport-to-spawn nothing could see. `integrate_home_body`
 ///   now applies the one predicate to both roads.
+///   ⚠ **as of 2026-08-08 the strip is not a tile at all** — it is authored as
+///   a `DamageVolume`, because a reset was never what a spike hit should be
+///   (Jon: *"hitting the spikes should not be an insta kill. It should hurt him
+///   and knock out his rings."*). The exemption above is unchanged and now
+///   arrives by the ordinary road: `update_ecs_hazards` asks `body_vulnerable`
+///   before it writes the hit at all.
 ///   ⚠ **the PIT still swallows him**, and that is the line. A hazard tile is
 ///   never a collision surface, so a super Sanic falls straight through the
 ///   strip at the bottom and leaves the world — and `ResetCause::LeftTheWorld`

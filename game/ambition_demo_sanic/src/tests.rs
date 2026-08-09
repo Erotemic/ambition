@@ -148,15 +148,38 @@ fn sanic_speedway_composes_through_the_umbrella() {
         one_ways >= 8,
         "the gantry, marker platforms, and the two spring perches are one-ways: {one_ways}"
     );
-    let hazards = room
+    // **The two hazards are DIFFERENT KINDS OF HAZARD, and that is the point.**
+    // The pit is a reset block: falling in is not something that HIT you. The
+    // spike strip is a damage volume, so hitting it reaches the ordinary hit
+    // road and spends the rings (`spikes_spend_rings` in the app crate drives
+    // the whole contract headlessly). This used to assert `hazards >= 2` — one
+    // count over both — which is precisely how the strip came to be authored
+    // with the pit's noun and teleport a runner carrying 40 rings to the start.
+    let reset_blocks: Vec<&str> = room
         .world
         .blocks
         .iter()
         .filter(|b| matches!(b.kind, ae::BlockKind::Hazard))
-        .count();
-    assert!(
-        hazards >= 2,
-        "the pit floor and the mid-course spike strip are hazards: {hazards}"
+        .map(|b| b.name.as_str())
+        .collect();
+    assert_eq!(
+        reset_blocks.len(),
+        1,
+        "the PIT is the speedway's only reset-to-spawn hazard: {reset_blocks:?}"
+    );
+    let spikes = room
+        .placements
+        .iter()
+        // `stable_id()`, not the schema variant: the enum is not re-exported to
+        // games, and the stable id is the compatibility contract anyway.
+        .filter(|record| record.kind().stable_id() == "hazard")
+        .map(|record| record.name.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        spikes,
+        ["mid_spikes"],
+        "and the mid-course strip is a DAMAGE volume, so a hit costs rings \
+         rather than the whole run"
     );
     for monitor in [monitors::SUPER_MONITOR, monitors::SPEED_MONITOR] {
         assert!(

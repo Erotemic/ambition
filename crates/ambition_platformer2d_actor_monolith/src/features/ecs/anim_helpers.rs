@@ -8,7 +8,7 @@ use super::*;
 
 /// Advance every non-player actor's movement-driven anim overlays (landing /
 /// dash-startup) one frame, via the SAME [`crate::features::advance_body_anim_overlays`]
-/// the player tick runs — so [`crate::character_sprites::pick_actor_anim`] can show
+/// the player tick runs — so `ambition_character_sprites::pick_actor_anim` can show
 /// those poses (fable review §A9). The home player ([`crate::actor::PlayerEntity`])
 /// is excluded (it advances its own overlays in the player tick), so no body is
 /// advanced twice; a possessed non-player body IS advanced here. Uses `sim_dt`

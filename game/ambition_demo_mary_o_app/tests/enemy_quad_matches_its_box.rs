@@ -15,7 +15,7 @@
 //! different animals. `posed_body_geometry` has neither failure mode.
 
 use ambition_demo_mary_o::snake::SNAKE_SHEET_TARGET;
-use ambition_platformer2d::actors::character_sprites::posed_body_geometry;
+use ambition_platformer2d::character_sprites::posed_body_geometry;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 /// One Mary-O tile, in world units. Her own standing height is 48 — one and a

@@ -10,6 +10,7 @@ use ambition_platformer2d_core as ae;
 use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 
 use ambition_characters::actor::body::BodyAnimFacts;
+use ambition_combat::components::MeleeSwing;
 
 /// Pick the player's animation from ECS animation state and engine state.
 ///
@@ -283,14 +284,14 @@ fn compact_from_mode(mode: ambition_platformer2d_core::player_state::BodyMode) -
 /// metric + speed thresholds. `speed` is seeded with the grounded metric
 /// (`|vx|`); an aerial adapter overrides it with total speed.
 pub fn body_view_from_body(
-    kinematics: &crate::actor::BodyKinematics,
-    ground: &crate::actor::BodyGroundState,
+    kinematics: &ae::BodyKinematics,
+    ground: &ae::BodyGroundState,
     facts: &ae::BodyMotionFacts,
-    flight: &crate::actor::BodyFlightState,
-    body_mode: &crate::actor::BodyModeState,
-    env_contact: &crate::actor::BodyEnvironmentContact,
-    abilities: &crate::actor::BodyAbilities,
-    shield: &crate::actor::BodyShieldState,
+    flight: &ae::BodyFlightState,
+    body_mode: &ae::BodyModeState,
+    env_contact: &ae::BodyEnvironmentContact,
+    abilities: &ae::BodyAbilities,
+    shield: &ae::BodyShieldState,
 ) -> BodyAnimView {
     use ambition_platformer2d_core::player_state::BodyMode;
     BodyAnimView {
@@ -325,15 +326,15 @@ pub fn pick_player_anim(
     anim: &BodyAnimFacts,
     combat: &ambition_characters::actor::BodyCombat,
     blink_cam: &PlayerBlinkCameraState,
-    attack: Option<&crate::MeleeSwing>,
-    kinematics: &crate::actor::BodyKinematics,
-    ground: &crate::actor::BodyGroundState,
+    attack: Option<&MeleeSwing>,
+    kinematics: &ae::BodyKinematics,
+    ground: &ae::BodyGroundState,
     facts: &ae::BodyMotionFacts,
-    flight: &crate::actor::BodyFlightState,
-    body_mode: &crate::actor::BodyModeState,
-    env_contact: &crate::actor::BodyEnvironmentContact,
-    abilities: &crate::actor::BodyAbilities,
-    shield: &crate::actor::BodyShieldState,
+    flight: &ae::BodyFlightState,
+    body_mode: &ae::BodyModeState,
+    env_contact: &ae::BodyEnvironmentContact,
+    abilities: &ae::BodyAbilities,
+    shield: &ae::BodyShieldState,
 ) -> CharacterAnim {
     // Movement/ability fields come from the shared cluster builder (identical to
     // every actor); the player overlays its combat-cluster hit read, its own
@@ -365,7 +366,7 @@ pub fn pick_player_anim(
         .filter(|s| {
             matches!(
                 s.phase(),
-                Some(crate::combat::AttackPhase::Startup | crate::combat::AttackPhase::Active)
+                Some(ambition_combat::AttackPhase::Startup | ambition_combat::AttackPhase::Active)
             )
         })
         .map(|s| directional_attack_anim(Some(s)));
@@ -386,7 +387,7 @@ pub fn pick_player_anim(
 /// The engine's `AttackIntent` is finer-grained than the visible swing
 /// shapes — multiple intents share one row because the sprite already
 /// flips with the player's facing.
-fn directional_attack_anim(attack: Option<&crate::MeleeSwing>) -> CharacterAnim {
+fn directional_attack_anim(attack: Option<&MeleeSwing>) -> CharacterAnim {
     use ambition_combat::AttackIntent;
     let Some(attack) = attack else {
         // Defensive fallback: slash_anim_timer is set but no attack
@@ -429,7 +430,7 @@ pub struct ActorAnimState {
     /// is NOT aerial — it falls through to the Jump/Fall gate like the player.
     pub aerial: bool,
     /// Movement-driven presentation overlays, read from the actor's
-    /// [`crate::actor::BodyAnimFacts`] — the SAME poses the player shows, now
+    /// [`BodyAnimFacts`] — the SAME poses the player shows, now
     /// available to any body (fable review §A9). `landing` carries hard-vs-soft.
     /// A sheet without a given row falls back through `resolve_anim`, so these are
     /// always safe to request.
@@ -455,15 +456,15 @@ pub struct ActorAnimState {
 /// player via [`directional_attack_anim`]), and the aerial locomotion metric +
 /// thresholds (total speed, `Walk`-capped on the ground via `run_above: None`).
 pub fn pick_actor_anim(
-    kinematics: &crate::actor::BodyKinematics,
-    ground: &crate::actor::BodyGroundState,
+    kinematics: &ae::BodyKinematics,
+    ground: &ae::BodyGroundState,
     facts: &ae::BodyMotionFacts,
-    flight: &crate::actor::BodyFlightState,
-    body_mode: &crate::actor::BodyModeState,
-    env_contact: &crate::actor::BodyEnvironmentContact,
-    abilities: &crate::actor::BodyAbilities,
-    shield: &crate::actor::BodyShieldState,
-    swing: Option<&crate::MeleeSwing>,
+    flight: &ae::BodyFlightState,
+    body_mode: &ae::BodyModeState,
+    env_contact: &ae::BodyEnvironmentContact,
+    abilities: &ae::BodyAbilities,
+    shield: &ae::BodyShieldState,
+    swing: Option<&MeleeSwing>,
     state: ActorAnimState,
 ) -> CharacterAnim {
     let mut v = body_view_from_body(
@@ -488,7 +489,7 @@ pub fn pick_actor_anim(
         .filter(|s| {
             matches!(
                 s.phase(),
-                Some(crate::combat::AttackPhase::Startup | crate::combat::AttackPhase::Active)
+                Some(ambition_combat::AttackPhase::Startup | ambition_combat::AttackPhase::Active)
             )
         })
         .map(|s| directional_attack_anim(Some(s)));

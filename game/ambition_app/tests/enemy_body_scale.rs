@@ -42,7 +42,7 @@
 //! drawn INK against the collision box. `ink / box = 1.00` is "the picture is
 //! the body"; anything else is the defect, per character, with a sign.
 
-use ambition_platformer2d::actors::character_sprites::posed_body_geometry;
+use ambition_platformer2d::character_sprites::posed_body_geometry;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 /// The player is the ruler: "too big" is a statement about a RATIO, and this is

@@ -145,7 +145,7 @@ The largest root modules at the 2026-08-07 baseline are:
 | `avatar` | 6,716 | historical mixture that should dissolve by owner |
 | `construction` | 5,124 | planner plus domain-specific recipes; split by owner |
 | `abilities` | 4,826 | optional gameplay capabilities around body state |
-| `character_sprites` | 3,989 | presentation/loading candidate |
+| `character_sprites` | 3,989 → 1,760 | ⭐ **half of it left on 2026-08-09** — `{anim, posed_body, attack_hitbox}` are `ambition_character_sprites`, a SIBLING crate this one does not depend on. What remains is `assets.rs`, the actor/content join, which stays for the same reason `character_runtime` does |
 | `world` | 3,324 | world/runtime/LDtk integration candidate |
 | `items` | 2,388 | item/body integration; vertical carve |
 | `schedule` | 2,375 | global ordering vocabulary; requires deliberate ownership |
@@ -746,6 +746,17 @@ their last consumer moves. Do not extract `spawn_actors.rs` as a crate; shrink i
 by moving each domain-specific branch with the domain it constructs.
 
 ### Wave B — character preparation and presentation
+
+✔ **PARTLY DONE, 2026-08-09 — and the directory was NOT the seam, exactly as this
+section says.** `character_sprites` split in half: the DERIVATIONS from a sheet
+(`anim`, `posed_body`, `attack_hitbox` — 2,144 lines) are
+`ambition_character_sprites`, a sibling crate the actor crate does not depend on;
+the actor/content JOIN (`assets.rs`) stays, because it is coupled to
+`assets::platformer_assets`, `persistence::settings` and the character-runtime
+materializer in both directions. ⛔ the load-bearing part was moving the one
+`WorldPrepSet::BeforeIntegrate` registration into the new crate as a plugin —
+see "A carve is decided by its DIRECTION" in
+[`decomposition.md`](decomposition.md). `character_runtime` is untouched.
 
 `character_runtime` plus `character_sprites` is a large compile-isolation target.
 Split by lifecycle rather than by current directory:

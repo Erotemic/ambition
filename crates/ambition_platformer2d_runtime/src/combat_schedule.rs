@@ -419,7 +419,7 @@ fn authored_volume_resolver_for(
     let sheets = sheets.clone();
     ambition_platformer2d_actor_monolith::combat::authored_volumes::AuthoredAttackVolumeResolver::from_closure(
         move |catalog, sprite_character_id, animation, body_pos, collision, facing, gravity_dir| {
-            ambition_platformer2d_actor_monolith::character_sprites::authored_attack_volume_resolver(
+            ambition_character_sprites::authored_attack_volume_resolver(
                 &sheets,
                 catalog,
                 sprite_character_id,

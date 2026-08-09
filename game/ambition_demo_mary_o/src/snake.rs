@@ -415,7 +415,7 @@ pub fn snake_world_per_pixel() -> f32 {
     // No baked art (a headless fixture, `--no-assets`): the value this replaced,
     // so a composition with no sheets behaves exactly as it did.
     const NO_SHEET: f32 = 0.35;
-    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+    ambition_platformer2d::character_sprites::posed_body_geometry(
         SNAKE_SHEET_TARGET,
         CharacterAnim::Idle,
         1.0,
@@ -534,7 +534,7 @@ pub fn register_snake_roster(app: &mut App) {
 /// (`--no-assets`, a stripped test fixture) falls back to a plain tile-ish box:
 /// the snake still walks and is still stompable, it just isn't art-shaped.
 fn snake_half_size() -> ae::Vec2 {
-    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+    ambition_platformer2d::character_sprites::posed_body_geometry(
         SNAKE_SHEET_TARGET,
         CharacterAnim::Idle,
         snake_world_per_pixel(),

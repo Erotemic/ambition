@@ -37,6 +37,38 @@ The public facade remains the compatibility boundary; internal ownership can mov
 without making consumers follow the historical crate topology. See
 [ADR 0031](../../adr/0031-public-facade-is-the-compatibility-boundary.md).
 
+### A carve is decided by its DIRECTION, not by how many lines it moves
+
+`ambition_character_sprites` (2026-08-09) is the worked example, and the rule it
+established outranks any line count.
+
+The carved subset — the animation-row pickers, the sheet-authored body geometry,
+the manifest attack hitbox — could land in two places, and the compile simulator
+priced both:
+
+* **owner keeps the registration** ⇒ the actor crate depends on the new crate,
+  which therefore sits *between* `ambition_combat` and it. The workspace's
+  longest serial chain grows 12 → 13, and — the part that actually matters —
+  `edit_cost(the carved module)` **does not fall**: an edit to the derivation
+  still rebuilds the actor crate and everything above it. Isolation runs one
+  direction only.
+* **the registration moves into the new crate as its own plugin** ⇒ the actor
+  crate stops naming the subset entirely. The new crate is a SIBLING whose only
+  dependents are `ambition_sim_view` and `ambition_platformer2d_runtime`, the
+  chain stays at 12, and the edit isolation is real.
+
+⛔ **so a carve that leaves an `add_systems` line behind in the owner is
+measurably worse than not carving.** The one up-edge is the whole decision. Ask
+where the REGISTRATION goes before asking which files move, and if the
+registration cannot leave, the boundary is not a boundary yet.
+
+⚠ **and do not sell such a carve on build time.** This one costs about +4.5 s of
+first-party rustc work, because per-crate overhead is real and 2,144 lines that
+compiled at the actor crate's 0.61 ms/line are now priced at the population
+median. The case is ownership and edit isolation, which is what the amended
+mandate asks for. The full measurement is the D33 row in
+[`../queue-72h-2026-08-08.md`](../queue-72h-2026-08-08.md).
+
 ## E4 — one-way observation boundary
 
 Simulation owns authoritative mutable state. `ambition_sim_view` publishes

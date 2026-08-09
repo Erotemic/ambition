@@ -389,6 +389,12 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_menu::map::MapStatePlugin)
             // The world-prep phase (body integration, gravity collection, etc.).
             .add(ambition_platformer2d_actor_monolith::features::WorldPrepSchedulePlugin)
+            // A sheet-authored body adopts the box for the pose it is showing,
+            // in `WorldPrepSet::BeforeIntegrate`. Registered from its own crate
+            // rather than inside `WorldPrepSchedulePlugin` (where it lived until
+            // 2026-08-09) so the actor crate does not depend on the derivation:
+            // the system and the set are unchanged, only who names them moved.
+            .add(ambition_character_sprites::SpritePosedBodyPlugin)
             // Turning a declared character into loaded art. Added here,
             // unconditionally, so NO application can compose the engine without
             // it — the step used to live in `ambition_app`, which is why Mary-O

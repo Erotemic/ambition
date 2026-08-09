@@ -628,19 +628,15 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .before(tick_npc_idle_barks)
                 .in_set(crate::schedule::Platformer2dSimulationPhaseMonolith::WorldPrep),
         );
-        // A body whose SHEET authors its geometry adopts the box for the pose it
-        // is showing, BEFORE the movement phase sweeps that box. Host-owned so
-        // every game gets it: the component is the opt-in, and a content crate
-        // that adds the component without a system to honour it would silently
-        // get nothing. The content rule that PINS the pose runs after movement
-        // (it classifies contacts against resolved positions), so the box trails
-        // the pin by one tick — see the module docs for why that is the right
-        // way round.
-        app.add_systems(
-            sim,
-            crate::character_sprites::sync_sprite_posed_bodies
-                .in_set(crate::schedule::WorldPrepSet::BeforeIntegrate),
-        );
+        // ⭐ **`sync_sprite_posed_bodies` used to be registered HERE** and is now
+        // `ambition_character_sprites::SpritePosedBodyPlugin`, added beside this
+        // plugin in `PlatformerEnginePlugins`. Same set, same schedule, same
+        // guarantee that every game gets it — but the registration lives with
+        // the system, so this crate does not depend on the crate that owns it.
+        // That direction is the entire point of the 2026-08-09 carve: with the
+        // line here, an edit to the posed-body derivation rebuilt this crate and
+        // everything above it.
+        //
         // The body-orientation righting reflex: feet toward gravity — or, for a
         // riding momentum body, feet onto the ridden surface via the
         // `SurfaceUpright` fact the integration just published. Host-simulation

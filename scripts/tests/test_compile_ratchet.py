@@ -181,7 +181,14 @@ def test_an_unmeasured_crate_is_priced_at_the_median_and_reported_as_a_guess():
     assert entry["seconds"] > 0
     assert entry["seconds"] == round(weights["median_ms_per_line"] * 10_000 / 1000.0, 3)
     assert entry["seconds_source"] == "estimated"
-    assert invented["unpriced_crates"] == ["ambition_invented"]
+    # ⚠ MEMBERSHIP, not equality. Equality here also asserted "and the working
+    # tree contains no other unpriced crate", which is a different claim and not
+    # this test's subject — a real carve landing before its `compile_collect.py`
+    # run makes it false, and the D33 carve (`ambition_character_sprites`,
+    # 2026-08-09) did exactly that. The property under test is that an UNMEASURED
+    # crate is priced from the median and REPORTED; the ratchet's own UNPRICED
+    # finding is what guards the tree, and it fires on the live tree already.
+    assert "ambition_invented" in invented["unpriced_crates"]
 
     severities = [severity for severity, _ in ratchet.evaluate(invented, baseline())]
     assert "UNPRICED" in severities

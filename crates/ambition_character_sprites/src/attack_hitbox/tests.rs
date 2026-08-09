@@ -5,8 +5,19 @@
 
 use super::*;
 
+/// Ambition's shipped catalog, parsed straight from the content file.
+///
+/// The same fixture shape the actor crate uses for its own catalog/sprite
+/// conformance tests (`character_roster.rs` there, and four more `include_str!`
+/// sites beside it): a test wants REAL authored render sizes, and reading them
+/// out of the checked-in data is cheaper and more honest than a dependency on
+/// the content crate for a `#[cfg(test)]` helper.
 fn catalog() -> CharacterCatalog {
-    crate::character_roster::catalog()
+    CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(include_str!(
+            "../../../../game/ambition_content/assets/data/character_catalog.ron"
+        )),
+    )
 }
 
 fn collision() -> ae::Vec2 {

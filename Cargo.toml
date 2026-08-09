@@ -4,6 +4,7 @@ members = [
     "crates/ambition_relativity",
     "crates/ambition_relativity2d",
     "crates/ambition_characters",
+    "crates/ambition_character_sprites",
     "game/ambition_app",
     "game/ambition_app_tools",
     "game/ambition_demo_mary_o",

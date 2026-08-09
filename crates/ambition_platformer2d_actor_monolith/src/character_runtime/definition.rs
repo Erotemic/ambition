@@ -200,7 +200,7 @@ pub struct Vitals {
 /// provider could author a body and receive some other size entirely):
 ///
 /// * `SpriteAuthored { world_per_pixel }` becomes a
-///   [`SpritePosedBody`](crate::character_sprites::SpritePosedBody), installed by
+///   [`SpritePosedBody`](ambition_sprite_sheet::character::sheets::SpritePosedBody), installed by
 ///   `project_prepared_character_definitions` and retracted with the rest of that
 ///   system's grants. From there the existing per-tick sync derives the collision
 ///   box, the sprite quad and its offset off the art, so a body that changes

@@ -193,7 +193,7 @@ pub fn ai_slop_half_size() -> ae::Vec2 {
     // this replaced, so a composition with no sheets behaves exactly as before
     // rather than acquiring a differently-wrong body.
     let fallback = ae::Vec2::splat(AI_SLOP_BODY_WIDTH * 0.5);
-    let Some(sheet) = ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+    let Some(sheet) = ambition_platformer2d::character_sprites::posed_body_geometry(
         AI_SLOP_SHEET_TARGET,
         ambition_platformer2d::sprite_sheet::character::CharacterAnim::Idle,
         1.0,

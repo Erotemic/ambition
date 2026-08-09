@@ -14,15 +14,15 @@ use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
 /// Bundle of every cluster component `pick_player_anim` reads.
 /// Tests mutate just the fields relevant to the case under test.
 struct PickClusters {
-    kinematics: crate::actor::BodyKinematics,
-    ground: crate::actor::BodyGroundState,
+    kinematics: ae::BodyKinematics,
+    ground: ae::BodyGroundState,
     /// The published maneuver projection the pickers consume (ADR 0024).
     facts: ae::BodyMotionFacts,
-    flight: crate::actor::BodyFlightState,
-    body_mode: crate::actor::BodyModeState,
-    env_contact: crate::actor::BodyEnvironmentContact,
-    abilities: crate::actor::BodyAbilities,
-    shield: crate::actor::BodyShieldState,
+    flight: ae::BodyFlightState,
+    body_mode: ae::BodyModeState,
+    env_contact: ae::BodyEnvironmentContact,
+    abilities: ae::BodyAbilities,
+    shield: ae::BodyShieldState,
 }
 
 impl PickClusters {
@@ -58,7 +58,7 @@ fn pick(
     anim: &BodyAnimFacts,
     combat: &BodyCombat,
     blink_cam: &PlayerBlinkCameraState,
-    attack: Option<&crate::MeleeSwing>,
+    attack: Option<&MeleeSwing>,
     c: &PickClusters,
 ) -> CharacterAnim {
     pick_player_anim(
@@ -434,8 +434,8 @@ fn actor_state() -> ActorAnimState {
 
 /// Build a one-frame melee swing with the given intent, sitting in its startup
 /// (telegraph) phase so the picker reads it as an active swing.
-fn swing_with_intent(intent: crate::combat::AttackIntent) -> crate::MeleeSwing {
-    crate::MeleeSwing::new(crate::combat::AttackSpec {
+fn swing_with_intent(intent: ambition_combat::AttackIntent) -> MeleeSwing {
+    MeleeSwing::new(ambition_combat::AttackSpec {
         intent,
         startup_seconds: 0.1,
         active_seconds: 0.1,
@@ -452,7 +452,7 @@ fn swing_with_intent(intent: crate::combat::AttackIntent) -> crate::MeleeSwing {
 
 fn pick_actor(
     c: &PickClusters,
-    swing: Option<&crate::MeleeSwing>,
+    swing: Option<&MeleeSwing>,
     state: ActorAnimState,
 ) -> CharacterAnim {
     pick_actor_anim(
@@ -572,7 +572,7 @@ fn actors_animate_from_real_state_regardless_of_disposition() {
     assert_eq!(
         pick_actor(
             &c,
-            Some(&swing_with_intent(crate::combat::AttackIntent::Forward)),
+            Some(&swing_with_intent(ambition_combat::AttackIntent::Forward)),
             actor_state()
         ),
         CharacterAnim::AttackSide,
@@ -580,7 +580,7 @@ fn actors_animate_from_real_state_regardless_of_disposition() {
     assert_eq!(
         pick_actor(
             &c,
-            Some(&swing_with_intent(crate::combat::AttackIntent::Up)),
+            Some(&swing_with_intent(ambition_combat::AttackIntent::Up)),
             actor_state()
         ),
         CharacterAnim::AttackUp,

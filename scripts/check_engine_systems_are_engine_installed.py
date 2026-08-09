@@ -102,6 +102,7 @@ ENGINE_PATH_ROOTS = (
     "ambition_platformer2d",
     "ambition_platformer2d_actor_monolith",
     "ambition_audio",
+    "ambition_character_sprites",
     "ambition_combat",
     "ambition_encounter",
     "ambition_platformer2d_core",

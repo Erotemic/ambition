@@ -1750,7 +1750,17 @@ allow = ["ambition_platformer2d_actor_monolith", "ambition_projectiles", "ambiti
     # asset/vocabulary crate — no Bevy beyond assets, no domain, no content, and
     # already linked transitively under the monolith — so it fits the rationale
     # above and adds no graph depth.
-    "ambition_sprite_sheet"]
+    "ambition_sprite_sheet",
+    # Sheet DERIVATIONS (`authored_attack_volume_resolver`, the posed-body sim
+    # pass). ⭐ this edge is not new either — it is the SAME code the runtime
+    # already called, reached until 2026-08-09 through
+    # `ambition_platformer2d_actor_monolith::character_sprites`. The carve made
+    # it a sibling crate of the actor crate rather than a layer under it, so
+    # this manifest names one more crate and the build's serial chain is
+    # unchanged. It is a leaf derivation over `ambition_sprite_sheet` /
+    # `ambition_combat` / `ambition_platformer2d_core` — no host, no render, no
+    # content — so it fits the rationale above.
+    "ambition_character_sprites"]
 manifest = "crates/ambition_platformer2d_runtime/Cargo.toml"
 
 [[policy]]

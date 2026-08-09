@@ -218,6 +218,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_character_sprites"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_entity_catalog",
+ "ambition_platformer2d_core",
+ "ambition_platformer2d_shared_tangle",
+ "ambition_sprite_sheet",
+ "bevy",
+]
+
+[[package]]
 name = "ambition_characters"
 version = "0.1.0"
 dependencies = [
@@ -585,6 +598,7 @@ dependencies = [
  "ambition_asset_manager",
  "ambition_audio",
  "ambition_causal",
+ "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
  "ambition_content_pack",
@@ -762,6 +776,7 @@ name = "ambition_platformer2d_runtime"
 version = "0.1.0"
 dependencies = [
  "ambition_causal",
+ "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
  "ambition_cutscene",
@@ -936,6 +951,7 @@ dependencies = [
 name = "ambition_sim_view"
 version = "0.1.0"
 dependencies = [
+ "ambition_character_sprites",
  "ambition_characters",
  "ambition_combat",
  "ambition_dev_tools",

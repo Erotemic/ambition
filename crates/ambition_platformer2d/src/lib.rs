@@ -139,6 +139,13 @@ pub mod content {
 
 pub use ambition_asset_manager as asset_manager;
 pub use ambition_audio as audio;
+/// **Derivations from a character sheet** — the animation-row pickers, the
+/// sheet-authored body geometry, the manifest attack hitbox.
+///
+/// ⚠ this used to be reachable as `actors::character_sprites`, and it is not a
+/// rename: those names left the actor crate on 2026-08-09 and live in
+/// `ambition_character_sprites`, which the actor crate does not depend on.
+pub use ambition_character_sprites as character_sprites;
 pub use ambition_characters as characters;
 pub use ambition_combat as combat;
 #[cfg(feature = "ambition_cutscene")]

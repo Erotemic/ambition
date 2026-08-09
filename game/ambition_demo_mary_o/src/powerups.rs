@@ -362,7 +362,7 @@ pub(crate) fn mary_o_world_per_pixel() -> f32 {
 /// attempt before this expressed the answer as a pixel scale — a unit in which
 /// the comparison cannot be stated at all.
 pub(crate) fn mary_o_body_width() -> Option<f32> {
-    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+    ambition_platformer2d::character_sprites::posed_body_geometry(
         SMALL_SHEET_TARGET,
         CharacterAnim::Idle,
         1.0,
@@ -375,7 +375,7 @@ pub(crate) fn mary_o_body_width() -> Option<f32> {
 /// record is baked. Separated so a test can ask whether the art resolved at all
 /// — the scale above cannot report that, since its fallback is a real number.
 pub(crate) fn small_form_pixel_height() -> Option<f32> {
-    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+    ambition_platformer2d::character_sprites::posed_body_geometry(
         SMALL_SHEET_TARGET,
         CharacterAnim::Idle,
         1.0,
@@ -402,7 +402,7 @@ pub(crate) const FIRE_SHEET_TARGET: &str = "mary_o_v2_fire";
 /// is wrong by a few pixels; refusing to author one at all would be a panic in a
 /// test that never intended to draw anything.
 pub(crate) fn form_body_size(target: &str) -> ae::Vec2 {
-    ambition_platformer2d::actors::character_sprites::posed_body_geometry(
+    ambition_platformer2d::character_sprites::posed_body_geometry(
         target,
         CharacterAnim::Idle,
         mary_o_world_per_pixel(),

@@ -162,6 +162,13 @@ ambition_sfx = { path = "../ambition_sfx", optional = true }
 ambition_sfx_bank = { path = "../ambition_sfx_bank", optional = true }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+# The sheet DERIVATIONS (`posed_body_geometry`, `authored_body_pixel_size`, the
+# animation pickers), re-exported as `ambition_platformer2d::character_sprites`.
+# ⚠ a game may NOT name this crate directly — `game.demo-*-umbrella-only` and
+# `game.app-reaches-lower-through-facade` say so — which is exactly why the
+# facade alias exists. It is not the alias the carve removed: THAT one was
+# `actors::character_sprites`, and `actors` IS the actor crate.
+ambition_character_sprites = { path = "../ambition_character_sprites" }
 ambition_time = { path = "../ambition_time" }
 ambition_touch_input = { path = "../ambition_touch_input", optional = true }
 ambition_ui_nav = { path = "../ambition_ui_nav", optional = true }

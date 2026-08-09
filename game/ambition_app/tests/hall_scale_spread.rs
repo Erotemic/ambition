@@ -27,8 +27,8 @@
 //! ```
 
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
-use ambition_platformer2d::actors::character_sprites::posed_body_geometry;
 use ambition_platformer2d::character::CharacterCatalog;
+use ambition_platformer2d::character_sprites::posed_body_geometry;
 use ambition_platformer2d::sprite_sheet::character::CharacterAnim;
 
 /// `sprites/<stem>_spritesheet.png` → `<stem>`, the target a sheet is baked under.

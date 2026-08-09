@@ -119,7 +119,7 @@ impl ActorAnimIndex {
 
 /// Resolve EVERY brain-driven actor's animation frame from its REAL ECS clusters
 /// — the SAME `Body*` movement/ability clusters, and the SAME picker, the player
-/// uses ([`ambition_platformer2d_actor_monolith::character_sprites::pick_actor_anim`] → `body_view_from_body`).
+/// uses ([`ambition_character_sprites::pick_actor_anim`] → `body_view_from_body`).
 /// One path, disposition-agnostic: an enemy and an NPC animate from identical
 /// reads. Whatever a brain (or an LLM) drives the actor's clusters into — a dash,
 /// a blink, flight, a shield, a ladder climb, a wall-grab, a dodge-roll, a
@@ -129,7 +129,7 @@ impl ActorAnimIndex {
 pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query<ActorSpriteData>) {
     index.begin_rebuild();
     for a in &actors {
-        let anim = ambition_platformer2d_actor_monolith::character_sprites::pick_actor_anim(
+        let anim = ambition_character_sprites::pick_actor_anim(
             a.kin,
             a.ground,
             a.motion_facts,
@@ -139,7 +139,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
             a.abilities,
             a.shield,
             a.attack.swing.as_ref(),
-            ambition_platformer2d_actor_monolith::character_sprites::ActorAnimState {
+            ambition_character_sprites::ActorAnimState {
                 alive: a.health.alive(),
                 hit_flash: a.combat.hit_flash > 0.0,
                 // Gravity-free FLIGHT archetype (parrot / shark): the locomotion

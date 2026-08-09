@@ -217,7 +217,7 @@ pub fn rebuild_body_pose_views(
                 (Some(ground), Some(motion_facts), Some(flight)),
                 (Some(combat), Some(anim_facts), Some(blink_cam)),
                 (Some(body_mode), Some(env_contact), Some(abilities), Some(shield)),
-            ) => ambition_platformer2d_actor_monolith::character_sprites::pick_player_anim(
+            ) => ambition_character_sprites::pick_player_anim(
                 anim_facts,
                 combat,
                 blink_cam,

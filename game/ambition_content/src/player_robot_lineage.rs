@@ -198,8 +198,7 @@ fn definition_from(
     // v2 — whose boxes are still raw silhouettes, arms and all — keep exactly
     // the path they have today and opt in when someone authors them. Absence is
     // the answer, not an omission to fix here.
-    if let Some(body_px) =
-        ambition_platformer2d::actors::character_sprites::authored_body_pixel_size(sheet)
+    if let Some(body_px) = ambition_platformer2d::character_sprites::authored_body_pixel_size(sheet)
     {
         let world_per_pixel = ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / body_px.y;
         definition = definition
@@ -369,10 +368,9 @@ mod tests {
             );
         };
 
-        let pixels = ambition_platformer2d::actors::character_sprites::authored_body_pixel_size(
-            "player_robot_v3",
-        )
-        .expect("v3's sheet publishes an AUTHORED body box, not a measured alpha bbox");
+        let pixels =
+            ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
+                .expect("v3's sheet publishes an AUTHORED body box, not a measured alpha bbox");
         let standing = pixels * world_per_pixel;
         assert!(
             (standing.y - ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT).abs() < 0.01,
@@ -415,10 +413,9 @@ mod tests {
             panic!("the torso is a rect: {:?}", volumes[0].shape);
         };
 
-        let pixels = ambition_platformer2d::actors::character_sprites::authored_body_pixel_size(
-            "player_robot_v3",
-        )
-        .expect("v3's sheet authors a body box");
+        let pixels =
+            ambition_platformer2d::character_sprites::authored_body_pixel_size("player_robot_v3")
+                .expect("v3's sheet authors a body box");
         let body = pixels * (ambition_platformer2d_core::DEFAULT_PLAYER_BODY_HEIGHT / pixels.y);
 
         // Every edge of the hurtbox, against the matching edge of the body box.
@@ -461,7 +458,7 @@ mod tests {
     /// it opts in with no edit here, which is the point of asking the sheet.
     #[test]
     fn an_incarnation_that_only_measured_its_box_is_not_given_a_sprite_body() {
-        use ambition_platformer2d::actors::character_sprites::authored_body_pixel_size;
+        use ambition_platformer2d::character_sprites::authored_body_pixel_size;
 
         let catalog = crate::character_catalog::load_catalog();
         for incarnation in [&V0, &V2] {

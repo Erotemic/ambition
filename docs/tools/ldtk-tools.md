@@ -37,6 +37,34 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity add \
   --in-place
 ```
 
+### Linking one entity to another (`EntityRef` fields)
+
+`entity set-field` understands `EntityRef` fields (added 2026-08-09 restoring the
+pirates' shark mounts). **The spec names the target's iid and nothing else:**
+
+```yaml
+mounted_on: EnemySpawn-6806
+```
+
+⭐ **the tool derives `layerIid` / `levelIid` / `worldIid` from where that iid
+actually lives**, which is the whole point — an `EntityRef` value is a four-key
+object and hand-writing the other three is how you get a ref that resolves to
+nothing. It **refuses** an iid that resolves nowhere, **refuses** a prebuilt
+four-key object (with the reason), and takes `null` to clear a link.
+
+⛔ **the silent failure this exists to prevent: a dangling ref reads back as
+UNSET.** The rider simply spawns alone, no error, no warning — which is exactly
+how four shark mounts sat broken from 2026-07-06 until they were noticed in play.
+
+⚠ **constraint**: it searches `project["levels"]` only, and takes the top-level
+`iid` for the world — matching every other command in the package. A multi-world
+`.ldtk` with levels nested under `worlds[]` is **not handled**.
+
+⭐ **and guard a restored link by OVERLAP, never by equal position.** A rider is
+not always centred on its mount: GNU-ton rides his mount's *back*
+(`[869, 754]` on `[786, 832]`). An equal-`px` assertion looks obviously right,
+passes on the pirates, and reddens the one boss mount that was already working.
+
 ## Agent rules
 
 - Validate before and after semantic LDtk edits.

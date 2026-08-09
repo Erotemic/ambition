@@ -95,11 +95,78 @@ fn displace(app: &mut App, to: Vec2) {
     );
 }
 
-fn beat_remaining(app: &mut App) -> Option<f32> {
+pub(crate) fn beat_remaining(app: &mut App) -> Option<f32> {
     let mut query = app
         .world_mut()
         .query::<&ambition_demo_mary_o::death::MaryODeathSequence>();
     query.iter(app.world()).next().map(|s| s.remaining)
+}
+
+/// **Kill her with a real hit, and keep swinging until the beat says she died.**
+///
+/// Returns how many frames it took, so a caller can print what it cost rather
+/// than trusting a magic number.
+///
+/// ⛔ **`BodyHealth.health.current = 0` does NOT kill her, and it is the obvious
+/// wrong route.** Nothing polls the controlled body's health for death: the only
+/// two writers of `ActorDiedMessage` are `death_respawn_player` — reached from
+/// `handle_player_damage_events`, i.e. from a HIT — and
+/// `publish_kernel_reset_death`, which needs a kernel reset (a pit, a hazard).
+/// Measured here 2026-08-09: a hand-zeroed body walked this room at `hp = 0` for
+/// 120 frames and the beat never armed. `versus_stage.rs` recorded the same
+/// thing about the versus stage: *"a hand-zeroed body never invokes it and the
+/// test passes whether or not the fix exists"*.
+///
+/// ⚠ **the first swing is routinely voided**, which is why this loops rather
+/// than throwing one hit and hoping. A victim-side hit is staged into
+/// `PendingPlayerHitEvents` at the end of one frame's Combat phase and applied
+/// on the next, and `void_pending_player_hits_at_lifecycle_boundaries` clears
+/// that FIFO on every `RoomLoaded` / `ResetRoomFeaturesEvent` — so a hit thrown
+/// in the frames around a room load lands on nothing. Swinging until the beat
+/// arms means no caller has to know which frame that boundary fell on.
+pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
+    use ambition_platformer2d::combat::events::{HitEvent, HitMode, HitSource, HitTarget};
+
+    for frame in 0..600 {
+        if beat_remaining(app).unwrap_or(0.0) > 0.0 {
+            return frame;
+        }
+        let (her, at, hp) = {
+            let mut query = app.world_mut().query_filtered::<(
+                Entity,
+                &ae::BodyKinematics,
+                &ambition_platformer2d::characters::actor::BodyHealth,
+            ), With<PrimaryPlayer>>();
+            let (her, kin, health) = query
+                .iter(app.world())
+                .next()
+                .expect("gameplay has a primary player to kill");
+            (her, kin.pos, health.current())
+        };
+        let volume: ae::CombatVolume = ae::Aabb::new(at, Vec2::new(40.0, 40.0)).into();
+        app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
+            volume,
+            // Enough to finish her whatever she is wearing: the classic armor
+            // ladder absorbs a hit before HP, and this fixture is about the
+            // death, not about how many hits it takes to get there.
+            damage: hp.max(1) + 10,
+            // Contact with an enemy body — the death a player actually dies in
+            // this level, and a victim-side source, so it reaches the player
+            // damage pass rather than the attacker-side one.
+            source: HitSource::EnemyBody,
+            attacker: None,
+            target: HitTarget::Player(her),
+            mode: HitMode::Knockback,
+            knockback: None,
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+    }
+    panic!(
+        "600 frames of lethal hits and the death beat never armed — the fixture \
+         killed nothing, so whatever it measures next is vacuous"
+    );
 }
 
 /// A cheap signature of every non-player body's placement, so "the enemies moved

@@ -15,9 +15,9 @@
 //! whether or not a consumer exists anywhere. The assertions below are about
 //! the BODY, which only moves if something drained the request.
 
+use ambition_demo_mary_o_app::build_demo_app;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::platformer::markers::PrimaryPlayer;
-use ambition_demo_mary_o_app::build_demo_app;
 use bevy::prelude::*;
 
 /// Counts every `ResetRoomFeaturesEvent` observed, so a second consumer of the
@@ -245,5 +245,70 @@ fn the_level_timeout_actually_replays_the_room() {
         home.distance(spawn) < 64.0,
         "a timeout must put the fresh attempt at spawn; she is at {home:?} and \
          spawn is {spawn:?}"
+    );
+}
+
+/// **DYING RESTARTS THE LEVEL** — the death Jon actually dies, composed.
+///
+/// Jon, from play: *"when you die the level doesn't restart, you just stay right
+/// where you were."*
+///
+/// Every link in that chain was verified present by READING it — the beat's
+/// `DEATH_DWELL`, `restart_level_after_death` writing `RoomReplayRequested`, the
+/// one consumer, its composition into `PlatformerEnginePlugins::fixed_tick()`,
+/// and `reset_sandbox` moving her — and nothing observed them together for a
+/// death by damage. The content crate's own
+/// `she_dies_in_place_holds_the_pose_and_then_the_level_restarts` composes three
+/// Mary-O systems and NO consumer, and its `replays()` helper counts messages in
+/// a channel: it is green whether or not a level ever restarts. The sibling
+/// above proves the TIMEOUT death end to end; this is the fatal-hit death, which
+/// is the one the complaint is about.
+///
+/// ⚠ **she has to die AWAY from spawn or a green here means nothing** — dying on
+/// the spot is satisfied by standing still. Both terms are observed: she is
+/// asserted to be held away from spawn while the beat plays, and home when it
+/// ends.
+#[test]
+fn a_fatal_hit_returns_her_to_spawn_when_the_beat_ends() {
+    let mut app = boot();
+    settle_until_playable(&mut app);
+    let spawn = room_spawn(&mut app);
+
+    // Somewhere a replay has to undo — the same displacement the seam test uses.
+    displace(&mut app, spawn + Vec2::new(600.0, 0.0));
+    app.update();
+
+    app.world_mut().resource_mut::<RoomResetsSeen>().0 = 0;
+    let swings = crate::death_reset_timing::deal_a_lethal_hit(&mut app);
+
+    // Where the beat holds her. `death_respawn_player` teleports her to spawn on
+    // the fatal hit and the beat immediately pins her back at the place she
+    // died, so this reads the death site, not the respawn.
+    let held = player_pos(&mut app).expect("she is still in the world");
+    assert!(
+        held.distance(spawn) > 200.0,
+        "the beat must be holding her AWAY from spawn ({swings} swings to kill \
+         her; she is at {held:?}, spawn is {spawn:?}) — otherwise 'she ends up \
+         at spawn' is satisfied by her never having left it"
+    );
+
+    let beat_frames = (ambition_demo_mary_o::death::DEATH_DWELL / (1.0 / 60.0)).ceil() as usize;
+    for _ in 0..beat_frames + 60 {
+        app.update();
+    }
+
+    let resets = app.world().resource::<RoomResetsSeen>().0;
+    let home = player_pos(&mut app).expect("she is still in the world");
+    assert!(
+        home.distance(spawn) < 64.0,
+        "SHE DIED AND THE LEVEL DID NOT RESTART: she is still at {home:?}, spawn \
+         is {spawn:?}, she was held at {held:?} through the beat, and the room \
+         was put back {resets} time(s). This is Jon's report reproduced."
+    );
+    assert!(
+        resets >= 1,
+        "she is at spawn but the room was never put back — the body came home by \
+         some other route and this fixture is watching the wrong thing (how many \
+         times the request is drained is the sibling test's question)"
     );
 }

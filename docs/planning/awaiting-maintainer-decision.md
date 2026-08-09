@@ -16,17 +16,29 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — 2 open, corrected 2026-08-08
+## ⇥ INDEX — **1 open, and it blocks nothing** (updated 2026-08-09)
 
-This file is 1,300+ lines and had no index. Its own header warns that a decision
+This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
 stale rows do. **⚠ ordered by what each one BLOCKS**, not by date, because that
 is the only ordering a maintainer can triage from.
 
+⭐ **the count has been wrong in BOTH directions now.** It said *"1 open"* while
+omitting the row that blocked most (corrected 2026-08-08), then said *"2 open"*
+after the blocking one had shipped (corrected 2026-08-09). ⇒ **recount against
+the sections when you touch this file**; an index nobody recounts is the thing
+its own header warns about, one level up.
+
 | Question | Blocks | State |
 |---|---|---|
-| **Is a crate name part of the rollback wire format?** (S30) | ⛔ the WHOLE carve campaign | ⚠ answered by agent — **(b)**, see below + queue D37 |
+| ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
+
+⇒ **1 open**, and it is not blocking anything.
+
+⚠ **S30 shipped as (b′), NOT the (b) this file recommended** — the recommendation
+was refuted by the diff it cited. The section below carries both, newest first,
+because *how* a stated answer turned out wrong is the part worth keeping.
 
 ⛔ **THE INDEX SAID "1 OPEN" AND OMITTED S30, WHICH IS THE ONE THAT BLOCKS
 MOST.** Corrected 2026-08-08. An index that undercounts is worse than no index:
@@ -636,9 +648,41 @@ asset trees in a write-ahead worktree finds NOTHING, because the sheets are
 symlinks and recursive grep does not follow them without `-S`. A first pass here
 concluded `head_down` "is not authored anywhere", which is the opposite of true.
 
-## Is a crate name part of the rollback wire format? (queue S30, 2026-08-01)
+## ✔ IMPLEMENTED — Is a crate name part of the rollback wire format? (queue S30, 2026-08-01)
 
-> ### ⚠ ANSWERED BY AGENT 2026-08-08 — **(b)**. Jon can overrule.
+> ### ✔✔ SHIPPED 2026-08-09 AS **(b′)**, SCHEMA **v20** — `3333a4b0f`. Jon can still overrule.
+>
+> **No: the fingerprint now hashes a type's FINAL SEGMENT alone**, so relocating
+> a rollback-registered type between crates or modules no longer moves
+> `SnapshotSchemaFingerprint`. Every carve in the decomposition campaign stops
+> being a netplay compatibility break — which is what this question blocked.
+>
+> ⛔ **the answer below is (b) and (b) IS WRONG.** It says *"final segment plus
+> its module path below the crate"*. Refuted 2026-08-09 by the very diff this
+> file cites as evidence: D33 step 2 moved `features::ecs::actor_clusters` →
+> `character::anim` and `avatar::components` → `camera_ease`, so **the
+> below-crate path moved too** and (b) would have changed the fingerprint on both
+> of the moves it was proposed to protect. Only the final segment survived.
+> ⭐ **and (b′) was already written in this file** — the section *"A third
+> option, which dissolves the trade"* says *"hash the type's IDENTITY without its
+> PATH"*, eighty lines before "The fork" offers only (a) and (b). The answer was
+> in the document the whole time.
+>
+> ⚠ **the same-commit companion was NOT optional and NOT free**: once the final
+> segment is the identity, two same-named types in different crates hash equal,
+> so a duplicate-identity guard landed with it. ⛔ **this file's claim that that
+> "leans on existing behaviour" is also false** — `RollbackRegistry`'s duplicate
+> **name** check cannot see two `Cooldown`s arriving under two *different* stable
+> names, which is exactly the legitimate-looking case.
+>
+> ⇒ **this row is CLOSED and needs nothing from Jon.** It stays here, marked,
+> rather than moving to `maintainer-decisions.md`, because **that file records
+> decisions JON made explicitly** and this one was taken by an agent under his
+> delegation. Where it lives is not a filing detail — moving it would claim his
+> authority for it. Full record: queue **D37**, ADR 0027 (corrected in the same
+> change; it still claimed owners were hashed, six weeks after v5 removed them).
+
+> ### ⚠ THE ORIGINAL AGENT ANSWER, 2026-08-08 — **(b)**, superseded above.
 >
 > Taken under Jon's 2026-08-07 note *"I've left rollback design to agents"*, and
 > recorded here rather than only in a commit because it changes a

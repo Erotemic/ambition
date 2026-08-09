@@ -279,8 +279,18 @@ pub struct ActorControlFrame {
     /// Rising edge: brain wants to enter / refresh fast-fall this
     /// tick (player-side dedicated input; AI brains ignore today).
     pub fast_fall_pressed: bool,
-    /// Rising edge: brain wants to toggle fly mode (player-side
-    /// dev/movement verb today).
+    /// Rising edge on the MODE-SWITCH verb — [`ControlSlot::Utility`]'s device
+    /// edge on this frame.
+    ///
+    /// ⚠ **not "the fly button", despite the name.** Flight was the first thing
+    /// to claim the slot, so the field wears its verb; what the press MEANS is
+    /// whatever the body's action scheme puts there. A body that declares a
+    /// technique on Utility (Sanic's transformation) has this routed to its
+    /// sanctioned edge and cleared by `resolve_control_slots`, exactly like the
+    /// combat slots — so a mode switch cannot leak into generic flight, and the
+    /// on-screen control is named by the body rather than by the engine.
+    ///
+    /// [`ControlSlot::Utility`]: ambition_entity_catalog::action_scheme::ControlSlot::Utility
     pub fly_toggle_pressed: bool,
     /// Rising edge: brain wants to start charging a projectile (player-
     /// side fireball/hadouken; the integration owns the charge state

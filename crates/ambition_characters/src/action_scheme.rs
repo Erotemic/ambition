@@ -100,11 +100,19 @@ impl ResolvedTechniqueEdges {
 }
 
 /// A technique the derived scheme declared on a control slot the combat frame
-/// has NO device verb for yet — a movement slot (Jump / Dash / Blink / Utility)
-/// or Interact. Those need the Phase-3 kernel re-key before a technique can fire
-/// from them; until then [`resolve_control_slots`] REFUSES to pretend it wired
-/// one, and returns it here so the caller can surface the mistake (a
-/// debug-assert) instead of silently discarding the press.
+/// has NO device verb for — a movement slot (Jump / Dash / Blink) or Interact.
+/// Those need the Phase-3 kernel re-key before a technique can fire from them;
+/// until then [`resolve_control_slots`] REFUSES to pretend it wired one, and
+/// returns it here so the caller can surface the mistake (a debug-assert)
+/// instead of silently discarding the press.
+///
+/// ⚠ **Utility used to be on that list and did not belong there.** The frame has
+/// carried `fly_toggle_pressed` — the Utility slot's device verb — the whole
+/// time, so the slot was never waiting on the kernel re-key; it was simply
+/// unrouted. Sanic's form toggle then reached around the resolver for the raw
+/// verb because declaring a technique there would have been rejected, which left
+/// its control wearing the engine's generic "Fly Toggle" label. See the
+/// [`ControlSlot::Utility`] arm of [`resolve_control_slots`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnroutableTechnique {
     pub slot: ControlSlot,
@@ -145,8 +153,13 @@ fn clear_projectile(control: &mut ActorControlFrame) {
 ///   `holds_item` keeps Attack/Projectile alive (a held item repurposes them for
 ///   throw/use), matching the persona-gate exception; Special has no such reuse.
 ///
-/// A `Technique` declared on a slot WITHOUT a device verb here (a movement or
-/// Interact slot) is returned in the [`UnroutableTechnique`] list rather than
+/// The Modifier and Utility slots carry device verbs too and route the same way,
+/// differing only in what a press MEANS there: Modifier sustains (its edge keeps
+/// `held` and is not consumed), Utility switches mode (a one-shot press, cleared
+/// after routing).
+///
+/// A `Technique` declared on a slot WITHOUT a device verb here (Jump / Dash /
+/// Blink / Interact) is returned in the [`UnroutableTechnique`] list rather than
 /// dropped: those cannot fire until the kernel consumes actions (Phase 3).
 ///
 /// Pure and Bevy-free (takes the frame + edges by reference) so the whole slot
@@ -249,13 +262,38 @@ pub fn resolve_control_slots(
                     );
                 }
             }
+            // The MODE-SWITCH slot, whose device verb is `fly_toggle_pressed`.
+            // Named for the engine's own fly toggle because that was the first
+            // thing to claim it, but the slot is generic — "flip this body into
+            // its other mode" — and a content technique bound here (Sanic's
+            // transformation) is the same shape as the base action it replaces.
+            //
+            // Routed like a one-shot press, not like `Modifier`: the verb is a
+            // rising edge, so the edge is cleared after routing and a mode switch
+            // fires once per press. Clearing is ALSO what keeps a declared
+            // technique from double-firing as the generic fly toggle — the raw
+            // verb is what `engine_input_from_actor_control` folds into
+            // `MovementAction::FlyToggle`, so consuming it here is the same
+            // protection Sanic used to arrange for itself by racing the gate.
+            //
+            // A non-technique gate is left alone, exactly as on `Modifier`: an
+            // absent Utility slot must not strip the verb, because a body with
+            // flight and no technique still steers its own fly toggle through it.
+            ControlSlot::Utility => {
+                if let Some(ActionGate::Technique(id)) = gate.as_ref() {
+                    edges.set(
+                        id,
+                        Edge {
+                            pressed: control.fly_toggle_pressed,
+                            ..Edge::NONE
+                        },
+                    );
+                    control.fly_toggle_pressed = false;
+                }
+            }
             // Movement + Interact slots have NO device verb in this frame. A
             // technique placed there has no wired path yet → reject, never drop.
-            ControlSlot::Jump
-            | ControlSlot::Dash
-            | ControlSlot::Blink
-            | ControlSlot::Utility
-            | ControlSlot::Interact => {
+            ControlSlot::Jump | ControlSlot::Dash | ControlSlot::Blink | ControlSlot::Interact => {
                 if let Some(ActionGate::Technique(id)) = gate.as_ref() {
                     unroutable.push(UnroutableTechnique {
                         slot,
@@ -751,7 +789,6 @@ mod tests {
             ControlSlot::Jump,
             ControlSlot::Dash,
             ControlSlot::Blink,
-            ControlSlot::Utility,
             ControlSlot::Interact,
         ] {
             let scheme = one_slot_scheme(slot, Some(ActionGate::Technique("warp".into())));
@@ -773,6 +810,77 @@ mod tests {
                 "an unroutable technique routes NO edge"
             );
         }
+    }
+
+    /// **A technique on the mode-switch slot routes, and EATS the fly toggle.**
+    ///
+    /// Both halves matter and they are one mechanism. A body that names its own
+    /// Utility action gets the press on its sanctioned edge (so it can stop
+    /// reading `fly_toggle_pressed` behind the resolver's back), and the raw verb
+    /// is consumed (so the same press cannot ALSO flip the generic flight mode on
+    /// a body that happens to have wings).
+    ///
+    /// The fixture gives the body flight deliberately: `movement_actions` would
+    /// otherwise leave Utility empty, and the test would pass without proving the
+    /// technique OVERRODE anything.
+    #[test]
+    fn technique_on_the_utility_slot_routes_and_consumes_the_mode_switch_edge() {
+        let morph = ActionSpec {
+            id: ActionId::new("morph"),
+            slot: ControlSlot::Utility,
+            display_name: None,
+            visual: None,
+            gate: ActionGate::Technique("morph".into()),
+        };
+        let ab = abilities(|a| {
+            a.jump = true;
+            a.fly = true;
+            a.fly_toggle = true;
+        });
+        let scheme = derive_action_scheme(&ab, None, None, std::slice::from_ref(&morph));
+
+        let mut control = ActorControlFrame::default();
+        control.fly_toggle_pressed = true;
+        let mut edges = ResolvedTechniqueEdges::default();
+
+        let unroutable = resolve_control_slots(&scheme, &mut control, &mut edges, false);
+
+        assert!(
+            unroutable.is_empty(),
+            "a technique on Utility has a wired path, got {unroutable:?}"
+        );
+        assert!(
+            edges.pressed("morph"),
+            "the mode-switch press routes to the technique edge"
+        );
+        assert!(
+            !control.fly_toggle_pressed,
+            "the raw verb is consumed, so the press cannot also toggle generic flight"
+        );
+    }
+
+    /// The other side of the arm above: a body whose Utility slot is the ENGINE's
+    /// own fly toggle keeps its verb. Absent-slot stripping is not this arm's job
+    /// (the flight limb gates on the ability), and a resolver that ate the verb
+    /// unconditionally would silently disable every flyer.
+    #[test]
+    fn a_non_technique_utility_slot_keeps_its_device_verb() {
+        let ab = abilities(|a| {
+            a.fly = true;
+            a.fly_toggle = true;
+        });
+        let scheme = derive_action_scheme(&ab, None, None, &[]);
+
+        let mut control = ActorControlFrame::default();
+        control.fly_toggle_pressed = true;
+        let mut edges = ResolvedTechniqueEdges::default();
+
+        resolve_control_slots(&scheme, &mut control, &mut edges, false);
+
+        assert!(
+            control.fly_toggle_pressed,
+            "the generic fly toggle owns its own verb and must survive the resolver"
+        );
     }
 
     /// The Sanic-shaped content proof, at the resolver level: a `spin_dash`

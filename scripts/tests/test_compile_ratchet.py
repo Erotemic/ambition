@@ -309,33 +309,69 @@ def test_lines_moved_into_a_dense_crate_reads_as_a_win_on_every_line_number():
 def test_the_same_carve_at_the_median_rate_is_inside_budget_and_still_flagged():
     """⛔ the naive draft treats the median fallback as good enough to gate on.
 
-    Priced at the population median the same 10,000 lines cost +19.5s, inside a
-    25s budget — so the magnitude arm of the guard does NOT catch a carve into
-    an unmeasured crate, and the UNPRICED finding is the only thing standing
-    there. Recorded as a test so the limit is a known one.
+    A carve into an UNMEASURED crate is priced at the population median, and at
+    that rate a carve can sit comfortably inside the magnitude budget while still
+    being a real cost. So the magnitude arm does NOT gate this class, and the
+    UNPRICED finding is the only thing standing there. Recorded as a test so the
+    limit is a known one.
+
+    ⛔ **the carve size is DERIVED, and the constant it replaced is why.** This
+    read `moved = 10_000` with a docstring saying *"the same 10,000 lines cost
+    +19.5s, inside a 25s budget"*. Both numbers went stale as the tree grew: by
+    2026-08-09 that carve cost **+26.4s against a +25.2s budget** and the test
+    went red — **clearing the budget by 1.2s, 4.7%.**
+
+    ⇒ the old assertion was pinning a COINCIDENCE. *"No magnitude finding"* was
+    never a property of the guard; it was a fact about where the tree happened to
+    sit relative to one budget, and it was always going to flip. Re-freezing would
+    have raised the budget and re-hidden the limitation; flipping the assertion
+    would pin the same coincidence from the other side.
+
+    So `moved` is now measured from a probe and sized to about HALF the budget.
+    The claim under test — magnitude does not catch it, UNPRICED does — holds at
+    any tree size, and nobody has to re-derive a magic number.
     """
     weights = baseline()["unit_weights"]
     before = live()
     new = "ambition_carved"
-    moved = 10_000
-    edges = {p: {new} for p in before["crates"][MONOLITH]["direct_dependents"]}
-    edges[new] = {
-        name
-        for name, entry in before["crates"].items()
-        if MONOLITH in entry.get("direct_dependents", ())
-    }
-    after = ratchet.snapshot(
-        override_lines={MONOLITH: before["crates"][MONOLITH]["lines"] - moved, new: moved},
-        extra_edges=edges,
-        weights=weights,
-    )
+    budget = before["worst_edit_cost_seconds"]["seconds"] * ratchet.HEADROOM_FRACTION
 
-    grew = (
-        after["worst_edit_cost_seconds"]["seconds"]
-        - before["worst_edit_cost_seconds"]["seconds"]
-    )
-    assert 0 < grew < before["worst_edit_cost_seconds"]["seconds"] * ratchet.HEADROOM_FRACTION
+    def carve(moved):
+        edges = {p: {new} for p in before["crates"][MONOLITH]["direct_dependents"]}
+        edges[new] = {
+            name
+            for name, entry in before["crates"].items()
+            if MONOLITH in entry.get("direct_dependents", ())
+        }
+        return ratchet.snapshot(
+            override_lines={MONOLITH: before["crates"][MONOLITH]["lines"] - moved, new: moved},
+            extra_edges=edges,
+            weights=weights,
+        )
+
+    def grew_by(after):
+        return (
+            after["worst_edit_cost_seconds"]["seconds"]
+            - before["worst_edit_cost_seconds"]["seconds"]
+        )
+
+    # Probe once to learn this tree's median-rate premium per moved line, then
+    # size the real carve at half the budget. Linear in `moved`: the moved lines
+    # are repriced from the owner's measured rate to the population median.
+    probe_moved = 10_000
+    per_line = grew_by(carve(probe_moved)) / probe_moved
+    assert per_line > 0, "moving lines to the median rate must cost something"
+    moved = int(budget * 0.5 / per_line)
+
+    after = carve(moved)
+    grew = grew_by(after)
+    # Inside budget, and by a margin no plausible tree growth erases — the bug
+    # this replaces was a 4.7% margin that did erase.
+    assert 0 < grew < budget * 0.75
 
     severities = [severity for severity, _ in ratchet.evaluate(after, baseline())]
-    assert "REGRESSED" not in severities
+    assert "REGRESSED" not in severities, (
+        f"a {moved:,}-line carve costing +{grew:.1f}s against a {budget:.1f}s budget "
+        f"should clear the magnitude arm; the UNPRICED finding is the gate here"
+    )
     assert "UNPRICED" in severities

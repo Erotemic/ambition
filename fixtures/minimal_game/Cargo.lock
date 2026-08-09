@@ -625,6 +625,7 @@ name = "ambition_sprite_sheet"
 version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
+ "ambition_characters",
  "ambition_entity_catalog",
  "ambition_interaction",
  "ambition_persistence",

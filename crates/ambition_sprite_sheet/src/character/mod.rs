@@ -2,19 +2,34 @@
 //!
 //! This is the content-free layer of the former gameplay-core
 //! `character_sprites` module: animation row ids, generated sheet manifests,
-//! atlas geometry, and the per-entity animator component. The game-specific
-//! catalog join and asset-profile policy stay in the host crate.
+//! atlas geometry, and the per-entity animator component. Asset-profile policy
+//! stays in the host crate.
+//!
+//! ⚠ **the catalog join stayed in the host crate until 2026-08-09, and this
+//! sentence used to say so.** [`catalog_join`] now answers "which sheet does
+//! catalog id X render from, and how big is its body" here, because the two
+//! functions that did it in the monolith were built entirely from this crate's
+//! types plus a `CharacterCatalogData` the caller hands in — no monolith type
+//! appeared in either signature, and their staying put was the last thing
+//! keeping `character_sprites::{attack_hitbox, anim, posed_body}` from being
+//! hoistable. The line the join must not cross is OWNING a catalog, and it does
+//! not: it reads one it is given.
 
 use bevy::prelude::*;
 
 pub mod anim;
 pub mod animator;
 mod assets;
+pub mod catalog_join;
 pub mod sheets;
 
 pub use anim::{non_looping, ActorAnimOverride, CharacterAnim};
 pub use animator::{CharacterAnimator, RenderBasis};
 pub use assets::{CharacterSheetState, CharacterSpriteAssets};
+pub use catalog_join::{
+    sheet_for_character_id_from_data, sprite_body_collision_for_character_id_from_data,
+    SpriteBodyCollision,
+};
 pub use sheets::*;
 
 /// Texture-quality tiers understood by the baked sprite variant tables.

@@ -22,6 +22,7 @@ use ambition_platformer2d::actors::actor::PrimaryPlayer;
 use ambition_platformer2d::actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer2d::actors::features::FeatureEcsWorldOverlay;
 use ambition_platformer2d::actors::rooms::RoomLoaded;
+use ambition_platformer2d::characters::equipment::WornEquipment;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::collision_semantics::{ContactKind, ContactSource};
 
@@ -93,20 +94,45 @@ impl BrokenBricks {
 
 /// **The brick-break.** A head contact (`ContactKind::Head`) against a brick —
 /// identified by the durable `GeoId` the engine carries on `ContactSource::Block`,
-/// NOT by point-matching — marks that brick broken and shatters it once. The SAME
-/// contact seam [`crate::powerups::bonk_power_blocks`] reads; a bonk resolves to a
-/// ?-block OR a brick (their `GeoId` base indices are disjoint), never both.
+/// NOT by point-matching — marks that brick broken and shatters it once, **and
+/// only if she is big enough to**. The SAME contact seam
+/// [`crate::powerups::bonk_power_blocks`] reads; a bonk resolves to a ?-block OR
+/// a brick (their `GeoId` base indices are disjoint), never both.
+///
+/// ⛔ **the form gate was MISSING and nothing here even asked for it** (Jon,
+/// 2026-08-09: *"small mary-o should not be able to headbutt bricks to break
+/// them. Only tall or fire should be able to."*). Breaking took exactly two
+/// conditions — a `Head` contact and an empty `Brick` — so a small Mary-O
+/// demolished a wall with her scalp. The value was already in hand one file
+/// over: [`crate::powerups::reward_for`] threads the same `WornEquipment`
+/// through to decide what a block PAYS, and this is the same question about
+/// what a block SUFFERS. A missing argument, not a missing concept.
 pub fn break_bricks(
     mut broken: ResMut<BrokenBricks>,
     mut vfx: MessageWriter<ambition_platformer2d::vfx::VfxMessage>,
     mut sfx: ambition_platformer2d::sfx::BodySfxWriter,
-    players: Query<&PlayerBodyFrameOutput, With<PrimaryPlayer>>,
+    // ⚠ **her FORM rides the same query**, `Option` because a body with no
+    // equipment component at all is small — that is what small IS, not a bug.
+    players: Query<(&PlayerBodyFrameOutput, Option<&WornEquipment>), With<PrimaryPlayer>>,
     // A `GeoId` names a block; only the room can say which one.
     geometry: SessionWorldRef<ae::RoomGeometry>,
 ) {
-    let Ok(frame) = players.single() else {
+    let Ok((frame, worn)) = players.single() else {
         return;
     };
+    // ⭐ **a system-wide `return`, and here that is honest.** Guarding a whole
+    // system on a singleton is usually a smell — the guarded value normally
+    // feeds one call among several — but breaking masonry is the ENTIRE body of
+    // this function. There is no other effect for a small Mary-O to still get,
+    // so hoisting the read out of the contact loop costs nothing and says the
+    // rule once. Her form cannot change mid-frame either.
+    //
+    // ⚠ this asks [`crate::powerups::is_small`] rather than testing two
+    // equipment ids, so the ladder stays the single authority on what a form is
+    // — see its doc for why `wears(STAR_WAND_ID)` would have muted fire.
+    if crate::powerups::is_small(worn) {
+        return;
+    }
     for contact in &frame.events.contacts {
         if contact.kind != ContactKind::Head {
             continue;
@@ -253,6 +279,23 @@ mod tests {
             .clone()
     }
 
+    /// **The form every "a bonk breaks it" fixture below must wear.**
+    ///
+    /// ⛔ **without this they would all go VACUOUSLY GREEN.** `break_bricks`
+    /// now returns early for a small Mary-O, and these bodies used to be spawned
+    /// bare — so the moment the form gate landed, every one of them would have
+    /// been asserting "nothing broke" against a system that had declined to run
+    /// at all. `a_head_bonk_on_a_non_brick_breaks_nothing` is the sharpest case:
+    /// it would have passed for the wrong reason forever.
+    ///
+    /// Tall rather than fire because tall is the WEAKER of the two forms that
+    /// may break masonry — a gate that accidentally demanded the beacon would
+    /// still be caught here, and `only_a_tall_or_fire_mary_o_breaks_a_brick`
+    /// covers the fire side explicitly.
+    fn tall() -> WornEquipment {
+        WornEquipment::new(vec![crate::powerups::star_wand()])
+    }
+
     fn head_bonk_frame(id: ae::GeoId) -> PlayerBodyFrameOutput {
         let mut frame = PlayerBodyFrameOutput::default();
         frame
@@ -301,7 +344,8 @@ mod tests {
         let (struck, neighbour) = two_authored_bricks();
         let mut app = break_app();
         let id = authored_brick_id(&struck);
-        app.world_mut().spawn((PrimaryPlayer, head_bonk_frame(id)));
+        app.world_mut()
+            .spawn((PrimaryPlayer, head_bonk_frame(id), tall()));
 
         app.update();
         assert!(
@@ -382,7 +426,7 @@ mod tests {
         // below first "passed" as a failure.
         let player = app
             .world_mut()
-            .spawn((PrimaryPlayer, head_bonk_frame(loaded_id)))
+            .spawn((PrimaryPlayer, head_bonk_frame(loaded_id), tall()))
             .id();
         app.update();
         assert!(
@@ -408,11 +452,74 @@ mod tests {
         );
     }
 
+    /// **Jon, 2026-08-09: "small mary-o should not be able to headbutt bricks to
+    /// break them. Only tall or fire should be able to."**
+    ///
+    /// ⛔ **`break_bricks` did not take her form at all** — it gated on the
+    /// contact being a `Head` and the block being an empty `Brick`, and there
+    /// was no third condition. A small Mary-O smashed masonry with her scalp.
+    ///
+    /// ⚠ **TWO-SIDED on purpose, and the second half is the load-bearing one.**
+    /// "Small cannot break" passes trivially against a `break_bricks` that has
+    /// stopped breaking anything at all — a form gate written slightly wrong
+    /// (reading the beacon only, or inverting the rank test) would look green
+    /// from the small side alone. So the same brick, in the same world, through
+    /// the same system, must still shatter for tall AND for fire.
+    #[test]
+    fn only_a_tall_or_fire_mary_o_breaks_a_brick() {
+        use crate::powerups::{cinder_beacon, star_wand};
+        use ambition_platformer2d::characters::equipment::WornEquipment;
+
+        // ⭐ **ONE brick, three forms, three FRESH worlds.** 1-1 authors exactly
+        // two breakable bricks, so a form-per-brick fixture would have had to
+        // invent a third — and it would also have left "did the right brick get
+        // picked" as a live confound. Each `strike` builds its own `App` with
+        // its own `BrokenBricks`, so the same masonry is whole again every time
+        // and the ONLY thing that differs between the three calls is her form.
+        let (brick, _) = two_authored_bricks();
+
+        // ⚠ ONE `PrimaryPlayer` per app — `break_bricks` uses `single()`, so a
+        // second body makes the system silently do nothing and every assertion
+        // about "did not break" passes for the wrong reason.
+        let strike = |worn: Option<WornEquipment>| -> bool {
+            let mut app = break_app();
+            let mut body = app
+                .world_mut()
+                .spawn((PrimaryPlayer, head_bonk_frame(authored_brick_id(&brick))));
+            if let Some(worn) = worn {
+                body.insert(worn);
+            }
+            app.update();
+            app.world().resource::<BrokenBricks>().is_broken(&brick)
+        };
+
+        assert!(
+            !strike(None),
+            "SMALL Mary-O must not headbutt `{brick}` apart — she wears no form \
+             row at all, which is exactly what being small IS"
+        );
+        assert!(
+            strike(Some(WornEquipment::new(vec![star_wand()]))),
+            "TALL Mary-O (the star wand) must still break `{brick}` — without \
+             this the gate above is satisfied by a system that broke nothing"
+        );
+        assert!(
+            strike(Some(WornEquipment::new(vec![cinder_beacon()]))),
+            "FIRE Mary-O (the cinder beacon) must still break `{brick}`. The \
+             beacon is worn ALONE here: it is the top of the ladder and does \
+             not imply the wand, so a gate that only asked `wears(STAR_WAND)` \
+             would mute the strongest form in the game"
+        );
+    }
+
+    /// ⚠ **she is TALL here on purpose.** A small Mary-O breaks nothing for a
+    /// reason that has nothing to do with the block not being a brick, so this
+    /// test would still pass while having stopped testing its own claim.
     #[test]
     fn a_head_bonk_on_a_non_brick_breaks_nothing() {
         let mut app = break_app();
         app.world_mut()
-            .spawn((PrimaryPlayer, head_bonk_frame(ae::GeoId::anon())));
+            .spawn((PrimaryPlayer, head_bonk_frame(ae::GeoId::anon()), tall()));
         app.update();
         assert_eq!(
             app.world()

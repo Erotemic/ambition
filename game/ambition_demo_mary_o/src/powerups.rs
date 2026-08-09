@@ -782,6 +782,29 @@ fn worn_form_rank(worn: Option<&WornEquipment>) -> u8 {
     }
 }
 
+/// **Is she SMALL?** — the bottom rung, wearing no form row at all.
+///
+/// ⭐ **exposed because a form rule outgrew this file.** Jon, 2026-08-09:
+/// *"small mary-o should not be able to headbutt bricks to break them. Only
+/// tall or fire should be able to."* That is a statement about her FORM, and
+/// the ladder that knows what a form IS lives here — so [`crate::bricks`] asks
+/// this question rather than re-deriving it from two equipment ids it would
+/// then have to keep in step with [`worn_form_rank`] by hand.
+///
+/// ⚠ **"not small" means TALL OR FIRE, which is not the same as "wears the
+/// wand".** The beacon is worn ALONE at the top of the ladder — it downgrades
+/// INTO the wand on a hit rather than stacking on top of it — so a caller that
+/// asked `wears(STAR_WAND_ID)` would answer "small" for the strongest form in
+/// the game. Reading the rank is what makes that mistake unsayable.
+///
+/// ⚠ **the quasar is not a form and does not count.** `pocket_quasar` wears no
+/// [`FORM_SLOT`], so a small Mary-O carrying one is still small here. That is
+/// the classic behaviour and it falls out of the slot rather than out of a list
+/// of ids this function would otherwise have to exclude.
+pub(crate) fn is_small(worn: Option<&WornEquipment>) -> bool {
+    worn_form_rank(worn) == 0
+}
+
 /// **A pickup never makes her weaker.**
 ///
 /// ⛔ **1-2 authors a `Brick` holding `AlwaysWand`, and fire Mary-O bonking it

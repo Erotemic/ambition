@@ -35,8 +35,10 @@ its own header warns about, one level up.
 | ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 | **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but the parent tree reads dirty until it is settled | ▢ **needs Jon**, 30 seconds — see below |
+| **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **offered as hygiene, NOT as a fix** |
 
-⇒ **2 open** (D48 and the submodule pointer), and **neither blocks any work**.
+⇒ **3 open** (D48, the submodule pointer, and the rust-analyzer setting), and
+**none of them blocks any work.**
 ⚠ the heading said *"2 open"* while this line said *"1 open"* for a day — the
 third miscount, and this time the heading was accidentally right for the wrong
 reason. ⇒ **the two numbers are now derived from the same table in one edit.**
@@ -178,6 +180,50 @@ four values, already in flight. **Same entity, different bug.**
 >
 > Their reasoning is in git. What a decision file is FOR is the list of things
 > Jon still has to rule on, and every closed row on it makes that list less true.
+
+
+## Give rust-analyzer its own target dir? (queue D59, 2026-08-09)
+
+**One line in a file only you can edit, and I am deliberately NOT selling it as a
+bug fix — because the theory behind it just got weaker.**
+
+`.vscode/settings.json` is untracked (your local config, hands off), so this is
+yours:
+
+```json
+"rust-analyzer.cargo.targetDir": true
+```
+
+It puts RA's artifacts under `<target>/rust-analyzer` instead of the shared build
+directory.
+
+### What is actually established
+
+* ✔ **RA competes for the build lock and for cores.** Observed directly: a
+  verification run blocked on *"Blocking waiting for file lock on build
+  directory"*, and `ps` showed RA's `cargo check --workspace --all-targets
+  --keep-going` holding it. **11 `rust-analyzer` processes were live** at a later
+  check (the first count was 3 — it has grown, not shrunk). ⇒ **the setting is
+  worth taking on those grounds alone.**
+* ⚠ **What is NOT established is that it fixes D59.** The theory was that RA's
+  `check` writes `.rmeta` where a test build needs `.rlib`, explaining why
+  `cargo test -p ambition_render` could not link. **Then it linked clean — 94
+  tests passed — with 11 RA processes running.** ⇒ the hypothesised cause was
+  present in force and the failure did not occur. That is evidence *against*
+  *"RA makes this fail"*, and only neutral toward *"RA can make this fail
+  sometimes"*.
+
+### What I am asking
+
+**Just take it or don't** — it is hygiene either way. ⛔ **Do not treat it as
+closing D59.** The only thing that settles that is: set the override, remove the
+main target dir once, and see whether the link stays green *through a day of
+editing*. A single green run is not that test, and treating one as such is how an
+intermittent bug gets closed twice.
+
+⭐ **I am flagging my own weakened evidence rather than letting the
+recommendation ride on it**, because this row was written when the theory looked
+strong and would otherwise read as more confident than it now deserves.
 
 
 ## Should the measurement submodule's POINTER advance in the superproject? (2026-08-09)

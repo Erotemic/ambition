@@ -227,6 +227,126 @@ pub fn draw_combat_geometry_view(
         for strike in &combat.strikes {
             draw_hitbox_volume(gizmos, world, &strike.volume, red(), developer_tools);
         }
+        for body in &combat.bodies {
+            draw_combat_tuning_readout(gizmos, world, body);
+        }
+    }
+}
+
+/// **The tuning readout: what a designer reads INSTEAD of a log.**
+///
+/// Drawn per body, in gizmos only, so it needs no font and works in every
+/// composition the overlay already runs in. Four facts, each answering a
+/// question that a box renderer leaves you guessing at:
+///
+/// * a **phase bar** above the body — the move's whole duration as a track,
+///   filled to the clock, coloured by the authored window. *Startup* yellow,
+///   *Active* red, *Recovery* blue. "Did that connect during active, or did I
+///   just walk into them during recovery" is unanswerable without it.
+/// * a **launch arrow** while the body is in hitstun: the velocity it was
+///   thrown with, which is the number knockback tuning is actually about.
+/// * **two facing ticks** — the body's live facing above, the move's committed
+///   attack orientation below. They agree almost always; the times they do not
+///   are the times you need to see it.
+/// * **lock bars** under the body: hitstun, hitlag and landing lag as three
+///   distinct lengths. They look identical on screen as "the fighter is not
+///   moving", and they are three different reasons.
+///
+/// ⛔ **no controller, no faction, no primary-player check.** It draws whatever
+/// the read model published, which is every combat body.
+fn draw_combat_tuning_readout(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    body: &ambition_sim_view::CombatBodyGeometryView,
+) {
+    /// Width of the phase / lock tracks, in world px.
+    const TRACK_W: f32 = 44.0;
+    /// Gap above the body's box for the phase track.
+    const TRACK_GAP: f32 = 10.0;
+
+    let center = body.collision.center();
+    let half = body.collision.half_size();
+    let left = center.x - TRACK_W * 0.5;
+
+    // ── the move timeline ────────────────────────────────────────────────
+    if let Some(state) = &body.move_state {
+        let y = center.y - half.y - TRACK_GAP;
+        let track_l = w2(world, ae::Vec2::new(left, y));
+        let track_r = w2(world, ae::Vec2::new(left + TRACK_W, y));
+        gizmos.line_2d(track_l, track_r, with_alpha(white_dim(), 0.55));
+
+        let progress = if state.duration_s > 0.0 {
+            (state.elapsed_s / state.duration_s).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let phase_color = match state.phase {
+            Some(ambition_entity_catalog::WindowTag::Startup) => yellow(),
+            Some(ambition_entity_catalog::WindowTag::Active) => red(),
+            Some(ambition_entity_catalog::WindowTag::Recovery) => blue(),
+            // Invuln / Armor / Cancel are authored windows too, and a designer
+            // wanting them distinguished will want them distinguished; until
+            // then they read as "some authored window", not as nothing.
+            Some(_) => cyan(),
+            None => white_dim(),
+        };
+        let filled = w2(world, ae::Vec2::new(left + TRACK_W * progress, y));
+        gizmos.line_2d(track_l, filled, phase_color);
+        // A connect already banked — why a cancel became available.
+        if state.landed_hit {
+            let tick_top = w2(world, ae::Vec2::new(left + TRACK_W * progress, y - 3.0));
+            gizmos.line_2d(filled, tick_top, cyan());
+        }
+
+        // The move's COMMITTED orientation, below the body's live one.
+        let facing_y = center.y + half.y + 6.0;
+        gizmos.line_2d(
+            w2(world, ae::Vec2::new(center.x, facing_y)),
+            w2(
+                world,
+                ae::Vec2::new(center.x + state.attack_facing * 12.0, facing_y),
+            ),
+            red(),
+        );
+    }
+
+    // The body's LIVE facing.
+    let live_y = center.y - half.y - 4.0;
+    gizmos.line_2d(
+        w2(world, ae::Vec2::new(center.x, live_y)),
+        w2(world, ae::Vec2::new(center.x + body.facing * 12.0, live_y)),
+        with_alpha(white_dim(), 0.8),
+    );
+
+    // ── the launch that put this body in hitstun ─────────────────────────
+    if body.hitstun_s > 0.0 && body.velocity.length_squared() > 1.0 {
+        draw_arrow(
+            gizmos,
+            w2(world, center),
+            w2(world, center + body.velocity * 0.12),
+            orange(),
+        );
+    }
+
+    // ── three locks that look identical on screen ────────────────────────
+    let locks = [
+        (body.hitstun_s, cyan()),
+        (body.hitlag_s, red()),
+        (body.landing_lag_s, yellow()),
+    ];
+    for (row, (seconds, color)) in locks.iter().enumerate() {
+        if *seconds <= 0.0 {
+            continue;
+        }
+        // A half-second lock fills the track; anything longer is pinned so a
+        // pathological value still reads as "very long" rather than off-screen.
+        let width = (seconds / 0.5).clamp(0.0, 1.0) * TRACK_W;
+        let y = center.y + half.y + 10.0 + row as f32 * 3.0;
+        gizmos.line_2d(
+            w2(world, ae::Vec2::new(left, y)),
+            w2(world, ae::Vec2::new(left + width, y)),
+            *color,
+        );
     }
 }
 

@@ -730,6 +730,41 @@ but worth recording that the sweep mis-fired twice — inserting into `impl
 MoveSpec {` and into `fn … -> MoveSpec {` signature lines. A brace-matching sweep
 over a type name matches the type's *other* syntactic homes too.
 
+## ✔ F1 is a tuning instrument (2026-08-09)
+
+Jon's list — *move and phase, live strike shape, facing/attack orientation,
+percent, launch vector, hitstop and hitstun, semantic contact* — is on the read
+model and on the screen.
+
+`CombatBodyGeometryView` now carries the body's identity, `damage_taken`
+(percent), live `facing`, `velocity`, `hitstun_s`, `hitlag_s`,
+`landing_lag_s`, `grounded`, `on_wall`/`wall_normal_x`, and a `CombatMoveView`
+with the move's id, its authored **phase**, elapsed/duration, the **committed
+attack facing**, and whether it has already landed a hit.
+
+⭐ **`velocity` rather than a stored "last launch".** During hitstun a body's
+velocity IS the launch it took, so the instrument reads the fact where it lives
+instead of adding rollback state that exists only to be displayed.
+
+**Drawn in gizmos only**, so it needs no font and works in every composition the
+overlay already runs in:
+
+* a **phase bar** above each body — the move's whole duration as a track, filled
+  to the clock, coloured by authored window (Startup yellow, Active red,
+  Recovery blue). *"Did that connect during active, or did I walk into them
+  during recovery"* is unanswerable without it.
+* a **launch arrow** while the body is in hitstun.
+* **two facing ticks** — live facing and the move's committed orientation. They
+  agree almost always; the times they do not are the times you need to see it.
+* **three lock bars** — hitstun, hitlag, landing lag. On screen all three look
+  like "the fighter is not moving", and they are three different reasons.
+
+⛔ no controller, no faction, no primary-player check anywhere in it: the
+readout draws whatever the read model published, which is every combat body.
+The guard asserts exactly that — a body with no markers at all publishes the
+whole readout, including a **body facing +1 while its move committed to -1**,
+which is the disagreement a single-facing instrument could never show.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

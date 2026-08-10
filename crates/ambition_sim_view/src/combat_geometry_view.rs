@@ -12,11 +12,68 @@ use ambition_combat::hitbox::{Hitbox, HitboxAnchor};
 use ambition_platformer2d_core as ae;
 use bevy::prelude::{Query, ResMut, Resource, With};
 
-/// One combat body's collision envelope and effective damageable silhouette.
+/// What a body's move is doing RIGHT NOW, projected for an observer.
+///
+/// The readout that turns a box renderer into a tuning instrument: a designer
+/// watching a swing needs to see which phase it is in and how far through, not
+/// infer it from when the red box appeared.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CombatMoveView {
+    /// Authored move id, so the readout names the thing being tuned.
+    pub id: String,
+    /// The window the move's clock is inside, as authored — `Startup`,
+    /// `Active`, `Recovery`, `Invuln`, `Armor`, `Cancel`. `None` between
+    /// authored windows, which is itself worth seeing.
+    pub phase: Option<ambition_entity_catalog::WindowTag>,
+    /// Seconds of the owner's proper time elapsed, and the move's total. Both,
+    /// because "0.18s in" means nothing without "of 0.68".
+    pub elapsed_s: f32,
+    pub duration_s: f32,
+    /// The orientation the move COMMITTED to at startup — not the body's live
+    /// facing. Seeing the two disagree is the whole point of the snapshot.
+    pub attack_facing: f32,
+    /// Has this move already connected? Drives cancels, and explains why a
+    /// follow-up did or did not become available.
+    pub landed_hit: bool,
+}
+
+/// One combat body's geometry AND the state a designer tunes against.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CombatBodyGeometryView {
+    /// Which body this row is, so an observer can label it and follow it.
+    pub body: bevy::prelude::Entity,
     pub collision: ae::Aabb,
     pub hurtboxes: Vec<ae::CombatVolume>,
+    /// **Accumulated damage — "percent".** The number every knockback
+    /// calculation in the game reads, and the one a tuner is watching.
+    pub damage_taken: i32,
+    /// The body's LIVE locomotion facing. Compare with
+    /// [`CombatMoveView::attack_facing`].
+    pub facing: f32,
+    /// Seconds of hitstun left: the window in which this body has reduced
+    /// authority because something hit it.
+    pub hitstun_s: f32,
+    /// Seconds of hitlag left: the freeze a connect bought, on either side of
+    /// it.
+    pub hitlag_s: f32,
+    /// Seconds of authored landing lag left — a hard lock that is NOT hitstun,
+    /// and reads identically on screen unless the instrument distinguishes them.
+    pub landing_lag_s: f32,
+    /// **The body's velocity.** During hitstun this IS the launch it took — the
+    /// launch vector Jon asked the instrument to show, read where it lives
+    /// rather than stored a second time as a display-only fact. ⚠ outside
+    /// hitstun it is ordinary locomotion; the observer pairs it with
+    /// [`Self::hitstun_s`].
+    pub velocity: ae::Vec2,
+    /// Semantic contact facts, so "why did it not turn / not jump" is visible.
+    pub grounded: bool,
+    /// Is this body touching a wall, and which way does the wall face? The
+    /// SEMANTIC contact the movement kernel publishes — the fact autonomous
+    /// policy turns on, and the one that explains a body pressing into geometry.
+    pub on_wall: bool,
+    pub wall_normal_x: f32,
+    /// The move this body is playing, if any.
+    pub move_state: Option<CombatMoveView>,
 }
 
 /// Exact live strike geometry, already resolved into world space.
@@ -76,7 +133,17 @@ fn effective_hurtboxes(
 /// consulted.
 pub fn rebuild_combat_geometry_view(
     bodies: Query<
-        (&CenteredAabb, Option<&DamageableVolumes>),
+        (
+            bevy::prelude::Entity,
+            &CenteredAabb,
+            Option<&DamageableVolumes>,
+            &ambition_characters::actor::BodyCombat,
+            Option<&ambition_characters::actor::BodyHealth>,
+            Option<&ae::BodyKinematics>,
+            Option<&ae::BodyGroundState>,
+            Option<&ae::BodyWallState>,
+            Option<&ambition_combat::moveset::MovePlayback>,
+        ),
         With<ambition_characters::actor::BodyCombat>,
     >,
     hitboxes: Query<(bevy::prelude::Entity, &Hitbox)>,
@@ -87,11 +154,34 @@ pub fn rebuild_combat_geometry_view(
     view.bodies.clear();
     view.strikes.clear();
 
-    for (aabb, damageable) in &bodies {
+    for (body, aabb, damageable, combat, health, kin, ground, wall, playback) in &bodies {
         let collision = aabb.aabb();
         view.bodies.push(CombatBodyGeometryView {
+            body,
             collision,
             hurtboxes: effective_hurtboxes(collision, damageable),
+            damage_taken: health.map(|h| h.damage_taken()).unwrap_or(0),
+            facing: kin.map(|k| k.facing).unwrap_or(1.0),
+            hitstun_s: combat.hitstun_timer,
+            hitlag_s: combat.hitstop_timer,
+            landing_lag_s: combat.landing_lag_timer,
+            velocity: kin.map(|k| k.vel).unwrap_or_default(),
+            grounded: ground.map(|g| g.on_ground).unwrap_or(false),
+            on_wall: wall.map(|w| w.on_wall).unwrap_or(false),
+            wall_normal_x: wall.map(|w| w.wall_normal_x).unwrap_or(0.0),
+            move_state: playback.map(|pb| CombatMoveView {
+                id: pb.spec.id.clone(),
+                phase: pb
+                    .spec
+                    .windows
+                    .iter()
+                    .find(|w| pb.t >= w.start_s && pb.t < w.end_s)
+                    .map(|w| w.tag.clone()),
+                elapsed_s: pb.t,
+                duration_s: pb.spec.duration_s,
+                attack_facing: pb.facing,
+                landed_hit: pb.landed_hit,
+            }),
         });
     }
 
@@ -224,5 +314,89 @@ mod tests {
         let mut intangible = DamageableVolumes::default();
         intangible.clear();
         assert!(effective_hurtboxes(collision, Some(&intangible)).is_empty());
+    }
+
+    /// ⭐⭐ **The tuning readout is a projection, and it needs no protagonist.**
+    ///
+    /// Jon's list for F1 — move and phase, facing versus attack orientation,
+    /// percent, hitstop and hitstun, semantic contact — is what a designer reads
+    /// INSTEAD of a log while dialling combat. This asserts the read model
+    /// carries all of it for a body with no `PrimaryPlayerOnly`, no controller
+    /// marker and no faction, because "do not make any of those require a
+    /// designated primary protagonist" is half the ask.
+    #[test]
+    fn the_tuning_readout_reaches_a_body_no_human_controls() {
+        let mut app = App::new();
+        app.init_resource::<CombatGeometryView>();
+        app.add_systems(Update, rebuild_combat_geometry_view);
+
+        let mut spec = ambition_combat::moveset::simple_melee(
+            &ambition_combat::moveset::SimpleMeleeParams::default(),
+        );
+        spec.id = "test_swat".to_string();
+        let mut playback = ambition_combat::moveset::MovePlayback::new(spec, -1.0);
+        // Park the clock inside the authored Startup window.
+        playback.t = 0.01;
+
+        let center = ae::Vec2::new(40.0, 60.0);
+        app.world_mut().spawn((
+            CenteredAabb::from_center_size(center, ae::Vec2::new(12.0, 24.0)),
+            ambition_characters::actor::BodyCombat {
+                hitstun_timer: 0.21,
+                hitstop_timer: 0.07,
+                landing_lag_timer: 0.13,
+                ..Default::default()
+            },
+            ambition_characters::actor::BodyHealth::restored(
+                ambition_characters::actor::Health::new(100),
+                47,
+                Default::default(),
+            ),
+            ae::BodyKinematics {
+                pos: center,
+                vel: ae::Vec2::new(220.0, -180.0),
+                size: ae::Vec2::new(12.0, 24.0),
+                // ⭐ the body has TURNED since its move committed.
+                facing: 1.0,
+            },
+            ae::BodyGroundState::default(),
+            ae::BodyWallState {
+                on_wall: true,
+                wall_normal_x: -1.0,
+            },
+            playback,
+        ));
+
+        app.update();
+        let view = app.world().resource::<CombatGeometryView>();
+        let row = view.bodies.first().expect("the body is observed at all");
+
+        assert_eq!(row.damage_taken, 47, "percent is what knockback growth reads");
+        assert!((row.hitstun_s - 0.21).abs() < 1e-6);
+        assert!((row.hitlag_s - 0.07).abs() < 1e-6);
+        assert!(
+            (row.landing_lag_s - 0.13).abs() < 1e-6,
+            "landing lag is its OWN readout — it looks like hitstun on screen \
+             and is a different fact"
+        );
+        assert_eq!(row.velocity, ae::Vec2::new(220.0, -180.0));
+        assert!(row.on_wall && row.wall_normal_x < 0.0);
+
+        let move_state = row
+            .move_state
+            .as_ref()
+            .expect("a body mid-move publishes its move");
+        assert_eq!(move_state.id, "test_swat");
+        assert_eq!(
+            move_state.phase,
+            Some(ambition_entity_catalog::WindowTag::Startup),
+            "the phase is the authored window the clock is inside"
+        );
+        assert!(move_state.duration_s > 0.0);
+        // ⭐ **the disagreement is the point.** The body faces +1 and the move
+        // committed to -1; an instrument that showed only one of them could not
+        // explain why the strike is on the far side.
+        assert_eq!(move_state.attack_facing, -1.0);
+        assert_eq!(row.facing, 1.0);
     }
 }

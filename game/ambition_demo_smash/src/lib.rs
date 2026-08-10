@@ -1658,8 +1658,21 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // it is this game's kit that is wrong for it, not every game's.
             // Mary-O and the exploration protagonist keep the recoil they were
             // tuned with.
+            // **A FIGHTER'S JUMP IS COMMITTAL; AN EXPLORER'S IS NOT.**
+            //
+            // Three frames of grounded crouch before takeoff — the universal
+            // jump-squat in Smash Ultimate, and the window that makes an
+            // opponent's jump a READ rather than an instant escape. Everything
+            // downstream of it already exists: a body struck during the crouch
+            // loses the leap, and a tap released inside it still short-hops.
+            //
+            // ⛔ authored HERE, not in the engine. `DEFAULT_TUNING` keeps 0.0
+            // because a squat is not a better jump, it is a different game's
+            // jump — Mary-O's SMB1 convergence requires the leap on the press
+            // tick, and the exploration protagonist was tuned without one.
             definition.movement_tuning = Some(ambition_platformer2d::engine_core::MovementTuning {
                 slash_recoil: 0.0,
+                jump_squat_time: 3.0 / 60.0,
                 ..ambition_platformer2d::engine_core::DEFAULT_TUNING
             });
             app.register_character(definition);

@@ -851,6 +851,14 @@ body is deliberately crouching" are the same picture — which is exactly why th
 instrument names them apart. Read through `MotionModel::jump_squat_remaining()`,
 a projection every body can be asked and only one policy variant can answer.
 
+### ✔ and the fighters actually have one
+
+`jump_squat_time: 3.0 / 60.0` on the Smash duelist's `movement_tuning` — the
+universal three-frame squat of Smash Ultimate, authored beside `slash_recoil:
+0.0` in the same block and for the same reason: ⛔ it is **this game's** kit, not
+every game's. `DEFAULT_TUNING` stays `0.0`, because a squat is not a better jump,
+it is a different game's jump.
+
 ▢ **still open from the feel list**: hitbox tracks, pose-aware hurtboxes, DI.
 
 ## Execution order (mine, revise as measurements land)

@@ -81,7 +81,7 @@ path works beside the old one.
 
 | # | Phase | State |
 |---|---|---|
-| 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ▢ |
+| 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ▢ **in progress** — see "phase 1 progress" below |
 | 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ |
 | 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ▢ |
 | 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
@@ -95,6 +95,31 @@ legacy (`ArchetypeSpec` 319, roster/enemies module 1,198,
 `character_archetypes.ron` 845, `enemy_roster.rs` 75), with `ActorTuning` (275)
 and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
 −2400 old* means the old model was wrapped rather than removed.
+
+## ⇥ Phase 1 progress (agent, keep this current)
+
+* ✔ **the field-ownership ledger** — appendix A, all 49 `ArchetypeSpec` fields
+  classified against consumers, with seven judgement calls written up.
+* ✔ **the multi-instance invariant is PINNED** —
+  `one_character_definition_seats_two_independent_fighters`
+  (`character_runtime/prepared_match/tests.rs`). A mirror match seats two bodies
+  of one definition: same identity, different entity, seat, position and health
+  pool. Falsified two ways — damaging both bodies reds the independence half,
+  seating a second character reds the identity half.
+* ✔ **the uniqueness audit the brief asks for is CLEAN.** Nothing in the
+  workspace maps a character id to exactly one entity: the `String → Entity`
+  maps that exist are keyed by sim id, encounter id or block name, and every
+  `duplicate` guard in `ambition_characters` is about DEFINITIONS
+  (`duplicate_character_ids_fail_with_stable_provider_names`,
+  `duplicate_display_names_are_rejected_deterministically`), which is the
+  correct place for one. ⇒ **instancing is not blocked by an existing
+  assumption**, and `MatchSeat`'s own doc already anticipated the collision:
+  *"the worn character id collides in a mirror match."*
+* ▢ next: whether `WornCharacter` becomes the `CharacterIdentity` the brief
+  names. It is already a component in `ambition_characters` holding a character
+  id, already carried by non-player bodies (`sanic/badnik.rs`), and already the
+  authority the renderer binds from — so the work is extending it to every spawn
+  path and retiring `ActorConfig::sprite_character_id`, not inventing a type.
 
 ## What this decision also settles elsewhere
 

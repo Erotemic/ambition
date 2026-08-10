@@ -2077,3 +2077,98 @@ fn an_unseatable_brain_profile_publishes_a_refusal_that_names_it() {
          pass exists to prevent"
     );
 }
+
+/// **ONE DEFINITION, TWO INDEPENDENT INSTANCES** — the invariant D73 rests on.
+///
+/// Jon, 2026-08-10: *"A character is a reusable authored template, not a
+/// singleton person … `spawn Fretjaw` twice → two independent Fretjaw actors."*
+/// A mirror match is that sentence expressed in the one construction path a
+/// match already uses, so it is where the invariant is cheapest to pin.
+///
+/// ⚠ **this passes today and is still worth writing.** The campaign moves NPC,
+/// enemy, encounter and summon construction onto this path, and the failure it
+/// guards against is not a uniqueness check somebody adds deliberately — it is a
+/// shared or memoized per-character value leaking between instances, which reads
+/// as "both Fretjaws lost health" and looks like a damage bug.
+///
+/// ⭐ the codebase already knew about mirror matches from the other end:
+/// [`MatchSeat`]'s doc says *"the worn character id collides in a mirror
+/// match"*, which is why seats are the identity rules use. This asserts the
+/// complementary half — that the collision is legal.
+#[test]
+fn one_character_definition_seats_two_independent_fighters() {
+    let mut app = seating_app();
+    let mut fretjaw = CharacterDefinition::new("fretjaw", "Fretjaw", "demo");
+    fretjaw.vitals = crate::character_runtime::Vitals {
+        max_health: Some(40),
+        mass: Some(1.0),
+    };
+    app.register_character(fretjaw);
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("fretjaw"), cpu("fretjaw")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        Entity,
+        &ambition_characters::actor::WornCharacter,
+        &MatchSeat,
+        &ambition_platformer2d_shared_tangle::body::BodyKinematics,
+    )>();
+    let mut seated: Vec<(Entity, String, usize, f32)> = q
+        .iter(world)
+        .map(|(entity, worn, seat, kin)| (entity, worn.id().to_string(), seat.0, kin.pos.x))
+        .collect();
+    seated.sort_by_key(|(_, _, seat, _)| *seat);
+
+    assert_eq!(
+        seated.len(),
+        2,
+        "a mirror match is two bodies of one character: {seated:?}"
+    );
+    // SAME character identity …
+    assert_eq!(seated[0].1, "fretjaw");
+    assert_eq!(seated[1].1, "fretjaw");
+    // … and DIFFERENT runtime identity, in every sense a rules layer uses.
+    assert_ne!(
+        seated[0].0, seated[1].0,
+        "two instances of one character are two entities"
+    );
+    assert_ne!(seated[0].2, seated[1].2, "each instance holds its own seat");
+    assert_ne!(
+        seated[0].3, seated[1].3,
+        "two Fretjaws stand in two places, not one"
+    );
+
+    // ⭐ **the assertion that catches a SHARED per-character value**, which is the
+    // real risk when construction is unified: hurt one and the other must not
+    // feel it. A memoized definition-keyed health would pass every line above.
+    let (first, second) = (seated[0].0, seated[1].0);
+    let before = app
+        .world()
+        .get::<ambition_characters::actor::BodyHealth>(second)
+        .expect("a seated fighter has health")
+        .current();
+    app.world_mut()
+        .get_mut::<ambition_characters::actor::BodyHealth>(first)
+        .expect("a seated fighter has health")
+        .damage(7);
+    let hurt = app
+        .world()
+        .get::<ambition_characters::actor::BodyHealth>(first)
+        .expect("a seated fighter has health")
+        .current();
+    let untouched = app
+        .world()
+        .get::<ambition_characters::actor::BodyHealth>(second)
+        .expect("a seated fighter has health")
+        .current();
+    assert!(hurt < before, "the struck Fretjaw lost health: {hurt}");
+    assert_eq!(
+        untouched, before,
+        "the OTHER Fretjaw shares a definition, not a health pool"
+    );
+}

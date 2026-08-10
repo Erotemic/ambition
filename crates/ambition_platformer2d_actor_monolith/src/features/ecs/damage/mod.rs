@@ -767,7 +767,20 @@ pub fn apply_feature_hit_events(
                     // (0.055) that previously had NO reader — the attacker's
                     // hit-landed hitstop was hardcoded 0.06. Now the feel field is
                     // authoritative.
-                    combat.hitstop_timer = combat.hitstop_timer.max(feel.attack_hitstop_time);
+                    // ⭐ **the attacker freezes for exactly as long as its victim**,
+                    // from the one hitlag law, scaled by the hit it just landed.
+                    // Two unscaled constants at two sites used to decide this,
+                    // and a connect that reads as one event cannot be built out
+                    // of two numbers that may drift.
+                    combat.hitstop_timer = combat.hitstop_timer.max(
+                        ambition_platformer2d_core::hit_response::hitlag_duration(
+                            event.knockback.as_ref(),
+                            &crate::features::ecs::damage_apply::hit_response_tuning(
+                                &feel,
+                                heavy_attacker,
+                            ),
+                        ),
+                    );
                     // ⛔ **A PROJECTILE HIT DOES NOT FLASH ITS THROWER.** The
                     // attacker flash is CONTACT feel — it reads as "that connected
                     // on my body", which is true for a slash or a pogo bounce and

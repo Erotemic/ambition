@@ -185,6 +185,10 @@ impl ShadowTuning {
                 hitstun_reference_launch:
                     ambition_platformer2d_core::hit_response::STANDARD_LAUNCH_SPEED,
                 hitstun_max_scale: ambition_platformer2d_core::hit_response::MAX_HITSTUN_SCALE,
+                // The shadow rollout predicts the victim's LAUNCH; hitlag is a
+                // clock beat it does not simulate, so the row carries the
+                // engine default rather than a second opinion about feel.
+                hitlag_time: 0.070,
                 di_max_angle: 0.0,
             },
             assumed_foe_reach: 60.0,
@@ -225,6 +229,10 @@ impl ShadowTuning {
                 hitstun_reference_launch:
                     ambition_platformer2d_core::hit_response::STANDARD_LAUNCH_SPEED,
                 hitstun_max_scale: ambition_platformer2d_core::hit_response::MAX_HITSTUN_SCALE,
+                // The shadow rollout predicts the victim's LAUNCH; hitlag is a
+                // clock beat it does not simulate, so the row carries the
+                // engine default rather than a second opinion about feel.
+                hitlag_time: 0.070,
                 di_max_angle: 0.0,
             },
             gravity: movement.gravity,

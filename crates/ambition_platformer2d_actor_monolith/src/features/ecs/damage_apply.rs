@@ -85,6 +85,7 @@ pub(crate) fn hit_response_tuning(
         // the duration a REFERENCE-strength hit arms.
         hitstun_reference_launch: ae::hit_response::STANDARD_LAUNCH_SPEED,
         hitstun_max_scale: ae::hit_response::MAX_HITSTUN_SCALE,
+        hitlag_time: feel.hitlag_time,
         di_max_angle: feel.di_max_angle,
     }
 }
@@ -866,7 +867,12 @@ pub(crate) fn apply_body_hit_reaction(
     // clears (while still in hitstun + i-frames). Fixed-length — the recoil is a
     // readable beat, not something that scales with how hard the hit was.
     combat.recoil_lock_timer = feel.knockback_recoil_lock_time;
-    combat.hitstop_timer = feel.player_damage_hitstop_time;
+    // ⭐ **the same freeze the ATTACKER takes**, from the same law — a landed hit
+    // is one event. `max` because a body struck twice in a frame keeps the
+    // longer pause rather than the last one written.
+    combat.hitstop_timer = combat
+        .hitstop_timer
+        .max(ae::hit_response::hitlag_duration(knockback, &response));
     // CARRY THE LAUNCH, for exactly as long as the body cannot answer for it.
     //
     // The floor is the run-axis component of the velocity just written, in the

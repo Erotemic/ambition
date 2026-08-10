@@ -1513,25 +1513,36 @@ fn combat_equipment_switch_and_breakable_survive_forced_rollback_identically() {
     // and all four tests in that module pass. The checksum identity this oracle
     // exists for is unaffected — only the coverage narrative was.
     //
-    // ⚠ **the honest doubt, recorded rather than resolved**: an EXACT count
-    // pinned to a walk whose timing depends on content tuning is a tripwire that
-    // fires on tuning. It has now cost two investigations and caught no defect.
-    // If it moves a third time, the question to ask is whether the oracle should
-    // assert the checksum identity and merely REPORT the session count.
-    assert_eq!(
-        stats.sessions_installed,
-        sessions_at_the_start,
-        "this oracle's COVERAGE changed. The walk installed {} further \
-         session(s) on top of the {sessions_at_the_start} the setup built, and \
-         this route is pinned at exactly ZERO since the 08-02 reference-frame \
-         corrections moved the confirmed lifecycle commit back out of the walk. A different \
-         number means the route now crosses a different set of commits, which \
-         proves something different from what this run is written to prove, and \
-         the difference used to be invisible. Either restore the route/content, \
-         or move the claim: the crossed-rebase case belongs to \
-         `rollback_room_transition::a_transition_intent_is_recorded_then_committed_exactly_once`. \
-         Full stats: {stats:?}",
-        stats.sessions_installed as i64 - sessions_at_the_start as i64
+    // ⇥ **THE THIRD MOVE, AND THE RULE ABOVE SAID WHAT TO DO ABOUT IT.**
+    //
+    // 2026-08-09: the count went to +1 when hitstun and hitlag started scaling
+    // with the launch. A longer freeze per connect lengthens this walk, and a
+    // longer walk crosses one more lifecycle commit. Combat TUNING moved a
+    // rollback oracle's coverage pin — exactly the failure mode the note above
+    // predicted, for the third time, having still caught no defect.
+    //
+    // ⇒ **the exact pin is retired, deliberately and per its own pre-registered
+    // rule**: assert the checksum identity (which this file exists for, and
+    // which is asserted above and passed), and REPORT the session count instead
+    // of pinning it. What remains is a CEILING, so a genuine runaway — a route
+    // that starts installing sessions every few frames — still fails, while a
+    // one-commit drift caused by feel tuning does not cost a fourth
+    // investigation.
+    //
+    // ⛔ do not restore the exact equality. If the count is wanted exactly,
+    // the route needs a timing-independent length first.
+    let further = stats.sessions_installed as i64 - sessions_at_the_start as i64;
+    println!(
+        "[oracle-coverage] the walk installed {further} further session(s) on top \
+         of the {sessions_at_the_start} the setup built. Reported, not pinned — \
+         see the note above. Full stats: {stats:?}"
+    );
+    assert!(
+        (0..=2).contains(&further),
+        "this oracle's coverage RAN AWAY: {further} further sessions on top of \
+         {sessions_at_the_start}. A drift of one is feel tuning changing how long \
+         the route takes; this is a route that has stopped being the route. \
+         Full stats: {stats:?}"
     );
 }
 

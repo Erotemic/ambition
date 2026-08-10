@@ -93,6 +93,15 @@ pub struct HitResponseTuning {
     /// Ceiling on the reaction scale, so a launch at kill percent cannot stun
     /// for seconds. Applied after the reference division.
     pub hitstun_max_scale: f32,
+    /// **Hitlag at reaction scale `1.0`: the shared freeze a connect buys.**
+    ///
+    /// ⛔ **ONE number for both bodies.** Attacker and victim used two —
+    /// `attack_hitstop_time` (0.055) and `player_damage_hitstop_time` (0.070) —
+    /// applied at two sites, neither scaled by how hard the hit was. A landed
+    /// strike is one event and the pause it buys is one duration; two constants
+    /// that can drift apart are two chances for the connect to read as mushy on
+    /// one side of it.
+    pub hitlag_time: f32,
     /// DI budget (radians). `0.0` disables directional influence entirely.
     pub di_max_angle: f32,
 }
@@ -173,6 +182,19 @@ pub fn hitstun_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTu
     tuning.hitstun_time * reaction_scale(knockback, tuning).max(0.35)
 }
 
+/// **THE hitlag a landed hit buys — the same freeze for attacker and victim.**
+///
+/// Scales with the hit exactly as hitstun does, so a jab taps and a smash
+/// *lands*; the perceived weight of a connect is mostly this. Floored at half
+/// the standard so even the weakest connect is a readable beat rather than
+/// nothing, and it rides the same [`reaction_scale`] ceiling.
+///
+/// ⚠ **both sides freeze for the SAME duration**, which is what makes a connect
+/// read as one event rather than two things happening near each other.
+pub fn hitlag_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTuning) -> f32 {
+    tuning.hitlag_time * reaction_scale(knockback, tuning).max(0.5)
+}
+
 /// THE frame-agnostic knockback velocity for ANY struck body (§A2 step 6):
 /// side away from the hit's source (falling back to the stored event dir, then
 /// away from facing), launched with a rise against the body's gravity.
@@ -239,4 +261,71 @@ pub fn knockback_velocity(
     // CM2: the victim's held input rotates its own launch, bounded by the
     // authored DI budget. Inert at `di_max_angle == 0` (Ambition today).
     di_adjust(launch, di_input_local, gravity_dir, tuning.di_max_angle)
+}#[cfg(test)]
+mod hitlag_tests {
+    use super::*;
+
+    fn tuning() -> HitResponseTuning {
+        HitResponseTuning {
+            knockback_x: 100.0,
+            knockback_y: 100.0,
+            hitstun_time: 0.24,
+            hitstun_reference_launch: STANDARD_LAUNCH_SPEED,
+            hitstun_max_scale: MAX_HITSTUN_SCALE,
+            hitlag_time: 0.070,
+            di_max_angle: 0.0,
+        }
+    }
+
+    fn launch(speed: f32) -> HitKnockback {
+        HitKnockback {
+            dir: 1.0,
+            magnitude: HitKnockbackMagnitude::LaunchSpeed(speed),
+            source_pos: Vec2::ZERO,
+            impact_pos: Vec2::ZERO,
+            launch_dir: None,
+        }
+    }
+
+    /// ⭐⭐ **A connect is ONE event, so it buys ONE freeze.**
+    ///
+    /// Attacker and victim call this same function with the same landed hit, so
+    /// there is no arrangement of tuning that lets the two sides of a connect
+    /// pause for different lengths. Before it there were two unscaled constants
+    /// at two call sites — 0.055 and 0.070 — which is two chances for a hit to
+    /// read as mushy on one side of itself.
+    #[test]
+    fn hitlag_is_one_duration_for_both_bodies_and_scales_with_the_hit() {
+        let t = tuning();
+        let reference = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED)), &t);
+        assert!((reference - t.hitlag_time).abs() < 1e-6);
+
+        // ⭐ a heavier connect freezes longer — this is most of what "weight"
+        // feels like, and a flat constant cannot express it.
+        let heavy = hitlag_duration(Some(&launch(STANDARD_LAUNCH_SPEED * 3.0)), &t);
+        assert!(heavy > reference * 2.5, "a big launch lands hard: {heavy}");
+
+        // …and the weakest connect is still a readable beat, never nothing.
+        let poke = hitlag_duration(Some(&launch(1.0)), &t);
+        assert!(poke >= t.hitlag_time * 0.5 - 1e-6 && poke < reference);
+
+        // ⛔ the poison: hitlag and hitstun read the SAME scale off the SAME
+        // hit. If one grows and the other does not, the pause and the stun have
+        // drifted apart and the connect stops reading as a single event.
+        for speed in [40.0_f32, STANDARD_LAUNCH_SPEED, 600.0] {
+            let k = launch(speed);
+            let lag = hitlag_duration(Some(&k), &t) / t.hitlag_time;
+            let stun = hitstun_duration(Some(&k), &t) / t.hitstun_time;
+            // Floors differ deliberately (0.5 vs 0.35), so compare only where
+            // neither is clamped.
+            if lag > 0.5 + 1e-6 && stun > 0.35 + 1e-6 {
+                assert!(
+                    (lag - stun).abs() < 1e-6,
+                    "lag {lag} and stun {stun} must ride one scale at {speed}"
+                );
+            }
+        }
+    }
 }
+
+

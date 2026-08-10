@@ -640,7 +640,7 @@ green fields:
 |---|---|
 | **move-facing snapshot** | ✔ **already correct.** `MovePlayback` captures `facing` at move start, every strike volume mirrors through it, nothing writes it afterwards. What was missing was a GUARD — now `a_live_strike_keeps_the_facing_its_move_started_with`, whose vacuity half asserts the body genuinely turned. |
 | **one authoritative move timeline** | ✔ largely there — `MovePlayback` owns startup/active/recovery windows and `BodyMelee` is already a projection of it (that was item 8's melee slice). |
-| **hitstop/hitlag** | ✔ present but ASYMMETRIC — `attack_hitstop_time` (0.055) for the attacker, `player_damage_hitstop_time` (0.070) for a player victim. ▢ an actor victim's hitstop and a single authored source are open. |
+| **hitstop/hitlag** | ✔ **now one law** — see below. ⚠ my first reading said "asymmetric, and an actor victim gets none"; the victim side was already body-generic (`apply_body_hit_reaction` is the ONE reaction). The real defect was two unscaled constants at two sites. |
 | **landing lag / autocancel** | ▢ genuinely absent. |
 
 ### ✔ hitstun scales with the launch (2026-08-09) — the one that was WRONG
@@ -666,6 +666,38 @@ stuns less (floored at 0.35), a grown smash stuns up to 4×.
 ⭐ the test that pinned the old behaviour was *right about its own concern* — a
 launch SPEED must never be read as a bare scale, or 120 px/s arms 120× the
 hitstun. That poison is kept; only the flatness went.
+
+### ✔ hitlag is one law for both bodies (2026-08-09)
+
+`attack_hitstop_time` (0.055) and `player_damage_hitstop_time` (0.070) are one
+`hitlag_time` (0.070), and both sites call `hitlag_duration`, which rides the
+same `reaction_scale` hitstun does. **A connect is one event, so it buys one
+freeze** — and it scales, which is most of what "weight" feels like.
+
+The guard's poison is the interesting half: hitlag and hitstun must read the
+*same* scale off the *same* hit, compared only where neither is clamped (the
+floors differ deliberately — 0.5 vs 0.35). If one grows and the other does not,
+the pause and the stun have drifted and the connect stops reading as one event.
+
+### ⇥ and a tripwire retired, by its own pre-registered rule
+
+`rollback_exit_oracle`'s coverage pin — an EXACT session count — went red: the
+longer freeze lengthens the walk, and a longer walk crosses one more lifecycle
+commit. **The pin's own comment had already written the rule**: *"an EXACT count
+pinned to a walk whose timing depends on content tuning is a tripwire that fires
+on tuning. It has now cost two investigations and caught no defect. If it moves a
+third time, ask whether the oracle should assert the checksum identity and merely
+REPORT the session count."*
+
+This was the third time. ⇒ the count is reported, with a **ceiling** kept so a
+genuine runaway still fails; the checksum identity the file exists for is
+untouched and still asserted. ⭐ following a decision rule the earlier self wrote
+down cost one commit instead of a fourth investigation — the argument for writing
+the rule at the time rather than the doubt.
+
+⚠ **one wrong turn, recorded**: I first blamed the walker dying and added a deep-HP
+guard — which `wear_oracle_armor` already had, twenty lines up. Reverted. Reading
+the fixture before patching it would have cost less than the probe did.
 
 ## Execution order (mine, revise as measurements land)
 

@@ -19,7 +19,13 @@ pub struct Platformer2dFeelTuningMonolith {
     pub down_double_tap_window: f32,
     pub up_double_tap_window: f32,
     pub interaction_buffer_time: f32,
-    pub attack_hitstop_time: f32,
+    /// **Hitlag at a reference-strength connect** — the freeze BOTH bodies take
+    /// when a strike lands, scaled by how hard it landed.
+    ///
+    /// ⛔ this replaces `attack_hitstop_time` (0.055, attacker) and
+    /// `player_damage_hitstop_time` (0.070, victim): two unscaled constants at
+    /// two sites for one event.
+    pub hitlag_time: f32,
     pub reset_flash_time: f32,
     pub edge_transition_cooldown: f32,
     pub door_transition_cooldown: f32,
@@ -59,8 +65,6 @@ pub struct Platformer2dFeelTuningMonolith {
     pub knockback_invulnerability_time: f32,
     /// Post-respawn invulnerability after lava/spike-style hazard recovery.
     pub hazard_respawn_invulnerability_time: f32,
-    /// Hitstop on the receiving side of enemy/boss damage.
-    pub player_damage_hitstop_time: f32,
     /// Directional-influence budget (CM2), radians: the maximum the victim's
     /// held control may rotate its OWN knockback launch. Reads the victim's
     /// `ActorControl.locomotion` (the same gated input every system reads), so
@@ -81,7 +85,7 @@ impl Default for Platformer2dFeelTuningMonolith {
             down_double_tap_window: 0.24,
             up_double_tap_window: 0.30,
             interaction_buffer_time: 0.120,
-            attack_hitstop_time: 0.055,
+            hitlag_time: 0.070,
             reset_flash_time: 0.18,
             edge_transition_cooldown: 0.14,
             door_transition_cooldown: 0.16,
@@ -101,7 +105,6 @@ impl Default for Platformer2dFeelTuningMonolith {
             knockback_recoil_lock_time: 0.12,
             knockback_invulnerability_time: 0.75,
             hazard_respawn_invulnerability_time: 1.10,
-            player_damage_hitstop_time: 0.070,
             // DI off by default — Ambition's PvE knockback is unchanged; a
             // fighter demo authors a nonzero budget to enable it.
             di_max_angle: 0.0,

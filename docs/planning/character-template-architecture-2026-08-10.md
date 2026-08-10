@@ -2221,3 +2221,104 @@ The answer should be:
 > ECS runtime underneath it has already been unified. The expensive part is the
 > content/construction migration; the simulation core largely does not need to be
 > reinvented.
+
+---
+
+# ⇥ APPENDIX A (agent, 2026-08-10) — the field-ownership ledger
+
+⚠ **added by the agent, below Jon's brief and outside it.** His brief says
+*"use this classification as the starting point, then verify every field's
+consumers before migrating it."* This is that verification, banked so phase 2
+does not re-derive it.
+
+⛔ **the reference counts are a NAME-BASED UPPER BOUND**, not consumer counts. A
+grep for `\.melee` matches every unrelated `.melee` in the workspace, which is
+why `melee` reads 105 refs in 40 files. Use the count to rank the work, never to
+claim a field is nearly unused — ⭐ but the SMALL numbers are trustworthy in the
+direction that matters: `mount_death_splash` at 1 really is one site.
+
+`ArchetypeSpec` has **49 fields**. Their owners under the new model:
+
+## Pure assembly machinery — deleted, migrates nowhere (2)
+
+| field | note |
+|---|---|
+| `inherits` | archetype-to-archetype inheritance; character definitions reference reusable profiles instead |
+| `movement_resolved` | `#[serde(skip)]`, filled by the roster's inheritance pass — it exists only because the roster exists |
+
+## Character/body intrinsic (26)
+
+`movement` · `max_health` · `run_speed` · `mass` · `surface_walker` ·
+`cling_breaks_on_hit` · `is_aerial` · `explodes_on_death` · `divides_on_death` ·
+`charge_crash_explodes` · `weight` · `mount_class` ·
+`pilotable_mount_classes` · `mount_death_splash` · `default_size` · `melee` ·
+`ranged` · `held_item` · `can_blink` · `can_fly` · `can_shield` · `can_dash` ·
+`body_contact_damage` · `contact_strength` · `signature_move` · `move_style`
+
+## Autonomous-controller policy (11)
+
+`patrol_effort` · `chase_effort` · `aggro_radius` · `attack_range` ·
+`attack_cooldown_mult` · `turns_at_walls` · `brain_template` · `fighter_level` ·
+`smash_hit_band` · `smash_heavy` · `smash_dash_to_close` · `smash_duelist`
+(and `provoke_forced_brute_min_aggro`, below)
+
+⭐ **`turns_at_walls` is not in Jon's starting list and its own doc already
+classifies it**: *"this is control policy consumed by Patrol/Wanderer brains, not
+movement/collision policy."* The field had the answer written on it.
+
+## Spawn / session / ruleset (2)
+
+`respawn` · `attacks_player` — both named in the brief. `attacks_player` is
+**deleted**, not moved: there is no privileged player identity.
+
+## ⭐ THE SEVEN JUDGEMENT CALLS — read these before phase 2
+
+These are the fields where the three-way split does not answer itself. Each one
+is a decision the migration must make deliberately, with what is known:
+
+1. **`is_aerial`** — a live TWO-SOURCE CONFLICT, already documented on the field.
+   `new_peaceful_npc_in` reads the catalog's `body_kind: Floating`; the hostile
+   `EnemySpawn` path reads this. **The Perfect Cellular Automaton is `Floating`
+   in its catalog row and played grounded by the shipped duel.** Unifying the two
+   authorities forces that disagreement to resolve, and resolving it changes how
+   a shipped fight plays. ⛔ do not fold it silently — this is exactly the class
+   of thing the brief means by *"semantically migrated, not blindly trusted"*.
+   `Option<bool>` must survive the move: `None` ≠ `Some(false)` is why the
+   conflict is expressible at all.
+2. **`is_sandbag`** — reads as a character fact and behaves as a placement role.
+   It reaches the RENDER read model (`ActorRenderView.is_sandbag`, a
+   sprite-upgrade fallback), `save_sync`, and cluster pathing. A sandbag is a
+   training instance of some body, which argues placement; but three consumers
+   treat it as identity. Decide once, and move all three.
+3. **`never_dies`** — same shape, cleaner answer: `damage_apply` uses it to make
+   a body take no health damage. That is either an intrinsic trait (an immortal
+   creature) or a training-mode ruleset fact. The brief allows the intrinsic
+   reading *"only where these really are properties of the character"* — the
+   shipped users are sandbags, which suggests it travels with `is_sandbag`.
+4. **`death_policy`** — the brief puts ruleset-owned death behaviour in session
+   context, and `HpDepleted` vs `Unbounded` is precisely a ruleset fact (Ambition
+   has health, a platform fighter has stocks and a blast zone). ⚠ but it is
+   authored per-body today and a mixed roster is expressible. Recommend: ruleset
+   owns the default, a character may not override it.
+5. **`provoke_forced_brute_min_aggro`** — provocation controller policy, which the
+   brief wants authored explicitly rather than inferred. It is a *controller
+   profile selected on a transition*, not a number on the body; the cleanest form
+   is a named provoked-profile reference, and this f32 becomes a field of that
+   profile.
+6. **`ranged_visual`** — the brief's own hint applies: *"a ranged projectile's
+   visual should ideally be carried by the ranged action/projectile specification
+   rather than redundantly copied onto a top-level character."* Move it into
+   `RangedActionSpec`, do not carry it on the character.
+7. **`dream_seed`** — presentation metadata for the psychedelic shader pass.
+   Generic-enough to ride the character definition (like sheet/portrait/voice),
+   but check whether it is Ambition-specific editorial metadata first; the brief
+   forbids Hall/gallery-class concepts entering the generic model.
+
+## The capability-authored-twice set
+
+`can_blink` / `can_fly` / `can_shield` / `can_dash` are body capabilities, and
+`CharacterBrainSpec` carries `smash_can_blink` / `smash_can_fly` /
+`smash_can_shield` alongside them. ⇒ **the duplication the brief calls out is
+real and is exactly these three pairs.** The controller reads the body's
+capability state; only the DECISION flags (`smash_heavy`, `smash_duelist`,
+`smash_dash_to_close`, `fighter_level`) stay on the profile.

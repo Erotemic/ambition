@@ -107,29 +107,24 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     // statement about the PCA, and the cost is real: the PCA is on
     // `SMASH_ROSTER`, so the grid is one portrait shorter.
     //
-    // ⇥ **DIAGNOSED 2026-08-10 (queue D74), and it is none of the three things
-    // this comment and its successors guessed.** Registering it reds
-    // `possession_end_to_end::attack_while_possessing_…`, whose possessed actor
-    // IS the PCA. Probed, in order:
+    // ⇥ **MEASURED 2026-08-10 (queue D74). Registering it reds
+    // `possession_end_to_end::attack_while_possessing_…`, and the difference is
+    // not any of the four things guessed.** Same probe, both builds, at the end
+    // of the attack window:
     //
-    //   * the kit is NOT lost — the body carries all seven attack verbs and
-    //     `ActionSet.melee = Some` (the row's `striker_swipe` folds in);
-    //   * the sampler is NOT missing frames — `world_log::frame()` advances
-    //     exactly **1 per `sim.step`** for all 30 steps;
-    //   * ⭐ **the body is AIRBORNE.** Its live `MovePlayback` is `attack_air`,
-    //     `gates: grounded: Some(false)`, `was_grounded: false`.
+    //     registered      gravity 1.0   on_ground FALSE   size 38.1x96.3   x=663
+    //     not registered  gravity 1.0   on_ground true    size 38.1x96.3   x=1246
     //
-    // ⇒ **registering it flips the PCA from grounded to floating**, because the
-    // catalog row says `body_kind: Floating` while its archetype says
-    // `is_aerial: Some(false)` — *"grounded-base HYBRID … descends on provoke"*.
-    // Two authorities, one body, and registration is what hands the fight to the
-    // catalog. The aerial variant then plays instead of the grounded swing.
+    // ⇒ gravity is normal in BOTH, the collision size is IDENTICAL, and the body
+    // is **580 px away** and airborne. So this is not aerial-ness, not a resize
+    // under its own feet, and not a lost kit (it carries all seven attack
+    // verbs): the possession sequence simply plays out somewhere else, and the
+    // grounded swing never happens because the body is not grounded.
     //
-    // ⭐ this is judgement call #1 in the D73 field-ownership appendix, hit in
-    // the wild: the `is_aerial` two-source conflict, whose own field doc already
-    // named the PCA as the live case. ⇒ **the row unblocks when D73 phase 2
-    // resolves that conflict**, not before, and resolving it is a decision about
-    // how this character should PLAY rather than a bug fix.
+    // ⛔ what moves it is still UNKNOWN, and four wrong mechanisms have been
+    // written down for this already — do not add a fifth without output. The
+    // next probe is the 900-step possession loop itself: log the body's position
+    // per step in both builds and find the frame they diverge.
     "stochastic_parrot", // the parrot
     "sandbag",           // the training dummy, playable for laughs
     // ── The fighters the smash grid offers ───────────────────────────────────

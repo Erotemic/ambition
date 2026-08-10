@@ -2387,14 +2387,12 @@ These are the fields where the three-way split does not answer itself. Each one
 is a decision the migration must make deliberately, with what is known:
 
 1. **`is_aerial`** — a live TWO-SOURCE CONFLICT, already documented on the field,
-   and ⭐ **now observed BREAKING SOMETHING rather than merely being expressible**
-   (queue D74, 2026-08-10). Registering `perfect_cellular_automaton` as a
-   character flips its body from grounded to floating — the catalog row says
-   `body_kind: Floating`, its archetype says `is_aerial: Some(false)` — and the
-   possessed PCA then plays `attack_air` (`gates: grounded: Some(false)`)
-   instead of its grounded swing, reddening `possession_end_to_end`. ⇒ this is
-   not a tidy-up: resolving it decides how a shipped character FIGHTS, and it
-   gates putting the PCA on the playable roster.
+   ⛔ **and I cited queue D74 as it breaking in the wild — WRONGLY, retracted
+   2026-08-10.** The probe measured `gravity_scale = 1.0` on the registered PCA,
+   so nothing floated it; that symptom is a movement divergence during
+   possession and is not an instance of this conflict. The conflict itself is
+   still real and still unresolved — two authorities state one body's
+   aerial-ness — but it has no witness yet, which is exactly what it had before.
    `new_peaceful_npc_in` reads the catalog's `body_kind: Floating`; the hostile
    `EnemySpawn` path reads this. **The Perfect Cellular Automaton is `Floating`
    in its catalog row and played grounded by the shipped duel.** Unifying the two

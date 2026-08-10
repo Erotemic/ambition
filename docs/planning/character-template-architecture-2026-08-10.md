@@ -83,7 +83,7 @@ path works beside the old one.
 |---|---|---|
 | 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the EXPRESSIVENESS half is done** — death traits, knockback weight and a default autonomous profile are authorable and adopted; see "phase 1 progress". ▢ what remains is the TYPE MOVE (into `ambition_characters`) and the remaining intrinsic facts, most of which need phase 3's consumer |
 | 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ **mapped; the DOOR is open** — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
-| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ▢ **and it gates phase 2's group A** — an enemy body reads its ARCHETYPE, carries no `WornCharacter`, and so never reads its character; see the correction in APPENDIX B |
+| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ◐ **the first seam exists** — `ActorClusterSeed::adopt_character_intrinsics` lets a character outrank the archetype for the facts it authors, applied to the SEED before the body exists. ▢ no spawn site CALLS it yet: the registry is not threaded to the five `new_in` sites. That thread is the next slice, and it is what unblocks phase 2's group A |
 | 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
 | 5 | Controller/provocation simplification; rollback becomes controller-only | ▢ |
 | 6 | Remove legacy runtime projections (`ActorTuning`, `CharacterBrainSpec`, `sprite_character_id`) | ▢ |

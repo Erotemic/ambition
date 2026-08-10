@@ -169,6 +169,43 @@ fn tick_and_despawn_keeps_live_hitboxes() {
 #[derive(Resource, Default)]
 struct CapturedHits(Vec<HitEvent>);
 
+impl CapturedHits {
+    /// The hits that name a body. A body-owned strike publishes one of these per
+    /// contact its shared resolver actually selected — and these are the only
+    /// events any assertion about VICTIMS should count.
+    fn body_hits(&self) -> Vec<&HitEvent> {
+        self.0
+            .iter()
+            .filter(|e| matches!(e.target, HitTarget::Player(_) | HitTarget::Actor(_)))
+            .collect()
+    }
+
+    /// The unresolved half of the same strike: the geometry broadcast for the
+    /// things a body resolver cannot name (a breakable, a boss encounter).
+    fn unresolved_feature_hits(&self) -> Vec<&HitEvent> {
+        self.0
+            .iter()
+            .filter(|e| matches!(e.target, HitTarget::UnresolvedFeatures))
+            .collect()
+    }
+
+    /// ⛔ **the poison.** `HitTarget::Volume` makes the downstream consumer scan
+    /// every actor, which is exactly how a body took a second, anonymous copy of
+    /// a hit it had already been named for — and how a strike used to reach its
+    /// own owner. A body-owned melee must never emit one; the wielded world-AOE
+    /// primitive is a different anchor and has its own tests.
+    fn assert_no_body_scanning_broadcast(&self) {
+        assert!(
+            !self
+                .0
+                .iter()
+                .any(|e| matches!(e.target, HitTarget::Volume)),
+            "a body-owned melee must not broadcast a body-scanning Volume hit — \
+             bodies are resolved by identity and would be damaged twice"
+        );
+    }
+}
+
 #[derive(Resource, Default)]
 struct CapturedLandedHits(Vec<LandedBodyHit>);
 
@@ -623,10 +660,16 @@ fn player_melee_never_targets_its_owner() {
     ));
 
     app.update();
+    let cap = app.world().resource::<CapturedHits>();
     assert!(
-        app.world().resource::<CapturedHits>().0.is_empty(),
+        cap.body_hits().is_empty(),
         "a body-owned melee strike must never emit a hit targeting its own owner"
     );
+    // The strike still publishes its unresolved half — a swing that overlaps only
+    // itself can still smash a crate — but that half is barred from scanning
+    // bodies, which is the route by which it used to come back around to its
+    // owner. Both facts, or the regression re-enters through the other door.
+    cap.assert_no_body_scanning_broadcast();
     assert!(
         app.world().resource::<CapturedLandedHits>().0.is_empty(),
         "self-exclusion must happen before the authoritative landed-hit fact is published"
@@ -705,8 +748,10 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
 
     app.update();
     let cap = app.world().resource::<CapturedHits>();
-    assert_eq!(cap.0.len(), 1, "the strike resolves exactly one victim");
-    let hit = &cap.0[0];
+    let body_hits = cap.body_hits();
+    assert_eq!(body_hits.len(), 1, "the strike resolves exactly one victim");
+    cap.assert_no_body_scanning_broadcast();
+    let hit = body_hits[0];
     assert!(matches!(hit.source, HitSource::PlayerSlash { .. }));
     assert_eq!(hit.target, HitTarget::Actor(victim));
     assert_eq!(hit.attacker, Some(owner));
@@ -808,16 +853,18 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
 
     app.update();
     let cap = app.world().resource::<CapturedHits>();
-    assert_eq!(cap.0.len(), 1, "the other match team is a legal victim");
-    assert_eq!(cap.0[0].target, HitTarget::Player(victim));
-    assert!(cap.0[0].knockback.is_some());
+    let body_hits = cap.body_hits();
+    assert_eq!(body_hits.len(), 1, "the other match team is a legal victim");
+    assert_eq!(body_hits[0].target, HitTarget::Player(victim));
+    assert!(body_hits[0].knockback.is_some());
+    cap.assert_no_body_scanning_broadcast();
 
     let landed = app.world().resource::<CapturedLandedHits>();
     assert_eq!(landed.0.len(), 1, "one selected body contact publishes one landed fact");
     assert_eq!(landed.0[0].hitbox, hitbox_entity);
     assert_eq!(landed.0[0].attacker, owner);
     assert_eq!(landed.0[0].victim, victim);
-    assert_eq!(landed.0[0].volume, cap.0[0].volume);
+    assert_eq!(landed.0[0].volume, body_hits[0].volume);
 }
 
 /// A live body-owned strike is authoritative gameplay state. The `BodyMelee`
@@ -891,8 +938,121 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
     app.update();
 
     let cap = app.world().resource::<CapturedHits>();
-    assert_eq!(cap.0.len(), 1, "the live strike itself is sufficient authority");
-    assert_eq!(cap.0[0].target, HitTarget::Actor(victim));
+    let body_hits = cap.body_hits();
+    assert_eq!(body_hits.len(), 1, "the live strike itself is sufficient authority");
+    assert_eq!(body_hits[0].target, HitTarget::Actor(victim));
+    cap.assert_no_body_scanning_broadcast();
+}
+
+/// ⭐⭐ **The regression three app-level tests caught at once (2026-08-09): after
+/// the melee unification, a body-owned swing reached NOTHING that is not a
+/// combat body.** The boss test measured zero connects in 300 frames, the
+/// rollback oracle never broke its brick, and the death-reset test never got a
+/// player killed — one cause behind all three. A boss keeps its HP and phase on
+/// an encounter and a breakable is a feature; neither matches `StrikeVictim`, so
+/// neither can be resolved by identity, and when the strike stopped broadcasting
+/// they stopped being hittable.
+///
+/// The fix is not a second melee path. The strike publishes its unresolved half
+/// as [`HitTarget::UnresolvedFeatures`], and this pins BOTH halves plus the
+/// poison: the resolved body hit still names its victim, the unresolved half is
+/// still published for the things that have no name, and neither is a
+/// body-scanning `Volume` broadcast that would damage the victim twice.
+#[test]
+fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hit() {
+    let mut app = App::new();
+    app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
+    app.add_message::<VfxMessage>();
+    app.init_resource::<CapturedHits>();
+    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+
+    let owner = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Player,
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 40.0),
+            ),
+            // The move's own authoritative per-strike accumulator. The ignore list
+            // must come from HERE and not from the `BodyMelee.swing` projection
+            // that used to gate this emit: the projection is rebuilt every frame,
+            // so a dedup key parked in it was wiped and every active tick
+            // re-smashed the same crate.
+            {
+                let mut playback = crate::moveset::MovePlayback::new(
+                    crate::moveset::simple_melee(
+                        &crate::moveset::SimpleMeleeParams::default(),
+                    ),
+                    1.0,
+                );
+                playback.hit_targets.push("breakable:crate-7".to_string());
+                playback
+            },
+        ))
+        .id();
+    let victim = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Enemy,
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(130.0, 100.0),
+                ae::Vec2::new(20.0, 40.0),
+            ),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+        ))
+        .id();
+    app.world_mut().spawn((
+        Hitbox {
+            strike_sfx: None,
+            owner,
+            source: HitSide::Player,
+            anchor: HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::new(20.0, 0.0),
+            },
+            half_extent: ae::Vec2::new(30.0, 30.0),
+            shape: None,
+            facing: 1.0,
+            damage: 4,
+            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth: 0.0,
+            },
+            launch_dir: None,
+            frame_down: ae::Vec2::new(0.0, 1.0),
+        },
+        HitboxLifetime { remaining_s: 0.2 },
+        HitboxHits::default(),
+    ));
+
+    app.update();
+    let cap = app.world().resource::<CapturedHits>();
+
+    let body_hits = cap.body_hits();
+    assert_eq!(body_hits.len(), 1, "the body is still resolved by identity");
+    assert_eq!(body_hits[0].target, HitTarget::Actor(victim));
+
+    let unresolved = cap.unresolved_feature_hits();
+    assert_eq!(
+        unresolved.len(),
+        1,
+        "the same strike must still reach a boss or a breakable, which no body \
+         resolver can name — this is the reach whose loss broke three app tests"
+    );
+    assert_eq!(unresolved[0].attacker, Some(owner));
+    assert_eq!(unresolved[0].volume, body_hits[0].volume);
+    assert_eq!(
+        unresolved[0].ignored_targets,
+        vec!["breakable:crate-7".to_string()],
+        "per-strike dedup rides the move's authoritative accumulator, so a \
+         multi-tick active window smashes each crate once"
+    );
+
+    cap.assert_no_body_scanning_broadcast();
 }
 
 /// CM8: an authored strike sound on a hitbox rides the overlap onto the emitted

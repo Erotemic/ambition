@@ -350,6 +350,7 @@ fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayer
                 HitTarget::Player(_) => 1,
                 HitTarget::Actor(_) => 2,
                 HitTarget::OrbMatch => 3,
+                HitTarget::UnresolvedFeatures => 4,
             },
         );
         put_u8(

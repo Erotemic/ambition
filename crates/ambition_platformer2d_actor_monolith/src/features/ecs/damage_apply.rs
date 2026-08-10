@@ -1296,7 +1296,12 @@ pub fn apply_player_hit_events(
                 HitTarget::Volume => primary,
                 // Pre-resolved non-player actor victim + orb-match are not player
                 // hits — the actor / breakable consumers own them.
-                HitTarget::Actor(_) | HitTarget::OrbMatch => None,
+                //
+                // `UnresolvedFeatures` is not one either, and for a stronger
+                // reason: it is the half of a strike whose targets are NOT bodies.
+                // Falling back to the primary player the way `Volume` does would
+                // hand a player the hit its own swing failed to resolve.
+                HitTarget::Actor(_) | HitTarget::OrbMatch | HitTarget::UnresolvedFeatures => None,
             };
             target.map(|t| (t, e))
         })

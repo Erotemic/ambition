@@ -304,6 +304,14 @@ pub fn apply_hitbox_damage(
     // The swing owner's team, looked up the same way its grudge is. Read-only,
     // so it may overlap the victim query.
     attacker_team: Query<&crate::targeting::MatchTeam>,
+    // The attacker's own move state, read for ONE thing: the per-strike dedup
+    // accumulator that keeps a multi-tick Active window from re-smashing the same
+    // breakable every frame. `MovePlayback` is authoritative move-timeline state
+    // (rollback-registered and checksummed), which is why the ignore list is read
+    // from here and not from the `BodyMelee.swing` projection that used to gate
+    // this emit — the projection is rebuilt every frame and wiped the accumulator.
+    // A body with no playback answers with an empty list and still strikes.
+    attacker_moves: Query<&crate::moveset::MovePlayback>,
     // A live Hitbox is already authoritative gameplay state. Moveset strikes
     // exist only while their active window exists; `BodyMelee.swing` is a
     // presentation/read-model projection and must never gate whether this
@@ -434,6 +442,45 @@ pub fn apply_hitbox_damage(
                     contact: impact,
                 });
                 hits.hit.insert(victim.entity);
+            }
+
+            // THE UNRESOLVED HALF OF THE SAME STRIKE.
+            //
+            // The loop above resolved every real combat body by identity. It could
+            // not resolve two things that a swing nevertheless hits: a breakable,
+            // and a boss whose HP and phase live on an encounter rather than on a
+            // body carrying the combat cluster. Neither matches `StrikeVictim`, so
+            // neither has an entity this system may name — and when the player's
+            // melee stopped broadcasting, both stopped being hittable at all. That
+            // was the regression `boss_contact_iframes` and `rollback_exit_oracle`
+            // caught: the swing connected with nothing, all day, in both games.
+            //
+            // ⛔ so the broadcast is not restored as a second melee path. It is
+            // published as what it is — [`HitTarget::UnresolvedFeatures`], the part
+            // of this strike whose targets are still unnamed — and the resolver
+            // above stays the one authority on bodies. The consumer scans bosses
+            // and breakables for it and MUST NOT scan bodies, which have already
+            // taken their identified hit.
+            //
+            // Dedup rides `MovePlayback.hit_targets`, the move's own authoritative
+            // per-strike accumulator, NOT the `BodyMelee.swing` projection that
+            // used to gate this emit — a read-model must never decide whether a
+            // strike can damage, and that projection is rebuilt every frame.
+            if matches!(source_kind, HitSource::PlayerSlash { .. }) {
+                hit_events.write(HitEvent {
+                    strike_sfx: hitbox.strike_sfx,
+                    volume: world_volume.clone(),
+                    damage: hitbox.damage.max(1),
+                    source: source_kind,
+                    attacker: Some(hitbox.owner),
+                    target: HitTarget::UnresolvedFeatures,
+                    mode: HitMode::Knockback,
+                    knockback: None,
+                    ignored_targets: attacker_moves
+                        .get(hitbox.owner)
+                        .map(|pb| pb.hit_targets.clone())
+                        .unwrap_or_default(),
+                });
             }
             continue;
         }

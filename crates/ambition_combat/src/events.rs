@@ -339,6 +339,28 @@ pub enum HitTarget {
     /// approximately equals `volume` is hit; actors / bosses are
     /// skipped.
     OrbMatch,
+    /// **The part of a strike the body resolver could not resolve.**
+    ///
+    /// A body-owned melee strike resolves every real combat body itself, by
+    /// identity, in [`crate::hitbox::apply_hitbox_damage`] — and publishes one
+    /// [`crate::hitbox::LandedBodyHit`] per contact. But a strike also reaches
+    /// things that are not bodies: a breakable crate, and a boss whose HP and
+    /// phase live on an encounter rather than on a combat body. Those have no
+    /// entity the resolver can name, so they stay UNRESOLVED and the geometry
+    /// has to be broadcast for them.
+    ///
+    /// ⛔ **This is not [`Self::Volume`], and the difference is load-bearing.**
+    /// `Volume` means "nothing here is resolved — scan everything", and the
+    /// wielded world-AOE primitive still means exactly that. This variant means
+    /// "the bodies are ALREADY resolved; scan only what a body resolver cannot
+    /// see". A consumer that treats the two alike damages every combat body a
+    /// second time, on top of the identified hit it already took.
+    ///
+    /// ⚠ so it exists to keep an unresolved broadcast from masquerading as a
+    /// body hit, which is the shape the combat campaign is removing. When
+    /// bosses and breakables become resolvable victims in their own right, this
+    /// variant goes away with them; it does not become the general answer.
+    UnresolvedFeatures,
 }
 
 /// One hit event in world space — the single canonical channel for

@@ -416,6 +416,18 @@ pub fn apply_feature_hit_events(
             crate::combat::events::HitTarget::Actor(entity) => Some(entity),
             _ => None,
         };
+        // **The bodies in this strike are already resolved.** A body-owned melee
+        // names every combat body it hits, by entity, in the shared resolver; what
+        // it cannot name is a breakable or a boss encounter, and THAT is what this
+        // event carries. Scanning actors for it would damage each body a second
+        // time on top of the identified hit it already took — which is precisely
+        // the "unresolved broadcast masquerading as a body hit" the combat campaign
+        // is removing, so the skip is stated here rather than papered over with a
+        // dedup key downstream.
+        let bodies_already_resolved = matches!(
+            event.target,
+            crate::combat::events::HitTarget::UnresolvedFeatures
+        );
         // Victim-side sources (enemy touch, enemy swings, boss body
         // contact, hazards) are consumed by the player-damage path.
         // The feature drain only applies attacker-side player hits
@@ -446,7 +458,7 @@ pub fn apply_feature_hit_events(
             wallet_shield,
             mut cq,
             (combat_tuning, ruleset_owns_death, active_combatant),
-        ) in &mut actors
+        ) in actors.iter_mut().filter(|_| !bodies_already_resolved)
         {
             // Pre-resolved actor victim: apply ONLY to that entity.
             if let Some(target_entity) = actor_target {

@@ -72,6 +72,19 @@ custom pogo silhouettes, but they are never flattened into anonymous
 collision-world `PogoOrb` blocks. Only an explicit `PogoTargetContributor`
 opts an ECS feature into world rebound geometry.
 
+**A strike also has an UNRESOLVED half, and it says so.** The resolver names
+every combat body it reaches. It cannot name a breakable, or a boss whose HP and
+phase live on an encounter rather than on a body carrying the combat cluster —
+neither matches `StrikeVictim`. So the same strike publishes one
+`HitTarget::UnresolvedFeatures` event carrying its geometry, deduped by the
+attacker's `MovePlayback.hit_targets` (the move's own authoritative accumulator,
+never the `BodyMelee.swing` projection). ⛔ **that is not `HitTarget::Volume`**:
+`Volume` means "scan everything" and still belongs to the wielded world-AOE
+primitive, while `UnresolvedFeatures` means "the bodies are already resolved —
+scan only what a body resolver cannot see." A consumer that conflates them
+damages every body twice. ⚠ **the variant is scaffolding with an expiry**: when
+bosses and breakables become victims in their own right it goes away with them.
+
 ⛔ **Do not reintroduce** a `PlayerAttackState` / `ActorAttackState` split, a
 second slash emit, or a per-frame player damage loop. Every melee is an
 `"attack"`-verb moveset move riding `MovePlayback`.

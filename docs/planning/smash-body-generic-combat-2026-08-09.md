@@ -226,6 +226,31 @@ And Jon's own ranking of the additions beyond the named roadmap:
 
 ---
 
+## ⭐⭐ A GENRE'S MECHANICS ARE NOT A QUESTION FOR JON (2026-08-09, verbatim)
+
+> note that the feel goal is to make it feel like smash and the concepts of what
+> the engine needs to do things like hitstun, knock back, techs, and other smash
+> things are things that are objective and you should not need my input. You
+> should be able to write it so I can tweak numbers and get the right feel, but
+> smash games are so well documented getting the framework to make them work
+> right and elegantly in this engine should not need my input.
+>
+> and the which game was the death in issue has been resolved. Note the same
+> thing goes for mario (maryo). the mechanics of the game are standard.
+
+⛔ **So "what should hitstun do?", "how does teching work?", "how much knockback
+growth?", "what does a Mary-O block do when struck?" are RESEARCH, not decisions
+owed to the maintainer.** The genre is documented; look it up, implement the
+standard mechanic, and expose the numbers as authored tuning so Jon can dial
+feel without touching structure.
+
+⇒ **the deliverable shape this implies**: every feel quantity is an authored
+number in one place, with a defensible platform-fighter default already in it.
+A mechanic Jon cannot retune by editing a value is not finished.
+
+⇒ and **D68's "which game was the death in" is CLOSED** — it was the only
+blocked-on-Jon item that blocked work.
+
 ## Standing constraints for this campaign
 
 - ⛔ **No `cargo fmt` and no git-diff-checking commands.** Jon said it twice.
@@ -240,9 +265,51 @@ And Jon's own ranking of the additions beyond the named roadmap:
 - ⭐ Prefer the end-to-end slice test (intent → playback → strike → contact →
   damage/reaction) over synthesising a halfway-state event.
 
+## ✔ Step 0 — STABILIZE: done 2026-08-09
+
+`app_it` was **red on three tests**, and they had one cause.
+
+> `boss_contact_iframes::face_tanking_player_swings_back_and_is_recoil_locked`
+> — *"frames a swing reached the boss: 0"* in 300 frames ·
+> `rollback_exit_oracle::combat_equipment_switch_and_breakable_survive_forced_rollback_identically`
+> — *"the brick was never broken in 2400 frames"* ·
+> `rollback_lifecycle_reset::a_player_death_reset_survives_the_rollback_window`.
+
+⭐⭐ **the melee unification took away the strike's reach to everything that is
+not a combat body.** Before it, a player `FollowOwner` strike emitted one
+broadcast `HitTarget::Volume` event and `apply_feature_hit_events` fanned it out
+over actors, bosses and breakables. After it, the strike resolves bodies by
+identity — and a boss keeps HP/phase on an encounter, a breakable is a feature,
+so neither matches `StrikeVictim` and neither could be hit at all. Combat bodies
+were fine, which is why 320 tests stayed green and the three that failed were
+the only ones that hit a *non-body*.
+
+⛔ **the fix is not the broadcast back.** The strike now publishes its unresolved
+half as `HitTarget::UnresolvedFeatures` — an explicit "the bodies are already
+resolved; scan only what a body resolver cannot name" — and the feature consumer
+skips its actor scan for it, so a body cannot take a second anonymous copy of a
+hit it was already named for. This is roadmap item 3's own sanctioned remainder
+(*"retain volume/world targeting only where a target genuinely has not yet been
+resolved"*), and the variant is scaffolding: it retires when bosses and
+breakables become victims in their own right.
+
+Two details worth keeping:
+
+- dedup rides `MovePlayback.hit_targets`, the move's authoritative accumulator —
+  **not** the `BodyMelee.swing` projection that used to gate the old emit. That
+  gate was the read-model-as-authority bug item 8 names, and it is not restored.
+- the guard is `a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hit`
+  plus a **poison** asserted in four tests: a body-owned melee must never emit a
+  `HitTarget::Volume`, because that is the exact event shape that re-scans bodies
+  and, historically, let a swing reach its own owner.
+
+Verified: `ambition_combat` 149/149 · monolith 1195/1195 · smash + mary-o +
+runtime green · absence contracts 25/25 · **`app_it` 323 passed, 0 failed**.
+
 ## Execution order (mine, revise as measurements land)
 
-0. **Stabilize** — compile the affected crates, run the focused suites, repair.
+0. ~~**Stabilize** — compile the affected crates, run the focused suites,
+   repair.~~ ✔ done, above.
 1. **1 + 2 + 3 together** — the knockback side channel, the cause vocabulary and
    the body victim are the same refactor seen from three sides; splitting them
    means migrating call sites twice.

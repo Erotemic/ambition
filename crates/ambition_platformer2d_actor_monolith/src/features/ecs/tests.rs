@@ -47,7 +47,7 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
 }
 
 #[test]
-fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
+fn combat_body_pogo_geometry_stays_entity_side() {
     let center = ae::Vec2::new(120.0, 180.0);
     let size = ae::Vec2::new(32.0, 48.0);
     let aabb = ae::Aabb::new(center, size * 0.5);
@@ -73,17 +73,20 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
 
     let mut app = App::new();
     app.insert_resource(FeatureEcsWorldOverlay::default());
-    app.world_mut().spawn((
-        FeatureSimEntity,
-        FeatureId::new("guide"),
-        FeatureName::new("Guide"),
-        CenteredAabb::from_center_size(center, size),
-        crate::features::ActorDisposition::Peaceful,
-        seed.into_components(),
-        DamageableVolumes::default(),
-        PogoPolicy::FromDamageable,
-        PogoTargetVolumes::default(),
-    ));
+    let body = app
+        .world_mut()
+        .spawn((
+            FeatureSimEntity,
+            FeatureId::new("guide"),
+            FeatureName::new("Guide"),
+            CenteredAabb::from_center_size(center, size),
+            crate::features::ActorDisposition::Peaceful,
+            seed.into_components(),
+            DamageableVolumes::default(),
+            PogoPolicy::FromDamageable,
+            PogoTargetVolumes::default(),
+        ))
+        .id();
     app.add_systems(
         Update,
         (
@@ -95,38 +98,41 @@ fn peaceful_actor_damageable_volume_derives_pogo_overlay() {
     );
     app.update();
 
+    let pogo = app
+        .world()
+        .get::<PogoTargetVolumes>(body)
+        .expect("combat body should publish pogo affordance geometry");
+    assert_eq!(
+        pogo.volumes,
+        vec![aabb],
+        "damageable => pogoable remains body data"
+    );
+
     let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
     assert!(
         overlay
             .blocks
             .iter()
-            .any(|block| matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == aabb),
-        "peaceful NPCs are player-damageable and should therefore publish pogo blocks"
+            .all(|block| !matches!(block.kind, ae::BlockKind::PogoOrb)),
+        "ordinary combat bodies must retain entity identity instead of becoming anonymous world pogo blocks"
     );
 }
 
 #[test]
-fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
-    let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
-    let pogo_hurtbox = ae::Aabb::new(ae::Vec2::new(440.0, 420.0), ae::Vec2::new(12.0, 16.0));
-    let boss = super::boss_clusters::BossClusterScratch::new(
-        crate::boss_encounter::test_boss_catalog(),
-        "gnu_ton_rider",
-        "GNU-ton",
-        boss_body,
-        ambition_entity_catalog::placements::BossBrain::Dormant,
-    );
+fn explicit_pogo_contributor_lowers_published_world_surface() {
+    let coarse_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
+    let pogo_surface = ae::Aabb::new(ae::Vec2::new(440.0, 420.0), ae::Vec2::new(12.0, 16.0));
 
     let mut app = App::new();
     app.insert_resource(FeatureEcsWorldOverlay::default());
     app.world_mut().spawn((
         FeatureSimEntity,
-        FeatureId::new("gnu_ton_rider"),
-        FeatureName::new("GNU-ton"),
-        CenteredAabb::from_aabb(boss_body),
-        boss.into_components(),
+        FeatureId::new("moving_pogo_surface"),
+        FeatureName::new("moving pogo surface"),
+        CenteredAabb::from_aabb(coarse_body),
+        PogoTargetContributor,
         PogoTargetVolumes {
-            volumes: vec![pogo_hurtbox],
+            volumes: vec![pogo_surface],
         },
     ));
     app.add_systems(Update, rebuild_feature_ecs_world_overlay);
@@ -134,19 +140,46 @@ fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
 
     let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
     assert!(
-        overlay
-            .blocks
-            .iter()
-            .any(|block| matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == pogo_hurtbox),
-        "boss-specific hurtboxes should drive pogo blocks"
+        overlay.blocks.iter().any(|block| {
+            matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == pogo_surface
+        }),
+        "an explicit world contributor should lower its published pogo surface"
     );
     assert!(
-        !overlay
-            .blocks
-            .iter()
-            .any(|block| matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == boss_body),
-        "the overlay must not fall back to the coarse boss body AABB"
+        !overlay.blocks.iter().any(|block| {
+            matches!(block.kind, ae::BlockKind::PogoOrb) && block.aabb == coarse_body
+        }),
+        "explicit world pogo uses its published surface, not a coarse body envelope"
     );
+}
+
+#[test]
+fn explicit_pogo_contributor_without_published_surface_uses_its_envelope() {
+    let coarse_surface = ae::Aabb::new(
+        ae::Vec2::new(300.0, 260.0),
+        ae::Vec2::new(24.0, 10.0),
+    );
+
+    let mut app = App::new();
+    app.insert_resource(FeatureEcsWorldOverlay::default());
+    app.world_mut().spawn((
+        FeatureSimEntity,
+        FeatureId::new("plain_rebound_surface"),
+        FeatureName::new("plain rebound surface"),
+        CenteredAabb::from_aabb(coarse_surface),
+        PogoTargetContributor,
+    ));
+    app.add_systems(Update, rebuild_feature_ecs_world_overlay);
+    app.update();
+
+    let overlay = app.world().resource::<FeatureEcsWorldOverlay>();
+    let pogo_blocks: Vec<_> = overlay
+        .blocks
+        .iter()
+        .filter(|block| matches!(block.kind, ae::BlockKind::PogoOrb))
+        .collect();
+    assert_eq!(pogo_blocks.len(), 1, "one contributor lowers one fallback surface");
+    assert_eq!(pogo_blocks[0].aabb, coarse_surface);
 }
 
 #[test]

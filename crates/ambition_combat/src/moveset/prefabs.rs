@@ -681,7 +681,7 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
                 }
                 if pogo {
                     // The down-air's landing pogo — an engine on-hit technique
-                    // (fable review AJ1). Fires off any `PogoTarget` (enemy or orb).
+                    // Body contacts consume the resolved victim hit; genuine world pogo surfaces use the separate world-contact path.
                     v.on_hit = Some(EffectRef::new(crate::on_hit::POGO_BOUNCE_KEY));
                 }
                 // The grounded down-tilt reads as a kneeling forward poke, not a

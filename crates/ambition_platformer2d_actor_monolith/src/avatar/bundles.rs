@@ -10,7 +10,7 @@ use crate::actor::AncillaryMovementBundle;
 use crate::actor::{BodyAnimFacts, BodyMelee};
 use crate::body_mode::BodyModeCapabilities;
 use crate::control::{LocalPlayer, PlayerInputFrame, PlayerSlot};
-use crate::features::{ActorFaction, ActorPose};
+use crate::features::{ActorFaction, ActorPose, DamageableVolumes, PogoPolicy, PogoTargetVolumes};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
 use ambition_characters::brain::{ActionSet, ActorControl, Brain};
 use ambition_platformer2d_shared_tangle::camera_ease::PlayerBlinkCameraState;
@@ -113,6 +113,12 @@ pub struct PlayerSimulationBundle {
     /// hurtbox per-site, and the rebuilds had diverged). Written each tick by
     /// `integrate_home_body`.
     pub hurtbox: CenteredAabb,
+    /// Body-generic strike/pogo publication state. The home body carries the
+    /// same components as every actor, so changing controller kind never changes
+    /// whether the body can publish a hurtbox or be a pogo victim.
+    pub damageable_volumes: DamageableVolumes,
+    pub pogo_policy: PogoPolicy,
+    pub pogo_target_volumes: PogoTargetVolumes,
     pub movement: AncillaryMovementBundle,
     /// Per-player projectile state — spawner cooldowns, charge timer,
     /// motion-input buffer, in-flight body list. Was previously a
@@ -205,6 +211,9 @@ impl PlayerSimulationBundle {
             kinematics,
             motion_model: crate::features::MotionModel::default(),
             hurtbox,
+            damageable_volumes: DamageableVolumes::default(),
+            pogo_policy: PogoPolicy::FromDamageable,
+            pogo_target_volumes: PogoTargetVolumes::default(),
             movement: AncillaryMovementBundle::from_scratch(scratch),
             projectile: crate::projectile::PlayerProjectileState::default(),
         }

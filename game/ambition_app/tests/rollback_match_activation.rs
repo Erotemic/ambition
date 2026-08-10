@@ -19,7 +19,7 @@
 //! separate blindnesses, both worth recording because both are recurring:
 //!
 //! * **no swept population contained a match**, so the component sweep never saw
-//!   a body wearing `MatchSeat`. Same shape as A19 (`PogoTarget`, `ChestFeature`,
+//!   a body wearing `MatchSeat`. Same shape as A19 (`PogoTargetContributor`, `ChestFeature`,
 //!   `PortalHostScanned` were never in the population, not missed within it);
 //! * **a MODULE-FAMILY waiver swallowed the resource.** `ActiveMatch` lives in
 //!   `ambition_platformer2d_actor_monolith::character_runtime::`, which carried a blanket waiver

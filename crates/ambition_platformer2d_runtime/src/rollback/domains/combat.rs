@@ -56,12 +56,12 @@ pub(in crate::rollback) fn register(app: &mut App) {
         |volume| volume.owner,
     );
     app.rollback_map_entities::<ambition_combat::moveset::StrikeVolume>(OWNER, "map.strike_volume");
-    app.rollback_component_clone_entity_set::<ambition_combat::on_hit::HitboxOnHit>(
+    app.rollback_component_clone_checksum::<ambition_combat::on_hit::HitboxOnHit>(
         OWNER,
         "combat.hitbox_on_hit",
-        |on_hit| on_hit.fired_victims(),
+        "bevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection",
+        |on_hit| if on_hit.world_fired() { 1 } else { 0 },
     );
-    app.rollback_map_entities::<ambition_combat::on_hit::HitboxOnHit>(OWNER, "map.hitbox_on_hit");
     app.rollback_component_canonical::<ambition_combat::components::BodyMelee>(
         OWNER,
         "actor.body_melee",
@@ -212,10 +212,6 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "feature.pogo_policy",
     );
-    app.rollback_component_clone::<ambition_combat::on_hit::PogoTarget>(
-        OWNER,
-        "feature.pogo_target",
-    );
     app.rollback_component_clone::<ambition_combat::components::PogoTargetContributor>(
         OWNER,
         "feature.pogo_target_contributor",
@@ -246,6 +242,10 @@ pub(in crate::rollback) fn register(app: &mut App) {
         OWNER,
         "derived.resolved_combat_tuning",
         "refolded from DeclaredCombatRules over the world baseline every WorldPrep",
+    );
+    app.clear_message_on_rollback::<ambition_combat::hitbox::LandedBodyHit>(
+        OWNER,
+        "message.landed_body_hit",
     );
     app.clear_message_on_rollback::<ambition_combat::events::HitEvent>(OWNER, "message.hit_event");
     app.clear_message_on_rollback::<ambition_combat::stocks::BodyKnockedOut>(

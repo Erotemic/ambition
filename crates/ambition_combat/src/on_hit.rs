@@ -1,191 +1,105 @@
-//! On-hit techniques — the conditional-hit primitive of the ability model.
+//! On-hit techniques — conditional effects driven by resolved strike facts.
 //!
 //! A [`HitVolume`](ambition_entity_catalog::HitVolume) may carry an
-//! `on_hit: Option<EffectRef>` (fable review AJ1): a technique that fires WHEN
-//! the volume lands a hit, with the hit context (owner, victim, contact). This
-//! is the missing conditional primitive — pogo, lifesteal, on-hit status,
-//! launch modifiers — the counterpart to timed [`MoveEvent`]s (which fire on a
-//! clock) and sustained windows (which fire every active frame).
+//! `on_hit: Option<EffectRef>`: a technique that fires WHEN the volume lands a
+//! body hit, with attacker/victim/contact context. The important ownership rule
+//! is that on-hit code does **not** rediscover contact. The shared hitbox
+//! resolver already knows whether a strike landed, and publishes one
+//! [`LandedBodyHit`](super::hitbox::LandedBodyHit) fact. This module projects
+//! that fact to the authored effect.
 //!
 //! Two halves:
-//! - **The primitive** ([`HitboxOnHit`] sidecar + [`dispatch_hitbox_on_hit`] +
-//!   [`OnHitEffectMessage`]): a moveset hitbox carrying an on-hit effect emits
-//!   one message per damage-valid victim it overlaps, once per victim. The
-//!   dispatcher is DECOUPLED from the damage resolvers — it re-tests overlap
-//!   and reuses [`damage_lands`], so it adds zero risk to the delicate damage
-//!   path and covers every hitbox source uniformly (the player's broadcast
-//!   melee resolves victims downstream of `apply_hitbox_damage`, so a shared
-//!   hook there would miss it).
-//! - **The `pogo_bounce` engine technique** ([`PogoTarget`] +
-//!   [`apply_pogo_bounce`]): the standard-kit platformer pogo. A down-air whose
-//!   Active volume authors `on_hit: Effect("pogo_bounce", (rise: …))` rebounds
-//!   the OWNER through the shared jump-velocity seam when it lands on a victim
-//!   carrying the [`PogoTarget`] capability. Ships with the engine (AJ1: the
-//!   generic platformer kit is engine-provided); a game marks what is pogo-able.
+//! - **The primitive** ([`HitboxOnHit`] + [`dispatch_landed_hit_effects`] +
+//!   [`OnHitEffectMessage`]): attach an effect to a live strike, then consume the
+//!   resolver's landed-body fact. No second overlap pass, faction pass, or
+//!   self-exclusion rule exists here.
+//! - **The `pogo_bounce` engine technique** ([`apply_pogo_bounce`]): rebound the
+//!   attacker when the resolved victim's [`PogoPolicy`](super::components::PogoPolicy)
+//!   accepts the contact. Genuine world pogo surfaces stay on the separate
+//!   collision-world path because they have no victim body.
 
-use bevy::prelude::{
-    Component, Entity, Has, Message, MessageReader, MessageWriter, Query, Res, With,
-};
+use bevy::prelude::{Component, Entity, Message, MessageReader, MessageWriter, Query};
 
-use ambition_platformer2d_core as ae;
 use ambition_entity_catalog::EffectRef;
+use ambition_platformer2d_core as ae;
 
-use super::components::{ActorAggression, ActorFaction};
-use super::targeting::{damage_lands, effective_faction};
+use super::components::{PogoPolicy, PogoTargetVolumes};
+use super::hitbox::LandedBodyHit;
 use ambition_sfx::SfxMessage;
-use ambition_vfx::Hitbox;
 
 // ---------------------------------------------------------------------------
-// The primitive: on-hit dispatch.
+// The primitive: resolved body-hit -> authored effect.
 // ---------------------------------------------------------------------------
 
-/// Sidecar on a moveset hitbox entity: the technique to fire when this volume
-/// lands a hit. Inserted by
+/// Sidecar on a moveset hitbox entity: the technique to fire when this strike
+/// lands a body hit. Inserted by
 /// [`advance_move_playback`](super::moveset::advance_move_playback) for a
-/// `HitVolume` whose `on_hit` is `Some`. Kept OFF `ambition_vfx::Hitbox` (a
-/// render-tier type) so the ability vocabulary stays in the gameplay tier.
+/// `HitVolume` whose `on_hit` is `Some`.
+///
+/// Body-hit deduplication belongs to `HitboxHits`, the same state that prevents
+/// duplicate damage. `world_fired` exists only for entity-less world pogo
+/// surfaces, which cannot participate in that entity-keyed set.
 #[derive(Component, Debug, Clone)]
 pub struct HitboxOnHit {
     pub effect: EffectRef,
-    /// Victims already fired for — one on-hit per target, mirroring
-    /// `HitboxHits`. A fresh hitbox spawns per Active window, so this resets
-    /// per strike.
-    ///
-    /// A `BTreeSet`, not a `HashSet` (ADR 0023): the rollback localizer projects
-    /// this set through `fired_victims`, and a std hash container's iteration
-    /// order differs between runs. Ordering at the source beats sorting at every
-    /// reader.
-    fired: std::collections::BTreeSet<Entity>,
+    world_fired: bool,
 }
 
 impl HitboxOnHit {
     pub fn new(effect: EffectRef) -> Self {
         Self {
             effect,
-            fired: std::collections::BTreeSet::new(),
+            world_fired: false,
         }
     }
 
-    /// Has this strike already fired for `target`? Used by both the entity
-    /// on-hit path and the world-orb pogo (which passes the OWNER as a sentinel,
-    /// since a collision-world orb has no victim entity) to fire once per strike.
-    pub fn has_fired(&self, target: Entity) -> bool {
-        self.fired.contains(&target)
+    /// Has this strike already fired its entity-less world-contact effect?
+    pub fn world_fired(&self) -> bool {
+        self.world_fired
     }
 
-    /// Mark `target` as fired (idempotent).
-    pub fn mark_fired(&mut self, target: Entity) {
-        self.fired.insert(target);
-    }
-
-    /// The victims fired for, for the rollback localizer's stable-identity
-    /// projection (G2b). A presence probe counts the component and sees nothing
-    /// of WHO is in the set, so a remap that redirects one victim to the wrong
-    /// body changes no census — and the visible consequence is a sustained
-    /// overlap re-firing an on-hit at a body it already fired at.
-    pub fn fired_victims(&self) -> Vec<Entity> {
-        self.fired.iter().copied().collect()
+    /// Mark the strike's entity-less world-contact effect as fired.
+    pub fn mark_world_fired(&mut self) {
+        self.world_fired = true;
     }
 }
 
-impl bevy::ecs::entity::MapEntities for HitboxOnHit {
-    fn map_entities<M: bevy::ecs::entity::EntityMapper>(&mut self, mapper: &mut M) {
-        self.fired = std::mem::take(&mut self.fired)
-            .into_iter()
-            .map(|entity| mapper.get_mapped(entity))
-            .collect();
-    }
-}
-
-/// A landed on-hit: `effect` fires with the hit context. The consuming
-/// technique (the engine `pogo_bounce`, or a content technique) hydrates
-/// `effect.params` to its own type and acts on `owner` / `victim`.
+/// One authored on-hit effect projected from an authoritative landed-body fact.
 #[derive(Message, Debug, Clone)]
 pub struct OnHitEffectMessage {
-    /// The body whose move spawned the hitbox (the attacker).
+    /// Body whose move spawned the strike.
     pub owner: Entity,
-    /// The body the volume landed on.
+    /// Concrete body selected by the shared hit resolver.
     pub victim: Entity,
-    /// Contact point (the overlapping volume's center) in world space.
+    /// Exact world-space strike volume that connected.
+    pub volume: ae::CombatVolume,
+    /// Representative world-space contact point.
     pub contact: ae::Vec2,
     pub effect: EffectRef,
 }
 
-/// Fire each on-hit hitbox's technique the first time its volume connects.
-/// Runs while hitboxes are live (in the combat chain, after
-/// `apply_hitbox_damage`); one message per (hitbox, target). "Connects" means:
-/// - a **factioned body** — the damage rule ([`damage_lands`]: an enemy, never
-///   an ally), so "the volume LANDS" matches the damage resolver;
-/// - a **factionless target** (a world breakable / pogo-orb) — opts in via the
-///   [`PogoTarget`] capability, unifying world-orb pogo with victim pogo under
-///   the one capability (fable review R2.5, Jon's call). One capability today;
-///   generalize to an `OnHitReceptive` marker if a second factionless on-hit
-///   effect ever lands.
+/// Project resolved body contacts to their authored on-hit techniques.
 ///
-/// Decoupled from the damage resolvers (own overlap + rules), so the delicate
-/// damage path is untouched and every hitbox source is covered uniformly.
-pub fn dispatch_hitbox_on_hit(
-    mut hitboxes: Query<(&Hitbox, &mut HitboxOnHit)>,
-    // Owner-box center for FollowOwner tracking: actors carry `CenteredAabb`,
-    // the player carries `BodyKinematics` (pos = center). Try the box, then the
-    // kinematics; an owner-less hitbox contributes nothing.
-    owners: Query<&super::components::CenteredAabb>,
-    owner_kin: Query<&ae::BodyKinematics>,
-    targets: Query<(
-        Entity,
-        &super::components::CenteredAabb,
-        Option<&ActorFaction>,
-        Option<&ambition_characters::brain::Brain>,
-        Has<PogoTarget>,
-    )>,
-    attacker_aggression: Query<&ActorAggression>,
-    // AE6: resolved match rules, not the world's baseline toggle.
-    tuning: Option<Res<crate::rules::ResolvedCombatTuning>>,
+/// The resolver has already performed self-exclusion, relationship/team policy,
+/// published-hurtbox overlap, tangibility, and per-strike deduplication. Repeating
+/// any of those decisions here would create a second definition of "landed" and
+/// let damage, move confirms, and on-hit techniques disagree.
+pub fn dispatch_landed_hit_effects(
+    mut landed_hits: MessageReader<LandedBodyHit>,
+    on_hit: Query<&HitboxOnHit>,
     mut out: MessageWriter<OnHitEffectMessage>,
 ) {
-    let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
-    for (hitbox, mut on_hit) in &mut hitboxes {
-        let owner_pos = if let Ok(aabb) = owners.get(hitbox.owner) {
-            aabb.center
-        } else if let Ok(kin) = owner_kin.get(hitbox.owner) {
-            kin.pos
-        } else {
+    for landed in landed_hits.read() {
+        let Ok(on_hit) = on_hit.get(landed.hitbox) else {
             continue;
         };
-        let world_volume = hitbox.world_volume(owner_pos);
-        let owner_grudge = attacker_aggression
-            .get(hitbox.owner)
-            .ok()
-            .and_then(|a| a.grudge);
-        for (target, target_aabb, faction, brain, is_pogo_target) in &targets {
-            if target == hitbox.owner || on_hit.fired.contains(&target) {
-                continue;
-            }
-            let connects = match faction {
-                Some(f) => {
-                    let vf = effective_faction(*f, brain);
-                    damage_lands(
-                        crate::actor_faction_from_hit_side(hitbox.source),
-                        vf,
-                        friendly_fire,
-                        owner_grudge,
-                        target,
-                    )
-                }
-                // Factionless world target: eligible iff pogo-able.
-                None => is_pogo_target,
-            };
-            if !connects || !world_volume.intersects_aabb(target_aabb.aabb()) {
-                continue;
-            }
-            on_hit.fired.insert(target);
-            out.write(OnHitEffectMessage {
-                owner: hitbox.owner,
-                victim: target,
-                contact: world_volume.center(),
-                effect: on_hit.effect.clone(),
-            });
-        }
+        out.write(OnHitEffectMessage {
+            owner: landed.attacker,
+            victim: landed.victim,
+            volume: landed.volume.clone(),
+            contact: landed.contact,
+            effect: on_hit.effect.clone(),
+        });
     }
 }
 
@@ -195,14 +109,6 @@ pub fn dispatch_hitbox_on_hit(
 
 /// The `on_hit` effect key the engine [`apply_pogo_bounce`] technique answers.
 pub const POGO_BOUNCE_KEY: &str = "pogo_bounce";
-
-/// Capability marker: this body can be pogo-bounced off. A game adds it to
-/// pogo-able enemies / hazards / breakables; the [`apply_pogo_bounce`]
-/// technique gates on it (AJ1: "gated on the victim's pogo-target capability").
-/// Distinct from the world-block `PogoOrb`/`Rebound` path the legacy player
-/// pogo uses — this is the actor-hurtbox capability the moveset down-air reads.
-#[derive(Component, Debug, Clone, Copy, Default)]
-pub struct PogoTarget;
 
 /// Params for the `pogo_bounce` technique. `rise` is the gravity-up rebound
 /// speed (engine units); omitted → the default pop (matches the flat player
@@ -230,8 +136,8 @@ impl Default for PogoBounceParams {
 }
 
 /// The rebound speed a `pogo_bounce` [`EffectRef`] carries — hydrated from its
-/// params, defaulting when absent/malformed. Shared by the entity pogo
-/// ([`apply_pogo_bounce`]) and the world-orb pogo (`pogo_moveset_off_world_orbs`).
+/// params, defaulting when absent/malformed. Shared by resolved-body pogo
+/// ([`apply_pogo_bounce`]) and world-surface pogo (`pogo_moveset_off_world_orbs`).
 pub fn pogo_rise_from(effect: &EffectRef) -> f32 {
     effect
         .params
@@ -275,15 +181,17 @@ pub fn set_pogo_sfx(effect: &mut EffectRef, cue: &str) {
         .expect("PogoBounceParams must round-trip through its own authored RON form");
 }
 
-/// The engine pogo technique: rebound the OWNER (gravity-up) when its on-hit
-/// volume lands on a [`PogoTarget`] victim. Sets the jump velocity through the
-/// shared [`ae::movement::set_jump_velocity`] seam (frame-correct under any
-/// gravity) and un-grounds the owner, so a down-air off a pogo-able foe pops
-/// the attacker up — the platformer staple, now a data-authored `on_hit` rather
-/// than a hardcoded player branch.
+/// The engine pogo technique: rebound the OWNER (gravity-up) when its authored
+/// on-hit effect came from a resolved body strike and the victim's pogo policy
+/// accepts that same contact.
+///
+/// `FromDamageable` needs no geometry re-test: the shared strike resolver already
+/// proved the attack reached the victim's damageable silhouette. `Custom` is the
+/// one case with a distinct pogo silhouette, so it explicitly tests the exact
+/// landed strike volume against [`PogoTargetVolumes`]. `Disabled` rejects it.
 pub fn apply_pogo_bounce(
     mut messages: MessageReader<OnHitEffectMessage>,
-    pogo_targets: Query<(), With<PogoTarget>>,
+    pogo_targets: Query<(&PogoPolicy, Option<&PogoTargetVolumes>)>,
     mut owners: Query<(
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
         &mut ae::BodyKinematics,
@@ -295,10 +203,24 @@ pub fn apply_pogo_bounce(
         if msg.effect.key != POGO_BOUNCE_KEY {
             continue;
         }
-        // Gate on the victim's pogo-target capability.
-        if pogo_targets.get(msg.victim).is_err() {
+        let Ok((policy, pogo_volumes)) = pogo_targets.get(msg.victim) else {
+            continue;
+        };
+        let pogoable = match *policy {
+            PogoPolicy::FromDamageable => true,
+            PogoPolicy::Custom => pogo_volumes.is_some_and(|volumes| {
+                volumes
+                    .volumes
+                    .iter()
+                    .copied()
+                    .any(|aabb| msg.volume.intersects_aabb(aabb))
+            }),
+            PogoPolicy::Disabled => false,
+        };
+        if !pogoable {
             continue;
         }
+
         let rise = pogo_rise_from(&msg.effect);
         let cue = pogo_sfx_from(&msg.effect);
         let Ok((resolved_frame, mut kin, mut ground)) = owners.get_mut(msg.owner) else {
@@ -308,11 +230,11 @@ pub fn apply_pogo_bounce(
         // opposite the same down its movement integrated under.
         let gdir = resolved_frame.down();
         // SET (not add) the jump velocity → idempotent if two victims land the
-        // same frame. No cross-frame dedup needed: the owner bounces away.
+        // same frame. No cross-frame dedup is needed: `HitboxHits` guarantees one
+        // landed fact per victim per strike, and the bounce sends the owner away.
         let pos = kin.pos;
         ae::movement::set_jump_velocity(&mut kin.vel, gdir, rise);
         ground.on_ground = false;
-        // The owner's technique, so the owner's cue (G1).
         sfx.write_for(
             msg.owner,
             match cue {

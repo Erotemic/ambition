@@ -224,11 +224,10 @@ impl DamageableVolumes {
 
     /// The published silhouette as coarse boxes.
     ///
-    /// For consumers that are RECTANGLES by nature and not by accident — the
-    /// pogo-orb overlay bridges hurtboxes into the engine's block world, and a
-    /// block is a rect. Every other reader should take the volumes themselves;
-    /// this one is a deliberate, named coarsening, which is what keeps it from
-    /// being mistaken for the silhouette.
+    /// Pogo affordance readers and explicit world-surface contributors are box
+    /// consumers. Damage itself must keep reading the original combat volumes;
+    /// this named coarsening prevents a convenience projection from becoming the
+    /// authoritative hurtbox by accident.
     pub fn bounds(&self) -> Vec<ae::Aabb> {
         self.volumes.iter().map(ae::CombatVolume::bounds).collect()
     }
@@ -236,7 +235,7 @@ impl DamageableVolumes {
 
 /// Per-feature pogo derivation policy.
 ///
-/// The default game rule is that things the player can damage are also valid
+/// The default game rule is that things a body can damage are also valid
 /// downslash/pogo refresh targets. `Disabled` is the escape hatch for puzzle
 /// targets or hazardous objects that should take damage without granting a
 /// bounce, while `Custom` leaves `PogoTargetVolumes` to a domain-specific
@@ -249,23 +248,24 @@ pub enum PogoPolicy {
     Disabled,
 }
 
-/// Volumes that should be bridged into the engine collision world as
-/// non-solid `PogoOrb` blocks.
+/// Entity-side geometry that may grant a pogo rebound.
 ///
-/// `rebuild_feature_ecs_world_overlay` consumes this generic component instead
-/// of hard-coding "enemy body" or "boss body" branches. That keeps composite
-/// bosses such as GNU-ton free to expose only their active hurtboxes as pogo
-/// targets.
+/// Bodies publish this alongside their damageable silhouette so proximity/UI and
+/// `PogoPolicy::Custom` can describe the pogoable part without losing body
+/// identity. These volumes are **not** collision-world blocks by default. An ECS
+/// feature becomes world rebound geometry only when it also carries
+/// [`PogoTargetContributor`].
 #[derive(Component, Clone, Debug, Default, PartialEq)]
 pub struct PogoTargetVolumes {
     pub volumes: Vec<ae::Aabb>,
 }
 
-/// Legacy marker for ECS features that can refresh pogo when struck/bounced.
+/// Explicit marker for an ECS feature that contributes WORLD pogo geometry.
 ///
-/// Prefer `DamageableVolumes` + `PogoPolicy` + `PogoTargetVolumes` for new
-/// gameplay. This marker remains for authored stand-to-crumble surfaces whose
-/// pogo affordance is not a player-damage target.
+/// This is deliberately absent from combat bodies. A body is pogoed through its
+/// resolved entity hit and [`PogoPolicy`]; a contributor is lowered into a
+/// collision-world `PogoOrb` because it represents a surface with no body-victim
+/// semantics (for example a stand-to-crumble or pogo-refresh platform).
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PogoTargetContributor;
 

@@ -169,10 +169,20 @@ fn tick_and_despawn_keeps_live_hitboxes() {
 #[derive(Resource, Default)]
 struct CapturedHits(Vec<HitEvent>);
 
+#[derive(Resource, Default)]
+struct CapturedLandedHits(Vec<LandedBodyHit>);
+
 fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHits>) {
     for e in reader.read() {
         cap.0.push(e.clone());
     }
+}
+
+fn capture_landed_hits(
+    mut reader: MessageReader<LandedBodyHit>,
+    mut cap: ResMut<CapturedLandedHits>,
+) {
+    cap.0.extend(reader.read().cloned());
 }
 
 /// Structural tangibility gate (Jon 2026-07-22): a dead body is an intangible
@@ -227,6 +237,7 @@ fn a_dead_victim_is_intangible_to_a_swing() {
 fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -284,6 +295,7 @@ use crate::targeting::FactionRelations;
 fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.insert_resource(relations);
@@ -388,6 +400,7 @@ fn actor_vs_actor_damage_is_physical_for_different_factions() {
 fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.insert_resource(relations);
@@ -490,6 +503,7 @@ fn enemy_hitbox_hits_a_non_targeted_player_strays_are_physical() {
 fn player_faction_hitbox_only_fires_once() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -552,13 +566,18 @@ fn armed_player_melee() -> crate::BodyMelee {
 fn player_melee_never_targets_its_owner() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
+    app.init_resource::<CapturedLandedHits>();
     app.insert_resource(crate::rules::ResolvedCombatTuning {
         friendly_fire: true,
         ..Default::default()
     });
-    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    app.add_systems(
+        Update,
+        (apply_hitbox_damage, capture_hits, capture_landed_hits).chain(),
+    );
 
     let owner = app
         .world_mut()
@@ -608,6 +627,10 @@ fn player_melee_never_targets_its_owner() {
         app.world().resource::<CapturedHits>().0.is_empty(),
         "a body-owned melee strike must never emit a hit targeting its own owner"
     );
+    assert!(
+        app.world().resource::<CapturedLandedHits>().0.is_empty(),
+        "self-exclusion must happen before the authoritative landed-hit fact is published"
+    );
 }
 
 /// Smash regression: a Player-effective melee strike resolves its victim in the
@@ -618,6 +641,7 @@ fn player_melee_never_targets_its_owner() {
 fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -707,9 +731,14 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
 fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
-    app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+    app.init_resource::<CapturedLandedHits>();
+    app.add_systems(
+        Update,
+        (apply_hitbox_damage, capture_hits, capture_landed_hits).chain(),
+    );
 
     let owner = app
         .world_mut()
@@ -768,17 +797,27 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
             .intersects_aabb(victim_body),
         "the authored strike, not body contact, must be what reaches the victim"
     );
-    app.world_mut().spawn((
-        hitbox,
-        HitboxLifetime { remaining_s: 0.2 },
-        HitboxHits::default(),
-    ));
+    let hitbox_entity = app
+        .world_mut()
+        .spawn((
+            hitbox,
+            HitboxLifetime { remaining_s: 0.2 },
+            HitboxHits::default(),
+        ))
+        .id();
 
     app.update();
     let cap = app.world().resource::<CapturedHits>();
     assert_eq!(cap.0.len(), 1, "the other match team is a legal victim");
     assert_eq!(cap.0[0].target, HitTarget::Player(victim));
     assert!(cap.0[0].knockback.is_some());
+
+    let landed = app.world().resource::<CapturedLandedHits>();
+    assert_eq!(landed.0.len(), 1, "one selected body contact publishes one landed fact");
+    assert_eq!(landed.0[0].hitbox, hitbox_entity);
+    assert_eq!(landed.0[0].attacker, owner);
+    assert_eq!(landed.0[0].victim, victim);
+    assert_eq!(landed.0[0].volume, cap.0[0].volume);
 }
 
 /// A live body-owned strike is authoritative gameplay state. The `BodyMelee`
@@ -790,6 +829,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
 fn player_followowner_strike_does_not_require_a_body_melee_projection() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
@@ -864,6 +904,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
     let sword = ambition_sfx::SfxId::new("weapon.sword");
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());

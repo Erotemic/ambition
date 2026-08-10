@@ -122,6 +122,19 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
+/// ⚠ **v22 (2026-08-09): resolved body hits become the authoritative
+/// on-hit seam.** `HitboxOnHit` no longer snapshots/maps a per-victim entity
+/// set: body-hit deduplication lives in `HitboxHits`, while a same-frame
+/// `LandedBodyHit` carries the already-resolved attacker/victim/contact fact to
+/// move confirms and on-hit effects. `feature.pogo_target` and
+/// `map.hitbox_on_hit` therefore leave the schema, and
+/// `message.landed_body_hit` joins the load-clear contract. The value encoding
+/// of `HitboxOnHit` also changes from `EffectRef + BTreeSet<Entity>` to
+/// `EffectRef + world_fired`, and that mutable world-contact latch now has its
+/// own checksum projection instead of hiding behind a presence-only clone. A v21
+/// peer therefore decodes different bytes even aside from the registration-set
+/// change.
+///
 /// ⚠ **v21 (2026-08-09): the DEATH INTERLUDE joins the wire format** (ADR
 /// 0033). `actor.out_of_play` and `actor.death_interlude` carry whether a
 /// participant's attempt has ended, how long its window still has to run, and
@@ -134,7 +147,7 @@ use super::{
 /// carried the same facts for one game and was clone-probed rather than
 /// checksummed, so this is the wire format gaining truth it was already relying
 /// on, not gaining a feature.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 21;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 22;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

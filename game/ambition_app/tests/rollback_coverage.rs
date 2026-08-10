@@ -701,7 +701,7 @@ fn every_component_on_a_live_strike_volume_is_registered_derived_or_waived() {
 /// every component that only exists while a body is ridden — the brain cache the
 /// weld parks, the mount's borrowed size, the rider's saddle link — had never been
 /// in this sweep's population. Population, not accounting: exactly the hole that
-/// hid `PogoTarget` and `BossAnimFrame`.
+/// hid `PogoTargetContributor` and `BossAnimFrame`.
 ///
 /// Built in Rust rather than as a room, because a room id is not available and
 /// waiting for one is how a population stays unswept.
@@ -854,7 +854,7 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
 /// simulation-critical state outside rollback, and both were right. What is
 /// worth recording is why neither this instrument nor any other caught it
 /// first: **no swept population contained a match.** That is the exact shape
-/// A19 already hit — `PogoTarget`, `ChestFeature` and `PortalHostScanned` were
+/// A19 already hit — `PogoTargetContributor`, `ChestFeature` and `PortalHostScanned` were
 /// not unregistered-and-missed, they were never in the population — and the
 /// lesson evidently did not generalise on its own. A sweep answers only the
 /// question its population asks.

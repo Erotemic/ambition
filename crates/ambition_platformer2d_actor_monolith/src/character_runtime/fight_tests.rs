@@ -488,6 +488,7 @@ fn fight_app() -> App {
         time.raw_dt = TICK;
     }
     app.add_message::<crate::features::HitEvent>();
+    app.add_message::<crate::combat::hitbox::LandedBodyHit>();
     app.add_message::<crate::features::SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();

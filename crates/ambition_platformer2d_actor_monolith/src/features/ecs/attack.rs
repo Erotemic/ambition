@@ -190,14 +190,13 @@ fn pogo_target_for_attack_hitbox(world: &ae::World, attack: ae::Aabb) -> Option<
         .map(|block| block.aabb)
 }
 
-/// World-ORB pogo for the MOVESET down-air (fable review R2.5, the block half of
-/// the unified pogo). When a body playing a `pogo_bounce` on-hit move
-/// (`attack_air_down`) overlaps a world `PogoOrb` block, rebound it away from
-/// gravity — the collision-world orbs the melee down-air reaches, now that the
-/// swing runs through the moveset. The ENTITY half (enemies, breakables) rides
-/// `dispatch_hitbox_on_hit` + `apply_pogo_bounce`; together they are one pogo
-/// (`PogoTarget` entities + `PogoOrb` blocks). `set_jump_velocity` SETS
-/// (idempotent), so no per-frame dedup — the owner bounces clear.
+/// World-surface pogo for moveset down-airs.
+///
+/// This path is deliberately ONLY for genuine collision-world `PogoOrb` /
+/// `Rebound` surfaces, which have no victim entity. Body contacts travel through
+/// `LandedBodyHit` -> `dispatch_landed_hit_effects` -> `apply_pogo_bounce` and
+/// never enter the block world. Keeping those domains separate preserves body
+/// identity and makes self-pogo through an anonymous body projection impossible.
 pub fn pogo_moveset_off_world_orbs(
     world: ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
     moving_platforms: Res<MovingPlatformSet>,
@@ -215,17 +214,14 @@ pub fn pogo_moveset_off_world_orbs(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
-    // The pogo hitboxes live this frame + where their volume covers. A hitbox that
-    // has ALREADY world-bounced this strike is skipped: the world-orb pogo carries
-    // no victim ENTITY to record in `HitboxOnHit.fired` (an orb is a collision-world
-    // block, not an entity), so — like the entity pogo dedups by victim — this
-    // dedups the whole strike with the OWNER as the sentinel key. Without it the
-    // bounce + `Pogo` sfx re-fired every frame the box overlapped the orb.
+    // A world surface has no victim Entity, so it cannot use `HitboxHits`'
+    // entity-keyed dedup. `HitboxOnHit::world_fired` is the explicit one-bit
+    // state for that one exceptional domain: at most one world rebound per strike.
     // (hitbox, owner, world box, rise, the cue the effect authored)
     let pogo: Vec<(Entity, Entity, ae::Aabb, f32, Option<ambition_sfx::SfxId>)> = hitboxes
         .iter()
         .filter(|(_, _, on_hit)| on_hit.effect.key == crate::combat::on_hit::POGO_BOUNCE_KEY)
-        .filter(|(_, hitbox, on_hit)| !on_hit.has_fired(hitbox.owner))
+        .filter(|(_, _, on_hit)| !on_hit.world_fired())
         .filter_map(|(hb_entity, hitbox, on_hit)| {
             let owner_box = boxes.get(hitbox.owner).ok()?;
             let world_box = hitbox.world_volume(owner_box.center).bounds();
@@ -268,11 +264,10 @@ pub fn pogo_moveset_off_world_orbs(
                 None => SfxMessage::Pogo { pos },
             },
         );
-        // One bounce per strike: mark this hitbox as having world-bounced so a
-        // sustained overlap doesn't re-pogo every frame (the entity pogo's
-        // `HitboxOnHit.fired` dedup, extended to the entity-less world orb).
+        // One world rebound per strike. Body contacts dedup independently through
+        // `HitboxHits`; no Entity sentinel is mixed into this state.
         if let Ok((_, _, mut on_hit)) = hitboxes.get_mut(hb_entity) {
-            on_hit.mark_fired(owner);
+            on_hit.mark_world_fired();
         }
     }
 }

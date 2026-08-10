@@ -780,7 +780,7 @@ pub fn advance_move_playback(
                         }
                         // Conditional on-hit technique (pogo, lifesteal, …): a
                         // volume authoring `on_hit` gets the sidecar the
-                        // `dispatch_hitbox_on_hit` primitive reads (fable AJ1).
+                        // resolved-hit on-hit projection reads (fable AJ1).
                         if let Some(effect) = &volume.on_hit {
                             ec.insert(super::on_hit::HitboxOnHit::new(effect.clone()));
                         }
@@ -1201,29 +1201,20 @@ pub fn trigger_moveset_moves(
     }
 }
 
-/// CM4: mark the attacker's playing move as CONNECTED when its strike resolves
-/// onto a concrete victim. Pre-resolved victim events (`HitTarget::Actor` /
-/// `HitTarget::Player`) are emitted only on physical overlap, so they ARE the
-/// landing fact; `Volume` events are emitted every active tick regardless of
-/// contact and are marked instead by the volume resolver
-/// (`apply_feature_hit_events`) when a victim actually takes the hit. Reads the
-/// shared `HitEvent` channel from its own reader position (the established
-/// multi-consumer pattern on this channel).
+/// CM4: mark the attacker's playing move as CONNECTED from the same resolved
+/// body-hit fact on-hit techniques consume.
+///
+/// The contact resolver owns the meaning of "landed". Move cancels do not infer
+/// it from `HitTarget`, and on-hit effects do not perform their own overlap pass;
+/// both consume [`crate::hitbox::LandedBodyHit`]. World/broadcast effects that do
+/// not resolve a body victim continue to mark their own outcome at their own
+/// resolution seam.
 pub fn mark_move_playback_landed_hits(
-    mut events: MessageReader<crate::events::HitEvent>,
+    mut landed_hits: MessageReader<crate::hitbox::LandedBodyHit>,
     mut playbacks: Query<&mut MovePlayback>,
 ) {
-    for ev in events.read() {
-        let Some(attacker) = ev.attacker else {
-            continue;
-        };
-        if !matches!(
-            ev.target,
-            crate::events::HitTarget::Actor(_) | crate::events::HitTarget::Player(_)
-        ) {
-            continue;
-        }
-        if let Ok(mut pb) = playbacks.get_mut(attacker) {
+    for landed in landed_hits.read() {
+        if let Ok(mut pb) = playbacks.get_mut(landed.attacker) {
             pb.landed_hit = true;
         }
     }

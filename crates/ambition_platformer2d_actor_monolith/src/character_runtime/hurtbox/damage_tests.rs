@@ -63,6 +63,7 @@ fn narrow_torso() -> HurtboxDoc {
 fn fight_app() -> App {
     let mut app = App::new();
     app.add_message::<HitEvent>();
+    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(
@@ -430,6 +431,7 @@ fn a_widening_move_silhouette_is_hittable_on_the_tick_it_widens() {
         ),
     );
     app.add_message::<HitEvent>();
+    app.add_message::<ambition_combat::hitbox::LandedBodyHit>();
     app.add_message::<VfxMessage>();
     app.add_message::<ambition_combat::moveset::MoveEventMessage>();
     app.init_resource::<CapturedHits>();

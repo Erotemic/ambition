@@ -1,4 +1,4 @@
-ggrs-rollback-schema-v21
+ggrs-rollback-schema-v22
 actor.action_set	component-clone	ActionSet	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 actor.active_combatant	component-canonical	ActiveCombatant	bevy_ggrs canonical codec snapshot + identical canonical checksum projection
 actor.aggression	component-clone-cursor	ActorAggression	bevy_ggrs clone snapshot + canonical mutable-cursor checksum projection
@@ -97,7 +97,7 @@ combat.capabilities	component-clone	CombatCapabilities	bevy_ggrs clone snapshot;
 combat.hitbox	component-clone	Hitbox	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.hitbox_hits	component-clone	HitboxHits	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
 combat.hitbox_lifetime	component-clone	HitboxLifetime	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
-combat.hitbox_on_hit	component-clone	HitboxOnHit	bevy_ggrs clone snapshot; entity SET remapped, probed through the targets' stable sim identities
+combat.hitbox_on_hit	component-clone-custom-checksum	HitboxOnHit	bevy_ggrs clone snapshot + entity-less world-contact fired-state checksum projection
 combat.kit	component-clone	CombatKit	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 combat.strike_volume	component-clone	StrikeVolume	bevy_ggrs clone snapshot; entity handle remapped, probed through the target's stable sim identity
 combat.tuning	component-clone	CombatTuning	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
@@ -216,7 +216,6 @@ feature.pickup	component-clone	PickupFeature	bevy_ggrs clone snapshot; state che
 feature.pickup_art	component-clone	PickupArt	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.pickup_collect_lock	component-clone	PickupCollectLock	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.pogo_policy	component-clone	PogoPolicy	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
-feature.pogo_target	component-clone	PogoTarget	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.pogo_target_contributor	component-clone	PogoTargetContributor	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.pogo_target_volumes	component-clone	PogoTargetVolumes	bevy_ggrs clone snapshot; state checksum supplied by another authoritative projection
 feature.respawn_timer	component-clone	RespawnTimer	bevy_ggrs clone snapshot; value-probed for localization, not in the session checksum
@@ -241,7 +240,6 @@ map.content.saddle_point_state	entity-mapping	SaddlePointState	bevy_ggrs LoadWor
 map.encounter_participants	entity-mapping	EncounterParticipants	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox	entity-mapping	Hitbox	bevy_ggrs LoadWorld entity-reference remapping
 map.hitbox_hits	entity-mapping	HitboxHits	bevy_ggrs LoadWorld entity-reference remapping
-map.hitbox_on_hit	entity-mapping	HitboxOnHit	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_member	entity-mapping	Limb	bevy_ggrs LoadWorld entity-reference remapping
 map.limb_rig	entity-mapping	LimbRig	bevy_ggrs LoadWorld entity-reference remapping
 map.mount_slot	entity-mapping	MountSlot	bevy_ggrs LoadWorld entity-reference remapping
@@ -286,6 +284,7 @@ message.gameplay_banner_requested	message-clear	GameplayBannerRequested	clear ab
 message.gameplay_sfx_requested	message-clear	GameplaySfxRequested	clear abandoned-future message buffer in LoadWorld::Mapping
 message.hit_event	message-clear	HitEvent	clear abandoned-future message buffer in LoadWorld::Mapping
 message.item_grant_requested	message-clear	ItemGrantRequested	clear abandoned-future message buffer in LoadWorld::Mapping
+message.landed_body_hit	message-clear	LandedBodyHit	clear abandoned-future message buffer in LoadWorld::Mapping
 message.light_emission_request_2d	message-clear	LightEmissionRequest2d	clear abandoned-future message buffer in LoadWorld::Mapping
 message.mount_died	message-clear	MountDied	clear abandoned-future message buffer in LoadWorld::Mapping
 message.move_event	message-clear	MoveEventMessage	clear abandoned-future message buffer in LoadWorld::Mapping

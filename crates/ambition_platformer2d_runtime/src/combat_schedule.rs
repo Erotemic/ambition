@@ -57,9 +57,10 @@ impl Plugin for CombatSchedulePlugin {
         app.add_message::<ambition_vfx::EffectRequest>();
         app.add_message::<ambition_platformer2d_actor_monolith::combat::moveset::MoveEventMessage>(
         );
-        // On-hit techniques (pogo, …): `dispatch_hitbox_on_hit` writes one per
-        // landed on-hit volume; the engine `apply_pogo_bounce` + any content
-        // technique read it.
+        // One authoritative resolved body-contact fact. The shared hitbox resolver
+        // writes it; move confirms and authored on-hit techniques both consume it
+        // instead of independently deciding whether the strike connected.
+        app.add_message::<ambition_platformer2d_actor_monolith::combat::hitbox::LandedBodyHit>();
         app.add_message::<ambition_platformer2d_actor_monolith::combat::on_hit::OnHitEffectMessage>();
         // **A BODY REACHING ZERO SAYS SO, WHETHER OR NOT A RULESET IS LISTENING.**
         // `apply_player_hit_events` and `apply_actor_hit` both write
@@ -248,8 +249,8 @@ impl Plugin for CombatSchedulePlugin {
                 // actor/brain follow-up plan). `apply_hitbox_damage`
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`
                 // advances lifetimes and cleans expired entities.
-                // CM4: the attacker's playing move learns its strike CONNECTED
-                // (pre-resolved victim events; the volume resolver marks its own).
+                // CM4: the attacker's playing move learns its strike CONNECTED from
+                // the same `LandedBodyHit` fact that drives authored on-hit effects.
                 // Immediately after `apply_hitbox_damage` so this frame's overlaps
                 // mark this frame — an OnHit cancel window opens on the connect
                 // frame. (Inner tuple: the outer chain is at Bevy's tuple-size
@@ -260,17 +261,15 @@ impl Plugin for CombatSchedulePlugin {
                 )
                     .chain()
                     .run_if(gameplay_allowed),
-                // On-hit conditional techniques (fable AJ1): while hitboxes are
-                // still live, `dispatch_hitbox_on_hit` emits one `OnHitEffectMessage`
-                // per damage-valid victim an `on_hit` volume overlaps; the engine
-                // `apply_pogo_bounce` technique consumes it same-frame (the chain
-                // orders them). Both no-op until a move authors an `on_hit` volume.
-                ambition_platformer2d_actor_monolith::combat::on_hit::dispatch_hitbox_on_hit.run_if(gameplay_allowed),
+                // Authored on-hit techniques consume the SAME landed-body fact
+                // emitted by `apply_hitbox_damage`; there is no second overlap or
+                // relationship pass. `apply_pogo_bounce` then interprets the authored
+                // effect against the victim's pogo policy.
+                ambition_platformer2d_actor_monolith::combat::on_hit::dispatch_landed_hit_effects.run_if(gameplay_allowed),
                 ambition_platformer2d_actor_monolith::combat::on_hit::apply_pogo_bounce.run_if(gameplay_allowed),
-                // The BLOCK half of the unified pogo: a moveset down-air's pogo
-                // hitbox bounces off world `PogoOrb` blocks (the collision-world
-                // orbs the flat player pogo used), now that the melee fold routes
-                // the down-air through the moveset (fable review R2.5).
+                // Genuine WORLD pogo surfaces have no victim entity, so they stay a
+                // separate collision-world contact path. ECS bodies are never projected
+                // into this world-surface representation.
                 ambition_platformer2d_actor_monolith::features::ecs::attack::pogo_moveset_off_world_orbs
                     .run_if(gameplay_allowed),
                 ambition_platformer2d_actor_monolith::features::tick_and_despawn_hitboxes,

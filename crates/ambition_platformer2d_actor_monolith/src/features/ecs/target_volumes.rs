@@ -1,10 +1,10 @@
 //! Per-frame damageable and pogo-target volume derivation.
 //!
-//! This module keeps the gameplay rule "damageable implies pogoable by
-//! default" in ECS data instead of burying it in the sandbox-world overlay.
-//! Family-specific systems publish their current damageable volumes; the
-//! generic derivation system then mirrors them into pogo target volumes unless
-//! a feature explicitly opts out.
+//! This module keeps the rule "damageable implies pogoable by default" in body
+//! data. Family-specific systems publish current damageable volumes; the generic
+//! derivation mirrors them into pogo affordance geometry unless a feature opts
+//! out. World collision geometry is a separate explicit contribution and never
+//! inferred merely because a body can be struck.
 
 use super::*;
 
@@ -68,7 +68,7 @@ pub fn refresh_body_damageable_volumes(
 ) {
     for (aabb, health, hurtboxes, kin, mut damageable) in &mut bodies {
         // Structural tangibility gate (Jon 2026-07-22): a live body — peaceful or
-        // hostile — is a valid player-strike / pogo target; a dead one is an
+        // hostile — is a valid body-strike / pogo target; a dead one is an
         // intangible corpse and publishes no volume (so you cannot pogo off a
         // corpse). Disposition governs AI and damage dealt TO the player, not
         // whether the player can refresh a downslash from the body.
@@ -111,7 +111,7 @@ fn authored_world_volumes(
     )
 }
 
-/// Publish player-damageable boss volumes from the same authored hurtbox path
+/// Publish strike-damageable boss volumes from the same authored hurtbox path
 /// used by actual boss damage application.
 ///
 /// This is the GNU-ton-critical seam: his coarse spawn/render AABB is a giant
@@ -158,8 +158,8 @@ pub fn refresh_boss_damageable_volumes(
 /// Breakable pogo-orbs remain damageable even though their actual damage is
 /// resolved by the dedicated `HitSource::PogoBounce` path. Regular OnHit/Either
 /// breakables participate in the default damageable => pogoable rule; pure
-/// stand-to-crumble platforms keep their legacy `PogoTargetContributor` marker
-/// instead of pretending to be player-damage targets.
+/// stand-to-crumble platforms opt into world rebound geometry through
+/// `PogoTargetContributor` instead of pretending to be body-damage targets.
 pub fn refresh_breakable_damageable_volumes(
     mut breakables: Query<(&CenteredAabb, &BreakableFeature, &mut DamageableVolumes)>,
 ) {
@@ -187,12 +187,9 @@ pub fn derive_pogo_target_volumes(
     for (damageable, policy, mut pogo) in &mut targets {
         match *policy {
             PogoPolicy::FromDamageable => {
-                // Coarsened ON PURPOSE. A pogo target is bridged into the
-                // engine's block world as a non-solid `PogoOrb`, and a block is
-                // a rectangle — this consumer is rects by nature, not by an
-                // accident of what the component could hold. `bounds()` is the
-                // named seam for that, so the coarsening is visible here rather
-                // than being the silent shape of the whole pipeline.
+                // Coarsened ON PURPOSE for pogo affordance geometry. Damage keeps
+                // the original `CombatVolume`s; this projection is for proximity
+                // and for features that explicitly opt into world-surface boxes.
                 pogo.volumes.clear();
                 pogo.volumes.extend(damageable.bounds());
             }

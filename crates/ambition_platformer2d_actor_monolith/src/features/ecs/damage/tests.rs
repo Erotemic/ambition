@@ -24,6 +24,7 @@ use bevy::prelude::{App, IntoScheduleConfigs, Update};
 /// finding out which ones you missed by running them. One list, one edit.
 fn register_hit_pipeline_messages(app: &mut App) {
     app.add_message::<HitEvent>();
+    app.add_message::<crate::combat::hitbox::LandedBodyHit>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();

@@ -27,7 +27,7 @@
 //! world-space rectangle for hazards / boss specials.
 
 use bevy::ecs::query::QueryData;
-use bevy::prelude::{Commands, Entity, Has, MessageWriter, Query, Res, With};
+use bevy::prelude::{Commands, Entity, Has, Message, MessageWriter, Query, Res, With};
 
 use ambition_platformer2d_core as ae;
 use ambition_platformer2d_core::AabbExt;
@@ -48,6 +48,28 @@ use ambition_vfx::vfx::VfxMessage;
 pub use ambition_vfx::{
     HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
 };
+
+/// One authoritative body contact resolved by a live strike.
+///
+/// [`apply_hitbox_damage`] is the one system that knows all of the facts needed
+/// to say a body strike connected: attacker identity, victim identity, combat
+/// relationship, published hurtbox geometry, self-exclusion, and per-strike
+/// deduplication. Systems that care about a connect (move confirms, pogo,
+/// lifesteal, status effects) consume this fact instead of independently
+/// re-running overlap or relationship logic.
+#[derive(Message, Clone, Debug)]
+pub struct LandedBodyHit {
+    /// The live strike entity that produced the contact.
+    pub hitbox: Entity,
+    /// Body that owns the strike.
+    pub attacker: Entity,
+    /// Concrete body selected by the shared victim resolver.
+    pub victim: Entity,
+    /// Exact world-space strike geometry used to resolve the contact.
+    pub volume: ae::CombatVolume,
+    /// Representative world-space contact point for effects/presentation.
+    pub contact: ae::Vec2,
+}
 
 /// Resolve a live hitbox's unit-bearing payload for one victim.
 ///
@@ -294,9 +316,10 @@ pub fn apply_hitbox_damage(
     // strike, not a body-owned melee contact).
     mut vfx: MessageWriter<VfxMessage>,
     mut hit_events: MessageWriter<HitEvent>,
+    mut landed_hits: MessageWriter<LandedBodyHit>,
 ) {
     let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
-    for (_hitbox_entity, hitbox, mut hits) in &mut hitboxes {
+    for (hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         // Resolve the owner's collision-box center for FollowOwner tracking.
         // Actors carry `CenteredAabb`; bare fixtures may carry only
         // `BodyKinematics`. If neither resolves (owner despawned), leave the
@@ -402,6 +425,13 @@ pub fn apply_hitbox_damage(
                     mode: HitMode::Knockback,
                     knockback,
                     ignored_targets: Vec::new(),
+                });
+                landed_hits.write(LandedBodyHit {
+                    hitbox: hitbox_entity,
+                    attacker: hitbox.owner,
+                    victim: victim.entity,
+                    volume: world_volume.clone(),
+                    contact: impact,
                 });
                 hits.hit.insert(victim.entity);
             }

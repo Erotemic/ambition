@@ -60,6 +60,18 @@ published hurtbox geometry, per-hitbox dedup, and victim-specific knockback.
 `Player` + `World` hitboxes remain a distinct world-AOE primitive rather than a
 second melee path.
 
+**A landed body strike is one fact.** `apply_hitbox_damage` publishes
+`LandedBodyHit { hitbox, attacker, victim, volume, contact }` at the moment that
+same shared resolver commits the targeted damage event. Move confirms and
+authored `on_hit` techniques consume that fact; they do not independently
+rediscover overlap, faction policy, self-exclusion, or victim identity. Pogo is
+the keystone example: body pogo consumes the resolved victim plus its
+`PogoPolicy`, while genuine entity-less rebound surfaces remain a separate world
+contact path. Ordinary bodies may publish `PogoTargetVolumes` for affordance and
+custom pogo silhouettes, but they are never flattened into anonymous
+collision-world `PogoOrb` blocks. Only an explicit `PogoTargetContributor`
+opts an ECS feature into world rebound geometry.
+
 ⛔ **Do not reintroduce** a `PlayerAttackState` / `ActorAttackState` split, a
 second slash emit, or a per-frame player damage loop. Every melee is an
 `"attack"`-verb moveset move riding `MovePlayback`.

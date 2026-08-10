@@ -524,13 +524,12 @@ pub fn register_engine_rollback_state(app: &mut App) {
     // asks `With<PlayerVisual>, Without<PortalSceneBody>` to decide what to tag
     // as a portal scene body, so a recreated player that came back without the
     // tag would stop being seen by portal staging entirely.
-    // The two pogo CAPABILITY markers, beside the policy and volumes that were
-    // already registered. Same reasoning as `PlayerVisual`: bevy_ggrs recreates
-    // the entity, and a marker that does not come back silently revokes a
-    // capability — `apply_pogo_bounce` gates on `PogoTarget`, and a
-    // stand-to-crumble surface's pogo affordance IS `PogoTargetContributor`. A
-    // body that stops being bounceable after a rewind is a gameplay divergence
-    // that no amount of correct geometry can repair.
+    // The explicit world-pogo contributor marker, beside the body policy and
+    // pogo volumes that were already registered. Same reasoning as `PlayerVisual`:
+    // bevy_ggrs recreates the entity, and a stand-to-crumble surface that loses
+    // `PogoTargetContributor` after rewind silently stops being a world rebound
+    // surface. Body pogo eligibility itself is data (`PogoPolicy` + volumes), not
+    // a second marker.
     //
     // Found by sweeping rooms nobody had swept before (A19). Their registered
     // siblings sat two lines away this whole time.

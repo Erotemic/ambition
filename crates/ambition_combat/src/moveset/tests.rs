@@ -485,6 +485,7 @@ fn app_with_victim() -> (App, Entity) {
         super::super::authored_volumes::AuthoredAttackVolumeResolver::new(test_blade_resolver),
     );
     app.add_message::<HitEvent>();
+    app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
@@ -1293,6 +1294,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
+    app.add_message::<crate::hitbox::LandedBodyHit>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();

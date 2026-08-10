@@ -1,9 +1,10 @@
-//! Sandbox collision-world overlay rebuilt from ECS feature state.
+//! Feature collision-world overlay rebuilt from ECS-owned world geometry.
 //!
 //! The overlay is the bridge between the static ECS world (loaded
-//! from LDtk) and the dynamic feature state (broken breakables, live
-//! pogo target volumes, boss hurtboxes). Engine code that needs the augmented
-//! collision world calls `world_with_sandbox_solids` with this resource;
+//! from LDtk) and dynamic feature state that explicitly contributes world
+//! collision geometry (broken breakables, moving rebound surfaces). Engine code
+//! that needs the augmented collision world calls `world_with_sandbox_solids`
+//! with this resource;
 //! rebuilding it once per frame keeps the augment cheap.
 
 use ambition_platformer2d_core as ae;
@@ -35,19 +36,14 @@ pub struct FeatureWorldOverlaySet;
 
 pub fn rebuild_feature_ecs_world_overlay(
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
-    breakables: Query<
-        (&FeatureId, &FeatureName, &CenteredAabb, &BreakableFeature),
-        With<FeatureSimEntity>,
+    breakables: Query<(&FeatureName, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
+    // Only entities that explicitly contribute WORLD pogo geometry are lowered
+    // into collision blocks. Combat bodies also publish `PogoTargetVolumes`, but
+    // those are entity-side affordance geometry and must retain their identity.
+    pogo_targets: Query<
+        (&FeatureId, &CenteredAabb, Option<&PogoTargetVolumes>),
+        (With<FeatureSimEntity>, With<PogoTargetContributor>),
     >,
-    legacy_pogo_targets: Query<
-        (&FeatureId, &CenteredAabb),
-        (
-            With<FeatureSimEntity>,
-            With<PogoTargetContributor>,
-            Without<PogoTargetVolumes>,
-        ),
-    >,
-    pogo_targets: Query<(&FeatureId, &PogoTargetVolumes), With<FeatureSimEntity>>,
 ) {
     overlay.blocks.clear();
     // Gate contributors (encounter / intro lock walls, gnu_ton arena gate)
@@ -58,7 +54,7 @@ pub fn rebuild_feature_ecs_world_overlay(
     overlay.removed_block_names.clear();
     overlay.climbable_carves.clear();
     overlay.water_regions.clear();
-    for (id, name, aabb, feature) in &breakables {
+    for (name, aabb, feature) in &breakables {
         if feature.broken() {
             continue;
         }
@@ -83,42 +79,32 @@ pub fn rebuild_feature_ecs_world_overlay(
             velocity: ae::Vec2::ZERO,
             art_color: None,
         });
-        if feature.breakable.collision.blocks_movement() && feature.breakable.trigger.allows_stand()
-        {
-            overlay.blocks.push(ae::Block {
-                id: ae::GeoId::anon(),
-                name: format!("ecs-breakable-pogo-target {}", id.as_str()),
-                aabb: aabb.aabb(),
-                kind: ae::BlockKind::PogoOrb,
-                velocity: ae::Vec2::ZERO,
-                art_color: None,
-            });
-        }
     }
 
-    // Legacy stand-to-crumble contributors that do not have the new volume
-    // components yet. Production breakables currently receive PogoTargetVolumes
-    // at spawn, but this fallback keeps minimal tests and custom spawns working.
-    for (id, aabb) in &legacy_pogo_targets {
-        overlay.blocks.push(ae::Block {
-            id: ae::GeoId::anon(),
-            name: format!("ecs-legacy-pogo-target {}", id.as_str()),
-            aabb: aabb.aabb(),
-            kind: ae::BlockKind::PogoOrb,
-            velocity: ae::Vec2::ZERO,
-            art_color: None,
-        });
-    }
-
-    // Generic ECS pogo target bridge. Actors, NPCs, bosses, and hit-reactive
-    // breakables publish PogoTargetVolumes; the overlay does not need to know
-    // which feature family produced them.
-    for (id, pogo) in &pogo_targets {
-        for (idx, aabb) in pogo.volumes.iter().copied().enumerate() {
+    // Explicit ECS WORLD-pogo bridge. `PogoTargetContributor` says this entity
+    // contributes collision-world rebound geometry. A non-empty published
+    // `PogoTargetVolumes` is authoritative; otherwise the contributor's own
+    // centered envelope is the deliberate world-surface fallback. Ordinary
+    // bodies intentionally lack the contributor and stay entity contacts, so
+    // their identity is never flattened into anonymous blocks.
+    for (id, centered, pogo) in &pogo_targets {
+        let published = pogo.filter(|pogo| !pogo.volumes.is_empty());
+        if let Some(pogo) = published {
+            for (idx, aabb) in pogo.volumes.iter().copied().enumerate() {
+                overlay.blocks.push(ae::Block {
+                    id: ae::GeoId::anon(),
+                    name: format!("ecs-pogo-target {} {}", id.as_str(), idx),
+                    aabb,
+                    kind: ae::BlockKind::PogoOrb,
+                    velocity: ae::Vec2::ZERO,
+                    art_color: None,
+                });
+            }
+        } else {
             overlay.blocks.push(ae::Block {
                 id: ae::GeoId::anon(),
-                name: format!("ecs-pogo-target {} {}", id.as_str(), idx),
-                aabb,
+                name: format!("ecs-pogo-target-fallback {}", id.as_str()),
+                aabb: centered.aabb(),
                 kind: ae::BlockKind::PogoOrb,
                 velocity: ae::Vec2::ZERO,
                 art_color: None,

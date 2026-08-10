@@ -1,83 +1,74 @@
-//! Unit tests for the parent module, extracted from an inline
-//! `#[cfg(test)] mod tests` (test-organization campaign, 2026-07-10). Pure move:
-//! same test names + logic, now an adjacent child module with private access via
-//! `use super::*;`.
-
 use super::*;
-use crate::moveset::{advance_move_playback, MoveEventMessage, MovePlayback};
-use ambition_entity_catalog::{
-    ClipBinding, HitVolume, MoveSpec, MoveWindow, VolumeShape, WindowTag,
-};
-use ambition_time::WorldTime;
 use bevy::prelude::*;
 
-/// A down-air whose single Active volume (below the body) carries the pogo
-/// on-hit effect.
-fn pogo_dair() -> MoveSpec {
-    MoveSpec {
-        id: "attack_air_down".into(),
-        clip: ClipBinding {
-            clip: "dair".into(),
-            fallbacks: vec![],
-        },
-        duration_s: 0.12,
-        windows: vec![MoveWindow {
-            start_s: 0.0,
-            end_s: 0.12,
-            tag: WindowTag::Active,
-            volumes: vec![HitVolume {
-                hit_sfx: None,
-                // Body-local +y = gravity-down: the volume sits below the body.
-                shape: VolumeShape::Rect {
-                    offset: (0.0, 24.0),
-                    half_extents: (18.0, 18.0),
-                },
-                damage: 4,
-                knockback: 0.0,
-                kb_growth: 0.0,
-                launch_dir: None,
-                on_hit: Some(EffectRef::new(POGO_BOUNCE_KEY)),
-                vfx: None,
-            }],
-            sustain_effect: None,
-            motion_scale: 1.0,
-        }],
-        events: vec![],
-        gates: Default::default(),
-        start_impulse: None,
-        smash_charge_mult: 1.0,
+#[derive(Resource, Default)]
+struct CapturedEffects(Vec<OnHitEffectMessage>);
+
+fn capture_effects(
+    mut messages: MessageReader<OnHitEffectMessage>,
+    mut captured: ResMut<CapturedEffects>,
+) {
+    captured.0.extend(messages.read().cloned());
+}
+
+fn landed(
+    hitbox: Entity,
+    attacker: Entity,
+    victim: Entity,
+    volume: ae::CombatVolume,
+) -> LandedBodyHit {
+    LandedBodyHit {
+        hitbox,
+        attacker,
+        victim,
+        contact: volume.center(),
+        volume,
     }
 }
 
-/// Owner (Player) playing the pogo down-air, a victim (Enemy) directly below
-/// its down-volume. `victim_is_pogoable` toggles the `PogoTarget` capability.
-fn harness(victim_is_pogoable: bool) -> (App, Entity) {
+#[test]
+fn landed_body_hit_projects_the_authored_effect_without_re_resolving_contact() {
     let mut app = App::new();
-    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
-    app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<LandedBodyHit>();
+    app.add_message::<OnHitEffectMessage>();
+    app.init_resource::<CapturedEffects>();
+    app.add_systems(Update, (dispatch_landed_hit_effects, capture_effects).chain());
+
+    let attacker = app.world_mut().spawn_empty().id();
+    let victim = app.world_mut().spawn_empty().id();
+    let effect = EffectRef::new("lifesteal");
+    let hitbox = app
+        .world_mut()
+        .spawn(HitboxOnHit::new(effect.clone()))
+        .id();
+    let volume: ae::CombatVolume =
+        ae::Aabb::new(ae::Vec2::new(40.0, 50.0), ae::Vec2::new(8.0, 6.0)).into();
+
+    app.world_mut()
+        .write_message(landed(hitbox, attacker, victim, volume.clone()));
+    app.update();
+
+    let captured = &app.world().resource::<CapturedEffects>().0;
+    assert_eq!(captured.len(), 1);
+    assert_eq!(captured[0].owner, attacker);
+    assert_eq!(captured[0].victim, victim);
+    assert_eq!(captured[0].volume, volume);
+    assert_eq!(captured[0].effect.key, effect.key);
+}
+
+fn pogo_app(
+    policy: PogoPolicy,
+    pogo_volumes: Option<PogoTargetVolumes>,
+) -> (App, Entity, Entity, Entity) {
+    let mut app = App::new();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<OnHitEffectMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
-    app.add_systems(
-        Update,
-        (
-            advance_move_playback,
-            dispatch_hitbox_on_hit,
-            apply_pogo_bounce,
-        )
-            .chain(),
-    );
+    app.add_systems(Update, (dispatch_landed_hit_effects, apply_pogo_bounce).chain());
+
     let owner = app
         .world_mut()
         .spawn((
-            ae::CenteredAabb::from_center_size(
-                ae::Vec2::new(100.0, 100.0),
-                ae::Vec2::new(28.0, 46.0),
-            ),
             ae::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
@@ -88,121 +79,198 @@ fn harness(victim_is_pogoable: bool) -> (App, Entity) {
                 on_ground: true,
                 ..Default::default()
             },
-            ActorFaction::Player,
-            MovePlayback::new(pogo_dair(), 1.0),
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
         ))
         .id();
-    let victim = app
-        .world_mut()
-        .spawn((
-            ae::CenteredAabb::from_center_size(
-                ae::Vec2::new(100.0, 130.0),
-                ae::Vec2::new(28.0, 46.0),
-            ),
-            ActorFaction::Enemy,
-        ))
-        .id();
-    if victim_is_pogoable {
-        app.world_mut().entity_mut(victim).insert(PogoTarget);
+    let mut victim = app.world_mut().spawn(policy);
+    if let Some(pogo_volumes) = pogo_volumes {
+        victim.insert(pogo_volumes);
     }
-    (app, owner)
+    let victim = victim.id();
+    let hitbox = app
+        .world_mut()
+        .spawn(HitboxOnHit::new(EffectRef::new(POGO_BOUNCE_KEY)))
+        .id();
+    (app, owner, victim, hitbox)
 }
 
 #[test]
-fn down_air_pogos_off_a_pogo_target() {
-    let (mut app, owner) = harness(true);
-    for _ in 0..2 {
-        app.update();
-    }
+fn from_damageable_pogo_uses_the_resolved_body_hit_as_its_contact_fact() {
+    let (mut app, owner, victim, hitbox) =
+        pogo_app(PogoPolicy::FromDamageable, None);
+    let volume: ae::CombatVolume =
+        ae::Aabb::new(ae::Vec2::new(100.0, 130.0), ae::Vec2::new(18.0, 18.0)).into();
+    app.world_mut()
+        .write_message(landed(hitbox, owner, victim, volume));
+    app.update();
+
     let kin = app.world().get::<ae::BodyKinematics>(owner).unwrap();
     assert!(
         kin.vel.y < -1.0,
-        "the owner rebounded gravity-up (pogo), vel={:?}",
+        "the resolved victim contact should rebound the owner, vel={:?}",
         kin.vel
     );
     assert!(
         !app.world()
             .get::<ambition_platformer2d_core::BodyGroundState>(owner)
             .unwrap()
-            .on_ground,
-        "the pogo un-grounds the owner",
+            .on_ground
     );
 }
 
 #[test]
-fn down_air_pogos_off_a_factionless_world_orb() {
-    // A pogo-orb is a FACTIONLESS world breakable (CenteredAabb + PogoTarget,
-    // no ActorFaction). Victim-pogo and world-orb pogo unify under the one
-    // capability (fable review R2.5, Jon's call).
+fn disabled_pogo_policy_rejects_an_otherwise_landed_body_hit() {
+    let (mut app, owner, victim, hitbox) =
+        pogo_app(PogoPolicy::Disabled, None);
+    let volume: ae::CombatVolume =
+        ae::Aabb::new(ae::Vec2::new(100.0, 130.0), ae::Vec2::new(18.0, 18.0)).into();
+    app.world_mut()
+        .write_message(landed(hitbox, owner, victim, volume));
+    app.update();
+
+    assert_eq!(
+        app.world().get::<ae::BodyKinematics>(owner).unwrap().vel,
+        ae::Vec2::ZERO
+    );
+}
+
+#[test]
+fn custom_pogo_policy_uses_its_own_volume_against_the_landed_strike() {
+    let custom = ae::Aabb::new(ae::Vec2::new(200.0, 200.0), ae::Vec2::new(8.0, 8.0));
+    let (mut app, owner, victim, hitbox) = pogo_app(
+        PogoPolicy::Custom,
+        Some(PogoTargetVolumes {
+            volumes: vec![custom],
+        }),
+    );
+    let miss: ae::CombatVolume =
+        ae::Aabb::new(ae::Vec2::new(100.0, 130.0), ae::Vec2::new(18.0, 18.0)).into();
+    app.world_mut()
+        .write_message(landed(hitbox, owner, victim, miss));
+    app.update();
+    assert_eq!(
+        app.world().get::<ae::BodyKinematics>(owner).unwrap().vel,
+        ae::Vec2::ZERO,
+        "a landed damage hit outside the custom pogo silhouette is not a pogo"
+    );
+
+    let hit: ae::CombatVolume = custom.into();
+    app.world_mut()
+        .write_message(landed(hitbox, owner, victim, hit));
+    app.update();
+    assert!(app.world().get::<ae::BodyKinematics>(owner).unwrap().vel.y < -1.0);
+}
+
+#[test]
+fn body_pogo_runs_from_the_shared_strike_resolver_end_to_end() {
+    use crate::components::ActorFaction;
+    use crate::events::HitEvent;
+    use crate::hitbox::{
+        apply_hitbox_damage, HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback,
+        HitboxLifetime,
+    };
+    use ambition_platformer2d_core::AabbExt;
+    use ambition_vfx::vfx::VfxMessage;
+
     let mut app = App::new();
-    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
-    app.add_message::<MoveEventMessage>();
-    app.add_message::<ambition_vfx::vfx::VfxMessage>();
+    app.add_message::<HitEvent>();
+    app.add_message::<LandedBodyHit>();
     app.add_message::<OnHitEffectMessage>();
+    app.add_message::<VfxMessage>();
     app.add_message::<ambition_sfx::OwnedSfxMessage>();
-    app.init_resource::<WorldTime>();
-    app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
-    app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
     app.add_systems(
         Update,
         (
-            advance_move_playback,
-            dispatch_hitbox_on_hit,
+            apply_hitbox_damage,
+            dispatch_landed_hit_effects,
             apply_pogo_bounce,
         )
             .chain(),
     );
+
+    let owner_center = ae::Vec2::new(100.0, 100.0);
+    let victim_center = ae::Vec2::new(100.0, 140.0);
     let owner = app
         .world_mut()
         .spawn((
-            ae::CenteredAabb::from_center_size(
-                ae::Vec2::new(100.0, 100.0),
-                ae::Vec2::new(28.0, 46.0),
-            ),
+            ActorFaction::Player,
+            ae::CenteredAabb::from_center_size(owner_center, ae::Vec2::new(20.0, 40.0)),
             ae::BodyKinematics {
-                pos: ae::Vec2::new(100.0, 100.0),
+                pos: owner_center,
                 vel: ae::Vec2::ZERO,
-                size: ae::Vec2::new(28.0, 46.0),
+                size: ae::Vec2::new(20.0, 40.0),
                 facing: 1.0,
             },
             ambition_platformer2d_core::BodyGroundState {
                 on_ground: true,
                 ..Default::default()
             },
-            ActorFaction::Player,
-            MovePlayback::new(pogo_dair(), 1.0),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
             ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame::default(),
+            PogoPolicy::FromDamageable,
+            PogoTargetVolumes::default(),
         ))
         .id();
-    // The orb below: NO ActorFaction, just the capability.
-    app.world_mut().spawn((
-        ae::CenteredAabb::from_center_size(ae::Vec2::new(100.0, 130.0), ae::Vec2::new(28.0, 46.0)),
-        PogoTarget,
-    ));
-    for _ in 0..2 {
-        app.update();
-    }
+    let victim = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Enemy,
+            ae::CenteredAabb::from_center_size(victim_center, ae::Vec2::new(20.0, 40.0)),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+            PogoPolicy::FromDamageable,
+            PogoTargetVolumes::default(),
+        ))
+        .id();
+
+    let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
+    let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
+    assert!(
+        !owner_body.strict_intersects(victim_body),
+        "the body-contact regression requires separated collision bodies"
+    );
+
+    let hitbox = app
+        .world_mut()
+        .spawn((
+            Hitbox {
+                strike_sfx: None,
+                owner,
+                source: HitSide::Player,
+                anchor: HitboxAnchor::FollowOwner {
+                    local_offset: ae::Vec2::new(0.0, 20.0),
+                },
+                half_extent: ae::Vec2::new(18.0, 24.0),
+                shape: None,
+                facing: 1.0,
+                damage: 4,
+                knockback: HitboxKnockback::FeelScale(0.0),
+                launch_dir: None,
+                frame_down: ae::Vec2::new(0.0, 1.0),
+            },
+            HitboxLifetime { remaining_s: 0.1 },
+            HitboxHits::default(),
+            HitboxOnHit::new(EffectRef::new(POGO_BOUNCE_KEY)),
+        ))
+        .id();
+
+    app.update();
+
+    let hits = app.world().get::<HitboxHits>(hitbox).expect("live hitbox");
+    assert!(hits.hit.contains(&victim), "the separated victim is the landed body");
+    assert!(
+        !hits.hit.contains(&owner),
+        "the attacking body never becomes its own landed-hit victim"
+    );
     let kin = app.world().get::<ae::BodyKinematics>(owner).unwrap();
     assert!(
         kin.vel.y < -1.0,
-        "the owner pogos off a factionless world orb, vel={:?}",
-        kin.vel
-    );
-}
-
-#[test]
-fn no_pogo_off_a_bare_victim_without_the_capability() {
-    let (mut app, owner) = harness(false);
-    for _ in 0..2 {
-        app.update();
-    }
-    let kin = app.world().get::<ae::BodyKinematics>(owner).unwrap();
-    assert_eq!(
-        kin.vel,
-        ae::Vec2::ZERO,
-        "a victim without PogoTarget grants no bounce, vel={:?}",
+        "the victim's resolved body hit drives the pogo rebound, vel={:?}",
         kin.vel
     );
 }

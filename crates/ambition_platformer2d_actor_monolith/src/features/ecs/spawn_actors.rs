@@ -1254,19 +1254,17 @@ pub(crate) fn spawn_enemy_with_faction_into(
         authored.payload.brain.clone(),
         paths,
     );
-    // **D73 phase 3: the character gets a say.** When the placement NAMES a
-    // registered character, the facts that character authors outrank the
-    // archetype's. A character that authors nothing — every character today —
-    // changes nothing, which is what lets the migration move one fact at a time.
+    // **When the placement names a registered character, that character's
+    // authored facts outrank the archetype's.** A character that authors
+    // nothing changes nothing, which is what lets the migration move one fact
+    // at a time.
     //
-    // ⛔ **it asks the placement, NOT `config.sprite_character_id`, and the
-    // correction cost a commit to notice.** The sprite id is produced by
+    // ⛔ **the identity comes from the PLACEMENT, never from
+    // `config.sprite_character_id`.** That id is produced by
     // `presentation_identity` → `id_for_authored_identity`, which falls back to
-    // matching a DISPLAY NAME. Reading a body's health, mass and death traits
-    // off that chain infers gameplay identity from presentation identity —
-    // precisely the arrow this campaign exists to reverse. A spawn that has not
-    // said which character it is has not said, and the honest answer is the
-    // archetype it still names, visibly, until phase 4 migrates it.
+    // matching a display name — so reading health, mass or death traits off it
+    // would infer gameplay identity from presentation identity. A spawn that
+    // has not named a character keeps its archetype, visibly.
     if let Some(definition) = authored
         .payload
         .gameplay_character_id()

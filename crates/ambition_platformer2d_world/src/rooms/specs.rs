@@ -255,24 +255,17 @@ impl<T> Authored<T> {
 pub struct EnemySpawnSpec {
     /// What it DOES: the roster brain key the archetype is selected by.
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
-    /// **WHICH CHARACTER THIS SPAWN INSTANTIATES** — a character id, and the
-    /// body's gameplay identity.
+    /// **Which `CharacterDefinition` this spawn instantiates** — the body's
+    /// gameplay identity.
     ///
-    /// ⭐ **this field's meaning CHANGED on 2026-08-10 and the old sentence is
-    /// deliberately gone.** It used to read *"what it LOOKS LIKE"*, paired with
-    /// `brain` as *"what it DOES"*. Under the character-template architecture
-    /// (D73) that pairing is the error the campaign exists to remove: a
-    /// character is a reusable authored template — body, vitals, movement,
-    /// repertoire — and presentation is a PROJECTION of it, not the other way
-    /// round. Inferring which character a body is from which sprite it wears
-    /// runs the arrow backwards.
+    /// A character is a reusable authored template (body, vitals, movement,
+    /// repertoire) and presentation is a projection of it. Which sprite a body
+    /// wears therefore never determines which character it is.
     ///
-    /// ⚠ **still optional, and still for the same reason** — every level in the
-    /// tree authors a display name and resolves art through
-    /// [`Self::presentation_identity`]. That road is MIGRATION COMPATIBILITY for
-    /// presentation only: it must never answer the gameplay question. Use
-    /// [`Self::gameplay_character_id`] for that, which returns `None` rather
-    /// than guessing from a name a human typed twice.
+    /// ⚠ **optional only during the migration.** A spawn that authors no id
+    /// still resolves ART through [`Self::presentation_identity`]'s display-name
+    /// fallback; that road is presentation compatibility and must never answer
+    /// the gameplay question. Ask [`Self::gameplay_character_id`] for that.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub character_id: Option<String>,
 }
@@ -292,24 +285,21 @@ impl EnemySpawnSpec {
     /// when no id is authored keeps the display-name road intact — the resolver
     /// downstream (`id_for_authored_identity`) accepts either form.
     ///
-    /// ⛔ **NOT the gameplay character.** The name fallback is exactly the join
-    /// this struct's own doc calls *"a documented, silent failure"*, and it is
-    /// tolerable for pixels because a wrong sheet is visible. It is not
-    /// tolerable for a body's health, mass, repertoire or death traits, where
-    /// being wrong is silent. Ask [`Self::gameplay_character_id`] for that.
+    /// ⛔ **NOT the gameplay character.** The name fallback is the silent join
+    /// this struct's doc describes above; it is tolerable for pixels because a
+    /// wrong sheet is visible, and intolerable for health, mass, repertoire or
+    /// death traits, where being wrong is not.
     pub fn presentation_identity<'a>(&'a self, name: &'a str) -> &'a str {
         self.character_id.as_deref().unwrap_or(name)
     }
 
     /// **Which `CharacterDefinition` this spawn instantiates**, when it says.
     ///
-    /// ⭐ **no fallback, and the absence of one is the point.** A spawn that
-    /// authors no character id has not named a character, and a display name
-    /// that happens to match one is a coincidence the engine must not act on.
-    /// `None` here means *"this placement did not say"*, which the construction
-    /// path answers by falling back to its legacy archetype — the transitional
-    /// state D73 is removing, and one that must be VISIBLE rather than papered
-    /// over by a name match.
+    /// ⭐ **no fallback, and the absence of one is the point.** A display name
+    /// that happens to match a character is a coincidence the engine must not
+    /// act on. `None` means *"this placement did not say"*, which construction
+    /// answers with the legacy archetype — a transitional state that must stay
+    /// visible rather than be papered over by a name match.
     pub fn gameplay_character_id(&self) -> Option<&str> {
         self.character_id.as_deref()
     }

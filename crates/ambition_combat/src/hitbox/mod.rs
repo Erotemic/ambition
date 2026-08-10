@@ -465,28 +465,23 @@ pub fn apply_hitbox_damage(
             // used to gate this emit — a read-model must never decide whether a
             // strike can damage, and that projection is rebuilt every frame.
             //
-            // ⛔⛔ **THIS GATE IS STILL PLAYER-ONLY, AND IT IS A KNOWN BLOCKER, NOT
-            // AN OVERSIGHT.** Removing it — so every body-owned melee publishes
-            // its unresolved half, which is the body-generic answer and is what
-            // the cause-vocabulary fold REQUIRES, since one `Melee` cannot spell
-            // this condition — desyncs the rollback suite:
+            // ⭐ **EVERY body-owned melee publishes it, not just the player's.**
+            // The gate here was `matches!(source_kind, PlayerSlash)`, and that
+            // one permission was standing in for a rule nobody had written down:
+            // the boss scan applied no relationship policy, so "only the player
+            // may broadcast" WAS the boss's who-may-hurt-me rule. With the scan
+            // adjudicating properly the permission is free to go, and an enemy's
+            // swing smashing a crate or reaching a boss is the body-generic
+            // answer rather than a new special case.
             //
-            //   rollback_lifecycle_reset::a_player_death_reset_survives_the_rollback_window
-            //   → GGRS sync-test checksum mismatch at frames [21, 22, 23]
-            //
-            // ⭐ **probed, not guessed**: with this gate restored and every other
-            // part of that change left in place, both tests pass. So the desync
-            // is caused by enemy melee reaching non-body damageables, and by
-            // nothing else in it.
-            //
-            // ⚠ the likely mechanism, and it is a bug this EXPOSES rather than
-            // introduces: `can_damage` is "different faction, or friendly fire",
-            // so Enemy→Boss damage has always been legal by the relationship
-            // rule — it simply never happened, because only the player could
-            // broadcast. Bosses taking damage from arbitrary attackers is
-            // therefore a code path with no rollback mileage on it at all. See
-            // `docs/planning/smash-body-generic-combat-2026-08-09.md`.
-            if matches!(source_kind, HitSource::PlayerSlash) {
+            // ⚠ lifting it desynced the rollback suite, and the cause was NOT
+            // where I predicted. `stage_player_victim_hit_events` staged this
+            // unresolved half into the player-victim FIFO — its fallback arm
+            // reads `!seeks_victims()`, and an enemy swing's cause is filed
+            // victim-side by the direction words. The per-component localizer
+            // named the resource in one run; see
+            // `which_component_does_the_lifecycle_reset_divergence_live_in`.
+            {
                 hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),

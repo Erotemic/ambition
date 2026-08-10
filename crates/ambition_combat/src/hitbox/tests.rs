@@ -420,16 +420,14 @@ fn enemy_hitbox_ignores_a_same_faction_actor() {
         captured.body_hits().is_empty(),
         "no friendly fire — an Enemy is not hostile to another Enemy"
     );
-    // ⚠ **and today it publishes NO unresolved half either, which is a known
-    // gap rather than the rule.** Relationship policy spares the BODY, not the
-    // strike — a crate in the same arc is nobody's ally — so the body-generic
-    // answer is 1 here. It is 0 because the emit is still gated to player-side
-    // melee, and lifting that gate desyncs the rollback suite. Pinned at the
-    // CURRENT value so the number changes visibly when the blocker is fixed.
+    // ⚠ **the swing still HAPPENS.** Relationship policy spares the BODY, not
+    // the strike — a crate in the same arc is nobody's ally — so the unresolved
+    // half is published even though this victim is off limits. An ENEMY's, which
+    // is the half that used to be gated away entirely.
     assert_eq!(
         captured.unresolved_feature_hits().len(),
-        0,
-        "gated to player melee today — see the blocker note in apply_hitbox_damage"
+        1,
+        "a spared victim does not cancel the strike's reach to non-bodies"
     );
 }
 

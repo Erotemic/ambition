@@ -176,6 +176,72 @@ fn living_enemies(sim: &mut Platformer2dSimHarness) -> Vec<(f32, f32)> {
 /// spawn HP and a broken brick to intact — the exact "enemy fails to snap back"
 /// divergence the campaign doc recorded, now asserted as restored rather than
 /// merely checksum-clean.
+/// **Which registered component does this scenario's divergence live in?**
+///
+/// The aggregate sync-test says "checksum mismatch at frames [21,22,23]" and
+/// names nothing. This censuses every registered type on every save and every
+/// load and reports the ones whose census differs between a frame's first
+/// simulation and its resimulation — the same instrument
+/// `rollback_exit_oracle`'s localizer uses, pointed at the lifecycle-reset
+/// route instead of the combat one.
+///
+/// Standing use: run it whenever this module goes red. It was written for the
+/// body-generic broadcast blocker recorded in
+/// `docs/planning/smash-body-generic-combat-2026-08-09.md`, which desyncs
+/// exactly here.
+///
+/// `#[ignore]` for cost.
+#[test]
+#[ignore = "diagnostic: per-component restore census on every save/load; run when this module is red"]
+fn which_component_does_the_lifecycle_reset_divergence_live_in() {
+    let mut sim = repro_sim();
+    sim.world_mut()
+        .insert_resource(ambition_platformer2d::runtime::rollback::RollbackRestoreAudit::enabled());
+
+    let probes = sim
+        .world()
+        .resource::<ambition_platformer2d::runtime::rollback::RollbackChecksumProbes>()
+        .len();
+    assert!(
+        probes > 0,
+        "no localization probes were registered, so this test could only ever \
+         report success"
+    );
+
+    place_player_on_floor(sim.world_mut(), 200);
+    let _ = wound_one_enemy(sim.world_mut());
+    let _ = smash_one_brick(sim.world_mut());
+    sim.rebase_rollback_history()
+        .expect("the damaged arena becomes the rollback baseline");
+
+    // Walk far enough past the reported window (frames 21-23) to catch it, and
+    // do NOT assert rollback_health per frame: the point is to reach the
+    // divergence and describe it, not to stop at the first aggregate red.
+    for _ in 0..12 {
+        sim.step(AgentAction::default());
+    }
+    sim.step(AgentAction::reset());
+    for _ in 0..40 {
+        sim.step(AgentAction::default());
+    }
+
+    let audit = sim
+        .world()
+        .resource::<ambition_platformer2d::runtime::rollback::RollbackRestoreAudit>();
+    // Vacuity guard FIRST: a localizer that compared nothing must not read as
+    // "nothing diverged".
+    assert!(
+        audit.comparisons > 0 && audit.resimulations > 0,
+        "the audit compared nothing, so its verdict is meaningless: {}",
+        audit.coverage()
+    );
+    assert!(
+        audit.divergences.is_empty(),
+        "divergences: {:#?}",
+        audit.divergences
+    );
+}
+
 #[test]
 fn a_manual_reset_restores_a_damaged_enemy_and_a_broken_brick_under_forced_rollback() {
     let mut sim = repro_sim();

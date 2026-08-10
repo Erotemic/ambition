@@ -1107,6 +1107,17 @@ pub fn stage_player_victim_hit_events(
     for event in hit_events.read() {
         let mine = match event.target {
             HitTarget::Body(victim) => controlled_bodies.contains(victim),
+            // ⛔ **NAMES NO BODY, so it can never be a hit on one.** This is the
+            // half of a strike aimed at the things a body resolver could not
+            // name — a crate, a boss encounter. It fell into the arm below and
+            // was staged into this rollback-registered FIFO, because the arm
+            // reads `!seeks_victims()` and an enemy swing's cause is filed
+            // victim-side by the direction words.
+            //
+            // ⚠ that is what desynced the rollback suite the moment every body
+            // could broadcast, and the localizer named this resource — not the
+            // boss encounter I had guessed. `which_component_does_the_lifecycle_reset_divergence_live_in`.
+            HitTarget::UnresolvedFeatures => false,
             _ => !event.source.seeks_victims(),
         };
         if mine {

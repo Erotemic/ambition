@@ -432,7 +432,8 @@ same cause is not scaled — was unassertable while the spelling was the claim.
 ⚠ two more fixtures were modelling swings nobody threw (`attacker: None` plus a
 player-spelled source). Both name a real attacker now.
 
-▢ **what remains of item 2 is the rename itself**, and it is now mechanical:
+▢ **what remains of item 2 is the rename itself. It is unblocked and
+mechanical:**
 `PlayerSlash`/`EnemyAttack`/`BossAttack` → `Melee`, `PlayerProjectile`/
 `EnemyProjectile` → `Projectile`, `EnemyBody`/`ContactHarm`/`EnemyChargeCrash` →
 `Contact`, `PogoBounce` → `Pogo`, `Hazard` and `LeftTheWorld` unchanged.
@@ -477,42 +478,36 @@ The guard pins four answers: the shipped player→boss case, the **poison**
 no opinion), the possessed attacker, and the unattributed broadcast that must
 still land because a hazard carries no entity to adjudicate.
 
-### ⛔⛔ BLOCKER — a body-generic broadcast DESYNCS ROLLBACK (2026-08-09)
+### ✔ item 5, second bite — the broadcast is body-generic (2026-08-09)
 
-**This blocks the cause-vocabulary rename**, because one `Melee` cannot spell
-the condition the gate is written in.
+Every body-owned melee publishes its unresolved half now, not just the player's.
+The gate that stood there was the stand-in for the boss's missing relationship
+policy; with the policy real, the permission went.
 
-Lifting the player-only gate on the unresolved half — so every body-owned melee
-reaches breakables and bosses — fails the rollback suite:
+⛔ **lifting it desynced the rollback suite, and my predicted cause was wrong.**
+I expected the `BossEncounter` phase machine — Enemy→Boss damage is legal by
+`can_damage` and had zero rollback mileage on it, which is a good story. The
+per-component localizer named a different resource in one run:
 
 ```
-rollback_lifecycle_reset::a_player_death_reset_survives_the_rollback_window
-  → GGRS sync-test checksum mismatch at frames [21, 22, 23]
-rollback_lifecycle_reset::a_manual_reset_restores_a_damaged_enemy_and_a_broken_brick_under_forced_rollback
+type_name: "ambition_combat::events::PendingPlayerHitEvents"
+frames 19, 20, 21 · Resimulation · count 1, xor differs
 ```
 
-⭐ **probed, not guessed.** Restoring only that gate, with every other part of
-the change left in place, turns both green. So the desync is caused by enemy
-melee reaching non-body damageables and by nothing else in it. (A first probe
-that disabled the broadcast breakable scan was CONFOUNDED — it also stops the
-brick test's brick from ever breaking, so its red proves nothing. Recorded
-because the confound is easy to walk back into.)
+⇒ **`stage_player_victim_hit_events` was staging the unresolved half into the
+player-victim FIFO.** Its fallback arm reads `!seeks_victims()`, and an enemy
+swing's cause is filed victim-side by the direction words — so a broadcast that
+names no body was being queued as a hit ON the player, in rollback-registered
+state. Barred explicitly: an `UnresolvedFeatures` event can never be a hit on
+this resolver's population.
 
-⚠ **the likely mechanism, and it is a bug this EXPOSES rather than introduces**:
-`can_damage` is *different faction, or friendly fire*, so **Enemy→Boss damage has
-always been legal by the relationship rule** — it simply never happened, because
-only the player could broadcast. So boss encounter state taking damage from
-arbitrary attackers is a path with **zero rollback mileage on it**. Suspect the
-`BossEncounter` phase machine first ([[a derive's MEMO is rollback state]] is
-this shape), then anything the breakable respawn spawns.
+⭐⭐ **the lesson is the instrument, not the bug.** Two plausible stories, one
+run, and the answer was neither of the two components I would have opened first.
+`which_component_does_the_lifecycle_reset_divergence_live_in` is now in
+`rollback_lifecycle_reset.rs` — `#[ignore]`d for cost, with the vacuity guard
+its sibling has, and it is the first thing to run when that module goes red.
 
-▢ **next action**: run the sync-test with the gate lifted and bisect the
-checksum by domain — the runtime's per-domain checksum probes exist for exactly
-this. Do NOT lift the gate until that lands.
-
-⚠ the current state is pinned by a test: `enemy_hitbox_ignores_a_same_faction_actor`
-asserts **0** unresolved halves from an enemy swing, with a comment saying the
-body-generic answer is 1. The number changes visibly when the blocker is fixed.
+⇒ **the cause-vocabulary rename is unblocked.**
 
 ## Execution order (mine, revise as measurements land)
 

@@ -524,7 +524,12 @@ pub fn apply_feature_hit_events(
         // here (plus the pre-resolved actor-vs-actor hits above);
         // otherwise an `EnemyBody` event would damage the same enemy
         // that emitted it when the volume overlaps its own AABB.
-        if actor_target.is_none() && !event.source.seeks_victims() {
+        //
+        // ⭐ `UnresolvedFeatures` passes on its TARGET, not on its source word: the
+        // target already says this is a strike hunting for what it could not
+        // name. Asking `seeks_victims` as well would drop every enemy swing's
+        // unresolved half, since the direction words file those victim-side.
+        if actor_target.is_none() && !bodies_already_resolved && !event.source.seeks_victims() {
             continue;
         }
         // Ignore-keys (`prefix:id`) of every target struck by THIS event, folded

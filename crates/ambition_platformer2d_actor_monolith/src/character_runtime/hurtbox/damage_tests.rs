@@ -36,7 +36,17 @@ const AUTHORED_HALF: (f32, f32) = (4.0, 18.0);
 struct CapturedHits(Vec<HitEvent>);
 
 fn capture_hits(mut events: MessageReader<HitEvent>, mut out: ResMut<CapturedHits>) {
-    out.0.extend(events.read().cloned());
+    // ⚠ **hits that NAME A BODY.** Every question in this module is "did the
+    // strike reach the authored silhouette", and a body-owned melee also
+    // publishes the unresolved half of the same strike — geometry broadcast for
+    // breakables and bosses, naming no body. Counting that as a hurtbox hit
+    // would make an authored MISS look like a landed one.
+    out.0.extend(
+        events
+            .read()
+            .filter(|e| matches!(e.target, crate::combat::events::HitTarget::Body(_)))
+            .cloned(),
+    );
 }
 
 /// A doc whose only volume is much narrower than the body's bounding box.

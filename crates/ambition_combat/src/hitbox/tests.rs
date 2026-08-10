@@ -253,15 +253,19 @@ fn a_dead_victim_is_intangible_to_a_swing() {
     // Live control: HP 3 → the swing lands and emits exactly one hit event.
     let (live, _) = arena_with_victim_hp(3);
     assert_eq!(
-        live.world().resource::<CapturedHits>().0.len(),
+        live.world().resource::<CapturedHits>().body_hits().len(),
         1,
         "a living body in the swing is struck"
     );
 
-    // Corpse: HP 0 → intangible. No hit event (so nothing downstream presents).
+    // Corpse: HP 0 → intangible. No hit ON THE BODY, so nothing downstream
+    // presents an impact at it. ⚠ the swing itself still occurs and still
+    // publishes its unresolved half — intangibility is a property of the corpse,
+    // not a cancellation of the attack.
     let (dead, _) = arena_with_victim_hp(0);
+    let captured = dead.world().resource::<CapturedHits>();
     assert!(
-        dead.world().resource::<CapturedHits>().0.is_empty(),
+        captured.body_hits().is_empty(),
         "a corpse is not a hurtbox — the swing passes through, no hit lands"
     );
 }
@@ -389,7 +393,10 @@ fn enemy_hitbox_damages_a_relationally_hostile_actor() {
     relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
     let (mut app, victim) = arena_hitbox_app(relations, ActorFaction::Boss);
     app.update();
-    let cap = &app.world().resource::<CapturedHits>().0;
+    // Victims only: a body-owned melee also publishes its unresolved half, which
+    // names no body and is not a hit on one.
+    let captured = app.world().resource::<CapturedHits>();
+    let cap = captured.body_hits();
     assert_eq!(cap.len(), 1, "one relational actor-vs-actor hit");
     assert_eq!(
         cap[0].target,
@@ -408,9 +415,21 @@ fn enemy_hitbox_ignores_a_same_faction_actor() {
     relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);
     let (mut app, _victim) = arena_hitbox_app(relations, ActorFaction::Enemy);
     app.update();
+    let captured = app.world().resource::<CapturedHits>();
     assert!(
-        app.world().resource::<CapturedHits>().0.is_empty(),
+        captured.body_hits().is_empty(),
         "no friendly fire — an Enemy is not hostile to another Enemy"
+    );
+    // ⚠ **and today it publishes NO unresolved half either, which is a known
+    // gap rather than the rule.** Relationship policy spares the BODY, not the
+    // strike — a crate in the same arc is nobody's ally — so the body-generic
+    // answer is 1 here. It is 0 because the emit is still gated to player-side
+    // melee, and lifting that gate desyncs the rollback suite. Pinned at the
+    // CURRENT value so the number changes visibly when the blocker is fixed.
+    assert_eq!(
+        captured.unresolved_feature_hits().len(),
+        0,
+        "gated to player melee today — see the blocker note in apply_hitbox_damage"
     );
 }
 
@@ -423,7 +442,10 @@ fn enemy_hitbox_ignores_a_same_faction_actor() {
 fn actor_vs_actor_damage_is_physical_for_different_factions() {
     let (mut app, victim) = arena_hitbox_app(FactionRelations::default(), ActorFaction::Boss);
     app.update();
-    let cap = &app.world().resource::<CapturedHits>().0;
+    // Victims only: a body-owned melee also publishes its unresolved half, which
+    // names no body and is not a hit on one.
+    let captured = app.world().resource::<CapturedHits>();
+    let cap = captured.body_hits();
     assert_eq!(
         cap.len(),
         1,
@@ -502,7 +524,10 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
 fn enemy_hitbox_hits_the_player_by_default() {
     let (mut app, player) = enemy_hitbox_over_player_app(FactionRelations::default());
     app.update();
-    let cap = &app.world().resource::<CapturedHits>().0;
+    // Victims only: a body-owned melee also publishes its unresolved half, which
+    // names no body and is not a hit on one.
+    let captured = app.world().resource::<CapturedHits>();
+    let cap = captured.body_hits();
     assert_eq!(cap.len(), 1, "the player takes the hit by default");
     assert_eq!(cap[0].target, HitTarget::Body(player));
     assert!(matches!(cap[0].source, HitSource::EnemyAttack));
@@ -525,7 +550,10 @@ fn enemy_hitbox_hits_a_non_targeted_player_strays_are_physical() {
     relations.set_mutual_hostile(ActorFaction::Enemy, ActorFaction::Player, false);
     let (mut app, player) = enemy_hitbox_over_player_app(relations);
     app.update();
-    let cap = &app.world().resource::<CapturedHits>().0;
+    // Victims only: a body-owned melee also publishes its unresolved half, which
+    // names no body and is not a hit on one.
+    let captured = app.world().resource::<CapturedHits>();
+    let cap = captured.body_hits();
     assert_eq!(
         cap.len(),
         1,
@@ -1106,11 +1134,12 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
     ));
     app.update();
     let cap = app.world().resource::<CapturedHits>();
-    assert_eq!(cap.0.len(), 1, "the enemy strike lands on the player");
+    let body_hits = cap.body_hits();
+    assert_eq!(body_hits.len(), 1, "the enemy strike lands on the player");
     assert_eq!(
-        cap.0[0].strike_sfx,
+        body_hits[0].strike_sfx,
         Some(sword),
         "the authored strike sound rides onto the HitEvent for the victim reaction"
     );
-    assert!(matches!(cap.0[0].target, HitTarget::Body(_)));
+    assert!(matches!(body_hits[0].target, HitTarget::Body(_)));
 }

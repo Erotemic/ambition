@@ -477,6 +477,43 @@ The guard pins four answers: the shipped player→boss case, the **poison**
 no opinion), the possessed attacker, and the unattributed broadcast that must
 still land because a hazard carries no entity to adjudicate.
 
+### ⛔⛔ BLOCKER — a body-generic broadcast DESYNCS ROLLBACK (2026-08-09)
+
+**This blocks the cause-vocabulary rename**, because one `Melee` cannot spell
+the condition the gate is written in.
+
+Lifting the player-only gate on the unresolved half — so every body-owned melee
+reaches breakables and bosses — fails the rollback suite:
+
+```
+rollback_lifecycle_reset::a_player_death_reset_survives_the_rollback_window
+  → GGRS sync-test checksum mismatch at frames [21, 22, 23]
+rollback_lifecycle_reset::a_manual_reset_restores_a_damaged_enemy_and_a_broken_brick_under_forced_rollback
+```
+
+⭐ **probed, not guessed.** Restoring only that gate, with every other part of
+the change left in place, turns both green. So the desync is caused by enemy
+melee reaching non-body damageables and by nothing else in it. (A first probe
+that disabled the broadcast breakable scan was CONFOUNDED — it also stops the
+brick test's brick from ever breaking, so its red proves nothing. Recorded
+because the confound is easy to walk back into.)
+
+⚠ **the likely mechanism, and it is a bug this EXPOSES rather than introduces**:
+`can_damage` is *different faction, or friendly fire*, so **Enemy→Boss damage has
+always been legal by the relationship rule** — it simply never happened, because
+only the player could broadcast. So boss encounter state taking damage from
+arbitrary attackers is a path with **zero rollback mileage on it**. Suspect the
+`BossEncounter` phase machine first ([[a derive's MEMO is rollback state]] is
+this shape), then anything the breakable respawn spawns.
+
+▢ **next action**: run the sync-test with the gate lifted and bisect the
+checksum by domain — the runtime's per-domain checksum probes exist for exactly
+this. Do NOT lift the gate until that lands.
+
+⚠ the current state is pinned by a test: `enemy_hitbox_ignores_a_same_faction_actor`
+asserts **0** unresolved halves from an enemy swing, with a comment saying the
+body-generic answer is 1. The number changes visibly when the blocker is fixed.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

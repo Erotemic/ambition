@@ -442,7 +442,16 @@ fn capture(
     mut evs: MessageReader<MoveEventMessage>,
     mut vfx: MessageReader<VfxMessage>,
 ) {
-    cap.hits.extend(hits.read().cloned());
+    // ⚠ **victims only.** A body-owned melee also publishes the unresolved half
+    // of the same strike — the geometry broadcast for breakables and bosses,
+    // which name no body. Every assertion in this module counts hits ON a body,
+    // so folding the two together would make a one-victim swing look like
+    // fourteen hits (one per active tick).
+    cap.hits.extend(
+        hits.read()
+            .filter(|e| matches!(e.target, crate::events::HitTarget::Body(_)))
+            .cloned(),
+    );
     cap.events.extend(evs.read().cloned());
     cap.slashes.extend(vfx.read().cloned());
 }

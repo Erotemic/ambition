@@ -201,6 +201,26 @@ convention nothing reads. ⚠ and `medium striker` / `large brute` appear as
 *names* — the same strings the encounter system uses as `kind`s — so the
 archetype vocabulary is already leaking into the name field.
 
+### ⇥ RECOUNTED 2026-08-10 — the whole population, not just the unnamed part
+
+The 65 above is the subset authoring **no** `character` id. Counting every
+`EnemySpawn` in all four worlds:
+
+```text
+93 EnemySpawn instances
+  28  already author a `character` id explicitly   (ai_slop, solid_snake, sanic_badnik, …)
+  65  author none, and split exactly as before:
+      41   the NAME is a catalog character   Puppy Slug 13, Burning Flying Shark 7,
+                                             Pirate Raider 6, Exploding Mite 5,
+                                             Dividing Mite 3, Stochastic Parrot 2,
+                                             Iron Mary, Giant GNU, Lab Raider,
+                                             Salvage Guard, Ai Slop
+      24   the name is NOT                   4 Skirmisher + 20 one-offs (sandbags,
+                                             skitters, strikers, brutes, goblins, Target)
+```
+
+⇒ the cost figures below are unchanged; the denominator is 93, not 65.
+
 ### The fork
 
 * **(a) an enemy IS a character**, and the brain is an override on its catalog

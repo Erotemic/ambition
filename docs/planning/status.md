@@ -220,7 +220,9 @@ review-pending.
 <!-- planning-evidence: inline-test path=crates/ambition_sim_view/src/presented_pose.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_touch_input/src/bevy_plugin.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=crates/ambition_touch_input/src/placement.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=crates/ambition_platformer2d_runtime/src/rollback/registry.rs kind=guardrail disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_app/src/app/versus.rs kind=behavioral-local disposition=maintainer-review-pending -->
+<!-- planning-evidence: inline-test path=game/ambition_demo_smash/src/select_screen.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_content/src/falling_sand_sim/sand_grid.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_content/src/presentation/dialog.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_demo_smash/src/lib.rs kind=behavioral-local disposition=maintainer-review-pending -->

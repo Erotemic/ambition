@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **5 open** (recounted 2026-08-10)
+## ⇥ INDEX — **4 open** (recounted 2026-08-10, after Jon answered D48)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -35,7 +35,7 @@ drift.
 | Question | Blocks | State |
 |---|---|---|
 | **Does a bolt test the AUTHORED hurtbox, or the coarse box?** (queue D23) | ⛔ retiring `HitTarget::UnresolvedFeatures` for bosses — **the combat campaign's last remainder** | ▢ **needs Jon**, one word — see below |
-| **Is an enemy a CHARACTER, or an ARCHETYPE wearing one?** (queue D48) | goblins/Iron Mary art + behaviour | ▢ **scoped 2026-08-09, needs Jon** — see below |
+| ~~Is an enemy a CHARACTER, or an ARCHETYPE wearing one?~~ (queue D48) | ~~goblins/Iron Mary art + behaviour~~ | ✔✔ **ANSWERED by Jon 2026-08-10** — a character is a reusable TEMPLATE; brief in `character-template-architecture-2026-08-10.md`, queue D73 |
 | **Who is the goblin lab's HEAVY?** (Jon's magenta-box observation) | 3 mobs in `goblin_encounter` still draw placeholders | ▢ **needs Jon** — one casting call, see below |
 | ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
@@ -43,7 +43,7 @@ drift.
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **hygiene only**, and ⭐ the link failure it sat beside RESOLVED 2026-08-10, so this is not answering a live breakage |
 | ~~Your *"in mary-o when you die the level doesn't restart"*  — was it actually Mary-O?~~ (queue D68) | ~~that investigation~~ | ✔✔ **ANSWERED by Jon 2026-08-09** — nothing owed |
 
-⇒ **5 open**, and **only the FIRST one blocks CODE** — D23, added 2026-08-10. The
+⇒ **4 open**, and **only the FIRST one blocks CODE** — D23, added 2026-08-10. The
 goblin-heavy casting call blocks a visible artefact rather than a build.
 ⚠ the ordering claim in this table's own header ("ordered by what each one
 BLOCKS") had drifted: D68 sat at the bottom labelled as the only blocker for a
@@ -111,6 +111,20 @@ them.
 character or an archetype wearing one decides whether (a) is even the right
 shape. If you answer D48 first, this may answer itself.
 
+### ⇥ D48 IS ANSWERED (2026-08-10), and it reshapes this rather than closing it
+
+Under Jon's character-template ruling a mob names a **reusable character
+definition** and nothing else, so option (b) — "reuse a non-goblin heavy" — is no
+longer a cheap data line that quietly lies: borrowing `npc_ninja_heavy` would
+mean the brute *is* the ninja, kit and all. His brief names the honest form
+directly: *"if an unfinished character temporarily borrows another character's
+art, represent that as an explicit presentation reference/override — not by lying
+about its character identity."*
+
+⇒ **the live options are now (a) a real `goblin_brute` definition, or (c) leave
+the placeholder** — with (b) available only as an explicit art borrow on a
+definition that is genuinely its own character. Still your casting call.
+
 ---
 
 ## Does a bolt test the AUTHORED hurtbox, or the coarse box? (queue D23, 2026-08-10)
@@ -158,7 +172,26 @@ covers standard mechanics, not authored feel.
 
 ---
 
-## Is an enemy a CHARACTER, or an ARCHETYPE wearing one? (queue D48, 2026-08-09)
+## ✔✔ ANSWERED 2026-08-10 — Is an enemy a CHARACTER, or an ARCHETYPE wearing one? (queue D48)
+
+> **JON, 2026-08-10 — (a), and then further than (a).** *"A character is a
+> reusable authored template, not a singleton person."* `spawn Goblin` three
+> times and `spawn Fretjaw` twice are the same engine operation. The endpoint is
+> **one** character authority — not `CharacterCatalog` for half the facts,
+> `PreparedCharacterDefinition` for another half and `ArchetypeSpec` for a third
+> set reached through a field called `brain`.
+>
+> ⇒ **the full brief is his and lives verbatim in
+> [`character-template-architecture-2026-08-10.md`](character-template-architecture-2026-08-10.md)**,
+> with an eight-phase sequence, a deletion target (~2,437 lines of obvious
+> legacy) and a definition of done. Queue **D73**. Recorded in
+> [`maintainer-decisions.md`](maintainer-decisions.md).
+>
+> ⚠ **this row stays here, marked, rather than being deleted**, because the
+> analysis below is what the migration needs: the field-level split, the
+> measured spawn population, and the D56 pairing. ⛔ nothing here is open.
+
+### (the analysis that produced the question)
 
 Jon, from play: *"In the sky enemy the instance of iron marry doesn't use her
 swordgun, she shoots fireballs, which is not something her character should be

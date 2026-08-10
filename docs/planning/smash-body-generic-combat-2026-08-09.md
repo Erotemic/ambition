@@ -909,7 +909,50 @@ them, which is the "the box is wrong — which of three sources won" question
 `HurtboxSelection` exists to answer. It stays out because `ambition_sim_view`
 would have to name the monolith, and a new dep edge fails the contracts job.
 
-▢ **still open from the feel list**: hitbox tracks, DI.
+## Hitbox tracks — authorable already, and they dealt quadruple damage (2026-08-10)
+
+⛔ grep first, a sixth time. A move already carries `windows: Vec<MoveWindow>`,
+each `Active` window with its own `volumes`, spawned and despawned exactly while
+the owner's clock is inside it. `MoveFrameData` already models `active_spans` as
+a **Vec**, deriving startup from the earliest and recovery from the latest. F1
+already shows whichever shape is live, because it reads real strike entities
+rather than re-deriving the timeline. So a track — several authored shapes across
+an attack's active portion — was expressible and observable today.
+
+### ⛔ and unusable, because every keyframe was its own strike
+
+Hit dedup (`HitboxHits`) is per BOX, and each window spawns its own box. A sword
+arc sampled at four keyframes hit the same victim **four times**. Measured, not
+reasoned: the falsifier run reports exactly `3 hits` for a three-keyframe track.
+
+⭐ this is Smash's own model, and the standard answer is the one shipped:
+hitboxes carry an **id**, and boxes sharing an id share a hit list across frames.
+
+### ✔ contiguity IS the id
+
+A window that ends exactly where the next begins hands its hit set forward. ⛔
+**not a guess about authoring intent** — it is the literal continuity of the
+volume in time. The box never left, so the strike never ended, so the victim is
+still struck. A GAP means the box went away and came back, which is precisely
+what a genuine multi-hit move (a drill, a rapid jab) is, and it rehits.
+
+⭐ **and it costs no wire format.** The carry only has to survive within one
+tick, because contiguous windows hand off on the single tick where the clock
+crosses their shared edge. No new rollback state, no `MoveWindow` field, no
+schema bump — an authored `track: u8` would have bought a `MovePlayback` entity
+set, a snapshot change and a checksum projection to express something the
+timeline already says.
+
+Two guards, and the second is the one that matters: a swept three-keyframe track
+lands **once**, and a track with a GAP lands **twice or more**. Without the
+poison this mechanism is a silent damage nerf on every multi-hit move in the
+game, wearing a bug fix's clothes.
+
+⚠ **zero moves author more than one Active window today**, so nothing in the
+game changes behaviour. This is a capability being made correct before it has
+users, which is the cheap moment to do it.
+
+▢ **still open from the feel list**: DI.
 
 ## Execution order (mine, revise as measurements land)
 

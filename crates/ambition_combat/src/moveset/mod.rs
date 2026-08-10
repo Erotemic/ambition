@@ -493,7 +493,11 @@ pub fn advance_move_playback(
     // Liveness oracle for the `live_boxes` cache. The cache is NOT the
     // authority — `(t, window)` is — so every cached slot is validated against
     // the world before it is believed. See the `(inside, Some(slot))` arm.
-    live_strike_volumes: Query<(), With<StrikeVolume>>,
+    //
+    // It reads `HitboxHits` as well as answering liveness, because a strike that
+    // hands off between contiguous windows must hand off WHO IT ALREADY HIT —
+    // see the handoff carry below.
+    live_strike_volumes: Query<&HitboxHits, With<StrikeVolume>>,
 ) {
     for (
         owner,
@@ -581,6 +585,26 @@ pub fn advance_move_playback(
                 }
             }
         }
+
+        // ⭐ **HITBOX TRACKS.** An attack whose shape moves through its swing is
+        // authored as several Active windows laid end to end — the platform-
+        // fighter "hitbox track", one strike sampled at keyframes. Each window
+        // spawns its own box, so without this the arc would hit the same victim
+        // once PER SEGMENT: a four-keyframe sword swing dealing quadruple damage.
+        //
+        // So a window that ends exactly where the next begins hands its hit set
+        // forward. ⛔ **contiguity is the whole rule, and it is not a guess about
+        // intent** — it is the literal continuity of the volume in time. The box
+        // never left, so the strike never ended, so the victim is still struck.
+        // A GAP means the box went away and came back, which is precisely what a
+        // genuine multi-hit move (a drill, a rapid jab) is, and it rehits.
+        //
+        // The carry only has to survive within one tick: contiguous windows hand
+        // off on the single tick where the clock crosses their shared edge.
+        // Nothing about it is rollback state, which is why this costs no wire
+        // format. ⚠ it does assume `windows` is authored in time order, which
+        // every spec is and `MoveFrameData` already relies on.
+        let mut handoff: Vec<(f32, Vec<std::collections::HashSet<Entity>>)> = Vec::new();
 
         // Active windows: spawn volumes on entry, despawn on exit. The box
         // lives exactly while the OWNER'S clock is inside the window, so
@@ -772,9 +796,17 @@ pub fn advance_move_playback(
                         // NO HitboxLifetime on purpose: the window's exit
                         // edge (owner proper time) is the despawn authority,
                         // not a wall-clock countdown.
+                        // The track handoff: a window opening exactly where an
+                        // Active window closed this tick inherits who that box
+                        // already hit, so one swing is one hit per victim.
+                        let carried = handoff
+                            .iter()
+                            .find(|(end_s, _)| *end_s == window.start_s)
+                            .and_then(|(_, sets)| sets.get(v_idx).cloned())
+                            .unwrap_or_default();
                         let mut ec = commands.spawn((
                             hb,
-                            HitboxHits::default(),
+                            HitboxHits { hit: carried },
                             StrikeVolume {
                                 owner,
                                 window: w_idx,
@@ -808,6 +840,23 @@ pub fn advance_move_playback(
                     }
                 }
                 (false, Some(_)) => {
+                    // Carry this window's hit sets forward before the boxes go,
+                    // in spawn order so volume `v` hands to volume `v`. The
+                    // despawn is a deferred command, but reading now is simpler
+                    // than reasoning about when it lands.
+                    handoff.push((
+                        window.end_s,
+                        pb.live_boxes
+                            .iter()
+                            .filter(|(idx, _)| *idx == w_idx)
+                            .map(|(_, entity)| {
+                                live_strike_volumes
+                                    .get(*entity)
+                                    .map(|hits| hits.hit.clone())
+                                    .unwrap_or_default()
+                            })
+                            .collect(),
+                    ));
                     pb.live_boxes.retain(|(idx, entity)| {
                         if *idx == w_idx {
                             commands.entity(*entity).despawn();
@@ -1540,10 +1589,7 @@ fn is_melee_swing_move(moveset: Option<&MovesetContract>, id: &str) -> bool {
     if let Some(verb) = moveset.and_then(|m| verb_for_move(m, id)) {
         return is_melee_verb(verb);
     }
-    id == ATTACK_VERB
-        || id.starts_with("attack_")
-        || id == SMASH_VERB
-        || id.starts_with("smash_")
+    id == ATTACK_VERB || id.starts_with("attack_") || id == SMASH_VERB || id.starts_with("smash_")
 }
 
 /// Map a moveset `"attack"` move id back to the swing direction it was derived

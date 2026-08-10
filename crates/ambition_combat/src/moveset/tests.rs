@@ -1116,12 +1116,18 @@ fn a_live_strike_keeps_the_facing_its_move_started_with() {
 
     // Turn the BODY around, the way locomotion would.
     {
-        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(attacker).unwrap();
+        let mut kin = app
+            .world_mut()
+            .get_mut::<ae::BodyKinematics>(attacker)
+            .unwrap();
         kin.facing = -1.0;
     }
     // ⛔ the vacuity half: the turn really happened, and the move did NOT adopt it.
     assert_eq!(
-        app.world().get::<ae::BodyKinematics>(attacker).unwrap().facing,
+        app.world()
+            .get::<ae::BodyKinematics>(attacker)
+            .unwrap()
+            .facing,
         -1.0,
         "the body must genuinely be facing the other way"
     );
@@ -2070,10 +2076,7 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
 fn a_directional_only_smash_route_derives_the_melee_marker() {
     let smash = gesture_test_move("forward_smash");
     let contract = MovesetContract {
-        verbs: std::collections::BTreeMap::from([(
-            "smash_forward".to_string(),
-            smash.id.clone(),
-        )]),
+        verbs: std::collections::BTreeMap::from([("smash_forward".to_string(), smash.id.clone())]),
         moves: vec![smash],
     };
 
@@ -2094,10 +2097,7 @@ fn a_directional_only_smash_route_derives_the_melee_marker() {
 fn a_smash_verb_projects_the_melee_read_model() {
     let smash = gesture_test_move("forward_smash");
     let contract = MovesetContract {
-        verbs: std::collections::BTreeMap::from([(
-            "smash_forward".to_string(),
-            smash.id.clone(),
-        )]),
+        verbs: std::collections::BTreeMap::from([("smash_forward".to_string(), smash.id.clone())]),
         moves: vec![smash.clone()],
     };
 
@@ -2115,11 +2115,7 @@ fn a_smash_verb_projects_the_melee_read_model() {
 
     app.update();
     assert!(
-        app.world()
-            .get::<BodyMelee>(body)
-            .unwrap()
-            .swing
-            .is_some(),
+        app.world().get::<BodyMelee>(body).unwrap().swing.is_some(),
         "a smash-bound move must present as a melee swing"
     );
 }
@@ -2576,5 +2572,142 @@ fn a_grounded_move_never_pays_landing_lag() {
     assert!(
         app.world().get::<MovePlayback>(body).is_some(),
         "and the grounded move is not cancelled by the ground it started on"
+    );
+}
+
+/// A three-keyframe hitbox track: one swing whose shape sweeps forward across
+/// its active portion, authored as contiguous `Active` windows.
+///
+/// Each keyframe reaches further than the last, so the victim standing at the
+/// far end is only overlapped by the LAST one — which is the point of a track,
+/// and also what makes the double-hit failure mode invisible to a test whose
+/// victim stands under every segment.
+fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
+    let windup = 0.05;
+    let mut spec = simple_melee(&SimpleMeleeParams {
+        windup_s: windup,
+        active_s: segment_s * 3.0,
+        recover_s: 0.05,
+        ..Default::default()
+    });
+    let volume = |reach: f32| HitVolume {
+        shape: ambition_entity_catalog::VolumeShape::Rect {
+            offset: (reach, 0.0),
+            half_extents: (8.0, 20.0),
+        },
+        damage: 5,
+        knockback: 0.0,
+        kb_growth: 0.0,
+        launch_dir: None,
+        on_hit: None,
+        // ⚠ no `vfx` tag: a bladed volume would resolve the fixture manifest
+        // blade and every keyframe would swing the SAME authored hull, which is
+        // exactly the geometry this test varies.
+        vfx: None,
+        hit_sfx: None,
+    };
+    spec.windows = vec![MoveWindow {
+        start_s: 0.0,
+        end_s: windup,
+        tag: WindowTag::Startup,
+        volumes: vec![],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    }];
+    for (i, reach) in reaches.iter().enumerate() {
+        let start = windup + segment_s * i as f32;
+        spec.windows.push(MoveWindow {
+            start_s: start,
+            end_s: start + segment_s,
+            tag: WindowTag::Active,
+            volumes: vec![volume(*reach)],
+            sustain_effect: None,
+            motion_scale: 1.0,
+        });
+    }
+    let last = windup + segment_s * 3.0;
+    spec.windows.push(MoveWindow {
+        start_s: last,
+        end_s: spec.duration_s,
+        tag: WindowTag::Recovery,
+        volumes: vec![],
+        sustain_effect: None,
+        motion_scale: 1.0,
+    });
+    spec.events.clear();
+    spec
+}
+
+/// ⭐⭐ **one swing is one hit, however many keyframes it was sampled at.**
+///
+/// The victim sits inside every segment of the track, so each of the three
+/// windows spawns a box that overlaps it. Without the contiguity handoff each
+/// box carries its own fresh `HitboxHits` and the swing lands THREE times —
+/// a four-keyframe sword arc would deal quadruple damage, which is what makes
+/// authored tracks unusable rather than merely wrong.
+#[test]
+fn a_contiguous_hitbox_track_lands_one_hit_per_victim() {
+    let (mut app, victim) = app_with_victim();
+    // Victim at x=128, attacker at x=100 with a 30-wide body: reaches of
+    // 20/26/32 px all overlap the victim's 28-wide box.
+    spawn_attacker(
+        &mut app,
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(30.0, 48.0),
+        swept_track([20.0, 26.0, 32.0], 0.05),
+    );
+    run_seconds(&mut app, 0.30);
+
+    let hits: Vec<_> = app
+        .world()
+        .resource::<Captured>()
+        .hits
+        .iter()
+        .filter(|e| e.target == crate::events::HitTarget::Body(victim))
+        .collect();
+    assert_eq!(
+        hits.len(),
+        1,
+        "⛔ a swept track re-hit once per keyframe: {} hits",
+        hits.len()
+    );
+}
+
+/// ⛔ **POISON: a GAP still rehits.** A genuine multi-hit move — a drill, a
+/// rapid jab — is authored as Active windows with space between them, because
+/// that is physically what it is: the box goes away and comes back. If the
+/// handoff carried across a gap too, every multi-hit move in the game would
+/// silently become single-hit, and this whole mechanism would be a damage nerf
+/// wearing a bug fix's clothes.
+#[test]
+fn a_gap_between_active_windows_is_a_fresh_strike() {
+    let (mut app, victim) = app_with_victim();
+    let mut spec = swept_track([20.0, 20.0, 20.0], 0.05);
+    // Push the second and third keyframes later, opening a gap after the first.
+    for window in spec.windows.iter_mut() {
+        if matches!(window.tag, WindowTag::Active) && window.start_s > 0.05 {
+            window.start_s += 0.05;
+            window.end_s += 0.05;
+        }
+    }
+    spec.duration_s += 0.10;
+    spawn_attacker(
+        &mut app,
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(30.0, 48.0),
+        spec,
+    );
+    run_seconds(&mut app, 0.45);
+
+    let hits = app
+        .world()
+        .resource::<Captured>()
+        .hits
+        .iter()
+        .filter(|e| e.target == crate::events::HitTarget::Body(victim))
+        .count();
+    assert!(
+        hits >= 2,
+        "⛔ a gap means the strike ENDED; the next window is a new one, got {hits} hits"
     );
 }

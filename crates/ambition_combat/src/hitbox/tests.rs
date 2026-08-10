@@ -316,7 +316,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
         "player AOE emits exactly one feature-damaging hit"
     );
     assert!(
-        matches!(cap.0[0].source, HitSource::PlayerSlash { .. }),
+        matches!(cap.0[0].source, HitSource::Melee),
         "carries an attacker-side player source so apply_feature_hit_events applies it"
     );
     assert!(cap.0[0].source.seeks_victims());
@@ -403,7 +403,7 @@ fn enemy_hitbox_damages_a_relationally_hostile_actor() {
         HitTarget::Body(victim),
         "pre-resolved to the hostile body"
     );
-    assert!(matches!(cap[0].source, HitSource::EnemyAttack));
+    assert!(matches!(cap[0].source, HitSource::Melee));
     assert_eq!(cap[0].damage, 4);
 }
 
@@ -528,7 +528,7 @@ fn enemy_hitbox_hits_the_player_by_default() {
     let cap = captured.body_hits();
     assert_eq!(cap.len(), 1, "the player takes the hit by default");
     assert_eq!(cap[0].target, HitTarget::Body(player));
-    assert!(matches!(cap[0].source, HitSource::EnemyAttack));
+    assert!(matches!(cap[0].source, HitSource::Melee));
     assert_eq!(
         cap[0].knockback.as_ref().map(|k| k.magnitude),
         Some(crate::events::HitKnockbackMagnitude::LaunchSpeed(120.0)),
@@ -778,7 +778,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
     assert_eq!(body_hits.len(), 1, "the strike resolves exactly one victim");
     cap.assert_no_body_scanning_broadcast();
     let hit = body_hits[0];
-    assert!(matches!(hit.source, HitSource::PlayerSlash { .. }));
+    assert!(matches!(hit.source, HitSource::Melee));
     assert_eq!(hit.target, HitTarget::Body(victim));
     assert_eq!(hit.attacker, Some(owner));
     assert_eq!(hit.damage, 4);

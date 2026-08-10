@@ -188,7 +188,7 @@ mod tests {
             strike_sfx: None,
             volume: Aabb::new(Vec2::new(90.0, 84.0), Vec2::new(4.0, 4.0)).into(),
             damage: 1,
-            source: crate::features::HitSource::PlayerProjectile,
+            source: crate::features::HitSource::Projectile,
             attacker: None,
             target: crate::features::HitTarget::Volume,
             mode: crate::features::HitMode::Knockback,

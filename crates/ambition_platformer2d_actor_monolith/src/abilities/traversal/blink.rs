@@ -193,7 +193,7 @@ pub fn blink_system(
         strike_sfx: None,
         volume: ae::CombatVolume::circle(target, BLINK_SHOCKWAVE_HALF),
         damage: BLINK_SHOCKWAVE_DAMAGE,
-        source: crate::features::HitSource::PlayerSlash,
+        source: crate::features::HitSource::Melee,
         attacker: Some(player),
         target: crate::features::HitTarget::Volume,
         mode: crate::features::HitMode::Knockback,

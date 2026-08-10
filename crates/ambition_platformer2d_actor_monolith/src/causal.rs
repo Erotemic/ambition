@@ -559,7 +559,7 @@ mod damage_tests {
         app.world_mut().write_message(BodyHitResolved {
             body,
             resolution,
-            source: crate::combat::HitSource::PlayerProjectile,
+            source: crate::combat::HitSource::Projectile,
             raw_damage: raw,
         });
     }

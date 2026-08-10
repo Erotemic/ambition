@@ -107,7 +107,7 @@ fn a_knockout_of_an_unseated_body_is_about_that_body_not_about_the_world() {
     let body = app.world_mut().spawn(Brain::stand_still()).id();
     app.world_mut().write_message(BodyKnockedOut {
         body,
-        cause: crate::HitSource::PlayerProjectile,
+        cause: crate::HitSource::Projectile,
     });
     app.update();
 

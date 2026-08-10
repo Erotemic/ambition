@@ -359,7 +359,7 @@ fn defeat_the_rooms_hostiles(app: &mut App) -> Vec<String> {
             damage: 9_999,
             // Attacker-side, so the feature/actor drain consumes it; the victim
             // is pre-resolved, so the volume only has to be somewhere sane.
-            source: HitSource::PlayerProjectile,
+            source: HitSource::Projectile,
             attacker: None,
             target: HitTarget::Body(*entity),
             mode: HitMode::Knockback,

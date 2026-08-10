@@ -83,8 +83,15 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
         strike_sfx: None,
         volume: event_volume.into(),
         damage: 1,
-        source: HitSource::EnemyBody,
-        attacker: None,
+        source: HitSource::Contact,
+        // ⭐ **the emitter NAMES itself, which is what makes this test able to
+        // state its own claim.** It used to say `attacker: None` and pass
+        // because the drain skipped every victim-side broadcast wholesale — a
+        // direction rule standing in for self-exclusion. With one `Contact`
+        // cause there is no direction left to hide behind, and a hit with no
+        // attacker has no self to exclude, so the fixture was describing a
+        // contact nobody made.
+        attacker: Some(actor_entity),
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
         knockback: None,
@@ -157,7 +164,7 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
             strike_sfx,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
             damage: 1,
-            source: HitSource::EnemyBody,
+            source: HitSource::Contact,
             attacker: None,
             target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
@@ -261,19 +268,19 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
 
     // Player slash: base 2 × 2.0 slider = 4.
     assert_eq!(
-        damage_dealt(2.0, HitSource::PlayerSlash),
+        damage_dealt(2.0, HitSource::Melee),
         4,
         "a strong slider raises the player's own melee damage"
     );
     // Weak slider: 2 × 0.25 = 0.5, floored to the always-≥1 minimum.
     assert_eq!(
-        damage_dealt(0.25, HitSource::PlayerSlash),
+        damage_dealt(0.25, HitSource::Melee),
         1,
         "a weak slider lowers it, but a hit still deals at least 1"
     );
     // The SAME slider must NOT scale a non-player melee source.
     assert_eq!(
-        damage_dealt(2.0, HitSource::EnemyBody),
+        damage_dealt(2.0, HitSource::Contact),
         2,
         "the OUTGOING player slider never touches enemy melee"
     );
@@ -284,7 +291,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
     // is exactly what would have broken silently once one `Melee` covers every
     // swing in the game.
     assert_eq!(
-        damage_dealt_from(2.0, HitSource::PlayerSlash, false),
+        damage_dealt_from(2.0, HitSource::Melee, false),
         2,
         "a swing by a body no human drives is not the human's outgoing damage"
     );
@@ -307,7 +314,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
         strike_sfx: None,
         volume: event_volume.into(),
         damage: 10,
-        source: HitSource::EnemyChargeCrash,
+        source: HitSource::Contact,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -364,7 +371,7 @@ fn enemy_charge_crash_with_an_explicit_attacker_never_credits_the_primary_player
         strike_sfx: None,
         volume: event_volume.into(),
         damage: 2,
-        source: HitSource::EnemyChargeCrash,
+        source: HitSource::Contact,
         attacker: Some(shell),
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -414,7 +421,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         strike_sfx: None,
         volume: event_volume.into(),
         damage: 2,
-        source: HitSource::PlayerSlash,
+        source: HitSource::Melee,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -451,7 +458,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         strike_sfx: None,
         volume: event_volume.into(),
         damage: 5,
-        source: HitSource::PlayerSlash,
+        source: HitSource::Melee,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -582,7 +589,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
             strike_sfx: None,
             volume: event_volume.into(),
             damage: 1,
-            source: HitSource::PlayerSlash,
+            source: HitSource::Melee,
             attacker: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
@@ -656,7 +663,7 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
             strike_sfx: None,
             volume: event_volume.into(),
             damage: 3,
-            source: HitSource::PlayerSlash,
+            source: HitSource::Melee,
             attacker: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
@@ -728,7 +735,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
         strike_sfx: None,
         volume: event_volume.into(),
         damage: 2,
-        source: HitSource::PlayerSlash,
+        source: HitSource::Melee,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -808,7 +815,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
         strike_sfx: None,
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
         damage: 1,
-        source: HitSource::PlayerSlash,
+        source: HitSource::Melee,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -914,7 +921,7 @@ fn player_slash_shatters_a_breakable() {
         strike_sfx: None,
         volume: aabb.into(),
         damage: 2,
-        source: HitSource::PlayerSlash,
+        source: HitSource::Melee,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -1273,11 +1280,11 @@ fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
         strike_sfx: None,
         volume: ae::Aabb::new(center, ae::Vec2::new(32.0, 40.0)).into(),
         damage,
-        source: HitSource::PlayerSlash,
+        source: HitSource::Melee,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
-        // The shove a slash used to smuggle through `HitSource::PlayerSlash`'s
+        // The shove a slash used to smuggle through `HitSource::Melee`'s
         // own `knock_x` field, spelled the one way knockback is spelled now.
         // Same resolution as before: side +1, standard feel strength.
         knockback: Some(slash_knockback(center, 1.0)),
@@ -1355,7 +1362,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
         strike_sfx: None,
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
         damage: 2,
-        source: HitSource::EnemyAttack,
+        source: HitSource::Melee,
         attacker: None,
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
@@ -1431,7 +1438,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
             damage: 1,
             // ⚠ the SAME cause in both runs. If the vocabulary were still
             // deciding, both would land identically.
-            source: HitSource::EnemyAttack,
+            source: HitSource::Melee,
             attacker: Some(attacker),
             target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
@@ -1461,7 +1468,7 @@ fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
 /// `dir`, strength from its magnitude.
 ///
 /// ⛔ this used to be `a_slash_knock_x_folds_into_the_shared_knockback_resolution`
-/// and it pinned a SECOND physics channel — `HitSource::PlayerSlash { knock_x }`,
+/// and it pinned a SECOND physics channel — `HitSource::Melee { knock_x }`,
 /// folded in by a special arm in the actor consumer. Both are deleted; the
 /// resolution they fed is the thing worth keeping, so the test keeps it and
 /// reaches it the one way that exists now.
@@ -1504,7 +1511,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(40.0, 50.0)).into(),
         damage: 2,
         // Victim-side source, yet the Actor target routes it to the actor consumer.
-        source: HitSource::EnemyAttack,
+        source: HitSource::Melee,
         attacker: None,
         target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
@@ -1554,7 +1561,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
         strike_sfx: None,
         volume: volume.into(),
         damage: 2,
-        source: HitSource::PlayerSlash,
+        source: HitSource::Melee,
         attacker: Some(attacker),
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -1720,7 +1727,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
             strike_sfx: None,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
             damage,
-            source: HitSource::PlayerSlash,
+            source: HitSource::Melee,
             attacker: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
@@ -1764,7 +1771,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
         strike_sfx: None,
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
         damage: 1,
-        source: HitSource::PlayerSlash,
+        source: HitSource::Melee,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -1814,7 +1821,7 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
     );
 
     assert_eq!(
-        kill_disposition(&HitSource::EnemyAttack, sandbag),
+        kill_disposition(&HitSource::Melee, sandbag),
         KillDisposition::RespawnInPlace(0.85),
         "an ordinary kill still honours the authored respawn policy"
     );
@@ -1827,7 +1834,7 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
     // And a body that stays dead is defeated rather than gone, so the
     // exploration economy still pays out for an ordinary kill.
     assert_eq!(
-        kill_disposition(&HitSource::EnemyAttack, RespawnPolicy::DeadStaysDead),
+        kill_disposition(&HitSource::Melee, RespawnPolicy::DeadStaysDead),
         KillDisposition::Defeated
     );
     assert_eq!(
@@ -1903,13 +1910,13 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
     }
 
     assert_eq!(
-        thrower_flash_after(HitSource::PlayerProjectile),
+        thrower_flash_after(HitSource::Projectile),
         0.0,
         "her fireball landed across the room and SHE flashed — the attacker \
          flash is contact feel and a shot is not contact"
     );
     assert!(
-        thrower_flash_after(HitSource::PlayerSlash) > 0.0,
+        thrower_flash_after(HitSource::Melee) > 0.0,
         "a SLASH must still flash the attacker: this half is what stops the \
          projectile assertion from passing against a `hit_flash` that was simply \
          deleted"

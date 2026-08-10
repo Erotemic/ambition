@@ -917,7 +917,7 @@ pub(crate) fn integrate_actor_body(
             strike_sfx: None,
             volume: em.aabb().into(),
             damage: em.health.current().max(1),
-            source: HitSource::EnemyChargeCrash,
+            source: HitSource::Contact,
             attacker: Some(actor_entity),
             target: HitTarget::Volume,
             mode: HitMode::Knockback,

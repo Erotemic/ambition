@@ -547,7 +547,7 @@ impl ContactAttack {
             strike_sfx: None,
             volume: self.volume.into(),
             damage: self.damage,
-            source: HitSource::EnemyBody,
+            source: HitSource::Contact,
             attacker: Some(attacker),
             target: HitTarget::Body(target),
             mode: HitMode::Knockback,

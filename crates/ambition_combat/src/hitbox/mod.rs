@@ -347,10 +347,10 @@ pub fn apply_hitbox_damage(
         // select a different overlap/dedup/knockback algorithm.
         let melee_source = match (hitbox.source, hitbox.anchor) {
             (HitSide::Player, HitboxAnchor::FollowOwner { .. }) => {
-                Some(HitSource::PlayerSlash)
+                Some(HitSource::Melee)
             }
-            (HitSide::Enemy | HitSide::Npc, _) => Some(HitSource::EnemyAttack),
-            (HitSide::Boss, _) => Some(HitSource::BossAttack),
+            (HitSide::Enemy | HitSide::Npc, _) => Some(HitSource::Melee),
+            (HitSide::Boss, _) => Some(HitSource::Melee),
             (HitSide::Player, HitboxAnchor::World { .. }) | (HitSide::Neutral, _) => None,
         };
 
@@ -515,7 +515,7 @@ pub fn apply_hitbox_damage(
                         strike_sfx: hitbox.strike_sfx,
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),
-                        source: HitSource::PlayerSlash,
+                        source: HitSource::Melee,
                         attacker: Some(hitbox.owner),
                         target: HitTarget::Volume,
                         mode: HitMode::Knockback,

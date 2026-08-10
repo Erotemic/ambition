@@ -85,6 +85,20 @@ scan only what a body resolver cannot see." A consumer that conflates them
 damages every body twice. ⚠ **the variant is scaffolding with an expiry**: when
 bosses and breakables become victims in their own right it goes away with them.
 
+**A hit says WHAT KIND it was, never WHO.** `HitSource` is a cause —
+`Melee`, `Projectile`, `Contact`, `Hazard`, `LeftTheWorld`, `Pogo` — and
+`HitTarget::Body(Entity)` names the one victim a producer resolved. Nine
+direction-spelled variants and two victim-classifying ones collapsed into these
+because the who-half was carrying decisions that belong to identity: whose swing
+it is, whether it hits heavy, whether the human's damage slider applies, which
+consumer owns the event. **Every one of those is asked of the ATTACKER or of the
+VICTIM's population, both of which the event names.** ⛔ do not reintroduce a
+faction or controller word into the cause vocabulary; if a rule needs to know
+who, it should ask the entity. ⚠ and note what the direction words were silently
+buying: the feature drain had no attacker self-exclusion at all, because a
+victim-side broadcast could never reach it. Identity beats every relationship
+rule, and it is stated in both resolvers now.
+
 ⛔ **Do not reintroduce** a `PlayerAttackState` / `ActorAttackState` split, a
 second slash emit, or a per-frame player damage loop. Every melee is an
 `"attack"`-verb moveset move riding `MovePlayback`.

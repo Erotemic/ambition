@@ -178,7 +178,7 @@ pub(crate) fn deal_a_lethal_hit(app: &mut App) -> usize {
             // Contact with an enemy body — the death a player actually dies in
             // this level, and a victim-side source, so it reaches the player
             // damage pass rather than the attacker-side one.
-            source: HitSource::EnemyBody,
+            source: HitSource::Contact,
             attacker: None,
             target: HitTarget::Body(her),
             mode: HitMode::Knockback,

@@ -156,7 +156,7 @@ pub fn refresh_boss_damageable_volumes(
 /// Publish damageable breakable volumes for intact hit-reactive breakables.
 ///
 /// Breakable pogo-orbs remain damageable even though their actual damage is
-/// resolved by the dedicated `HitSource::PogoBounce` path. Regular OnHit/Either
+/// resolved by the dedicated `HitSource::Pogo` path. Regular OnHit/Either
 /// breakables participate in the default damageable => pogoable rule; pure
 /// stand-to-crumble platforms opt into world rebound geometry through
 /// `PogoTargetContributor` instead of pretending to be body-damage targets.

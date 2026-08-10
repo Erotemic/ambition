@@ -113,7 +113,7 @@ fn harming_alone_hurts_what_it_touches_and_grants_no_invulnerability() {
         "and it is aimed AT that body, so its own consumer resolves it"
     );
     assert_eq!(written[0].attacker, Some(striker));
-    assert_eq!(written[0].source, HitSource::ContactHarm);
+    assert_eq!(written[0].source, HitSource::Contact);
     assert!(
         !untouchable(&app, striker),
         "and the striker stays hittable — the traits do not imply each other"

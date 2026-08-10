@@ -4,7 +4,7 @@
 //! hostile), bosses, and breakables — including the side effects
 //! (banners, VFX, SFX, debris, gameplay effects, hit-stop) those hits
 //! produce. Pogo-orb resolution lives in this same drain loop and
-//! branches on `HitSource::PogoBounce` to do orb-AABB matching rather
+//! branches on `HitSource::Pogo` to do orb-AABB matching rather
 //! than broadcast volume overlap. Read-only `ecs_hit_event_hits_*`
 //! predicates live here too so the attack / projectile systems can
 //! pre-check whether a queued hit will actually land before kicking off
@@ -459,14 +459,14 @@ pub fn apply_feature_hit_events(
         let attacker_is_controlled = event
             .attacker
             .is_some_and(|attacker| controlled_attackers.contains(attacker));
-        if attacker_is_controlled && matches!(event.source, HitSource::PlayerSlash) {
+        if attacker_is_controlled && matches!(event.source, HitSource::Melee) {
             event.damage = (((event.damage as f32) * outgoing_melee_scale).round() as i32).max(1);
         }
         // PogoBounce hits target only the breakable whose AABB
         // approximately matches the orb volume the engine reported.
         // Skip the actor / boss / broadcast-breakable scans entirely;
         // jump straight to the orb-match loop at the bottom.
-        if matches!(event.source, HitSource::PogoBounce) {
+        if matches!(event.source, HitSource::Pogo) {
             for (entity, _id, name, aabb, mut feature) in &mut breakables {
                 if feature.broken() || !feature.breakable.pogo_refresh {
                     continue;
@@ -560,6 +560,18 @@ pub fn apply_feature_hit_events(
                 if actor_entity != target_entity {
                     continue;
                 }
+            }
+            // ⛔ **IDENTITY BEATS EVERY RELATIONSHIP RULE** — the body resolver's
+            // first line, and this scan did not have it. A broadcast that
+            // overlaps its own emitter damaged it.
+            //
+            // ⚠ **the DIRECTION words were doing this job**, which is why nobody
+            // noticed: a body-contact hit was filed victim-side, the drain
+            // skipped every victim-side broadcast, and the self-hit could not
+            // arise. Fold the direction out of the vocabulary and the protection
+            // leaves with it — so state the rule that was actually wanted.
+            if event.attacker == Some(actor_entity) {
+                continue;
             }
             let prefix = if disposition.is_hostile() {
                 "enemy"
@@ -733,7 +745,7 @@ pub fn apply_feature_hit_events(
                     .flatten()
             });
             if let Some(attacker) = target_attacker {
-                let record_dedup = matches!(event.source, HitSource::PlayerSlash { .. });
+                let record_dedup = matches!(event.source, HitSource::Melee);
                 // CM4: the strike connected — the attacker's playing move
                 // learns it (combo-confirm for OnHit/OnWhiff cancels).
                 if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
@@ -766,7 +778,7 @@ pub fn apply_feature_hit_events(
                     // ⚠ the HITSTOP above is kept deliberately: the brief hold on
                     // impact is what makes a shot feel like it hit something, and
                     // nobody reported that. Only the body-flash is wrong.
-                    if !matches!(event.source, HitSource::PlayerProjectile) {
+                    if !matches!(event.source, HitSource::Projectile) {
                         combat.hit_flash = combat.hit_flash.max(0.10);
                     }
                     // Record the targets this slash just struck so the next active
@@ -863,7 +875,7 @@ pub fn apply_feature_hit_events(
         // re-smashed each breakable (and re-fired its Impact FX) every active tick.
         // Persist on the move (survives the moveset swing projection) AND the flat
         // swing (non-moveset bodies).
-        if matches!(event.source, HitSource::PlayerSlash { .. }) && !breakable_keys.is_empty() {
+        if matches!(event.source, HitSource::Melee) && !breakable_keys.is_empty() {
             if let Some(attacker) = event.attacker.or_else(|| primary_q.single().ok()) {
                 if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
                     pb.hit_targets.extend(breakable_keys.iter().cloned());

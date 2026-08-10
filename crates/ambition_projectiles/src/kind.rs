@@ -8,7 +8,7 @@
 //! generic [`ProjectileSpec`]; the engine never matches on a kind.
 //!
 //! `ProjectileKind` is also an ECS [`Component`]: player projectile entities
-//! carry it so the combat-attribution (`HitSource::PlayerProjectile { kind }`),
+//! carry it so the combat-attribution (`HitSource::Projectile { kind }`),
 //! the feel-trace, and the renderer (tint / sprite name) can read the named kind
 //! without the engine knowing kinds exist.
 

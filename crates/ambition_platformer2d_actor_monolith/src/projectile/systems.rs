@@ -593,7 +593,7 @@ pub fn step_projectiles(
                 damage: game.damage.max(1),
                 // Player shots always carry the kind component; default is
                 // unreachable (kept total for the engine-generic body).
-                source: HitSource::PlayerProjectile,
+                source: HitSource::Projectile,
                 attacker: owner_entity,
                 target: HitTarget::Volume,
                 mode: HitMode::Knockback,
@@ -720,7 +720,7 @@ pub fn step_projectiles(
                     strike_sfx: None,
                     volume: kin.aabb().into(),
                     damage: game.damage.max(1),
-                    source: HitSource::EnemyProjectile,
+                    source: HitSource::Projectile,
                     // The firing actor (enemy / boss), when the shot was spawned
                     // with a real owner — `None` for ownerless shots.
                     attacker: owner_entity,

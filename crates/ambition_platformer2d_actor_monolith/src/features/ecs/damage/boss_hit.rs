@@ -142,7 +142,7 @@ pub(crate) fn apply_boss_hit(
     if boss.config.behavior.environmental_kill_only
         && matches!(
             event.source,
-            HitSource::PlayerSlash { .. } | HitSource::PlayerProjectile
+            HitSource::Melee | HitSource::Projectile
         )
     {
         // Environmental puzzle bosses (e.g. the Smirking Behemoth) take

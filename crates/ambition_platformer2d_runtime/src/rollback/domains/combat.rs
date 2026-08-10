@@ -326,23 +326,24 @@ fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayer
         put_vec2(&mut bytes, bounds.min);
         put_vec2(&mut bytes, bounds.max);
         put_i32(&mut bytes, event.damage);
+        // ⚠ **the tags are the CAUSE vocabulary's, and the old direction-spelled
+        // tags 5-11 are retired.** Nine variants folded into four causes when the
+        // player-versus-world half of each name stopped carrying routing, so the
+        // spread is now 0-3 plus 10. Tags are checksum input, not a persisted
+        // wire format, so renumbering costs a checksum change and nothing else —
+        // but keep `LeftTheWorld` at 10 rather than compacting it, because a
+        // gratuitous renumber of a surviving variant is a diff nobody can review.
+        //
+        // The `f32` beside each tag was `PlayerSlash`'s own impulse channel. That
+        // channel is gone — knockback has one representation — so it is a
+        // constant here. The slot stays because the layout is shared.
         let (source_tag, source_payload) = match event.source {
-            // The `f32` beside the tag was `PlayerSlash`'s own impulse channel.
-            // That channel is gone — knockback has one representation now — so
-            // the payload is a constant here rather than a field read. The slot
-            // stays because other sources may yet carry one and the wire layout
-            // is shared.
-            HitSource::PlayerSlash => (0u8, 0.0),
-            HitSource::PlayerProjectile => (1, 0.0),
-            HitSource::PogoBounce => (2, 0.0),
+            HitSource::Melee => (0u8, 0.0),
+            HitSource::Projectile => (1, 0.0),
+            HitSource::Pogo => (2, 0.0),
             HitSource::Hazard => (3, 0.0),
-            HitSource::EnemyBody => (4, 0.0),
-            HitSource::EnemyAttack => (5, 0.0),
-            HitSource::EnemyProjectile => (6, 0.0),
-            HitSource::EnemyChargeCrash => (7, 0.0),
-            HitSource::BossAttack => (9, 0.0),
+            HitSource::Contact => (4, 0.0),
             HitSource::LeftTheWorld => (10, 0.0),
-            HitSource::ContactHarm => (11, 0.0),
         };
         put_u8(&mut bytes, source_tag);
         put_f32(&mut bytes, source_payload);

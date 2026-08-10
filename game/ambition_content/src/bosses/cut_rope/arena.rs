@@ -75,7 +75,7 @@ pub fn detect_cut_rope_rope_cut(
         if state.rope_cut {
             continue;
         }
-        if !matches!(&event.source, HitSource::PlayerSlash { .. }) {
+        if !matches!(&event.source, HitSource::Melee) {
             continue;
         }
         if !event.volume.intersects_aabb(rope_aabb) {

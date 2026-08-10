@@ -101,7 +101,7 @@ fn blink_emits_a_player_side_shockwave_at_arrival() {
     assert!(
         matches!(
             hits[0].source,
-            crate::features::HitSource::PlayerSlash { .. }
+            crate::features::HitSource::Melee
         ),
         "player-side source so it spares the player",
     );

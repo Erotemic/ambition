@@ -432,8 +432,48 @@ same cause is not scaled — was unassertable while the spelling was the claim.
 ⚠ two more fixtures were modelling swings nobody threw (`attacker: None` plus a
 player-spelled source). Both name a real attacker now.
 
-▢ **what remains of item 2 is the rename itself. It is unblocked and
-mechanical:**
+### ✔ item 2, step 3 — the fold landed (2026-08-09)
+
+**Nine variants became four causes** — `Melee` · `Projectile` · `Contact` ·
+`Hazard` · `LeftTheWorld` · `Pogo`. `PlayerSlash`/`EnemyAttack`/`BossAttack` →
+`Melee`; `PlayerProjectile`/`EnemyProjectile` → `Projectile`;
+`EnemyBody`/`ContactHarm`/`EnemyChargeCrash` → `Contact`; `PogoBounce` → `Pogo`.
+The half of each old name that said *who* is gone; the half that says *what kind
+of thing happened* — which the HUD, the trace and the victim's reaction all
+genuinely want — is kept.
+
+⛔⛔ **and the fold found a real hole the direction words had been plugging.**
+`apply_feature_hit_events`' actor scan **never excluded the event's own
+attacker**. It never had to: a body-contact hit was filed victim-side, the drain
+skipped every victim-side broadcast, and a self-hit could not arise. Take the
+direction out and the protection leaves with it. The rule that was actually
+wanted — *identity beats every relationship rule*, the body resolver's own first
+line — is now stated there.
+
+⭐ **two tests said so before the code did**, which is the argument for folding
+rather than renaming around the problem:
+
+* `victim_side_enemy_body_hit_does_not_damage_features` passed with
+  `attacker: None`. A hit with no attacker has no self to exclude, so the
+  fixture could not express its own claim; it named the emitter and went red.
+* `player_faction_shot_damages_an_overlapping_enemy_and_expires` asserted
+  `PlayerProjectile` present **and** `EnemyProjectile` absent — one cause turns
+  that into a claim and its negation, which is the honest signal that the SOURCE
+  was never what it cared about. It asserts reach now.
+
+⚠ **one honest gap surfaced and is left open, marked**: the player-faction
+projectile branch still broadcasts `HitTarget::Volume` instead of naming its
+victim, unlike its own enemy-faction branch. That is roadmap item 3's remainder
+for projectiles, and the test asserts the current truth with a `▢` saying which
+assertion should change when it lands.
+
+Rollback: checksum tags collapse to 0–4 plus 10. `LeftTheWorld` deliberately
+keeps its number rather than compacting — a gratuitous renumber of a surviving
+variant is a diff nobody can review.
+
+<!-- historical: the plan this discharged -->
+~~**what remains of item 2 is the rename itself. It is unblocked and
+mechanical:**~~
 `PlayerSlash`/`EnemyAttack`/`BossAttack` → `Melee`, `PlayerProjectile`/
 `EnemyProjectile` → `Projectile`, `EnemyBody`/`ContactHarm`/`EnemyChargeCrash` →
 `Contact`, `PogoBounce` → `Pogo`, `Hazard` and `LeftTheWorld` unchanged.

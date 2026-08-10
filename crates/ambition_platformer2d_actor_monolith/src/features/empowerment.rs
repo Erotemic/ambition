@@ -306,7 +306,7 @@ pub fn apply_contact_harm(
                 strike_sfx: None,
                 volume: volume.into(),
                 damage: harm.damage,
-                source: HitSource::ContactHarm,
+                source: HitSource::Contact,
                 attacker: Some(striker),
                 target: HitTarget::Body(victim),
                 mode: HitMode::Knockback,

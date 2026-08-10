@@ -1012,7 +1012,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         .collect();
 
     let enemy_kill = hits.iter().find(|h| {
-        matches!(h.target, HitTarget::Volume) && matches!(h.source, HitSource::EnemyChargeCrash)
+        matches!(h.target, HitTarget::Volume) && matches!(h.source, HitSource::Contact)
     });
     assert!(
         enemy_kill.is_some_and(|h| h.damage >= 2 && h.attacker == Some(snake)),
@@ -1021,7 +1021,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
 
     let player_hit = hits.iter().find(|h| {
         matches!(h.target, HitTarget::Body(e) if e == player)
-            && matches!(h.source, HitSource::EnemyBody)
+            && matches!(h.source, HitSource::Contact)
     });
     assert!(
         player_hit.is_some_and(|h| h.attacker == Some(snake)),

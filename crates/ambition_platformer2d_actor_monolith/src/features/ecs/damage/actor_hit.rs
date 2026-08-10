@@ -394,7 +394,7 @@ pub(crate) fn apply_actor_hit(
         // with none leaves the velocity alone.
         //
         // ⛔ **there used to be a second arm here**, synthesizing a knockback out
-        // of `HitSource::PlayerSlash`'s own `knock_x` field — and synthesizing it
+        // of `HitSource::Melee`'s own `knock_x` field — and synthesizing it
         // WRONG, taking only the sign and substituting `FeelScale(1.0)` for
         // whatever the producer authored. One producer used the channel (the dive
         // corridor, at 1.4) and its magnitude never reached a victim. Both the

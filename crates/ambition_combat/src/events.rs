@@ -201,103 +201,63 @@ pub struct NpcDialogueRequest {
     pub dialogue_id: String,
 }
 
-/// Source of a hit event. Lets per-target damage logic branch on the
-/// originator and lets the trace / HUD label hits.
+/// **What KIND of thing hit this body.** A cause, and nothing else.
 ///
-/// Legacy/broadcast `HitSource`s partition naturally into two directions:
-/// - **Attacker-side** (`PlayerSlash`, `PlayerProjectile`,
-///   `PogoBounce`, self-destruct style enemy crashes) — consumed by
-///   the feature-damage system to apply damage to enemies / bosses /
-///   breakables.
-/// - **Victim-side** (`Hazard`, `EnemyBody`, `EnemyAttack`,
-///   `EnemyProjectile`, `BossAttack`) — consumed by the
-///   player-damage system to apply damage to players.
+/// ⛔ **this used to be a direction, wearing the clothes of a cause.**
+/// `PlayerSlash`, `EnemyAttack`, `BossAttack`, `PlayerProjectile`,
+/// `EnemyProjectile`, `EnemyBody`, `BossBody`, `EnemyChargeCrash`,
+/// `ContactHarm` — nine spellings for four things, and the half of each name
+/// that said *who* was carrying routing decisions that belong to identity:
 ///
-/// An explicit [`HitTarget::Body`] outranks that legacy
-/// direction: once a producer has already resolved a concrete body victim, the
-/// matching victim consumer accepts the event regardless of source direction.
-/// This is what lets body-owned melee use one contact resolver for every
-/// controller/faction without changing the descriptive source vocabulary.
+/// * a "player's" slash meant *a slash filed under the player-side spelling*,
+///   so a possessed enemy's swing was the player's and an empowered ally's was
+///   not, and the outgoing damage slider reached the wrong strikes both ways;
+/// * `BossAttack` selected a heavier launch, so a heavy anything that was not a
+///   boss was unrepresentable;
+/// * which consumer owned an event was decided by the source's direction rather
+///   than by which population the named victim was in.
 ///
-/// New attack sources should add a variant here rather than building
-/// a parallel `apply_*_attack` path. The canonical channel is
-/// [`HitEvent`].
-#[derive(Clone, Debug, PartialEq)]
+/// ⇒ **identity questions are asked of the ATTACKER**, whose entity
+/// [`HitEvent::attacker`] carries, and the vocabulary is left with the job it is
+/// actually good at: telling the HUD, the trace and the victim's reaction what
+/// kind of event this was. A hit that names its victim reaches its consumer on
+/// that name; only an unresolved broadcast still asks a question of the cause,
+/// and [`Self::seeks_victims`] is the whole of it.
+///
+/// New attack sources should add a variant here rather than building a parallel
+/// `apply_*_attack` path. The canonical channel is [`HitEvent`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HitSource {
-    /// Player melee slash.
-    ///
-    /// ⛔ **this variant used to carry `knock_x: f32`, a second physics channel
-    /// beside [`HitEvent::knockback`], and it is deleted.** Only one producer
-    /// ever set it (the dive corridor); every other site spelled `knock_x: 0.0`
-    /// to satisfy the pattern. And the consumer that read it took only its SIGN
-    /// and substituted `FeelScale(1.0)` — so the dive's authored 1.4 shove was
-    /// silently thrown away for as long as the channel existed. That is the
-    /// failure mode the campaign names: *a successful authored launch strike
-    /// must not be representable as a hit with silently missing knockback.*
-    ///
-    /// ⇒ knockback now has exactly one representation, [`HitKnockback`], and a
-    /// producer that wants a shove attaches one.
-    PlayerSlash,
-    /// Player projectile (Fireball / Hadouken). No knockback today;
-    /// the projectile's own velocity carries the visual feedback.
-    PlayerProjectile,
-    /// Pogo bounce on a breakable orb. The carrying `HitEvent`'s
-    /// `volume` field is the orb's authoritative AABB; the consumer
-    /// matches it against `pogo_refresh` breakables via
-    /// `approximately_same_aabb` rather than the broadcast
-    /// `strict_intersects` used by every other source. Actor / boss
-    /// targets are skipped under this source.
-    PogoBounce,
-    /// Environmental hazard (spike, lava, falling debris). Victim
-    /// reaction depends on `HitEvent::mode` — `SafeRespawn` returns
-    /// the player to the last safe platform; `Knockback` applies
-    /// hitstun + knockback.
+    /// **A body-owned strike** — a swing, a slash, a lunge corridor. Whose swing
+    /// it is comes from [`HitEvent::attacker`]; how hard it lands comes from the
+    /// attacker's own weight and the strike's authored [`HitKnockback`].
+    Melee,
+    /// **A fired shot.** Kept distinct from [`Self::Melee`] because a victim
+    /// genuinely wants to know whether it took a contact swing or a ranged shot
+    /// — that is a real difference in the world, unlike who fired it.
+    Projectile,
+    /// **A body's own footprint harmed what it touched** — walking into an
+    /// enemy, a star-powered runner flattening what it passes through, a charger
+    /// that rams a wall and bursts. Contact harm runs in both directions and
+    /// always has; the striker is whoever's footprint it was.
+    Contact,
+    /// **Environmental hazard** (spike, lava, falling debris). Victim reaction
+    /// depends on [`HitEvent::mode`] — `SafeRespawn` returns the body to the
+    /// last safe platform; `Knockback` applies hitstun + knockback.
     Hazard,
-    /// The body left the world past the stage's blast margin — the pit, the
-    /// void, the blast zone. Distinct from `Hazard` because nothing touched
-    /// this body: the stage simply ended, and whoever knocked it out there is
-    /// credited by `attacker`, not by geometry. A platform fighter scores on
-    /// exactly this source, so collapsing it into `Hazard` (as the kernel's
-    /// reset gate used to) makes the genre unbuildable.
+    /// **The body left the world** past the stage's blast margin — the pit, the
+    /// void, the blast zone. Distinct from [`Self::Hazard`] because nothing
+    /// touched this body: the stage simply ended, and whoever knocked it out
+    /// there is credited by [`HitEvent::attacker`], not by geometry. A platform
+    /// fighter scores on exactly this source, so collapsing it into `Hazard` (as
+    /// the kernel's reset gate once did) makes the genre unbuildable.
     LeftTheWorld,
-    /// Contact with an enemy body (touched the enemy itself, not
-    /// its swing). Always knockback mode.
-    EnemyBody,
-    /// Hit by an enemy melee swing.
-    EnemyAttack,
-    /// Hit by an enemy-fired projectile (pirate volley, etc).
-    /// Distinct from `EnemyAttack` so the HUD / trace can tell the
-    /// player whether they took a contact swing or a ranged shot.
-    EnemyProjectile,
-    /// Enemy self-crash / self-destruct hit. Used by special charge
-    /// behaviors that intentionally ram a wall and explode.
-    EnemyChargeCrash,
-    /// Hit by a boss melee swing.
-    ///
-    /// ⚠ **scheduled to fold into a plain melee cause.** The only thing this
-    /// spelling still buys over `EnemyAttack` is the heavier launch and longer
-    /// hitstun — and that no longer reads the vocabulary: it is asked of the
-    /// ATTACKER entity, which the event names. A sibling `BossBody` variant was
-    /// deleted with that change, having had zero producers: a boss's body
-    /// contact was always filed as `EnemyBody`, so boss weight reached a body
-    /// check for the first time when the fact moved to the attacker.
-    BossAttack,
-    /// **A body whose own footprint harms what it touches** — a star-powered
-    /// runner flattening what it passes through.
-    ///
-    /// Distinct from [`Self::EnemyBody`] rather than
-    /// folded into them, because those name WHO touched you and this names WHAT
-    /// KIND of thing happened: the striker is whoever holds the trait, which may
-    /// be the player, an NPC, or a possessed anything.
-    ///
-    /// ⚠ it answers `false` to [`Self::seeks_victims`], and the reason that used
-    /// to matter is gone. Calling it victim-seeking once made an empowered NPC
-    /// unable to hurt the player at all, because the player FIFO staged on the
-    /// COMPLEMENT of this predicate. That FIFO now stages on whether the named
-    /// victim is in its own population, so a contact-harm hit reaches the player
-    /// on its target, not on its direction — and this answer no longer gates
-    /// anything for a resolved hit.
-    ContactHarm,
+    /// **A pogo rebound**, resolved by orb-exact match rather than broadcast
+    /// overlap: the carrying [`HitEvent::volume`] is the orb's authoritative
+    /// AABB and the consumer matches it with `approximately_same_aabb`. Bodies
+    /// are skipped under this source — body pogo consumes a resolved
+    /// [`crate::hitbox::LandedBodyHit`] instead.
+    Pogo,
 }
 
 impl HitSource {
@@ -315,10 +275,10 @@ impl HitSource {
     pub fn seeks_victims(&self) -> bool {
         matches!(
             self,
-            HitSource::PlayerSlash
-                | HitSource::PlayerProjectile
-                | HitSource::PogoBounce
-                | HitSource::EnemyChargeCrash
+            HitSource::Melee
+                | HitSource::Projectile
+                | HitSource::Pogo
+                | HitSource::Contact
         )
     }
 
@@ -451,7 +411,7 @@ pub struct HitEvent {
     /// Knockback impulse to apply to the victim, and **the only channel that
     /// carries one**. `None` means this hit genuinely does not push its target
     /// (pogo, player projectile). ⛔ a source-specific impulse field is not an
-    /// alternative spelling — see [`HitSource::PlayerSlash`] for the one that
+    /// alternative spelling — see [`HitSource::Melee`] for the one that
     /// existed and what it cost.
     pub knockback: Option<HitKnockback>,
     /// Target keys that have already been hit by this one-hit-per-
@@ -472,24 +432,27 @@ mod resolution_direction_tests {
     use super::HitSource;
 
     /// The predicate answers one question — is this unresolved strike still
-    /// hunting for whom it hit — and the two groups are the ones that hunt and
-    /// the ones that arrive already aimed at whoever is standing there.
+    /// hunting for whom it hit — and the split is between a cause that goes
+    /// LOOKING for a body and one that happens TO whoever is standing there.
+    ///
+    /// ⚠ `Contact` sits on the hunting side, and two of the three causes it
+    /// absorbed used to answer the other way. That mattered only because the
+    /// player FIFO staged on the COMPLEMENT of this predicate; it stages on
+    /// whether the named victim is in its own population now, so the answer
+    /// gates nothing for a resolved hit — and every contact producer in the tree
+    /// resolves its victim. A body whose footprint harms what it touches
+    /// genuinely is out looking.
     #[test]
     fn a_strike_seeks_victims_and_the_world_does_not() {
         for hunting in [
-            HitSource::PlayerSlash,
-            HitSource::PlayerProjectile,
-            HitSource::PogoBounce,
-            HitSource::EnemyChargeCrash,
+            HitSource::Melee,
+            HitSource::Projectile,
+            HitSource::Pogo,
+            HitSource::Contact,
         ] {
             assert!(hunting.seeks_victims(), "{hunting:?} is a strike looking for a victim");
         }
-        for arriving in [
-            HitSource::Hazard,
-            HitSource::LeftTheWorld,
-            HitSource::EnemyBody,
-            HitSource::ContactHarm,
-        ] {
+        for arriving in [HitSource::Hazard, HitSource::LeftTheWorld] {
             assert!(
                 !arriving.seeks_victims(),
                 "{arriving:?} happens TO a body; it is not out looking for one"

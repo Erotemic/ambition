@@ -49,12 +49,12 @@ fn dive_lunges_the_player_forward_and_cuts_a_corridor() {
     assert!(
         matches!(
             hits[0].source,
-            crate::features::HitSource::PlayerSlash { .. }
+            crate::features::HitSource::Melee
         ),
         "player-side source so it spares the player",
     );
     // ⭐⭐ **the authored shove must be ON the event, at its authored strength.**
-    // It used to ride `HitSource::PlayerSlash { knock_x }`, a second physics
+    // It used to ride `HitSource::Melee { knock_x }`, a second physics
     // channel whose consumer read only the SIGN and substituted `FeelScale(1.0)`
     // — so `DIVE_KNOCKBACK` reached no victim for as long as the channel existed,
     // and the hit was indistinguishable from one with no shove authored at all.

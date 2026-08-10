@@ -72,7 +72,7 @@ pub fn tick_bomb_fuses(
             strike_sfx: None,
             volume: ae::CombatVolume::circle(ground.pos, BOMB_BLAST_HALF),
             damage: BOMB_DAMAGE,
-            source: HitSource::PlayerSlash,
+            source: HitSource::Melee,
             attacker: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
@@ -161,7 +161,7 @@ mod tests {
         let hit = hits.first().expect("a blast HitEvent was emitted");
         assert_eq!(hit.damage, BOMB_DAMAGE);
         assert!(
-            matches!(hit.source, HitSource::PlayerSlash),
+            matches!(hit.source, HitSource::Melee),
             "player-side blast (spares the player, hits enemies)"
         );
     }

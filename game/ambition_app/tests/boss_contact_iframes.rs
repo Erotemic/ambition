@@ -117,7 +117,7 @@ fn boss_contact_hits(world: &World) -> usize {
     world
         .resource::<Messages<HitEvent>>()
         .iter_current_update_messages()
-        .filter(|e| matches!(e.source, HitSource::BossAttack))
+        .filter(|e| matches!(e.source, HitSource::Melee))
         .count()
 }
 

@@ -183,7 +183,7 @@ pub fn fire_dive_system(
     // PlayerSlash volume (spares the player, shoves enemies along the dash).
     //
     // ⭐ **the shove is a real `HitKnockback` now, and it arrives at its authored
-    // strength.** It used to ride `HitSource::PlayerSlash { knock_x }`, a second
+    // strength.** It used to ride `HitSource::Melee { knock_x }`, a second
     // physics channel this was the only producer for — and the consumer read only
     // its SIGN, substituting `FeelScale(1.0)`, so `DIVE_KNOCKBACK` had no effect
     // on anything for as long as the channel existed. ⚠ **so the shove is 1.4×
@@ -195,7 +195,7 @@ pub fn fire_dive_system(
         strike_sfx: None,
         volume: corridor,
         damage: DIVE_DAMAGE,
-        source: crate::features::HitSource::PlayerSlash,
+        source: crate::features::HitSource::Melee,
         attacker: Some(player),
         target: crate::features::HitTarget::Volume,
         mode: crate::features::HitMode::Knockback,

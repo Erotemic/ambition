@@ -83,7 +83,7 @@ path works beside the old one.
 |---|---|---|
 | 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the EXPRESSIVENESS half is done** — death traits, knockback weight and a default autonomous profile are authorable and adopted; see "phase 1 progress". ▢ what remains is the TYPE MOVE (into `ambition_characters`) and the remaining intrinsic facts, most of which need phase 3's consumer |
 | 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ **mapped; the DOOR is open** — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
-| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ◐ **the first seam exists** — `ActorClusterSeed::adopt_character_intrinsics` lets a character outrank the archetype for the facts it authors, applied to the SEED before the body exists. ▢ no spawn site CALLS it yet: the registry is not threaded to the five `new_in` sites. That thread is the next slice, and it is what unblocks phase 2's group A |
+| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ◐ **the AUTHORED ENEMY path reads its character** — `adopt_character_intrinsics` on the seed, called from `spawn_enemy_with_faction_into`, reached by both the construction executor and the giant host. ⇒ **phase 2 group A is UNBLOCKED**. ▢ the programmatic (`spawn_staged_actor_into`) and encounter-mob paths still pass an empty registry; ▢ the plan/`CharacterSpawnPlan` shape itself is untouched |
 | 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
 | 5 | Controller/provocation simplification; rollback becomes controller-only | ▢ |
 | 6 | Remove legacy runtime projections (`ActorTuning`, `CharacterBrainSpec`, `sprite_character_id`) | ▢ |
@@ -2454,6 +2454,23 @@ An enemy body carries no `WornCharacter`, so the persona derive never runs on
 it. ⇒ authoring a mite's death traits on its definition today would state them
 in a place nothing on its own spawn path reads, and deleting them from the
 archetype would simply turn them off.
+
+### ⇥ UNBLOCKED the same day — the authored enemy path now reads its character
+
+✔ `spawn_enemy_with_faction_into` resolves the spawn's art identity against the
+prepared registry and calls `ActorClusterSeed::adopt_character_intrinsics`, so
+an authored `EnemySpawn` whose character is REGISTERED takes that character's
+health, knockback weight and death traits over its archetype's. Both callers
+that matter reach it: the construction executor (`construct_authored_enemy`)
+and the giant host. ⇒ **group A can proceed** — author the mite's facts on its
+definition, add it to `BUILDABLE_ONLY_CAST`, delete them from the archetype.
+
+⚠ two paths still pass an empty registry and are named at their call sites: the
+programmatic `spawn_staged_actor_into` (a runtime-minted body, no registry in
+scope) and the encounter mob. Neither is group A.
+
+⇒ the paragraph below stands as the reasoning that FOUND this, not as the
+current state:
 
 ⇒ ⭐⭐ **phase 2 cannot complete before phase 3 for any enemy-spawned character.**
 The order in the brief is right as a sequence of AUTHORITY changes and

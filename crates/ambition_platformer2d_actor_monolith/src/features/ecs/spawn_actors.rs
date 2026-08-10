@@ -267,6 +267,13 @@ pub(crate) fn spawn_staged_actor_into(
                 character_catalog,
                 authored_sheets,
                 character_roster,
+                // ▢ **no prepared cast on the PROGRAMMATIC path yet** (D73
+                // phase 3). A staged actor is minted by code rather than by an
+                // authored placement, and this seam has no registry in scope; an
+                // empty one means "no character authors anything", which is what
+                // every route did before adoption existed. The authored
+                // `EnemySpawn` path is wired — see `construct_authored_enemy`.
+                &Default::default(),
                 session_scope,
                 root,
                 &authored,
@@ -1228,6 +1235,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
@@ -1235,7 +1243,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
     faction: super::ActorFaction,
 ) {
     let spec = roster.spec_for_brain(&authored.payload.brain);
-    let enemy = super::actor_clusters::ActorClusterSeed::new_in(
+    let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
         authored_sheets,
         catalog,
         roster,
@@ -1246,6 +1254,19 @@ pub(crate) fn spawn_enemy_with_faction_into(
         authored.payload.brain.clone(),
         paths,
     );
+    // **D73 phase 3: the character gets a say.** An authored `EnemySpawn` names
+    // the body's art identity, and when that identity resolves a REGISTERED
+    // character, the facts that character authors outrank the archetype's. A
+    // character that authors nothing — every character today — changes nothing,
+    // which is what lets the migration move one fact at a time.
+    if let Some(definition) = enemy
+        .config
+        .sprite_character_id
+        .as_deref()
+        .and_then(|cid| prepared.get(cid))
+    {
+        enemy.adopt_character_intrinsics(definition);
+    }
     spawn_solo_enemy_into(
         commands,
         catalog,
@@ -1273,6 +1294,7 @@ pub(crate) fn populate_giant_host_into(
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
@@ -1284,6 +1306,7 @@ pub(crate) fn populate_giant_host_into(
         catalog,
         authored_sheets,
         roster,
+        prepared,
         session_scope,
         root,
         authored,

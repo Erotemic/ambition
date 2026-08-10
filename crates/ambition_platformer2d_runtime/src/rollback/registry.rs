@@ -122,6 +122,20 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
+/// ⚠ **v24 (2026-08-10): a Mary-O coin block remembers how much it still owes.**
+/// `SpentPowerBlocks` was a set — a block was spent or it was not — and a
+/// multi-coin block needs a COUNT, so it now carries a per-block tally beside
+/// the set and folds that tally into its checksum projection. A v23 peer hashes
+/// the same set and cannot see how many coins a partly-paid block has left, so
+/// two peers could agree on the hash while disagreeing about which one runs out
+/// first.
+///
+/// ⚠ **no `put_*` codec changed, which is why the shape guard is silent here.**
+/// This is a `rollback_resource_clone_checksum` registration: the snapshot is a
+/// Clone and the wire-visible half is the checksum. `scripts/rollback_codec_shape.py`
+/// watches primitive sequences and cannot see a projection — a second blind spot
+/// worth knowing, and the reason this entry exists rather than a red check.
+///
 /// ⚠ **v23 (2026-08-10): the platform-fighter feel layer joins the wire
 /// format, and one deferred transition learns what sound it owes.** Four value
 /// encodings changed, none of them adding or removing a registration — which is
@@ -166,7 +180,7 @@ use super::{
 /// carried the same facts for one game and was clone-probed rather than
 /// checksummed, so this is the wire format gaining truth it was already relying
 /// on, not gaining a feature.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 23;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 24;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

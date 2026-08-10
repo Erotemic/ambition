@@ -182,6 +182,19 @@ pub enum MaryOBlockContents {
     /// level-towards lantern powerup"* — a small Mary-O gets the wand, a tall
     /// one gets the lantern. This is what every ?-block in 1-1 does.
     Toward(MaryOPickup),
+    /// **N coins, one per hit, then spent.** Jon: *"a block that contains coins
+    /// (i.e. the multi-coin block where num-coins=1 is the default instance of
+    /// that block). It just visually pops out a coin when you jump up into it.
+    /// It's not a real coin entity, just a vfx and your coin count directly goes
+    /// up by 1. When the counter goes to zero the brick becomes spent until
+    /// reset."*
+    ///
+    /// ⭐ **`Coins(1)` is deliberately NOT the same authored word as
+    /// `Always(Coin)`, and they behave identically.** The count is the whole
+    /// content of this variant, so one is the honest default rather than a
+    /// special case — an author writes `Coins` and gets the classic single-coin
+    /// block, or `Coins5` and gets the multi.
+    Coins(u8),
 }
 
 impl MaryOBlockContents {
@@ -191,6 +204,7 @@ impl MaryOBlockContents {
             Self::Empty => "Empty".to_string(),
             Self::Always(p) => format!("Always{}", p.authored()),
             Self::Toward(p) => format!("Toward{}", p.authored()),
+            Self::Coins(n) => format!("Coins{n}"),
         }
     }
 
@@ -199,8 +213,19 @@ impl MaryOBlockContents {
         if value.eq_ignore_ascii_case("empty") || value.is_empty() {
             return Some(Self::Empty);
         }
-        // Both `AlwaysWand` and the friendlier `always wand` / `always=wand`.
         let lower = value.to_ascii_lowercase();
+        // `Coins`, `Coins5`, `coins = 5`. A bare `Coins` is ONE — Jon's
+        // "num-coins=1 is the default instance of that block" — so the common
+        // case needs no number, and a count of zero is refused rather than
+        // silently authoring a block that owes nothing.
+        if let Some(rest) = lower.strip_prefix("coins") {
+            let rest = rest.trim_start_matches([' ', '=', '_', '-']);
+            if rest.is_empty() {
+                return Some(Self::Coins(1));
+            }
+            return rest.parse::<u8>().ok().filter(|n| *n > 0).map(Self::Coins);
+        }
+        // Both `AlwaysWand` and the friendlier `always wand` / `always=wand`.
         for (prefix, wrap) in [
             ("always", Self::Always as fn(MaryOPickup) -> Self),
             ("toward", Self::Toward as fn(MaryOPickup) -> Self),
@@ -911,5 +936,67 @@ mod tests {
             MaryOBlockLook::parse(" Brick "),
             Some(MaryOBlockLook::Brick)
         );
+    }
+}
+
+#[cfg(test)]
+mod multi_coin_block_tests {
+    use super::*;
+
+    /// ⭐ Jon: *"the multi-coin block where num-coins=1 is the default instance
+    /// of that block."* So a bare `Coins` must be the classic single-coin block
+    /// — an author who wants the common case writes no number.
+    #[test]
+    fn a_bare_coins_block_is_one_coin() {
+        assert_eq!(
+            MaryOBlockContents::parse("Coins"),
+            Some(MaryOBlockContents::Coins(1))
+        );
+        assert_eq!(
+            MaryOBlockContents::parse("coins = 5"),
+            Some(MaryOBlockContents::Coins(5))
+        );
+        assert_eq!(
+            MaryOBlockContents::parse("Coins12"),
+            Some(MaryOBlockContents::Coins(12))
+        );
+    }
+
+    /// ⛔ **zero is refused rather than accepted as an empty block.** A
+    /// `Coins0` would author a block that flinches, changes art and owes
+    /// nothing — indistinguishable in play from a bug, and `Empty` already says
+    /// that on purpose.
+    #[test]
+    fn a_zero_count_is_not_authorable() {
+        assert_eq!(MaryOBlockContents::parse("Coins0"), None);
+        assert_eq!(MaryOBlockContents::parse("coins = 0"), None);
+    }
+
+    /// The authored word round-trips, which is what keeps a map edit from
+    /// silently becoming a different block on the next save.
+    #[test]
+    fn the_authored_word_round_trips() {
+        for contents in [
+            MaryOBlockContents::Coins(1),
+            MaryOBlockContents::Coins(7),
+            MaryOBlockContents::Empty,
+            MaryOBlockContents::Always(MaryOPickup::Wand),
+        ] {
+            assert_eq!(
+                MaryOBlockContents::parse(&contents.authored()),
+                Some(contents),
+                "`{}` did not survive a round trip",
+                contents.authored()
+            );
+        }
+    }
+
+    /// ⛔ **POISON: `Coins` must not swallow another word that starts with it.**
+    /// The parser strips the prefix and then reads a number, so anything else
+    /// following must be refused rather than silently read as a count.
+    #[test]
+    fn a_word_that_merely_starts_with_coins_is_refused() {
+        assert_eq!(MaryOBlockContents::parse("CoinsWand"), None);
+        assert_eq!(MaryOBlockContents::parse("AlwaysCoin").is_some(), true);
     }
 }

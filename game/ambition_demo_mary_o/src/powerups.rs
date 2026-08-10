@@ -247,7 +247,21 @@ pub fn tag_mary_o_sparks(
 /// other one — turning `SpentMonitors` into a HashSet would reintroduce exactly
 /// the order-dependence it was written to avoid.
 #[derive(Resource, Default, Clone)]
-pub struct SpentPowerBlocks(std::collections::HashSet<ae::GeoId>);
+pub struct SpentPowerBlocks {
+    spent: std::collections::HashSet<ae::GeoId>,
+    /// **Hits taken by a multi-coin block that is not exhausted yet.**
+    ///
+    /// ⛔ a `HashMap` for the same reason the set above is a `HashSet` — nothing
+    /// iterates it in an order-dependent way, and [`Self::checksum`] folds it
+    /// commutatively. A `Vec` here would make two peers' hashes depend on strike
+    /// order.
+    ///
+    /// ⚠ **absent means untouched, not exhausted.** The authority for "this
+    /// block is done" stays `spent`: a partial entry is a block mid-payout, and
+    /// the caller promotes it to `spent` when the count runs out. Two facts, one
+    /// owner, and the older half keeps its exact meaning.
+    partial: std::collections::HashMap<ae::GeoId, u8>,
+}
 
 impl SpentPowerBlocks {
     /// **A checksum over WHICH blocks are spent, order-independent.**
@@ -259,26 +273,59 @@ impl SpentPowerBlocks {
     /// this belongs to.
     pub fn checksum(&self) -> u64 {
         use std::hash::{Hash, Hasher};
-        self.0.iter().fold(0u64, |acc, id| {
+        // ⚠ **both halves, and the partial one folds its COUNT too** — a block
+        // that has paid two of five differs from one that has paid three, and a
+        // checksum blind to that lets two peers disagree about how much a block
+        // still owes while agreeing on the hash.
+        let spent = self.spent.iter().fold(0u64, |acc, id| {
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
             id.hash(&mut hasher);
+            acc ^ hasher.finish()
+        });
+        self.partial.iter().fold(spent, |acc, (id, taken)| {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            id.hash(&mut hasher);
+            taken.hash(&mut hasher);
             acc ^ hasher.finish()
         })
     }
 
     /// This block has already given up its pickup.
     pub fn is_spent(&self, id: &ae::GeoId) -> bool {
-        self.0.contains(id)
+        self.spent.contains(id)
+    }
+
+    /// Record one payout from a multi-coin block and answer whether that was its
+    /// LAST — in which case it is now spent.
+    ///
+    /// ⭐ the promotion happens here rather than at the call site so "the counter
+    /// reached zero" and "the block is spent" cannot disagree.
+    pub fn take_one_coin(&mut self, id: &ae::GeoId, of: u8) -> bool {
+        let taken = self.partial.entry(id.clone()).or_insert(0);
+        *taken = taken.saturating_add(1);
+        if *taken >= of.max(1) {
+            self.partial.remove(id);
+            self.spent.insert(id.clone());
+            return true;
+        }
+        false
+    }
+
+    /// Coins this multi-coin block has already paid out.
+    pub fn coins_taken(&self, id: &ae::GeoId) -> u8 {
+        self.partial.get(id).copied().unwrap_or(0)
     }
 
     /// Record a block as spent. Idempotent.
     pub fn spend(&mut self, id: ae::GeoId) {
-        self.0.insert(id);
+        self.partial.remove(&id);
+        self.spent.insert(id);
     }
 
     /// Re-arm every block — a room (re)load, so a cyclic replay plays the same.
     pub fn rearm_all(&mut self) {
-        self.0.clear();
+        self.spent.clear();
+        self.partial.clear();
     }
 }
 
@@ -629,7 +676,18 @@ pub fn bonk_power_blocks(
         // exactly the case that reached it. A comment asserting a branch is dead
         // is a claim, and this one was false.
         let reward = reward_for(authored.contents, worn);
-        spent.spend(id.clone());
+        // ⭐ **a multi-coin block is spent by its COUNTER, not by being hit.**
+        // Every other block owes one payout and retires on the strike; this one
+        // owes N, so `take_one_coin` promotes it to spent on the last of them.
+        // Jon: *"when the counter goes to zero the brick becomes spent until
+        // reset."* ⚠ `rearm_all` clears both halves, so "until reset" is the
+        // room reload that already re-arms every other block.
+        match authored.contents {
+            MaryOBlockContents::Coins(count) => {
+                spent.take_one_coin(&id, count);
+            }
+            _ => spent.spend(id.clone()),
+        }
         // ⭐ **it FLINCHES.** Jon: blocks that are used "need a small animation
         // (probably an in-code position nudge up and back into place) when they
         // are hit." The motion belongs to the render layer — moving the block
@@ -872,6 +930,11 @@ fn reward_for(contents: MaryOBlockContents, worn: Option<&WornEquipment>) -> Opt
             Some(reward) => without_downgrading(reward, worn),
             None => BlockPayout::Coins(COINS_PER_BLOCK),
         },
+        // ⭐ **one coin per HIT, whatever the authored count.** The count says
+        // how many hits the block has left, not how much a single hit is worth
+        // — Jon: *"your coin count directly goes up by 1"*. The exhaustion is
+        // the caller's, because only it knows which block was struck.
+        MaryOBlockContents::Coins(_) => BlockPayout::Coins(COINS_PER_BLOCK),
     })
 }
 
@@ -2450,6 +2513,94 @@ mod discovery_tests {
         assert!(
             discovered_solid(&spent, &question).is_none(),
             "a spent Question was re-added, doubling an already-solid block"
+        );
+    }
+}
+
+#[cfg(test)]
+mod multi_coin_counter_tests {
+    use super::*;
+
+    fn id(name: &str) -> ae::GeoId {
+        // ⚠ `GeoId::new` does not exist — the crate's `new` at that line belongs
+        // to `PlacementId`. A block id is a placement or a tile-layer slot.
+        ae::GeoId::tile_layer(name, 0)
+    }
+
+    /// ⭐⭐ **N hits, N coins, spent on the last one** — Jon: *"when the counter
+    /// goes to zero the brick becomes spent until reset."*
+    ///
+    /// The counter lives beside the spent set rather than replacing it, so the
+    /// older half keeps its exact meaning: a partial entry is a block mid-payout
+    /// and `is_spent` stays the single authority for "this block is done".
+    #[test]
+    fn a_three_coin_block_pays_three_times_then_retires() {
+        let mut spent = SpentPowerBlocks::default();
+        let block = id("coin_block");
+
+        for hit in 1..=2 {
+            assert!(
+                !spent.take_one_coin(&block, 3),
+                "hit {hit} of 3 must not exhaust the block"
+            );
+            assert!(
+                !spent.is_spent(&block),
+                "hit {hit} of 3 left the block spent, so it cannot be struck again"
+            );
+            assert_eq!(spent.coins_taken(&block), hit);
+        }
+
+        assert!(spent.take_one_coin(&block, 3), "the third hit exhausts it");
+        assert!(spent.is_spent(&block), "an exhausted block is spent");
+        // ⚠ and the partial entry is GONE, not left at 3 — two records of the
+        // same fact would be a second thing to keep in step.
+        assert_eq!(spent.coins_taken(&block), 0);
+    }
+
+    /// ⛔ **POISON: a one-coin block behaves exactly as every block did before.**
+    /// `Coins(1)` is the default instance, so if it took two hits the whole
+    /// existing cast of ?-blocks would have changed behaviour.
+    #[test]
+    fn a_one_coin_block_retires_on_the_first_hit() {
+        let mut spent = SpentPowerBlocks::default();
+        let block = id("ordinary");
+        assert!(spent.take_one_coin(&block, 1));
+        assert!(spent.is_spent(&block));
+    }
+
+    /// A reset re-arms BOTH halves. A partially-paid block that survived a room
+    /// reload would owe fewer coins than the author wrote, which is the quiet
+    /// half of the D70 class of bug.
+    #[test]
+    fn a_reset_rearms_a_partly_paid_block() {
+        let mut spent = SpentPowerBlocks::default();
+        let block = id("coin_block");
+        spent.take_one_coin(&block, 5);
+        spent.take_one_coin(&block, 5);
+        assert_eq!(spent.coins_taken(&block), 2);
+
+        spent.rearm_all();
+        assert_eq!(spent.coins_taken(&block), 0, "the count came back full");
+        assert!(!spent.is_spent(&block));
+    }
+
+    /// ⭐ **the checksum sees the COUNT.** Two peers whose blocks have paid a
+    /// different number of coins must not agree on the hash — otherwise the
+    /// divergence rides silently until one of them runs out first.
+    #[test]
+    fn the_checksum_distinguishes_two_from_three_coins_paid() {
+        let block = id("coin_block");
+        let mut two = SpentPowerBlocks::default();
+        two.take_one_coin(&block, 9);
+        two.take_one_coin(&block, 9);
+        let mut three = SpentPowerBlocks::default();
+        three.take_one_coin(&block, 9);
+        three.take_one_coin(&block, 9);
+        three.take_one_coin(&block, 9);
+        assert_ne!(
+            two.checksum(),
+            three.checksum(),
+            "⛔ the hash is blind to how much a block still owes"
         );
     }
 }

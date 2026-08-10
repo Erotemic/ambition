@@ -83,7 +83,7 @@ path works beside the old one.
 |---|---|---|
 | 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the EXPRESSIVENESS half is done** — death traits, knockback weight and a default autonomous profile are authorable and adopted; see "phase 1 progress". ▢ what remains is the TYPE MOVE (into `ambition_characters`) and the remaining intrinsic facts, most of which need phase 3's consumer |
 | 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ **mapped; the DOOR is open** — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
-| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ▢ |
+| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ▢ **and it gates phase 2's group A** — an enemy body reads its ARCHETYPE, carries no `WornCharacter`, and so never reads its character; see the correction in APPENDIX B |
 | 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
 | 5 | Controller/provocation simplification; rollback becomes controller-only | ▢ |
 | 6 | Remove legacy runtime projections (`ActorTuning`, `CharacterBrainSpec`, `sprite_character_id`) | ▢ |
@@ -2431,6 +2431,42 @@ already exists to migrate onto. `—` means it is a role name.
 ⭐ **start here, and start with the MITES**: their `explodes_on_death` /
 `divides_on_death` are already expressible on a definition (landed 2026-08-10),
 so they are the only group whose facts have somewhere to go today.
+
+#### ⛔⛔ CORRECTION (same day, before starting): GROUP A IS BLOCKED ON PHASE 3
+
+Read the mite rows to begin, and the migration does not terminate. Their facts
+split three ways and only one third has both a home and a reader:
+
+```text
+exploding_mite / dividing_mite
+  intrinsic, EXPRESSIBLE   max_health · run_speed (MovementTuning::max_run_speed)
+                           melee Swipe · move_style · explodes/divides_on_death
+  intrinsic, NO HOME YET   contact_strength · damage_amount (body contact damage)
+  CONTROLLER               patrol_effort · chase_effort · aggro_radius
+                           attack_range · brain_template · smash_hit_band
+  PLACEMENT                respawn: OnRoomReenter
+```
+
+⚠ **and the deeper problem is the CONSUMER, not the home.** A mite only ever
+appears as an `EnemySpawn`, and that path builds its body from
+`ActorClusterSeed::new_in` → `spec.combat_capabilities()` — **the archetype**.
+An enemy body carries no `WornCharacter`, so the persona derive never runs on
+it. ⇒ authoring a mite's death traits on its definition today would state them
+in a place nothing on its own spawn path reads, and deleting them from the
+archetype would simply turn them off.
+
+⇒ ⭐⭐ **phase 2 cannot complete before phase 3 for any enemy-spawned character.**
+The order in the brief is right as a sequence of AUTHORITY changes and
+misleading as a sequence of work: what unblocks group A is phase 3's single
+construction path (`PreparedCharacterDefinition` + `CharacterSpawnPlan`), because
+that is what makes an enemy body read its character at all.
+
+⇒ **the tractable phase-2 work that does NOT wait on phase 3** is the part with
+a live reader today: the NPC/catalog path (which already consults definitions —
+that is why the ~100-NPC regression was measurable) and the demo providers,
+which have already migrated. ⛔ do not open group A with a dual statement in two
+authorities hoping phase 3 arrives; that is exactly the *"works beside the old
+one"* state the brief forbids stopping at.
 
 ### Group B — one archetype, MANY characters (the ontology problem, stated)
 

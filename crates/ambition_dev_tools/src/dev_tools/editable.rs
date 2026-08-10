@@ -200,6 +200,9 @@ impl EditableMovementTuning {
             air_stop_assist: self.air_stop_assist,
             carried_decay: self.carried_decay,
             max_run_speed: self.max_run_speed,
+            // ⚠ the live tuning editor does not expose air speed yet; it
+            // inherits, which is what an unexposed knob must do.
+            max_air_speed: 0.0,
             max_fall_speed: self.max_fall_speed,
             jump_speed: self.jump_speed,
             double_jump_speed: self.double_jump_speed,

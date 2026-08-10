@@ -765,6 +765,39 @@ The guard asserts exactly that — a body with no markers at all publishes the
 whole readout, including a **body facing +1 while its move committed to -1**,
 which is the disagreement a single-facing instrument could never show.
 
+## Aerial locomotion — measured, and mostly already a policy (2026-08-09)
+
+⛔ grep before building, again. Of Jon's list — *air drift, acceleration, maximum
+air speed, fast-fall, momentum conservation* — **only one was missing**:
+
+| | |
+|---|---|
+| air drift / acceleration | ✔ `air_accel`, `glide_air_accel`, `air_friction`, `air_stop_assist`, all authored |
+| fast-fall | ✔ authored (`fast_fall_accel`, `fast_fall_speed`), double-tap-down at the intent boundary |
+| momentum conservation | ✔ `carried_run` / `carried_decay`, and the momentum horizontal law |
+| jump buffering + coyote | ✔ `buffer_jump`, `coyote_time` — tuned to **zero** for Mary-O's SMB1 convergence, which is the mechanism working, not missing |
+| **maximum air speed** | ▢ **absent — the ground run cap governed the air** |
+
+### ✔ air speed is its own authored number
+
+`AxisLocomotion::max_air_speed`, read through `air_speed_cap()`, with `0.0`
+meaning *inherit `max_run_speed`* — so every body drifts exactly as it did.
+
+⭐ **air ACCELERATION was authored and air TOP SPEED was not**, which is the
+"accidental reuse of ground locomotion behavior" Jon's item names, and it made a
+slow-running heavy that drifts fast literally unspellable.
+
+⚠ **the sentinel is deliberate**: `Option<f32>` costs a bool in the motion
+codec's frozen wire layout for a value whose unset case is exactly *the other
+number*, and `0.0` is not a meaningful air speed — a body that cannot drift
+authors `air_accel: 0.0`. One accessor reads it, so the fallback cannot be
+honoured on one horizontal law and forgotten on the other, which is the bug the
+sentinel would otherwise invite.
+
+▢ **still open from the feel list**: jump-squat (genuinely absent, and it must be
+authored per body — Mary-O's convergence forbids a global one), hitbox tracks,
+pose-aware hurtboxes, DI.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

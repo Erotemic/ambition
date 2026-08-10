@@ -272,6 +272,24 @@ pub struct MovementTuning {
     #[serde(default)]
     pub carried_decay: f32,
     pub max_run_speed: f32,
+    /// **Top horizontal speed while AIRBORNE.** `0.0` = inherit
+    /// [`Self::max_run_speed`], which is what every body did before this field
+    /// existed and what every body still does until it authors otherwise.
+    ///
+    /// ⛔ **air ACCELERATION was authored and air TOP SPEED was not**, so a
+    /// body's ground run cap governed its drift — the accidental reuse of
+    /// ground locomotion the combat campaign names. In a platform fighter air
+    /// speed is a per-character stat and a slow-running heavy can still drift
+    /// fast; expressing that was impossible.
+    ///
+    /// ⚠ **the sentinel is deliberate, not laziness.** `Option<f32>` would cost
+    /// a bool in the motion codec's frozen wire layout for a value whose
+    /// "unset" case is exactly "the other number"; `0.0` is not a meaningful
+    /// air speed (a body that cannot drift at all authors its `air_accel` to
+    /// zero), so it is free to mean inherit. Read it through
+    /// [`Self::air_speed_cap`], never raw.
+    #[serde(default)]
+    pub max_air_speed: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -344,6 +362,23 @@ pub struct MovementTuning {
     #[serde(default)]
     pub ledge_momentum: LedgeMomentumTuning,
 }
+
+impl AxisLocomotion {
+    /// **The top horizontal speed this body may reach in the AIR.**
+    ///
+    /// The one reader of [`Self::max_air_speed`]. Every airborne speed target
+    /// goes through here so the inherit sentinel cannot be forgotten at one
+    /// call site and honoured at another — which is how a body would drift at
+    /// its run speed on one law and its air speed on the other.
+    pub fn air_speed_cap(&self) -> f32 {
+        if self.max_air_speed > 0.0 {
+            self.max_air_speed
+        } else {
+            self.max_run_speed
+        }
+    }
+}
+
 
 /// Horizontal response law used by the axis-swept policy.
 ///
@@ -491,6 +526,11 @@ pub struct AxisLocomotion {
     #[serde(default)]
     pub carried_decay: f32,
     pub max_run_speed: f32,
+    /// Top horizontal speed while AIRBORNE; `0.0` inherits
+    /// [`Self::max_run_speed`]. See the twin on `MovementTuning` for why the
+    /// sentinel rather than an `Option`, and read it through
+    /// [`Self::air_speed_cap`].
+    pub max_air_speed: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -607,6 +647,7 @@ impl MovementTuning {
                 air_stop_assist: self.air_stop_assist,
                 carried_decay: self.carried_decay,
                 max_run_speed: self.max_run_speed,
+                max_air_speed: self.max_air_speed,
                 max_fall_speed: self.max_fall_speed,
                 jump_speed: self.jump_speed,
                 double_jump_speed: self.double_jump_speed,
@@ -674,6 +715,9 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     air_stop_assist: AIR_STOP_ASSIST,
     carried_decay: 0.0,
     max_run_speed: MAX_RUN_SPEED,
+    // Inherit the ground cap: every body drifts at its run speed until one
+    // authors otherwise, which is byte-parity with before this field existed.
+    max_air_speed: 0.0,
     max_fall_speed: MAX_FALL_SPEED,
     jump_speed: JUMP_SPEED,
     double_jump_speed: DOUBLE_JUMP_SPEED,
@@ -715,3 +759,40 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     parry_window_time: PARRY_WINDOW_TIME,
     ledge_momentum: LedgeMomentumTuning::DEFAULT,
 };
+
+#[cfg(test)]
+mod air_speed_tests {
+    use super::*;
+
+    /// ⭐⭐ **Air acceleration was authored and air TOP SPEED was not**, so a
+    /// body's ground run cap governed its drift — accidental reuse of ground
+    /// locomotion, and the reason a slow-running heavy that drifts fast could
+    /// not be expressed.
+    ///
+    /// ⛔ **the poison is the inherit case**, and it is the one that matters:
+    /// every body in the game authors nothing here, so an accessor that failed
+    /// to fall back would silently pin the whole cast to zero air speed.
+    #[test]
+    fn air_speed_is_authored_and_inherits_the_ground_cap_when_it_is_not() {
+        let mut locomotion = DEFAULT_AXIS_SWEPT_PARAMS.locomotion;
+        locomotion.max_run_speed = 180.0;
+
+        locomotion.max_air_speed = 0.0;
+        assert_eq!(
+            locomotion.air_speed_cap(),
+            180.0,
+            "an unauthored body drifts at its run speed, exactly as before"
+        );
+
+        locomotion.max_air_speed = 96.0;
+        assert_eq!(locomotion.air_speed_cap(), 96.0, "a floatier heavy drifts slower");
+
+        locomotion.max_air_speed = 320.0;
+        assert_eq!(
+            locomotion.air_speed_cap(),
+            320.0,
+            "and a glass cannon may drift FASTER than it runs — the case a \
+             single shared cap makes unspellable"
+        );
+    }
+}

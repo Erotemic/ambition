@@ -304,6 +304,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, l.air_stop_assist);
     put_f32(out, l.carried_decay);
     put_f32(out, l.max_run_speed);
+    put_f32(out, l.max_air_speed);
     put_f32(out, l.max_fall_speed);
     put_f32(out, l.jump_speed);
     put_f32(out, l.double_jump_speed);
@@ -373,6 +374,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             air_stop_assist: r.f32()?,
             carried_decay: r.f32()?,
             max_run_speed: r.f32()?,
+            max_air_speed: r.f32()?,
             max_fall_speed: r.f32()?,
             jump_speed: r.f32()?,
             double_jump_speed: r.f32()?,

@@ -520,15 +520,19 @@ pub fn integrate_normal_spine(
                     }
                     v
                 } else if run > 0.1 {
+                    // ⭐ the AIR cap, which is the ground cap unless the body
+                    // authored its own. Air ACCELERATION was already a separate
+                    // number; air TOP SPEED was the ground's, which made a
+                    // slow-running heavy that drifts fast unspellable.
                     approach(
                         along,
-                        (run * tuning.locomotion.max_run_speed).max(along),
+                        (run * tuning.locomotion.air_speed_cap()).max(along),
                         accel * dt,
                     )
                 } else if run < -0.1 {
                     approach(
                         along,
-                        (run * tuning.locomotion.max_run_speed).min(along),
+                        (run * tuning.locomotion.air_speed_cap()).min(along),
                         accel * dt,
                     )
                 } else {
@@ -553,7 +557,14 @@ pub fn integrate_normal_spine(
                     };
                     approach(along, floor, decel * dt)
                 } else {
-                    let target = run * tuning.locomotion.max_run_speed;
+                    // Same rule on the momentum law: whichever cap this body is
+                    // under right now, read through the one accessor.
+                    let target = run
+                        * if ctx.on_ground {
+                            tuning.locomotion.max_run_speed
+                        } else {
+                            tuning.locomotion.air_speed_cap()
+                        };
                     let opposing = along.abs() > 1.0e-4 && along.signum() != run.signum();
                     let reducing_same_direction = !opposing && along.abs() > target.abs();
                     let accel = if ctx.on_ground {

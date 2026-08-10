@@ -191,6 +191,111 @@ pub fn team_allows_damage(
     }
 }
 
+/// **How two bodies stand to each other. ONE answer, for every consumer.**
+///
+/// ⛔ **there were two, and they disagreed.** "May this damage land" read
+/// faction difference plus a team override; "is this a target worth chasing"
+/// read the `FactionRelations` hostility matrix and had never heard of a team.
+/// So a match whose fighters share an authored faction was damageable and
+/// untargetable at the same time — every CPU seat stood and stared — and the
+/// fix that had been applied was to give alternate seats alternate FACTIONS so
+/// the older of the two rules would answer correctly. That is the hack this
+/// type exists to delete.
+///
+/// The three answers are the ones a combat rule actually needs:
+///
+/// * [`Self::Foe`] — go after it, and hit it. A different team, a hostile
+///   faction relation, or a personal grudge.
+/// * [`Self::Ally`] — same team, or same faction. Spared unless friendly fire.
+/// * [`Self::Neutral`] — a different faction this one is not hostile TO. **Not
+///   a target, but not protected either**, which is the distinction a single
+///   boolean could never carry: damage is physical (a swing that reaches a
+///   bystander hurts it) while targeting is relational (nobody goes hunting a
+///   bystander). Collapsing the two is how a stray hit stopped landing, or a
+///   town NPC became prey.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CombatRelation {
+    Ally,
+    Neutral,
+    Foe,
+}
+
+impl CombatRelation {
+    /// May a strike from the attacker damage this body?
+    ///
+    /// Physical: anything not an ally can be hit. An ally needs friendly fire.
+    pub fn damage_lands(self, friendly_fire: FriendlyFire) -> bool {
+        match self {
+            CombatRelation::Foe | CombatRelation::Neutral => true,
+            CombatRelation::Ally => friendly_fire.enabled,
+        }
+    }
+
+    /// Is this a body an autonomous brain should go after?
+    ///
+    /// Relational: only a declared foe. A neutral bystander is left alone.
+    pub fn is_target(self) -> bool {
+        matches!(self, CombatRelation::Foe)
+    }
+}
+
+/// **THE combat-relationship policy.** Both "may I damage this" and "should I
+/// chase this" resolve through here, so they cannot drift again.
+///
+/// Precedence, highest first:
+///
+/// 1. **A grudge** — a per-entity feud, deliberately stronger than any group
+///    rule, so two teammates can settle something the ruleset did not
+///    anticipate.
+/// 2. **A team** — when BOTH bodies are in a match. Match rules outrank
+///    authored world allegiance, which is the whole point of a crossover stage:
+///    a Hall NPC and a boss can be seated as opponents without either
+///    character's authored row being edited.
+/// 3. **Authored faction**, through the [`FactionRelations`] matrix and then
+///    plain sameness.
+///
+/// Allegiance is EFFECTIVE on both sides: a possessed body fights as its
+/// driver's side without its authored faction being mutated.
+#[allow(clippy::too_many_arguments)]
+pub fn combat_relation(
+    // `None` = **no matrix opinion**, which is what the DAMAGE side passes.
+    // Damage is physical: a swing that reaches a different-faction body hurts
+    // it whether or not the two are declared enemies, so the matrix arm is
+    // skipped and such a pair resolves [`CombatRelation::Neutral`] — hittable,
+    // not huntable. ⛔ do not "fix" this by handing damage the live matrix; that
+    // would make a stray blow pass through anyone the table had not been told to
+    // hate, which is the bystander bug in reverse.
+    relations: Option<&FactionRelations>,
+    attacker_faction: ActorFaction,
+    attacker_brain: Option<&ambition_characters::brain::Brain>,
+    attacker_team: Option<&MatchTeam>,
+    attacker_grudge: Option<Entity>,
+    candidate: Entity,
+    candidate_faction: ActorFaction,
+    candidate_brain: Option<&ambition_characters::brain::Brain>,
+    candidate_team: Option<&MatchTeam>,
+) -> CombatRelation {
+    if attacker_grudge == Some(candidate) {
+        return CombatRelation::Foe;
+    }
+    if let Some(different_team) = team_allows_damage(attacker_team, candidate_team) {
+        return if different_team {
+            CombatRelation::Foe
+        } else {
+            CombatRelation::Ally
+        };
+    }
+    let attacker_faction = effective_faction(attacker_faction, attacker_brain);
+    let candidate_faction = effective_faction(candidate_faction, candidate_brain);
+    if relations.is_some_and(|r| r.is_hostile(attacker_faction, candidate_faction)) {
+        CombatRelation::Foe
+    } else if attacker_faction == candidate_faction {
+        CombatRelation::Ally
+    } else {
+        CombatRelation::Neutral
+    }
+}
+
 pub fn damage_lands(
     attacker: ActorFaction,
     victim: ActorFaction,
@@ -216,16 +321,26 @@ pub fn damage_lands_between(
     attacker_grudge: Option<Entity>,
     victim_entity: Entity,
 ) -> bool {
-    if let Some(allowed) = team_allows_damage(attacker_team, victim_team) {
-        return allowed || attacker_grudge == Some(victim_entity);
-    }
-    damage_lands(
+    // ⚠ **the damage side of [`combat_relation`], and it must not grow a second
+    // opinion.** Callers pass ALREADY-EFFECTIVE factions here (the policy
+    // re-resolves them, which is idempotent), so this stays a projection.
+    //
+    // ⚠ **one behaviour deliberately changed**: friendly fire now also frees
+    // same-TEAM damage. The old team arm returned a bare "different team?" and
+    // ignored the toggle, so a teams match could never enable friendly fire —
+    // which is a real platform-fighter setting, and the flag says what it means.
+    combat_relation(
+        None,
         attacker,
-        victim,
-        friendly_fire,
+        None,
+        attacker_team,
         attacker_grudge,
         victim_entity,
+        victim,
+        None,
+        victim_team,
     )
+    .damage_lands(friendly_fire)
 }
 
 /// Pick each non-player actor's `ActorTarget` for this frame.
@@ -256,7 +371,16 @@ pub fn select_actor_targets(
     // The player carries an `ActorFaction` (Player) like every body — read it so the
     // player is a RELATIONAL candidate (a foe only if this actor's faction opposes
     // Player, or it holds a grudge against this player), never an unconditional one.
-    players: Query<(Entity, &BodyKinematics, &BodyHealth, &ActorFaction), With<PlayerEntity>>,
+    players: Query<
+        (
+            Entity,
+            &BodyKinematics,
+            &BodyHealth,
+            &ActorFaction,
+            Option<&MatchTeam>,
+        ),
+        With<PlayerEntity>,
+    >,
     // Non-player actors are candidate targets too (the relational, non-player-
     // centric part): an actor can target another actor whose faction it's hostile
     // to. Snapshotted, so this read-only borrow ends before the mutable pass.
@@ -271,6 +395,10 @@ pub fn select_actor_targets(
             &ActorFaction,
             &BodyHealth,
             Option<&ambition_characters::brain::Brain>,
+            // A match seat, when this body is in one. Selection has to see it or
+            // it answers a different question from the damage side — see
+            // [`combat_relation`].
+            Option<&MatchTeam>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -282,6 +410,7 @@ pub fn select_actor_targets(
             &ActorAggression,
             Option<&ActorFaction>,
             Option<&ambition_characters::brain::Brain>,
+            Option<&MatchTeam>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -297,20 +426,35 @@ pub fn select_actor_targets(
     // (player + actor), so this is the one uniform liveness gate.
     // ONE candidate set — the player is just another body, carrying faction Player.
     // No unconditional player special-case; nearest foe wins.
-    let mut candidates: Vec<(Entity, ae::Vec2, ActorFaction, Option<SimId>)> = players
+    let mut candidates: Vec<(
+        Entity,
+        ae::Vec2,
+        ActorFaction,
+        Option<SimId>,
+        Option<MatchTeam>,
+    )> = players
         .iter()
-        .filter(|(_, _, hp, _)| hp.current() > 0)
-        .map(|(e, kin, _, faction)| (e, kin.pos, *faction, sim_ids.get(e).ok().cloned()))
+        .filter(|(_, _, hp, _, _)| hp.current() > 0)
+        .map(|(e, kin, _, faction, team)| {
+            (
+                e,
+                kin.pos,
+                *faction,
+                sim_ids.get(e).ok().cloned(),
+                team.cloned(),
+            )
+        })
         .chain(
             others
                 .iter()
-                .filter(|(_, _, _, hp, _)| hp.current() > 0)
-                .map(|(e, aabb, faction, _, brain)| {
+                .filter(|(_, _, _, hp, _, _)| hp.current() > 0)
+                .map(|(e, aabb, faction, _, brain, team)| {
                     (
                         e,
                         aabb.center,
                         effective_faction(*faction, brain),
                         sim_ids.get(e).ok().cloned(),
+                        team.cloned(),
                     )
                 }),
         )
@@ -333,7 +477,8 @@ pub fn select_actor_targets(
     if candidates.is_empty() {
         return;
     }
-    for (self_entity, aabb, mut target, aggression, faction, brain) in actors.iter_mut() {
+    for (self_entity, aabb, mut target, aggression, faction, brain, self_team) in actors.iter_mut()
+    {
         let actor_pos = aabb.center;
         // The acting body's OWN effective allegiance (Player while possessed). A
         // body with neither an authored faction nor player control has no
@@ -357,13 +502,32 @@ pub fn select_actor_targets(
         // Player (a born Enemy) or it's the grudge target (a provoked NPC), never
         // because it is "the player". Nearest foe wins.
         let mut best: Option<(Entity, ae::Vec2, f32)> = None;
-        for (entity, pos, cand_faction, _) in &candidates {
+        for (entity, pos, cand_faction, _, cand_team) in &candidates {
             if *entity == self_entity {
                 continue;
             }
-            let is_foe = (has_allegiance && relations.is_hostile(self_faction, *cand_faction))
-                || aggression.grudge == Some(*entity);
-            if !is_foe {
+            // ⭐ **THE one relationship policy**, the same call the damage side
+            // makes. Selection used to read the hostility matrix alone and had
+            // never heard of a match seat, so a roster whose fighters share an
+            // authored faction was damageable and untargetable at once — and the
+            // patch for that was to hand alternate seats alternate FACTIONS.
+            //
+            // `has_allegiance` still gates the matrix arm: a body with neither an
+            // authored faction nor player control has no faction-relational foes
+            // and can only be pointed by a grudge. A TEAM, on the other hand,
+            // speaks for itself — being seated in a match IS an allegiance.
+            let relation = combat_relation(
+                has_allegiance.then_some(&relations),
+                self_faction,
+                None,
+                self_team,
+                aggression.grudge,
+                *entity,
+                *cand_faction,
+                None,
+                cand_team.as_ref(),
+            );
+            if !relation.is_target() {
                 continue;
             }
             let d = distance_squared(*pos, actor_pos);

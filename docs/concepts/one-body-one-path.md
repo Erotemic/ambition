@@ -99,6 +99,20 @@ buying: the feature drain had no attacker self-exclusion at all, because a
 victim-side broadcast could never reach it. Identity beats every relationship
 rule, and it is stated in both resolvers now.
 
+**Who may fight whom is ONE policy.** `combat_relation` answers `Foe` / `Neutral`
+/ `Ally` with precedence **grudge → match team → authored faction**, and both AI
+target selection and damage resolution call it. ⛔ they used to be two rules:
+damage read faction difference with a team override, targeting read the
+`FactionRelations` matrix and had never heard of a team — so a match whose
+fighters shared a faction was damageable and untargetable at once, and the patch
+was to seat alternating FACTIONS (`Player, Enemy, Player, Enemy`). That hack is
+deleted; every match seat carries a team, an authored one or its own, and a
+character's faction means what the character says everywhere. ⭐ **the third
+answer is load-bearing**: `Neutral` is hittable but not huntable, because damage
+is physical and targeting is relational. A boolean cannot hold that, and
+collapsing it makes a stray blow pass through a bystander or a town NPC become
+prey.
+
 ⛔ **Do not reintroduce** a `PlayerAttackState` / `ActorAttackState` split, a
 second slash emit, or a per-frame player damage loop. Every melee is an
 `"attack"`-verb moveset move riding `MovePlayback`.

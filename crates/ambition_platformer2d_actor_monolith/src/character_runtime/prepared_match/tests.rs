@@ -104,10 +104,25 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
         &ambition_characters::actor::WornCharacter,
         &ambition_platformer2d_shared_tangle::body::BodyKinematics,
         &crate::combat::components::ActorFaction,
+        Option<&crate::combat::targeting::MatchTeam>,
     )>();
-    let mut seated: Vec<(String, f32, f32, crate::combat::components::ActorFaction)> = q
+    let mut seated: Vec<(
+        String,
+        f32,
+        f32,
+        crate::combat::components::ActorFaction,
+        Option<crate::combat::targeting::MatchTeam>,
+    )> = q
         .iter(world)
-        .map(|(worn, kin, faction)| (worn.id().to_string(), kin.pos.x, kin.facing, *faction))
+        .map(|(worn, kin, faction, team)| {
+            (
+                worn.id().to_string(),
+                kin.pos.x,
+                kin.facing,
+                *faction,
+                team.cloned(),
+            )
+        })
         .collect();
     seated.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
@@ -130,11 +145,34 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     assert_eq!(seated[0].2, 1.0, "the left seat looks right");
     assert_eq!(seated[1].2, -1.0, "the right seat looks left");
 
-    // Opposing factions, or `effective_faction` refuses every strike between them
-    // and the two bodies stand and stare.
+    // **Opposing SIDES, or no strike between them resolves and the two bodies
+    // stand and stare.** ⛔ this used to assert opposing FACTIONS, which was true
+    // only because seating handed alternate seats alternate ones — the hack this
+    // campaign deleted. The condition was never the faction; it is that the
+    // relationship policy calls them foes, and in a match that is the team.
+    let (left_team, right_team) = (
+        seated[0].4.as_ref().expect("a seated fighter is in a match"),
+        seated[1].4.as_ref().expect("a seated fighter is in a match"),
+    );
     assert_ne!(
-        seated[0].3, seated[1].3,
-        "seated fighters must be on opposing sides or no strike between them resolves"
+        left_team.as_str(),
+        right_team.as_str(),
+        "a free-for-all seat opposes every other seat"
+    );
+    // ⭐ and assert the OUTPUT, not the input: these two can actually hit each
+    // other. A seating change that gives both the same team passes the line
+    // above only if it also renames one of them, and fails here either way.
+    assert!(
+        crate::combat::targeting::damage_lands_between(
+            seated[0].3,
+            seated[1].3,
+            Some(left_team),
+            Some(right_team),
+            crate::combat::targeting::FriendlyFire::default(),
+            None,
+            bevy::prelude::Entity::from_raw_u32(1).expect("nonzero raw index"),
+        ),
+        "seated fighters must be able to damage each other"
     );
 }
 
@@ -652,17 +690,22 @@ fn four_fighters_on_two_teams_can_hit_their_opponents_and_not_their_partners() {
         }
     }
 
-    // Both override directions really are present, or the loop above proves
-    // nothing the faction rule would not have decided by itself.
-    assert_ne!(
-        fighters[0].3, fighters[1].3,
-        "teammates must have DIFFERENT factions here, or 'they cannot hit each \
-         other' is just the faction rule"
-    );
-    assert_eq!(
-        fighters[0].3, fighters[2].3,
-        "opponents must share a faction here, or 'they can hit each other' is \
-         just the faction rule"
+    // ⭐⭐ **the vacuity guard, and the fold made it STRONGER.** It used to demand
+    // that teammates hold DIFFERENT factions and opponents the SAME, so that
+    // neither half of the loop above could be the faction rule wearing a team's
+    // clothes. Arranging that took `faction_for(index)` — alternating
+    // `Player, Enemy, Player, Enemy` by seat — which is the hack this campaign
+    // deleted.
+    //
+    // ⇒ every seat is one faction now, so the faction rule has exactly one
+    // answer for every pair in this match: ALLY. Anything the loop found that
+    // differs from "nobody can hit anybody" is therefore the team rule, in both
+    // directions at once. That is the same guard, and it no longer needs a
+    // fixture that lies about who these characters are.
+    assert!(
+        fighters.iter().all(|f| f.3 == fighters[0].3),
+        "every seat fights as itself, so the faction rule can only say ALLY — \
+         which is what makes the cross-team hits above attributable to the team"
     );
 }
 

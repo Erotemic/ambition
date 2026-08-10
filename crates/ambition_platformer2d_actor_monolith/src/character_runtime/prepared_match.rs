@@ -662,11 +662,12 @@ pub fn prepare_match(
             definition: definition.clone(),
             seed,
             body_px,
-            faction: faction_for(index),
-            team: participant
-                .team
-                .as_ref()
-                .map(|team| crate::combat::targeting::MatchTeam::new(team.clone())),
+            // A participant fights as itself. Every seat carries a team, so the
+            // relationship policy never has to fall back to faction inside a
+            // match — and the faction is left to mean what it means everywhere
+            // else in the world.
+            faction: crate::combat::components::ActorFaction::Player,
+            team: Some(team_for(index, participant.team.as_ref())),
             authority,
         });
     }
@@ -717,15 +718,29 @@ pub fn seat_placement(index: usize, centre: Vec2) -> (Vec2, f32) {
 #[cfg(test)]
 mod tests;
 
-/// Alternating sides, so two fighters can actually hit each other:
-/// `effective_faction` refuses a strike between same-faction bodies, and a
-/// roster seated all one way would stand and stare.
-fn faction_for(index: usize) -> crate::combat::components::ActorFaction {
-    if index % 2 == 0 {
-        crate::combat::components::ActorFaction::Player
-    } else {
-        crate::combat::components::ActorFaction::Enemy
-    }
+/// **A seat's team, which is what decides who it may fight.**
+///
+/// ⛔ **this replaces `faction_for(index)`, which handed seats alternating
+/// FACTIONS — `Player, Enemy, Player, Enemy` — so that two fighters could hit
+/// each other at all.** That was a hack with a real cost: seat 2 of a
+/// four-player free-for-all was an ally of seat 4 and could not touch it, a
+/// character's authored world allegiance was overwritten by where it happened to
+/// sit, and the AI's target selection (which read the faction matrix) and the
+/// damage rule (which read teams) disagreed about the same pair.
+///
+/// ⭐ **a match relationship is what a match runs on**, so every seat gets one.
+/// An authored team is honoured; a seat with none gets a team of its own, which
+/// is the literal statement of free-for-all — everyone opposes everyone. The
+/// authored faction is then free to stay what the CHARACTER says it is.
+fn team_for(
+    index: usize,
+    authored: Option<&String>,
+) -> crate::combat::targeting::MatchTeam {
+    crate::combat::targeting::MatchTeam::new(
+        authored
+            .cloned()
+            .unwrap_or_else(|| format!("seat {}", index + 1)),
+    )
 }
 
 /// **Build one fighter's body. Infallible, and reads no authority.**

@@ -549,6 +549,53 @@ its sibling has, and it is the first thing to run when that module goes red.
 
 ⇒ **the cause-vocabulary rename is unblocked.**
 
+## ✔ items 5 + 6 — one relationship policy, and the seat-parity hack is deleted (2026-08-09)
+
+⭐⭐ **the two rules had drifted exactly as Jon said, and the drift had a patch
+holding it together.** "May this damage land" read faction difference with a team
+override. "Is this worth chasing" read the `FactionRelations` hostility matrix
+and **had never heard of a match team**. So a roster whose fighters share an
+authored faction was damageable and untargetable at the same time — every CPU
+seat would stand and stare — and the fix that had been applied was
+`faction_for(index)`: `Player, Enemy, Player, Enemy` by seat, so the older of the
+two rules would answer correctly.
+
+`combat_relation` is the one policy both call. Precedence: **grudge → team →
+faction**, allegiance effective on both sides.
+
+⭐ **three answers, not two, and the third is the one a boolean could not
+carry**:
+
+| | targeting | damage |
+|---|---|---|
+| `Foe` — different team, hostile faction, or a grudge | chase it | hit it |
+| `Neutral` — a different faction this one is not hostile *to* | leave it alone | **hit it** |
+| `Ally` — same team or same faction | leave it alone | only with friendly fire |
+
+Damage is **physical** (a swing that reaches a bystander hurts it); targeting is
+**relational** (nobody goes hunting a bystander). Collapsing those is how a stray
+hit stops landing, or a town NPC becomes prey. ⛔ this is why the damage side
+passes `None` for the matrix rather than the live one — do not "fix" that.
+
+**Item 6 falls out**: `faction_for(index)` is deleted. Every seat fights as
+itself, and every seat carries a team — an authored one where given, otherwise
+its own, which is the literal statement of free-for-all. Authored faction goes
+back to meaning what the character says.
+
+⚠ **one behaviour deliberately changed**: friendly fire now also frees same-TEAM
+damage. The old team arm returned a bare *different team?* and ignored the
+toggle, so a teams match could never turn friendly fire on — a real
+platform-fighter setting, and the flag says what it means.
+
+⭐ **the fold made the 2v2 vacuity guard stronger.** It used to demand teammates
+hold *different* factions and opponents the *same*, so neither half of its loop
+could be the faction rule in a team's clothes — and arranging that took the very
+hack being deleted. Every seat is one faction now, so the faction rule has
+exactly one answer for every pair in the match (**Ally**), and anything the loop
+finds is the team rule in both directions at once. The seating test likewise
+stopped asserting opposing factions and now asserts the OUTPUT: these two can
+damage each other.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

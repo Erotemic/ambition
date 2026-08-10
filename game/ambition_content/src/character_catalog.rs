@@ -122,9 +122,14 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     // grounded swing never happens because the body is not grounded.
     //
     // ⛔ what moves it is still UNKNOWN, and four wrong mechanisms have been
-    // written down for this already — do not add a fifth without output. The
-    // next probe is the 900-step possession loop itself: log the body's position
-    // per step in both builds and find the frame they diverge.
+    // written down for this already — do not add a fifth without output.
+    //
+    // ⇥ **LOCATED**: the per-step trail is identical through step 3 and parts at
+    // step 4 on `vel.x` — baseline zeroes it on a 4-step cadence, the registered
+    // body accumulates at −10.83/step, both falling. Same `hp = (60, 60)`, same
+    // `brain = Player(PlayerSlot(0))`, same size, same gravity. ⇒ the fault is
+    // UPSTREAM of combat: a movement or contact decision on a falling body.
+    // Deterministic at step 4, so bisect the movement kernel — see queue D74.
     "stochastic_parrot", // the parrot
     "sandbag",           // the training dummy, playable for laughs
     // ── The fighters the smash grid offers ───────────────────────────────────

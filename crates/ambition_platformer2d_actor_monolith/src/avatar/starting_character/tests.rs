@@ -2014,3 +2014,74 @@ fn deleting_an_override_in_a_hot_reload_gives_the_body_its_own_numbers_back() {
          see nothing happen and conclude hot reload does not work"
     );
 }
+
+/// **A worn body with NO moveset must still get its persona — and get a moveset.**
+///
+/// `apply_worn_character_gameplay` required `&mut ActorMoveset` until
+/// 2026-08-10, which made membership in the persona derive accidental: a worn
+/// body carrying no moveset silently failed the query and received NOTHING — no
+/// name, no motion model, no health. Every other reader of `ActorMoveset` in the
+/// workspace already treats it as optional, so this query was the sole exception.
+///
+/// ⚠ **no production body reaches that case today**; the avatar bundle carries a
+/// moveset unconditionally. It is fixed now because D73 is about to widen who
+/// wears a character to bodies whose moveset is inserted CONDITIONALLY
+/// (`spawn_actors.rs`'s `if let Some(moveset)`), and the failure would have
+/// arrived as "some enemies ignore their character" with nothing pointing here.
+///
+/// ⛔ the poison is the old signature: make the query member required again and
+/// this reds on the NAME assertion, because the body drops out of the system
+/// entirely rather than merely missing its moves.
+#[test]
+fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::brain::ActionSet;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.add_systems(Update, apply_worn_character_gameplay);
+
+    // The same full body as the derive tests above, MINUS the moveset.
+    let e = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("sanic"),
+            MotionModel::default(),
+            Name::new("unset"),
+            ActionSet::default(),
+            ambition_platformer2d_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
+                    ambition_platformer2d_core::Vec2::ZERO,
+                    ambition_platformer2d_core::AbilitySet::sandbox_all(),
+                ),
+            ),
+        ))
+        .id();
+    assert!(
+        app.world().get::<ActorMoveset>(e).is_none(),
+        "the fixture's whole point is a body that carries none",
+    );
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Name>(e).unwrap().as_str(),
+        "Sanic",
+        "the persona must be applied; 'unset' here means the missing moveset \
+         filtered the whole body out of the derive",
+    );
+    assert!(
+        matches!(
+            app.world().get::<MotionModel>(e),
+            Some(MotionModel::SurfaceMomentum(_))
+        ),
+        "and its movement identity with it",
+    );
+    assert!(
+        app.world().get::<ActorMoveset>(e).is_some(),
+        "absence means BUILD one, not skip: the overlay states a repertoire \
+         unconditionally, so the body must end up somewhere to put it",
+    );
+}

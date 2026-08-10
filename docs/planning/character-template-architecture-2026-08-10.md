@@ -320,8 +320,19 @@ whether or not it explains the PCA.
   derive must be made complete, BEFORE enemies can wear a character.** That is
   the same "one character-body constructor" the correction asks for, reached
   from the identity end, which is evidence the two items are one item.
-* ▢ next: that separation. ⛔ do NOT open with the 59-file rename — the name is
-  the cheap half and changing it first would make the risky half look done. It is already a component in `ambition_characters` holding a character
+* ✔ **the SILENT-DROP half of that is closed.** `apply_worn_character_gameplay`
+  now takes `Option<&mut ActorMoveset>` and MINTS one when the body carries
+  none, so membership in the persona derive is no longer decided by a component
+  the enemy path inserts conditionally. Guarded by
+  `a_worn_body_carrying_no_moveset_is_still_given_its_persona`; poisoned with
+  the old skip semantics, it reds on the NAME (`left: "unset"`) rather than on
+  the moveset — which is the point, because the old failure was never about
+  moves.
+* ▢ next: the rest of that separation — the derive still resolves through the
+  CATALOG, so enrolling enemies before phase 2 has moved facts onto definitions
+  would flip them onto catalog-derived kits. ⛔ do NOT open with the 59-file
+  rename — the name is the cheap half and changing it first would make the
+  risky half look done. It is already a component in `ambition_characters` holding a character
   id, already carried by non-player bodies (`sanic/badnik.rs`), and already the
   authority the renderer binds from — so the work is extending it to every spawn
   path and retiring `ActorConfig::sprite_character_id`, not inventing a type.

@@ -653,7 +653,23 @@ pub fn apply_worn_character_gameplay(
         Ref<WornCharacter>,
         &mut Name,
         &mut ActionSet,
-        &mut ActorMoveset,
+        // ⛔⛔ **`Option`, and it was REQUIRED until 2026-08-10 — which made
+        // membership in this system ACCIDENTAL.** Every other reader of
+        // `ActorMoveset` in the workspace already treats it as optional, because
+        // a body with no move timeline is an ordinary body. This query was the
+        // sole exception, and a required member is a silent filter: a worn body
+        // carrying no moveset dropped out of the persona derive ENTIRELY — no
+        // name, no action set, no health, no mass — with nothing to look for.
+        //
+        // ⚠ **no production body hits that today** (the avatar bundle carries one
+        // unconditionally, so every worn body has one), which is exactly why it
+        // had to be fixed before rather than after: D73 is about to widen who
+        // wears a character to bodies whose moveset is inserted CONDITIONALLY
+        // (`spawn_actors.rs`'s `if let Some(moveset)`), and the failure would
+        // have arrived as "some enemies ignore their character" with no clue
+        // pointing here. An absent moveset now means "build one", not "skip this
+        // body".
+        Option<&mut ActorMoveset>,
         &mut ambition_characters::brain::action_set::IdentityKit,
         // The DURABLE capability baseline, on the bodies that carry one — a
         // seated fighter does, the plain player bundle does not. It is published
@@ -720,12 +736,20 @@ pub fn apply_worn_character_gameplay(
         let stale_cast =
             baseline.is_none_or(|baseline| baseline.id != id || baseline.generation != generation);
         if character.is_changed() || stale_cast {
+            // A body that carries no moveset gets one BUILT rather than being
+            // skipped. The overlay states a repertoire unconditionally, so the
+            // only question absence can answer is where to put the answer.
+            let mut minted = moveset.is_none().then(|| ActorMoveset(Default::default()));
+            let moveset_slot = match moveset.as_deref_mut() {
+                Some(existing) => existing,
+                None => minted.as_mut().expect("minted when the body carried none"),
+            };
             let execution = apply_worn_character_overlay(
                 &catalog,
                 registry.as_deref(),
                 &mut name,
                 &mut action_set,
-                &mut moveset,
+                moveset_slot,
                 &mut identity,
                 combat_kit.as_deref_mut(),
                 id,
@@ -735,6 +759,12 @@ pub fn apply_worn_character_gameplay(
                 // authored persona, which is every other body in every game.
                 match_kit_for_seat(roster.as_deref(), seat),
             );
+            // ⚠ INSERT, never a conditional write: the body did not carry the
+            // component, so there is nothing to write into. `try_insert` because
+            // a session teardown on this frame leaves a dead entity behind.
+            if let Some(built) = minted {
+                commands.entity(entity).try_insert(built);
+            }
             sync_charge_projectile_capability(
                 &mut commands,
                 entity,
@@ -886,17 +916,26 @@ pub fn apply_worn_character_gameplay(
         if abilities.is_changed() {
             let source = catalog.playable_kit_source(id);
             if matches!(source, Some(PlayableKitSource::HostCode)) || source.is_none() {
+                // Same rule as the re-derive above: absence means "build one".
+                let mut minted = moveset.is_none().then(|| ActorMoveset(Default::default()));
+                let moveset_slot = match moveset.as_deref_mut() {
+                    Some(existing) => existing,
+                    None => minted.as_mut().expect("minted when the body carried none"),
+                };
                 let execution = apply_worn_character_kit(
                     &catalog,
                     registry.as_deref(),
                     &mut action_set,
-                    &mut moveset,
+                    moveset_slot,
                     &mut identity,
                     combat_kit.as_deref_mut(),
                     id,
                     abilities.abilities,
                     match_kit_for_seat(roster.as_deref(), seat),
                 );
+                if let Some(built) = minted {
+                    commands.entity(entity).try_insert(built);
+                }
                 sync_charge_projectile_capability(
                     &mut commands,
                     entity,

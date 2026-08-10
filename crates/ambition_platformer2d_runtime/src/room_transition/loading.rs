@@ -312,6 +312,20 @@ pub fn begin_room_transition_load_system(
         // from their sheets, so a transition needs it beside the catalog.
         Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     ),
+    // The prepared cast (D73 phase 1), so an NPC rebuilt by a transition still
+    // takes its CHARACTER's default autonomous profile rather than only its
+    // catalog row's. ⚠ `Option`, and absence is a legal answer: a composition
+    // with no registered characters is the ordinary case, and an empty registry
+    // means "no character states a default" — which is what this route assumed
+    // before a definition could state one.
+    //
+    // ⛔ outside the `construction_services` tuple deliberately: that tuple is
+    // already at seven and reads positionally at the call site
+    // (`construction_services.6`), so an eighth member would be one more number
+    // for a reader to decode.
+    prepared_characters: Option<
+        Res<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>,
+    >,
     asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
     mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,
     real_time: Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
@@ -624,6 +638,9 @@ pub fn begin_room_transition_load_system(
                     // not a content generation (same fix reset received).
                     if let Some(active) = active_binding.as_deref() {
                         context.binding = active.0;
+                    }
+                    if let Some(prepared) = prepared_characters.as_deref() {
+                        context = context.with_prepared(prepared);
                     }
                     context
                 },

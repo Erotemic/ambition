@@ -195,12 +195,14 @@ whether or not it explains the PCA.
   the row in charge, and a placement override beats both. Poisoning the lookup
   reds the first and leaves the parity cases green, which is the shape a
   precedence test should have.
-  ▢ **two SUPPLIERS remain** — the room-transition loader and the session reset
-  build an `ActorConstructionContext` without calling `.with_prepared`, so the
-  seam is live but unsupplied on those two routes. ⚠ that is not a half-applied
-  change: an absent registry is a legal value meaning *"no character states a
-  default"*, which is what every route assumed before this existed. Supplying
-  them needs one more resource in two `SystemParam` tuples.
+  ✔ **and both remaining SUPPLIERS are wired** — the room-transition loader and
+  the session reset each take the registry as an `Option<Res<..>>` and call
+  `.with_prepared`, so a rebuilt or re-entered room resolves an NPC's brain the
+  same way a first-time staging does. ⇒ **every route that lowers an NPC now
+  asks the character first.** ⚠ the transition's resource sits BESIDE its
+  `construction_services` tuple rather than inside it: that tuple is already at
+  seven and is read positionally (`construction_services.6`), so an eighth
+  member would be one more number for a reader to decode.
 * ⚠ **`a_definition_carries_no_controller_binding` is where the brief's ruling
   lands.** That test destructures `CharacterDefinition` exhaustively and says
   *"if `default_brain` is ever added, this stops compiling and the reviewer has

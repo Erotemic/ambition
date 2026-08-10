@@ -96,6 +96,10 @@ pub struct ResetPlayState<'w> {
     /// The construction recipe table — reset re-plans the start room's planned
     /// families through the SAME recipes setup/transition/restore use.
     recipes: Res<'w, crate::construction::ActorConstructionRegistry>,
+    /// The prepared cast, so a rebuilt NPC still takes its CHARACTER's default
+    /// autonomous profile (D73 phase 1). `Option` like every other reader of
+    /// it: a composition with no registered characters is the ordinary case.
+    prepared_characters: Option<Res<'w, crate::character_runtime::PreparedCharacterRegistry>>,
     /// The session's live content binding, so a reset's plan states the SAME
     /// generation the session runs under instead of a default sentinel — the
     /// commit boundary refuses a mismatched plan as stale.
@@ -207,6 +211,9 @@ pub fn process_new_game_reset_request(
             );
             if let Some(active) = play_state.active_binding.as_deref() {
                 context.binding = active.0;
+            }
+            if let Some(prepared) = play_state.prepared_characters.as_deref() {
+                context = context.with_prepared(prepared);
             }
             context
         },

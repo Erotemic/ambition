@@ -1159,6 +1159,85 @@ def verdict_lines(items: list[Item]) -> list[str]:
             out.append(f'- {text}')
     else:
         out.append('No owner\'s median sits 3 dB or more above its population.')
+
+    out.extend(_loudest_sounds_finding(by_population))
+    return out
+
+
+def _loudest_sounds_finding(by_population: dict[str, list[Item]]) -> list[str]:
+    """The LOUDEST SOUNDS, which is the question that was actually asked.
+
+    ⛔ **an owner median answers a different question than the one above it.**
+    The offenders list ranks a catalogue by how uniformly loud it is; a provider
+    with three screamers and forty whispers has an unremarkable median and never
+    appears, while a provider whose whole set sits in a narrow band near the top
+    is flagged every run. Measured 2026-08-10: the offenders list named `sanic`,
+    `ability` and `ui` — all procedural-heavy owners clustered in a narrow band —
+    and the genuinely loudest sound in the tree, `player.attack.charge` at
+    -12.6 dB RMS / -6.0 dBTP, appeared **nowhere**, because `player` also owns
+    many quiet clips. Sanic's loudest cue is 5 dB quieter in RMS and 9 dB quieter
+    in true peak than that.
+
+    Jon asked for *"ear-damaging outliers found rather than stumbled on"*. An ear
+    is stabbed by ONE sound, not by a median, so this section ranks individual
+    sounds against their own population's spread.
+
+    ⚠ **robust statistics, not mean/sigma.** These distributions have long quiet
+    tails (a 381-clip bank spans 32 dB), and a tail drags a mean down and inflates
+    a sigma, so a genuine screamer scores fewer sigmas than it deserves. Median +
+    MAD is unmoved by the tail. The 3.0 factor is ~2 sigma for a normal
+    distribution — loose enough to be worth reading, tight enough to stay short.
+    """
+    out: list[str] = ['', '### The loudest individual sounds', '']
+    out.append(
+        'An ear is stabbed by ONE sound, not by a median. This ranks single sounds against '
+        'their own population using **median + MAD** (robust: a long quiet tail cannot '
+        'flatten it), and lists everything at or above `median + 3 x MAD`.'
+    )
+    out.append('')
+    rows: list[tuple[float, str]] = []
+    for population, group in sorted(by_population.items()):
+        metric = population_metric(population)
+        values = _cohort_values(group, metric)
+        if len(values) < 8:
+            continue
+        median = statistics.median(values)
+        mad = statistics.median([abs(v - median) for v in values])
+        if mad <= 0.0:
+            continue
+        threshold = median + 3.0 * mad
+        scale = 'LUFS' if metric == 'lufs_i' else 'RMS dBFS'
+        for item in group:
+            # ⚠ through `metrics`, and NOT `getattr(item, metric)`: the metric
+            # is a dict KEY, not an attribute name, so getattr returned None for
+            # every item and this section reported a clean sweep on its first
+            # run. ⛔ a finding that cannot fire is worse than no finding — it
+            # reads as a pass.
+            if metric == 'lufs_i' and not item.lufs_valid:
+                continue
+            value = item.metrics.get(metric)
+            if value is None or value < threshold:
+                continue
+            peak = fmt(item.metrics.get('dbtp'), dash='--')
+            rows.append(
+                (
+                    value - median,
+                    f'| {value - median:+.1f} | {value:.1f} | {peak} | {population} | '
+                    f'`{item.owner}` | `{item.name}` |',
+                )
+            )
+    if not rows:
+        out.append('No single sound sits 3 MAD above its population. ✅')
+        return out
+    out.append('| Δ median | level | dBTP | pop | owner | sound |')
+    out.append('|---|---|---|---|---|---|')
+    for _, row in sorted(rows, reverse=True)[:20]:
+        out.append(row)
+    out.append('')
+    out.append(
+        '⚠ `level` is LUFS for music and RMS dBFS for SFX — the metric each population is '
+        'defined on. The two columns are never comparable to each other.'
+    )
     return out
 
 

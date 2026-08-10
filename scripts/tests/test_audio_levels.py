@@ -179,3 +179,44 @@ def test_a_quieter_authored_volume_measures_quieter():
     loud = _rms_db(_probe('Square', 0.5))
     quiet = _rms_db(_probe('Square', 0.16))
     assert loud - quiet == pytest.approx(20.0 * math.log10(0.5 / 0.16), abs=0.05)
+
+
+def _sfx(name: str, rms: float, owner: str = 'someone') -> al.Item:
+    """One packed SFX item with just the fields the finding reads."""
+    return al.Item(
+        key=name,
+        cohort='sfx_packed',
+        name=name,
+        owner=owner,
+        origin=f'<synthetic>/{name}',
+        metrics={'rms_db': rms, 'dbtp': rms + 6.0, 'duration_s': 0.2},
+    )
+
+
+def test_the_loudest_sound_finding_can_actually_fire():
+    """⛔ **a finding that cannot fire reads as a pass**, which is the worst
+    failure an instrument has: the report says "no outliers" and everybody
+    believes it.
+
+    The first version of this section reached the metric with
+    `getattr(item, metric)` while the metric is a dict KEY, so every value came
+    back `None`, every sound was skipped, and it printed a clean sweep over a
+    corpus that contains an 11 dB outlier. This pins the fire path: one planted
+    screamer in an otherwise tight population must appear by name.
+    """
+    quiet = [_sfx(f'quiet.{n}', -24.0 + (n % 5) * 0.5) for n in range(40)]
+    screamer = _sfx('a.screamer', -6.0, owner='loud_provider')
+    lines = al._loudest_sounds_finding({'sfx': quiet + [screamer]})
+    body = '\n'.join(lines)
+    assert 'a.screamer' in body, f'the planted outlier was not reported:\n{body}'
+    assert 'loud_provider' in body, 'the report must name who owns it'
+    assert 'quiet.0' not in body, 'an ordinary sound must not be flagged'
+
+
+def test_the_loudest_sound_finding_stays_quiet_on_an_even_population():
+    """The poison: a population with no outlier must say so rather than always
+    naming its top row. A "loudest sound" section that always fires is a
+    ranking, not a finding, and would train the reader to ignore it."""
+    even = [_sfx(f'even.{n}', -24.0 + (n % 7) * 0.4) for n in range(40)]
+    body = '\n'.join(al._loudest_sounds_finding({'sfx': even}))
+    assert 'No single sound sits' in body, f'a flat population was flagged:\n{body}'

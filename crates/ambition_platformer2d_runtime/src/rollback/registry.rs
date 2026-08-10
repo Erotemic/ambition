@@ -122,6 +122,25 @@ use super::{
 /// registration between modules declared two otherwise-identical peers
 /// incompatible. Bumped rather than changed silently: peers on v4 computed a
 /// different number over the same schema, and they must not believe they agree.
+/// ⚠ **v23 (2026-08-10): the platform-fighter feel layer joins the wire
+/// format, and one deferred transition learns what sound it owes.** Four value
+/// encodings changed, none of them adding or removing a registration — which is
+/// exactly why this needed a deliberate bump rather than being caught by a
+/// checker. `rollback-wire-format-is-frozen` counts stable NAMES and every name
+/// here is unchanged, so a peer on v22 encodes the same 348 names over
+/// different bytes and would believe it agreed.
+///
+/// * `BodyCombat` gains `landing_lag_timer` — an authored aerial's landing
+///   commitment, a hard input lock a peer must reconstruct or it hands control
+///   back early.
+/// * `AxisManeuverState` gains `jump_squat_timer` and `AxisLocomotion` gains
+///   `jump_squat_time` + `max_air_speed`. The squat timer is a COMMITTED leap
+///   mid-flight: a peer that cannot restore it either drops the jump or fires
+///   it on the wrong tick.
+/// * `PendingLifecycleCommit`'s `Transition` intent gains `zone_sfx`, the cue
+///   the crossing owes. Rollback state because the intent is, and it changes
+///   the byte layout of a variant a v22 peer already decodes.
+///
 /// ⚠ **v22 (2026-08-09): resolved body hits become the authoritative
 /// on-hit seam.** `HitboxOnHit` no longer snapshots/maps a per-victim entity
 /// set: body-hit deduplication lives in `HitboxHits`, while a same-frame
@@ -147,7 +166,7 @@ use super::{
 /// carried the same facts for one game and was clone-probed rather than
 /// checksummed, so this is the wire format gaining truth it was already relying
 /// on, not gaining a feature.
-pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 22;
+pub const GGRS_ROLLBACK_SCHEMA_VERSION: u32 = 23;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum RollbackEntryKind {

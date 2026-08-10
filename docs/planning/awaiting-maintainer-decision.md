@@ -16,7 +16,7 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **4 open** (recounted 2026-08-10)
+## ⇥ INDEX — **5 open** (recounted 2026-08-10)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
@@ -36,13 +36,15 @@ drift.
 |---|---|---|
 | **Does a bolt test the AUTHORED hurtbox, or the coarse box?** (queue D23) | ⛔ retiring `HitTarget::UnresolvedFeatures` for bosses — **the combat campaign's last remainder** | ▢ **needs Jon**, one word — see below |
 | **Is an enemy a CHARACTER, or an ARCHETYPE wearing one?** (queue D48) | goblins/Iron Mary art + behaviour | ▢ **scoped 2026-08-09, needs Jon** — see below |
+| **Who is the goblin lab's HEAVY?** (Jon's magenta-box observation) | 3 mobs in `goblin_encounter` still draw placeholders | ▢ **needs Jon** — one casting call, see below |
 | ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 | **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but the parent tree reads dirty until it is settled | ▢ **needs Jon**, 30 seconds — see below |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **offered as hygiene, NOT as a fix** |
 | ~~Your *"in mary-o when you die the level doesn't restart"*  — was it actually Mary-O?~~ (queue D68) | ~~that investigation~~ | ✔✔ **ANSWERED by Jon 2026-08-09** — nothing owed |
 
-⇒ **4 open**, and **only the FIRST one blocks anything** — D23, added 2026-08-10.
+⇒ **5 open**, and **only the FIRST one blocks CODE** — D23, added 2026-08-10. The
+goblin-heavy casting call blocks a visible artefact rather than a build.
 ⚠ the ordering claim in this table's own header ("ordered by what each one
 BLOCKS") had drifted: D68 sat at the bottom labelled as the only blocker for a
 day after Jon answered it. Both facts are fixed in the same edit as the count.
@@ -68,6 +70,46 @@ to a determinism-critical hash and is flagged as such in queue D37 rather than
 presented as settled — Jon can overrule it. Everything below the table is
 scoped, small, and waiting; none is blocked on unknowns, which is this file's
 entry condition.
+
+---
+
+## Who is the goblin lab's HEAVY? (Jon's magenta-box observation, 2026-08-10)
+
+**Your report:** *"the goblin encounter draws magenta boxes because 'Goblin' was
+never a proper multi-instance enemy character."*
+
+✔ **the goblin half is fixed and was already fixed** (2026-08-09). `goblin` is a
+real catalog row with a sheet, the wave mobs name it through the `character`
+field, and a misspelling is caught at pack time as an `unresolved-reference` —
+verified by planting one. Every `medium_striker` in that encounter resolves.
+
+▢ **what still draws magenta is three `large_brute` mobs** — one in wave 2, two
+in wave 3 — authored `character: None` **on purpose**, with the reasoning in the
+file: no catalog row is right for them, and a body wearing someone else's art is
+worse debt than a visible placeholder.
+
+### ⭐ and the obvious answer is a trap
+
+The cast contains exactly one goblin heavy: **`npc_goblin_cantina_chieftain`**
+("Fretjaw, Cantina Chieftain"). It looks like the answer and it is not —
+`tier: MainHall`, `tags: ["hub", "faction_leader"]`, `default_brain:
+"patrol_peaceful"`. He is a NAMED individual who lives in the hub and talks to
+you, and wave 3 is a **heavy duo**: casting him spawns two Fretjaws, and kills
+them.
+
+⇒ the real options:
+
+* **(a) a new anonymous goblin-brute row** — needs a spritesheet, so it is an art
+  task, not a data edit. The honest fix, and the most expensive.
+* **(b) reuse a non-goblin heavy** (`npc_hand_saint`, `npc_ninja_heavy` — both
+  already carry the matching `melee_brute_brute` brain). One data line each.
+  Cheap, and a ninja in a goblin cave.
+* **(c) leave the placeholder.** It is a deliberate, documented blank; the cost
+  is that your magenta boxes stay.
+
+⚠ **this is the same question as D48 one level down** — whether an enemy is a
+character or an archetype wearing one decides whether (a) is even the right
+shape. If you answer D48 first, this may answer itself.
 
 ---
 

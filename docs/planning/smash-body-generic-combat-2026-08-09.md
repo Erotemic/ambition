@@ -1014,6 +1014,52 @@ ownership question does not need a contract asking whether anyone will, so
 `DeclaredCombatRules` left the pattern. `ActiveMatch` still cannot answer and
 stays under watch.
 
+## The projectile fork — item 3's remainder, closed (2026-08-10)
+
+`step_projectiles` branched on `firer_faction == Player`. The two sides had
+drifted into different games:
+
+| | player shot | every other shot |
+|---|---|---|
+| victim | `HitTarget::Volume` — a broadcast, resolved downstream by "iterate and take primary" | `HitTarget::Body(entity)`, named |
+| knockback | none | resolved, per victim |
+| published silhouette | not consulted | `is_intangible` respected |
+| parry | impossible | a timed shield re-owns the shot |
+| grudge / friendly fire | never asked | `damage_lands` |
+
+⛔ **four rules that existed on one side of a fork whose entire content was who
+pulled the trigger.** That is the bifurcation `one-body-one-path.md` is about,
+and it is item 3's marked remainder.
+
+### ✔ one victim loop, whoever fired
+
+The fork is deleted. Every shot runs the loop that already existed, and then
+publishes the strike's **unresolved half** — `HitTarget::UnresolvedFeatures`,
+exactly as a body-owned melee does — for the breakables and boss encounters no
+body resolver can name. ⛔ not `Volume`: `Volume` means "scan everything" and
+would damage every body a second time on top of the identified hit it just took.
+The consumer already skips its actor scan on that target, machinery melee paid
+for and this reuses rather than re-derives.
+
+The actor hit PREDICTION went with the fork that needed it, and `ecs_actors`
+with it — one fewer system param, and one fewer place for "does this hit an
+actor" to grow a second answer.
+
+⚠ **what changes in play**: a player's bolt now launches what it hits, can be
+parried, respects an authored invulnerable window, and honours a grudge. And a
+hostile bolt can break a crate — which it could not do before, not by policy but
+because the other side of the fork was the only one that looked.
+
+### ⛔ the fixture had no faction
+
+`player_faction_shot_damages_an_overlapping_enemy_and_expires` went red with
+*zero* hits, not wrong ones. Its enemy carried no `ActorFaction` — invisible to
+`StrikeVictim` — because the branch it was written against broadcast a volume and
+never asked whose side anyone was on. Production builds no such body, so the
+fixture was corrected rather than the reach requirement weakened. Its assertion
+then moved from `Volume` to `Body(enemy)`, which is what its own `▢` note said
+should happen the day this landed.
+
 ✔ **the feel list is complete.** Move-facing snapshot, one authoritative move
 timeline, hitstop/hitstun, landing lag / auto-cancel, aerial locomotion, air
 speed, jump-squat, hitbox tracks, pose-aware hurtboxes, DI.

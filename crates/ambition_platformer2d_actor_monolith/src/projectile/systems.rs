@@ -12,13 +12,12 @@ use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
 use crate::features::{
-    damage_lands, ActorAggression, ActorDisposition, ActorFaction, BossClusterRef, BossConfig,
-    BreakableFeature, CenteredAabb, DamageableVolumes, FeatureId, FeatureSimEntity, HitEvent,
-    HitKnockback, HitKnockbackMagnitude, HitMode, HitSource, HitTarget,
+    damage_lands, ActorAggression, ActorFaction, BossClusterRef, BossConfig, BreakableFeature,
+    CenteredAabb, FeatureId, FeatureSimEntity, HitEvent, HitKnockback, HitKnockbackMagnitude,
+    HitMode, HitSource, HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
-use ambition_characters::actor::BodyCombat;
 use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
 
@@ -454,20 +453,13 @@ pub fn step_projectiles(
     >,
     mut feature_damage: MessageWriter<HitEvent>,
     ecs_breakables: Query<(&FeatureId, &CenteredAabb, &BreakableFeature), With<FeatureSimEntity>>,
-    // `Option<&DamageableVolumes>` so the Player-faction hit PREDICTION refuses a
-    // body that published no hurtbox, the same state the hostile victim loop below
-    // refuses via `is_intangible`. Optional, never required: requiring it would drop
-    // every actor without one from the query and make the prediction a partial no-op.
-    ecs_actors: Query<
-        (
-            &FeatureId,
-            &CenteredAabb,
-            &ActorDisposition,
-            &BodyCombat,
-            Option<&DamageableVolumes>,
-        ),
-        (With<FeatureSimEntity>, Without<BossConfig>),
-    >,
+    // ⛔ **the actor hit PREDICTION is gone with the fork that needed it.** It
+    // existed so a Player-faction shot could decide whether its `Volume`
+    // broadcast would land on anything before emitting one; the victim loop
+    // names those bodies directly now, and re-asking here would be the second
+    // rule this file just finished deleting. `ecs_actors` went with it — one
+    // fewer system param, and one fewer place for "does this hit an actor" to
+    // grow a second answer.
     ecs_bosses: Query<
         (
             &FeatureId,
@@ -583,53 +575,25 @@ pub fn step_projectiles(
         }
 
         // Damage routed by the FIRER's real faction (the owner's), not a label on
-        // the shot. A Player-faction firer's shot is the player's universal attack;
-        // any other firer's shot (or an OWNERLESS, indiscriminate one) damages the
-        // player + actors.
-        if firer_faction == Some(ActorFaction::Player) {
-            let hit_event = HitEvent {
-                strike_sfx: None,
-                volume: kin.aabb().into(),
-                damage: game.damage.max(1),
-                // Player shots always carry the kind component; default is
-                // unreachable (kept total for the engine-generic body).
-                source: HitSource::Projectile,
-                attacker: owner_entity,
-                target: HitTarget::Volume,
-                mode: HitMode::Knockback,
-                knockback: None,
-                ignored_targets: Vec::new(),
-            };
-            let hit = crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables)
-                || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
-                || crate::features::ecs_hit_event_hits_boss(&boss_catalog, &hit_event, &ecs_bosses);
-            if hit {
-                feature_damage.write(hit_event);
-                // CM8: no attacker-side hit sound here — the struck feature's own
-                // victim consumer (actor / boss reaction, or the breakable's
-                // Impact / shatter) owns the cue, so a projectile plink is
-                // consistent with a melee plink instead of playing an extra Hit.
-                trace.push_event(
-                    ProjectileTraceEvent::Hit {
-                        kind,
-                        damage: game.damage,
-                    }
-                    .into_trace_event(tick),
-                );
-                commands.entity(proj_entity).despawn();
-                continue;
-            }
-        } else {
-            // A hostile shot (any non-Player firer) OR an OWNERLESS indiscriminate
-            // shot. ONE victim loop over every body — the player is not a special
-            // case, it is a body that happens to carry `PlayerEntity`. This
-            // mirrors the unified melee victim loop (`ambition_combat::hitbox`,
-            // §A2): the SAME relational rule (`damage_lands`), the SAME published
-            // hurtbox, i-frames resolved at CONSUME time, and victim KIND picking
-            // only payload policy (the routing stamp and the player's parry-heal
-            // reward). Two forked loops used to live here and had already drifted
-            // apart — the actor side silently lost knockback, the player side lost
-            // the grudge term, and only the player side re-checked vulnerability.
+        // the shot: a shot lands on a faction-foe, on a same-faction body its
+        // firer holds a grudge against, or — if it is OWNERLESS and therefore
+        // indiscriminate — on everyone, because there is no ally to spare.
+        // ⭐⭐ **ONE victim loop, whoever fired.** The player is not a special
+        // case; it is a body that happens to carry `PlayerEntity`. This mirrors
+        // the unified melee victim loop (`ambition_combat::hitbox`, §A2): the
+        // SAME relational rule (`damage_lands`), the SAME published hurtbox,
+        // i-frames resolved at CONSUME time, and victim KIND picking only
+        // payload policy (the player's parry-heal reward).
+        //
+        // ⛔ **a Player-faction shot used to take a different road entirely** —
+        // it broadcast `HitTarget::Volume` and let the legacy
+        // "iterate-and-take-primary" consumer work out who it meant. So the same
+        // bolt, fired by an enemy, named its victim and carried knockback; fired
+        // by the player it named nobody and carried none, skipped the published
+        // silhouette, could not be PARRIED, and never asked about a grudge. Four
+        // rules that only existed on one side of a fork whose whole content was
+        // who pulled the trigger.
+        {
             let mut struck = false;
             let mut reflected = false;
             for victim in &victims {
@@ -751,6 +715,63 @@ pub fn step_projectiles(
                 continue;
             }
             if struck {
+                trace.push_event(
+                    ProjectileTraceEvent::Hit {
+                        kind,
+                        damage: game.damage,
+                    }
+                    .into_trace_event(tick),
+                );
+                commands.entity(proj_entity).despawn();
+                continue;
+            }
+
+            // **The strike's UNRESOLVED half**, exactly as a body-owned melee
+            // publishes it. The loop above named every combat body this shot
+            // reaches; it cannot name a breakable, or a boss whose HP and phase
+            // live on an encounter rather than on a body carrying the combat
+            // cluster — neither matches `StrikeVictim`, and the query excludes
+            // `BossConfig` outright.
+            //
+            // ⛔ `UnresolvedFeatures`, NOT `Volume`: `Volume` means "scan
+            // everything" and would damage every body a second time on top of
+            // the identified hit it just took. The consumer skips its actor scan
+            // on this target for that reason.
+            //
+            // ⚠ this is the half that used to be a Player-faction privilege. A
+            // hostile bolt could not break a crate at all — not by policy, just
+            // because the other side of the fork was the only one that looked.
+            let unresolved = HitEvent {
+                strike_sfx: None,
+                volume: kin.aabb().into(),
+                damage: game.damage.max(1),
+                source: HitSource::Projectile,
+                attacker: owner_entity,
+                target: HitTarget::UnresolvedFeatures,
+                mode: HitMode::Knockback,
+                knockback: None,
+                ignored_targets: Vec::new(),
+            };
+            let reaches_feature =
+                crate::features::ecs_hit_event_hits_breakable(&unresolved, &ecs_breakables)
+                    || crate::features::ecs_hit_event_hits_boss(
+                        &boss_catalog,
+                        &unresolved,
+                        &ecs_bosses,
+                    );
+            if reaches_feature {
+                feature_damage.write(unresolved);
+                // CM8: no attacker-side hit sound here — the struck feature's own
+                // victim consumer (the boss reaction, or the breakable's Impact /
+                // shatter) owns the cue, so a projectile plink is consistent with
+                // a melee plink instead of playing an extra Hit.
+                trace.push_event(
+                    ProjectileTraceEvent::Hit {
+                        kind,
+                        damage: game.damage,
+                    }
+                    .into_trace_event(tick),
+                );
                 commands.entity(proj_entity).despawn();
                 continue;
             }

@@ -68,21 +68,30 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     );
 
     let enemy_pos = ae::Vec2::new(300.0, 100.0);
-    let enemy = app.world_mut().spawn((
-        crate::features::FeatureSimEntity,
-        crate::features::FeatureId::new("test_enemy"),
-        crate::features::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
-        crate::features::ActorDisposition::Hostile,
-        ambition_characters::actor::BodyCombat {
-            alive: true,
-            hit_flash: 0.0,
-            strike_count: 0,
-            attack_windup_timer: 0.0,
-            attack_timer: 0.0,
-            training_dummy: false,
-            ..Default::default()
-        },
-    )).id();
+    let enemy = app
+        .world_mut()
+        .spawn((
+            crate::features::FeatureSimEntity,
+            crate::features::FeatureId::new("test_enemy"),
+            crate::features::CenteredAabb::new(enemy_pos, ae::Vec2::new(16.0, 24.0)),
+            crate::features::ActorDisposition::Hostile,
+            // ⛔ **a body with no faction is not something production builds.** The
+            // fixture had none, because the branch it was written against broadcast
+            // a volume and never asked whose side anyone was on. `damage_lands` is
+            // the routing rule for every shot now, so an unfactioned body is not a
+            // hard target — it is a body the victim query cannot even see.
+            crate::features::ActorFaction::Enemy,
+            ambition_characters::actor::BodyCombat {
+                alive: true,
+                hit_flash: 0.0,
+                strike_count: 0,
+                attack_windup_timer: 0.0,
+                attack_timer: 0.0,
+                training_dummy: false,
+                ..Default::default()
+            },
+        ))
+        .id();
     // A player-faction shot already overlapping the enemy.
     spawn_enemy_projectile(
         &mut app,
@@ -123,19 +132,20 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
         !projectile_hits.is_empty(),
         "the player-faction shot lands a projectile hit on the enemy"
     );
-    // ⚠ a PLAYER-faction shot is still an UNRESOLVED broadcast — the shot knows
-    // it overlaps something, but `step_projectiles` does not name the victim on
-    // this branch the way its enemy-faction branch does. So the reach claim is
-    // asserted where the reach actually shows: the enemy's health.
-    //
-    // ▢ resolving this branch to `HitTarget::Body` is roadmap item 3's
-    // remainder for projectiles; the assertion moves to the target when it does.
+    // ✔ **and it names who it hit.** This assertion used to demand
+    // `HitTarget::Volume` and carried a `▢` saying it was the thing that should
+    // change when the player-faction branch stopped broadcasting. It has: there
+    // is one victim loop now, whoever fired, so a player's bolt identifies its
+    // victim exactly as an enemy's always did.
     assert!(
         projectile_hits
             .iter()
-            .all(|e| e.target == crate::features::HitTarget::Volume),
-        "the player-faction branch broadcasts; when it starts naming its victim \
-         this assertion is the thing that should change"
+            .all(|e| e.target == crate::features::HitTarget::Body(enemy)),
+        "the shot must NAME the body it struck, got {:?}",
+        projectile_hits
+            .iter()
+            .map(|e| &e.target)
+            .collect::<Vec<_>>()
     );
     assert!(
         app.world()

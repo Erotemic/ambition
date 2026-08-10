@@ -90,9 +90,20 @@ pub struct EncounterMobSpec {
     ///
     /// ⛔ **it does NOT pick up the catalog's `default_brain` or
     /// `default_action_set`.** `kind` above answers *what it DOES*, through the
-    /// archetype roster, and it keeps answering it. Whether an enemy IS a
-    /// character or merely WEARS one is an open design question; naming a
-    /// character here does not quietly decide it.
+    /// archetype roster, and it keeps answering it.
+    ///
+    /// ⭐ **THE OPEN QUESTION THIS PARAGRAPH USED TO NAME IS ANSWERED** (Jon,
+    /// 2026-08-10, D73): an enemy IS a character. A character is a reusable
+    /// authored template, and presentation is a projection of it. The paragraph
+    /// above therefore describes a TRANSITIONAL state, not a design:
+    /// `EnemySpawnSpec` next door has already split the two questions —
+    /// `gameplay_character_id()` answers *which character*, and
+    /// `presentation_identity()` answers *which sheet*, with a display-name
+    /// fallback kept for pixels alone. **This path has not been migrated yet.**
+    /// When it is, this field becomes the character the mob instantiates and
+    /// `kind` stops deciding the body.
+    ///
+    /// See `docs/planning/character-template-architecture-2026-08-10.md`.
     ///
     /// ⭐ **three fields, three questions** — and two of them were one field
     /// until 2026-08-09. The spawner passed the wave director's minted

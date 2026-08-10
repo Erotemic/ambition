@@ -1336,7 +1336,7 @@ mod tests {
             "the authored art identity did not survive conversion"
         );
         assert_eq!(
-            authored.payload.art_identity(&authored.name),
+            authored.payload.presentation_identity(&authored.name),
             "solid_snake",
             "the id must win over the display name — that is the whole point of \
              the field, and a rename must not be able to un-art the level"
@@ -1353,7 +1353,7 @@ mod tests {
              somewhere else"
         );
         assert_eq!(
-            legacy.payload.art_identity(&legacy.name),
+            legacy.payload.presentation_identity(&legacy.name),
             "Solid Snake",
             "the display-name road closed. Every world authored before this \
              field existed resolves art exactly this way"

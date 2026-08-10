@@ -264,6 +264,30 @@ whether or not it explains the PCA.
   blanket rule cannot be made behaviour-neutral, only narrower."* ⇒ **removing
   the workaround is the LAST step of phase 2, not the first**, and it becomes
   free once the facts have moved.
+* ✔ **the default profile is TYPED** — `BrainPresetId`, not `String`, on the
+  definition, the overrides, the prepared definition and the resolver parameter.
+  ⚠ it is an AUTHORED LOCAL name wearing the id type, not an already-qualified
+  catalog key; the resolver qualifies it exactly as it qualifies an authored
+  placement override, and both docs say so.
+* ✔✔ **THE INVERSION IS FIXED ON THE AUTHORED-ENEMY PATH** — appendix C's
+  sharpest point. `spawn_enemy_with_faction_into` asked
+  `config.sprite_character_id`, which `presentation_identity` →
+  `id_for_authored_identity` produces WITH A DISPLAY-NAME FALLBACK. It now asks
+  `authored.payload.gameplay_character_id()`, which has no fallback at all.
+  `EnemySpawnSpec::art_identity` is renamed `presentation_identity` and its doc
+  says what it may not answer; the *"what it LOOKS LIKE"* sentence is deleted.
+  ⭐ **`None` is the honest answer and is left visible**: a placement that has
+  not named a character falls back to its archetype, which is the transitional
+  state phase 4 removes and which must not be papered over by a name match.
+* ⚠ **WHAT IS NOT GUARDED, stated so a later session does not assume it is.**
+  Two tests pin the SPEC's two accessors answering differently
+  (`an_unauthored_spawn_wears_a_name_but_claims_no_character`), which reds if
+  the gameplay accessor grows a name fallback. **No test pins the CALLER** —
+  nothing reds if `spawn_enemy_with_faction_into` is re-wired back through
+  `sprite_character_id`, because no harness in the tree constructs an authored
+  enemy against a populated prepared registry. ⇒ **that harness is the missing
+  instrument for all of phase 3**, and building it is worth more than the next
+  field migration.
 * ▢ next: whether `WornCharacter` becomes the `CharacterIdentity` the brief
   names. It is already a component in `ambition_characters` holding a character
   id, already carried by non-player bodies (`sanic/badnik.rs`), and already the

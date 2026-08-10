@@ -255,9 +255,24 @@ impl<T> Authored<T> {
 pub struct EnemySpawnSpec {
     /// What it DOES: the roster brain key the archetype is selected by.
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
-    /// What it LOOKS LIKE: a catalog character id. `None` falls back to matching
-    /// [`Authored::name`] against display names, which is what every level
-    /// authored before this field existed.
+    /// **WHICH CHARACTER THIS SPAWN INSTANTIATES** — a character id, and the
+    /// body's gameplay identity.
+    ///
+    /// ⭐ **this field's meaning CHANGED on 2026-08-10 and the old sentence is
+    /// deliberately gone.** It used to read *"what it LOOKS LIKE"*, paired with
+    /// `brain` as *"what it DOES"*. Under the character-template architecture
+    /// (D73) that pairing is the error the campaign exists to remove: a
+    /// character is a reusable authored template — body, vitals, movement,
+    /// repertoire — and presentation is a PROJECTION of it, not the other way
+    /// round. Inferring which character a body is from which sprite it wears
+    /// runs the arrow backwards.
+    ///
+    /// ⚠ **still optional, and still for the same reason** — every level in the
+    /// tree authors a display name and resolves art through
+    /// [`Self::presentation_identity`]. That road is MIGRATION COMPATIBILITY for
+    /// presentation only: it must never answer the gameplay question. Use
+    /// [`Self::gameplay_character_id`] for that, which returns `None` rather
+    /// than guessing from a name a human typed twice.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub character_id: Option<String>,
 }
@@ -270,13 +285,33 @@ impl EnemySpawnSpec {
         }
     }
 
-    /// The art identity this spawn wears, preferring the authored id.
+    /// **The PRESENTATION identity this spawn wears** — which sheet, portrait
+    /// and animation set the renderer should bind.
     ///
     /// `name` is the caller's [`Authored::name`]. Returning the name unchanged
     /// when no id is authored keeps the display-name road intact — the resolver
     /// downstream (`id_for_authored_identity`) accepts either form.
-    pub fn art_identity<'a>(&'a self, name: &'a str) -> &'a str {
+    ///
+    /// ⛔ **NOT the gameplay character.** The name fallback is exactly the join
+    /// this struct's own doc calls *"a documented, silent failure"*, and it is
+    /// tolerable for pixels because a wrong sheet is visible. It is not
+    /// tolerable for a body's health, mass, repertoire or death traits, where
+    /// being wrong is silent. Ask [`Self::gameplay_character_id`] for that.
+    pub fn presentation_identity<'a>(&'a self, name: &'a str) -> &'a str {
         self.character_id.as_deref().unwrap_or(name)
+    }
+
+    /// **Which `CharacterDefinition` this spawn instantiates**, when it says.
+    ///
+    /// ⭐ **no fallback, and the absence of one is the point.** A spawn that
+    /// authors no character id has not named a character, and a display name
+    /// that happens to match one is a coincidence the engine must not act on.
+    /// `None` here means *"this placement did not say"*, which the construction
+    /// path answers by falling back to its legacy archetype — the transitional
+    /// state D73 is removing, and one that must be VISIBLE rather than papered
+    /// over by a name match.
+    pub fn gameplay_character_id(&self) -> Option<&str> {
+        self.character_id.as_deref()
     }
 
     pub fn with_character_id(mut self, character_id: impl Into<String>) -> Self {
@@ -344,3 +379,46 @@ pub use ambition_entity_catalog::placements::{ChestSpec, ChestStateSpec};
 pub use ambition_entity_catalog::placements::{
     BreakableCollisionSpec, BreakableSpec, BreakableStateSpec, BreakableTriggerSpec,
 };
+
+#[cfg(test)]
+mod enemy_spawn_identity_tests {
+    use super::EnemySpawnSpec;
+
+    fn spec() -> EnemySpawnSpec {
+        EnemySpawnSpec::new(ambition_entity_catalog::placements::CharacterBrain::Custom(
+            "medium_striker".to_string(),
+        ))
+    }
+
+    /// **The two identities answer differently, and the difference is the point.**
+    ///
+    /// D73's sharpest correction: a body's gameplay character must not be
+    /// inferred from the sprite it wears. An unauthored spawn resolves its ART
+    /// through its display name — a join this file's own doc calls a documented
+    /// silent failure, tolerable only because a wrong sheet is visible — and
+    /// that same chain must return NOTHING when asked which character the body
+    /// IS. Poison the accessor to fall back to the name and this reds.
+    #[test]
+    fn an_unauthored_spawn_wears_a_name_but_claims_no_character() {
+        let spec = spec();
+        assert_eq!(
+            spec.presentation_identity("Fretjaw"),
+            "Fretjaw",
+            "art still falls back to the display name; that road is unchanged",
+        );
+        assert_eq!(
+            spec.gameplay_character_id(),
+            None,
+            "a display name is not a character claim, even when one matches",
+        );
+    }
+
+    /// The authored road answers BOTH questions, which is why authoring an id is
+    /// the migration: it is the only form in which the two agree by construction.
+    #[test]
+    fn an_authored_id_answers_both_questions() {
+        let spec = spec().with_character_id("fretjaw");
+        assert_eq!(spec.presentation_identity("Fretjaw"), "fretjaw");
+        assert_eq!(spec.gameplay_character_id(), Some("fretjaw"));
+    }
+}

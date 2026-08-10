@@ -1249,20 +1249,27 @@ pub(crate) fn spawn_enemy_with_faction_into(
         roster,
         authored.id.clone(),
         authored.name.clone(),
-        Some(authored.payload.art_identity(&authored.name)),
+        Some(authored.payload.presentation_identity(&authored.name)),
         authored.aabb,
         authored.payload.brain.clone(),
         paths,
     );
-    // **D73 phase 3: the character gets a say.** An authored `EnemySpawn` names
-    // the body's art identity, and when that identity resolves a REGISTERED
-    // character, the facts that character authors outrank the archetype's. A
-    // character that authors nothing — every character today — changes nothing,
-    // which is what lets the migration move one fact at a time.
-    if let Some(definition) = enemy
-        .config
-        .sprite_character_id
-        .as_deref()
+    // **D73 phase 3: the character gets a say.** When the placement NAMES a
+    // registered character, the facts that character authors outrank the
+    // archetype's. A character that authors nothing — every character today —
+    // changes nothing, which is what lets the migration move one fact at a time.
+    //
+    // ⛔ **it asks the placement, NOT `config.sprite_character_id`, and the
+    // correction cost a commit to notice.** The sprite id is produced by
+    // `presentation_identity` → `id_for_authored_identity`, which falls back to
+    // matching a DISPLAY NAME. Reading a body's health, mass and death traits
+    // off that chain infers gameplay identity from presentation identity —
+    // precisely the arrow this campaign exists to reverse. A spawn that has not
+    // said which character it is has not said, and the honest answer is the
+    // archetype it still names, visibly, until phase 4 migrates it.
+    if let Some(definition) = authored
+        .payload
+        .gameplay_character_id()
         .and_then(|cid| prepared.get(cid))
     {
         enemy.adopt_character_intrinsics(definition);
@@ -1338,7 +1345,7 @@ pub(crate) fn populate_giant_hand_into(
         roster,
         authored.id.clone(),
         authored.name.clone(),
-        Some(authored.payload.art_identity(&authored.name)),
+        Some(authored.payload.presentation_identity(&authored.name)),
         authored.aabb,
         authored.payload.brain.clone(),
         &[],

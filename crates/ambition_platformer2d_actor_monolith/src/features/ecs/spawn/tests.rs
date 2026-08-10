@@ -582,3 +582,149 @@ fn authored_npc_takes_its_label_from_the_catalog_display_name() {
         identity.name(),
     );
 }
+
+/// **The caller-level guard for D73's identity inversion.**
+///
+/// `spawn_enemy_with_faction_into` used to reach the prepared character through
+/// `config.sprite_character_id`, which `presentation_identity` →
+/// `id_for_authored_identity` produces WITH A DISPLAY-NAME FALLBACK. Reading a
+/// body's health off that chain infers gameplay identity from presentation
+/// identity, which is the arrow the character-template campaign exists to
+/// reverse. Nothing in the tree noticed; this module is where it would have.
+///
+/// See `docs/planning/character-template-architecture-2026-08-10.md`, appendix C.
+mod authored_enemy_reads_its_character {
+    use super::*;
+
+    /// A roster whose `medium_striker` gives a body 3 HP. Deliberately NOT the
+    /// engine default, so "the archetype's pool stood" is distinguishable from
+    /// "something wrote an ambient default".
+    ///
+    /// ⚠ `combatant` is required (the roster panics without it) and is given a
+    /// DIFFERENT pool on purpose: `spec_for_brain` silently answers `combatant`
+    /// for an unknown key, so identical pools would hide a spawn that never
+    /// found `medium_striker` at all.
+    fn roster() -> crate::features::CharacterRoster {
+        crate::features::CharacterRoster::from_ron(
+            r#"{
+                "medium_striker": (
+                    max_health: 3, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
+                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
+                    attacks_player: false, body_contact_damage: false,
+                ),
+                "combatant": (
+                    max_health: 42, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
+                    aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                    damage_amount: 0, brain_template: StandStill, move_style: Walk,
+                    attacks_player: false, body_contact_damage: false,
+                ),
+            }"#,
+        )
+    }
+
+    /// `npc_busy_beaver` is a REAL catalog row with the real display name
+    /// "Busy Beaver", authoring 9 HP as a character. Using a real row is what
+    /// makes the name-fallback case in the second test reachable at all.
+    fn prepared() -> crate::character_runtime::PreparedCharacterRegistry {
+        let mut definition = crate::character_runtime::CharacterDefinition::new(
+            "npc_busy_beaver",
+            "Busy Beaver",
+            "test",
+        );
+        definition.vitals.max_health = Some(9);
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        registry.insert_prepared(finalized.prepared);
+        registry
+    }
+
+    fn spawn(name: &'static str, character_id: Option<&'static str>) -> (i32, Option<String>) {
+        let mut spec = crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "medium_striker".to_string(),
+            ),
+        );
+        spec.character_id = character_id.map(str::to_string);
+        let authored = crate::rooms::Authored::new(
+            "EnemySpawn-1",
+            name,
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            spec,
+        );
+
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(roster());
+        app.insert_resource(prepared());
+        app.add_systems(
+            Update,
+            move |mut commands: Commands,
+                  catalog: bevy::prelude::Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >,
+                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
+                  prepared: bevy::prelude::Res<
+                crate::character_runtime::PreparedCharacterRegistry,
+            >| {
+                let root = commands.spawn_empty().id();
+                crate::features::spawn_enemy_with_faction_into(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &roster,
+                    &prepared,
+                    SessionSpawnScope::UNSCOPED,
+                    root,
+                    &authored,
+                    &[],
+                    crate::features::ActorFaction::Enemy,
+                );
+            },
+        );
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<(&BodyHealth, &ActorConfig)>();
+        let (health, config) = q.iter(world).next().expect("one enemy body");
+        (health.health.max, config.sprite_character_id.clone())
+    }
+
+    #[test]
+    fn a_spawn_that_names_a_registered_character_takes_its_health() {
+        // The display name is deliberately NOT the character's, so the only
+        // route to 9 HP is the authored id.
+        let (max, sprite) = spawn("Some Room Enemy", Some("npc_busy_beaver"));
+        assert_eq!(
+            max, 9,
+            "the character authored 9 and it must outrank the archetype's 3"
+        );
+        assert_eq!(sprite.as_deref(), Some("npc_busy_beaver"));
+    }
+
+    /// ⛔⛔ **THE POISON THIS MODULE EXISTS FOR.** Re-wire the lookup back
+    /// through `config.sprite_character_id` and this reds with 9, because the
+    /// display name DOES resolve to the registered character — which the second
+    /// assertion proves rather than assumes. Without that assertion the test
+    /// could pass because the name never resolved at all, which would be a
+    /// check that cannot fail.
+    #[test]
+    fn a_spawn_that_only_looks_like_a_character_does_not_become_one() {
+        let (max, sprite) = spawn("Busy Beaver", None);
+        assert_eq!(
+            sprite.as_deref(),
+            Some("npc_busy_beaver"),
+            "the PRESENTATION join must still resolve the display name, or the \
+             gameplay assertion below is vacuous"
+        );
+        assert_eq!(
+            max, 3,
+            "it wears the beaver's sheet and it is not a beaver: the archetype's \
+             3 must stand. 9 here means gameplay identity is being inferred from \
+             presentation identity again"
+        );
+    }
+}

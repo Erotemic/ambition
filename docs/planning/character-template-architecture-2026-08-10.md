@@ -279,15 +279,21 @@ whether or not it explains the PCA.
   ⭐ **`None` is the honest answer and is left visible**: a placement that has
   not named a character falls back to its archetype, which is the transitional
   state phase 4 removes and which must not be papered over by a name match.
-* ⚠ **WHAT IS NOT GUARDED, stated so a later session does not assume it is.**
-  Two tests pin the SPEC's two accessors answering differently
-  (`an_unauthored_spawn_wears_a_name_but_claims_no_character`), which reds if
-  the gameplay accessor grows a name fallback. **No test pins the CALLER** —
-  nothing reds if `spawn_enemy_with_faction_into` is re-wired back through
-  `sprite_character_id`, because no harness in the tree constructs an authored
-  enemy against a populated prepared registry. ⇒ **that harness is the missing
-  instrument for all of phase 3**, and building it is worth more than the next
-  field migration.
+* ✔✔ **THE MISSING PHASE-3 INSTRUMENT NOW EXISTS** — `mod
+  authored_enemy_reads_its_character` in `features/ecs/spawn/tests.rs` builds a
+  real authored `EnemySpawn` against a populated `PreparedCharacterRegistry`
+  and reads the health off the spawned body. It is the first harness in the tree
+  that constructs an authored enemy with a character registered, and every
+  later phase-3 field lands through it.
+  ⭐ **its second test is the poison for the inversion.** A spawn named
+  `"Busy Beaver"` authoring NO character id must keep its archetype's 3 HP even
+  though the beaver character authors 9 — and it asserts
+  `sprite_character_id == "npc_busy_beaver"` FIRST, so the gameplay assertion
+  cannot pass merely because the name never resolved. Re-wiring the caller back
+  through the sprite id reds it with `left: 9, right: 3`, verified by doing it.
+  ⚠ the roster fixture gives `combatant` a DIFFERENT pool (42) from
+  `medium_striker` (3), because `spec_for_brain` silently answers `combatant`
+  for an unknown key and equal pools would hide a lookup that never landed.
 * ▢ next: whether `WornCharacter` becomes the `CharacterIdentity` the brief
   names. It is already a component in `ambition_characters` holding a character
   id, already carried by non-player bodies (`sanic/badnik.rs`), and already the

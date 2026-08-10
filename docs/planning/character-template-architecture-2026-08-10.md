@@ -344,11 +344,11 @@ whether or not it explains the PCA.
   now. `definition.rs` (1,897 lines) reaches out of `ambition_characters`'s
   reach in exactly five places, and the death-traits split above already
   removed the one that would have been a CYCLE:
-  1. `crate::combat::moveset::{ATTACK_VERB, RANGED_VERB, SPECIAL_VERB,
-     SMASH_VERB}` — string consts in `ambition_combat`. ⇒ **they belong in
-     `ambition_entity_catalog` beside `MovesetContract`**: a verb NAME is part
-     of the moveset contract's vocabulary, not of the runtime that plays it.
-     70 usages workspace-wide, so move + re-export to keep paths stable.
+  1. ~~`crate::combat::moveset::{ATTACK_VERB, RANGED_VERB, SPECIAL_VERB,
+     SMASH_VERB}`~~ — ✔ **DONE.** They live in `ambition_entity_catalog` beside
+     `MovesetContract` now, re-exported from `ambition_combat::moveset` so all
+     ~70 existing paths resolve unchanged, and `definition.rs` names the
+     contract crate directly.
   2. `crate::combat::moveset::build_actor_moveset` — the kit fold. The one
      genuine question: either it follows the constants down, or the FOLD stays
      above and only the AUTHORED `CharacterDefinition` moves while
@@ -362,9 +362,13 @@ whether or not it explains the PCA.
   4. `crate::features::Mass` — a DOC LINK only. Costs nothing.
   5. ~~`crate::combat::CombatCapabilities` on the definition~~ — **removed**,
      see the death-traits entry above. This was the blocking one.
-  ⇒ **nothing structural stands in the way any more.** The remaining work is
-  the constant move (mechanical, wide) and one design call on `build_actor
-  _moveset`. ⛔ do not start it in the same slice as the constant move.
+  ⇒ **`definition.rs` now reaches into `ambition_combat` in exactly ONE place**
+  — the `build_actor_moveset` call at the fold — plus two doc links that cost
+  nothing. That single call is the whole remaining question, and it is a design
+  call rather than a mechanical one: does the fold follow the constants down,
+  or does only the AUTHORED definition move while `PreparedCharacterDefinition`
+  stays above with the resolution? ⚠ **answer it before moving anything else**;
+  the answer decides whether the move is one file or two crates.
 * ▢ next: the rest of that separation — the derive still resolves through the
   CATALOG, so enrolling enemies before phase 2 has moved facts onto definitions
   would flip them onto catalog-derived kits. ⛔ do NOT open with the 59-file

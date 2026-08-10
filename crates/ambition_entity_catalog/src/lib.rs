@@ -1095,6 +1095,32 @@ pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec
     chain
 }
 
+/// The canonical verb id a body's basic melee swing binds to in its moveset.
+///
+/// ⭐ **the four verb ids live BESIDE the contract they are keys into**, not in
+/// the runtime that plays it. A verb NAME is part of the moveset contract's
+/// authoring vocabulary — content types one of these strings into a `verbs`
+/// map — while `ambition_combat` is where a bound move is *executed*. They sat
+/// in the runtime for historical reasons, and that placement was one of the
+/// couplings keeping `CharacterDefinition` out of the character domain: a
+/// definition cannot name the verb its moveset binds without reaching up into
+/// the runtime crate. Re-exported from `ambition_combat::moveset`, so every
+/// existing path still resolves.
+///
+/// See `docs/planning/character-template-architecture-2026-08-10.md`.
+pub const ATTACK_VERB: &str = "attack";
+/// Strong directional attacks use the same authored verb machinery under the
+/// distinct `smash` base. A moveset that authors no smash verb falls back to its
+/// ordinary attack repertoire.
+pub const SMASH_VERB: &str = "smash";
+/// The canonical verb id a body's ranged shot binds to in its moveset.
+pub const RANGED_VERB: &str = "ranged";
+/// The canonical verb id a body's signature special binds to in its moveset.
+/// `special_pressed` resolves the facing-relative directional `special` chain;
+/// a body only has a real special when its moveset authors a matching
+/// directional verb or the base verb.
+pub const SPECIAL_VERB: &str = "special";
+
 /// Moveset contract: the entity's moves plus which input verb activates
 /// which move. `moves` is the composition surface — re-binding an existing
 /// move onto a different actor is a data edit here.

@@ -934,7 +934,10 @@ impl PreparedCharacter {
 /// or a fifth direction is added, this is the one place that has to learn about
 /// it, and every character's registration starts checking against it for free.
 fn runtime_verb_vocabulary() -> Vec<String> {
-    use crate::combat::moveset::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
+    // ⭐ the CONTRACT's crate, not the runtime's: a verb name is authoring
+    // vocabulary. One of the couplings that kept this file out of
+    // `ambition_characters` (D73 appendix C).
+    use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
     let mut vocabulary = Vec::new();
     for base in [ATTACK_VERB, SMASH_VERB, RANGED_VERB, SPECIAL_VERB] {
         for dir in [
@@ -1017,7 +1020,7 @@ fn prepare_character(
         // definition never claimed.
         if let Some(action_set) = definition.action_set.as_ref() {
             if action_set.ranged.is_none() {
-                let ranged_verb = crate::combat::moveset::RANGED_VERB;
+                let ranged_verb = ambition_entity_catalog::RANGED_VERB;
                 for (verb, target) in &moveset.verbs {
                     if verb.as_str() != ranged_verb {
                         continue;
@@ -1319,7 +1322,7 @@ fn finalize_character(
 /// in the derived inventory, so the session loads a sound it will not play —
 /// cheap, and honest about what the author wrote.
 fn revoke_host_owned_ranged(moveset: &mut MovesetContract) -> Vec<String> {
-    let base = crate::combat::moveset::RANGED_VERB;
+    let base = ambition_entity_catalog::RANGED_VERB;
     let prefix = format!("{base}_");
     let revoked: Vec<String> = moveset
         .verbs

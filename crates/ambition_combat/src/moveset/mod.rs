@@ -50,12 +50,12 @@ use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{PresentationSourceId, SfxId, SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
 
-/// The canonical verb id a body's basic melee swing binds to in its moveset.
-pub const ATTACK_VERB: &str = "attack";
-/// Strong directional attacks use the same authored verb machinery under the
-/// distinct `smash` base. A moveset that authors no smash verb falls back to its
-/// ordinary attack repertoire.
-pub const SMASH_VERB: &str = "smash";
+// **The four moveset verb ids now live beside the contract they key into**
+// (`ambition_entity_catalog`), because a verb name is authoring vocabulary
+// rather than runtime behaviour — and because a character DEFINITION must be
+// able to name the verb its moveset binds without reaching up into this crate.
+// Re-exported so every `moveset::ATTACK_VERB`-style path is unchanged.
+pub use ambition_entity_catalog::{ATTACK_VERB, RANGED_VERB, SMASH_VERB, SPECIAL_VERB};
 
 /// [`HitVolume::vfx`] tags the move runtime knows (§7.2): the sweeping slash
 /// arc and the grounded down-tilt's horizontal poke. Unknown tags draw the arc
@@ -95,16 +95,6 @@ const _: () = assert!(
     ambition_sfx::SfxId::from_static(PLAYER_ROBOT_POGO_SFX_CUE).hash()
         == ambition_sfx::ids::PLAYER_ROBOT_SLASH_IMPACT_POGO.hash()
 );
-
-/// The canonical verb id a body's ranged shot binds to in its moveset.
-pub const RANGED_VERB: &str = "ranged";
-
-/// The canonical verb id a body's signature special binds to in its moveset.
-/// `special_pressed` resolves the facing-relative directional `special` chain;
-/// a body only has a real special when its moveset authors a matching directional
-/// verb or the base verb — the canonical player
-/// gets it by folding `ActionSet.special` in [`prefabs::build_actor_moveset`].
-pub const SPECIAL_VERB: &str = "special";
 
 // D-B split: the MoveSpec builders and actor-moveset construction live in
 // `prefabs.rs`. Re-exported so `moveset::<builder>` paths (and `tests.rs`'s

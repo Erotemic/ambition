@@ -16,29 +16,36 @@ be the one choosing.
 
 ---
 
-## ⇥ INDEX — **2 open** (recounted 2026-08-09)
+## ⇥ INDEX — **4 open** (recounted 2026-08-10)
 
 This file is 1,800+ lines and had no index. Its own header warns that a decision
 file which stops being readable stops being read; length does that as surely as
 stale rows do. **⚠ ordered by what each one BLOCKS**, not by date, because that
 is the only ordering a maintainer can triage from.
 
-⭐ **the count has been wrong in BOTH directions now.** It said *"1 open"* while
-omitting the row that blocked most (corrected 2026-08-08), then said *"2 open"*
-after the blocking one had shipped (corrected 2026-08-09). ⇒ **recount against
-the sections when you touch this file**; an index nobody recounts is the thing
-its own header warns about, one level up.
+⭐ **the count has been wrong in BOTH directions, three times, and the heading
+disagreed with the line below it for a day.** It said *"1 open"* while omitting
+the row that blocked most (corrected 2026-08-08), then *"2 open"* after the
+blocking one had shipped (corrected 2026-08-09), then held *"2 open"* over a
+table that said *"4 open"* (corrected 2026-08-10, with D68 answered and D23
+added). ⇒ **recount against the TABLE when you touch this file, and fix both
+numbers in the same edit** — they are one fact written twice, which is why they
+drift.
 
 | Question | Blocks | State |
 |---|---|---|
+| **Does a bolt test the AUTHORED hurtbox, or the coarse box?** (queue D23) | ⛔ retiring `HitTarget::UnresolvedFeatures` for bosses — **the combat campaign's last remainder** | ▢ **needs Jon**, one word — see below |
 | **Is an enemy a CHARACTER, or an ARCHETYPE wearing one?** (queue D48) | goblins/Iron Mary art + behaviour | ▢ **scoped 2026-08-09, needs Jon** — see below |
 | ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
 | **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but the parent tree reads dirty until it is settled | ▢ **needs Jon**, 30 seconds — see below |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **offered as hygiene, NOT as a fix** |
-| **Your *"in mary-o when you die the level doesn't restart"* — was it actually Mary-O?** (queue D68, 2026-08-09) | that investigation — ⛔ **it cannot proceed without this** | ▢ **needs Jon** — a fact only he has, not a decision |
+| ~~Your *"in mary-o when you die the level doesn't restart"*  — was it actually Mary-O?~~ (queue D68) | ~~that investigation~~ | ✔✔ **ANSWERED by Jon 2026-08-09** — nothing owed |
 
-⇒ **4 open**, and **only the last one blocks anything.**
+⇒ **4 open**, and **only the FIRST one blocks anything** — D23, added 2026-08-10.
+⚠ the ordering claim in this table's own header ("ordered by what each one
+BLOCKS") had drifted: D68 sat at the bottom labelled as the only blocker for a
+day after Jon answered it. Both facts are fixed in the same edit as the count.
 ⚠ the heading said *"2 open"* while this line said *"1 open"* for a day — the
 third miscount, and this time the heading was accidentally right for the wrong
 reason. ⇒ **the two numbers are now derived from the same table in one edit.**
@@ -61,6 +68,51 @@ to a determinism-critical hash and is flagged as such in queue D37 rather than
 presented as settled — Jon can overrule it. Everything below the table is
 scoped, small, and waiting; none is blocked on unknowns, which is this file's
 entry condition.
+
+---
+
+## Does a bolt test the AUTHORED hurtbox, or the coarse box? (queue D23, 2026-08-10)
+
+**One word, and a piece of combat scaffolding comes out with it.**
+
+Today `step_projectiles` tests `kin.aabb().strict_intersects(victim_body)` — the
+victim's coarse `CenteredAabb`. Melee and feature hits ask
+`strike_reaches_victim`, which uses the body's **published silhouette** when it
+has one. So a body that authored a precise hurtbox is struck precisely by a sword
+and approximately by a bolt.
+
+**Option A — bolts adopt `reached_by` (the authored hurtbox).**
+One line at the call site, which is why it keeps coming up.
+⚠ it retires `strict_intersects` for projectiles, and that rejects edge-touching
+where the shared rule accepts it — so **every shot in the game connects slightly
+differently**. Shots get slightly harder to land on bodies with tight
+silhouettes, and stop hitting empty space inside a loose bounding box.
+
+**Option B — bolts keep the coarse box.**
+Shots stay exactly as they feel today. The two damage families keep two geometry
+rules, and the consequence below stays.
+
+### ⭐ what makes this urgent rather than tidy (2026-08-10)
+
+The combat campaign found that **a boss is already a body victim** — melee names
+`HitTarget::Body(boss)` today — but the damage consumer's boss branch only runs
+for an event that names no actor, so the identified hit lands nowhere and the
+boss's HP is moved by the anonymous `UnresolvedFeatures` half instead. The same
+swing identifies its victim and then damages it anonymously.
+
+Fixing that needs BOTH producers to name bosses. The projectile victim query
+excludes `BossConfig` precisely *because* of the coarse box: a boss's coarse AABB
+is a giant composite envelope, so including it under option B would let bolts hit
+the **bounding rectangle** instead of the authored head and hand volumes — the
+GNU-ton seam, undone.
+
+⇒ **Option A unblocks retiring `UnresolvedFeatures` for bosses. Option B leaves
+that scaffolding in place indefinitely**, which is a legitimate answer; it just
+should be a chosen one rather than a default.
+
+⛔ **not answerable by an agent.** This is not a documented-genre mechanic — it is
+how *this* game's shots should feel, and Jon's 2026-08-09 ruling explicitly
+covers standard mechanics, not authored feel.
 
 ---
 

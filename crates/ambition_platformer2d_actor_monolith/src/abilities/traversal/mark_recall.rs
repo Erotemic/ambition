@@ -134,7 +134,7 @@ pub fn mark_recall_system(
                 strike_sfx: None,
                 volume: ae::CombatVolume::circle(target, RECALL_SHOCKWAVE_HALF),
                 damage: RECALL_SHOCKWAVE_DAMAGE,
-                source: crate::features::HitSource::PlayerSlash { knock_x: 0.0 },
+                source: crate::features::HitSource::PlayerSlash,
                 attacker: Some(player),
                 target: crate::features::HitTarget::Volume,
                 mode: crate::features::HitMode::Knockback,

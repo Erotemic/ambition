@@ -247,13 +247,13 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
 
     // Player slash: base 2 × 2.0 slider = 4.
     assert_eq!(
-        damage_dealt(2.0, HitSource::PlayerSlash { knock_x: 0.0 }),
+        damage_dealt(2.0, HitSource::PlayerSlash),
         4,
         "a strong slider raises the player's own melee damage"
     );
     // Weak slider: 2 × 0.25 = 0.5, floored to the always-≥1 minimum.
     assert_eq!(
-        damage_dealt(0.25, HitSource::PlayerSlash { knock_x: 0.0 }),
+        damage_dealt(0.25, HitSource::PlayerSlash),
         1,
         "a weak slider lowers it, but a hit still deals at least 1"
     );
@@ -389,7 +389,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         strike_sfx: None,
         volume: event_volume.into(),
         damage: 2,
-        source: HitSource::PlayerSlash { knock_x: 120.0 },
+        source: HitSource::PlayerSlash,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -426,7 +426,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
         strike_sfx: None,
         volume: event_volume.into(),
         damage: 5,
-        source: HitSource::PlayerSlash { knock_x: 120.0 },
+        source: HitSource::PlayerSlash,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -557,7 +557,7 @@ fn a_struck_peaceful_corpse_is_silent_but_a_living_one_barks() {
             strike_sfx: None,
             volume: event_volume.into(),
             damage: 1,
-            source: HitSource::PlayerSlash { knock_x: 120.0 },
+            source: HitSource::PlayerSlash,
             attacker: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
@@ -631,7 +631,7 @@ fn a_peaceful_body_in_a_fight_takes_damage_instead_of_barking() {
             strike_sfx: None,
             volume: event_volume.into(),
             damage: 3,
-            source: HitSource::PlayerSlash { knock_x: 120.0 },
+            source: HitSource::PlayerSlash,
             attacker: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
@@ -703,7 +703,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
         strike_sfx: None,
         volume: event_volume.into(),
         damage: 2,
-        source: HitSource::PlayerSlash { knock_x: 120.0 },
+        source: HitSource::PlayerSlash,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -783,7 +783,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
         strike_sfx: None,
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
         damage: 1,
-        source: HitSource::PlayerSlash { knock_x: 0.0 },
+        source: HitSource::PlayerSlash,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -889,7 +889,7 @@ fn player_slash_shatters_a_breakable() {
         strike_sfx: None,
         volume: aabb.into(),
         damage: 2,
-        source: HitSource::PlayerSlash { knock_x: 0.0 },
+        source: HitSource::PlayerSlash,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -1232,16 +1232,30 @@ fn shield_test_app() -> App {
 
 /// A player slash whose hitbox is centered at `center` (must overlap the actor's
 /// body AABB to land), dealing `damage`.
+/// The shove a player slash carries, spelled the one way knockback is spelled.
+fn slash_knockback(center: ae::Vec2, dir: f32) -> crate::features::HitKnockback {
+    crate::features::HitKnockback {
+        dir,
+        magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
+        source_pos: center,
+        impact_pos: center,
+        launch_dir: None,
+    }
+}
+
 fn slash_at(center: ae::Vec2, damage: i32) -> HitEvent {
     HitEvent {
         strike_sfx: None,
         volume: ae::Aabb::new(center, ae::Vec2::new(32.0, 40.0)).into(),
         damage,
-        source: HitSource::PlayerSlash { knock_x: 200.0 },
+        source: HitSource::PlayerSlash,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
-        knockback: None,
+        // The shove a slash used to smuggle through `HitSource::PlayerSlash`'s
+        // own `knock_x` field, spelled the one way knockback is spelled now.
+        // Same resolution as before: side +1, standard feel strength.
+        knockback: Some(slash_knockback(center, 1.0)),
         ignored_targets: Vec::new(),
     }
 }
@@ -1349,10 +1363,16 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     );
 }
 
-/// A slash with no `HitKnockback` payload folds its `knock_x` impulse into the
-/// same resolution: dir from the impulse sign, standard strength.
+/// A slash's knockback rides the shared resolution: side from the payload's
+/// `dir`, strength from its magnitude.
+///
+/// ⛔ this used to be `a_slash_knock_x_folds_into_the_shared_knockback_resolution`
+/// and it pinned a SECOND physics channel — `HitSource::PlayerSlash { knock_x }`,
+/// folded in by a special arm in the actor consumer. Both are deleted; the
+/// resolution they fed is the thing worth keeping, so the test keeps it and
+/// reaches it the one way that exists now.
 #[test]
-fn a_slash_knock_x_folds_into_the_shared_knockback_resolution() {
+fn a_slash_knockback_rides_the_shared_resolution() {
     let mut app = shield_test_app();
     let victim = spawn_hostile_actor(&mut app);
     let feel = crate::time::feel::Platformer2dFeelTuningMonolith::default();
@@ -1365,7 +1385,7 @@ fn a_slash_knock_x_folds_into_the_shared_knockback_resolution() {
         .world()
         .get::<super::super::actor_clusters::BodyKinematics>(victim)
         .unwrap();
-    // `slash_at` carries knock_x: 200.0 → dir +1, strength 1.0.
+    // `slash_at` attaches dir +1 at standard feel strength.
     let expected = ae::Vec2::new(feel.enemy_knockback_x, -feel.enemy_knockback_y);
     assert!(
         (kin.vel - expected).length() < 1e-3,
@@ -1440,7 +1460,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
         strike_sfx: None,
         volume: volume.into(),
         damage: 2,
-        source: HitSource::PlayerSlash { knock_x: 0.0 },
+        source: HitSource::PlayerSlash,
         attacker: Some(attacker),
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -1606,7 +1626,7 @@ fn a_lethal_hit_kills_without_speaking_a_hit_bark() {
             strike_sfx: None,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
             damage,
-            source: HitSource::PlayerSlash { knock_x: 120.0 },
+            source: HitSource::PlayerSlash,
             attacker: None,
             target: HitTarget::Volume,
             mode: HitMode::Knockback,
@@ -1650,7 +1670,7 @@ fn a_peaceful_actor_owns_one_victim_side_hit_sound() {
         strike_sfx: None,
         volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
         damage: 1,
-        source: HitSource::PlayerSlash { knock_x: 120.0 },
+        source: HitSource::PlayerSlash,
         attacker: None,
         target: HitTarget::Volume,
         mode: HitMode::Knockback,
@@ -1795,7 +1815,7 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
          flash is contact feel and a shot is not contact"
     );
     assert!(
-        thrower_flash_after(HitSource::PlayerSlash { knock_x: 0.0 }) > 0.0,
+        thrower_flash_after(HitSource::PlayerSlash) > 0.0,
         "a SLASH must still flash the attacker: this half is what stops the \
          projectile assertion from passing against a `hit_flash` that was simply \
          deleted"

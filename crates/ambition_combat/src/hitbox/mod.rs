@@ -347,7 +347,7 @@ pub fn apply_hitbox_damage(
         // select a different overlap/dedup/knockback algorithm.
         let melee_source = match (hitbox.source, hitbox.anchor) {
             (HitSide::Player, HitboxAnchor::FollowOwner { .. }) => {
-                Some(HitSource::PlayerSlash { knock_x: 0.0 })
+                Some(HitSource::PlayerSlash)
             }
             (HitSide::Enemy | HitSide::Npc, _) => Some(HitSource::EnemyAttack),
             (HitSide::Boss, _) => Some(HitSource::BossAttack),
@@ -466,7 +466,7 @@ pub fn apply_hitbox_damage(
             // per-strike accumulator, NOT the `BodyMelee.swing` projection that
             // used to gate this emit — a read-model must never decide whether a
             // strike can damage, and that projection is rebuilt every frame.
-            if matches!(source_kind, HitSource::PlayerSlash { .. }) {
+            if matches!(source_kind, HitSource::PlayerSlash) {
                 hit_events.write(HitEvent {
                     strike_sfx: hitbox.strike_sfx,
                     volume: world_volume.clone(),
@@ -500,7 +500,7 @@ pub fn apply_hitbox_damage(
                         strike_sfx: hitbox.strike_sfx,
                         volume: world_volume.clone(),
                         damage: hitbox.damage.max(1),
-                        source: HitSource::PlayerSlash { knock_x: 0.0 },
+                        source: HitSource::PlayerSlash,
                         attacker: Some(hitbox.owner),
                         target: HitTarget::Volume,
                         mode: HitMode::Knockback,

@@ -306,6 +306,33 @@ Two details worth keeping:
 Verified: `ambition_combat` 149/149 · monolith 1195/1195 · smash + mary-o +
 runtime green · absence contracts 25/25 · **`app_it` 323 passed, 0 failed**.
 
+## ✔ Roadmap item 1 — the legacy knockback side channel is gone (2026-08-09)
+
+`HitSource::PlayerSlash { knock_x: f32 }` is now a unit variant. What the
+measurement found, before any code moved:
+
+| | |
+|---|---|
+| sites spelling `knock_x` | 33 across 10 files |
+| producers that set it non-zero | **1** — the dive corridor, `local_dir.x * 1.4` |
+| every other producer | `knock_x: 0.0`, written only to satisfy the pattern |
+| what the consumer did with it | took `knock_x.signum()` and substituted `FeelScale(1.0)` |
+
+⭐⭐ **so the one authored magnitude on the channel never reached a victim.**
+`DIVE_KNOCKBACK = 1.4` had no effect on anything, and the hit was
+indistinguishable from one with no shove authored at all — Jon's condition
+exactly: *a successful authored launch strike must not be representable as a hit
+with silently missing knockback.*
+
+⚠ **the dive's shove is now 1.4× what shipped.** That is the authored number
+finally being used, not a new one, and it is a named constant if it wants
+tuning.
+
+The guard is in `dive/tests.rs` and asserts the **magnitude**, not merely that
+something is attached — a sign-only channel would pass the weaker assertion,
+which is how this survived. The actor consumer's synthesizing arm is deleted, so
+there is nowhere left to put a magnitude that evaporates.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

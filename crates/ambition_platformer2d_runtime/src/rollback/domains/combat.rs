@@ -327,7 +327,12 @@ fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayer
         put_vec2(&mut bytes, bounds.max);
         put_i32(&mut bytes, event.damage);
         let (source_tag, source_payload) = match event.source {
-            HitSource::PlayerSlash { knock_x } => (0u8, knock_x),
+            // The `f32` beside the tag was `PlayerSlash`'s own impulse channel.
+            // That channel is gone — knockback has one representation now — so
+            // the payload is a constant here rather than a field read. The slot
+            // stays because other sources may yet carry one and the wire layout
+            // is shared.
+            HitSource::PlayerSlash => (0u8, 0.0),
             HitSource::PlayerProjectile => (1, 0.0),
             HitSource::PogoBounce => (2, 0.0),
             HitSource::Hazard => (3, 0.0),

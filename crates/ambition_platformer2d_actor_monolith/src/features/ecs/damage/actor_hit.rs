@@ -380,23 +380,18 @@ pub(crate) fn apply_actor_hit(
         // frame-agnostic knockback resolution the player does — side away from
         // the source, rise against ITS gravity — replacing the old inline
         // `local.y - 90 max -280` pop. The data comes from the event's
-        // `HitKnockback` (attached by hitboxes / body-contact / hazards); a
-        // slash carries its impulse as `knock_x`, folded into the same
-        // resolution as a dir + standard feel scale. A hit with neither leaves
-        // the velocity alone (as before).
-        let knockback = match (&event.source, event.knockback.as_ref()) {
-            (_, Some(k)) => Some(k.clone()),
-            (HitSource::PlayerSlash { knock_x }, None) if *knock_x != 0.0 => {
-                Some(crate::features::HitKnockback {
-                    dir: knock_x.signum(),
-                    magnitude: crate::features::HitKnockbackMagnitude::FeelScale(1.0),
-                    source_pos: event.volume.center(),
-                    impact_pos: event.volume.center(),
-                    launch_dir: None,
-                })
-            }
-            _ => None,
-        };
+        // `HitKnockback` (attached by hitboxes / body-contact / hazards). A hit
+        // with none leaves the velocity alone.
+        //
+        // ⛔ **there used to be a second arm here**, synthesizing a knockback out
+        // of `HitSource::PlayerSlash`'s own `knock_x` field — and synthesizing it
+        // WRONG, taking only the sign and substituting `FeelScale(1.0)` for
+        // whatever the producer authored. One producer used the channel (the dive
+        // corridor, at 1.4) and its magnitude never reached a victim. Both the
+        // field and this arm are deleted: a producer that wants a shove attaches
+        // a `HitKnockback`, and there is nowhere left to put a magnitude that
+        // silently evaporates.
+        let knockback = event.knockback.clone();
         if let Some(k) = knockback {
             let boss_hit = matches!(event.source, HitSource::BossBody | HitSource::BossAttack);
             // §A2 step 7 (FEEL-BLIND): the launch also arms the shared stagger

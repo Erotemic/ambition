@@ -224,10 +224,20 @@ pub struct NpcDialogueRequest {
 /// [`HitEvent`].
 #[derive(Clone, Debug, PartialEq)]
 pub enum HitSource {
-    /// Player melee slash. `knock_x` is the horizontal impulse to
-    /// add to a hit enemy's velocity (sign tied to player facing).
-    /// Slashes also nudge enemies upward.
-    PlayerSlash { knock_x: f32 },
+    /// Player melee slash.
+    ///
+    /// ⛔ **this variant used to carry `knock_x: f32`, a second physics channel
+    /// beside [`HitEvent::knockback`], and it is deleted.** Only one producer
+    /// ever set it (the dive corridor); every other site spelled `knock_x: 0.0`
+    /// to satisfy the pattern. And the consumer that read it took only its SIGN
+    /// and substituted `FeelScale(1.0)` — so the dive's authored 1.4 shove was
+    /// silently thrown away for as long as the channel existed. That is the
+    /// failure mode the campaign names: *a successful authored launch strike
+    /// must not be representable as a hit with silently missing knockback.*
+    ///
+    /// ⇒ knockback now has exactly one representation, [`HitKnockback`], and a
+    /// producer that wants a shove attaches one.
+    PlayerSlash,
     /// Player projectile (Fireball / Hadouken). No knockback today;
     /// the projectile's own velocity carries the visual feedback.
     PlayerProjectile,
@@ -292,7 +302,7 @@ impl HitSource {
     pub fn is_attacker_side(&self) -> bool {
         matches!(
             self,
-            HitSource::PlayerSlash { .. }
+            HitSource::PlayerSlash
                 | HitSource::PlayerProjectile
                 | HitSource::PogoBounce
                 | HitSource::EnemyChargeCrash
@@ -309,7 +319,7 @@ impl HitSource {
     pub fn defaults_to_primary_attacker(&self) -> bool {
         matches!(
             self,
-            HitSource::PlayerSlash { .. } | HitSource::PlayerProjectile | HitSource::PogoBounce
+            HitSource::PlayerSlash | HitSource::PlayerProjectile | HitSource::PogoBounce
         )
     }
 }
@@ -435,10 +445,11 @@ pub struct HitEvent {
     /// Reaction mode for player victims (`Knockback` / `SafeRespawn`).
     /// Ignored for non-player targets.
     pub mode: HitMode,
-    /// Knockback impulse to apply to the victim. `None` for impulse-
-    /// free sources (player slash uses its own per-source `knock_x`
-    /// field on `HitSource::PlayerSlash`; pogo / player-projectile
-    /// don't push their target around).
+    /// Knockback impulse to apply to the victim, and **the only channel that
+    /// carries one**. `None` means this hit genuinely does not push its target
+    /// (pogo, player projectile). ⛔ a source-specific impulse field is not an
+    /// alternative spelling — see [`HitSource::PlayerSlash`] for the one that
+    /// existed and what it cost.
     pub knockback: Option<HitKnockback>,
     /// Target keys that have already been hit by this one-hit-per-
     /// target source. Empty for ordinary one-frame projectiles /
@@ -459,7 +470,7 @@ mod attacker_default_tests {
 
     #[test]
     fn only_legacy_player_sources_default_to_the_primary_attacker() {
-        assert!(HitSource::PlayerSlash { knock_x: 0.0 }.defaults_to_primary_attacker());
+        assert!(HitSource::PlayerSlash.defaults_to_primary_attacker());
         assert!(HitSource::PlayerProjectile.defaults_to_primary_attacker());
         assert!(HitSource::PogoBounce.defaults_to_primary_attacker());
         assert!(!HitSource::EnemyChargeCrash.defaults_to_primary_attacker());

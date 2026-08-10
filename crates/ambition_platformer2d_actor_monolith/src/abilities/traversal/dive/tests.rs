@@ -53,6 +53,24 @@ fn dive_lunges_the_player_forward_and_cuts_a_corridor() {
         ),
         "player-side source so it spares the player",
     );
+    // ⭐⭐ **the authored shove must be ON the event, at its authored strength.**
+    // It used to ride `HitSource::PlayerSlash { knock_x }`, a second physics
+    // channel whose consumer read only the SIGN and substituted `FeelScale(1.0)`
+    // — so `DIVE_KNOCKBACK` reached no victim for as long as the channel existed,
+    // and the hit was indistinguishable from one with no shove authored at all.
+    // ⛔ that is the exact shape the campaign forbids: *a successful authored
+    // launch strike must not be representable as a hit with silently missing
+    // knockback.* Assert the magnitude, not merely that something is attached.
+    let knockback = hits[0]
+        .knockback
+        .as_ref()
+        .expect("an authored dive shove reaches the victim as a HitKnockback");
+    assert_eq!(knockback.dir, 1.0, "shoved along the lunge");
+    assert_eq!(
+        knockback.magnitude,
+        crate::features::HitKnockbackMagnitude::FeelScale(DIVE_KNOCKBACK),
+        "the authored DIVE_KNOCKBACK arrives intact — a sign-only channel loses it"
+    );
     // The corridor spans the dash: from start (100) to landing (240) along x.
     assert!(
         hits[0].volume.bounds().min.x <= 100.0

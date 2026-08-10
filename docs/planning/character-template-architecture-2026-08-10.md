@@ -96,6 +96,29 @@ legacy (`ArchetypeSpec` 319, roster/enemies module 1,198,
 and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
 −2400 old* means the old model was wrapped rather than removed.
 
+## ⇥ Evidence for PHASE 5, found in the wild (2026-08-10)
+
+The brief says provocation *"reconstructs the actor as another mechanical
+creature"* and lists the machinery to delete. ⭐ **queue D74 found the same
+machinery running on POSSESSION, with a measured consequence**, which is a
+sharper witness than the provocation case because nobody was even provoking:
+
+`brain_command::apply_catalog_mode` → `autonomous_reconcile::peaceful_config`
+rebuilds a possessed body's `tuning` wholesale — `max_health: 1`, NPC patrol
+speeds, default `CombatCapabilities`, the kit's action set, and **`is_aerial`
+read off the CATALOG's `body_kind`**. It keys on `config.sprite_character_id`,
+so which row it finds depends on what that id resolves to.
+
+⇒ registering `perfect_cellular_automaton` makes a `body_kind: Floating` row
+reachable where it was not, the possessed body floats, and it plays `attack_air`
+instead of its grounded swing — against an archetype that says
+`is_aerial: Some(false)` and calls it a grounded-base hybrid.
+
+⚠ **so phase 5 is not only about hostility.** Any control transfer that runs
+this path re-decides the body's vitals and gravity from a different authority
+than the one that built it. Deleting the rebuild removes the `is_aerial`
+arbitration's hardest case as a side effect.
+
 ## ⇥ Phase 1 progress (agent, keep this current)
 
 * ✔ **the field-ownership ledger** — appendix A, all 49 `ArchetypeSpec` fields

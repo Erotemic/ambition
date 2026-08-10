@@ -4227,3 +4227,108 @@ And none of those needs an `ArchetypeSpec`.
 In fact, I'd add an explicit requirement to the D73 agent: **once the common character constructor exists, use `PreparedMatch` as one of the proving grounds. Remove its `CharacterRoster`/`ArchetypeSpec` dependency and see how much of the current generic `smash_fighter_kit()` / `fighter_abilities` leveling machinery becomes unnecessary.**
 
 That would give us a very strong end-to-end proof that the architecture is actually professionalized: **the same Fretjaw definition works in the Hall, in a normal hostile encounter, under possession, and in Smash, with only controller and contextual rules changing.**
+
+---
+
+# ⇥ APPENDIX E (agent, 2026-08-10) — the `CharacterSpawnPlan` shape, DERIVED
+
+Appendix C's item 2 says build the common construction contract before
+migrating group A content, and warns: *"do not make this one giant bag of every
+possible placement field"* and *"do not preserve two physical-body constructors
+merely by making their internals look similar."* This appendix derives the
+shape from what the two existing plans actually hold, so the next session
+implements rather than invents.
+
+## ⭐ THE LOAD-BEARING DISTINCTION: this is an UPSTREAM layer, not a merge
+
+`EnemyActorSpawnPlan` and `NpcActorSpawnPlan` (both in
+`features/ecs/spawn_actors.rs`) are **already-lowered** plans. By the time
+either exists, the brain is BUILT, the action set is RESOLVED, the combat kit is
+COMPUTED and the `ActorClusterSeed` is CONSTRUCTED FROM THE ARCHETYPE. Merging
+them would produce one struct that still asks the archetype what the body is —
+appendix C's *"archetype-built creature + character overlay"* with fewer types.
+
+`CharacterSpawnPlan` sits ABOVE both. It is what a placement lowers TO and what
+construction reads FROM, before any of the above has been decided.
+
+```text
+NpcSpawn / EnemySpawn / EncounterMobSpec / SummonSpec / MatchParticipant
+        ↓                       (each authoring surface stays distinct)
+CharacterSpawnPlan  { character, controller, context }
+        +
+PreparedCharacterDefinition
+        ↓                       (ONE character-body construction)
+generic runtime ECS components
+```
+
+## What the two current plans hold, classified
+
+Measured, not recalled — `spawn_actors.rs:323` and `:498`.
+
+**Shared by both (9)** — `entity_name`, `feature_id`, `feature_name`,
+`feature_aabb`, the `ActorClusterSeed`, `brain`, `action_set`, `combat_kit`,
+`aggression`.
+
+**Enemy only (3)** — `faction`, `held_item`, `moveset`.
+
+**NPC only (3)** — `render_size`, `interactable`, `brain_binding`.
+
+⇒ **the overlap is not evidence of a shared plan; it is evidence of a shared
+CONSTRUCTOR.** Nine of twelve fields agree because both paths build the same
+kind of body, and every one of the nine is an OUTPUT of resolution rather than
+an authored input. The three-and-three that differ are the genuine contextual
+additions the correction says to keep out of the common plan.
+
+## The proposed shape
+
+```text
+CharacterSpawnPlan {
+    character: CharacterId,                        // which template is instantiated
+    controller: ControllerBinding,                 // human seat / autonomous / replay
+    autonomous_profile_override: Option<BrainProfileId>,
+    context: SpawnContext,                         // where, whose, under what rules
+}
+```
+
+* **`character`** — from `EnemySpawnSpec::gameplay_character_id()` (landed),
+  `NpcSpawn.character_id`, `MatchParticipant.character`, `EncounterMobSpec`'s
+  migrated field. ⛔ never from a display name and never from a sprite id.
+* **`controller`** — the axis Smash already states correctly
+  (appendix D §5): *"Character = Sanic, Controller = Cpu { brain_profile }"*.
+  A placement that says nothing is autonomous.
+* **`autonomous_profile_override`** — the placement's `brain_override`. Its
+  precedence against the definition's default is ALREADY IMPLEMENTED in
+  `resolve_initial_brain`; this field is just where the override travels.
+* **`context`** — `SpawnContext` carries what the placement decided that is not
+  the character: the spawn `aabb`, the feature identity (`feature_id` /
+  `feature_name` / `entity_name`), faction, disposition/aggression, respawn
+  policy, encounter membership, patrol paths. ⚠ **this is the field that will
+  rot into the giant bag** if it is allowed to accept anything; the rule that
+  keeps it honest is that every member must be a decision the PLACEMENT made,
+  never a fact the CHARACTER states.
+
+## Where the three current outputs go
+
+* `brain` / `brain_binding` — DERIVED inside construction from `controller` +
+  `autonomous_profile_override` + the definition's default. Not plan fields.
+* `action_set` / `moveset` / `combat_kit` / `held_item` — DERIVED from the
+  prepared definition. Not plan fields. These are exactly the facts phase 2
+  moves off the archetype, which is why the plan cannot be finished before
+  phase 2 starts and phase 2 cannot be finished before the plan exists — they
+  interleave per character rather than sequencing.
+* `render_size` / `interactable` — presentation and interaction attachments,
+  contextual additions on the NPC path.
+
+## The order to build it in
+
+1. `SpawnContext` first, from the enemy path only, carrying today's contextual
+   fields verbatim. It is the piece with no ambiguity.
+2. `CharacterSpawnPlan` around it, with `character` populated from the accessor
+   that already exists and `controller` a two-variant enum (human seat /
+   autonomous) — resist widening it before a third caller needs it.
+3. Route the authored enemy through it, keeping `EnemyActorSpawnPlan` as the
+   lowered result. ⭐ the harness for this already exists:
+   `mod authored_enemy_reads_its_character`.
+4. Then the NPC path, then encounter/programmatic/summon, then `PreparedMatch`
+   — which appendix D names as the proving ground and which is where the
+   `CharacterRoster` dependency finally comes out.

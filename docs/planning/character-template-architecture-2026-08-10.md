@@ -81,8 +81,8 @@ path works beside the old one.
 
 | # | Phase | State |
 |---|---|---|
-| 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ▢ **in progress** — see "phase 1 progress" below |
-| 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ |
+| 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the EXPRESSIVENESS half is done** — death traits, knockback weight and a default autonomous profile are authorable and adopted; see "phase 1 progress". ▢ what remains is the TYPE MOVE (into `ambition_characters`) and the remaining intrinsic facts, most of which need phase 3's consumer |
+| 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ **mapped, not started** — see APPENDIX B; start with the mites, whose facts already have somewhere to go |
 | 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ▢ |
 | 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
 | 5 | Controller/provocation simplification; rollback becomes controller-only | ▢ |
@@ -2358,6 +2358,110 @@ The answer should be:
 > ECS runtime underneath it has already been unified. The expensive part is the
 > content/construction migration; the simulation core largely does not need to be
 > reinvented.
+
+---
+
+# ⇥ APPENDIX B (agent, 2026-08-10) — the PHASE 2 migration map
+
+⚠ **agent-added, below Jon's brief.** Phase 2 moves authored facts out of
+`character_archetypes.ron` into character definitions. This is the map that
+work needs, measured rather than guessed, plus the three structural facts that
+decide its shape.
+
+## ⛔ FACT 1 — the two authorities share NO ids at all
+
+```text
+archetype rows in ambition_content    24
+catalog rows                         133
+ids present in BOTH                    0
+```
+
+An archetype is keyed by a BRAIN name (`cellular_automaton_fighter`); a
+character by a character id (`perfect_cellular_automaton`). ⇒ **there is no
+derivable mapping between them.** The join exists only as authoring convention
+in the world files, so phase 2 cannot be a mechanical rename — every pairing is
+a decision somebody has to make once.
+
+## ⭐ FACT 2 — the DEMOS already did this migration; Ambition's content did not
+
+Only four archetypes author a `character_id` on their spawns, and all four
+belong to provider demos:
+
+```text
+mary_o_ai_slop                     → ai_slop                        (14 spawns)
+mary_o_snake                       → solid_snake                     (6)
+mary_o_snakes_on_a_cartesian_plane → npc_snakes_on_a_cartesian_plane (2)
+mary_o_snakes_on_a_paper_plane     → npc_snakes_on_a_paper_plane     (2)
+sanic_badnik                       → sanic_badnik                    (4)
+```
+
+Every Ambition-content archetype authors `character_id: None`. ⇒ the pattern the
+brief asks for is already shipped by the newer content, which is a useful
+existence proof and a reason to expect the shape to work.
+
+## FACT 3 — one character already wears FOUR different brains
+
+`Puppy Slug` is spawned under `puppy_slug` ×10, `Guard:96` ×1,
+`Patrol:lab_patrol_line` ×1, and `medium_striker` ×1. ⭐ **that is the campaign's
+worked example in one row**: under the new model it is one `puppy_slug`
+definition spawned four times, three of them with an explicit controller
+override — and `Guard:96` / `Patrol:lab_patrol_line` are exactly the
+`CharacterBrain::{Guard, Patrol}` conflation the brief says to delete, caught in
+authored content rather than argued from the type.
+
+## The map — 21 archetypes, three groups
+
+⚠ **`✓` means the spawn's NAME is a catalog display name**, i.e. a character
+already exists to migrate onto. `—` means it is a role name.
+
+### Group A — clean 1:1, migrate first (9 archetypes, 36 spawns)
+
+| archetype | character | spawns |
+|---|---|---:|
+| `puppy_slug` | Puppy Slug | 10 |
+| `burning_flying_shark` | Burning Flying Shark | 7 |
+| `pirate_shark_rider` | Pirate Raider | 6 |
+| `exploding_mite` | Exploding Mite | 5 |
+| `dividing_mite` | Dividing Mite | 3 |
+| `sky_parrot` | Stochastic Parrot | 2 |
+| `giant_gnu` | Giant GNU | 1 |
+| `pirate_heavy_shark_rider` | Iron Mary | 1 |
+| `ai_slop` | Ai Slop | 1 |
+
+⭐ **start here, and start with the MITES**: their `explodes_on_death` /
+`divides_on_death` are already expressible on a definition (landed 2026-08-10),
+so they are the only group whose facts have somewhere to go today.
+
+### Group B — one archetype, MANY characters (the ontology problem, stated)
+
+`medium_striker`, 9 spawns: **Lab Raider ✓, Puppy Slug ✓**, and seven role
+names — `under_town_skitter`, `medium striker`, `annex_goblin_a/b`,
+`pg_goblin_a/b/c`. ⇒ one behaviour rented by two real characters and seven
+unnamed things. `gradient_seeker` is the same shape at smaller scale
+(Salvage Guard ✓ + `gradient seeker` —).
+
+⛔ **this group cannot be migrated by moving facts.** Its archetype is a
+CONTROLLER PROFILE that several characters share, which is precisely the split
+the brief prescribes: the profile survives as a `BrainProfile`, and each spawn
+names its own character.
+
+### Group C — pure roles, no character exists (5 archetypes, 12 spawns)
+
+`ranged_skirmisher` (4 · "Skirmisher"), `sandbag_finite` (3),
+`sandbag_infinite` (2), `large_brute` (2), `small_skitter` (2).
+
+⇒ the brief's own instruction applies literally: *"if it is a fixture/debug/
+structural actor that does not deserve normal character authoring, give it an
+explicit low-level fixture/dev construction API. Do not pollute the shipped
+character registry with fake definitions solely to satisfy uniformity."* The
+sandbags are the clearest case; `large_brute` is the goblin-heavy casting call
+already sitting with Jon.
+
+⚠ **`combatant` and the other three archetypes with no spawns at all**
+(`large_colossus`, `pirate_heavy`, `player_robot`, `small_lurker`,
+`giant_gnu_hands`, `cellular_automaton_fighter`) are reached by CODE rather than
+by an authored placement — a fixture default, a boss part, a duel. Count them
+separately; a spawn census does not see them.
 
 ---
 

@@ -107,28 +107,29 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     // statement about the PCA, and the cost is real: the PCA is on
     // `SMASH_ROSTER`, so the grid is one portrait shorter.
     //
-    // ⇥ **RE-MEASURED 2026-08-10 (queue D74).** Registering it was tried again
-    // with the fragile `fly_frames > 0` assertion already replaced by a direct
-    // flight test. `duel_arena` went green; `possession_end_to_end::attack_
-    // while_possessing_starts_the_possessed_actors_melee_not_the_home` went RED
-    // instead — the possessed actor IS the PCA.
+    // ⇥ **DIAGNOSED 2026-08-10 (queue D74), and it is none of the three things
+    // this comment and its successors guessed.** Registering it reds
+    // `possession_end_to_end::attack_while_possessing_…`, whose possessed actor
+    // IS the PCA. Probed, in order:
     //
-    // ⛔ **and the obvious explanation is REFUTED, by probe.** The registered
-    // PCA's kit is intact: `ActorMoveset` carries all seven attack verbs
-    // (`attack`, `attack_up/down`, the four aerials) and its `ActionSet.melee`
-    // is `Some`. Its catalog row declares `default_action_set: "striker_swipe"`,
-    // which the finalization fold uses when a definition authors none, so a bare
-    // registration does NOT leave this character kitless.
+    //   * the kit is NOT lost — the body carries all seven attack verbs and
+    //     `ActionSet.melee = Some` (the row's `striker_swipe` folds in);
+    //   * the sampler is NOT missing frames — `world_log::frame()` advances
+    //     exactly **1 per `sim.step`** for all 30 steps;
+    //   * ⭐ **the body is AIRBORNE.** Its live `MovePlayback` is `attack_air`,
+    //     `gates: grounded: Some(false)`, `was_grounded: false`.
     //
-    // ⚠ what actually differs is TIMING: the archetype swipe is 0.24/0.08/0.30
-    // and `striker_swipe` is 0.28/0.08/0.32, and that test samples live `Hitbox`
-    // components once per `sim.step` while a step advances MANY sim frames. An
-    // 0.08 s active window is ~5 frames; shifting it relative to the sample grid
-    // can hide it entirely. ⇒ the likely fault is the sampling, not the swing —
-    // the same family as the `fly_frames` assertion, one test over. NOT YET
-    // PROVEN, and it is what to test first.
+    // ⇒ **registering it flips the PCA from grounded to floating**, because the
+    // catalog row says `body_kind: Floating` while its archetype says
+    // `is_aerial: Some(false)` — *"grounded-base HYBRID … descends on provoke"*.
+    // Two authorities, one body, and registration is what hands the fight to the
+    // catalog. The aerial variant then plays instead of the grounded swing.
     //
-    // ⇒ reverse this line once that is settled.
+    // ⭐ this is judgement call #1 in the D73 field-ownership appendix, hit in
+    // the wild: the `is_aerial` two-source conflict, whose own field doc already
+    // named the PCA as the live case. ⇒ **the row unblocks when D73 phase 2
+    // resolves that conflict**, not before, and resolving it is a decision about
+    // how this character should PLAY rather than a bug fix.
     "stochastic_parrot", // the parrot
     "sandbag",           // the training dummy, playable for laughs
     // ── The fighters the smash grid offers ───────────────────────────────────

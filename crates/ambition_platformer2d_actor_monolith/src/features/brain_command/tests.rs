@@ -74,6 +74,8 @@ fn spawn_npc(app: &mut App, sim: &str, character_id: &str, anchor_x: f32) -> Ent
         &cat,
         character_id,
         None,
+        // No definition-authored default: this fixture is about the catalog path.
+        None,
         &ambition_characters::actor::character_catalog::BrainBuildContext::at(anchor_x),
     )
     .expect("catalog default resolves");

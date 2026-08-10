@@ -455,12 +455,40 @@ pub fn resolve_initial_brain(
     catalog: &CharacterCatalog,
     character_id: &str,
     authored_override: Option<&str>,
+    // **The character DEFINITION's default autonomous profile**, when it names
+    // one. Jon, 2026-08-10: *"a character definition may name a default
+    // autonomous-controller profile … that does not mean the controller is
+    // intrinsic identity."* It outranks the catalog row's `default_brain` and is
+    // outranked by an authored placement override, which is the whole precedence
+    // rule in one line.
+    //
+    // ⚠ **a bare `&str`, not a registry handle, and deliberately.** The prepared
+    // registry lives two crates up; passing the resolved NAME keeps this function
+    // where it belongs and keeps the layering intact. The caller looks it up.
+    //
+    // ⭐ it reaches [`BrainBinding::default_preset`] — the field whose doc already
+    // says *"restoring the default rebuilds a fresh brain from THIS preset"* — so
+    // no new [`AutonomousSource`] variant is needed and the rollback shape is
+    // unchanged. `CatalogDefault` keeps meaning *"the character's default"*; only
+    // who gets to state it has widened.
+    definition_default: Option<&str>,
     ctx: &BrainBuildContext,
 ) -> Result<(BrainBinding, Brain), BrainBuildError> {
     let entry = catalog
         .get(character_id)
         .ok_or_else(|| BrainBuildError::UnknownCharacter(character_id.to_string()))?;
-    let default_preset = BrainPresetId::new(entry.default_brain.clone());
+    let default_preset = BrainPresetId::new(
+        match definition_default
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+        {
+            // Qualified the same way an authored override is: a raw local name
+            // resolves inside the character's own provider namespace, so a definition
+            // and a placement cannot mean different things by the same word.
+            Some(name) => qualify_preset_like(entry.default_brain.as_str(), name),
+            None => entry.default_brain.clone(),
+        },
+    );
 
     // Interpret the authored field: empty/whitespace means "use the default".
     let override_name = authored_override.map(str::trim).filter(|s| !s.is_empty());
@@ -547,7 +575,22 @@ mod tests {
         authored: Option<&str>,
         ctx: BrainBuildContext,
     ) -> Result<(BrainBinding, Brain), BrainBuildError> {
-        resolve_initial_brain(&catalog(), cid, authored, &ctx)
+        resolve_initial_brain(&catalog(), cid, authored, None, &ctx)
+    }
+
+    /// The definition-authored default, for the precedence tests below.
+    fn resolve_with_definition(
+        cid: &str,
+        authored: Option<&str>,
+        definition_default: Option<&str>,
+    ) -> Result<(BrainBinding, Brain), BrainBuildError> {
+        resolve_initial_brain(
+            &catalog(),
+            cid,
+            authored,
+            definition_default,
+            &BrainBuildContext::at(0.0),
+        )
     }
 
     /// #1 — a puppy slug with no override receives its `wanderer_puppy_slug`
@@ -729,5 +772,68 @@ mod tests {
             AuthoredBrainContext::from_placement(100.0, 0.0).patrol_radius,
             None
         );
+    }
+    /// **A DEFINITION may state the character's normal autonomous behaviour, and
+    /// it outranks the catalog row.** (Jon, 2026-08-10 — queue D73 phase 1)
+    ///
+    /// ⚠ this is the ruling that reversed a standing invariant. The design docs
+    /// said a character definition may not carry a default brain at all, on the
+    /// grounds that control is a session binding. Jon's refinement keeps that —
+    /// the CURRENT controller is still session state — while letting a character
+    /// say what it normally does when nothing overrides it: *"possessing a Goblin
+    /// changes who drives the Goblin. It does not change what a Goblin is."*
+    #[test]
+    fn a_definitions_default_profile_outranks_the_catalog_rows() {
+        let (binding, brain) =
+            resolve_with_definition("npc_puppy_slug", None, Some("patrol_peaceful")).unwrap();
+        assert_eq!(
+            brain.label(),
+            "patrol",
+            "the definition named `patrol_peaceful`; the catalog row says \
+             `wanderer_puppy_slug` and must not win"
+        );
+        assert_eq!(
+            binding.default_preset.as_ref().map(|p| p.as_str()),
+            Some("patrol_peaceful"),
+            "the binding's DEFAULT is what a later `restore_default` rebuilds from, \
+             so the definition's choice has to land there rather than beside it"
+        );
+        assert_eq!(binding.source, AutonomousSource::CatalogDefault);
+    }
+
+    /// ⛔ **and an authored PLACEMENT override still wins over both.** A scene
+    /// that deliberately says "this one is a guard" outranks what the character
+    /// normally does, which is the entire reason the override exists.
+    #[test]
+    fn an_authored_override_still_outranks_the_definitions_default() {
+        let (binding, brain) = resolve_with_definition(
+            "npc_puppy_slug",
+            Some("stand_still"),
+            Some("patrol_peaceful"),
+        )
+        .unwrap();
+        assert_eq!(brain.label(), "stand_still");
+        assert!(matches!(binding.source, AutonomousSource::CatalogPreset(_)));
+        assert_eq!(
+            binding.default_preset.as_ref().map(|p| p.as_str()),
+            Some("patrol_peaceful"),
+            "the DEFAULT the override masks is still the definition's, so releasing \
+             the override returns the body to what its character normally does"
+        );
+    }
+
+    /// The parity case: a definition that says nothing changes nothing. Every
+    /// character in the repo is this one today.
+    #[test]
+    fn a_silent_definition_leaves_the_catalog_default_standing() {
+        for silent in [None, Some(""), Some("   ")] {
+            let (binding, brain) = resolve_with_definition("npc_puppy_slug", None, silent).unwrap();
+            assert_eq!(brain.label(), "wanderer", "silent = {silent:?}");
+            assert_eq!(
+                binding.default_preset.as_ref().map(|p| p.as_str()),
+                Some("wanderer_puppy_slug"),
+                "silent = {silent:?}"
+            );
+        }
     }
 }

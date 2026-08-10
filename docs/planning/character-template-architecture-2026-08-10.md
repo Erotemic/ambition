@@ -176,6 +176,20 @@ whether or not it explains the PCA.
   splits on death could say so as an archetype and no registered character could
   say it at all. That is the incompleteness the brief describes, in its smallest
   reproducible form.
+* ✔ **the default-autonomous-profile SEAM exists** —
+  `resolve_initial_brain(catalog, id, authored_override, definition_default,
+  ctx)`. Precedence, tested three ways: an authored placement override beats a
+  definition's default beats the catalog row's. It lands on
+  `BrainBinding::default_preset`, whose doc already says a `restore_default`
+  rebuilds from that preset, so **no new `AutonomousSource` variant and no
+  rollback shape change** — `CatalogDefault` still means *"the character's
+  default"*, only who may state it widened. Qualified through
+  `qualify_preset_like`, so a definition and a placement cannot mean different
+  things by the same word.
+  ▢ **the NPC spawn path still passes `None`**, because
+  `PreparedCharacterRegistry` is three signatures away (`spawn_interactable_into`
+  → `NpcActorSpawnPlan::peaceful` → `resolve_npc_brain`). That thread is the next
+  slice; passing `None` is exactly today's behaviour, so nothing is half-applied.
 * ⚠ **`a_definition_carries_no_controller_binding` is where the brief's ruling
   lands.** That test destructures `CharacterDefinition` exhaustively and says
   *"if `default_brain` is ever added, this stops compiling and the reviewer has

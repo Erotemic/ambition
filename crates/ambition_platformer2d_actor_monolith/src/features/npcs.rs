@@ -93,6 +93,19 @@ pub(crate) fn resolve_npc_brain(
         catalog,
         cid,
         brain_override.as_deref(),
+        // ▢ **the definition's default autonomous profile — NOT WIRED HERE YET**
+        // (D73 phase 1, 2026-08-10). The seam exists and is tested at
+        // `resolve_initial_brain`: a definition's profile outranks the catalog
+        // row and is outranked by an authored override. What is missing is the
+        // LOOKUP, because `PreparedCharacterRegistry` is not in scope on this
+        // path — it would have to thread through `spawn_interactable_into` →
+        // `NpcActorSpawnPlan::peaceful` → here, three signatures deep.
+        //
+        // ⚠ passing `None` is exactly today's behaviour, so nothing is pending
+        // in the sense of being half-applied; the NPC path simply has not
+        // adopted the seam. Named here rather than in a doc, because this is
+        // where a reader asks the question.
+        None,
         &authored.build_context(),
     ) {
         Ok((binding, brain)) => (brain, Some((binding, authored))),

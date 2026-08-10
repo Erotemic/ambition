@@ -347,14 +347,25 @@ fn two_providers_cannot_author_the_same_stable_id() {
     );
 }
 
-/// §4.7: a definition describes a BODY. Control assignment is a session binding,
-/// so there is nowhere on this type to put a brain — asserted structurally by the
-/// fact that a full definition is constructible without one.
+/// §4.7: a definition describes a BODY. **The CURRENT controller is a session
+/// binding**, so there is nowhere on this type to put one — asserted structurally
+/// by the fact that a full definition is constructible without one.
+///
+/// ⚠ **the invariant was narrowed by Jon on 2026-08-10, and this doc used to
+/// state the wider one.** It said a definition may carry no brain at all. His
+/// character-template ruling distinguishes the two: a definition MAY name a
+/// default autonomous PROFILE — what this character normally does when nothing
+/// overrides it — and may not name who is driving right now. *"Possessing a
+/// Goblin changes who drives the Goblin. It does not change what a Goblin is."*
+/// ⇒ the seam for that default is `resolve_initial_brain`'s
+/// `definition_default` parameter (queue D73 phase 1); when the field lands on
+/// this type, add it to the destructure with that reasoning rather than
+/// deleting this test — the rule it guards, no CURRENT controller, still holds.
 #[test]
 fn a_definition_carries_no_controller_binding() {
     let def = mary_o();
-    // If `default_brain` is ever added, this stops compiling as written and the
-    // reviewer has to justify it against §4.7.
+    // If a CURRENT-controller field is ever added, this stops compiling as
+    // written and the reviewer has to justify it against §4.7.
     let CharacterDefinition {
         id: _,
         display_name: _,

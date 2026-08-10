@@ -182,6 +182,9 @@ impl ShadowTuning {
                 knockback_x: 220.0,
                 knockback_y: 260.0,
                 hitstun_time: 0.35,
+                hitstun_reference_launch:
+                    ambition_platformer2d_core::hit_response::STANDARD_LAUNCH_SPEED,
+                hitstun_max_scale: ambition_platformer2d_core::hit_response::MAX_HITSTUN_SCALE,
                 di_max_angle: 0.0,
             },
             assumed_foe_reach: 60.0,
@@ -219,6 +222,9 @@ impl ShadowTuning {
                 knockback_x: 0.0,
                 knockback_y: 0.0,
                 hitstun_time: 0.0,
+                hitstun_reference_launch:
+                    ambition_platformer2d_core::hit_response::STANDARD_LAUNCH_SPEED,
+                hitstun_max_scale: ambition_platformer2d_core::hit_response::MAX_HITSTUN_SCALE,
                 di_max_angle: 0.0,
             },
             gravity: movement.gravity,

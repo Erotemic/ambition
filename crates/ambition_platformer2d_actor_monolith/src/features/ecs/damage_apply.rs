@@ -79,6 +79,12 @@ pub(crate) fn hit_response_tuning(
         } else {
             feel.enemy_hitstun_time
         },
+        // ⭐ **hitstun scales with the LAUNCH now**, against this reference — the
+        // mechanic that makes a follow-up possible after a big hit and
+        // impossible after a jab. The two constants above stay what they were:
+        // the duration a REFERENCE-strength hit arms.
+        hitstun_reference_launch: ae::hit_response::STANDARD_LAUNCH_SPEED,
+        hitstun_max_scale: ae::hit_response::MAX_HITSTUN_SCALE,
         di_max_angle: feel.di_max_angle,
     }
 }
@@ -769,7 +775,13 @@ pub(crate) fn resolved_body_knockback_velocity(
 /// [`resolved_body_knockback_velocity`] above.
 #[cfg(test)]
 fn knockback_reaction_scale(knockback: Option<&crate::combat::HitKnockback>) -> f32 {
-    ae::hit_response::reaction_scale(knockback)
+    ae::hit_response::reaction_scale(
+        knockback,
+        &hit_response_tuning(
+            &crate::time::feel::Platformer2dFeelTuningMonolith::default(),
+            false,
+        ),
+    )
 }
 
 /// The ONE post-hit launch + stagger arming for ANY struck body (§A2 steps

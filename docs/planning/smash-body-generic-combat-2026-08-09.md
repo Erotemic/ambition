@@ -631,6 +631,42 @@ message now, with no authoritative components beside it.
 reports 41 crates, and `ambition_render` no longer names anything from
 `ambition_vfx` but the message vocabulary.
 
+## The feel layer — measured 2026-08-09, and three of the four already exist
+
+⛔ **grep before building.** Jon's four highest-leverage feel items are not four
+green fields:
+
+| item | what is actually there |
+|---|---|
+| **move-facing snapshot** | ✔ **already correct.** `MovePlayback` captures `facing` at move start, every strike volume mirrors through it, nothing writes it afterwards. What was missing was a GUARD — now `a_live_strike_keeps_the_facing_its_move_started_with`, whose vacuity half asserts the body genuinely turned. |
+| **one authoritative move timeline** | ✔ largely there — `MovePlayback` owns startup/active/recovery windows and `BodyMelee` is already a projection of it (that was item 8's melee slice). |
+| **hitstop/hitlag** | ✔ present but ASYMMETRIC — `attack_hitstop_time` (0.055) for the attacker, `player_damage_hitstop_time` (0.070) for a player victim. ▢ an actor victim's hitstop and a single authored source are open. |
+| **landing lag / autocancel** | ▢ genuinely absent. |
+
+### ✔ hitstun scales with the launch (2026-08-09) — the one that was WRONG
+
+⭐⭐ **`reaction_scale` returned a flat `1.0` for every authored `LaunchSpeed`.**
+So a jab and a fully-grown smash armed *identical* hitstun: a launched fighter
+recovered as fast at 150% as at 0%, and the knockback growth the strike had
+already computed reached the victim's VELOCITY and stopped there.
+
+⇒ **there was no combo game, structurally.** Bigger launch → longer stun →
+victim cannot act → follow-up connects is the whole platform-fighter loop, and
+per Jon's ruling it is documented genre mechanics rather than a taste call.
+
+The launch now scales against `STANDARD_LAUNCH_SPEED` (150.0, chosen from what
+the tree authors — shipped melee bases sit in the 40–200 band), capped at
+`MAX_HITSTUN_SCALE` (4.0) because past that a launch is a kill, not a starter.
+Both are named constants on the tuning row: **Jon dials feel by editing a
+number, which is the test of whether this is finished.**
+
+⚠ **BLIND feel change, stated**: a reference-strength hit is unchanged, a poke
+stuns less (floored at 0.35), a grown smash stuns up to 4×.
+
+⭐ the test that pinned the old behaviour was *right about its own concern* — a
+launch SPEED must never be read as a bare scale, or 120 px/s arms 120× the
+hitstun. That poison is kept; only the flatness went.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

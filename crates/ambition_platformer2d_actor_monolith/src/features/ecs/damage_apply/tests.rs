@@ -367,22 +367,51 @@ fn goblin_melee_knockback_is_an_absolute_launch_speed() {
     );
 }
 
+/// ⭐⭐ **Hitstun scales with the LAUNCH, and never with the launch's bare
+/// number.**
+///
+/// Two claims, and the second is why this test predates the first. An authored
+/// melee launch is a SPEED in engine units — reading `LaunchSpeed(120.0)` as a
+/// reaction scale would arm 120× the standard hitstun, which is the bug this
+/// test was originally written to forbid. It forbade it by returning a flat
+/// `1.0`, and that flatness was itself the defect: a jab and a fully-grown
+/// smash stunned a victim for exactly as long, so nothing could ever be
+/// followed up and the knockback growth the strike had already computed reached
+/// the victim's velocity and stopped there.
+///
+/// The launch scales against a reference speed. Both claims hold: proportional
+/// to the launch, and never the raw number.
 #[test]
-fn absolute_launch_speed_does_not_scale_hitstun_as_a_bare_number() {
-    let knockback = crate::combat::HitKnockback {
-        dir: 1.0,
-        magnitude: crate::combat::HitKnockbackMagnitude::LaunchSpeed(120.0),
-        source_pos: ae::Vec2::ZERO,
-        impact_pos: ae::Vec2::ZERO,
-        launch_dir: None,
+fn hitstun_scales_with_the_launch_and_never_with_its_bare_number() {
+    let at = |magnitude| {
+        knockback_reaction_scale(Some(&crate::combat::HitKnockback {
+            dir: 1.0,
+            magnitude,
+            source_pos: ae::Vec2::ZERO,
+            impact_pos: ae::Vec2::ZERO,
+            launch_dir: None,
+        }))
     };
-    assert_eq!(knockback_reaction_scale(Some(&knockback)), 1.0);
+    use ae::hit_response::{MAX_HITSTUN_SCALE, STANDARD_LAUNCH_SPEED};
+    use crate::combat::HitKnockbackMagnitude::{FeelScale, LaunchSpeed};
 
-    let scaled = crate::combat::HitKnockback {
-        magnitude: crate::combat::HitKnockbackMagnitude::FeelScale(0.6),
-        ..knockback
-    };
-    assert_eq!(knockback_reaction_scale(Some(&scaled)), 0.6);
+    // A reference-strength launch is the standard reaction, so the shipped feel
+    // numbers still mean what they said.
+    assert!((at(LaunchSpeed(STANDARD_LAUNCH_SPEED)) - 1.0).abs() < 1e-6);
+    // ⭐ twice the launch, twice the stun — the combo mechanic.
+    assert!((at(LaunchSpeed(STANDARD_LAUNCH_SPEED * 2.0)) - 2.0).abs() < 1e-6);
+    // …and a poke stuns less.
+    assert!(at(LaunchSpeed(STANDARD_LAUNCH_SPEED * 0.25)) < 1.0);
+    // ⛔ the original poison, still live: the scale is never the bare speed. A
+    // 120 px/s launch must not arm 120x the standard hitstun.
+    assert!(
+        at(LaunchSpeed(120.0)) < 2.0,
+        "a launch SPEED read as a scale is the bug this test was written for"
+    );
+    // A kill-percent launch is capped — it is a kill, not a combo starter.
+    assert!((at(LaunchSpeed(STANDARD_LAUNCH_SPEED * 50.0)) - MAX_HITSTUN_SCALE).abs() < 1e-6);
+    // A feel multiplier is still exactly itself.
+    assert!((at(FeelScale(0.6)) - 0.6).abs() < 1e-6);
 }
 
 #[test]

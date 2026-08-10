@@ -54,6 +54,20 @@ pub struct HitKnockback {
     pub launch_dir: Option<Vec2>,
 }
 
+/// **The launch speed a standard authored melee strike carries.**
+///
+/// The reference `hitstun_reference_launch` defaults to, chosen from what the
+/// tree actually authors: shipped melee bases sit in the 40–200 band and the
+/// growth term pushes a well-fed strike past it. So an ordinary hit lands near
+/// the flat duration this replaces, a weak poke stuns less, and a grown smash
+/// stuns more — which is the point.
+pub const STANDARD_LAUNCH_SPEED: f32 = 150.0;
+
+/// Ceiling on hitstun's launch scaling. Four standard hits' worth of stun is
+/// already a long time to be unable to act; past that a launch is a kill, not a
+/// combo starter.
+pub const MAX_HITSTUN_SCALE: f32 = 4.0;
+
 /// The victim-side feel numbers one hit resolution needs, ALREADY selected by
 /// the caller (boss vs. enemy rows, difficulty — none of that is the
 /// kernel's business).
@@ -63,8 +77,22 @@ pub struct HitResponseTuning {
     pub knockback_x: f32,
     /// Standard feel-launch rise speed (engine units/s, against gravity).
     pub knockback_y: f32,
-    /// Standard hitstun duration (seconds) at `FeelScale(1.0)`.
+    /// Standard hitstun duration (seconds) at reaction scale `1.0`.
     pub hitstun_time: f32,
+    /// **The launch speed that counts as a standard hit.**
+    ///
+    /// An authored melee strike carries an absolute launch speed, and hitstun
+    /// scales with it against this reference: a strike launching at exactly
+    /// `hitstun_reference_launch` arms `hitstun_time`, one launching twice as
+    /// hard stuns twice as long. This is the dial that decides how combo-heavy
+    /// the game feels — raise it and every hit stuns less.
+    ///
+    /// ⚠ **`0.0` disables launch scaling**, restoring the flat behaviour, which
+    /// is what a build with no authored launch speeds wants.
+    pub hitstun_reference_launch: f32,
+    /// Ceiling on the reaction scale, so a launch at kill percent cannot stun
+    /// for seconds. Applied after the reference division.
+    pub hitstun_max_scale: f32,
     /// DI budget (radians). `0.0` disables directional influence entirely.
     pub di_max_angle: f32,
 }
@@ -109,16 +137,32 @@ pub fn di_adjust(launch: Vec2, di_input_local: Vec2, gravity_dir: Vec2, max_angl
 /// Dimensionless hitstun scale for a unit-bearing knockback event.
 ///
 /// A `FeelScale` explicitly scales the whole standard reaction, including
-/// hitstun. An absolute launch speed has no duration unit and therefore uses
-/// the standard hitstun duration rather than silently becoming another
-/// multiplier.
-pub fn reaction_scale(knockback: Option<&HitKnockback>) -> f32 {
+/// hitstun.
+///
+/// ⭐⭐ **an absolute launch speed scales it too, against
+/// [`HitResponseTuning::hitstun_reference_launch`] — and THAT is the mechanic
+/// combos are made of.** This arm used to return a flat `1.0`, so a jab and a
+/// fully-grown smash armed identical hitstun: a launched fighter recovered just
+/// as fast at 150% as at 0%, nothing could ever be followed up, and the
+/// knockback growth the strike had already computed reached the victim's
+/// VELOCITY and stopped there. Bigger launch, longer stun, follow-up connects —
+/// that is the whole platform-fighter loop, and it is standard, documented
+/// behaviour rather than a taste call.
+///
+/// ⚠ a `0.0` reference disables the scaling and restores the flat answer, which
+/// is right for a build authoring no launch speeds.
+pub fn reaction_scale(knockback: Option<&HitKnockback>, tuning: &HitResponseTuning) -> f32 {
     let Some(knockback) = knockback else {
         return 0.0;
     };
     match knockback.magnitude {
         HitKnockbackMagnitude::FeelScale(scale) => scale.max(0.0),
-        HitKnockbackMagnitude::LaunchSpeed(_) => 1.0,
+        HitKnockbackMagnitude::LaunchSpeed(launch) => {
+            if tuning.hitstun_reference_launch <= 0.0 {
+                return 1.0;
+            }
+            (launch.max(0.0) / tuning.hitstun_reference_launch).min(tuning.hitstun_max_scale)
+        }
     }
 }
 
@@ -126,7 +170,7 @@ pub fn reaction_scale(knockback: Option<&HitKnockback>) -> f32 {
 /// the floor that keeps even a soft hit a readable beat. One expression, two
 /// callers — the authoritative victim path and the shadow rollout.
 pub fn hitstun_duration(knockback: Option<&HitKnockback>, tuning: &HitResponseTuning) -> f32 {
-    tuning.hitstun_time * reaction_scale(knockback).max(0.35)
+    tuning.hitstun_time * reaction_scale(knockback, tuning).max(0.35)
 }
 
 /// THE frame-agnostic knockback velocity for ANY struck body (§A2 step 6):

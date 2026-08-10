@@ -105,6 +105,16 @@ pub struct DisplacedPhysicals {
     /// the component rather than inventing the ambient 1.0 — a distinction
     /// `Vitals::mass` already documents.
     pub mass: Option<Option<f32>>,
+    /// The knockback weight a persona overwrote. `None` = no persona has ever
+    /// set one, so nothing here may write it.
+    ///
+    /// ⚠ **a plain `Option`, not the nested one `mass` needs**, and the
+    /// difference is real rather than an inconsistency: weight lives on
+    /// `CombatTuning`, which a clustered body always carries and which this path
+    /// must never remove — removing it would take the body out of the actor
+    /// cluster query. Retraction here restores a VALUE; there is no absence to
+    /// restore.
+    pub knockback_weight: Option<f32>,
 }
 
 impl DisplacedPhysicals {
@@ -116,6 +126,7 @@ impl DisplacedPhysicals {
         incoming: Option<PhysicalBaseline>,
         live_max_health: Option<i32>,
         live_mass: Option<f32>,
+        live_knockback_weight: Option<f32>,
     ) -> Self {
         if self.max_health.is_none() && incoming.and_then(|incoming| incoming.max_health).is_some()
         {
@@ -123,6 +134,13 @@ impl DisplacedPhysicals {
         }
         if self.mass.is_none() && incoming.and_then(|incoming| incoming.mass).is_some() {
             self.mass = Some(live_mass);
+        }
+        if self.knockback_weight.is_none()
+            && incoming
+                .and_then(|incoming| incoming.knockback_weight)
+                .is_some()
+        {
+            self.knockback_weight = live_knockback_weight;
         }
         self
     }
@@ -138,6 +156,7 @@ impl DisplacedPhysicals {
 pub struct PhysicalRetraction {
     pub max_health: Option<i32>,
     pub mass: Option<Option<f32>>,
+    pub knockback_weight: Option<f32>,
 }
 
 impl PhysicalRetraction {
@@ -147,6 +166,7 @@ impl PhysicalRetraction {
     pub const NONE: Self = Self {
         max_health: None,
         mass: None,
+        knockback_weight: None,
     };
 
     /// What `incoming` leaves unclaimed, out of what personas have displaced.
@@ -161,6 +181,11 @@ impl PhysicalRetraction {
                 .and_then(|incoming| incoming.mass)
                 .is_none()
                 .then_some(displaced.mass)
+                .flatten(),
+            knockback_weight: incoming
+                .and_then(|incoming| incoming.knockback_weight)
+                .is_none()
+                .then_some(displaced.knockback_weight)
                 .flatten(),
         }
     }
@@ -178,6 +203,7 @@ impl PhysicalRetraction {
 pub struct PhysicalBaseline {
     max_health: Option<i32>,
     mass: Option<f32>,
+    knockback_weight: Option<f32>,
     /// Full body size in world units, when the character authored an explicit
     /// one. `SpriteAuthored` is absent here on purpose: it is not a size, it is a
     /// policy, and its authority is the per-pose projection.
@@ -193,6 +219,7 @@ impl PhysicalBaseline {
             // its first frame and no author means that.
             max_health: prepared.vitals.max_health.map(|max| max.max(1)),
             mass: prepared.vitals.mass,
+            knockback_weight: prepared.vitals.knockback_weight,
             explicit_size: match prepared.body.as_ref() {
                 Some(BodySource::Explicit { half_extents }) => {
                     Some(Vec2::new(half_extents.0 * 2.0, half_extents.1 * 2.0))
@@ -222,6 +249,12 @@ impl PhysicalBaseline {
     /// The authored mass, when there is one.
     pub fn mass(&self) -> Option<f32> {
         self.mass
+    }
+
+    /// The authored knockback weight, when there is one. For a construction path
+    /// assembling a `CombatTuning` before an entity exists.
+    pub fn knockback_weight(&self) -> Option<f32> {
+        self.knockback_weight
     }
 
     /// **Apply to a body that already exists.**
@@ -258,6 +291,7 @@ impl PhysicalBaseline {
         boundary: BaselineBoundary,
         entity: &mut EntityCommands,
         health: Option<&mut ambition_characters::actor::BodyHealth>,
+        combat_tuning: Option<&mut crate::combat::CombatTuning>,
         geometry: Option<BodyGeometry<'_>>,
         retraction: PhysicalRetraction,
     ) {
@@ -277,6 +311,15 @@ impl PhysicalBaseline {
                 BaselineBoundary::Replacement => {
                     health.health.current = health.health.current.min(health.health.max)
                 }
+            }
+        }
+        // ⛔ **the weight is WRITTEN IN PLACE, never inserted or removed.**
+        // `CombatTuning` is part of `ActorClusterQueryData`; a body without it
+        // leaves the actor cluster query entirely and stops being simulated.
+        // Only the field moves.
+        if let Some(tuning) = combat_tuning {
+            if let Some(weight) = self.knockback_weight.or(retraction.knockback_weight) {
+                tuning.weight = weight;
             }
         }
         match (self.mass, retraction.mass) {

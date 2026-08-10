@@ -639,6 +639,15 @@ pub fn prepare_match(
                 baseline.max_health_over(seed.health.health.max.max(1)),
             ))
             .with_policy(death_policy);
+        // **THE AUTHORED KNOCKBACK WEIGHT**, onto the seed for the same reason
+        // the pool is: `into_components` projects `config.tuning.weight` onto
+        // the combat-owned `CombatTuning` the damage paths read, so setting it
+        // here is what makes a heavy fighter heavy from its first frame rather
+        // than after a re-wear. A character that authors none keeps its roster
+        // archetype's, which is every character that has not thought about it.
+        if let Some(weight) = baseline.knockback_weight() {
+            seed.config.tuning.weight = weight;
+        }
         seed.kin.facing = facing;
 
         // ⛔ **ONE BODY, ONE BOX — and for a day it was two.** This recorded
@@ -873,6 +882,9 @@ fn realize_seat(
     super::PhysicalBaseline::of(&seat.definition).apply_to_body(
         super::BaselineBoundary::Construction,
         &mut commands.entity(body),
+        None,
+        // The weight rode the SEED (`seat.body_weight`), the way health and
+        // geometry did — this boundary has only the mass left to write.
         None,
         None,
         super::PhysicalRetraction::NONE,

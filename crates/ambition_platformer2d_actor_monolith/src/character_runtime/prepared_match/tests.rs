@@ -1310,7 +1310,8 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
     tank.vitals = crate::character_runtime::Vitals {
         max_health: Some(60),
         mass: Some(1.0),
-    };
+            knockback_weight: None,
+        };
     app.register_character(tank);
 
     // The REAL player bundle: a hand-rolled body without the movement clusters
@@ -1692,7 +1693,8 @@ fn a_seated_fighter_carries_its_authored_mass() {
     heavy.vitals = crate::character_runtime::Vitals {
         max_health: Some(40),
         mass: Some(6.5),
-    };
+            knockback_weight: None,
+        };
     app.register_character(heavy);
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("anvil")],
@@ -2102,7 +2104,8 @@ fn one_character_definition_seats_two_independent_fighters() {
     fretjaw.vitals = crate::character_runtime::Vitals {
         max_health: Some(40),
         mass: Some(1.0),
-    };
+            knockback_weight: None,
+        };
     app.register_character(fretjaw);
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("fretjaw"), cpu("fretjaw")],
@@ -2258,5 +2261,69 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
         !after.expect("checked above").never_dies,
         "wearing a character that authors no death traits must retract the \
          previous character's, or a swap through the sandbag is a free immortality"
+    );
+}
+
+/// **A character authors how hard it is to LAUNCH** — D73 phase 1, and the
+/// second half of the knockback loop.
+///
+/// `CombatTuning::weight` divides the growth term (`scaled_knockback`), so it is
+/// what makes a heavy fighter resist a launch a light one cannot. It could be
+/// stated only on a roster ARCHETYPE until now, which meant two characters
+/// seated from one archetype weighed the same and could not differ — in a
+/// platform fighter, weight is per-character or the roster has no heavies.
+#[test]
+fn a_seated_fighter_carries_its_authored_knockback_weight() {
+    let mut app = seating_app();
+    let mut heavy = CharacterDefinition::new("heavy", "Heavy", "demo");
+    heavy.vitals.knockback_weight = Some(1.8);
+    app.register_character(heavy);
+    // ⚠ the control, and it is the load-bearing half: a character that authors
+    // NO weight must keep whatever its construction gave it.
+    app.register_character(CharacterDefinition::new("light", "Light", "demo"));
+    // ⛔⛔ **AND THE ARCHETYPE'S WEIGHT MUST NOT BE 1.0, or the control cannot
+    // fail.** The default content-free roster authors no weight, so it defaults
+    // to the reference 1.0 — and an unconditional `seed.weight = authored
+    // .unwrap_or(1.0)` writes exactly that. The first version of this test
+    // passed under that poison: it could not tell "kept its archetype's weight"
+    // from "overwritten with the ambient default". A 1.4 archetype separates
+    // them.
+    app.insert_resource(
+        crate::features::CharacterRoster::from_ron(
+            r#"{ "combatant": (
+                max_health: 1, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
+                aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+                damage_amount: 0, brain_template: StandStill, move_style: Walk,
+                attacks_player: false, body_contact_damage: false,
+                weight: 1.4,
+            ) }"#,
+        ),
+    );
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("heavy"), cpu("light")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        &ambition_characters::actor::WornCharacter,
+        &crate::combat::CombatTuning,
+    )>();
+    let mut seen: Vec<(String, f32)> = q
+        .iter(world)
+        .map(|(worn, tuning)| (worn.id().to_string(), tuning.weight))
+        .collect();
+    seen.sort_by(|a, b| a.0.cmp(&b.0));
+    assert_eq!(seen.len(), 2, "{seen:?}");
+    assert_eq!(
+        seen[0].1, 1.8,
+        "the heavy authored 1.8 and the seed must carry it: {seen:?}"
+    );
+    assert_eq!(
+        seen[1].1, 1.4,
+        "the light authored nothing, so its ARCHETYPE's 1.4 must stand — 1.0 \
+         here means the applier overwrote it with the ambient default: {seen:?}"
     );
 }

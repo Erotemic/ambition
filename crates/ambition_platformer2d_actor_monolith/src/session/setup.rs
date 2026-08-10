@@ -289,6 +289,7 @@ pub fn simulation_world(
             &mut commands.entity(player),
             None,
             None,
+            None,
             crate::character_runtime::PhysicalRetraction::NONE,
         );
     }

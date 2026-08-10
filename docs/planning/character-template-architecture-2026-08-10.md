@@ -133,6 +133,19 @@ and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
   the field, because `ActorClusterSeed::into_components` spawns every clustered
   actor with archetype capabilities — an unconditional reset would strip an
   exploding mite the moment anything wore a character on it.
+* ✔ **knockback weight is authorable on a character** — `Vitals
+  ::knockback_weight` → `PhysicalBaseline` → the seed's `CombatTuning.weight`
+  at construction and the live component at a re-wear. It could be stated only
+  on a roster ARCHETYPE before, so all three Smash fighters seat through
+  `combatant` and weighed the same; they now spread 0.85 / 1.0 / 1.35 around the
+  reference body, which is what makes D75's growth term mean something different
+  per fighter.
+  ⛔ **the first version of that test could not fail.** Its control asserted the
+  unauthored character keeps its archetype's weight — but the fixture's
+  archetype authored none, so it defaulted to the reference `1.0`, which is
+  exactly what an unconditional `unwrap_or(1.0)` writes. Poisoning it passed.
+  The fixture now authors a `1.4` archetype, which separates *"kept"* from
+  *"overwritten with the ambient default"*, and the poison reds.
 * ⭐ **the field that made this worth doing first**: `CombatCapabilities` had
   exactly ONE producer in the workspace — `ArchetypeSpecExt` — so a mite that
   splits on death could say so as an archetype and no registered character could

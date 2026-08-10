@@ -270,6 +270,11 @@ impl WithHealth for CharacterDefinition {
         self.vitals = ambition_platformer2d::actors::character_runtime::Vitals {
             max_health: Some(max_health),
             mass: Some(mass),
+            // ⚠ these two author no knockback WEIGHT, deliberately: the versus
+            // stage declares no growth (its rounds end on health, not a blast
+            // zone), so a weight here would divide a term that is always zero
+            // and read as a tuning knob that does nothing.
+            knockback_weight: None,
         };
         self
     }

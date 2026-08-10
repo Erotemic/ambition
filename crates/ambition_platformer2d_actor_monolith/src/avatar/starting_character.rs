@@ -673,6 +673,11 @@ pub fn apply_worn_character_gameplay(
         // through commands, and read here only to capture what the body weighed
         // before any persona spoke for it.
         Option<&crate::features::Mass>,
+        // The knockback weight's live carrier. ⚠ `Option` because a body that
+        // never fights carries no `CombatTuning`; ⛔ and this path may only
+        // WRITE its field, never insert or remove the component — see
+        // `apply_to_body`.
+        Option<&mut crate::combat::CombatTuning>,
         Has<ambition_projectiles::PlayerProjectileState>,
         // What THIS system last applied to this body. See [`PersonaBaseline`]:
         // the change-detection filter that used to live here could not see a
@@ -696,6 +701,7 @@ pub fn apply_worn_character_gameplay(
         mut motion_model,
         mut health,
         mass,
+        mut combat_tuning,
         has_projectile_state,
         baseline,
         seat,
@@ -772,12 +778,14 @@ pub fn apply_worn_character_gameplay(
                     incoming,
                     health.as_deref().map(|health| health.health.max),
                     mass.map(|mass| mass.0),
+                    combat_tuning.as_deref().map(|tuning| tuning.weight),
                 );
             if let Some(physical) = incoming {
                 physical.apply_to_body(
                     crate::character_runtime::BaselineBoundary::Replacement,
                     &mut commands.entity(entity),
                     health.as_deref_mut(),
+                    combat_tuning.as_deref_mut(),
                     None,
                     crate::character_runtime::PhysicalRetraction::resolve(incoming, displaced),
                 );

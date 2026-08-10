@@ -1704,6 +1704,23 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
             // player learns "around 120 I get launched" as a number that means
             // something across characters.
             definition.vitals.max_health = Some(SMASH_PERCENT_REFERENCE);
+            // **WEIGHT, so the roster is not three of the same fighter.**
+            //
+            // `scaled_knockback` divides the growth term by the victim's weight,
+            // so with `SMASH_KNOCKBACK_GROWTH` declared this is what decides who
+            // dies early and who survives to 150%. Until a character could
+            // author one it came from the roster ARCHETYPE — and all three of
+            // these seat through `combatant`, so they weighed the same and could
+            // not differ (D73 phase 1).
+            //
+            // ⚠ authored as a SPREAD around the reference body rather than as
+            // absolute numbers: v3 is the middleweight the stage is tuned
+            // against, v2 is the lighter older build, and George is the heavy.
+            definition.vitals.knockback_weight = Some(match id {
+                SMASH_OPPONENT_ID => 0.85,
+                SMASH_GEORGE_BOOUL => 1.35,
+                _ => 1.0,
+            });
             // **A PLATFORM FIGHTER DOES NOT RECOIL LIKE AN EXPLORER.**
             // (measured 2026-07-31, `ladder_probe` + `AMBITION_FIGHTER_TRACE=1`)
             //

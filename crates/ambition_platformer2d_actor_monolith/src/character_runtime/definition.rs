@@ -191,6 +191,22 @@ pub struct Vitals {
     /// was a second declaration of a fact only the roster could state — and
     /// "delete it" was very nearly the recommendation (2026-07-29).
     pub mass: Option<f32>,
+    /// **How hard this body is to LAUNCH** — the knockback weight, reaching a
+    /// body as [`CombatTuning::weight`](crate::combat::CombatTuning). `1.0` is
+    /// the reference body; a heavy fighter authors more and takes less of the
+    /// growth term (`scaled_knockback` divides by it).
+    ///
+    /// ⚠ **distinct from [`Self::mass`], which is the mount pair's centre of
+    /// gravity.** They are the same word in physics and two different mechanics
+    /// here, and conflating them would make a heavy mount hard to knock about
+    /// as a side effect of how its rider orbits it.
+    ///
+    /// `None` leaves the body's own — for a clustered actor that is its roster
+    /// archetype's, which is the ONLY place a weight could be stated until now.
+    /// Two characters seated from one archetype therefore weighed the same and
+    /// could not differ, which is a per-character fact in every platform fighter
+    /// that has one (D73 phase 1).
+    pub knockback_weight: Option<f32>,
 }
 
 /// Where a body's collision geometry comes from (§4.11, §5).

@@ -436,12 +436,24 @@ player-spelled source). Both name a real attacker now.
 `PlayerSlash`/`EnemyAttack`/`BossAttack` → `Melee`, `PlayerProjectile`/
 `EnemyProjectile` → `Projectile`, `EnemyBody`/`ContactHarm`/`EnemyChargeCrash` →
 `Contact`, `PogoBounce` → `Pogo`, `Hazard` and `LeftTheWorld` unchanged.
-⚠ **one live question remains for it**: `hitbox::apply_hitbox_damage` publishes
-its unresolved half only for `PlayerSlash`. Under one `Melee` that gate cannot
-be spelled, and the body-generic answer — every body melee reaches breakables
-and bosses — is a real behaviour change (enemies would smash crates). It is
-probably correct and it should land deliberately, with its own guard, not as a
-side effect of a rename.
+⛔ **and one live blocker, found by asking rather than assuming**:
+`hitbox::apply_hitbox_damage` publishes its unresolved half only for
+`PlayerSlash`. Under one `Melee` that gate cannot be spelled — so the rename
+forces the body-generic answer, every body melee reaching breakables and bosses.
+
+⚠ **that is not safe today, and the reason is the interesting part.** The boss
+scan in `apply_feature_hit_events` applies **no relationship policy at all** —
+it damages any boss an attacker-side volume reaches. It gets away with it
+because only the player may broadcast. ⇒ **the boss's "who may hurt me" rule is
+currently encoded as "who is allowed to emit a broadcast"**, and making the
+broadcast body-generic removes the rule without replacing it: every enemy swing
+near a boss would free-hit it.
+
+⇒ **so the order changes.** Item 5 (one combat-relationship policy) comes BEFORE
+the rename, and its first concrete bite is giving the boss and breakable scans
+the same `damage_lands_between` the body resolver already uses. Then the
+unresolved half goes body-generic with a guard, then the rename is mechanical.
+Doing the rename first would land a silent free-hit.
 
 ## Execution order (mine, revise as measurements land)
 

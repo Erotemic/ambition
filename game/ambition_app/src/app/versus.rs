@@ -715,6 +715,12 @@ fn track_versus_roster(
             // the difference between a knock-off that is a read and one that is a
             // coin flip. Inert everywhere else: Ambition's PvE keeps 0.0.
             commands.insert_resource(ambition_platformer2d::combat::rules::DeclaredCombatRules {
+                // ⛔ BY OWNER, because this stage is no longer the only one that
+                // declares rules — the smash demo does too, and a giveback that
+                // removed the resource by TYPE would delete whichever stage was
+                // still playing. Third time this repo has learned it: the
+                // participant roster, the prepared match, now the rules.
+                declared_by: VERSUS_EXPERIENCE.to_string(),
                 di_max_angle: VERSUS_DI_MAX_ANGLE,
                 friendly_fire: false,
             });
@@ -1017,7 +1023,9 @@ fn declare_versus_experience_scope(app: &mut App) {
             //
             // ⚠ there is nothing to put back, and that is the point: writing the
             // engine defaults reads as a restore and is not one.
-            .releasing::<ambition_platformer2d::combat::rules::DeclaredCombatRules>()
+            .releasing_owned::<ambition_platformer2d::combat::rules::DeclaredCombatRules>(
+                |rules, owner| rules.is_declared_by(owner.as_str()),
+            )
             .releasing_with("SessionSeatingSource", |world, owner| {
                 if let Some(mut seating) = world.get_resource_mut::<
                     ambition_platformer2d::runtime::rollback::local_session::SessionSeatingSource,

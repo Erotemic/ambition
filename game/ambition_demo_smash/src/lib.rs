@@ -1278,6 +1278,28 @@ fn start_the_battle_when_asked(
         ),
     );
     commands.insert_resource(decided);
+    // **DI ON, and the stage says so itself.**
+    //
+    // ⛔ the law, the tuning field and the victim's live stick were all wired —
+    // and this demo declared no combat rules at all, so `di_max_angle` fell to
+    // the world baseline of `0.0` and directional influence was OFF on the one
+    // stage built to need it. The versus route has had it since AE6; the game
+    // that IS the platform-fighter test case did not.
+    //
+    // DECLARE, don't borrow: `project_combat_rules` folds this over the world's
+    // baseline every tick, nothing global is written, and removing the resource
+    // with the experience IS the exit (see the scope in `SmashExperiencePlugin`).
+    commands.insert_resource(ambition_platformer2d::combat::rules::DeclaredCombatRules {
+        // ⛔ BY OWNER. The versus route declares combat rules too, and a
+        // giveback that removed this by TYPE would delete ITS live rules the
+        // moment smash left — the lesson the roster and the prepared match each
+        // taught once already.
+        declared_by: SMASH_EXPERIENCE.to_string(),
+        di_max_angle: SMASH_DI_MAX_ANGLE,
+        // ⚠ teams already decide who may hit whom. Switching global friendly
+        // fire on to let two humans trade would make TEAMMATES hittable too.
+        friendly_fire: false,
+    });
     shell.write(ambition_platformer2d::game_shell::ShellCommand::GoTo(
         ambition_platformer2d::game_shell::ShellRouteId::new(SMASH_GAMEPLAY_ROUTE),
     ));
@@ -1411,6 +1433,20 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
                 .releasing_owned::<
                     ambition_platformer2d::actors::character_runtime::PreparedMatch,
                 >(|plan, owner| plan.is_published_by(owner.as_str()))
+                // **AND THE RULES LEAVE WITH THE MATCH.** Removing the
+                // declaration IS the exit (AE6) — the projection folds it over
+                // the world's baseline every tick and writes nothing back, so
+                // there is no restore to skip. Left standing, this stage's DI
+                // budget would follow the player into Ambition's PvE, which
+                // answers `0.0` on purpose.
+                //
+                // ⚠ `releasing_owned`, not `resetting`: every reader takes it
+                // as `Option<Res<_>>`, so absence is the meaningful "no
+                // declaration" answer — and the OWNED form is what keeps two
+                // stages that both declare rules from deleting each other's.
+                .releasing_owned::<
+                    ambition_platformer2d::combat::rules::DeclaredCombatRules,
+                >(|rules, owner| rules.is_declared_by(owner.as_str()))
                 // A RESTART IS FRESH. `resetting`, never `releasing`: the
                 // screen's systems take these as plain `ResMut`, so REMOVING
                 // them panics the app on the frame the experience ends — which
@@ -1429,6 +1465,15 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
         }
     }
 }
+
+/// **How far a launched fighter may steer its own knockback**, in radians —
+/// ~18°, Smash Ultimate's DI budget.
+///
+/// ⭐ this is the difference between a knock-off that is a READ and one that is
+/// a coin flip: the victim of a launch is still playing. Authored per game
+/// because Ambition's PvE answers `0.0` — being hit there is a punishment, not
+/// the opening of a negotiation.
+const SMASH_DI_MAX_ANGLE: f32 = 0.31;
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";
@@ -2107,6 +2152,47 @@ mod tests {
             .get(SMASH_EXPERIENCE)
             .expect("the host sees this demo's authored catalogs");
         assert_eq!(authored.starting_character, SMASH_CHARACTER_ID);
+    }
+
+    /// ⭐⭐ **the stage declares a DI budget, and gives it back on the way out.**
+    ///
+    /// ⛔ the DI law, its tuning field and the victim's live stick were all
+    /// wired, and this demo declared no combat rules at all — so `di_max_angle`
+    /// fell to the engine baseline of `0.0` and directional influence was OFF on
+    /// the one stage built to need it. Nothing failed; a launched fighter simply
+    /// had no say, and a knock-off was a coin flip instead of a read.
+    ///
+    /// The release is the other half and the more dangerous one: left standing,
+    /// this budget follows the player into Ambition's PvE, which answers `0.0`
+    /// on purpose.
+    #[test]
+    fn the_stage_declares_its_di_budget_and_releases_it() {
+        use ambition_platformer2d::game_shell::{MinimalShellPlugins, ShellExperienceScopes};
+        use bevy::prelude::*;
+
+        assert!(
+            SMASH_DI_MAX_ANGLE > 0.0,
+            "⛔ a zero budget makes `di_adjust` a no-op, so declaring the rules              at all would be theatre — DI would be off and every test still green"
+        );
+
+        let mut app = App::new();
+        app.add_plugins(MinimalShellPlugins);
+        app.add_plugins(ambition_platformer2d::load::AmbitionLoadPlugin);
+        app.add_plugins(SmashExperiencePlugin);
+
+        let rules =
+            std::any::type_name::<ambition_platformer2d::combat::rules::DeclaredCombatRules>();
+        let released: Vec<&str> = app
+            .world()
+            .resource::<ShellExperienceScopes>()
+            .iter()
+            .filter(|scope| scope.owner().as_str() == SMASH_EXPERIENCE)
+            .flat_map(|scope| scope.released_state())
+            .collect();
+        assert!(
+            released.contains(&rules),
+            "⛔ the stage's DI budget outlives its own experience and follows the              player into a game that authored none. Released: {released:?}"
+        );
     }
 
     /// **The prepared source carries the stage, not a default room.**

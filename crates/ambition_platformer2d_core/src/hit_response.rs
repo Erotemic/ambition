@@ -244,7 +244,10 @@ pub fn knockback_velocity(
         }
         (None, HitKnockbackMagnitude::FeelScale(scale)) => {
             let scale = scale.max(0.0);
-            Vec2::new(dir * tuning.knockback_x * scale, -tuning.knockback_y * scale)
+            Vec2::new(
+                dir * tuning.knockback_x * scale,
+                -tuning.knockback_y * scale,
+            )
         }
         (Some(ld), HitKnockbackMagnitude::LaunchSpeed(speed)) => {
             let n = ld.normalize();
@@ -252,8 +255,8 @@ pub fn knockback_velocity(
             Vec2::new(dir * n.x * speed, -n.y * speed)
         }
         (None, HitKnockbackMagnitude::LaunchSpeed(speed)) => {
-            let default_dir = Vec2::new(dir * tuning.knockback_x, -tuning.knockback_y)
-                .normalize_or_zero();
+            let default_dir =
+                Vec2::new(dir * tuning.knockback_x, -tuning.knockback_y).normalize_or_zero();
             default_dir * speed.max(0.0)
         }
     };
@@ -261,7 +264,8 @@ pub fn knockback_velocity(
     // CM2: the victim's held input rotates its own launch, bounded by the
     // authored DI budget. Inert at `di_max_angle == 0` (Ambition today).
     di_adjust(launch, di_input_local, gravity_dir, tuning.di_max_angle)
-}#[cfg(test)]
+}
+#[cfg(test)]
 mod hitlag_tests {
     use super::*;
 
@@ -328,4 +332,114 @@ mod hitlag_tests {
     }
 }
 
+#[cfg(test)]
+mod di_tests {
+    use super::di_adjust;
+    use crate::Vec2;
 
+    const DOWN: Vec2 = Vec2::new(0.0, 1.0);
+    /// ~18°, the budget a platform fighter authors (Smash Ultimate's).
+    const BUDGET: f32 = 0.31;
+
+    fn angle_between(a: Vec2, b: Vec2) -> f32 {
+        (a.x * b.y - a.y * b.x).atan2(a.x * b.x + a.y * b.y)
+    }
+
+    /// ⭐⭐ **you cannot DI along your own launch line** — and that is the whole
+    /// shape of the mechanic, not a detail. A victim launched away who holds
+    /// straight away steers NOTHING; the influence is the PERPENDICULAR part of
+    /// the stick. Without this, DI would be a speed dial and holding away from
+    /// the blast zone would be strictly correct, which is the opposite of the
+    /// read it exists to create.
+    #[test]
+    fn di_is_the_perpendicular_part_of_the_stick() {
+        // Launched along +x. Holding +x is perfectly parallel.
+        let launch = Vec2::new(300.0, 0.0);
+        let along = di_adjust(launch, Vec2::new(1.0, 0.0), DOWN, BUDGET);
+        assert!(
+            angle_between(launch, along).abs() < 1e-4,
+            "⛔ holding ALONG the launch steered it by {} rad",
+            angle_between(launch, along)
+        );
+
+        // Holding perpendicular (local +y is gravity-down) spends the whole
+        // budget, which is the maximum a launched body can ever buy.
+        let across = di_adjust(launch, Vec2::new(0.0, 1.0), DOWN, BUDGET);
+        let turned = angle_between(launch, across);
+        assert!(
+            (turned.abs() - BUDGET).abs() < 1e-4,
+            "a fully perpendicular hold should spend the whole {BUDGET} rad \
+             budget, turned {turned}"
+        );
+        assert!(turned > 0.0, "the launch turns TOWARD the held direction");
+    }
+
+    /// DI changes the ANGLE and nothing else. ⛔ a launch whose speed moved
+    /// would make holding a direction a damage-mitigation dial, and survival
+    /// would stop being about the angle to the blast zone.
+    #[test]
+    fn di_rotates_the_launch_without_changing_its_speed() {
+        let launch = Vec2::new(180.0, -240.0);
+        for hold in [
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(0.0, 1.0),
+            Vec2::new(0.7, -0.7),
+        ] {
+            let out = di_adjust(launch, hold, DOWN, BUDGET);
+            assert!(
+                (out.length() - launch.length()).abs() < 1e-2,
+                "hold {hold:?} changed the launch SPEED: {} → {}",
+                launch.length(),
+                out.length()
+            );
+            assert!(
+                angle_between(launch, out).abs() <= BUDGET + 1e-4,
+                "hold {hold:?} exceeded the authored budget"
+            );
+        }
+    }
+
+    /// ⛔ **POISON: an unauthored budget is inert.** Ambition's PvE answers
+    /// `0.0` on purpose — being hit there is a punishment, not the opening of a
+    /// negotiation — so every body in every non-fighter game rides this path
+    /// with a zero budget and must come out byte-identical.
+    #[test]
+    fn a_zero_budget_or_an_idle_stick_returns_the_launch_untouched() {
+        let launch = Vec2::new(180.0, -240.0);
+        assert_eq!(di_adjust(launch, Vec2::new(0.0, 1.0), DOWN, 0.0), launch);
+        assert_eq!(di_adjust(launch, Vec2::ZERO, DOWN, BUDGET), launch);
+    }
+
+    /// A partial stick spends a partial budget, so DI is a continuous control
+    /// rather than a three-position switch.
+    #[test]
+    fn a_half_held_stick_spends_less_than_the_whole_budget() {
+        let launch = Vec2::new(300.0, 0.0);
+        let full = angle_between(launch, di_adjust(launch, Vec2::new(0.0, 1.0), DOWN, BUDGET));
+        let half = angle_between(launch, di_adjust(launch, Vec2::new(0.0, 0.5), DOWN, BUDGET));
+        assert!(
+            half > 0.0 && half < full - 1e-4,
+            "half a stick bought {half} of the {full} a full one does"
+        );
+    }
+
+    /// ⭐ **frame-agnostic, and the C4 law is what makes that testable.** Under
+    /// flipped gravity the same body-local hold against the same body-local
+    /// launch must produce the same body-local trajectory — the whole thing
+    /// conjugates. A DI that read world axes would steer the wrong way the
+    /// moment a stage inverted.
+    #[test]
+    fn di_conjugates_under_a_flipped_frame() {
+        let hold = Vec2::new(0.0, 1.0);
+        let upright = di_adjust(Vec2::new(300.0, 0.0), hold, DOWN, BUDGET);
+        // Flip gravity: the same LOCAL launch is a different world vector.
+        let flipped = di_adjust(Vec2::new(-300.0, 0.0), hold, Vec2::new(0.0, -1.0), BUDGET);
+        let a = angle_between(Vec2::new(300.0, 0.0), upright);
+        let b = angle_between(Vec2::new(-300.0, 0.0), flipped);
+        assert!(
+            (a - b).abs() < 1e-4,
+            "the same local hold turned {a} upright and {b} inverted"
+        );
+    }
+}

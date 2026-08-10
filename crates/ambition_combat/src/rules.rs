@@ -37,8 +37,19 @@ use bevy::prelude::Resource;
 /// the declaration a snapshot of the world at declaration time — which is the
 /// borrow again, wearing a different hat. A declarer that wants the world's DI
 /// omits the whole resource, or reads it and re-declares deliberately.
-#[derive(Resource, Clone, Copy, Debug, PartialEq)]
+#[derive(Resource, Clone, Debug, PartialEq)]
 pub struct DeclaredCombatRules {
+    /// **Which shell experience declared these rules.**
+    ///
+    /// ⛔ required, not optional, and it is a LIFECYCLE field rather than a
+    /// label. Two stages declare combat rules — the versus route and the smash
+    /// demo — and each gives its declaration back when its experience leaves. A
+    /// giveback that removed the resource BY TYPE would delete the other stage's
+    /// live rules on the way out, which is the "whichever left first deleted the
+    /// other's match" bug this repo has already paid for twice (the participant
+    /// roster, then the prepared match). Naming the declarer is what lets the
+    /// release ask *is this mine* instead of assuming it.
+    pub declared_by: String,
     /// How far a launched body may steer its own trajectory (CM2). `0.0`
     /// disables directional influence entirely, which is Ambition's PvE answer.
     pub di_max_angle: f32,
@@ -62,9 +73,21 @@ pub struct ResolvedCombatTuning {
     pub friendly_fire: bool,
 }
 
+impl DeclaredCombatRules {
+    /// Whether `owner` is the experience that declared these rules — the
+    /// question `releasing_owned` asks on the way out.
+    pub fn is_declared_by(&self, owner: &str) -> bool {
+        self.declared_by == owner
+    }
+}
+
 impl ResolvedCombatTuning {
     /// The fold: a declaration wins outright, the baseline stands otherwise.
-    pub fn resolve(declared: Option<DeclaredCombatRules>, baseline_di: f32, baseline_ff: bool) -> Self {
+    pub fn resolve(
+        declared: Option<DeclaredCombatRules>,
+        baseline_di: f32,
+        baseline_ff: bool,
+    ) -> Self {
         match declared {
             Some(rules) => Self {
                 di_max_angle: rules.di_max_angle,
@@ -119,6 +142,7 @@ mod tests {
         let baseline_di = 0.12;
         let resolved = ResolvedCombatTuning::resolve(
             Some(DeclaredCombatRules {
+                declared_by: "a_stage".to_string(),
                 di_max_angle: 0.30,
                 friendly_fire: false,
             }),
@@ -138,6 +162,7 @@ mod tests {
     #[test]
     fn dropping_the_declaration_returns_to_the_baseline_with_no_restore_step() {
         let declared = Some(DeclaredCombatRules {
+            declared_by: "a_stage".to_string(),
             di_max_angle: 0.30,
             friendly_fire: true,
         });

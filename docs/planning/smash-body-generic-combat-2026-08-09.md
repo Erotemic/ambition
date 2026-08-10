@@ -952,7 +952,71 @@ game, wearing a bug fix's clothes.
 game changes behaviour. This is a capability being made correct before it has
 users, which is the cheap moment to do it.
 
-▢ **still open from the feel list**: DI.
+## DI — built, correct, and switched off in the game that needed it (2026-08-10)
+
+Jon put DI last, after launch and hitstun are clean. They are. And the grep says
+the mechanic was finished before the campaign started: `di_adjust` is the real
+Smash law (rotate the launch toward the held stick, weighted by how
+PERPENDICULAR the hold is and by the throttle, capped at an authored budget),
+`ResolvedCombatTuning` carries the budget, and both damage resolvers already feed
+it the victim's live `ActorControl.locomotion`.
+
+### ⛔ and the Smash demo declared no combat rules at all
+
+`di_max_angle` therefore fell to the engine baseline `0.0` and DI was **off on
+the one stage built to need it**. The versus route has declared its budget since
+AE6; the game that IS the platform-fighter test case never did. Nothing failed —
+a launched fighter simply had no say, and a knock-off was a coin flip instead of
+a read.
+
+`SMASH_DI_MAX_ANGLE = 0.31` rad (~18°, Ultimate's budget), declared beside the
+route in the same flush that publishes the roster, and **released with the
+experience**. The release is the more dangerous half: left standing, this stage's
+budget follows the player into Ambition's PvE, which answers `0.0` on purpose
+because being hit there is a punishment, not the opening of a negotiation.
+
+### ⛔ the law itself had ZERO tests
+
+Live in versus for weeks, unguarded. Five now, and the first is the shape of the
+mechanic rather than a detail: **you cannot DI along your own launch line.** A
+victim who holds straight away steers nothing, because the influence is the
+perpendicular part of the stick. Without that, DI would be a speed dial and
+holding away from the blast zone would be strictly correct — the opposite of the
+read it exists to create. The others pin that DI rotates without changing SPEED
+(else it becomes damage mitigation), that a partial stick spends a partial
+budget, that a zero budget is byte-identical (the poison every PvE body is in),
+and that the whole thing conjugates under flipped gravity.
+
+The release guard was falsified both ways: deleting the `releasing` line turns it
+red.
+
+### ⭐⭐ and the second declarer arrived, which a contract was waiting for
+
+`a-second-writer-of-a-match-global-must-answer-ownership` went RED on the new
+declaration, exactly as designed: it watches `DeclaredCombatRules` *because* it
+carried no owner and exactly one stage wrote it, and its own text says **"if this
+list has to grow, growing it IS the review."**
+
+So the review happened and its answer is an owner field. `DeclaredCombatRules`
+carries `declared_by`; both stages name themselves; both give it back with
+`releasing_owned`. ⛔ this is the **third** time this repo has learned the same
+lesson — the participant roster, the prepared match, now the rules — and each
+earlier time it was learned from a bug: Versus deleting another game's match
+every frame, a stage opening with one fighter instead of two. This time it was
+learned from a checker, before a player ever saw it.
+
+The `app_it::experience_scope_ownership` contract caught the same collision from
+the other side (two scopes removing one type), which is why both exist: one reads
+the source text, the other asks the composed scope registry.
+
+⚠ **the contract was NARROWED, not waived.** A type that can answer the
+ownership question does not need a contract asking whether anyone will, so
+`DeclaredCombatRules` left the pattern. `ActiveMatch` still cannot answer and
+stays under watch.
+
+✔ **the feel list is complete.** Move-facing snapshot, one authoritative move
+timeline, hitstop/hitstun, landing lag / auto-cancel, aerial locomotion, air
+speed, jump-squat, hitbox tracks, pose-aware hurtboxes, DI.
 
 ## Execution order (mine, revise as measurements land)
 

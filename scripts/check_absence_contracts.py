@@ -127,14 +127,14 @@ ABSENCE_CONTRACTS: list[dict] = [
             ":(exclude)game/ambition_app/src/app/versus.rs",
         ],
         "patterns": [
-            r"commands *\. *(insert_resource *\([^;]*|remove_resource::< *[A-Za-z0-9_: ]*)(ActiveMatch|DeclaredCombatRules)",
+            r"commands *\. *(insert_resource *\([^;]*|remove_resource::< *[A-Za-z0-9_: ]*)(ActiveMatch)",
         ],
         "reason": (
-            "`ActiveMatch` and `DeclaredCombatRules` are GLOBAL resources shared by "
-            "every experience in the host, and unlike `MatchParticipantRoster` they "
-            "carry no `published_by` - so there is no ownership question to ask and "
-            "no way to ask it. They are safe TODAY because exactly one writer "
-            "touches each. The roster was safe the same way until Smash's character "
+            "`ActiveMatch` is a GLOBAL resource shared by "
+            "every experience in the host, and unlike `MatchParticipantRoster` it "
+            "carries no `published_by` - so there is no ownership question to ask and "
+            "no way to ask it. It is safe TODAY because exactly one writer "
+            "touches it. The roster was safe the same way until Smash's character "
             "select published one from a different route, and Versus deleted "
             "another game's match every frame; the fix was an owner field, learned "
             "three separate times, the third one only after a stage opened with one "
@@ -143,6 +143,15 @@ ABSENCE_CONTRACTS: list[dict] = [
             "ownership question actually has to be answered rather than months "
             "later from a photograph. If this list has to grow, growing it IS the "
             "review. "
+            "GRADUATED 2026-08-10: `DeclaredCombatRules` was watched here for "
+            "exactly this reason and the second writer arrived - the smash demo "
+            "declares a DI budget, so the versus stage is no longer alone. The "
+            "review the contract exists to force HAPPENED and its answer is an "
+            "owner field: the resource carries `declared_by`, both stages name "
+            "themselves, and both give it back with `releasing_owned`. A type "
+            "that can answer the ownership question does not need a contract "
+            "asking whether anyone will, so it left this pattern rather than "
+            "being waived into it. `ActiveMatch` still cannot answer and stays. "
             "NOTE this contract sees `commands` writes only. A shell experience "
             "scope can also DELETE a match global by declaring "
             "`releasing::<ActiveMatch>()`, which is invisible here and is how "

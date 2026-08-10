@@ -33,7 +33,7 @@ pub fn project_combat_rules(
     let baseline_di = baseline_feel.map(|f| f.di_max_angle).unwrap_or_default();
     let baseline_ff = baseline_ff.map(|f| f.enabled).unwrap_or_default();
     commands.insert_resource(ambition_combat::rules::ResolvedCombatTuning::resolve(
-        declared.map(|d| *d),
+        declared.map(|d| d.clone()),
         baseline_di,
         baseline_ff,
     ));

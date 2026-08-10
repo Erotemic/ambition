@@ -2199,3 +2199,42 @@ fn losing_the_purse_buys_a_classic_length_recovery() {
          ring loss"
     );
 }
+
+/// ⭐⭐ **the button says what the mechanic IS.** Jon, 2026-08-08: *"Sanic's
+/// transform button still reads 'fly'."*
+///
+/// The routing was fixed that day and is pinned above — the press reaches
+/// `transform` and generic flight never sees it. ⛔ **but nothing pinned the
+/// LABEL**, which is the half he could actually see. The two are independent:
+/// the technique could keep routing correctly while an authored `display_name`,
+/// or the engine's `fly_toggle` reclaiming the slot, put "Fly" back on the
+/// button — and every existing test would stay green.
+#[test]
+fn the_utility_button_reads_transform_and_never_fly() {
+    use ambition_platformer2d::characters::action_scheme::derive_action_scheme;
+    use ambition_platformer2d::entity_catalog::action_scheme::ControlSlot;
+
+    // The body has WINGS, so the engine's own `fly_toggle` would claim Utility
+    // if the declared technique did not outrank it. That is the case that
+    // produced the original bug, so it is the case the label is read in.
+    let mut abilities = ae::AbilitySet::basic();
+    abilities.fly = true;
+    abilities.fly_toggle = true;
+    let scheme = derive_action_scheme(&abilities, None, None, &[super::transform_technique()]);
+
+    let utility = scheme
+        .action_for_slot(ControlSlot::Utility)
+        .expect("Sanic claims the Utility slot");
+    assert_eq!(
+        utility.display(),
+        "Transform",
+        "⛔ the transform button reads {:?}",
+        utility.display()
+    );
+    // The poison, stated as the symptom rather than as its cause: whatever the
+    // label is derived from, the word Jon saw must not come back.
+    assert!(
+        !utility.display().to_lowercase().contains("fly"),
+        "the button is wearing the generic flight verb again"
+    );
+}

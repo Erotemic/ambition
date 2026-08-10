@@ -68,6 +68,11 @@ const GENERIC_HOSTILE_BARK: &str = "That's it!";
 /// that DOES claim to own them.
 pub(crate) fn resolve_npc_brain(
     catalog: &CharacterCatalog,
+    // **The prepared cast**, consulted only for the character's own default
+    // autonomous profile (D73 phase 1). An EMPTY registry is a legal, meaningful
+    // value: no character states a default, which is what this path assumed
+    // before definitions could state one.
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     interactable: &Interactable,
     spawn_world_x: f32,
 ) -> (
@@ -93,19 +98,13 @@ pub(crate) fn resolve_npc_brain(
         catalog,
         cid,
         brain_override.as_deref(),
-        // ▢ **the definition's default autonomous profile — NOT WIRED HERE YET**
-        // (D73 phase 1, 2026-08-10). The seam exists and is tested at
-        // `resolve_initial_brain`: a definition's profile outranks the catalog
-        // row and is outranked by an authored override. What is missing is the
-        // LOOKUP, because `PreparedCharacterRegistry` is not in scope on this
-        // path — it would have to thread through `spawn_interactable_into` →
-        // `NpcActorSpawnPlan::peaceful` → here, three signatures deep.
-        //
-        // ⚠ passing `None` is exactly today's behaviour, so nothing is pending
-        // in the sense of being half-applied; the NPC path simply has not
-        // adopted the seam. Named here rather than in a doc, because this is
-        // where a reader asks the question.
-        None,
+        // **The character's OWN default autonomous profile**, when its
+        // definition names one (D73 phase 1). It outranks the catalog row's
+        // `default_brain` and is outranked by the placement's `brain_override`
+        // above — the whole precedence rule, resolved in one call.
+        prepared
+            .get(cid)
+            .and_then(|prepared| prepared.default_brain_profile.as_deref()),
         &authored.build_context(),
     ) {
         Ok((binding, brain)) => (brain, Some((binding, authored))),
@@ -579,5 +578,134 @@ pub fn speak_conversation_cut_barks(
             pos: kin.pos + ambition_platformer2d_core::Vec2::new(0.0, -kin.size.y * 0.72 - 16.0),
             text: line.to_string(),
         });
+    }
+}
+
+/// D73 phase 1: the NPC spawn path asks the CHARACTER what it normally does.
+#[cfg(test)]
+mod default_profile_tests {
+    use super::*;
+    use ambition_characters::actor::character_catalog::parse_catalog;
+
+    const CATALOG: &str = r#"(
+        brain_presets: {
+            "stand_still": StandStill,
+            "wanderer_puppy_slug": Wanderer(speed: 36.0, aggressiveness: 0.0),
+            "patrol_peaceful": Patrol(
+                spawn_local_x: 0.0, radius: 64.0, speed: 28.0,
+                aggressiveness: 0.0, aggro_radius: 80.0, attack_range: 0.0,
+            ),
+        },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "npc_puppy_slug": (
+                display_name: "Puppy Slug", spritesheet: "x.png", manifest: "x_spritesheet.ron",
+                tier: MainHall, body_kind: Crawler, composition: None,
+                default_brain: "wanderer_puppy_slug", default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    fn npc(brain_override: Option<&str>) -> Interactable {
+        Interactable::new(
+            "slug",
+            "Talk",
+            ambition_platformer2d_core::Aabb::new(
+                ambition_platformer2d_core::Vec2::ZERO,
+                ambition_platformer2d_core::Vec2::new(1.0, 1.0),
+            ),
+            InteractionKind::Npc {
+                character_id: Some("npc_puppy_slug".to_string()),
+                dialogue_id: None,
+                patrol_radius: 0.0,
+                patrol_path_id: None,
+                brain_override: brain_override.map(str::to_string),
+            },
+        )
+    }
+
+    /// A registry holding one prepared character that names `profile` as its
+    /// own default, built through the real preparation path rather than by
+    /// hand — a hand-built `PreparedCharacterDefinition` would prove that this
+    /// test can construct a struct.
+    fn registry_naming(
+        profile: Option<&str>,
+    ) -> crate::character_runtime::PreparedCharacterRegistry {
+        let mut definition = crate::character_runtime::CharacterDefinition::new(
+            "npc_puppy_slug",
+            "Puppy Slug",
+            "test",
+        );
+        definition.default_brain_profile = profile.map(str::to_string);
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        registry.insert_prepared(finalized.prepared);
+        registry
+    }
+
+    /// ⭐ **the character's own default reaches a spawned NPC.** Before this the
+    /// only thing that could state an NPC's normal behaviour was its catalog
+    /// row, so a registered character with its own view of itself was ignored on
+    /// the one path that spawns most of the cast.
+    #[test]
+    fn an_npc_takes_its_definitions_default_profile_over_the_catalog_rows() {
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            parse_catalog(CATALOG),
+        );
+        let (brain, binding) = resolve_npc_brain(
+            &catalog,
+            &registry_naming(Some("patrol_peaceful")),
+            &npc(None),
+            0.0,
+        );
+        assert_eq!(
+            brain.label(),
+            "patrol",
+            "the definition said `patrol_peaceful`; the row says `wanderer_puppy_slug`"
+        );
+        assert_eq!(
+            binding
+                .as_ref()
+                .and_then(|(b, _)| b.default_preset.as_ref())
+                .map(|p| p.as_str()),
+            Some("patrol_peaceful"),
+            "and it is the binding's DEFAULT, so a later restore returns here"
+        );
+    }
+
+    /// ⛔ **the parity case, and it is the one that must not break**: a
+    /// definition that names nothing leaves the catalog row in charge. Every
+    /// character in the repo is this one today, so a regression here is a
+    /// silent behaviour change across the whole cast.
+    #[test]
+    fn a_definition_naming_nothing_leaves_the_catalog_row_in_charge() {
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            parse_catalog(CATALOG),
+        );
+        for registry in [
+            registry_naming(None),
+            crate::character_runtime::PreparedCharacterRegistry::default(),
+        ] {
+            let (brain, _) = resolve_npc_brain(&catalog, &registry, &npc(None), 0.0);
+            assert_eq!(brain.label(), "wanderer");
+        }
+    }
+
+    /// And an authored placement override still outranks both.
+    #[test]
+    fn a_placement_override_outranks_the_definitions_default() {
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            parse_catalog(CATALOG),
+        );
+        let (brain, _) = resolve_npc_brain(
+            &catalog,
+            &registry_naming(Some("patrol_peaceful")),
+            &npc(Some("stand_still")),
+            0.0,
+        );
+        assert_eq!(brain.label(), "stand_still");
     }
 }

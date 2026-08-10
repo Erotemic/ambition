@@ -200,8 +200,12 @@ fn portal_color_from_spec(
     color: crate::rooms::PortalChannelColorSpec,
 ) -> ambition_portal2d::PortalChannelColor {
     match color {
-        crate::rooms::PortalChannelColorSpec::Purple => ambition_portal2d::PortalChannelColor::Purple,
-        crate::rooms::PortalChannelColorSpec::Yellow => ambition_portal2d::PortalChannelColor::Yellow,
+        crate::rooms::PortalChannelColorSpec::Purple => {
+            ambition_portal2d::PortalChannelColor::Purple
+        }
+        crate::rooms::PortalChannelColorSpec::Yellow => {
+            ambition_portal2d::PortalChannelColor::Yellow
+        }
         crate::rooms::PortalChannelColorSpec::Teal => ambition_portal2d::PortalChannelColor::Teal,
         crate::rooms::PortalChannelColorSpec::Red => ambition_portal2d::PortalChannelColor::Red,
         crate::rooms::PortalChannelColorSpec::Green => ambition_portal2d::PortalChannelColor::Green,
@@ -297,6 +301,7 @@ pub(crate) fn lower_interactable_placement(
         &ctx.context.characters,
         &ctx.context.sheets,
         &ctx.context.roster,
+        &ctx.context.prepared,
         ctx.session_scope,
         ctx.root,
         &authored,
@@ -532,13 +537,15 @@ pub(crate) fn spawn_gravity_zone_into(
     // A non-zero amplitude makes the column slide horizontally (the sliding
     // gravity demo); a static column omits the OscillatingZone.
     if spec.oscillate_amplitude > 0.0 {
-        entity.insert(ambition_platformer2d_shared_tangle::gravity::OscillatingZone {
-            base_center: spec.center,
-            half: spec.half_extent,
-            amplitude_x: spec.oscillate_amplitude,
-            freq: spec.oscillate_freq,
-            phase: 0.0,
-        });
+        entity.insert(
+            ambition_platformer2d_shared_tangle::gravity::OscillatingZone {
+                base_center: spec.center,
+                half: spec.half_extent,
+                amplitude_x: spec.oscillate_amplitude,
+                freq: spec.oscillate_freq,
+                phase: 0.0,
+            },
+        );
     }
 }
 

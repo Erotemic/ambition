@@ -22,9 +22,35 @@ pub struct ActorPlacementContext {
     /// the other two.
     pub sheets: ambition_sprite_sheet::character::sheets::AuthoredSheets,
     pub roster: CharacterRoster,
+    /// **The prepared characters this host can build**, so lowering can ask what
+    /// a character's own DEFAULT autonomous profile is (D73 phase 1).
+    ///
+    /// ⚠ cloned like its three neighbours, and for the same reason: lowering runs
+    /// against a snapshot of authored content taken when staging was requested,
+    /// not against live resources that may change mid-commit.
+    pub prepared: crate::character_runtime::PreparedCharacterRegistry,
 }
 
 impl ActorPlacementContext {
+    /// **Supply the prepared cast**, so lowering can read a character's own
+    /// default autonomous profile (D73 phase 1).
+    ///
+    /// ⚠ **a builder rather than a fourth constructor argument, and that is a
+    /// judgement not a shortcut.** Two of the four construction sites have the
+    /// registry to hand and two do not (a summon system and a pair of
+    /// construction fixtures), and an EMPTY registry is already a meaningful,
+    /// correct value here — it means "no character states a default", which is
+    /// what the catalog-only path has always assumed. Forcing the argument would
+    /// make those sites write `&Default::default()`, which says less.
+    #[must_use]
+    pub fn with_prepared(
+        mut self,
+        prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    ) -> Self {
+        self.prepared = prepared.clone();
+        self
+    }
+
     pub fn new(
         characters: &CharacterCatalog,
         sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -34,6 +60,7 @@ impl ActorPlacementContext {
             characters: characters.clone(),
             sheets: sheets.clone(),
             roster: roster.clone(),
+            prepared: Default::default(),
         }
     }
 }

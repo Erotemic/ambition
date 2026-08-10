@@ -520,6 +520,7 @@ impl NpcActorSpawnPlan {
         catalog: &CharacterCatalog,
         authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         roster: &CharacterRoster,
+        prepared: &crate::character_runtime::PreparedCharacterRegistry,
         entity_name: impl Into<String>,
         feature_aabb: CenteredAabb,
         id: impl Into<String>,
@@ -568,8 +569,12 @@ impl NpcActorSpawnPlan {
         // inference. A catalog-backed NPC also gets a `BrainBinding` +
         // `AuthoredBrainContext` so its brain can be switched at runtime, rebuilt
         // around its authored home, and its selection survives snapshot.
-        let (brain, brain_binding) =
-            super::super::npcs::resolve_npc_brain(catalog, &interactable, seed.config.spawn.pos.x);
+        let (brain, brain_binding) = super::super::npcs::resolve_npc_brain(
+            catalog,
+            prepared,
+            &interactable,
+            seed.config.spawn.pos.x,
+        );
         // Derive the `CharacterBrain` read-model (patrol-stall intent) from the
         // RESOLVED autonomous brain, not from `patrol_radius`: a body patrol-stalls
         // iff its actual brain is a Patrol brain. Any other resolved brain (wanderer,
@@ -1549,6 +1554,7 @@ pub(crate) fn spawn_interactable_into(
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::InteractableSpec>,
@@ -1574,6 +1580,7 @@ pub(crate) fn spawn_interactable_into(
             catalog,
             authored_sheets,
             roster,
+            prepared,
             format!("Feature actor npc: {label}"),
             feature_aabb,
             authored.id.clone(),
@@ -1806,6 +1813,12 @@ pub fn apply_summon_effects(
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
     authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     character_roster: bevy::prelude::Res<CharacterRoster>,
+    // The prepared cast, so a summoned body can take its character's own default
+    // autonomous profile (D73 phase 1). `Option` like every other reader of it:
+    // a composition with no registered characters is ordinary, not degraded.
+    prepared_characters: Option<
+        bevy::prelude::Res<crate::character_runtime::PreparedCharacterRegistry>,
+    >,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     recipes: bevy::prelude::Res<crate::construction::ActorConstructionRegistry>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
@@ -1894,11 +1907,17 @@ pub fn apply_summon_effects(
         room: None,
     };
     let services = crate::construction::ActorConstructionServices {
-        context: crate::world::placements::ActorPlacementContext::new(
-            &character_catalog,
-            &authored_sheets,
-            &character_roster,
-        ),
+        context: {
+            let context = crate::world::placements::ActorPlacementContext::new(
+                &character_catalog,
+                &authored_sheets,
+                &character_roster,
+            );
+            match prepared_characters.as_deref() {
+                Some(prepared) => context.with_prepared(prepared),
+                None => context,
+            }
+        },
         boss_catalog: boss_catalog.clone(),
     };
 

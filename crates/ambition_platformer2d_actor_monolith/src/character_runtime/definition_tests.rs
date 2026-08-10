@@ -380,6 +380,10 @@ fn a_definition_carries_no_controller_binding() {
         // What the body does when it DIES — a property of the creature, and one
         // no controller changes. A possessed mite still splits.
         combat_capabilities: _,
+        // A DEFAULT autonomous profile, which §4.7 now permits and Jon's
+        // 2026-08-10 ruling authorised: what this character does when nobody is
+        // driving it. The CURRENT controller is still nowhere on this type.
+        default_brain_profile: _,
         moveset: _,
         // A CAPABILITY, not a controller binding, and the distinction is the
         // whole of §4.7: this says what the body can reach for, and says nothing

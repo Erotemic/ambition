@@ -186,10 +186,21 @@ whether or not it explains the PCA.
   default"*, only who may state it widened. Qualified through
   `qualify_preset_like`, so a definition and a placement cannot mean different
   things by the same word.
-  ▢ **the NPC spawn path still passes `None`**, because
-  `PreparedCharacterRegistry` is three signatures away (`spawn_interactable_into`
-  → `NpcActorSpawnPlan::peaceful` → `resolve_npc_brain`). That thread is the next
-  slice; passing `None` is exactly today's behaviour, so nothing is half-applied.
+  ✔ **and the NPC spawn path ADOPTS it** — `CharacterDefinition
+  ::default_brain_profile` carries through preparation, and the registry now
+  reaches `resolve_npc_brain` through `ActorConstructionContext::with_prepared`
+  → `ActorPlacementContext` → `spawn_interactable_into` →
+  `NpcActorSpawnPlan::peaceful`. Three tests on that path: the definition's
+  profile beats the row's, a silent definition (and an empty registry) leaves
+  the row in charge, and a placement override beats both. Poisoning the lookup
+  reds the first and leaves the parity cases green, which is the shape a
+  precedence test should have.
+  ▢ **two SUPPLIERS remain** — the room-transition loader and the session reset
+  build an `ActorConstructionContext` without calling `.with_prepared`, so the
+  seam is live but unsupplied on those two routes. ⚠ that is not a half-applied
+  change: an absent registry is a legal value meaning *"no character states a
+  default"*, which is what every route assumed before this existed. Supplying
+  them needs one more resource in two `SystemParam` tuples.
 * ⚠ **`a_definition_carries_no_controller_binding` is where the brief's ruling
   lands.** That test destructures `CharacterDefinition` exhaustively and says
   *"if `default_brain` is ever added, this stops compiling and the reviewer has

@@ -116,6 +116,14 @@ pub struct ActorConstructionContext<'a> {
     /// [`ContentBinding::Content`] — the enum exists because the planner also
     /// serves runtime-dynamic construction, which is not.
     pub binding: ambition_platformer2d_shared_tangle::construction::ContentBinding,
+    /// **The prepared cast**, when the caller has one — so a lowered NPC can be
+    /// asked what its CHARACTER's default autonomous profile is (D73 phase 1).
+    ///
+    /// ⚠ `Option`, and an absent registry is a legal answer rather than a
+    /// degraded one: it means no character states a default, which is exactly
+    /// what this path assumed before a definition could state one. Every
+    /// existing caller keeps its behaviour by saying nothing.
+    pub prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
 }
 
 impl<'a> ActorConstructionContext<'a> {
@@ -128,7 +136,18 @@ impl<'a> ActorConstructionContext<'a> {
             binding: ambition_platformer2d_shared_tangle::construction::ContentBinding::Content(
                 content_epoch,
             ),
+            prepared: None,
         }
+    }
+
+    /// Supply the prepared cast for this construction. See [`Self::prepared`].
+    #[must_use]
+    pub fn with_prepared(
+        mut self,
+        prepared: &'a crate::character_runtime::PreparedCharacterRegistry,
+    ) -> Self {
+        self.prepared = Some(prepared);
+        self
     }
 }
 
@@ -307,8 +326,11 @@ impl RoomFeatureConstructionPlan {
             .map(std::string::ToString::to_string)
             .collect();
 
-        let placement_context =
+        let mut placement_context =
             crate::world::placements::ActorPlacementContext::new(catalog, sheets, roster);
+        if let Some(prepared) = construction.prepared {
+            placement_context = placement_context.with_prepared(prepared);
+        }
         Ok(Self {
             room: room.clone(),
             construction_services: crate::construction::ActorConstructionServices {

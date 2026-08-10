@@ -307,6 +307,20 @@ pub struct CharacterDefinition {
     /// re-wear, like every other physical fact a persona claims: wearing a
     /// sandbag and then a duelist must not leave the duelist unkillable.
     pub combat_capabilities: Option<crate::combat::CombatCapabilities>,
+    /// **What this character normally DOES when nothing overrides it** — the
+    /// name of an autonomous-controller profile (a catalog `brain_presets` key).
+    ///
+    /// ⚠ **not the current controller, and the distinction is the whole rule.**
+    /// Jon, 2026-08-10: *"a character definition may name a default autonomous
+    /// controller profile … that does not mean the controller is intrinsic
+    /// identity. Possessing a Goblin changes who drives the Goblin. It does not
+    /// change what a Goblin is."* A human, a CPU, a replay or a policy may drive
+    /// this body; this only says what happens when none of them does.
+    ///
+    /// Precedence, resolved by `resolve_initial_brain`: an authored placement
+    /// override wins, then this, then the catalog row's `default_brain`. `None`
+    /// leaves the row in charge, which is every character in the repo today.
+    pub default_brain_profile: Option<String>,
     pub moveset: Option<MovesetContract>,
     /// What this character CAN do — melee, ranged, special, locomotion style.
     ///
@@ -369,11 +383,19 @@ impl CharacterDefinition {
             hurtboxes: None,
             vitals: Vitals::default(),
             combat_capabilities: None,
+            default_brain_profile: None,
             moveset: None,
             action_set: None,
             motion_model: None,
             movement_tuning: None,
         }
+    }
+
+    /// Author what this character normally does when nothing overrides it.
+    /// See [`Self::default_brain_profile`].
+    pub fn with_default_brain_profile(mut self, profile: impl Into<String>) -> Self {
+        self.default_brain_profile = Some(profile.into());
+        self
     }
 
     /// Author what this character does when it dies. See the field.
@@ -501,6 +523,11 @@ struct PreparedCharacterOverrides {
     /// See [`CharacterDefinition::combat_capabilities`]. No catalog counterpart
     /// exists to fold against, so it carries straight through.
     combat_capabilities: Option<crate::combat::CombatCapabilities>,
+    /// See [`CharacterDefinition::default_brain_profile`]. Carried through
+    /// unchanged — the catalog is not consulted, because the FOLD's job is to
+    /// answer what a character IS and this is a default the resolver applies at
+    /// spawn, where the placement's own override is also visible.
+    default_brain_profile: Option<String>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -620,6 +647,10 @@ pub struct PreparedCharacterDefinition {
     /// [`CharacterDefinition::combat_capabilities`] — `None` stays `None`
     /// through the fold, because the catalog has no counterpart for it.
     pub combat_capabilities: Option<crate::combat::CombatCapabilities>,
+    /// The autonomous profile this character normally runs, if it named one.
+    /// See [`CharacterDefinition::default_brain_profile`] — `None` leaves the
+    /// catalog row's `default_brain` in charge.
+    pub default_brain_profile: Option<String>,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,
     /// The movement policy, resolved. Every body already carries exactly one
@@ -1052,6 +1083,7 @@ fn prepare_character(
         hurtboxes: definition.hurtboxes,
         vitals: definition.vitals,
         combat_capabilities: definition.combat_capabilities,
+        default_brain_profile: definition.default_brain_profile,
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1124,6 +1156,7 @@ fn finalize_character(
         hurtboxes,
         vitals,
         combat_capabilities,
+        default_brain_profile,
         moveset,
         action_set,
         motion_model,
@@ -1236,6 +1269,7 @@ fn finalize_character(
         }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
         combat_capabilities,
+        default_brain_profile,
         id,
         display_name,
         provider,

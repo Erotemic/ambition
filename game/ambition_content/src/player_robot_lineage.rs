@@ -615,20 +615,25 @@ pub fn register_declared_cast(app: &mut bevy::prelude::App) {
     // re-registering here would be a duplicate and would also throw those away.
     let lineage: std::collections::BTreeSet<&str> =
         LINEAGE.iter().map(|incarnation| incarnation.id).collect();
-    // ⛔ **THE WEARABLE CAST, not every catalog row.** Registering the whole
+    // ⛔ **THE BUILDABLE CAST, not every catalog row.** Registering the whole
     // catalog was tried and is measurably wrong — see the note on
     // `PLAYABLE_ROSTER`, where the population is declared and the measurement
     // recorded. In one line: a bare registration says "this character authors no
     // body", preparation correctly retracts what a persona does not author, and
     // ~100 exploration NPCs lost their archetype-built vitals.
-    for id in crate::character_catalog::PLAYABLE_ROSTER {
+    //
+    // ⭐ **and it is no longer the SELECTION list** (D73 phase 2): what a game
+    // can BUILD and what it OFFERS on a character-select grid are two questions,
+    // and `buildable_cast()` is the union that answers the first. Empty
+    // build-only list today, so this iterates exactly what it always did.
+    for id in crate::character_catalog::buildable_cast() {
         if lineage.contains(id) {
             continue;
         }
-        let Some(row) = catalog.get(*id) else {
+        let Some(row) = catalog.get(id) else {
             continue;
         };
-        let id = (*id).to_string();
+        let id = id.to_string();
         // No derivable sheet target means nothing to wear. The load ledger
         // already reports that class; a registration that could not draw would
         // be a second reporter of one fact.

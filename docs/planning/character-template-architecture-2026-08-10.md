@@ -82,7 +82,7 @@ path works beside the old one.
 | # | Phase | State |
 |---|---|---|
 | 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the EXPRESSIVENESS half is done** — death traits, knockback weight and a default autonomous profile are authorable and adopted; see "phase 1 progress". ▢ what remains is the TYPE MOVE (into `ambition_characters`) and the remaining intrinsic facts, most of which need phase 3's consumer |
-| 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ **mapped, not started** — see APPENDIX B; start with the mites, whose facts already have somewhere to go |
+| 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ **mapped; the DOOR is open** — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
 | 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ▢ |
 | 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
 | 5 | Controller/provocation simplification; rollback becomes controller-only | ▢ |

@@ -173,6 +173,37 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     "npc_noether",
 ];
 
+/// **Characters this game can BUILD but does not OFFER as a selection.**
+///
+/// ⭐ **the split the character-template campaign requires** (D73 phase 2, Jon
+/// 2026-08-10): *"`PLAYABLE_ROSTER` may remain a UI/content decision about which
+/// characters appear in a selection screen. It must NOT define which characters
+/// the engine is capable of constructing."* Until this existed the two questions
+/// were one list, so making a character buildable also put a portrait on the
+/// select grid — and a mite does not belong there.
+///
+/// Registration is `PLAYABLE_ROSTER ∪ this`. Empty today, so nothing changes
+/// yet; it is the door phase 2's migration walks through, one character at a
+/// time.
+///
+/// ⛔ **an id belongs here only once its intrinsic facts are on its DEFINITION.**
+/// A bare registration says the character authors no body, preparation correctly
+/// retracts what a persona does not author, and a character whose health, mass
+/// and kit still live in `character_archetypes.ron` loses them — the measured
+/// ~100-NPC regression recorded on [`PLAYABLE_ROSTER`]. Author first, register
+/// second; that ordering is the whole reason this list is empty rather than
+/// pre-filled with the obvious candidates.
+pub const BUILDABLE_ONLY_CAST: &[&str] = &[];
+
+/// Every id this game registers as a buildable character — the SELECTION cast
+/// plus the build-only cast. The one list registration iterates.
+pub fn buildable_cast() -> impl Iterator<Item = &'static str> {
+    PLAYABLE_ROSTER
+        .iter()
+        .chain(BUILDABLE_ONLY_CAST.iter())
+        .copied()
+}
+
 /// The next id in [`PLAYABLE_ROSTER`] after `current`, wrapping. Unknown ids
 /// (not in the roster) resolve to the first entry, so a stale selection always
 /// re-enters the cast cleanly.
@@ -267,6 +298,37 @@ mod tests {
                  curated cast rotted; fix the roster or the catalog",
             );
         }
+    }
+
+    /// **The two lists answer two questions, and the build-only one has to obey
+    /// the same rules as the selection one** (D73 phase 2).
+    ///
+    /// ⚠ it is empty today, so this asserts the CONTRACT rather than any
+    /// current content: an id here must resolve a catalog row, and must not
+    /// duplicate the selection cast — registering a character twice is how a
+    /// definition silently loses to whichever registration ran last.
+    #[test]
+    fn the_build_only_cast_resolves_rows_and_does_not_overlap_the_selection_cast() {
+        let catalog = load_catalog();
+        let playable: std::collections::BTreeSet<&str> = PLAYABLE_ROSTER.iter().copied().collect();
+        for id in BUILDABLE_ONLY_CAST {
+            assert!(
+                catalog.display_name(id).is_some(),
+                "BUILDABLE_ONLY_CAST id '{id}' has no character_catalog.ron row",
+            );
+            assert!(
+                !playable.contains(id),
+                "'{id}' is in BOTH casts — a character registered twice keeps \
+                 whichever registration ran last, which is not a decision anybody made",
+            );
+        }
+        // And the union is what registration actually walks, so a reader can
+        // trust the two constants without reading `register_declared_cast`.
+        let union: Vec<&str> = buildable_cast().collect();
+        assert_eq!(
+            union.len(),
+            PLAYABLE_ROSTER.len() + BUILDABLE_ONLY_CAST.len()
+        );
     }
 
     #[test]

@@ -203,3 +203,44 @@ fn unauthored_is_not_the_same_as_authored_empty() {
     );
     assert!(authored_empty.volumes.is_empty());
 }
+
+/// ⭐⭐ **every documented pose must be REACHABLE, and every reachable pose
+/// documented.** The trap this pins is not a crash: a pose id that appears in
+/// the vocabulary but that no simulation fact can produce lets content author a
+/// profile for it, pass validation, and be silently ignored forever. Four ids
+/// (`tumble`, `shield`, `ledge_hang`, `run`) sat in the module doc in exactly
+/// that state, and `crouch` did too until it was given a fact.
+///
+/// The check is exhaustive over `body_pose`'s whole input space, so a new pose
+/// name cannot land without a branch that produces it, and a deleted branch
+/// cannot leave its name behind.
+#[test]
+fn the_pose_vocabulary_is_exactly_what_the_engine_can_write() {
+    let mut reachable = std::collections::BTreeSet::new();
+    for hitstun in [false, true] {
+        for crouching in [false, true] {
+            for airborne in [false, true] {
+                reachable.insert(body_pose(hitstun, crouching, airborne));
+            }
+        }
+    }
+    let documented: std::collections::BTreeSet<&str> = BODY_POSES.iter().copied().collect();
+    assert_eq!(
+        reachable, documented,
+        "⛔ a pose named in BODY_POSES that no fact produces is authored, valid, \
+         and silently never selected"
+    );
+}
+
+/// The pose a crouched body is in — Jon's named gap, and the reason the
+/// vocabulary check above exists. ⛔ POISON: a body doing nothing must NOT read
+/// as crouching, or every idle silhouette in the game changes.
+#[test]
+fn a_crouched_body_selects_its_crouch_profile() {
+    assert_eq!(body_pose(false, true, false), POSE_CROUCH);
+    assert_eq!(body_pose(false, false, false), POSE_IDLE);
+    // Hitstun is a reaction the body did not choose; it outranks the stance.
+    assert_eq!(body_pose(true, true, false), POSE_HITSTUN);
+    // A stance change is what moved the silhouette, so it outranks mere altitude.
+    assert_eq!(body_pose(false, true, true), POSE_CROUCH);
+}

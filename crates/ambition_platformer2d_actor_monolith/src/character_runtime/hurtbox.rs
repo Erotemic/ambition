@@ -41,9 +41,17 @@ pub struct AuthoredHurtboxes(pub HurtboxDoc);
 /// The body-state pose this body is in, and how long it has been there.
 ///
 /// Written by the sim from authoritative state, so the pose id is a gameplay fact
-/// rather than an animation row. The engine knows the vocabulary
-/// (`hitstun`, `tumble`, `crouch`, `shield`, `airborne`, `ledge_hang`, `run`,
-/// `idle`); content authors profiles against it.
+/// rather than an animation row. The vocabulary is [`BODY_POSES`] and nothing
+/// else; content authors profiles against it.
+///
+/// ⛔ this doc used to promise `tumble`, `shield`, `ledge_hang` and `run` as
+/// well, and [`advance_body_pose_clocks`] wrote none of them — a profile
+/// authored for any of the four validated, published, and was **silently never
+/// selected**. `crouch` was in the same state and is now written, because a
+/// crouched silhouette is the pose-aware hurtbox a fighter most obviously needs.
+/// The other four are absent from the vocabulary rather than listed as
+/// aspirations: adding one means giving [`body_pose`] the fact that produces it,
+/// and the reachability test will not let the name land without it.
 #[derive(Component, Debug, Clone, PartialEq)]
 pub struct BodyPoseClock {
     pub pose: String,
@@ -68,9 +76,39 @@ impl Default for BodyPoseClock {
 
 /// Body-state pose ids the engine writes. Content may author a profile for any of
 /// them; an unauthored one falls through to the default shapes.
+///
+/// ⛔ **this list is a CONTRACT, not a wish list.** An id documented here that
+/// [`body_pose`] can never produce is worse than a missing feature: content
+/// authors a profile for it, the profile validates, and it is silently never
+/// selected. [`BODY_POSES`] and `body_pose`'s reachable set are pinned equal by
+/// a test, so a pose cannot be named without also being written.
 pub const POSE_IDLE: &str = "idle";
 pub const POSE_HITSTUN: &str = "hitstun";
 pub const POSE_AIRBORNE: &str = "airborne";
+pub const POSE_CROUCH: &str = "crouch";
+
+/// Every pose id the engine writes. See the note on [`POSE_IDLE`].
+pub const BODY_POSES: [&str; 4] = [POSE_HITSTUN, POSE_CROUCH, POSE_AIRBORNE, POSE_IDLE];
+
+/// The pose selection rule, from authoritative simulation facts only.
+///
+/// Precedence is by how much the state overrides the body's shape: hitstun is a
+/// reaction the body does not choose, a crouch is a stance it does, and airborne
+/// is merely where it is. ⚠ crouch outranks airborne because `BodyMode` only
+/// reaches `Crouching` through a grounded stance change — the two are not
+/// expected to be true at once, and if they ever are, the stance is the thing
+/// that actually changed the silhouette.
+pub fn body_pose(hitstun: bool, crouching: bool, airborne: bool) -> &'static str {
+    if hitstun {
+        POSE_HITSTUN
+    } else if crouching {
+        POSE_CROUCH
+    } else if airborne {
+        POSE_AIRBORNE
+    } else {
+        POSE_IDLE
+    }
+}
 
 /// The volumes a body is damageable through THIS tick, and where they came from.
 ///
@@ -189,23 +227,24 @@ pub fn advance_body_pose_clocks(
     mut bodies: Query<(
         &ambition_characters::actor::BodyCombat,
         Option<&ambition_platformer2d_core::BodyGroundState>,
+        Option<&ambition_platformer2d_core::BodyModeState>,
         Option<&ambition_time::ProperTimeScale>,
         &mut BodyPoseClock,
     )>,
 ) {
-    for (combat, ground, scale, mut clock) in &mut bodies {
+    for (combat, ground, body_mode, scale, mut clock) in &mut bodies {
         // The body's OWN proper time, the same clock `advance_move_playback` uses.
         // A dilated body's hitstun profile and its move profile must not disagree
         // about how much time passed, or a bullet-time hit resolves against a
         // silhouette from a different instant.
         let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
-        let pose = if combat.hitstun_timer > 0.0 {
-            POSE_HITSTUN
-        } else if ground.is_some_and(|g| !g.on_ground) {
-            POSE_AIRBORNE
-        } else {
-            POSE_IDLE
-        };
+        let pose = body_pose(
+            combat.hitstun_timer > 0.0,
+            body_mode.is_some_and(|m| {
+                m.body_mode == ambition_platformer2d_core::player_state::BodyMode::Crouching
+            }),
+            ground.is_some_and(|g| !g.on_ground),
+        );
         if clock.pose == pose {
             clock.elapsed_s += dt;
         } else {

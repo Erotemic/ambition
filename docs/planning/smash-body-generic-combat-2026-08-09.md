@@ -859,7 +859,57 @@ universal three-frame squat of Smash Ultimate, authored beside `slash_recoil:
 every game's. `DEFAULT_TUNING` stays `0.0`, because a squat is not a better jump,
 it is a different game's jump.
 
-▢ **still open from the feel list**: hitbox tracks, pose-aware hurtboxes, DI.
+## Pose-aware hurtboxes — the model was built, the vocabulary lied (2026-08-10)
+
+⛔ grep before building, a fifth time. Pose-aware hurtboxes are **already wired
+end to end**: `AuthoredHurtboxes` (a validated `HurtboxDoc` with default / pose /
+move-clock timelines) → `resolve_body_hurtboxes` → `ResolvedHurtboxes` →
+`refresh_body_damageable_volumes`, which publishes the authored silhouette in
+place of the coarse envelope for **any** body, not just a boss. Move-clock
+overrides — Jon's "attacks" case — work today, sampled on `MovePlayback.t`, the
+same clock the move's hit windows use, so a move's hurtbox and hitbox timelines
+cannot disagree about when they are.
+
+### ⛔ what was actually broken: a doc block promising poses nothing writes
+
+`BodyPoseClock`'s doc said *"the engine knows the vocabulary (`hitstun`,
+`tumble`, `crouch`, `shield`, `airborne`, `ledge_hang`, `run`, `idle`)"*.
+`advance_body_pose_clocks` wrote **three** of the eight.
+
+⭐ this is worse than a missing feature and it fails silently in the most
+expensive way: content authors a `crouch` profile, `validate_hurtbox_timeline`
+**accepts it**, the catalog publishes it, and it is never selected. Nothing warns
+— the fallback to the default shapes is indistinguishable from an unauthored
+body. Five names in a doc comment, each one an invitation to author work that
+does nothing. *(A doc block naming your invariant is a dependency.)*
+
+### ✔ the vocabulary is now a contract
+
+`crouch` is written, from `BodyMode::Crouching` — an authoritative simulation
+fact the body-mode driver already maintains, and Jon's named case. The selection
+rule moved into a pure `body_pose(hitstun, crouching, airborne)`, and `BODY_POSES`
+is pinned equal to that function's reachable set by an **exhaustive** test over
+its whole input space. A pose cannot be named without a branch producing it, and
+a deleted branch cannot leave its name behind.
+
+The other four are **removed from the vocabulary rather than left as
+aspirations**. `shield` and `ledge_hang` have crisp facts and are cheap to add —
+but Jon said not to rush shields and ledges, and a name in a list is precisely
+the thing that was doing damage. `tumble` has no simulation concept at all, and
+`run` would need a speed threshold nobody has authored.
+
+⚠ **marked**: `update_body_mode` matches on `Brain::Player(slot)`, so only a
+CONTROLLED body (human or possessed) can crouch. That is an intent gap, not a
+fork — an AI brain emits no crouch intent, so lifting the gate would change
+nothing today — but a CPU fighter cannot use a crouch profile until its brain
+can ask for one.
+
+⚠ **also marked**: F1 shows effective hurtboxes but not WHICH timeline produced
+them, which is the "the box is wrong — which of three sources won" question
+`HurtboxSelection` exists to answer. It stays out because `ambition_sim_view`
+would have to name the monolith, and a new dep edge fails the contracts job.
+
+▢ **still open from the feel list**: hitbox tracks, DI.
 
 ## Execution order (mine, revise as measurements land)
 

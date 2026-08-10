@@ -35,6 +35,46 @@ use ambition_sfx::SfxWriter;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 
+
+/// One side of a combat relationship, as this module reads it off a body.
+type CombatSide<'w> = (
+    &'w crate::combat::components::ActorFaction,
+    Option<&'w ambition_characters::brain::Brain>,
+    Option<&'w crate::combat::targeting::MatchTeam>,
+);
+
+/// **May this attacker's hit damage this boss?**
+///
+/// Named and free-standing so the policy can be stated and tested rather than
+/// inferred from the shape of a closure — and so it is visibly the SAME
+/// `damage_lands_between` the body resolver applies to every other victim.
+///
+/// Allegiance is EFFECTIVE, not authored: a possessed boss fights as its
+/// driver's side. An UNATTRIBUTED hit lands — a broadcast with no attacker
+/// cannot be adjudicated, and refusing it would disarm the hazard and scripted
+/// blast paths that legitimately carry no entity.
+pub(crate) fn boss_damage_allowed(
+    attacker: Option<CombatSide<'_>>,
+    boss: Option<CombatSide<'_>>,
+    friendly_fire: crate::combat::targeting::FriendlyFire,
+    boss_entity: Entity,
+) -> bool {
+    let (Some((attacker_faction, attacker_brain, attacker_team)), Some((boss_faction, boss_brain, boss_team))) =
+        (attacker, boss)
+    else {
+        return true;
+    };
+    crate::combat::targeting::damage_lands_between(
+        crate::combat::targeting::effective_faction(*attacker_faction, attacker_brain),
+        crate::combat::targeting::effective_faction(*boss_faction, boss_brain),
+        attacker_team,
+        boss_team,
+        friendly_fire,
+        None,
+        boss_entity,
+    )
+}
+
 #[derive(SystemParam)]
 pub struct FeatureHitWriters<'w, 's> {
     pub set_flag: MessageWriter<'w, SetFlagRequested>,
@@ -366,9 +406,21 @@ pub fn apply_feature_hit_events(
     // Which bodies hit HEAVY, and which a human is driving. Both used to be
     // pattern matches on the cause vocabulary; both are facts about the striker,
     // and the event names the striker.
-    (heavy_attackers, controlled_attackers): (
+    (heavy_attackers, controlled_attackers, combat_sides): (
         Query<(), With<super::boss_clusters::BossConfig>>,
         Query<(), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
+        // **Whose side each body is on**, read for the boss scan's relationship
+        // check. Read-only and looked up by entity, so it may overlap the
+        // mutable actor and boss queries freely.
+        //
+        // `Brain` rides along because allegiance is EFFECTIVE, not authored: a
+        // possessed boss fights as its driver's side, and a policy that read the
+        // authored faction would have it defending the team it was taken from.
+        Query<(
+            &'static crate::combat::components::ActorFaction,
+            Option<&'static ambition_characters::brain::Brain>,
+            Option<&'static crate::combat::targeting::MatchTeam>,
+        )>,
     ),
     // R3: boss damage mutates the boss ENTITY directly (`apply_boss_hit` →
     // `apply_entity_boss_damage`), so this system no longer needs the boss
@@ -376,7 +428,11 @@ pub fn apply_feature_hit_events(
     // `update_boss_encounters`.
 ) {
     let mut feel = feel_tuning.map(|r| *r).unwrap_or_default();
-    feel.di_max_angle = combat_rules.map(|r| *r).unwrap_or_default().di_max_angle;
+    let resolved_rules = combat_rules.map(|r| *r).unwrap_or_default();
+    feel.di_max_angle = resolved_rules.di_max_angle;
+    // AE6: the MATCH's friendly-fire rule, not the world's baseline toggle —
+    // the same value the body resolver reads.
+    let friendly_fire = resolved_rules.friendly_fire();
     let catalog = &*catalogs.characters;
     // AD8: the prepared cast, borrowed once beside the catalog it stands behind.
     let prepared = catalogs.prepared.as_deref();
@@ -572,6 +628,29 @@ pub fn apply_feature_hit_events(
             }
         }
         let mut boss_hit_this_event = false;
+        // **May this attacker hurt this boss?** — the same relational question,
+        // answered by the same function, that the body resolver asks of every
+        // other victim.
+        //
+        // ⛔ **this scan asked nothing at all.** It damaged any boss an
+        // attacker-side volume reached, and got away with it because only the
+        // player was allowed to broadcast one — so a boss's "who may hurt me"
+        // rule was encoded as *who is permitted to emit a broadcast*, in another
+        // crate, by omission. That is exactly the encoding the cause-vocabulary
+        // fold dissolves, and a rule that lives in who-may-speak cannot survive
+        // everyone being able to speak.
+        //
+        // ⚠ an UNATTRIBUTED hit still lands. A broadcast with no attacker cannot
+        // be adjudicated, and refusing it would silently disarm the hazard and
+        // scripted-blast paths that legitimately carry no entity.
+        let may_damage_boss = |boss_entity: Entity| {
+            boss_damage_allowed(
+                event.attacker.and_then(|a| combat_sides.get(a).ok()),
+                combat_sides.get(boss_entity).ok(),
+                friendly_fire,
+                boss_entity,
+            )
+        };
         // A pre-resolved actor-vs-actor hit never spills onto bosses / breakables.
         for (
             boss_entity,
@@ -587,6 +666,9 @@ pub fn apply_feature_hit_events(
         ) in bosses.iter_mut().filter(|_| actor_target.is_none())
         {
             if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
+                continue;
+            }
+            if !may_damage_boss(boss_entity) {
                 continue;
             }
             // Structural tangibility gate: a defeated boss is intangible — no hit

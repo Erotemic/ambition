@@ -450,10 +450,32 @@ broadcast body-generic removes the rule without replacing it: every enemy swing
 near a boss would free-hit it.
 
 ⇒ **so the order changes.** Item 5 (one combat-relationship policy) comes BEFORE
-the rename, and its first concrete bite is giving the boss and breakable scans
-the same `damage_lands_between` the body resolver already uses. Then the
-unresolved half goes body-generic with a guard, then the rename is mechanical.
-Doing the rename first would land a silent free-hit.
+the rename, and its first concrete bite is giving the boss scan the same
+`damage_lands_between` the body resolver already uses. Then the unresolved half
+goes body-generic with a guard, then the rename is mechanical.
+
+### ✔ item 5, first bite — the boss is adjudicated like any other body (2026-08-09)
+
+`boss_damage_allowed` is a named function, not a closure, so the policy can be
+stated and tested rather than inferred from the shape of an `if`. It applies
+`damage_lands_between` with **effective** allegiance, so a possessed boss fights
+as its driver's side.
+
+⚠ **one correction to the paragraph above, from reading `can_damage` rather than
+assuming**: the engine's rule is *different faction, or friendly fire* — so an
+Enemy hitting a Boss was always legitimate under it, and this change does not
+forbid it. What was actually missing is that the scan asked **nothing at all**.
+The free-hit worry was overstated; the real defect is a victim class with no
+relationship policy, which is a fork whichever way the answer comes out.
+
+⛔ **breakables are deliberately left open.** A crate has no allegiance, and
+inventing one so the code looks symmetric would be a worse fork than the
+asymmetry.
+
+The guard pins four answers: the shipped player→boss case, the **poison**
+(same-faction with friendly fire off — which landed before, because the scan had
+no opinion), the possessed attacker, and the unattributed broadcast that must
+still land because a hazard carries no entity to adjudicate.
 
 ## Execution order (mine, revise as measurements land)
 

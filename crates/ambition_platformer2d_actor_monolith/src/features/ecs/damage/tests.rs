@@ -1915,3 +1915,64 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
          deleted"
     );
 }
+
+/// ⭐⭐ **A boss's "who may hurt me" rule used to be "who is allowed to
+/// broadcast".** The boss scan applied no relationship policy at all — it
+/// damaged any boss an attacker-side volume reached — and got away with it
+/// because only the player could emit one. That encoding lives in another
+/// crate, by omission, and it does not survive every body being able to swing
+/// under one shared melee cause.
+///
+/// So the boss is adjudicated by the same `damage_lands_between` every other
+/// victim already is. This pins the three answers that differ.
+#[test]
+fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
+    use ambition_characters::brain::Brain;
+    use crate::combat::components::ActorFaction;
+    use crate::combat::targeting::FriendlyFire;
+
+    let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw index");
+    let ff = FriendlyFire::default();
+    let side = |faction: &'static ActorFaction, brain: Option<&'static Brain>| {
+        Some((faction, brain, None))
+    };
+
+    assert!(
+        super::boss_damage_allowed(
+            side(&ActorFaction::Player, None),
+            side(&ActorFaction::Boss, None),
+            ff,
+            boss_entity,
+        ),
+        "the shipped case must keep working: a player's hit reaches the boss"
+    );
+    // ⛔ the poison. Same faction, friendly fire off — and before this the scan
+    // had no opinion, so it landed.
+    assert!(
+        !super::boss_damage_allowed(
+            side(&ActorFaction::Boss, None),
+            side(&ActorFaction::Boss, None),
+            ff,
+            boss_entity,
+        ),
+        "an ally may not damage a boss just because its volume arrived"
+    );
+    // Allegiance is EFFECTIVE: a POSSESSED boss fights as its driver's side, so
+    // another boss-faction body is now a legal victim of it. A policy reading the
+    // authored faction would have it defending the team it was taken from.
+    assert!(
+        super::boss_damage_allowed(
+            side(&ActorFaction::Boss, Some(&Brain::Player(ambition_characters::brain::PlayerSlot(0)))),
+            side(&ActorFaction::Boss, None),
+            ff,
+            boss_entity,
+        ),
+        "a possessed attacker fights as its driver's side"
+    );
+    // An unattributed broadcast still lands — hazards and scripted blasts carry
+    // no entity and cannot be adjudicated.
+    assert!(
+        super::boss_damage_allowed(None, side(&ActorFaction::Boss, None), ff, boss_entity),
+        "a hit with no attacker cannot be adjudicated, so it is not refused"
+    );
+}

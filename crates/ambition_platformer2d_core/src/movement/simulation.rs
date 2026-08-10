@@ -9,6 +9,92 @@ use crate::MotionFrame;
 
 const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 
+/// The ground leap itself, factored out because a body with a jump-squat pays
+/// it a few ticks after the press and a body without one pays it on the press
+/// tick — the SAME leap either way. ⛔ do not inline a second copy into the
+/// squat-expiry branch; the launch band, the air-jump refill and the `Jump` op
+/// are one rule.
+fn launch_ground_jump(
+    state: &mut crate::movement::AxisManeuverState,
+    abilities: &crate::body_clusters::BodyAbilities,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    ground: &mut crate::body_clusters::BodyGroundState,
+    jump_state: &mut crate::body_clusters::BodyJumpState,
+    combo_trace: &mut crate::body_clusters::BodyComboTrace,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
+    events: &mut FrameEvents,
+) {
+    let side_speed = kinematics.vel.dot(frame.side()).abs();
+    let (launch_speed, launch_band) = tuning
+        .locomotion
+        .jump_law
+        .ground_launch(tuning.locomotion.jump_speed, side_speed);
+    super::integration::set_jump_velocity(&mut kinematics.vel, frame.down(), launch_speed);
+    match launch_band {
+        Some(band) => state.phased_jump.begin(band),
+        None => state.phased_jump.clear(),
+    }
+    ground.on_ground = false;
+    state.buffer_jump = 0.0;
+    state.coyote_timer = 0.0;
+    jump_state.air_jumps_available = abilities
+        .abilities
+        .air_jump_count(tuning.locomotion.air_jumps);
+    events.op_clusters(combo_trace, MovementOp::Jump);
+}
+
+/// Age one frame of a committed jump-squat and, if the crouch has finished,
+/// take off. Called both on the tick the squat STARTS (so the press frame is the
+/// first crouch frame) and on every tick after it.
+#[allow(clippy::too_many_arguments)]
+fn tick_jump_squat(
+    state: &mut crate::movement::AxisManeuverState,
+    abilities: &crate::body_clusters::BodyAbilities,
+    kinematics: &mut crate::body_clusters::BodyKinematics,
+    ground: &mut crate::body_clusters::BodyGroundState,
+    jump_state: &mut crate::body_clusters::BodyJumpState,
+    combo_trace: &mut crate::body_clusters::BodyComboTrace,
+    input: InputState,
+    dt: f32,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
+    events: &mut FrameEvents,
+) {
+    state.jump_squat_timer = (state.jump_squat_timer - dt).max(0.0);
+    // ⚠ an authored squat is a WHOLE NUMBER OF FRAMES times `dt`, and f32
+    // subtraction does not land on zero: a 3-frame squat leaves ~3e-9s behind
+    // and the body crouches forever. A remainder far below a tick is not a
+    // crouch frame.
+    if state.jump_squat_timer > dt * 1e-3 {
+        return;
+    }
+    state.jump_squat_timer = 0.0;
+    // ⭐ a squat is a COMMITMENT, and the thing you can be knocked out of.
+    // Losing the floor mid-crouch (struck, platform gone) voids the leap rather
+    // than owing it in the air; that is the whole point of the startup existing.
+    if !ground.on_ground {
+        return;
+    }
+    launch_ground_jump(
+        state,
+        abilities,
+        kinematics,
+        ground,
+        jump_state,
+        combo_trace,
+        frame,
+        tuning,
+        events,
+    );
+    // The release edge that would have shortened this hop landed DURING the
+    // crouch, where there was no ascent to cut. Honour it now through the body's
+    // own variable-jump law instead of authoring a second "short hop" number.
+    if !input.jump_held() {
+        super::abilities::cut_ascent_now(kinematics, state, abilities, frame, tuning);
+    }
+}
+
 /// Consume the buffered jump (if any) and emit the right verb:
 /// swim stroke while submerged + swim ability, drop-through gate
 /// while standing on a one-way + drop_through_pressed, wall-jump,
@@ -33,10 +119,32 @@ pub fn handle_jump_buffer_clusters(
     jump_state: &mut crate::body_clusters::BodyJumpState,
     combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
+    dt: f32,
     frame: MotionFrame,
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
+    // A committed jump-squat outranks the buffer, because the press that
+    // started it is ALREADY SPENT: the only question left is whether the crouch
+    // has finished. Resolving it first is also what stops a mash from
+    // re-entering the squat and holding the body on the floor forever.
+    if state.jump_squat_timer > 0.0 {
+        tick_jump_squat(
+            state,
+            abilities,
+            kinematics,
+            ground,
+            jump_state,
+            combo_trace,
+            input,
+            dt,
+            frame,
+            tuning,
+            events,
+        );
+        return;
+    }
+
     // A zero-duration buffer still means "honor the press on this tick". The
     // timer extends that edge into later ticks; it is not the authority for the
     // edge that is already present in this input frame.
@@ -128,23 +236,43 @@ pub fn handle_jump_buffer_clusters(
         && !flying
         && (ground.on_ground || state.coyote_timer > 0.0 || can_ladder_jump)
     {
-        let side_speed = kinematics.vel.dot(frame.side()).abs();
-        let (launch_speed, launch_band) = tuning
-            .locomotion
-            .jump_law
-            .ground_launch(tuning.locomotion.jump_speed, side_speed);
-        super::integration::set_jump_velocity(&mut kinematics.vel, frame.down(), launch_speed);
-        match launch_band {
-            Some(band) => state.phased_jump.begin(band),
-            None => state.phased_jump.clear(),
+        // A squat is a GROUNDED crouch, so a coyote-grace or ladder jump — where
+        // the floor is already gone — takes off immediately. There is nothing
+        // left to crouch on.
+        if tuning.locomotion.jump_squat_time > 0.0 && ground.on_ground {
+            state.jump_squat_timer = tuning.locomotion.jump_squat_time;
+            state.buffer_jump = 0.0;
+            state.coyote_timer = 0.0;
+            // ⚠ the press tick is the FIRST crouch frame, not a free one before
+            // it. Charging the whole squat and waiting for the next tick would
+            // make an N-frame authored squat cost N+1, and a squat shorter than
+            // one tick cost a whole one instead of nothing.
+            tick_jump_squat(
+                state,
+                abilities,
+                kinematics,
+                ground,
+                jump_state,
+                combo_trace,
+                input,
+                dt,
+                frame,
+                tuning,
+                events,
+            );
+        } else {
+            launch_ground_jump(
+                state,
+                abilities,
+                kinematics,
+                ground,
+                jump_state,
+                combo_trace,
+                frame,
+                tuning,
+                events,
+            );
         }
-        ground.on_ground = false;
-        state.buffer_jump = 0.0;
-        state.coyote_timer = 0.0;
-        jump_state.air_jumps_available = abilities
-            .abilities
-            .air_jump_count(tuning.locomotion.air_jumps);
-        events.op_clusters(combo_trace, MovementOp::Jump);
     } else if abilities.abilities.double_jump && !flying && jump_state.air_jumps_available > 0 {
         super::integration::set_jump_velocity(
             &mut kinematics.vel,

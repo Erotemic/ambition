@@ -135,6 +135,7 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_vec2(out, state.pre_wall_vel);
     put_f32(out, state.pre_wall_vel_age);
     put_f32(out, state.buffer_jump);
+    put_f32(out, state.jump_squat_timer);
     put_f32(out, state.buffer_dash);
     put_f32(out, state.buffer_blink);
     put_f32(out, state.dash_timer);
@@ -163,6 +164,7 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         pre_wall_vel: r.vec2()?,
         pre_wall_vel_age: r.f32()?,
         buffer_jump: r.f32()?,
+        jump_squat_timer: r.f32()?,
         buffer_dash: r.f32()?,
         buffer_blink: r.f32()?,
         dash_timer: r.f32()?,
@@ -313,6 +315,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, l.wall_climb_speed);
     put_f32(out, l.coyote_time);
     put_f32(out, l.jump_buffer);
+    put_f32(out, l.jump_squat_time);
     put_u8(out, l.air_jumps);
     put_f32(out, l.fast_fall_accel);
     put_f32(out, l.fast_fall_speed);
@@ -383,6 +386,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             wall_climb_speed: r.f32()?,
             coyote_time: r.f32()?,
             jump_buffer: r.f32()?,
+            jump_squat_time: r.f32()?,
             air_jumps: r.u8()?,
             fast_fall_accel: r.f32()?,
             fast_fall_speed: r.f32()?,

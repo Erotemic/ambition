@@ -258,6 +258,15 @@ pub struct AxisTuningSpec {
     /// Pre-landing jump input buffer.
     #[serde(default = "at_jump_buffer")]
     pub jump_buffer: f32,
+    /// Grounded startup owed before a jump leaves the floor ("jump-squat").
+    /// `0.0` — the default — is the classic instant leap.
+    #[serde(default)]
+    pub jump_squat_time: f32,
+    /// Top horizontal AIR speed. `0.0` — the default — inherits
+    /// [`Self::max_run_speed`], which is what every body did before air speed
+    /// was authorable at all.
+    #[serde(default)]
+    pub max_air_speed: f32,
     /// Free-flight acceleration toward the commanded 2D velocity.
     #[serde(default = "at_flight_accel")]
     pub flight_accel: f32,
@@ -337,6 +346,8 @@ impl Default for AxisTuningSpec {
             max_fall_speed: at_max_fall_speed(),
             coyote_time: at_coyote_time(),
             jump_buffer: at_jump_buffer(),
+            jump_squat_time: 0.0,
+            max_air_speed: 0.0,
             flight_accel: at_flight_accel(),
             flight_drag: at_flight_drag(),
             flight_terminal_speed: at_flight_terminal_speed(),
@@ -364,6 +375,8 @@ impl AxisTuningSpec {
             max_fall_speed: self.max_fall_speed,
             coyote_time: self.coyote_time,
             jump_buffer: self.jump_buffer,
+            jump_squat_time: self.jump_squat_time,
+            max_air_speed: self.max_air_speed,
             flight_accel: self.flight_accel,
             flight_drag: self.flight_drag,
             flight_terminal_speed: self.flight_terminal_speed,

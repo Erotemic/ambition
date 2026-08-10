@@ -171,7 +171,27 @@ pub(super) fn apply_jump_release(
     frame: MotionFrame,
     tuning: AxisSweptParams,
 ) {
-    if !abilities.abilities.variable_jump || !input.jump_released() {
+    if !input.jump_released() {
+        return;
+    }
+    cut_ascent_now(kinematics, state, abilities, frame, tuning);
+}
+
+/// The variable-jump CUT itself, with the release edge already established by
+/// the caller. Split out because a jump-squat swallows the release edge — the
+/// button can come up mid-crouch, when there is no ascent to shorten — so the
+/// squat's takeoff replays the cut at the instant the body actually leaves the
+/// ground. ⛔ that is a deferred release, not a second "short hop" mechanic:
+/// whichever [`super::tuning::AxisJumpLaw`] the body authored still decides
+/// what shortening means.
+pub(super) fn cut_ascent_now(
+    kinematics: &mut BodyKinematics,
+    state: &mut AxisManeuverState,
+    abilities: &BodyAbilities,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
+) {
+    if !abilities.abilities.variable_jump {
         return;
     }
     match tuning.locomotion.jump_law {

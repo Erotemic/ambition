@@ -333,6 +333,7 @@ fn draw_combat_tuning_readout(
         (body.hitstun_s, cyan()),
         (body.hitlag_s, red()),
         (body.landing_lag_s, yellow()),
+        (body.jump_squat_s, green()),
     ];
     for (row, (seconds, color)) in locks.iter().enumerate() {
         if *seconds <= 0.0 {

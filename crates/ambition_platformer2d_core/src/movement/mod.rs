@@ -344,6 +344,7 @@ fn update_body_simulation_inner(
         clusters.jump,
         clusters.combo_trace,
         input,
+        dt,
         frame,
         tuning,
         &mut events,

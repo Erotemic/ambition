@@ -102,6 +102,11 @@ pub struct AxisManeuverState {
     pub buffer_jump: f32,
     pub buffer_dash: f32,
     pub buffer_blink: f32,
+    /// Time left in a committed jump-squat (see
+    /// [`crate::movement::tuning::AxisLocomotion::jump_squat_time`]). Non-zero
+    /// means the press is ALREADY SPENT and the leap is owed — it is the
+    /// opposite of `buffer_jump`, which means a press is waiting to be spent.
+    pub jump_squat_timer: f32,
     pub dash_timer: f32,
     pub blink_hold_active: bool,
     pub blink_hold_timer: f32,
@@ -130,6 +135,7 @@ impl Default for AxisManeuverState {
             pre_wall_vel: Vec2::ZERO,
             pre_wall_vel_age: 0.0,
             buffer_jump: 0.0,
+            jump_squat_timer: 0.0,
             buffer_dash: 0.0,
             buffer_blink: 0.0,
             dash_timer: 0.0,
@@ -284,6 +290,16 @@ impl MotionModel {
 
     pub fn adhesive_crawler(params: CrawlerParams) -> Self {
         Self::AdhesiveCrawler(AdhesiveCrawlerMotion::new(params))
+    }
+
+    /// Seconds left in a committed jump-squat, or `0.0` for a policy that has
+    /// no such thing. The projection an OBSERVER wants: "is this body crouching
+    /// before a leap" is asked of any body, and only one variant can answer it.
+    pub fn jump_squat_remaining(&self) -> f32 {
+        match self {
+            Self::AxisSwept(axis) => axis.state.jump_squat_timer,
+            _ => 0.0,
+        }
     }
 
     pub const fn kind(&self) -> MotionModelKind {

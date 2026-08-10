@@ -794,9 +794,64 @@ authors `air_accel: 0.0`. One accessor reads it, so the fallback cannot be
 honoured on one horizontal law and forgotten on the other, which is the bug the
 sentinel would otherwise invite.
 
-▢ **still open from the feel list**: jump-squat (genuinely absent, and it must be
-authored per body — Mary-O's convergence forbids a global one), hitbox tracks,
-pose-aware hurtboxes, DI.
+## Jump-squat — the last structural piece of the movement model (2026-08-10)
+
+Genuinely absent: `grep -rn 'jump_squat\|jumpsquat'` returned nothing.
+
+### ✔ a jump can owe a grounded startup before it leaves the floor
+
+`AxisLocomotion::jump_squat_time` (authored, default `0.0`) and
+`AxisManeuverState::jump_squat_timer` (the committed crouch). ⭐ the timer is the
+**opposite** of `buffer_jump`: a buffer means a press is waiting to be spent, a
+squat means the press is already spent and the leap is owed. That is why the
+squat is resolved BEFORE the buffer is even looked at — and it is also what stops
+a mash from re-entering the crouch and pinning the body to the floor forever.
+
+⭐ **this is what makes a jump committal.** It is the window a fighter can be
+struck out of its own takeoff in, and the read an opponent reacts to. It is
+authored per body rather than globally because a body without a squat is not a
+badly-tuned fighter, it is a different game: Mary-O's SMB1 convergence requires
+the leap on the press tick, and `0.0` preserves that byte-for-byte.
+
+Three things the implementation had to get right, each guarded:
+
+- **the leap is ONE rule.** `launch_ground_jump` was extracted so the squat's
+  expiry and the instant press-tick leap share the launch band, the air-jump
+  refill and the `Jump` op. ⛔ a second copy in the expiry branch is the
+  bifurcation this doc exists to prevent.
+- **losing the floor mid-crouch VOIDS the leap.** Otherwise the startup buys the
+  attacker nothing, which is the whole reason it exists.
+- **the release edge is swallowed by the crouch.** A tap comes up mid-squat,
+  where there is no ascent to cut, so the takeoff replays it through the body's
+  own `AxisJumpLaw` (`cut_ascent_now`, split out of `apply_jump_release`).
+  ⛔ **not** a second "short hop" speed beside the variable-jump law — that would
+  be two mechanisms for one feel knob. Without this, tapping jump on a squat body
+  gives a *full* hop: a feel bug the feature itself introduces.
+
+⛔ **an f32 timer does not land on zero.** A 3-frame squat at `3.0 * dt` leaves
+~3e-9s after three subtractions and the body crouches *forever*. Found by the
+guard on its first run. A remainder far below a tick is not a crouch frame; the
+expiry test is `> dt * 1e-3`.
+
+⚠ **the press tick is the FIRST crouch frame.** Charging the whole squat and
+waiting for the next tick makes an authored N-frame squat cost N+1, and a squat
+shorter than one tick cost a whole one instead of nothing — so entry calls the
+same `tick_jump_squat` the later ticks call.
+
+Authored at the character seam (`AxisTuningSpec`), so a RON row can spell it.
+⛔ **and `max_air_speed` had no authoring path at all** — last commit added the
+knob to the kernel and to nothing that could set it. Both are on `AxisTuningSpec`
+now, and both round-trip through the live tuning editor, where
+`max_air_speed: 0.0` was hardcoded and would have wiped an authored value the
+moment the inspector wrote back.
+
+F1 gained a fourth lock bar (green). ⚠ hitstun, hitlag, landing lag and a
+jump-squat all look identical on screen — "the jump input did nothing" and "the
+body is deliberately crouching" are the same picture — which is exactly why the
+instrument names them apart. Read through `MotionModel::jump_squat_remaining()`,
+a projection every body can be asked and only one policy variant can answer.
+
+▢ **still open from the feel list**: hitbox tracks, pose-aware hurtboxes, DI.
 
 ## Execution order (mine, revise as measurements land)
 

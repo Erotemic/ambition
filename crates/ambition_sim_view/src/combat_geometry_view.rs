@@ -59,6 +59,11 @@ pub struct CombatBodyGeometryView {
     /// Seconds of authored landing lag left — a hard lock that is NOT hitstun,
     /// and reads identically on screen unless the instrument distinguishes them.
     pub landing_lag_s: f32,
+    /// Seconds of jump-squat left — the body is CROUCHING, on purpose, before a
+    /// leap it already committed to. ⚠ on screen this is indistinguishable from
+    /// "the jump input did nothing", which is exactly why the instrument names
+    /// it separately.
+    pub jump_squat_s: f32,
     /// **The body's velocity.** During hitstun this IS the launch it took — the
     /// launch vector Jon asked the instrument to show, read where it lives
     /// rather than stored a second time as a display-only fact. ⚠ outside
@@ -143,6 +148,7 @@ pub fn rebuild_combat_geometry_view(
             Option<&ae::BodyGroundState>,
             Option<&ae::BodyWallState>,
             Option<&ambition_combat::moveset::MovePlayback>,
+            Option<&ae::MotionModel>,
         ),
         With<ambition_characters::actor::BodyCombat>,
     >,
@@ -154,7 +160,7 @@ pub fn rebuild_combat_geometry_view(
     view.bodies.clear();
     view.strikes.clear();
 
-    for (body, aabb, damageable, combat, health, kin, ground, wall, playback) in &bodies {
+    for (body, aabb, damageable, combat, health, kin, ground, wall, playback, motion) in &bodies {
         let collision = aabb.aabb();
         view.bodies.push(CombatBodyGeometryView {
             body,
@@ -165,6 +171,7 @@ pub fn rebuild_combat_geometry_view(
             hitstun_s: combat.hitstun_timer,
             hitlag_s: combat.hitstop_timer,
             landing_lag_s: combat.landing_lag_timer,
+            jump_squat_s: motion.map(|m| m.jump_squat_remaining()).unwrap_or(0.0),
             velocity: kin.map(|k| k.vel).unwrap_or_default(),
             grounded: ground.map(|g| g.on_ground).unwrap_or(false),
             on_wall: wall.map(|w| w.on_wall).unwrap_or(false),
@@ -371,7 +378,10 @@ mod tests {
         let view = app.world().resource::<CombatGeometryView>();
         let row = view.bodies.first().expect("the body is observed at all");
 
-        assert_eq!(row.damage_taken, 47, "percent is what knockback growth reads");
+        assert_eq!(
+            row.damage_taken, 47,
+            "percent is what knockback growth reads"
+        );
         assert!((row.hitstun_s - 0.21).abs() < 1e-6);
         assert!((row.hitlag_s - 0.07).abs() < 1e-6);
         assert!(

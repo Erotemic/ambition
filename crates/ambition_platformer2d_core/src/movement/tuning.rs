@@ -345,6 +345,17 @@ pub struct MovementTuning {
     pub flight_invariant_speed: Option<f32>,
     pub coyote_time: f32,
     pub jump_buffer: f32,
+    /// Grounded startup a jump owes before the body leaves the floor —
+    /// "jump-squat" in platform-fighter vocabulary. `0.0` (the default) means
+    /// the leap happens on the press tick, which is what every classic
+    /// platformer does and what Mary-O's SMB1 convergence requires.
+    ///
+    /// ⭐ this is the number that makes a jump COMMITTAL. A body with a squat
+    /// can be struck out of its own takeoff, and its opponent can react to the
+    /// crouch; a body without one cannot be. It is authored per body precisely
+    /// because those are different games, not two settings of one game.
+    #[serde(default)]
+    pub jump_squat_time: f32,
     pub pogo_speed: f32,
     pub slash_recoil: f32,
     pub air_jumps: u8,
@@ -378,7 +389,6 @@ impl AxisLocomotion {
         }
     }
 }
-
 
 /// Horizontal response law used by the axis-swept policy.
 ///
@@ -539,6 +549,8 @@ pub struct AxisLocomotion {
     pub wall_climb_speed: f32,
     pub coyote_time: f32,
     pub jump_buffer: f32,
+    /// See [`MovementTuning::jump_squat_time`]. `0.0` = the leap is instant.
+    pub jump_squat_time: f32,
     pub air_jumps: u8,
     pub fast_fall_accel: f32,
     pub fast_fall_speed: f32,
@@ -656,6 +668,7 @@ impl MovementTuning {
                 wall_climb_speed: self.wall_climb_speed,
                 coyote_time: self.coyote_time,
                 jump_buffer: self.jump_buffer,
+                jump_squat_time: self.jump_squat_time,
                 air_jumps: self.air_jumps,
                 fast_fall_accel: self.fast_fall_accel,
                 fast_fall_speed: self.fast_fall_speed,
@@ -750,6 +763,8 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     flight_invariant_speed: None,
     coyote_time: COYOTE_TIME,
     jump_buffer: JUMP_BUFFER,
+    // No squat by default: an unauthored body leaps on the press tick.
+    jump_squat_time: 0.0,
     pogo_speed: POGO_SPEED,
     slash_recoil: SLASH_RECOIL,
     air_jumps: AIR_JUMPS,
@@ -785,7 +800,11 @@ mod air_speed_tests {
         );
 
         locomotion.max_air_speed = 96.0;
-        assert_eq!(locomotion.air_speed_cap(), 96.0, "a floatier heavy drifts slower");
+        assert_eq!(
+            locomotion.air_speed_cap(),
+            96.0,
+            "a floatier heavy drifts slower"
+        );
 
         locomotion.max_air_speed = 320.0;
         assert_eq!(

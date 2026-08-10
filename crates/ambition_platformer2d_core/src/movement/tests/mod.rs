@@ -9,6 +9,7 @@
 //! - [`climbing`] — ladder regions and Climbing body mode.
 //! - [`ledge_grab`] — ledge grab latch + climb completion.
 //! - [`combat_actions`] — dodge roll and shield/parry.
+//! - [`jump_squat`] — authored grounded startup before a jump takes off.
 //!
 //! Shared fixtures (`step_scratch`, `test_world`) live here;
 //! submodules reach them via `super::`. Each test constructs a
@@ -63,6 +64,7 @@ mod clock;
 mod combat_actions;
 mod contacts;
 mod glide_and_air;
+mod jump_squat;
 mod ledge_grab;
 mod sweep_sample;
 mod wall_collision;

@@ -129,6 +129,9 @@ pub struct EditableMovementTuning {
     pub air_stop_assist: f32,
     pub carried_decay: f32,
     pub max_run_speed: f32,
+    /// `0.0` inherits [`Self::max_run_speed`]; see
+    /// [`ae::MovementTuning::max_air_speed`].
+    pub max_air_speed: f32,
     pub max_fall_speed: f32,
     pub jump_speed: f32,
     pub double_jump_speed: f32,
@@ -158,6 +161,8 @@ pub struct EditableMovementTuning {
     pub flight_hover_hz: f32,
     pub coyote_time: f32,
     pub jump_buffer: f32,
+    /// `0.0` is an instant leap; see [`ae::MovementTuning::jump_squat_time`].
+    pub jump_squat_time: f32,
     pub pogo_speed: f32,
     pub slash_recoil: f32,
     pub air_jumps: u8,
@@ -200,9 +205,7 @@ impl EditableMovementTuning {
             air_stop_assist: self.air_stop_assist,
             carried_decay: self.carried_decay,
             max_run_speed: self.max_run_speed,
-            // ⚠ the live tuning editor does not expose air speed yet; it
-            // inherits, which is what an unexposed knob must do.
-            max_air_speed: 0.0,
+            max_air_speed: self.max_air_speed,
             max_fall_speed: self.max_fall_speed,
             jump_speed: self.jump_speed,
             double_jump_speed: self.double_jump_speed,
@@ -236,6 +239,7 @@ impl EditableMovementTuning {
             flight_invariant_speed: None,
             coyote_time: self.coyote_time,
             jump_buffer: self.jump_buffer,
+            jump_squat_time: self.jump_squat_time,
             pogo_speed: self.pogo_speed,
             slash_recoil: self.slash_recoil,
             air_jumps: self.air_jumps,
@@ -266,6 +270,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             air_stop_assist: value.air_stop_assist,
             carried_decay: value.carried_decay,
             max_run_speed: value.max_run_speed,
+            max_air_speed: value.max_air_speed,
             max_fall_speed: value.max_fall_speed,
             jump_speed: value.jump_speed,
             double_jump_speed: value.double_jump_speed,
@@ -295,6 +300,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             flight_hover_hz: value.flight_hover_hz,
             coyote_time: value.coyote_time,
             jump_buffer: value.jump_buffer,
+            jump_squat_time: value.jump_squat_time,
             pogo_speed: value.pogo_speed,
             slash_recoil: value.slash_recoil,
             air_jumps: value.air_jumps,

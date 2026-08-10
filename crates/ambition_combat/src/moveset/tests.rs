@@ -1077,6 +1077,68 @@ fn a_charged_release_scales_the_spawned_hitbox() {
     );
 }
 
+/// ⭐⭐ **A LIVE STRIKE KEEPS THE ORIENTATION ITS MOVE STARTED WITH.**
+///
+/// Locomotion facing is mutable and changes for reasons that have nothing to do
+/// with the swing in flight — a stick nudge, a wall contact, a brain retarget.
+/// If an active hitbox read it, a fighter could turn mid-animation and have the
+/// blade teleport to the other side of its own body, hitting somebody it never
+/// swung at and missing the one it did.
+///
+/// `MovePlayback` captures `facing` at move start and every strike volume is
+/// mirrored through THAT, never through `BodyKinematics::facing`. The mechanism
+/// already existed; nothing pinned it, which is how it would have been
+/// refactored away by a well-meaning "use the body's facing, it's right there".
+///
+/// ⛔ **the vacuity guard is the second half**: the body's facing must actually
+/// have flipped, or this asserts nothing.
+#[test]
+fn a_live_strike_keeps_the_facing_its_move_started_with() {
+    let (mut app, victim) = app_with_victim();
+    // The victim sits to the RIGHT of the attacker (`app_with_victim` places it
+    // at x=128; the attacker spawns at x=100 looking +x).
+    let attacker = spawn_attacker(
+        &mut app,
+        ae::Vec2::new(100.0, 100.0),
+        ae::Vec2::new(12.0, 18.0),
+        swat(),
+    );
+
+    // Into the startup window, before the Active edge — the strike is committed
+    // but no volume is live yet, which is exactly when a turn is most tempting.
+    run_seconds(&mut app, 0.10);
+    assert!(
+        app.world().resource::<Captured>().hits.is_empty(),
+        "the fixture must still be winding up, or the turn below happens too late"
+    );
+
+    // Turn the BODY around, the way locomotion would.
+    {
+        let mut kin = app.world_mut().get_mut::<ae::BodyKinematics>(attacker).unwrap();
+        kin.facing = -1.0;
+    }
+    // ⛔ the vacuity half: the turn really happened, and the move did NOT adopt it.
+    assert_eq!(
+        app.world().get::<ae::BodyKinematics>(attacker).unwrap().facing,
+        -1.0,
+        "the body must genuinely be facing the other way"
+    );
+    assert_eq!(
+        app.world().get::<MovePlayback>(attacker).unwrap().facing,
+        1.0,
+        "the MOVE keeps the orientation it committed to — this is the snapshot"
+    );
+
+    run_seconds(&mut app, 0.40);
+    let cap = app.world().resource::<Captured>();
+    assert_eq!(
+        cap.hits.len(),
+        1,
+        "the swing still lands on the body it was aimed at, despite the turn"
+    );
+    assert_eq!(cap.hits[0].target, crate::events::HitTarget::Body(victim));
+}
+
 /// W9 decomposability proof: the SAME MoveSpec value bound to a second,
 /// differently-shaped actor lands the same hit — re-binding is data.
 #[test]

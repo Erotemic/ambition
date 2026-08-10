@@ -109,15 +109,17 @@ speeds, default `CombatCapabilities`, the kit's action set, and **`is_aerial`
 read off the CATALOG's `body_kind`**. It keys on `config.sprite_character_id`,
 so which row it finds depends on what that id resolves to.
 
-⇒ registering `perfect_cellular_automaton` makes a `body_kind: Floating` row
-reachable where it was not, the possessed body floats, and it plays `attack_air`
-instead of its grounded swing — against an archetype that says
-`is_aerial: Some(false)` and calls it a grounded-base hybrid.
+⛔ **I attributed queue D74's airborne PCA to this path and that attribution is
+UNVERIFIED** — `apply_brain_commands` returns early for a player-driven body
+(`brain_command.rs:255`), which a possessed one is, so the rebuild may not be
+reached by that case at all. The struck claim stays in D74 with the correction.
 
-⚠ **so phase 5 is not only about hostility.** Any control transfer that runs
-this path re-decides the body's vitals and gravity from a different authority
-than the one that built it. Deleting the rebuild removes the `is_aerial`
-arbitration's hardest case as a side effect.
+⚠ **what stands on its own is the machinery, not that symptom.** A control
+transfer that DOES reach `apply_catalog_mode` re-decides `max_health`, patrol
+speeds, capabilities, the action set and `is_aerial` from the catalog row rather
+than restoring what the body was — which is the brief's *"reconstructs the actor
+as another mechanical creature"* with a file and a line. That is worth phase 5
+whether or not it explains the PCA.
 
 ## ⇥ Phase 1 progress (agent, keep this current)
 

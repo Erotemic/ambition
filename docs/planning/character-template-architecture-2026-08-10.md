@@ -96,6 +96,43 @@ legacy (`ArchetypeSpec` 319, roster/enemies module 1,198,
 and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
 −2400 old* means the old model was wrapped rather than removed.
 
+## ⛔⛔ READ APPENDICES C AND D BEFORE RESUMING
+
+**A COURSE CORRECTION LANDED at HEAD `735a1eafc575`** and it is reproduced
+verbatim as **APPENDIX C**. It outranks
+everything in the "phase 1 progress" list below wherever they disagree. Its
+thesis:
+
+> `adopt_character_intrinsics` is a **probe seam**, not the final model. It
+> proved a character can outrank its archetype before the entity exists. Do not
+> now migrate dozens of fields through it — that just moves the god-object's
+> precedence logic into a patch function.
+
+Its ordering ruling, which changes what comes next: **the identity/domain seam
+and the real common constructor come BEFORE group A's content migration**, not
+after. And the sharpest single correction: the authored-enemy bridge currently
+reaches the prepared definition through `ActorConfig::sprite_character_id`,
+i.e. **gameplay identity inferred from presentation identity**, which is the
+inversion the campaign exists to remove.
+
+**APPENDIX D is the SMASH ADDENDUM**, and it settles how D73 relates to the
+run's other top row. D72 and D73 are not competing: Smash is D73's largest
+beneficiary and its designated proving ground. The requirement it adds —
+*"remove `PreparedMatch`'s `CharacterRoster`/`ArchetypeSpec` dependency and see
+how much of the generic `smash_fighter_kit()` / `fighter_abilities` leveling
+machinery becomes unnecessary"* — is the end-to-end acceptance demo:
+
+> the same Fretjaw definition works in the Hall, in a normal hostile encounter,
+> under possession, and in Smash, with only controller and contextual rules
+> changing.
+
+⚠ it also names a hack whose ROOT CAUSE this campaign owns: every Smash fighter
+is overwritten with `smash_fighter_kit()` because seven of twelve selected
+characters are Hall NPCs whose catalog rows are `peaceful` — *"eight looks and
+one game."* ⇒ **"peaceful" is a CONTROLLER fact that got recorded as a body
+fact**, which is the same error as `EnemySpawn.brain` deciding health, in the
+opposite direction.
+
 ## ⇥ Evidence for PHASE 5, found in the wild (2026-08-10)
 
 The brief says provocation *"reconstructs the actor as another mechanical
@@ -2622,3 +2659,1504 @@ is a decision the migration must make deliberately, with what is known:
 real and is exactly these three pairs.** The controller reads the body's
 capability state; only the DECISION flags (`smash_heavy`, `smash_duelist`,
 `smash_dash_to_close`, `fighter_level`) stay on the profile.
+
+---
+
+# ⇥ APPENDIX C — THE COURSE CORRECTION, VERBATIM (relayed 2026-08-10 at HEAD `735a1eafc575`)
+
+⛔ **this appendix outranks my own phase-progress notes wherever they disagree,
+and it is the resumption point for D73.** Jon relayed it from the architecture
+conversation after reading commits `c07d554` and `735a1ea`. Its thesis in one
+line: *those commits are a good **probe seam** and a bad **final model** — do
+not now migrate dozens of fields by growing `adopt_character_intrinsics`.*
+Reproduced without edit; my own reading of it follows in APPENDIX D.
+
+## D73 course correction — continue from 735a1eafc575
+
+Continue the character-template architecture campaign from current HEAD:
+
+```text
+735a1eafc575b0d4a42ef2f5041b8af76cedafff
+```
+
+Do not restart the investigation.
+
+The recent work is useful and should be preserved where it proves invariants:
+
+* `CharacterDefinition` can now author some formerly archetype-only facts;
+* NPC default autonomous behavior can consult the prepared character definition;
+* `ActorClusterSeed::adopt_character_intrinsics` proves an authored enemy can consult its prepared character before the entity exists;
+* `spawn_enemy_with_faction_into` now threads the prepared registry on the authored room-enemy path;
+* the field-ownership ledger for `ArchetypeSpec` exists;
+* the one-time migration analysis of the current archetype/character population exists;
+* duplicate Fretjaw-style instances are already understood as valid;
+* the demos/content analysis has established that character identity and controller choice are distinct axes.
+
+The next job is to turn that proof into the final architecture, **not to expand the overlay bridge one field at a time**.
+
+---
+
+# First: what "there is no map" means
+
+The migration analysis found:
+
+```text
+legacy archetype ids       ≠ character ids
+24 archetype rows
+133 catalog character rows
+0 shared ids
+```
+
+This is expected and actually confirms the target ontology.
+
+Examples:
+
+```text
+medium_striker
+pirate_shark_rider
+melee-like role ids
+```
+
+are behavior/profile identities.
+
+Examples:
+
+```text
+puppy_slug
+iron_mary
+fretjaw
+goblin
+```
+
+are character identities.
+
+There should therefore be **no general derivable mapping** between the two namespaces.
+
+## This matters for migration only
+
+The current authored placements provide evidence about which legacy behavior a particular character happened to use.
+
+Keep the migration ledger.
+
+Use it to make one-time decisions.
+
+But do **not** introduce a permanent engine object such as:
+
+```text
+ArchetypeCharacterMap
+LegacyArchetypeToCharacter
+CharacterForBrain
+```
+
+or anything equivalent.
+
+The final relationships are simply:
+
+```text
+CharacterDefinition
+    default_autonomous_profile: Option<BrainProfileId>
+```
+
+and:
+
+```text
+CharacterSpawnPlan
+    character_id: CharacterId
+    autonomous_profile_override: Option<BrainProfileId>
+```
+
+There is no global archetype→character join.
+
+## Do not trust only the world-spawn census
+
+The authored-spawn map cannot see legacy archetypes referenced directly from code.
+
+Audit all production references to:
+
+```text
+spec_for_brain
+CharacterBrain::Custom(...)
+ArchetypeSpec
+CharacterRoster
+```
+
+including construction, matches, summons, provocation, rollback, giant limbs, demos, and fixtures.
+
+The current tree still has direct/code-only users such as the generic `combatant` fallback and other explicitly named profiles.
+
+Classify those too.
+
+The migration map is evidence, not completeness proof.
+
+---
+
+# Important correction to the current Phase-3 direction
+
+The commits:
+
+```text
+c07d554  Where an enemy body starts reading its character
+735a1ea  An authored enemy now reads the character it names
+```
+
+are a good **probe seam**.
+
+They prove that character-owned data can outrank the legacy archetype before entity creation.
+
+Keep the regression coverage.
+
+But this must not become the final construction model.
+
+Today the flow is still approximately:
+
+```text
+EnemySpawn.brain
+    ↓
+ArchetypeSpec
+    ↓
+build almost the entire actor
+    ↓
+resolve sprite_character_id
+    ↓
+PreparedCharacterDefinition
+    ↓
+patch health / weight / death traits
+```
+
+That is still:
+
+> archetype-built creature + character overlay.
+
+The target is:
+
+```text
+EnemySpawn.character_id
+    ↓
+PreparedCharacterDefinition
+    ↓
+build the actor
+
+optional controller override
+    ↓
+choose autonomous policy
+```
+
+So **do not now migrate dozens of character fields by extending
+`adopt_character_intrinsics()` indefinitely.**
+
+Use the method as proof of precedence during the transition, then replace the underlying constructor.
+
+---
+
+# Character identity must stop coming through presentation identity
+
+This is the most important immediate correction.
+
+The new authored-enemy bridge currently reaches the prepared definition through:
+
+```text
+ActorConfig.sprite_character_id
+```
+
+which was itself produced by:
+
+```text
+EnemySpawnSpec.art_identity(...)
+→ CharacterCatalog::id_for_authored_identity(...)
+```
+
+and may fall back to matching a display name.
+
+That was appropriate for D56's presentation repair.
+
+It is **not** the correct gameplay identity for D73.
+
+The new ontology is:
+
+```text
+CharacterId
+    = what reusable character template this actor instantiates
+
+presentation/sheet
+    = a projection of that character definition
+```
+
+not:
+
+```text
+sprite identity
+    → infer gameplay character
+```
+
+## Make this inversion early
+
+Introduce/adopt a real typed:
+
+```text
+CharacterId
+```
+
+in the low character-domain crate.
+
+Give instantiated character bodies one generic runtime component, conceptually:
+
+```text
+CharacterIdentity(CharacterId)
+```
+
+The existing `WornCharacter` already does much of this job for selected/transformable bodies.
+
+Do not create a second identity component beside it.
+
+Generalize/rename `WornCharacter` into the universal character-template identity if its runtime-mutability semantics still fit—which they probably do.
+
+The resulting model should be:
+
+```text
+Fretjaw instance A
+    CharacterIdentity(Fretjaw)
+    SimId(A)
+
+Fretjaw instance B
+    CharacterIdentity(Fretjaw)
+    SimId(B)
+```
+
+Both may be controlled differently.
+
+## Change `EnemySpawnSpec.character_id` semantics
+
+Its current docs still say roughly:
+
+```text
+brain        = what it DOES
+character_id = what it LOOKS LIKE
+```
+
+That statement must die.
+
+`character_id` now means:
+
+> which CharacterDefinition is instantiated.
+
+After the authored-content migration it should be required for normal visible character spawns.
+
+Display-name fallback is migration compatibility, not final authority.
+
+Remove it from authoritative runtime construction before D73 closes.
+
+If content ever deliberately borrows another character's art, represent that separately as a presentation reference/override.
+
+Do not lie about the body's character identity to borrow pixels.
+
+---
+
+# Move the final character domain types down NOW
+
+Phase 1 currently says the type move into `ambition_characters` can wait.
+
+Do not wait much longer.
+
+The dependency boundary is useful because it is already revealing wrong ownership.
+
+For example, the current `CharacterDefinition` now contains:
+
+```rust
+combat_capabilities: Option<crate::combat::CombatCapabilities>
+```
+
+But:
+
+```text
+ambition_combat
+    → ambition_characters
+```
+
+already exists.
+
+Moving that definition into `ambition_characters` while retaining the runtime combat component would create the wrong dependency direction/cycle.
+
+That is not a reason to leave character definitions in the monolith.
+
+It is evidence that the authoring type is wrong.
+
+## Split authored character facts from runtime components
+
+For example, define a content/domain fact conceptually like:
+
+```text
+CharacterDeathTraits {
+    explodes_on_death
+    divides_on_death
+    charge_crash_explodes
+    never_dies
+    dropped_item
+}
+```
+
+or whatever exact decomposition consumer inspection supports.
+
+That type belongs low enough for a character definition to own it.
+
+Actor construction then lowers it into the runtime:
+
+```text
+CharacterDeathTraits
+    ↓
+ambition_combat::CombatCapabilities
+```
+
+Use the crate boundary as a design test:
+
+> if `CharacterDefinition` needs to depend upward on a runtime ECS/combat layer to state an authored fact, identify the lower semantic fact instead.
+
+Do this for each migrated field rather than copying runtime components into the definition wholesale.
+
+---
+
+# Use typed IDs for the new architecture
+
+The new:
+
+```rust
+default_brain_profile: Option<String>
+```
+
+should be transitional only.
+
+The repository already has:
+
+```text
+BrainPresetId
+```
+
+and it exists precisely so brain/profile identity cannot be confused with a character id or arbitrary string.
+
+Use that typed identity now, or rename/generalize it to the final vocabulary if appropriate:
+
+```text
+BrainProfileId
+AutonomousControllerProfileId
+```
+
+Choose one sensible final name.
+
+Do not build the professional replacement API using raw `String` references and promise to type them at the end.
+
+Likewise make `CharacterId` typed.
+
+---
+
+# Stop treating an empty PreparedCharacterRegistry as normal production semantics
+
+The new comments say an empty prepared registry means:
+
+> no character states anything; preserve the legacy behavior.
+
+That is useful for a transitional test seam.
+
+It is **not** the target architecture.
+
+Once a route claims to spawn:
+
+```text
+CharacterId::Goblin
+```
+
+the corresponding prepared character definition is required.
+
+If a low-level fixture intentionally wants:
+
+> generic body components with no CharacterDefinition
+
+give that fixture/dev facility an explicit low-level API.
+
+Do not make production character construction silently mean:
+
+```text
+missing registry
+→ pretend this actor has no character-owned facts
+→ ask archetype instead
+```
+
+That keeps the second authority alive forever.
+
+The production paths that still do not carry prepared character data—especially programmatic staged actors and encounter/runtime mob construction—must be brought into the unified seam.
+
+---
+
+# Build `CharacterSpawnPlan` now
+
+The next substantial milestone should be the actual common construction contract.
+
+Do this **before broadly migrating Group A content**.
+
+Different authoring surfaces can remain distinct:
+
+```text
+NpcSpawn
+EnemySpawn
+EncounterMobSpec
+SummonSpec
+MatchParticipant
+programmatic character spawn
+```
+
+but they should lower into one semantic plan:
+
+```text
+CharacterSpawnPlan {
+    character_id: CharacterId,
+
+    controller: ...,
+    autonomous_profile_override: Option<BrainProfileId>,
+
+    spawn_context: ...,
+}
+```
+
+Do not make this one giant bag of every possible placement field.
+
+Only shared actor-construction authority belongs here.
+
+Then construction becomes:
+
+```text
+PreparedCharacterDefinition
++
+CharacterSpawnPlan
+        ↓
+one character-body construction implementation
+        ↓
+generic runtime ECS components
+```
+
+The current `EnemyActorSpawnPlan` and `NpcActorSpawnPlan` are useful places to inspect, but do not preserve two physical-body constructors merely by making their internals look similar.
+
+The endpoint is one character-body constructor plus contextual additions.
+
+---
+
+# `ActorClusterSeed::adopt_character_intrinsics` should disappear into construction
+
+Treat this method as migration scaffolding.
+
+Its useful invariant is:
+
+> the character is consulted before the entity exists.
+
+Preserve that.
+
+Its final shape should not be:
+
+```text
+ActorClusterSeed::from_archetype(...)
+seed.adopt_character_intrinsics(character)
+```
+
+Instead it should become conceptually:
+
+```text
+ActorClusterSeed::from_character(
+    prepared_character,
+    spawn_context,
+)
+```
+
+or construction should stop needing this seed abstraction entirely if a clearer common builder emerges.
+
+Do not grow:
+
+```text
+adopt_character_intrinsics()
+```
+
+until it applies all 49 legacy archetype fields.
+
+That would merely move the old god-object precedence logic into a giant patch function.
+
+---
+
+# The prepared definition must be complete
+
+Current source definitions may remain partially authored while migration is underway.
+
+That does not mean the final prepared representation should retain:
+
+```text
+None → ask the old archetype underneath
+```
+
+for intrinsic facts.
+
+The intended pipeline is:
+
+```text
+CharacterDefinition
+    optional authored facts
+    reusable profile references
+    sensible character defaults
+        ↓
+prepare/finalize
+        ↓
+PreparedCharacterDefinition
+    complete resolved character template
+```
+
+Once preparation succeeds, normal actor construction should not ask:
+
+```text
+CharacterCatalog
+CharacterRoster
+ArchetypeSpec
+```
+
+what that character really is.
+
+That includes:
+
+```text
+body
+vitals
+movement
+intrinsic abilities
+action repertoire
+moves
+intrinsic equipment
+mount capability
+death traits
+```
+
+where those are genuinely character facts.
+
+---
+
+# Keep the three-owner split
+
+Do NOT copy all 49 fields from `ArchetypeSpec` onto `CharacterDefinition`.
+
+The field-ownership ledger already confirms why.
+
+## Character-template facts
+
+Examples:
+
+```text
+body geometry / body class
+max health
+mass
+knockback weight
+movement capability/tuning
+intrinsic abilities
+action set
+moveset
+intrinsic held equipment
+intrinsic contact/death traits
+mount/pilot body capabilities
+```
+
+These belong in the character definition or reusable character-domain profiles referenced by it.
+
+## Autonomous-controller facts
+
+Examples:
+
+```text
+brain template
+patrol/chase effort
+aggro radius
+preferred attack range
+cooldown preferences
+turn-at-wall policy
+fighter tactical preferences
+```
+
+These belong in reusable autonomous-controller profiles.
+
+## Spawn/session/ruleset facts
+
+Examples:
+
+```text
+respawn policy
+initial faction
+initial disposition/aggression
+encounter membership
+ruleset death ownership
+story role
+current controller
+```
+
+These stay contextual.
+
+This classification is the entire point of deleting `ArchetypeSpec`.
+
+---
+
+# The migration map is one-time working material
+
+After `CharacterSpawnPlan` exists, use Appendix B's map to migrate content.
+
+But reinterpret it correctly.
+
+## Group A: current one-character/one-legacy-profile cases
+
+These are useful first migrations because their intent is relatively clear.
+
+For each:
+
+1. identify the character's intrinsic facts;
+2. move them to its character definition;
+3. identify its ordinary autonomous behavior;
+4. point the character at a proper `BrainProfileId`;
+5. move respawn/faction/etc. to placement context;
+6. remove migrated facts from the archetype immediately;
+7. delete the archetype row when nothing real remains.
+
+Do not merely:
+
+```text
+register character
++
+keep same full archetype
++
+override three character fields
+```
+
+for a long-lived state.
+
+## Group B: shared behavior profiles
+
+Cases such as `medium_striker` are especially valuable.
+
+The fact that several different characters use one legacy row proves:
+
+> this shared part is a behavior/profile ingredient, not actor identity.
+
+Create one proper autonomous profile from the genuine controller-policy subset.
+
+Each Goblin/Puppy Slug/Lab Raider definition keeps its own intrinsic facts.
+
+A placement may explicitly choose that shared controller profile.
+
+## Group C: generic roles
+
+Classify each.
+
+A visible reusable creature such as a generic Goblin can and probably should be a real `CharacterDefinition`.
+
+A sandbag/test fixture may deserve a low-level fixture definition/API.
+
+A temporary art stand-in should use presentation borrowing rather than a false character id.
+
+Do not force every structural test entity into the character catalog just for type uniformity.
+
+---
+
+# Code-only archetypes are part of the migration
+
+Do not declare the data migration complete after all 93 room placements are converted.
+
+Current production still contains direct `spec_for_brain` use in areas including:
+
+```text
+construction planning
+programmatic staged actors
+matches
+autonomous reconciliation / provocation
+actor conversion
+brain builders
+giant/mount construction
+summons / runtime minions
+```
+
+There are also directly referenced legacy profile names that do not necessarily appear in the authored-placement census.
+
+Each must end in one of these buckets:
+
+```text
+real CharacterDefinition
+real BrainProfile
+spawn/session policy
+fixture/dev-only construction
+deleted dead code
+```
+
+No fifth bucket called "legacy archetype we still need."
+
+---
+
+# Do not overread "the demos already migrated"
+
+The newer demos are useful evidence because some placements already carry explicit character identity beside behavior selection.
+
+That proves the two-axis authoring shape is viable.
+
+It does **not** mean those demos have completed D73 while they still depend on `CharacterRoster` / `ArchetypeSpec`.
+
+Migrate their provider roster fragments too.
+
+The final provider contract should be approximately:
+
+```text
+register CharacterDefinition
+register BrainProfile
+register game-specific metadata if needed
+```
+
+No provider-specific character-roster fragment.
+
+---
+
+# Remove BUILDABLE_ONLY_CAST before D73 closes
+
+Separating:
+
+```text
+characters the engine can instantiate
+```
+
+from:
+
+```text
+characters shown on character select
+```
+
+is correct.
+
+A second hand-maintained list called:
+
+```text
+BUILDABLE_ONLY_CAST
+```
+
+is not the final architecture.
+
+It is acceptable only as very short-lived migration scaffolding.
+
+The final invariant should be:
+
+```text
+complete registered CharacterDefinition
+→ buildable
+```
+
+Selection UI separately owns an explicit curated selection roster.
+
+There should be no manually maintained "all the other characters the engine can build" list.
+
+---
+
+# Remove the catalog/definition precedence ladder
+
+The current NPC transition has:
+
+```text
+placement brain override
+→ CharacterDefinition.default_brain_profile
+→ CharacterCatalogEntry.default_brain
+```
+
+That is an acceptable temporary bridge.
+
+Do not repeat this pattern for every field.
+
+The final path is:
+
+```text
+placement/controller override
+→ PreparedCharacterDefinition.default_autonomous_profile
+```
+
+The catalog does not answer again.
+
+Likewise, a prepared character must not mean:
+
+```text
+definition says X
+else catalog says X
+else archetype says X
+```
+
+That is simply three authorities with documented precedence.
+
+The finalization campaign should collapse the catalog's gameplay character facts into the one character-definition source.
+
+A presentation/tooling projection may remain if useful, but it cannot be a second gameplay authority.
+
+---
+
+# Remove `PreparedKit::HostCode`
+
+Do not defer this indefinitely.
+
+`player_robot_v3` should be a normal character definition with a normal intrinsic base kit.
+
+Progression, equipment, acquired abilities, debug grants, or session rules then live on the runtime body.
+
+The final architecture must not contain:
+
+```text
+PlayableKitSource::HostCode
+PreparedKit::HostCode
+```
+
+as protagonist exceptions.
+
+The controlled robot is a character definition plus runtime body state, like everything else.
+
+---
+
+# Provocation becomes a controller/disposition transition
+
+The current provocation machinery is one of the largest deletion payoffs.
+
+After migration:
+
+```text
+peaceful Fretjaw
+    CharacterIdentity(Fretjaw)
+    Fretjaw body/vitals/abilities/actions
+    peaceful disposition
+    peaceful/autonomous controller
+```
+
+Provocation becomes:
+
+```text
+same CharacterIdentity
+same body
+same vitals
+same capabilities
+same action repertoire
+
+→ hostile/aggressive disposition
+→ combat autonomous controller/profile
+```
+
+Delete the path that:
+
+```text
+name/dialogue heuristic
+→ hostile archetype
+→ reconstruct tuning/health/gravity/capabilities/actions
+```
+
+Delete `HostileArchetypeId` once rollback no longer needs it.
+
+---
+
+# Rollback follows the same separation
+
+Rollback should preserve:
+
+```text
+CharacterId
+runtime mutable actor state
+controller binding/profile identity
+disposition/context state
+```
+
+It should not need:
+
+```text
+legacy archetype id
+→ reconstruct character body
+```
+
+A restored character remains the same template identity.
+
+Controller selection restores separately.
+
+Do not replace `HostileArchetypeId` with a differently named second-body-definition id.
+
+---
+
+# Rename the architecture as it lands
+
+Do not postpone all naming until Phase 8.
+
+New APIs should use final semantics immediately.
+
+Strong candidate vocabulary:
+
+```text
+CharacterId
+CharacterIdentity
+CharacterDefinition
+PreparedCharacterDefinition
+CharacterRegistry
+
+BrainProfileId
+BrainProfile
+AutonomousControllerBinding
+
+CharacterSpawnPlan
+SpawnContext
+```
+
+Exact names are not sacred.
+
+Semantic clarity is.
+
+Avoid adding new uses of:
+
+```text
+archetype
+sprite_character_id
+art_identity        // when used as gameplay identity
+brain: String
+player              // in generic actor APIs
+catalog default     // as final gameplay authority
+```
+
+Do not use `New`, `V2`, `Unified`, or `Legacy` in the final APIs.
+
+---
+
+# Immediate next implementation order from 735a1eafc575
+
+## 1. Finish the identity/domain seam
+
+Before migrating the mites:
+
+* introduce typed `CharacterId`;
+* generalize `WornCharacter` into universal `CharacterIdentity`;
+* give authored enemies that identity directly;
+* stop using `sprite_character_id` to discover gameplay character identity;
+* use typed `BrainPresetId` or its sensibly renamed successor;
+* split `CombatCapabilities` authoring into lower character-domain data;
+* begin moving `CharacterDefinition` / prepared definition / registry to their proper low domain owner.
+
+This should flush out wrongly owned fields.
+
+## 2. Build the real common character constructor
+
+Implement the shared:
+
+```text
+PreparedCharacterDefinition
++
+CharacterSpawnPlan
+→ actor
+```
+
+path.
+
+Route authored enemy and NPC through it first.
+
+Then route encounter/programmatic/summon/match paths through it.
+
+Do not normalize an absent prepared registry as a standard production condition.
+
+## 3. Only then make Group A a deletion campaign
+
+Migrate the mites and other clear cases.
+
+For each migrated legacy row, shrink/delete it immediately.
+
+Make the diff begin going negative.
+
+## 4. Extract shared controller profiles
+
+Handle Group B.
+
+`medium_striker` becoming a reusable `BrainProfile` is a success.
+
+`medium_striker` surviving as a renamed whole-body archetype is not.
+
+## 5. Classify generic roles and code-only uses
+
+Handle Group C plus every non-level consumer.
+
+## 6. Delete the old authorities
+
+Delete, rather than wrap:
+
+```text
+ArchetypeSpec
+CharacterRoster
+CharacterRosterFragment
+CharacterRosterRegistry
+spec_for_brain
+character_archetypes.ron
+enemy_roster.rs
+HostileArchetypeId
+old CharacterBrain placement ontology
+archetype reconstruction in provocation/rollback
+```
+
+Split/delete `ActorTuning` and `CharacterBrainSpec` according to their actual remaining responsibilities.
+
+## 7. Collapse character catalog gameplay authority
+
+One character-definition source.
+
+One prepared character registry.
+
+Presentation/editorial metadata may exist separately without answering gameplay construction questions.
+
+## 8. Remove migration scaffolding and stale vocabulary
+
+Delete:
+
+```text
+BUILDABLE_ONLY_CAST
+display-name character fallback
+adopt_character_intrinsics
+definition → catalog → archetype precedence bridges
+temporary legacy adapters
+```
+
+when their jobs are gone.
+
+---
+
+# A useful hard rule for the rest of D73
+
+Whenever you are about to add a bridge, ask:
+
+> Does this bridge make it easier to delete `character_archetypes.ron`, or does it create another permanent way to consult it?
+
+Only the first kind belongs in this campaign.
+
+And whenever you are about to migrate a field, ask:
+
+> If `CharacterRoster` disappeared immediately after this commit, would the new owner have enough information to construct the same character correctly?
+
+If no, either migrate the remaining coupled facts in the same slice or keep that migration narrowly transitional.
+
+---
+
+# Updated acceptance signal
+
+Do not call D73 done because:
+
+```text
+an authored enemy can read three character fields
+```
+
+or even because:
+
+```text
+all authored enemies have character ids
+```
+
+D73 is done when this sentence describes production:
+
+> Every normal spawned actor is an instance of one prepared CharacterDefinition. Its current controller is a separate binding, and its spawn/session policy is separate context.
+
+At that point there should be no runtime question:
+
+> Which archetype is this character really based on?
+
+because that question no longer exists.
+
+The large deletion is not incidental. It is evidence that the competing ontology is actually gone.
+
+---
+
+# ⇥ APPENDIX D — THE SMASH ADDENDUM, VERBATIM (relayed 2026-08-10)
+
+⭐ **this is the load-bearing link between the run's two top rows.** D72 (Smash
+is the engine's test case) and D73 (a character is a reusable template) are not
+competing priorities — this appendix argues Smash is D73's **largest single
+beneficiary and its best proving ground**, and it ends with an explicit
+requirement for the implementing agent:
+
+> once the common character constructor exists, use `PreparedMatch` as one of
+> the proving grounds. Remove its `CharacterRoster`/`ArchetypeSpec` dependency
+> and see how much of the current generic `smash_fighter_kit()` /
+> `fighter_abilities` leveling machinery becomes unnecessary.
+
+⛔ **that supersedes my earlier reading that phase 3's proving ground is the
+authored room enemy.** The authored enemy is where the seam was *proved*; the
+match is where it must be *paid off*, because the match is the one place in the
+repo that already states the target model at its API level
+(`MatchParticipant { character, controller, team }`) and then contradicts it
+underneath. Reproduced without edit.
+
+## Smash may be one of the biggest beneficiaries of D73
+
+The current Smash architecture is already halfway to the model we're moving toward, but it still carries several compensating hacks because character identity is incomplete elsewhere.
+
+The encouraging part is that Smash's high-level model is already right:
+
+```text
+MatchParticipant {
+    character,
+    controller,
+    team,
+}
+```
+
+and `PreparedMatch` already has the very good invariant:
+
+> build the fighter body first; attach human/CPU control afterward.
+
+D73 makes the lower half finally agree with that model.
+
+### 1. `PreparedMatch` can stop building a hybrid character/archetype
+
+Right now match preparation does this:
+
+```text
+PreparedCharacterDefinition
+        +
+CharacterRoster / ArchetypeSpec
+        ↓
+ActorClusterSeed
+```
+
+It even explicitly validates CPU profiles through the old `CharacterRoster`, then calls `ActorClusterSeed::new_in(... archetypes ...)`.
+
+So Smash currently says at its API level:
+
+> seat Fretjaw, controlled by CPU
+
+but underneath it still asks the old archetype system what much of that fighter actually is.
+
+After D73 it should become simply:
+
+```text
+PreparedCharacterDefinition(Fretjaw)
+        +
+MatchRules
+        +
+ControllerBinding::Cpu(smash_ai)
+        ↓
+fighter
+```
+
+That removes an entire source of match-specific inconsistency.
+
+### 2. The giant `smash_fighter_kit()` workaround should largely disappear
+
+This is one of the clearest payoffs.
+
+The Smash select screen currently does:
+
+```rust
+.with_action_set(smash_fighter_kit())
+```
+
+for **every fighter**.
+
+And the comment explains why: seven of the twelve selected characters had no melee because they were Hall NPCs whose catalog rows were `peaceful`.
+
+That is precisely the modeling error D73 fixes.
+
+A peaceful Alice should mean:
+
+```text
+Alice character
++ peaceful placement/controller
+```
+
+not:
+
+```text
+Alice character has no fighting repertoire
+```
+
+Once the character definition contains what Alice actually knows how to do, Smash doesn't need to overwrite Alice with a generic kit merely because she normally stands around talking in the Hall.
+
+Instead:
+
+```text
+Alice in Hall:
+    Character = Alice
+    Controller = peaceful NPC
+    Disposition = peaceful
+
+Alice in Smash:
+    Character = Alice
+    Controller = human / Smash CPU
+    Match relationship = opponent
+```
+
+Same Alice.
+
+That is a **huge improvement** for building an actual crossover fighter roster.
+
+### 3. Smash can retain character individuality instead of leveling everybody into one fighter
+
+The current comments acknowledge that `smash_fighter_kit()` is only a floor:
+
+> eight looks and one game.
+
+D73 gives us a clean way beyond that.
+
+A character can author:
+
+```text
+movement/body characteristics
+intrinsic abilities
+normal attacks
+specials
+moveset
+hurtboxes
+weight
+etc.
+```
+
+So Smash can naturally get:
+
+```text
+PCA → PCA's moves
+Mary-O → Mary-O's moves
+Sanic → Sanic's moves
+Fretjaw → Fretjaw's moves
+```
+
+rather than:
+
+```text
+different sprite
++ same generic Smash action set
+```
+
+This is exactly what you need if Ambition's Smash mode is going to become a real character fighter rather than a mechanics demo.
+
+And the repo already contains evidence this works: the `arena_duelist_long` and `arena_duelist_close` definitions are much closer to the target model. They author their own vitals, movesets and hurtboxes directly as `CharacterDefinition`s.
+
+### 4. But `MatchRules` should still be allowed to constrain characters
+
+There is an important distinction here.
+
+D73 does **not** imply:
+
+> Smash must allow every ability every character possesses in exploration.
+
+For example, perhaps the protagonist normally has:
+
+```text
+blink
+portal gun
+some progression ability
+```
+
+but Smash rules intentionally prohibit some of those.
+
+That should become:
+
+```text
+Character intrinsic capability
+        ∩
+Match capability policy
+        =
+available capability in this match
+```
+
+rather than:
+
+```text
+Smash replaces the character's abilities with a generic fighter AbilitySet
+```
+
+The current:
+
+```rust
+roster.fighter_abilities = Some(...)
+```
+
+was partly repairing a historical construction divergence where one seat inherited exploration abilities while another got a generic spawned-enemy kit.
+
+Once D73 guarantees all seats instantiate the same character definition through the same path, **that repair rationale disappears**.
+
+There may still be a legitimate Smash rule such as:
+
+```text
+allowed:
+    run
+    jump
+    double jump
+    attack
+    specials
+
+disabled:
+    portal travel
+    possession
+    story interaction abilities
+```
+
+But I'd want that represented explicitly as **match capability policy/restrictions**, not as "every fighter actually has this identical body ability set."
+
+That distinction will matter enormously once characters become interesting.
+
+### 5. CPU difficulty becomes much cleaner
+
+Current Smash already has the right idea:
+
+```text
+Character = Sanic
+Controller = Cpu {
+    brain_profile = SMASH_DUELIST_BRAIN
+}
+```
+
+and the ladder changes the AI profile/difficulty independently of the character.
+
+D73 formalizes exactly that separation:
+
+```text
+Sanic
+    = fighter body / moves / capabilities
+
+Smash CPU profile level 3
+    = how the autonomous controller uses Sanic
+```
+
+Then you can test:
+
+```text
+Sanic CPU L1
+Sanic CPU L5
+Sanic human
+Sanic replay
+```
+
+without creating four Sanics or four actor archetypes.
+
+Likewise the same CPU policy can operate multiple characters and make decisions based on the capabilities/actions the controlled body actually exposes.
+
+That's a much stronger foundation for the Smash AI.
+
+### 6. Character select gets simpler and more trustworthy
+
+Currently Smash has had recurring problems where:
+
+```text
+character appears on grid
+```
+
+didn't necessarily imply:
+
+```text
+host can actually build that fighter
+```
+
+which contributed to the current `PreparedCharacterRegistry`/buildability machinery and eventually `BUILDABLE_ONLY_CAST`.
+
+After D73:
+
+```text
+complete registered CharacterDefinition
+→ constructible character
+```
+
+Then Smash select has a simple content decision:
+
+```text
+which registered characters do we offer?
+```
+
+rather than coordinating catalog rows, playable rosters, buildable rosters, archetypes and sprite identities.
+
+That's a significant authoring win.
+
+### 7. Mirror matches become completely ordinary
+
+Smash already fought hard to fix this distinction:
+
+```text
+character_id = Fretjaw
+feature_id = Fretjaw#seat0
+
+character_id = Fretjaw
+feature_id = Fretjaw#seat1
+```
+
+D73 turns that into the engine-wide rule:
+
+```text
+CharacterId
+≠
+SimId / runtime identity
+```
+
+So:
+
+```text
+Fretjaw vs Fretjaw
+PCA vs PCA vs PCA vs PCA
+```
+
+is no longer something match code has to be especially careful about. It's just normal character instantiation.
+
+### 8. It should also make future Smash content much easier to author
+
+The ideal future workflow becomes:
+
+```text
+Author a new Ambition character:
+    art
+    body
+    movement
+    abilities
+    attacks/moves
+    hurtboxes
+    default autonomous profile
+```
+
+Once that exists, Smash mostly needs to answer:
+
+```text
+Is this character offered on the roster?
+Are any of its abilities restricted by this ruleset?
+Which controller occupies this seat?
+Which team?
+Which stocks/rules?
+```
+
+You shouldn't have to separately create a "Smash version" of the character merely to make the body legitimate.
+
+There may eventually be **mode-specific moves** or balancing overrides, and that's fine. But those should look explicitly like:
+
+```text
+SmashRules / FighterRules
+    character-specific balance override
+```
+
+rather than another shadow actor definition.
+
+---
+
+So I think D73 actually clarifies what **Smash itself should own**:
+
+**Character owns**
+
+* body and geometry
+* weight/vitals baseline
+* intrinsic movement
+* intrinsic capabilities
+* attacks/specials/moveset
+* hurtboxes
+* presentation
+
+**Seat/controller owns**
+
+* human vs CPU vs replay
+* CPU strategy/difficulty
+
+**Match owns**
+
+* teams
+* stocks
+* blast-zone/death rules
+* respawning between stocks
+* capability restrictions
+* global balance/ruleset decisions
+
+**Smash presentation owns**
+
+* character select
+* HUD
+* stage framing
+* match UI
+
+And none of those needs an `ArchetypeSpec`.
+
+In fact, I'd add an explicit requirement to the D73 agent: **once the common character constructor exists, use `PreparedMatch` as one of the proving grounds. Remove its `CharacterRoster`/`ArchetypeSpec` dependency and see how much of the current generic `smash_fighter_kit()` / `fighter_abilities` leveling machinery becomes unnecessary.**
+
+That would give us a very strong end-to-end proof that the architecture is actually professionalized: **the same Fretjaw definition works in the Hall, in a normal hostile encounter, under possession, and in Smash, with only controller and contextual rules changing.**

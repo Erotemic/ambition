@@ -462,16 +462,23 @@ pub fn resolve_initial_brain(
     // outranked by an authored placement override, which is the whole precedence
     // rule in one line.
     //
-    // ⚠ **a bare `&str`, not a registry handle, and deliberately.** The prepared
+    // ⚠ **a resolved id, not a registry handle, and deliberately.** The prepared
     // registry lives two crates up; passing the resolved NAME keeps this function
     // where it belongs and keeps the layering intact. The caller looks it up.
+    //
+    // ⚠ it is an AUTHORED local name wearing the id type, not an already-qualified
+    // catalog key: it is qualified below exactly as `authored_override` is. The
+    // type is here because this module's own rule says so — a preset id must not
+    // be confusable with a character id or a bare string in a signature — and
+    // this parameter sits next to `character_id: &str`, which is precisely the
+    // confusion the newtype exists to prevent.
     //
     // ⭐ it reaches [`BrainBinding::default_preset`] — the field whose doc already
     // says *"restoring the default rebuilds a fresh brain from THIS preset"* — so
     // no new [`AutonomousSource`] variant is needed and the rollback shape is
     // unchanged. `CatalogDefault` keeps meaning *"the character's default"*; only
     // who gets to state it has widened.
-    definition_default: Option<&str>,
+    definition_default: Option<&BrainPresetId>,
     ctx: &BrainBuildContext,
 ) -> Result<(BrainBinding, Brain), BrainBuildError> {
     let entry = catalog
@@ -479,7 +486,7 @@ pub fn resolve_initial_brain(
         .ok_or_else(|| BrainBuildError::UnknownCharacter(character_id.to_string()))?;
     let default_preset = BrainPresetId::new(
         match definition_default
-            .map(str::trim)
+            .map(|profile| profile.as_str().trim())
             .filter(|name| !name.is_empty())
         {
             // Qualified the same way an authored override is: a raw local name
@@ -584,11 +591,12 @@ mod tests {
         authored: Option<&str>,
         definition_default: Option<&str>,
     ) -> Result<(BrainBinding, Brain), BrainBuildError> {
+        let definition_default = definition_default.map(BrainPresetId::from);
         resolve_initial_brain(
             &catalog(),
             cid,
             authored,
-            definition_default,
+            definition_default.as_ref(),
             &BrainBuildContext::at(0.0),
         )
     }

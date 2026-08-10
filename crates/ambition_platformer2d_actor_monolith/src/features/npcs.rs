@@ -104,7 +104,7 @@ pub(crate) fn resolve_npc_brain(
         // above — the whole precedence rule, resolved in one call.
         prepared
             .get(cid)
-            .and_then(|prepared| prepared.default_brain_profile.as_deref()),
+            .and_then(|prepared| prepared.default_brain_profile.as_ref()),
         &authored.build_context(),
     ) {
         Ok((binding, brain)) => (brain, Some((binding, authored))),
@@ -636,7 +636,8 @@ mod default_profile_tests {
             "Puppy Slug",
             "test",
         );
-        definition.default_brain_profile = profile.map(str::to_string);
+        definition.default_brain_profile =
+            profile.map(ambition_characters::actor::character_catalog::BrainPresetId::from);
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
             &crate::character_runtime::CharacterBindings::default(),

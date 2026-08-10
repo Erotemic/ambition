@@ -411,8 +411,37 @@ consumer. Both ask the attacker entity the event already names.
   asserts the hitstun differs — a test that reads the cause cannot pass it. Its
   poison is the ordinary attacker, which must not inherit the heavy duration.
 
-▢ **what remains of item 2**: the rename itself, and `is_attacker_side` →
-a name for what it now decides.
+### ✔ item 2, step 2 — nothing but description is left keyed to the words
+
+Three more things were reading the cause vocabulary to answer a question about
+somebody's identity. All three now ask the entity.
+
+| was | is | why it blocked the fold |
+|---|---|---|
+| `matches!(source, PlayerSlash)` → scale by the human's damage slider | the ATTACKER is human-controlled | one `Melee` would scale ENEMY damage by the player's multiplier |
+| `source.defaults_to_primary_attacker()` → credit the primary player | the event is an **unresolved broadcast** | an enemy shot that named its victim and carries no entity owner would credit the player with the confirm and the hitstop |
+| `is_attacker_side` | **`seeks_victims`** | the name said "player versus world"; the question is the event's RESOLUTION state |
+
+⭐ the slider one is worth stating plainly: `matches!(source, PlayerSlash)` reads
+as *"a player's slash"* and actually means *"a slash filed under the player-side
+spelling"*. A possessed enemy's swing carries that spelling and an empowered
+ally's does not — **the slider already reached the wrong strikes in both
+directions**, before any fold. Its poison — an uncontrolled body swinging the
+same cause is not scaled — was unassertable while the spelling was the claim.
+
+⚠ two more fixtures were modelling swings nobody threw (`attacker: None` plus a
+player-spelled source). Both name a real attacker now.
+
+▢ **what remains of item 2 is the rename itself**, and it is now mechanical:
+`PlayerSlash`/`EnemyAttack`/`BossAttack` → `Melee`, `PlayerProjectile`/
+`EnemyProjectile` → `Projectile`, `EnemyBody`/`ContactHarm`/`EnemyChargeCrash` →
+`Contact`, `PogoBounce` → `Pogo`, `Hazard` and `LeftTheWorld` unchanged.
+⚠ **one live question remains for it**: `hitbox::apply_hitbox_damage` publishes
+its unresolved half only for `PlayerSlash`. Under one `Melee` that gate cannot
+be spelled, and the body-generic answer — every body melee reaches breakables
+and bosses — is a real behaviour change (enemies would smash crates). It is
+probably correct and it should land deliberately, with its own guard, not as a
+side effect of a rename.
 
 ## Execution order (mine, revise as measurements land)
 

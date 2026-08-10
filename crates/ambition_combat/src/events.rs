@@ -290,22 +290,29 @@ pub enum HitSource {
     /// KIND of thing happened: the striker is whoever holds the trait, which may
     /// be the player, an NPC, or a possessed anything.
     ///
-    /// ⚠ deliberately NOT [`Self::is_attacker_side`], for the same reason
-    /// `EnemyBody` is not: contact harm runs in BOTH directions, and the answer
-    /// has to be the one that lets a targeted event reach either consumer. An
-    /// `Actor`-targeted hit passes the feature drain on its target stamp alone;
-    /// a `Player`-targeted one has to reach the player FIFO, which takes only
-    /// the complement. Calling this attacker-side made an empowered NPC unable
-    /// to hurt the player at all — the exact hole `EnemyBody`'s answer avoids.
+    /// ⚠ it answers `false` to [`Self::seeks_victims`], and the reason that used
+    /// to matter is gone. Calling it victim-seeking once made an empowered NPC
+    /// unable to hurt the player at all, because the player FIFO staged on the
+    /// COMPLEMENT of this predicate. That FIFO now stages on whether the named
+    /// victim is in its own population, so a contact-harm hit reaches the player
+    /// on its target, not on its direction — and this answer no longer gates
+    /// anything for a resolved hit.
     ContactHarm,
 }
 
 impl HitSource {
-    /// True iff the source is attacker-side (player → feature, or a
-    /// feature self-destructing into the world). The feature-damage
-    /// consumer filters by this; the player-damage consumer filters
-    /// by the complement.
-    pub fn is_attacker_side(&self) -> bool {
+    /// **Is this an unresolved strike still hunting for whom it hit?**
+    ///
+    /// ⚠ **only ask this of an event whose target is NOT resolved.** Every
+    /// victim-side producer in the tree stamps [`HitTarget::Body`] now, and a
+    /// named victim is the whole answer — the three sites that consult this all
+    /// reach it only on a `Volume` / `UnresolvedFeatures` / `OrbMatch` event,
+    /// where "who is this broadcast FOR" is a real question.
+    ///
+    /// ⛔ so it is NOT "attacker-side", which is what it was called, and that
+    /// name is why it read as a fact about the player-versus-world direction of
+    /// combat. It is a fact about the event's RESOLUTION state.
+    pub fn seeks_victims(&self) -> bool {
         matches!(
             self,
             HitSource::PlayerSlash
@@ -315,19 +322,6 @@ impl HitSource {
         )
     }
 
-    /// Whether a legacy hit with no explicit attacker may be attributed to the
-    /// primary player for attacker-side confirmation.
-    ///
-    /// Only genuinely player-originated sources qualify. Environmental and
-    /// enemy self-crash hits must carry their own entity or remain unattributed;
-    /// otherwise a remote shell/explosion grants the player hitstop, move
-    /// confirms, and per-swing bookkeeping it did not earn.
-    pub fn defaults_to_primary_attacker(&self) -> bool {
-        matches!(
-            self,
-            HitSource::PlayerSlash | HitSource::PlayerProjectile | HitSource::PogoBounce
-        )
-    }
 }
 
 /// How a hit event resolves its victim.
@@ -343,7 +337,7 @@ pub enum HitTarget {
     /// already did the work — overlap, relationship, self-exclusion, dedup —
     /// stamps who it picked, and every consumer applies the hit to exactly that
     /// body. Explicit victim identity outranks
-    /// [`HitSource::is_attacker_side`]'s legacy broadcast direction.
+    /// [`HitSource::seeks_victims`]'s legacy broadcast direction.
     ///
     /// ⛔ **this was two variants, `Player(Entity)` and `Actor(Entity)`, and the
     /// split was a routing artifact rather than a fact about the hit.** The
@@ -474,16 +468,32 @@ pub struct HitEvent {
 }
 
 #[cfg(test)]
-mod attacker_default_tests {
+mod resolution_direction_tests {
     use super::HitSource;
 
+    /// The predicate answers one question — is this unresolved strike still
+    /// hunting for whom it hit — and the two groups are the ones that hunt and
+    /// the ones that arrive already aimed at whoever is standing there.
     #[test]
-    fn only_legacy_player_sources_default_to_the_primary_attacker() {
-        assert!(HitSource::PlayerSlash.defaults_to_primary_attacker());
-        assert!(HitSource::PlayerProjectile.defaults_to_primary_attacker());
-        assert!(HitSource::PogoBounce.defaults_to_primary_attacker());
-        assert!(!HitSource::EnemyChargeCrash.defaults_to_primary_attacker());
-        assert!(!HitSource::EnemyBody.defaults_to_primary_attacker());
-        assert!(!HitSource::Hazard.defaults_to_primary_attacker());
+    fn a_strike_seeks_victims_and_the_world_does_not() {
+        for hunting in [
+            HitSource::PlayerSlash,
+            HitSource::PlayerProjectile,
+            HitSource::PogoBounce,
+            HitSource::EnemyChargeCrash,
+        ] {
+            assert!(hunting.seeks_victims(), "{hunting:?} is a strike looking for a victim");
+        }
+        for arriving in [
+            HitSource::Hazard,
+            HitSource::LeftTheWorld,
+            HitSource::EnemyBody,
+            HitSource::ContactHarm,
+        ] {
+            assert!(
+                !arriving.seeks_victims(),
+                "{arriving:?} happens TO a body; it is not out looking for one"
+            );
+        }
     }
 }

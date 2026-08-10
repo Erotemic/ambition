@@ -358,7 +358,18 @@ pub fn apply_feature_hit_events(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     // **Which bodies hit HEAVY.** A filter-only query: it reads no components, so
     // it conflicts with nothing here, including the mutable boss query above.
-    heavy_attackers: Query<(), With<super::boss_clusters::BossConfig>>,
+    // **Two questions about the ATTACKER**, both filter-only so they read no
+    // components and conflict with nothing here, including the mutable boss
+    // query above. Bundled into one param because this system is at Bevy's
+    // 16-param ceiling.
+    //
+    // Which bodies hit HEAVY, and which a human is driving. Both used to be
+    // pattern matches on the cause vocabulary; both are facts about the striker,
+    // and the event names the striker.
+    (heavy_attackers, controlled_attackers): (
+        Query<(), With<super::boss_clusters::BossConfig>>,
+        Query<(), With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>>,
+    ),
     // R3: boss damage mutates the boss ENTITY directly (`apply_boss_hit` →
     // `apply_entity_boss_damage`), so this system no longer needs the boss
     // encounter resources — death save/quest/music resolution lives in
@@ -377,11 +388,22 @@ pub fn apply_feature_hit_events(
         .map(|s| s.gameplay.player_damage_multiplier)
         .unwrap_or(1.0);
     for mut event in hit_events.read().cloned() {
-        // The ONE seam a player slash's damage is applied to features (this
-        // resolver is the sole consumer of `PlayerSlash`-sourced hits). Scale
-        // once, before any victim reads `event.damage`. Projectiles are already
-        // scaled at spawn, so gating on `PlayerSlash` avoids double-scaling.
-        if matches!(event.source, HitSource::PlayerSlash { .. }) {
+        // The ONE seam the human's outgoing melee is scaled by their difficulty
+        // slider. Scale once, before any victim reads `event.damage`; projectiles
+        // are already scaled at spawn, so melee-only avoids double-scaling.
+        //
+        // ⛔ **whose melee this is comes from the ATTACKER, not from the source
+        // word.** It used to be `matches!(event.source, PlayerSlash)` — which
+        // read as "a player's slash" and actually meant "a slash filed under the
+        // player-side spelling". A possessed enemy's swing carries that spelling
+        // and an empowered ally's does not, so the slider reached the wrong
+        // strikes in both directions. And it blocks the cause-vocabulary fold
+        // outright: once one `Melee` covers every swing, this gate would scale
+        // ENEMY damage by the player's own multiplier.
+        let attacker_is_controlled = event
+            .attacker
+            .is_some_and(|attacker| controlled_attackers.contains(attacker));
+        if attacker_is_controlled && matches!(event.source, HitSource::PlayerSlash) {
             event.damage = (((event.damage as f32) * outgoing_melee_scale).round() as i32).max(1);
         }
         // PogoBounce hits target only the breakable whose AABB
@@ -446,7 +468,7 @@ pub fn apply_feature_hit_events(
         // here (plus the pre-resolved actor-vs-actor hits above);
         // otherwise an `EnemyBody` event would damage the same enemy
         // that emitted it when the volume overlaps its own AABB.
-        if actor_target.is_none() && !event.source.is_attacker_side() {
+        if actor_target.is_none() && !event.source.seeks_victims() {
             continue;
         }
         // Ignore-keys (`prefix:id`) of every target struck by THIS event, folded
@@ -600,10 +622,26 @@ pub fn apply_feature_hit_events(
         }
 
         if actor_hit_this_event || boss_hit_this_event {
+            // ⛔ **an UNRESOLVED broadcast may fall back to the primary; a hit
+            // that named its victim may not.** This used to ask
+            // `source.defaults_to_primary_attacker()` — a list of the
+            // player-spelled causes — which is the same question asked through
+            // the vocabulary, and it gives the wrong answer the moment one
+            // `Melee` covers every swing: an enemy shot that named its victim
+            // and carries no entity owner would credit the player with the
+            // confirm, the hitstop and the per-swing bookkeeping.
+            //
+            // "We do not know who did this" is true of a broadcast and of
+            // nothing else. A `Body`-targeted event with no attacker is a
+            // producer bug, and blaming the nearest human hides it.
+            let unresolved_broadcast = matches!(
+                event.target,
+                crate::combat::events::HitTarget::Volume
+                    | crate::combat::events::HitTarget::UnresolvedFeatures
+                    | crate::combat::events::HitTarget::OrbMatch
+            );
             let target_attacker = event.attacker.or_else(|| {
-                event
-                    .source
-                    .defaults_to_primary_attacker()
+                (unresolved_broadcast && event.source.seeks_victims())
                     .then(|| primary_q.single().ok())
                     .flatten()
             });

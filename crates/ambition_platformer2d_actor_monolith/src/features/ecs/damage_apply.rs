@@ -1107,7 +1107,7 @@ pub fn stage_player_victim_hit_events(
     for event in hit_events.read() {
         let mine = match event.target {
             HitTarget::Body(victim) => controlled_bodies.contains(victim),
-            _ => !event.source.is_attacker_side(),
+            _ => !event.source.seeks_victims(),
         };
         if mine {
             pending.0.push(event.clone());

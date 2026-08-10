@@ -315,7 +315,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
         matches!(cap.0[0].source, HitSource::PlayerSlash { .. }),
         "carries an attacker-side player source so apply_feature_hit_events applies it"
     );
-    assert!(cap.0[0].source.is_attacker_side());
+    assert!(cap.0[0].source.seeks_victims());
     assert!(
         matches!(cap.0[0].target, HitTarget::Volume),
         "volume hit (every overlapping actor/boss)"

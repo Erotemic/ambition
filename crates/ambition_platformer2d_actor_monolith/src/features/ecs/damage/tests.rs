@@ -204,6 +204,10 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
 #[test]
 fn player_melee_damage_scales_with_the_outgoing_slider() {
     fn damage_dealt(multiplier: f32, source: HitSource) -> i32 {
+        damage_dealt_from(multiplier, source, true)
+    }
+
+    fn damage_dealt_from(multiplier: f32, source: HitSource, human_controlled: bool) -> i32 {
         let mut app = App::new();
         app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
         app.insert_resource(crate::features::enemies::test_roster());
@@ -218,6 +222,16 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         register_hit_pipeline_messages(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app); // health 5
+        // ⭐ **the swing has to come from a human-controlled body, because that
+        // is what the slider is about.** This used to leave `attacker: None` and
+        // rely on the `PlayerSlash` spelling to mean "the player's". The gate
+        // asks the attacker now, so a fixture with no attacker is describing a
+        // swing nobody threw.
+        let mut attacker = app.world_mut().spawn_empty();
+        if human_controlled {
+            attacker.insert(ambition_platformer2d_shared_tangle::markers::PlayerEntity);
+        }
+        let attacker = attacker.id();
         let before = app
             .world()
             .get::<BodyHealth>(victim)
@@ -229,7 +243,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
             damage: 2,
             source,
-            attacker: None,
+            attacker: Some(attacker),
             target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
             knockback: None,
@@ -262,6 +276,17 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         damage_dealt(2.0, HitSource::EnemyBody),
         2,
         "the OUTGOING player slider never touches enemy melee"
+    );
+    // ⛔ **the poison, and the one the source word could never catch.** An
+    // uncontrolled body swinging the very same melee cause must not be scaled by
+    // a HUMAN's difficulty slider. While the gate read `matches!(source,
+    // PlayerSlash)` this was unassertable — the spelling WAS the claim — and it
+    // is exactly what would have broken silently once one `Melee` covers every
+    // swing in the game.
+    assert_eq!(
+        damage_dealt_from(2.0, HitSource::PlayerSlash, false),
+        2,
+        "a swing by a body no human drives is not the human's outgoing damage"
     );
 }
 

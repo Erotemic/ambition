@@ -73,9 +73,20 @@ collision-world `PogoOrb` blocks. Only an explicit `PogoTargetContributor`
 opts an ECS feature into world rebound geometry.
 
 **A strike also has an UNRESOLVED half, and it says so.** The resolver names
-every combat body it reaches. It cannot name a breakable, or a boss whose HP and
-phase live on an encounter rather than on a body carrying the combat cluster —
-neither matches `StrikeVictim`. So the same strike publishes one
+every combat body it reaches. It cannot name a breakable: no faction, no combat
+cluster, nothing `StrikeVictim` can see. ⚠ **this used to say the same of a boss
+"whose HP and phase live on an encounter", and that is FALSE** — a boss carries
+`BodyHealth`, `BodyCombat`, `ActorFaction` and the vulnerability trio through the
+one bundle every body shares, melee's victim query has no boss exclusion, and it
+is named `HitTarget::Body(boss)` today. What is still true is smaller and
+stranger: the damage consumer's boss branch runs only when the event names NO
+actor, so the `Body(boss)` event lands nowhere and the boss's HP is moved by the
+unresolved half instead. The swing identifies its victim and then damages it
+anonymously. Retiring that is blocked on the projectile loop adopting
+`reached_by` (queue D23, a feel call Jon owns), because a boss's coarse AABB is a
+giant composite envelope and switching producers without it would let bolts hit
+the bounding rectangle instead of the authored head/hand volumes. So the same
+strike publishes one
 `HitTarget::UnresolvedFeatures` event carrying its geometry, deduped by the
 attacker's `MovePlayback.hit_targets` (the move's own authoritative accumulator,
 never the `BodyMelee.swing` projection). ⛔ **that is not `HitTarget::Volume`**:

@@ -1060,6 +1060,42 @@ fixture was corrected rather than the reach requirement weakened. Its assertion
 then moved from `Volume` to `Body(enemy)`, which is what its own `▢` note said
 should happen the day this landed.
 
+## Retiring `UnresolvedFeatures` — measured, and it BLOCKS on a call Jon owns
+
+The last marked remainder. I estimated a data migration and the measurement says
+otherwise, in both directions.
+
+**A boss is already a body.** ⛔ the claim in `one-body-one-path.md` that its "HP
+and phase live on an encounter rather than on a body carrying the combat cluster"
+is **false and now corrected**: the boss spawn inserts the shared actor cluster
+precisely so `apply_hitbox_damage`'s non-`Option` victim query still matches, it
+carries `BodyHealth` / `BodyCombat` / `ActorFaction`, and melee's victim query has
+**no boss exclusion at all**. A swing names `HitTarget::Body(boss)` today.
+
+**And that event lands nowhere.** The damage consumer's boss branch is gated
+`bosses.iter_mut().filter(|_| actor_target.is_none())`, so an event that names an
+actor — including the boss itself — skips it, while the boss is excluded from the
+actor query as a disjoint family. The boss's HP is moved by the **unresolved
+half** instead. ⭐ so the same swing identifies its victim and then damages it
+anonymously, and the identified event is inert: if the broadcast ever stopped, a
+boss would stop taking melee damage and every test would still pass.
+
+**⛔ the fix blocks on D23, which is Jon's.** Making the consumer honour
+`Body(boss)` requires both producers to name bosses, and the projectile victim
+query excludes `BossConfig` on purpose: that loop still tests the COARSE box
+(`strict_intersects`), and a boss's coarse AABB is a giant composite envelope.
+Including bosses without first adopting `victim.reached_by(..)` would let bolts
+hit the bounding rectangle instead of the authored head/hand volumes — the
+GNU-ton seam, undone. And adopting `reached_by` for projectiles retires
+`strict_intersects` and changes how every shot connects, which the code already
+records as a FEEL call reserved for Jon (queue row D23).
+
+So the boss half is one small consumer change sitting behind one authored
+decision, not a migration. **The breakable half is the real one**: no faction, no
+combat cluster, nothing `StrikeVictim` can see — that is where a genuine
+migration lives, and it is not worth starting with the ledger's answered-but-
+unfixed rows still open.
+
 ✔ **the feel list is complete.** Move-facing snapshot, one authoritative move
 timeline, hitstop/hitstun, landing lag / auto-cancel, aerial locomotion, air
 speed, jump-squat, hitbox tracks, pose-aware hurtboxes, DI.

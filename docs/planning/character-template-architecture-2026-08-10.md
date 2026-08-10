@@ -294,8 +294,34 @@ whether or not it explains the PCA.
   ⚠ the roster fixture gives `combatant` a DIFFERENT pool (42) from
   `medium_striker` (3), because `spec_for_brain` silently answers `combatant`
   for an unknown key and equal pools would hide a lookup that never landed.
-* ▢ next: whether `WornCharacter` becomes the `CharacterIdentity` the brief
-  names. It is already a component in `ambition_characters` holding a character
+* ⛔⛔ **`WornCharacter` IS NOT AN INERT TAG — attaching it ENROLLS a body in
+  the persona derive, and that is the real cost of generalizing it.** Measured
+  before starting the rename, because the rename is 59 files and the risk is
+  not in the rename.
+  - the render layer is **not** the obstacle I expected. `ensure_player_visual
+    _sprite`'s `Without<WornCharacter>` looks like a class discriminator, but
+    both it and `bind_worn_character_presentation` also require `PlayerVisual`,
+    which an authored enemy does not carry. ⇒ **giving an enemy the identity
+    does not reroute its presentation.** The discriminator is `PlayerVisual`.
+  - the obstacle is `apply_worn_character_gameplay`. Its query is
+    `Ref<WornCharacter>` plus `&mut ActionSet, &mut ActorMoveset, &mut
+    IdentityKit, Ref<BodyAbilities>, &mut MotionModel` — so the moment an enemy
+    wears a character, that system claims it and re-derives its action set,
+    moveset, health, mass and knockback weight **through the CATALOG**. That is
+    the target architecture arriving early, before phase 2 has moved the facts
+    onto definitions, and it is the same failure the blanket-registration
+    measurement already recorded — seen from the other side.
+  - ⚠ **and it would adopt only SOME enemies, silently.** `ActorMoveset` is
+    inserted conditionally (`if let Some(moveset)`) on the enemy and NPC paths,
+    while `IdentityKit` arrives automatically via `WornCharacter`'s `#[require]`.
+    A body with no authored moveset therefore fails the query and drops out with
+    no diagnostic — a partial adoption that looks like a complete one.
+  ⇒ **the identity component and the persona derive must be separated, or the
+  derive must be made complete, BEFORE enemies can wear a character.** That is
+  the same "one character-body constructor" the correction asks for, reached
+  from the identity end, which is evidence the two items are one item.
+* ▢ next: that separation. ⛔ do NOT open with the 59-file rename — the name is
+  the cheap half and changing it first would make the risky half look done. It is already a component in `ambition_characters` holding a character
   id, already carried by non-player bodies (`sanic/badnik.rs`), and already the
   authority the renderer binds from — so the work is extending it to every spawn
   path and retiring `ActorConfig::sprite_character_id`, not inventing a type.

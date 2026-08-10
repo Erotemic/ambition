@@ -362,12 +362,15 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                         target_room,
                         arrival,
                         edge_exit,
+                        zone_sfx,
                     } => {
                         put_u8(out, 3);
                         put_str(out, subject.as_str());
                         put_str(out, target_room);
                         put_vec2(out, *arrival);
                         put_bool(out, *edge_exit);
+                        put_bool(out, zone_sfx.is_some());
+                        put_str(out, zone_sfx.as_deref().unwrap_or(""));
                     }
                     LifecycleIntent::FullReset => put_u8(out, 4),
                 }
@@ -394,6 +397,11 @@ impl SnapshotState for crate::session::lifecycle_commit::PendingLifecycleCommit 
                 target_room: r.str()?.to_string(),
                 arrival: r.vec2()?,
                 edge_exit: r.bool()?,
+                zone_sfx: {
+                    let present = r.bool()?;
+                    let cue = r.str()?.to_string();
+                    present.then_some(cue)
+                },
             },
             4 => LifecycleIntent::FullReset,
             _ => return None,

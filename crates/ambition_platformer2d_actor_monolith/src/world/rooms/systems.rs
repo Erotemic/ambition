@@ -201,6 +201,11 @@ pub fn detect_room_transition_system(
                 target_room: target_spec.id.clone(),
                 arrival: zone.arrival,
                 edge_exit,
+                // The cue the eager path hands to `RoomTransitionRequested`,
+                // resolved by the SAME rule a few lines up and carried on the
+                // intent because the commit happens far from the zone that
+                // named it.
+                zone_sfx: zone_sfx.as_ref().map(|id| id.as_str().to_string()),
             },
         );
         return;

@@ -62,6 +62,21 @@ pub enum LifecycleIntent {
         target_room: String,
         arrival: Vec2,
         edge_exit: bool,
+        /// The door / portal cue this crossing owes, resolved from the zone's
+        /// activation at DETECTION time — the same rule and the same value the
+        /// eager path passes on `RoomTransitionRequested::zone_sfx`.
+        ///
+        /// ⛔ **it has to ride the intent.** The commit runs on a confirmed
+        /// frame, long after the zone that named it is out of reach, and the
+        /// intent deliberately stores no zone: it names the room by id. Without
+        /// this the deferred path had no way to know which cue was owed, so
+        /// every door and every portal was SILENT under the rollback host — the
+        /// eager path plays it from `zone_sfx` in `room_transition::commit`, and
+        /// nothing on this side played anything at all.
+        ///
+        /// ⚠ a `String`, like `target_room` beside it, because this is rollback
+        /// state and must encode deterministically.
+        zone_sfx: Option<String>,
     },
     /// Reconstruction: full sandbox reset back to the world's start room.
     FullReset,
@@ -145,6 +160,7 @@ mod tests {
                 target_room: "east".into(),
                 arrival: Vec2::new(1.0, 2.0),
                 edge_exit: true,
+                zone_sfx: Some("world.portal.enter".into()),
             },
         );
         assert!(

@@ -35,7 +35,9 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::rl_sim::{AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode};
+use ambition_app::rl_sim::{
+    AgentAction, AmbitionSim, Platformer2dSimHarness, Platformer2dSimHarnessOptions, TimestepMode,
+};
 use bevy::prelude::{Entity, With};
 use std::collections::HashSet;
 
@@ -323,5 +325,58 @@ fn a_confirmed_commit_refuses_to_rebase_over_a_diverged_session() {
     assert!(
         intent_pending(&sim),
         "the refused commit leaves the intent pending rather than losing it"
+    );
+}
+
+/// ⭐⭐ **the door still makes a sound on the rollback host.**
+///
+/// ⛔ it did not. The eager commit plays the zone's cue from
+/// `RoomTransitionRequested::zone_sfx`; the deferred committer emitted nothing at
+/// all, so on the shipped rollback binary every door and every portal was
+/// SILENT. Nothing failed, no test noticed, and the cue was computed at detection
+/// and dropped on the floor one branch later.
+///
+/// The cue now rides the intent — it has to, because the commit runs on a
+/// confirmed frame long after the zone that named it is out of reach, and the
+/// intent names its room by id rather than carrying a zone.
+#[test]
+fn a_deferred_transition_still_plays_the_zone_cue() {
+    use ambition_platformer2d::actors::session::lifecycle_commit::LifecycleIntent;
+
+    let mut sim = repro_sim();
+    sim.step(AgentAction::default());
+    let floor_y = player_y(&mut sim);
+    sim.teleport_player((1200.0, floor_y));
+
+    // Walk into the exit and catch the intent while it is still pending.
+    let mut recorded_cue: Option<Option<String>> = None;
+    for _ in 0..240 {
+        let obs = sim.step(AgentAction::move_x(1.0));
+        if let Some(intent) = sim
+            .world()
+            .get_resource::<ambition_platformer2d::actors::session::lifecycle_commit::PendingLifecycleCommit>()
+            .and_then(|slot| slot.pending.clone())
+        {
+            if let LifecycleIntent::Transition { zone_sfx, .. } = intent.kind {
+                recorded_cue = Some(zone_sfx);
+            }
+        }
+        if obs.active_room.as_str() == TARGET_ROOM {
+            break;
+        }
+    }
+
+    let cue = recorded_cue
+        .expect("the crossing recorded a transition intent")
+        .expect(
+            "⛔ the intent carried NO cue, so the deferred commit has nothing to play and \
+             the door is silent — which is exactly the bug this pins",
+        );
+    // The east exit is an `EdgeExit`, which the detection rule maps to the
+    // portal-enter cue. Asserting the VALUE, not merely presence: a `Some("")`
+    // would satisfy an is_some check and still play nothing audible.
+    assert_eq!(
+        cue, "world.portal.enter",
+        "an EdgeExit owes the portal cue, the same one the eager path passes"
     );
 }

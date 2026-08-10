@@ -150,7 +150,15 @@ fn execute_lifecycle_commit(world: &mut World, kind: &LifecycleIntent) -> Commit
             target_room,
             arrival,
             edge_exit,
-        } => commit_transition(world, subject, target_room, *arrival, *edge_exit),
+            zone_sfx,
+        } => commit_transition(
+            world,
+            subject,
+            target_room,
+            *arrival,
+            *edge_exit,
+            zone_sfx.as_deref(),
+        ),
         // The in-place resets (death / manual / replay) are already rollback-safe
         // executed eagerly, and the full sandbox reset was proven rollback-safe
         // single-tick, so no consumer records these variants. Keep a stray intent
@@ -204,6 +212,7 @@ fn commit_transition(
     target_room: &str,
     arrival: ae::Vec2,
     edge_exit: bool,
+    zone_sfx: Option<&str>,
 ) -> CommitOutcome {
     // Preparation is mutation-free and fallible — every room/content lookup
     // happens here, before any world mutation. A failure commits NOTHING and is
@@ -256,6 +265,46 @@ fn commit_transition(
     // geometry, spawn the target roster — synchronously, with `world.flush()`.
     // From here nothing may fail: the subject and its transit contract were
     // validated above.
+    // **The door still makes a sound.** The eager commit plays the zone's cue at
+    // the body's position BEFORE the transit, and this path played nothing at
+    // all — so on the rollback host (the shipped binary) every door and every
+    // portal was silent. Same cue, same instant, same position.
+    //
+    // ⚠ safe to emit directly rather than through the external-effect journal:
+    // this whole function runs only on a CONFIRMED frame, so it can never be
+    // re-run speculatively and cannot double-play.
+    if let Some(cue) = zone_sfx {
+        let pos_before = world
+            .get::<ambition_platformer2d_shared_tangle::body::BodyKinematics>(subject)
+            .map(|kin| kin.pos)
+            .unwrap_or(arrival);
+        // Ownership + provenance resolved exactly as `SfxWriter::write` does
+        // from the session's emission context — an unowned cue is refused by
+        // playback whenever an owned context is active, so a world-level emit
+        // that skipped this would be silently dropped instead of loud.
+        let (owner, source) = world
+            .get_resource::<ambition_sfx::SfxEmissionContext>()
+            .map(|context| {
+                (
+                    ambition_sfx::SfxEmissionContext::owner(context),
+                    context.source().clone(),
+                )
+            })
+            .unwrap_or_default();
+        if let Some(mut messages) =
+            world.get_resource_mut::<bevy::prelude::Messages<ambition_sfx::OwnedSfxMessage>>()
+        {
+            messages.write(ambition_sfx::OwnedSfxMessage {
+                owner,
+                source,
+                request: ambition_sfx::SfxMessage::Play {
+                    id: ambition_sfx::SfxId::new(cue),
+                    pos: pos_before,
+                },
+            });
+        }
+    }
+
     plan.apply_to_world(world, carry_body);
 
     // Tuning snapshots (primitive copies, so no borrow is held across the body
@@ -331,7 +380,7 @@ fn commit_transition(
         combat.hitstop_timer = 0.0;
         combat.damage_invuln_timer = 0.0;
         combat.hitstun_timer = 0.0;
-                combat.recoil_lock_timer = 0.0;
+        combat.recoil_lock_timer = 0.0;
         combat.landing_lag_timer = 0.0;
     }
     if let Some(mut safety) =

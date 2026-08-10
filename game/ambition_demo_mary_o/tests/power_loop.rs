@@ -1020,7 +1020,7 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     );
 
     let player_hit = hits.iter().find(|h| {
-        matches!(h.target, HitTarget::Player(e) if e == player)
+        matches!(h.target, HitTarget::Body(e) if e == player)
             && matches!(h.source, HitSource::EnemyBody)
     });
     assert!(

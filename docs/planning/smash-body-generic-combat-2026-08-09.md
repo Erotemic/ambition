@@ -333,6 +333,31 @@ something is attached — a sign-only channel would pass the weaker assertion,
 which is how this survived. The actor consumer's synthesizing arm is deleted, so
 there is nowhere left to put a magnitude that evaporates.
 
+## ✔ Roadmap item 3 — one body victim, named by entity (2026-08-09)
+
+`HitTarget::Player(Entity)` and `HitTarget::Actor(Entity)` are one variant,
+`HitTarget::Body(Entity)`.
+
+⭐ **the split was a routing artifact, not a fact about the hit.** Every one of
+the five producers computed it the same way — `if victim.is_player { Player }
+else { Actor }` — so the stamp said nothing the victim entity did not already
+say, and it said it at the moment a producer is least entitled to care. Its real
+job was telling two consumers which one owned the event.
+
+⇒ each consumer now asks the world instead of reading the stamp. The
+controlled-body FIFO stages a resolved hit when the victim **is in its
+population** (`With<PlayerEntity>`); the actor consumer matches its own entity.
+That deleted, as dead weight, a `Has<PlayerEntity>` query column in two systems
+and a `target_is_player: bool` parameter threaded through `ContactAttack`.
+
+⚠ **one fixture was modelling a body production never builds** — it spawned a
+bare entity and stamped it `HitTarget::Player`, which worked only because the
+stamp was the whole claim. It now carries `PlayerEntity`, and a second
+body-targeted hit on a body the resolver does *not* own is the poison beside it.
+
+Verified: `ambition_combat` 149/149 · monolith 1195/1195 · absence contracts
+25/25 · `app_it` 323 passed, 0 failed.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

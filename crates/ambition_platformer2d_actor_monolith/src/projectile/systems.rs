@@ -724,12 +724,8 @@ pub fn step_projectiles(
                     // The firing actor (enemy / boss), when the shot was spawned
                     // with a real owner — `None` for ownerless shots.
                     attacker: owner_entity,
-                    // Victim kind picks the consumer, nothing else.
-                    target: if victim.is_player {
-                        HitTarget::Player(victim.entity)
-                    } else {
-                        HitTarget::Actor(victim.entity)
-                    },
+                    // The victim, named — no producer-side classification.
+                    target: HitTarget::Body(victim.entity),
                     mode: HitMode::Knockback,
                     // EVERY victim rides the same resolved knockback (§A2 step 6).
                     // The actor branch used to pass `None`, so an actor struck by

@@ -986,8 +986,15 @@ fn kernel_reset_death_reports_the_pre_respawn_impact_position() {
 
 /// Explicit victim identity outranks the legacy source-direction partition.
 /// This is the downstream half of body-generic melee: a Player-effective fighter
-/// may directly resolve another player-marked body as its victim, while a legacy
-/// broadcast `PlayerSlash` remains on the feature-damage path.
+/// may directly resolve another human-controlled body as its victim, while a
+/// legacy broadcast `PlayerSlash` remains on the feature-damage path.
+///
+/// ⭐ **the victim carries `PlayerEntity`, the way a real one does.** The target
+/// used to be stamped `HitTarget::Player(e)` and this fixture could spawn a bare
+/// entity, because the stamp was the whole claim. There is one body variant now,
+/// so the stager asks the world which population the victim is in — and a
+/// fixture that spawns an unmarked entity is asserting about a body production
+/// never builds.
 #[test]
 fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
     let mut app = App::new();
@@ -995,7 +1002,13 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
     app.init_resource::<crate::combat::events::PendingPlayerHitEvents>();
     app.add_systems(Update, stage_player_victim_hit_events);
 
-    let victim = app.world_mut().spawn_empty().id();
+    let victim = app
+        .world_mut()
+        .spawn(ambition_platformer2d_shared_tangle::markers::PlayerEntity)
+        .id();
+    // The poison: a body-targeted hit on a body this resolver does NOT own must
+    // stay out of its rollback-registered FIFO.
+    let other_body = app.world_mut().spawn_empty().id();
     let volume: ae::CombatVolume =
         ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)).into();
     app.world_mut().write_message(FeatureHitEvent {
@@ -1004,7 +1017,18 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         damage: 3,
         source: crate::combat::HitSource::PlayerSlash,
         attacker: None,
-        target: crate::combat::HitTarget::Player(victim),
+        target: crate::combat::HitTarget::Body(victim),
+        mode: crate::combat::HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+    app.world_mut().write_message(FeatureHitEvent {
+        strike_sfx: None,
+        volume: volume.clone(),
+        damage: 3,
+        source: crate::combat::HitSource::PlayerSlash,
+        attacker: None,
+        target: crate::combat::HitTarget::Volume,
         mode: crate::combat::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -1015,7 +1039,7 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
         damage: 3,
         source: crate::combat::HitSource::PlayerSlash,
         attacker: None,
-        target: crate::combat::HitTarget::Volume,
+        target: crate::combat::HitTarget::Body(other_body),
         mode: crate::combat::HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -1029,9 +1053,9 @@ fn explicit_player_target_is_staged_even_for_an_attacker_side_source() {
     assert_eq!(
         pending.len(),
         1,
-        "only the explicitly player-targeted attacker-side hit belongs in the player FIFO"
+        "only the hit resolved onto a body THIS resolver owns belongs in its FIFO"
     );
-    assert_eq!(pending[0].target, crate::combat::HitTarget::Player(victim));
+    assert_eq!(pending[0].target, crate::combat::HitTarget::Body(victim));
 }
 
 /// A staged victim hit must not survive a room-lifecycle boundary: the void

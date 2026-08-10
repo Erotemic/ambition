@@ -1071,12 +1071,21 @@ fn death_source_of(cause: ae::ResetCause) -> crate::combat::HitSource {
 /// Stage this frame's hits that belong to the controlled-body victim resolver
 /// into its rollback-registered FIFO.
 ///
-/// An explicit `HitTarget::Player(entity)` is already victim-resolved and wins
-/// over the legacy source-direction partition. That is what lets body-owned
-/// melee stay controller-independent: a `PlayerSlash` produced by one fighter
-/// can target another player-marked body without being thrown away as an
-/// attacker-side broadcast. Untargeted/broadcast events keep the old source
-/// filter until that separate event-vocabulary cleanup lands.
+/// A `HitTarget::Body(entity)` is already victim-resolved and wins over the
+/// legacy source-direction partition. That is what lets body-owned melee stay
+/// controller-independent: a `PlayerSlash` produced by one fighter can target
+/// another human-controlled body without being thrown away as an attacker-side
+/// broadcast. Untargeted/broadcast events keep the old source filter until that
+/// separate event-vocabulary cleanup lands.
+///
+/// ⭐ **whether a resolved victim belongs to THIS resolver is asked of the
+/// world, not read off the event.** The target used to be stamped
+/// `HitTarget::Player(e)` by whichever producer resolved it, and this system
+/// trusted the stamp. It is one variant now, so the question is answered where
+/// the answer actually lives: is that entity in the human-controlled
+/// population? ⛔ without the check the FIFO would stage every body's hit —
+/// including hits the actor consumer owns — into rollback-registered state that
+/// then has to be snapshotted and checksummed every frame.
 ///
 /// Runs at the END of the Combat phase, after every `HitEvent` writer, so the
 /// hand-off from message channel to snapshot state happens same-frame; only
@@ -1084,9 +1093,17 @@ fn death_source_of(cause: ae::ResetCause) -> crate::combat::HitSource {
 pub fn stage_player_victim_hit_events(
     mut hit_events: MessageReader<FeatureHitEvent>,
     mut pending: ResMut<crate::combat::events::PendingPlayerHitEvents>,
+    controlled_bodies: Query<
+        (),
+        bevy::prelude::With<ambition_platformer2d_shared_tangle::markers::PlayerEntity>,
+    >,
 ) {
     for event in hit_events.read() {
-        if matches!(event.target, HitTarget::Player(_)) || !event.source.is_attacker_side() {
+        let mine = match event.target {
+            HitTarget::Body(victim) => controlled_bodies.contains(victim),
+            _ => !event.source.is_attacker_side(),
+        };
+        if mine {
             pending.0.push(event.clone());
         }
     }
@@ -1284,7 +1301,7 @@ pub fn apply_player_hit_events(
     );
 
     // Resolve every event to a concrete target entity once: events
-    // with `HitTarget::Player(e)` route to that player; events with
+    // with `HitTarget::Body(e)` route to that player; events with
     // `HitTarget::Volume` (legacy "iterates-and-takes-primary") fall
     // back to the primary player. Events that never resolve (no
     // primary, e.g. headless pre-spawn) are silently dropped.
@@ -1292,7 +1309,7 @@ pub fn apply_player_hit_events(
         .into_iter()
         .filter_map(|e| {
             let target = match e.target {
-                HitTarget::Player(entity) => Some(entity),
+                HitTarget::Body(entity) => Some(entity),
                 HitTarget::Volume => primary,
                 // Pre-resolved non-player actor victim + orb-match are not player
                 // hits — the actor / breakable consumers own them.
@@ -1301,7 +1318,7 @@ pub fn apply_player_hit_events(
                 // reason: it is the half of a strike whose targets are NOT bodies.
                 // Falling back to the primary player the way `Volume` does would
                 // hand a player the hit its own swing failed to resolve.
-                HitTarget::Actor(_) | HitTarget::OrbMatch | HitTarget::UnresolvedFeatures => None,
+                HitTarget::OrbMatch | HitTarget::UnresolvedFeatures => None,
             };
             target.map(|t| (t, e))
         })

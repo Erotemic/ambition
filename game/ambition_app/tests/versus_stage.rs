@@ -807,7 +807,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
             // consumer skips it and the actor-damage consumer takes it.
             //
             // ⚠ **the two consumers are a surviving fork and this test is not
-            // the place to remove it.** `HitTarget::Player` / `HitTarget::Actor`
+            // the place to remove it.** `HitTarget::Body` / `HitTarget::Body`
             // are documented as a deliberate split — the relational
             // actor-vs-actor path exists so an Enemy-faction body can damage a
             // Boss-faction one without the bipartite assumption — but "which
@@ -815,7 +815,7 @@ fn seat_zero_can_lose_a_round_and_is_not_respawned_out_from_under_the_rules() {
             // CONSTRUCTED, which is exactly the coupling the rest of this
             // landing deleted. Named here so the next reader finds it on
             // purpose rather than by having a fixture stop landing hits.
-            target: ambition_platformer2d::combat::events::HitTarget::Actor(seat_zero),
+            target: ambition_platformer2d::combat::events::HitTarget::Body(seat_zero),
             mode: ambition_platformer2d::combat::events::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -2666,7 +2666,7 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
             // consumer skips it and the actor-damage consumer takes it.
             //
             // ⚠ **the two consumers are a surviving fork and this test is not
-            // the place to remove it.** `HitTarget::Player` / `HitTarget::Actor`
+            // the place to remove it.** `HitTarget::Body` / `HitTarget::Body`
             // are documented as a deliberate split — the relational
             // actor-vs-actor path exists so an Enemy-faction body can damage a
             // Boss-faction one without the bipartite assumption — but "which
@@ -2674,7 +2674,7 @@ fn a_knockout_is_announced_in_the_losers_own_voice() {
             // CONSTRUCTED, which is exactly the coupling the rest of this
             // landing deleted. Named here so the next reader finds it on
             // purpose rather than by having a fixture stop landing hits.
-            target: ambition_platformer2d::combat::events::HitTarget::Actor(seat_zero),
+            target: ambition_platformer2d::combat::events::HitTarget::Body(seat_zero),
             mode: ambition_platformer2d::combat::events::HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),

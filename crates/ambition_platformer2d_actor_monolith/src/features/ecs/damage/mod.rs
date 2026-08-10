@@ -409,11 +409,11 @@ pub fn apply_feature_hit_events(
             continue;
         }
         // Relational actor-vs-actor (S3e): an event pre-resolved to a single
-        // non-player actor victim (`HitTarget::Actor`) is applied to exactly that
+        // non-player actor victim (`HitTarget::Body`) is applied to exactly that
         // body, whatever its source direction — this is how an Enemy/Boss swing
         // damages another actor without flowing through the player path.
         let actor_target = match event.target {
-            crate::combat::events::HitTarget::Actor(entity) => Some(entity),
+            crate::combat::events::HitTarget::Body(entity) => Some(entity),
             _ => None,
         };
         // **The bodies in this strike are already resolved.** A body-owned melee

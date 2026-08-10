@@ -423,13 +423,11 @@ pub fn apply_hitbox_damage(
                     damage: hitbox.damage.max(1),
                     source: source_kind.clone(),
                     attacker: Some(hitbox.owner),
-                    // Victim kind selects the downstream policy/feel consumer,
-                    // never the contact algorithm that chose the victim.
-                    target: if victim.is_player {
-                        HitTarget::Player(victim.entity)
-                    } else {
-                        HitTarget::Actor(victim.entity)
-                    },
+                    // The victim, named. ⛔ this used to fork on
+                    // `victim.is_player` to pick between two target variants —
+                    // a producer classifying its victim for the benefit of a
+                    // consumer's routing. The entity says it already.
+                    target: HitTarget::Body(victim.entity),
                     mode: HitMode::Knockback,
                     knockback,
                     ignored_targets: Vec::new(),

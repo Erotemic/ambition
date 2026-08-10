@@ -352,8 +352,7 @@ fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayer
             &mut bytes,
             match event.target {
                 HitTarget::Volume => 0,
-                HitTarget::Player(_) => 1,
-                HitTarget::Actor(_) => 2,
+                HitTarget::Body(_) => 1,
                 HitTarget::OrbMatch => 3,
                 HitTarget::UnresolvedFeatures => 4,
             },

@@ -851,7 +851,7 @@ pub fn run_snake_shells(
                     damage: SHELL_PLAYER_DAMAGE,
                     source: HitSource::EnemyBody,
                     attacker: Some(shell_entity),
-                    target: HitTarget::Player(player_entity),
+                    target: HitTarget::Body(player_entity),
                     mode: HitMode::Knockback,
                     knockback: None,
                     ignored_targets: Vec::new(),

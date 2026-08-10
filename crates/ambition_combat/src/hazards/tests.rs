@@ -130,7 +130,7 @@ fn a_non_player_body_touching_a_hazard_takes_the_hit_too() {
         .collect();
     assert!(
         hits.iter().any(|e| matches!(e.source, HitSource::Hazard)
-            && matches!(e.target, HitTarget::Actor(v) if v == victim)),
+            && matches!(e.target, HitTarget::Body(v) if v == victim)),
         "an overlapping non-player body should take a pre-resolved hazard hit; got {hits:?}"
     );
 }

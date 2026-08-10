@@ -195,7 +195,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     assert!(
         cap.0
             .iter()
-            .any(|e| matches!(e.target, crate::features::HitTarget::Actor(a) if a == enemy)),
+            .any(|e| matches!(e.target, crate::features::HitTarget::Body(a) if a == enemy)),
         "an ownerless shot hits the Enemy actor a faction-owned Enemy shot would spare"
     );
 }
@@ -288,7 +288,7 @@ fn enemy_glider_damages_a_relationally_hostile_actor() {
         cap.0
             .iter()
             .any(|e| matches!(e.source, HitSource::EnemyProjectile)
-                && e.target == crate::features::HitTarget::Actor(boss_actor)),
+                && e.target == crate::features::HitTarget::Body(boss_actor)),
         "the enemy glider lands a pre-resolved hit on the hostile Boss actor"
     );
 }
@@ -310,7 +310,7 @@ fn enemy_glider_damages_a_different_faction_actor_physically() {
         cap.0
             .iter()
             .any(|e| matches!(e.source, HitSource::EnemyProjectile)
-                && e.target == crate::features::HitTarget::Actor(boss_actor)),
+                && e.target == crate::features::HitTarget::Body(boss_actor)),
         "a different-faction actor is hit regardless of relations (physical damage)"
     );
 }
@@ -617,7 +617,7 @@ fn a_bolt_passes_through_a_body_that_published_no_hurtbox() {
             .resource::<CapturedHits>()
             .0
             .iter()
-            .any(|e| e.target == crate::features::HitTarget::Actor(victim)),
+            .any(|e| e.target == crate::features::HitTarget::Body(victim)),
         "a living body in the bolt's path is struck — otherwise the miss below \
          proves only that the geometry never overlapped"
     );

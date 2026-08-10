@@ -78,7 +78,7 @@ pub(crate) fn apply_entity_boss_damage(
         },
         // NOT unstoppable, because this path cannot tell. It takes an `amount`
         // and never sees the `HitEvent`, so it has no source to match on — and
-        // the blast zone's own hit is stamped `HitTarget::Actor`, which routes
+        // the blast zone's own hit is stamped `HitTarget::Body`, which routes
         // through the actor consumer rather than here. If a boss ever needs to
         // be blasted out of a stage, the source has to reach this function
         // first; guessing `true` here would make every boss hit unblockable.

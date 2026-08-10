@@ -109,7 +109,7 @@ fn harming_alone_hurts_what_it_touches_and_grants_no_invulnerability() {
     );
     assert_eq!(
         written[0].target,
-        HitTarget::Actor(victim),
+        HitTarget::Body(victim),
         "and it is aimed AT that body, so its own consumer resolves it"
     );
     assert_eq!(written[0].attacker, Some(striker));

@@ -361,7 +361,7 @@ fn defeat_the_rooms_hostiles(app: &mut App) -> Vec<String> {
             // is pre-resolved, so the volume only has to be somewhere sane.
             source: HitSource::PlayerProjectile,
             attacker: None,
-            target: HitTarget::Actor(*entity),
+            target: HitTarget::Body(*entity),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),

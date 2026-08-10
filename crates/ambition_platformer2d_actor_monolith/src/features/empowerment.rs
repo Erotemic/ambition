@@ -240,7 +240,8 @@ pub fn apply_contact_harm(
         &ae::BodyMotionFacts,
         &crate::actor::BodyShieldState,
         &BodyCombat,
-        bevy::prelude::Has<crate::actor::PlayerEntity>,
+        // ⛔ a `Has<PlayerEntity>` column used to ride here to pick between two
+        // target variants. There is one, so the column is gone with the fork.
         Option<&ambition_combat::targeting::MatchTeam>,
     )>,
     tuning: Option<Res<ambition_combat::rules::ResolvedCombatTuning>>,
@@ -261,7 +262,6 @@ pub fn apply_contact_harm(
             facts,
             shield,
             combat,
-            victim_is_player,
             victim_team,
         ) in &victims
         {
@@ -308,11 +308,7 @@ pub fn apply_contact_harm(
                 damage: harm.damage,
                 source: HitSource::ContactHarm,
                 attacker: Some(striker),
-                target: if victim_is_player {
-                    HitTarget::Player(victim)
-                } else {
-                    HitTarget::Actor(victim)
-                },
+                target: HitTarget::Body(victim),
                 mode: HitMode::Knockback,
                 knockback: Some(HitKnockback {
                     dir,

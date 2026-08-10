@@ -152,14 +152,14 @@ fn an_enemy_victim_reacts_with_its_own_profile_not_the_players() {
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app);
         // A non-lethal (damage 1 vs health 5) hit PRE-RESOLVED to this enemy —
-        // an enemy-vs-enemy contact, `HitTarget::Actor`.
+        // an enemy-vs-enemy contact, `HitTarget::Body`.
         app.world_mut().write_message(HitEvent {
             strike_sfx,
             volume: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)).into(),
             damage: 1,
             source: HitSource::EnemyBody,
             attacker: None,
-            target: HitTarget::Actor(victim),
+            target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -230,7 +230,7 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
             damage: 2,
             source,
             attacker: None,
-            target: HitTarget::Actor(victim),
+            target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -1332,7 +1332,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
         damage: 2,
         source: HitSource::EnemyAttack,
         attacker: None,
-        target: HitTarget::Actor(victim),
+        target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: Some(crate::features::HitKnockback {
             dir: 1.0,
@@ -1396,7 +1396,7 @@ fn a_slash_knockback_rides_the_shared_resolution() {
 
 // ── S3e: relational actor-vs-actor damage application ────────────────────────
 
-/// A `HitTarget::Actor(victim)` event (the pre-resolved actor-vs-actor hit an
+/// A `HitTarget::Body(victim)` event (the pre-resolved actor-vs-actor hit an
 /// Enemy/Boss swing emits) damages EXACTLY that actor, even though its source is
 /// the victim-side `EnemyAttack` — and never spills onto other overlapping actors.
 #[test]
@@ -1412,7 +1412,7 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
         // Victim-side source, yet the Actor target routes it to the actor consumer.
         source: HitSource::EnemyAttack,
         attacker: None,
-        target: HitTarget::Actor(victim),
+        target: HitTarget::Body(victim),
         mode: HitMode::Knockback,
         knockback: None,
         ignored_targets: Vec::new(),
@@ -1795,7 +1795,7 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
             damage: 1,
             source,
             attacker: Some(thrower),
-            target: HitTarget::Actor(victim),
+            target: HitTarget::Body(victim),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),

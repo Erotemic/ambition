@@ -213,7 +213,7 @@ pub struct NpcDialogueRequest {
 ///   `EnemyProjectile`, `BossBody`, `BossAttack`) — consumed by the
 ///   player-damage system to apply damage to players.
 ///
-/// An explicit [`HitTarget::Actor`] or [`HitTarget::Player`] outranks that legacy
+/// An explicit [`HitTarget::Body`] or [`HitTarget::Body`] outranks that legacy
 /// direction: once a producer has already resolved a concrete body victim, the
 /// matching victim consumer accepts the event regardless of source direction.
 /// This is what lets body-owned melee use one contact resolver for every
@@ -333,18 +333,21 @@ pub enum HitTarget {
     /// authoring zones).
     #[default]
     Volume,
-    /// Single pre-resolved player victim. Producers that already
-    /// iterated bodies and picked this player-marked victim stamp it so the
-    /// reader doesn't re-pick the primary by default. Explicit victim identity
-    /// outranks [`HitSource::is_attacker_side`]'s legacy broadcast direction.
-    Player(bevy::prelude::Entity),
-    /// Single pre-resolved NON-player actor victim. Stamped by a producer that
-    /// already resolved overlap + faction hostility (`FactionRelations`) and
-    /// picked the actor to damage — the relational actor-vs-actor path (S3e). The
-    /// actor-damage consumer applies it to exactly this entity; the player-damage
-    /// consumer ignores it. This is how an Enemy-faction body's swing damages a
-    /// Boss-faction body without the bipartite player/enemy assumption.
-    Actor(bevy::prelude::Entity),
+    /// **One pre-resolved body victim, named by entity.** A producer that
+    /// already did the work — overlap, relationship, self-exclusion, dedup —
+    /// stamps who it picked, and every consumer applies the hit to exactly that
+    /// body. Explicit victim identity outranks
+    /// [`HitSource::is_attacker_side`]'s legacy broadcast direction.
+    ///
+    /// ⛔ **this was two variants, `Player(Entity)` and `Actor(Entity)`, and the
+    /// split was a routing artifact rather than a fact about the hit.** The
+    /// producers all computed it the same way — `if victim.is_player { Player }
+    /// else { Actor }` — so the stamp said nothing the victim entity did not
+    /// already say, and it said it at the moment a producer is least entitled to
+    /// care. Its real job was telling two consumers which one owned the event,
+    /// which is a question each consumer can answer by asking whether the victim
+    /// is in ITS population. A controller kind is not a damage route.
+    Body(bevy::prelude::Entity),
     /// Orb-AABB match (pogo). Only the breakable whose AABB
     /// approximately equals `volume` is hit; actors / bosses are
     /// skipped.
@@ -407,7 +410,7 @@ impl bevy::ecs::entity::MapEntities for PendingPlayerHitEvents {
             if let Some(attacker) = event.attacker.as_mut() {
                 *attacker = mapper.get_mapped(*attacker);
             }
-            if let HitTarget::Player(entity) = &mut event.target {
+            if let HitTarget::Body(entity) = &mut event.target {
                 *entity = mapper.get_mapped(*entity);
             }
         }

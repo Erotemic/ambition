@@ -958,7 +958,7 @@ pub(crate) fn integrate_actor_body(
             attacker: None,
             // This body, resolved: the blast zone caught exactly one body, and
             // a broadcast over its AABB would also catch whoever chased it out.
-            target: HitTarget::Actor(actor_entity),
+            target: HitTarget::Body(actor_entity),
             mode: HitMode::Knockback,
             knockback: None,
             ignored_targets: Vec::new(),
@@ -1378,7 +1378,6 @@ pub fn apply_actor_contact_damage(
             &ambition_platformer2d_core::BodyMotionFacts,
             &crate::actor::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
-            bevy::prelude::Has<crate::actor::PlayerEntity>,
         )>,
     )>,
 ) {
@@ -1412,7 +1411,7 @@ pub fn apply_actor_contact_damage(
     // Pass 2 — resolve each victim through its published hurtbox.
     let victims = set.p1();
     for (attacker, target_entity, attack) in pending {
-        let Ok((hurtbox, victim_health, facts, shield, combat, is_player)) =
+        let Ok((hurtbox, victim_health, facts, shield, combat)) =
             victims.get(target_entity)
         else {
             continue;
@@ -1425,7 +1424,7 @@ pub fn apply_actor_contact_damage(
         ) {
             continue;
         }
-        if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb(), is_player) {
+        if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb()) {
             // CM8: this used to emit the player-hurt payload (PLAYER_DAMAGE + red
             // burst + debris) for EVERY victim — `is_player` was bound above but
             // ignored here, so an enemy body-checking another enemy played the

@@ -176,7 +176,7 @@ impl CapturedHits {
     fn body_hits(&self) -> Vec<&HitEvent> {
         self.0
             .iter()
-            .filter(|e| matches!(e.target, HitTarget::Player(_) | HitTarget::Actor(_)))
+            .filter(|e| matches!(e.target, HitTarget::Body(_)))
             .collect()
     }
 
@@ -381,7 +381,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
 
 /// An Enemy swing damages a Boss-faction body when the relations matrix marks
 /// them mutually hostile (a spectator arena). The hit is PRE-RESOLVED to that
-/// exact body via `HitTarget::Actor`, so the actor-damage consumer lands it
+/// exact body via `HitTarget::Body`, so the actor-damage consumer lands it
 /// without the bipartite player/enemy assumption.
 #[test]
 fn enemy_hitbox_damages_a_relationally_hostile_actor() {
@@ -393,7 +393,7 @@ fn enemy_hitbox_damages_a_relationally_hostile_actor() {
     assert_eq!(cap.len(), 1, "one relational actor-vs-actor hit");
     assert_eq!(
         cap[0].target,
-        HitTarget::Actor(victim),
+        HitTarget::Body(victim),
         "pre-resolved to the hostile body"
     );
     assert!(matches!(cap[0].source, HitSource::EnemyAttack));
@@ -429,7 +429,7 @@ fn actor_vs_actor_damage_is_physical_for_different_factions() {
         1,
         "a different-faction body is hit regardless of relations (physical damage)"
     );
-    assert_eq!(cap[0].target, HitTarget::Actor(victim));
+    assert_eq!(cap[0].target, HitTarget::Body(victim));
 }
 
 /// Spawn an Enemy-source hitbox over a vulnerable player; relations decide
@@ -504,7 +504,7 @@ fn enemy_hitbox_hits_the_player_by_default() {
     app.update();
     let cap = &app.world().resource::<CapturedHits>().0;
     assert_eq!(cap.len(), 1, "the player takes the hit by default");
-    assert_eq!(cap[0].target, HitTarget::Player(player));
+    assert_eq!(cap[0].target, HitTarget::Body(player));
     assert!(matches!(cap[0].source, HitSource::EnemyAttack));
     assert_eq!(
         cap[0].knockback.as_ref().map(|k| k.magnitude),
@@ -531,7 +531,7 @@ fn enemy_hitbox_hits_a_non_targeted_player_strays_are_physical() {
         1,
         "a cross-faction swing over the player lands even with no targeting hostility"
     );
-    assert_eq!(cap[0].target, HitTarget::Player(player));
+    assert_eq!(cap[0].target, HitTarget::Body(player));
 }
 
 /// The AOE fires once, not every tick of its lifetime — the owner doubles
@@ -753,7 +753,7 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
     cap.assert_no_body_scanning_broadcast();
     let hit = body_hits[0];
     assert!(matches!(hit.source, HitSource::PlayerSlash { .. }));
-    assert_eq!(hit.target, HitTarget::Actor(victim));
+    assert_eq!(hit.target, HitTarget::Body(victim));
     assert_eq!(hit.attacker, Some(owner));
     assert_eq!(hit.damage, 4);
     let knockback = hit
@@ -855,7 +855,7 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
     let cap = app.world().resource::<CapturedHits>();
     let body_hits = cap.body_hits();
     assert_eq!(body_hits.len(), 1, "the other match team is a legal victim");
-    assert_eq!(body_hits[0].target, HitTarget::Player(victim));
+    assert_eq!(body_hits[0].target, HitTarget::Body(victim));
     assert!(body_hits[0].knockback.is_some());
     cap.assert_no_body_scanning_broadcast();
 
@@ -940,7 +940,7 @@ fn player_followowner_strike_does_not_require_a_body_melee_projection() {
     let cap = app.world().resource::<CapturedHits>();
     let body_hits = cap.body_hits();
     assert_eq!(body_hits.len(), 1, "the live strike itself is sufficient authority");
-    assert_eq!(body_hits[0].target, HitTarget::Actor(victim));
+    assert_eq!(body_hits[0].target, HitTarget::Body(victim));
     cap.assert_no_body_scanning_broadcast();
 }
 
@@ -1034,7 +1034,7 @@ fn a_body_owned_strike_publishes_its_unresolved_half_beside_the_resolved_body_hi
 
     let body_hits = cap.body_hits();
     assert_eq!(body_hits.len(), 1, "the body is still resolved by identity");
-    assert_eq!(body_hits[0].target, HitTarget::Actor(victim));
+    assert_eq!(body_hits[0].target, HitTarget::Body(victim));
 
     let unresolved = cap.unresolved_feature_hits();
     assert_eq!(
@@ -1112,5 +1112,5 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
         Some(sword),
         "the authored strike sound rides onto the HitEvent for the victim reaction"
     );
-    assert!(matches!(cap.0[0].target, HitTarget::Player(_)));
+    assert!(matches!(cap.0[0].target, HitTarget::Body(_)));
 }

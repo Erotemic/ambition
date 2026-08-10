@@ -536,7 +536,6 @@ impl ContactAttack {
         attacker: bevy::prelude::Entity,
         target: bevy::prelude::Entity,
         target_body: ae::Aabb,
-        target_is_player: bool,
     ) -> Option<HitEvent> {
         if !self.volume.strict_intersects(target_body) {
             return None;
@@ -550,11 +549,7 @@ impl ContactAttack {
             damage: self.damage,
             source: HitSource::EnemyBody,
             attacker: Some(attacker),
-            target: if target_is_player {
-                HitTarget::Player(target)
-            } else {
-                HitTarget::Actor(target)
-            },
+            target: HitTarget::Body(target),
             mode: HitMode::Knockback,
             knockback: Some(HitKnockback {
                 dir,

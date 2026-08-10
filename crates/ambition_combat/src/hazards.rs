@@ -148,7 +148,7 @@ pub fn update_ecs_hazards(
                 // Hazards iterate every overlapping player; tag the
                 // event with the player who actually overlapped so
                 // the reader lands the hit on the right one.
-                target: HitTarget::Player(player_entity),
+                target: HitTarget::Body(player_entity),
                 mode: hazard.mode,
                 knockback: Some(HitKnockback {
                     dir: knockback_dir,
@@ -198,7 +198,7 @@ pub fn update_ecs_hazards(
                 damage: hazard.volume.damage.amount.max(1),
                 source: HitSource::Hazard,
                 attacker: None,
-                target: HitTarget::Actor(victim),
+                target: HitTarget::Body(victim),
                 mode: hazard.mode,
                 knockback: None,
                 ignored_targets: Vec::new(),

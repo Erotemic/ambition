@@ -339,6 +339,32 @@ whether or not it explains the PCA.
   the old skip semantics, it reds on the NAME (`left: "unset"`) rather than on
   the moveset — which is the point, because the old failure was never about
   moves.
+* ⭐ **THE TYPE MOVE IS FOUR COUPLINGS, MEASURED — not a vague "someday".**
+  Appendix C says begin moving `CharacterDefinition` to its proper low owner
+  now. `definition.rs` (1,897 lines) reaches out of `ambition_characters`'s
+  reach in exactly five places, and the death-traits split above already
+  removed the one that would have been a CYCLE:
+  1. `crate::combat::moveset::{ATTACK_VERB, RANGED_VERB, SPECIAL_VERB,
+     SMASH_VERB}` — string consts in `ambition_combat`. ⇒ **they belong in
+     `ambition_entity_catalog` beside `MovesetContract`**: a verb NAME is part
+     of the moveset contract's vocabulary, not of the runtime that plays it.
+     70 usages workspace-wide, so move + re-export to keep paths stable.
+  2. `crate::combat::moveset::build_actor_moveset` — the kit fold. The one
+     genuine question: either it follows the constants down, or the FOLD stays
+     above and only the AUTHORED `CharacterDefinition` moves while
+     `PreparedCharacterDefinition` stays. ⚠ the second is the smaller cut and
+     probably the honest one — preparation resolves a kit, and resolving is a
+     runtime concern.
+  3. `motion_model_spec_for_character_id` (in `avatar/starting_character.rs`) —
+     needs only `CharacterCatalog` + `ambition_platformer2d_core::
+     MotionModelSpec`, both of which `ambition_characters` already has. ⇒ a
+     pure catalog projection sitting in the wrong crate; it moves.
+  4. `crate::features::Mass` — a DOC LINK only. Costs nothing.
+  5. ~~`crate::combat::CombatCapabilities` on the definition~~ — **removed**,
+     see the death-traits entry above. This was the blocking one.
+  ⇒ **nothing structural stands in the way any more.** The remaining work is
+  the constant move (mechanical, wide) and one design call on `build_actor
+  _moveset`. ⛔ do not start it in the same slice as the constant move.
 * ▢ next: the rest of that separation — the derive still resolves through the
   CATALOG, so enrolling enemies before phase 2 has moved facts onto definitions
   would flip them onto catalog-derived kits. ⛔ do NOT open with the 59-file

@@ -800,8 +800,8 @@ impl ActorClusterSeed {
     ) {
         // Death traits. The first fact with a home on a definition (2026-08-10),
         // and the reason the mites are the migration's first candidates.
-        if let Some(capabilities) = definition.combat_capabilities.clone() {
-            self.caps = capabilities;
+        if let Some(traits) = definition.death_traits.as_ref() {
+            self.caps = crate::combat::CombatCapabilities::from(traits);
         }
         // The physical baseline the worn and seated paths already share, so an
         // enemy body cannot disagree with a fighter about the same character.
@@ -1049,7 +1049,7 @@ mod tests {
             let mut seed = seed_with(2, 1.4);
             seed.adopt_character_intrinsics(&definition(|def| {
                 def.vitals.max_health = Some(9);
-                def.combat_capabilities = Some(crate::combat::CombatCapabilities {
+                def.death_traits = Some(ambition_characters::actor::CharacterDeathTraits {
                     explodes_on_death: true,
                     ..Default::default()
                 });

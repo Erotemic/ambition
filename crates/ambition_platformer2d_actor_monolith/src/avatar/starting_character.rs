@@ -877,11 +877,12 @@ pub fn apply_worn_character_gameplay(
             let authored = registry
                 .as_deref()
                 .and_then(|registry| registry.get(id))
-                .and_then(|prepared| prepared.combat_capabilities.clone());
+                .and_then(|prepared| prepared.death_traits.as_ref())
+                .map(crate::combat::CombatCapabilities::from);
             let previous_authored = baseline
                 .zip(registry.as_deref())
                 .and_then(|(baseline, registry)| registry.get(&baseline.id))
-                .is_some_and(|previous| previous.combat_capabilities.is_some());
+                .is_some_and(|previous| previous.death_traits.is_some());
             match authored {
                 Some(capabilities) => {
                     commands.entity(entity).try_insert(capabilities);

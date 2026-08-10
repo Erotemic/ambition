@@ -92,6 +92,37 @@ pub struct CombatCapabilities {
     pub drops_held_item: Option<ambition_characters::brain::HeldItemSpec>,
 }
 
+impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilities {
+    /// **The one lowering from authored death traits to the runtime component.**
+    ///
+    /// A character definition states what it does when it dies as plain data in
+    /// the character domain; construction turns that into the live component.
+    /// The direction matters more than the shape: the authoring type cannot
+    /// reach up into this crate (`ambition_combat` already depends on
+    /// `ambition_characters`), so the fact has to be stated below and lowered
+    /// here. See `ambition_characters::actor::death_traits`.
+    ///
+    /// ⚠ field-for-field TODAY, and deliberately written out rather than
+    /// derived: the moment either side grows a field the other does not have,
+    /// this stops compiling and someone has to say which layer owns it.
+    fn from(traits: &ambition_characters::actor::CharacterDeathTraits) -> Self {
+        let ambition_characters::actor::CharacterDeathTraits {
+            explodes_on_death,
+            divides_on_death,
+            charge_crash_explodes,
+            never_dies,
+            drops_held_item,
+        } = traits;
+        Self {
+            explodes_on_death: *explodes_on_death,
+            divides_on_death: *divides_on_death,
+            charge_crash_explodes: *charge_crash_explodes,
+            never_dies: *never_dies,
+            drops_held_item: drops_held_item.clone(),
+        }
+    }
+}
+
 /// Composable per-body movement knobs (gravity, run, jump, fall cap) — the
 /// physics every body's spine runs on. Resolved hierarchically per archetype:
 /// `BASELINE ← inherited archetype's resolved tuning ← this archetype's patch`

@@ -151,8 +151,14 @@ fn a_roster_of_two_cpu_participants_becomes_two_bodies_wearing_their_characters(
     // campaign deleted. The condition was never the faction; it is that the
     // relationship policy calls them foes, and in a match that is the team.
     let (left_team, right_team) = (
-        seated[0].4.as_ref().expect("a seated fighter is in a match"),
-        seated[1].4.as_ref().expect("a seated fighter is in a match"),
+        seated[0]
+            .4
+            .as_ref()
+            .expect("a seated fighter is in a match"),
+        seated[1]
+            .4
+            .as_ref()
+            .expect("a seated fighter is in a match"),
     );
     assert_ne!(
         left_team.as_str(),
@@ -1310,8 +1316,8 @@ fn an_adopted_seat_takes_its_characters_authored_maximum_health() {
     tank.vitals = crate::character_runtime::Vitals {
         max_health: Some(60),
         mass: Some(1.0),
-            knockback_weight: None,
-        };
+        knockback_weight: None,
+    };
     app.register_character(tank);
 
     // The REAL player bundle: a hand-rolled body without the movement clusters
@@ -1693,8 +1699,8 @@ fn a_seated_fighter_carries_its_authored_mass() {
     heavy.vitals = crate::character_runtime::Vitals {
         max_health: Some(40),
         mass: Some(6.5),
-            knockback_weight: None,
-        };
+        knockback_weight: None,
+    };
     app.register_character(heavy);
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("anvil")],
@@ -2104,8 +2110,8 @@ fn one_character_definition_seats_two_independent_fighters() {
     fretjaw.vitals = crate::character_runtime::Vitals {
         max_health: Some(40),
         mass: Some(1.0),
-            knockback_weight: None,
-        };
+        knockback_weight: None,
+    };
     app.register_character(fretjaw);
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("fretjaw"), cpu("fretjaw")],
@@ -2192,7 +2198,7 @@ fn one_character_definition_seats_two_independent_fighters() {
 fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
     let mut app = seating_app();
     let mut sandbag = CharacterDefinition::new("sandbag", "Sandbag", "demo");
-    sandbag.combat_capabilities = Some(crate::combat::CombatCapabilities {
+    sandbag.death_traits = Some(ambition_characters::actor::CharacterDeathTraits {
         never_dies: true,
         ..Default::default()
     });
@@ -2288,17 +2294,15 @@ fn a_seated_fighter_carries_its_authored_knockback_weight() {
     // passed under that poison: it could not tell "kept its archetype's weight"
     // from "overwritten with the ambient default". A 1.4 archetype separates
     // them.
-    app.insert_resource(
-        crate::features::CharacterRoster::from_ron(
-            r#"{ "combatant": (
+    app.insert_resource(crate::features::CharacterRoster::from_ron(
+        r#"{ "combatant": (
                 max_health: 1, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
                 aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
                 damage_amount: 0, brain_template: StandStill, move_style: Walk,
                 attacks_player: false, body_contact_damage: false,
                 weight: 1.4,
             ) }"#,
-        ),
-    );
+    ));
     app.insert_resource(MatchParticipantRoster {
         participants: vec![cpu("heavy"), cpu("light")],
         ..Default::default()

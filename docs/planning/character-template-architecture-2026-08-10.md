@@ -320,6 +320,17 @@ whether or not it explains the PCA.
   derive must be made complete, BEFORE enemies can wear a character.** That is
   the same "one character-body constructor" the correction asks for, reached
   from the identity end, which is evidence the two items are one item.
+* ✔ **death traits are AUTHORED DATA now, not a runtime component on the
+  definition** — `ambition_characters::actor::CharacterDeathTraits`, lowered to
+  `ambition_combat::CombatCapabilities` by one `From` impl at construction.
+  ⭐ appendix C caught this: `CharacterDefinition` owning
+  `crate::combat::CombatCapabilities` would have closed a CYCLE the moment the
+  definition moved down, because `ambition_combat` already depends on
+  `ambition_characters`. **The crate boundary was the design test and it
+  answered** — an authored fact that needs a runtime type to say it was
+  modelled at the wrong level. ⚠ the `From` destructures both sides
+  exhaustively rather than deriving, so the day either grows a field the other
+  lacks it stops compiling and someone has to say which layer owns it.
 * ✔ **the SILENT-DROP half of that is closed.** `apply_worn_character_gameplay`
   now takes `Option<&mut ActorMoveset>` and MINTS one when the body carries
   none, so membership in the persona derive is no longer decided by a component

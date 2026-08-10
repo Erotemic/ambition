@@ -379,7 +379,7 @@ fn a_definition_carries_no_controller_binding() {
         vitals: _,
         // What the body does when it DIES — a property of the creature, and one
         // no controller changes. A possessed mite still splits.
-        combat_capabilities: _,
+        death_traits: _,
         // A DEFAULT autonomous profile, which §4.7 now permits and Jon's
         // 2026-08-10 ruling authorised: what this character does when nobody is
         // driving it. The CURRENT controller is still nowhere on this type.

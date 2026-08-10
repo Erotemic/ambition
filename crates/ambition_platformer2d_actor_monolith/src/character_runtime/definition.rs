@@ -306,7 +306,7 @@ pub struct CharacterDefinition {
     /// behaviour for every character in the repo. ⚠ absence RETRACTS on a
     /// re-wear, like every other physical fact a persona claims: wearing a
     /// sandbag and then a duelist must not leave the duelist unkillable.
-    pub combat_capabilities: Option<crate::combat::CombatCapabilities>,
+    pub death_traits: Option<ambition_characters::actor::CharacterDeathTraits>,
     /// **What this character normally DOES when nothing overrides it** — the
     /// name of an autonomous-controller profile (a catalog `brain_presets` key).
     ///
@@ -393,7 +393,7 @@ impl CharacterDefinition {
             body: None,
             hurtboxes: None,
             vitals: Vitals::default(),
-            combat_capabilities: None,
+            death_traits: None,
             default_brain_profile: None,
             moveset: None,
             action_set: None,
@@ -413,11 +413,11 @@ impl CharacterDefinition {
     }
 
     /// Author what this character does when it dies. See the field.
-    pub fn with_combat_capabilities(
+    pub fn with_death_traits(
         mut self,
-        capabilities: crate::combat::CombatCapabilities,
+        traits: ambition_characters::actor::CharacterDeathTraits,
     ) -> Self {
-        self.combat_capabilities = Some(capabilities);
+        self.death_traits = Some(traits);
         self
     }
 
@@ -534,9 +534,9 @@ struct PreparedCharacterOverrides {
     body: Option<BodySource>,
     hurtboxes: Option<HurtboxDoc>,
     vitals: Vitals,
-    /// See [`CharacterDefinition::combat_capabilities`]. No catalog counterpart
+    /// See [`CharacterDefinition::death_traits`]. No catalog counterpart
     /// exists to fold against, so it carries straight through.
-    combat_capabilities: Option<crate::combat::CombatCapabilities>,
+    death_traits: Option<ambition_characters::actor::CharacterDeathTraits>,
     /// See [`CharacterDefinition::default_brain_profile`]. Carried through
     /// unchanged — the catalog is not consulted, because the FOLD's job is to
     /// answer what a character IS and this is a default the resolver applies at
@@ -658,9 +658,9 @@ pub struct PreparedCharacterDefinition {
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
     /// What this body does when it dies, if it authored anything. See
-    /// [`CharacterDefinition::combat_capabilities`] — `None` stays `None`
+    /// [`CharacterDefinition::death_traits`] — `None` stays `None`
     /// through the fold, because the catalog has no counterpart for it.
-    pub combat_capabilities: Option<crate::combat::CombatCapabilities>,
+    pub death_traits: Option<ambition_characters::actor::CharacterDeathTraits>,
     /// The autonomous profile this character normally runs, if it named one.
     /// See [`CharacterDefinition::default_brain_profile`] — `None` leaves the
     /// catalog row's `default_brain` in charge.
@@ -1096,7 +1096,7 @@ fn prepare_character(
         body: definition.body,
         hurtboxes: definition.hurtboxes,
         vitals: definition.vitals,
-        combat_capabilities: definition.combat_capabilities,
+        death_traits: definition.death_traits,
         default_brain_profile: definition.default_brain_profile,
         moveset: definition.moveset,
         action_set: definition.action_set,
@@ -1169,7 +1169,7 @@ fn finalize_character(
         body,
         hurtboxes,
         vitals,
-        combat_capabilities,
+        death_traits,
         default_brain_profile,
         moveset,
         action_set,
@@ -1282,7 +1282,7 @@ fn finalize_character(
             None => ambition_platformer2d_core::MotionModelSpec::AxisSwept(Default::default()),
         }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
-        combat_capabilities,
+        death_traits,
         default_brain_profile,
         id,
         display_name,

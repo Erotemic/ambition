@@ -15,6 +15,8 @@ pub use body::{BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet, BodyWalletShie
 pub mod attack_gesture;
 pub mod character_catalog;
 pub mod control;
+pub mod death_traits;
+pub use death_traits::CharacterDeathTraits;
 pub mod worn;
 pub use worn::WornCharacter;
 
@@ -73,9 +75,7 @@ impl Actor {
 ///
 /// Reasons are bits so the whole set is one `Copy` word, which keeps
 /// [`Health`] snapshot-encodable as it was.
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Invulnerability(u32);
 
 impl Invulnerability {
@@ -263,11 +263,18 @@ mod tests {
     fn damage_percent_grows_on_a_body_the_meter_may_not_kill() {
         let mut body = BodyHealth::new(Health::new(10)).with_policy(DeathPolicy::Unbounded);
         for _ in 0..20 {
-            assert!(!body.damage(10), "the meter killed a body whose death is the world's");
+            assert!(
+                !body.damage(10),
+                "the meter killed a body whose death is the world's"
+            );
             assert!(body.alive());
         }
         assert_eq!(body.damage_taken(), 200);
-        assert_eq!(body.current(), body.max(), "the pool drained under Unbounded");
+        assert_eq!(
+            body.current(),
+            body.max(),
+            "the pool drained under Unbounded"
+        );
     }
 
     #[test]

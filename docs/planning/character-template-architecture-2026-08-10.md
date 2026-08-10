@@ -301,6 +301,16 @@ whether or not it explains the PCA.
   derive must be made complete, BEFORE enemies can wear a character.** That is
   the same "one character-body constructor" the correction asks for, reached
   from the identity end, which is evidence the two items are one item.
+* ✔ **`CharacterId` IS TYPED** — `ambition_entity_catalog::CharacterId`,
+  `#[serde(transparent)]` so authored world data encodes exactly as the bare
+  string it always was. ⭐ **its home was decided by the dependency graph, not
+  by taste**: `ambition_platformer2d_world` (which owns `EnemySpawnSpec`) does
+  NOT depend on `ambition_characters`, and adding that edge fails the contracts
+  job. Both crates already depend on `ambition_entity_catalog`, which is also
+  where the placement schemas and `MovesetContract` live — so character identity
+  sits with the rest of the content vocabulary. Adopted on
+  `EnemySpawnSpec::character_id` and `gameplay_character_id()`. ▢ wider adoption
+  (`WornCharacter`, the prepared registry's keys, `CharacterSpawnPlan`) follows.
 * ✔ **death traits are AUTHORED DATA now, not a runtime component on the
   definition** — `ambition_characters::actor::CharacterDeathTraits`, lowered to
   `ambition_combat::CombatCapabilities` by one `From` impl at construction.

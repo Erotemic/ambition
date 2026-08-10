@@ -1268,7 +1268,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
     if let Some(definition) = authored
         .payload
         .gameplay_character_id()
-        .and_then(|cid| prepared.get(cid))
+        .and_then(|cid| prepared.get(cid.as_str()))
     {
         enemy.adopt_character_intrinsics(definition);
     }

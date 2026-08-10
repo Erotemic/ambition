@@ -1095,6 +1095,55 @@ pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec
     chain
 }
 
+/// **Which reusable character template an actor instantiates.**
+///
+/// A character is an authored template, not a singleton person: `spawn Goblin`
+/// three times and `spawn Fretjaw` twice are the same engine operation, one
+/// definition and many runtime actors. This id names the definition; the actor's
+/// runtime identity is its `SimId`, and the two are never the same question.
+///
+/// ⛔ **not a display name and not a sheet id.** Presentation is a projection of
+/// a character, so which sprite a body wears must never be used to work out
+/// which character it is. A newtype so that confusion cannot survive a
+/// signature — the same reason `BrainPresetId` exists next door, and the
+/// confusion this one prevents is the more expensive of the two.
+///
+/// Lives here, beside the placement schemas, because character identity is
+/// content vocabulary that authoring, the character domain and the runtime all
+/// need to name — and `#[serde(transparent)]` so authored data encodes exactly
+/// as the bare string it always was.
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct CharacterId(pub String);
+
+impl CharacterId {
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&str> for CharacterId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl From<String> for CharacterId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl std::fmt::Display for CharacterId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
 ///
 /// ⭐ **the four verb ids live BESIDE the contract they are keys into**, not in

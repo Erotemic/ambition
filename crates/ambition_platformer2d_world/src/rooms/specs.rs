@@ -267,7 +267,7 @@ pub struct EnemySpawnSpec {
     /// fallback; that road is presentation compatibility and must never answer
     /// the gameplay question. Ask [`Self::gameplay_character_id`] for that.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub character_id: Option<String>,
+    pub character_id: Option<ambition_entity_catalog::CharacterId>,
 }
 
 impl EnemySpawnSpec {
@@ -290,7 +290,10 @@ impl EnemySpawnSpec {
     /// wrong sheet is visible, and intolerable for health, mass, repertoire or
     /// death traits, where being wrong is not.
     pub fn presentation_identity<'a>(&'a self, name: &'a str) -> &'a str {
-        self.character_id.as_deref().unwrap_or(name)
+        self.character_id
+            .as_ref()
+            .map(ambition_entity_catalog::CharacterId::as_str)
+            .unwrap_or(name)
     }
 
     /// **Which `CharacterDefinition` this spawn instantiates**, when it says.
@@ -300,11 +303,14 @@ impl EnemySpawnSpec {
     /// act on. `None` means *"this placement did not say"*, which construction
     /// answers with the legacy archetype — a transitional state that must stay
     /// visible rather than be papered over by a name match.
-    pub fn gameplay_character_id(&self) -> Option<&str> {
-        self.character_id.as_deref()
+    pub fn gameplay_character_id(&self) -> Option<&ambition_entity_catalog::CharacterId> {
+        self.character_id.as_ref()
     }
 
-    pub fn with_character_id(mut self, character_id: impl Into<String>) -> Self {
+    pub fn with_character_id(
+        mut self,
+        character_id: impl Into<ambition_entity_catalog::CharacterId>,
+    ) -> Self {
         self.character_id = Some(character_id.into());
         self
     }
@@ -409,6 +415,9 @@ mod enemy_spawn_identity_tests {
     fn an_authored_id_answers_both_questions() {
         let spec = spec().with_character_id("fretjaw");
         assert_eq!(spec.presentation_identity("Fretjaw"), "fretjaw");
-        assert_eq!(spec.gameplay_character_id(), Some("fretjaw"));
+        assert_eq!(
+            spec.gameplay_character_id().map(|id| id.as_str()),
+            Some("fretjaw")
+        );
     }
 }

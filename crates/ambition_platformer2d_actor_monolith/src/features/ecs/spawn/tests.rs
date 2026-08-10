@@ -648,7 +648,7 @@ mod authored_enemy_reads_its_character {
                 "medium_striker".to_string(),
             ),
         );
-        spec.character_id = character_id.map(str::to_string);
+        spec.character_id = character_id.map(ambition_entity_catalog::CharacterId::from);
         let authored = crate::rooms::Authored::new(
             "EnemySpawn-1",
             name,

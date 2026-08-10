@@ -1331,7 +1331,7 @@ mod tests {
             named("character_id", "solid_snake"),
         ]));
         assert_eq!(
-            authored.payload.character_id.as_deref(),
+            authored.payload.character_id.as_ref().map(|id| id.as_str()),
             Some("solid_snake"),
             "the authored art identity did not survive conversion"
         );

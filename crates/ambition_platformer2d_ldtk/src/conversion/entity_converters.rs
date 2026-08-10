@@ -615,7 +615,7 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     if let Some(character_id) = field_string(entity, "character_id") {
         let character_id = character_id.trim();
         if !character_id.is_empty() {
-            payload.character_id = Some(character_id.to_string());
+            payload.character_id = Some(ambition_entity_catalog::CharacterId::from(character_id));
         }
     }
     let mut emission = RoomEmission::enemy_spawn(

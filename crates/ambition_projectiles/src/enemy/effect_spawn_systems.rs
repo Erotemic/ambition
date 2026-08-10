@@ -19,7 +19,7 @@ use crate::{
 ///
 /// Scheduled before the unified projectile stepper, this preserves the legacy
 /// timing where a boss/enemy projectile spawned by an effect advances on the same
-/// frame. Non-projectile effects remain owned by `ambition_vfx::apply_effects`;
+/// frame. Non-projectile effects remain owned by `ambition_combat::strike::apply_effects`;
 /// this executor exists with the projectile substrate so both projectile pools
 /// receive the shared [`crate::ProjectileSeq`] ordering stamp in one place.
 ///

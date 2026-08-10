@@ -35,7 +35,6 @@ use ambition_platformer2d_core::AabbExt;
 use ambition_platformer2d_shared_tangle::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_vfx::{Hitbox, HitboxAnchor};
 use bevy::asset::RenderAssetUsages;
 use bevy::mesh::{Indices, PrimitiveTopology};
 use bevy::prelude::*;
@@ -73,7 +72,13 @@ pub(crate) fn draw_unauthored_attack_volumes(
         ambition_platformer2d_core::RoomGeometry,
     >,
     active_session: Option<Res<ActiveSessionScope>>,
-    hitboxes: Query<(Entity, &Hitbox)>,
+    // ⛔ **the OBSERVATION, not the authoritative component.** This used to hold
+    // `Query<(Entity, &Hitbox)>` — a render system naming live simulation state,
+    // which `engine.render-never-names-live-sim-state` exists to forbid and
+    // which kept `Hitbox` stranded in `ambition_vfx`: moving it to
+    // `ambition_combat` where it belongs would have forced a render→combat
+    // dependency. The strike rows carry everything this needs.
+    combat_geometry: Res<ambition_sim_view::CombatGeometryView>,
     // ⚠ the READ-MODEL pose, not the sim's `BodyKinematics`. Presentation reads
     // `ambition_sim_view` (E4) and `engine.render-never-names-live-sim-state`
     // enforces it; this system named the live cluster and the policy went red on
@@ -92,7 +97,11 @@ pub(crate) fn draw_unauthored_attack_volumes(
     // despawned and had its index reused within a frame cannot be mistaken for
     // the same volume still being live.
     for (visual, mark) in &existing {
-        if hitboxes.get(mark.hitbox).is_err() {
+        if !combat_geometry
+            .strikes
+            .iter()
+            .any(|strike| strike.strike == mark.hitbox)
+        {
             commands.entity(visual).despawn();
         }
     }
@@ -106,14 +115,15 @@ pub(crate) fn draw_unauthored_attack_volumes(
         return;
     };
 
-    for (hitbox_entity, hitbox) in &hitboxes {
+    for strike in &combat_geometry.strikes {
+        let hitbox_entity = strike.strike;
         // Only a body-tracking strike stands in for a character's attack. A
-        // World-anchored volume is a hazard or an arena special, and those are
+        // world-anchored volume is a hazard or an arena special, and those are
         // authored as part of a room rather than as somebody's move.
-        if !matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }) {
+        if !strike.anchored_to_body {
             continue;
         }
-        let Ok((pose, presented, attack_vfx)) = owners.get(hitbox.owner) else {
+        let Ok((pose, presented, attack_vfx)) = owners.get(strike.owner) else {
             continue;
         };
         // ⛔ **UNKNOWN IS NOT UNAUTHORED, and conflating them drew a stand-in
@@ -137,7 +147,13 @@ pub(crate) fn draw_unauthored_attack_volumes(
         // The DRAWN position, not the simulated one — the same reason the slash
         // visual samples it. A stand-in placed on the sim pose shudders against
         // a body drawn from the presented one.
+        // The DRAWN position, not the simulated one — the same reason the slash
+        // visual samples it. A stand-in placed on the sim pose shudders against
+        // a body drawn from the presented one. The observation publishes the
+        // anchor it resolved against, so re-placing is one translation rather
+        // than a second evaluation of authoritative geometry.
         let drawn = presented.map_or(pose.pos, |p| p.presented());
+        let to_drawn = drawn - strike.owner_anchor;
         let already = existing
             .iter()
             .find(|(_, mark)| mark.hitbox == hitbox_entity)
@@ -147,16 +163,19 @@ pub(crate) fn draw_unauthored_attack_volumes(
         // every frame.
         if let Some(visual) = already {
             if let Ok(mut transform) = transforms.get_mut(visual) {
-                let centre = hitbox.world_volume(drawn).bounds().center();
+                let centre = strike.volume.bounds().center() + to_drawn;
                 let at = world_to_bevy(&world.0, centre, WORLD_Z_FX + 1.0);
                 transform.translation.x = at.x;
                 transform.translation.y = at.y;
             }
             continue;
         }
-        let volume = hitbox.world_volume(drawn);
-        let centre = volume.bounds().center();
-        let Some(mesh) = fan_mesh(&volume, centre) else {
+        // The mesh is built in LOCAL space about the volume's own centre, so
+        // the sim-resolved volume and the drawn one differ by the translation
+        // alone — the shape is identical and only the transform moves.
+        let volume = &strike.volume;
+        let centre = volume.bounds().center() + to_drawn;
+        let Some(mesh) = fan_mesh(volume, volume.bounds().center()) else {
             continue;
         };
         commands.spawn_session_scoped(

@@ -212,8 +212,8 @@ impl Plugin for CombatSchedulePlugin {
                 // lib-side (the enemy roster) so `apply_effects` is substrate-free;
                 // same slot as before, so minion spawn timing is unchanged.
                 (
-                    ambition_vfx::apply_effects
-                        .in_set(ambition_vfx::EffectExecutionSet)
+                    ambition_combat::strike::apply_effects
+                        .in_set(ambition_combat::strike::EffectExecutionSet)
                         .run_if(gameplay_allowed),
                     ambition_platformer2d_actor_monolith::features::apply_summon_effects.run_if(gameplay_allowed),
                 )
@@ -348,7 +348,7 @@ impl Plugin for CombatSchedulePlugin {
         // live in `Materialize`.
         app.configure_sets(
             sim,
-            CombatSet::ContentSpecials.before(ambition_vfx::EffectExecutionSet),
+            CombatSet::ContentSpecials.before(ambition_combat::strike::EffectExecutionSet),
         );
     }
 }

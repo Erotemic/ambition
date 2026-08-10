@@ -113,6 +113,17 @@ is physical and targeting is relational. A boolean cannot hold that, and
 collapsing it makes a stray blow pass through a bystander or a town NPC become
 prey.
 
+**Simulation truth lives in the simulation crate.** `Hitbox` and its lifecycle
+state are `ambition_combat::strike`, not `ambition_vfx` — a damage volume
+carrying knockback, launch direction and owner identity is not a picture. ⚠ the
+piece that stayed is `HitSide` and the `Effect` request vocabulary, because
+`ambition_projectiles` names `Effect` and sits below combat; that is the orphan
+rule, not a compromise. ⛔ and presentation must not reach back: the render
+stand-in reads `CombatGeometryView`'s strike rows, which publish the strike
+entity, its owner, whether it is body-anchored, and the owner position the
+volume was resolved against — enough to re-place the geometry at the PRESENTED
+pose without re-evaluating it.
+
 ⛔ **Do not reintroduce** a `PlayerAttackState` / `ActorAttackState` split, a
 second slash emit, or a per-frame player damage loop. Every melee is an
 `"attack"`-verb moveset move riding `MovePlayback`.

@@ -45,7 +45,7 @@ use ambition_vfx::vfx::VfxMessage;
 // damage-box primitive). Re-exported here so `combat::hitbox::Hitbox`
 // (and `features::Hitbox`) paths are unchanged; the SYSTEMS below (damage
 // resolution, melee spawn, lifecycle) stay in the lib.
-pub use ambition_vfx::{
+pub use crate::strike::{
     HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxKnockback, HitboxLifetime,
 };
 

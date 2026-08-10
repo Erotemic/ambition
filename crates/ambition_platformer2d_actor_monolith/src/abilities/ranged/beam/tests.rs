@@ -14,7 +14,7 @@ fn test_app() -> App {
     // fire_beam emits Effect::DamageBox; apply_effects spawns the hitbox.
     app.add_systems(
         Update,
-        (fire_beam_system, ambition_vfx::apply_effects).chain(),
+        (fire_beam_system, ambition_combat::strike::apply_effects).chain(),
     );
     app
 }

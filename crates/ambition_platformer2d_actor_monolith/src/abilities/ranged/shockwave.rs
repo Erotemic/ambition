@@ -3,7 +3,7 @@
 //! The first "player wields a boss attack" slice, now expressed on the effect
 //! seam: `Attack` while holding the shockwave gauntlet emits a generic
 //! [`ambition_vfx::EffectRequest`] carrying a `DamageBox` effect anchored at
-//! the emitter. The generic [`ambition_vfx::apply_effects`] consumer spawns
+//! the emitter. The generic [`ambition_combat::strike::apply_effects`] consumer spawns
 //! the World-anchored, faction-tagged AOE — so the SAME path serves the player
 //! (Player faction → damages enemies) and a boss (Boss faction → damages the
 //! player, see `boss_encounter::systems` phase-transition slam). No bespoke

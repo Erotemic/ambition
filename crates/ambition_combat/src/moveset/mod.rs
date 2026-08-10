@@ -702,7 +702,7 @@ pub fn advance_move_playback(
                             // speed in engine units (px/s), never a feel
                             // multiplier — see 2c465cc77 (a FeelScale here
                             // launched victims at ~100x intended speed).
-                            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+                            knockback: crate::strike::HitboxKnockback::LaunchSpeed {
                                 base: volume.knockback * charge_scale,
                                 // CM1: the smash-percent growth term rides the
                                 // volume through to victim-side scaling at overlap.

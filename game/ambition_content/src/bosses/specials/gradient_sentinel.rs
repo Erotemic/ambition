@@ -714,12 +714,12 @@ pub fn spawn_saddle_point_from_special_messages(
             // despawn it on toggle, and the fire-and-forget `EffectRequest` seam
             // can't hand the spawned entity back. Effects you need a handle to
             // use the spawn helper directly; fire-and-forget ones emit a request.
-            ambition_vfx::spawn_damage_box(
+            ambition_combat::strike::spawn_damage_box(
                 commands,
                 entity,
                 ambition_vfx::HitSide::Boss,
                 boss.kin.pos,
-                ambition_vfx::DamageBox {
+                ambition_combat::strike::DamageBox {
                     half_extent: ae::Vec2::new(he_x, he_y),
                     shape: None,
                     damage,

@@ -596,6 +596,41 @@ finds is the team rule in both directions at once. The seating test likewise
 stopped asserting opposing factions and now asserts the OUTPUT: these two can
 damage each other.
 
+## ✔ items 7 + 8 — combat truth leaves the VFX crate (2026-08-09)
+
+`Hitbox`, `HitboxAnchor`, `HitboxLifetime`, `HitboxHits`, `HitboxKnockback`,
+`DamageBox`, `spawn_damage_box` and `apply_effects` now live in
+`ambition_combat::strike`. A `Hitbox` carries damage, authored knockback, launch
+direction, owner identity and the per-strike dedup set — a presentation crate
+owning that is how a read model ends up gating whether combat happens.
+
+⛔⛔ **the hoist was BLOCKED, and by an item-8 defect.** `ambition_render`'s
+unauthored-volume stand-in held a `Query<(Entity, &Hitbox)>` — a render system
+naming live simulation state, which `engine.render-never-names-live-sim-state`
+exists to forbid — and it does **not** depend on `ambition_combat`. Moving
+`Hitbox` would have forced a render → combat edge, which is the wrong direction
+for the graph and the wrong direction for the architecture.
+
+⇒ **so item 8 came first, and the read model it needed already existed.**
+`CombatStrikeGeometryView` gained `strike`, `owner`, `anchored_to_body` and
+`owner_anchor`; the render system reads the observation. ⭐ `owner_anchor` is the
+subtle one: presentation draws at the PRESENTED pose, and the old code
+re-evaluated `hitbox.world_volume(drawn)` to get there. Publishing the anchor
+the volume was resolved against turns that into one translation, so an observer
+never needs to re-run authoritative geometry to place a picture. (Those same
+four fields are what F1's tuning readout will hang off.)
+
+⚠ **what did NOT move, and why it is the orphan rule rather than taste**:
+`HitSide` and the `Effect` / `EffectRequest` / `DamageBoxEffect` / `SummonSpec`
+vocabulary stay in `ambition_vfx`, because `ambition_projectiles` names `Effect`
+and sits BELOW `ambition_combat`. Hoisting the request seam would hand a
+projectile crate a dependency on all of combat. The tag is a small enum on a
+message now, with no authoritative components beside it.
+
+⭐ **zero new dependency edges** — `capability-footprint-may-not-grow` still
+reports 41 crates, and `ambition_render` no longer names anything from
+`ambition_vfx` but the message vocabulary.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

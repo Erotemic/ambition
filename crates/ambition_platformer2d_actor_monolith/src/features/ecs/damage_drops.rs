@@ -152,12 +152,12 @@ pub(super) fn spawn_death_explosion(
     owner: Entity,
     pos: ae::Vec2,
 ) {
-    let entity = ambition_vfx::spawn_damage_box(
+    let entity = ambition_combat::strike::spawn_damage_box(
         commands,
         owner,
         ambition_vfx::HitSide::Enemy,
         pos,
-        ambition_vfx::DamageBox {
+        ambition_combat::strike::DamageBox {
             half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF),
             shape: None,
             damage: EXPLODER_BLAST_DAMAGE,

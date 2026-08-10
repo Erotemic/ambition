@@ -1653,18 +1653,18 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         .expect("hostile fixture publishes body kinematics")
         .pos = enemy_center;
 
-    let hitbox = ambition_vfx::Hitbox {
+    let hitbox = ambition_combat::strike::Hitbox {
         strike_sfx: None,
         owner: player,
         source: ambition_vfx::HitSide::Player,
-        anchor: ambition_vfx::HitboxAnchor::FollowOwner {
+        anchor: ambition_combat::strike::HitboxAnchor::FollowOwner {
             local_offset: ae::Vec2::new(32.0, 0.0),
         },
         half_extent: ae::Vec2::new(20.0, 30.0),
         shape: None,
         facing: 1.0,
         damage: 2,
-        knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
+        knockback: ambition_combat::strike::HitboxKnockback::FeelScale(0.0),
         launch_dir: None,
         frame_down: ae::Vec2::new(0.0, 1.0),
     };
@@ -1679,7 +1679,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         "the attack volume must reach the separated victim body"
     );
     app.world_mut()
-        .spawn((hitbox, ambition_vfx::HitboxHits::default()));
+        .spawn((hitbox, ambition_combat::strike::HitboxHits::default()));
 
     for _ in 0..6 {
         app.update();

@@ -1058,7 +1058,7 @@ fn a_charged_release_scales_the_spawned_hitbox() {
             .next()
             .expect("the active window spawns the volume");
         let knockback = match hb.knockback {
-            ambition_vfx::HitboxKnockback::LaunchSpeed { base, growth } => {
+            crate::strike::HitboxKnockback::LaunchSpeed { base, growth } => {
                 assert_eq!(growth, 0.0, "charge fixture authors no growth");
                 base
             }

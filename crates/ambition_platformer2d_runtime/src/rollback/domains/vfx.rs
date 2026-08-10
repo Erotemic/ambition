@@ -20,20 +20,20 @@ const OWNER: &str = "ambition_platformer2d_runtime";
 
 /// Register everything the vfx domain needs rewound.
 pub(in crate::rollback) fn register(app: &mut App) {
-    app.require_rollback::<ambition_vfx::Hitbox>(OWNER, "entity:hitbox");
-    app.rollback_component_clone_entity_ref::<ambition_vfx::Hitbox>(
+    app.require_rollback::<ambition_combat::strike::Hitbox>(OWNER, "entity:hitbox");
+    app.rollback_component_clone_entity_ref::<ambition_combat::strike::Hitbox>(
         OWNER,
         "combat.hitbox",
         |hitbox| hitbox.owner,
     );
-    app.rollback_map_entities::<ambition_vfx::Hitbox>(OWNER, "map.hitbox");
-    app.rollback_component_clone_entity_set::<ambition_vfx::HitboxHits>(
+    app.rollback_map_entities::<ambition_combat::strike::Hitbox>(OWNER, "map.hitbox");
+    app.rollback_component_clone_entity_set::<ambition_combat::strike::HitboxHits>(
         OWNER,
         "combat.hitbox_hits",
         |hits| hits.hit.iter().copied().collect(),
     );
-    app.rollback_map_entities::<ambition_vfx::HitboxHits>(OWNER, "map.hitbox_hits");
-    app.rollback_component_clone_probed::<ambition_vfx::HitboxLifetime>(
+    app.rollback_map_entities::<ambition_combat::strike::HitboxHits>(OWNER, "map.hitbox_hits");
+    app.rollback_component_clone_probed::<ambition_combat::strike::HitboxLifetime>(
         OWNER,
         "combat.hitbox_lifetime",
         |lifetime| lifetime.remaining_s.to_bits() as u64,

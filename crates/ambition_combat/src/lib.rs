@@ -31,6 +31,10 @@ pub mod rules;
 pub mod slots;
 mod snapshot_impls;
 pub mod stocks;
+/// The live strike: the authoritative damage volume, its lifecycle state, and
+/// the effect executor that spawns world-anchored ones. Hoisted out of
+/// `ambition_vfx` (campaign item 7) — see the module doc.
+pub mod strike;
 pub mod targeting;
 pub mod util;
 pub mod variation;
@@ -131,7 +135,7 @@ impl Damage {
 }
 
 // NOTE: the old spec-layer `Hitbox` / `Hurtbox` structs were removed (2026-06-15).
-// They were never constructed at runtime — the live model is `ambition_vfx::Hitbox`
+// They were never constructed at runtime — the live model is `crate::strike::Hitbox`
 // (transient strike volume) for dealing damage and the `DamageableVolumes` component
 // for receiving it; every hit path resolves through `Aabb::strict_intersects`.
 

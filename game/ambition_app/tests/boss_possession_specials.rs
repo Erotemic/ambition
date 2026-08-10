@@ -190,7 +190,7 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // of routing the strike through the shared moveset instead of suppressing it.
     {
         // `HitSide` is the presentation-neutral side carried by vfx hitboxes.
-        let mut q = sim.world_mut().query::<&ambition_platformer2d::vfx::Hitbox>();
+        let mut q = sim.world_mut().query::<&ambition_platformer2d::combat::hitbox::Hitbox>();
         let strike_sides: Vec<HitSide> = q
             .iter(sim.world_mut())
             .filter(|h| h.owner == boss)

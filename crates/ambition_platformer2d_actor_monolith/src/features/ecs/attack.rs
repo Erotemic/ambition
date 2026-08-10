@@ -203,7 +203,7 @@ pub fn pogo_moveset_off_world_orbs(
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     mut hitboxes: Query<(
         Entity,
-        &ambition_vfx::Hitbox,
+        &ambition_combat::strike::Hitbox,
         &mut crate::combat::on_hit::HitboxOnHit,
     )>,
     boxes: Query<&ae::CenteredAabb>,

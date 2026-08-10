@@ -13,7 +13,7 @@ fn test_app() -> App {
     app.add_message::<ambition_vfx::EffectRequest>();
     app.add_systems(
         Update,
-        (fire_shockwave_system, ambition_vfx::apply_effects).chain(),
+        (fire_shockwave_system, ambition_combat::strike::apply_effects).chain(),
     );
     app
 }
@@ -104,7 +104,7 @@ fn an_actor_emitting_shockwave_gets_an_aoe_of_its_own_faction() {
     // own position — proving player and bosses/enemies share one path.
     let mut app = App::new();
     app.add_message::<ambition_vfx::EffectRequest>();
-    app.add_systems(Update, ambition_vfx::apply_effects);
+    app.add_systems(Update, ambition_combat::strike::apply_effects);
     let enemy = app
         .world_mut()
         .spawn((

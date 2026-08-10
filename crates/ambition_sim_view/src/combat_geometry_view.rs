@@ -23,6 +23,31 @@ pub struct CombatBodyGeometryView {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CombatStrikeGeometryView {
     pub volume: ae::CombatVolume,
+    /// The live strike entity, so an observer can tie a per-strike visual to
+    /// the volume that owns it and retire the visual when the strike ends.
+    ///
+    /// ⭐ **an identity, not a handle to reach back through.** An observer may
+    /// compare it and key on it; ⛔ it must not use it to `get::<Hitbox>()` and
+    /// read the authoritative component, which is the coupling this row exists
+    /// to remove.
+    pub strike: bevy::prelude::Entity,
+    /// The body whose strike this is.
+    pub owner: bevy::prelude::Entity,
+    /// Is this strike anchored to its owner's BODY (a character's move), as
+    /// opposed to fixed in the world (an arena hazard, a wielded AOE)?
+    ///
+    /// The distinction presentation actually needs: only a body-tracking strike
+    /// stands in for somebody's attack.
+    pub anchored_to_body: bool,
+    /// **The owner position `volume` was resolved against.**
+    ///
+    /// Presentation draws bodies at the PRESENTED pose, not the simulated one,
+    /// and a stand-in placed on the sim pose shudders against the body it is
+    /// supposed to be attached to. Publishing the anchor lets an observer
+    /// re-place the same geometry at the drawn pose with one translation —
+    /// `presented - owner_anchor` — instead of reaching back into the
+    /// authoritative `Hitbox` to recompute it.
+    pub owner_anchor: ae::Vec2,
 }
 
 /// Presentation-facing snapshot of authoritative combat geometry.
@@ -54,7 +79,7 @@ pub fn rebuild_combat_geometry_view(
         (&CenteredAabb, Option<&DamageableVolumes>),
         With<ambition_characters::actor::BodyCombat>,
     >,
-    hitboxes: Query<&Hitbox>,
+    hitboxes: Query<(bevy::prelude::Entity, &Hitbox)>,
     owner_boxes: Query<&CenteredAabb>,
     owner_kinematics: Query<&ae::BodyKinematics>,
     mut view: ResMut<CombatGeometryView>,
@@ -70,7 +95,7 @@ pub fn rebuild_combat_geometry_view(
         });
     }
 
-    for hitbox in &hitboxes {
+    for (strike, hitbox) in &hitboxes {
         let owner_pos = match hitbox.anchor {
             HitboxAnchor::World { .. } => Some(ae::Vec2::ZERO),
             HitboxAnchor::FollowOwner { .. } => owner_boxes
@@ -84,6 +109,10 @@ pub fn rebuild_combat_geometry_view(
         };
         view.strikes.push(CombatStrikeGeometryView {
             volume: hitbox.world_volume(owner_pos),
+            strike,
+            owner: hitbox.owner,
+            anchored_to_body: matches!(hitbox.anchor, HitboxAnchor::FollowOwner { .. }),
+            owner_anchor: owner_pos,
         });
     }
 }

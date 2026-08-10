@@ -11,7 +11,7 @@ use super::*;
 ///
 /// ⛔ two `ambition_content` plugins (`bosses`, `intro`) order against this
 /// function by name across a crate boundary. Same shape as
-/// `ambition_vfx::EffectExecutionSet` and
+/// `crate::strike::EffectExecutionSet` and
 /// `crate::…::FeatureWorldOverlaySet`: a general crate consumed by content owed
 /// its consumers a name to order against and did not have one.
 ///

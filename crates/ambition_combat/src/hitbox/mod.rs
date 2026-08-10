@@ -282,11 +282,12 @@ pub fn apply_hitbox_damage(
     // The swing owner's team, looked up the same way its grudge is. Read-only,
     // so it may overlap the victim query.
     attacker_team: Query<&crate::targeting::MatchTeam>,
-    // A player-effective FollowOwner hitbox is emitted only while the universal
-    // moveset projection says this body still has a live melee swing. This is an
-    // authority/lifetime gate only; once admitted, contact resolution is the
-    // same victim loop as every other body's melee.
-    melee_owners: Query<&super::components::BodyMelee>,
+    // A live Hitbox is already authoritative gameplay state. Moveset strikes
+    // exist only while their active window exists; `BodyMelee.swing` is a
+    // presentation/read-model projection and must never gate whether this
+    // geometry can deal damage. Keeping the authority here prevents a visible,
+    // correctly placed strike from becoming inert because a secondary projection
+    // lagged, was absent, or classified the move differently.
     // CM8: melee overlap no longer emits hit feedback here — the ONE victim-side
     // reaction (`emit_hit_feedback`) owns sfx/spray/debris now, so this system
     // only needs the `VfxMessage` writer for the wielded-AOE landing cue (a World
@@ -315,14 +316,6 @@ pub fn apply_hitbox_damage(
         // select a different overlap/dedup/knockback algorithm.
         let melee_source = match (hitbox.source, hitbox.anchor) {
             (HitSide::Player, HitboxAnchor::FollowOwner { .. }) => {
-                let has_live_swing = melee_owners
-                    .get(hitbox.owner)
-                    .ok()
-                    .and_then(|m| m.swing.as_ref())
-                    .is_some();
-                if !has_live_swing {
-                    continue;
-                }
                 Some(HitSource::PlayerSlash { knock_x: 0.0 })
             }
             (HitSide::Enemy | HitSide::Npc, _) => Some(HitSource::EnemyAttack),

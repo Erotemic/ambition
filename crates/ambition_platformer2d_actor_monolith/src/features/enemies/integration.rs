@@ -181,7 +181,7 @@ impl<'a> ActorMut<'a> {
         // ONE integration arm for every actor: the kernel dispatches on the
         // body's explicit MotionModel (axis-swept, surface momentum, or the
         // adhesive crawler — the former hidden surface-walker path).
-        let (move_events, walked_into_wall) = self.integrate_body(
+        let move_events = self.integrate_body(
             world,
             &frame,
             motion_model,
@@ -200,22 +200,9 @@ impl<'a> ActorMut<'a> {
             self.kin.facing = frame.facing.signum();
         }
 
-        // **The wall gets the last word.** A brain commits its facing from the
-        // body state it read at the START of the tick, so on the tick the body
-        // stalls against a wall the brain is still asking to walk into it — and
-        // the commit above would erase the turn. Ordering this after the commit
-        // is the whole fix; the brain sees the new facing next tick and asks to
-        // walk the other way (`tick_wanderer` reads `actor_facing`), so the two
-        // agree from then on instead of fighting every frame.
-        //
-        // This is why turning at walls has never been observed. The reverse
-        // existed, but it ran INSIDE `integrate_body`, one line before this
-        // commit overwrote it — dead on arrival for every body whose brain
-        // commits a facing, which is every walker. Jon: "the enemies need to
-        // reverse direction when they hit a wall."
-        if walked_into_wall.0 && self.config.tuning.turns_at_walls {
-            self.kin.facing = -self.kin.facing;
-        }
+        // Facing is committed only from the control frame. Collision publishes
+        // semantic contacts through body state; autonomous brains may turn on a
+        // later tick, while human/fighter controllers retain their chosen facing.
 
         if frame.fire.is_some() {
             self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Attack;
@@ -259,13 +246,7 @@ impl<'a> ActorMut<'a> {
         // grant site's own comment says it exists to prevent.
         authored_tuning: Option<ae::MovementTuning>,
         stagger: (f32, f32),
-    ) -> (ae::FrameEvents, WalkedIntoWall) {
-        // Wall-stop detection on the frame-PERPENDICULAR "side" axis the actor
-        // walks along (so a patroller reverses when it stalls against a wall,
-        // correctly under sideways gravity too).
-        let perp = motion_frame.side();
-        let prev_side_speed = self.kin.vel.dot(perp);
-
+    ) -> ae::FrameEvents {
         let flying = self.flight.fly_enabled;
         let mut tuning = self
             .config
@@ -364,17 +345,7 @@ impl<'a> ActorMut<'a> {
         if let Some(motion) = &mut self.motion.0 {
             let _ = motion.advance(self.kin.pos, dt);
         }
-        // **Walked into a wall**: "was moving along the surface, now is not".
-        // Frame-relative (`perp`), so it holds under a gravity flip the way a
-        // raycast to the right would not.
-        //
-        // REPORTED, not acted on. Turning around here is what this code used to
-        // do — and `update` overwrites `kin.facing` from the brain's committed
-        // direction immediately after this returns, so the turn was written and
-        // erased within the same tick, every tick. See the ordering in `update`.
-        let walked_into_wall =
-            WalkedIntoWall(prev_side_speed.abs() > 1.0 && self.kin.vel.dot(perp).abs() < 0.01);
-        (events, walked_into_wall)
+        events
     }
 
     // ---- Consumer-facing geometry / combat helpers (ports of the
@@ -601,13 +572,3 @@ impl ContactAttack {
 mod dash_tests;
 #[cfg(test)]
 mod respawn_policy_tests;
-
-/// "This body was walking along its surface and something stopped it" — the
-/// wall fact, reported out of the integration step so the turn it implies can be
-/// applied AFTER the brain's facing commit rather than underneath it.
-///
-/// A newtype rather than a bare `bool` because it crosses a return boundary
-/// beside `FrameEvents`, and a naked `bool` at a call site says nothing about
-/// which of the two questions it answers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct WalkedIntoWall(pub bool);

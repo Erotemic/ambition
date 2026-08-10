@@ -96,6 +96,13 @@ fn tick_peaceful(
         movement_frame_mode: ae::InputFrameMode::BodyRelativeAssist,
         aim_frame_mode: ae::InputFrameMode::ScreenRelative,
         actor_on_ground: seed.body.0.ground.on_ground,
+        side_contact_normal: seed
+            .body
+            .0
+            .wall
+            .on_wall
+            .then_some(seed.body.0.wall.wall_normal_x.signum()),
+        turns_at_walls: seed.config.tuning.turns_at_walls && !seed.config.tuning.surface_walker,
         attack_kit: Vec::new(),
         actor_aerial: seed.surface.gravity_scale <= 0.001,
         alive: true,
@@ -615,34 +622,21 @@ fn patrol_enemy_respects_world_collision_against_a_wall() {
     );
 }
 
-/// Under SIDEWAYS gravity a patrolling enemy walks along the gravity-
-/// PERPENDICULAR axis (vertical), so the wall-stop "reverse facing" detection
-/// must watch that axis — not screen-x. The old `vel.x` read never fired here
-/// (x is the near-zero gravity axis when grounded), so a patroller would push
-/// into a wall forever. This pins the gravity-relative fix: driven into a
-/// blocking wall along its run axis, the enemy flips facing exactly once.
+/// Side contacts are a semantic movement fact even under sideways gravity.
+/// The integrator reports the contact in the body's local side axis; it does
+/// not decide that the body should reverse.
 #[test]
-fn patrol_enemy_reverses_facing_at_a_wall_under_sideways_gravity() {
-    // Gravity points +x (right); the enemy rests against the +x "ground" wall
-    // and patrols along the perpendicular (vertical) axis inside a corridor
-    // capped top and bottom by blockers.
+fn sideways_wall_contact_is_reported_without_mutating_facing() {
     let gravity = ae::Vec2::new(1.0, 0.0);
     let world = ae::World::new(
-        String::from("sideways_patrol_test"),
+        String::from("sideways_wall_contact"),
         ae::Vec2::new(800.0, 600.0),
         ae::Vec2::new(100.0, 300.0),
         vec![
-            // The surface the enemy is pushed onto (its "floor" under +x gravity).
             ae::Block::solid(
                 String::from("ground_wall"),
                 ae::Vec2::new(300.0, 80.0),
                 ae::Vec2::new(60.0, 440.0),
-            ),
-            // Corridor caps in the vertical run path.
-            ae::Block::solid(
-                String::from("cap_top"),
-                ae::Vec2::new(250.0, 60.0),
-                ae::Vec2::new(60.0, 90.0),
             ),
             ae::Block::solid(
                 String::from("cap_bottom"),
@@ -651,42 +645,27 @@ fn patrol_enemy_reverses_facing_at_a_wall_under_sideways_gravity() {
             ),
         ],
     );
-    // Right edge (center.x + 14) touches the ground wall at x = 300.
     let aabb = enemy_aabb(ae::Vec2::new(286.0, 300.0));
-    let paths: Vec<(String, ambition_platformer2d_core::KinematicPath)> = vec![];
     let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
-        "sideways_patroller",
-        "sideways_patroller",
+        "sideways_walker",
+        "sideways_walker",
         aabb,
-        ambition_entity_catalog::placements::CharacterBrain::Patrol { path_id: None },
-        &paths,
+        ambition_entity_catalog::placements::CharacterBrain::Passive,
+        &[],
     );
-    enemy.attack.cooldown = 0.0;
-    // Force the AI into Patrol: no aggro/attack reach, patrol enabled, so the
-    // far player can't pull it into Chase (the flip only fires for Patrol).
-    enemy.config.tuning.aggro_radius = 0.0;
-    enemy.config.tuning.attack_range = 0.0;
-    enemy.config.tuning.is_sandbag = false;
-    let initial_facing = enemy.kin.facing;
-    let player_pos_far = ae::Vec2::new(2000.0, 300.0);
-    // Constant run intent along the perpendicular axis (sign maps to ±vertical);
-    // the enemy travels until a cap stops it, then the detection flips facing.
+    enemy.kin.facing = 1.0;
+    let mut model = enemy.config.tuning.motion_model();
     let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-    // Full-throttle run intent along the local side axis; tuning owns px/s.
-    frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
-    // Count facing reversals: with the OLD screen-x detection, `vel.x` is the
-    // (zeroed, grounded) gravity axis so the wall-stop NEVER triggers → zero
-    // flips and the enemy grinds into the wall forever. With the gravity-
-    // perpendicular detection the vertical stall is seen and facing reverses.
-    // (The constant test frame keeps driving INTO the cap, so facing re-flips
-    // on re-contact — we assert it reverses at all, not an exact parity.)
-    let mut flips = 0u32;
-    let mut prev_facing = enemy.kin.facing;
+    frame.facing = 1.0;
+    // With gravity pointing world-right, local +side points world-up. The
+    // side obstacle in this fixture is below the body, so drive local -side
+    // into it; the resulting top-face normal is a semantic local-side contact.
+    frame.locomotion = ae::LocalAxes::new(-1.0, 0.0);
+
     for _ in 0..240 {
-        let mut model = crate::features::MotionModel::default();
         enemy.update_for_test(
             &world,
-            player_pos_far,
+            ae::Vec2::new(2000.0, 300.0),
             FeatureCombatTuning::default(),
             1.0 / 60.0,
             false,
@@ -694,19 +673,22 @@ fn patrol_enemy_reverses_facing_at_a_wall_under_sideways_gravity() {
             &mut model,
             ae::MotionFrame::from_direction(gravity, ae::GRAVITY),
         );
-        if enemy.kin.facing != prev_facing {
-            flips += 1;
-            prev_facing = enemy.kin.facing;
+        if enemy.body.0.wall.on_wall {
+            break;
         }
     }
-    let _ = initial_facing;
+
     assert!(
-        flips >= 1,
-        "a patroller that stalls against a wall under sideways gravity must \
-         reverse facing — the wall-stop detection has to watch the vertical \
-         run axis, not screen-x (which is the zeroed gravity axis here); got \
-         {flips} flips, mode={:?}",
-        enemy.status.ai_mode,
+        enemy.body.0.wall.on_wall,
+        "the shared kernel should report a side contact"
+    );
+    assert!(
+        enemy.body.0.wall.wall_normal_x.abs() > 0.5,
+        "side contact should carry a local-side normal"
+    );
+    assert_eq!(
+        enemy.kin.facing, 1.0,
+        "collision reports contact; the controller/brain owns facing"
     );
 }
 
@@ -835,20 +817,11 @@ fn a_normal_actor_surface_normal_tracks_live_gravity() {
     }
 }
 
-/// **A grounded walker that runs into a wall turns around** — whatever brain is
-/// steering it.
-///
-/// The reverse existed, gated on the brain emitting `CharacterAiIntent::Patrol`.
-/// Every `Wanderer` — the template behind Mary-O's snakes — emits none, so the
-/// whole family walked into walls and kept pushing: "the enemies need to reverse
-/// direction when they hit a wall" (Jon). Turning at a wall is a fact about the
-/// BODY, so the gate is now the body's authored trait, and the second half of
-/// this test is what keeps that trait from being a rename of "always".
-///
-/// Driven through the real actor tick with a plain forward control frame — the
-/// exact shape `tick_wanderer` writes — so the test cannot pass by agreeing with
-/// a brain-intent path that no longer decides anything.
-fn walk_into_wall(turns_at_walls: bool) -> f32 {
+/// Movement integration never turns a body around on its controller's behalf.
+/// A real wall contact is reported through `BodyWallState`; policy above the
+/// movement kernel decides whether that should change facing.
+#[test]
+fn movement_integration_does_not_auto_turn_at_a_wall() {
     let world = ae::World::new(
         String::from("wall"),
         ae::Vec2::new(2000.0, 2000.0),
@@ -867,23 +840,22 @@ fn walk_into_wall(turns_at_walls: bool) -> f32 {
         ],
     );
     let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 476.0), ae::Vec2::new(14.0, 23.0));
-    let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
+    let mut body = super::ecs::actor_clusters::ActorClusterSeed::new(
         "walker",
         "Snake",
         aabb,
         ambition_entity_catalog::placements::CharacterBrain::Passive,
         &[],
     );
-    enemy.config.tuning.turns_at_walls = turns_at_walls;
-    enemy.kin.facing = 1.0;
-    let mut model = enemy.config.tuning.motion_model();
+    body.config.tuning.turns_at_walls = true;
+    body.kin.facing = 1.0;
+    let mut model = body.config.tuning.motion_model();
 
-    // Walk right until the wall stops the body, then a few frames past it.
     for _ in 0..240 {
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        frame.facing = enemy.kin.facing;
-        frame.locomotion = ae::LocalAxes::new(enemy.kin.facing, 0.0);
-        enemy.update_for_test(
+        frame.facing = 1.0;
+        frame.locomotion = ae::LocalAxes::new(1.0, 0.0);
+        body.update_for_test(
             &world,
             ae::Vec2::new(1500.0, 476.0),
             FeatureCombatTuning::default(),
@@ -894,23 +866,54 @@ fn walk_into_wall(turns_at_walls: bool) -> f32 {
             ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         );
     }
-    enemy.kin.facing
+
+    assert!(body.body.0.wall.on_wall);
+    assert_eq!(body.kin.facing, 1.0);
 }
 
+/// Stopping in open space is not a wall. This is the regression for the old
+/// velocity-drop heuristic that could make an attack/release frame look like a
+/// collision and flip a fighter.
 #[test]
-fn a_walker_turns_around_at_a_wall_whatever_brain_steers_it() {
-    assert_eq!(
-        walk_into_wall(true),
-        -1.0,
-        "a body that walks into a wall faces back the way it came"
+fn stopping_in_open_space_preserves_facing() {
+    let world = ae::World::new(
+        String::from("open_floor"),
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(100.0, 100.0),
+        vec![ae::Block::solid(
+            "floor",
+            ae::Vec2::new(0.0, 500.0),
+            ae::Vec2::new(2000.0, 100.0),
+        )],
     );
-}
+    let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 476.0), ae::Vec2::new(14.0, 23.0));
+    let mut body = super::ecs::actor_clusters::ActorClusterSeed::new(
+        "fighter",
+        "fighter",
+        aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Passive,
+        &[],
+    );
+    body.config.tuning.turns_at_walls = true;
+    body.kin.facing = 1.0;
+    body.kin.vel.x = 120.0;
+    let mut model = body.config.tuning.motion_model();
 
-#[test]
-fn a_body_authored_to_hold_its_heading_does_not_turn_at_a_wall() {
-    assert_eq!(
-        walk_into_wall(false),
-        1.0,
-        "the trait is the gate — opting out keeps the body pressing forward"
-    );
+    for _ in 0..240 {
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.facing = body.kin.facing;
+        body.update_for_test(
+            &world,
+            ae::Vec2::new(1500.0, 476.0),
+            FeatureCombatTuning::default(),
+            1.0 / 60.0,
+            false,
+            frame,
+            &mut model,
+            ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
+        );
+    }
+
+    assert!(!body.body.0.wall.on_wall);
+    assert_eq!(body.kin.facing, 1.0);
 }

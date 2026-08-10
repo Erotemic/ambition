@@ -56,6 +56,13 @@ pub struct BrainSnapshot {
     /// Whether the actor is grounded (touching a `Solid` / `OneWay`
     /// floor this tick).
     pub actor_on_ground: bool,
+    /// Local-side normal of the body's current semantic wall contact. `-1` means
+    /// a wall on local-right (its outward normal pushes left), `+1` a wall on
+    /// local-left. This is a collision FACT; brains may decide what to do with it.
+    pub side_contact_normal: Option<f32>,
+    /// Autonomous steering preference authored for simple walkers. Consumed by
+    /// Patrol/Wanderer brains, never by movement integration or human control.
+    pub turns_at_walls: bool,
     /// Whether this body is a gravity-free **free-mover** (a flyer: enemy
     /// `is_aerial` / `gravity_scale == 0`, or a `Floating` NPC). When true the
     /// brain steers in 2D via `velocity_target` instead of grounded
@@ -214,6 +221,8 @@ impl BrainSnapshot {
             movement_frame_mode: ae::ControlFrameModes::default().movement,
             aim_frame_mode: ae::ControlFrameModes::default().aim,
             actor_on_ground: true,
+            side_contact_normal: None,
+            turns_at_walls: false,
             actor_aerial: false,
             attack_kit: Vec::new(),
             subject: None,

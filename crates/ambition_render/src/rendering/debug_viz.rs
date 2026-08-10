@@ -31,7 +31,7 @@ use ambition_platformer2d_shared_tangle::feature_kind::FeatureVisualKind;
 use ambition_platformer2d_shared_tangle::lifecycle::{session_world_exists, SessionWorldRef};
 use ambition_platformer2d_world::collision::MovingPlatformSet;
 use ambition_platformer2d_world::platforms::MovingPlatformState;
-use ambition_sim_view::{BodyPoseView, FeatureViewIndex};
+use ambition_sim_view::{BodyPoseView, CombatGeometryView, FeatureViewIndex};
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -198,6 +198,34 @@ pub fn draw_hitbox_volume(
         shaped => {
             draw_combat_volume(gizmos, world, shaped, color);
             draw_aabb(gizmos, world, shaped.bounds(), with_alpha(color, 0.16));
+        }
+    }
+}
+
+/// Draw authoritative body-combat geometry from the simulation-view boundary.
+///
+/// Orange is the body's coarse collision envelope, cyan is the effective
+/// damageable silhouette, and red is a live strike. The rows intentionally
+/// carry no controller/primary-player distinction: a fighter is debugged by
+/// the geometry it publishes, not by who is driving it.
+pub fn draw_combat_geometry_view(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    combat: &CombatGeometryView,
+    developer_tools: &DeveloperTools,
+) {
+    if developer_tools.show_player_hitbox || developer_tools.show_feature_hitboxes {
+        let collision_color = with_alpha(orange(), 0.52);
+        for body in &combat.bodies {
+            draw_aabb(gizmos, world, body.collision, collision_color);
+            for hurtbox in &body.hurtboxes {
+                draw_hitbox_volume(gizmos, world, hurtbox, cyan(), developer_tools);
+            }
+        }
+    }
+    if developer_tools.show_combat_preview || developer_tools.show_feature_hitboxes {
+        for strike in &combat.strikes {
+            draw_hitbox_volume(gizmos, world, &strike.volume, red(), developer_tools);
         }
     }
 }
@@ -486,6 +514,7 @@ impl Plugin for DebugVizPlugin {
         app.init_resource::<DeveloperRuntimeState>();
         app.init_resource::<DeveloperTools>();
         app.init_resource::<FeatureViewIndex>();
+        app.init_resource::<CombatGeometryView>();
         app.init_resource::<MovingPlatformSet>();
         let start_enabled = self.start_enabled;
         app.add_systems(
@@ -547,6 +576,7 @@ pub fn draw_debug_viz(
     developer_tools: Res<DeveloperTools>,
     platform_set: Res<MovingPlatformSet>,
     features: Res<FeatureViewIndex>,
+    combat_geometry: Res<CombatGeometryView>,
     // Gizmos are drawn THROUGH the camera, and the camera advances on the
     // render clock. A box placed at the raw tick pose is therefore a step
     // function sampled by a smoothly-moving observer, which reads as a
@@ -638,6 +668,7 @@ pub fn draw_debug_viz(
             draw_aabb_styled(&mut gizmos, world, aabb, color, &developer_tools);
         }
     }
+    draw_combat_geometry_view(&mut gizmos, world, &combat_geometry, &developer_tools);
 }
 
 #[cfg(test)]

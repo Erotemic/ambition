@@ -468,6 +468,8 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
         movement_frame_mode: ae::InputFrameMode::BodyRelativeAssist,
         aim_frame_mode: ae::InputFrameMode::ScreenRelative,
         actor_on_ground: true,
+        side_contact_normal: None,
+        turns_at_walls: false,
         attack_kit: Vec::new(),
         actor_aerial: false,
         alive: true,

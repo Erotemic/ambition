@@ -29,9 +29,9 @@ pub enum StateMachineCfg {
     StandStill,
     /// Fixed waypoint loop. `aggressiveness` controls engagement.
     Patrol { cfg: PatrolCfg, state: PatrolState },
-    /// Move forward in `actor_facing`. Drives the puppy slug today; wall and
-    /// surface handling is the BODY's (the crawler motion model wraps
-    /// surfaces; the grounded integrator's patrol wall-stop reverses facing).
+    /// Move forward in `actor_facing`. Drives the puppy slug today. Surface
+    /// wrapping belongs to the crawler motion model; a simple walker's choice to
+    /// reverse at a semantic side contact belongs to this autonomous policy.
     Wanderer { cfg: WandererCfg },
     /// Approach + melee + recover. Aggressiveness gates engagement.
     MeleeBrute {
@@ -282,6 +282,21 @@ fn frame_to_local(snapshot: &BrainSnapshot, world: ae::WorldVec2) -> ae::LocalAx
     ae::LocalAxes::from_vec(snapshot.acceleration_frame().to_local(world.vec()))
 }
 
+/// Autonomous "turn away from the wall I am walking into" policy.
+///
+/// The movement kernel publishes the local-side contact normal; this helper
+/// interprets that fact for simple autonomous walkers. A human-controlled body
+/// or a fighter brain never calls this helper, so collision cannot silently
+/// override its facing intent.
+fn wall_turn_facing(snapshot: &BrainSnapshot) -> Option<f32> {
+    if !snapshot.turns_at_walls {
+        return None;
+    }
+    let wall_normal = snapshot.side_contact_normal?;
+    let facing = snapshot.actor_facing.signum_or(1.0);
+    (wall_normal.abs() > 0.5 && wall_normal * facing < 0.0).then_some(wall_normal.signum())
+}
+
 fn tick_patrol(
     cfg: &PatrolCfg,
     state: &mut PatrolState,
@@ -307,11 +322,13 @@ fn tick_patrol(
             }
         }
         crate::actor::ai::CharacterAiIntent::Patrol => {
-            // Bounce within the authored world lane. Caller is expected to flip
-            // `facing` on wall contact; brain also flips at the geometric bound.
-            let facing = cfg
-                .lane
-                .facing_after_bounds(snapshot.actor_pos, snapshot.actor_facing);
+            // Bounce within the authored world lane, with a semantic side
+            // contact taking precedence over the geometric lane bound. Both are
+            // steering decisions owned by this brain.
+            let facing = wall_turn_facing(snapshot).unwrap_or_else(|| {
+                cfg.lane
+                    .facing_after_bounds(snapshot.actor_pos, snapshot.actor_facing)
+            });
             out.facing = facing;
             out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(facing * cfg.speed, 0.0));
         }
@@ -344,13 +361,10 @@ fn tick_patrol(
 
 // ===== Wanderer =====
 
-/// Forward-motion brain: always emits locomotion in `actor_facing`. Drives
-/// the puppy slug today. Wall response is deliberately NOT a brain concern —
-/// a surface-walker body (the crawler motion model) wraps corners in the
-/// kernel, and a grounded patroller's wall-stop reverse lives in the
-/// integrator. (The old brain-side climb-vs-reverse/chatter branch keyed on a
-/// `BrainSnapshot.wall_contact` no production builder ever populated — a dead
-/// seam, deleted 2026-07-15.)
+/// Forward-motion brain: emits locomotion in its chosen facing. Drives the
+/// puppy slug today. A crawler body still wraps surfaces in the movement kernel;
+/// a simple grounded walker may turn away from a real semantic side contact here
+/// when its authored autonomous-steering policy enables that behavior.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct WandererCfg {
     /// Forward speed (px/s).
@@ -375,10 +389,9 @@ fn tick_wanderer(
     out: &mut crate::actor::control::ActorControlFrame,
 ) {
     *out = crate::actor::control::ActorControlFrame::neutral();
-    // Emit straight-ahead motion; the body owns wall/surface response (the
-    // crawler kernel wraps corners, the grounded integrator's patrol
-    // wall-stop reverses facing).
-    out.facing = snapshot.actor_facing.signum_or(1.0);
+    // Surface wrapping is movement physics; choosing to reverse a simple
+    // walker is autonomous control policy.
+    out.facing = wall_turn_facing(snapshot).unwrap_or_else(|| snapshot.actor_facing.signum_or(1.0));
     out.locomotion = snapshot.locomotion_for(ae::LocalAxes::new(out.facing * cfg.speed, 0.0));
 }
 

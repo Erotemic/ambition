@@ -22,6 +22,10 @@ pub fn build_demo_app() -> App {
     ambition_platformer2d::engine::add_headless_foundation(&mut app);
     app.add_plugins(ambition_platformer2d::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition_platformer2d::windowed_host::PlatformerHostPlugins);
+    #[cfg(feature = "visible")]
+    app.add_plugins(
+        ambition_platformer2d::render::rendering::debug_viz::DebugVizPlugin::default(),
+    );
     compose_smash_shell(&mut app);
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();

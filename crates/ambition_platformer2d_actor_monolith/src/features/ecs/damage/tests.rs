@@ -1520,25 +1520,44 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
             ),
         ))
         .id();
-    app.world_mut().spawn((
-        ambition_vfx::Hitbox {
-            strike_sfx: None,
-            owner: player,
-            source: ambition_vfx::HitSide::Player,
-            anchor: ambition_vfx::HitboxAnchor::FollowOwner {
-                local_offset: ae::Vec2::ZERO,
-            },
-            half_extent: ae::Vec2::new(24.0, 40.0),
-            shape: None,
-            facing: 1.0,
-            damage: 2,
-            knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
-            launch_dir: None,
-            frame_down: ae::Vec2::new(0.0, 1.0),
+    let enemy = spawn_hostile_actor(&mut app); // HP 5
+    let enemy_center = ae::Vec2::new(50.0, 0.0);
+    app.world_mut()
+        .get_mut::<CenteredAabb>(enemy)
+        .expect("hostile fixture publishes a body box")
+        .center = enemy_center;
+    app.world_mut()
+        .get_mut::<ae::BodyKinematics>(enemy)
+        .expect("hostile fixture publishes body kinematics")
+        .pos = enemy_center;
+
+    let hitbox = ambition_vfx::Hitbox {
+        strike_sfx: None,
+        owner: player,
+        source: ambition_vfx::HitSide::Player,
+        anchor: ambition_vfx::HitboxAnchor::FollowOwner {
+            local_offset: ae::Vec2::new(32.0, 0.0),
         },
-        ambition_vfx::HitboxHits::default(),
-    ));
-    let enemy = spawn_hostile_actor(&mut app); // HP 5 at origin
+        half_extent: ae::Vec2::new(20.0, 30.0),
+        shape: None,
+        facing: 1.0,
+        damage: 2,
+        knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
+        launch_dir: None,
+        frame_down: ae::Vec2::new(0.0, 1.0),
+    };
+    let player_body = app.world().get::<CenteredAabb>(player).unwrap().aabb();
+    let enemy_body = app.world().get::<CenteredAabb>(enemy).unwrap().aabb();
+    assert!(
+        !player_body.strict_intersects(enemy_body),
+        "the regression must not be satisfiable by body-to-body contact"
+    );
+    assert!(
+        hitbox.world_volume(ae::Vec2::ZERO).intersects_aabb(enemy_body),
+        "the attack volume must reach the separated victim body"
+    );
+    app.world_mut()
+        .spawn((hitbox, ambition_vfx::HitboxHits::default()));
 
     for _ in 0..6 {
         app.update();
@@ -1546,7 +1565,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     assert_eq!(
         app.world().get::<BodyHealth>(enemy).unwrap().health.current,
         3,
-        "a multi-tick player strike must hit once (5 -> 3), not many times"
+        "a separated-body strike must land from its attack volume exactly once (5 -> 3)"
     );
 }
 

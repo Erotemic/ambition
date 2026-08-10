@@ -1721,6 +1721,14 @@ fn build_enemy_brain_snapshot(
         movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
         aim_frame_mode: ae::InputFrameMode::DEFAULT_AIM,
         actor_on_ground: em.ground.on_ground,
+        // Semantic side-contact FACT from the shared movement kernel. The brain
+        // decides whether it means "turn around"; integration never mutates
+        // facing merely because a wall exists.
+        side_contact_normal: em
+            .wall
+            .on_wall
+            .then_some(em.wall.wall_normal_x.signum()),
+        turns_at_walls: em.config.tuning.turns_at_walls && !em.config.tuning.surface_walker,
         // FB4b §13.2: THE ATTACK KIT, from the body's real moveset. The fighter
         // brain scores real moves with real frame data and cannot reach a
         // moveset itself, so this is body-derived truth arriving through the

@@ -125,9 +125,9 @@ pub struct ArchetypeSpec {
     /// crawler with ledge-aware patrol).
     #[serde(default)]
     pub surface_walker: bool,
-    /// Turn around on walking into a wall. Defaults TRUE — see
-    /// `ActorTuning::turns_at_walls` for
-    /// why the exception is the thing worth authoring.
+    /// Autonomous simple-walker steering: turn away from a semantic side
+    /// contact. This is control policy consumed by Patrol/Wanderer brains, not
+    /// movement/collision policy. Defaults TRUE; other brain families ignore it.
     #[serde(default = "default_turns_at_walls")]
     pub turns_at_walls: bool,
     /// Surface-walker only: a hit knocks the actor off its surface — it

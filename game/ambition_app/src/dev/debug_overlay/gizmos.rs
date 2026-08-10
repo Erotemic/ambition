@@ -105,9 +105,6 @@ pub struct FeatureDebugQueries<'w, 's> {
             &'static ambition_platformer2d::actors::features::ActorDisposition,
             &'static ambition_platformer2d::actors::features::ActorAggression,
             &'static ambition_platformer2d::actors::features::CenteredAabb,
-            Option<&'static ambition_platformer2d::actors::features::BodyKinematics>,
-            Option<&'static ambition_platformer2d::actors::features::BodyMelee>,
-            Option<&'static ambition_platformer2d::actors::features::ActorSurfaceState>,
         ),
         With<ambition_platformer2d::actors::features::FeatureSimEntity>,
     >,
@@ -135,18 +132,10 @@ pub struct FeatureDebugQueries<'w, 's> {
         &'static ambition_platformer2d::actors::features::HazardFeature,
         With<ambition_platformer2d::actors::features::FeatureSimEntity>,
     >,
-    /// All live `Hitbox` entities (melee swings, World-anchored
-    /// hazards like the Gradient Sentinel's PitTrap pit /
-    /// RotatingCross arms / HazardColumn column). Drawn so the debug
-    /// view answers "what just hit me?" — without this pass the
-    /// World-anchored boss specials are invisible even though they
-    /// deal damage.
-    pub hitboxes: Query<'w, 's, &'static ambition_platformer2d::actors::features::Hitbox>,
-    /// CenteredAabb lookup for resolving `FollowOwner` hitboxes to
-    /// their current world-space rectangle. World-anchored
-    /// hitboxes don't need this — their AABB is fixed at spawn.
-    pub hitbox_owners:
-        Query<'w, 's, &'static ambition_platformer2d::actors::features::CenteredAabb>,
+    /// Body-generic combat geometry read-model. Live hitboxes and effective
+    /// hurtboxes are extracted once from simulation truth and shared by every
+    /// host; this richer overlay consumes the same rows as standalone games.
+    pub combat_geometry: Res<'w, ambition_platformer2d::sim_view::CombatGeometryView>,
     /// In-flight held-item shots (gun-sword bolt / Fireball). Their
     /// contact + splash boxes were previously undrawn, so a Fireball
     /// read as "hitting before it touches the visible box". Lives in
@@ -541,11 +530,6 @@ pub(crate) fn draw_feature_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     feature_q: &FeatureDebugQueries,
-    // The primary player's (entity, box-center) — resolves the owner position of a
-    // player-owned FollowOwner strike, which has no `CenteredAabb`. Passed in (not
-    // queried here) because the player's `BodyKinematics` is borrowed `&mut` by the
-    // overlay's cluster query, so a second read here would be a B0001 conflict.
-    primary_player: Option<(bevy::prelude::Entity, ae::Vec2)>,
     developer_tools: &DeveloperTools,
     labels: &mut DebugOverlayLabels,
 ) {
@@ -556,13 +540,12 @@ pub(crate) fn draw_feature_debug(
     let breakable_color = Color::srgba(0.55, 0.80, 1.00, 0.80); // light blue
     let chest_color = Color::srgba(1.00, 0.85, 0.25, 0.85); // gold
     let hazard_color = Color::srgba(1.00, 0.32, 0.92, 0.80); // magenta
-    let telegraph_color = Color::srgba(1.00, 0.95, 0.20, 0.60); // yellow
     let active_color = Color::srgba(1.00, 0.12, 0.12, 0.95); // bright red
 
     // "fighting" (in a faction feud) is amber — distinct from "hostile" (after a
     // controlled character) red and "peaceful" green.
     let fighting_color = Color::srgba(1.00, 0.78, 0.20, 0.88);
-    for (disposition, aggression, aabb, kin, attack, _surface) in feature_q.actors.iter() {
+    for (disposition, aggression, aabb) in feature_q.actors.iter() {
         // State is DERIVED, not a stored actor TYPE: an actor is "fighting" while it
         // has a combat target (the disposition stands down to peaceful the instant
         // the target is gone — a duel winner, an enemy that lost the player). The
@@ -587,39 +570,11 @@ pub(crate) fn draw_feature_debug(
         // `update_ecs_actors`), so the drawn box matches the rotated sprite.
         draw_aabb_styled(gizmos, world, aabb.aabb(), color, developer_tools);
         label_box(labels, aabb.aabb(), actor_label, color, LabelSpot::TopLeft);
-        // A FIGHTING actor (hostile to the player or in a faction feud) owns an
-        // attack volume that becomes active during a swing — draw it whenever windup
-        // or strike timer is live so the player can see exactly where the hit will
-        // land. Telegraph wins when both are zero so a frame on the edge still reads
-        // as "incoming".
-        if fighting {
-            if let (Some(kin), Some(attack)) = (kin, attack) {
-                // Forward-swing hitbox geometry (matches
-                // ActorMut::attack_aabb): offset by facing.
-                let center = kin.pos
-                    + ambition_platformer2d::engine_core::Vec2::new(
-                        kin.facing * (kin.size.x * 0.55 + 24.0),
-                        -4.0,
-                    );
-                let attack_box = ambition_platformer2d::engine_core::Aabb::new(
-                    center,
-                    ambition_platformer2d::engine_core::Vec2::new(34.0, 28.0),
-                );
-                if attack.is_active() {
-                    draw_aabb_styled(gizmos, world, attack_box, active_color, developer_tools);
-                    label_box(labels, attack_box, "atk", active_color, LabelSpot::Center);
-                } else if attack.is_winding_up() {
-                    draw_aabb_styled(gizmos, world, attack_box, telegraph_color, developer_tools);
-                    label_box(
-                        labels,
-                        attack_box,
-                        "atk",
-                        telegraph_color,
-                        LabelSpot::Center,
-                    );
-                }
-            }
-        }
+        // Actor strike geometry is deliberately NOT reconstructed here. Live
+        // body-owned strikes are published by `CombatGeometryView` from the
+        // authoritative `Hitbox` entities and drawn by the shared debug layer.
+        // Keeping this pass to actor state/collision avoids a second, synthetic
+        // "attack box" that can disagree with the geometry that actually hits.
     }
     // Boss debug colors — each color answers a distinct question
     // the player might ask while reading the overlay:
@@ -642,9 +597,8 @@ pub(crate) fn draw_feature_debug(
     //   strike volumes. These are also the source of `boss_attack_damage`.
     //
     // Special attack profiles (PitTrap, RotatingCross, HazardColumn,
-    // MemorizedVolley, MinionCascade) route damage through World-
-    // anchored `Hitbox` entities, drawn by the later
-    // `feature_q.hitboxes` pass with faction colors.
+    // MemorizedVolley, MinionCascade) route damage through World-anchored
+    // `Hitbox` entities, drawn by the shared `CombatGeometryView` layer.
     let hurtbox_color = cyan();
     let body_contact_color = Color::srgba(0.95, 0.30, 0.95, 0.85); // magenta
     for (bf, health, attack_state, animation_frame) in feature_q.bosses.iter() {
@@ -751,57 +705,10 @@ pub(crate) fn draw_feature_debug(
         );
     }
 
-    // Live Hitbox entities — melee swings (FollowOwner) + World-
-    // anchored boss specials (PitTrap pit, RotatingCross arms,
-    // HazardColumn column). Without this pass, the World-anchored
-    // hitboxes are invisible in debug mode even though they deal
-    // damage. Faction-color-coded so you can read which side it
-    // belongs to at a glance.
-    let player_hitbox_color = Color::srgba(0.35, 0.85, 1.00, 0.90); // light blue
-    let enemy_hitbox_color = Color::srgba(1.00, 0.18, 0.18, 0.90); // bright red
-    let boss_hitbox_color = Color::srgba(1.00, 0.55, 0.10, 0.90); // bright orange
-    let npc_hitbox_color = Color::srgba(0.60, 1.00, 0.45, 0.85); // light green
-    for hitbox in feature_q.hitboxes.iter() {
-        // Resolve the owner's box center: actors carry `CenteredAabb`, the player
-        // carries `BodyKinematics` (same fallback the damage system uses). A
-        // FollowOwner hitbox with NO resolvable owner pos is SKIPPED rather than
-        // drawn at the world origin — drawing it at ZERO was the "stray hit:player
-        // box in the top-left" smell (the player's strike, owner-pos unresolved).
-        // World-anchored hitboxes carry their own center, so owner pos is moot.
-        let owner_pos = if let Ok(aabb) = feature_q.hitbox_owners.get(hitbox.owner) {
-            Some(aabb.center)
-        } else if let Some((player_entity, player_pos)) = primary_player {
-            (hitbox.owner == player_entity).then_some(player_pos)
-        } else {
-            None
-        };
-        let owner_pos = match (owner_pos, hitbox.anchor) {
-            (Some(p), _) => p,
-            // World-anchored: center is fixed at spawn, owner pos unused.
-            (None, ambition_platformer2d::actors::features::HitboxAnchor::World { .. }) => {
-                ae::Vec2::ZERO
-            }
-            // FollowOwner with a dead/unknown owner: don't draw a ghost at origin.
-            (None, ambition_platformer2d::actors::features::HitboxAnchor::FollowOwner { .. }) => {
-                continue
-            }
-        };
-        // Draw the hitbox's TRUE damage volume — the authored convex blade / OBB /
-        // circle the strike actually resolves against, not just its AABB. When a
-        // hull is present the bounding box is drawn faint + vestigial; a bare-box
-        // hitbox draws as the box itself. (The player's melee resolves the authored
-        // per-clip poly through the moveset, so "hit:player" now shows that poly.)
-        let volume = hitbox.world_volume(owner_pos);
-        let (color, tag) = match hitbox.source {
-            ambition_platformer2d::vfx::HitSide::Player => (player_hitbox_color, "hit:player"),
-            ambition_platformer2d::vfx::HitSide::Enemy => (enemy_hitbox_color, "hit:enemy"),
-            ambition_platformer2d::vfx::HitSide::Boss => (boss_hitbox_color, "hit:boss"),
-            ambition_platformer2d::vfx::HitSide::Npc
-            | ambition_platformer2d::vfx::HitSide::Neutral => (npc_hitbox_color, "hit:npc"),
-        };
-        draw_hitbox_volume(gizmos, world, &volume, color, developer_tools);
-        label_box(labels, volume.bounds(), tag, color, LabelSpot::TopRight);
-    }
+    // Live hitboxes and effective body hurtboxes are drawn by the shared
+    // `CombatGeometryView` layer in the parent overlay. Keeping that truth in
+    // the observation boundary means this app-specific pass no longer needs a
+    // privileged-player owner fallback or its own strike-geometry resolver.
 }
 
 /// Draw in-flight player and enemy projectile AABBs so they remain

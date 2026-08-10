@@ -24,6 +24,7 @@ use ambition_platformer2d_shared_tangle::schedule::SimScheduleExt;
 mod anim_index;
 mod attack_vfx_view;
 pub mod camera_snapshot;
+mod combat_geometry_view;
 mod control_prompt;
 mod dialog_view;
 mod facts;
@@ -34,6 +35,10 @@ mod view_index;
 pub use anim_index::{
     rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
     ActorSpriteData, BossFrameIndex, BossFrameView, HazardLaneFact,
+};
+pub use combat_geometry_view::{
+    rebuild_combat_geometry_view, CombatBodyGeometryView, CombatGeometryView,
+    CombatStrikeGeometryView,
 };
 pub use control_prompt::{
     publish_frontend_context_prompt, rebuild_control_prompt, ControlContextKind, ControlPrompt,
@@ -80,6 +85,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<NameplateIndex>();
         app.init_resource::<DialogView>();
         app.init_resource::<ControlPrompt>();
+        app.init_resource::<CombatGeometryView>();
         // The frontend half of the prompt: while a startup/launcher context
         // owns the participant's actions, the owning surface's cue labels the
         // confirm control (the sim-side rebuild yields on those frames).
@@ -116,6 +122,10 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // render system has to ask the catalog — see the module docs
                 // for why an absent catalog must stay ABSENT here.
                 rebuild_attack_vfx_views,
+                // Exact combat truth for debug/RL/tool observers: effective body
+                // hurtboxes plus live world-space strike volumes, independent of
+                // which controller (if any) drives each body.
+                rebuild_combat_geometry_view,
                 // The dialogue overlay's row (recon C3): presentation reads
                 // THIS, never the live `DialogState`.
                 rebuild_dialog_view,

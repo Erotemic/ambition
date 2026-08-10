@@ -159,7 +159,7 @@ pub fn reconcile_moveset_routing_markers(
     >,
 ) {
     for (entity, moveset, has_melee_marker, has_ranged_marker) in &bodies {
-        let routes_melee = moveset.0.verbs.contains_key(ATTACK_VERB);
+        let routes_melee = moveset.0.verbs.keys().any(|verb| is_melee_verb(verb));
         let routes_ranged = moveset.0.verbs.contains_key(RANGED_VERB);
         if routes_melee != has_melee_marker {
             if routes_melee {
@@ -1397,7 +1397,9 @@ pub fn dispatch_move_events(
 /// a synthesized `MeleeSwing` whose phase (Startup/Active/Recovery) and elapsed
 /// mirror the move; the real hitboxes/damage are owned by
 /// [`advance_move_playback`], so this writes NO gameplay — it is purely the
-/// read-model the flat `BodyMelee` swing used to publish. A body with no live move
+/// read-model the flat `BodyMelee` swing used to publish. In particular, damage
+/// resolution must never consult this projection as an authority gate: the live
+/// strike volume is the authority. A body with no live move
 /// has its projected swing cleared (its cooldown floors still tick in
 /// `tick_body_melee_cooldowns`).
 ///
@@ -1439,6 +1441,18 @@ fn verb_for_move<'a>(moveset: &'a MovesetContract, id: &str) -> Option<&'a str> 
         .map(|(verb, _)| verb.as_str())
 }
 
+/// Whether an input verb belongs to the melee family.
+///
+/// Kept as one predicate for both routing-marker derivation and live playback
+/// projection so a directional-only or smash-only moveset cannot be routed one
+/// way and presented another.
+fn is_melee_verb(verb: &str) -> bool {
+    verb == ATTACK_VERB
+        || verb.starts_with("attack_")
+        || verb == SMASH_VERB
+        || verb.starts_with("smash_")
+}
+
 /// Whether a move is a melee swing versus a ranged shot or a content special.
 ///
 /// **Asks the VERB, not the name.** The derived movesets name every swing after
@@ -1448,19 +1462,23 @@ fn verb_for_move<'a>(moveset: &'a MovesetContract, id: &str) -> Option<&'a str> 
 ///
 /// They stop being the same question the moment a moveset is hand-authored, and
 /// a fighting game's move list is named after its MOVES (`jab`, `smash_forward`,
-/// `tilt_up`), not after the buttons. The failure was silent and expensive to
-/// find: the move triggered, played, spawned its hitbox and made its sound, and
-/// the hitbox was inert, because the Player melee arm emits nothing without a
-/// projected `BodyMelee.swing`. A whole authored fighter did nothing.
+/// `tilt_up`), not after the buttons. Misclassifying one no longer suppresses
+/// gameplay — live strike volumes are authoritative — but it still publishes the
+/// wrong animation/HUD/telegraph state and can change movement policy that reads
+/// "mid-attack" from the projection. Both attack and smash verb families are
+/// therefore classified here by their bindings, not by move-id spelling.
 ///
 /// The id check remains as the fallback for a move that the owner's moveset does
 /// not bind (a boss projecting moves it never registered a verb for), so this is
 /// a strict SUPERSET of the old rule: nothing that swung before stops swinging.
 fn is_melee_swing_move(moveset: Option<&MovesetContract>, id: &str) -> bool {
     if let Some(verb) = moveset.and_then(|m| verb_for_move(m, id)) {
-        return verb == ATTACK_VERB || verb.starts_with("attack_");
+        return is_melee_verb(verb);
     }
-    id == ATTACK_VERB || id.starts_with("attack_")
+    id == ATTACK_VERB
+        || id.starts_with("attack_")
+        || id == SMASH_VERB
+        || id.starts_with("smash_")
 }
 
 /// Map a moveset `"attack"` move id back to the swing direction it was derived

@@ -130,6 +130,10 @@ pub fn tick_player_brains(
             movement_frame_mode: control_frame_modes.movement,
             aim_frame_mode: control_frame_modes.aim,
             actor_on_ground: ground.on_ground,
+            // Human input owns facing policy. Collision facts do not implicitly
+            // reverse a controlled body.
+            side_contact_normal: None,
+            turns_at_walls: false,
             // FB4b §13.2: the fighter brain's attack kit. EMPTY here, and that is a
             // recorded gap rather than a default: `ActorMut` does not carry the
             // body's `ActorMoveset`, so filling this needs the moveset threaded into

@@ -564,7 +564,10 @@ fn player_melee_never_targets_its_owner() {
         .world_mut()
         .spawn((
             ActorFaction::Player,
-            ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 40.0)),
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 40.0),
+            ),
             ambition_platformer2d_core::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 size: ae::Vec2::new(20.0, 40.0),
@@ -623,7 +626,10 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
         .world_mut()
         .spawn((
             ActorFaction::Player,
-            ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 40.0)),
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 40.0),
+            ),
             armed_player_melee(),
         ))
         .id();
@@ -631,7 +637,10 @@ fn player_melee_resolves_a_targeted_victim_with_authored_knockback() {
         .world_mut()
         .spawn((
             ActorFaction::Enemy,
-            ae::CenteredAabb::new(ae::Vec2::new(130.0, 100.0), ae::Vec2::new(20.0, 40.0)),
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(130.0, 100.0),
+                ae::Vec2::new(20.0, 40.0),
+            ),
             ambition_platformer2d_core::BodyOffense::default(),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
@@ -707,8 +716,10 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
         .spawn((
             ActorFaction::Player,
             crate::targeting::MatchTeam::new("seat-0"),
-            ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 40.0)),
-            armed_player_melee(),
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 40.0),
+            ),
         ))
         .id();
     let victim = app
@@ -717,32 +728,48 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
             ambition_platformer2d_shared_tangle::markers::PlayerEntity,
             ActorFaction::Player,
             crate::targeting::MatchTeam::new("seat-1"),
-            ae::CenteredAabb::new(ae::Vec2::new(130.0, 100.0), ae::Vec2::new(20.0, 40.0)),
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(130.0, 100.0),
+                ae::Vec2::new(20.0, 40.0),
+            ),
             ambition_platformer2d_core::BodyOffense::default(),
             ambition_platformer2d_core::BodyMotionFacts::default(),
             ambition_platformer2d_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ))
         .id();
-    app.world_mut().spawn((
-        Hitbox {
-            strike_sfx: None,
-            owner,
-            source: HitSide::Player,
-            anchor: HitboxAnchor::FollowOwner {
-                local_offset: ae::Vec2::new(20.0, 0.0),
-            },
-            half_extent: ae::Vec2::new(30.0, 30.0),
-            shape: None,
-            facing: 1.0,
-            damage: 4,
-            knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
-                base: 120.0,
-                growth: 0.0,
-            },
-            launch_dir: None,
-            frame_down: ae::Vec2::new(0.0, 1.0),
+    let hitbox = Hitbox {
+        strike_sfx: None,
+        owner,
+        source: HitSide::Player,
+        anchor: HitboxAnchor::FollowOwner {
+            local_offset: ae::Vec2::new(20.0, 0.0),
         },
+        half_extent: ae::Vec2::new(30.0, 30.0),
+        shape: None,
+        facing: 1.0,
+        damage: 4,
+        knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+            base: 120.0,
+            growth: 0.0,
+        },
+        launch_dir: None,
+        frame_down: ae::Vec2::new(0.0, 1.0),
+    };
+    let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
+    let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
+    assert!(
+        !owner_body.strict_intersects(victim_body),
+        "the regression requires separated fighter bodies"
+    );
+    assert!(
+        hitbox
+            .world_volume(app.world().get::<ae::CenteredAabb>(owner).unwrap().center)
+            .intersects_aabb(victim_body),
+        "the authored strike, not body contact, must be what reaches the victim"
+    );
+    app.world_mut().spawn((
+        hitbox,
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
     ));
@@ -754,47 +781,78 @@ fn player_melee_targets_a_player_marked_opponent_on_another_match_team() {
     assert!(cap.0[0].knockback.is_some());
 }
 
-/// No armed swing on the owner ⇒ a Player FollowOwner hitbox deals NO damage (the
-/// swing is the strike's authority; a stray hitbox with no swing is inert).
+/// A live body-owned strike is authoritative gameplay state. The `BodyMelee`
+/// projection exists for animation/HUD/telemetry and must not be a hidden
+/// prerequisite for damage. This pins the exact failure mode where F1 showed the
+/// correct red strike but the volume was inert because a secondary read-model was
+/// absent.
 #[test]
-fn player_followowner_strike_without_a_swing_is_inert() {
+fn player_followowner_strike_does_not_require_a_body_melee_projection() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
     app.add_message::<VfxMessage>();
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
+
+    let owner_center = ae::Vec2::new(100.0, 100.0);
+    let victim_center = ae::Vec2::new(145.0, 100.0);
     let owner = app
         .world_mut()
         .spawn((
-            ambition_platformer2d_core::BodyKinematics::default(),
-            crate::BodyMelee::default(), // swing = None
+            ActorFaction::Player,
+            ae::CenteredAabb::new(owner_center, ae::Vec2::new(10.0, 20.0)),
         ))
         .id();
-    app.world_mut().spawn((
-        Hitbox {
-            strike_sfx: None,
-            owner,
-            source: HitSide::Player,
-            anchor: HitboxAnchor::FollowOwner {
-                local_offset: ae::Vec2::ZERO,
-            },
-            half_extent: ae::Vec2::splat(20.0),
-            shape: None,
-            facing: 1.0,
-            damage: 4,
-            knockback: ambition_vfx::HitboxKnockback::FeelScale(0.0),
-            launch_dir: None,
-            frame_down: ae::Vec2::new(0.0, 1.0),
+    let victim = app
+        .world_mut()
+        .spawn((
+            ActorFaction::Enemy,
+            ae::CenteredAabb::new(victim_center, ae::Vec2::new(10.0, 20.0)),
+            ambition_platformer2d_core::BodyOffense::default(),
+            ambition_platformer2d_core::BodyMotionFacts::default(),
+            ambition_platformer2d_core::BodyShieldState::default(),
+            ambition_characters::actor::BodyCombat::default(),
+        ))
+        .id();
+    let hitbox = Hitbox {
+        strike_sfx: None,
+        owner,
+        source: HitSide::Player,
+        anchor: HitboxAnchor::FollowOwner {
+            local_offset: ae::Vec2::new(32.0, 0.0),
         },
+        half_extent: ae::Vec2::new(18.0, 18.0),
+        shape: None,
+        facing: 1.0,
+        damage: 4,
+        knockback: ambition_vfx::HitboxKnockback::LaunchSpeed {
+            base: 120.0,
+            growth: 0.0,
+        },
+        launch_dir: None,
+        frame_down: ae::Vec2::new(0.0, 1.0),
+    };
+    let owner_body = app.world().get::<ae::CenteredAabb>(owner).unwrap().aabb();
+    let victim_body = app.world().get::<ae::CenteredAabb>(victim).unwrap().aabb();
+    assert!(
+        !owner_body.strict_intersects(victim_body),
+        "the bodies must not touch in this regression"
+    );
+    assert!(
+        hitbox.world_volume(owner_center).intersects_aabb(victim_body),
+        "the strike polygon/box must reach the separated victim"
+    );
+
+    app.world_mut().spawn((
+        hitbox,
         HitboxLifetime { remaining_s: 0.2 },
         HitboxHits::default(),
     ));
     app.update();
-    assert_eq!(
-        app.world().resource::<CapturedHits>().0.len(),
-        0,
-        "a Player FollowOwner hitbox with no armed swing emits nothing"
-    );
+
+    let cap = app.world().resource::<CapturedHits>();
+    assert_eq!(cap.0.len(), 1, "the live strike itself is sufficient authority");
+    assert_eq!(cap.0[0].target, HitTarget::Actor(victim));
 }
 
 /// CM8: an authored strike sound on a hitbox rides the overlap onto the emitted

@@ -230,6 +230,25 @@ fn peaceful_patrol_in_talk_range_holds_and_faces_target() {
 }
 
 #[test]
+fn patrol_turns_away_from_a_semantic_side_contact() {
+    let mut sm = StateMachineCfg::Patrol {
+        cfg: PatrolCfg {
+            lane: AuthoredWorldPatrolLane::new(0.0, 500.0),
+            ..PatrolCfg::NPC_DEFAULT
+        },
+        state: PatrolState::default(),
+    };
+    let mut s = snap_at(0.0, 1000.0);
+    s.actor_facing = 1.0;
+    s.turns_at_walls = true;
+    s.side_contact_normal = Some(-1.0);
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_state_machine(&mut sm, &s, &mut out);
+    assert_eq!(out.facing, -1.0);
+    assert!(out.locomotion.x < 0.0);
+}
+
+#[test]
 fn wanderer_moves_forward_in_its_facing() {
     let cfg = WandererCfg::PUPPY_SLUG_DEFAULT;
     let mut sm = StateMachineCfg::Wanderer { cfg };
@@ -239,6 +258,38 @@ fn wanderer_moves_forward_in_its_facing() {
     tick_state_machine(&mut sm, &s, &mut out);
     assert!(out.locomotion.x > 0.0);
     assert_eq!(out.facing, 1.0);
+}
+
+#[test]
+fn wanderer_turns_away_from_a_semantic_side_contact() {
+    let mut sm = StateMachineCfg::Wanderer {
+        cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
+    };
+    let mut s = BrainSnapshot::idle();
+    s.actor_facing = 1.0;
+    s.turns_at_walls = true;
+    // Wall on local-right: its outward normal pushes the body left.
+    s.side_contact_normal = Some(-1.0);
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_state_machine(&mut sm, &s, &mut out);
+    assert_eq!(out.facing, -1.0);
+    assert!(out.locomotion.x < 0.0);
+}
+
+#[test]
+fn wanderer_does_not_invent_a_wall_from_zero_velocity() {
+    let mut sm = StateMachineCfg::Wanderer {
+        cfg: WandererCfg::PUPPY_SLUG_DEFAULT,
+    };
+    let mut s = BrainSnapshot::idle();
+    s.actor_facing = 1.0;
+    s.actor_vel = ae::Vec2::ZERO;
+    s.turns_at_walls = true;
+    s.side_contact_normal = None;
+    let mut out = crate::actor::control::ActorControlFrame::neutral();
+    tick_state_machine(&mut sm, &s, &mut out);
+    assert_eq!(out.facing, 1.0);
+    assert!(out.locomotion.x > 0.0);
 }
 
 #[test]

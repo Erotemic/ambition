@@ -35,8 +35,9 @@ pub use prims::*;
 // debug-viz module now (`DebugVizPlugin` gives them to any game); this richer
 // overlay composes them with its game-specific layers below.
 pub(crate) use ambition_platformer2d::render::rendering::debug_viz::{
-    blue, cyan, draw_aabb, draw_aabb_styled, draw_arrow, draw_combat_volume, draw_hitbox_volume,
-    draw_micro_grid, draw_moving_platform_debug, draw_rebound_vectors, draw_room_bounds,
+    blue, cyan, draw_aabb, draw_aabb_styled, draw_arrow, draw_combat_geometry_view,
+    draw_combat_volume, draw_hitbox_volume, draw_micro_grid, draw_moving_platform_debug,
+    draw_rebound_vectors, draw_room_bounds,
     draw_surface_chains, draw_world_blocks, draw_world_grid, engine_delta_to_bevy, gray, green,
     magenta, orange, red, w2, white_dim, with_alpha, yellow,
 };
@@ -146,42 +147,19 @@ pub(crate) fn draw_debug_overlay(
     } else {
         None
     };
-    let Ok((
-        player_entity,
-        mut cluster_item,
-        motion_model,
-        player_health,
-        attack,
-        worn_character,
-        presented,
-    )) = player_q.single_mut()
-    else {
-        return;
-    };
-    // Both debug-overlay helpers (`draw_player_debug`,
-    // `draw_health_bars`) take cluster refs directly.
-    let clusters = cluster_item.as_clusters_mut();
-    // Where the body is DRAWN this frame. Falls back to the tick pose when there
-    // is no history yet (the frame the body first appears), exactly as every other
-    // body-anchored visual does.
-    let player_draw_pos =
-        presented.map_or(clusters.kinematics.pos, |presented| presented.presented());
+    // World- and combat-level observability is independent of whether this host
+    // happens to contain a legacy `PrimaryPlayerOnly` body. Smash deliberately
+    // does not; that must not make every other debug layer disappear.
     if developer_tools.show_room_bounds {
         draw_room_bounds(&mut gizmos, world);
     }
     if developer_tools.show_world_blocks {
         draw_world_blocks(&mut gizmos, world, &developer_tools);
-        // Momentum ride-surfaces live alongside the blocks (S3b): show the
-        // SurfaceChains + their normals/tangents under the same toggle.
         draw_surface_chains(&mut gizmos, world);
     }
     if developer_tools.show_micro_grid {
         draw_micro_grid(&mut gizmos, world, 8.0, 16.0);
     }
-    // With sprites hidden the world is a black void; draw the coarse
-    // world grid (matches the sprite-grid GRID_STEP) so the player
-    // keeps a spatial reference once the tile / parallax sprites
-    // disappear. Uses the regular grid, not the micro-grid.
     if developer_tools.hide_sprites {
         draw_world_grid(&mut gizmos, world);
     }
@@ -198,39 +176,64 @@ pub(crate) fn draw_debug_overlay(
     if developer_tools.show_moving_platform {
         draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
-    let player_gravity =
-        ambition_platformer2d::actors::physics::gravity_dir_or_default(feature_q.gravity.as_deref());
-    draw_player_debug(
+    draw_combat_geometry_view(
         &mut gizmos,
         world,
-        &feature_q.character_catalog,
-        &feature_q.authored_attack_volumes,
-        worn_character.id(),
-        &clusters,
-        player_draw_pos,
-        motion_model,
-        &platform_set.0,
-        attack.swing.as_ref(),
-        actions,
-        gameplay_active,
+        &feature_q.combat_geometry,
         &developer_tools,
-        player_gravity,
-        &mut overlay_labels,
     );
-    if developer_tools.show_health_bars {
-        draw_health_bars(
+
+    // The historical Ambition protagonist still has extra app-specific policy
+    // diagnostics (blink internals, authored preview, health). Treat those as an
+    // optional enrichment instead of the admission ticket for the whole overlay.
+    if let Ok((
+        _player_entity,
+        mut cluster_item,
+        motion_model,
+        player_health,
+        attack,
+        worn_character,
+        presented,
+    )) = player_q.single_mut()
+    {
+        let clusters = cluster_item.as_clusters_mut();
+        let player_draw_pos =
+            presented.map_or(clusters.kinematics.pos, |presented| presented.presented());
+        let player_gravity = ambition_platformer2d::actors::physics::gravity_dir_or_default(
+            feature_q.gravity.as_deref(),
+        );
+        draw_player_debug(
             &mut gizmos,
             world,
-            clusters.kinematics.aabb(),
-            player_health,
+            &feature_q.character_catalog,
+            &feature_q.authored_attack_volumes,
+            worn_character.id(),
+            &clusters,
+            player_draw_pos,
+            motion_model,
+            &platform_set.0,
+            attack.swing.as_ref(),
+            actions,
+            gameplay_active,
+            &developer_tools,
+            player_gravity,
+            &mut overlay_labels,
         );
+        if developer_tools.show_health_bars {
+            draw_health_bars(
+                &mut gizmos,
+                world,
+                clusters.kinematics.aabb(),
+                player_health,
+            );
+        }
     }
+
     if developer_tools.show_feature_hitboxes {
         draw_feature_debug(
             &mut gizmos,
             world,
             &feature_q,
-            Some((player_entity, clusters.kinematics.pos)),
             &developer_tools,
             &mut overlay_labels,
         );

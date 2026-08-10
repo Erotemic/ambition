@@ -1982,6 +1982,67 @@ fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
     );
 }
 
+/// Routing derives from the melee VERB family, not from requiring a base
+/// `attack` entry. A directional-only fighter is a valid moveset and must still
+/// receive the presentation marker.
+#[test]
+fn a_directional_only_smash_route_derives_the_melee_marker() {
+    let smash = gesture_test_move("forward_smash");
+    let contract = MovesetContract {
+        verbs: std::collections::BTreeMap::from([(
+            "smash_forward".to_string(),
+            smash.id.clone(),
+        )]),
+        moves: vec![smash],
+    };
+
+    let mut app = App::new();
+    app.add_systems(Update, reconcile_moveset_routing_markers);
+    let body = app.world_mut().spawn(ActorMoveset(contract)).id();
+    app.update();
+    assert!(
+        app.world().get::<MovesetMelee>(body).is_some(),
+        "any attack/smash verb family routes through the melee read-model"
+    );
+}
+
+/// A dedicated smash verb is still a melee read-model even though its move id
+/// need not begin with `attack`. Gameplay no longer depends on this projection,
+/// but animation/movement observers must still see the body as mid-swing.
+#[test]
+fn a_smash_verb_projects_the_melee_read_model() {
+    let smash = gesture_test_move("forward_smash");
+    let contract = MovesetContract {
+        verbs: std::collections::BTreeMap::from([(
+            "smash_forward".to_string(),
+            smash.id.clone(),
+        )]),
+        moves: vec![smash.clone()],
+    };
+
+    let mut app = App::new();
+    app.add_systems(Update, project_moveset_melee_to_body_melee);
+    let body = app
+        .world_mut()
+        .spawn((
+            MovesetMelee,
+            BodyMelee::default(),
+            ActorMoveset(contract),
+            MovePlayback::new(smash, 1.0),
+        ))
+        .id();
+
+    app.update();
+    assert!(
+        app.world()
+            .get::<BodyMelee>(body)
+            .unwrap()
+            .swing
+            .is_some(),
+        "a smash-bound move must present as a melee swing"
+    );
+}
+
 // -----------------------------------------------------------------------
 // CM4 — cancel tables: the timeline IS the cancel table.
 // -----------------------------------------------------------------------

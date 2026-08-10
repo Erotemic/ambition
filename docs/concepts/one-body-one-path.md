@@ -3,7 +3,7 @@ id: one-body-one-path
 aliases: []
 status: current
 authority: durable-concept
-last_verified: 2026-08-07
+last_verified: 2026-08-09
 related_docs:
   - docs/concepts/invariants.md
   - docs/concepts/movement-collision.md
@@ -82,6 +82,20 @@ system (`player_body_tick`) that calls the SAME combined body tick the actor use
 (`ae::update_player_with_tuning_clusters` ≈ the actor's
 `update_body_with_tuning_clusters`). The two differ only in the input frame and
 in the respawn POLICY.
+
+**Facing is control output, not a collision side effect.** The movement kernel
+publishes semantic contacts such as `BodyWallState`; it never reverses a body
+because velocity happened to stop. Autonomous Patrol/Wanderer policy may choose
+to turn away from a real side contact. Human input, fighter brains, scripted
+control, remote control and RL authority retain the facing they chose.
+
+**Observers do not require a privileged protagonist.** Combat geometry is
+projected through the `ambition_sim_view::CombatGeometryView` read-model for
+every combat body: collision envelope, effective hurtboxes, and live strike
+volumes. Debug rendering consumes that observation whether the session has zero,
+one, or many bodies under human control. A `PrimaryPlayerOnly` body may still
+have Ambition-specific diagnostics, but its existence is never the admission
+ticket for engine-level observability.
 
 **The two-clock precision-blink split is an INPUT affordance, not a simulation
 structure.** Responsive aim during bullet-time is purely

@@ -49,18 +49,13 @@ pub struct ActorTuning {
     /// once by [`Self::motion_model`]; runtime dispatch reads the body's
     /// explicit `MotionModel`, never this flag.
     pub surface_walker: bool,
-    /// **A grounded walker that runs into a wall turns around.**
+    /// **Autonomous simple walkers turn away from semantic side contacts.**
     ///
-    /// Default `true`, because a body that walks into a wall and keeps pushing
-    /// forever is not something anyone authored on purpose — the flag exists for
-    /// the exceptions (a body scripted to hold a heading regardless of what it
-    /// hits). This used to be gated on the brain emitting
-    /// `CharacterAiIntent::Patrol` instead, which meant the whole `Wanderer`
-    /// family — every Mary-O snake — walked into walls and stayed there: "the
-    /// enemies need to reverse direction when they hit a wall" (Jon). Turning
-    /// around at a wall is a property of the BODY, not of which brain happens to
-    /// be steering it, and a brain-intent gate is exactly the kind of test that
-    /// silently excludes a family nobody thought about.
+    /// This is authored on the character today but consumed by Patrol/Wanderer
+    /// brains through `BrainSnapshot`; the movement kernel only publishes the
+    /// wall contact fact and never changes facing. Human control, Smash fighter
+    /// AI, scripted control, and future remote/RL controllers therefore do not
+    /// inherit a hidden locomotion policy merely by inhabiting the same body.
     pub turns_at_walls: bool,
     /// Surface-walker only: a hit knocks the actor off its surface (it
     /// falls with gravity for a moment, then re-attaches). `false` keeps

@@ -30,23 +30,22 @@
 //! [`HitEvent`], so the struck body's own victim consumer applies it: i-frames,
 //! knockback, hurt feedback, death, all of it, none of it re-implemented.
 //!
-//! ## ⚠ why this is NOT a `Hitbox`
+//! ## Why this is NOT a `Hitbox`
 //!
-//! It was, and the volume never fired once. A `Hitbox` carrying
-//! `HitSide::Player` with a `FollowOwner` anchor is resolved by
-//! `apply_hitbox_damage` as a MELEE SWING, and that branch opens with
-//! *"no swing armed ⇒ no strike"* — it reads the owner's `BodyMelee.swing` for
-//! per-swing dedup and skips the volume when there is none. An empowered body is
-//! not swinging, so its volume was dropped every tick, silently, for as long as
-//! the empowerment lasted. (Jon: *"I ran into enemies with quasar mode on and
-//! they did not get hurt."*)
+//! "My body harms what it touches" is body-vs-body contact, which the engine
+//! already models for the other direction (`apply_actor_contact_damage`, an
+//! enemy's body hurting what it walks into). This is that rule, pointed outward,
+//! and it is the same rule Sanic's badniks were resolving by hand against a
+//! character id. A transient attack volume would encode the wrong primitive even
+//! though a live `Hitbox` is now correctly sufficient authority to deal damage.
 //!
-//! That guard is not a bug — cross-window dedup genuinely belongs to the swing.
-//! It is that a hitbox is the wrong PRIMITIVE here. "My body harms what it
-//! touches" is body-vs-body contact, which the engine already models for the
-//! other direction (`apply_actor_contact_damage`, an enemy's body hurting what
-//! it walks into). This is that rule, pointed outward, and it is the same rule
-//! Sanic's badniks were resolving by hand against a character id.
+//! Historically this distinction was accidentally enforced by a bad gameplay
+//! dependency: Player `FollowOwner` hitboxes were dropped unless the owner's
+//! `BodyMelee.swing` read-model was populated. That made correctly materialized
+//! strike geometry silently inert and contradicted the moveset contract that
+//! `BodyMelee` is presentation/read-model only. The damage resolver no longer
+//! consults that projection; contact harm stays here because contact is what the
+//! mechanic MEANS.
 //!
 //! ## Hitting once is the VICTIM's rule, not ours
 //!

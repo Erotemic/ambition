@@ -2085,3 +2085,88 @@ fn a_worn_body_carrying_no_moveset_is_still_given_its_persona() {
          unconditionally, so the body must end up somewhere to put it",
     );
 }
+
+/// **The minted moveset carries the character's ACTUAL repertoire.**
+///
+/// A reviewer flagged a double-mint hazard in the repair above: both branches of
+/// `apply_worn_character_gameplay` minted their own moveset when the body
+/// carried none, and `Commands` insertion is DEFERRED — so two branches running
+/// in one update would each observe `None`, queue two inserts, and the second
+/// would silently discard the first's derivation.
+///
+/// ⭐ **the fix is structural, not a test**: one `minted` binding per body,
+/// `take`n at whichever exit inserts it. Two mints are now unrepresentable
+/// however the control flow is later rearranged.
+///
+/// ⚠ **and this test does NOT prove that, which is worth stating plainly.** I
+/// wrote it as a falsifier and it failed to falsify twice. A goblin cannot
+/// express the scenario at all — an ordinary authored character fails the
+/// `HostCode`-or-unknown gate, so the ability branch never runs for it. And for
+/// the protagonist, which does pass that gate, BOTH branches derive the same
+/// non-empty kit from the same persisted `AbilitySet`, so a discarded first
+/// derivation is indistinguishable from a kept one by any assertion on the
+/// result. A falsifier that passes under its own poison is not a falsifier, and
+/// naming that here is cheaper than the next reader re-deriving it.
+///
+/// What it DOES pin: the minted component carries a real derived repertoire
+/// rather than the empty default, and a later ability change refines that same
+/// component in place. "An `ActorMoveset` exists" — the first test's assertion —
+/// is satisfied by an empty one, and an empty one is exactly what a clobber
+/// would leave.
+#[test]
+fn a_minted_moveset_is_singular_and_carries_the_real_repertoire() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::brain::ActionSet;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.add_systems(Update, apply_worn_character_gameplay);
+
+    let e = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("player"),
+            MotionModel::default(),
+            Name::new("unset"),
+            ActionSet::default(),
+            ambition_platformer2d_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_platformer2d_core::BodyClusterScratch::new_with_abilities(
+                    ambition_platformer2d_core::Vec2::ZERO,
+                    ambition_platformer2d_core::AbilitySet::sandbox_all(),
+                ),
+            ),
+        ))
+        .id();
+    app.update();
+
+    let minted = app
+        .world()
+        .get::<ActorMoveset>(e)
+        .expect("the body must have been given one");
+    assert!(
+        !minted.0.moves.is_empty(),
+        "the protagonist's sandbox kit derives a non-empty repertoire — an \
+         EMPTY one here means the component was minted and then replaced by a \
+         second empty mint, which is what `is_some()` cannot see",
+    );
+
+    // And a later ability change refreshes the SAME component rather than
+    // minting beside it — the body carries one now, so there is nothing to mint.
+    let before = minted.0.moves.len();
+    {
+        let mut abilities = app
+            .world_mut()
+            .get_mut::<crate::actor::BodyAbilities>(e)
+            .expect("the movement bundle carries one");
+        abilities.abilities.attack = false;
+    }
+    app.update();
+    assert!(
+        app.world().get::<ActorMoveset>(e).unwrap().0.moves.len() < before,
+        "disabling the melee must shrink the repertoire in place; an unchanged \
+         count means the ability branch wrote somewhere other than the body",
+    );
+}

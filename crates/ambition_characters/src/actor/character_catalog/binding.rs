@@ -63,6 +63,62 @@ impl std::fmt::Display for BrainPresetId {
     }
 }
 
+/// **An AUTHORED, provider-relative reference to a brain profile** — what
+/// content writes, before anything has resolved it.
+///
+/// ⭐ **the distinction from [`BrainPresetId`] is the whole reason this type
+/// exists.** `"combatant"` and `"hall::combatant"` are different statements, and
+/// for a while both travelled as a `BrainPresetId` — which meant the newtype
+/// stopped distinguishing anything it was introduced to distinguish. A
+/// reference is provider-RELATIVE and may be ambiguous until a character's own
+/// namespace resolves it; an id is the canonical key into `brain_presets`.
+///
+/// ```text
+/// authored placement / definition   BrainProfileRef      "combatant"
+///         ↓ qualify against the character's namespace
+/// resolved identity                 BrainPresetId        "hall::combatant"
+/// ```
+///
+/// ⚠ **resolution happens at SPAWN today, in [`resolve_initial_brain`], not at
+/// preparation.** So a `PreparedCharacterDefinition` still carries a reference
+/// rather than an id — which is honest about where the work happens, and is
+/// itself a thing to fix: a prepared definition should hold resolved identities.
+/// See `docs/planning/character-template-architecture-2026-08-10.md`.
+///
+/// ⚠ not to be confused with `content_schema::BrainPresetRef`, which is a
+/// zero-sized CONTENT-KIND tag for the cross-content validator, not a value.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct BrainProfileRef(pub String);
+
+impl BrainProfileRef {
+    pub fn new(reference: impl Into<String>) -> Self {
+        Self(reference.into())
+    }
+
+    /// The authored text, exactly as content wrote it.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl From<&str> for BrainProfileRef {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl From<String> for BrainProfileRef {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl std::fmt::Display for BrainProfileRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// A stable id for a hostile roster archetype — the brain-key that the
 /// provocation authority resolves (`hostile_brain_id_for_actor`) and rebuilds an
 /// actor from (`roster.spec_for_brain`). A newtype over `String` so it can't be
@@ -462,23 +518,22 @@ pub fn resolve_initial_brain(
     // outranked by an authored placement override, which is the whole precedence
     // rule in one line.
     //
-    // ⚠ **a resolved id, not a registry handle, and deliberately.** The prepared
-    // registry lives two crates up; passing the resolved NAME keeps this function
-    // where it belongs and keeps the layering intact. The caller looks it up.
+    // ⚠ **a reference, not a registry handle.** The prepared registry lives two
+    // crates up; passing the authored NAME keeps this function where it belongs
+    // and keeps the layering intact. The caller looks it up.
     //
-    // ⚠ it is an AUTHORED local name wearing the id type, not an already-qualified
-    // catalog key: it is qualified below exactly as `authored_override` is. The
-    // type is here because this module's own rule says so — a preset id must not
-    // be confusable with a character id or a bare string in a signature — and
-    // this parameter sits next to `character_id: &str`, which is precisely the
-    // confusion the newtype exists to prevent.
+    // ⚠ **and a [`BrainProfileRef`], not a [`BrainPresetId`].** It is
+    // provider-relative authored text, qualified below exactly as
+    // `authored_override` is. Carrying it as an id would mean one type holding
+    // both an unresolved reference and a resolved key — the distinction the
+    // newtype exists to make.
     //
     // ⭐ it reaches [`BrainBinding::default_preset`] — the field whose doc already
     // says *"restoring the default rebuilds a fresh brain from THIS preset"* — so
     // no new [`AutonomousSource`] variant is needed and the rollback shape is
     // unchanged. `CatalogDefault` keeps meaning *"the character's default"*; only
     // who gets to state it has widened.
-    definition_default: Option<&BrainPresetId>,
+    definition_default: Option<&BrainProfileRef>,
     ctx: &BrainBuildContext,
 ) -> Result<(BrainBinding, Brain), BrainBuildError> {
     let entry = catalog
@@ -591,7 +646,7 @@ mod tests {
         authored: Option<&str>,
         definition_default: Option<&str>,
     ) -> Result<(BrainBinding, Brain), BrainBuildError> {
-        let definition_default = definition_default.map(BrainPresetId::from);
+        let definition_default = definition_default.map(BrainProfileRef::from);
         resolve_initial_brain(
             &catalog(),
             cid,

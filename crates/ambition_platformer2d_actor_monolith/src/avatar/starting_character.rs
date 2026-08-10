@@ -735,11 +735,24 @@ pub fn apply_worn_character_gameplay(
         // retired kit after a hot reload.
         let stale_cast =
             baseline.is_none_or(|baseline| baseline.id != id || baseline.generation != generation);
+        // **ONE mint per body, whatever path the derivation takes.**
+        //
+        // A body that carries no moveset gets one BUILT rather than being
+        // skipped — the overlay states a repertoire unconditionally, so the only
+        // question absence can answer is where to put the answer.
+        //
+        // ⛔ **minted HERE rather than inside each branch, and `take`n at the
+        // insert, because `Commands` insertion is DEFERRED.** Two branches each
+        // minting their own would each observe `moveset == None` in the same
+        // update and queue two inserts, the second silently discarding the
+        // first's derivation. Today the identity branch `continue`s so the two
+        // are mutually exclusive — but that makes the safety a property of one
+        // `continue` in a 200-line loop, which is the kind of guarantee that
+        // stops being true without anyone noticing. One binding cannot mint
+        // twice regardless of how the control flow is later rearranged.
+        let mut minted = moveset.is_none().then(|| ActorMoveset(Default::default()));
+
         if character.is_changed() || stale_cast {
-            // A body that carries no moveset gets one BUILT rather than being
-            // skipped. The overlay states a repertoire unconditionally, so the
-            // only question absence can answer is where to put the answer.
-            let mut minted = moveset.is_none().then(|| ActorMoveset(Default::default()));
             let moveset_slot = match moveset.as_deref_mut() {
                 Some(existing) => existing,
                 None => minted.as_mut().expect("minted when the body carried none"),
@@ -762,7 +775,8 @@ pub fn apply_worn_character_gameplay(
             // ⚠ INSERT, never a conditional write: the body did not carry the
             // component, so there is nothing to write into. `try_insert` because
             // a session teardown on this frame leaves a dead entity behind.
-            if let Some(built) = minted {
+            // `take` so a later exit cannot queue a second insert.
+            if let Some(built) = minted.take() {
                 commands.entity(entity).try_insert(built);
             }
             sync_charge_projectile_capability(
@@ -917,8 +931,8 @@ pub fn apply_worn_character_gameplay(
         if abilities.is_changed() {
             let source = catalog.playable_kit_source(id);
             if matches!(source, Some(PlayableKitSource::HostCode)) || source.is_none() {
-                // Same rule as the re-derive above: absence means "build one".
-                let mut minted = moveset.is_none().then(|| ActorMoveset(Default::default()));
+                // Same rule as the re-derive above: absence means "build one",
+                // into the SAME binding minted at the top of this iteration.
                 let moveset_slot = match moveset.as_deref_mut() {
                     Some(existing) => existing,
                     None => minted.as_mut().expect("minted when the body carried none"),
@@ -934,7 +948,7 @@ pub fn apply_worn_character_gameplay(
                     abilities.abilities,
                     match_kit_for_seat(roster.as_deref(), seat),
                 );
-                if let Some(built) = minted {
+                if let Some(built) = minted.take() {
                     commands.entity(entity).try_insert(built);
                 }
                 sync_charge_projectile_capability(

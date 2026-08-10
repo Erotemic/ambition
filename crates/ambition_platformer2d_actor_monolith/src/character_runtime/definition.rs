@@ -321,17 +321,17 @@ pub struct CharacterDefinition {
     /// override wins, then this, then the catalog row's `default_brain`. `None`
     /// leaves the row in charge, which is every character in the repo today.
     ///
-    /// ⚠ **an AUTHORED local name, not an already-qualified catalog key.**
+    /// ⚠ **a provider-relative REFERENCE, not a resolved catalog key.**
     /// `resolve_initial_brain` qualifies it into the character's own provider
     /// namespace exactly as it qualifies an authored placement override, so a
     /// definition and a placement cannot mean different things by the same word.
-    /// It is typed anyway because [`BrainPresetId`]'s own doc gives the reason:
-    /// *"so a preset id can't be silently confused with a character id or a bare
-    /// string in a signature"* — and a campaign whose entire subject is that two
-    /// identity namespaces got confused should not add a `String` to the pile.
+    /// The type says which of the two it is: [`BrainProfileRef`] is what content
+    /// writes, [`BrainPresetId`] is the canonical key it resolves to.
     ///
+    /// [`BrainProfileRef`]: ambition_characters::actor::character_catalog::BrainProfileRef
     /// [`BrainPresetId`]: ambition_characters::actor::character_catalog::BrainPresetId
-    pub default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainPresetId>,
+    pub default_brain_profile:
+        Option<ambition_characters::actor::character_catalog::BrainProfileRef>,
     pub moveset: Option<MovesetContract>,
     /// What this character CAN do — melee, ranged, special, locomotion style.
     ///
@@ -406,7 +406,7 @@ impl CharacterDefinition {
     /// See [`Self::default_brain_profile`].
     pub fn with_default_brain_profile(
         mut self,
-        profile: impl Into<ambition_characters::actor::character_catalog::BrainPresetId>,
+        profile: impl Into<ambition_characters::actor::character_catalog::BrainProfileRef>,
     ) -> Self {
         self.default_brain_profile = Some(profile.into());
         self
@@ -541,7 +541,7 @@ struct PreparedCharacterOverrides {
     /// unchanged — the catalog is not consulted, because the FOLD's job is to
     /// answer what a character IS and this is a default the resolver applies at
     /// spawn, where the placement's own override is also visible.
-    default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainPresetId>,
+    default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainProfileRef>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -664,7 +664,8 @@ pub struct PreparedCharacterDefinition {
     /// The autonomous profile this character normally runs, if it named one.
     /// See [`CharacterDefinition::default_brain_profile`] — `None` leaves the
     /// catalog row's `default_brain` in charge.
-    pub default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainPresetId>,
+    pub default_brain_profile:
+        Option<ambition_characters::actor::character_catalog::BrainProfileRef>,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,
     /// The movement policy, resolved. Every body already carries exactly one

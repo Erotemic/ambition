@@ -637,7 +637,7 @@ mod default_profile_tests {
             "test",
         );
         definition.default_brain_profile =
-            profile.map(ambition_characters::actor::character_catalog::BrainPresetId::from);
+            profile.map(ambition_characters::actor::character_catalog::BrainProfileRef::from);
         let finalized = crate::character_runtime::prepare_and_finalize_for_test(
             definition,
             &crate::character_runtime::CharacterBindings::default(),

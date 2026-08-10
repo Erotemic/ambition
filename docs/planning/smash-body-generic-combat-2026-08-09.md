@@ -395,6 +395,25 @@ what it now decides (does this unresolved volume hunt for victims?), and
 re-source boss strength from the attacker entity.** Renaming without the last
 part would be a half-fold that leaves `BossAttack` alive under a new name.
 
+### ✔ item 2, step 1 — heavy strength left the vocabulary (2026-08-09)
+
+`boss_hit` is no longer `matches!(source, BossBody | BossAttack)` at either
+consumer. Both ask the attacker entity the event already names.
+
+* ⛔ **`HitSource::BossBody` had ZERO producers** — a boss's body contact was
+  always filed as `EnemyBody` by `ContactAttack`, so the "boss touched you"
+  spelling described traffic that did not exist and the heavier feel only ever
+  came from a boss *swing*. The variant is deleted.
+* ⚠ **BLIND consequence, and it is a fix**: because heaviness now comes from the
+  striker, a boss **body check** lands with boss weight for the first time. Two
+  years of `EnemyBody` said otherwise only because nobody could spell it.
+* the guard lands the **same `EnemyAttack` source twice from two attackers** and
+  asserts the hitstun differs — a test that reads the cause cannot pass it. Its
+  poison is the ordinary attacker, which must not inherit the heavy duration.
+
+▢ **what remains of item 2**: the rename itself, and `is_attacker_side` →
+a name for what it now decides.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

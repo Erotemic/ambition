@@ -1363,6 +1363,75 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
     );
 }
 
+/// ⭐⭐ **A heavy attacker hits heavy because of WHAT IT IS, not what its hit is
+/// called.** `boss_hit` used to be `matches!(source, BossBody | BossAttack)` — a
+/// source-specific formula for a fact about the striker, and one that could only
+/// ever be true for a body the cause vocabulary happened to have a word for.
+///
+/// Here the very same `EnemyAttack` source lands twice, from two attackers, and
+/// the hitstun differs — so the fact is being read off the attacker. The second
+/// half is the poison: an ordinary attacker must NOT get the heavy launch, or
+/// the query is matching everything and the assertion above proves nothing.
+#[test]
+fn a_heavy_attacker_is_read_off_the_attacker_not_the_hit_source() {
+    let feel = crate::time::feel::Platformer2dFeelTuningMonolith::default();
+    assert!(
+        feel.boss_hitstun_time > feel.enemy_hitstun_time,
+        "the fixture only distinguishes the two paths if the tuning does"
+    );
+
+    let hitstun_from = |heavy: bool| {
+        let mut app = shield_test_app();
+        let victim = spawn_hostile_actor(&mut app);
+        let attacker = if heavy {
+            app.world_mut()
+                .spawn(crate::features::BossConfig {
+                    id: "heavy".into(),
+                    name: "Heavy".into(),
+                    spawn: ae::Vec2::ZERO,
+                    brain: ambition_entity_catalog::placements::BossBrain::Dormant,
+                    behavior: crate::features::BossBehaviorProfile::generic(
+                        crate::boss_encounter::test_boss_catalog(),
+                        "heavy",
+                    ),
+                })
+                .id()
+        } else {
+            app.world_mut().spawn_empty().id()
+        };
+        let center = ae::Vec2::ZERO;
+        app.world_mut().write_message(HitEvent {
+            strike_sfx: None,
+            volume: ae::Aabb::new(center, ae::Vec2::new(32.0, 40.0)).into(),
+            damage: 1,
+            // ⚠ the SAME cause in both runs. If the vocabulary were still
+            // deciding, both would land identically.
+            source: HitSource::EnemyAttack,
+            attacker: Some(attacker),
+            target: HitTarget::Body(victim),
+            mode: HitMode::Knockback,
+            knockback: Some(slash_knockback(center, 1.0)),
+            ignored_targets: Vec::new(),
+        });
+        app.update();
+        app.world()
+            .get::<BodyCombat>(victim)
+            .expect("victim exists")
+            .hitstun_timer
+    };
+
+    let heavy = hitstun_from(true);
+    let ordinary = hitstun_from(false);
+    assert!(
+        (heavy - feel.boss_hitstun_time).abs() < 1e-4,
+        "a boss-class attacker stuns for the heavy duration, got {heavy}"
+    );
+    assert!(
+        (ordinary - feel.enemy_hitstun_time).abs() < 1e-4,
+        "an ordinary attacker must not inherit the heavy duration, got {ordinary}"
+    );
+}
+
 /// A slash's knockback rides the shared resolution: side from the payload's
 /// `dir`, strength from its magnitude.
 ///

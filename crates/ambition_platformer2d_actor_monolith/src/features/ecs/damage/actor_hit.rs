@@ -127,6 +127,16 @@ pub(crate) fn apply_actor_hit(
     // the ENEMY default today). The victim owns its spray/debris; the attack owns
     // only the strike sound.
     hurt: ambition_vfx::HurtFeedback,
+    // **Does this hit come off a HEAVY attacker?** — the heavier launch and the
+    // longer hitstun (`feel.boss_*`).
+    //
+    // ⛔ this used to be `matches!(event.source, BossBody | BossAttack)`, derived
+    // right here from the cause vocabulary. That is a source-specific formula
+    // for a fact about the ATTACKER, and it could only ever be true for a body
+    // the vocabulary happened to have a word for — so a heavy NPC, a
+    // possessed boss, or a match fighter with boss-class weight was
+    // unrepresentable. The caller asks the attacker entity now.
+    heavy_attacker: bool,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     let session_scope = writers.session_spawn_scope();
@@ -393,7 +403,7 @@ pub(crate) fn apply_actor_hit(
         // silently evaporates.
         let knockback = event.knockback.clone();
         if let Some(k) = knockback {
-            let boss_hit = matches!(event.source, HitSource::BossBody | HitSource::BossAttack);
+            let boss_hit = heavy_attacker;
             // §A2 step 7 (FEEL-BLIND): the launch also arms the shared stagger
             // (hitstun / recoil-lock / hitstop on `BodyCombat`), consumed by
             // the actor driver's post-hit input gate + hitstop dt beat — an

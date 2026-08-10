@@ -210,10 +210,10 @@ pub struct NpcDialogueRequest {
 ///   the feature-damage system to apply damage to enemies / bosses /
 ///   breakables.
 /// - **Victim-side** (`Hazard`, `EnemyBody`, `EnemyAttack`,
-///   `EnemyProjectile`, `BossBody`, `BossAttack`) — consumed by the
+///   `EnemyProjectile`, `BossAttack`) — consumed by the
 ///   player-damage system to apply damage to players.
 ///
-/// An explicit [`HitTarget::Body`] or [`HitTarget::Body`] outranks that legacy
+/// An explicit [`HitTarget::Body`] outranks that legacy
 /// direction: once a producer has already resolved a concrete body victim, the
 /// matching victim consumer accepts the event regardless of source direction.
 /// This is what lets body-owned melee use one contact resolver for every
@@ -272,14 +272,20 @@ pub enum HitSource {
     /// Enemy self-crash / self-destruct hit. Used by special charge
     /// behaviors that intentionally ram a wall and explode.
     EnemyChargeCrash,
-    /// Contact with a boss body (touched the boss itself).
-    BossBody,
     /// Hit by a boss melee swing.
+    ///
+    /// ⚠ **scheduled to fold into a plain melee cause.** The only thing this
+    /// spelling still buys over `EnemyAttack` is the heavier launch and longer
+    /// hitstun — and that no longer reads the vocabulary: it is asked of the
+    /// ATTACKER entity, which the event names. A sibling `BossBody` variant was
+    /// deleted with that change, having had zero producers: a boss's body
+    /// contact was always filed as `EnemyBody`, so boss weight reached a body
+    /// check for the first time when the fact moved to the attacker.
     BossAttack,
     /// **A body whose own footprint harms what it touches** — a star-powered
     /// runner flattening what it passes through.
     ///
-    /// Distinct from [`Self::EnemyBody`] and [`Self::BossBody`] rather than
+    /// Distinct from [`Self::EnemyBody`] rather than
     /// folded into them, because those name WHO touched you and this names WHAT
     /// KIND of thing happened: the striker is whoever holds the trait, which may
     /// be the player, an NPC, or a possessed anything.
@@ -434,8 +440,8 @@ pub struct HitEvent {
     /// sources (slash, pogo, player projectile) stamp the player whose
     /// attack landed — `apply_feature_hit_events` uses it to attribute
     /// hitstop / flash to the correct player. Hostile sources stamp the
-    /// attacking entity symmetrically where one exists: `BossAttack` /
-    /// `BossBody` carry the boss, `EnemyBody` / `EnemyChargeCrash` the
+    /// attacking entity symmetrically where one exists: `BossAttack`
+    /// carries the boss, `EnemyBody` / `EnemyChargeCrash` the
     /// enemy — so the victim's `DeathCause` records who killed it (the
     /// compact causality seam for replay / RL / future netcode). Sources
     /// with no entity attacker stay `None`: `Hazard` (environmental) and

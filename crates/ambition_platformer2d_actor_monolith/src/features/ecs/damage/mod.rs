@@ -356,6 +356,9 @@ pub fn apply_feature_hit_events(
     // projectile spawn does; it is a menu-side (non-rollback) setting, constant
     // across a rollback window, so reading it here is deterministic.
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
+    // **Which bodies hit HEAVY.** A filter-only query: it reads no components, so
+    // it conflicts with nothing here, including the mutable boss query above.
+    heavy_attackers: Query<(), With<super::boss_clusters::BossConfig>>,
     // R3: boss damage mutates the boss ENTITY directly (`apply_boss_hit` →
     // `apply_entity_boss_damage`), so this system no longer needs the boss
     // encounter resources — death save/quest/music resolution lives in
@@ -428,6 +431,15 @@ pub fn apply_feature_hit_events(
             event.target,
             crate::combat::events::HitTarget::UnresolvedFeatures
         );
+        // **Is the attacker a HEAVY body?** — asked of the attacker entity, which
+        // the event already names, rather than pattern-matched out of the cause
+        // vocabulary. A boss launches harder and stuns longer; that is a fact
+        // about the striker, not about the word its hit happens to be filed
+        // under, and reading it here is what lets the vocabulary lose its
+        // `BossAttack` / `BossBody` spellings without losing the feel.
+        let heavy_attacker = event
+            .attacker
+            .is_some_and(|attacker| heavy_attackers.contains(attacker));
         // Victim-side sources (enemy touch, enemy swings, boss body
         // contact, hazards) are consumed by the player-damage path.
         // The feature drain only applies attacker-side player hits
@@ -521,6 +533,7 @@ pub fn apply_feature_hit_events(
                 feel,
                 di_input_local,
                 hurt,
+                heavy_attacker,
                 &mut writers,
             ) {
                 actor_hit_this_event = true;

@@ -393,6 +393,9 @@ pub(crate) fn handle_player_damage_events(
     // holds the queries.
     attacker_source: Option<&ambition_sfx::PresentationSourceId>,
     victim_source: Option<&ambition_sfx::PresentationSourceId>,
+    // Whether the striker hits heavy, resolved by the caller which holds the
+    // queries — the same shape `attacker_source` above already uses.
+    heavy_attacker: bool,
     _world: &ae::World,
     sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
@@ -580,6 +583,7 @@ pub(crate) fn handle_player_damage_events(
                         di_input_local,
                         attacker_source,
                         victim_source,
+                        heavy_attacker,
                     );
                     publish_reaction(death_writers, player_entity, reaction);
                     false
@@ -675,6 +679,7 @@ pub(crate) fn handle_player_damage_events(
                     di_input_local,
                     attacker_source,
                     victim_source,
+                    heavy_attacker,
                 );
                 publish_reaction(death_writers, player_entity, reaction);
                 false
@@ -931,11 +936,12 @@ pub(crate) fn apply_player_knockback(
     // strike authored a cue, the struck body's otherwise.
     attacker_source: Option<&ambition_sfx::PresentationSourceId>,
     victim_source: Option<&ambition_sfx::PresentationSourceId>,
+    // **Does this hit come off a HEAVY attacker?** Asked of the attacker entity
+    // by the system that holds the queries, not pattern-matched out of the cause
+    // vocabulary here — see the twin on `apply_actor_hit`.
+    heavy_attacker: bool,
 ) -> BodyReactionOutcome {
-    let boss_hit = matches!(
-        damage.source,
-        crate::combat::HitSource::BossBody | crate::combat::HitSource::BossAttack
-    );
+    let boss_hit = heavy_attacker;
     let knockback = damage.knockback.as_ref();
     let impact_pos = knockback
         .map(|k| k.impact_pos)
@@ -1171,6 +1177,7 @@ pub fn apply_player_hit_events(
         mut debris_writer,
         mut wallet_shield_spent,
         body_sources,
+        heavy_attackers,
     ): (
         ambition_platformer2d_shared_tangle::lifecycle::SessionWorldRef<RoomGeometry>,
         Res<MovingPlatformSet>,
@@ -1180,6 +1187,9 @@ pub fn apply_player_hit_events(
         // A13: whose cues each body emits. Bundled here for the same reason the
         // writers are — this system is at Bevy's param ceiling.
         Query<&ambition_sfx::BodyPresentationSource>,
+        // **Which bodies hit HEAVY.** Filter-only, so it reads no components and
+        // conflicts with nothing; bundled for the same ceiling reason.
+        Query<(), bevy::prelude::With<super::boss_clusters::BossConfig>>,
     ),
     active_tuning: Res<ae::ActiveMovementTuning>,
     feel_tuning: Res<Platformer2dFeelTuningMonolith>,
@@ -1368,11 +1378,18 @@ pub fn apply_player_hit_events(
             .get(player_entity)
             .ok()
             .map(|source| source.id().clone());
+        // Resolved here for the same reason `attacker_source` is: the attacker is
+        // an ENTITY the event names, and this is where the queries are.
+        let heavy_attacker = target_events
+            .first()
+            .and_then(|event| event.attacker)
+            .is_some_and(|attacker| heavy_attackers.contains(attacker));
         let remapped = handle_player_damage_events(
             player_entity,
             ruleset_owns_death,
             attacker_source.as_ref(),
             victim_source.as_ref(),
+            heavy_attacker,
             &world.0,
             &mut sfx_writer,
             &mut vfx_writer,

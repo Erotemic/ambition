@@ -340,7 +340,6 @@ fn pending_player_hits_checksum(pending: &ambition_combat::events::PendingPlayer
             HitSource::EnemyAttack => (5, 0.0),
             HitSource::EnemyProjectile => (6, 0.0),
             HitSource::EnemyChargeCrash => (7, 0.0),
-            HitSource::BossBody => (8, 0.0),
             HitSource::BossAttack => (9, 0.0),
             HitSource::LeftTheWorld => (10, 0.0),
             HitSource::ContactHarm => (11, 0.0),

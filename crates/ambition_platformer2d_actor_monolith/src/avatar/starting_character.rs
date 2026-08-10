@@ -819,28 +819,41 @@ pub fn apply_worn_character_gameplay(
             // bodies that had them were archetype-built, so a seated fighter or
             // a worn player had no death traits whatever the character was.
             //
-            // ⚠ **the retraction is safe only because the two producers do not
-            // overlap yet**: the archetype path is the workspace's other source
-            // of `CombatCapabilities` and it attaches no `WornCharacter`, so no
-            // body today can have archetype-built traits retracted by a persona
-            // that authors none. ⛔ that stops being true the moment phase 3
-            // puts a character identity on every body — at which point the
-            // archetype must already have handed these facts to the definition,
-            // which is phase 2. Named here so the ordering is not rediscovered
-            // by an enemy that quietly stops exploding.
-            match registry
+            // ⛔⛔ **RETRACT BY RESETTING, NEVER BY REMOVING** — and the first
+            // version of this removed. `CombatCapabilities` is a REQUIRED member
+            // of `ActorClusterQueryData`, so a body without it silently leaves
+            // the actor cluster query altogether: it stops being simulated as an
+            // actor at all. Sixteen versus/smash integration tests went red at
+            // once, reporting *"player one swung twelve times and the other
+            // fighter is still on 52/52 HP"* — a body nothing could hit because
+            // nothing was stepping it. ⭐ an absent component is not the same
+            // statement as a default one, and here only the second is legal.
+            //
+            // ⚠ **and the reset is conditional on the PREVIOUS persona having
+            // claimed these**, because construction owns a body's traits too:
+            // `ActorClusterSeed::into_components` spawns every clustered actor
+            // with capabilities from its archetype. Resetting unconditionally
+            // would strip an exploding mite the moment anything wore a character
+            // on it. Same shape as the health/mass displacement rule directly
+            // above, kept narrow deliberately.
+            let authored = registry
                 .as_deref()
                 .and_then(|registry| registry.get(id))
-                .and_then(|prepared| prepared.combat_capabilities.clone())
-            {
+                .and_then(|prepared| prepared.combat_capabilities.clone());
+            let previous_authored = baseline
+                .zip(registry.as_deref())
+                .and_then(|(baseline, registry)| registry.get(&baseline.id))
+                .is_some_and(|previous| previous.combat_capabilities.is_some());
+            match authored {
                 Some(capabilities) => {
                     commands.entity(entity).try_insert(capabilities);
                 }
-                None => {
+                None if previous_authored => {
                     commands
                         .entity(entity)
-                        .try_remove::<crate::combat::CombatCapabilities>();
+                        .try_insert(crate::combat::CombatCapabilities::default());
                 }
+                None => {}
             }
             // LAST, and that ordering is the point: the record says the baseline
             // HAS been applied, so it must not be written by anything that has

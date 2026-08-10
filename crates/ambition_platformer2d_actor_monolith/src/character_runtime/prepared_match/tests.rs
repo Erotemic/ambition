@@ -2238,10 +2238,24 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
         .expect("the seated body wears its character") =
         ambition_characters::actor::WornCharacter::new("duelist");
     finalize_and_update(&mut app);
+    // ⛔ **PRESENT AND DEFAULT, not absent** — and the difference cost sixteen
+    // integration tests. `CombatCapabilities` is a required member of
+    // `ActorClusterQueryData`, so a body without it drops out of the actor
+    // cluster query and stops being simulated as an actor: versus reported
+    // fighters swinging twelve times into an opponent stuck on full health.
+    // Retraction means "claims nothing", which is the default value, never the
+    // missing component.
+    let after = app
+        .world()
+        .get::<crate::combat::CombatCapabilities>(sandbag_body)
+        .cloned();
     assert!(
-        app.world()
-            .get::<crate::combat::CombatCapabilities>(sandbag_body)
-            .is_none(),
+        after.is_some(),
+        "the component must SURVIVE a retraction — removing it takes the body \
+         out of the actor cluster query entirely"
+    );
+    assert!(
+        !after.expect("checked above").never_dies,
         "wearing a character that authors no death traits must retract the \
          previous character's, or a swap through the sandbag is a free immortality"
     );

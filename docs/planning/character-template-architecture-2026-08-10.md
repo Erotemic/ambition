@@ -119,11 +119,20 @@ and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
   ::combat_capabilities`, carried through preparation and applied by the persona
   derive (`apply_worn_character_gameplay`), which is the ONE writer both a worn
   player and a seated fighter go through. Absence retracts, on the same rule as
-  health, mass and the feel marker. ⚠ **the retraction is only safe while the
-  two producers do not overlap** — the archetype path attaches no
-  `WornCharacter`, so nothing today can have archetype traits retracted by a
-  persona; phase 3 breaks that, and phase 2 is what fixes it first. Noted at
-  the code.
+  health, mass and the feel marker — see the retraction trap below, which is
+  where the first attempt went wrong.
+* ⛔⛔ **RETRACT BY RESETTING, NEVER BY REMOVING — cost sixteen integration
+  tests, and it is a rule for every field this campaign moves.**
+  `CombatCapabilities` is a REQUIRED member of `ActorClusterQueryData`, so
+  `try_remove` took each seated fighter out of the actor cluster query entirely
+  and it stopped being simulated as an actor. The symptom named nothing about
+  components: *"player one swung twelve times in range and the other fighter is
+  still on 52/52 HP."* ⇒ **an absent component is a different statement from a
+  default one**, and for anything a body's construction owns, only the second is
+  legal. ⚠ the reset is also conditional on the PREVIOUS persona having claimed
+  the field, because `ActorClusterSeed::into_components` spawns every clustered
+  actor with archetype capabilities — an unconditional reset would strip an
+  exploding mite the moment anything wore a character on it.
 * ⭐ **the field that made this worth doing first**: `CombatCapabilities` had
   exactly ONE producer in the workspace — `ArchetypeSpecExt` — so a mite that
   splits on death could say so as an archetype and no registered character could

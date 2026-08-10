@@ -358,6 +358,43 @@ body-targeted hit on a body the resolver does *not* own is the poison beside it.
 Verified: `ambition_combat` 149/149 · monolith 1195/1195 · absence contracts
 25/25 · `app_it` 323 passed, 0 failed.
 
+## ▢ Roadmap item 2 — the cause vocabulary, measured 2026-08-09 before touching it
+
+⭐⭐ **the measurement that makes this safe, and it was not obvious**: after items
+1 and 3, **every victim-side source in the tree already resolves to
+`HitTarget::Body`.** Producer-by-producer:
+
+| source | target it stamps |
+|---|---|
+| `ContactHarm`, `EnemyBody`, `EnemyProjectile`, `Hazard`, `EnemyAttack`, `BossAttack` | **`Body`** — resolved |
+| `PlayerSlash` (5), `PlayerProjectile` (4), `EnemyChargeCrash` (2) | `Volume` — unresolved |
+
+⇒ **`is_attacker_side` is consulted at exactly three sites and only ever for an
+UNRESOLVED event**, and every unresolved producer in the tree is attacker-side.
+So the predicate's victim-side branch is already dead for real traffic; the
+direction words are load-bearing for nothing but legacy and test events. That is
+what licenses the fold — without this table, collapsing `PlayerProjectile` and
+`EnemyProjectile` into one `Projectile` would silently reroute hits.
+
+**The vocabulary**: `Melee` · `Projectile` · `Contact` · `Hazard` ·
+`LeftTheWorld` · `Pogo`. The HUD/trace distinction worth keeping (was it a swing
+or a shot?) survives as `Melee` vs `Projectile`; the direction half of each name
+is what goes.
+
+⛔ **the one real casualty is `boss_hit`, and it must not be papered over.**
+`matches!(source, BossBody | BossAttack)` currently selects heavier knockback and
+a longer hitstun (`feel.boss_hitstun_time`), and the folded vocabulary cannot
+express it. **Do not add a flag to the event** — that reinvents the side channel
+item 1 just deleted. The fact belongs to the ATTACKER, the event already carries
+`attacker: Option<Entity>`, and the consumer can ask the attacker whether it is a
+boss. That also discharges a piece of the *knockback feel as one system* item:
+one fewer source-specific formula.
+
+⇒ **so item 2 lands as: rename the variants, rename `is_attacker_side` to say
+what it now decides (does this unresolved volume hunt for victims?), and
+re-source boss strength from the attacker entity.** Renaming without the last
+part would be a half-fold that leaves `BossAttack` alive under a new name.
+
 ## Execution order (mine, revise as measurements land)
 
 0. ~~**Stabilize** — compile the affected crates, run the focused suites,

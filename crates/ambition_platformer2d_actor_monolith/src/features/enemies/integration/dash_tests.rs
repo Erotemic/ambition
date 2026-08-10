@@ -316,3 +316,111 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
     );
     assert!(!em.ground.on_ground, "a flying body is never grounded");
 }
+
+/// **A GROUNDED body with the fly kit takes to the air when it asks to** — the
+/// claim `duel_arena`'s `fly_frames > 0` currently bets on emergently.
+///
+/// ⚠ **written on a clean tree, before anything needed it** (the F0e discipline
+/// three tests up: *"the argument above was written down on a CLEAN tree,
+/// before this change existed, precisely so that it could not be mistaken for
+/// one"*). Queue D74 measured that the duel assertion reds when an unrelated
+/// character is registered, because it asserts a RARE REACTIVE behaviour
+/// happens at least once in a 30-second bout and registering a character moves
+/// the fight's whole trajectory. This proves the same wiring without an opinion
+/// about the AI's mood.
+///
+/// ⛔ **distinct from `an_aerial_body_steers_toward_its_velocity_target…`
+/// directly above**, which flies a body that is aerial by construction
+/// (`is_aerial`, gravity off, already airborne). This is the GROUNDED-BASE
+/// hybrid: a fighter standing on a floor under full gravity that toggles flight
+/// and leaves the ground. Different limb, different failure.
+fn fly_toggle_run(can_fly: bool, ticks: u32) -> (bool, f32) {
+    let world = floored_world();
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    let mut seed = ActorClusterSeed::new(
+        "flyer".to_string(),
+        "Flyer".to_string(),
+        aabb,
+        CharacterBrain::Custom("cellular_automaton_fighter".into()),
+        &[],
+    );
+    let half_h = seed.kin.size.y * 0.5;
+    seed.kin.pos = ae::Vec2::new(0.0, 100.0 - half_h);
+    seed.kin.vel = ae::Vec2::ZERO;
+    seed.kin.facing = 1.0;
+    seed.surface.gravity_scale = 1.0;
+    // ⚠ **`fly_toggle` as well as `fly`**: the toggle limb requires BOTH
+    // (`apply_fly_toggle`), and a kit with only `fly` is how an aerial body is
+    // built — `from_kit` sets `fly_enabled` outright for that case, which would
+    // make this test pass without the press doing anything.
+    seed.body = ActorBody::from_kit(
+        ae::AbilitySet {
+            fly: can_fly,
+            fly_toggle: can_fly,
+            ..ae::AbilitySet::NONE
+        },
+        false,
+        seed.kin.size,
+    );
+    seed.body.0.ground.on_ground = true;
+    let start_y = seed.kin.pos.y;
+    let mut model = crate::features::MotionModel::default();
+    let mut em = seed.as_actor_mut();
+    let dt = 1.0 / 60.0;
+    for tick in 0..ticks {
+        let mut frame = ActorControlFrame::neutral();
+        // The toggle is a rising EDGE, so it is pressed on the first tick only;
+        // afterwards the body climbs on its locomotion intent.
+        frame.fly_toggle_pressed = tick == 0;
+        // ⚠ **`velocity_target`, not the locomotion axes** — and finding that
+        // out is half of what this test is for. A grounded-base flyer that
+        // toggles into flight is steered by the free-mover limb, exactly like a
+        // born-aerial body; driving `locomotion` upward instead moved it 0.2px
+        // in 45 ticks while `fly_enabled` was true the whole time. Flight is
+        // not "walking with the up axis".
+        frame.velocity_target = ae::WorldVec2::new(0.0, -260.0);
+        frame.facing = 1.0;
+        em.update(
+            &world,
+            ae::Vec2::new(2000.0, em.kin.pos.y),
+            FeatureCombatTuning::default(),
+            dt,
+            false,
+            frame,
+            &mut model,
+            ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
+            crate::time::feel::Platformer2dFeelTuningMonolith::default(),
+            None,
+            (0.0, 0.0),
+        );
+    }
+    (em.flight.fly_enabled, start_y - em.kin.pos.y)
+}
+
+#[test]
+fn a_fly_capable_grounded_body_leaves_the_floor_when_it_toggles_flight() {
+    let (enabled, climbed) = fly_toggle_run(true, 45);
+    assert!(
+        enabled,
+        "the toggle press must put the body into flight, or the climb below \
+         proves nothing about the fly limb"
+    );
+    assert!(
+        climbed > 20.0,
+        "a flying body steering away from gravity must GAIN altitude; \
+         climbed {climbed:.1}px"
+    );
+}
+
+/// The negative, and it is the half that makes the positive mean something: the
+/// same press on a body without the kit must do nothing at all. Without it, a
+/// pipeline that lifted every body on an up-axis would pass the test above.
+#[test]
+fn a_body_without_the_fly_kit_stays_on_the_floor_pressing_the_same_button() {
+    let (enabled, climbed) = fly_toggle_run(false, 45);
+    assert!(!enabled, "no fly kit, no flight mode");
+    assert!(
+        climbed < 1.0,
+        "an uncapable body must stay put under gravity; climbed {climbed:.1}px"
+    );
+}

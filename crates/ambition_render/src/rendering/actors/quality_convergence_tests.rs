@@ -428,3 +428,69 @@ fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
         "an actor with no character_id must still resolve by name"
     );
 }
+
+/// ⭐⭐ **a prop's quality stamp is the tier of the ASSET IT WAS BUILT FROM,
+/// never the tier that was requested** (queue D52, the guard the row left owed).
+///
+/// ⛔ the poison IS the test: request a tier the prop table does not hold. Under
+/// the old code `refresh_prop_sprites_on_game_assets_change` read
+/// `active_sprite_scale(quality)` and stamped THAT while rebuilding from
+/// whatever the preserved table still held — so a `Half` prop under a `Full`
+/// request was rebuilt from `Half` pixels and marked `Full`, after which
+/// `q.scale == scale` was true forever and nothing looked at it again. Falsely
+/// current, and permanently.
+///
+/// ⚠ **an honest stamp is not a current prop.** Props still carry no
+/// rematerialization recipe, so the table keeps the old asset — this pins that
+/// the staleness stays VISIBLE, which is the whole difference D52 bought.
+///
+/// (Writable as of 2026-08-10: the row blocked it on D59, and
+/// `cargo test -p ambition_render` links again.)
+#[test]
+fn a_prop_is_stamped_with_the_tier_it_was_actually_built_from() {
+    use crate::rendering::primitives::PropVisual;
+    use ambition_platformer2d_world::rooms::PropDraw;
+
+    let mut app = asset_app();
+    // The REQUEST is Full; the table holds only Half. That divergence is the
+    // whole fixture — with a matching pair the bug is invisible.
+    app.insert_resource(quality(VisualQualityProfile::High));
+    let half = a_pending_realization(&mut app, TextureResolutionScale::Half);
+    the_image_lands(&mut app, &half);
+    let mut assets = GameAssets::default();
+    assets
+        .characters
+        .props
+        .insert("crate_kind".to_string(), half);
+    app.insert_resource(assets);
+    app.add_systems(Update, super::refresh_prop_sprites_on_game_assets_change);
+
+    let prop = app
+        .world_mut()
+        .spawn(PropVisual {
+            id: "prop_0".to_string(),
+            kind: "crate_kind".to_string(),
+            name: "A Crate".to_string(),
+            size: Vec2::new(16.0, 16.0),
+            draw: PropDraw::default(),
+            flip_y: false,
+        })
+        .id();
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BoundSpriteQuality>(prop).map(|q| q.scale),
+        Some(TextureResolutionScale::Half),
+        "⛔ the prop was built from Half pixels; stamping the REQUESTED Full \
+         marks it current forever and nothing ever rebuilds it"
+    );
+
+    // And the stamp settles: a second pass must not churn, or the honest stamp
+    // becomes a per-frame rebuild.
+    app.update();
+    assert_eq!(
+        app.world().get::<BoundSpriteQuality>(prop).map(|q| q.scale),
+        Some(TextureResolutionScale::Half),
+        "the comparison is self-limiting once stamped from the asset"
+    );
+}

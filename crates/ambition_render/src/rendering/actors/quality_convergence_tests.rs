@@ -132,6 +132,7 @@ fn an_actor_body_converges_to_the_new_tier_and_the_old_image_dies() {
     app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
         ACTOR_ID.to_string(),
         ambition_sim_view::ActorRenderView {
+            sprite_character_id: None,
             name: ACTOR_NAME.to_string(),
             sprite_override_name: None,
             is_sandbag: false,
@@ -317,5 +318,113 @@ fn a_profile_change_that_keeps_the_tier_does_not_rebind() {
             .frame,
         7,
         "the resident realization did not move, so neither should the presentation"
+    );
+}
+
+/// ⭐⭐ **a spawn's ART IDENTITY names its art** (queue D56).
+///
+/// ⛔ the sheet was the ONE thing bound off presentation: everything else about
+/// an actor — barks, hurt feedback, sprite-derived collision, authored attack
+/// volumes — resolves through `sprite_character_id`, while `upgrade_actor_sprites`
+/// looked the sheet up by DISPLAY NAME. So `EnemySpawnSpec::character_id`, added
+/// so a level's label and its art identity could differ, could not do the job it
+/// exists for: any spawn whose id differed from its name drew the placeholder.
+///
+/// The fixture is that exact shape — a body labelled one thing whose art is
+/// registered under another — and it is why the defect had no witnesses: 0 of 65
+/// authored spawns set the field, so nothing in the game was in this case.
+#[test]
+fn an_actor_binds_the_sheet_of_its_character_id_not_its_display_name() {
+    let mut app = asset_app();
+    app.insert_resource(quality(VisualQualityProfile::Low));
+    let mut assets = GameAssets::default();
+    let art = a_pending_realization(&mut app, TextureResolutionScale::Full);
+    the_image_lands(&mut app, &art);
+    let art_image = art.texture.id();
+    // Registered under the CATALOG ID only. Nothing answers to the label.
+    assets.characters.publish("catalog_identity", art);
+    app.insert_resource(assets);
+
+    app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+        ACTOR_ID.to_string(),
+        a_feature_view(),
+    )]));
+    app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
+        ACTOR_ID.to_string(),
+        ambition_sim_view::ActorRenderView {
+            sprite_character_id: Some("catalog_identity".to_string()),
+            // ⚠ deliberately NOT a registered sheet: if the binder still
+            // preferred the label this would find nothing and draw the
+            // placeholder, which is the bug.
+            name: "A Label Nobody Registered".to_string(),
+            sprite_override_name: None,
+            is_sandbag: false,
+            render_size: None,
+            dream_seed: None,
+        },
+    )]));
+    app.insert_resource(ambition_sim_view::BossRenderIndex::default());
+    app.add_systems(Update, super::upgrade_actor_sprites);
+
+    let body = app
+        .world_mut()
+        .spawn(FeatureVisual {
+            id: ACTOR_ID.to_string(),
+        })
+        .id();
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Sprite>(body).map(|s| s.image.id()),
+        Some(art_image),
+        "the body must wear the art its character_id names"
+    );
+}
+
+/// The poison, and it is what keeps the fix from being a rename. An actor with
+/// NO `sprite_character_id` — every authored spawn in the game today — still
+/// resolves by its display name. Deleting that arm would un-art the whole cast
+/// to fix a case with no occurrences.
+#[test]
+fn an_actor_without_a_character_id_still_resolves_by_its_display_name() {
+    let mut app = asset_app();
+    app.insert_resource(quality(VisualQualityProfile::Low));
+    let mut assets = GameAssets::default();
+    let art = a_pending_realization(&mut app, TextureResolutionScale::Full);
+    the_image_lands(&mut app, &art);
+    let art_image = art.texture.id();
+    assets.characters.publish(ACTOR_NAME, art);
+    app.insert_resource(assets);
+
+    app.insert_resource(ambition_sim_view::FeatureViewIndex::from_rows([(
+        ACTOR_ID.to_string(),
+        a_feature_view(),
+    )]));
+    app.insert_resource(ambition_sim_view::ActorRenderIndex::from_rows([(
+        ACTOR_ID.to_string(),
+        ambition_sim_view::ActorRenderView {
+            sprite_character_id: None,
+            name: ACTOR_NAME.to_string(),
+            sprite_override_name: None,
+            is_sandbag: false,
+            render_size: None,
+            dream_seed: None,
+        },
+    )]));
+    app.insert_resource(ambition_sim_view::BossRenderIndex::default());
+    app.add_systems(Update, super::upgrade_actor_sprites);
+
+    let body = app
+        .world_mut()
+        .spawn(FeatureVisual {
+            id: ACTOR_ID.to_string(),
+        })
+        .id();
+    app.update();
+
+    assert_eq!(
+        app.world().get::<Sprite>(body).map(|s| s.image.id()),
+        Some(art_image),
+        "an actor with no character_id must still resolve by name"
     );
 }

@@ -208,7 +208,9 @@ pub fn rebuild_feature_view_index(
             Option<&ActorSurfaceState>,
             // Portal aerial-roll (same component the player uses) so actors
             // somersault + self-right through portals just like the player.
-            Option<&ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll>,
+            Option<
+                &ambition_platformer2d_actor_monolith::platformer_runtime::orientation::ActorRoll,
+            >,
             // Sheet-authored quad placement, for a body whose art does not sit
             // centred in its frame. Absent for every ordinary actor.
             Option<&ambition_platformer2d_actor_monolith::features::ActorSpriteOffset>,
@@ -479,6 +481,17 @@ pub fn rebuild_feature_view_index(
 #[derive(Clone, Debug, PartialEq)]
 pub struct ActorRenderView {
     pub name: String,
+    /// **The actor's ART IDENTITY** — `ActorConfig::sprite_character_id`, the
+    /// catalog id a spawn already resolves.
+    ///
+    /// ⛔ **the one thing bound off presentation used to be the art.** That id
+    /// reaches the barks, the hurt feedback, the sprite-derived collision box
+    /// and the authored attack volumes; only the SHEET was looked up by display
+    /// name, so `EnemySpawnSpec::character_id` — added 2026-08-06 precisely so a
+    /// level's LABEL and its art identity could differ — could not do the job it
+    /// exists for. Any spawn whose id differed from its name was un-arted by
+    /// this path (queue D56).
+    pub sprite_character_id: Option<String>,
     pub sprite_override_name: Option<String>,
     pub is_sandbag: bool,
     pub render_size: Option<ae::Vec2>,
@@ -537,6 +550,7 @@ impl ActorRenderIndex {
         &mut self,
         id: &str,
         name: &str,
+        sprite_character_id: Option<&str>,
         override_name: Option<&str>,
         is_sandbag: bool,
         render_size: Option<ae::Vec2>,
@@ -546,6 +560,7 @@ impl ActorRenderIndex {
         if let Some(slot) = self.views.get_mut(id) {
             let v = &slot.0;
             let unchanged = v.name == name
+                && v.sprite_character_id.as_deref() == sprite_character_id
                 && v.sprite_override_name.as_deref() == override_name
                 && v.is_sandbag == is_sandbag
                 && v.render_size == render_size
@@ -556,6 +571,7 @@ impl ActorRenderIndex {
             }
             slot.0 = ActorRenderView {
                 name: name.to_string(),
+                sprite_character_id: sprite_character_id.map(str::to_string),
                 sprite_override_name: override_name.map(str::to_string),
                 is_sandbag,
                 render_size,
@@ -569,6 +585,7 @@ impl ActorRenderIndex {
             (
                 ActorRenderView {
                     name: name.to_string(),
+                    sprite_character_id: sprite_character_id.map(str::to_string),
                     sprite_override_name: override_name.map(str::to_string),
                     is_sandbag,
                     render_size,
@@ -595,6 +612,7 @@ pub fn rebuild_actor_render_index(
         index.upsert(
             a.feature_id.as_str(),
             &a.config.name,
+            a.config.sprite_character_id.as_deref(),
             a.config.sprite_override_npc_name.as_deref(),
             a.config.tuning.is_sandbag,
             render_size.map(|s| s.0),
@@ -700,7 +718,10 @@ impl BossRenderIndex {
 /// materialized.
 pub fn rebuild_boss_render_index(
     mut index: ResMut<BossRenderIndex>,
-    bosses: Query<(&FeatureId, ambition_platformer2d_actor_monolith::features::BossClusterRef)>,
+    bosses: Query<(
+        &FeatureId,
+        ambition_platformer2d_actor_monolith::features::BossClusterRef,
+    )>,
 ) {
     index.begin_rebuild();
     for (id, boss) in &bosses {
@@ -966,11 +987,12 @@ mod view_index_tests {
             "a",
             "Goblin",
             None,
+            None,
             false,
             Some(ae::Vec2::new(10.0, 20.0)),
             None,
         );
-        idx.upsert("b", "Dummy", Some("sandbag_sheet"), true, None, None);
+        idx.upsert("b", "Dummy", None, Some("sandbag_sheet"), true, None, None);
         idx.end_rebuild();
         assert_eq!(idx.len(), 2);
         let a = idx.get("a").expect("a present");
@@ -989,6 +1011,7 @@ mod view_index_tests {
             "a",
             "Goblin",
             None,
+            None,
             false,
             Some(ae::Vec2::new(10.0, 20.0)),
             None,
@@ -1003,6 +1026,7 @@ mod view_index_tests {
         idx.upsert(
             "a",
             "Goblin",
+            None,
             None,
             false,
             Some(ae::Vec2::new(30.0, 40.0)),

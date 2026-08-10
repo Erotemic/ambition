@@ -732,17 +732,35 @@ pub fn upgrade_actor_sprites(
         let Some(actor) = actor_render.get(&visual.id) else {
             continue;
         };
-        // Name-first resolution, shared by every actor: an authored
-        // sprite-override label (a fighting-flipped NPC keeps its own sheet —
-        // the Kernel Guide migration is the one that leaves it blank so
-        // kernel→goblin keeps its visual gag), then the actor's own display name,
-        // against the character registry. A direct `EnemySpawn` (no NPC migration
-        // history) resolves by its display name here too — intro raiders pick up
+        // Resolution order, shared by every actor: an authored sprite-override
+        // label (a fighting-flipped NPC keeps its own sheet — the Kernel Guide
+        // migration is the one that leaves it blank so kernel→goblin keeps its
+        // visual gag), then the actor's ART IDENTITY, then its display name.
+        //
+        // ⛔ **the identity step was missing, and the art was the ONE thing bound
+        // off presentation** (queue D56). `sprite_character_id` is what a spawn
+        // resolves and what already reaches the barks, the hurt feedback, the
+        // sprite-derived collision box and the authored attack volumes — every
+        // identity-shaped fact except the picture. So
+        // `EnemySpawnSpec::character_id`, added 2026-08-06 so a level's LABEL and
+        // its art identity could differ, could not do the job it exists for: any
+        // spawn whose id differed from its name was un-arted by this path.
+        //
+        // ⚠ **nothing in the game changes today** — 0 of 65 authored
+        // `EnemySpawn`s set `character_id`, which is why the defect had no
+        // witnesses. That is exactly what makes this safe to land alone, and it
+        // is the prerequisite for D48: authoring ids would otherwise un-art every
+        // level it touched.
+        //
+        // ⭐ the display name stays LAST rather than being deleted. A direct
+        // `EnemySpawn` with no id still resolves by name — intro raiders pick up
         // their sheet without a duplicate enemy-side registry entry.
         let override_name = actor.sprite_override_name.as_deref();
+        let art_identity = actor.sprite_character_id.as_deref();
         let actor_name = Some(actor.name.as_str());
         let named = override_name
             .and_then(|n| assets.characters.sheet(n))
+            .or_else(|| art_identity.and_then(|n| assets.characters.sheet(n)))
             .or_else(|| actor_name.and_then(|n| assets.characters.sheet(n)));
         let Some(character_asset) = named else {
             // §4.10, Jon's ruling: there is NO fallback sheet. An actor whose own

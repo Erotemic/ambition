@@ -115,6 +115,23 @@ and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
   correct place for one. ⇒ **instancing is not blocked by an existing
   assumption**, and `MatchSeat`'s own doc already anticipated the collision:
   *"the worn character id collides in a mirror match."*
+* ⭐ **the catalog fold is FOUR FIELDS, not a pervasive dependency** — measured
+  in `definition.rs`'s finalization. `PreparedCharacterDefinition` consults the
+  catalog for exactly `max_health`, `motion_model`, `movement_tuning`, and the
+  kit (`action_set` / `moveset`). Everything else already carries through from
+  the definition. ⇒ the brief's *"still finalized by consulting the catalog"* is
+  a much smaller cut than it reads, and it closes the moment those four are
+  authored on definitions — which is phase 2's output, not extra work.
+* ⛔ **THE PHASE-2 ORDERING CONSTRAINT, in the code's own words.**
+  `PLAYABLE_ROSTER` cannot stop gating buildability until definitions carry the
+  archetype's intrinsic facts. `character_catalog.rs` records the measurement
+  from when someone tried: registering every catalog row flipped ~100
+  exploration NPCs off their archetype-built vitals onto defaults, caught by
+  `a_player_death_reset_survives_the_rollback_window`, *"because the catalog row
+  has no mass or health to fold back in — those come from the ARCHETYPE — so the
+  blanket rule cannot be made behaviour-neutral, only narrower."* ⇒ **removing
+  the workaround is the LAST step of phase 2, not the first**, and it becomes
+  free once the facts have moved.
 * ▢ next: whether `WornCharacter` becomes the `CharacterIdentity` the brief
   names. It is already a component in `ambition_characters` holding a character
   id, already carried by non-player bodies (`sanic/badnik.rs`), and already the

@@ -2172,3 +2172,77 @@ fn one_character_definition_seats_two_independent_fighters() {
         "the OTHER Fretjaw shares a definition, not a health pool"
     );
 }
+
+/// **A character can author what happens when it dies** — D73 phase 1.
+///
+/// Until this landed, `CombatCapabilities` had exactly ONE producer in the
+/// workspace (`ArchetypeSpecExt::combat_capabilities`), so death traits were a
+/// thing only an archetype could say. A registered character could not declare
+/// that it splits, explodes, or refuses to die, and a seated fighter therefore
+/// had no death traits at all whatever it was.
+///
+/// ⚠ **and absence RETRACTS**, which is the half worth testing: a persona that
+/// authors nothing must leave a body with no traits rather than inheriting the
+/// previous character's. That rule already governs health, mass and the feel
+/// marker; death traits now ride it too.
+#[test]
+fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
+    let mut app = seating_app();
+    let mut sandbag = CharacterDefinition::new("sandbag", "Sandbag", "demo");
+    sandbag.combat_capabilities = Some(crate::combat::CombatCapabilities {
+        never_dies: true,
+        ..Default::default()
+    });
+    app.register_character(sandbag);
+    app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("sandbag"), cpu("duelist")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let world = app.world_mut();
+    let mut q = world.query::<(
+        Entity,
+        &ambition_characters::actor::WornCharacter,
+        Option<&crate::combat::CombatCapabilities>,
+    )>();
+    let mut seen: Vec<(Entity, String, bool)> = q
+        .iter(world)
+        .map(|(entity, worn, caps)| {
+            (
+                entity,
+                worn.id().to_string(),
+                caps.is_some_and(|caps| caps.never_dies),
+            )
+        })
+        .collect();
+    seen.sort_by(|a, b| a.1.cmp(&b.1));
+    assert_eq!(seen.len(), 2, "{seen:?}");
+    assert!(
+        seen[1].2,
+        "the sandbag authored `never_dies` and must carry it: {seen:?}"
+    );
+    assert!(
+        !seen[0].2,
+        "the duelist authored no death traits and must have none: {seen:?}"
+    );
+
+    // ⭐ **THE RETRACTION.** Re-wear the sandbag's body as the duelist: the
+    // trait must LEAVE. A derive that only ever inserts passes every assertion
+    // above and makes a character swap permanently immortalising.
+    let sandbag_body = seen[1].0;
+    *app.world_mut()
+        .get_mut::<ambition_characters::actor::WornCharacter>(sandbag_body)
+        .expect("the seated body wears its character") =
+        ambition_characters::actor::WornCharacter::new("duelist");
+    finalize_and_update(&mut app);
+    assert!(
+        app.world()
+            .get::<crate::combat::CombatCapabilities>(sandbag_body)
+            .is_none(),
+        "wearing a character that authors no death traits must retract the \
+         previous character's, or a swap through the sandbag is a free immortality"
+    );
+}

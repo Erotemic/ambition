@@ -811,6 +811,37 @@ pub fn apply_worn_character_gameplay(
                         .try_remove::<ambition_platformer2d_core::AuthoredMovementTuning>();
                 }
             }
+            // **DEATH TRAITS follow the character too** (D73 phase 1), on the
+            // same insert-or-retract rule as the feel marker directly above and
+            // for the same reason: absence is an ANSWER. Wearing a sandbag and
+            // then a duelist must leave a killable duelist, not an unkillable
+            // one — and until a character could author these at all, the only
+            // bodies that had them were archetype-built, so a seated fighter or
+            // a worn player had no death traits whatever the character was.
+            //
+            // ⚠ **the retraction is safe only because the two producers do not
+            // overlap yet**: the archetype path is the workspace's other source
+            // of `CombatCapabilities` and it attaches no `WornCharacter`, so no
+            // body today can have archetype-built traits retracted by a persona
+            // that authors none. ⛔ that stops being true the moment phase 3
+            // puts a character identity on every body — at which point the
+            // archetype must already have handed these facts to the definition,
+            // which is phase 2. Named here so the ordering is not rediscovered
+            // by an enemy that quietly stops exploding.
+            match registry
+                .as_deref()
+                .and_then(|registry| registry.get(id))
+                .and_then(|prepared| prepared.combat_capabilities.clone())
+            {
+                Some(capabilities) => {
+                    commands.entity(entity).try_insert(capabilities);
+                }
+                None => {
+                    commands
+                        .entity(entity)
+                        .try_remove::<crate::combat::CombatCapabilities>();
+                }
+            }
             // LAST, and that ordering is the point: the record says the baseline
             // HAS been applied, so it must not be written by anything that has
             // not applied it — including this system on an early return.

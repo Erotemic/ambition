@@ -276,6 +276,21 @@ pub struct CharacterDefinition {
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
+    /// **What this body does when it DIES, and what it drops** — explode,
+    /// divide, crash, or refuse to die at all.
+    ///
+    /// D73 phase 1. These are properties of the creature, and until now the ONLY
+    /// producer of [`crate::combat::CombatCapabilities`] in the workspace was
+    /// `ArchetypeSpecExt::combat_capabilities` — so a mite that splits when
+    /// killed could say so as an archetype and a registered character could not
+    /// say it at all. A seated fighter and a worn player simply had no death
+    /// traits, whatever they were.
+    ///
+    /// `None` means the author said nothing, and nothing is inserted — today's
+    /// behaviour for every character in the repo. ⚠ absence RETRACTS on a
+    /// re-wear, like every other physical fact a persona claims: wearing a
+    /// sandbag and then a duelist must not leave the duelist unkillable.
+    pub combat_capabilities: Option<crate::combat::CombatCapabilities>,
     pub moveset: Option<MovesetContract>,
     /// What this character CAN do — melee, ranged, special, locomotion style.
     ///
@@ -337,11 +352,21 @@ impl CharacterDefinition {
             body: None,
             hurtboxes: None,
             vitals: Vitals::default(),
+            combat_capabilities: None,
             moveset: None,
             action_set: None,
             motion_model: None,
             movement_tuning: None,
         }
+    }
+
+    /// Author what this character does when it dies. See the field.
+    pub fn with_combat_capabilities(
+        mut self,
+        capabilities: crate::combat::CombatCapabilities,
+    ) -> Self {
+        self.combat_capabilities = Some(capabilities);
+        self
     }
 
     pub fn with_moveset(mut self, moveset: MovesetContract) -> Self {
@@ -457,6 +482,9 @@ struct PreparedCharacterOverrides {
     body: Option<BodySource>,
     hurtboxes: Option<HurtboxDoc>,
     vitals: Vitals,
+    /// See [`CharacterDefinition::combat_capabilities`]. No catalog counterpart
+    /// exists to fold against, so it carries straight through.
+    combat_capabilities: Option<crate::combat::CombatCapabilities>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -572,6 +600,10 @@ pub struct PreparedCharacterDefinition {
     pub body: Option<BodySource>,
     pub hurtboxes: Option<HurtboxDoc>,
     pub vitals: Vitals,
+    /// What this body does when it dies, if it authored anything. See
+    /// [`CharacterDefinition::combat_capabilities`] — `None` stays `None`
+    /// through the fold, because the catalog has no counterpart for it.
+    pub combat_capabilities: Option<crate::combat::CombatCapabilities>,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,
     /// The movement policy, resolved. Every body already carries exactly one
@@ -1003,6 +1035,7 @@ fn prepare_character(
         body: definition.body,
         hurtboxes: definition.hurtboxes,
         vitals: definition.vitals,
+        combat_capabilities: definition.combat_capabilities,
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1074,6 +1107,7 @@ fn finalize_character(
         body,
         hurtboxes,
         vitals,
+        combat_capabilities,
         moveset,
         action_set,
         motion_model,
@@ -1185,6 +1219,7 @@ fn finalize_character(
             None => ambition_platformer2d_core::MotionModelSpec::AxisSwept(Default::default()),
         }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
+        combat_capabilities,
         id,
         display_name,
         provider,

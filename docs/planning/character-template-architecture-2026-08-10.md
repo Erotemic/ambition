@@ -115,6 +115,27 @@ and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
   correct place for one. ⇒ **instancing is not blocked by an existing
   assumption**, and `MatchSeat`'s own doc already anticipated the collision:
   *"the worn character id collides in a mirror match."*
+* ✔ **death traits are authorable on a character** — `CharacterDefinition
+  ::combat_capabilities`, carried through preparation and applied by the persona
+  derive (`apply_worn_character_gameplay`), which is the ONE writer both a worn
+  player and a seated fighter go through. Absence retracts, on the same rule as
+  health, mass and the feel marker. ⚠ **the retraction is only safe while the
+  two producers do not overlap** — the archetype path attaches no
+  `WornCharacter`, so nothing today can have archetype traits retracted by a
+  persona; phase 3 breaks that, and phase 2 is what fixes it first. Noted at
+  the code.
+* ⭐ **the field that made this worth doing first**: `CombatCapabilities` had
+  exactly ONE producer in the workspace — `ArchetypeSpecExt` — so a mite that
+  splits on death could say so as an archetype and no registered character could
+  say it at all. That is the incompleteness the brief describes, in its smallest
+  reproducible form.
+* ⚠ **`a_definition_carries_no_controller_binding` is where the brief's ruling
+  lands.** That test destructures `CharacterDefinition` exhaustively and says
+  *"if `default_brain` is ever added, this stops compiling and the reviewer has
+  to justify it against §4.7."* Jon has now justified it — a definition MAY name
+  a default autonomous profile. ⇒ when phase 1 adds that field, rewrite this
+  test's prose rather than deleting it; it is the structural guard that keeps
+  the CURRENT controller off the definition, which is still the rule.
 * ⭐ **the catalog fold is FOUR FIELDS, not a pervasive dependency** — measured
   in `definition.rs`'s finalization. `PreparedCharacterDefinition` consults the
   catalog for exactly `max_health`, `motion_model`, `movement_tuning`, and the

@@ -366,6 +366,9 @@ fn a_definition_carries_no_controller_binding() {
         body: _,
         hurtboxes: _,
         vitals: _,
+        // What the body does when it DIES — a property of the creature, and one
+        // no controller changes. A possessed mite still splits.
+        combat_capabilities: _,
         moveset: _,
         // A CAPABILITY, not a controller binding, and the distinction is the
         // whole of §4.7: this says what the body can reach for, and says nothing

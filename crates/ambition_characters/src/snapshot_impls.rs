@@ -32,6 +32,7 @@ snapshot_unit_enum!(crate::actor::ai::CharacterAiMode {
 snapshot_pod!(crate::actor::body::BodyCombat {
     hit_flash: f32,
     hitstop_timer: f32,
+    landing_lag_timer: f32,
     damage_invuln_timer: f32,
     hitstun_timer: f32,
     recoil_lock_timer: f32,

@@ -166,7 +166,8 @@ pub fn integrate_home_body(
         actor_control,
         feel,
         combat.hitstun_timer,
-        combat.recoil_lock_timer,
+        // The HARD lock this frame, whichever fact produced it.
+        combat.recoil_lock_timer.max(combat.landing_lag_timer),
         frame_dt,
     );
     let sim_dt = if combat.hitstop_timer > 0.0 {

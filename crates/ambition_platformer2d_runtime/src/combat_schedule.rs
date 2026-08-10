@@ -145,6 +145,11 @@ impl Plugin for CombatSchedulePlugin {
                 // rollback from stranding the boxes it rewound past.
                 (
                     ambition_platformer2d_actor_monolith::combat::moveset::retire_orphaned_strike_volumes,
+                    // ⚠ **BEFORE the advance, deliberately.** A move that landed
+                    // this frame is over, and running the advance first would
+                    // open its next window — spawning a strike volume for a
+                    // move that has already been cancelled by the ground.
+                    ambition_platformer2d_actor_monolith::combat::moveset::resolve_aerial_landings,
                     ambition_platformer2d_actor_monolith::combat::moveset::advance_move_playback,
                 )
                     .chain()

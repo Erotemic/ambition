@@ -1018,6 +1018,8 @@ fn a_charged_release_scales_the_spawned_hitbox() {
                             clip: (clip: "slash", fallbacks: ["idle"]),
                             duration_s: 0.5,
                             smash_charge_mult: {mult},
+                            landing_lag_s: None,
+                            autocancel_after_s: None,
                             windows: [
                                 (start_s: 0.0, end_s: 0.2, tag: Startup, volumes: []),
                                 (start_s: 0.2, end_s: 0.4, tag: Active, volumes: [
@@ -1457,6 +1459,8 @@ fn a_forward_special_selects_the_directional_move() {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        landing_lag_s: None,
+        autocancel_after_s: None,
     };
     let moveset = MovesetContract {
         verbs: std::collections::BTreeMap::from([
@@ -1501,6 +1505,8 @@ fn gesture_test_move(id: &str) -> MoveSpec {
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
+        landing_lag_s: None,
+        autocancel_after_s: None,
     }
 }
 
@@ -1588,6 +1594,8 @@ fn a_move_start_impulse_lunges_the_body_toward_facing() {
         gates: Default::default(),
         start_impulse: Some((150.0, 0.0)),
         smash_charge_mult: 1.0,
+        landing_lag_s: None,
+        autocancel_after_s: None,
     };
     let mut verbs = std::collections::BTreeMap::new();
     verbs.insert(ATTACK_VERB.to_string(), ATTACK_VERB.to_string());
@@ -2468,5 +2476,105 @@ fn the_moveset_projection_carries_the_hit_dedup_accumulator() {
         vec!["enemy:already_struck".to_string()],
         "the projected swing must carry the move's persistent hit-dedup set, or \
          every active tick re-hits the same target (multi-hit / SFX spam)"
+    );
+}
+
+/// ⭐⭐ **An aerial is a COMMITMENT: land mid-move and pay for it, land after
+/// the auto-cancel point and land clean.**
+///
+/// The platform-fighter rule that makes spacing an aerial a decision rather
+/// than a free action. Three cases, and the third is the poison — a move that
+/// authors nothing must land exactly the way it always did, because this
+/// mechanic is opt-in and every shipped move has opted out.
+#[test]
+fn landing_out_of_an_aerial_costs_its_authored_lag_unless_it_autocancelled() {
+    use ambition_platformer2d_core::BodyGroundState;
+
+    // (authored lag, authored autocancel, move clock at touchdown) -> lag paid
+    let paid = |lag: Option<f32>, autocancel: Option<f32>, t: f32| -> f32 {
+        let mut app = App::new();
+        app.add_systems(Update, super::resolve_aerial_landings);
+        let mut spec = swat();
+        spec.landing_lag_s = lag;
+        spec.autocancel_after_s = autocancel;
+        let mut playback = MovePlayback::new(spec, 1.0);
+        playback.t = t;
+        let body = app
+            .world_mut()
+            .spawn((
+                playback,
+                BodyGroundState::default(),
+                ambition_characters::actor::BodyCombat::default(),
+            ))
+            .id();
+        // Tick one: still airborne, so no edge.
+        app.update();
+        assert!(
+            app.world().get::<MovePlayback>(body).is_some(),
+            "an airborne move must survive a tick that is not a landing"
+        );
+        // Tick two: touch down.
+        app.world_mut()
+            .get_mut::<BodyGroundState>(body)
+            .unwrap()
+            .on_ground = true;
+        app.update();
+        app.world()
+            .get::<ambition_characters::actor::BodyCombat>(body)
+            .expect("the body survives its own landing")
+            .landing_lag_timer
+    };
+
+    // Landed early, inside the commitment: the authored lag is owed.
+    assert!((paid(Some(0.25), Some(0.50), 0.10) - 0.25).abs() < 1e-6);
+    // Landed past the auto-cancel point: clean.
+    assert_eq!(paid(Some(0.25), Some(0.50), 0.60), 0.0);
+    // No auto-cancel authored: the lag applies whenever the move is running.
+    assert!((paid(Some(0.25), None, 0.60) - 0.25).abs() < 1e-6);
+    // ⛔ **the poison.** A move that authors no landing lag lands the way every
+    // move in the game lands today. Opt-in means opt-in.
+    assert_eq!(paid(None, None, 0.10), 0.0);
+    assert_eq!(paid(None, Some(0.50), 0.10), 0.0);
+}
+
+/// ⛔ **A move begun ON THE GROUND never "lands".**
+///
+/// The landing EDGE is what costs, not the grounded state — otherwise a jab, a
+/// down-tilt and every other grounded move would pay an aerial's lag on the
+/// frame it started. This is why the previous grounded-ness rides on the
+/// playback rather than being re-derived from the body.
+#[test]
+fn a_grounded_move_never_pays_landing_lag() {
+    use ambition_platformer2d_core::BodyGroundState;
+
+    let mut app = App::new();
+    app.add_systems(Update, super::resolve_aerial_landings);
+    let mut spec = swat();
+    spec.landing_lag_s = Some(0.25);
+    let body = app
+        .world_mut()
+        .spawn((
+            MovePlayback::new(spec, 1.0),
+            BodyGroundState {
+                on_ground: true,
+                ..Default::default()
+            },
+            ambition_characters::actor::BodyCombat::default(),
+        ))
+        .id();
+    for _ in 0..4 {
+        app.update();
+    }
+    assert_eq!(
+        app.world()
+            .get::<ambition_characters::actor::BodyCombat>(body)
+            .unwrap()
+            .landing_lag_timer,
+        0.0,
+        "standing on the floor is not landing"
+    );
+    assert!(
+        app.world().get::<MovePlayback>(body).is_some(),
+        "and the grounded move is not cancelled by the ground it started on"
     );
 }

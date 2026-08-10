@@ -641,7 +641,7 @@ green fields:
 | **move-facing snapshot** | ✔ **already correct.** `MovePlayback` captures `facing` at move start, every strike volume mirrors through it, nothing writes it afterwards. What was missing was a GUARD — now `a_live_strike_keeps_the_facing_its_move_started_with`, whose vacuity half asserts the body genuinely turned. |
 | **one authoritative move timeline** | ✔ largely there — `MovePlayback` owns startup/active/recovery windows and `BodyMelee` is already a projection of it (that was item 8's melee slice). |
 | **hitstop/hitlag** | ✔ **now one law** — see below. ⚠ my first reading said "asymmetric, and an actor victim gets none"; the victim side was already body-generic (`apply_body_hit_reaction` is the ONE reaction). The real defect was two unscaled constants at two sites. |
-| **landing lag / autocancel** | ▢ genuinely absent. |
+| **landing lag / autocancel** | ✔ **built** — the one item that was genuinely absent. See below. |
 
 ### ✔ hitstun scales with the launch (2026-08-09) — the one that was WRONG
 
@@ -698,6 +698,37 @@ the rule at the time rather than the doubt.
 ⚠ **one wrong turn, recorded**: I first blamed the walker dying and added a deep-HP
 guard — which `wear_oracle_armor` already had, twenty lines up. Reverted. Reading
 the fixture before patching it would have cost less than the probe did.
+
+### ✔ landing lag and auto-cancel (2026-08-09)
+
+`MoveSpec` gains `landing_lag_s` and `autocancel_after_s`, both `Option` and
+both defaulted, so **every shipped move keeps landing exactly as it does today**
+— the mechanic is opt-in and nothing has opted in yet.
+
+`resolve_aerial_landings` charges the lag when a body crosses the airborne →
+grounded EDGE with a move still running, unless the move's clock is past its
+auto-cancel point; the move then ends, so the lag is a cost rather than a delay.
+It runs BEFORE `advance_move_playback` deliberately: advancing first would open
+the next window of a move the ground has already cancelled.
+
+`BodyCombat.landing_lag_timer` is a **separate field from `recoil_lock_timer`**,
+even though both are hard control locks. Two different facts — *you were thrown*
+versus *you landed out of a move you had not finished* — and a trace that cannot
+tell them apart cannot explain why a fighter stood still. They join only at the
+input gate, whose parameter is now honestly named `hard_lock_timer`.
+
+⭐⭐ **the guard caught a real bug in the thing it guards, immediately.**
+`a_grounded_move_never_pays_landing_lag` went red: `was_grounded` seeded `false`,
+so a jab read its own first tick as a landing and paid an aerial's lag. The seed
+is `true` now — *no airborne observation yet* — which reads backwards and is
+correct, because the construction site cannot see the body. Price: a move that
+starts airborne and lands within the same tick pays nothing, which describes a
+grounded move.
+
+⚠ **`MoveSpec` gained fields, so 13 files of literals needed them.** Mechanical,
+but worth recording that the sweep mis-fired twice — inserting into `impl
+MoveSpec {` and into `fn … -> MoveSpec {` signature lines. A brace-matching sweep
+over a type name matches the type's *other* syntactic homes too.
 
 ## Execution order (mine, revise as measurements land)
 

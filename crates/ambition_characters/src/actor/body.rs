@@ -259,6 +259,21 @@ pub struct BodyCombat {
     // ── Player reaction / control-lock timers ──
     /// Hitstop: freezes `time_scale` to 0 while positive.
     pub hitstop_timer: f32,
+    /// **Landing lag: the authored recovery an aerial move owes for touching
+    /// down before it finished.**
+    ///
+    /// A HARD control lock while positive, exactly like
+    /// [`Self::recoil_lock_timer`] — and deliberately NOT that field. They are
+    /// two different facts that happen to have the same effect: one says *you
+    /// were just thrown*, the other says *you landed out of a move you had not
+    /// finished*. Sharing a field would make the two indistinguishable in a
+    /// trace and in F1, and reading one as the other is the defect class this
+    /// campaign has been deleting all week.
+    ///
+    /// `0.0` for a body whose move authored no landing lag, which is every move
+    /// that has not opted in — an aerial that lands is an ordinary landing
+    /// unless the move says otherwise.
+    pub landing_lag_timer: f32,
     /// Invulnerability window after taking damage.
     pub damage_invuln_timer: f32,
     /// Partial-control penalty after knockback.

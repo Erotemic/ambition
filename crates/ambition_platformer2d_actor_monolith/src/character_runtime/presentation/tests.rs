@@ -414,6 +414,8 @@ fn a_spawned_actor_with_no_worn_character_still_gets_the_registered_moveset() {
     // The smallest move that is still a move: the projection cares about the verb
     // table, not about what the swing does.
     let swat = MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: "swat".to_string(),
         clip: ClipBinding {
             clip: "swat".to_string(),
@@ -500,6 +502,8 @@ fn wearing_a_quieter_character_retracts_the_previous_ones_moves() {
 
     let mut app = session_app();
     let swat = MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: "swat".to_string(),
         clip: ClipBinding {
             clip: "swat".to_string(),
@@ -598,6 +602,8 @@ fn routing_markers_are_derived_from_whatever_wrote_the_moveset() {
         MovesetContract {
             verbs: std::collections::BTreeMap::from([(verb.to_string(), "m".to_string())]),
             moves: vec![MoveSpec {
+                landing_lag_s: None,
+                autocancel_after_s: None,
                 id: "m".to_string(),
                 clip: ClipBinding {
                     clip: "m".to_string(),
@@ -680,6 +686,8 @@ fn replacing_the_cast_reprojects_a_body_wearing_the_same_character() {
                 id.to_string(),
             )]),
             moves: vec![MoveSpec {
+                landing_lag_s: None,
+                autocancel_after_s: None,
                 id: id.to_string(),
                 clip: ClipBinding {
                     clip: id.to_string(),

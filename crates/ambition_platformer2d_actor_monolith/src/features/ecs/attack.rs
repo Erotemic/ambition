@@ -40,9 +40,15 @@ use ambition_sfx::SfxMessage;
 /// it flips correctly under inverted gravity.
 ///
 /// Two post-hit gates apply to the FINAL `InputState`:
-/// - `recoil_lock_timer` (the brief recoil throw): a HARD lock — every verb,
-///   including the movement/flight steering axis, is zeroed so the knockback
-///   ejects the player and they can't act.
+/// - `hard_lock_timer`: every verb, including the movement/flight steering
+///   axis, is zeroed so the body cannot act at all. ⚠ **two different facts
+///   produce it** and the caller takes the longer: the brief recoil throw at
+///   the front of a knockback (`recoil_lock_timer`), and the authored landing
+///   lag an aerial owes for touching down mid-move (`landing_lag_timer`). They
+///   are kept as separate fields on purpose — a trace that cannot tell "thrown"
+///   from "landed badly" cannot explain why a fighter stood still — and joined
+///   only here, where the question is the narrower one of whether any verb
+///   survives this frame.
 /// - `hitstun_timer` (the longer, softer window once recoil clears): movement
 ///   authority is reduced and jump/dash/blink are suppressed, but the ATTACK
 ///   verb is preserved so the player can swing back the instant recoil ends —
@@ -51,7 +57,7 @@ pub fn engine_input_from_actor_control(
     actor: ActorControlFrame,
     feel: Platformer2dFeelTuningMonolith,
     hitstun_timer: f32,
-    recoil_lock_timer: f32,
+    hard_lock_timer: f32,
     control_dt: f32,
 ) -> ae::InputState {
     let mut input = ae::InputState {
@@ -106,7 +112,7 @@ pub fn engine_input_from_actor_control(
         shield_held: actor.shield_held,
         control_dt,
     };
-    apply_post_hit_input_gates(&mut input, feel, hitstun_timer, recoil_lock_timer);
+    apply_post_hit_input_gates(&mut input, feel, hitstun_timer, hard_lock_timer);
     input
 }
 
@@ -118,14 +124,17 @@ pub fn apply_post_hit_input_gates(
     input: &mut ae::InputState,
     feel: Platformer2dFeelTuningMonolith,
     hitstun_timer: f32,
-    recoil_lock_timer: f32,
+    // The HARD lock this frame — the longer of the recoil throw and any
+    // authored landing lag. See the caller's doc for why they stay separate
+    // facts and join only here.
+    hard_lock_timer: f32,
 ) {
     // The FLY TOGGLE is exempt from both gates: it is a mode-switch INTENT, not
     // movement authority (the axes are still stripped, so a toggled flyer can't
     // steer until the stagger clears). Eating an edge-triggered toggle corrupts
     // an open-loop brain's mode state (it believes it toggled), and toggling
     // flight to arrest a launch is a legitimate recovery tech for every body.
-    if recoil_lock_timer > 0.0 {
+    if hard_lock_timer > 0.0 {
         // Recoil throw: NO authority. Zero everything (including the movement /
         // flight steering axis) so the knockback carries the body out and it
         // can't steer back in or act until it clears.

@@ -495,6 +495,8 @@ mod tests {
                 gates: Default::default(),
                 start_impulse: None,
                 smash_charge_mult: 1.0,
+                landing_lag_s: None,
+                autocancel_after_s: None,
             })
             .collect();
         m.verbs = verbs

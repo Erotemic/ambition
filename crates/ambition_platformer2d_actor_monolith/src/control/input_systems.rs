@@ -60,6 +60,7 @@ pub fn input_timer_system(
         combat.damage_invuln_timer = (combat.damage_invuln_timer - frame_dt).max(0.0);
         combat.hitstun_timer = (combat.hitstun_timer - frame_dt).max(0.0);
         combat.recoil_lock_timer = (combat.recoil_lock_timer - frame_dt).max(0.0);
+        combat.landing_lag_timer = (combat.landing_lag_timer - frame_dt).max(0.0);
         combat.hitstop_timer = (combat.hitstop_timer - frame_dt).max(0.0);
     }
     let interaction = slot_gestures.primary_mut();

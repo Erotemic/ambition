@@ -14,6 +14,8 @@ use std::collections::BTreeMap;
 /// A move that emits one cue and carries one strike sound on its hit volume.
 fn slash(id: &str, cue: &str, strike: &str) -> MoveSpec {
     MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),

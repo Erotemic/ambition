@@ -111,6 +111,8 @@ fn seed_catalog_parses_and_validates() {
 /// A bare move (no windows) with the given id and grounded gate.
 fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
     MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),

@@ -157,6 +157,8 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         vfx: Some(SLASH_ARC_VFX.to_string()),
     };
     MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: ATTACK_VERB.to_string(),
         clip: ClipBinding {
             clip: "attack_side".to_string(),
@@ -322,6 +324,8 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
     let recover = p.recover_s.max(0.0);
     let duration = windup + recover;
     MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: RANGED_VERB.to_string(),
         clip: ClipBinding {
             clip: "shoot".to_string(),
@@ -492,6 +496,8 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         vfx: Some(SLASH_ARC_VFX.to_string()),
     };
     MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: "charge".to_string(),
         clip: ClipBinding {
             clip: "attack_side".to_string(),
@@ -750,6 +756,8 @@ pub fn special_move_from_spec(spec: &SpecialActionSpec) -> MoveSpec {
     let SpecialActionSpec::Special(key) = spec;
     let (windup, active, recover) = (0.08, 0.24, 0.13);
     MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: key.clone(),
         clip: ClipBinding {
             clip: "special".to_string(),

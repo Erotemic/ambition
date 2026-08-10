@@ -207,6 +207,22 @@ pub struct MovePlayback {
     pub spec: MoveSpec,
     /// `+1.0` faces right, `-1.0` left; mirrors every volume's x offset.
     pub facing: f32,
+    /// **Was this body grounded when this move last looked?** Owned by the
+    /// playback because the LANDING EDGE is a fact about this move's history,
+    /// not about the body.
+    ///
+    /// ⛔ **seeded `true`, which reads backwards and is the point.** It means
+    /// *no airborne observation yet*, so a move begun ON THE GROUND can never
+    /// cross the edge on its first tick and be charged an aerial's landing lag
+    /// — which is exactly what a `false` seed did, and what
+    /// `a_grounded_move_never_pays_landing_lag` caught. The construction site
+    /// cannot supply the real answer (`MovePlayback::new` sees no body), so the
+    /// safe direction is to assume grounded until a tick observes otherwise.
+    ///
+    /// ⚠ the price, and it is nil in practice: a move that starts airborne and
+    /// touches down within the SAME tick pays nothing. A body already on the
+    /// floor when its move started is a grounded move.
+    pub was_grounded: bool,
     /// Seconds of the OWNER'S proper time since move start.
     pub t: f32,
     /// CM4: this move CONNECTED with a victim. Set by the hit-resolution side
@@ -322,6 +338,9 @@ impl MovePlayback {
         Self {
             spec,
             facing,
+            // "No airborne observation yet" — see the field's doc for why the
+            // seed is this way round.
+            was_grounded: true,
             t: t0,
             landed_hit: false,
             live_boxes: Vec::new(),
@@ -808,6 +827,61 @@ pub fn advance_move_playback(
             }
             commands.entity(owner).remove::<MovePlayback>();
         }
+    }
+}
+
+/// **An aerial move that touches down before it ended owes its authored landing
+/// lag — unless it auto-cancelled.**
+///
+/// The platform-fighter commitment rule, and the reason spacing an aerial is a
+/// decision: you throw it knowing that landing mid-move costs you. A move that
+/// authors neither field lands the way it always did, so this is inert for
+/// every move that has not opted in.
+///
+/// ⭐ **body-generic by construction.** It reads `MovePlayback` and
+/// `BodyGroundState`, which every body carries — a CPU fighter, a possessed
+/// boss and a human all pay the same lag for the same move. There is no
+/// controller in the query.
+///
+/// ⚠ **the landing EDGE, not the grounded state.** A move begun on the ground
+/// (a jab, a down-tilt) is never mid-air, so it can never cross the edge and
+/// never pays. That is why the previous grounded-ness is remembered on the
+/// playback rather than re-derived: "is grounded now" would charge every
+/// ground move its landing lag on the frame it started.
+pub fn resolve_aerial_landings(
+    mut commands: Commands,
+    mut bodies: Query<(
+        Entity,
+        &mut MovePlayback,
+        &ambition_platformer2d_core::BodyGroundState,
+        &mut ambition_characters::actor::BodyCombat,
+    )>,
+) {
+    for (owner, mut playback, ground, mut combat) in &mut bodies {
+        let was_airborne = !playback.was_grounded;
+        playback.was_grounded = ground.on_ground;
+        if !was_airborne || !ground.on_ground {
+            continue;
+        }
+        // Landed this frame, out of a move that was still running.
+        let Some(lag) = playback.spec.landing_lag_s else {
+            continue;
+        };
+        // Auto-cancel: the dangerous part is over, so the landing is clean.
+        if playback
+            .spec
+            .autocancel_after_s
+            .is_some_and(|after| playback.t >= after)
+        {
+            continue;
+        }
+        combat.landing_lag_timer = combat.landing_lag_timer.max(lag.max(0.0));
+        // The move is OVER — its remaining windows do not survive the landing,
+        // which is what makes the lag a cost rather than a delay.
+        for (_, entity) in playback.live_boxes.drain(..) {
+            commands.entity(entity).despawn();
+        }
+        commands.entity(owner).remove::<MovePlayback>();
     }
 }
 

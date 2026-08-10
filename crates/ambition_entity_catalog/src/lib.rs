@@ -725,6 +725,29 @@ pub struct MoveSpec {
     /// `2.0` so a held smash lands twice as hard as a tap.
     #[serde(default = "default_charge_mult")]
     pub smash_charge_mult: f32,
+    /// **Landing lag: the recovery this move owes if the body touches down
+    /// before the move ended.** Seconds of the owner's proper time, spent as a
+    /// hard control lock.
+    ///
+    /// The platform-fighter rule this expresses: an aerial is a COMMITMENT. You
+    /// throw it knowing that landing mid-move costs you, which is what makes
+    /// spacing and timing an aerial a decision rather than a free action.
+    ///
+    /// `None` = an aerial that lands is an ordinary landing, which is the
+    /// behaviour of every move that has not opted in.
+    #[serde(default)]
+    pub landing_lag_s: Option<f32>,
+    /// **Auto-cancel: land after this point in the move and pay NO landing
+    /// lag.** Seconds of proper time from the move's start.
+    ///
+    /// The other half of the commitment: a move thrown early enough that its
+    /// dangerous part is over by touchdown lands clean. Authoring the pair is
+    /// how a designer says "rise with this one, do not fall with it".
+    ///
+    /// `None` = no auto-cancel window; [`Self::landing_lag_s`] applies whenever
+    /// the move is still running. Ignored if no landing lag is authored.
+    #[serde(default)]
+    pub autocancel_after_s: Option<f32>,
 }
 
 /// Serde default for [`MoveSpec::smash_charge_mult`]: the multiplicative

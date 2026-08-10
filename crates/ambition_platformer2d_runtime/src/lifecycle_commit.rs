@@ -331,7 +331,8 @@ fn commit_transition(
         combat.hitstop_timer = 0.0;
         combat.damage_invuln_timer = 0.0;
         combat.hitstun_timer = 0.0;
-        combat.recoil_lock_timer = 0.0;
+                combat.recoil_lock_timer = 0.0;
+        combat.landing_lag_timer = 0.0;
     }
     if let Some(mut safety) =
         world.get_mut::<ambition_platformer2d_actor_monolith::avatar::PlayerSafetyState>(subject)

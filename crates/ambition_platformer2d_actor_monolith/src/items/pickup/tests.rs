@@ -79,6 +79,8 @@ fn set_control(app: &mut App, player: Entity, attack: bool, shield: bool) {
 /// One timeline named `id`, gated to `grounded` when the gate is authored.
 fn timeline(id: &str, grounded: Option<bool>) -> MoveSpec {
     MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),

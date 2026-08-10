@@ -46,6 +46,8 @@ fn swing_cue(move_id: &str) -> String {
 /// `OwnedSfxMessage` credited to that provider".
 fn strike(id: &str, damage: i32) -> MoveSpec {
     MoveSpec {
+        landing_lag_s: None,
+        autocancel_after_s: None,
         id: id.to_string(),
         clip: ClipBinding {
             clip: id.to_string(),

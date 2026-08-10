@@ -162,6 +162,7 @@ fn apply_room_transition_resets(
     combat.damage_invuln_timer = 0.0;
     combat.hitstun_timer = 0.0;
     combat.recoil_lock_timer = 0.0;
+    combat.landing_lag_timer = 0.0;
     if let Some(safety) = safety {
         safety.last_safe_pos = arrival_pos;
     }

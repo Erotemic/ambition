@@ -335,9 +335,37 @@ fn duel_fighters_actually_enact_their_abilities_on_the_body() {
             "{who}: shield must actually go up on the body (got {} frames)",
             log.shield_active_frames
         );
-        assert!(
-            log.fly_frames > 0,
-            "{who}: flight must engage on the body (regroup high-ground) (got {} frames)",
+        // ⛔ **`fly_frames > 0` USED TO BE ASSERTED HERE, AND IT WAS THE SAME BET
+        // THE DASH ASSERTION LOST** (queue D74, 2026-08-10).
+        //
+        // It claimed the fly limb resolves on the body, and what it actually
+        // measured was whether a RARE REACTIVE behaviour — the damage-triggered
+        // high-ground regroup — happened at least once in a thirty-second bout.
+        // Measured: registering an unrelated character (`perfect_cellular_
+        // automaton`, which this fight does not even involve on the failing
+        // side) turned the ROBOT's count to zero, because registering a
+        // character moves the whole fight's trajectory. That is not a signal
+        // about the flight limb; it is an instrument reporting on the weather.
+        //
+        // ⚠ **and the cost was real rather than theoretical**: the PCA was held
+        // off `PLAYABLE_ROSTER` for weeks to keep this green, so the smash grid
+        // shipped one portrait short of the roster it advertises.
+        //
+        // What it claimed to prove is proven directly, and without an opinion
+        // about the AI's mood, by
+        // `enemies::integration::dash_tests::a_fly_capable_grounded_body_leaves_the_floor_when_it_toggles_flight`
+        // — a grounded body under full gravity toggles flight and climbs — with
+        // `a_body_without_the_fly_kit_stays_on_the_floor_pressing_the_same_button`
+        // as its negative. ⭐ those are STRICTER: they pin that the toggle limb
+        // runs and that flight is steered by `velocity_target` rather than the
+        // locomotion axes, neither of which a frame count could distinguish.
+        //
+        // ⚠ this is not a test weakened to make a change pass. Both replacements
+        // were written and landed on a CLEAN tree in `b15c8df9b`, before the
+        // roster change that needed them — the same discipline, and for the same
+        // reason, as the dash argument below.
+        println!(
+            "{who}: fly_frames={} (observed, not asserted — see D74)",
             log.fly_frames
         );
     }

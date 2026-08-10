@@ -105,10 +105,26 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     //
     // So this line is a WORKAROUND holding a fragile instrument green, not a
     // statement about the PCA, and the cost is real: the PCA is on
-    // `SMASH_ROSTER`, so the grid is one portrait shorter. Reverse it the moment
-    // either the sheet-timing fragility or `duel_arena`'s per-verb thresholds
-    // are dealt with — a longer settle alone is not the answer, it just moves
-    // the failure to the robot's shield count.
+    // `SMASH_ROSTER`, so the grid is one portrait shorter.
+    //
+    // ⇥ **RE-MEASURED 2026-08-10 (queue D74), and the reason above is only HALF
+    // of it.** Registering it was tried again, with the fragile `fly_frames > 0`
+    // assertion already replaced by a direct flight test. `duel_arena` went
+    // green — and `possession_end_to_end::attack_while_possessing_starts_the_
+    // possessed_actors_melee_not_the_home` went RED: the possessed actor IS the
+    // PCA, its melee lifecycle still engages, and its swing spawns **no strike
+    // hitbox at all**.
+    //
+    // ⛔ **that is the ~100-NPC regression this comment describes below, in
+    // miniature and reproducible.** A bare registration says the character
+    // authors no kit, preparation correctly RETRACTS what the incoming persona
+    // does not author, and the archetype's melee — the only place the PCA's
+    // swing is stated — is gone. ⇒ **the blocker is not the instrument. It is
+    // that the archetype still owns this character's kit**, which is exactly
+    // what queue D73 phase 2 moves.
+    //
+    // ⇒ reverse this line when the PCA's kit lives on its DEFINITION, not
+    // before. A longer settle is not the answer and neither is a better test.
     "stochastic_parrot", // the parrot
     "sandbag",           // the training dummy, playable for laughs
     // ── The fighters the smash grid offers ───────────────────────────────────

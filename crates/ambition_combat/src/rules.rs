@@ -53,6 +53,26 @@ pub struct DeclaredCombatRules {
     /// How far a launched body may steer its own trajectory (CM2). `0.0`
     /// disables directional influence entirely, which is Ambition's PvE answer.
     pub di_max_angle: f32,
+    /// **How much a launch GROWS with the victim's accumulated damage**, as a
+    /// fraction of the move's own base launch speed per point of damage.
+    ///
+    /// `0.01` means *a hit doubles its launch at 100 damage* — the platform
+    /// fighter's whole loop, where a fresh opponent is unlaunchable and a
+    /// hundred-percent one dies to the same jab. `0.0` is flat knockback, which
+    /// is Ambition's PvE answer and the engine baseline.
+    ///
+    /// ⭐ **a RULESET fact, not a per-move one, and that is the point.** A move
+    /// may still author its own `kb_growth` on a hit volume and that wins
+    /// outright; this is what a stage says when its moves author none. Without
+    /// it, every prefab-derived swing in the game carries `kb_growth: 0.0` — so
+    /// Smash's duelists launched identically at 0% and 150%, which is exactly
+    /// what Jon reported as *"there does not seem to be any knockback"*.
+    ///
+    /// ⚠ it scales the move's BASE launch rather than being an absolute
+    /// px/s-per-point, so a jab grows less than a smash out of one number. That
+    /// is the property a per-move table would otherwise have to restate for
+    /// every move.
+    pub knockback_growth: f32,
     /// Whether same-faction bodies damage each other.
     ///
     /// ⚠ a match with declared TEAMS should leave this `false`. `MatchTeam`
@@ -70,6 +90,8 @@ pub struct DeclaredCombatRules {
 #[derive(Resource, Clone, Copy, Debug, PartialEq)]
 pub struct ResolvedCombatTuning {
     pub di_max_angle: f32,
+    /// See [`DeclaredCombatRules::knockback_growth`]. `0.0` = flat knockback.
+    pub knockback_growth: f32,
     pub friendly_fire: bool,
 }
 
@@ -91,10 +113,15 @@ impl ResolvedCombatTuning {
         match declared {
             Some(rules) => Self {
                 di_max_angle: rules.di_max_angle,
+                knockback_growth: rules.knockback_growth,
                 friendly_fire: rules.friendly_fire,
             },
+            // ⚠ growth has NO world baseline to fall back to, unlike DI and
+            // friendly fire: nothing outside a declaration authors it, so an
+            // undeclared world is flat — which is every Ambition room today.
             None => Self {
                 di_max_angle: baseline_di,
+                knockback_growth: 0.0,
                 friendly_fire: baseline_ff,
             },
         }
@@ -118,6 +145,7 @@ impl Default for ResolvedCombatTuning {
     fn default() -> Self {
         Self {
             di_max_angle: 0.0,
+            knockback_growth: 0.0,
             friendly_fire: false,
         }
     }
@@ -144,6 +172,7 @@ mod tests {
             Some(DeclaredCombatRules {
                 declared_by: "a_stage".to_string(),
                 di_max_angle: 0.30,
+                knockback_growth: 0.0,
                 friendly_fire: false,
             }),
             baseline_di,
@@ -164,6 +193,7 @@ mod tests {
         let declared = Some(DeclaredCombatRules {
             declared_by: "a_stage".to_string(),
             di_max_angle: 0.30,
+            knockback_growth: 0.0,
             friendly_fire: true,
         });
         assert_eq!(
@@ -174,6 +204,7 @@ mod tests {
             ResolvedCombatTuning::resolve(None, 0.12, false),
             ResolvedCombatTuning {
                 di_max_angle: 0.12,
+                knockback_growth: 0.0,
                 friendly_fire: false,
             }
         );

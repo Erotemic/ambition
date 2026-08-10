@@ -132,6 +132,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         // whether the live rules are its own before removing them.
         declared_by: "a_declaring_stage".to_string(),
         di_max_angle: DECLARED_DI,
+        knockback_growth: 0.0,
         friendly_fire: false,
     });
     app.update();

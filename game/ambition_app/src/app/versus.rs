@@ -722,6 +722,11 @@ fn track_versus_roster(
                 // participant roster, the prepared match, now the rules.
                 declared_by: VERSUS_EXPERIENCE.to_string(),
                 di_max_angle: VERSUS_DI_MAX_ANGLE,
+                // ⚠ the generic versus stage stays FLAT for now: its rounds end
+                // on health rather than on a blast zone, so a launch that grows
+                // without bound is a different game's mechanic. Smash declares
+                // its own — see `SMASH_KNOCKBACK_GROWTH`.
+                knockback_growth: 0.0,
                 friendly_fire: false,
             });
             // A FRESH match. `VersusMatch` is a long-lived resource, so without

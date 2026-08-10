@@ -10,7 +10,7 @@ fn dummy_entity() -> Entity {
 #[test]
 fn hitbox_knockback_units_remain_distinct() {
     assert_eq!(
-        resolved_hitbox_knockback_magnitude(HitboxKnockback::FeelScale(1.6), 80, 2.0),
+        resolved_hitbox_knockback_magnitude(HitboxKnockback::FeelScale(1.6), 80, 2.0, 0.0),
         HitKnockbackMagnitude::FeelScale(1.6),
         "world damage-box feel scales do not become engine-unit speeds"
     );
@@ -22,6 +22,7 @@ fn hitbox_knockback_units_remain_distinct() {
             },
             30,
             2.0,
+            0.0,
         ),
         HitKnockbackMagnitude::LaunchSpeed(150.0),
         "melee launch speed growth resolves in engine units"
@@ -1140,4 +1141,83 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
         "the authored strike sound rides onto the HitEvent for the victim reaction"
     );
     assert!(matches!(body_hits[0].target, HitTarget::Body(_)));
+}
+
+/// **A stage can make knockback grow with percent without authoring a number on
+/// every move** — queue D75, and Jon's *"in smash there does not seem to be any
+/// knockback."*
+///
+/// Every basic swing in the game is derived from the `simple_melee` prefab, and
+/// a prefab swing carries `kb_growth: 0.0`. `scaled_knockback` returns the base
+/// immediately when growth is zero, so before this the Smash duelists launched a
+/// 150% opponent exactly as far as a fresh one: percent accumulated and moved
+/// nothing. The engine had the whole mechanism and no content reached it.
+mod ruleset_knockback_growth {
+    use super::*;
+
+    fn launch(growth: f32, ruleset_growth: f32, victim_damage: i32) -> f32 {
+        match resolved_hitbox_knockback_magnitude(
+            crate::strike::HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth,
+            },
+            victim_damage,
+            1.0,
+            ruleset_growth,
+        ) {
+            HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
+            other => panic!("a launch speed must resolve to one: {other:?}"),
+        }
+    }
+
+    /// ⛔ **PARITY FIRST.** An undeclared world is every Ambition room, and
+    /// nothing there may start launching further because this seam exists.
+    #[test]
+    fn a_world_that_declares_no_growth_is_still_flat() {
+        assert_eq!(launch(0.0, 0.0, 0), 120.0);
+        assert_eq!(
+            launch(0.0, 0.0, 200),
+            120.0,
+            "with no growth declared, a badly damaged body must launch exactly \
+             as far as a fresh one — that is Ambition's PvE answer"
+        );
+    }
+
+    /// The mechanic itself: `0.01` doubles the launch at 100 damage, because the
+    /// ruleset term is a fraction of THIS move's base rather than an absolute
+    /// px/s — which is what makes one number scale a jab and a smash correctly.
+    #[test]
+    fn a_declared_growth_makes_a_worn_opponent_fly() {
+        assert_eq!(launch(0.0, 0.01, 0), 120.0, "a fresh opponent is unmoved");
+        assert_eq!(launch(0.0, 0.01, 100), 240.0);
+        assert_eq!(launch(0.0, 0.01, 200), 360.0);
+    }
+
+    /// ⭐ **an authored move still wins.** The ruleset speaks for the swings that
+    /// author nothing; a move with its own growth is a deliberate statement and
+    /// must not be scaled twice.
+    #[test]
+    fn an_authored_move_growth_outranks_the_ruleset() {
+        // Authored 2.0/point against a ruleset that would have given 1.2.
+        assert_eq!(launch(2.0, 0.01, 100), 120.0 + 200.0);
+    }
+
+    /// ⚠ weight still divides, and it must keep doing so through the new path —
+    /// a heavy body is the reason growth is per-victim rather than per-hit.
+    #[test]
+    fn a_heavy_body_still_resists_a_grown_launch() {
+        let heavy = match resolved_hitbox_knockback_magnitude(
+            crate::strike::HitboxKnockback::LaunchSpeed {
+                base: 120.0,
+                growth: 0.0,
+            },
+            100,
+            2.0,
+            0.01,
+        ) {
+            HitKnockbackMagnitude::LaunchSpeed(speed) => speed,
+            other => panic!("a launch speed must resolve to one: {other:?}"),
+        };
+        assert_eq!(heavy, 180.0, "twice the weight takes half the growth");
+    }
 }

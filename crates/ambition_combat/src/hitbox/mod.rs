@@ -76,14 +76,28 @@ pub struct LandedBodyHit {
 /// Feel multipliers pass through unchanged. Authored melee speed growth is
 /// evaluated here because it depends on the struck body's accumulated damage
 /// and weight; the resulting event no longer carries unresolved growth.
+///
+/// ⭐ **`ruleset_growth` is what a stage says when the MOVE says nothing.** An
+/// authored volume's own `kb_growth` wins outright; a swing derived from the
+/// `simple_melee` prefab carries `0.0`, which is every basic attack in the game,
+/// and without this every one of them launched a 150% opponent exactly as far as
+/// a fresh one. The ruleset value is a FRACTION of this move's base launch per
+/// point of damage, so one number makes a jab grow gently and a smash grow hard
+/// (see [`crate::rules::DeclaredCombatRules::knockback_growth`]).
 fn resolved_hitbox_knockback_magnitude(
     knockback: HitboxKnockback,
     victim_damage_taken: i32,
     victim_weight: f32,
+    ruleset_growth: f32,
 ) -> HitKnockbackMagnitude {
     match knockback {
         HitboxKnockback::FeelScale(scale) => HitKnockbackMagnitude::FeelScale(scale.max(0.0)),
         HitboxKnockback::LaunchSpeed { base, growth } => {
+            let growth = if growth > 0.0 {
+                growth
+            } else {
+                base * ruleset_growth.max(0.0)
+            };
             let launch_speed =
                 crate::util::scaled_knockback(base, growth, victim_damage_taken, victim_weight)
                     .max(0.0);
@@ -326,6 +340,12 @@ pub fn apply_hitbox_damage(
     mut hit_events: MessageWriter<HitEvent>,
     mut landed_hits: MessageWriter<LandedBodyHit>,
 ) {
+    // Both rule reads take the resource by reference: the growth term is read
+    // per victim below, and moving it here left that read with nothing.
+    let ruleset_growth = tuning
+        .as_deref()
+        .map(|t| t.knockback_growth)
+        .unwrap_or_default();
     let friendly_fire = tuning.map(|t| t.friendly_fire()).unwrap_or_default();
     for (hitbox_entity, hitbox, mut hits) in &mut hitboxes {
         // Resolve the owner's collision-box center for FollowOwner tracking.
@@ -409,6 +429,7 @@ pub fn apply_hitbox_damage(
                     hitbox.knockback,
                     victim_damage_taken,
                     victim_weight,
+                    ruleset_growth,
                 );
                 let knockback = Some(HitKnockback {
                     dir,

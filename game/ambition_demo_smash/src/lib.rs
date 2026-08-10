@@ -1296,6 +1296,7 @@ fn start_the_battle_when_asked(
         // taught once already.
         declared_by: SMASH_EXPERIENCE.to_string(),
         di_max_angle: SMASH_DI_MAX_ANGLE,
+        knockback_growth: SMASH_KNOCKBACK_GROWTH,
         // ⚠ teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,
@@ -1474,6 +1475,28 @@ impl bevy::prelude::Plugin for SmashExperiencePlugin {
 /// because Ambition's PvE answers `0.0` — being hit there is a punishment, not
 /// the opening of a negotiation.
 const SMASH_DI_MAX_ANGLE: f32 = 0.31;
+
+/// **How hard a launch grows with the victim's percent** — a fraction of the
+/// move's own base launch, per point of damage. `0.01` doubles a hit's launch at
+/// 100%.
+///
+/// ⭐ **this is the mechanic Jon reported missing**: *"in smash there does not
+/// seem to be any knockback."* Every piece of the engine was already there — the
+/// growth term, hitstun and hitlag scaling off the resulting launch, DI steering
+/// it — and the duelists reached none of it, because their swings come from the
+/// `simple_melee` prefab and a prefab swing authors `kb_growth: 0.0`. A hit at
+/// 150% launched exactly as far as a hit at 0%, so percent accumulated and moved
+/// nothing.
+///
+/// ⚠ **authored HERE, like the DI budget and the jump squat**, and for the same
+/// reason: knockback that grows with damage is what a platform fighter IS and it
+/// is wrong for Ambition's PvE, where being hit is a punishment rather than a
+/// meter. The world baseline stays flat; a stage that wants the loop says so.
+///
+/// The number: a duelist's swipe launches at 120 px/s, so at 100 damage it
+/// launches at 240 and at 200 damage at 360 — a fresh opponent is hard to move
+/// and a worn one flies, which is the read the whole stage is built around.
+const SMASH_KNOCKBACK_GROWTH: f32 = 0.01;
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";
@@ -2173,6 +2196,18 @@ mod tests {
         assert!(
             SMASH_DI_MAX_ANGLE > 0.0,
             "⛔ a zero budget makes `di_adjust` a no-op, so declaring the rules              at all would be theatre — DI would be off and every test still green"
+        );
+        // ⛔ **the same trap, one field over** (queue D75). Zero growth makes
+        // `scaled_knockback` return the base immediately, so percent would
+        // accumulate and launch nothing — which is exactly the state Jon
+        // reported as "there does not seem to be any knockback", with every
+        // test green because the engine was working on a number nobody set.
+        assert!(
+            SMASH_KNOCKBACK_GROWTH > 0.0,
+            "⛔ a platform fighter whose launch does not grow with percent is a \
+             fighting game with no comeback and no kill: every basic swing here \
+             is prefab-derived and authors `kb_growth: 0.0`, so this declaration \
+             is the ONLY thing that makes a worn opponent fly"
         );
 
         let mut app = App::new();

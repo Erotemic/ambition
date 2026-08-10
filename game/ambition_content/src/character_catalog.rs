@@ -107,24 +107,28 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
     // statement about the PCA, and the cost is real: the PCA is on
     // `SMASH_ROSTER`, so the grid is one portrait shorter.
     //
-    // ⇥ **RE-MEASURED 2026-08-10 (queue D74), and the reason above is only HALF
-    // of it.** Registering it was tried again, with the fragile `fly_frames > 0`
-    // assertion already replaced by a direct flight test. `duel_arena` went
-    // green — and `possession_end_to_end::attack_while_possessing_starts_the_
-    // possessed_actors_melee_not_the_home` went RED: the possessed actor IS the
-    // PCA, its melee lifecycle still engages, and its swing spawns **no strike
-    // hitbox at all**.
+    // ⇥ **RE-MEASURED 2026-08-10 (queue D74).** Registering it was tried again
+    // with the fragile `fly_frames > 0` assertion already replaced by a direct
+    // flight test. `duel_arena` went green; `possession_end_to_end::attack_
+    // while_possessing_starts_the_possessed_actors_melee_not_the_home` went RED
+    // instead — the possessed actor IS the PCA.
     //
-    // ⛔ **that is the ~100-NPC regression this comment describes below, in
-    // miniature and reproducible.** A bare registration says the character
-    // authors no kit, preparation correctly RETRACTS what the incoming persona
-    // does not author, and the archetype's melee — the only place the PCA's
-    // swing is stated — is gone. ⇒ **the blocker is not the instrument. It is
-    // that the archetype still owns this character's kit**, which is exactly
-    // what queue D73 phase 2 moves.
+    // ⛔ **and the obvious explanation is REFUTED, by probe.** The registered
+    // PCA's kit is intact: `ActorMoveset` carries all seven attack verbs
+    // (`attack`, `attack_up/down`, the four aerials) and its `ActionSet.melee`
+    // is `Some`. Its catalog row declares `default_action_set: "striker_swipe"`,
+    // which the finalization fold uses when a definition authors none, so a bare
+    // registration does NOT leave this character kitless.
     //
-    // ⇒ reverse this line when the PCA's kit lives on its DEFINITION, not
-    // before. A longer settle is not the answer and neither is a better test.
+    // ⚠ what actually differs is TIMING: the archetype swipe is 0.24/0.08/0.30
+    // and `striker_swipe` is 0.28/0.08/0.32, and that test samples live `Hitbox`
+    // components once per `sim.step` while a step advances MANY sim frames. An
+    // 0.08 s active window is ~5 frames; shifting it relative to the sample grid
+    // can hide it entirely. ⇒ the likely fault is the sampling, not the swing —
+    // the same family as the `fly_frames` assertion, one test over. NOT YET
+    // PROVEN, and it is what to test first.
+    //
+    // ⇒ reverse this line once that is settled.
     "stochastic_parrot", // the parrot
     "sandbag",           // the training dummy, playable for laughs
     // ── The fighters the smash grid offers ───────────────────────────────────

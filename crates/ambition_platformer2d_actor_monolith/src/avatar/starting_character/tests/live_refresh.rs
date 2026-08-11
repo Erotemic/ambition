@@ -126,8 +126,9 @@ fn restricted_ability_base_survives_the_sandbox_default_mask() {
         ambition_dev_tools::sync_live_player_dev_edits_system,
     );
 
-    let run_jump =
-        ambition_platformer2d_core::AbilitySet::compose(&[ambition_platformer2d_core::AbilityGrant::RunJump]);
+    let run_jump = ambition_platformer2d_core::AbilitySet::compose(&[
+        ambition_platformer2d_core::AbilityGrant::RunJump,
+    ]);
     let entity = app
         .world_mut()
         .spawn((
@@ -217,10 +218,12 @@ fn authored_movement_tuning_drives_the_air_jump_count_not_the_dev_editable() {
                 ),
             ),
             // Authored feel: a TRIPLE jump (two air jumps).
-            ambition_platformer2d_core::AuthoredMovementTuning(ambition_platformer2d_core::MovementTuning {
-                air_jumps: 2,
-                ..ambition_platformer2d_core::DEFAULT_TUNING
-            }),
+            ambition_platformer2d_core::AuthoredMovementTuning(
+                ambition_platformer2d_core::MovementTuning {
+                    air_jumps: 2,
+                    ..ambition_platformer2d_core::DEFAULT_TUNING
+                },
+            ),
         ))
         .id();
 
@@ -321,10 +324,13 @@ fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state(
         .unwrap()
         .charges_available = 2;
 
-    // Re-wear an axis persona (the default protagonist).
-    app.world_mut()
-        .entity_mut(entity)
-        .insert(WornCharacter::new("player"));
+    // Re-wear an axis persona (the default protagonist) — and ASK for it.
+    // Writing the identity stopped rebuilding the body (Jon's second redirect,
+    // P0): a re-wear is an explicit request now.
+    app.world_mut().entity_mut(entity).insert((
+        WornCharacter::new("player"),
+        ambition_characters::actor::RecharacterizeBody,
+    ));
     app.update();
 
     assert!(

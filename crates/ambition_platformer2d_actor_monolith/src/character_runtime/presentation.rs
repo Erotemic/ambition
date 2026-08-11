@@ -571,6 +571,31 @@ pub fn grant_prepared_character_body(
     kit: KitOwnership,
 ) {
     {
+        // ⭐⭐ **THE APPLIED-TEMPLATE STAMP FOR GAMEPLAY, written at CONSTRUCTION**
+        // (Jon's second redirect, P0).
+        //
+        // ⛔ **without it the contract was a lie, and I asserted otherwise.** The
+        // persona derive re-applies a body whenever
+        // `stale_cast = PersonaBaseline.is_none_or(..)`, and construction wrote
+        // only `ProjectedCharacterKit` — so a body built COMPLETE had no
+        // baseline, `stale_cast` was true, and the character was applied a second
+        // time on the next pass. I verified the OTHER writer
+        // (`project_prepared_character_definitions`, which does skip) and
+        // reported the answer as if it covered both.
+        //
+        // ⚠ **`displaced` is EMPTY, and that is the Construction boundary's whole
+        // meaning**: nothing was taken from this body, because the body was BUILT
+        // as this character. A replacement records what it displaced so it can
+        // retract to it; a construction has nothing to retract to.
+        if kit == KitOwnership::Grant {
+            commands
+                .entity(entity)
+                .insert(crate::avatar::PersonaBaseline {
+                    id: prepared.id.as_str().to_string(),
+                    generation,
+                    displaced: Default::default(),
+                });
+        }
         commands.entity(entity).insert(ProjectedCharacterKit {
             id: prepared.id.as_str().to_string(),
             generation,

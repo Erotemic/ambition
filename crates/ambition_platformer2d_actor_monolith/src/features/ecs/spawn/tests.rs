@@ -690,6 +690,104 @@ mod authored_enemy_reads_its_character {
     /// `npc_busy_beaver` is a REAL catalog row with the real display name
     /// "Busy Beaver", authoring 9 HP as a character. Using a real row is what
     /// makes the name-fallback case in the second test reachable at all.
+    /// **A CONSTRUCTED CHARACTER IS STAMPED AS APPLIED ON ITS OWN FRAME.**
+    ///
+    /// ⛔⛔ **the invariant Jon's second redirect asked for directly, and the one
+    /// I got wrong by inference.** The persona derive re-applies a body whenever
+    /// `stale_cast = PersonaBaseline.is_none_or(..)`. Construction wrote only
+    /// `ProjectedCharacterKit`, so a body built COMPLETE still had no baseline,
+    /// `stale_cast` was true, and the character was applied a SECOND time on the
+    /// next pass. I had verified the other applier
+    /// (`project_prepared_character_definitions`, which does skip) and reported
+    /// that as covering both.
+    ///
+    /// ⭐ **this fixture cannot lie about it**, which is why it lives here: the
+    /// app it builds registers the spawn system and NOTHING ELSE.
+    /// `apply_worn_character_gameplay` is not in it, so a `PersonaBaseline` on
+    /// the body can only have come from construction.
+    ///
+    /// ⚠ and `displaced` must be EMPTY — that is the Construction boundary's
+    /// meaning. Nothing was taken from this body; it was built as this character.
+    /// A stamp carrying displacements would claim a replacement had happened and
+    /// hand a later re-wear something wrong to retract to.
+    #[test]
+    fn construction_stamps_the_applied_template_so_nothing_reapplies_it() {
+        let mut spec = crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "medium_striker".to_string(),
+            ),
+        );
+        spec.character_id = Some(ambition_entity_catalog::CharacterId::from(
+            "npc_busy_beaver",
+        ));
+        let authored = crate::rooms::Authored::new(
+            "EnemySpawn-1",
+            "Some Room Enemy",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            spec,
+        );
+
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(roster());
+        app.insert_resource(prepared_complete());
+        app.add_systems(
+            Update,
+            move |mut commands: Commands,
+                  catalog: bevy::prelude::Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >,
+                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
+                  prepared: bevy::prelude::Res<
+                crate::character_runtime::PreparedCharacterRegistry,
+            >| {
+                let root = commands.spawn_empty().id();
+                crate::features::spawn_enemy_with_faction_into(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &roster,
+                    &prepared,
+                    &Default::default(),
+                    SessionSpawnScope::UNSCOPED,
+                    root,
+                    &authored,
+                    &[],
+                    crate::features::ActorFaction::Enemy,
+                );
+            },
+        );
+        app.update();
+
+        let generation = app
+            .world()
+            .resource::<crate::character_runtime::PreparedCharacterRegistry>()
+            .generation();
+        let world = app.world_mut();
+        let mut q = world.query::<&crate::avatar::PersonaBaseline>();
+        let baseline = q
+            .iter(world)
+            .next()
+            .expect(
+                "a character-first body carries no applied-template stamp, so the \
+                 persona derive will apply the character a SECOND time on its next \
+                 pass — the body is not complete, whatever construction granted",
+            )
+            .clone();
+        assert_eq!(baseline.id, "npc_busy_beaver");
+        assert_eq!(
+            baseline.generation, generation,
+            "the stamp names a different cast than the one that built the body, so \
+             a hot-reload check reads it as stale immediately"
+        );
+        assert_eq!(
+            baseline.displaced,
+            Default::default(),
+            "construction recorded a DISPLACEMENT, which claims a replacement \
+             happened: a later re-wear would retract to values this body never had"
+        );
+    }
+
     /// **THE SAME BODY, TWO PLACEMENTS, TWO DRIVERS.**
     ///
     /// ⭐ the demonstration Jon asked for in place of the one-of-each archetype

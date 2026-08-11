@@ -2595,6 +2595,12 @@ fn a_character_authors_its_own_death_traits_and_absence_retracts_them() {
         .get_mut::<ambition_characters::actor::WornCharacter>(sandbag_body)
         .expect("the seated body wears its character") =
         ambition_characters::actor::WornCharacter::new("duelist");
+    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the body
+    // (Jon's second redirect, P0): a re-wear is an explicit request now, the way
+    // Mary-O's powerup already made it.
+    app.world_mut()
+        .entity_mut(sandbag_body)
+        .insert(ambition_characters::actor::RecharacterizeBody);
     finalize_and_update(&mut app);
     // ⛔ **PRESENT AND DEFAULT, not absent** — and the difference cost sixteen
     // integration tests. `CombatCapabilities` is a required member of

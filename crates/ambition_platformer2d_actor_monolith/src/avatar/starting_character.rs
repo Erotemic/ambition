@@ -793,8 +793,22 @@ pub fn apply_worn_character_gameplay(
         // `Or<(Changed<..>, Changed<..>)>` query filter that used to stand here
         // could only ever express the first, which left every live body wearing a
         // retired kit after a hot reload.
-        let stale_cast =
-            baseline.is_none_or(|baseline| baseline.id != id || baseline.generation != generation);
+        // ⛔⛔ **AN IDENTITY CHANGE ALONE NO LONGER RE-APPLIES** (Jon's second
+        // redirect, P0). This read `baseline.id != id`, which made writing the
+        // worn id the way to rebuild a body — the second meaning `WornCharacter`
+        // was split to stop carrying. A re-wear asks with `RecharacterizeBody`;
+        // Mary-O's powerup already did, and the fixtures that mutated the id and
+        // expected a rebuild were encoding the old contract.
+        //
+        // What is left here is HOT RELOAD: the cast this body was built from no
+        // longer exists, which nothing on the body can express and no writer can
+        // be expected to notice. That is a rollback-state test rather than a
+        // change tick, so it survives a rewind.
+        //
+        // ⚠ `baseline.is_none()` stays as the net for a body nobody stamped —
+        // and every ordinary construction path stamps now, which is what makes
+        // this net rather than mechanism.
+        let stale_cast = baseline.is_none_or(|baseline| baseline.generation != generation);
         // **ONE mint per body, whatever path the derivation takes.**
         //
         // A body that carries no moveset gets one BUILT rather than being

@@ -175,6 +175,13 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     // identity). Downstream observes the change: the stale momentum model is
     // replaced by the explicit axis-swept policy and the name follows.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
+    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // way Mary-O's powerup already made it. A fixture that mutated the id and
+    // expected a rebuild was encoding the contract that split.
+    app.world_mut()
+        .entity_mut(e)
+        .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
     assert!(
         matches!(
@@ -238,6 +245,13 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
     // Assigning the equivalent identity still creates a real Changed edge. The
     // derive must refresh name/kit without replacing the matching motion model.
     *app.world_mut().get_mut::<WornCharacter>(entity).unwrap() = WornCharacter::new("sanic");
+    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // way Mary-O's powerup already made it. A fixture that mutated the id and
+    // expected a rebuild was encoding the contract that split.
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
 
     match app.world().get::<MotionModel>(entity) {
@@ -301,6 +315,70 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
     );
 }
 
+/// **WRITING THE IDENTITY IS NOT A RE-TEMPLATE REQUEST.**
+///
+/// ⛔⛔ **the second half of Jon's P0 invariant, and the one that could only be
+/// proved by ASKING TWICE.** `WornCharacter` used to mean both *this body is an
+/// instance of X* and *please rebuild this body as X* — the first through the
+/// component, the second through `stale_cast`'s `baseline.id != id`. Splitting
+/// the component was not enough while that comparison stood: an id write still
+/// rebuilt the body, so ordinary construction could still be finished by an
+/// observation rather than by a constructor.
+///
+/// Two steps, and the pair is the proof: change the id and NOTHING happens; then
+/// ask, and the replacement runs. One alone proves neither — an inert derive
+/// passes the first, and the old behaviour passes the second.
+#[test]
+fn changing_the_worn_identity_alone_does_not_rebuild_the_body() {
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
+    app.add_systems(Update, apply_worn_character_gameplay);
+    let e = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("sanic"),
+            Name::new("placeholder"),
+            ambition_characters::brain::ActionSet::peaceful(),
+            crate::combat::moveset::ActorMoveset(Default::default()),
+            ambition_characters::brain::action_set::IdentityKit::default(),
+            crate::actor::BodyAbilities::new(ambition_platformer2d_core::AbilitySet::sandbox_all()),
+            MotionModel::default(),
+            ambition_characters::actor::RecharacterizeBody,
+        ))
+        .id();
+    app.update();
+    assert_eq!(
+        app.world().get::<Name>(e).unwrap().as_str(),
+        "Sanic",
+        "the first application did not happen, so neither step below means anything"
+    );
+
+    // ⇥ **STEP ONE: change the identity, ask nothing.**
+    *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
+    app.update();
+    assert_eq!(
+        app.world().get::<Name>(e).unwrap().as_str(),
+        "Sanic",
+        "writing the worn id rebuilt the body, so `WornCharacter` still means \
+         'please re-apply me' and the split is nominal"
+    );
+
+    // ⇥ **STEP TWO: ask.**
+    app.world_mut()
+        .entity_mut(e)
+        .insert(ambition_characters::actor::RecharacterizeBody);
+    app.update();
+    assert_eq!(
+        app.world().get::<Name>(e).unwrap().as_str(),
+        "Player Robot v3",
+        "an explicit re-template request did not perform the replacement, which \
+         leaves no way to re-wear a body at all"
+    );
+}
+
 /// **The full KIT (ActionSet + moveset), not just name/movement, follows a
 /// re-wear between two KNOWN characters** — the reviewer-flagged gap. Wearing
 /// the pirate gives its authored pistol; re-wearing the goblin replaces it with
@@ -349,6 +427,13 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
 
     // Re-wear a DIFFERENT known character: the kit fully swaps — no stale pistol.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("goblin");
+    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // way Mary-O's powerup already made it. A fixture that mutated the id and
+    // expected a rebuild was encoding the contract that split.
+    app.world_mut()
+        .entity_mut(e)
+        .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
     assert!(
         !matches!(
@@ -429,6 +514,13 @@ fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
     // Bolt + bubble_shield from sandbox_all abilities) is rebuilt — NO stale
     // pistol.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player_robot_v3");
+    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // way Mary-O's powerup already made it. A fixture that mutated the id and
+    // expected a rebuild was encoding the contract that split.
+    app.world_mut()
+        .entity_mut(e)
+        .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
     assert_eq!(
         app.world().get::<Name>(e).unwrap().as_str(),
@@ -502,6 +594,13 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
 
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() =
         WornCharacter::new("ghost_not_in_catalog");
+    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // way Mary-O's powerup already made it. A fixture that mutated the id and
+    // expected a rebuild was encoding the contract that split.
+    app.world_mut()
+        .entity_mut(e)
+        .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
     // Name is the id itself (a legible diagnostic), NOT the stale "Pirate Admiral".
     assert_eq!(
@@ -1728,6 +1827,13 @@ fn a_silent_character_gives_back_the_bodys_own_mass_and_health() {
     );
 
     *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("silent_persona");
+    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // way Mary-O's powerup already made it. A fixture that mutated the id and
+    // expected a rebuild was encoding the contract that split.
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
 
     assert_eq!(
@@ -1811,6 +1917,13 @@ fn a_body_with_no_mass_of_its_own_loses_the_component_again() {
     );
 
     *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("silent_persona");
+    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // way Mary-O's powerup already made it. A fixture that mutated the id and
+    // expected a rebuild was encoding the contract that split.
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
     assert!(
         app.world().get::<crate::features::Mass>(body).is_none(),
@@ -1888,6 +2001,13 @@ fn a_field_no_persona_authored_is_left_to_whoever_else_writes_it() {
     }
 
     *app.world_mut().get_mut::<WornCharacter>(body).unwrap() = WornCharacter::new("quiet_two");
+    // ⭐ **AND ASK FOR IT.** Writing the identity stopped rebuilding the
+    // body (Jon's second redirect, P0): a re-wear is an explicit request, the
+    // way Mary-O's powerup already made it. A fixture that mutated the id and
+    // expected a rebuild was encoding the contract that split.
+    app.world_mut()
+        .entity_mut(body)
+        .insert(ambition_characters::actor::RecharacterizeBody);
     app.update();
 
     assert_eq!(

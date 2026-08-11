@@ -135,37 +135,22 @@ fn player_robot_archetype_carries_the_full_player_kit() {
     );
 }
 
-/// The Stochastic Parrot's DUAL nature, proven from the authored data:
-///   - the friendly cove bird is a catalog character (`stochastic_parrot`,
-///     peaceful) — its sprite binds by `character_id`;
-///   - the aggressive sky raiders are the `sky_parrot` enemy archetype —
-///     hostile + aerial, reusing the charge-crash dive brain;
-///   - both wear the SAME parrot sprite. The aggressive form binds by
-///     DISPLAY NAME, so this pins that the enemy's authored spawn name
-///     ("Stochastic Parrot", set on the sky `EnemySpawn`s) exactly equals
-///     the catalog `display_name` — the fragile string join in P2 of the
-///     content-authoring pain-points journal. If someone renames either
-///     side, the sky parrots silently lose their sprite; this test screams.
+/// The Stochastic Parrot's DUAL nature — ONE character, two dispositions.
+///
+/// ⭐ **rewritten 2026-08-11, and what it lost is the achievement.** It used to
+/// pin a fragile string: the cove bird was a catalog character and the sky
+/// raiders were a separate `sky_parrot` ARCHETYPE whose sprite bound by DISPLAY
+/// NAME, so this test existed mostly to scream if either side was renamed. The
+/// archetype is deleted. The sky placements name `character_id:
+/// stochastic_parrot`, so both forms are the same character and the join they
+/// depended on is not fragile — it is not a join at all.
+///
+/// What remains here is the CATALOG half: the display name (still the art
+/// fallback for anything unmigrated), the sheet, and the peaceful default brain.
+/// The parrot's authored BODY is pinned beside the definition that states it,
+/// in `ambition_content`.
 #[test]
 fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
-    use super::CharacterBrainTemplate;
-
-    // Aggressive sky form.
-    let sky = test_spec("sky_parrot");
-    assert!(sky.attacks_player, "sky_parrot is hostile by default");
-    assert_eq!(
-        sky.is_aerial,
-        Some(true),
-        "sky_parrot flies (aerial, no gravity), and says so EXPLICITLY — `None` \
-         would mean it never stated an answer"
-    );
-    assert!(sky.melee.is_some(), "sky_parrot has a dive/peck melee");
-    assert_eq!(
-        sky.brain_template,
-        CharacterBrainTemplate::Aerial,
-        "sky_parrot uses the aerial dive-bomber brain",
-    );
-
     // Friendly cove form: a catalog character with a peaceful default.
     let catalog = crate::character_roster::catalog();
     let display = catalog.display_name("stochastic_parrot");

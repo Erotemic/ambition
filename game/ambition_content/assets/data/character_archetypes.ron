@@ -350,32 +350,6 @@
     // binds the parrot sheet (its melee fires the `slash` animation). Light,
     // fast, low HP — a darting nuisance, not a bruiser. The ambitious pass
     // differentiates the two sky spawns into distinct attack patterns.
-    "sky_parrot": (
-        respawn: OnRoomReenter,
-        max_health: 3,
-        run_speed: 240.0,
-        patrol_effort: 0.5,
-        chase_effort: 1.0,
-        aggro_radius: 620.0,
-        attack_range: 60.0,
-        contact_strength: 0.55,
-        damage_amount: 1,
-        is_aerial: Some(true),
-        mass: 0.5,
-        default_size: Some((76.0, 60.0)),
-        // Aerial dive-bomber: stalks to an altitude above the player, dives,
-        // pecks on contact, peels off to recover. Shares the lively `Aerial`
-        // brain with the peaceful cove bird (hostility = aggressiveness > 0).
-        brain_template: Aerial,
-        melee: Some(Bite((
-            windup_s: 0.16,
-            active_s: 0.10,
-            recover_s: 0.28,
-            damage: 1,
-            reach_px: 48.0,
-        ))),
-        move_style: Float,
-    ),
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
     // careless approach still punishes via the swipe.
     "small_lurker": (

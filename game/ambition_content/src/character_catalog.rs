@@ -206,6 +206,9 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     // that never aggros is a fact about that placement of the creature and not
     // about the creature.
     "npc_puppy_slug",
+    // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
+    // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
+    // register it twice.
 ];
 
 /// **What a migrated character authors about its own body.**
@@ -355,6 +358,50 @@ pub fn authored_intrinsics(
             definition.vitals.max_health = Some(2);
             definition
         }
+        // **The aerial dive-bomber.** Its `is_aerial` does NOT come across as a
+        // character field: the catalog row already says `body_kind: Floating`,
+        // and construction reads gravity-freedom from there — one authority for
+        // "does this creature fly", which the archetype row was duplicating.
+        //
+        // ⚠ `mass: 0.5` is not carried either. Mass weights a mount+rider centre
+        // of gravity (ADR 0020) and a parrot is neither, so it was inert on the
+        // row; the first mountable character to migrate is the one that needs a
+        // home for it.
+        "stochastic_parrot" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 240.0,
+                    move_style: MoveStyleSpec::Float,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.55,
+                    amount: 1,
+                })
+                .with_autonomous_profile(BrainProfile {
+                    // Stalks to an altitude above its target, dives, pecks on
+                    // contact, peels off to recover.
+                    template: CharacterBrainTemplate::Aerial,
+                    aggro_radius: 620.0,
+                    attack_range: 60.0,
+                    ..Default::default()
+                })
+                .with_action_set(ambition_characters::brain::ActionSet {
+                    melee: Some(MeleeActionSpec::Bite(
+                        ambition_characters::brain::BiteSpec {
+                            windup_s: 0.16,
+                            active_s: 0.10,
+                            recover_s: 0.28,
+                            damage: 1,
+                            reach_px: 48.0,
+                        },
+                    )),
+                    move_style: MoveStyleSpec::Float,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(3);
+            definition
+        }
         _ => definition,
     }
 }
@@ -438,6 +485,53 @@ mod tests {
         );
     }
 
+    /// **THE PARROT'S PINS**, beside the definition that states them.
+    ///
+    /// Its `sky_parrot` row is deleted, and the two facts that did NOT come
+    /// across are the interesting ones: `is_aerial` stays a CATALOG answer
+    /// (`body_kind: Floating`, which the row was duplicating) and `mass` was
+    /// inert on a creature that is neither a mount nor a rider.
+    #[test]
+    fn the_parrot_authors_the_body_its_archetype_row_used_to() {
+        use ambition_characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
+
+        let definition = authored_intrinsics(
+            "stochastic_parrot",
+            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                "stochastic_parrot",
+                "Stochastic Parrot",
+                crate::AMBITION_CONTENT_PROVIDER,
+            ),
+        );
+        assert_eq!(definition.vitals.max_health, Some(3));
+        let locomotion = definition.locomotion.expect("it states how it flies");
+        assert_eq!(locomotion.run_speed, 240.0);
+        assert!(matches!(locomotion.move_style, MoveStyleSpec::Float));
+        let profile = definition
+            .autonomous_profile
+            .expect("the dive-bomber policy");
+        assert_eq!(profile.template, CharacterBrainTemplate::Aerial);
+        assert_eq!(profile.aggro_radius, 620.0);
+        assert!(
+            definition
+                .action_set
+                .as_ref()
+                .is_some_and(|set| set.melee.is_some()),
+            "the peck is what makes a dive a threat"
+        );
+
+        // ⚠ the control: the catalog still owns gravity-freedom, and this test
+        // would be describing a different creature if that moved.
+        assert!(
+            matches!(
+                load_catalog().body_kind("stochastic_parrot"),
+                Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
+            ),
+            "the parrot stopped being Floating in the catalog, which is where its \
+             gravity-freedom lives now that the archetype row is gone"
+        );
+    }
+
     /// **A migrated character has no archetype row left.**
     ///
     /// ⛔ the acceptance signal for this campaign is a DELETION, and a test that
@@ -447,7 +541,12 @@ mod tests {
     #[test]
     fn the_migrated_characters_rows_are_gone_from_the_archetype_file() {
         let rows = include_str!("../assets/data/character_archetypes.ron");
-        for key in ["exploding_mite", "dividing_mite", "puppy_slug"] {
+        for key in [
+            "exploding_mite",
+            "dividing_mite",
+            "puppy_slug",
+            "sky_parrot",
+        ] {
             assert!(
                 !rows.contains(&format!("\"{key}\": (")),
                 "`{key}` still has a row in character_archetypes.ron, so two \

@@ -163,14 +163,6 @@ fn smash_hit_band_is_data_authored() {
         crate::features::enemies::test_spec("medium_striker").smash_hit_band,
         Some(32.0)
     );
-    assert_eq!(
-        crate::features::enemies::test_spec("small_skitter").smash_hit_band,
-        Some(32.0)
-    );
-    assert_eq!(
-        crate::features::enemies::test_spec("large_brute").smash_hit_band,
-        Some(48.0)
-    );
     // 36px-default Smash archetypes omit the field on purpose.
     assert_eq!(
         crate::features::enemies::test_spec("combatant").smash_hit_band,

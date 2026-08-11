@@ -205,29 +205,6 @@
     // descriptive for now; the lore rename of the LIVE player's roster id "player"
     // (an AI whose abilities are theorems) is a separate, identity-sensitive call.
     // Tuning is a first-pass and FEEL-UNVERIFIED (Jon checks in-game).
-    "small_skitter": (
-        respawn: OnRoomReenter,
-        max_health: 2,
-        run_speed: 210.0,
-        patrol_effort: 0.7143,
-        chase_effort: 1.0,
-        aggro_radius: 320.0,
-        attack_range: 105.0,
-        contact_strength: 0.55,
-        damage_amount: 1,
-        // Fast skitter: attacks recover faster than the shared cooldown.
-        attack_cooldown_mult: 0.75,
-        brain_template: Smash,
-        melee: Some(Swipe((
-            windup_s: 0.28,
-            active_s: 0.08,
-            recover_s: 0.32,
-            damage: 1,
-            reach_px: 28.0,
-        ))),
-        smash_hit_band: Some(32.0),
-        move_style: Walk,
-    ),
     // ⭐ **THE MITES ARE GONE FROM THIS FILE** (2026-08-11, D73 phase 2). The
     // exploding mite and the dividing mite are the first two characters to own
     // their whole bodies: health, run speed, gait, contact damage, the swipe and
@@ -249,20 +226,6 @@
     // cadence. No melee — it keeps its distance and peppers you, so the player
     // has to chase it down or out-range it. Grounded (move_style Walk), unlike
     // the aerial pirate-on-shark Skirmishers.
-    "ranged_skirmisher": (
-        respawn: OnRoomReenter,
-        max_health: 3,
-        run_speed: 150.0,
-        patrol_effort: 0.6,
-        chase_effort: 1.0,
-        aggro_radius: 540.0,
-        attack_range: 520.0,
-        contact_strength: 0.40,
-        damage_amount: 1,
-        brain_template: Skirmisher,
-        ranged: Some((style: Bolt, speed: 460.0, damage: 1)),
-        move_style: Walk,
-    ),
     // Aggressive sky parrot — the hostile faction of the Stochastic Parrot,
     // flying with the pirate shark-riders. Reuses the aerial dive-bomber brain
     // (charge-and-dive pursuit) since the parrot's attack art is a dive/peck.
@@ -301,31 +264,6 @@
         // Goblins dash to close a large gap (richer action set).
         smash_dash_to_close: true,
         move_style: Walk,
-    ),
-    "large_brute": (
-        max_health: 9,
-        run_speed: 118.0,
-        patrol_effort: 0.6102,
-        chase_effort: 1.0,
-        aggro_radius: 380.0,
-        attack_range: 205.0,
-        contact_strength: 1.25,
-        damage_amount: 2,
-        // Lumbering heavy: attacks recover slower than the shared cooldown.
-        attack_cooldown_mult: 1.35,
-        smash_heavy: true,
-        respawn: OnRest,
-        brain_template: Smash,
-        melee: Some(Lunge((
-            windup_s: 0.45,
-            active_s: 0.12,
-            recover_s: 0.45,
-            damage: 2,
-            reach_px: 40.0,
-            step_px: 18.0,
-        ))),
-        smash_hit_band: Some(48.0),
-        move_style: WalkHeavy,
     ),
     // Boss-room "stationary heavy" — almost stationary, narrow threat
     // envelope but huge reach + biggest non-boss contact damage. Lunge

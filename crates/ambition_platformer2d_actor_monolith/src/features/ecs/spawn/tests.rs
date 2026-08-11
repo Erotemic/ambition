@@ -452,9 +452,9 @@ fn enemy_default_action_set_picks_per_archetype_specs() {
     assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
     assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
 
-    let set = enemy_default_action_set(&crate::features::enemies::test_spec("large_brute"));
-    assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
-    assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
+    // ⚠ `large_brute` was the second heavy arm here and its row is deleted
+    // (2026-08-11): its one sandbox placement is a real character now. The
+    // `pirate_heavy` case above is the same shape and still stands.
 
     let set = enemy_default_action_set(&crate::features::enemies::test_spec("medium_striker"));
     assert!(matches!(set.melee, Some(MeleeActionSpec::Swipe(_))));

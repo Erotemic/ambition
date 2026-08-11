@@ -349,9 +349,12 @@ fn perfect_cellular_automaton_provokes_to_its_boss_archetype() {
 fn enemy_brain_keys_resolve_to_their_rows() {
     use crate::features::enemies::test_spec;
     // A known spawn brain key resolves to its own authored row...
-    assert_eq!(test_spec("small_skitter").max_health, 2);
-    assert_eq!(test_spec("large_brute").max_health, 9);
+    // ⚠ the pair this used to name (`small_skitter`, `large_brute`) is deleted
+    // — their sandbox placements were recast over real characters (D73). The
+    // PROPERTY is unchanged and is what this pins: a known key finds its own
+    // row, an unknown one does not.
     assert_eq!(test_spec("sandbag_infinite").max_health, 9999);
+    assert_eq!(test_spec("medium_striker").max_health, 5);
     // ...and an unknown / non-roster key falls back to the combatant row.
     assert_eq!(
         test_spec("unknown_brain").max_health,
@@ -393,43 +396,18 @@ fn enemy_archetype_tunings_are_finite() {
     }
 }
 
-/// Cross-archetype invariants for the S/M/L × low/med/high
-/// aggression matrix. Locks in the design contract that:
-/// - "Large" archetypes have more HP than "Small" ones.
-/// - High-aggression archetypes have wider aggro radii than
-///   their low-aggression siblings of the same size.
-/// - Damage scales with size class.
-#[test]
-fn enemy_archetype_size_and_aggression_invariants() {
-    // HP: small < medium < large.
-    assert!(
-        crate::features::enemies::test_spec("small_skitter").max_health
-            < crate::features::enemies::test_spec("medium_striker").max_health
-    );
-    assert!(
-        crate::features::enemies::test_spec("medium_striker").max_health
-            < crate::features::enemies::test_spec("large_brute").max_health
-    );
-
-    // Damage: large > small.
-    assert!(
-        crate::features::enemies::test_spec("large_brute").damage_amount
-            > crate::features::enemies::test_spec("small_skitter").damage_amount
-    );
-
-    // ⛔ **`small_lurker` and `large_colossus` left this ladder on 2026-08-11,
-    // and the rungs they held are GONE rather than moved.** Both rows were
-    // authored, validated and placed in ZERO levels — the same shape as
-    // `sniper_default` (ledger D81), found the same way, by counting placements
-    // instead of trusting a key list. They existed to make the ladder five rungs
-    // long, and a rung nobody stands on is not an invariant.
-    //
-    // ⚠ what they pinned that the survivors do not: the low-aggression sibling
-    // pairs (lurker < skitter, colossus < brute) for aggro radius and patrol
-    // speed. That property has no adopter left to assert it on, so it is not
-    // asserted — restating it against a pair that does not have it would be the
-    // test agreeing with itself.
-}
+// ⛔ **`enemy_archetype_size_and_aggression_invariants` was deleted on
+// 2026-08-11 with the last of its population.** It pinned a size LADDER — small
+// < medium < large for health, and damage scaling with size class — across five
+// archetype rows. Four of the five are gone: `small_lurker` and `large_colossus`
+// were placed in zero levels, and `small_skitter` and `large_brute` had their
+// sandbox placements recast over real characters. A ladder with one rung is not
+// an invariant, and restating it against rows that no longer describe a size
+// class would be the test agreeing with itself.
+//
+// ⚠ what the ladder was FOR — that a bigger creature takes more punishment and
+// deals more — is now a per-character claim, and belongs beside each character's
+// own numbers rather than in a cross-archetype sweep.
 
 // `enemy_test_world` was deleted alongside the legacy AI tests
 // that consumed it. The remaining patrol-collision test builds

@@ -95,9 +95,7 @@ pub(super) use crate::features::ecs::actor_tuning::CharacterBrainTemplate;
 #[cfg(test)]
 pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
     "combatant",
-    "small_skitter",
     "medium_striker",
-    "large_brute",
     "gradient_seeker",
     "pirate_raider",
     "puppy_slug",
@@ -126,14 +124,11 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
 #[cfg(test)]
 pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "combatant",
-    "small_skitter",
     "medium_striker",
-    "large_brute",
     "gradient_seeker",
     "sandbag_infinite",
     "pirate_raider",
     "pirate_heavy",
-    "ranged_skirmisher",
 ];
 
 /// The actor-crate projections of an authored archetype row.

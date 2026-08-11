@@ -17,7 +17,8 @@
   * ✔ Fixed — the ring mechanic already existed and four places were treating a reset as damage.
 
 * The goblins in the goblin encounter don't have sprites anymore. They have magenta boxes. I think "Goblin" was never a proper enemy multi-instance character.
-  * ⊙ You are right about the cause, and the fix needs your call in `awaiting-maintainer-decision.md`: is an enemy a character, or an archetype wearing one?
+  * ✔ The goblins themselves are fixed; three `large_brute` mobs still draw placeholders because no catalog row is right for them.
+  * ⊙ Your character-template ruling makes those three a real character definition (or an explicit art borrow), not a costume — still your casting call.
 
 * Sanic still says "fly" instead of "super transform" or "untransform" which is what that button maps to. 
   * ✔ Fixed — the button reads "Transform".
@@ -36,8 +37,10 @@
   ▢ Found 2026-08-08 and deliberately not fixed, because it changes how bolts connect and the feel call is yours.
 
 * In smash if you throw out an attack you hurt yourself.
+  * ✔ Fixed — the swing also broadcast a body-scanning volume that came back around to its owner; bodies are now resolved by identity and a test poisons the old route.
 
 * In smash there does not seem to be any knockback.
+  * ✔ Fixed — the engine had every piece and the stage reached none of them: every basic swing is prefab-derived and prefab swings author zero growth, so a hit at 150% launched exactly as far as one at 0%. Smash now declares the growth as a rule (a hit doubles its launch at 100%); Ambition stays flat.
 
 * In mary-o secret blocks or invisible blocks (or question mark blocks which currently work correctly) need to change their tile sprite to spent blocks. A brick block with a quasar in 1-1 just keeps its brick texture. That needs to be fixed.
 
@@ -47,17 +50,21 @@
   * ✔ Fixed — the map authored the shaft but neither the banner nor the finial, so 1-2's pole was also missing its top knob, which you hadn't reported. A guard now fails any room that stands a shaft without both.
 
 * In mary-o when you restart the level all item blocks and enemies and anything else that is part of the stage should reset. Currently some blocks from the last run remain spent
+  * ⊙ Broken bricks, spent `?`-blocks and discovered hidden blocks all clear on a replay and the art re-derives from that state, so I cannot reproduce it — tell me the block and the room if you see it again.
 
 * In mary-o we need an SFX for when you collect coins
   * ✔ Fixed for both paths — loose coins were emitting the cue and your audio fragment never authorized it, and coin blocks were playing the brick-smash thunk instead.
   * ⊙ One case left on the thunk deliberately: touching a powerup you already outrank credits coins, and I judged that shouldn't sound like collecting one. Say if you disagree, it's one line.
 
 * In mary-o we need need a block that contains coins. (i.e. the multi-coin block where num-coins=1 is the default instance of that block). It just visually pops out a coin when you jump up into it. It's not a real coin entity, just a vfx and your coin count directly goes up by 1. When the counter goes to zero the brick becomes spent until reset.
+  * ◐ The block, its parse (bare `Coins` = 1) and the per-block counter are in, with the reset re-arming a partly-spent block; the coin *pop* VFX is not — the block flinches and the cue plays, but nothing draws a coin arcing out.
 
 * In mary-o small mary-o should not be able to headbutt bricks to break them. Only tall or fire should be able to break bricks with the headbutt.
   * ✔ Fixed — nothing in the break path asked what form she was in. Three existing brick tests would have gone vacuously green under the new gate and were re-armed.
 
 * In mary-o when you die the level doesn't restart you just stay right where you were. When you die you should restart the level with 1 less life. For now let's allow lives to go negative and the user to play forever, so no game over screen yet.
+  * ◐ All three ways to die (a hit, the timeout, a pit or spike) are covered end to end and every one puts her back at spawn — poisoning any of the three reproduces your sentence, so if you still see it, it is a fourth route.
+  * ▢ Lives are untouched; nothing counts them down yet.
 
 * Spent blocks in 1-2 don't look spent. There are is also no tile texture in 1-2.
   * ✔ Spent blocks fixed — every block in the cavern was opted out of art updates, because an authored colour meant "no sprite yet" and nothing could ever repaint it.
@@ -83,6 +90,7 @@
   * ✔ Fixed — your 2026-07-06 editor session dropped the four mount refs in `sandbox.ldtk`; they are restored byte-identical from git and guarded. GNU-ton's boss mount turned out never to have been covered at all.
 
 * In the sky enemy the instance of iron marry doesn't use her swordgun, she shoots fireballs, which is not something her character should be able to do. I suppose we do need a distinction between unique characters and re spawning archetype characters.
+  * ✔ Answered by you 2026-08-10 — a character is a reusable template; the plan is `docs/planning/character-template-architecture-2026-08-10.md` (queue D73), and "Iron Mary spawns with Iron Mary's kit" is one of its acceptance tests.
 
 * Changing rooms flashes magenta squares for a brief moment. We need to have cleaner transitions between rooms than that.
 
@@ -101,7 +109,7 @@
 * In smash, choosing robot v3, if you do your attack (among other issues with smash combat right now) the VFX happens in the top left corner, not in the authored area for the character.  
   * ◐ A slash whose owner could not be found was being drawn at the world origin; that now warns instead. The attack art is measured clean, so please reproduce it once and tell me if a warning appears.
 
-* NOTE: developing out the smash combat system and the ambition combat system should be very similar and feed each other, because I want the combat in ambition to feel a little smash like. I want kockback to increase depending on how damaged you are. The ambition game will have health, and not percent, so there will be a limit, and maybe some enemy characters won't have this property, but the main character will. The knockback is what will make this game fun.
+* NOTE: developing out the smash combat system and the ambition combat system should be very similar and feed each other, because I want the combat in ambition to feel a little smash like. I want knockback to increase depending on how damaged you are. The ambition game will have health, and not percent, so there will be a limit, and maybe some enemy characters won't have this property, but the main character will. The knockback is what will make this game fun.
 
 * We need an animation for a main character for when they are knocked down. We need an animation (or at least architecture slots) for a slow getup, a tech, and a getup attack. All smash characters will need this too.
 

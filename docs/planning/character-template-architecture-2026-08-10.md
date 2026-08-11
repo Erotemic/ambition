@@ -141,298 +141,98 @@ whether or not it explains the PCA.
 
 ## ⇥ Phase 1 progress (agent, keep this current)
 
-* ✔ **the field-ownership ledger** — appendix A, all 49 `ArchetypeSpec` fields
-  classified against consumers, with seven judgement calls written up.
-* ✔ **the multi-instance invariant is PINNED** —
-  `one_character_definition_seats_two_independent_fighters`
-  (`character_runtime/prepared_match/tests.rs`). A mirror match seats two bodies
-  of one definition: same identity, different entity, seat, position and health
-  pool. Falsified two ways — damaging both bodies reds the independence half,
-  seating a second character reds the identity half.
-* ✔ **the uniqueness audit the brief asks for is CLEAN.** Nothing in the
-  workspace maps a character id to exactly one entity: the `String → Entity`
-  maps that exist are keyed by sim id, encounter id or block name, and every
-  `duplicate` guard in `ambition_characters` is about DEFINITIONS
-  (`duplicate_character_ids_fail_with_stable_provider_names`,
-  `duplicate_display_names_are_rejected_deterministically`), which is the
-  correct place for one. ⇒ **instancing is not blocked by an existing
-  assumption**, and `MatchSeat`'s own doc already anticipated the collision:
-  *"the worn character id collides in a mirror match."*
-* ✔ **death traits are authorable on a character** — `CharacterDefinition
-  ::death_traits` (renamed from `combat_capabilities` when the type moved down;
-  see the crate-boundary entry below), carried through preparation and applied
-  by the persona derive (`apply_worn_character_gameplay`), which is the ONE writer both a worn
-  player and a seated fighter go through. Absence retracts, on the same rule as
-  health, mass and the feel marker — see the retraction trap below, which is
-  where the first attempt went wrong.
-* ⛔⛔ **RETRACT BY RESETTING, NEVER BY REMOVING — cost sixteen integration
-  tests, and it is a rule for every field this campaign moves.**
-  `CombatCapabilities` is a REQUIRED member of `ActorClusterQueryData`, so
-  `try_remove` took each seated fighter out of the actor cluster query entirely
-  and it stopped being simulated as an actor. The symptom named nothing about
-  components: *"player one swung twelve times in range and the other fighter is
-  still on 52/52 HP."* ⇒ **an absent component is a different statement from a
-  default one**, and for anything a body's construction owns, only the second is
-  legal. ⚠ the reset is also conditional on the PREVIOUS persona having claimed
-  the field, because `ActorClusterSeed::into_components` spawns every clustered
-  actor with archetype capabilities — an unconditional reset would strip an
-  exploding mite the moment anything wore a character on it.
-* ✔ **knockback weight is authorable on a character** — `Vitals
-  ::knockback_weight` → `PhysicalBaseline` → the seed's `CombatTuning.weight`
-  at construction and the live component at a re-wear. It could be stated only
-  on a roster ARCHETYPE before, so all three Smash fighters seat through
-  `combatant` and weighed the same; they now spread 0.85 / 1.0 / 1.35 around the
-  reference body, which is what makes D75's growth term mean something different
-  per fighter.
-  ⛔ **the first version of that test could not fail.** Its control asserted the
-  unauthored character keeps its archetype's weight — but the fixture's
-  archetype authored none, so it defaulted to the reference `1.0`, which is
-  exactly what an unconditional `unwrap_or(1.0)` writes. Poisoning it passed.
-  The fixture now authors a `1.4` archetype, which separates *"kept"* from
-  *"overwritten with the ambient default"*, and the poison reds.
-* ⭐ **the field that made this worth doing first**: `CombatCapabilities` had
-  exactly ONE producer in the workspace — `ArchetypeSpecExt` — so a mite that
-  splits on death could say so as an archetype and no registered character could
-  say it at all. That is the incompleteness the brief describes, in its smallest
-  reproducible form.
-* ✔ **the default-autonomous-profile SEAM exists** —
-  `resolve_initial_brain(catalog, id, authored_override, definition_default,
-  ctx)`. Precedence, tested three ways: an authored placement override beats a
-  definition's default beats the catalog row's. It lands on
-  `BrainBinding::default_preset`, whose doc already says a `restore_default`
-  rebuilds from that preset, so **no new `AutonomousSource` variant and no
-  rollback shape change** — `CatalogDefault` still means *"the character's
-  default"*, only who may state it widened. Qualified through
-  `qualify_preset_like`, so a definition and a placement cannot mean different
-  things by the same word.
-  ✔ **and the NPC spawn path ADOPTS it** — `CharacterDefinition
-  ::default_brain_profile` (a `BrainProfileRef`, not a `String` — see the typed
-  entry below) carries through preparation, and the registry now
-  reaches `resolve_npc_brain` through `ActorConstructionContext::with_prepared`
-  → `ActorPlacementContext` → `spawn_interactable_into` →
-  `NpcActorSpawnPlan::peaceful`. Three tests on that path: the definition's
-  profile beats the row's, a silent definition (and an empty registry) leaves
-  the row in charge, and a placement override beats both. Poisoning the lookup
-  reds the first and leaves the parity cases green, which is the shape a
-  precedence test should have.
-  ✔ **and both remaining SUPPLIERS are wired** — the room-transition loader and
-  the session reset each take the registry as an `Option<Res<..>>` and call
-  `.with_prepared`, so a rebuilt or re-entered room resolves an NPC's brain the
-  same way a first-time staging does. ⇒ **every route that lowers an NPC now
-  asks the character first.** ⚠ the transition's resource sits BESIDE its
-  `construction_services` tuple rather than inside it: that tuple is already at
-  seven and is read positionally (`construction_services.6`), so an eighth
-  member would be one more number for a reader to decode.
-* ⚠ **`a_definition_carries_no_controller_binding` is where the brief's ruling
-  lands.** That test destructures `CharacterDefinition` exhaustively and says
-  *"if `default_brain` is ever added, this stops compiling and the reviewer has
-  to justify it against §4.7."* Jon has now justified it — a definition MAY name
-  a default autonomous profile. ⇒ when phase 1 adds that field, rewrite this
-  test's prose rather than deleting it; it is the structural guard that keeps
-  the CURRENT controller off the definition, which is still the rule.
-* ⭐ **the catalog fold is FOUR FIELDS, not a pervasive dependency** — measured
-  in `definition.rs`'s finalization. `PreparedCharacterDefinition` consults the
-  catalog for exactly `max_health`, `motion_model`, `movement_tuning`, and the
-  kit (`action_set` / `moveset`). Everything else already carries through from
-  the definition. ⇒ the brief's *"still finalized by consulting the catalog"* is
-  a much smaller cut than it reads, and it closes the moment those four are
-  authored on definitions — which is phase 2's output, not extra work.
-* ⛔ **THE PHASE-2 ORDERING CONSTRAINT, in the code's own words.**
-  `PLAYABLE_ROSTER` cannot stop gating buildability until definitions carry the
-  archetype's intrinsic facts. `character_catalog.rs` records the measurement
-  from when someone tried: registering every catalog row flipped ~100
-  exploration NPCs off their archetype-built vitals onto defaults, caught by
-  `a_player_death_reset_survives_the_rollback_window`, *"because the catalog row
-  has no mass or health to fold back in — those come from the ARCHETYPE — so the
-  blanket rule cannot be made behaviour-neutral, only narrower."* ⇒ **removing
-  the workaround is the LAST step of phase 2, not the first**, and it becomes
-  free once the facts have moved.
-* ✔ **the default profile is TYPED, and the two STATES are different types** —
-  `CharacterDefinition` and `PreparedCharacterDefinition` carry a
-  `BrainProfileRef` (authored, provider-relative); `resolve_initial_brain`
-  qualifies it and returns a `BrainPresetId` (canonical key). ⛔ an earlier
-  version used `BrainPresetId` for both, which made the newtype distinguish
-  nothing.
-  ✔ **and it RESOLVES AT PREPARATION now.** `PreparedCharacterDefinition
-  ::default_brain_profile` is a `BrainPresetId`; `finalize_character` qualifies
-  the authored ref once, and `resolve_initial_brain` uses it verbatim instead of
-  re-qualifying at every spawn. Byte-identical answer — the namespace source is
-  the same catalog row it always was — so this is a MOVE, not a change.
-  ⛔ **synthesising the namespace from the definition's `provider` is a trap I
-  walked into.** An assembled catalog namespaces every preset as
-  `provider::name`, so the definition's provider looks equivalent — but the two
-  ids are assumed equal and never checked, and a fixture prepared without a
-  catalog turned `patrol_peaceful` into `test::patrol_peaceful`, a key that
-  exists nowhere. No catalog row ⇒ no namespace ⇒ the reference stands verbatim.
-  ▢ **the remaining half**: preparation still CONSULTS the catalog for that
-  namespace. Making the definition's provider authoritative is what frees it,
-  and it needs provider ids and catalog-fragment ids proven equal first.
-* ✔✔ **THE INVERSION IS FIXED ON THE AUTHORED-ENEMY PATH** — appendix C's
-  sharpest point. `spawn_enemy_with_faction_into` asked
-  `config.sprite_character_id`, which `presentation_identity` →
-  `id_for_authored_identity` produces WITH A DISPLAY-NAME FALLBACK. It now asks
-  `authored.payload.gameplay_character_id()`, which has no fallback at all.
-  `EnemySpawnSpec::art_identity` is renamed `presentation_identity` and its doc
-  says what it may not answer; the *"what it LOOKS LIKE"* sentence is deleted.
-  ⭐ **`None` is the honest answer and is left visible**: a placement that has
-  not named a character falls back to its archetype, which is the transitional
-  state phase 4 removes and which must not be papered over by a name match.
-* ✔✔ **THE MISSING PHASE-3 INSTRUMENT NOW EXISTS** — `mod
-  authored_enemy_reads_its_character` in `features/ecs/spawn/tests.rs` builds a
-  real authored `EnemySpawn` against a populated `PreparedCharacterRegistry`
-  and reads the health off the spawned body. It is the first harness in the tree
-  that constructs an authored enemy with a character registered, and every
-  later phase-3 field lands through it.
-  ⭐ **its second test is the poison for the inversion.** A spawn named
-  `"Busy Beaver"` authoring NO character id must keep its archetype's 3 HP even
-  though the beaver character authors 9 — and it asserts
-  `sprite_character_id == "npc_busy_beaver"` FIRST, so the gameplay assertion
-  cannot pass merely because the name never resolved. Re-wiring the caller back
-  through the sprite id reds it with `left: 9, right: 3`, verified by doing it.
-  ⚠ the roster fixture gives `combatant` a DIFFERENT pool (42) from
-  `medium_striker` (3), because `spec_for_brain` silently answers `combatant`
-  for an unknown key and equal pools would hide a lookup that never landed.
-* ⛔⛔ **`WornCharacter` IS NOT AN INERT TAG — attaching it ENROLLS a body in
-  the persona derive, and that is the real cost of generalizing it.** Measured
-  before starting the rename, because the rename is 59 files and the risk is
-  not in the rename.
-  - the render layer is **not** the obstacle I expected. `ensure_player_visual
-    _sprite`'s `Without<WornCharacter>` looks like a class discriminator, but
-    both it and `bind_worn_character_presentation` also require `PlayerVisual`,
-    which an authored enemy does not carry. ⇒ **giving an enemy the identity
-    does not reroute its presentation.** The discriminator is `PlayerVisual`.
-  - the obstacle is `apply_worn_character_gameplay`. Its query is
-    `Ref<WornCharacter>` plus `&mut ActionSet, &mut ActorMoveset, &mut
-    IdentityKit, Ref<BodyAbilities>, &mut MotionModel` — so the moment an enemy
-    wears a character, that system claims it and re-derives its action set,
-    moveset, health, mass and knockback weight **through the CATALOG**. That is
-    the target architecture arriving early, before phase 2 has moved the facts
-    onto definitions, and it is the same failure the blanket-registration
-    measurement already recorded — seen from the other side.
-  - ⚠ **and it would adopt only SOME enemies, silently.** `ActorMoveset` is
-    inserted conditionally (`if let Some(moveset)`) on the enemy and NPC paths,
-    while `IdentityKit` arrives automatically via `WornCharacter`'s `#[require]`.
-    A body with no authored moveset therefore fails the query and drops out with
-    no diagnostic — a partial adoption that looks like a complete one.
-  ⇒ **the identity component and the persona derive must be separated, or the
-  derive must be made complete, BEFORE enemies can wear a character.** That is
-  the same "one character-body constructor" the correction asks for, reached
-  from the identity end, which is evidence the two items are one item.
-* ⛔ **PREPARED COMPLETENESS (ruling 8) CANNOT LAND FOR DEATH TRAITS YET, and
-  the reason is worth writing down before someone tries.** The ruling is right:
-  `None` surviving preparation encodes *"ask the old body definition"*, which is
-  the overlay ontology hiding inside the new type, and "no special death
-  behaviour" is an ordinary resolved value rather than an absence.
-  ⚠ **but flipping it to `CharacterDeathTraits::default()` today makes an
-  exploding mite stop exploding.** `adopt_character_intrinsics` only overwrites
-  the seed's capabilities when the definition SAYS something; a definition that
-  always says something would reset every authored-enemy body to the default the
-  moment its placement names a character — and the archetype is still where the
-  mites' traits live. ⇒ **completeness for this field is gated on phase 2
-  moving those traits**, not on anyone deciding to be stricter. The persona path
-  is already correct (it retracts by resetting, conditional on the previous
-  persona having claimed the field).
-* ⭐ **`CharacterDeathTraits`'s FIVE FIELDS, inspected individually** — a
-  reviewer asked for this before the type is declared final, and two of the five
-  do not fit the name.
-  - `explodes_on_death` / `divides_on_death` / `charge_crash_explodes` — clean
-    on-death consequences, one consumer each in `damage::actor_hit`.
-  - `never_dies` — **a MORTALITY policy, not an on-death consequence.** Its
-    consumer is `damage_apply`, which decides whether a hit kills at all, so it
-    sits one step BEFORE the other three. Left grouped: same kind of authored
-    fact, same consumer family, and one misfit does not justify a second type.
-    ▢ split it the moment a second mortality knob appears.
-  - `drops_held_item` — ✔ **FIXED: a `bool` policy, and the death path reads the
-    body's live `HeldItem`.** It used to be `Option<HeldItemSpec>` populated from
-    `ArchetypeSpecExt::held_item_spec()` — the character's INTRINSIC weapon,
-    snapshotted at construction — so a body that picked up a different weapon
-    still dropped the one it was born with. ⭐ the witness was the code's own
-    stated intent: `ambition_combat::held_items`' module doc already named this
-    consumer (*"future item drops can read the same component without adding
-    archetype-specific Rust branches"*) and the drop path had never adopted it.
-    ⇒ **the character says WHETHER, the body says WHAT.** `ActorClusterQueryData`
-    gained an OPTIONAL `held_item` member (optional so it cannot silently filter
-    a body out of the cluster the way a required one can), and the old bug is now
-    structurally unrepresentable — a `bool` cannot name an item.
-* ✔ **`CharacterId` IS TYPED** — `ambition_entity_catalog::CharacterId`,
-  `#[serde(transparent)]` so authored world data encodes exactly as the bare
-  string it always was. ⭐ **its home was decided by the dependency graph, not
-  by taste**: `ambition_platformer2d_world` (which owns `EnemySpawnSpec`) does
-  NOT depend on `ambition_characters`, and adding that edge fails the contracts
-  job. Both crates already depend on `ambition_entity_catalog`, which is also
-  where the placement schemas and `MovesetContract` live — so character identity
-  sits with the rest of the content vocabulary. Adopted on
-  `EnemySpawnSpec::character_id`, `gameplay_character_id()`,
-  **`CharacterDefinition::id`, `PreparedCharacterDefinition::id`, the prepared
-  registry's KEY**, and **`WornCharacter`'s inner value** — so the component the brief names as the
-  candidate universal `CharacterIdentity` already speaks the final vocabulary,
-  and `WornCharacter::character()` hands the id onward without going through
-  text.
-  ⭐ **`impl Borrow<str> for CharacterId` is what made the registry key cheap** —
-  `BTreeMap<CharacterId, _>::get(&str)` still works, so the key became honest
-  without every caller minting an id to ask a question. Its invariant holds:
-  `Ord`/`Eq`/`Hash` all delegate to the same `String`, so borrowed and owned
-  comparisons cannot disagree.
-  ▢ remaining string-typed: `PreparedSeat::character_id`, and the `&str`
-  returned by several runtime accessors. Convert at serialization, presentation
-  and debug boundaries only.
-* ✔ **death traits are AUTHORED DATA now, not a runtime component on the
-  definition** — `ambition_characters::actor::CharacterDeathTraits`, lowered to
-  `ambition_combat::CombatCapabilities` by one `From` impl at construction.
-  ⭐ appendix C caught this: `CharacterDefinition` owning
-  `crate::combat::CombatCapabilities` would have closed a CYCLE the moment the
-  definition moved down, because `ambition_combat` already depends on
-  `ambition_characters`. **The crate boundary was the design test and it
-  answered** — an authored fact that needs a runtime type to say it was
-  modelled at the wrong level. ⚠ the `From` destructures both sides
-  exhaustively rather than deriving, so the day either grows a field the other
-  lacks it stops compiling and someone has to say which layer owns it.
-* ✔ **the SILENT-DROP half of that is closed.** `apply_worn_character_gameplay`
-  now takes `Option<&mut ActorMoveset>` and MINTS one when the body carries
-  none, so membership in the persona derive is no longer decided by a component
-  the enemy path inserts conditionally. Guarded by
-  `a_worn_body_carrying_no_moveset_is_still_given_its_persona`; poisoned with
-  the old skip semantics, it reds on the NAME (`left: "unset"`) rather than on
-  the moveset — which is the point, because the old failure was never about
-  moves.
-* ⭐ **THE TYPE MOVE IS FOUR COUPLINGS, MEASURED — not a vague "someday".**
-  Appendix C says begin moving `CharacterDefinition` to its proper low owner
-  now. `definition.rs` (1,897 lines) reaches out of `ambition_characters`'s
-  reach in exactly five places, and the death-traits split above already
-  removed the one that would have been a CYCLE:
-  1. ~~`crate::combat::moveset::{ATTACK_VERB, RANGED_VERB, SPECIAL_VERB,
-     SMASH_VERB}`~~ — ✔ **DONE.** They live in `ambition_entity_catalog` beside
-     `MovesetContract` now, re-exported from `ambition_combat::moveset` so all
-     ~70 existing paths resolve unchanged, and `definition.rs` names the
-     contract crate directly.
-  2. `crate::combat::moveset::build_actor_moveset` — the kit fold. The one
-     genuine question: either it follows the constants down, or the FOLD stays
-     above and only the AUTHORED `CharacterDefinition` moves while
-     `PreparedCharacterDefinition` stays. ⚠ the second is the smaller cut and
-     probably the honest one — preparation resolves a kit, and resolving is a
-     runtime concern.
-  3. `motion_model_spec_for_character_id` (in `avatar/starting_character.rs`) —
-     needs only `CharacterCatalog` + `ambition_platformer2d_core::
-     MotionModelSpec`, both of which `ambition_characters` already has. ⇒ a
-     pure catalog projection sitting in the wrong crate; it moves.
-  4. `crate::features::Mass` — a DOC LINK only. Costs nothing.
-  5. ~~`crate::combat::CombatCapabilities` on the definition~~ — **removed**,
-     see the death-traits entry above. This was the blocking one.
-  ⇒ **`definition.rs` now reaches into `ambition_combat` in exactly ONE place**
-  — the `build_actor_moveset` call at the fold — plus two doc links that cost
-  nothing. That single call is the whole remaining question, and it is a design
-  call rather than a mechanical one: does the fold follow the constants down,
-  or does only the AUTHORED definition move while `PreparedCharacterDefinition`
-  stays above with the resolution? ⚠ **answer it before moving anything else**;
-  the answer decides whether the move is one file or two crates.
-* ▢ next: the rest of that separation — the derive still resolves through the
-  CATALOG, so enrolling enemies before phase 2 has moved facts onto definitions
-  would flip them onto catalog-derived kits. ⛔ do NOT open with the 59-file
-  rename — the name is the cheap half and changing it first would make the
-  risky half look done. It is already a component in `ambition_characters` holding a character
-  id, already carried by non-player bodies (`sanic/badnik.rs`), and already the
-  authority the renderer binds from — so the work is extending it to every spawn
-  path and retiring `ActorConfig::sprite_character_id`, not inventing a type.
+⚠ **condensed 2026-08-10** from a 295-line chronology to what a resuming
+session needs: what LANDED, what is OPEN with its measured blocker, and the
+traps that became RULES. The narrative of how each was found is in the commits.
+
+### Landed
+
+* **Field-ownership ledger** — appendix A, all 49 `ArchetypeSpec` fields.
+* **Multi-instance invariant PINNED** —
+  `one_character_definition_seats_two_independent_fighters`. The uniqueness
+  audit is clean: nothing maps a character id to exactly one entity.
+* **Authorable on a character**: death traits (as
+  `ambition_characters::actor::CharacterDeathTraits`, plain data lowered into
+  `CombatCapabilities`), knockback weight, and a default autonomous profile.
+* **Typed identities** — `ambition_entity_catalog::CharacterId`
+  (`#[serde(transparent)]`) on `EnemySpawnSpec`, `CharacterDefinition::id`,
+  `PreparedCharacterDefinition::id`, the prepared registry KEY, and
+  `WornCharacter`'s inner value. `impl Borrow<str>` keeps `get(&str)` working,
+  which is why the key change cost nine call sites and not a sweep.
+* **`BrainProfileRef` (authored, provider-relative) vs `BrainPresetId`
+  (resolved)**, and preparation now RESOLVES it, so `resolve_initial_brain`
+  uses a canonical key verbatim instead of re-qualifying per spawn.
+* **Gameplay identity no longer comes from presentation** —
+  `gameplay_character_id()` has no display-name fallback;
+  `presentation_identity()` keeps one, for art only.
+* **`CharacterSpawnPlan` + `SpawnContext`** (appendix E), with the authored
+  enemy lowering through them, and `plan.definition()` distinguishing
+  *unmigrated* from *authored-but-not-prepared*.
+* **The phase-3 harness** — `mod authored_enemy_reads_its_character` builds an
+  authored enemy against a populated registry. Its second test is the
+  inversion's poison: a spawn named `"Busy Beaver"` that claims no character
+  keeps its archetype's HP though the beaver character authors more, and it
+  asserts the sprite DID resolve first so the gameplay assertion cannot be
+  vacuous.
+* **Persona-derive membership** — `apply_worn_character_gameplay` takes
+  `Option<&mut ActorMoveset>` and mints at most one per body.
+
+### Open, with the measured blocker
+
+* ▢ **The type move.** `definition.rs` reaches into `ambition_combat` in exactly
+  ONE place now — `build_actor_moveset` at the fold — plus two doc links. The
+  remaining question is a design call, not a survey: does the fold follow the
+  verb constants down to `ambition_entity_catalog`, or does only the AUTHORED
+  definition move while `PreparedCharacterDefinition` stays above? The second is
+  the smaller cut and probably the honest one, since resolving a kit is runtime
+  work. ⛔ answer it before moving anything.
+* ▢ **`WornCharacter` → universal `CharacterIdentity`.** Blocked, and not by the
+  rename: attaching it ENROLS a body in `apply_worn_character_gameplay`, which
+  re-derives its kit THROUGH THE CATALOG — phase 2's endpoint arriving early.
+  ⚠ the render layer is NOT the obstacle; both render systems also gate on
+  `PlayerVisual`, which an enemy lacks.
+* ▢ **Preparation still consults the catalog** for the profile's namespace.
+  Freeing it needs provider ids and catalog-fragment ids proven equal.
+* ▢ **Prepared completeness (appendix C ruling 8) for death traits.** Right in
+  principle, and flipping it today makes an exploding mite stop exploding:
+  `adopt_character_intrinsics` only overwrites when the definition speaks, so a
+  definition that always speaks resets every authored enemy to the default while
+  the mites' traits still live on the archetype. Gated on phase 2.
+* ▢ Still string-typed: `PreparedSeat::character_id` and several `&str`
+  accessors.
+
+### Rules this phase paid for
+
+* ⛔⛔ **RETRACT BY RESETTING, NEVER BY REMOVING.** `try_remove` of a component
+  that is a REQUIRED query member took seated fighters out of the actor cluster
+  entirely — sixteen integration tests, and the symptom named nothing about
+  components (*"player one swung twelve times and the other fighter is still on
+  52/52"*). ⚠ the reset is conditional on the PREVIOUS persona having claimed
+  the field, or wearing a character strips an exploding mite.
+* ⛔ **A required component in a query is a filter nobody wrote down.** Same
+  family, found twice: the persona derive required `ActorMoveset`, and the new
+  cluster member for the live held item is `Option` for exactly this reason.
+* ⛔ **A test whose control cannot fail.** The knockback-weight control asserted
+  an unauthored character keeps its archetype's weight — but the fixture
+  authored none, so it defaulted to the reference `1.0`, which is what the bug
+  writes. Fixtures must separate *kept* from *overwritten with the ambient
+  default*.
+* ⛔ **Do not synthesise a namespace.** Qualifying the profile with the
+  definition's `provider` looked equivalent to the catalog's — the two are
+  assumed equal and never checked, and a catalog-less fixture produced
+  `test::patrol_peaceful`, a key that exists nowhere.
+* ⭐ **The catalog fold is FOUR FIELDS** — `max_health`, `motion_model`,
+  `movement_tuning`, and the kit. Not a pervasive dependency, and it closes when
+  phase 2 authors those on definitions.
+* ⛔ **`PLAYABLE_ROSTER` cannot stop gating buildability until definitions carry
+  the archetype's intrinsic facts** — registering every catalog row flipped ~100
+  exploration NPCs onto defaults. Removing the workaround is the LAST step of
+  phase 2, not the first.
+* ⚠ **`a_definition_carries_no_controller_binding`** guards the rule that the
+  CURRENT controller stays off the definition. Jon has justified a DEFAULT
+  profile; rewrite that test's prose rather than deleting it.
+
+
 
 ## What this decision also settles elsewhere
 

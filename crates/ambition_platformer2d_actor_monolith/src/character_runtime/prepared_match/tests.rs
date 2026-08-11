@@ -1707,6 +1707,64 @@ fn the_matchs_declared_abilities_reach_every_seat() {
     }
 }
 
+/// **A SEATED FIGHTER IS COMPLETE ON ITS CONSTRUCTION FRAME.**
+///
+/// ⛔⛔ **the last of Jon's P0: ordinary construction must not carry
+/// `RecharacterizeBody`** (ledger D85). The seat did, because five things the
+/// persona derive supplied could only be derived where the catalog was in scope
+/// — the match kit, the death traits, the identity kit, the moveset and the
+/// motion model. All five moved to preparation and seating; the applied-template
+/// stamp went on LAST, which is the order that stops a stamp certifying work
+/// nobody does.
+///
+/// ⚠ **the stamp is the assertion, not the absence of the request.** A seat with
+/// neither would look identical to one that simply never got either — so this
+/// checks the body carries a CURRENT stamp, which only construction can have
+/// written, and that it displaced nothing, which is what distinguishes building
+/// a body as a character from replacing one.
+#[test]
+fn a_seated_fighter_carries_its_applied_template_and_asks_for_nothing() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("duelist")],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+
+    let generation = app
+        .world()
+        .resource::<crate::character_runtime::PreparedCharacterRegistry>()
+        .generation();
+    let world = app.world_mut();
+    let mut q = world.query_filtered::<(
+        Option<&crate::avatar::PersonaBaseline>,
+        bevy::prelude::Has<ambition_characters::actor::RecharacterizeBody>,
+    ), With<MatchSeat>>();
+    let seats: Vec<_> = q.iter(world).map(|(b, r)| (b.cloned(), r)).collect();
+    assert_eq!(seats.len(), 1, "one seat, one body");
+    let (baseline, asked) = &seats[0];
+    let baseline = baseline.as_ref().expect(
+        "a seated fighter carries no applied-template stamp, so the \
+                 persona derive will apply its character a SECOND time",
+    );
+    assert_eq!(baseline.id, "duelist");
+    assert_eq!(
+        baseline.generation, generation,
+        "the stamp names a cast other than the one that seated this fighter"
+    );
+    assert_eq!(
+        baseline.displaced,
+        Default::default(),
+        "seating recorded a DISPLACEMENT, which claims a replacement happened"
+    );
+    assert!(
+        !asked,
+        "the seat still asks to be finished, so something it needs is still \
+         arriving a tick late"
+    );
+}
+
 /// **A CPU SEAT RESOLVES A PUBLISHED POLICY BEFORE AN ARCHETYPE KEY.**
 ///
 /// ⭐ **the direction Jon's second redirect (P4) asks for.** A match's public API

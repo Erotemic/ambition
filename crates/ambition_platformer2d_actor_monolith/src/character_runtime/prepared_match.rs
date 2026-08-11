@@ -1005,6 +1005,9 @@ fn realize_seat(
     commands: &mut Commands,
     session_scope: ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope,
     seat: &PreparedSeat,
+    // Which cast this match was prepared against — the applied-template stamp
+    // records it, so a hot reload can tell a seated body apart from a current one.
+    cast_generation: super::definition::CharacterCatalogGeneration,
 ) -> Entity {
     let mut seed = seat.seed.clone();
     // ⭐ **WHAT THIS BODY DOES WHEN IT DIES** — grant two of five (ledger D85).
@@ -1022,7 +1025,19 @@ fn realize_seat(
     let at = seed.kin.pos;
     let facing = seed.kin.facing;
     let centered = ambition_platformer2d_core::CenteredAabb::from_center_size(at, seat.body_px);
-    let motion_model = seed.config.tuning.motion_model();
+    // ⭐ **THE CHARACTER'S OWN MOTION MODEL** — grant five of five (ledger D85).
+    //
+    // ⛔ this derived one from the seed's TUNING, and the persona pass then
+    // switched it to the character's a tick later — which is why a crawler
+    // seated as a fighter spent its first frame on the axis-swept solver. A
+    // prepared definition states its model; construction is where a body gets
+    // one, and `switch_motion_model` exists for a LIVE change with state to
+    // preserve, which a body being built has none of.
+    let motion_model = {
+        let mut model = seed.config.tuning.motion_model();
+        ambition_platformer2d_core::switch_motion_model(&mut model, seat.definition.motion_model);
+        model
+    };
     let (identity, _seed_disposition, combat, intent, cooldowns) =
         crate::features::ecs::enemy_component_snapshot(&seed);
     // A match participant is a COMBATANT, whatever drives it. The disposition
@@ -1130,15 +1145,22 @@ fn realize_seat(
                 // fighter rather than a generic actor follows from this one
                 // component.
                 ambition_characters::actor::WornCharacter::new(seat.character_id.as_str()),
-                // ⭐ **and it ASKS for the template to be applied.** Seating used
-                // to rely on the persona derive noticing a fresh
-                // `WornCharacter` through its change tick; that edge is gone
-                // (Jon's redirect §2), so the one writer that needs it says so.
-                // ⚠ a seat genuinely needs the derive rather than the
-                // construction grant: `seat_blueprint` resolves the BODY, and
-                // the match's own kit (`MatchParticipant::action_set`) is
-                // layered by that derive.
-                ambition_characters::actor::RecharacterizeBody,
+                // ⭐⭐ **AND IT NO LONGER ASKS TO BE FINISHED** (ledger D85, Jon's
+                // second redirect P0). All five grants the persona derive used to
+                // supply have moved here — the kit, the death traits, the
+                // identity kit, the moveset and the motion model — so the stamp
+                // goes on LAST, which is the order that keeps a stamp from
+                // certifying work nobody does.
+                //
+                // ⚠ **EMPTY displacement**: nothing was taken from this body,
+                // because the body was BUILT as this character. A replacement
+                // records what it displaced so it can retract to it; a
+                // construction has nothing to retract to.
+                crate::avatar::PersonaBaseline {
+                    id: seat.character_id.clone(),
+                    generation: cast_generation,
+                    displaced: Default::default(),
+                },
                 // The MATCH owns this fighter's death, not the world. Without it
                 // a KO runs the exploration economy — a bounty coin, a heart, an
                 // in-place respawn timer — none of which an arena has a use for.
@@ -1406,7 +1428,7 @@ pub fn activate_the_prepared_match(
         if occupied.contains(&seat.seat) {
             continue;
         }
-        let body = realize_seat(&mut commands, session_scope, seat);
+        let body = realize_seat(&mut commands, session_scope, seat, prepared.cast_generation);
         let mut seated = commands.entity(body);
         seated.insert(super::MatchSeat(seat.seat));
         if let Some(team) = seat.team.clone() {

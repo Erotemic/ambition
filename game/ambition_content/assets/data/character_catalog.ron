@@ -52,6 +52,23 @@
             patrol_effort: 0.35,
             chase_effort: 0.8,
         ),
+        // ⭐ **THE ROBOT'S OWN FIGHTING STYLE**, lifted off the `player_robot`
+        // archetype's controller half: notices across the room, commits the
+        // swing close in, dashes to shut a gap, and plays the duelist neutral
+        // game (footsies and spacing) rather than closing and camping.
+        //
+        // ⚠ nothing here says how much punishment the body takes or how fast it
+        // can move — that is the character's half, and the whole reason the
+        // eighty-line archetype row could not simply become a definition.
+        "robot_duelist": (
+            template: Smash,
+            aggro_radius: 560.0,
+            attack_range: 60.0,
+            patrol_effort: 0.55,
+            chase_effort: 1.0,
+            smash_dash_to_close: true,
+            smash_duelist: true,
+        ),
         // ⭐ **HOLDS ITS GROUND.** Notices a long way off and commits hard, but
         // barely drifts from where it was placed — a door guard rather than a
         // hunter. The counterpart to `patroller` on the one axis a level cares

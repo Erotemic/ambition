@@ -781,6 +781,7 @@ impl ActorClusterSeed {
             dream_seed,
             practice_target,
             autonomous_profile,
+            abilities,
             ..
         } = body;
         // ⚠ **a body with no policy still needs one to be paced against.** The
@@ -915,10 +916,24 @@ impl ActorClusterSeed {
                     .map(|(_, path)| PathMotion::new(path.clone())),
                 _ => None,
             }),
-            // The MATCH declares what a fighter may do (`seat_abilities`), so
-            // the seed grants nothing and the ruleset writes the real set in the
-            // same flush that builds the body.
-            body: ActorBody::from_kit(ae::AbilitySet::NONE, is_aerial, collision_size),
+            // ⭐ **THE CHARACTER'S OWN VERBS, when it authored any.**
+            //
+            // ⛔ this granted `AbilitySet::NONE` unconditionally, on the reading
+            // that the MATCH declares what a fighter may do (`seat_abilities`)
+            // and writes the real set in the same flush. That is true of a
+            // SEATED body and false of every other one built here: the duel
+            // arena's exhibition robot is a character-first ROOM actor, and it
+            // came out unable to blink, shield or dash — abilities its archetype
+            // row had granted and its character now states.
+            //
+            // ⚠ a seat is unaffected: `seat_abilities` still intersects, and a
+            // character that authored nothing still gets `NONE` here and the
+            // mode's set there.
+            body: ActorBody::from_kit(
+                abilities.unwrap_or(ae::AbilitySet::NONE),
+                is_aerial,
+                collision_size,
+            ),
             // Death traits are the character's and arrive with the persona
             // derive, like its moves — a seed that guessed them would be a
             // second writer.

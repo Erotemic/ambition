@@ -93,7 +93,15 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "player_robot".to_string(),
                 ),
-                character: None,
+                // ⭐ **THE CHARACTER, so the exhibition robot is the robot.** It
+                // was `None`, which sent this body down the archetype road and
+                // built it from `player_robot`'s eighty-line row — the row whose
+                // body half now lives on the lineage (2026-08-11). The brain key
+                // stays only as the fallback for a composition that has not
+                // registered the lineage.
+                character: Some(ambition_entity_catalog::CharacterId::from(
+                    "player_robot_v2",
+                )),
             },
         },
     ]

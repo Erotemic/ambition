@@ -234,57 +234,91 @@ fn definition_from(
     //
     // ⚠ the ACTION SET is still the host's (`playable_kit: HostCode`): what the
     // robot may DO is progression-gated, and what its swings ARE is not.
+    // ⭐⭐ **THE BODY EVERY INCARNATION SHARES**, migrated off the
+    // `player_robot` ARCHETYPE row (2026-08-11). That row was eighty lines with
+    // all three authorities fused into it — a body (health, top speed, gait,
+    // contact damage, movement feel), a controller (aggro distances, the duelist
+    // neutral game), and a placement policy (respawn) — which is exactly the
+    // shape Jon's brief says must separate rather than migrate wholesale.
+    //
+    // ⚠ **the lineage shares one body**, so this is stated once rather than per
+    // incarnation: v0, v2 and v3 are the same robot at three ages, and the
+    // exhibition duel in the arena fields v2 against the PCA precisely because
+    // it IS the player's body seen from outside.
+    definition.vitals.max_health = Some(60);
+    definition = definition
+        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+            run_speed: 200.0,
+            move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+            ..Default::default()
+        })
+        .with_contact_damage(ambition_characters::actor::ContactDamage {
+            strength: 0.6,
+            amount: 1,
+        })
+        // The CONTROLLER half, by name — shared rather than inlined, because a
+        // policy that only one character can use is a policy fused to a body all
+        // over again.
+        .with_autonomous_profile_named("robot_duelist")
+        // ⭐⭐ **AND THE VERBS ITS BODY HAS** (Jon's redirect §18).
+        //
+        // ⛔ **the protagonist authored none**, so a match seating it took
+        // the *migration bridge*: `seat_abilities` hands an unauthored
+        // character the MODE's declared set verbatim, because almost nothing
+        // in the repo states its own verbs and removing that row today would
+        // strip the Smash cast bare. The bridge is documented as meant to
+        // shrink, and it shrinks one character at a time — this is the
+        // first, and it is the right first because it is the one body both
+        // games are supposed to share.
+        //
+        // ⚠ **no behaviour change in Smash, by construction**: the stage
+        // declares a subset of this, and `authored ∩ mask` is the mask. What
+        // changes is WHY — the robot may shield because the robot can
+        // shield, not because nobody asked it.
+        //
+        // ⚠ **`fly` IS one of the robot's verbs, and my first pass had this
+        // wrong.** It reads like a dev toggle from the player's side and it is
+        // not: the archetype row granted `can_fly` beside `is_aerial: false`,
+        // with the reason written down — *"grounded-base hybrid, exactly like
+        // the player: fights on the ground and takes to the air via the fly
+        // toggle when it needs the vertical space."* The duel arena's exhibition
+        // robot uses it, and a body that could not would be a different creature.
+        //
+        // ⛔ **`reset` stays out**, and that one really is a debug affordance:
+        // authoring it would hand every game that seats the robot a way to
+        // teleport home.
+        .with_abilities(ambition_platformer2d_core::AbilitySet {
+            move_horizontal: true,
+            jump: true,
+            variable_jump: true,
+            double_jump: true,
+            fast_fall: true,
+            wall_jump: true,
+            wall_cling: true,
+            wall_climb: true,
+            dash: true,
+            double_dash: true,
+            blink: true,
+            precision_blink: true,
+            blink_through_soft_walls: true,
+            blink_through_hard_walls: true,
+            attack: true,
+            pogo: true,
+            directional_primary: true,
+            directional_special: true,
+            rebound: true,
+            ledge_grab: true,
+            swim: true,
+            glide: true,
+            dodge: true,
+            shield: true,
+            interact: true,
+            fly: true,
+            fly_toggle: true,
+            ..ambition_platformer2d_core::AbilitySet::NONE
+        });
     if incarnation.id == V3.id {
-        definition = definition
-            .with_moveset(crate::player_robot_moveset::player_robot_moveset())
-            // ⭐⭐ **AND THE VERBS ITS BODY HAS** (Jon's redirect §18).
-            //
-            // ⛔ **the protagonist authored none**, so a match seating it took
-            // the *migration bridge*: `seat_abilities` hands an unauthored
-            // character the MODE's declared set verbatim, because almost nothing
-            // in the repo states its own verbs and removing that row today would
-            // strip the Smash cast bare. The bridge is documented as meant to
-            // shrink, and it shrinks one character at a time — this is the
-            // first, and it is the right first because it is the one body both
-            // games are supposed to share.
-            //
-            // ⚠ **no behaviour change in Smash, by construction**: the stage
-            // declares a subset of this, and `authored ∩ mask` is the mask. What
-            // changes is WHY — the robot may shield because the robot can
-            // shield, not because nobody asked it.
-            //
-            // ⛔ **`fly` is deliberately absent.** It is a dev toggle, not
-            // something the robot does; authoring it would make a debug
-            // affordance part of the character every game receives. Same for
-            // `reset`.
-            .with_abilities(ambition_platformer2d_core::AbilitySet {
-                move_horizontal: true,
-                jump: true,
-                variable_jump: true,
-                double_jump: true,
-                fast_fall: true,
-                wall_jump: true,
-                wall_cling: true,
-                wall_climb: true,
-                dash: true,
-                double_dash: true,
-                blink: true,
-                precision_blink: true,
-                blink_through_soft_walls: true,
-                blink_through_hard_walls: true,
-                attack: true,
-                pogo: true,
-                directional_primary: true,
-                directional_special: true,
-                rebound: true,
-                ledge_grab: true,
-                swim: true,
-                glide: true,
-                dodge: true,
-                shield: true,
-                interact: true,
-                ..ambition_platformer2d_core::AbilitySet::NONE
-            });
+        definition = definition.with_moveset(crate::player_robot_moveset::player_robot_moveset());
     }
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),

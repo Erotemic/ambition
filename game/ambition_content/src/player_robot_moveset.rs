@@ -414,19 +414,25 @@ mod tests {
     /// and it is documented as meant to shrink — this is the first character out
     /// of it, and the right first, because it is the one body both games share.
     ///
-    /// ⚠ **`fly` and `reset` are deliberately absent**, and asserting that is
-    /// the point: they are dev toggles, and a character that authored them would
-    /// hand a debug affordance to every game that seats it.
+    /// ⚠ **`reset` is deliberately absent**, and asserting that is the point:
+    /// it is a debug affordance, and a character that authored it would hand
+    /// every game that seats the robot a way to teleport home.
+    ///
+    /// ⚠ **`fly` is PRESENT, and my first pass had that wrong** — see the note
+    /// at the authoring site. It reads like a dev toggle from the player's side
+    /// and is not: the robot is a grounded-base hybrid that takes to the air for
+    /// vertical space, and the duel arena's exhibition robot uses it.
     #[test]
     fn the_robot_authors_its_verbs_rather_than_taking_a_match_s_word_for_them() {
         let v3 = crate::player_robot_lineage::definition(&crate::player_robot_lineage::V3);
         let verbs = v3.abilities.expect("v3 states what its body can do");
         assert!(verbs.jump && verbs.dash && verbs.attack && verbs.shield && verbs.dodge);
         assert!(verbs.blink, "blinking is what the robot IS");
+        assert!(verbs.fly, "the grounded-base hybrid lost its fly toggle");
         assert!(
-            !verbs.fly && !verbs.reset,
-            "a dev toggle became part of the character, so every game that seats \
-             the robot now receives it"
+            !verbs.reset,
+            "a debug affordance became part of the character, so every game that \
+             seats the robot now receives a way to teleport home"
         );
 
         // ⚠ and a RETIRED incarnation still authors nothing — it is a body the

@@ -1336,18 +1336,21 @@ pub fn install_mary_o_content(app: &mut App) {
     {
         snake::register_solid_snake_character(app);
         snake::register_ai_slop_character(app);
-        // ⛔ **the two PLANE SWARMS are deliberately NOT here**, and the reason
-        // is a packaging boundary rather than an oversight. Their catalog rows
-        // (`npc_snakes_on_a_paper_plane`, `npc_snakes_on_a_cartesian_plane`)
-        // live in `ambition_content`, so a STANDALONE Mary-O has no row for
-        // either — and a character with no row has no `body_kind: Floating`,
-        // which is where a migrated body reads its gravity-freedom from. They
-        // would fall out of the sky in the demo that owns the level they fly in.
+        // ⛔ **the two PLANE SWARMS are registered by AMBITION, not here**, and
+        // the reason is ownership rather than capability. They are Ambition's
+        // characters — `npc_snakes_on_a_paper_plane` and its Cartesian sibling
+        // are rows in that provider's catalog — so registering them from this
+        // demo makes the prepared registry say `mary_o` while the catalog's
+        // owners map says `ambition`, and `provider_of_character` prefers the
+        // registry: the body would be constructed as one provider's and sound
+        // like the other's. `the_shipped_cast_has_one_authority_per_character`
+        // says so by name.
         //
-        // ⇒ they keep their roster rows until Mary-O declares her own catalog
-        // rows for them, or the demo composes the content provider. Measured
-        // 2026-08-11 by migrating them and watching `body_kind` come back
-        // `None`.
+        // ⇒ in a HOSTED build they are registered characters and this demo's
+        // placements build them character-first. In the STANDALONE demo they are
+        // unregistered and fall back to the roster rows in `plane.rs`, which is
+        // why those rows survive. Mary-O declaring her own catalog rows for them
+        // is what would retire the fallback.
     }
     // The REMAINING archetypes — the two plane snakes, which are Ambition
     // characters this demo borrows — still install as roster rows, so their

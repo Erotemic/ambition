@@ -806,6 +806,7 @@ fn a_crawler_seated_as_a_fighter_keeps_its_own_locomotion() {
                 move_style: MoveStyleSpec::Slither,
                 surface_walker: true,
                 cling_breaks_on_hit: false,
+                flies: false,
             })
             .with_contact_damage(ContactDamage {
                 strength: 0.4,

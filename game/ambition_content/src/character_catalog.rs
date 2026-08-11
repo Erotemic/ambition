@@ -206,6 +206,14 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     // that never aggros is a fact about that placement of the creature and not
     // about the creature.
     "npc_puppy_slug",
+    // ⭐ **the two plane swarms, registered by the provider that OWNS them.**
+    // Mary-O places them and borrowed them from this catalog; registering them
+    // there made the prepared registry and the catalog's owners map disagree
+    // about who authored them, which `the_shipped_cast_has_one_authority_per_character`
+    // refuses. Registered here, a hosted build builds them character-first and
+    // the standalone demo still has its roster rows to fall back to.
+    "npc_snakes_on_a_paper_plane",
+    "npc_snakes_on_a_cartesian_plane",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -338,6 +346,7 @@ pub fn authored_intrinsics(
                     // Knocked off its surface when hit — falls with gravity for
                     // a moment, then re-attaches on landing.
                     cling_breaks_on_hit: true,
+                    flies: false,
                 })
                 .with_contact_damage(ContactDamage {
                     strength: 0.55,
@@ -400,6 +409,38 @@ pub fn authored_intrinsics(
                     ..Default::default()
                 });
             definition.vitals.max_health = Some(3);
+            definition
+        }
+        // **The drifting swarms.** Mary-O flies them over her levels; they are
+        // Ambition's characters, and this is where they say what they are.
+        //
+        // ⚠ they author `flies` even though their catalog rows say
+        // `body_kind: Floating` — the catalog is not always THERE. A standalone
+        // demo that borrows a character has no row for it, and a body that
+        // reads its gravity-freedom from a row it cannot see falls out of the
+        // sky. Stating it on the character is what makes the fact travel.
+        "npc_snakes_on_a_paper_plane" | "npc_snakes_on_a_cartesian_plane" => {
+            let paper = id == "npc_snakes_on_a_paper_plane";
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: if paper { 58.0 } else { 38.0 },
+                    move_style: MoveStyleSpec::Float,
+                    flies: true,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.5,
+                    amount: 1,
+                })
+                .with_autonomous_profile(BrainProfile {
+                    // It flies, it notices nobody, and running into it is the
+                    // entire threat.
+                    template: CharacterBrainTemplate::Aerial,
+                    aggro_radius: 0.0,
+                    attack_range: 0.0,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(if paper { 1 } else { 2 });
             definition
         }
         _ => definition,

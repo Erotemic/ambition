@@ -774,10 +774,16 @@ impl ActorClusterSeed {
             ldtk_collision,
         );
         let collision_size = sprite_body.map_or(ldtk_collision, |body| body.collision);
-        let is_aerial = matches!(
-            catalog.body_kind(character_id),
-            Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
-        );
+        // ⭐ **THE CHARACTER FIRST, the catalog second.** A migrated character
+        // states whether it flies; one that has not stated it still gets the
+        // catalog's answer, which is every unmigrated flyer. Without the first
+        // half a character whose catalog row lives in another provider's
+        // fragment could not fly in the demo that owns its level.
+        let is_aerial = locomotion.is_some_and(|locomotion| locomotion.flies)
+            || matches!(
+                catalog.body_kind(character_id),
+                Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
+            );
         let pos = actor_spawn_center_for_collision(aabb, collision_size);
         // ⭐ **THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE.** A fighter
         // default otherwise: the stage has to give a body that has never said

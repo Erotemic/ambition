@@ -46,6 +46,22 @@ pub struct CharacterLocomotion {
     /// crawler holding on when struck.
     #[serde(default)]
     pub cling_breaks_on_hit: bool,
+    /// **This body ignores gravity** — a flyer, a drifting swarm, a hovering
+    /// machine.
+    ///
+    /// ⭐ **the character says it now, and that is what frees a migrated body
+    /// from needing a catalog row.** Gravity-freedom lived in the catalog's
+    /// `body_kind: Floating` and, redundantly, on the archetype's `is_aerial` —
+    /// and a character that had shed its archetype still had to have a catalog
+    /// row to fly. Mary-O's plane swarms are the case that proved it: their rows
+    /// live in another provider's catalog, so migrating them in the standalone
+    /// demo produced snakes riding paper airplanes with gravity applied.
+    ///
+    /// ⚠ **`false` does not mean "grounded", it means "this character did not
+    /// say"** — construction still consults the catalog's `body_kind` for a
+    /// character that has not stated one, which is every unmigrated flyer.
+    #[serde(default)]
+    pub flies: bool,
 }
 
 impl Default for CharacterLocomotion {
@@ -60,6 +76,7 @@ impl Default for CharacterLocomotion {
             move_style: MoveStyleSpec::Walk,
             surface_walker: false,
             cling_breaks_on_hit: false,
+            flies: false,
         }
     }
 }

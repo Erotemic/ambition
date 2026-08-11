@@ -362,11 +362,20 @@ whether or not it explains the PCA.
   job. Both crates already depend on `ambition_entity_catalog`, which is also
   where the placement schemas and `MovesetContract` live — so character identity
   sits with the rest of the content vocabulary. Adopted on
-  `EnemySpawnSpec::character_id`, `gameplay_character_id()`, and
-  **`WornCharacter`'s inner value** — so the component the brief names as the
+  `EnemySpawnSpec::character_id`, `gameplay_character_id()`,
+  **`CharacterDefinition::id`, `PreparedCharacterDefinition::id`, the prepared
+  registry's KEY**, and **`WornCharacter`'s inner value** — so the component the brief names as the
   candidate universal `CharacterIdentity` already speaks the final vocabulary,
   and `WornCharacter::character()` hands the id onward without going through
-  text. ▢ the prepared registry's keys and `CharacterSpawnPlan` follow.
+  text.
+  ⭐ **`impl Borrow<str> for CharacterId` is what made the registry key cheap** —
+  `BTreeMap<CharacterId, _>::get(&str)` still works, so the key became honest
+  without every caller minting an id to ask a question. Its invariant holds:
+  `Ord`/`Eq`/`Hash` all delegate to the same `String`, so borrowed and owned
+  comparisons cannot disagree.
+  ▢ remaining string-typed: `PreparedSeat::character_id`, and the `&str`
+  returned by several runtime accessors. Convert at serialization, presentation
+  and debug boundaries only.
 * ✔ **death traits are AUTHORED DATA now, not a runtime component on the
   definition** — `ambition_characters::actor::CharacterDeathTraits`, lowered to
   `ambition_combat::CombatCapabilities` by one `From` impl at construction.

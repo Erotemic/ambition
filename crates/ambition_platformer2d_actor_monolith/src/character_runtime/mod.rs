@@ -439,7 +439,7 @@ pub fn declare_registered_character_into(
         return;
     }
     if let Some(prepared) = registry.get(character_id) {
-        sprites.declare(&prepared.id, &prepared.display_name);
+        sprites.declare(prepared.id.as_str(), &prepared.display_name);
     }
 }
 

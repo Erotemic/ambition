@@ -519,7 +519,7 @@ pub fn project_prepared_character_definitions(
         // after IT applies the baseline. One writer, one record. This one covers
         // the authored silhouette, the movement feel and the motion model below.
         commands.entity(entity).insert(ProjectedCharacterKit {
-            id: prepared.id.clone(),
+            id: prepared.id.as_str().to_string(),
             generation: registry.generation(),
             granted: GrantedBodyFacts::of(prepared),
         });

@@ -1144,6 +1144,17 @@ impl std::fmt::Display for CharacterId {
     }
 }
 
+/// ⭐ **so a `BTreeMap<CharacterId, _>` can still be looked up by `&str`.** The
+/// registry key becomes honest without every caller having to mint an id to ask
+/// a question — `Borrow` is the standard way a newtype key stays ergonomic, and
+/// it holds the required invariant: `Ord`/`Eq`/`Hash` on `CharacterId` delegate
+/// to the same `String`, so borrowed and owned comparisons cannot disagree.
+impl std::borrow::Borrow<str> for CharacterId {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
 ///
 /// ⭐ **the four verb ids live BESIDE the contract they are keys into**, not in

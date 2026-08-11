@@ -243,7 +243,7 @@ pub enum BodySource {
 /// vocabulary (§4.6 — derived).
 #[derive(Debug, Clone, PartialEq)]
 pub struct CharacterDefinition {
-    pub id: String,
+    pub id: ambition_entity_catalog::CharacterId,
     pub display_name: String,
     /// Attribution and asset roots. NOT authority: a provider does not own the
     /// right to reinterpret engine rules for its characters.
@@ -383,7 +383,7 @@ impl CharacterDefinition {
         provider: impl Into<String>,
     ) -> Self {
         Self {
-            id: id.into(),
+            id: ambition_entity_catalog::CharacterId::new(id),
             display_name: display_name.into(),
             provider: provider.into(),
             lineage: None,
@@ -644,7 +644,7 @@ impl PreparedKit {
 /// finalization barrier, and what a body reads has no questions left in it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreparedCharacterDefinition {
-    pub id: String,
+    pub id: ambition_entity_catalog::CharacterId,
     pub display_name: String,
     pub provider: String,
     pub lineage: Option<Lineage>,
@@ -769,7 +769,7 @@ impl PreparedCharacterDefinition {
     /// character that shares a sibling's sheet by reference still demands under
     /// its own id so the load ledger names the right character.
     pub fn art_load_token(&self) -> &str {
-        &self.id
+        self.id.as_str()
     }
 }
 
@@ -1098,7 +1098,7 @@ fn prepare_character(
 
     let report = ledger.finish();
     let prepared = PreparedCharacterOverrides {
-        id: definition.id,
+        id: definition.id.as_str().to_string(),
         display_name: definition.display_name,
         provider: definition.provider,
         lineage: definition.lineage,
@@ -1325,7 +1325,7 @@ fn finalize_character(
             };
             ambition_characters::actor::character_catalog::BrainPresetId::new(qualified)
         }),
-        id,
+        id: ambition_entity_catalog::CharacterId::new(id),
         display_name,
         provider,
         lineage,
@@ -1494,7 +1494,7 @@ pub(crate) fn prepare_and_finalize_against_for_test(
 /// Tracked as C3.
 #[derive(bevy::prelude::Resource, Debug, Clone, Default)]
 pub struct PreparedCharacterRegistry {
-    by_id: BTreeMap<String, PreparedCharacterDefinition>,
+    by_id: BTreeMap<ambition_entity_catalog::CharacterId, PreparedCharacterDefinition>,
     generation: CharacterCatalogGeneration,
 }
 
@@ -1551,7 +1551,9 @@ impl PreparedCharacterRegistry {
     }
 
     pub fn ids(&self) -> impl ExactSizeIterator<Item = &str> {
-        self.by_id.keys().map(String::as_str)
+        self.by_id
+            .keys()
+            .map(ambition_entity_catalog::CharacterId::as_str)
     }
 
     /// The stable id of the character presented under `display_name`.
@@ -1741,7 +1743,7 @@ impl CharacterDefinitionAppExt for bevy::prelude::App {
         definition: CharacterDefinition,
         bindings: CharacterBindings,
     ) -> Result<&mut Self, CharacterRegistrationError> {
-        if definition.id.trim().is_empty() {
+        if definition.id.as_str().trim().is_empty() {
             return Err(CharacterRegistrationError::BlankId);
         }
         // Registration installs its own barrier. Deliberately not a composition

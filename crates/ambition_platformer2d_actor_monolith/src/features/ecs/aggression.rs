@@ -21,6 +21,9 @@ use crate::features::ActorStimulus;
 pub fn apply_actor_stimuli(
     mut commands: Commands,
     roster: Res<crate::features::CharacterRoster>,
+    // **The prepared cast**, so a provoked body can take its own CHARACTER's
+    // answer instead of one matched out of its display name (ledger D84).
+    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut stimuli: MessageReader<ActorStimulus>,
     mut actors: Query<
         (
@@ -119,6 +122,7 @@ pub fn apply_actor_stimuli(
             combat_kit,
             held_item,
             dialogue_id,
+            prepared.as_deref(),
             // Chase immediately when challenged (the duel is on), or when a
             // damage source is known.
             challenged || source.is_some(),

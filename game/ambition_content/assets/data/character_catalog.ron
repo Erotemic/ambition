@@ -69,6 +69,31 @@
             smash_dash_to_close: true,
             smash_duelist: true,
         ),
+        // ⭐ **WHAT A COVE RAIDER BECOMES WHEN YOU HIT IT**, lifted off the
+        // `pirate_raider` archetype's controller half (2026-08-11, ledger D84).
+        //
+        // ⚠ **a PROVOKED policy is still just a policy.** Provocation used to
+        // hand the body a different ARCHETYPE — new tuning, new HP pool, new
+        // capabilities — because the archetype WAS the creature. A raider that
+        // takes a swing is the same raider; only its mind changes.
+        "pirate_boarder": (
+            template: Smash,
+            aggro_radius: 460.0,
+            attack_range: 140.0,
+            patrol_effort: 0.6842,
+            chase_effort: 1.0,
+        ),
+        // ⭐ **THE HEAVY'S VERSION.** A brute rather than a duelist, and it
+        // notices only what comes to it — `aggro_radius: 0.0` is the row's own
+        // number, with `provoke_forced_brute_min_aggro` doing the noticing on the
+        // legacy path.
+        "pirate_boarder_heavy": (
+            template: MeleeBrute,
+            aggro_radius: 500.0,
+            attack_range: 90.0,
+            patrol_effort: 0.5769,
+            chase_effort: 1.0,
+        ),
         // ⭐ **KEEPS ITS DISTANCE AND SHOOTS**, lifted off the
         // `ranged_skirmisher` archetype's controller half (2026-08-11): notices
         // across the room, opens fire from almost as far, and ambles rather than

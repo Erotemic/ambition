@@ -449,6 +449,23 @@ pub struct CharacterDefinition {
     /// lookup missed, and the archetype quietly stayed in charge — green
     /// everywhere, wrong in play.
     pub autonomous_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
+    /// **The policy this creature adopts when PROVOKED**, by provider-relative
+    /// name.
+    ///
+    /// ⛔ **provocation picks an enemy ARCHETYPE by substring-matching a display
+    /// name today** (`hostile_brain_id_for_actor`: *does the id or the name or
+    /// the dialogue node contain "pirate"*). That is the fused ontology at its
+    /// most literal — a peaceful pirate that gets struck is handed a different
+    /// BODY, not a different attitude — and it is the only thing keeping three
+    /// archetype rows alive that no level places.
+    ///
+    /// ⭐ what provocation actually is: the same body, a different driver, and a
+    /// changed relationship. This is the driver half, stated by the creature
+    /// that has one.
+    ///
+    /// `None` = this character has nothing to say about being provoked, which
+    /// leaves the legacy name-match in charge — every character today.
+    pub provoked_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
     /// **What this character's PROJECTILE looks like** — the cosmetic id its
     /// ranged verb spawns (`"hadouken"`).
     ///
@@ -538,6 +555,7 @@ impl CharacterDefinition {
             contact_damage: None,
             autonomous_profile: None,
             autonomous_profile_ref: None,
+            provoked_profile_ref: None,
             ranged_vfx: None,
             practice_target: false,
             held_item: None,
@@ -594,6 +612,13 @@ impl CharacterDefinition {
     /// know, and the one who guesses wrong gets a silent miss.
     pub fn with_autonomous_profile_named(mut self, key: impl Into<String>) -> Self {
         self.autonomous_profile_ref = Some(ambition_characters::brain::BrainProfileRef::new(key));
+        self
+    }
+
+    /// Name the policy this creature adopts when provoked. See
+    /// [`Self::provoked_profile_ref`].
+    pub fn with_provoked_profile_named(mut self, key: impl Into<String>) -> Self {
+        self.provoked_profile_ref = Some(ambition_characters::brain::BrainProfileRef::new(key));
         self
     }
 
@@ -778,6 +803,8 @@ struct PreparedCharacterOverrides {
     autonomous_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
     /// See [`CharacterDefinition::ranged_vfx`]. Carried.
     ranged_vfx: Option<String>,
+    /// See [`CharacterDefinition::provoked_profile_ref`]. RESOLVED at finalize.
+    provoked_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
     /// See [`CharacterDefinition::practice_target`]. Carried.
     practice_target: bool,
     /// See [`CharacterDefinition::held_item`]. Carried.
@@ -1076,6 +1103,9 @@ pub struct PreparedCharacterDefinition {
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
     /// See [`CharacterDefinition::ranged_vfx`].
     pub ranged_vfx: Option<String>,
+    /// **The policy this creature adopts when provoked**, RESOLVED — see
+    /// [`CharacterDefinition::provoked_profile_ref`].
+    pub provoked_profile: Option<ambition_characters::brain::BrainProfile>,
     /// See [`CharacterDefinition::practice_target`].
     pub practice_target: bool,
     /// See [`CharacterDefinition::held_item`].
@@ -1553,6 +1583,7 @@ fn prepare_character(
         autonomous_profile: definition.autonomous_profile,
         autonomous_profile_ref: definition.autonomous_profile_ref.clone(),
         ranged_vfx: definition.ranged_vfx.clone(),
+        provoked_profile_ref: definition.provoked_profile_ref.clone(),
         practice_target: definition.practice_target,
         held_item: definition.held_item.clone(),
         dream_seed: definition.dream_seed,
@@ -1649,6 +1680,7 @@ fn finalize_character(
         practice_target,
         autonomous_profile_ref,
         ranged_vfx,
+        provoked_profile_ref,
     } = overrides;
 
     // THE KIT. Three outcomes, and which one a character gets is decided here
@@ -1794,6 +1826,13 @@ fn finalize_character(
             profiles,
         ),
         ranged_vfx,
+        provoked_profile: resolve_autonomous_profile(
+            &id,
+            &provider,
+            None,
+            provoked_profile_ref.as_ref(),
+            profiles,
+        ),
         practice_target,
         held_item,
         dream_seed,

@@ -133,6 +133,49 @@ pub fn enemy_component_snapshot(
 /// of truth — "enemy" is just hostile disposition now). An already-hostile actor
 /// just re-derives its aggressive brain (escalation). Shared by the runtime
 /// stimulus and save-load provoke paths.
+/// **Rebuild the driver from the policy the config now carries**, for a body
+/// whose CHARACTER answered the provocation question.
+///
+/// ⚠ **the action set is untouched, and that is the difference.** The archetype
+/// path swaps a body's kit because the archetype IS the kit; a character-first
+/// body already fights with what its character authored, and provocation has no
+/// business editing it. All that changes is who is deciding.
+///
+/// ⛔ **and never for a player-driven body.** Inserting a brain over
+/// `Brain::Player(slot)` is a silent seizure — the defect the archetype path
+/// below documents at length, which cost a couch session before anybody read the
+/// brain component. One rule, both paths.
+fn rebuild_provoked_brain(
+    commands: &mut Commands,
+    entity: Entity,
+    em: &mut super::super::actor_clusters::ActorMut<'_>,
+    combat_kit: &CombatKit,
+    held_item: Option<&HeldItem>,
+    chase: bool,
+) {
+    let (brain, _) = super::super::brain_builders::aggressive_brain_and_action_set_for_enemy(
+        em.config,
+        combat_kit,
+        held_item,
+        em.abilities.abilities,
+    );
+    if chase {
+        // Nothing to seed: a policy that chases does so from its own aggro
+        // radius, and a grudge is what points it at whoever struck.
+    }
+    commands.queue(move |world: &mut bevy::prelude::World| {
+        let driven = world
+            .get::<ambition_characters::brain::Brain>(entity)
+            .is_some_and(ambition_characters::brain::Brain::is_player);
+        if driven {
+            return;
+        }
+        if let Ok(mut em) = world.get_entity_mut(entity) {
+            em.insert(brain);
+        }
+    });
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn provoke_actor_in_place(
     roster: &super::super::super::enemies::CharacterRoster,
@@ -143,8 +186,39 @@ pub(crate) fn provoke_actor_in_place(
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
     dialogue_id: Option<&str>,
+    // **WHAT THE BODY'S OWN CHARACTER SAYS ABOUT BEING PROVOKED**, if it says
+    // anything — see `CharacterDefinition::provoked_profile_ref`. `Option`
+    // because most compositions register no cast, and no character today states
+    // one.
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
     chase: bool,
 ) {
+    // ⭐⭐ **THE CREATURE'S OWN ANSWER, when it has one** (ledger D84).
+    //
+    // ⛔ what it replaces is `hostile_brain_id_for_actor`: provocation picks a
+    // hostile ARCHETYPE by substring-matching an id, a display name or a
+    // dialogue node — *does any of them contain "pirate"* — and then hands the
+    // body that archetype's tuning, HP pool and capabilities. A peaceful pirate
+    // that gets struck is given a different BODY rather than a different
+    // attitude, which is the fused ontology at its most literal, and it is the
+    // only thing keeping three archetype rows alive that no level places.
+    //
+    // ⭐ provocation is one body, a different driver, a changed relationship.
+    // The body stays exactly as its character built it.
+    let authored_provoked = prepared
+        .zip(em.config.sprite_character_id.as_deref())
+        .and_then(|(registry, character)| registry.get(character)?.provoked_profile);
+    if let Some(profile) = authored_provoked {
+        if disposition.is_peaceful() {
+            em.config.brain_profile = profile;
+            *disposition = ActorDisposition::Hostile;
+        }
+        // ⚠ the BRAIN is rebuilt from the new policy by the shared writer below,
+        // which is also what protects a player-driven body from a silent
+        // seizure — see the note further down.
+        rebuild_provoked_brain(commands, entity, em, combat_kit, held_item, chase);
+        return;
+    }
     if disposition.is_peaceful() {
         let hostile_id = hostile_brain_id_for_actor(&em.config.id, &em.config.name, dialogue_id);
         let spec = roster.spec_for_brain(

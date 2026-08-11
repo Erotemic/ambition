@@ -419,6 +419,7 @@ fn a_definition_carries_no_controller_binding() {
         // creature does when nobody drives it, not who is driving it.
         autonomous_profile_ref: _,
         ranged_vfx: _,
+        provoked_profile_ref: _,
         // The weapon the creature carries — an intrinsic like the sheet, not a
         // controller fact: a possessed raider is still holding a gun-sword.
         // A training dummy is a fact about the creature, not about who is

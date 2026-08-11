@@ -633,6 +633,17 @@ pub fn authored_intrinsics(
                 } else {
                     "gun_sword"
                 })
+                // ⭐ **WHAT IT BECOMES WHEN STRUCK**, stated by the creature
+                // rather than matched out of its display name (ledger D84).
+                // Provocation used to ask *does this actor's id or name or
+                // dialogue node contain "pirate"* and hand it a whole archetype;
+                // a raider that takes a swing is the same raider with a
+                // different mind.
+                .with_provoked_profile_named(if heavy {
+                    "pirate_boarder_heavy"
+                } else {
+                    "pirate_boarder"
+                })
                 .with_autonomous_profile(BrainProfile {
                     // Orbit-and-fire standoff: notice from across the cove,
                     // commit from just inside it.

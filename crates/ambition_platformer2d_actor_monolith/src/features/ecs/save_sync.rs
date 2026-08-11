@@ -15,6 +15,9 @@ use super::*;
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
     roster: Res<crate::features::CharacterRoster>,
+    // **The prepared cast**, so a provoked body can take its own CHARACTER's
+    // answer instead of one matched out of its display name (ledger D84).
+    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     save: Res<ambition_persistence::save::AmbitionGameSave>,
     // A persisted-hostile NPC re-establishes its grudge against a stable player
     // slot on load (the original attacker entity doesn't survive a save round-trip;
@@ -93,6 +96,7 @@ pub fn sync_ecs_actors_with_save(
                 combat_kit,
                 held_item,
                 dialogue_id,
+                prepared.as_deref(),
                 false,
             );
         }

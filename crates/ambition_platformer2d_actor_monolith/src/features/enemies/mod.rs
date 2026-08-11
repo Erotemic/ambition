@@ -86,7 +86,6 @@ pub use ambition_combat::archetype_spec::ArchetypeSpec;
 /// family they are about, but gated so it stops costing the suite's
 /// `no warnings (cargo check --all-targets)` job a warning on every run.
 #[cfg(test)]
-pub(super) use crate::features::ecs::actor_tuning::CharacterBrainTemplate;
 
 /// Every authored spawn brain key in the lib's fixture roster — the
 /// string-keyed replacement for the deleted `CharacterArchetype` iteration

@@ -55,7 +55,7 @@ that file's 23-item checklist as the ordering authority.
 | P4.33 | Author landing lag/autocancel on real aerials | ▢ |
 | P4.34 | Add at least one real strong/Smash attack to Robot v3 | ▢ |
 | P4.35 | Add tumble/knockdown/tech/getup state and animation slots | ▢ |
-| P4.36 | Add stock-respawn protection | ▢ |
+| P4.36 | Add stock-respawn protection | ✔ **LANDED.** Two seconds of the engine's generic `Empowered`/`UNTOUCHABLE` grant — the same timed untouchable a star pickup uses, already rollback-registered — inserted by the RULESET on a stock spend, never on an elimination. ⛔ the test found immediately that nothing in Smash ticked empowerments: the grant read `remaining: 2.0` five seconds later, permanent. `run_empowerments` is per-GAME registration (Mary-O and Sanic each schedule it) and Smash had never had an empowerment; registered, and noted as a footgun worth an engine-side fix |
 | P4.37 | Tune hit feedback using existing generic hooks | ▢ |
 | P5.38 | CPU AI chooses from actual character movesets/capabilities | ▢ |
 | P5.39 | Remove obsolete Smash stand-ins | ▢ |

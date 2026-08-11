@@ -424,6 +424,19 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
             publish_smash_hud,
             announce_the_opening_countdown,
             place_respawning_fighters,
+            // **THE THING THAT MAKES A TIMED GRANT END**, and every game has to
+            // remember it separately.
+            //
+            // ⛔ found the hour respawn protection landed: the grant appeared,
+            // and five seconds later still read `remaining: 2.0` — untouched,
+            // because nothing in this composition ticks it. Mary-O and Sanic
+            // each register this system for their own pickups; Smash had no
+            // empowerment until now and so had never needed it. A component
+            // whose expiry depends on each game scheduling a system is a grant
+            // that silently becomes permanent in the game that forgets, which
+            // is worth a note here and probably an engine-side registration
+            // later.
+            ambition_platformer2d::actors::features::empowerment::run_empowerments,
             take_eliminated_fighters_out_of_play,
             announce_the_winner,
         )
@@ -639,6 +652,7 @@ const OPENING_BEAT_SECONDS: f32 = 0.9;
 /// than announced by hand — the derivation is what makes this a one-line fix
 /// instead of a hunt for every provider that cares.
 fn place_respawning_fighters(
+    mut commands: bevy::prelude::Commands,
     mut spent: bevy::prelude::MessageReader<ambition_platformer2d::actor::FighterStockSpent>,
     mut bodies: bevy::prelude::Query<(
         ambition_platformer2d::actor::BodyClusterQueryData,
@@ -669,8 +683,41 @@ fn place_respawning_fighters(
             // of the parameter.
             ambition_platformer2d::engine_core::DEFAULT_TUNING.air_jumps,
         );
+        // **RESPAWN PROTECTION.**
+        //
+        // A fighter materialising over the stage was hittable on its first
+        // frame, at the exact moment it has no information and no options — the
+        // opponent that just took the stock is standing there. Every platform
+        // fighter answers this the same way, and so does the engine already:
+        // `Empowered` is the generic timed-untouchable grant a star pickup uses,
+        // it is rollback-registered, and it expires on its own.
+        //
+        // ⛔ **the RULESET grants it, not the character.** The same fighter in
+        // Ambition has no stocks to lose and gets none of this; a mode that
+        // wants none simply does not insert it. That is why this is here rather
+        // than on a `CharacterDefinition`.
+        //
+        // ⚠ it expires on TIME alone today. Jon's brief also allows clearing it
+        // when the returning fighter commits an attack ("and/or"), which is the
+        // stricter rule and wants a system watching the attack edge — worth
+        // adding once there is a real complaint about a protected fighter
+        // swinging.
+        commands.entity(event.body).try_insert(
+            ambition_platformer2d::actors::features::empowerment::Empowered::for_seconds(
+                ambition_platformer2d::actors::features::empowerment::Empowerment::UNTOUCHABLE,
+                RESPAWN_PROTECTION_SECONDS,
+            ),
+        );
     }
 }
+
+/// **How long a returning fighter cannot be hit**, in seconds.
+///
+/// Long enough to fall in, read the stage and choose a landing; short enough
+/// that camping the spawn point is not free. Smash Ultimate's respawn platform
+/// holds for about three seconds and releases on the first action; this is the
+/// no-platform version of the same idea.
+const RESPAWN_PROTECTION_SECONDS: f32 = 2.0;
 
 /// **Take an eliminated fighter OUT OF PLAY.**
 ///

@@ -1324,6 +1324,82 @@ fn start_and_report(app: &mut App) -> MatchStart {
     MatchStart::ActivationStalled
 }
 
+/// **A fighter that just lost a stock comes back UNTOUCHABLE for a moment.**
+///
+/// Jon: *"After losing a stock, a returning fighter should not be immediately
+/// vulnerable during the first instant of materialization."* The grant is the
+/// engine's generic `Empowered` — the same timed untouchable a star pickup uses,
+/// already rollback-registered — and it is inserted by the RULESET, which is why
+/// the same character in Ambition receives nothing.
+///
+/// ⛔ the second half is the one that keeps this honest: an ELIMINATED fighter
+/// is not placed and must not be protected either. Protecting a body that is
+/// leaving play would be a grant nobody ever takes back.
+#[test]
+fn a_respawning_fighter_is_briefly_untouchable_and_an_eliminated_one_is_not() {
+    use ambition_platformer2d::actors::features::empowerment::{Empowered, Empowerment};
+
+    let mut app = open_the_lobby();
+    cycle_role(&mut app, 0, 2);
+    cycle_role(&mut app, 1, 2);
+    pick_fighter(&mut app, 0, PREPARED_FIGHTER);
+    pick_fighter(&mut app, 1, PREPARED_FIGHTER);
+    assert_eq!(
+        start_and_report(&mut app),
+        MatchStart::Activated { seats: 2 }
+    );
+    wait_for_the_round_to_go_live(&mut app);
+
+    let bodies: Vec<Entity> = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<
+            Entity,
+            With<ambition_platformer2d::actors::character_runtime::MatchSeat>,
+        >();
+        q.iter(world).collect()
+    };
+    let victim = *bodies.first().expect("a live match has fighters");
+
+    // Knock it out ONCE: the roster opens with three stocks, so this is a
+    // respawn rather than an elimination.
+    app.world_mut()
+        .resource_mut::<Messages<ambition_platformer2d::actor::BodyKnockedOut>>()
+        .write(ambition_platformer2d::actor::BodyKnockedOut {
+            body: victim,
+            cause: ambition_platformer2d::combat::HitSource::LeftTheWorld,
+        });
+    app.update();
+    app.update();
+
+    let protection = app.world().get::<Empowered>(victim).copied();
+    let protection = protection.expect(
+        "a fighter that just lost a stock came back with no protection at all, so \
+         the opponent that took the stock can take the next one at the spawn point",
+    );
+    assert!(
+        protection.traits.holds(Empowerment::UNTOUCHABLE),
+        "the returning fighter was granted an empowerment that does not make it \
+         untouchable, which is the only trait respawn protection is about"
+    );
+    assert!(
+        protection.remaining.is_some_and(|seconds| seconds > 0.0),
+        "the protection is HELD rather than timed, so nothing expires it and the \
+         fighter is invincible for the rest of the match"
+    );
+
+    // ⛔ **and it wears off.** A grant with no end is worse than none.
+    for _ in 0..300 {
+        app.update();
+    }
+    assert!(
+        app.world()
+            .get::<Empowered>(victim)
+            .copied()
+            .is_none_or(|later| !later.traits.holds(Empowerment::UNTOUCHABLE)),
+        "five seconds after respawning, the fighter is still untouchable"
+    );
+}
+
 /// **Run out the opening ceremony.**
 ///
 /// The Smash ruleset opens 3 — 2 — 1 — GO: every fighter carries

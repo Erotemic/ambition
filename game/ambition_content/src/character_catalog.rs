@@ -1150,6 +1150,45 @@ mod tests {
         assert!(profile.smash_dash_to_close);
     }
 
+    /// **Every authored brain preset has at least one character using it.**
+    ///
+    /// ⛔ **`sniper_default` was authored, validated and reachable by nobody**
+    /// (found 2026-08-11, ledger D81). It cost nothing to run and everything to
+    /// reason about: a retirement census has to decide what to do with a policy
+    /// no body has, and the honest answer — delete it — was invisible until
+    /// somebody counted `default_brain:` by hand.
+    ///
+    /// ⭐ this is the guard that stops the NEXT one, and it matters most while
+    /// the preset vocabulary is being retired: a key whose last adopter migrates
+    /// to a `BrainProfile` should fail here on the same change that moved it,
+    /// rather than sitting in the file as a row somebody later has to migrate.
+    #[test]
+    fn no_authored_brain_preset_is_reachable_by_nobody() {
+        let catalog = load_catalog();
+        let data = catalog.data();
+        let adopted: std::collections::BTreeSet<&str> = data
+            .characters
+            .values()
+            .map(|entry| entry.default_brain.as_str())
+            .collect();
+        let orphans: Vec<&str> = data
+            .brain_presets
+            .keys()
+            .map(String::as_str)
+            .filter(|key| !adopted.contains(key))
+            .collect();
+        assert!(
+            orphans.is_empty(),
+            "brain presets nobody names: {orphans:?}. An unreachable policy is \
+             a row a future retirement pass has to decide about for no reason — \
+             delete it, or give it the character it was written for"
+        );
+        assert!(
+            !data.brain_presets.is_empty(),
+            "no presets at all, so the sweep above proved nothing"
+        );
+    }
+
     #[test]
     fn the_migrated_characters_rows_are_gone_from_the_archetype_file() {
         let rows = include_str!("../assets/data/character_archetypes.ron");

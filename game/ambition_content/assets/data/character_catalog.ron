@@ -71,11 +71,6 @@
             strafe_speed: 85.0,
             fire_cooldown_s: 0.8,
         ),
-        "sniper_default": Sniper(
-            aggressiveness: 1.0,
-            aggro_radius: 480.0,
-            fire_cooldown_s: 1.5,
-        ),
         // Lively peaceful flyer (the cove parrot): flits between airborne perches
         // and ground spots, and drops down beside the player to be talked to.
         // Needs a `Floating` body_kind (gravity-free) to actually fly.

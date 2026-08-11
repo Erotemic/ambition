@@ -1,0 +1,64 @@
+{
+  "_comment": [
+    "ARMED 2026-08-11T03:00Z on Jon's instruction: 'Arm the goal for a 72 hour run",
+    "to complete everything in docs/planning starting with",
+    "docs/planning/character-template-architecture-2026-08-10.md ... The important",
+    "thing is you arm the goal so you don't incorrectly stop like the last agent did.'",
+    "",
+    "WHY THE LAST RUN STOPPED: nothing was finished and no judge was persuaded. The",
+    "08-09 arming carried the ORIGINAL absolute deadline 2026-08-11T01:00:00Z, which",
+    "simply passed; the guard cleared itself at 01:02:06Z ('deadline passed') and the",
+    "session was released with 92 open rows in the ledger. So this file restarts the",
+    "DEADLINE -- 2026-08-14T03:00:00Z, a real 72 hours from arming -- rather than",
+    "inheriting a stamp that was already expiring.",
+    "",
+    "JON SAID MORE PRECISE DIRECTIONS ARE COMING. Anything he says in-session",
+    "OUTRANKS this text; treat this file as the floor that keeps the run alive, not",
+    "as the specification of the work.",
+    "",
+    "⛔ tools/ambition_sprite2d_renderer is a dirty SUBMODULE pointer and `out/` is",
+    "untracked scratch; both are excluded from the uncommitted check, as before.",
+    "⛔ JONS_OBSERVATIONS_BUGS_AND_ISSUES.md is still Jon's to commit, not mine."
+  ],
+  "goal": "Work continuously for 72 hours on docs/planning, and DO NOT STOP: there is no completion condition, only Jon ends this run. ⭐⭐ START WITH, AND KEEP AS TOP PRIORITY, docs/planning/character-template-architecture-2026-08-10.md -- Jon's brief, verbatim, on the character-template architecture (ledger row D73). Its section '⇥⇥ REMAINING WORK -- THE ONE CHECKLIST' is the resumption point after any compact: 23 ordered items, A(unblock) -> B(one construction path) -> C(content migration) -> D(collapse the old authorities), each carrying the measurement that sizes it, so no step begins with a survey. ⛔ READ APPENDICES C AND D FIRST; they landed at 735a1eafc575 and outrank the phase table wherever they disagree. ⛔ THE TWO FAILURE MODES JON NAMED: (1) do not migrate ArchetypeSpec into CharacterDefinition wholesale -- it holds THREE authorities (intrinsic body, controller policy, placement policy) and they must separate; (2) DO NOT STOP WHEN THE NEW PATH WORKS BESIDE THE OLD ONE. The acceptance signal is a DELETION: ~3,755 lines of standing legacy (ArchetypeSpec 319, features/enemies+CharacterRoster 1198, character_archetypes.ron 843, enemy_roster.rs 75, ActorTuning 275, autonomous_reconcile 1045). A result of +4000 new / -2400 old means the old model got WRAPPED rather than removed, and that is a failure however green it is. A phase is ✔ only when its deletions have happened. Update the phase table in that file as phases land, and keep the 23-item checklist's ▢ marks honest -- flipping a box without the deletion is the one dishonesty that breaks this run. THEN the rest of docs/planning, in this order unless Jon says otherwise: D72, the Smash body-generic combat campaign (docs/planning/smash-body-generic-combat-2026-08-09.md -- its feel list is complete, and 'Smash is the test case that should force the engine toward the body-generic architecture', never a licence for Smash-specific exceptions); then the open rows of docs/planning/queue-72h-2026-08-08.md, which is the LEDGER and the only authority on what is open -- regenerate its open-row list yourself with `grep -n '^- ▢ \\*\\*D' docs/planning/queue-72h-2026-08-08.md` because the status table rots in about two hours; then Jon's still-open observation rows, then everything else in docs/planning. ⛔ BEFORE WORKING ANY OPEN ROW, grep for the thing it says is missing -- a ▢ on work that already LANDED has cost at least four sessions. ⛔ TWO PROHIBITIONS JON HAS STATED TWICE: no `cargo fmt` commands, and no git-diff-checking commands (single-file `rustfmt --config skip_children=true` is fine). ⛔ Do not weaken a meaningful regression to make it pass; repair an unrealistic fixture to model production construction instead. ⛔ Do not commit docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md; he edits it live. ⛔ Do not invent work outside docs/planning and Jon's observations; refill the ledger rather than letting it empty. Finishing an item is not a stopping point -- the sentence after 'committed' starts the next biggest lever, with no status report and no request for permission. Jon may give more precise directions at any time; those OUTRANK this text.",
+  "deadline_utc": "2026-08-14T03:00:00Z",
+  "max_run_hours": 74,
+  "max_stalled_blocks": 40,
+  "checks": [
+    {
+      "name": "D73: the character-template checklist has no open items",
+      "cmd": "! grep -q '▢' docs/planning/character-template-architecture-2026-08-10.md",
+      "timeout": 60
+    },
+    {
+      "name": "D73's acceptance signal: character_archetypes.ron is DELETED, not renamed",
+      "cmd": "! test -f game/ambition_content/assets/data/character_archetypes.ron",
+      "timeout": 60
+    },
+    {
+      "name": "the ledger has no open rows (refill it rather than stopping)",
+      "cmd": "! grep -q '▢' docs/planning/queue-72h-2026-08-08.md",
+      "timeout": 60
+    },
+    {
+      "name": "the app compiles, all targets (the gate)",
+      "cmd": "$HOME/.cargo/bin/cargo check -p ambition_app --all-targets --quiet",
+      "timeout": 1200
+    },
+    {
+      "name": "the architectural absence contracts hold",
+      "cmd": "python3 scripts/check_absence_contracts.py --check",
+      "timeout": 300
+    },
+    {
+      "name": "the app integration suite is green",
+      "cmd": "$HOME/.cargo/bin/cargo test -p ambition_app --test app_it --quiet",
+      "timeout": 1800
+    },
+    {
+      "name": "nothing is left uncommitted",
+      "cmd": "test -z \"$(git status --porcelain -- ':!.llm_resource_tally' ':!.goal' ':!untracked' ':!out' ':!dev/ambition_dev_measurements' ':!docs/planning/JONS_OBSERVATIONS_BUGS_AND_ISSUES.md' ':!tools/ambition_sprite2d_renderer' ':!tools/ambition_music_renderer' ':!ambition-agent-source-*' ':!*.zip' ':!docs/planning/gpt-diff.patch' ':!assets/manual-art')\"",
+      "timeout": 60
+    }
+  ]
+}

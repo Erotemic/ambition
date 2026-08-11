@@ -690,6 +690,54 @@ mod authored_enemy_reads_its_character {
     /// `npc_busy_beaver` is a REAL catalog row with the real display name
     /// "Busy Beaver", authoring 9 HP as a character. Using a real row is what
     /// makes the name-fallback case in the second test reachable at all.
+    /// **A CATALOG-BACKED NPC WEARS ITS CHARACTER**, which is what makes
+    /// provocation able to ask what it becomes.
+    ///
+    /// ⛔⛔ **the precondition I nearly broke by fixing the field above it.**
+    /// `provoke_actor_in_place` used to find a body's character through
+    /// `sprite_character_id` — presentation deciding a gameplay question, which
+    /// Jon's second redirect (P1) named as the inversion D73 already removed.
+    /// Threading the GAMEPLAY identity in was one edit; the trap is that a
+    /// peaceful NPC did not carry one at all, so the corrected read would have
+    /// found nothing, every provoked pirate would have fallen through to a
+    /// matcher whose arms are DELETED, and they would all have become generic
+    /// combatants. Silently — a brawler looks like a working provoke.
+    ///
+    /// ⚠ the anonymous case is asserted too. A synthetic placement names no
+    /// character, and inventing a worn id to satisfy a lookup would be worse
+    /// than the absence.
+    #[test]
+    fn a_catalog_backed_npc_wears_the_character_its_placement_names() {
+        let npc = |character_id: Option<&str>| ambition_interaction::Interactable {
+            id: "cove_pirate".to_string(),
+            prompt: String::new(),
+            aabb: ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            kind: ambition_interaction::InteractionKind::Npc {
+                character_id: character_id.map(str::to_string),
+                dialogue_id: None,
+                brain_override: None,
+                patrol_path_id: None,
+                patrol_radius: 0.0,
+            },
+            requires_facing: false,
+            enabled: true,
+        };
+        let named = npc(Some("npc_pirate_quartermaster"));
+        assert_eq!(
+            crate::features::ecs::spawn_actors::npc_character_id(&named),
+            Some("npc_pirate_quartermaster"),
+            "a placement that names a character produced no gameplay identity, so \
+             provocation cannot ask that creature what it becomes when struck"
+        );
+
+        let anonymous = npc(None);
+        assert_eq!(
+            crate::features::ecs::spawn_actors::npc_character_id(&anonymous),
+            None,
+            "a placement that names nobody was given an identity anyway"
+        );
+    }
+
     /// **A CONSTRUCTED CHARACTER IS STAMPED AS APPLIED ON ITS OWN FRAME.**
     ///
     /// ⛔⛔ **the invariant Jon's second redirect asked for directly, and the one

@@ -41,6 +41,9 @@ pub fn sync_ecs_actors_with_save(
             // Is this body in a fight? A loaded save restores a body's read
             // model, and a combatant's attack state is part of it.
             bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
+            // ⭐ **WHICH CHARACTER THIS BODY IS** — gameplay identity, not the
+            // sprite's. See `provoke_actor_in_place`.
+            Option<&ambition_characters::actor::WornCharacter>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -66,6 +69,7 @@ pub fn sync_ecs_actors_with_save(
         interaction,
         mut cq,
         in_a_fight,
+        worn,
     ) in &mut actors
     {
         let id = cq.as_actor_mut().config.id.clone();
@@ -96,6 +100,7 @@ pub fn sync_ecs_actors_with_save(
                 combat_kit,
                 held_item,
                 dialogue_id,
+                worn.map(ambition_characters::actor::WornCharacter::id),
                 prepared.as_deref(),
                 false,
             );

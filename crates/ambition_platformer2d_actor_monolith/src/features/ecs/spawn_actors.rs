@@ -761,7 +761,25 @@ impl NpcActorSpawnPlan {
                 ambition_characters::brain::ActorControl::default(),
             ),
         );
+        let worn = npc_character_id(&interaction.interactable).map(str::to_string);
         entity.insert(interaction);
+        // ⭐⭐ **A CATALOG-BACKED NPC WEARS ITS CHARACTER.**
+        //
+        // ⛔ **it did not, and that is what made provocation read the SPRITE id**
+        // (Jon's second redirect, P1). `provoke_actor_in_place` has to know which
+        // character a body IS in order to ask what it becomes when struck, and
+        // the only identity a peaceful NPC carried was the one its ART resolves
+        // through. Threading the gameplay identity into that seam is worth
+        // nothing if the body does not have one.
+        //
+        // ⚠ **the ANONYMOUS case is the reason this is conditional**: a
+        // synthetic or legacy NPC placement names no character, and giving it a
+        // made-up worn id would be inventing an identity to satisfy a lookup.
+        // Absence stays the honest answer, and the legacy name-matcher still
+        // covers it.
+        if let Some(character) = worn {
+            entity.insert(ambition_characters::actor::WornCharacter::new(character));
+        }
         // The explicit brain binding + authored context travel with the actor so
         // runtime brain switches (`BrainCommand`), authored-home rebuilds
         // (`RestoreDefault`), and snapshot/restore all read the same authoritative
@@ -1942,7 +1960,7 @@ pub(super) fn spawn_solo_enemy_into(
 /// that DOES name a character and fails to resolve is a content bug, not a
 /// naming preference, so that case is worth seeing rather than papering over.
 /// The character an NPC placement names, if it names one.
-fn npc_character_id(interactable: &ambition_interaction::Interactable) -> Option<&str> {
+pub(crate) fn npc_character_id(interactable: &ambition_interaction::Interactable) -> Option<&str> {
     match &interactable.kind {
         ambition_interaction::InteractionKind::Npc { character_id, .. } => character_id.as_deref(),
         _ => None,

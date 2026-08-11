@@ -180,6 +180,16 @@ pub(crate) fn provoke_actor_in_place(
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
     dialogue_id: Option<&str>,
+    // ⭐⭐ **WHICH CHARACTER THIS BODY IS — the GAMEPLAY identity.**
+    //
+    // ⛔ this read `em.config.sprite_character_id`, which is the identity its ART
+    // resolves through, and Jon's second redirect (P1) named it as the exact
+    // inversion D73 already removed from authored enemy spawning: presentation
+    // deciding a gameplay question. It happened to agree today because the sprite
+    // id and the worn id are the same string for every migrated body — which is
+    // the kind of agreement that stops holding the first time a character borrows
+    // another's art, and then a provoked body adopts a stranger's policy.
+    worn_character: Option<&str>,
     // **WHAT THE BODY'S OWN CHARACTER SAYS ABOUT BEING PROVOKED**, if it says
     // anything — see `CharacterDefinition::provoked_profile_ref`. `Option`
     // because most compositions register no cast, and no character today states

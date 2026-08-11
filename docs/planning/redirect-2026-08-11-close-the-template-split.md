@@ -658,7 +658,7 @@ The branch is on the right trajectory. The important redirect is to close the re
 | P0 | No `RecharacterizeBody` on ordinary construction (seat, protagonist) | ▢ — the enemy road needs none now; seat + protagonist still insert it |
 | P0 | Direct invariant test (no reapplication; identity-alone does nothing) | ✔ — both, poison-verified; the second asks TWICE so neither half can pass alone |
 | P0 | Rerun D78 | ✔✔ **GREEN** — all four tests, both characters. The duplicate applier WAS the cause |
-| P1 | Provocation reads `WornCharacter`, not `sprite_character_id` | ▢ |
+| P1 | Provocation reads `WornCharacter`, not `sprite_character_id` | ✔ — and peaceful NPCs now WEAR their character, which they did not; without that the corrected read finds nothing |
 | P1 | Provoked policy is a rollback-authoritative BrainProfile source | ▢ |
 | P2 | Delete the fake `ArchetypeSpec` from character-first seeds | ▢ |
 | P3 | Rename the old `BrainProfileRef` → `BrainPresetRef` | ▢ |

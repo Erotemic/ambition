@@ -41,6 +41,9 @@ pub fn apply_actor_stimuli(
             // Is this body in a fight? A provoked body's read model is rebuilt
             // here, and a combatant keeps its attack state through the rebuild.
             bevy::prelude::Has<crate::combat::components::ActiveCombatant>,
+            // ⭐ **WHICH CHARACTER THIS BODY IS** — the gameplay identity, not
+            // the sprite's. See `provoke_actor_in_place`.
+            Option<&ambition_characters::actor::WornCharacter>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -67,6 +70,7 @@ pub fn apply_actor_stimuli(
             mut cooldowns,
             mut cq,
             in_a_fight,
+            worn,
         )) = actors.get_mut(actor)
         else {
             continue;
@@ -122,6 +126,7 @@ pub fn apply_actor_stimuli(
             combat_kit,
             held_item,
             dialogue_id,
+            worn.map(ambition_characters::actor::WornCharacter::id),
             prepared.as_deref(),
             // Chase immediately when challenged (the duel is on), or when a
             // damage source is known.

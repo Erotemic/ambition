@@ -728,6 +728,8 @@ pub fn prepare_match(
             // says: a stage seats fighters, and a body excluded from the save
             // and skipped by targeting would be a seat nobody can fight.
             false,
+            // A stage has no authored patrol paths; a seat is driven.
+            &[],
         );
         // The seed's own pool stands for a character that authored none — which
         // used to be impossible to express, because an unauthored `Vitals`

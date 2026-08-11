@@ -767,6 +767,9 @@ impl ActorClusterSeed {
         // file, skipped by the path assignment, and selects a different sprite,
         // and this constructor wrote `false` for it via `..Default::default()`.
         practice_target: bool,
+        // **The room's authored kinematic paths**, so a `Patrol { path_id }`
+        // placement gets its path — see the note at [`Self::motion`] below.
+        paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
         // The AUTHORED silhouette, resolved exactly as a peaceful NPC of the
         // same character resolves it — one body per character, however it is
@@ -864,7 +867,7 @@ impl ActorClusterSeed {
                 name: display_name.into(),
                 tuning,
                 brain_profile,
-                brain: config_brain,
+                brain: config_brain.clone(),
                 spawn: ActorSpawnState {
                     pos,
                     size: collision_size,
@@ -874,7 +877,29 @@ impl ActorClusterSeed {
                 // name. A seat knows exactly which character it is seating.
                 sprite_character_id: Some(character_id.to_string()),
             },
-            motion: ActorMotionPath(None),
+            // ⛔ **this was `ActorMotionPath(None)`, unconditionally**, and it
+            // is the shape of defect this campaign keeps finding: the archetype
+            // road resolves a `Patrol { path_id }` placement into a
+            // `PathMotion` and the character-first road silently did not, so the
+            // first patrolling creature to migrate would have stopped
+            // patrolling — with nothing to read, because a body that stands
+            // still looks like a body whose path was authored badly. No migrated
+            // placement uses `Patrol` TODAY, which is exactly why it was
+            // invisible; the intro's three lab slugs are the ones that would
+            // have found it.
+            //
+            // ⚠ a practice target is skipped for the same reason the archetype
+            // road skips it: a dummy on a patrol path is a dummy that walks away
+            // from the player practising on it.
+            motion: ActorMotionPath(match &config_brain {
+                ambition_entity_catalog::placements::CharacterBrain::Patrol {
+                    path_id: Some(path_id),
+                } if !practice_target => paths
+                    .iter()
+                    .find(|(id, _)| id == path_id)
+                    .map(|(_, path)| PathMotion::new(path.clone())),
+                _ => None,
+            }),
             // The MATCH declares what a fighter may do (`seat_abilities`), so
             // the seed grants nothing and the ruleset writes the real set in the
             // same flush that builds the body.
@@ -1252,6 +1277,7 @@ mod tests {
             None,
             None,
             false,
+            &[],
         );
         assert_eq!(
             seed.config.tuning.max_run_speed, 200.0,
@@ -1283,6 +1309,7 @@ mod tests {
             None,
             None,
             false,
+            &[],
         );
         assert_eq!(
             still.config.tuning.max_run_speed, 0.0,
@@ -1312,10 +1339,68 @@ mod tests {
             None,
             None,
             true,
+            &[],
         );
         assert!(
             dummy.config.tuning.is_sandbag,
             "a character that authors itself a training dummy did not reach the body"
+        );
+    }
+
+    /// **A CHARACTER-FIRST BODY STILL WALKS ITS PLACEMENT'S PATROL PATH.**
+    ///
+    /// ⛔ this constructor wrote `ActorMotionPath(None)` unconditionally while
+    /// the archetype road resolved `Patrol { path_id }` into a `PathMotion`, so
+    /// the first patrolling creature to migrate would have stopped patrolling —
+    /// and a body standing still looks exactly like a body whose path was
+    /// authored badly, so there would have been nothing to read. No migrated
+    /// placement uses `Patrol` today, which is precisely why it was invisible.
+    ///
+    /// ⚠ the practice-target control is the archetype road's rule kept: a dummy
+    /// on a patrol path is a dummy that walks away from whoever is practising.
+    #[test]
+    fn a_character_first_body_walks_the_patrol_path_its_placement_names() {
+        let catalog = CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(
+                r#"(brain_presets: {}, action_set_presets: {}, characters: {})"#,
+            ),
+        );
+        let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        let paths = vec![(
+            "lab_patrol_line".to_string(),
+            ambition_platformer2d_core::KinematicPath::line(
+                ae::Vec2::new(0.0, 0.0),
+                ae::Vec2::new(120.0, 0.0),
+                60.0,
+            ),
+        )];
+        let seed = |practice_target: bool| {
+            ActorClusterSeed::new_character_in(
+                &authored,
+                &catalog,
+                "slug",
+                "npc_puppy_slug",
+                "Puppy Slug",
+                ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(32.0, 48.0)),
+                2,
+                crate::features::ecs::actor_tuning::BrainProfile::default(),
+                ambition_entity_catalog::placements::CharacterBrain::Patrol {
+                    path_id: Some("lab_patrol_line".to_string()),
+                },
+                Some(ambition_characters::actor::CharacterLocomotion::default()),
+                None,
+                None,
+                practice_target,
+                &paths,
+            )
+        };
+        assert!(
+            seed(false).motion.0.is_some(),
+            "the placement named a path and the body did not take it"
+        );
+        assert!(
+            seed(true).motion.0.is_none(),
+            "a practice target must not walk away from the player practising on it"
         );
     }
 

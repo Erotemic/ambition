@@ -2458,6 +2458,41 @@ archetype would simply turn them off.~~ ⛔ **SUPERSEDED THE SAME DAY — do not
 act on the paragraph above**; it is kept because its diagnosis of WHY the
 consumer was missing is still the clearest one.
 
+### ⇥ WHAT GROUP A ACTUALLY COSTS — measured 2026-08-10, and it is LDtk work
+
+The eight mite spawns are all in `sandbox.ldtk`, all carry
+`brain: exploding_mite | dividing_mite`, and **none carries a `character_id`**.
+
+```text
+world                 EnemySpawns   carry character_id
+intro.ldtk                    16                    0
+sandbox.ldtk                  49                    0
+mary_o.ldtk                   24                   24
+sanic_speedway.ldtk            4                    4
+                    ------------   ------------------
+                              93                   28
+```
+
+⇒ the brief's *"28 already author a character id"* is CONFIRMED, and it is
+entirely Mary-O plus Sanic. **Every one of the 65 that do not are in `intro` or
+`sandbox`, whose entity instances carry no `character_id` field instance at
+all** — so phase 4 there is not "fill in a value", it is "add the field
+instance to 65 entities".
+
+⛔ **that makes group A an LDtk edit, with this repo's two standing hazards:**
+never `json.dumps` a `.ldtk` (the formatting does not survive, and `repair`
+does not restore it), and the LDtk EDITOR nulls `EntityRef`s world-wide — count
+refs before and after any session. ⇒ the mite migration wants a surgical,
+formatting-preserving edit and a ref count on both sides, not a JSON round-trip.
+
+⚠ **I got this census wrong once before getting it right**, and the way it
+failed is worth copying: my first pass keyed on a field called `character` and
+reported `authored=0` everywhere, which would have been filed as a dramatic
+correction to the brief. The LDtk fieldDef is `character_id`. **Checking the
+field NAME against `defs.entities[].fieldDefs` is what turned a false alarm into
+a real measurement** — a census that reads zero everywhere is usually asking the
+wrong question.
+
 ### ⇥ UNBLOCKED — the authored enemy path reads its character
 
 ✔ `spawn_enemy_with_faction_into` lowers the placement to a

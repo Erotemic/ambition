@@ -665,6 +665,7 @@ fn construct_giant_hand(
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
         &ctx.services.context.roster,
+        &ctx.services.context.prepared,
         ctx.session,
         root.entity(),
         authored,
@@ -1728,14 +1729,29 @@ fn giant_cluster_rows(
             sim_id: SimId::spawned(&host_sim, hand.ordinal),
             origin: hand_origin(hand),
             parameters: ActorConstructionParams::GiantHand {
-                authored: crate::rooms::Authored::new(
-                    hand.feature_id.clone(),
-                    "Giant GNU Hand",
-                    hand.aabb,
-                    ambition_entity_catalog::placements::CharacterBrain::Custom(
-                        "giant_gnu_hands".into(),
-                    ),
-                ),
+                authored: {
+                    let mut authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
+                        crate::rooms::Authored::new(
+                            hand.feature_id.clone(),
+                            "Giant GNU Hand",
+                            hand.aabb,
+                            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                                "giant_gnu_hands".into(),
+                            ),
+                        );
+                    // ⭐ **the hand NAMES its character**, so its body comes from
+                    // a definition like every other migrated creature. The brain
+                    // key stays as the fallback for a composition that has not
+                    // registered the cast.
+                    authored.payload.character_id = Some(
+                        ambition_entity_catalog::CharacterId::new("npc_giant_gnu_hands"),
+                    );
+                    // A limb is not a combatant: the rider's routed strikes are
+                    // what hurt, and the hand itself must never be targeted.
+                    authored.payload.disposition =
+                        Some(ambition_entity_catalog::placements::SpawnDisposition::Peaceful);
+                    authored
+                },
             },
             relations: vec![
                 ambition_platformer2d_shared_tangle::construction::RelationRequest {

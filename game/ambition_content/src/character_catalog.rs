@@ -226,6 +226,9 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     // without a whole second row.
     "npc_pirate_raider",
     "npc_pirate_heavy_iron_mary",
+    // The giant's two DRIVEN limbs — one character, two bodies, which is what a
+    // reusable template is for.
+    "npc_giant_gnu_hands",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -661,6 +664,37 @@ pub fn authored_intrinsics(
             definition.vitals.max_health = Some(if heavy { 6 } else { 4 });
             definition
         }
+        // **THE GIANT'S HANDS.** Two bodies of one character: the rig spawns a
+        // left and a right from this single definition, which is a reusable
+        // authored template doing exactly what the campaign is about.
+        //
+        // ⚠ its collision envelope does NOT come across, and could not: a hand
+        // is sized at PLAN time as 0.7 of the giant's own half-extent, so the
+        // row's `default_size: (154.0, 154.0)` was 220 × 0.7 written down a
+        // second time. The geometry is derived; the row was restating it.
+        "npc_giant_gnu_hands" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    // The limb router steers it every tick; the StandStill brain
+                    // below is inert and this speed is never asked for.
+                    run_speed: 0.0,
+                    move_style: MoveStyleSpec::WalkHeavy,
+                    ..Default::default()
+                })
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::StandStill,
+                    aggro_radius: 0.0,
+                    attack_range: 0.0,
+                    // A limb never seeks anybody: the rider's routed strikes
+                    // spawn the damaging hitboxes, and the hand is their vehicle.
+                    attacks_player: false,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(42);
+            // Lighter than the giant body, heavy enough to feel solid.
+            definition.vitals.mass = Some(2.0);
+            definition
+        }
         _ => definition,
     }
 }
@@ -921,6 +955,39 @@ mod tests {
         }
     }
 
+    /// **One character, two bodies** — the giant's left and right hands are the
+    /// same definition spawned twice by the rig, which is a reusable authored
+    /// template doing the thing the campaign exists to make possible.
+    #[test]
+    fn the_giants_hands_author_the_limb_their_archetype_row_used_to() {
+        use ambition_characters::brain::CharacterBrainTemplate;
+
+        let definition = authored_intrinsics(
+            "npc_giant_gnu_hands",
+            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                "npc_giant_gnu_hands",
+                "Giant GNU Hand",
+                crate::AMBITION_CONTENT_PROVIDER,
+            ),
+        );
+        assert_eq!(definition.vitals.max_health, Some(42));
+        assert_eq!(definition.vitals.mass, Some(2.0));
+        assert!(
+            definition.contact_damage.is_none(),
+            "a limb is not a hazard"
+        );
+        assert!(
+            definition.mount.is_none(),
+            "a hand is neither ridden nor rides"
+        );
+        let profile = definition.autonomous_profile.expect("its policy");
+        assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
+        assert!(
+            !profile.attacks_player,
+            "the rider's routed strikes hurt; the hand is their vehicle"
+        );
+    }
+
     fn the_migrated_characters_rows_are_gone_from_the_archetype_file() {
         let rows = include_str!("../assets/data/character_archetypes.ron");
         for key in [
@@ -931,6 +998,7 @@ mod tests {
             "giant_gnu",
             "pirate_shark_rider",
             "pirate_heavy_shark_rider",
+            "giant_gnu_hands",
         ] {
             assert!(
                 !rows.contains(&format!("\"{key}\": (")),

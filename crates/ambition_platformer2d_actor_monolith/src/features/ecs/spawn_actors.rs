@@ -1580,34 +1580,28 @@ pub(crate) fn populate_giant_hand_into(
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
 ) {
-    let enemy = super::actor_clusters::ActorClusterSeed::new_in(
-        authored_sheets,
-        catalog,
-        roster,
-        authored.id.clone(),
-        authored.name.clone(),
-        Some(authored.payload.presentation_identity(&authored.name)),
-        authored.aabb,
-        authored.payload.brain.clone(),
-        &[],
-    );
-    spawn_solo_enemy_into(
+    // ⭐ **the same road the HOST takes.** This built its seed with `new_in` —
+    // the archetype road — so a hand's health, weight and hostility could only
+    // come from a `giant_gnu_hands` row, while the giant beside it was already
+    // being built from its character. Two limbs of one creature, on two
+    // construction paths.
+    spawn_enemy_with_faction_into(
         commands,
         catalog,
         authored_sheets,
+        roster,
+        prepared,
         session_scope,
         root,
-        enemy,
         authored,
+        &[],
         super::ActorFaction::Enemy,
     );
-    commands
-        .entity(root)
-        .insert(super::ActorDisposition::Peaceful);
 }
 
 /// One giant hand's fully-resolved construction facts, computed at PLAN time

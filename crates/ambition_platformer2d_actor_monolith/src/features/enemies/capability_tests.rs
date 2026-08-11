@@ -52,7 +52,7 @@ fn archetype_capabilities_match_the_legacy_identity_checks() {
         "infinite sandbag never dies; it needs no revive timer"
     );
 
-    let finite = crate::features::enemies::test_spec("sandbag_finite");
+    let finite = crate::features::enemies::fixture_spec("fixture_in_place_respawner");
     assert!(!finite.never_dies);
     assert_eq!(
         finite.tuning().respawn,
@@ -219,18 +219,21 @@ fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
         let attacks = !matches!(key, "puppy_slug" | "pirate_heavy");
         assert_eq!(spec.attacks_player, attacks, "{key} attacks_player");
 
-        let body = !matches!(key, "sandbag_infinite" | "sandbag_finite")
-            && (attacks || key == "puppy_slug");
+        let body = !matches!(key, "sandbag_infinite") && (attacks || key == "puppy_slug");
         assert_eq!(spec.body_contact_damage, body, "{key} body_contact");
 
         // ADR 0022: the enum is AUTHORED per row now. Mini-boss presences
-        // rest-gate; sandbags revive in place; every other roster row is an
-        // explicit OnRoomReenter mob (the Q29 triage) — the DeadStaysDead
-        // default is for unique placements (NPCs pin it at spawn).
+        // rest-gate; every other roster row is an explicit OnRoomReenter mob
+        // (the Q29 triage) — the DeadStaysDead default is for unique placements
+        // (NPCs pin it at spawn).
+        //
+        // ⚠ **the `InPlace` arm left with `sandbag_finite`** (2026-08-11): that
+        // dummy is a character now and its three placements author their own
+        // respawn, which is where a respawn policy belongs. The POLICY is still
+        // exercised — against `fixture_in_place_respawner`, a row this crate
+        // owns, by `finite_sandbag_revives_in_place` above.
         let policy = if matches!(key, "large_brute" | "large_colossus" | "pirate_heavy") {
             RespawnPolicy::OnRest
-        } else if key == "sandbag_finite" {
-            RespawnPolicy::InPlace(0.85)
         } else if key == "sandbag_infinite" {
             RespawnPolicy::DeadStaysDead // never_dies; policy is moot
         } else {

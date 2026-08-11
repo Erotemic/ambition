@@ -1811,7 +1811,7 @@ fn leaving_the_world_outranks_an_authored_in_place_respawn() {
     use super::actor_hit::{kill_disposition, KillDisposition};
     use ambition_entity_catalog::placements::RespawnPolicy;
 
-    let sandbag = crate::features::enemies::test_spec("sandbag_finite")
+    let sandbag = crate::features::enemies::fixture_spec("fixture_in_place_respawner")
         .tuning()
         .respawn;
     assert_eq!(

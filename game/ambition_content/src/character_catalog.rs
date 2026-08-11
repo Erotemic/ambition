@@ -695,6 +695,46 @@ pub fn authored_intrinsics(
             definition.vitals.mass = Some(2.0);
             definition
         }
+        // **THE PRACTICE TARGET.** A body that exists to be hit: no aggro, no
+        // strike back, excluded from the save file, and skipped by the path
+        // assignment — all of which is what `practice_target` says in one word.
+        //
+        // ⚠ **it authors no `contact_damage`, and its old row's comment was
+        // wrong about that.** `sandbag_finite` said *"It still deals light
+        // CONTACT damage if you walk into it"* directly above
+        // `body_contact_damage: false`, which turns exactly that off. The flag
+        // is the gate, so the comment described an intention nobody had
+        // implemented, and a migration that believed the prose would have given
+        // the dummy a hitbox it never had.
+        //
+        // ⚠ its `respawn: InPlace(0.85)` moves to the placement, where a respawn
+        // policy belongs (ADR 0022) — and `sandbag_infinite` does NOT migrate
+        // with it: `never_dies` is a character trait, so the immortal dummy is a
+        // different creature and needs its own registered character. See ledger
+        // D77.
+        "sandbag" => {
+            let mut definition = definition
+                .as_practice_target()
+                .with_locomotion(CharacterLocomotion {
+                    // It never walks anywhere — StandStill drives it — but the
+                    // row authored a speed and a gait, so the character does too.
+                    run_speed: 155.0,
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                })
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::StandStill,
+                    // Notices nobody and swings at nobody; the old row's
+                    // `attack_range: 150.0` sat beside `melee: None`.
+                    aggro_radius: 0.0,
+                    attack_range: 0.0,
+                    patrol_effort: 0.6774,
+                    chase_effort: 1.0,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(6);
+            definition
+        }
         _ => definition,
     }
 }
@@ -988,6 +1028,37 @@ mod tests {
         );
     }
 
+    /// **The practice target says it is one.** `practice_target` is the fact
+    /// with four consumers — the save sync, the path assignment and two sprite
+    /// reads — and the one that kept the sandbags on the archetype file.
+    ///
+    /// ⚠ it authors NO contact damage, and the old row's comment claimed
+    /// otherwise directly above the `body_contact_damage: false` that turned it
+    /// off. Believing the prose would have given the dummy a hitbox it never
+    /// had.
+    #[test]
+    fn the_sandbag_authors_the_dummy_its_archetype_row_used_to() {
+        use ambition_characters::brain::CharacterBrainTemplate;
+
+        let definition = authored_intrinsics(
+            "sandbag",
+            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                "sandbag",
+                "Sandbag",
+                crate::AMBITION_CONTENT_PROVIDER,
+            ),
+        );
+        assert!(definition.practice_target, "it exists to be hit");
+        assert_eq!(definition.vitals.max_health, Some(6));
+        assert!(
+            definition.contact_damage.is_none(),
+            "walking into a dummy does not hurt, whatever the old row's comment said"
+        );
+        let profile = definition.autonomous_profile.expect("its policy");
+        assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
+        assert_eq!(profile.aggro_radius, 0.0, "it notices nobody");
+    }
+
     fn the_migrated_characters_rows_are_gone_from_the_archetype_file() {
         let rows = include_str!("../assets/data/character_archetypes.ron");
         for key in [
@@ -999,6 +1070,7 @@ mod tests {
             "pirate_shark_rider",
             "pirate_heavy_shark_rider",
             "giant_gnu_hands",
+            "sandbag_finite",
         ] {
             assert!(
                 !rows.contains(&format!("\"{key}\": (")),

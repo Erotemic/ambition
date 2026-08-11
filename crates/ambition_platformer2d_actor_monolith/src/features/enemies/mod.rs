@@ -135,7 +135,6 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "large_colossus",
     "gradient_seeker",
     "sandbag_infinite",
-    "sandbag_finite",
     "pirate_raider",
     "pirate_heavy",
     "ranged_skirmisher",
@@ -1058,6 +1057,17 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
     // five engine tests about "an archetype can resolve a weapon to drop" had no
     // subject left. The MECHANISM is still real and still worth pinning; what it
     // must not be pinned to is content the campaign deletes on purpose.
+    // ⭐ **the in-place respawner the ADR-0022 tests need.** `sandbag_finite`
+    // was the only shipped row authoring `InPlace(0.85)`, and it migrated on
+    // 2026-08-11 — its respawn policy went to its three placements, which is
+    // where a respawn policy belongs. The POLICY still has to be exercised.
+    "fixture_in_place_respawner": (
+        max_health: 6, respawn: InPlace(0.85), run_speed: 155.0,
+        patrol_effort: 0.6774, chase_effort: 1.0, aggro_radius: 0.0,
+        attack_range: 0.0, contact_strength: 0.0, damage_amount: 0,
+        body_contact_damage: false, is_sandbag: true,
+        brain_template: StandStill, move_style: Walk,
+    ),
     "fixture_armed_rider": (
         max_health: 4, run_speed: 230.0, patrol_effort: 0.4783, chase_effort: 1.0,
         aggro_radius: 1200.0, attack_range: 1100.0, contact_strength: 1.10,

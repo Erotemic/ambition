@@ -494,24 +494,6 @@
         melee: None,
         move_style: Walk,
     ),
-    "sandbag_finite": (
-        max_health: 6,
-        respawn: InPlace(0.85),
-        body_contact_damage: false,
-        run_speed: 155.0,
-        patrol_effort: 0.6774,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 150.0,
-        contact_strength: 0.70,
-        damage_amount: 1,
-        is_sandbag: true,
-        brain_template: StandStill,
-        // A practice target is PASSIVE — no counter-attack. (It still deals
-        // light CONTACT damage if you walk into it; it just never strikes back.)
-        melee: None,
-        move_style: Walk,
-    ),
     "pirate_raider": (
         respawn: OnRoomReenter,
         max_health: 5,

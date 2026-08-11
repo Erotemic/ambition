@@ -18,8 +18,8 @@
 //! contains no such disagreement, which is a claim only the assembled app can
 //! make.
 
-use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
 use ambition_app::app::{build_visible_app, VisibleRenderMode};
+use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
 
 #[test]
 fn every_registered_character_resolves_the_art_it_declares() {
@@ -101,7 +101,9 @@ fn the_shipped_cast_has_one_authority_per_character() {
     let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
     ambition_platformer2d::runtime::finalize(&mut app);
     let conflicts =
-        ambition_platformer2d::actors::character_runtime::audit::audit_character_authority_parity(app.world());
+        ambition_platformer2d::actors::character_runtime::audit::audit_character_authority_parity(
+            app.world(),
+        );
     assert!(
         conflicts.is_empty(),
         "{} character(s) are declared by both the prepared registry and the \
@@ -115,4 +117,52 @@ fn the_shipped_cast_has_one_authority_per_character() {
             .collect::<Vec<_>>()
             .join("\n"),
     );
+}
+
+/// **The migrated mites reach the SHIPPED composition with their bodies.**
+///
+/// D73 phase 2 moved `explodes_on_death` and `divides_on_death` off
+/// `character_archetypes.ron` and onto the two mite CHARACTERS. That leg —
+/// authored in `ambition_content`, registered through `BUILDABLE_ONLY_CAST`,
+/// prepared into the registry the spawn path reads — is only true of the
+/// assembled app, so only the assembled app can assert it.
+///
+/// ⛔ **the failure this exists for is silent.** Delete either mite from the
+/// build-only cast, or empty its arm of `authored_intrinsics`, and nothing
+/// crashes: the placement still names a character, `plan.definition()` reports
+/// it missing or bodiless, the body keeps its archetype — which no longer says
+/// anything about death — and a sandbox mite quietly stops exploding. Nobody
+/// finds that until they stand next to one.
+#[test]
+fn the_migrated_mites_reach_the_prepared_registry_with_their_death_traits() {
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    ambition_platformer2d::runtime::finalize(&mut app);
+    let registry = app
+        .world()
+        .get_resource::<PreparedCharacterRegistry>()
+        .expect("the shipped composition registers characters through the one seam");
+
+    for (id, explodes, divides, health) in [
+        ("npc_exploding_mite", true, false, 2),
+        ("npc_dividing_mite", false, true, 4),
+    ] {
+        let prepared = registry.get(id).unwrap_or_else(|| {
+            panic!(
+                "`{id}` is migrated content: its death traits live on the CHARACTER \
+                 and nowhere else, so a composition that does not prepare it ships \
+                 a mite that cannot die properly"
+            )
+        });
+        let traits = prepared
+            .death_traits
+            .as_ref()
+            .unwrap_or_else(|| panic!("`{id}` prepared without the death traits it authors"));
+        assert_eq!(traits.explodes_on_death, explodes, "{id}");
+        assert_eq!(traits.divides_on_death, divides, "{id}");
+        assert_eq!(
+            prepared.vitals.max_health,
+            Some(health),
+            "`{id}` must carry the pool its archetype row used to give it"
+        );
+    }
 }

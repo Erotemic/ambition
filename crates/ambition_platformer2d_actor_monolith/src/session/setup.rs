@@ -275,6 +275,15 @@ pub fn simulation_world(
                 ambition_characters::actor::WornCharacter::new(
                     starting_character.effective_id(default_character_id),
                 ),
+                // ⭐ **and the protagonist ASKS for its template.** The bundle
+                // already applies the overlay at construction
+                // (`from_scratch_as_character`), so the body is not incomplete —
+                // what the derive still owns for this body is the pair of
+                // capability MARKERS a `Bundle` cannot conditionally omit
+                // (`ChargesProjectiles` / `PlayerProjectileState`). It used to
+                // reach them off the `Added<WornCharacter>` edge; that edge is
+                // gone (Jon's redirect §2), so the request is explicit.
+                ambition_characters::actor::RecharacterizeBody,
                 player_bundle,
             ),
         )

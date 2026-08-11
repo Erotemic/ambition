@@ -20,7 +20,7 @@ pub use death_traits::CharacterDeathTraits;
 pub mod intrinsics;
 pub use intrinsics::{CharacterLocomotion, CharacterMount, ContactDamage};
 pub mod worn;
-pub use worn::WornCharacter;
+pub use worn::{RecharacterizeBody, WornCharacter};
 
 use ambition_entity_catalog::placements::DamageTeam;
 

@@ -1113,7 +1113,7 @@ Section 20's numbering is preserved.
 | # | Item | State |
 |---|------|-------|
 | 1 | Stop D78 rollback probing | ✔ — no further checksum probes; D78 is now a construction-shape task |
-| 2 | Separate `CharacterIdentity` from re-templating | ▢ — the grant is extracted and construction owns it; the RENAME is still open |
+| 2 | Separate `CharacterIdentity` from re-templating | ✔ — `RecharacterizeBody` is the request; `Changed<WornCharacter> → populate` is deleted |
 | 3 | Complete body at construction | ✔ — `grant_prepared_character_body`, one batch, memo included |
 | 4 | Re-run D78 | ✔ — **still RED, at the same frame.** Two-phase construction was not the mechanism; see the ledger row |
 | 5 | Delete delayed initial persona projection | ✔ for the character-first enemy road — the projection reads a constructed body as current and skips it |

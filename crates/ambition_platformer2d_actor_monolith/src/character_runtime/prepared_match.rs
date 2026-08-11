@@ -990,6 +990,15 @@ fn realize_seat(
                 // fighter rather than a generic actor follows from this one
                 // component.
                 ambition_characters::actor::WornCharacter::new(seat.character_id.as_str()),
+                // ⭐ **and it ASKS for the template to be applied.** Seating used
+                // to rely on the persona derive noticing a fresh
+                // `WornCharacter` through its change tick; that edge is gone
+                // (Jon's redirect §2), so the one writer that needs it says so.
+                // ⚠ a seat genuinely needs the derive rather than the
+                // construction grant: `seat_blueprint` resolves the BODY, and
+                // the match's own kit (`MatchParticipant::action_set`) is
+                // layered by that derive.
+                ambition_characters::actor::RecharacterizeBody,
                 // The MATCH owns this fighter's death, not the world. Without it
                 // a KO runs the exploration economy — a bounty coin, a heart, an
                 // in-place respawn timer — none of which an arena has a use for.

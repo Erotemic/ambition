@@ -1142,6 +1142,14 @@ pub fn sync_grown_form(
         ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested,
     ));
     worn_char.0 = target_id.into();
+    // ⭐ **and ASK for the template to be applied.** Writing the identity used to
+    // be enough — the persona derive ran off `Changed<WornCharacter>` — but that
+    // made ordinary construction depend on the same edge, so the two were split
+    // (Jon's redirect §2). A powerup is the textbook re-template: the body stays,
+    // the character it instantiates changes.
+    commands
+        .entity(body)
+        .try_insert(ambition_platformer2d::characters::actor::RecharacterizeBody);
 }
 
 /// **The transformation numbers for ONE tier change**, authored per transition

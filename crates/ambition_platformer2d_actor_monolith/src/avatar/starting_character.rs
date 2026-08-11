@@ -714,9 +714,20 @@ pub fn apply_worn_character_gameplay(
         // What THIS system last applied to this body. See [`PersonaBaseline`]:
         // the change-detection filter that used to live here could not see a
         // cast replacement, because a replacement changes nothing on a body.
-        Option<&PersonaBaseline>,
-        // Which seat this body holds, if it is in a match at all.
-        Option<&crate::character_runtime::MatchSeat>,
+        // ⚠ **NESTED, and only because a Bevy query tuple stops at sixteen.** The
+        // grouping carries no meaning; adding a seventeenth column means nesting
+        // another, not widening this.
+        (
+            Option<&PersonaBaseline>,
+            // Which seat this body holds, if it is in a match at all.
+            Option<&crate::character_runtime::MatchSeat>,
+            // ⭐⭐ **THE EXPLICIT REQUEST** — see `RecharacterizeBody`, and Jon's
+            // redirect §2. This used to run off `character.is_changed()`, which made
+            // "populate this body" a consequence of "this body's identity was
+            // written": ordinary construction depended on an observation edge, and
+            // change ticks do not rewind.
+            Has<ambition_characters::actor::RecharacterizeBody>,
+        ),
     )>,
 ) {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
@@ -735,8 +746,7 @@ pub fn apply_worn_character_gameplay(
         mass,
         mut combat_tuning,
         has_projectile_state,
-        baseline,
-        seat,
+        (baseline, seat, recharacterize),
     ) in &mut worn
     {
         let id = character.id();
@@ -768,7 +778,28 @@ pub fn apply_worn_character_gameplay(
         // twice regardless of how the control flow is later rearranged.
         let mut minted = moveset.is_none().then(|| ActorMoveset(Default::default()));
 
-        if character.is_changed() || stale_cast {
+        // ⛔ **NOT `character.is_changed()`.** A body is re-derived because
+        // somebody ASKED (`RecharacterizeBody`), or because the cast it was
+        // built from no longer exists (`stale_cast`, which is a rollback-state
+        // test rather than a change tick and therefore survives a rewind).
+        //
+        // ⭐ **and the change tick turned out to be REDUNDANT, measured.**
+        // `stale_cast` is `baseline.is_none_or(|b| b.id != id || ..)`, so it was
+        // already true for a body with no baseline (first application) and for a
+        // body whose worn id no longer matches the one it was built from (a
+        // re-wear). Every re-wear regression in this module passes with the
+        // change tick removed and no request inserted, which is the measurement
+        // saying the observation edge never carried the decision — it only
+        // looked like it did. What the edge DID carry was a hidden dependency on
+        // a tick that does not rewind.
+        if recharacterize {
+            // ⚠ **CONSUMED**, so a request is one application rather than a
+            // state a body gets stuck re-deriving in.
+            commands
+                .entity(entity)
+                .try_remove::<ambition_characters::actor::RecharacterizeBody>();
+        }
+        if recharacterize || stale_cast {
             let moveset_slot = match moveset.as_deref_mut() {
                 Some(existing) => existing,
                 None => minted.as_mut().expect("minted when the body carried none"),

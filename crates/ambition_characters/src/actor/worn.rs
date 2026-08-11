@@ -25,10 +25,25 @@ use bevy::ecs::component::Component;
 
 /// The catalog `character_id` a body currently wears.
 ///
-/// Simulation-owned and set at spawn from the selected character; changing it
-/// (a re-wear / transformation) is the supported runtime path, and downstream
-/// gameplay + presentation systems observe the change through Bevy's
-/// `Changed<WornCharacter>` filter.
+/// **A STABLE STATEMENT OF WHICH TEMPLATE THIS BODY INSTANTIATES**, and nothing
+/// more (Jon's redirect §2, 2026-08-11).
+///
+/// ⛔ **it used to mean two things at once**: *this body is an instance of
+/// character X*, and *please apply character X's template to this body*. The
+/// second meaning was carried by Bevy's change tick — a body was populated
+/// because its worn id had just been WRITTEN — which made ordinary construction
+/// depend on an observation edge. Two consequences, and the second is the one
+/// that cost sessions: a body was incomplete for a tick by design, and change
+/// ticks do not rewind, so a rollback could restore a body whose population had
+/// been driven by an edge that would never fire again.
+///
+/// Asking for the template to be applied is now an explicit
+/// [`RecharacterizeBody`] request. Carrying this component, or changing it,
+/// populates nothing on its own.
+///
+/// ⚠ presentation still reads it with `Changed<WornCharacter>`, and that is
+/// fine: re-binding a sprite when the identity changes is an observation, not a
+/// construction.
 ///
 /// Requires [`IdentityKit`]: the identity derivation writes what this worn id
 /// alone produced into it, and the equipment reconcile re-derives the live kit
@@ -64,3 +79,26 @@ impl WornCharacter {
         &self.0
     }
 }
+
+/// **An explicit request to (re)apply this body's character template.**
+///
+/// ⭐ **the second half of what [`WornCharacter`] used to mean**, separated so
+/// that ordinary construction does not go through it (Jon's redirect §2). A
+/// normal character actor is built COMPLETE and never carries this; what needs
+/// it is a genuine re-template:
+///
+/// ```text
+/// a transformation that changes which character a body IS   (Mary-O's powerups)
+/// character-select adoption onto a live body
+/// a cast hot reload
+/// any deliberate runtime re-wear
+/// ```
+///
+/// ⚠ **it is CONSUMED**, so a request is one application rather than a state a
+/// body can get stuck in. A writer that wants it again asks again.
+///
+/// ⛔ do not reintroduce `Changed<WornCharacter> → populate the body`. Renaming
+/// the identity component without splitting the request off would have moved the
+/// defect, not removed it.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RecharacterizeBody;

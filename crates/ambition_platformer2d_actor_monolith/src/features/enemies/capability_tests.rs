@@ -79,7 +79,7 @@ fn archetype_capabilities_match_the_legacy_identity_checks() {
 /// and the old bug is therefore unrepresentable.
 #[test]
 fn an_archetype_with_an_intrinsic_weapon_drops_one_and_says_nothing_about_which() {
-    let armed = crate::features::enemies::test_spec("pirate_shark_rider").combat_capabilities();
+    let armed = crate::features::enemies::fixture_spec("fixture_armed_rider").combat_capabilities();
     assert!(
         armed.drops_held_item,
         "the cove raider authors a gun_sword, so its corpse leaves a weapon"
@@ -219,27 +219,15 @@ fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
         let attacks = !matches!(key, "puppy_slug" | "pirate_heavy");
         assert_eq!(spec.attacks_player, attacks, "{key} attacks_player");
 
-        let body = !matches!(
-            key,
-            "sandbag_infinite"
-                | "sandbag_finite"
-                | "pirate_shark_rider"
-                | "pirate_heavy_shark_rider"
-        ) && (attacks || key == "puppy_slug");
+        let body = !matches!(key, "sandbag_infinite" | "sandbag_finite")
+            && (attacks || key == "puppy_slug");
         assert_eq!(spec.body_contact_damage, body, "{key} body_contact");
 
         // ADR 0022: the enum is AUTHORED per row now. Mini-boss presences
         // rest-gate; sandbags revive in place; every other roster row is an
         // explicit OnRoomReenter mob (the Q29 triage) — the DeadStaysDead
         // default is for unique placements (NPCs pin it at spawn).
-        let policy = if matches!(
-            key,
-            "large_brute"
-                | "large_colossus"
-                | "pirate_heavy"
-                | "pirate_shark_rider"
-                | "pirate_heavy_shark_rider"
-        ) {
+        let policy = if matches!(key, "large_brute" | "large_colossus" | "pirate_heavy") {
             RespawnPolicy::OnRest
         } else if key == "sandbag_finite" {
             RespawnPolicy::InPlace(0.85)

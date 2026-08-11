@@ -102,10 +102,8 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
     "large_colossus",
     "gradient_seeker",
     "pirate_raider",
-    "pirate_shark_rider",
     "puppy_slug",
     "pirate_heavy",
-    "pirate_heavy_shark_rider",
     "cellular_automaton_fighter",
 ];
 
@@ -120,6 +118,13 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
 /// `brain: "exploding_mite"` — a string that now resolves to the `combatant`
 /// fallback and is read for exactly one field, the placement's respawn policy,
 /// which has nowhere else to live yet.
+///
+/// ⭐ **and the SHARK RIDERS left on 2026-08-11 too, with their respawn policy
+/// going WITH them.** `pirate_shark_rider` and `pirate_heavy_shark_rider` are
+/// `npc_pirate_raider` and `npc_pirate_heavy_iron_mary` now, and their seven
+/// placements author `respawn: OnRest` themselves — so the last reason to read
+/// their brain string is gone. That field is the one the mites' note above says
+/// "has nowhere else to live"; it does now.
 #[cfg(test)]
 pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "combatant",
@@ -132,9 +137,7 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "sandbag_infinite",
     "sandbag_finite",
     "pirate_raider",
-    "pirate_shark_rider",
     "pirate_heavy",
-    "pirate_heavy_shark_rider",
     "ranged_skirmisher",
 ];
 
@@ -1049,6 +1052,30 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
         mount_class: Some("giant"), mass: 8.0, default_size: Some((220.0, 220.0)),
         brain_template: StandStill, move_style: WalkHeavy,
     ),
+    // ⭐ **the ARMED rider the engine's weapon tests need**, owned by the
+    // fixture. `pirate_shark_rider` and `pirate_heavy_shark_rider` were the only
+    // shipped rows carrying a `held_item`, and they migrated on 2026-08-11 — so
+    // five engine tests about "an archetype can resolve a weapon to drop" had no
+    // subject left. The MECHANISM is still real and still worth pinning; what it
+    // must not be pinned to is content the campaign deletes on purpose.
+    "fixture_armed_rider": (
+        max_health: 4, run_speed: 230.0, patrol_effort: 0.4783, chase_effort: 1.0,
+        aggro_radius: 1200.0, attack_range: 1100.0, contact_strength: 1.10,
+        damage_amount: 2, body_contact_damage: false,
+        pilotable_mount_classes: ["shark"], held_item: Some("gun_sword"),
+        ranged: Some((style: Bolt, speed: 500.0, damage: 2)),
+        brain_template: Skirmisher, move_style: Walk,
+    ),
+    // The heavy half of the pair: the weapon tests compare a light rider with a
+    // heavy one, and one fixture cannot be both.
+    "fixture_armed_rider_heavy": (
+        max_health: 6, run_speed: 215.0, patrol_effort: 0.5116, chase_effort: 1.0,
+        aggro_radius: 1200.0, attack_range: 1100.0, contact_strength: 1.30,
+        damage_amount: 3, body_contact_damage: false,
+        pilotable_mount_classes: ["shark"], held_item: Some("gun_sword_heavy"),
+        ranged: Some((style: Bolt, speed: 500.0, damage: 3)),
+        brain_template: Skirmisher, move_style: WalkHeavy,
+    ),
     "fixture_rider": (
         max_health: 3, run_speed: 150.0, patrol_effort: 0.6, chase_effort: 1.0,
         aggro_radius: 500.0, attack_range: 150.0, contact_strength: 0.6,
@@ -1061,6 +1088,16 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
         &shipped[..close],
         &shipped[close..]
     ))
+}
+
+/// A spec out of the roster THIS CRATE owns — for engine tests that need a
+/// SHAPE (armed, rideable, limbed) rather than a shipped creature. See the note
+/// on [`test_roster`].
+#[cfg(test)]
+pub(crate) fn fixture_spec(brain_key: &str) -> ArchetypeSpec {
+    fixture_roster_with_mount().spec_for_brain(
+        &ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
+    )
 }
 
 /// Resolve a spec by its spawn brain key against the checked-in Ambition test

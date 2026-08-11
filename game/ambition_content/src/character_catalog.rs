@@ -220,6 +220,12 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     "npc_burning_flying_shark",
     // The second, and the first body that authors "I never hunt anybody".
     "npc_giant_gnu",
+    // ⭐ **the first RIDERS**: a cove raider and Iron Mary both pilot a shark,
+    // both carry a gun-sword, and both differ from each other only in the
+    // numbers — which is exactly the shape an archetype could not express
+    // without a whole second row.
+    "npc_pirate_raider",
+    "npc_pirate_heavy_iron_mary",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -586,6 +592,75 @@ pub fn authored_intrinsics(
             // stood next to, which is what `body_contact_damage: false` said.
             definition
         }
+        // **THE SHARK RIDERS.** Two creatures, one policy, different numbers —
+        // the case the archetype file answered with two nearly-identical rows
+        // (`pirate_shark_rider`, `pirate_heavy_shark_rider`) whose only real
+        // differences are health, weight, reach and which gun-sword they hold.
+        //
+        // ⚠ **`body_contact_damage: false` on both rows, so neither authors
+        // `contact_damage`.** The rows carried a `contact_strength` and a
+        // `damage_amount` beside a flag that turned them off — numbers that
+        // described nothing. A character says what is true: touching a raider
+        // does not hurt; its gun-sword does.
+        //
+        // ⚠ `default_size` does not come across either: both are sized by their
+        // authored placements (44x78 and 72x110 in `sandbox.ldtk`), which is the
+        // same silhouette the rows were restating.
+        "npc_pirate_raider" | "npc_pirate_heavy_iron_mary" => {
+            let heavy = id == "npc_pirate_heavy_iron_mary";
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: if heavy { 215.0 } else { 230.0 },
+                    move_style: if heavy {
+                        MoveStyleSpec::WalkHeavy
+                    } else {
+                        MoveStyleSpec::Walk
+                    },
+                    ..Default::default()
+                })
+                // A cove raider can board a "shark"-class mount. It is not itself
+                // rideable, which is the other half of the same sentence.
+                .with_mount(ambition_characters::actor::CharacterMount {
+                    pilotable_classes: vec!["shark".to_string()],
+                    ..Default::default()
+                })
+                .with_held_item(if heavy {
+                    "gun_sword_heavy"
+                } else {
+                    "gun_sword"
+                })
+                .with_autonomous_profile(BrainProfile {
+                    // Orbit-and-fire standoff: notice from across the cove,
+                    // commit from just inside it.
+                    template: CharacterBrainTemplate::Skirmisher,
+                    aggro_radius: 1200.0,
+                    attack_range: 1100.0,
+                    // ⭐ a TUNED amble, and the reason `BrainProfile` had to grow
+                    // `patrol_effort` before either of these could migrate: the
+                    // constructor's literal `0.5` would have quietly retuned both.
+                    patrol_effort: if heavy { 0.5116 } else { 0.4783 },
+                    chase_effort: 1.0,
+                    ..Default::default()
+                })
+                .with_action_set(ambition_characters::brain::ActionSet {
+                    // The bolt the gun-sword fires — the SAME verb
+                    // `held_item_by_id` grants, authored here because a
+                    // character states what it DOES and the item states what it
+                    // HOLDS.
+                    ranged: Some(ambition_characters::brain::RangedActionSpec::bolt(
+                        500.0,
+                        if heavy { 3 } else { 2 },
+                    )),
+                    move_style: if heavy {
+                        MoveStyleSpec::WalkHeavy
+                    } else {
+                        MoveStyleSpec::Walk
+                    },
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(if heavy { 6 } else { 4 });
+            definition
+        }
         _ => definition,
     }
 }
@@ -780,6 +855,72 @@ mod tests {
         );
     }
 
+    /// **The two shark riders differ from each other, which is what the pair of
+    /// nearly-identical archetype rows existed to express.** Health, weight,
+    /// pace, gait, bolt damage and which gun-sword — six numbers and a row each.
+    ///
+    /// ⭐ neither authors `contact_damage`, and that is the migration doing its
+    /// job: both rows carried a `contact_strength` and a `damage_amount` beside
+    /// `body_contact_damage: false`, which turned them off. Numbers that
+    /// described nothing.
+    #[test]
+    fn the_shark_riders_author_the_bodies_their_archetype_rows_used_to() {
+        use ambition_characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
+
+        let rider = |id: &str| {
+            authored_intrinsics(
+                id,
+                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    id,
+                    "Rider",
+                    crate::AMBITION_CONTENT_PROVIDER,
+                ),
+            )
+        };
+        let light = rider("npc_pirate_raider");
+        let heavy = rider("npc_pirate_heavy_iron_mary");
+
+        assert_eq!(light.vitals.max_health, Some(4));
+        assert_eq!(heavy.vitals.max_health, Some(6), "Iron Mary is the heavy");
+        assert_eq!(light.held_item.as_deref(), Some("gun_sword"));
+        assert_eq!(heavy.held_item.as_deref(), Some("gun_sword_heavy"));
+        assert!(
+            light.contact_damage.is_none() && heavy.contact_damage.is_none(),
+            "touching a raider does not hurt; its gun-sword does"
+        );
+
+        let light_locomotion = light.locomotion.expect("it states its pace");
+        let heavy_locomotion = heavy.locomotion.expect("so does she");
+        assert_eq!(light_locomotion.run_speed, 230.0);
+        assert_eq!(heavy_locomotion.run_speed, 215.0);
+        assert!(matches!(light_locomotion.move_style, MoveStyleSpec::Walk));
+        assert!(matches!(
+            heavy_locomotion.move_style,
+            MoveStyleSpec::WalkHeavy
+        ));
+
+        for (definition, effort) in [(&light, 0.4783), (&heavy, 0.5116)] {
+            let profile = definition.autonomous_profile.expect("the standoff policy");
+            assert_eq!(profile.template, CharacterBrainTemplate::Skirmisher);
+            assert_eq!(profile.aggro_radius, 1200.0);
+            assert_eq!(
+                profile.patrol_effort, effort,
+                "a TUNED amble — the number the constructor's literal 0.5 would \
+                 have silently replaced"
+            );
+            let mount = definition.mount.as_ref().expect("it boards a shark");
+            assert_eq!(mount.pilotable_classes, vec!["shark".to_string()]);
+            assert!(mount.class.is_none(), "a raider is not itself rideable");
+            assert!(
+                definition
+                    .action_set
+                    .as_ref()
+                    .is_some_and(|set| set.ranged.is_some()),
+                "the bolt is the whole standoff"
+            );
+        }
+    }
+
     fn the_migrated_characters_rows_are_gone_from_the_archetype_file() {
         let rows = include_str!("../assets/data/character_archetypes.ron");
         for key in [
@@ -788,6 +929,8 @@ mod tests {
             "puppy_slug",
             "sky_parrot",
             "giant_gnu",
+            "pirate_shark_rider",
+            "pirate_heavy_shark_rider",
         ] {
             assert!(
                 !rows.contains(&format!("\"{key}\": (")),

@@ -229,11 +229,11 @@ fn player_melee_damage_scales_with_the_outgoing_slider() {
         register_hit_pipeline_messages(&mut app);
         app.add_systems(Update, apply_feature_hit_events);
         let victim = spawn_hostile_actor(&mut app); // health 5
-        // ⭐ **the swing has to come from a human-controlled body, because that
-        // is what the slider is about.** This used to leave `attacker: None` and
-        // rely on the `PlayerSlash` spelling to mean "the player's". The gate
-        // asks the attacker now, so a fixture with no attacker is describing a
-        // swing nobody threw.
+                                                    // ⭐ **the swing has to come from a human-controlled body, because that
+                                                    // is what the slider is about.** This used to leave `attacker: None` and
+                                                    // rely on the `PlayerSlash` spelling to mean "the player's". The gate
+                                                    // asks the attacker now, so a fixture with no attacker is describing a
+                                                    // swing nobody threw.
         let mut attacker = app.world_mut().spawn_empty();
         if human_controlled {
             attacker.insert(ambition_platformer2d_shared_tangle::markers::PlayerEntity);
@@ -1198,7 +1198,7 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
 fn an_armed_enemy_archetype_resolves_a_weapon_to_drop() {
     // The defeat branch's weapon drop keys off `held_item_spec()`; the shark
     // rider carries a gun-sword, so a defeated rider drops one.
-    let spec = crate::features::enemies::test_spec("pirate_shark_rider").held_item_spec();
+    let spec = crate::features::enemies::fixture_spec("fixture_armed_rider").held_item_spec();
     assert!(spec.is_some(), "the shark rider carries a weapon");
     assert_eq!(spec.unwrap().id.as_str(), "gun_sword");
 }
@@ -1675,7 +1675,9 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         "the regression must not be satisfiable by body-to-body contact"
     );
     assert!(
-        hitbox.world_volume(ae::Vec2::ZERO).intersects_aabb(enemy_body),
+        hitbox
+            .world_volume(ae::Vec2::ZERO)
+            .intersects_aabb(enemy_body),
         "the attack volume must reach the separated victim body"
     );
     app.world_mut()
@@ -1934,9 +1936,9 @@ fn a_projectile_hit_flashes_its_victim_but_never_its_thrower() {
 /// victim already is. This pins the three answers that differ.
 #[test]
 fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
-    use ambition_characters::brain::Brain;
     use crate::combat::components::ActorFaction;
     use crate::combat::targeting::FriendlyFire;
+    use ambition_characters::brain::Brain;
 
     let boss_entity = bevy::prelude::Entity::from_raw_u32(7).expect("nonzero raw index");
     let ff = FriendlyFire::default();
@@ -1969,7 +1971,10 @@ fn a_boss_is_adjudicated_by_the_same_relationship_rule_as_any_other_body() {
     // authored faction would have it defending the team it was taken from.
     assert!(
         super::boss_damage_allowed(
-            side(&ActorFaction::Boss, Some(&Brain::Player(ambition_characters::brain::PlayerSlot(0)))),
+            side(
+                &ActorFaction::Boss,
+                Some(&Brain::Player(ambition_characters::brain::PlayerSlot(0)))
+            ),
             side(&ActorFaction::Boss, None),
             ff,
             boss_entity,

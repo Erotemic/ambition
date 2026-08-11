@@ -144,7 +144,7 @@ fn legacy_baseline_pins() {
 #[test]
 fn gun_sword_archetypes_resolve_held_item_by_id() {
     use ambition_characters::brain::{action_set::RangedStyle, RangedActionSpec};
-    let on_shark = test_spec("pirate_shark_rider")
+    let on_shark = fixture_spec("fixture_armed_rider")
         .held_item_spec()
         .expect("pirate_shark_rider should resolve a held item");
     assert_eq!(on_shark.id, "gun_sword");
@@ -156,9 +156,9 @@ fn gun_sword_archetypes_resolve_held_item_by_id() {
             ..
         })
     ));
-    let heavy = test_spec("pirate_heavy_shark_rider")
+    let heavy = fixture_spec("fixture_armed_rider_heavy")
         .held_item_spec()
-        .expect("pirate_heavy_shark_rider should resolve a held item");
+        .expect("the heavy armed rider should resolve a held item");
     assert_eq!(heavy.id, "gun_sword_heavy");
     assert!(matches!(
         heavy.ranged,
@@ -218,7 +218,7 @@ fn body_contact_damage_is_explicitly_opted_in() {
     assert!(crate::features::enemies::test_spec("combatant").body_contact_damage);
     assert!(crate::features::enemies::test_spec("puppy_slug").body_contact_damage);
     assert!(!crate::features::enemies::test_spec("pirate_heavy").body_contact_damage);
-    assert!(!crate::features::enemies::test_spec("pirate_shark_rider").body_contact_damage);
+    assert!(!crate::features::enemies::fixture_spec("fixture_armed_rider").body_contact_damage);
     assert!(!crate::features::enemies::test_spec("sandbag_finite").body_contact_damage);
 }
 

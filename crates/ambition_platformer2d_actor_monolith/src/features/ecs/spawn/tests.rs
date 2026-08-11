@@ -380,15 +380,17 @@ fn enemy_default_brain_covers_every_combat_archetype() {
 /// shark by a `mounted_on` ref.
 #[test]
 fn mounted_rider_archetype_carries_a_ranged_kit() {
-    let set = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_shark_rider"));
+    let set = enemy_default_action_set(&crate::features::enemies::fixture_spec(
+        "fixture_armed_rider",
+    ));
     assert!(
         set.ranged.is_some(),
         "the shark rider fires a Bolt (gun_sword) — its mounted attack",
     );
     assert!(matches!(set.move_style, MoveStyleSpec::Walk));
 
-    let heavy = enemy_default_action_set(&crate::features::enemies::test_spec(
-        "pirate_heavy_shark_rider",
+    let heavy = enemy_default_action_set(&crate::features::enemies::fixture_spec(
+        "fixture_armed_rider_heavy",
     ));
     assert!(
         heavy.ranged.is_some(),
@@ -434,7 +436,9 @@ fn enemy_default_action_set_picks_per_archetype_specs() {
     let set = enemy_default_action_set(&crate::features::enemies::test_spec("medium_striker"));
     assert!(matches!(set.melee, Some(MeleeActionSpec::Swipe(_))));
 
-    let set = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_shark_rider"));
+    let set = enemy_default_action_set(&crate::features::enemies::fixture_spec(
+        "fixture_armed_rider",
+    ));
     assert!(set.ranged.is_some(), "pirate_shark_rider has ranged");
     assert!(matches!(set.move_style, MoveStyleSpec::Walk));
 }

@@ -70,7 +70,27 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
             sim,
             (
                 crate::world::platforms::sync_moving_platform,
-                drive_wave_encounters.in_set(WaveEncounterDriven),
+                // ⭐⭐ **IT RUNS ONLY WHERE THERE ARE ENCOUNTERS** (ledger D88,
+                // 2026-08-11). Its query is `Query<&Encounter, ..>`, so with none
+                // in the world it had nothing to do — but it takes SIX plain
+                // resources (the save, the quest registry, the switch index, the
+                // catalog, the roster, the prepared cast) and Bevy validates a
+                // `Res` param before it can discover that. A composition with no
+                // encounter content therefore PANICKED on boot: every test in
+                // `ambition_platformer2d_host`'s `demo_shell_smoke` was red, and
+                // had been, because the run's gate is `-p ambition_app` and never
+                // built that crate's tests.
+                //
+                // ⛔ **the alternative was `Option<Res<..>>` on six params, and it
+                // is worse**: an absent resource would then read as "skip this
+                // encounter" INSIDE a game that has encounters, which is the
+                // silent-disable this repo has a standing rule against. A run
+                // condition says the honest thing — *no encounters, no encounter
+                // driver* — and leaves the panic in place for a world that has
+                // them and is missing its authorities.
+                drive_wave_encounters
+                    .in_set(WaveEncounterDriven)
+                    .run_if(bevy::ecs::prelude::any_with_component::<Encounter>),
                 crate::features::apply_gameplay_banner_requests,
                 crate::features::tick_gameplay_banner,
             )

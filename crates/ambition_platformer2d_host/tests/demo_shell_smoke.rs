@@ -156,6 +156,24 @@ fn fixture_setup(
     );
 }
 
+/// **A SHELL WITH NO ENCOUNTER CONTENT BOOTS.**
+///
+/// ⛔⛔ **this whole file was red, and had been, and the run could not see it**
+/// (ledger D88, 2026-08-11). `drive_wave_encounters` takes six plain resources —
+/// the save, the quest registry, the switch index, the catalog, the roster, the
+/// prepared cast — and Bevy validates a `Res` param BEFORE the system can
+/// discover that its `Query<&Encounter, ..>` is empty and it has nothing to do.
+/// So a composition with no encounter content panicked on boot.
+///
+/// ⚠ **the run's gate is `cargo check -p ambition_app --all-targets` plus
+/// `app_it`, and neither builds this crate's tests.** A whole crate went red and
+/// stayed green to the campaign. That is the finding; the panic is only how it
+/// showed up.
+///
+/// ⭐ the fix is a run condition rather than six `Option<Res<..>>`: an absent
+/// resource would otherwise read as *skip this encounter* inside a game that HAS
+/// encounters, which is the silent-disable this repo has a standing rule against.
+/// The panic stays for a world with encounters and no authorities to drive them.
 #[test]
 fn demo_shell_boots_and_ticks() {
     let mut app = App::new();

@@ -159,8 +159,9 @@ whether or not it explains the PCA.
   assumption**, and `MatchSeat`'s own doc already anticipated the collision:
   *"the worn character id collides in a mirror match."*
 * ✔ **death traits are authorable on a character** — `CharacterDefinition
-  ::combat_capabilities`, carried through preparation and applied by the persona
-  derive (`apply_worn_character_gameplay`), which is the ONE writer both a worn
+  ::death_traits` (renamed from `combat_capabilities` when the type moved down;
+  see the crate-boundary entry below), carried through preparation and applied
+  by the persona derive (`apply_worn_character_gameplay`), which is the ONE writer both a worn
   player and a seated fighter go through. Absence retracts, on the same rule as
   health, mass and the feel marker — see the retraction trap below, which is
   where the first attempt went wrong.
@@ -205,7 +206,8 @@ whether or not it explains the PCA.
   `qualify_preset_like`, so a definition and a placement cannot mean different
   things by the same word.
   ✔ **and the NPC spawn path ADOPTS it** — `CharacterDefinition
-  ::default_brain_profile` carries through preparation, and the registry now
+  ::default_brain_profile` (a `BrainProfileRef`, not a `String` — see the typed
+  entry below) carries through preparation, and the registry now
   reaches `resolve_npc_brain` through `ActorConstructionContext::with_prepared`
   → `ActorPlacementContext` → `spawn_interactable_into` →
   `NpcActorSpawnPlan::peaceful`. Three tests on that path: the definition's
@@ -2622,23 +2624,36 @@ exploding_mite / dividing_mite
   PLACEMENT                respawn: OnRoomReenter
 ```
 
-⚠ **and the deeper problem is the CONSUMER, not the home.** A mite only ever
+~~⚠ **and the deeper problem is the CONSUMER, not the home.** A mite only ever
 appears as an `EnemySpawn`, and that path builds its body from
 `ActorClusterSeed::new_in` → `spec.combat_capabilities()` — **the archetype**.
 An enemy body carries no `WornCharacter`, so the persona derive never runs on
 it. ⇒ authoring a mite's death traits on its definition today would state them
 in a place nothing on its own spawn path reads, and deleting them from the
-archetype would simply turn them off.
+archetype would simply turn them off.~~ ⛔ **SUPERSEDED THE SAME DAY — do not
+act on the paragraph above**; it is kept because its diagnosis of WHY the
+consumer was missing is still the clearest one.
 
-### ⇥ UNBLOCKED the same day — the authored enemy path now reads its character
+### ⇥ UNBLOCKED — the authored enemy path reads its character
 
-✔ `spawn_enemy_with_faction_into` resolves the spawn's art identity against the
-prepared registry and calls `ActorClusterSeed::adopt_character_intrinsics`, so
-an authored `EnemySpawn` whose character is REGISTERED takes that character's
-health, knockback weight and death traits over its archetype's. Both callers
-that matter reach it: the construction executor (`construct_authored_enemy`)
-and the giant host. ⇒ **group A can proceed** — author the mite's facts on its
-definition, add it to `BUILDABLE_ONLY_CAST`, delete them from the archetype.
+✔ `spawn_enemy_with_faction_into` lowers the placement to a
+`CharacterSpawnPlan` and asks `plan.definition(registry)`, so an authored
+`EnemySpawn` whose character is REGISTERED takes that character's health,
+knockback weight and death traits over its archetype's. Both callers that
+matter reach it: the construction executor (`construct_authored_enemy`) and the
+giant host.
+
+⛔ **NOT "the spawn's art identity", and an earlier version of this paragraph
+said so.** The lookup goes through the placement's `gameplay_character_id()`,
+which has no display-name fallback; the art road is a separate accessor. A
+spawn that has not named a character resolves nothing and keeps its archetype.
+
+⇒ **group A can proceed mechanically** — author the mite's facts on its
+definition, register it, delete them from the archetype. ⚠ but appendix C
+REORDERS it behind the common constructor, so "can" is not "should": the
+constructor now exists (`CharacterSpawnPlan`), and group A resumes once the NPC
+path lowers through it too. ⚠ `BUILDABLE_ONLY_CAST` is short-lived migration
+scaffolding, not the registration mechanism to build on.
 
 ⚠ two paths still pass an empty registry and are named at their call sites: the
 programmatic `spawn_staged_actor_into` (a runtime-minted body, no registry in

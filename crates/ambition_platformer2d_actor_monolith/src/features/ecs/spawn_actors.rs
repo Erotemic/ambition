@@ -1242,17 +1242,37 @@ pub(crate) fn spawn_enemy_with_faction_into(
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     faction: super::ActorFaction,
 ) {
+    // **The authored placement, lowered to the one plan every surface will
+    // lower to** (see `spawn::character_spawn_plan`). It owns the two questions
+    // that are not the archetype's: WHICH character this instantiates, and who
+    // drives it. Everything the seed still reads off `authored` below is what
+    // phases 2–4 move onto the character.
+    let plan = super::spawn::CharacterSpawnPlan::new(
+        authored.payload.gameplay_character_id(),
+        super::spawn::SpawnContext {
+            feature_id: &authored.id,
+            feature_name: &authored.name,
+            aabb: authored.aabb,
+            faction,
+            paths,
+        },
+    );
+
     let spec = roster.spec_for_brain(&authored.payload.brain);
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
         authored_sheets,
         catalog,
         roster,
-        authored.id.clone(),
-        authored.name.clone(),
-        Some(authored.payload.presentation_identity(&authored.name)),
-        authored.aabb,
+        plan.context().feature_id.to_string(),
+        plan.context().feature_name.to_string(),
+        Some(
+            authored
+                .payload
+                .presentation_identity(plan.context().feature_name),
+        ),
+        plan.context().aabb,
         authored.payload.brain.clone(),
-        paths,
+        plan.context().paths,
     );
     // **When the placement names a registered character, that character's
     // authored facts outrank the archetype's.** A character that authors
@@ -1265,11 +1285,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // matching a display name — so reading health, mass or death traits off it
     // would infer gameplay identity from presentation identity. A spawn that
     // has not named a character keeps its archetype, visibly.
-    if let Some(definition) = authored
-        .payload
-        .gameplay_character_id()
-        .and_then(|cid| prepared.get(cid.as_str()))
-    {
+    if let Some(definition) = plan.definition(prepared) {
         enemy.adopt_character_intrinsics(definition);
     }
     spawn_solo_enemy_into(
@@ -1280,7 +1296,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
         root,
         enemy,
         authored,
-        faction,
+        plan.context().faction,
     );
     attach_mount_role(commands, root, &spec);
 }

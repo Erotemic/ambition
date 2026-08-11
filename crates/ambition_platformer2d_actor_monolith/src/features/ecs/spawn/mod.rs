@@ -13,6 +13,9 @@ use ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope;
 use bevy::prelude::Commands;
 use std::collections::BTreeSet;
 
+mod character_spawn_plan;
+pub(crate) use character_spawn_plan::{CharacterSpawnPlan, SpawnContext};
+
 mod content_staging;
 pub use content_staging::{
     RoomContentStagingError, RoomContentStagingRegistrationError, RoomContentStagingRegistry,

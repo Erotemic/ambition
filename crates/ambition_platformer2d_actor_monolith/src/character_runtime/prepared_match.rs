@@ -233,6 +233,22 @@ pub struct PreparedSeat {
     ///
     /// `None` = this match says nothing, and the CHARACTER's own kit stands.
     pub match_kit: Option<ambition_characters::brain::ActionSet>,
+    /// **What the character overlay produced for this seat**, resolved ONCE at
+    /// preparation — grants three and four of D85's five.
+    ///
+    /// ⭐ **preparation is where the catalog is in scope**, which is why these
+    /// could only be derived by the persona pass before: `realize_seat` has no
+    /// catalog and cannot run the overlay. Running it HERE and carrying the
+    /// result is the same move `match_kit` makes, and it is what "one
+    /// materializer" means in practice — the overlay is called once per seat,
+    /// not once at preparation and again on the body's first tick.
+    ///
+    /// ⚠ the `ActionSet` this produces is NOT stored: `match_kit` above already
+    /// carries the match's override and the character's own kit is on the
+    /// definition, so a third copy would be a third answer.
+    pub identity_kit: ambition_characters::brain::action_set::IdentityKit,
+    /// See [`Self::identity_kit`]. The moveset the same overlay derived.
+    pub moveset: ambition_entity_catalog::MovesetContract,
 }
 
 /// What every fighter in this match plays under.
@@ -794,6 +810,33 @@ pub fn prepare_match(
         // rather than plausible — but it must not outrank a size the seed
         // actually resolved.
         let body_px = seed.kin.size;
+        // ⭐⭐ **THE CHARACTER OVERLAY, RUN ONCE, HERE** — grants three and four
+        // (ledger D85). `realize_seat` has no catalog and so could never do this;
+        // the persona derive did it on the body's first tick, which is exactly
+        // the second template application Jon's redirect is about.
+        let mut overlay_name = Name::new(definition.display_name.clone());
+        let mut overlay_action_set = participant
+            .action_set
+            .clone()
+            .or_else(|| definition.kit.action_set().cloned())
+            .unwrap_or_default();
+        let mut moveset = crate::combat::moveset::ActorMoveset(Default::default());
+        let mut identity_kit = ambition_characters::brain::action_set::IdentityKit::default();
+        let mut overlay_combat_kit =
+            crate::combat::components::CombatKit::from_action_set(&overlay_action_set);
+        let _ = crate::avatar::apply_worn_character_overlay(
+            catalog,
+            Some(registry),
+            &mut overlay_name,
+            &mut overlay_action_set,
+            &mut moveset,
+            &mut identity_kit,
+            Some(&mut overlay_combat_kit),
+            participant.character.as_str(),
+            seed.body.0.abilities.abilities,
+            participant.action_set.as_ref(),
+        );
+        let moveset = moveset.0;
         seats.push(PreparedSeat {
             seat: index,
             feature_id: body_id,
@@ -809,6 +852,8 @@ pub fn prepare_match(
             team: Some(team_for(index, participant.team.as_ref())),
             authority,
             match_kit: participant.action_set.clone(),
+            identity_kit,
+            moveset,
         });
     }
 
@@ -1070,7 +1115,17 @@ fn realize_seat(
                 action_set,
                 derived_brain,
                 Name::new(seat.definition.display_name.clone()),
-                crate::combat::moveset::ActorMoveset(Default::default()),
+                // ⭐ **THE MOVESET THE OVERLAY DERIVED** — grant four (D85). This
+                // was an empty contract with the persona derive expected to fill
+                // it on the body's first tick.
+                (
+                    crate::combat::moveset::ActorMoveset(seat.moveset.clone()),
+                    // ⭐ **AND THE IDENTITY KIT** — grant three. `WornCharacter`
+                    // requires this component, so it used to arrive DEFAULT and be
+                    // overwritten a tick later; a seat that will stop asking for a
+                    // persona pass has to arrive with the real one.
+                    seat.identity_kit.clone(),
+                ),
                 // The body WEARS the character. Everything that makes it that
                 // fighter rather than a generic actor follows from this one
                 // component.

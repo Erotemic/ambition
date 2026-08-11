@@ -28,6 +28,29 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
     .config
 }
 
+/// The body's REAL verb set for a brain key — the same seed `make_enemy` reads
+/// its config from, asked for the other half.
+///
+/// ⛔ it exists because `enemy_default_brain` stopped taking the driver's word
+/// for what a body can do (Jon's redirect §7): the `smash_can_*` mirrors are
+/// gone, so a fixture that hands the builder a default `AbilitySet` is asserting
+/// about a body that cannot blink, fly or shield — which is a different body
+/// from the one the archetype authored.
+fn abilities_of(brain_key: &str) -> ambition_platformer2d_core::AbilitySet {
+    let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
+    crate::features::ecs::actor_clusters::ActorClusterSeed::new(
+        "test".to_string(),
+        "test".to_string(),
+        aabb,
+        ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
+        &[],
+    )
+    .body
+    .0
+    .abilities
+    .abilities
+}
+
 /// The room-construction choke point lowers authored placements through EXACTLY
 /// the registry it is handed — not a locally reconstructed one. This is the
 /// invariant behind the setup/reset unification: setup, same-room reset, room
@@ -319,7 +342,7 @@ fn enemy_default_brain_picks_per_archetype_template() {
     // the `combatant` fallback and assert about that.
     let sandbag = make_enemy("sandbag_infinite");
     assert!(matches!(
-        enemy_default_brain(&sandbag),
+        enemy_default_brain(&sandbag, abilities_of("sandbag_infinite")),
         Brain::StateMachine(StateMachineCfg::StandStill)
     ));
 
@@ -327,7 +350,7 @@ fn enemy_default_brain_picks_per_archetype_template() {
     // the ChargeCrash template this pins.
     let shark = make_enemy("fixture_mount");
     assert!(matches!(
-        enemy_default_brain(&shark),
+        enemy_default_brain(&shark, abilities_of("fixture_mount")),
         Brain::StateMachine(StateMachineCfg::ChargeCrash { .. })
     ));
 
@@ -336,7 +359,7 @@ fn enemy_default_brain_picks_per_archetype_template() {
     // rather than reverting to MeleeBrute. The chase_speed pin
     // moves over to the `SmashCfg` row.
     let striker = make_enemy("medium_striker");
-    match enemy_default_brain(&striker) {
+    match enemy_default_brain(&striker, abilities_of("medium_striker")) {
         Brain::StateMachine(StateMachineCfg::Smash { cfg, .. }) => {
             assert!(cfg.aggro_radius > 0.0);
             assert!(
@@ -360,7 +383,7 @@ fn enemy_default_brain_picks_per_archetype_template() {
 fn enemy_default_brain_covers_every_combat_archetype() {
     for key in crate::features::enemies::COMBAT_BRAIN_KEYS {
         let enemy = make_enemy(key);
-        let brain = enemy_default_brain(&enemy);
+        let brain = enemy_default_brain(&enemy, abilities_of(key));
         // Aggressiveness should match the row's attacks_player.
         // (Wanderer / StandStill / peaceful Patrol all return
         // !is_hostile; everyone else returns is_hostile.)
@@ -450,7 +473,7 @@ fn enemy_default_action_set_picks_per_archetype_specs() {
 #[test]
 fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
     let enemy = make_enemy("pirate_heavy");
-    let mut brain = enemy_default_brain(&enemy);
+    let mut brain = enemy_default_brain(&enemy, abilities_of("pirate_heavy"));
     match &mut brain {
         Brain::StateMachine(StateMachineCfg::MeleeBrute { cfg, .. }) => {
             cfg.aggressiveness = 1.0;

@@ -199,9 +199,13 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             smash_heavy: self.smash_heavy,
             smash_dash_to_close: self.smash_dash_to_close,
             smash_duelist: self.smash_duelist,
-            smash_can_blink: self.can_blink,
-            smash_can_fly: self.can_fly,
-            smash_can_shield: self.can_shield,
+            // ⛔ **`can_blink` / `can_fly` / `can_shield` do NOT come across.**
+            // They were mirrored onto the profile as `smash_can_*` and deleted
+            // 2026-08-11 (Jon's redirect §7): a capability copied onto a
+            // controller policy makes the policy unreusable, because the copy
+            // describes ONE body. The row still feeds the real port — the same
+            // authored verbs become the body's movement `AbilitySet` through
+            // `movement_kit` — and `smash_cfg_from_spec` now reads THAT.
             provoke_forced_brute_min_aggro: self.provoke_forced_brute_min_aggro,
         }
     }

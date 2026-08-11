@@ -934,7 +934,9 @@ fn realize_seat(
         ControlAuthority::LocalInput { channel, .. } => ambition_characters::brain::Brain::Player(
             crate::participant_seat::player_slot_of(*channel),
         ),
-        ControlAuthority::Brain { .. } => crate::features::ecs::enemy_default_brain(&seed.config),
+        ControlAuthority::Brain { .. } => {
+            crate::features::ecs::enemy_default_brain(&seed.config, seed.body.0.abilities.abilities)
+        }
     };
     let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
     let cluster = seed.into_components();

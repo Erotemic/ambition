@@ -102,7 +102,8 @@ fn tick_peaceful(
             .wall
             .on_wall
             .then_some(seed.body.0.wall.wall_normal_x.signum()),
-        turns_at_walls: seed.config.brain_profile.turns_at_walls && !seed.config.tuning.surface_walker,
+        turns_at_walls: seed.config.brain_profile.turns_at_walls
+            && !seed.config.tuning.surface_walker,
         attack_kit: Vec::new(),
         actor_aerial: seed.surface.gravity_scale <= 0.001,
         alive: true,
@@ -319,9 +320,18 @@ fn perfect_cellular_automaton_provokes_to_its_boss_archetype() {
         spec.movement_kit().shield,
         "the authored shield kit must appear in the body's movement AbilitySet"
     );
+    // ⛔ **and it reaches the brain's ATTEMPT side through the body, not through
+    // a second copy on the policy.** `spec.brain_profile().smash_can_shield` was
+    // the assertion here until 2026-08-11; the mirror is deleted, and the one
+    // authored verb now feeds both ports from the `AbilitySet` above.
     assert!(
-        spec.brain_profile().smash_can_shield,
-        "the authored shield kit must project onto the brain's attempt"
+        crate::features::ecs::smash_cfg_for_test(
+            &spec.brain_profile(),
+            &spec.tuning(),
+            spec.movement_kit(),
+        )
+        .can_shield,
+        "the authored shield kit must reach the driver, which now asks the BODY"
     );
     // S3d: it carries the dash kit (the body turns its dash-to-close decision
     // into a real burst). Appears in the body's movement `AbilitySet`.

@@ -379,7 +379,7 @@ impl EnemyActorSpawnPlan {
         feature_aabb: CenteredAabb,
         enemy: super::actor_clusters::ActorClusterSeed,
     ) -> Self {
-        let brain = enemy_default_brain(&enemy.config);
+        let brain = enemy_default_brain(&enemy.config, enemy.body.0.abilities.abilities);
         let action_set = enemy_default_action_set(&enemy.spec);
         let combat_kit = enemy_combat_kit_for_spec(&enemy.spec);
         let held_item = super::brain_builders::held_item_for_spec(&enemy.spec);

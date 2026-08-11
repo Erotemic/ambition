@@ -77,7 +77,14 @@ pub(super) fn held_item_for_spec(
 ///
 /// Reads `brain_template()` off the consolidated `ArchetypeSpec` so adding
 /// a new archetype is a single row, not a parallel match.
-pub(crate) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
+pub(crate) fn enemy_default_brain(
+    enemy: &ActorConfig,
+    // ⭐ **THE BODY'S OWN VERBS**, not a policy's opinion of them. See
+    // [`smash_cfg_from_spec`]: a driver may only consider what this body can
+    // actually do, so the same profile on a different body produces a driver
+    // that reaches for different things.
+    body: ambition_platformer2d_core::AbilitySet,
+) -> Brain {
     match enemy.brain_profile.template {
         CharacterBrainTemplate::StandStill => Brain::StateMachine(StateMachineCfg::StandStill),
         CharacterBrainTemplate::Fighter => {
@@ -106,7 +113,7 @@ pub(crate) fn enemy_default_brain(enemy: &ActorConfig) -> Brain {
         CharacterBrainTemplate::Skirmisher => skirmisher_brain_for_enemy(enemy),
         CharacterBrainTemplate::Sniper => sniper_brain_for_enemy(enemy),
         CharacterBrainTemplate::Smash => Brain::StateMachine(StateMachineCfg::Smash {
-            cfg: smash_cfg_from_spec(&enemy.brain_profile, &enemy.tuning),
+            cfg: smash_cfg_from_spec(&enemy.brain_profile, &enemy.tuning, body),
             state: SmashState {
                 rng_seed: seed_from_id(&enemy.id) as u64,
                 ..Default::default()
@@ -149,6 +156,7 @@ pub(super) fn aggressive_brain_and_action_set_for_enemy(
     enemy: &ActorConfig,
     kit: &CombatKit,
     held_item: Option<&HeldItem>,
+    body: ambition_platformer2d_core::AbilitySet,
 ) -> (Brain, ActionSet) {
     let action_set = action_set_from_combat_kit(kit, held_item);
 
@@ -170,7 +178,7 @@ pub(super) fn aggressive_brain_and_action_set_for_enemy(
         let brain = forced_hostile_melee_brute_brain(enemy, min_aggro);
         return (brain, action_set);
     }
-    (enemy_default_brain(enemy), action_set)
+    (enemy_default_brain(enemy, body), action_set)
 }
 
 fn forced_hostile_melee_brute_brain(enemy: &ActorConfig, min_aggro_radius: f32) -> Brain {
@@ -354,7 +362,22 @@ fn skirmisher_brain_from_tuning(
 /// (~28 px); the brain needs to close to roughly `body_half_width +
 /// swing_reach` before emitting MeleeAttack, otherwise the windup fires from too
 /// far away and the player walks out of the active window.
-fn smash_cfg_from_spec(profile: &BrainProfile, tuning: &ActorTuning) -> SmashCfg {
+/// Test window onto [`smash_cfg_from_spec`], so a regression can assert what a
+/// driver was actually handed rather than what a policy claimed.
+#[cfg(test)]
+pub(crate) fn smash_cfg_for_test(
+    profile: &BrainProfile,
+    tuning: &ActorTuning,
+    body: ambition_platformer2d_core::AbilitySet,
+) -> SmashCfg {
+    smash_cfg_from_spec(profile, tuning, body)
+}
+
+fn smash_cfg_from_spec(
+    profile: &BrainProfile,
+    tuning: &ActorTuning,
+    body: ambition_platformer2d_core::AbilitySet,
+) -> SmashCfg {
     // Heavy vs striker base + per-archetype hit band + dash-to-close are
     // projected onto `BrainProfile` at spawn (`smash_hit_band`,
     // `smash_heavy`, `smash_dash_to_close`), so this builder reads generic
@@ -389,20 +412,27 @@ fn smash_cfg_from_spec(profile: &BrainProfile, tuning: &ActorTuning) -> SmashCfg
         // ranged + dash + jump). Kept off for the other strikers so it
         // doesn't blanket-change every melee enemy's feel.
         dash_to_close: profile.smash_dash_to_close,
-        // Blink-evade kit (authored per archetype). The brain *attempts* a blink
-        // on a perceived lunge; the body's `CombatCapabilities::can_blink` +
-        // blink cooldown *enforce* it. `blink_cooldown_s` here is the brain's
-        // reactive restraint (policy, I4); the body owns the physical floor (I3).
-        can_blink: profile.smash_can_blink,
-        blink_cooldown_s: if profile.smash_can_blink { 1.2 } else { 0.0 },
-        // Grounded-base hybrid flyer: the brain *prefers* grounded and flies only
-        // to cover a long traversal gap (the decision lives in `decide_flight`).
-        // The body's `CombatCapabilities::can_fly` is the matching enforce gate.
-        can_fly: profile.smash_can_fly,
-        // Reactive block: the brain *attempts* a guard (raises `shield_held`,
-        // stands ground) on a perceived lunge it won't blink; the body's
-        // `CombatCapabilities::can_shield` is the matching enforce gate.
-        can_shield: profile.smash_can_shield,
+        // ⭐⭐ **THE BODY'S VERBS, ASKED — not a policy's copy of them.**
+        //
+        // ⛔ these three read `profile.smash_can_blink/_fly/_shield` until
+        // 2026-08-11 (Jon's redirect §7): capability mirrors on a controller
+        // policy, which the profile's own doc already called wrong. They made
+        // reuse a lie — the SAME shared profile on a body with no blink limb
+        // would still have told its driver to try blinking, and on a body that
+        // CAN blink but was authored by somebody who forgot the mirror, the
+        // driver would never reach for it.
+        //
+        // ⭐ this is the compositional behaviour the whole campaign is for:
+        // `medium_striker` + a PCA body considers the PCA's abilities;
+        // `medium_striker` + a puppy slug cannot invent them.
+        //
+        // The brain still only ATTEMPTS: the body's `CombatCapabilities` +
+        // cooldowns are the enforce gate, and `blink_cooldown_s` is the driver's
+        // own reactive restraint (policy, I4) over the physical floor (I3).
+        can_blink: body.blink,
+        blink_cooldown_s: if body.blink { 1.2 } else { 0.0 },
+        can_fly: body.fly || body.fly_toggle,
+        can_shield: body.shield,
         ..base
     }
 }
@@ -560,7 +590,7 @@ mod tests {
         let e = enemy("medium_striker");
         assert!(
             matches!(
-                enemy_default_brain(&e.config),
+                enemy_default_brain(&e.config, ambition_platformer2d_core::AbilitySet::default()),
                 Brain::StateMachine(StateMachineCfg::Smash { .. })
             ),
             "medium_striker should default to a Smash brain"

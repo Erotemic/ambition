@@ -158,7 +158,12 @@ pub(crate) fn provoke_actor_in_place(
         // zero its accumulated fire/footsies/mode cadence every stimulus; escalation
         // that needs a different brain flows through the flip's archetype swap).
         let proj = super::super::autonomous_reconcile::project_provoked_archetype(
-            &spec, hostile_id, em.config, combat_kit, held_item,
+            &spec,
+            hostile_id,
+            em.config,
+            combat_kit,
+            held_item,
+            em.abilities.abilities,
         );
         em.config.tuning = proj.tuning;
         // Re-sync gravity to the hostile archetype's locomotion mode — the same

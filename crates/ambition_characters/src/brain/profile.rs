@@ -15,13 +15,18 @@
 //! a body — which is why `medium_striker` exists as a whole-body archetype worn
 //! by several different creatures.
 //!
-//! ⛔ **a controller supplies INTENT and never manufactures a capability.** The
-//! `smash_can_*` trio below is the one place that rule is currently broken, and
-//! it is broken deliberately and visibly: those three are a MIRROR of the body's
-//! `can_blink` / `can_fly` / `can_shield`, projected so the Smash brain knows
-//! which options are worth attempting. Their deletion is item 21 of the
-//! campaign — the brain should ask the body's `CombatCapabilities` instead of
-//! carrying a copy that can disagree with it.
+//! ⛔ **a controller supplies INTENT and never manufactures a capability**, and
+//! as of 2026-08-11 there is no longer an exception. A `smash_can_blink` /
+//! `_fly` / `_shield` trio used to sit here mirroring the body's own verbs so
+//! the Smash driver knew which options were worth attempting; they are deleted
+//! (Jon's redirect §7), and `smash_cfg_from_spec` asks the body's live
+//! `AbilitySet` instead.
+//!
+//! ⭐ that is what makes a profile genuinely reusable rather than nominally so.
+//! A mirror describes ONE body, so the same shared policy on a second body
+//! either told its driver to reach for a verb the body does not have, or hid one
+//! it does. Now: the same profile on a PCA considers the PCA's abilities, and on
+//! a puppy slug it cannot invent them.
 //!
 //! ## Why the numbers here are DISTANCES and not SPEEDS
 //!
@@ -143,16 +148,6 @@ pub struct BrainProfile {
     /// of the grunt's close-and-camp.
     #[serde(default)]
     pub smash_duelist: bool,
-    /// ⛔ **mirror of the body's `can_blink`** — the driver's *attempt* side of a
-    /// capability the body *enforces*. Campaign item 21 deletes it.
-    #[serde(default)]
-    pub smash_can_blink: bool,
-    /// ⛔ mirror of the body's `can_fly`. See [`Self::smash_can_blink`].
-    #[serde(default)]
-    pub smash_can_fly: bool,
-    /// ⛔ mirror of the body's `can_shield`. See [`Self::smash_can_blink`].
-    #[serde(default)]
-    pub smash_can_shield: bool,
     /// When provoked from peaceful, force an aggressive MeleeBrute policy with
     /// at least this aggro radius. `None` = use the template's default
     /// aggressive brain.
@@ -174,9 +169,6 @@ impl Default for BrainProfile {
             smash_heavy: false,
             smash_dash_to_close: false,
             smash_duelist: false,
-            smash_can_blink: false,
-            smash_can_fly: false,
-            smash_can_shield: false,
             provoke_forced_brute_min_aggro: None,
         }
     }

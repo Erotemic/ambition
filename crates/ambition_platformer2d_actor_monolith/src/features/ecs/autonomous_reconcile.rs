@@ -82,6 +82,10 @@ pub(crate) fn project_provoked_archetype(
     current_config: &ActorConfig,
     combat_kit: &CombatKit,
     held_item: Option<&HeldItem>,
+    // The provoked body's LIVE verbs. Provocation swaps the driver, never the
+    // body: a peaceful pirate that gets struck becomes hostile with exactly the
+    // abilities it already had, and the driver may only reach for those.
+    body: ambition_platformer2d_core::AbilitySet,
 ) -> ProvokedArchetype {
     // The archetype supplies COMBAT tuning; the placement keeps the fields it
     // owns (respawn policy — ADR 0022). See `ActorTuning::adopting_archetype`.
@@ -100,6 +104,7 @@ pub(crate) fn project_provoked_archetype(
         &hostile_config,
         combat_kit,
         held_item,
+        body,
     );
 
     // Keep the actor's own sprite sheet (its NPC name) when hostile — except the
@@ -260,7 +265,13 @@ fn reconstruct_provoked(world: &mut World, entity: Entity, archetype: &str) {
         return;
     };
     let held = world.get::<HeldItem>(entity).cloned();
-    let proj = project_provoked_archetype(&spec, archetype, &config, &kit, held.as_ref());
+    // The body's live verbs. A body with no `BodyAbilities` has none to reach
+    // for, which is the honest answer rather than a borrowed default.
+    let body = world
+        .get::<ambition_platformer2d_core::BodyAbilities>(entity)
+        .map(|abilities| abilities.abilities)
+        .unwrap_or_default();
+    let proj = project_provoked_archetype(&spec, archetype, &config, &kit, held.as_ref(), body);
 
     let Ok(mut em) = world.get_entity_mut(entity) else {
         return;
@@ -327,7 +338,14 @@ pub(crate) fn autonomous_brain_for_source(world: &World, entity: Entity) -> Opti
             let config = world.get::<ActorConfig>(entity)?;
             let kit = world.get::<CombatKit>(entity)?;
             let held = world.get::<HeldItem>(entity);
-            Some(project_provoked_archetype(&spec, archetype.as_str(), config, kit, held).brain)
+            let body = world
+                .get::<ambition_platformer2d_core::BodyAbilities>(entity)
+                .map(|abilities| abilities.abilities)
+                .unwrap_or_default();
+            Some(
+                project_provoked_archetype(&spec, archetype.as_str(), config, kit, held, body)
+                    .brain,
+            )
         }
         AutonomousSource::CatalogDefault | AutonomousSource::CatalogPreset(_) => {
             let catalog = world.get_resource::<CharacterCatalog>()?;
@@ -749,8 +767,14 @@ mod tests {
         let mut config = config_fixture();
         config.tuning.respawn = RespawnPolicy::DeadStaysDead;
 
-        let proj =
-            project_provoked_archetype(&spec, "combatant", &config, &CombatKit::default(), None);
+        let proj = project_provoked_archetype(
+            &spec,
+            "combatant",
+            &config,
+            &CombatKit::default(),
+            None,
+            ambition_platformer2d_core::AbilitySet::default(),
+        );
 
         assert_eq!(
             proj.tuning.respawn,

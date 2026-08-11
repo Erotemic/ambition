@@ -51,6 +51,8 @@ mod brain_builders;
 pub(crate) use brain_builders::enemy_default_brain;
 /// The ladder projection, registered in the actor pipeline beside the brain tick.
 pub use brain_builders::project_authored_fighter_ladder;
+#[cfg(test)]
+pub(crate) use brain_builders::smash_cfg_for_test;
 mod brain_effects;
 pub mod chests;
 mod damage;

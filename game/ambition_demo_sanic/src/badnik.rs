@@ -93,15 +93,27 @@ const BOUNCE_SPEED: f32 = 460.0;
 /// Vertical tolerance (px) for "feet on the badnik's head".
 const STOMP_BAND: f32 = 16.0;
 
-/// ⭐ **DELETED 2026-08-11 (D73 group A).** The badnik's roster row said its 1
-/// HP, its 60px/s pace, its contact damage and its Wanderer policy; the
-/// CHARACTER says all four now ([`register_badnik_character`]), and its four
-/// placements name it by `character_id`.
-///
-/// The fragment stays EMPTY rather than going away: registering it is what
-/// creates the `CharacterRoster` resource this demo's spawn path asks, and an
-/// unmigrated key still wants the fallback answer.
-const BADNIK_ROSTER_RON: &str = "{}";
+/// ⚠ **RESTORED 2026-08-11.** The badnik is a CHARACTER
+/// ([`register_badnik_character`]) and its four placements name it, so this row
+/// is dead weight in any host that publishes a prepared cast — and a multi-game
+/// shell host publishes an EMPTY one at enemy-spawn time. See
+/// `ambition_demo_mary_o::snake::SNAKE_ROSTER_ROWS` for the measurement that
+/// sent all three demo rows back.
+const BADNIK_ROSTER_RON: &str = r#"{
+    "sanic_badnik": (
+        max_health: 1,
+        run_speed: 60.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
+        aggro_radius: 0.0,
+        attack_range: 0.0,
+        contact_strength: 0.5,
+        damage_amount: 1,
+        brain_template: Wanderer,
+        move_style: Walk,
+        respawn: OnRoomReenter,
+    ),
+}"#;
 
 /// **Register the badnik as a CHARACTER** — the body its deleted row described.
 ///

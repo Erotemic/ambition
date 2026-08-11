@@ -1219,6 +1219,16 @@ pub(crate) fn spawn_runtime_minion_into(
     }
 }
 
+/// The archetype key a placement's brain names, when it names one. `None` for
+/// the built-in brains (`Passive`, `Patrol`, `Guard`), which never resolve a
+/// row and therefore never claim one.
+fn brain_key(brain: &ambition_entity_catalog::placements::CharacterBrain) -> Option<&str> {
+    match brain {
+        ambition_entity_catalog::placements::CharacterBrain::Custom(key) => Some(key.as_str()),
+        _ => None,
+    }
+}
+
 /// Populate an enemy onto a root the construction executor allocated.
 ///
 /// **This no longer spawns a giant's hand limbs.** They were minted here as two
@@ -1272,16 +1282,52 @@ pub(crate) fn spawn_enemy_with_faction_into(
         // as Iron Mary and quietly built as a shark rider is the original
         // defect, and it would look exactly like a working spawn.
         //
-        // ⚠ a WARNING rather than a refusal, and only until the placements are
-        // migrated. Today's `character_id` field predates D73: 28 authored
-        // spawns carry one as an ART claim (D56), so refusing here would refuse
-        // the tree. Once those are re-authored as GAMEPLAY claims this arm
-        // becomes a hard error.
+        // ⭐ **A REFUSAL when nothing else can build this body** (2026-08-11).
+        // This was a warning while 28 authored spawns carried a `character_id`
+        // as an ART claim; every one of them names a registered character now,
+        // so the warning's reason is spent.
+        //
+        // ⛔ **the condition is "nothing can build it", not "the character is
+        // missing"** — and the difference is a real composition. A demo that
+        // BORROWS another provider's character legitimately runs without it:
+        // Mary-O's plane swarms are Ambition's, and standalone Mary-O falls back
+        // to the roster row that still describes them. Refusing that would
+        // refuse a shipping build.
+        //
+        // What must never be silent is the case with no fallback at all: a
+        // placement names a character nobody registered AND a brain key nobody
+        // authored, so the body it gets is the generic `combatant` wearing
+        // somebody's name. That is the original Iron Mary defect, and it looks
+        // exactly like a working spawn.
         Err(missing) => {
+            // ⛔ **REFUSED when this composition HAS a cast and this character
+            // is not in it, and its brain key names no archetype either** — the
+            // Iron Mary case: nothing can build this body, so it would spawn as
+            // a generic combatant wearing her name.
+            //
+            // ⚠ **the `!prepared.is_empty()` guard is not defensive padding, it
+            // is a second defect kept out of this one's way.** Several hosts —
+            // the multi-game shell, the rollback door fixture — reach enemy
+            // construction with a prepared registry containing ZERO characters,
+            // measured. In those, EVERY placement's character is "missing", and
+            // panicking would refuse a shipping host over a fault that is not
+            // the content's. That emptiness is its own row.
+            assert!(
+                prepared.is_empty()
+                    || roster.has_brain_key(brain_key(&authored.payload.brain).unwrap_or("")),
+                "enemy `{}` names character `{missing}`, which this composition has \
+                 not registered, and its brain key `{:?}` names no archetype either \
+                 — so nothing can build this body and it would spawn as a generic \
+                 combatant wearing that character's name. Register the character, \
+                 or author a brain key that exists.",
+                authored.id,
+                authored.payload.brain,
+            );
             bevy::log::warn!(
                 target: "ambition_platformer2d_actor_monolith::spawn",
-                "enemy `{}` names character `{missing}`, which is not in the prepared \
-                 cast; it keeps its `{:?}` archetype instead",
+                "enemy `{}` names character `{missing}`, which this composition has \
+                 not registered; it falls back to its `{:?}` archetype. This is \
+                 correct only for a BORROWED character in a partial composition.",
                 authored.id,
                 authored.payload.brain,
             );

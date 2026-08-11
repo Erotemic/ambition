@@ -708,6 +708,60 @@ mod authored_enemy_reads_its_character {
         assert_eq!(contact, 0);
     }
 
+    /// **A SPAWN NOTHING CAN BUILD IS REFUSED, LOUDLY.**
+    ///
+    /// ⭐ Jon's P0.1, at the point where it can finally be enforced: *"An
+    /// authored `character_id = IronMary` must never silently produce a
+    /// shark-rider body because Iron Mary was accidentally omitted from some
+    /// registration list."*
+    ///
+    /// ⛔ **the condition is "nothing can build it", not "the character is
+    /// missing"**, and the second test below is why. A demo that BORROWS another
+    /// provider's character legitimately runs without it — Mary-O's plane swarms
+    /// are Ambition's, and standalone Mary-O falls back to a roster row that
+    /// still describes them. Refusing that would refuse a shipping build.
+    #[test]
+    #[should_panic(expected = "names no archetype either")]
+    fn a_spawn_naming_nothing_buildable_is_refused() {
+        // A character nobody registered AND a brain key nobody authored: the
+        // body would be a generic `combatant` wearing Iron Mary's name.
+        //
+        // ⚠ the registry is NON-EMPTY here on purpose. The refusal is scoped to
+        // compositions that publish a cast, because several hosts reach
+        // construction with zero characters registered — a defect of its own,
+        // and panicking there would refuse a shipping host over somebody else's
+        // fault. A fixture with an empty registry would exercise that escape
+        // hatch rather than this rule.
+        spawn_with_prepared_and_brain(prepared(), Some("iron_mary"), "no_such_archetype");
+    }
+
+    /// **And the escape hatch is real**: a composition that registered NOTHING
+    /// falls back rather than refusing, because in that host every placement's
+    /// character is "missing" and the fault is the host's.
+    #[test]
+    fn a_composition_with_no_cast_at_all_falls_back_instead_of_refusing() {
+        let (max, _, _) = spawn_with_brain(Some("iron_mary"), "no_such_archetype");
+        assert_eq!(
+            max, 42,
+            "an empty-cast host must still build SOMETHING — 42 is the fixture's \
+             `combatant` fallback, and refusing here would take down the \
+             multi-game shell over a registry that publishes no characters"
+        );
+    }
+
+    /// **And a BORROWED character still falls back**, or a partial composition
+    /// stops booting.
+    #[test]
+    fn a_spawn_naming_an_unregistered_character_with_a_real_archetype_falls_back() {
+        let (max, _, _) = spawn_with_brain(Some("iron_mary"), "medium_striker");
+        assert_eq!(
+            max, 3,
+            "the archetype's pool must stand for a character this composition \
+             does not have — that is what makes a standalone demo able to run \
+             with a borrowed cast"
+        );
+    }
+
     /// **A PLACEMENT DECIDES WHEN ITS BODY COMES BACK.**
     ///
     /// ⭐ ADR 0022's rule, finally authorable where it belongs. Respawn is the
@@ -798,10 +852,29 @@ mod authored_enemy_reads_its_character {
         prepared: crate::character_runtime::PreparedCharacterRegistry,
         character_id: Option<&'static str>,
     ) -> (i32, f32, i32) {
+        spawn_with_prepared_and_brain(prepared, character_id, "medium_striker")
+    }
+
+    /// The same, with the archetype key the placement names — the axis the
+    /// refusal above turns on.
+    fn spawn_with_brain(
+        character_id: Option<&'static str>,
+        brain_key: &'static str,
+    ) -> (i32, f32, i32) {
+        spawn_with_prepared_and_brain(
+            crate::character_runtime::PreparedCharacterRegistry::default(),
+            character_id,
+            brain_key,
+        )
+    }
+
+    fn spawn_with_prepared_and_brain(
+        prepared: crate::character_runtime::PreparedCharacterRegistry,
+        character_id: Option<&'static str>,
+        brain_key: &'static str,
+    ) -> (i32, f32, i32) {
         let mut spec = crate::rooms::EnemySpawnSpec::new(
-            ambition_entity_catalog::placements::CharacterBrain::Custom(
-                "medium_striker".to_string(),
-            ),
+            ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
         );
         spec.character_id = character_id.map(ambition_entity_catalog::CharacterId::from);
         let authored = crate::rooms::Authored::new(

@@ -343,12 +343,34 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
 /// The Solid Snake archetype ROW (no outer braces), so it can register on its own
 /// for a single-enemy test OR fold into the combined Mary-O roster fragment — one
 /// fragment per provider, since assembly rejects a second from the same provider.
-/// ⭐ **DELETED 2026-08-11 (D73 group A).** Solid Snake's roster row said its
-/// health, top speed, contact damage and wandering policy; the CHARACTER says
-/// all four now (`install_mary_o_content`), and its six placements name it. The
-/// empty string keeps the combined fragment's shape while the two plane snakes
-/// still need one.
-pub(crate) const SNAKE_ROSTER_ROWS: &str = "";
+/// ⚠ **RESTORED 2026-08-11, hours after being deleted, and the reason is
+/// measured rather than cautious.** Solid Snake is a CHARACTER — it authors its
+/// health, top speed, contact damage and wandering policy, and its six
+/// placements name it — so this row is dead weight in any host that publishes a
+/// prepared cast.
+///
+/// ⛔ **a multi-game shell host publishes an EMPTY one.** Measured by deleting
+/// this row and watching ten shell-host tests refuse: at enemy-spawn time the
+/// `PreparedCharacterRegistry` in those compositions contains ZERO characters,
+/// so every placement falls back — and with no row to fall back TO, Mary-O's
+/// walkers became generic stand-still bodies. The registry being empty there is
+/// its own defect and is recorded as one; this row is what keeps the demo
+/// correct until that is fixed, at which point it goes.
+pub(crate) const SNAKE_ROSTER_ROWS: &str = r#"
+    "mary_o_snake": (
+        max_health: 1,
+        run_speed: 46.0,
+        patrol_effort: 1.0,
+        chase_effort: 1.0,
+        aggro_radius: 0.0,
+        attack_range: 0.0,
+        contact_strength: 0.5,
+        damage_amount: 1,
+        brain_template: Wanderer,
+        move_style: Walk,
+        respawn: OnRoomReenter,
+    ),
+"#;
 
 /// The `solid_snake` sheet TARGET (also the catalog id) — the generated sheet the
 /// enemy render resolves for a Solid Snake.

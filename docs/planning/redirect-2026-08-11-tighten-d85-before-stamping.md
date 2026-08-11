@@ -14,8 +14,8 @@ DONE, and its §4 unblocks D86. Read the progress table before working an item.
 | Item | State |
 | --- | --- |
 | §1 the seat needs `grant_prepared_character_body` + `ProjectedCharacterKit` | ✔ **DONE** — `KitOwnership::CallerResolved` (the gate was asking *who writes the kit* when the question is *is a derive coming*); the seat's hand-written stamp and hand-written motion model are DELETED in favour of the shared grant. Acceptance test + poison: with the grant disabled the OLD test stays green (the derive writes an identical-looking baseline) and only the new one goes red |
-| §2 ONE resolved seat kit (action set + identity kit + combat kit + moveset + ranged execution) | ▢ — the overlay runs once but its `ActionSet`/`CombatKit` are DISCARDED and rebuilt in `realize_seat` |
-| §3 effective abilities resolved BEFORE the kit is derived | ▢ |
+| §2 ONE resolved seat kit | ◑ — `action_set` and `combat_kit` now ride the seat beside `identity_kit`/`moveset`, and `realize_seat` inserts them rather than re-deriving. ⭐ ONE expensive call was never the property that mattered; ONE ANSWER is. ▢ `ranged_execution` waits on §4's rename |
+| §3 effective abilities resolved BEFORE the kit is derived | ✔ **DONE** — `effective_abilities(authored, mask)` takes the two AUTHORITIES so preparation can ask before deriving anything; the overlay, `BodyAbilities`/`AbilityBase` and the AI capability read all consume the SAME value. Regression asserts the third term: a second update restores nothing |
 | §4 D86: **KEEP the robot's charge**; rename `RangedExecution::HostCharge` → `ChargedProjectile` | ▢ — ⭐ **no longer blocked on Jon** |
 | §5 Robot v3 authors its canonical `ActionSet`; delete `HostCode` | ▢ |
 | §6 publish the `duelist*` ladder, delete `SMASH_ROSTER_RON` | ✔ **DONE at 8afdd2988** — and the real blocker was not publication: the registry lookup was provider-blind, so the arm had never fired (D87) |

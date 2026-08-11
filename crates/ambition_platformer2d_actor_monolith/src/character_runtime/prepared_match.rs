@@ -243,12 +243,33 @@ pub struct PreparedSeat {
     /// materializer" means in practice — the overlay is called once per seat,
     /// not once at preparation and again on the body's first tick.
     ///
-    /// ⚠ the `ActionSet` this produces is NOT stored: `match_kit` above already
-    /// carries the match's override and the character's own kit is on the
-    /// definition, so a third copy would be a third answer.
+    /// ⛔⛔ **AND THE `ActionSet` AND `CombatKit` ARE STORED TOO, since
+    /// 2026-08-11** (GPT 5.6 §2). They were discarded here on the reasoning that
+    /// `match_kit` plus the definition's kit could reproduce them — and
+    /// `realize_seat` then did exactly that, which is a SECOND resolution of
+    /// *what kit does this seat have*. One expensive call made once is not the
+    /// property that matters; ONE ANSWER is. A second derivation from the same
+    /// inputs is a fork the moment either side gains a term the other lacks —
+    /// and §3's effective-abilities mask is precisely such a term.
     pub identity_kit: ambition_characters::brain::action_set::IdentityKit,
     /// See [`Self::identity_kit`]. The moveset the same overlay derived.
     pub moveset: ambition_entity_catalog::MovesetContract,
+    /// See [`Self::identity_kit`]. The repertoire this seat actually has:
+    /// the character's, overlaid with the match's own override.
+    pub action_set: ambition_characters::brain::ActionSet,
+    /// See [`Self::identity_kit`]. Derived from [`Self::action_set`] by the same
+    /// overlay call, so it can never describe a different repertoire.
+    pub combat_kit: crate::combat::components::CombatKit,
+    /// **What this body may actually do** — the character's authored verbs
+    /// intersected with whatever the match forbids (see [`effective_abilities`]).
+    ///
+    /// ⛔⛔ **resolved BEFORE the kit is derived, and this is not a refactor.**
+    /// The overlay ran against the seed's PRE-MASK abilities and the mask was
+    /// applied to the body after spawn — harmless only while the persona pass
+    /// came back and repaired any ability-dependent kit. D85 removed that pass,
+    /// so a match that forbids `shield` would otherwise seat a fighter whose kit
+    /// was derived as though it still had one, with nothing coming to correct it.
+    pub effective_abilities: Option<ambition_platformer2d_core::AbilitySet>,
 }
 
 /// What every fighter in this match plays under.
@@ -826,6 +847,10 @@ pub fn prepare_match(
         // (ledger D85). `realize_seat` has no catalog and so could never do this;
         // the persona derive did it on the body's first tick, which is exactly
         // the second template application Jon's redirect is about.
+        // ⭐⭐ **THE MASK, RESOLVED BEFORE THE KIT** (GPT 5.6 §3). Everything
+        // below that asks "what can this body do" asks THIS, so the kit, the
+        // body's abilities and the AI's capability read can never disagree.
+        let seat_abilities = effective_abilities(definition.abilities, rules.abilities);
         let mut overlay_name = Name::new(definition.display_name.clone());
         let mut overlay_action_set = participant
             .action_set
@@ -845,7 +870,9 @@ pub fn prepare_match(
             &mut identity_kit,
             Some(&mut overlay_combat_kit),
             participant.character.as_str(),
-            seed.body.0.abilities.abilities,
+            // ⛔ NOT `seed.body.0.abilities.abilities` — that is the pre-mask set,
+            // and deriving the kit against it is exactly the ordering §3 names.
+            seat_abilities.unwrap_or(seed.body.0.abilities.abilities),
             participant.action_set.as_ref(),
         );
         let moveset = moveset.0;
@@ -865,6 +892,9 @@ pub fn prepare_match(
             authority,
             match_kit: participant.action_set.clone(),
             identity_kit,
+            action_set: overlay_action_set,
+            combat_kit: overlay_combat_kit,
+            effective_abilities: seat_abilities,
             moveset,
         });
     }
@@ -920,11 +950,16 @@ pub fn prepare_match(
 /// Smash cast down to whatever the archetype happened to grant. It disappears
 /// one character at a time, and the day it is unreachable this function is two
 /// lines shorter.
-fn seat_abilities(
-    seat: &PreparedSeat,
-    rules: &MatchRules,
+///
+/// ⭐ **it takes the two AUTHORITIES rather than a built seat** (GPT 5.6 §3), so
+/// preparation can answer this BEFORE deriving the kit. It could only be asked
+/// after construction while a persona pass came back to repair any
+/// ability-dependent kit; with that pass gone the ordering became observable.
+fn effective_abilities(
+    authored: Option<ambition_platformer2d_core::AbilitySet>,
+    mask: Option<ambition_platformer2d_core::AbilitySet>,
 ) -> Option<ambition_platformer2d_core::AbilitySet> {
-    match (seat.definition.abilities, rules.abilities) {
+    match (authored, mask) {
         (Some(authored), Some(mask)) => Some(authored.intersect(mask)),
         (Some(authored), None) => Some(authored),
         (None, mode) => mode,
@@ -1089,11 +1124,11 @@ fn realize_seat(
     // ⚠ the derive still runs and still writes this — it resolves the same two
     // inputs — and that duplication is deliberate and temporary: the stamp that
     // silences it goes in only when all five grants have moved.
-    let action_set = seat
-        .match_kit
-        .clone()
-        .or_else(|| seat.definition.kit.action_set().cloned())
-        .unwrap_or_default();
+    // ⭐ **THE KIT PREPARATION RESOLVED**, not a second derivation from the same
+    // inputs. This rebuilt `match_kit or definition kit or default` and let the
+    // overlay's own answer be thrown away — two answers to one question, which
+    // is the divergence this campaign exists to remove.
+    let action_set = seat.action_set.clone();
     // **THE BRAIN THIS SEAT WILL HAVE, chosen once and spawned WITH the body.**
     //
     // ⛔ this used to be the archetype's brain unconditionally, with a follow-up
@@ -1112,10 +1147,19 @@ fn realize_seat(
             crate::participant_seat::player_slot_of(*channel),
         ),
         ControlAuthority::Brain { .. } => {
-            crate::features::ecs::enemy_default_brain(&seed.config, seed.body.0.abilities.abilities)
+            // ⭐ the AI's capability read asks the SAME effective set the kit was
+            // derived against: a driver that believes it may shield in a match
+            // that forbids shielding reaches for a verb the body does not have.
+            crate::features::ecs::enemy_default_brain(
+                &seed.config,
+                seat.effective_abilities
+                    .unwrap_or(seed.body.0.abilities.abilities),
+            )
         }
     };
-    let combat_kit = crate::combat::components::CombatKit::from_action_set(&action_set);
+    // Likewise: derived beside the action set by the ONE overlay call, so the two
+    // can never describe different repertoires.
+    let combat_kit = seat.combat_kit.clone();
     let cluster = seed.into_components();
     use ambition_platformer2d_shared_tangle::lifecycle::SpawnSessionScopedExt;
     let body = commands
@@ -1487,7 +1531,9 @@ pub fn activate_the_prepared_match(
     // fighter is ever observable in a state the ruleset did not ask for.
     for (body, seat) in &bodies {
         let mut entity = commands.entity(*body);
-        if let Some(abilities) = seat_abilities(seat, rules) {
+        // ⭐ resolved at PREPARATION, and the same value the kit was derived
+        // against — not a second intersection reached after the body exists.
+        if let Some(abilities) = seat.effective_abilities {
             // `AbilityBase` too, not only the effective set: the effective set
             // is `base ∩ editable_mask`, recomputed every frame for a
             // player-driven body, so writing only `BodyAbilities` would be

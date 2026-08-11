@@ -1707,6 +1707,80 @@ fn the_matchs_declared_abilities_reach_every_seat() {
     }
 }
 
+/// **A MATCH THAT FORBIDS A VERB FORBIDS IT ON THE CONSTRUCTION FRAME.**
+///
+/// ⛔⛔ **the ordering §3 names, and it only became observable when D85 removed
+/// the repair pass.** The kit was derived at preparation against the seed's
+/// PRE-MASK abilities, and the match's mask was applied to the body after spawn
+/// — harmless for exactly as long as the persona derive came back a tick later
+/// and re-resolved anything ability-dependent. With that pass gone, a kit
+/// derived against verbs the match forbids is what the fighter KEEPS.
+///
+/// Three terms, and the third is the one that makes this a regression rather
+/// than a snapshot: the mask is on the body, the resolved capabilities agree
+/// with it, and **a second update changes neither** — no correction is coming,
+/// which is the whole point of removing the pass that used to make one.
+#[test]
+fn a_match_mask_reaches_the_kit_and_no_later_pass_restores_it() {
+    use ambition_platformer2d_core::AbilitySet;
+
+    // The character can shield. The match says nobody shields.
+    let authored = AbilitySet {
+        shield: true,
+        ..AbilitySet::basic()
+    };
+    let mut app = seating_app();
+    app.register_character(
+        CharacterDefinition::new("duelist", "Duelist", "demo").with_abilities(authored),
+    );
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("duelist")],
+        fighter_abilities: Some(AbilitySet {
+            shield: false,
+            ..authored
+        }),
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+
+    let read = |app: &mut App| {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<(
+            &ambition_platformer2d_core::BodyAbilities,
+            &ambition_platformer2d_core::AbilityBase,
+            &crate::combat::CombatCapabilities,
+        ), With<MatchSeat>>();
+        let rows: Vec<_> = q
+            .iter(world)
+            .map(|(body, base, caps)| (body.abilities, base.abilities, caps.clone()))
+            .collect();
+        assert_eq!(rows.len(), 1, "one seat, one body");
+        rows.into_iter().next().unwrap()
+    };
+
+    let first = read(&mut app);
+    assert!(
+        !first.0.shield,
+        "the match forbids shielding and the body arrived able to shield"
+    );
+    assert!(
+        !first.1.shield,
+        "`AbilityBase` kept the pre-mask set, so the effective set is recomputed \
+         back to it next tick by a system behaving correctly"
+    );
+
+    // ⭐ **and nothing comes back to undo it.** Before D85 this was true only
+    // because a repair pass happened to agree; now it has to be true because
+    // preparation resolved the mask BEFORE deriving anything from it.
+    app.update();
+    let second = read(&mut app);
+    assert_eq!(
+        second, first,
+        "a later pass rewrote this fighter's abilities or capabilities, so the \
+         match's restriction is not what construction actually applied"
+    );
+}
+
 /// **A SEATED FIGHTER IS COMPLETE ON ITS CONSTRUCTION FRAME.**
 ///
 /// ⛔⛔ **the last of Jon's P0: ordinary construction must not carry

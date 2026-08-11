@@ -660,7 +660,7 @@ The branch is on the right trajectory. The important redirect is to close the re
 | P0 | Rerun D78 | ✔✔ **GREEN** — all four tests, both characters. The duplicate applier WAS the cause |
 | P1 | Provocation reads `WornCharacter`, not `sprite_character_id` | ✔ — ⚠ the first commit threaded the parameter but a silent no-op replace left the READ on `sprite_character_id`; corrected in the following commit |
 | P1 | Provoked policy is a rollback-authoritative BrainProfile source | ✔ — `AutonomousSource::ProvokedProfile`, by canonical id, codec tag 4; the mind is rebuilt, never a body archetype |
-| P2 | Delete the fake `ArchetypeSpec` from character-first seeds | ▢ |
+| P2 | Delete the fake `ArchetypeSpec` from character-first seeds | ✔ — 54 fabricated lines gone; `seed.spec` is `Option`, and its five readers each say what they do without one |
 | P3 | Rename the old `BrainProfileRef` → `BrainPresetRef` | ✔ — and a THIRD collision surfaced: a facet marker already held that name, now `BrainPresetRefFacet` |
 | P4 | `PreparedMatch` off `CharacterRoster` | ▢ |
 | P5 | Robot v3 off `HostCode`; repertoire authored, progression gates | ▢ |

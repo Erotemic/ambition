@@ -221,7 +221,7 @@ pub(crate) fn spawn_staged_actor(
     // host.
     if let SpawnActorKind::Enemy { brain, .. } = &req.kind {
         if reject_runtime_giant(
-            &character_roster.spec_for_brain(brain),
+            Some(&character_roster.spec_for_brain(brain)),
             "programmatic staged actor",
             &req.id,
         ) {
@@ -281,7 +281,7 @@ pub(crate) fn spawn_staged_actor_into(
             // here is deliberate — a plan row left unbuilt is exactly what the
             // room transaction's roster verification exists to flag.
             if reject_runtime_giant(
-                &character_roster.spec_for_brain(brain),
+                Some(&character_roster.spec_for_brain(brain)),
                 "programmatic staged actor",
                 &req.id,
             ) {
@@ -386,9 +386,27 @@ impl EnemyActorSpawnPlan {
         enemy: super::actor_clusters::ActorClusterSeed,
     ) -> Self {
         let brain = enemy_default_brain(&enemy.config, enemy.body.0.abilities.abilities);
-        let action_set = enemy_default_action_set(&enemy.spec);
-        let combat_kit = enemy_combat_kit_for_spec(&enemy.spec);
-        let held_item = super::brain_builders::held_item_for_spec(&enemy.spec);
+        // ⭐⭐ **A CHARACTER-FIRST BODY HAS NO ARCHETYPE TO ASK** (Jon's second
+        // redirect, P2). Every value below used to come off a fabricated
+        // `ArchetypeSpec` that said `melee: None`, `ranged: None` and every
+        // capability `false` — fifty-four lines of inert legacy carried purely so
+        // these four lines had something to read. The kit that actually reaches
+        // such a body arrives from `grant_prepared_character_body` moments later,
+        // so the honest answer here is nothing at all.
+        let action_set = enemy
+            .spec
+            .as_ref()
+            .map(enemy_default_action_set)
+            .unwrap_or_else(ambition_characters::brain::ActionSet::peaceful);
+        let combat_kit = enemy
+            .spec
+            .as_ref()
+            .map(enemy_combat_kit_for_spec)
+            .unwrap_or_default();
+        let held_item = enemy
+            .spec
+            .as_ref()
+            .and_then(super::brain_builders::held_item_for_spec);
         // The character's signature moves AND its basic melee/ranged are authored on
         // its archetype (data); `build_actor_moveset` folds them into ONE moveset —
         // the melee subsumption (§A1 / §3a): a plain swing is a `"attack"`-verb move
@@ -404,7 +422,10 @@ impl EnemyActorSpawnPlan {
         // Building from `action_set` closes that gap definitionally: capability and
         // moveset share one source.
         let moveset = crate::combat::moveset::build_actor_moveset(
-            enemy.spec.signature_move.as_ref(),
+            enemy
+                .spec
+                .as_ref()
+                .and_then(|spec| spec.signature_move.as_ref()),
             action_set.melee.as_ref(),
             action_set.ranged.as_ref(),
             // Enemy/boss specials are AUTHORED in the archetype `signature_move`
@@ -1268,7 +1289,7 @@ pub(crate) fn spawn_runtime_minion_into(
         brain,
         &[],
     );
-    if reject_runtime_giant(&enemy.spec, "runtime minion", &id) {
+    if reject_runtime_giant(enemy.spec.as_ref(), "runtime minion", &id) {
         return;
     }
     // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
@@ -1781,10 +1802,17 @@ pub(crate) fn is_limbed_host(
 /// ARE supported; they lower through the planner. Returns `true` (having logged)
 /// when the caller should skip the spawn.
 pub(crate) fn reject_runtime_giant(
-    spec: &super::super::enemies::ArchetypeSpec,
+    // ⚠ `Option`, because a CHARACTER-FIRST body has no archetype (P2). A body
+    // built from a character is not a limbed host by this test — the giant's
+    // limbs are planned rows, and a character-first giant reaches the world
+    // through the planner, which is the very road this refusal protects.
+    spec: Option<&super::super::enemies::ArchetypeSpec>,
     origin: &str,
     id: &str,
 ) -> bool {
+    let Some(spec) = spec else {
+        return false;
+    };
     if spec_is_limbed_host(spec) {
         bevy::log::error!(
             target: "ambition_platformer2d::construction",
@@ -2205,7 +2233,7 @@ pub(super) fn spawn_encounter_mob(
             &[],
         ),
     };
-    if reject_runtime_giant(&enemy.spec, "encounter wave", &id) {
+    if reject_runtime_giant(enemy.spec.as_ref(), "encounter wave", &id) {
         return;
     }
     // `ActorClusterSeed::new_in` already sets HP from the resolved spec.

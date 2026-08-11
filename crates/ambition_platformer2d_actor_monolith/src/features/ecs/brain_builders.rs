@@ -617,7 +617,11 @@ mod tests {
         // The combat-kit -> action-set projection should yield a usable set
         // (the striker has a melee verb).
         let e = enemy("medium_striker");
-        let set = enemy_default_action_set(&e.spec);
+        let set = enemy_default_action_set(
+            e.spec
+                .as_ref()
+                .expect("a fixture built from a roster key has an archetype"),
+        );
         assert!(set.melee.is_some(), "a striker should expose a melee verb");
     }
 
@@ -629,7 +633,11 @@ mod tests {
         // edit can't silently drop the ranged verb (which would revert goblins
         // to melee-only without any test noticing).
         let e = enemy("medium_striker");
-        let set = enemy_default_action_set(&e.spec);
+        let set = enemy_default_action_set(
+            e.spec
+                .as_ref()
+                .expect("a fixture built from a roster key has an archetype"),
+        );
         assert!(
             matches!(
                 set.ranged,

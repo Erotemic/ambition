@@ -384,7 +384,20 @@ pub struct ActorClusterSeed {
     /// spawn path — only this data does. `pub(crate)`: the seed type itself is
     /// publicly re-exported (content builds peaceful seeds) but this archetype
     /// field is internal-only.
-    pub(crate) spec: ArchetypeSpec,
+    /// **The archetype this body was built from, when it was built from one.**
+    ///
+    /// ⛔ **`None` for a character-first body, and it used to be a 54-line LIE**
+    /// (Jon's second redirect, P2). `new_character_in` fabricated an entire
+    /// inert `ArchetypeSpec` — max health, a borrowed run speed, `melee: None`,
+    /// `ranged: None`, every capability `false` — purely because this field was
+    /// not optional. A character-first actor carrying a fake old-style body
+    /// definition is one of the things physically preventing `ArchetypeSpec`
+    /// from disappearing, and every reader of it had to be told which fields of
+    /// that fake were meaningful.
+    ///
+    /// Absence is the honest answer: this body has no archetype, and a reader
+    /// that needs one has to say what it does without.
+    pub(crate) spec: Option<ArchetypeSpec>,
 }
 
 /// Convert an authored LDtk actor rectangle plus a possibly sprite-derived
@@ -559,7 +572,7 @@ impl ActorClusterSeed {
             body: ActorBody::from_kit(spec.movement_kit(), spec.is_aerial.unwrap_or(false), size),
             caps: spec.combat_capabilities(),
             hurt_feedback,
-            spec,
+            spec: Some(spec),
         };
         seed
     }
@@ -713,8 +726,10 @@ impl ActorClusterSeed {
             hurt_feedback: actor_hurt_feedback(catalog, character_id),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.
-            spec: roster
-                .spec_for_brain(&ambition_entity_catalog::placements::CharacterBrain::Passive),
+            spec: Some(
+                roster
+                    .spec_for_brain(&ambition_entity_catalog::placements::CharacterBrain::Passive),
+            ),
         };
         (seed, render_size)
     }
@@ -942,61 +957,11 @@ impl ActorClusterSeed {
             hurt_feedback: actor_hurt_feedback(catalog, Some(character_id)),
             // ⛔ INERT, and it is the point: no seat path reads `spec`, so a
             // fighter carries an empty archetype rather than somebody else's.
-            spec: crate::combat::archetype_spec::ArchetypeSpec {
-                inherits: None,
-                movement: Default::default(),
-                movement_resolved: Default::default(),
-                max_health,
-                run_speed: ambition_platformer2d_core::MAX_RUN_SPEED,
-                patrol_effort: 0.5,
-                chase_effort: 1.0,
-                aggro_radius: 0.0,
-                attack_range: 0.0,
-                contact_strength: 0.0,
-                damage_amount: 0,
-                attack_cooldown_mult: 1.0,
-                mass: 1.0,
-                surface_walker: false,
-                turns_at_walls: true,
-                cling_breaks_on_hit: false,
-                is_aerial: Some(is_aerial),
-                is_sandbag: false,
-                explodes_on_death: false,
-                divides_on_death: false,
-                charge_crash_explodes: false,
-                never_dies: false,
-                respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
-                weight: 1.0,
-                death_policy: Default::default(),
-                dream_seed: None,
-                mount_class: None,
-                pilotable_mount_classes: Vec::new(),
-                mount_death_splash: None,
-                default_size: None,
-                brain_template: ambition_characters::brain::CharacterBrainTemplate::StandStill,
-                fighter_level: None,
-                melee: None,
-                ranged: None,
-                held_item: None,
-                smash_hit_band: None,
-                smash_heavy: false,
-                smash_dash_to_close: false,
-                smash_duelist: false,
-                can_blink: false,
-                can_fly: false,
-                can_shield: false,
-                can_dash: false,
-                provoke_forced_brute_min_aggro: None,
-                attacks_player: true,
-                body_contact_damage: false,
-                // ⭐ **THE CHARACTER'S PROJECTILE ART.** This wrote an empty
-                // string, so a migrated body fired an unadorned rock while the
-                // archetype road drew the character's own signature — the last
-                // thing keeping `player_robot`'s eighty-line row alive (D83).
-                ranged_visual: ranged_vfx.unwrap_or_default().to_string(),
-                signature_move: None,
-                move_style: locomotion.move_style,
-            },
+            // ⛔ **NO ARCHETYPE.** This fabricated fifty-four lines of inert
+            // `ArchetypeSpec` to satisfy a non-optional field — see the field's
+            // own doc. A character-first body was never built from an archetype
+            // and now says so.
+            spec: None,
         }
     }
 

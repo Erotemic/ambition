@@ -40,6 +40,7 @@ use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::engine_core::Vec2;
 use ambition_platformer2d::world::rooms::RoomSpec;
 
+pub mod moveset;
 pub mod select;
 pub mod select_screen;
 
@@ -1912,6 +1913,15 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                     ledge_grab: true,
                     ..ambition_platformer2d::engine_core::AbilitySet::NONE
                 });
+            // **THE REPERTOIRE, ON THE CHARACTER.**
+            //
+            // ⭐ this is what stops the seat needing `smash_fighter_kit()`: a
+            // definition that authors its own moveset says something more
+            // specific than anything derivable from an action-set preset, and
+            // preparation uses it verbatim. Eleven moves — jab, two tilts, three
+            // smashes, five aerials — where the seat used to carry one swipe
+            // that answered every direction and both strengths.
+            definition = definition.with_moveset(crate::moveset::fighter_moveset());
             app.register_character(definition);
         }
     }

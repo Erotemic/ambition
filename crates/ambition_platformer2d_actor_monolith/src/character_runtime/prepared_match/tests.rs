@@ -778,6 +778,110 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
     );
 }
 
+/// **A MATCH GRANT COVERS THE ACTION SET, NOT THE MOVES.**
+///
+/// ⛔ the defect this pins, found the hour a real repertoire was first authored:
+/// a crossover stage grants borrowed fighters an action set
+/// (`MatchParticipant::action_set`) so a peaceful Hall NPC can attack at all —
+/// and that grant was ALSO regenerating the moveset, from the granted set. So a
+/// character that authored eleven move timelines was seated with one derived
+/// swipe, and the timelines had no reader on the only path that seats a fighter.
+///
+/// The rule, in the words of the granting field's own doc: an ability is *may
+/// this body attack* and levelling it is fairness; a moveset is *what the attack
+/// IS* and levelling it erases the character.
+///
+/// ⚠ the second half is what keeps the grant working: a character that authored
+/// NO moves still takes the stage's derived kit, because it has nothing to
+/// protect.
+#[test]
+fn a_match_grant_does_not_overwrite_a_characters_authored_moves() {
+    use ambition_characters::brain::{ActionSet, MeleeActionSpec, SwipeSpec};
+    use ambition_entity_catalog::{ClipBinding, MoveGates, MoveSpec, MovesetContract};
+
+    let signature = MovesetContract {
+        verbs: [("attack".to_string(), "signature_smash".to_string())]
+            .into_iter()
+            .collect(),
+        moves: vec![MoveSpec {
+            id: "signature_smash".to_string(),
+            clip: ClipBinding {
+                clip: "attack".to_string(),
+                fallbacks: Vec::new(),
+            },
+            duration_s: 0.5,
+            windows: Vec::new(),
+            events: Vec::new(),
+            gates: MoveGates::default(),
+            start_impulse: None,
+            smash_charge_mult: 1.0,
+            landing_lag_s: None,
+            autocancel_after_s: None,
+        }],
+    };
+    // The stage's borrowed kit, deliberately DIFFERENT from anything the
+    // characters author, so "the grant won" and "the character won" cannot be
+    // told apart by accident.
+    let granted = ActionSet {
+        melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+            windup_s: 0.2,
+            active_s: 0.1,
+            recover_s: 0.2,
+            damage: 4,
+            reach_px: 34.0,
+        })),
+        ..ActionSet::default()
+    };
+
+    let mut app = seating_app();
+    app.add_systems(
+        Update,
+        crate::character_runtime::project_prepared_character_definitions,
+    );
+    app.register_character(
+        CharacterDefinition::new("fighter", "Fighter", "demo").with_moveset(signature.clone()),
+    );
+    app.register_character(CharacterDefinition::new("borrowed", "Borrowed", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![
+            cpu("fighter").with_action_set(granted.clone()),
+            cpu("borrowed").with_action_set(granted.clone()),
+        ],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+    finalize_and_update(&mut app);
+
+    let moves: Vec<(usize, Vec<String>)> = {
+        let world = app.world_mut();
+        let mut seated = world.query::<(&MatchSeat, &crate::combat::moveset::ActorMoveset)>();
+        let mut rows: Vec<(usize, Vec<String>)> = seated
+            .iter(world)
+            .map(|(seat, moveset)| {
+                (
+                    seat.0,
+                    moveset.0.moves.iter().map(|mv| mv.id.clone()).collect(),
+                )
+            })
+            .collect();
+        rows.sort_by_key(|(seat, _)| *seat);
+        rows
+    };
+    assert_eq!(moves.len(), 2, "the roster seated fewer than two fighters");
+    assert!(
+        moves[0].1.iter().any(|id| id == "signature_smash"),
+        "the fighter that authored its own moves is swinging the stage's borrowed \
+         swipe instead: {:?}",
+        moves[0].1
+    );
+    assert!(
+        !moves[1].1.is_empty() && !moves[1].1.iter().any(|id| id == "signature_smash"),
+        "the borrowed character either received nothing or received somebody \
+         else's signature move: {:?}",
+        moves[1].1
+    );
+}
+
 /// **A seated fighter moves the way its DEFINITION says.** (campaign R-a)
 ///
 /// The third leg of the kit, and wired into BOTH paths in one commit — because

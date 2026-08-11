@@ -716,6 +716,18 @@ pub struct PreparedCharacterDefinition {
     pub default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainPresetId>,
     /// What this character fights with — resolved, not inherited.
     pub kit: PreparedKit,
+    /// **The move timelines the CHARACTER ITSELF stated**, if it stated any.
+    ///
+    /// ⚠ **distinct from `kit`'s moveset, and the difference decides a real
+    /// question.** `kit` always carries a moveset — derived from the action set
+    /// when the character authored no timelines — so it cannot answer *"did
+    /// this character say what its moves ARE?"*. A match that grants a borrowed
+    /// cast a fighter's action set (`MatchParticipant::action_set`) must
+    /// override a DERIVED moveset and must not override an authored one: the
+    /// stage may say *"you may attack on this stage"* and may not say what the
+    /// attack is. Without this field the two cases are indistinguishable and
+    /// the grant wins over both.
+    pub authored_moveset: Option<MovesetContract>,
     /// The movement policy, resolved. Every body already carries exactly one
     /// explicit model, so this is a value rather than a question.
     pub motion_model: ambition_platformer2d_core::MotionModelSpec,
@@ -1237,6 +1249,10 @@ fn finalize_character(
 
     // THE KIT. Three outcomes, and which one a character gets is decided here
     // once rather than by whichever construction path reaches it first.
+    // Captured BEFORE the fold consumes it: `derive_moveset` substitutes a
+    // derivation when this is `None`, and the substitution is exactly the thing
+    // downstream needs to tell apart from the real answer.
+    let authored_moveset = moveset.clone();
     let kit = match action_set {
         // The definition authored capabilities. Nothing else gets a vote.
         Some(set) => PreparedKit::Authored {
@@ -1340,6 +1356,7 @@ fn finalize_character(
         // Carried, not folded: nothing else in the engine can state a body's
         // verbs, so there is no second authority to reconcile with.
         abilities,
+        authored_moveset,
         // **RESOLVED HERE, not at spawn.** A prepared definition should hold a
         // canonical identity, not an authored reference someone still has to
         // interpret — otherwise "prepared" means "partly prepared", and the

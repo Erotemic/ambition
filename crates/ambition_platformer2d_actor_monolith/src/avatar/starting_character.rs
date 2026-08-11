@@ -523,7 +523,23 @@ fn apply_worn_character_kit(
     let (set, derived, execution) =
         if let Some(kit) = match_kit {
             let execution = RangedExecution::MovesetVerb;
-            let derived = derive_persona_moveset(kit, execution, None);
+            // ⛔ **THE GRANT COVERS THE ACTION SET, NOT THE MOVES**, and passing
+            // `None` here meant it covered both. A character that authored its
+            // own eleven-move repertoire — jab, tilts, three smashes, five
+            // aerials — was seated with a moveset DERIVED from the stage's
+            // borrowed action set instead: one swipe, answering every direction
+            // and both strengths, which is the "generic characters walking
+            // around an arena" the campaign is about. The authored timelines had
+            // no reader on the one path that seats a fighter.
+            //
+            // ⭐ the rule this restores is the one the field's own doc states:
+            // an ability is *may this body attack*, and levelling that is
+            // fairness; a moveset is *what the attack IS*, and levelling it
+            // erases the character. So a borrowed peaceful NPC still receives
+            // the stage's kit — it authored no moves to protect — and a real
+            // fighter keeps its own.
+            let authored = prepared.and_then(|prepared| prepared.authored_moveset.clone());
+            let derived = derive_persona_moveset(kit, execution, authored);
             (kit.clone(), derived, execution)
         } else {
             match prepared.map(|prepared| &prepared.kit) {

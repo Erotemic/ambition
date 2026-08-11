@@ -3058,14 +3058,20 @@ CharacterSpawnPlan {
 
 ## The order to build it in
 
-1. `SpawnContext` first, from the enemy path only, carrying today's contextual
-   fields verbatim. It is the piece with no ambiguity.
-2. `CharacterSpawnPlan` around it, with `character` populated from the accessor
-   that already exists and `controller` a two-variant enum (human seat /
-   autonomous) — resist widening it before a third caller needs it.
-3. Route the authored enemy through it, keeping `EnemyActorSpawnPlan` as the
-   lowered result. ⭐ the harness for this already exists:
+1. ✔ `SpawnContext`, from the enemy path only, carrying today's contextual
+   fields verbatim — feature id/name, aabb, faction, paths.
+2. ✔ `CharacterSpawnPlan` around it. ⚠ **`controller` did NOT survive contact**:
+   written as the two-variant enum this list proposed, then removed the same
+   hour because the compiler pointed out nothing reads it — an authored enemy
+   authors no override and is always autonomous. *"Resist widening it before a
+   third caller needs it"* turned out to understate the rule: resist adding it
+   before the FIRST caller needs it. It returns with the NPC path.
+3. ✔ The authored enemy lowers through it, `EnemyActorSpawnPlan` still the
+   lowered result. The harness was already there:
    `mod authored_enemy_reads_its_character`.
-4. Then the NPC path, then encounter/programmatic/summon, then `PreparedMatch`
-   — which appendix D names as the proving ground and which is where the
-   `CharacterRoster` dependency finally comes out.
+4. ▢ **NEXT: the NPC path**, then encounter/programmatic/summon, then
+   `PreparedMatch` — which appendix D names as the proving ground and which is
+   where the `CharacterRoster` dependency finally comes out.
+   ⚠ the NPC path's prerequisite is typing `character_id` on BOTH
+   `InteractionKind::Npc` and its `InteractionKindSpec` mirror, ~37 sites; wide
+   and mechanical, wants its own slice. See the D73 ledger row.

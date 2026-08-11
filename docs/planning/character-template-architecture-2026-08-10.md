@@ -96,6 +96,137 @@ legacy (`ArchetypeSpec` 319, roster/enemies module 1,198,
 and much of `autonomous_reconcile` (1,045) on top. A result of *+4000 new /
 −2400 old* means the old model was wrapped rather than removed.
 
+## ⇥⇥ REMAINING WORK — THE ONE CHECKLIST (agent, 2026-08-10)
+
+⛔ **this is the resumption list. Everything below the appendices is context;
+this is the work.** Ordered by dependency: an item's blockers are above it. Each
+carries the measurement that sizes it, so no step begins with a survey.
+
+⚠ **status: the replacement architecture EXISTS and the deletion has BEGUN.**
+Two characters are off the roster (the mites), `character_archetypes.ron` is two
+lines smaller. The legacy population still standing:
+
+```text
+ArchetypeSpec                        319
+features/enemies / CharacterRoster  1198
+character_archetypes.ron             843
+enemy_roster.rs                       75
+ActorTuning                          275
+autonomous_reconcile                1045
+                                    ----
+                                    3755
+```
+
+### A. Unblock the rest (small, ordered, no content)
+
+1. ▢ **Decide `build_actor_moveset`'s home.** `definition.rs` reaches into
+   `ambition_combat` in exactly ONE place. Either the fold follows the verb
+   constants down to `ambition_entity_catalog`, or only the AUTHORED
+   `CharacterDefinition` moves and `PreparedCharacterDefinition` stays above.
+   The second is the smaller cut and probably right — resolving a kit is runtime
+   work. ⛔ answer before moving any type.
+2. ▢ **Move `CharacterDefinition` into `ambition_characters`** per (1). This is
+   appendix C ruling 4, and the compiler is the instrument: let it expose every
+   remaining wrongly-owned field rather than predicting them.
+3. ▢ **A `BrainProfile` type** — a reusable autonomous-controller profile with
+   the controller-policy subset of `ArchetypeSpec` (patrol/chase effort, aggro
+   radius, attack range, brain template, smash hit band, turn-at-wall). ⭐ this
+   is the single biggest unblocker left: the mites' rows cannot disappear
+   without it, group B is entirely it, and `CharacterSpawnPlan`'s
+   `autonomous_profile_override` has no reader without it.
+4. ▢ **Free preparation from the catalog** for the default profile's namespace:
+   prove provider ids and catalog-fragment ids are the same identifier, then
+   qualify with the definition's own `provider`. ⛔ do NOT assume they match —
+   a fixture already produced `test::patrol_peaceful`, a key that exists nowhere.
+5. ▢ **Finish typed identity**: `PreparedSeat::character_id`, and the `&str`
+   several runtime accessors return. `CharacterId` should survive from authoring
+   to runtime, converting only at serialization/presentation/debug boundaries.
+
+### B. One construction path (phase 3's remainder)
+
+6. ▢ **Route the NPC path through `CharacterSpawnPlan`.** The second of six
+   authoring surfaces, and the second is where a shared contract either proves
+   general or turns out to be the enemy path renamed. It is also what returns
+   `controller` and `autonomous_profile_override` to the plan WITH readers.
+   ⚠ measured prerequisite: `character_id` is `Option<String>` on both
+   `ambition_interaction::InteractionKind::Npc` and its `InteractionKindSpec`
+   mirror, ~37 construction/match sites. Wide, mechanical, wants its own slice.
+7. ▢ **The real common body constructor** — `PreparedCharacterDefinition` +
+   `CharacterSpawnPlan` → one actor. Then encounter, programmatic and summon
+   paths, none of which may keep passing an empty prepared registry.
+8. ▢ **`PreparedMatch` drops `CharacterRoster` / `ArchetypeSpec`** — appendix
+   D's proving ground, and the point where `smash_fighter_kit()` and
+   `roster.fighter_abilities` should stop being necessary. ⭐ take this EARLY
+   once (7) lands; it is the strongest evidence the architecture composes.
+9. ▢ **Delete `adopt_character_intrinsics`** once (7) replaces the precedence
+   it performs. It is migration scaffolding, not a destination.
+
+### C. Content migration (phase 2 + 4)
+
+10. ▢ **Group A's remaining seven** — `puppy_slug` (10 spawns),
+    `burning_flying_shark` (7), `pirate_shark_rider` (6), `sky_parrot` (2),
+    `giant_gnu` (1), `pirate_heavy_shark_rider`/Iron Mary (1), `ai_slop` (1).
+    Follow the mite recipe: author on the definition, register, name the
+    placement, delete from the row IN THE SAME CHANGE.
+    ⚠ **Iron Mary is the acceptance test for Jon's original observation.**
+11. ▢ **The mites' rows disappear** once (3) gives their controller facts a
+    home. Also still homeless: `contact_strength` / `damage_amount` (body
+    contact damage) — they need an intrinsic home before any contact-damaging
+    character fully migrates.
+12. ▢ **Group B — shared behaviour profiles.** `medium_striker` becoming a
+    reusable `BrainProfile` is success; surviving as a renamed whole-body
+    archetype is failure.
+13. ▢ **Group C — generic roles.** Classify each: real character, fixture-only
+    low-level API, or presentation borrowing. ⛔ do not force test entities into
+    the character catalog for type uniformity.
+14. ▢ **The 65 unmigrated placements.** ⚠ measured: `intro.ldtk` (16) and
+    `sandbox.ldtk` (49) entity instances carry NO `character_id` field instance
+    at all — this is "add the field to 65 entities", not "fill in a value".
+    ⛔ surgical, formatting-preserving edits only (never `json.dumps`), and
+    count `EntityRef`s before and after every session.
+    ⛔ the file is in the `game/ambition_map_assets` SUBMODULE: a deletion here
+    and an authoring there must land together or bodies silently lose facts.
+15. ▢ **Make `EnemySpawnSpec::character_id` required** and delete the
+    display-name fallback from `presentation_identity`, once (14) is complete.
+16. ▢ **Code-only archetype users.** `spec_for_brain`, `CharacterBrain::Custom`,
+    `ArchetypeSpec`, `CharacterRoster` in construction, matches, summons,
+    provocation, rollback, giant limbs, demos, fixtures. Each ends as a real
+    character, a real brain profile, spawn policy, a fixture-only API, or
+    deleted. ⛔ no fifth bucket.
+
+### D. Collapse the old authorities (phases 5–8)
+
+17. ▢ **Provocation becomes disposition + controller** — same identity, same
+    body, same capabilities. Delete the name/dialogue heuristic and
+    `HostileArchetypeId`; rollback preserves character id + controller binding +
+    disposition, never a second body-definition id.
+18. ▢ **Prepared completeness** (ruling 8): `None` must stop meaning "ask the
+    archetype". ⚠ gated on (10)–(11): flipping death traits to
+    `CharacterDeathTraits::default()` today makes an unmigrated mite stop
+    exploding.
+19. ▢ **Remove `PreparedKit::HostCode`** — the protagonist is a definition plus
+    runtime body state like everything else.
+20. ▢ **Remove the scaffolding**: `BUILDABLE_ONLY_CAST` (a registered complete
+    definition should simply BE buildable), the definition→catalog→archetype
+    precedence bridges, `PLAYABLE_ROSTER` as a buildability gate.
+21. ▢ **Split or delete `ActorTuning` and `CharacterBrainSpec`** by their actual
+    remaining responsibilities. ⚠ the capability-authored-twice set is exactly
+    `can_blink`/`can_fly`/`can_shield` vs `smash_can_*`.
+22. ▢ **Delete** `ArchetypeSpec`, `CharacterRoster`, the roster fragments and
+    registry, `spec_for_brain`, `character_archetypes.ron`, `enemy_roster.rs`.
+23. ▢ **Rename and document** the final architecture; retire `archetype`,
+    `sprite_character_id` and `art_identity`-as-gameplay from the vocabulary.
+
+### Deferred by decision, not forgotten
+
+* `never_dies` sits in `CharacterDeathTraits` though it is a MORTALITY policy
+  rather than an on-death consequence. Split it when a second mortality knob
+  appears, not before.
+* `a_definition_carries_no_controller_binding` must have its PROSE rewritten
+  (Jon justified a default profile), not be deleted — it still guards the rule
+  that the CURRENT controller stays off the definition.
+
+
 ## ⛔⛔ READ APPENDICES C AND D BEFORE RESUMING
 
 A **course correction** (appendix C, fourteen rulings) and the **Smash
@@ -111,8 +242,9 @@ of it:
 > `PreparedMatch`'s `CharacterRoster` / `ArchetypeSpec` dependency and watch how
 > much of `smash_fighter_kit()` stops being necessary.
 
-⚠ **the phase table above is the resumption point.** These appendices say what
-"done" means and which order to work in; they are not a task list.
+⚠ **the phase table is the STATE and the REMAINING WORK checklist above is the
+WORK.** These appendices say what "done" means and why; they are not a task
+list, and nothing in them should be worked directly.
 
 ## ⇥ Evidence for PHASE 5, found in the wild (2026-08-10)
 

@@ -301,6 +301,28 @@ whether or not it explains the PCA.
   derive must be made complete, BEFORE enemies can wear a character.** That is
   the same "one character-body constructor" the correction asks for, reached
   from the identity end, which is evidence the two items are one item.
+* ⭐ **`CharacterDeathTraits`'s FIVE FIELDS, inspected individually** — a
+  reviewer asked for this before the type is declared final, and two of the five
+  do not fit the name.
+  - `explodes_on_death` / `divides_on_death` / `charge_crash_explodes` — clean
+    on-death consequences, one consumer each in `damage::actor_hit`.
+  - `never_dies` — **a MORTALITY policy, not an on-death consequence.** Its
+    consumer is `damage_apply`, which decides whether a hit kills at all, so it
+    sits one step BEFORE the other three. Left grouped: same kind of authored
+    fact, same consumer family, and one misfit does not justify a second type.
+    ▢ split it the moment a second mortality knob appears.
+  - `drops_held_item: Option<HeldItemSpec>` — ⛔ **states WHICH item where it
+    should state WHETHER.** It is populated from `ArchetypeSpecExt
+    ::held_item_spec()`, i.e. the character's INTRINSIC weapon snapshotted at
+    construction, so a body that swapped weapons at runtime drops the one it was
+    born with. ⭐ **the witness is the code's own stated intent**:
+    `ambition_combat::held_items`'s module doc says *"future item drops can read
+    the same component without adding archetype-specific Rust branches"* — the
+    live `HeldItem` component exists for exactly this and the drop path never
+    adopted it. ⇒ target shape is a `bool` policy plus the live component at the
+    drop site. ▢ NOT done: `damage::actor_hit` has no access to `HeldItem`, so
+    it is a combat query change rather than a data change, and it touches D72's
+    territory.
 * ✔ **`CharacterId` IS TYPED** — `ambition_entity_catalog::CharacterId`,
   `#[serde(transparent)]` so authored world data encodes exactly as the bare
   string it always was. ⭐ **its home was decided by the dependency graph, not

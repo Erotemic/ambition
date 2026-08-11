@@ -159,6 +159,17 @@ where
     // floor of a platform fighter: run, jump, double jump, fast fall, dash,
     // attack. WHICH verbs is a product call and this is the one place to change
     // it; that the two seats agree is not.
+    //
+    // ⭐ **IT IS A MASK NOW, NOT A GRANT** (2026-08-11). A character that
+    // authors its own verbs keeps them, intersected with this — so a mode may
+    // FORBID flight and may not hand a jump to a body that has none. A
+    // character that authors nothing still takes this set verbatim, which is
+    // the migration bridge and is meant to shrink to nothing.
+    //
+    // ⚠ widened by the three verbs the grant could never carry: `shield`,
+    // `dodge` and `ledge_grab` are what make this a platform fighter rather
+    // than two bodies running at each other, and all three already existed in
+    // the engine with nothing switched on.
     roster.fighter_abilities = Some(ambition_platformer2d::engine_core::AbilitySet {
         move_horizontal: true,
         jump: true,
@@ -167,6 +178,11 @@ where
         fast_fall: true,
         dash: true,
         attack: true,
+        pogo: true,
+        directional_primary: true,
+        shield: true,
+        dodge: true,
+        ledge_grab: true,
         ..ambition_platformer2d::engine_core::AbilitySet::NONE
     });
     roster.published_by(SMASH_EXPERIENCE)
@@ -1760,6 +1776,42 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                 jump_squat_time: 3.0 / 60.0,
                 ..ambition_platformer2d::engine_core::DEFAULT_TUNING
             });
+            // **WHAT THIS FIGHTER'S BODY CAN DO — authored on the CHARACTER,
+            // which is why the shield, the dodge and the ledge exist in this
+            // demo at all.**
+            //
+            // ⛔ the machinery was all already there and unreachable. The engine
+            // has a bubble shield with a parry window, a grounded dodge roll
+            // with i-frames, and a full ledge system (grab / hang / climb /
+            // roll / getup attack / jump / drop / regrab cooldown) — and none of
+            // the fighters ran any of it, because a capability had exactly one
+            // authoring surface, the enemy ARCHETYPE, and these three seat
+            // through `combatant`. The match then stamped one flat set over
+            // every body, so what a fighter could do was a property of the
+            // MATCH. Three verbs were simply missing from that set and nothing
+            // could add them per character.
+            //
+            // ⚠ `fly`/`blink` deliberately absent: this is a platform fighter's
+            // ground game, not the exploration protagonist's traversal kit, and
+            // the July measurement of two seats disagreeing was exactly a
+            // duelist meeting a body that could fly.
+            definition =
+                definition.with_abilities(ambition_platformer2d::engine_core::AbilitySet {
+                    move_horizontal: true,
+                    jump: true,
+                    variable_jump: true,
+                    double_jump: true,
+                    fast_fall: true,
+                    dash: true,
+                    attack: true,
+                    pogo: true,
+                    directional_primary: true,
+                    // The three the flat match set could never grant.
+                    shield: true,
+                    dodge: true,
+                    ledge_grab: true,
+                    ..ambition_platformer2d::engine_core::AbilitySet::NONE
+                });
             app.register_character(definition);
         }
     }

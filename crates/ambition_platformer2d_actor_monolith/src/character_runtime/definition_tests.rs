@@ -396,6 +396,13 @@ fn a_definition_carries_no_controller_binding() {
         // wearing this character move identically.
         motion_model: _,
         movement_tuning: _,
+        // The strongest case of the same rule: WHICH VERBS THIS BODY HAS. A
+        // human and a CPU wearing this character can jump, dash, shield and
+        // grab a ledge identically, because a capability belongs to the body.
+        // What a controller decides is which of them to use, and what a RULESET
+        // decides is which of them are legal in this match — a mask, never a
+        // grant.
+        abilities: _,
     } = def;
 }
 

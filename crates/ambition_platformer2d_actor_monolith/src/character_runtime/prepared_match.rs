@@ -708,6 +708,41 @@ pub fn prepare_match(
     })
 }
 
+/// **What this fighter may do: the CHARACTER supplies the verbs, the RULESET
+/// takes some away.**
+///
+/// ⛔ **the direction is the architecture, and it used to run backwards.** A
+/// match declared one flat set — *"every fighter in this match has the same
+/// verbs"* — and stamped it onto every body, because seats disagreed wildly
+/// (an adopted seat had fly, blink and shield; a spawned one had jump) and
+/// nothing else could level them. That levelling is the reason a Puppy Slug in
+/// a fighter seat would jump and dash like a humanoid: the match manufactured
+/// capabilities the body never had.
+///
+/// ```text
+/// character authors verbs   +   ruleset masks   ⇒   what this body may do
+/// authored, mode says nothing        →  the character's own kit
+/// authored, mode declares a set      →  the intersection: a mode may FORBID
+/// unauthored, mode declares a set    →  the mode's set  (migration bridge)
+/// unauthored, mode says nothing      →  whatever construction built
+/// ```
+///
+/// ⚠ **the third row is a bridge and is meant to shrink.** Almost every
+/// character in the repo authors no verbs, so removing it today would strip the
+/// Smash cast down to whatever the archetype happened to grant. It disappears
+/// one character at a time, and the day it is unreachable this function is two
+/// lines shorter.
+fn seat_abilities(
+    seat: &PreparedSeat,
+    rules: &MatchRules,
+) -> Option<ambition_platformer2d_core::AbilitySet> {
+    match (seat.definition.abilities, rules.abilities) {
+        (Some(authored), Some(mask)) => Some(authored.intersect(mask)),
+        (Some(authored), None) => Some(authored),
+        (None, mode) => mode,
+    }
+}
+
 /// Where seat `index` stands, given the stage centre, and which way it looks.
 ///
 /// Symmetric about `centre`, alternating sides, facing inward. Public so a rules
@@ -741,10 +776,7 @@ mod tests;
 /// An authored team is honoured; a seat with none gets a team of its own, which
 /// is the literal statement of free-for-all — everyone opposes everyone. The
 /// authored faction is then free to stay what the CHARACTER says it is.
-fn team_for(
-    index: usize,
-    authored: Option<&String>,
-) -> crate::combat::targeting::MatchTeam {
+fn team_for(index: usize, authored: Option<&String>) -> crate::combat::targeting::MatchTeam {
     crate::combat::targeting::MatchTeam::new(
         authored
             .cloned()
@@ -1113,7 +1145,7 @@ pub fn activate_the_prepared_match(
         already_seated.iter().map(|seat| seat.0).collect();
 
     let rules = prepared.rules();
-    let mut bodies: Vec<Entity> = Vec::new();
+    let mut bodies: Vec<(Entity, &PreparedSeat)> = Vec::new();
     for seat in prepared.seats() {
         if occupied.contains(&seat.seat) {
             continue;
@@ -1125,14 +1157,14 @@ pub fn activate_the_prepared_match(
             seated.insert(team);
         }
         bind_seat_control(&mut commands, body, &seat.authority);
-        bodies.push(body);
+        bodies.push((body, seat));
     }
 
     // **THE MATCH'S RULES, in the same flush that builds the bodies**, so no
     // fighter is ever observable in a state the ruleset did not ask for.
-    for body in &bodies {
+    for (body, seat) in &bodies {
         let mut entity = commands.entity(*body);
-        if let Some(abilities) = rules.abilities {
+        if let Some(abilities) = seat_abilities(seat, rules) {
             // `AbilityBase` too, not only the effective set: the effective set
             // is `base ∩ editable_mask`, recomputed every frame for a
             // player-driven body, so writing only `BodyAbilities` would be

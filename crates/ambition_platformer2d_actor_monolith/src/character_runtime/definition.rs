@@ -374,6 +374,30 @@ pub struct CharacterDefinition {
     /// back to the sandbox protagonist has to return the body to the live
     /// inspector sliders.
     pub movement_tuning: Option<ambition_platformer2d_core::MovementTuning>,
+    /// **The verbs this BODY has** — jump, double jump, dash, dodge, shield,
+    /// ledge grab, blink, fly, glide, swim.
+    ///
+    /// ⭐ **a capability is the character's, never the controller's and never
+    /// the ruleset's.** The archetype has always been able to state a movement
+    /// kit (`ArchetypeSpecExt::movement_kit`, four flags); a registered
+    /// character could not state one at all, which is why a match seat had to be
+    /// handed a flat set by the MATCH — *"every fighter in this match has the
+    /// same verbs"* — and why the Smash demo's fighters do not use the shield,
+    /// dodge and ledge machinery that already exists underneath them. Nothing
+    /// had granted them the capability, because nothing could.
+    ///
+    /// ⚠ **`None` means the author said nothing**, and the migration bridge
+    /// stands: a seat whose character authors no verbs still takes the match's
+    /// declared set, exactly as today. That bridge is what a character authoring
+    /// its own kit removes, one character at a time.
+    ///
+    /// ⛔ **a ruleset may only take verbs away.** `AbilitySet::intersect` is the
+    /// operation a mode is allowed: Smash may say *"no flying in this match"*
+    /// and may not say *"everyone can jump"*, because forcing a jump onto a body
+    /// that cannot jump is the engine manufacturing a capability — the exact
+    /// thing that makes Puppy Slug in a fighter seat indistinguishable from a
+    /// generic humanoid.
+    pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
 }
 
 impl CharacterDefinition {
@@ -399,7 +423,14 @@ impl CharacterDefinition {
             action_set: None,
             motion_model: None,
             movement_tuning: None,
+            abilities: None,
         }
+    }
+
+    /// Author the verbs this body has. See [`Self::abilities`].
+    pub fn with_abilities(mut self, abilities: ambition_platformer2d_core::AbilitySet) -> Self {
+        self.abilities = Some(abilities);
+        self
     }
 
     /// Author what this character normally does when nothing overrides it.
@@ -542,6 +573,10 @@ struct PreparedCharacterOverrides {
     /// answer what a character IS and this is a default the resolver applies at
     /// spawn, where the placement's own override is also visible.
     default_brain_profile: Option<ambition_characters::actor::character_catalog::BrainProfileRef>,
+    /// See [`CharacterDefinition::abilities`]. No catalog counterpart exists —
+    /// a catalog row has never been able to state a body's verbs — so it
+    /// carries straight through.
+    abilities: Option<ambition_platformer2d_core::AbilitySet>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -661,6 +696,11 @@ pub struct PreparedCharacterDefinition {
     /// [`CharacterDefinition::death_traits`] — `None` stays `None`
     /// through the fold, because the catalog has no counterpart for it.
     pub death_traits: Option<ambition_characters::actor::CharacterDeathTraits>,
+    /// **The verbs this body has**, as the character authored them — see
+    /// [`CharacterDefinition::abilities`]. `None` means the character stated
+    /// none, and a construction path that has a legacy source for verbs (an
+    /// archetype's movement kit, a match's declared set) still uses it.
+    pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
     /// The autonomous profile this character normally runs, if it named one —
     /// **RESOLVED**, as a canonical [`BrainPresetId`] rather than the authored
     /// [`BrainProfileRef`] the definition carries.
@@ -1110,6 +1150,7 @@ fn prepare_character(
         vitals: definition.vitals,
         death_traits: definition.death_traits,
         default_brain_profile: definition.default_brain_profile,
+        abilities: definition.abilities,
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1183,6 +1224,7 @@ fn finalize_character(
         vitals,
         death_traits,
         default_brain_profile,
+        abilities,
         moveset,
         action_set,
         motion_model,
@@ -1295,6 +1337,9 @@ fn finalize_character(
         }),
         movement_tuning: movement_tuning.or_else(|| catalog?.axis_tuning(&id)),
         death_traits,
+        // Carried, not folded: nothing else in the engine can state a body's
+        // verbs, so there is no second authority to reconcile with.
+        abilities,
         // **RESOLVED HERE, not at spawn.** A prepared definition should hold a
         // canonical identity, not an authored reference someone still has to
         // interpret — otherwise "prepared" means "partly prepared", and the

@@ -1433,6 +1433,81 @@ fn the_matchs_declared_abilities_reach_every_seat() {
     }
 }
 
+/// **A MATCH CANNOT HAND A BODY A VERB IT DOES NOT HAVE.**
+///
+/// ⭐ Jon's compositional acceptance test, in miniature: *"Forcing Puppy Slug
+/// into Smash gives you Puppy Slug, even if Puppy Slug is a terrible fighter …
+/// Jump → no jump if its body cannot jump."* The character here authors a
+/// crawler's kit — it moves and it attacks — and the match declares the
+/// platform-fighter floor including a jump and a double jump.
+///
+/// The seat gets the INTERSECTION. A ruleset may forbid; only a character may
+/// grant.
+///
+/// ⛔ the poison is in the fixture, not in an extra assertion: the declared set
+/// contains `jump`, so a regression to the old "stamp the match's set onto every
+/// body" behaviour turns the first assertion green-side-up immediately. And the
+/// second assertion is what stops it passing vacuously — `attack` is in BOTH,
+/// so if the seat simply received nothing at all this would fail too.
+#[test]
+fn a_match_cannot_grant_a_verb_the_character_does_not_have() {
+    let mut app = seating_app();
+    app.register_character(
+        CharacterDefinition::new("crawler", "Puppy Slug", "demo").with_abilities(
+            ambition_platformer2d_core::AbilitySet {
+                move_horizontal: true,
+                attack: true,
+                ..ambition_platformer2d_core::AbilitySet::NONE
+            },
+        ),
+    );
+
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("crawler")],
+        fighter_abilities: Some(ambition_platformer2d_core::AbilitySet {
+            move_horizontal: true,
+            jump: true,
+            double_jump: true,
+            dash: true,
+            attack: true,
+            ..ambition_platformer2d_core::AbilitySet::NONE
+        }),
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let kits: Vec<(bool, bool, bool, bool)> = {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<(
+            &ambition_platformer2d_core::BodyAbilities,
+            &ambition_platformer2d_core::AbilityBase,
+        ), With<MatchSeat>>();
+        q.iter(world)
+            .map(|(abilities, base)| {
+                (
+                    abilities.abilities.jump,
+                    abilities.abilities.dash,
+                    abilities.abilities.attack,
+                    base.abilities.jump,
+                )
+            })
+            .collect()
+    };
+    assert_eq!(kits.len(), 1, "one seat, one kit");
+    let (jump, dash, attack, base_jump) = kits[0];
+    assert!(
+        !jump && !base_jump && !dash,
+        "the match handed a crawler a jump and a dash it never authored, which \
+         is the engine manufacturing a capability: {kits:?}"
+    );
+    assert!(
+        attack,
+        "the seat received nothing at all, so the assertion above proves nothing \
+         — `attack` is authored by the character AND declared by the match"
+    );
+}
+
 /// **An authored EXPLICIT body box is the seated fighter's box.** (Y″5)
 ///
 /// `BodySource::Explicit` had no consumer anywhere: a provider could author

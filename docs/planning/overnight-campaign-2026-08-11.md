@@ -20,14 +20,14 @@ that file's 23-item checklist as the ordering authority.
 
 | P | Item | State |
 |---|---|---|
-| P0.1 | Explicit CharacterId missing from prepared registry must be an error | ▢ |
+| P0.1 | Explicit CharacterId missing from prepared registry must be an error | ◐ **the TYPE says it** — `CharacterSpawnPlan::definition` returns `Result<Option<..>, &CharacterId>`, with both regressions present (unmigrated ⇒ `Ok(None)`, authored-but-unprepared ⇒ `Err`). ▢ the CALLER still only warns, and the blocker is measured: 28 authored enemy placements carry a `character_id` that names an unregistered character — `ai_slop`, `solid_snake`, the two snakes (mary_o) and `sanic_badnik` (sanic). Hard-erroring today refuses the tree. ⇒ gated on migrating those five into registered characters, which is P2.13's demo half |
 | P0.2 | Resolve character-owned autonomous profile refs during preparation | ✔ **DONE.** Preparation resolved the ref already; what was open is the half Jon names — *"should not need a parallel catalog row merely to know its namespace"*. It now qualifies with the DEFINITION's own provider (`qualify_in_provider`) and consults no catalog. The two id spaces were "assumed equal, never checked"; `character_provider_namespace` checks them on the shipped composition, and was probed RED by poisoning one registration site. The npc fixture that had argued against this change was repaired to ASSEMBLE its catalog (production namespaces every preset `provider::name`) rather than parse it raw |
 | P0.3 | Complete typed CharacterId through prepared registry/runtime/match seams | ▢ |
-| P0.4 | Inspect/narrow SpawnContext before adding more callers | ▢ |
-| P0.5 | Fix current-held-item death ownership | ▢ |
+| P0.4 | Inspect/narrow SpawnContext before adding more callers | ✔ **ALREADY NARROW** — two members, `feature_id` and `aabb`. The display name, faction and room kinematic paths were on it and were taken OFF for exactly Jon's reason (*"a Match participant should not need dummy room paths"*); the type's doc states the rule and names the three evictions. Re-inspected, nothing to remove |
+| P0.5 | Fix current-held-item death ownership | ✔ **ALREADY DONE in the tree** — `CharacterDeathTraits::drops_held_item` is a `bool` policy and the drop path reads the body's LIVE held item (`actor_hit.rs`, `held_at_death`). Its own doc records the bug Jon describes: it used to be `Option<HeldItemSpec>`, so a body that picked up a different weapon dropped the one it was authored with. Not redone |
 | P1.6 | Finish CharacterIdentity | ▢ |
 | P1.7 | Move/finalize character domain types into the appropriate low crate | ▢ |
-| P1.8 | Make PreparedCharacterDefinition complete for intrinsic construction | ▢ |
+| P1.8 | Make PreparedCharacterDefinition complete for intrinsic construction | ◐ **CAPABILITIES landed** — `CharacterDefinition::abilities` (an `AbilitySet`): the verbs a body has, authored on the character for the first time. Previously the ONLY authoring surface for a capability was the enemy archetype's four-flag movement kit. ▢ still missing for a complete body: contact damage, mass/aerial-ness, move style, run speed |
 | P1.9 | Route authored enemy through character-first construction | ▢ |
 | P1.10 | Route NPC through the same body constructor | ▢ |
 | P1.11 | Route PreparedMatch through it immediately after | ▢ |
@@ -44,14 +44,14 @@ that file's 23-item checklist as the ordering authority.
 | P2.22 | Delete `character_archetypes.ron` | ▢ |
 | P3.23 | Move Robot v3 off HostCode to normal character data | ▢ |
 | P3.24 | Remove `smash_fighter_kit()` as the universal replacement | ▢ |
-| P3.25 | Remove universal `fighter_abilities` replacement | ▢ |
+| P3.25 | Remove universal `fighter_abilities` replacement | ◐ **it is a MASK, not a grant** — `seat_abilities` = character's authored verbs ∩ the mode's declared set; a ruleset may FORBID and may never hand a body a verb it lacks. Regression `a_match_cannot_grant_a_verb_the_character_does_not_have`, probed RED by swapping intersect→union. ▢ the bridge remains for characters that author nothing (almost all of them), and that is what deletes the field |
 | P3.26 | Make Smash consume each character's actual body/capabilities/moves | ▢ |
 | P3.27 | Add Puppy Slug forced-seat regression | ▢ |
 | P4.28 | 3–2–1–GO opening countdown | ▢ |
-| P4.29 | Wire shields/parry for appropriate fighters | ▢ |
-| P4.30 | Wire grounded dodge | ▢ |
+| P4.29 | Wire shields/parry for appropriate fighters | ◐ **the capability is AUTHORED and reaches the seat** — the smash demo's three fighters author `shield` (plus `dodge`, `ledge_grab`), which the flat match set could never carry. ▢ unverified in a running match: does the bubble raise, does it block, does the parry window read |
+| P4.30 | Wire grounded dodge | ◐ capability authored on the smash fighters; ▢ unverified in play |
 | P4.31 | Implement true air dodge | ▢ |
-| P4.32 | Enable and tune existing ledge mechanics in Smash | ▢ |
+| P4.32 | Enable and tune existing ledge mechanics in Smash | ◐ `ledge_grab` authored on the smash fighters — Jon's diagnosis was exactly right, *"the generic fighter capability set did not grant ledge_grab"*. ▢ verify grab/hang/climb/roll/getup-attack/jump/drop on the real stage, and fix what the first real adopter exposes |
 | P4.33 | Author landing lag/autocancel on real aerials | ▢ |
 | P4.34 | Add at least one real strong/Smash attack to Robot v3 | ▢ |
 | P4.35 | Add tumble/knockdown/tech/getup state and animation slots | ▢ |

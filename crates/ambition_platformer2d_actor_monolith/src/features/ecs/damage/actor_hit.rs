@@ -253,6 +253,10 @@ pub(crate) fn apply_actor_hit(
             .surface_normal
             .normalize_or(ae::Vec2::new(0.0, -1.0));
         let caps = em.caps.clone();
+        // **What the body is actually holding**, captured beside `caps` and for
+        // the same reason: the death branch below runs after the resolver has
+        // borrowed `em` mutably, and this is a read of pre-death state.
+        let held_at_death = em.held_item.map(|held| held.spec.clone());
         // THE shared victim-side mechanics (§A2): consume-time i-frame gate,
         // the reactive shield block (the body's RESOLVED guard — a possessing
         // human and an AI brain block identically, invariants I2/I3; the same
@@ -565,10 +569,18 @@ pub(crate) fn apply_actor_hit(
                         ENEMY_HEALTH_DROP,
                     );
                 }
-                // Steal the enemy's weapon: a defeated enemy that was wielding
-                // a held item drops it as a `GroundItem` the player can grab +
-                // wield (e.g. a pirate's gun-sword), via the existing pickup path.
-                if let Some(spec) = caps.drops_held_item.clone() {
+                // Steal the enemy's weapon: a defeated body that drops what it
+                // wields leaves it as a `GroundItem` the player can grab and use
+                // (e.g. a pirate's gun-sword), via the existing pickup path.
+                //
+                // ⭐ **the CHARACTER says whether, the BODY says what.** This
+                // used to read an item off `CombatCapabilities` — the archetype's
+                // INTRINSIC weapon, snapshotted at construction — so a body that
+                // picked up a different weapon dropped the one it was authored
+                // with. `held_items`' own module doc had already named this
+                // consumer: *"future item drops can read the same component
+                // without adding archetype-specific Rust branches."*
+                if let (true, Some(spec)) = (caps.drops_held_item, held_at_death.clone()) {
                     writers.commands.spawn_session_scoped(
                         session_scope,
                         (

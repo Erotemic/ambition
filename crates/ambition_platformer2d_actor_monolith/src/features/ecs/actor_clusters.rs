@@ -219,6 +219,8 @@ pub struct ActorMut<'a> {
     /// the per-frame integration and the damage hook branch on these
     /// instead of calling back into the named archetype enum.
     pub caps: &'a crate::combat::CombatCapabilities,
+    /// The body's live held item, if it has one. See the query member.
+    pub held_item: Option<&'a crate::combat::held_items::HeldItem>,
     // ── The 18 ancillary movement clusters (real components) ──
     pub abilities: &'a BodyAbilities,
     pub base_size: &'a mut BodyBaseSize,
@@ -285,6 +287,14 @@ pub struct ActorClusterQueryData {
     pub config: &'static mut ActorConfig,
     pub motion: &'static mut ActorMotionPath,
     pub caps: &'static crate::combat::CombatCapabilities,
+    /// **What this body is holding RIGHT NOW**, if anything.
+    ///
+    /// `Option` because most bodies hold nothing, and because an OPTIONAL query
+    /// member cannot silently filter a body out of the cluster the way a
+    /// required one can. Read by the death path so a defeated body drops the
+    /// weapon it actually has rather than the one its archetype was authored
+    /// with.
+    pub held_item: Option<&'static crate::combat::held_items::HeldItem>,
     pub abilities: &'static BodyAbilities,
     pub base_size: &'static mut BodyBaseSize,
     pub ground: &'static mut BodyGroundState,
@@ -322,6 +332,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
             config: &mut self.config,
             motion: &mut self.motion,
             caps: self.caps,
+            held_item: self.held_item,
             abilities: &*self.abilities,
             base_size: &mut self.base_size,
             ground: &mut self.ground,
@@ -727,6 +738,8 @@ impl ActorClusterSeed {
             config: &mut self.config,
             motion: &mut self.motion,
             caps: &self.caps,
+            // A seed is pre-spawn scratch: nothing is holding anything yet.
+            held_item: None,
             abilities: &body.abilities,
             base_size: &mut body.base_size,
             ground: &mut body.ground,

@@ -44,6 +44,34 @@ fn archetype_capabilities_match_the_legacy_identity_checks() {
     assert_eq!(base, Default::default());
 }
 
+/// **The archetype says WHETHER a corpse drops its weapon, never WHICH one.**
+///
+/// `CombatCapabilities::drops_held_item` was `Option<HeldItemSpec>` and was
+/// populated from the archetype's INTRINSIC weapon, snapshotted at construction
+/// — so a body that picked up something else still dropped what it was authored
+/// with. It is a `bool` now and the death path reads the body's live `HeldItem`,
+/// which is what `ambition_combat::held_items`' module doc always said it was
+/// for.
+///
+/// ⛔ this pins the PROJECTION, which is the half that can silently invert:
+/// the behavioural half is structural now, because a `bool` cannot name an item
+/// and the old bug is therefore unrepresentable.
+#[test]
+fn an_archetype_with_an_intrinsic_weapon_drops_one_and_says_nothing_about_which() {
+    let armed = crate::features::enemies::test_spec("pirate_shark_rider").combat_capabilities();
+    assert!(
+        armed.drops_held_item,
+        "the cove raider authors a gun_sword, so its corpse leaves a weapon"
+    );
+
+    let unarmed = crate::features::enemies::test_spec("combatant").combat_capabilities();
+    assert!(
+        !unarmed.drops_held_item,
+        "an archetype with no intrinsic weapon drops none — otherwise every \
+         empty-handed body would try to leave a corpse item"
+    );
+}
+
 /// The PROTAGONIST as an actor body (roadmap S6a / invariant I7): the
 /// `player_robot` archetype carries the FULL player kit as body movement
 /// capabilities — blink / fly / shield / dash all appear in its

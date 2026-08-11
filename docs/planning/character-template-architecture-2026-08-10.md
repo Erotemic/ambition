@@ -342,18 +342,18 @@ whether or not it explains the PCA.
     sits one step BEFORE the other three. Left grouped: same kind of authored
     fact, same consumer family, and one misfit does not justify a second type.
     ▢ split it the moment a second mortality knob appears.
-  - `drops_held_item: Option<HeldItemSpec>` — ⛔ **states WHICH item where it
-    should state WHETHER.** It is populated from `ArchetypeSpecExt
-    ::held_item_spec()`, i.e. the character's INTRINSIC weapon snapshotted at
-    construction, so a body that swapped weapons at runtime drops the one it was
-    born with. ⭐ **the witness is the code's own stated intent**:
-    `ambition_combat::held_items`'s module doc says *"future item drops can read
-    the same component without adding archetype-specific Rust branches"* — the
-    live `HeldItem` component exists for exactly this and the drop path never
-    adopted it. ⇒ target shape is a `bool` policy plus the live component at the
-    drop site. ▢ NOT done: `damage::actor_hit` has no access to `HeldItem`, so
-    it is a combat query change rather than a data change, and it touches D72's
-    territory.
+  - `drops_held_item` — ✔ **FIXED: a `bool` policy, and the death path reads the
+    body's live `HeldItem`.** It used to be `Option<HeldItemSpec>` populated from
+    `ArchetypeSpecExt::held_item_spec()` — the character's INTRINSIC weapon,
+    snapshotted at construction — so a body that picked up a different weapon
+    still dropped the one it was born with. ⭐ the witness was the code's own
+    stated intent: `ambition_combat::held_items`' module doc already named this
+    consumer (*"future item drops can read the same component without adding
+    archetype-specific Rust branches"*) and the drop path had never adopted it.
+    ⇒ **the character says WHETHER, the body says WHAT.** `ActorClusterQueryData`
+    gained an OPTIONAL `held_item` member (optional so it cannot silently filter
+    a body out of the cluster the way a required one can), and the old bug is now
+    structurally unrepresentable — a `bool` cannot name an item.
 * ✔ **`CharacterId` IS TYPED** — `ambition_entity_catalog::CharacterId`,
   `#[serde(transparent)]` so authored world data encodes exactly as the bare
   string it always was. ⭐ **its home was decided by the dependency graph, not

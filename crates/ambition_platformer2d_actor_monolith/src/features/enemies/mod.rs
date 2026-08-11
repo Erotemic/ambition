@@ -269,7 +269,10 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             divides_on_death: self.divides_on_death,
             charge_crash_explodes: self.charge_crash_explodes,
             never_dies: self.never_dies,
-            drops_held_item: self.held_item_spec(),
+            // An archetype that authors an intrinsic weapon drops one. WHICH
+            // one is the body's live `HeldItem` at death, not this row —
+            // identical today, and correct after a runtime weapon swap.
+            drops_held_item: self.held_item_spec().is_some(),
         }
     }
 }

@@ -86,10 +86,13 @@ pub struct CombatCapabilities {
     /// Damage never kills (training dummy with an effectively
     /// infinite pool).
     pub never_dies: bool,
-    /// Weapon dropped at the corpse as a wieldable `GroundItem` (the
-    /// "steal the enemy's weapon" rule), resolved from authored data
-    /// at spawn.
-    pub drops_held_item: Option<ambition_characters::brain::HeldItemSpec>,
+    /// Whether the corpse leaves what the body was HOLDING as a wieldable
+    /// `GroundItem` — the "steal the enemy's weapon" rule.
+    ///
+    /// ⚠ a policy, not an item. The item comes from the body's live
+    /// [`crate::held_items::HeldItem`] at death, so a body that changed weapons
+    /// drops the one it actually has.
+    pub drops_held_item: bool,
 }
 
 impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilities {
@@ -118,7 +121,7 @@ impl From<&ambition_characters::actor::CharacterDeathTraits> for CombatCapabilit
             divides_on_death: *divides_on_death,
             charge_crash_explodes: *charge_crash_explodes,
             never_dies: *never_dies,
-            drops_held_item: drops_held_item.clone(),
+            drops_held_item: *drops_held_item,
         }
     }
 }

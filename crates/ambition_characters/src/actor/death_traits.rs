@@ -48,21 +48,17 @@ pub struct CharacterDeathTraits {
     /// fact and has the same one consumer family; if this struct ever grows a
     /// second mortality knob, that is the moment to split them.
     pub never_dies: bool,
-    /// A weapon left at the corpse as a wieldable ground item: the "steal the
-    /// enemy's weapon" rule.
+    /// Whether this body leaves what it is holding at the corpse, as a wieldable
+    /// ground item: the "steal the enemy's weapon" rule.
     ///
-    /// ⛔ **this states WHICH item, and it should state WHETHER.** The value is
-    /// the character's INTRINSIC weapon, snapshotted at construction — so a body
-    /// that swapped weapons at runtime still drops the one it was born with.
-    /// `ambition_combat::held_items` already owns the live answer and its module
-    /// doc already names this exact consumer: *"future item drops can read the
-    /// same component without adding archetype-specific Rust branches."* The
-    /// drop path never adopted it.
+    /// ⭐ **a POLICY, not an item, and the difference was a bug.** It used to be
+    /// `Option<HeldItemSpec>` — the character's INTRINSIC weapon, snapshotted at
+    /// construction — so a body that picked up a different weapon still dropped
+    /// the one it was authored with. `ambition_combat::held_items` owns the live
+    /// answer and its module doc named this exact consumer: *"future item drops
+    /// can read the same component without adding archetype-specific Rust
+    /// branches."* The drop path now reads it.
     ///
-    /// ⇒ the target shape is a `bool` policy here plus the body's live
-    /// `HeldItem` at the drop site. Not done yet because the drop site
-    /// (`damage::actor_hit`) has no access to that component, so it is a combat
-    /// query change rather than a data change. See
-    /// `docs/planning/character-template-architecture-2026-08-10.md`.
-    pub drops_held_item: Option<crate::brain::HeldItemSpec>,
+    /// ⇒ the character says WHETHER it drops; the body says WHAT it is holding.
+    pub drops_held_item: bool,
 }

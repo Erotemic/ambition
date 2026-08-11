@@ -1113,15 +1113,15 @@ Section 20's numbering is preserved.
 | # | Item | State |
 |---|------|-------|
 | 1 | Stop D78 rollback probing | ✔ — no further checksum probes; D78 is now a construction-shape task |
-| 2 | Separate `CharacterIdentity` from re-templating | ▢ |
-| 3 | Complete body at construction | ▢ |
-| 4 | Re-run D78 | ▢ |
-| 5 | Delete delayed initial persona projection | ▢ |
-| 6 | Remove `BrainProfile.attacks_player` | ▢ |
-| 7 | Remove `smash_can_*` mirrors | ▢ |
-| 8 | `BrainProfileRef` + `BrainProfileId` | ▢ |
-| 9 | Missing named profile = preparation error | ▢ |
-| 10 | Inline XOR named | ▢ |
+| 2 | Separate `CharacterIdentity` from re-templating | ▢ — the grant is extracted and construction owns it; the RENAME is still open |
+| 3 | Complete body at construction | ✔ — `grant_prepared_character_body`, one batch, memo included |
+| 4 | Re-run D78 | ✔ — **still RED, at the same frame.** Two-phase construction was not the mechanism; see the ledger row |
+| 5 | Delete delayed initial persona projection | ✔ for the character-first enemy road — the projection reads a constructed body as current and skips it |
+| 6 | Remove `BrainProfile.attacks_player` | ✔ — deleted; the giant's placement says `Peaceful` |
+| 7 | Remove `smash_can_*` mirrors | ✔ — deleted; `smash_cfg_from_spec` takes the body's `AbilitySet` |
+| 8 | `BrainProfileRef` + `BrainProfileId` | ✔ — provider-relative authoring; content writes `medium_striker` |
+| 9 | Missing named profile = preparation error | ✔ — refused at the finalize barrier |
+| 10 | Inline XOR named | ✔ — authoring both is refused; the old precedence assertion is inverted |
 | 11 | `BrainProfileRegistry` | ▢ |
 | 12 | Semantic `BrainPreset` migration plan | ▢ |
 | 13 | Constructor takes a blueprint | ▢ |

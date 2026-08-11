@@ -12,6 +12,32 @@
 // sprite paths and tier. No Rust changes needed.
 
 (
+    // **Reusable autonomous-controller profiles, by name** — the second of the
+    // three authorities (D73 / the overnight campaign). Several characters name
+    // one of these and keep their own bodies, which is what an enemy ARCHETYPE
+    // could never express: `medium_striker` is a whole BODY worn by five
+    // goblins, a lab raider and a skitter, so sharing their decision-making
+    // meant sharing their health, reach and top speed too.
+    //
+    // ⚠ these author normalized EFFORT (a fraction of each body's own
+    // `run_speed`), never px/s — §4.7's brain→body seam. A policy that authored
+    // absolute speeds could not be shared by a mite and a giant.
+    autonomous_profiles: {
+        // The goblin band's fighting style, lifted verbatim off the
+        // `medium_striker` archetype's controller half: notice at 460px, commit
+        // the swing at 150, poke with a thrown rock before closing, and dash to
+        // shut a large gap. Nothing here says how much punishment the body takes
+        // or how fast it can move — that is the character's half.
+        "medium_striker": (
+            template: Smash,
+            aggro_radius: 460.0,
+            attack_range: 150.0,
+            patrol_effort: 0.6176,
+            chase_effort: 1.0,
+            smash_hit_band: 32.0,
+            smash_dash_to_close: true,
+        ),
+    },
     brain_presets: {
         "stand_still": StandStill,
         "patrol_peaceful": Patrol(

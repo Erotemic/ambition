@@ -735,6 +735,37 @@ pub fn authored_intrinsics(
             definition.vitals.max_health = Some(6);
             definition
         }
+        // **THE GOBLIN BAND.** Five sandbox placements (`annex_goblin_a/b`,
+        // `pg_goblin_a/b/c`) that have been wearing the `medium_striker`
+        // ARCHETYPE — a whole body, borrowed for its fighting style.
+        //
+        // ⭐ **it NAMES its policy rather than carrying one**, which is the
+        // Group-B/Group-C split arriving: the archetype's controller half is now
+        // `autonomous_profiles: { "medium_striker": .. }` in the catalog, and any
+        // number of creatures may point at it while keeping their own bodies. A
+        // lab raider and a skitter are the next two.
+        //
+        // ⚠ the key is PROVIDER-NAMESPACED on assembly, so the reference is
+        // `ambition::medium_striker` rather than the local name — two games may
+        // both author a "medium_striker" and neither wins.
+        "goblin" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 170.0,
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.70,
+                    amount: 1,
+                })
+                .with_autonomous_profile_named(format!(
+                    "{}::medium_striker",
+                    crate::AMBITION_CONTENT_PROVIDER
+                ));
+            definition.vitals.max_health = Some(5);
+            definition
+        }
         _ => definition,
     }
 }
@@ -871,19 +902,11 @@ mod tests {
     /// only checked the new authority would pass just as well with both
     /// standing. This is the other half: the file must not still describe a
     /// creature its character now describes.
-    #[test]
     /// **The giant carries its own facts now** — every one its archetype row
-    /// states, authored on the definition.
-    ///
-    /// ⛔ **and its row is NOT deleted yet, which is a measured blocker and not
-    /// a half-finished migration.** The construction PLANNER decides which
-    /// enemies lower into a host + two driven hands by asking
-    /// `spec_is_limbed_host(roster.spec_for_brain(brain))` — a roster lookup, at
-    /// three sites that hold a placement and no prepared character registry.
-    /// Deleting the row makes every giant a handless host (measured: 18 red
-    /// tests, `left: 1, right: 3` — "host + two hands"). The deletion needs the
-    /// limbed-host predicate to read the CHARACTER's mount class, which is its
-    /// own slice.
+    /// stated, authored on the definition, and that row is DELETED (D76 closed
+    /// once three layers learned to ask the character before the archetype: the
+    /// limbed-host predicate, the activation path's construction context, and
+    /// `mount_capabilities_of`).
     ///
     /// ⭐ the two facts that could not have been authored before this campaign:
     /// `attacks_player: false` (a mount whose RIDER is the threat) and a
@@ -1059,6 +1082,62 @@ mod tests {
         assert_eq!(profile.aggro_radius, 0.0, "it notices nobody");
     }
 
+    /// **THE FIRST CHARACTER THAT NAMES ITS POLICY INSTEAD OF CARRYING ONE.**
+    ///
+    /// The goblin's five sandbox placements wore the `medium_striker` ARCHETYPE
+    /// — a whole body borrowed for its fighting style. Its controller half is a
+    /// shared `autonomous_profiles` entry now, and the goblin points at it while
+    /// keeping its own health, reach and pace.
+    ///
+    /// ⚠ the reference is PROVIDER-NAMESPACED, because assembly namespaces every
+    /// preset map: a bare "medium_striker" resolves to nothing.
+    #[test]
+    fn the_goblin_names_the_shared_striker_policy() {
+        use ambition_characters::brain::MoveStyleSpec;
+
+        let definition = authored_intrinsics(
+            "goblin",
+            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                "goblin",
+                "Goblin",
+                crate::AMBITION_CONTENT_PROVIDER,
+            ),
+        );
+        assert_eq!(definition.vitals.max_health, Some(5));
+        let locomotion = definition.locomotion.expect("its own body");
+        assert_eq!(locomotion.run_speed, 170.0);
+        assert!(matches!(locomotion.move_style, MoveStyleSpec::Walk));
+        assert_eq!(
+            definition.autonomous_profile_ref.as_deref(),
+            Some("ambition::medium_striker"),
+            "it NAMES the shared policy; carrying one inline would make it \
+             unshareable, which is the whole point"
+        );
+        assert!(
+            definition.autonomous_profile.is_none(),
+            "and does not also carry one — two authorities for one decision"
+        );
+    }
+
+    /// **The shared policy exists in the shipped catalog, and says only
+    /// controller things.** A body fact in here would be the archetype's
+    /// three-authorities muddle arriving by another door.
+    #[test]
+    fn the_shipped_catalog_authors_a_shared_striker_policy() {
+        // ⚠ the SHIPPED bytes, parsed the way the game parses them — and the
+        // key is namespaced by ASSEMBLY, which `load_catalog` does not perform,
+        // so this reads the local name the file authors.
+        let catalog = load_catalog();
+        let profile = catalog
+            .autonomous_profile("medium_striker")
+            .expect("the shipped catalog authors the shared striker policy");
+        assert_eq!(profile.aggro_radius, 460.0);
+        assert_eq!(profile.attack_range, 150.0);
+        assert_eq!(profile.patrol_effort, 0.6176);
+        assert!(profile.smash_dash_to_close);
+    }
+
+    #[test]
     fn the_migrated_characters_rows_are_gone_from_the_archetype_file() {
         let rows = include_str!("../assets/data/character_archetypes.ron");
         for key in [

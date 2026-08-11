@@ -1,5 +1,15 @@
 # Redirect, 2026-08-11 — finish the architecture before broadening the migration
 
+⛔⛔ **SUPERSEDED IN PART by `redirect-2026-08-11-close-the-template-split.md`**
+(Jon, later the same day, off checkpoint `7ce7397ec474`). That file's P0–P7 is the
+ordering authority now. It keeps everything below that landed and adds the
+correction that matters: §3's "complete at construction" is NOT yet true of the
+live code — `apply_worn_character_gameplay` is a second template applier and
+`grant_prepared_character_body` never writes the `PersonaBaseline` it tests, so a
+freshly built character-first body is re-applied on the next persona pass.
+⛔ also standing from there: **do not touch sprite authoring** — Jon owns it.
+
+
 **This file OUTRANKS `overnight-campaign-2026-08-11.md` wherever the two disagree.**
 It is Jon's redirect (relayed from a GPT review of checkpoint `853d9a66b5ed`),
 recorded VERBATIM at his standing instruction so it survives a compact. The

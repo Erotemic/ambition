@@ -311,8 +311,13 @@ impl RoomFeatureConstructionPlan {
         // family legality, and pilot/mount class compatibility. The generic
         // planner below enforces the structural rules; these are the ones only
         // this domain can state.
-        crate::construction::preflight_actor_relations(&requests, roster, boss_catalog)
-            .map_err(RoomFeatureConstructionError::ActorConstruction)?;
+        crate::construction::preflight_actor_relations(
+            &requests,
+            roster,
+            boss_catalog,
+            construction.prepared,
+        )
+        .map_err(RoomFeatureConstructionError::ActorConstruction)?;
         let construction_plan = crate::construction::ActorConstructionPlan::prepare(
             ambition_platformer2d_shared_tangle::construction::ConstructionScope {
                 binding: construction.binding,

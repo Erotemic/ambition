@@ -1207,6 +1207,12 @@ pub fn mount_capabilities_of(
     parameters: &ActorConstructionParams,
     roster: &crate::features::CharacterRoster,
     bosses: &BossCatalog,
+    // **The prepared cast, when the caller has one.** A placement that names a
+    // character takes its mount facts from the DEFINITION; only one that names
+    // none falls back to the archetype. Without this a migrated mount whose row
+    // is gone reads as "not a mount", and its authored `ambition.mount` relation
+    // is refused as *"cannot hold that end"* — see ledger D76.
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
 ) -> PlannedMountCapabilities {
     match parameters {
         // A pickup is neither rideable nor a pilot.
@@ -1246,21 +1252,12 @@ pub fn mount_capabilities_of(
         }
         // A giant host is a mount (its archetype carries `mount_class`); its hands
         // are neither mount nor pilot.
-        ActorConstructionParams::GiantHost { authored, .. } => {
-            let spec = roster.spec_for_brain(&authored.payload.brain);
-            PlannedMountCapabilities {
-                mount_class: spec.mount_class.clone(),
-                pilots: spec.pilotable_mount_classes.clone(),
-            }
-        }
+        ActorConstructionParams::GiantHost { authored, .. }
+        | ActorConstructionParams::AuthoredEnemy { authored, .. } => authored_mount_capabilities(
+            resolve_planned_character(prepared, authored.payload.character_id.as_ref()),
+            &roster.spec_for_brain(&authored.payload.brain),
+        ),
         ActorConstructionParams::GiantHand { .. } => PlannedMountCapabilities::default(),
-        ActorConstructionParams::AuthoredEnemy { authored, .. } => {
-            let spec = roster.spec_for_brain(&authored.payload.brain);
-            PlannedMountCapabilities {
-                mount_class: spec.mount_class.clone(),
-                pilots: spec.pilotable_mount_classes.clone(),
-            }
-        }
         // Same profile resolution as the staged boss arm above — and never a
         // mount: the boss populate function installs no `Mountable`.
         // A placement is never a mount-link end today (links name enemy/boss
@@ -1282,6 +1279,28 @@ pub fn mount_capabilities_of(
             )
             .pilotable_mount_classes
             .clone(),
+        },
+    }
+}
+
+/// **What a placement can ride and be ridden as** — the CHARACTER's answer when
+/// it has one, the archetype's otherwise.
+///
+/// ⚠ character-first as a WHOLE, not field by field: a definition that authors a
+/// mount block states both halves of the pair, and merging the two sources would
+/// let a deleted row keep contributing a `pilotable_classes` nobody can see.
+fn authored_mount_capabilities(
+    character: Option<&crate::character_runtime::PreparedCharacterDefinition>,
+    spec: &crate::features::enemies::ArchetypeSpec,
+) -> PlannedMountCapabilities {
+    match character.and_then(|definition| definition.mount.as_ref()) {
+        Some(mount) => PlannedMountCapabilities {
+            mount_class: mount.class.clone(),
+            pilots: mount.pilotable_classes.clone(),
+        },
+        None => PlannedMountCapabilities {
+            mount_class: spec.mount_class.clone(),
+            pilots: spec.pilotable_mount_classes.clone(),
         },
     }
 }
@@ -1328,6 +1347,8 @@ pub fn preflight_actor_relations(
     requests: &[ActorConstructionRequest],
     roster: &crate::features::CharacterRoster,
     bosses: &BossCatalog,
+    // See [`mount_capabilities_of`].
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
 ) -> Result<(), ActorConstructionError> {
     use std::collections::BTreeMap;
 
@@ -1424,8 +1445,8 @@ pub fn preflight_actor_relations(
         let (Some(rider_params), Some(mount_params)) = (rider_params, mount_params) else {
             continue;
         };
-        let rider_caps = mount_capabilities_of(rider_params, roster, bosses);
-        let mount_caps = mount_capabilities_of(mount_params, roster, bosses);
+        let rider_caps = mount_capabilities_of(rider_params, roster, bosses, prepared);
+        let mount_caps = mount_capabilities_of(mount_params, roster, bosses, prepared);
         let Some(mount_class) = mount_caps.mount_class.clone() else {
             return Err(ActorConstructionError::WrongFamilyForRelation {
                 sim_id: mount.clone(),

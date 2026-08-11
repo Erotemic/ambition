@@ -1840,6 +1840,7 @@ fn preflight(requests: Vec<ActorConstructionRequest>) -> Result<(), ActorConstru
         &requests,
         &crate::features::enemies::fixture_roster_with_mount(),
         &crate::boss_encounter::test_boss_catalog(),
+        None,
     )
 }
 

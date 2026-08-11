@@ -787,6 +787,7 @@ mod tests {
             "dividing_mite",
             "puppy_slug",
             "sky_parrot",
+            "giant_gnu",
         ] {
             assert!(
                 !rows.contains(&format!("\"{key}\": (")),

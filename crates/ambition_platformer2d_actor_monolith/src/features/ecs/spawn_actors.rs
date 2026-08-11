@@ -1440,6 +1440,32 @@ pub(crate) fn spawn_enemy_with_faction_into(
             .insert(ambition_characters::actor::WornCharacter::new(
                 definition.id.as_str(),
             ));
+        // ⭐⭐ **AND IT IS COMPLETE ON THIS FRAME** — ledger D78, and Jon's
+        // redirect §3: *"There should be no next-tick persona grant required for
+        // correctness."*
+        //
+        // ⛔ **what this replaces was a TWO-PHASE construction**, and that is the
+        // whole defect. The body was built partial here, `WornCharacter` was
+        // attached, and `project_prepared_character_definitions` noticed it a
+        // tick later and inserted the action set, the moveset, the hurtboxes and
+        // the posed body onto a body that had already begun simulating. Under
+        // rollback that mid-run insert moved a checksum: adding
+        // `character_id: "npc_ai_slop"` to ONE intro placement turned four
+        // `rollback_exit_oracle` tests red, and twelve probes narrowed it to the
+        // projection WRITING the kit mid-run at all — not to its value, not to
+        // hostility, and not to the crawler.
+        //
+        // ⚠ the memo goes on in the SAME batch (see
+        // `grant_prepared_character_body`), so the re-template pass reads this
+        // body as current and never touches it. That pass is now what it was
+        // always for: a cast hot reload, or a deliberate runtime re-wear.
+        crate::character_runtime::grant_prepared_character_body(
+            commands,
+            root,
+            definition,
+            prepared.generation(),
+            crate::character_runtime::KitOwnership::Grant,
+        );
         // **THE WEAPON THE CHARACTER CARRIES.** The plan resolves its held item
         // from `enemy.spec`, which for a character-first body is inert — so a
         // migrated raider spawned empty-handed and dropped nothing when it died,

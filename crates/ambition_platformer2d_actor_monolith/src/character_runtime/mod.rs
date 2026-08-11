@@ -67,9 +67,9 @@ pub use prepared_match::{
     MatchPreparationProblems, MatchRules, OpeningPhase, PreparedMatch, PreparedSeat, OPENING_BEATS,
 };
 pub use presentation::{
-    authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
-    project_prepared_character_definitions, provider_of_character,
-    publish_body_presentation_sources, ProjectedCharacterKit,
+    authorize_staged_character_presentation_sources, grant_prepared_character_body,
+    inherit_projectile_presentation_sources, project_prepared_character_definitions,
+    provider_of_character, publish_body_presentation_sources, KitOwnership, ProjectedCharacterKit,
 };
 pub use seating::{match_participants, ActiveMatch, MatchSeat};
 pub use staging::{

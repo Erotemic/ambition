@@ -518,9 +518,62 @@ pub fn project_prepared_character_definitions(
         // That writer keeps its own record now, `avatar::PersonaBaseline`, stamped
         // after IT applies the baseline. One writer, one record. This one covers
         // the authored silhouette, the movement feel and the motion model below.
+        grant_prepared_character_body(
+            &mut commands,
+            entity,
+            prepared,
+            registry.generation(),
+            if persona_bodies.contains(entity) {
+                KitOwnership::PersonaDerive
+            } else {
+                KitOwnership::Grant
+            },
+        );
+    }
+}
+
+/// **Who writes this body's action set and moves** — the one axis on which
+/// projecting a definition differs between its two callers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KitOwnership {
+    /// Put the definition's kit on the body. Construction always does; the
+    /// re-template pass does for a body the persona derive cannot see.
+    Grant,
+    /// `apply_worn_character_gameplay` owns it. ⛔ writing it here too is the
+    /// two-writers-one-question bug that made a character with no authored
+    /// action set fight as the worn player and stand empty-handed as player two.
+    PersonaDerive,
+}
+
+/// **Put every fact a prepared character owns onto a body, as ONE batch.**
+///
+/// ⭐ **the ONE place a prepared definition becomes a body**, and that is the
+/// point of extracting it. Two callers:
+///
+/// * **CONSTRUCTION**, so a normal character actor is COMPLETE on the frame it
+///   is built. This is the D78 fix and it is the architecture Jon's redirect
+///   asked for (§3): *"There should be no next-tick persona grant required for
+///   correctness."* A body built this way carries the memo already, so the
+///   re-template pass below sees it as current and never touches it.
+/// * **RE-TEMPLATING** — a cast hot reload, a deliberate runtime re-wear — which
+///   is what [`project_prepared_character_definitions`] is FOR once ordinary
+///   spawning stops depending on it.
+///
+/// ⛔ **the memo goes in the same batch as the grants, deliberately.** Splitting
+/// them is the shape D78's investigation kept circling: a save taken between the
+/// two restores a world claiming to be projected and missing what the projection
+/// grants. One batch, one archetype move, one tick.
+pub fn grant_prepared_character_body(
+    commands: &mut Commands,
+    entity: Entity,
+    prepared: &super::PreparedCharacterDefinition,
+    generation: super::definition::CharacterCatalogGeneration,
+    kit: KitOwnership,
+) {
+    {
         commands.entity(entity).insert(ProjectedCharacterKit {
             id: prepared.id.as_str().to_string(),
-            generation: registry.generation(),
+            generation,
             granted: GrantedBodyFacts::of(prepared),
         });
         // **THE KIT, for the bodies the persona derive cannot see.**
@@ -550,7 +603,7 @@ pub fn project_prepared_character_definitions(
         // means giving tuning-identified bodies a real worn identity, which is a
         // change to what those bodies ARE and does not belong in this commit.
         //
-        if !persona_bodies.contains(entity) {
+        if kit == KitOwnership::Grant {
             //
             // This used to project the moveset and the action set, because seated
             // bodies did not match `apply_worn_character_gameplay` — they were missing

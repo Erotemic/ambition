@@ -43,6 +43,24 @@ a resuming session needs, shortest form:
 * **What still blocks a character authoring its controller policy**: nothing in
   the tree registers a `BrainProfile` yet. The archetype PROJECTS one; a
   character can only name a catalog `brain_presets` key. Group B is exactly this.
+* ⇥⇥ **THE NEXT ARCHITECTURAL SLICE, measured 2026-08-11 and precise:** deleting
+  an archetype ROW is the only real deletion available, because `ArchetypeSpec`
+  requires `max_health`, `run_speed`, `patrol_effort`, `chase_effort`,
+  `aggro_radius`, `attack_range`, `contact_strength`, `damage_amount`,
+  `brain_template` and `move_style` — none of them `#[serde(default)]` — so a
+  half-migrated row cannot shed its migrated fields. A whole row needs three
+  things the character can now nearly all state:
+  ```text
+  body        vitals ✔  death traits ✔  locomotion ✔  contact damage ✔  action_set ✔
+  controller  brain_template, efforts, aggro_radius, attack_range, smash_hit_band   ▢
+  placement   respawn                                                              ▢
+  ```
+  ⇒ **the ONE missing piece is a character-authored `BrainProfile`.** Today
+  `CharacterDefinition::default_brain_profile` is a REFERENCE into the catalog's
+  `brain_presets` (the NPC road); the enemy road takes its profile from the
+  archetype projection. Either a definition may hold an inline `BrainProfile`,
+  or a registry maps a `BrainProfileRef` to one. Then the mites' rows go, and
+  they are the first two lines the ledger has lost.
 * ⚠ **the deletion ledger has not moved yet.** `character_archetypes.ron` is 843
   lines and `ArchetypeSpec` is 319; nothing has been removed since the mites.
   Every slice so far has been the replacement half. That is the honest state and

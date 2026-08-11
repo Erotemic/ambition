@@ -426,6 +426,22 @@ pub struct CharacterDefinition {
     /// `None` leaves the archetype's projection in charge, which is every
     /// character that has not migrated.
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// **The weapon this character carries**, by id, resolved through the same
+    /// held-item registry the archetype's `held_item` uses.
+    ///
+    /// ⭐ **a fact about the creature, not about the placement.** A cove raider
+    /// carries a gun-sword wherever it stands; the item is what it drops when it
+    /// dies and what its swing looks like. It was reachable only through an
+    /// archetype row, so a migrated raider lost its weapon — which is most of
+    /// what a raider IS.
+    ///
+    /// ⚠ **it grants no VERBS here.** The archetype path folds a held item's
+    /// melee/ranged into the resolved `ActionSet`; a character authors its verbs
+    /// on [`Self::action_set`] directly, so this states what the body HOLDS and
+    /// the action set states what it DOES. Authoring an item and forgetting the
+    /// verb gives a body a weapon it never swings — visible, rather than a
+    /// silently different creature.
+    pub held_item: Option<String>,
     /// **What this body can be RIDDEN as, and what it can ride** (ADR 0020).
     /// `None` = neither. See
     /// [`ambition_characters::actor::CharacterMount`].
@@ -470,6 +486,7 @@ impl CharacterDefinition {
             locomotion: None,
             contact_damage: None,
             autonomous_profile: None,
+            held_item: None,
             mount: None,
             dream_seed: None,
         }
@@ -500,6 +517,12 @@ impl CharacterDefinition {
     /// Author this character's deep-dream seed. See [`Self::dream_seed`].
     pub fn with_dream_seed(mut self, seed: f32) -> Self {
         self.dream_seed = Some(seed);
+        self
+    }
+
+    /// Author the weapon this character carries. See [`Self::held_item`].
+    pub fn with_held_item(mut self, id: impl Into<String>) -> Self {
+        self.held_item = Some(id.into());
         self
     }
 
@@ -672,6 +695,8 @@ struct PreparedCharacterOverrides {
     contact_damage: Option<ambition_characters::actor::ContactDamage>,
     /// See [`CharacterDefinition::autonomous_profile`]. Carried.
     autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// See [`CharacterDefinition::held_item`]. Carried.
+    held_item: Option<String>,
     /// See [`CharacterDefinition::dream_seed`]. Carried.
     dream_seed: Option<f32>,
     /// See [`CharacterDefinition::mount`]. Carried.
@@ -844,6 +869,8 @@ pub struct PreparedCharacterDefinition {
     ///
     /// [`BrainProfile`]: ambition_characters::brain::BrainProfile
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// See [`CharacterDefinition::held_item`].
+    pub held_item: Option<String>,
     /// **Deep-dream visual jitter seed.** See
     /// [`CharacterDefinition::dream_seed`] — presentation, true of every
     /// instance, and until now reachable only through an archetype row.
@@ -1315,6 +1342,7 @@ fn prepare_character(
         locomotion: definition.locomotion,
         contact_damage: definition.contact_damage,
         autonomous_profile: definition.autonomous_profile,
+        held_item: definition.held_item.clone(),
         dream_seed: definition.dream_seed,
         mount: definition.mount,
         moveset: definition.moveset,
@@ -1404,6 +1432,7 @@ fn finalize_character(
         vfx_dependencies,
         checked,
         unresolved,
+        held_item,
     } = overrides;
 
     // THE KIT. Three outcomes, and which one a character gets is decided here
@@ -1518,6 +1547,7 @@ fn finalize_character(
         locomotion,
         contact_damage,
         autonomous_profile,
+        held_item,
         dream_seed,
         mount,
         authored_moveset,

@@ -1438,6 +1438,27 @@ pub(crate) fn spawn_enemy_with_faction_into(
             .insert(ambition_characters::actor::WornCharacter::new(
                 definition.id.as_str(),
             ));
+        // **THE WEAPON THE CHARACTER CARRIES.** The plan resolves its held item
+        // from `enemy.spec`, which for a character-first body is inert — so a
+        // migrated raider spawned empty-handed and dropped nothing when it died,
+        // which is most of what a raider is. Inserted here for the same reason
+        // the mount role is: the fact is the character's, and this is the road
+        // that believes the character.
+        //
+        // ⚠ an id the registry does not know is a WARNING, not a refusal: the
+        // body is fine without it, and a silent nothing is what made the archetype
+        // path's typos invisible.
+        if let Some(id) = definition.held_item.as_deref() {
+            match ambition_characters::brain::held_item_by_id(id) {
+                Some(spec) => {
+                    commands.entity(root).insert(super::HeldItem::new(spec));
+                }
+                None => bevy::log::warn!(
+                    "character `{}` holds `{id}`, which is not a registered held item",
+                    definition.id.as_str()
+                ),
+            }
+        }
         // **THE MOUNT ROLE FROM THE CHARACTER** (ADR 0020). A shark is rideable
         // because of what a shark IS; the saddle is measured off the body this
         // construction actually resolved rather than off an archetype's

@@ -669,6 +669,104 @@ mod authored_enemy_reads_its_character {
         registry
     }
 
+    /// **A CHARACTER-FIRST BODY CARRIES THE WEAPON ITS CHARACTER HOLDS.**
+    ///
+    /// ⛔ the spawn plan resolves a held item from `enemy.spec`, and a
+    /// character-first seed's spec is INERT — so a migrated raider spawned
+    /// empty-handed and dropped nothing when it died, which is most of what a
+    /// raider is. This is the gap between `pirate_shark_rider` being authorable
+    /// and being migratable (its row's `held_item: Some("gun_sword")`).
+    ///
+    /// ⚠ the control is the same character with no weapon authored: a body that
+    /// holds nothing must carry no `HeldItem` at all, or "authored nothing" and
+    /// "authored a weapon" would be the same state.
+    #[test]
+    fn a_built_body_holds_the_weapon_its_character_authors() {
+        assert!(
+            ambition_characters::brain::held_item_by_id("gun_sword").is_some(),
+            "the fixture names a REGISTERED item, or this test passes on a warning"
+        );
+        assert_eq!(
+            spawn_held_item(Some("gun_sword")).as_deref(),
+            Some("gun_sword"),
+            "the character's weapon did not reach the body"
+        );
+        assert_eq!(
+            spawn_held_item(None),
+            None,
+            "a character that authors no weapon must hold nothing"
+        );
+    }
+
+    /// The held-item id on the body a complete character builds, if any.
+    fn spawn_held_item(item: Option<&'static str>) -> Option<String> {
+        let mut definition =
+            crate::character_runtime::CharacterDefinition::new("npc_raider", "Cove Raider", "test")
+                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                    run_speed: 230.0,
+                    move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+                    ..Default::default()
+                });
+        if let Some(item) = item {
+            definition = definition.with_held_item(item);
+        }
+        definition.vitals.max_health = Some(4);
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        registry.insert_prepared(finalized.prepared);
+
+        let mut spec = crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "medium_striker".to_string(),
+            ),
+        );
+        spec.character_id = Some(ambition_entity_catalog::CharacterId::from("npc_raider"));
+        let authored = crate::rooms::Authored::new(
+            "EnemySpawn-1",
+            "Cove Raider",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            spec,
+        );
+
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(roster());
+        app.insert_resource(registry);
+        app.add_systems(
+            Update,
+            move |mut commands: Commands,
+                  catalog: bevy::prelude::Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >,
+                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
+                  prepared: bevy::prelude::Res<
+                crate::character_runtime::PreparedCharacterRegistry,
+            >| {
+                let root = commands.spawn_empty().id();
+                crate::features::spawn_enemy_with_faction_into(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &roster,
+                    &prepared,
+                    SessionSpawnScope::UNSCOPED,
+                    root,
+                    &authored,
+                    &[],
+                    crate::features::ActorFaction::Enemy,
+                );
+            },
+        );
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<&crate::features::HeldItem>();
+        q.iter(world).next().map(|held| held.spec.id.clone())
+    }
+
     /// **A COMPLETE character is BUILT, not patched.**
     ///
     /// ⭐ the difference this asserts is the campaign's central one. Both spawns

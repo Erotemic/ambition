@@ -68,6 +68,7 @@ pub mod intro;
 pub mod items;
 #[cfg(feature = "audio")]
 pub mod music;
+pub mod moveset_authoring;
 pub mod player_robot_lineage;
 pub mod player_robot_moveset;
 pub mod plugin;

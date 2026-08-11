@@ -1122,7 +1122,7 @@ Section 20's numbering is preserved.
 | 8 | `BrainProfileRef` + `BrainProfileId` | ✔ — provider-relative authoring; content writes `medium_striker` |
 | 9 | Missing named profile = preparation error | ✔ — refused at the finalize barrier |
 | 10 | Inline XOR named | ✔ — authoring both is refused; the old precedence assertion is inverted |
-| 11 | `BrainProfileRegistry` | ▢ |
+| 11 | `BrainProfileRegistry` | ✔ — published beside the catalog; preparation asks the POLICY authority |
 | 12 | Semantic `BrainPreset` migration plan | ▢ |
 | 13 | Constructor takes a blueprint | ▢ |
 | 14 | No catalog re-queries for prepared facts | ▢ |

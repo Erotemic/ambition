@@ -49,9 +49,9 @@ pub use entry::{
 )]
 pub use loader::{parse_catalog, try_parse_catalog};
 pub use registry::{
-    AssembledCharacterCatalog, CharacterCatalogAppExt, CharacterCatalogAssemblyError,
-    CharacterCatalogDefaults, CharacterCatalogFragment, CharacterCatalogOwners,
-    CharacterCatalogRegistry,
+    AssembledCharacterCatalog, BrainProfileRegistry, CharacterCatalogAppExt,
+    CharacterCatalogAssemblyError, CharacterCatalogDefaults, CharacterCatalogFragment,
+    CharacterCatalogOwners, CharacterCatalogRegistry,
 };
 pub use resolver::{action_set_from_preset, brain_from_preset, brain_from_preset_with_context};
 

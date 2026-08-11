@@ -1467,6 +1467,7 @@ fn prepare_character(
 fn finalize_character(
     overrides: PreparedCharacterOverrides,
     catalog: Option<&ambition_characters::actor::character_catalog::CharacterCatalog>,
+    profiles: Option<&ambition_characters::actor::character_catalog::BrainProfileRegistry>,
 ) -> PreparedCharacterDefinition {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
     use ambition_characters::brain::ActionSet;
@@ -1623,7 +1624,7 @@ fn finalize_character(
             &provider,
             autonomous_profile,
             autonomous_profile_ref.as_ref(),
-            catalog,
+            profiles,
         ),
         practice_target,
         held_item,
@@ -1704,7 +1705,11 @@ fn resolve_autonomous_profile(
     provider: &str,
     inline: Option<ambition_characters::brain::BrainProfile>,
     named: Option<&ambition_characters::brain::BrainProfileRef>,
-    catalog: Option<&ambition_characters::actor::character_catalog::CharacterCatalog>,
+    // ⭐ **the POLICY authority, not the character catalog** (Jon's redirect
+    // §11). They are assembled from the same provider fragment today, which is a
+    // packaging fact rather than an ownership one: a catalog says who exists, a
+    // profile registry says what may drive a body.
+    profiles: Option<&ambition_characters::actor::character_catalog::BrainProfileRegistry>,
 ) -> Option<ambition_characters::brain::BrainProfile> {
     match (inline, named) {
         (Some(_), Some(named)) => panic!(
@@ -1716,25 +1721,26 @@ fn resolve_autonomous_profile(
         (Some(inline), None) => Some(inline),
         (None, None) => None,
         (None, Some(named)) => {
-            let Some(catalog) = catalog else {
+            let Some(profiles) = profiles.filter(|profiles| !profiles.is_empty()) else {
                 bevy::log::warn!(
                     "character `{id}` names the shared autonomous profile `{named}`, \
-                     and this composition assembled no character catalog for it to \
+                     and this composition published no profile registry for it to \
                      live in. Nothing can resolve it; the character prepares without \
                      a policy"
                 );
                 return None;
             };
             let resolved = named.resolve_in(provider);
-            match catalog.autonomous_profile(resolved.as_str()) {
+            match profiles.get(&resolved) {
                 Some(profile) => Some(*profile),
                 None => panic!(
                     "character `{id}` (provider `{provider}`) names the autonomous \
-                     profile `{named}`, which resolves to `{resolved}` and is not in \
-                     the assembled catalog. An explicitly named policy that does not \
-                     exist is a content error, not an absence — resolving it to \
-                     nothing would leave this body on its archetype while the \
-                     definition says otherwise"
+                     profile `{named}`, which resolves to `{resolved}` and is not \
+                     published. An explicitly named policy that does not exist is a \
+                     content error, not an absence — resolving it to nothing would \
+                     leave this body on its archetype while the definition says \
+                     otherwise. Published: [{}]",
+                    profiles.ids().collect::<Vec<_>>().join(", ")
                 ),
             }
         }
@@ -1847,12 +1853,21 @@ pub(crate) fn prepare_and_finalize_against_for_test(
     bindings: &CharacterBindings,
     catalog: Option<&ambition_characters::actor::character_catalog::CharacterCatalog>,
 ) -> FinalizedCharacter {
+    // ⚠ a fixture that hands over a catalog is modelling a composition that
+    // assembled one, and assembly publishes the policy registry beside it — so
+    // the profiles come from the SAME source rather than being absent, which
+    // would silently exercise the no-registry branch.
+    let profiles = catalog.map(|catalog| {
+        ambition_characters::actor::character_catalog::BrainProfileRegistry::from_catalog_for_test(
+            catalog,
+        )
+    });
     let PreparedCharacter {
         prepared, report, ..
     } = prepare_character(definition, bindings);
     let checked = prepared.checked.clone();
     FinalizedCharacter {
-        prepared: finalize_character(prepared, catalog),
+        prepared: finalize_character(prepared, catalog, profiles.as_ref()),
         report,
         checked,
     }
@@ -2324,6 +2339,10 @@ fn finalize_prepared_cast(world: &mut bevy::prelude::World) {
     let catalog = world
         .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
         .cloned();
+    // The POLICY authority, published beside the catalog by assembly.
+    let profiles = world
+        .get_resource::<ambition_characters::actor::character_catalog::BrainProfileRegistry>()
+        .cloned();
     // TRANSACTIONAL: the whole cast is folded and only then published, so a
     // reader can never observe a registry that holds half of one generation.
     let previous = world
@@ -2332,7 +2351,11 @@ fn finalize_prepared_cast(world: &mut bevy::prelude::World) {
         .unwrap_or_default();
     let mut registry = PreparedCharacterRegistry::default();
     for (_, overrides) in staged {
-        registry.insert(finalize_character(overrides, catalog.as_ref()));
+        registry.insert(finalize_character(
+            overrides,
+            catalog.as_ref(),
+            profiles.as_ref(),
+        ));
     }
     registry.stamp_after(previous);
     world.insert_resource(registry);

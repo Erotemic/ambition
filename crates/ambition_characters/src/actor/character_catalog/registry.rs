@@ -319,6 +319,11 @@ impl CharacterCatalogRegistry {
             }
         }
 
+        // ⭐ published TWICE during the migration and owned once: the policy
+        // authority is `BrainProfileRegistry`, and the catalog keeps its copy
+        // only until its own `autonomous_profile` accessor loses its last
+        // reader. Same values, same keys, so the two cannot disagree.
+        let autonomous_profiles_for_registry = autonomous_profiles.clone();
         let catalog = CharacterCatalog::from_data(CharacterCatalogData {
             autonomous_profiles,
             brain_presets,
@@ -329,7 +334,11 @@ impl CharacterCatalogRegistry {
         if !validation.is_empty() {
             return Err(CharacterCatalogAssemblyError::InvalidAssembly(validation));
         }
+        let brain_profiles = BrainProfileRegistry {
+            profiles: autonomous_profiles_for_registry,
+        };
         Ok(AssembledCharacterCatalog {
+            brain_profiles,
             catalog,
             defaults: CharacterCatalogDefaults(defaults),
             owners: CharacterCatalogOwners(owners),
@@ -366,6 +375,61 @@ pub struct AssembledCharacterCatalog {
     pub catalog: CharacterCatalog,
     pub defaults: CharacterCatalogDefaults,
     pub owners: CharacterCatalogOwners,
+    /// **Controller policy, as its own authority.** See [`BrainProfileRegistry`].
+    pub brain_profiles: BrainProfileRegistry,
+}
+
+/// **The reusable autonomous-controller policies a composition published**,
+/// keyed by canonical [`BrainProfileId`](crate::brain::BrainProfileId).
+///
+/// ⭐ **a SEPARATE authority from the character catalog**, deliberately (Jon's
+/// redirect §11). The profiles arrive in the same RON document during the
+/// migration — a provider ships one catalog fragment — but sharing a file is not
+/// the same as sharing an owner. A character catalog answers *who exists and
+/// what are they*; this answers *what decision policies may drive a body*, and a
+/// controller policy is not a property of any character.
+///
+/// ⚠ it is deliberately NOT a second `CharacterRosterFragment`-shaped hierarchy.
+/// One flat registry, assembled where the catalog is assembled, published beside
+/// it: a provider registers both, and the reader that wants a policy asks the
+/// policy authority.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default, PartialEq)]
+pub struct BrainProfileRegistry {
+    profiles: BTreeMap<String, crate::brain::BrainProfile>,
+}
+
+impl BrainProfileRegistry {
+    /// The policy under this canonical id, or `None` for a name nobody authored.
+    ///
+    /// ⚠ callers hold a [`BrainProfileId`](crate::brain::BrainProfileId) by the
+    /// time they get here: a provider-relative reference that skipped resolution
+    /// misses silently, which is the whole reason the two are different types.
+    pub fn get(&self, id: &crate::brain::BrainProfileId) -> Option<&crate::brain::BrainProfile> {
+        self.profiles.get(id.as_str())
+    }
+
+    /// Every published policy, in canonical-id order — for diagnostics that have
+    /// to say what WAS available when a lookup missed.
+    pub fn ids(&self) -> impl Iterator<Item = &str> {
+        self.profiles.keys().map(String::as_str)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.profiles.is_empty()
+    }
+
+    /// The registry a catalog implies, for fixtures that build a catalog
+    /// directly instead of going through assembly.
+    ///
+    /// ⚠ **not a production seam.** Assembly publishes both from one pass; this
+    /// exists so a test that hands preparation a hand-written catalog is still
+    /// modelling a composition where the two agree, rather than one where the
+    /// policy authority is silently absent.
+    pub fn from_catalog_for_test(catalog: &CharacterCatalog) -> Self {
+        Self {
+            profiles: catalog.data().autonomous_profiles.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -494,7 +558,8 @@ impl CharacterCatalogAppExt for App {
         self.insert_resource(registry)
             .insert_resource(assembled.catalog)
             .insert_resource(assembled.defaults)
-            .insert_resource(assembled.owners);
+            .insert_resource(assembled.owners)
+            .insert_resource(assembled.brain_profiles);
         Ok(self)
     }
 }

@@ -922,7 +922,7 @@ fn authoring_a_policy_twice_is_refused_rather_than_ranked() {
 /// the archetype in charge while the content file says the opposite — the
 /// explicit-`CharacterId` mistake, one layer down.
 #[test]
-#[should_panic(expected = "is not in the assembled catalog")]
+#[should_panic(expected = "is not published")]
 fn a_named_policy_that_does_not_exist_is_a_failure_rather_than_silence() {
     use ambition_characters::actor::character_catalog::CharacterCatalog;
 

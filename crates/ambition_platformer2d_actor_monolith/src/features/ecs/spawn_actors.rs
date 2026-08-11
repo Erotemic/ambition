@@ -1285,8 +1285,28 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // matching a display name — so reading health, mass or death traits off it
     // would infer gameplay identity from presentation identity. A spawn that
     // has not named a character keeps its archetype, visibly.
-    if let Some(definition) = plan.definition(prepared) {
-        enemy.adopt_character_intrinsics(definition);
+    match plan.definition(prepared) {
+        Ok(Some(definition)) => enemy.adopt_character_intrinsics(definition),
+        // Not migrated yet: no character named, so the archetype still decides.
+        Ok(None) => {}
+        // ⛔ **the placement NAMED a character and construction could not find
+        // it.** Distinct from the case above and never silent: a body that was
+        // authored as Iron Mary and quietly built as a shark rider is the
+        // original defect, and it would look exactly like a working spawn.
+        //
+        // ⚠ a WARNING rather than a refusal, and only until phase 4. Today's
+        // `character_id` field predates D73: 28 authored spawns carry one as an
+        // ART claim (D56), and the prepared cast is roughly a dozen characters,
+        // so most authored ids legitimately resolve nothing. Refusing here would
+        // refuse the tree. Once phase 4 re-authors those as GAMEPLAY claims and
+        // the field becomes required, this arm becomes a hard error.
+        Err(missing) => bevy::log::warn!(
+            target: "ambition_platformer2d_actor_monolith::spawn",
+            "enemy `{}` names character `{missing}`, which is not in the prepared \
+             cast; it keeps its `{:?}` archetype instead",
+            authored.id,
+            authored.payload.brain,
+        ),
     }
     spawn_solo_enemy_into(
         commands,

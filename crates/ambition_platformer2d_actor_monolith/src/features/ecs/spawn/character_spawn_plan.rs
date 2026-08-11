@@ -87,15 +87,33 @@ impl<'a> CharacterSpawnPlan<'a> {
         &self.context
     }
 
-    /// The prepared definition this plan names, when the registry has it.
+    /// The prepared definition this plan names.
     ///
     /// ⭐ the ONE place construction asks "which character is this body?", so
     /// there is one answer to change when the fallback is removed.
+    ///
+    /// ⛔⛔ **THREE OUTCOMES, NOT TWO, and collapsing the last two is a bug I
+    /// shipped and a reviewer caught.** An earlier version returned plain
+    /// `Option`, which made *"this placement has not been migrated"* and *"this
+    /// placement names a character that is not registered"* indistinguishable —
+    /// so a spawn authored as `IronMary` whose registration was missing kept its
+    /// shark-rider archetype **silently**, which is the original bug wearing the
+    /// new architecture.
+    ///
+    /// ```text
+    /// Ok(None)     no character authored  → legacy archetype, migration pending
+    /// Ok(Some(d))  authored and prepared  → the character decides
+    /// Err(id)      authored, NOT prepared → a configuration fault
+    /// ```
     pub(crate) fn definition<'r>(
         &self,
         registry: &'r crate::character_runtime::PreparedCharacterRegistry,
-    ) -> Option<&'r crate::character_runtime::PreparedCharacterDefinition> {
-        registry.get(self.character?.as_str())
+    ) -> Result<Option<&'r crate::character_runtime::PreparedCharacterDefinition>, &'a CharacterId>
+    {
+        let Some(character) = self.character else {
+            return Ok(None);
+        };
+        registry.get(character.as_str()).map(Some).ok_or(character)
     }
 }
 
@@ -135,7 +153,7 @@ mod tests {
 
         let plan = CharacterSpawnPlan::new(None, context());
         assert!(
-            plan.definition(&registry).is_none(),
+            matches!(plan.definition(&registry), Ok(None)),
             "the context's feature_name is exactly this character's display \
              name, and it must not resolve one",
         );
@@ -143,8 +161,34 @@ mod tests {
         let named = CharacterId::new("npc_busy_beaver");
         let plan = CharacterSpawnPlan::new(Some(&named), context());
         assert!(
-            plan.definition(&registry).is_some(),
+            matches!(plan.definition(&registry), Ok(Some(_))),
             "and naming it does resolve, or the assertion above is vacuous",
+        );
+    }
+
+    /// **An authored character that is not prepared is a FAULT, not a
+    /// fallback.**
+    ///
+    /// The state this separates out: content says `IronMary`, her registration
+    /// is missing for any reason, and the body quietly keeps the archetype it
+    /// would have had — which is the exact defect this campaign exists to
+    /// remove, reproduced by the machinery meant to remove it. It has to be
+    /// distinguishable from an unmigrated placement, because only one of the
+    /// two is allowed to fall back.
+    ///
+    /// ⛔ poison: make `definition` return a plain `Option` again and this stops
+    /// compiling — which is the point. The distinction is in the type, so it
+    /// cannot be lost by a caller forgetting to check.
+    #[test]
+    fn an_authored_character_that_is_not_prepared_is_an_error() {
+        let registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        let named = CharacterId::new("iron_mary");
+        let plan = CharacterSpawnPlan::new(Some(&named), context());
+        assert_eq!(
+            plan.definition(&registry).err().map(CharacterId::as_str),
+            Some("iron_mary"),
+            "an empty registry must REPORT the missing character, not silently \
+             hand the body back to its archetype",
         );
     }
 }

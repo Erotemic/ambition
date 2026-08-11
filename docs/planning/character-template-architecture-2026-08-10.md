@@ -83,7 +83,7 @@ path works beside the old one.
 |---|---|---|
 | 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the TYPES ARE NAMED AND THE EXPRESSIVENESS HALF IS DONE.** ✔ `CharacterId` (entity_catalog, serde-transparent) · ✔ `BrainProfileRef` vs `BrainPresetId` (authored reference vs resolved key) · ✔ `CharacterDeathTraits` extracted below the runtime component · ✔ knockback weight and a default autonomous profile authorable and adopted. ▢ THE TYPE MOVE: `definition.rs` is down to ONE coupling (`build_actor_moveset`) and it is a design call, see "phase 1 progress" · ▢ `WornCharacter` → universal `CharacterIdentity`, blocked on the persona derive still resolving through the CATALOG |
 | 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ **mapped, and DELIBERATELY NOT STARTED** — appendix C reorders it after the constructor. `BUILDABLE_ONLY_CAST` is short-lived scaffolding, not architecture. Otherwise as mapped; the DOOR is open — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
-| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ◐ **`CharacterSpawnPlan` EXISTS and the authored enemy lowers through it** (`spawn/character_spawn_plan.rs`) — it owns the character question and the placement context; `plan.definition(registry)` is the ONE place construction asks which character a body is. ▢ `controller` and the profile override are NOT on it yet: no current caller has either, and they arrive with the NPC and match paths. ▢ the encounter/programmatic paths still pass an empty registry; ▢ `PreparedMatch` still builds through `CharacterRoster` and is the appendix-D proving ground. Earlier: **the authored enemy reads its character from the PLACEMENT** — `adopt_character_intrinsics`, guarded end-to-end by `mod authored_enemy_reads_its_character`. ⛔ appendix C: that method is a PROBE SEAM; the next step is `CharacterSpawnPlan` (appendix E), not more fields through it. ▢ the programmatic and encounter-mob paths still pass an empty registry; ▢ `PreparedMatch` still builds through `CharacterRoster` and is the appendix-D proving ground |
+| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ◐ **`CharacterSpawnPlan` EXISTS and DISTINGUISHES a missing registration from an unmigrated placement** (`Result<Option<..>, &CharacterId>`) — an authored character that is not prepared is a fault, warned today and a hard error once phase 4 makes the field required. Earlier: **it EXISTS and the authored enemy lowers through it** (`spawn/character_spawn_plan.rs`) — it owns the character question and the placement context; `plan.definition(registry)` is the ONE place construction asks which character a body is. ▢ `controller` and the profile override are NOT on it yet: no current caller has either, and they arrive with the NPC and match paths. ▢ the encounter/programmatic paths still pass an empty registry; ▢ `PreparedMatch` still builds through `CharacterRoster` and is the appendix-D proving ground. Earlier: **the authored enemy reads its character from the PLACEMENT** — `adopt_character_intrinsics`, guarded end-to-end by `mod authored_enemy_reads_its_character`. ⛔ appendix C: that method is a PROBE SEAM; the next step is `CharacterSpawnPlan` (appendix E), not more fields through it. ▢ the programmatic and encounter-mob paths still pass an empty registry; ▢ `PreparedMatch` still builds through `CharacterRoster` and is the appendix-D proving ground |
 | 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
 | 5 | Controller/provocation simplification; rollback becomes controller-only | ▢ |
 | 6 | Remove legacy runtime projections (`ActorTuning`, `CharacterBrainSpec`, `sprite_character_id`) | ▢ |
@@ -247,11 +247,17 @@ whether or not it explains the PCA.
   blanket rule cannot be made behaviour-neutral, only narrower."* ⇒ **removing
   the workaround is the LAST step of phase 2, not the first**, and it becomes
   free once the facts have moved.
-* ✔ **the default profile is TYPED** — `BrainPresetId`, not `String`, on the
-  definition, the overrides, the prepared definition and the resolver parameter.
-  ⚠ it is an AUTHORED LOCAL name wearing the id type, not an already-qualified
-  catalog key; the resolver qualifies it exactly as it qualifies an authored
-  placement override, and both docs say so.
+* ✔ **the default profile is TYPED, and the two STATES are different types** —
+  `CharacterDefinition` and `PreparedCharacterDefinition` carry a
+  `BrainProfileRef` (authored, provider-relative); `resolve_initial_brain`
+  qualifies it and returns a `BrainPresetId` (canonical key). ⛔ an earlier
+  version used `BrainPresetId` for both, which made the newtype distinguish
+  nothing.
+  ▢ **still wrong: WHEN it resolves.** Preparation leaves the ref unresolved, so
+  a prepared definition still needs `CharacterCatalog` at spawn to recover its
+  own provider namespace. The prepared value should be a `BrainPresetId`
+  resolved during preparation — a provider-defined character should not need a
+  parallel gameplay catalog row to interpret its own default profile.
 * ✔✔ **THE INVERSION IS FIXED ON THE AUTHORED-ENEMY PATH** — appendix C's
   sharpest point. `spawn_enemy_with_faction_into` asked
   `config.sprite_character_id`, which `presentation_identity` →

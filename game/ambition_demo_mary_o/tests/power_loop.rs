@@ -662,7 +662,13 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
     app.add_message::<ambition_platformer2d::actors::avatar::PlayerHealRequested>();
 
     // Mary-O's OWN Solid Snake archetype, registered exactly as the demo registers it.
+    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, so the
+    // fragment below carries none — it is registered only because the
+    // `CharacterRoster` resource must exist for the spawn path to ask, and the
+    // answer for an unmigrated key is still the fallback.
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
+    ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, (step_projectiles, apply_feature_hit_events).chain());
 
     // A player-faction firer to own the shot.
@@ -684,17 +690,28 @@ fn her_spark_damages_a_snake_through_the_shared_hit_pipeline() {
         let world = app.world_mut();
         let catalog = world.resource::<CharacterCatalog>().clone();
         let roster = world.resource::<CharacterRoster>().clone();
+        // The prepared cast this demo registers. Its two enemies are CHARACTERS
+        // now, so a mob that names one is built from it rather than from a
+        // roster row — the row is gone.
+        let world_prepared = world
+            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .cloned()
+            .unwrap_or_default();
         let mut commands = world.commands();
         spawn_encounter_mob(
             &mut commands,
             &catalog,
             &Default::default(),
             &roster,
+            &world_prepared,
             SessionSpawnScope::UNSCOPED,
             "mary_o_spark_range",
             EncounterMobSeed {
                 id: "snake_under_fire".into(),
-                character: None,
+                // Production names the character on the placement; a fixture
+                // that named none would exercise a spawn shape the game no
+                // longer has.
+                character: Some(ambition_demo_mary_o::snake::SNAKE_SHEET_TARGET),
                 brain: CharacterBrain::Custom("mary_o_snake".into()),
                 pos: SNAKE_POS,
                 size: ae::Vec2::new(28.0, 32.0),
@@ -815,7 +832,13 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<HitEvent>();
 
+    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, so the
+    // fragment below carries none — it is registered only because the
+    // `CharacterRoster` resource must exist for the spawn path to ask, and the
+    // answer for an unmigrated key is still the fallback.
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
+    ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
 
     // A falling player whose feet are on the snake's head.
@@ -835,17 +858,28 @@ fn a_stomp_shells_a_snake_alive_it_never_dies() {
         let world = app.world_mut();
         let catalog = world.resource::<CharacterCatalog>().clone();
         let roster = world.resource::<CharacterRoster>().clone();
+        // The prepared cast this demo registers. Its two enemies are CHARACTERS
+        // now, so a mob that names one is built from it rather than from a
+        // roster row — the row is gone.
+        let world_prepared = world
+            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .cloned()
+            .unwrap_or_default();
         let mut commands = world.commands();
         spawn_encounter_mob(
             &mut commands,
             &catalog,
             &Default::default(),
             &roster,
+            &world_prepared,
             SessionSpawnScope::UNSCOPED,
             "mary_o_stomp_range",
             EncounterMobSeed {
                 id: "stomped_snake".into(),
-                character: None,
+                // Production names the character on the placement; a fixture
+                // that named none would exercise a spawn shape the game no
+                // longer has.
+                character: Some(ambition_demo_mary_o::snake::SNAKE_SHEET_TARGET),
                 brain: CharacterBrain::Custom("mary_o_snake".into()),
                 pos: SNAKE_POS,
                 size: ae::Vec2::new(28.0, 32.0),
@@ -951,7 +985,13 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<HitEvent>();
 
+    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, so the
+    // fragment below carries none — it is registered only because the
+    // `CharacterRoster` resource must exist for the spawn path to ask, and the
+    // answer for an unmigrated key is still the fallback.
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
+    ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
 
     // The player overlaps the snake from the SIDE, at rest (vel.y == 0), so it is a
@@ -973,17 +1013,28 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         let world = app.world_mut();
         let catalog = world.resource::<CharacterCatalog>().clone();
         let roster = world.resource::<CharacterRoster>().clone();
+        // The prepared cast this demo registers. Its two enemies are CHARACTERS
+        // now, so a mob that names one is built from it rather than from a
+        // roster row — the row is gone.
+        let world_prepared = world
+            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .cloned()
+            .unwrap_or_default();
         let mut commands = world.commands();
         spawn_encounter_mob(
             &mut commands,
             &catalog,
             &Default::default(),
             &roster,
+            &world_prepared,
             SessionSpawnScope::UNSCOPED,
             "mary_o_shell_range",
             EncounterMobSeed {
                 id: "sliding_snake".into(),
-                character: None,
+                // Production names the character on the placement; a fixture
+                // that named none would exercise a spawn shape the game no
+                // longer has.
+                character: Some(ambition_demo_mary_o::snake::SNAKE_SHEET_TARGET),
                 brain: CharacterBrain::Custom("mary_o_snake".into()),
                 pos: SNAKE_POS,
                 size: ae::Vec2::new(28.0, 32.0),
@@ -1085,7 +1136,13 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
     app.add_message::<ambition_platformer2d::platformer::block_nudge::BlockStruck>();
     app.add_message::<HitEvent>();
 
+    // ⭐ the snake is a CHARACTER now: its roster ROW is deleted, so the
+    // fragment below carries none — it is registered only because the
+    // `CharacterRoster` resource must exist for the spawn path to ask, and the
+    // answer for an unmigrated key is still the fallback.
     ambition_demo_mary_o::snake::register_snake_roster(&mut app);
+    ambition_demo_mary_o::snake::register_solid_snake_character(&mut app);
+    ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
     app.add_systems(Update, run_snake_shells);
 
     // The player overlaps it from the side — the geometry that WOULD be a hit if
@@ -1104,17 +1161,28 @@ fn a_dead_snake_leaves_the_shell_machine_and_emits_no_hits() {
         let world = app.world_mut();
         let catalog = world.resource::<CharacterCatalog>().clone();
         let roster = world.resource::<CharacterRoster>().clone();
+        // The prepared cast this demo registers. Its two enemies are CHARACTERS
+        // now, so a mob that names one is built from it rather than from a
+        // roster row — the row is gone.
+        let world_prepared = world
+            .get_resource::<ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry>()
+            .cloned()
+            .unwrap_or_default();
         let mut commands = world.commands();
         spawn_encounter_mob(
             &mut commands,
             &catalog,
             &Default::default(),
             &roster,
+            &world_prepared,
             SessionSpawnScope::UNSCOPED,
             "mary_o_corpse_range",
             EncounterMobSeed {
                 id: "dead_snake".into(),
-                character: None,
+                // Production names the character on the placement; a fixture
+                // that named none would exercise a spawn shape the game no
+                // longer has.
+                character: Some(ambition_demo_mary_o::snake::SNAKE_SHEET_TARGET),
                 brain: CharacterBrain::Custom("mary_o_snake".into()),
                 pos: SNAKE_POS,
                 size: ae::Vec2::new(28.0, 32.0),

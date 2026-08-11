@@ -31,6 +31,7 @@ fn fireball_damages_enemy_on_intersect() {
                 &catalog,
                 &Default::default(),
                 &roster,
+                &crate::character_runtime::PreparedCharacterRegistry::default(),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "projectile_test",
                 crate::features::EncounterMobSeed {

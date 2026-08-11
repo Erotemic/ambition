@@ -82,21 +82,10 @@ pub struct AiSlop;
 /// The ROW is authored with no outer braces, so it can register on its own for a
 /// single-enemy test OR fold into the combined Mary-O roster fragment — one fragment
 /// per provider, since assembly rejects a second from the same provider.
-pub(crate) const AI_SLOP_ROSTER_ROWS: &str = r#"
-    "mary_o_ai_slop": (
-        max_health: 1,
-        run_speed: 42.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        contact_strength: 0.5,
-        damage_amount: 1,
-        brain_template: Wanderer,
-        move_style: Walk,
-        respawn: OnRoomReenter,
-    ),
-"#;
+/// ⭐ **DELETED 2026-08-11 (D73 group A).** AI Slop's roster row said its 1 HP,
+/// its 42px/s walk, its contact damage and its Wanderer policy; the CHARACTER
+/// says all four now, and its fourteen placements name it.
+pub(crate) const AI_SLOP_ROSTER_ROWS: &str = "";
 
 /// Register the demo's AI Slop roster fragment. Shares the Mary-O provider id so its
 /// brain key namespaces under this experience.

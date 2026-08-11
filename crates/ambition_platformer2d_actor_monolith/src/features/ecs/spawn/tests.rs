@@ -144,6 +144,7 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
                 &catalog,
                 &Default::default(),
                 &roster,
+                &crate::character_runtime::PreparedCharacterRegistry::default(),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
                 crate::features::EncounterMobSeed {
@@ -280,6 +281,7 @@ fn encounter_mob_spawns_with_brain_components() {
                 &catalog,
                 &Default::default(),
                 &roster,
+                &crate::character_runtime::PreparedCharacterRegistry::default(),
                 ambition_platformer2d_shared_tangle::lifecycle::SessionSpawnScope::UNSCOPED,
                 "test_encounter",
                 crate::features::EncounterMobSeed {

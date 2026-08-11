@@ -1321,10 +1321,25 @@ pub fn install_mary_o_content(app: &mut App) {
             );
         }
     }
-    // Mary-O's two enemies — Solid Snake (the shell) and AI Slop (the plain
-    // stomp-and-die walker) — are authored content, so install their archetypes and
-    // room stagers before direct or shell preparation fingerprints the App. Both
-    // archetypes share ONE roster fragment: assembly rejects a second fragment from
+    // **Mary-O's two enemies are CHARACTERS.** (D73 group A, 2026-08-11)
+    //
+    // ⭐ Solid Snake and AI Slop each state their own body — health, top speed,
+    // gait, contact damage and a wandering policy — and their twenty placements
+    // already name them by `character_id`. Their `mary_o_snake` and
+    // `mary_o_ai_slop` ROSTER ROWS are deleted in the same change, so the two
+    // authorities never describe one creature at once.
+    //
+    // ⚠ registered here rather than in the catalog fragment because a catalog
+    // ROW is not a registration: the row says what a character is, and this is
+    // what makes it buildable — which is exactly what an enemy placement needs
+    // now that it is built character-first.
+    {
+        snake::register_solid_snake_character(app);
+        snake::register_ai_slop_character(app);
+    }
+    // The REMAINING archetypes — the two plane snakes, which are Ambition
+    // characters this demo borrows — still install as roster rows, so their
+    // fragment stays. One fragment per provider: assembly rejects a second from
     // the same provider, so the per-enemy `register_*_roster` helpers (used by
     // single-enemy tests) are folded here.
     {

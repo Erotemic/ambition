@@ -2311,6 +2311,7 @@ fn an_encounter_wave_giant_is_refused_before_it_spawns() {
             &catalog,
             &Default::default(),
             &roster,
+            &crate::character_runtime::PreparedCharacterRegistry::default(),
             SessionSpawnScope::UNSCOPED,
             "enc",
             crate::features::EncounterMobSeed {

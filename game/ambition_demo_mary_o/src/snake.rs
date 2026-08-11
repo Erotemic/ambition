@@ -343,21 +343,12 @@ pub fn step_snake_shell(phase: SnakeShell, dt: f32, inputs: ShellInputs) -> Shel
 /// The Solid Snake archetype ROW (no outer braces), so it can register on its own
 /// for a single-enemy test OR fold into the combined Mary-O roster fragment — one
 /// fragment per provider, since assembly rejects a second from the same provider.
-pub(crate) const SNAKE_ROSTER_ROWS: &str = r#"
-    "mary_o_snake": (
-        max_health: 1,
-        run_speed: 46.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        contact_strength: 0.5,
-        damage_amount: 1,
-        brain_template: Wanderer,
-        move_style: Walk,
-        respawn: OnRoomReenter,
-    ),
-"#;
+/// ⭐ **DELETED 2026-08-11 (D73 group A).** Solid Snake's roster row said its
+/// health, top speed, contact damage and wandering policy; the CHARACTER says
+/// all four now (`install_mary_o_content`), and its six placements name it. The
+/// empty string keeps the combined fragment's shape while the two plane snakes
+/// still need one.
+pub(crate) const SNAKE_ROSTER_ROWS: &str = "";
 
 /// The `solid_snake` sheet TARGET (also the catalog id) — the generated sheet the
 /// enemy render resolves for a Solid Snake.
@@ -506,6 +497,60 @@ pub fn register_solid_snake_sheet(
             .characters
             .publish_under(SNAKE_DISPLAY_NAME, asset);
     }
+}
+
+/// **Register Solid Snake as a CHARACTER** — the body its deleted roster row
+/// used to describe.
+///
+/// ⭐ shared by `install_mary_o_content` and the stomp fixtures, so a test
+/// exercises the registration production uses. A fixture registering something
+/// else would be measuring itself.
+pub fn register_solid_snake_character(app: &mut App) {
+    register_mary_o_enemy_character(app, SNAKE_SHEET_TARGET, SNAKE_DISPLAY_NAME, 46.0);
+}
+
+/// **Register AI Slop as a CHARACTER.** Same shape, one creature over: a plain
+/// stomp-and-die walker whose only offense is the body it walks into you with.
+pub fn register_ai_slop_character(app: &mut App) {
+    register_mary_o_enemy_character(
+        app,
+        crate::ai_slop::AI_SLOP_SHEET_TARGET,
+        crate::ai_slop::AI_SLOP_DISPLAY_NAME,
+        42.0,
+    );
+}
+
+/// Both of Mary-O's enemies, which differ only in their art and their pace: one
+/// hit point, a forward walk that reverses at walls, contact damage as their
+/// whole offense, and a policy that notices nobody.
+fn register_mary_o_enemy_character(app: &mut App, id: &str, display: &str, run_speed: f32) {
+    use ambition_platformer2d::actors::character_runtime::{
+        CharacterDefinition, CharacterDefinitionAppExt,
+    };
+    use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
+    use ambition_platformer2d::characters::brain::{
+        BrainProfile, CharacterBrainTemplate, MoveStyleSpec,
+    };
+
+    let mut definition = CharacterDefinition::new(id, display, crate::provider::MARY_O_EXPERIENCE)
+        .with_sheet(id)
+        .with_locomotion(CharacterLocomotion {
+            run_speed,
+            move_style: MoveStyleSpec::Walk,
+            ..Default::default()
+        })
+        .with_contact_damage(ContactDamage {
+            strength: 0.5,
+            amount: 1,
+        })
+        .with_autonomous_profile(BrainProfile {
+            template: CharacterBrainTemplate::Wanderer,
+            aggro_radius: 0.0,
+            attack_range: 0.0,
+            ..Default::default()
+        });
+    definition.vitals.max_health = Some(1);
+    app.register_character(definition);
 }
 
 /// Register the demo's hostile roster fragment. Shares the Mary-O provider id so

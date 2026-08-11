@@ -1829,6 +1829,9 @@ pub(super) fn spawn_encounter_mob(
     catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
+    // **The prepared cast**, so a wave that names a migrated character builds
+    // that character rather than an archetype wearing its face (campaign P1.12).
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
     mob: EncounterMobSeed<'_>,
@@ -1866,22 +1869,51 @@ pub(super) fn spawn_encounter_mob(
             }
         },
     );
-    let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
-        authored_sheets,
-        catalog,
-        roster,
-        // The instance identity. ⛔ NOT the character: two goblins in one wave
-        // are two bodies, and every id-keyed index in the actor runtime — the
-        // encounter's own `FeatureId` liveness lookup included — would collapse
-        // them into one. The same rule a mirror match's `#seat<n>` obeys.
-        id.clone(),
-        label.clone(),
-        // The ART identity, id-first: it survives a display-name rename.
-        character,
-        aabb,
-        brain,
-        &[],
-    );
+    // ⭐ **CHARACTER-FIRST when the wave names a character that can carry a
+    // body** — the third road onto the common constructor, after the match seat
+    // and the authored enemy. A wave that names an unmigrated character (or
+    // none) still builds from its archetype, visibly.
+    let definition = character
+        .and_then(|character_id| prepared.get(character_id))
+        .filter(|definition| definition.is_complete_body());
+    let mut enemy = match definition {
+        Some(definition) => {
+            let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
+                authored_sheets,
+                catalog,
+                // The instance identity. ⛔ NOT the character: two goblins in one
+                // wave are two bodies, and every id-keyed index in the actor
+                // runtime — the encounter's own `FeatureId` liveness lookup
+                // included — would collapse them into one.
+                id.clone(),
+                definition.id.as_str(),
+                label.clone(),
+                aabb,
+                definition.vitals.max_health.unwrap_or(1),
+                definition.autonomous_profile.unwrap_or_default(),
+                brain,
+                definition.locomotion,
+                definition.contact_damage,
+                definition.dream_seed,
+            );
+            enemy.caps = crate::combat::CombatCapabilities::from(
+                &definition.death_traits.clone().unwrap_or_default(),
+            );
+            enemy
+        }
+        None => super::actor_clusters::ActorClusterSeed::new_in(
+            authored_sheets,
+            catalog,
+            roster,
+            id.clone(),
+            label.clone(),
+            // The ART identity, id-first: it survives a display-name rename.
+            character,
+            aabb,
+            brain,
+            &[],
+        ),
+    };
     if reject_runtime_giant(&enemy.spec, "encounter wave", &id) {
         return;
     }
@@ -1897,6 +1929,15 @@ pub(super) fn spawn_encounter_mob(
         enemy,
     )
     .spawn(commands, session_scope);
+    // A migrated mob WEARS its character, so its kit arrives through the one
+    // persona writer rather than from an archetype's melee row.
+    if let Some(definition) = definition {
+        commands
+            .entity(entity)
+            .insert(ambition_characters::actor::WornCharacter::new(
+                definition.id.as_str(),
+            ));
+    }
     commands
         .entity(entity)
         .insert(EncounterMob::new(encounter_id));

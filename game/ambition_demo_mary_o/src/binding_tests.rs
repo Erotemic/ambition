@@ -78,15 +78,84 @@ fn mary_o_world_item_art() -> WorldItemArtManifest {
 /// migration made that sentence false and nobody came back for it, so the one
 /// place that would have noticed every enemy losing its art was excused from
 /// looking. See [`every_authored_enemy_is_named_something_that_has_a_sheet`].
+/// **THE TWO ENEMIES AUTHOR THE BODIES THEIR ROSTER ROWS USED TO.**
+///
+/// Solid Snake and AI Slop are characters (D73 group A): 1 HP each, a slow
+/// forward walk, contact damage that is their only offense, and a Wanderer
+/// policy that notices nobody. Their `mary_o_snake` / `mary_o_ai_slop` rows are
+/// deleted, so this is where those facts are pinned.
+///
+/// ⛔ pinned HERE rather than left in the roster sweep next door, because
+/// `spec_for_brain` answers a deleted key with the `combatant` fallback — six
+/// assertions about a row that no longer exists would have gone on passing about
+/// the wrong creature.
+#[test]
+fn the_two_enemies_author_the_bodies_their_roster_rows_used_to() {
+    use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+    use ambition_platformer2d::characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
+
+    let mut app = bevy::prelude::App::new();
+    crate::install_mary_o_content(&mut app);
+    ambition_platformer2d::platformer::app_finalization::finalize(&mut app);
+    let registry = app
+        .world()
+        .get_resource::<PreparedCharacterRegistry>()
+        .expect("installing this demo's content registers its characters");
+
+    for (id, run_speed) in [
+        (crate::snake::SNAKE_SHEET_TARGET, 46.0),
+        (crate::ai_slop::AI_SLOP_SHEET_TARGET, 42.0),
+    ] {
+        let definition = registry
+            .get(id)
+            .unwrap_or_else(|| panic!("`{id}` is not registered, so nothing can build one"));
+        assert_eq!(definition.vitals.max_health, Some(1), "{id}");
+        let locomotion = definition.locomotion.unwrap_or_else(|| {
+            panic!(
+                "`{id}` states no locomotion, so it cannot be built \
+                                      character-first and its deleted row is a regression"
+            )
+        });
+        assert_eq!(locomotion.run_speed, run_speed, "{id}");
+        assert!(matches!(locomotion.move_style, MoveStyleSpec::Walk), "{id}");
+        assert!(
+            definition.contact_damage.is_some(),
+            "`{id}` stopped hurting on touch, which is its ONLY offense"
+        );
+        let profile = definition
+            .autonomous_profile
+            .unwrap_or_else(|| panic!("`{id}` states no policy"));
+        assert_eq!(profile.template, CharacterBrainTemplate::Wanderer, "{id}");
+    }
+}
+
 #[test]
 fn mary_o_binds_every_ref_it_declares() {
     let roster = mary_o_roster();
     let bindings = RoomBindings::default().with_characters(roster.brain_keys());
 
-    let staged = bindings.sweep_characters([
-        (SNAKE_BRAIN_KEY, "mary_o snake content staging"),
-        (AI_SLOP_BRAIN_KEY, "mary_o ai_slop content staging"),
-    ]);
+    // ⭐ **THE TWO ENEMY KEYS LEFT THIS SWEEP ON 2026-08-11, and the reason is
+    // that the question changed.** `mary_o_snake` and `mary_o_ai_slop` had to
+    // resolve against the roster because the roster was where a snake's body
+    // came from — health, speed, contact damage — and `spec_for_brain` answers
+    // an unknown key with the generic `combatant` fallback, so a misspelling
+    // shipped a correctly-named enemy with the wrong body.
+    //
+    // Both are CHARACTERS now: they author their own bodies, their twenty
+    // placements name them by `character_id`, and their roster rows are deleted.
+    // The keys still travel on the placements, but as TAGS — `is_snake_brain`
+    // selects the shell behaviour — and a tag that matches nothing simply does
+    // not tag, which is visible rather than silently wrong.
+    //
+    // ⇒ the body question is asked by
+    // [`the_two_enemies_author_the_bodies_their_roster_rows_used_to`] instead,
+    // beside the definitions that answer it.
+    let staged = bindings.sweep_characters(roster.brain_keys().iter().map(|key| {
+        (
+            key.as_str(),
+            "mary_o roster row staged by this demo".to_string(),
+        )
+    }));
     assert!(
         staged.is_empty(),
         "every staged brain key resolves against the registered roster:\n{staged}"

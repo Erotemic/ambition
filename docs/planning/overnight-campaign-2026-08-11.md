@@ -16,6 +16,32 @@ that file's 23-item checklist as the ordering authority.
 > CHECKLIST" and "Phase 1 progress"), which is where the per-item measurements
 > are; use that file as the survey and this file as the order.
 
+## ⇥ RESUME HERE (agent, keep current)
+
+Seven slices have landed since arming; the table below carries the detail. What
+a resuming session needs, shortest form:
+
+* **The architecture frontier is P1.** The three authorities now all EXIST as
+  types — `CharacterDefinition` (+`abilities`, +`authored_moveset`),
+  `BrainProfile`, `SpawnContext` — and the missing piece is the COMMON
+  CONSTRUCTOR: `ActorClusterSeed::new_in` still builds every body from
+  `roster.spec_for_brain(&brain)`, so the archetype is the source of health,
+  tuning, capabilities, movement kit and aerial-ness on every path.
+  ⇒ **the next architectural slice is a character-first constructor**, and
+  `PreparedMatch` is the caller to prove it on (Jon: do it EARLY).
+* **What still blocks P0.1's hard error**, measured: 28 authored enemy
+  placements name a `character_id` that is not a registered character —
+  `ai_slop`, `solid_snake`, both snakes (Mary-O) and `sanic_badnik` (Sanic).
+  Migrating those five into registered characters is what lets the caller refuse
+  instead of warn.
+* **What still blocks a character authoring its controller policy**: nothing in
+  the tree registers a `BrainProfile` yet. The archetype PROJECTS one; a
+  character can only name a catalog `brain_presets` key. Group B is exactly this.
+* ⚠ **the deletion ledger has not moved yet.** `character_archetypes.ron` is 843
+  lines and `ArchetypeSpec` is 319; nothing has been removed since the mites.
+  Every slice so far has been the replacement half. That is the honest state and
+  it is the thing to fix next.
+
 ## Campaign progress (live — update as slices land)
 
 | P | Item | State |

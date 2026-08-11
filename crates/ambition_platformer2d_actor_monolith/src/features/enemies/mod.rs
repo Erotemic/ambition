@@ -137,7 +137,6 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "pirate_shark_rider",
     "pirate_heavy",
     "pirate_heavy_shark_rider",
-    "puppy_slug",
     "ranged_skirmisher",
 ];
 

@@ -764,30 +764,6 @@
     // `chase_effort` is unused but kept non-zero so a future "panic on
     // hit" mode reads sensibly. Collider hugs the dorsal-ridge
     // silhouette of the 128×95 sprite (body bbox ~120×31).
-    "puppy_slug": (
-        respawn: OnRoomReenter,
-        // Ambient wildlife: never aggros, but its body still hurts on touch.
-        attacks_player: false,
-        // Deep-dream visual jitter seed (slug-only psychedelic pass).
-        dream_seed: Some(0.271828),
-        // Crawlid-style wall/ceiling crawler: hugs the surface normal and
-        // probes ledges so it never walks off a platform.
-        surface_walker: true,
-        // Knocked off its surface when hit: loses cling and falls with
-        // gravity for a moment, then re-attaches on landing.
-        cling_breaks_on_hit: true,
-        max_health: 2,
-        run_speed: 80.0,
-        patrol_effort: 0.6875,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        contact_strength: 0.55,
-        damage_amount: 1,
-        default_size: Some((48.0, 22.0)),
-        brain_template: Wanderer,
-        move_style: Slither,
-    ),
     // AI Slop: the plain stomp-and-die walker (similar to a Goomba). A 1-HP
     // Wanderer that paces the flats and reverses at walls; no melee, so its only
     // offense is the default-on body contact. This is the SAME character the Hall

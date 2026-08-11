@@ -311,12 +311,10 @@ fn encounter_mob_spawns_with_brain_components() {
 /// PuppySlug and the training dummy rely on.
 #[test]
 fn enemy_default_brain_picks_per_archetype_template() {
-    let slug = make_enemy("puppy_slug");
-    assert!(matches!(
-        enemy_default_brain(&slug),
-        Brain::StateMachine(StateMachineCfg::Wanderer { .. })
-    ));
-
+    // ⚠ the puppy slug used to be the Wanderer half of this pair. Its archetype
+    // row is deleted (2026-08-11) — it authors a `Wanderer` BrainProfile on its
+    // character now — so asking `make_enemy("puppy_slug")` would silently build
+    // the `combatant` fallback and assert about that.
     let sandbag = make_enemy("sandbag_infinite");
     assert!(matches!(
         enemy_default_brain(&sandbag),
@@ -419,10 +417,8 @@ fn enemy_default_action_set_covers_every_combat_archetype() {
 /// distinct hitboxes / projectiles per archetype.
 #[test]
 fn enemy_default_action_set_picks_per_archetype_specs() {
-    let set = enemy_default_action_set(&crate::features::enemies::test_spec("puppy_slug"));
-    assert!(set.melee.is_none(), "peaceful PuppySlug has no melee");
-    assert!(matches!(set.move_style, MoveStyleSpec::Slither));
-
+    // ⚠ the puppy slug's row is deleted; its `Slither` gait and empty melee are
+    // authored on its character and pinned beside the definition.
     let set = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_heavy"));
     assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
     assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));

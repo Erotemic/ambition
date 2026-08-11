@@ -283,6 +283,15 @@ pub struct EnemySpawnSpec {
     /// archetype's policy. Every existing level is that.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub respawn: Option<ambition_entity_catalog::placements::RespawnPolicy>,
+    /// **How this body feels about the player when it spawns.**
+    ///
+    /// ⭐ the last spawn-context fact an enemy ARCHETYPE owned: a row could say
+    /// `attacks_player: false`, which made "ambient wildlife that never aggros"
+    /// a property of the creature rather than of this placement of it.
+    ///
+    /// `None` = the archetype's answer, which is every level authored so far.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disposition: Option<ambition_entity_catalog::placements::SpawnDisposition>,
 }
 
 impl EnemySpawnSpec {
@@ -291,6 +300,7 @@ impl EnemySpawnSpec {
             brain,
             character_id: None,
             respawn: None,
+            disposition: None,
         }
     }
 
@@ -328,6 +338,16 @@ impl EnemySpawnSpec {
         character_id: impl Into<ambition_entity_catalog::CharacterId>,
     ) -> Self {
         self.character_id = Some(character_id.into());
+        self
+    }
+
+    /// Author how this placement's body feels about the player. See
+    /// [`Self::disposition`].
+    pub fn with_disposition(
+        mut self,
+        disposition: ambition_entity_catalog::placements::SpawnDisposition,
+    ) -> Self {
+        self.disposition = Some(disposition);
         self
     }
 

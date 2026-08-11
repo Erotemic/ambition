@@ -480,6 +480,33 @@ impl PlacementSchema {
 /// respawn horizon implies; `OnRoomReenter` writes nothing. The
 /// room-load `save_sync` reads the flags back into `alive = false`. A
 /// "rest" event clears just the `_dead_until_rest` flags.
+/// **How this placement's body FEELS about the player** — the disposition it
+/// spawns with.
+///
+/// ⭐ **a spawn-context fact, and the last one an enemy archetype owned.** A row
+/// could say `attacks_player: false` — the puppy slug is ambient wildlife that
+/// never aggros — which made peacefulness a property of the CREATURE. It is not:
+/// the same goblin is a hostile in a corridor and a bystander in a market, and
+/// under the character-template model the creature is one definition either way.
+///
+/// `None` on a placement means "the archetype's answer", which is every level
+/// authored before this existed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SpawnDisposition {
+    /// Tracks the player and publishes contact damage. The ordinary enemy.
+    #[default]
+    Hostile,
+    /// Dormant until something provokes it: ambient wildlife, a peaceful crew.
+    Peaceful,
+}
+
+impl SpawnDisposition {
+    /// Whether a body with this disposition attacks on sight.
+    pub fn attacks_player(self) -> bool {
+        matches!(self, Self::Hostile)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub enum RespawnPolicy {
     /// Dead stays dead — forever (an explicit save reset is the only

@@ -1318,6 +1318,12 @@ pub(crate) fn spawn_enemy_with_faction_into(
         // this file to a migrated enemy; a placement that authors its own cuts
         // it.
         enemy.config.tuning.respawn = authored.payload.respawn.unwrap_or(spec.respawn);
+        enemy.config.tuning.attacks_player = authored
+            .payload
+            .disposition
+            .map_or(spec.attacks_player, |disposition| {
+                disposition.attacks_player()
+            });
         // What this body DOES when it dies, and what it may do — both the
         // character's, both already resolved on the definition.
         enemy.caps = crate::combat::CombatCapabilities::from(
@@ -1381,6 +1387,11 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // everybody else.
     if let Some(respawn) = authored.payload.respawn {
         enemy.config.tuning.respawn = respawn;
+    }
+    // Same rule, same reason: an authored disposition is the placement's, on
+    // both roads.
+    if let Some(disposition) = authored.payload.disposition {
+        enemy.config.tuning.attacks_player = disposition.attacks_player();
     }
     spawn_solo_enemy_into(
         commands,

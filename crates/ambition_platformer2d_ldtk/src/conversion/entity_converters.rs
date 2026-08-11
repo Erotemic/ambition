@@ -639,6 +639,26 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             None => {}
         }
     }
+    // **HOSTILE OR NOT**, authored here rather than inherited from a creature.
+    if let Some(disposition) = field_string(entity, "disposition") {
+        match disposition.trim() {
+            "" => {}
+            "Hostile" => {
+                payload.disposition =
+                    Some(ambition_entity_catalog::placements::SpawnDisposition::Hostile)
+            }
+            "Peaceful" => {
+                payload.disposition =
+                    Some(ambition_entity_catalog::placements::SpawnDisposition::Peaceful)
+            }
+            other => {
+                return Err(format!(
+                    "EnemySpawn `{name}` authors disposition `{other}`, which is \
+                     not one of Hostile / Peaceful"
+                ))
+            }
+        }
+    }
     let mut emission = RoomEmission::enemy_spawn(
         ambition_platformer2d_world::rooms::Authored::new(id.clone(), name, aabb, payload),
     );

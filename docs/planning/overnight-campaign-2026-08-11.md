@@ -61,30 +61,9 @@ a resuming session needs, shortest form:
   archetype projection. Either a definition may hold an inline `BrainProfile`,
   or a registry maps a `BrainProfileRef` to one. Then the mites' rows go, and
   they are the first two lines the ledger has lost.
-* ⇥⇥ **THE NEXT CONTENT STEP, measured: the PUPPY SLUG, and what it needs.**
-  Ten enemy placements in `sandbox.ldtk`. Its definition can now state
-  everything its row does — 2 HP, 80px/s, Slither, surface-walking with cling
-  that breaks on hit, 0.55/1 contact, `dream_seed: Some(0.271828)` (the field
-  landed for exactly this), a `Wanderer` profile with zero aggro — with ONE
-  exception:
-  ```text
-  attacks_player: false     ambient wildlife that never aggros
-  ```
-  That is DISPOSITION, a spawn-context fact, and an `EnemySpawn` cannot author
-  one. Its respawn needs no authoring (`OnRoomReenter` is what the `combatant`
-  fallback says, as it was for the mites), and `character_id` already has an
-  LDtk field def — so the content step is:
-  1. add a `disposition` field DEF to the `EnemySpawn` entity in `sandbox.ldtk`
-     (⛔ surgical text edit, never `json.dumps`; count `EntityRef`s before and
-     after — the editor nulls them world-wide),
-  2. author `character_id: npc_puppy_slug` + `disposition: Peaceful` on the ten
-     placements,
-  3. author the definition, register it in `BUILDABLE_ONLY_CAST`, delete the row.
-  ⚠ a migrated slug that loses `attacks_player: false` becomes ambient wildlife
-  that CHASES, which is the visible regression to avoid.
-* ⭐ **THE LEDGER HAS MOVED: `character_archetypes.ron` is 799 lines, down from
-  843.** The exploding mite and the dividing mite have no archetype row at all —
-  the first rows this campaign has deleted. Both are built character-first: the
+* ⭐ **THE LEDGER: `character_archetypes.ron` is 787 lines, down from 843.**
+  Three creatures have no archetype row at all — the exploding mite, the
+  dividing mite and the puppy slug. Both are built character-first: the
   enemy road asks `is_complete_body()` and, when a character can carry a body,
   constructs from it and lets the body WEAR itself so its kit arrives through
   the one persona writer. ⭐ and `respawn` is now a PLACEMENT
@@ -110,8 +89,8 @@ a resuming session needs, shortest form:
 | P1.10 | Route NPC through the same body constructor | ▢ |
 | P1.11 | Route PreparedMatch through it immediately after | ✔ **A SEAT'S BODY IS BUILT FROM ITS CHARACTER.** `ActorClusterSeed::new_fighter_in` takes no roster: size and art from the character's sprite, health and weight from its definition, aerial-ness from its catalog body kind, abilities from the ruleset mask, and the CPU's `BrainProfile` handed in as a VALUE (`CharacterRoster::brain_profile_for`) rather than resolved by building a creature. Every fighter on the grid used to be physically a `combatant` wearing a character |
 | P1.12 | Route encounter, summon, programmatic paths | ▢ |
-| P2.13 | Migrate clean Group-A character/archetype cases | ◐ **the two mites are FULLY migrated and their rows are gone** — health, run speed, gait, contact damage, the swipe, the death blast and the Smash policy are all on their definitions, split across the three authorities. ▢ the remaining seven Group-A characters (puppy_slug 10 spawns, burning_flying_shark 7, pirate_shark_rider 6, sky_parrot 2, giant_gnu 1, Iron Mary 1, ai_slop 1) |
-| P2.14 | Delete each migrated legacy row as it becomes unnecessary | ◐ **44 lines out of `character_archetypes.ron`** (843 → 799) the moment the mites could carry their own bodies. The rule held: the deletion landed in the same change as the migration |
+| P2.13 | Migrate clean Group-A character/archetype cases | ◐ **three migrated: both mites and the PUPPY SLUG** (its ten placements across `sandbox.ldtk` and `intro.ldtk` now author `character_id` + `disposition: Peaceful`, and its six archetype pins MOVED to a test beside the definition rather than being deleted) — health, run speed, gait, contact damage, the swipe, the death blast and the Smash policy are all on their definitions, split across the three authorities. ▢ the remaining seven Group-A characters (puppy_slug 10 spawns, burning_flying_shark 7, pirate_shark_rider 6, sky_parrot 2, giant_gnu 1, Iron Mary 1, ai_slop 1) |
+| P2.14 | Delete each migrated legacy row as it becomes unnecessary | ◐ **56 lines out of `character_archetypes.ron`** (843 → 787), and a guard asserts the three migrated creatures have no row left — with a control so it cannot pass on an empty file the moment the mites could carry their own bodies. The rule held: the deletion landed in the same change as the migration |
 | P2.15 | Extract Group-B shared AI behavior into real BrainProfiles | ◐ **the TYPE exists** — `ambition_characters::brain::BrainProfile`, authorable, `deny_unknown_fields`, replacing `CharacterBrainSpec` outright and taking `aggro_radius`/`attack_range`/`turns_at_walls` off `ActorTuning`. ▢ the archetype still PROJECTS one; no character names a profile yet, which is what Group B needs |
 | P2.16 | Classify Group-C generic roles | ▢ |
 | P2.17 | Migrate provider roster fragments | ▢ |

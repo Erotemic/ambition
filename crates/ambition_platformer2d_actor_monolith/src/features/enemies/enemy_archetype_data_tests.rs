@@ -122,13 +122,18 @@ fn legacy_baseline_pins() {
         "Combatant melee should be Swipe; got {:?}",
         combatant.melee
     );
-    let slug = test_spec("puppy_slug");
-    assert_eq!(slug.max_health, 2);
-    assert!((slug.tuning().patrol_speed - 55.0).abs() < f32::EPSILON);
-    assert_eq!(slug.aggro_radius, 0.0);
-    assert_eq!(slug.brain_template, CharacterBrainTemplate::Wanderer);
-    assert!(slug.melee.is_none());
-    assert!(slug.ranged.is_none());
+    // ⭐ **THE PUPPY SLUG'S PINS LEFT THIS TEST ON 2026-08-11, and where they
+    // went is the point.** It had six assertions here — 2 HP, 55px/s patrol,
+    // zero aggro, Wanderer, no melee, no ranged — every one of them read off an
+    // ARCHETYPE row. That row is deleted: the slug authors all six on its
+    // character definition (`ambition_content::character_catalog`), and its ten
+    // placements author the disposition that made it ambient wildlife.
+    //
+    // ⛔ they were not dropped, they MOVED: `ambition_content` pins them beside
+    // the definition that states them. Leaving them here would have been worse
+    // than deleting them — `test_spec` answers an unknown key with `combatant`,
+    // so these six assertions would have gone on passing about the wrong
+    // creature until one of the numbers happened to differ.
 }
 
 /// The two gun-sword archetypes reference their weapon by id in the

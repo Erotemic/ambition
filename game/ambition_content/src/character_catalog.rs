@@ -194,13 +194,18 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
 /// second; that ordering is the whole reason this list is empty rather than
 /// pre-filled with the obvious candidates.
 pub const BUILDABLE_ONLY_CAST: &[&str] = &[
-    // ⭐ **the first two characters migrated off `character_archetypes.ron`**
-    // (D73 phase 2, group A). Their death traits and health pools are authored
-    // on their DEFINITIONS by [`authored_intrinsics`] and deleted from their
-    // archetype rows in the same change, so the two authorities never state the
-    // same fact at once. Their sandbox placements name them explicitly.
+    // ⭐ **the characters migrated off `character_archetypes.ron`** (D73 phase
+    // 2, group A). Every fact their rows held is authored on their DEFINITIONS
+    // by [`authored_intrinsics`] and the rows are DELETED in the same change, so
+    // the two authorities never state one fact at once. Their placements name
+    // them explicitly.
     "npc_exploding_mite",
     "npc_dividing_mite",
+    // ⚠ the puppy slug is the first migrated character that is NOT hostile: its
+    // ten placements author `disposition: Peaceful`, because ambient wildlife
+    // that never aggros is a fact about that placement of the creature and not
+    // about the creature.
+    "npc_puppy_slug",
 ];
 
 /// **What a migrated character authors about its own body.**
@@ -312,6 +317,44 @@ pub fn authored_intrinsics(
             definition.vitals.max_health = Some(4);
             definition
         }
+        // **Ambient wildlife: a wall-and-ceiling crawler that hurts on touch.**
+        //
+        // The row this replaces carried a `default_size` of 48x22 and it is
+        // deliberately NOT here: a named catalog character sizes its body to its
+        // authored SPRITE, which is the same resolution a peaceful NPC of this
+        // character already gets — one silhouette per creature, whichever road
+        // spawns it.
+        "npc_puppy_slug" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 80.0,
+                    move_style: MoveStyleSpec::Slither,
+                    // Crawlid-style: hugs the surface normal and probes ledges
+                    // so it never walks off a platform.
+                    surface_walker: true,
+                    // Knocked off its surface when hit — falls with gravity for
+                    // a moment, then re-attaches on landing.
+                    cling_breaks_on_hit: true,
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.55,
+                    amount: 1,
+                })
+                // The slug-only psychedelic pass, and the reason `dream_seed`
+                // became a character fact.
+                .with_dream_seed(0.271828)
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::Wanderer,
+                    // Wildlife: it notices nobody and commits to nothing. The
+                    // Wanderer template ignores both, and authoring them as zero
+                    // says so rather than leaving a reader to guess.
+                    aggro_radius: 0.0,
+                    attack_range: 0.0,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(2);
+            definition
+        }
         _ => definition,
     }
 }
@@ -340,6 +383,81 @@ pub fn next_playable(current: &str) -> &'static str {
 mod tests {
     use super::*;
     use ambition_platformer2d_actor_monolith::avatar::StartingCharacter;
+
+    /// **THE PUPPY SLUG'S PINS, beside the definition that states them.**
+    ///
+    /// ⭐ these six assertions used to live in the actor crate, reading a
+    /// `character_archetypes.ron` row. That row is deleted: the slug states its
+    /// own health, gait, top speed, surface cling, contact damage and wandering
+    /// policy, and its placements state the disposition that made it ambient
+    /// wildlife. Moving the pins rather than deleting them is what keeps the
+    /// migration honest — the facts did not stop mattering, they changed owner.
+    ///
+    /// ⛔ and leaving them where they were would have been worse than losing
+    /// them: `test_spec` answers an unknown key with the `combatant` fallback,
+    /// so six assertions about a deleted row would have gone on passing about
+    /// the wrong creature.
+    #[test]
+    fn the_puppy_slug_authors_the_body_its_archetype_row_used_to() {
+        use ambition_characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
+
+        let definition = authored_intrinsics(
+            "npc_puppy_slug",
+            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                "npc_puppy_slug",
+                "Puppy Slug",
+                crate::AMBITION_CONTENT_PROVIDER,
+            ),
+        );
+        assert_eq!(definition.vitals.max_health, Some(2));
+
+        let locomotion = definition
+            .locomotion
+            .expect("the slug states how it moves, or it cannot be built as a character");
+        assert_eq!(locomotion.run_speed, 80.0);
+        assert!(matches!(locomotion.move_style, MoveStyleSpec::Slither));
+        assert!(locomotion.surface_walker, "a crawlid that walks off walls");
+        assert!(locomotion.cling_breaks_on_hit);
+
+        let contact = definition
+            .contact_damage
+            .expect("its body hurts on touch — the only way it damages anything");
+        assert_eq!(contact.amount, 1);
+
+        let profile = definition
+            .autonomous_profile
+            .expect("ambient wildlife still has a policy: it wanders");
+        assert_eq!(profile.template, CharacterBrainTemplate::Wanderer);
+        assert_eq!(profile.aggro_radius, 0.0, "it notices nobody");
+
+        assert_eq!(
+            definition.dream_seed,
+            Some(0.271828),
+            "the slug-only psychedelic pass, which only an archetype row could \
+             grant until this field existed"
+        );
+    }
+
+    /// **A migrated character has no archetype row left.**
+    ///
+    /// ⛔ the acceptance signal for this campaign is a DELETION, and a test that
+    /// only checked the new authority would pass just as well with both
+    /// standing. This is the other half: the file must not still describe a
+    /// creature its character now describes.
+    #[test]
+    fn the_migrated_characters_rows_are_gone_from_the_archetype_file() {
+        let rows = include_str!("../assets/data/character_archetypes.ron");
+        for key in ["exploding_mite", "dividing_mite", "puppy_slug"] {
+            assert!(
+                !rows.contains(&format!("\"{key}\": (")),
+                "`{key}` still has a row in character_archetypes.ron, so two \
+                 authorities describe one creature"
+            );
+        }
+        // ⚠ the control: a creature that has NOT migrated must still be there,
+        // or this test would pass on an empty file.
+        assert!(rows.contains("\"combatant\": ("));
+    }
 
     /// **The runtime's cast comes OUT of the compiler.**
     ///

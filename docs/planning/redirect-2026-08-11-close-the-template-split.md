@@ -662,7 +662,7 @@ The branch is on the right trajectory. The important redirect is to close the re
 | P1 | Provoked policy is a rollback-authoritative BrainProfile source | ✔ — `AutonomousSource::ProvokedProfile`, by canonical id, codec tag 4; the mind is rebuilt, never a body archetype |
 | P2 | Delete the fake `ArchetypeSpec` from character-first seeds | ✔ — 54 fabricated lines gone; `seed.spec` is `Option`, and its five readers each say what they do without one |
 | P3 | Rename the old `BrainProfileRef` → `BrainPresetRef` | ✔ — and a THIRD collision surfaced: a facet marker already held that name, now `BrainPresetRefFacet` |
-| P4 | `PreparedMatch` off `CharacterRoster` | ▢ |
+| P4 | `PreparedMatch` off `CharacterRoster` | ▢ — the registry is asked FIRST and Smash's `duelist` is published; the roster arm remains for archetype-only keys and is what shrinks |
 | P5 | Robot v3 off `HostCode`; repertoire authored, progression gates | ▢ |
 | P6 | Shrink `smash_fighter_kit()` / `fighter_abilities` fallback to zero | ▢ |
 | P7 | Explicit `character_id` stops falling back to an archetype | ▢ |

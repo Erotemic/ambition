@@ -1707,6 +1707,54 @@ fn the_matchs_declared_abilities_reach_every_seat() {
     }
 }
 
+/// **A CPU SEAT RESOLVES A PUBLISHED POLICY BEFORE AN ARCHETYPE KEY.**
+///
+/// ⭐ **the direction Jon's second redirect (P4) asks for.** A match's public API
+/// is *character + controller + team*, and the controller half was resolved
+/// through `CharacterRoster` — an enemy ARCHETYPE table — so a seat asking for a
+/// policy received one by way of a body definition, and Smash was not yet
+/// proving the controller architecture it advertises.
+///
+/// Two terms: a published policy WINS over an archetype key of the same name,
+/// and an archetype-only key still resolves. The first alone would pass if the
+/// registry were simply consulted; the second is what says the legacy road is
+/// still open while presets are migrated.
+#[test]
+fn a_cpu_seat_prefers_a_published_policy_over_an_archetype_of_the_same_name() {
+    use ambition_characters::actor::character_catalog::{BrainProfileRegistry, CharacterCatalog};
+
+    const CATALOG: &str = r#"(
+        autonomous_profiles: {
+            "medium_striker": (
+                template: StandStill,
+                aggro_radius: 1.0,
+                attack_range: 2.0,
+            ),
+        },
+        brain_presets: {},
+        action_set_presets: {},
+        characters: {},
+    )"#;
+    let profiles = BrainProfileRegistry::from_catalog_for_test(&CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
+    ));
+    let archetypes = crate::features::enemies::fixture_roster_with_mount();
+
+    let published = super::seat_brain_profile("medium_striker", Some(&profiles), &archetypes)
+        .expect("a published policy of that name resolves");
+    assert_eq!(
+        published.aggro_radius, 1.0,
+        "the ARCHETYPE table answered a question a published controller policy \
+         had already answered: {published:?}"
+    );
+
+    // ⚠ and the legacy road is still open, which is what makes the preference
+    // above a preference rather than a replacement.
+    let archetype_only = super::seat_brain_profile("combatant", Some(&profiles), &archetypes)
+        .expect("an archetype-only key still resolves while presets are migrating");
+    assert_ne!(archetype_only.aggro_radius, 1.0);
+}
+
 /// **A MATCH CANNOT HAND A BODY A VERB IT DOES NOT HAVE.**
 ///
 /// ⭐ Jon's compositional acceptance test, in miniature: *"Forcing Puppy Slug

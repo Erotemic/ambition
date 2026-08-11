@@ -1722,6 +1722,26 @@ pub const SMASH_GEORGE_BOOUL: &str = "smash_george_booul";
 /// belongs — Ambition HOSTING this experience alongside its own, where both
 /// catalogs are present.
 const SMASH_CATALOG_RON: &str = r#"(
+    autonomous_profiles: {
+        // ⭐⭐ **THE STAGE'S CPU POLICY, PUBLISHED** (Jon's second redirect, P4).
+        // A CPU seat named `duelist` and the match resolved it through
+        // `CharacterRoster` — an enemy ARCHETYPE table — so the controller half
+        // of `character + controller + team` was arriving by way of a body
+        // definition. This is what a controller policy IS.
+        //
+        // ⚠ the numbers are the archetype row's controller half verbatim. Its
+        // BODY half (100 HP, 200 run speed, a 4-damage contact) stays on the row
+        // until the fighters that use it author their own, which is a different
+        // migration.
+        "duelist": (
+            template: Fighter,
+            aggro_radius: 600.0,
+            attack_range: 48.0,
+            patrol_effort: 1.0,
+            chase_effort: 1.0,
+            fighter_level: 5,
+        ),
+    },
     brain_presets: {
         "stand_still": StandStill,
         // **The FB4b fighter brain, selected from content.** Until 2026-07-31

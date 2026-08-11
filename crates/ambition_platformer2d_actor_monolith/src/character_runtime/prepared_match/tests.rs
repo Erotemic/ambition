@@ -1777,6 +1777,19 @@ fn a_seated_fighter_carries_its_applied_template_and_asks_for_nothing() {
 /// and an archetype-only key still resolves. The first alone would pass if the
 /// registry were simply consulted; the second is what says the legacy road is
 /// still open while presets are migrated.
+///
+/// ⛔⛔ **AND A THIRD, BECAUSE THE FIRST TWO PASSED WHILE THE LOOKUP WAS DEAD**
+/// (ledger D87). This built its registry with `from_catalog_for_test`, which
+/// copied the catalog map VERBATIM and so keyed policies by BARE name;
+/// production assembly keys them `provider::name`. The seat asked for a bare
+/// key, matched the fixture, and matched NOTHING in any real game — every CPU
+/// seat fell through to the archetype table, including Smash's, whose `duelist`
+/// profile was published for exactly this and never once read.
+///
+/// The fixture is repaired rather than the assertion weakened: it namespaces
+/// like assembly does, and the seat resolves the reference in the CHARACTER's
+/// provider. The third term is the poison — a bare-keyed registry must NOT
+/// answer, because that is the shape that lied.
 #[test]
 fn a_cpu_seat_prefers_a_published_policy_over_an_archetype_of_the_same_name() {
     use ambition_characters::actor::character_catalog::{BrainProfileRegistry, CharacterCatalog};
@@ -1793,13 +1806,26 @@ fn a_cpu_seat_prefers_a_published_policy_over_an_archetype_of_the_same_name() {
         action_set_presets: {},
         characters: {},
     )"#;
-    let profiles = BrainProfileRegistry::from_catalog_for_test(&CharacterCatalog::from_data(
-        ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
-    ));
+    const PROVIDER: &str = "fixture_game";
+    let profiles = BrainProfileRegistry::from_catalog_for_test(
+        PROVIDER,
+        &CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
+        ),
+    );
     let archetypes = crate::features::enemies::fixture_roster_with_mount();
 
-    let published = super::seat_brain_profile("medium_striker", Some(&profiles), &archetypes)
-        .expect("a published policy of that name resolves");
+    let published = super::seat_brain_profile(
+        "medium_striker",
+        None,
+        PROVIDER,
+        Some(&profiles),
+        &archetypes,
+    )
+    .expect(
+        "a published policy of that name resolves — a BARE key reached a registry \
+             that holds provider::name, which is the production shape",
+    );
     assert_eq!(
         published.aggro_radius, 1.0,
         "the ARCHETYPE table answered a question a published controller policy \
@@ -1808,9 +1834,28 @@ fn a_cpu_seat_prefers_a_published_policy_over_an_archetype_of_the_same_name() {
 
     // ⚠ and the legacy road is still open, which is what makes the preference
     // above a preference rather than a replacement.
-    let archetype_only = super::seat_brain_profile("combatant", Some(&profiles), &archetypes)
-        .expect("an archetype-only key still resolves while presets are migrating");
+    let archetype_only =
+        super::seat_brain_profile("combatant", None, PROVIDER, Some(&profiles), &archetypes)
+            .expect("an archetype-only key still resolves while presets are migrating");
     assert_ne!(archetype_only.aggro_radius, 1.0);
+
+    // ⛔⛔ **THE POISON.** A policy published by a DIFFERENT provider must not
+    // answer this seat: that is the bare-key match that made the whole arm
+    // vacuous, and it would also let one game's `duelist` silently drive
+    // another's fighter.
+    let foreign = super::seat_brain_profile(
+        "medium_striker",
+        None,
+        "some_other_game",
+        Some(&profiles),
+        &archetypes,
+    )
+    .expect("the archetype table still answers, as it did before any policy was published");
+    assert_ne!(
+        foreign.aggro_radius, 1.0,
+        "another provider's policy answered this seat, so the reference is not \
+         being resolved in a provider at all"
+    );
 }
 
 /// **A MATCH CANNOT HAND A BODY A VERB IT DOES NOT HAVE.**

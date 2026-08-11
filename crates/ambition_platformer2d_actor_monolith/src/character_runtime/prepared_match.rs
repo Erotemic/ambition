@@ -685,7 +685,15 @@ pub fn prepare_match(
         // means the fighter that arrives is not the fighter the roster asked
         // for. It cost an hour in this demo on 2026-07-31, with a diagram.
         if let ControlAuthority::Brain { profile } = &authority {
-            if seat_brain_profile(profile, profiles, archetypes).is_none() {
+            if seat_brain_profile(
+                profile,
+                roster.published_by.as_deref(),
+                &definition.provider,
+                profiles,
+                archetypes,
+            )
+            .is_none()
+            {
                 let mut known = archetypes.brain_keys();
                 known.sort();
                 let published: Vec<&str> = profiles.map(|p| p.ids().collect()).unwrap_or_default();
@@ -744,9 +752,13 @@ pub fn prepare_match(
         // handed in as a value — a profile is a decision, and this constructor
         // takes it rather than looking up a body to get one.
         let profile = match &authority {
-            ControlAuthority::Brain { profile } => {
-                seat_brain_profile(profile, profiles, archetypes)
-            }
+            ControlAuthority::Brain { profile } => seat_brain_profile(
+                profile,
+                roster.published_by.as_deref(),
+                &definition.provider,
+                profiles,
+                archetypes,
+            ),
             // A human seat's body carries no autonomous policy at all. It used
             // to inherit `combatant`'s, which nothing read and which said this
             // body would chase somebody.
@@ -979,18 +991,46 @@ fn team_for(index: usize, authored: Option<&String>) -> crate::combat::targeting
 /// `BrainProfile` is what a controller policy IS; the archetype arm is the
 /// legacy half and shrinks as policies are published.
 ///
-/// ⚠ the reference is provider-relative and this resolves it with no provider to
-/// resolve against, so an already-qualified name works and a bare one is tried
-/// verbatim. A seat names a policy the MATCH published, not one a character owns.
+/// ⛔⛔ **THE REFERENCE IS PROVIDER-RELATIVE AND THIS USED TO RESOLVE IT AGAINST
+/// NO PROVIDER**, which made the registry arm VACUOUS rather than merely
+/// unpopular. The assembled registry holds `provider::name` exclusively
+/// (`registry.rs`'s `namespaced`), a seat names a BARE key (`"duelist"`), and a
+/// bare key matches nothing — so every CPU seat fell through to the archetype
+/// table however many policies were published. Smash's own `duelist` profile,
+/// published for exactly this, was never once read.
+///
+/// ⚠ **that is why publishing a policy did not shrink the archetype arm.** The
+/// arm is not shrinking because seats prefer archetypes; it was the only arm that
+/// could answer. `SMASH_ROSTER_RON` exists solely to hold brain-only rows for
+/// this lookup.
+///
+/// ⭐ **THE PROVIDER IS THE MATCH'S, THEN THE CHARACTER'S** — in that order,
+/// because *a seat names a policy the MATCH published*. Smash publishes
+/// `smash::duelist` and seats Mary-O in it; Mary-O is `ambition_content`'s
+/// character, so resolving in the character's provider alone would miss the
+/// stage's own policy for every guest fighter — which is most of the roster.
+/// The character's provider is the second question, for a policy a character
+/// ships with itself.
+///
+/// ⚠ neither is a bare-key match: `duelist` on a Smash stage means
+/// `smash::duelist` and can never silently mean another game's.
 fn seat_brain_profile(
     key: &str,
+    match_provider: Option<&str>,
+    provider: &str,
     profiles: Option<&ambition_characters::actor::character_catalog::BrainProfileRegistry>,
     archetypes: &crate::features::CharacterRoster,
 ) -> Option<ambition_characters::brain::BrainProfile> {
     profiles
         .and_then(|profiles| {
-            profiles
-                .get(&ambition_entity_catalog::BrainProfileId::new(key))
+            let reference = ambition_entity_catalog::BrainProfileRef::new(key);
+            // ⛔ and NOTHING else — no bare-key fallback. It looks like harmless
+            // generosity and is the exact hole that was here: it makes the
+            // provider decorative, so one game's `duelist` can drive another's
+            // fighter. An already-qualified name is handled by `resolve_in`.
+            match_provider
+                .and_then(|owner| profiles.get(&reference.resolve_in(owner)))
+                .or_else(|| profiles.get(&reference.resolve_in(provider)))
                 .copied()
         })
         .or_else(|| {

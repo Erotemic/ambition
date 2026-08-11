@@ -62,25 +62,22 @@ pub const STARTING_STOCKS: u32 = 3;
 /// meter divided by one reports 14000%.
 pub const SMASH_PERCENT_REFERENCE: i32 = 100;
 
-/// The name a CPU seat asks for.
+/// The **published controller policy** a CPU seat asks for — `smash::duelist`,
+/// resolved in this stage's own provider.
 ///
-/// ⛔ **`ControllerBinding::Cpu { brain_profile }` is NOT a catalog brain
-/// preset**, and the field name says otherwise. It is a `CharacterRoster`
-/// ARCHETYPE key: `spec_for_brain` looks it up in the roster fragment's
-/// `by_brain` map and falls back to a default spec — whose brain is
-/// `stand_still` — when the key is absent. The catalog's `brain_presets` are a
-/// different namespace that a seated CPU never consults.
+/// ⭐ **and it is now what its name always claimed.** Until 2026-08-11 a
+/// `ControllerBinding::Cpu { brain_profile }` was a `CharacterRoster` ARCHETYPE
+/// key, so asking for a fighting style meant declaring a whole creature — this
+/// demo shipped `SMASH_ROSTER_RON`, six near-identical archetype rows carrying a
+/// body no seat had read since a fighter's body came from its character, whose
+/// only difference from each other was `fighter_level`. They are deleted; the
+/// six are `autonomous_profiles` in the catalog above.
 ///
-/// So this demo's CPU seats stand still, and will until it registers a
-/// `CharacterRosterFragment` with a `duelist` archetype. `BrainPreset::Fighter`
-/// (added the same day) is the authoring path for a CATALOG-driven body — an
-/// NPC, a placement, a `default_brain` — and it works; it is simply not the road
-/// a match seat travels.
-///
-/// Found by a diagram printing `travel: [0.0, 0.0]` next to a brain label
-/// reading `stand_still`. The preset resolved correctly in isolation, which is
-/// exactly what made it confusing: the catalog was right, the lookup was
-/// somewhere else, and two vocabularies share one word.
+/// ⚠ the older bug this doc recorded — CPU seats standing still because the
+/// lookup consulted a namespace the catalog did not publish into — had a second
+/// life worth remembering: publishing the policy did not fix it, because
+/// `seat_brain_profile` resolved a BARE key against a registry keyed
+/// `provider::name`. Two vocabularies sharing one word cost the same day twice.
 pub const SMASH_DUELIST_BRAIN: &str = "duelist";
 
 /// Where a respawning fighter comes back, above the stage centre.
@@ -1741,6 +1738,34 @@ const SMASH_CATALOG_RON: &str = r#"(
             chase_effort: 1.0,
             fighter_level: 5,
         ),
+        // ⭐⭐ **THE DIFFICULTY LADDER, AS POLICIES** — the whole of what
+        // `SMASH_ROSTER_RON`'s six archetype rows were (deleted 2026-08-11).
+        // Those rows differed from each other in ONE field, `fighter_level`, and
+        // carried a body (100 HP, 200 run speed, a 4-damage contact) that no
+        // seat has read since a fighter's body came from its character.
+        //
+        // ⚠ that is the whole D73 thesis in six rows: a difficulty setting is a
+        // CONTROLLER fact, and stating it required declaring a whole creature.
+        "duelist_l1": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 1,
+        ),
+        "duelist_l3": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 3,
+        ),
+        "duelist_l5": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 5,
+        ),
+        "duelist_l6": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 6,
+        ),
+        "duelist_l9": (
+            template: Fighter, aggro_radius: 600.0, attack_range: 48.0,
+            patrol_effort: 1.0, chase_effort: 1.0, fighter_level: 9,
+        ),
     },
     brain_presets: {
         "stand_still": StandStill,
@@ -2008,15 +2033,6 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
     // on 2026-07-31. Without this fragment the seat is now REFUSED (seating
     // stopped falling back to a generic enemy the same day); before that it
     // silently became a stand-still body.
-    {
-        use ambition_platformer2d::actors::features::{
-            CharacterRosterAppExt, CharacterRosterFragment,
-        };
-        app.register_character_roster_fragment(
-            CharacterRosterFragment::from_ron(SMASH_EXPERIENCE, None::<String>, SMASH_ROSTER_RON)
-                .expect("the smash duelist roster fragment is valid"),
-        );
-    }
     app.register_audio_catalog_fragment(
         AudioCatalogFragment::new(
             SMASH_EXPERIENCE,
@@ -2042,99 +2058,6 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
         .expect("the smash audio fragment is valid"),
     );
 }
-
-/// The duelist archetype, which is what makes a CPU seat a FIGHTER.
-///
-/// `brain_template: Fighter` is the FB4b rig on the path a match seat travels.
-/// The catalog's `duelist` preset (also `Fighter`) covers the other path — an
-/// NPC, a placement, a `default_brain` — and both exist because the engine has
-/// two brain vocabularies and a rig has to appear in both to be selectable.
-const SMASH_ROSTER_RON: &str = r#"{
-    "duelist_l1": (
-        max_health: 100,
-        run_speed: 200.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 600.0,
-        attack_range: 48.0,
-        contact_strength: 0.0,
-        damage_amount: 4,
-        brain_template: Fighter,
-        fighter_level: Some(1),
-        move_style: Walk,
-        attacks_player: true,
-    ),
-    "duelist_l3": (
-        max_health: 100,
-        run_speed: 200.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 600.0,
-        attack_range: 48.0,
-        contact_strength: 0.0,
-        damage_amount: 4,
-        brain_template: Fighter,
-        fighter_level: Some(3),
-        move_style: Walk,
-        attacks_player: true,
-    ),
-    "duelist_l5": (
-        max_health: 100,
-        run_speed: 200.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 600.0,
-        attack_range: 48.0,
-        contact_strength: 0.0,
-        damage_amount: 4,
-        brain_template: Fighter,
-        fighter_level: Some(5),
-        move_style: Walk,
-        attacks_player: true,
-    ),
-    "duelist_l6": (
-        max_health: 100,
-        run_speed: 200.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 600.0,
-        attack_range: 48.0,
-        contact_strength: 0.0,
-        damage_amount: 4,
-        brain_template: Fighter,
-        fighter_level: Some(6),
-        move_style: Walk,
-        attacks_player: true,
-    ),
-    "duelist_l9": (
-        max_health: 100,
-        run_speed: 200.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 600.0,
-        attack_range: 48.0,
-        contact_strength: 0.0,
-        damage_amount: 4,
-        brain_template: Fighter,
-        fighter_level: Some(9),
-        move_style: Walk,
-        attacks_player: true,
-    ),
-    "duelist": (
-        max_health: 100,
-        run_speed: 200.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 600.0,
-        attack_range: 48.0,
-        contact_strength: 0.0,
-        damage_amount: 4,
-        brain_template: Fighter,
-        fighter_level: Some(5),
-        move_style: Walk,
-        attacks_player: true,
-    ),
-}"#;
 
 /// The stage, as the shared preparation lifecycle wants it.
 fn smash_prepared_session_world() -> ambition_platformer2d::runtime::PreparedPlatformerSource {
@@ -2539,6 +2462,56 @@ mod tests {
     /// A preset name that does not resolve falls back to standing still, and a
     /// fighter that stands still is indistinguishable from one whose brain was
     /// never installed — which is what the match diagram printed for an hour
+    /// **EVERY DIFFICULTY THIS DEMO CAN ASK FOR IS A PUBLISHED POLICY.**
+    ///
+    /// ⭐ the guard on a deletion (ledger D87). `SMASH_ROSTER_RON` was six
+    /// archetype rows existing only to answer a CPU seat's controller question —
+    /// each carrying a body (100 HP, 200 run speed, a 4-damage contact) that no
+    /// seat has read since a fighter's body came from its character, and
+    /// differing from one another in exactly one field. They are gone, and
+    /// `smash_roster_at_levels` builds `duelist_l{level}` keys that now have to
+    /// resolve as `autonomous_profiles`.
+    ///
+    /// ⚠ what a miss looks like: `seat_brain_profile` finds nothing in either
+    /// authority and preparation REFUSES the seat — loud, not a fighter that
+    /// quietly stands still, which is how the same lookup failed twice before.
+    #[test]
+    fn every_authored_difficulty_is_a_published_controller_policy() {
+        use ambition_platformer2d::characters::actor::character_catalog::{
+            parse_catalog, CharacterCatalog,
+        };
+
+        let catalog = CharacterCatalog::from_data(parse_catalog(SMASH_CATALOG_RON));
+        let profiles = &catalog.data().autonomous_profiles;
+        for level in [1u8, 3, 5, 6, 9] {
+            let key = format!("{SMASH_DUELIST_BRAIN}_l{level}");
+            let profile = profiles.get(&key).unwrap_or_else(|| {
+                panic!(
+                    "`smash_roster_at_levels` builds the key `{key}`, and no policy \
+                     publishes it — that seat is refused. Published: {:?}",
+                    profiles.keys().collect::<Vec<_>>()
+                )
+            });
+            assert_eq!(
+                profile.fighter_level, level,
+                "`{key}` publishes level {} — the ladder was the ONLY thing the \
+                 six deleted archetype rows differed in, so getting it wrong \
+                 loses the entire content of that deletion",
+                profile.fighter_level
+            );
+            assert_eq!(
+                profile.template,
+                ambition_platformer2d::characters::brain::CharacterBrainTemplate::Fighter,
+                "`{key}` is not a Fighter, so this seat is not a fighter"
+            );
+        }
+        // ⚠ and the unlevelled name the roster's default seats use.
+        assert!(
+            profiles.contains_key(SMASH_DUELIST_BRAIN),
+            "the bare `duelist` policy is gone, so an ordinary CPU seat is refused"
+        );
+    }
+
     /// (`travel: [0.0, 0.0]`) before anything said why.
     #[test]
     fn the_duelist_preset_is_a_fighter_brain() {

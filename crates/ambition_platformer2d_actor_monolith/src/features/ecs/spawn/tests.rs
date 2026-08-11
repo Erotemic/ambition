@@ -896,6 +896,8 @@ mod authored_enemy_reads_its_character {
             characters: {},
         )"#;
         ambition_characters::actor::character_catalog::BrainProfileRegistry::from_catalog_for_test(
+            // The provider these fixtures' own characters name.
+            "test",
             &CharacterCatalog::from_data(
                 ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
             ),

@@ -2105,6 +2105,10 @@ pub(crate) fn prepare_and_finalize_against_for_test(
     // would silently exercise the no-registry branch.
     let profiles = catalog.map(|catalog| {
         ambition_characters::actor::character_catalog::BrainProfileRegistry::from_catalog_for_test(
+            // ⚠ the provider a fixture's own characters name, so a
+            // provider-relative policy reference resolves the way it will in
+            // production rather than only when the key happens to be bare.
+            &definition.provider,
             catalog,
         )
     });

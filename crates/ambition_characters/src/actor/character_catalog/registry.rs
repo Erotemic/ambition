@@ -425,9 +425,32 @@ impl BrainProfileRegistry {
     /// exists so a test that hands preparation a hand-written catalog is still
     /// modelling a composition where the two agree, rather than one where the
     /// policy authority is silently absent.
-    pub fn from_catalog_for_test(catalog: &CharacterCatalog) -> Self {
+    ///
+    /// ⛔⛔ **IT TAKES A PROVIDER BECAUSE ASSEMBLY DOES.** This copied the
+    /// catalog's map VERBATIM, so fixture registries were keyed by BARE name and
+    /// production ones by `provider::name` — and a lookup that works on one shape
+    /// silently misses on the other. That is not a cosmetic difference: it is how
+    /// a provider-blind `seat_brain_profile` stayed green for a week while every
+    /// production CPU seat fell through to the archetype table (ledger D87).
+    /// A fixture that cannot reproduce the production key is not a fixture.
+    pub fn from_catalog_for_test(provider_id: &str, catalog: &CharacterCatalog) -> Self {
         Self {
-            profiles: catalog.data().autonomous_profiles.clone(),
+            profiles: catalog
+                .data()
+                .autonomous_profiles
+                .iter()
+                // ⚠ a fixture that already authored a QUALIFIED name means it,
+                // the same rule `BrainProfileRef::resolve_in` follows — some
+                // fixtures hand over catalog data that assembly already keyed.
+                .map(|(name, profile)| {
+                    let key = if name.contains("::") {
+                        name.clone()
+                    } else {
+                        namespaced(provider_id, name)
+                    };
+                    (key, *profile)
+                })
+                .collect(),
         }
     }
 }

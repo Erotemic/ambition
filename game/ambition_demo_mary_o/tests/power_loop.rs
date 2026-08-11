@@ -98,7 +98,7 @@ impl Loop {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
-                WornCharacter(MARY_O_CHARACTER_ID.to_string()),
+                WornCharacter::new(MARY_O_CHARACTER_ID),
                 BodyBaseSize { base_size: size },
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 0.0),
@@ -229,15 +229,20 @@ impl Loop {
         // Both power forms (grown wand = `mary_o_tall`, fire beacon = `mary_o_fire`)
         // share the tall SIZE and differ only from the small starting form, so
         // "tall" is "wearing any power sheet" rather than one specific sheet.
-        self.app.world().get::<WornCharacter>(self.body).unwrap().0 != MARY_O_CHARACTER_ID
+        self.app
+            .world()
+            .get::<WornCharacter>(self.body)
+            .unwrap()
+            .id()
+            != MARY_O_CHARACTER_ID
     }
     fn worn_character(&self) -> String {
         self.app
             .world()
             .get::<WornCharacter>(self.body)
             .unwrap()
-            .0
-            .clone()
+            .id()
+            .to_string()
     }
     fn has_ranged_move(&self) -> bool {
         self.app
@@ -1011,9 +1016,9 @@ fn a_sliding_shell_emits_an_enemy_kill_and_a_side_hit_on_the_player() {
         .drain()
         .collect();
 
-    let enemy_kill = hits.iter().find(|h| {
-        matches!(h.target, HitTarget::Volume) && matches!(h.source, HitSource::Contact)
-    });
+    let enemy_kill = hits
+        .iter()
+        .find(|h| matches!(h.target, HitTarget::Volume) && matches!(h.source, HitSource::Contact));
     assert!(
         enemy_kill.is_some_and(|h| h.damage >= 2 && h.attacker == Some(snake)),
         "a sliding shell broadcasts a lethal Volume hit attributed to the shell entity"

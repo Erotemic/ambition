@@ -307,7 +307,7 @@ fn worn_form(app: &mut App) -> Option<String> {
     let mut q = app
         .world_mut()
         .query_filtered::<&WornCharacter, With<PrimaryPlayer>>();
-    q.iter(app.world()).next().map(|worn| worn.0.clone())
+    q.iter(app.world()).next().map(|worn| worn.id().to_string())
 }
 
 fn health(app: &mut App) -> i32 {

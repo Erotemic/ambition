@@ -345,8 +345,11 @@ whether or not it explains the PCA.
   job. Both crates already depend on `ambition_entity_catalog`, which is also
   where the placement schemas and `MovesetContract` live — so character identity
   sits with the rest of the content vocabulary. Adopted on
-  `EnemySpawnSpec::character_id` and `gameplay_character_id()`. ▢ wider adoption
-  (`WornCharacter`, the prepared registry's keys, `CharacterSpawnPlan`) follows.
+  `EnemySpawnSpec::character_id`, `gameplay_character_id()`, and
+  **`WornCharacter`'s inner value** — so the component the brief names as the
+  candidate universal `CharacterIdentity` already speaks the final vocabulary,
+  and `WornCharacter::character()` hands the id onward without going through
+  text. ▢ the prepared registry's keys and `CharacterSpawnPlan` follow.
 * ✔ **death traits are AUTHORED DATA now, not a runtime component on the
   definition** — `ambition_characters::actor::CharacterDeathTraits`, lowered to
   `ambition_combat::CombatCapabilities` by one `From` impl at construction.

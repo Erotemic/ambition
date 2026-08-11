@@ -1586,9 +1586,7 @@ fn mary_o_setup(
             ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
         >,
     >,
-    authored_sheets: bevy::prelude::Res<
-        ambition_platformer2d::character::AuthoredSheets,
-    >,
+    authored_sheets: bevy::prelude::Res<ambition_platformer2d::character::AuthoredSheets>,
     character_roster: bevy::prelude::Res<ambition_platformer2d::actors::features::CharacterRoster>,
     boss_catalog: bevy::prelude::Res<ambition_platformer2d::actors::boss_encounter::BossCatalog>,
     placement_lowering: bevy::prelude::Res<
@@ -3070,14 +3068,19 @@ mod tests {
                  nothing to check"
             );
             for spawn in &room.enemy_spawns {
-                let character_id = spawn.payload.character_id.as_deref().unwrap_or_else(|| {
-                    panic!(
-                        "{label}'s enemy `{}` authors no character_id, so its art \
+                let character_id = spawn
+                    .payload
+                    .character_id
+                    .as_ref()
+                    .map(|id| id.as_str())
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "{label}'s enemy `{}` authors no character_id, so its art \
                          resolves through its display name — the join this field \
                          exists to replace",
-                        spawn.id
-                    )
-                });
+                            spawn.id
+                        )
+                    });
                 // ⚠ **the list is "what the demo PUBLISHES", and it is four now.**
                 // It read `ai_slop | solid_snake` and the phrase "the two
                 // characters" was baked into the message, so adding the flying

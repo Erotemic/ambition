@@ -1103,7 +1103,7 @@ pub fn sync_grown_form(
     } else {
         MARY_O_CHARACTER_ID
     };
-    if worn_char.0 == target_id {
+    if worn_char.id() == target_id {
         return;
     }
     // **No size is written here, and that is the fix.**
@@ -1116,7 +1116,7 @@ pub fn sync_grown_form(
     // identity below is the WHOLE change: the engine's per-tick sync reads the
     // arriving sheet and resizes her feet-planted through the one resize op that
     // owns that rule. Growing is a consequence of the art, not an instruction.
-    let previous_id = worn_char.0.clone();
+    let previous_id = worn_char.id().to_string();
     if let Some(cue_id) = power_transition_sfx(&previous_id, target_id) {
         // The named transition is content-authority: small→big, big→fire, and
         // each loss path have different layered sound design rather than sharing
@@ -1141,7 +1141,7 @@ pub fn sync_grown_form(
         transform_beat_policy(target_id, power_tier(&previous_id), power_tier(target_id)),
         ambition_platformer2d::actors::features::transform_beat::TransformBeatRequested,
     ));
-    worn_char.0 = target_id.to_string();
+    worn_char.0 = target_id.into();
 }
 
 /// **The transformation numbers for ONE tier change**, authored per transition
@@ -1705,7 +1705,7 @@ mod tests {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
-                WornCharacter(MARY_O_CHARACTER_ID.to_string()),
+                WornCharacter::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
@@ -1723,7 +1723,7 @@ mod tests {
             .insert(WornEquipment::new(vec![star_wand()]));
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().0,
+            app.world().get::<WornCharacter>(body).unwrap().id(),
             TALL_CHARACTER_ID,
             "wearing the wand grows her to the tall SHEET"
         );
@@ -1735,7 +1735,7 @@ mod tests {
             .consume_armor();
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().0,
+            app.world().get::<WornCharacter>(body).unwrap().id(),
             MARY_O_CHARACTER_ID,
             "losing the wand shrinks her back to small"
         );
@@ -1761,7 +1761,7 @@ mod tests {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
-                WornCharacter(MARY_O_CHARACTER_ID.to_string()),
+                WornCharacter::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
@@ -1777,7 +1777,7 @@ mod tests {
         // block hands a lantern to.
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().0,
+            app.world().get::<WornCharacter>(body).unwrap().id(),
             MARY_O_CHARACTER_ID,
             "she starts small"
         );
@@ -1787,7 +1787,7 @@ mod tests {
             .insert(WornEquipment::new(vec![cinder_beacon()]));
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().0,
+            app.world().get::<WornCharacter>(body).unwrap().id(),
             SPARK_CHARACTER_ID,
             "ONE tick after taking the beacon she is the fire form — not tall, \
              and not tall-then-fire"
@@ -1804,7 +1804,7 @@ mod tests {
             .insert(WornEquipment::new(vec![star_wand(), cinder_beacon()]));
         app.update();
         assert_eq!(
-            app.world().get::<WornCharacter>(body).unwrap().0,
+            app.world().get::<WornCharacter>(body).unwrap().id(),
             SPARK_CHARACTER_ID,
             "holding the wand AND the beacon is the fire form — the beacon is \
              the higher rung and the check has to read it first"
@@ -1827,7 +1827,7 @@ mod tests {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
-                WornCharacter(MARY_O_CHARACTER_ID.to_string()),
+                WornCharacter::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,
@@ -1840,7 +1840,13 @@ mod tests {
         app.add_message::<ambition_platformer2d::sfx::OwnedSfxMessage>();
         app.add_systems(Update, sync_grown_form);
 
-        let form = |app: &App| app.world().get::<WornCharacter>(body).unwrap().0.clone();
+        let form = |app: &App| {
+            app.world()
+                .get::<WornCharacter>(body)
+                .unwrap()
+                .id()
+                .to_string()
+        };
 
         app.update();
         assert_eq!(
@@ -1893,7 +1899,7 @@ mod tests {
             .world_mut()
             .spawn((
                 PrimaryPlayer,
-                WornCharacter(MARY_O_CHARACTER_ID.to_string()),
+                WornCharacter::new(MARY_O_CHARACTER_ID),
                 ae::BodyKinematics {
                     pos: ae::Vec2::new(0.0, 100.0),
                     vel: ae::Vec2::ZERO,

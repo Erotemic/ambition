@@ -686,6 +686,6 @@ fn worn_character(app: &mut App) -> String {
     query
         .iter(app.world())
         .next()
-        .map(|worn| worn.0.clone())
+        .map(|worn| worn.id().to_string())
         .unwrap_or_default()
 }

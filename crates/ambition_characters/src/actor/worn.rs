@@ -37,17 +37,30 @@ use bevy::ecs::component::Component;
 /// than fail loudly.
 ///
 /// [`IdentityKit`]: crate::brain::action_set::IdentityKit
+/// ⭐ **the inner value is a typed [`CharacterId`], not a `String`** — which
+/// character template this body instantiates, in the same type every placement
+/// and spawn plan names it by. A body's runtime identity is its `SimId`; two
+/// bodies wearing one `CharacterId` are two instances of one template, which is
+/// the ordinary case rather than a collision.
+///
+/// [`CharacterId`]: ambition_entity_catalog::CharacterId
 #[derive(Component, Clone, Debug, PartialEq, Eq)]
 #[require(crate::brain::action_set::IdentityKit)]
-pub struct WornCharacter(pub String);
+pub struct WornCharacter(pub ambition_entity_catalog::CharacterId);
 
 impl WornCharacter {
-    pub fn new(id: impl Into<String>) -> Self {
+    pub fn new(id: impl Into<ambition_entity_catalog::CharacterId>) -> Self {
         Self(id.into())
     }
 
-    /// The worn catalog id.
+    /// The worn character id.
     pub fn id(&self) -> &str {
+        self.0.as_str()
+    }
+
+    /// The worn identity itself, for callers that thread it onward as an id
+    /// rather than as text.
+    pub fn character(&self) -> &ambition_entity_catalog::CharacterId {
         &self.0
     }
 }

@@ -724,7 +724,6 @@ pub fn install_sanic_content(app: &mut App) {
             );
         }
     }
-    badnik::register_badnik_roster(app);
     // ⭐ and the badnik itself, as a CHARACTER: its roster row is deleted and
     // its four placements name it.
     badnik::register_badnik_character(app);

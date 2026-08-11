@@ -93,28 +93,6 @@ const BOUNCE_SPEED: f32 = 460.0;
 /// Vertical tolerance (px) for "feet on the badnik's head".
 const STOMP_BAND: f32 = 16.0;
 
-/// ⚠ **RESTORED 2026-08-11.** The badnik is a CHARACTER
-/// ([`register_badnik_character`]) and its four placements name it, so this row
-/// is dead weight in any host that publishes a prepared cast — and a multi-game
-/// shell host publishes an EMPTY one at enemy-spawn time. See
-/// `ambition_demo_mary_o::snake::SNAKE_ROSTER_ROWS` for the measurement that
-/// sent all three demo rows back.
-const BADNIK_ROSTER_RON: &str = r#"{
-    "sanic_badnik": (
-        max_health: 1,
-        run_speed: 60.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
-        aggro_radius: 0.0,
-        attack_range: 0.0,
-        contact_strength: 0.5,
-        damage_amount: 1,
-        brain_template: Wanderer,
-        move_style: Walk,
-        respawn: OnRoomReenter,
-    ),
-}"#;
-
 /// **Register the badnik as a CHARACTER** — the body its deleted row described.
 ///
 /// A 1-HP wanderer that paces and reverses at walls, with no melee: its only
@@ -150,24 +128,17 @@ pub fn register_badnik_character(app: &mut App) {
         template: CharacterBrainTemplate::Wanderer,
         aggro_radius: 0.0,
         attack_range: 0.0,
+        // ⭐ **the deleted row's own pace, and the last thing it still said.**
+        // A badnik paces at FULL speed — it is not patrolling, it is walking
+        // its line — and `BrainProfile`'s default is the ordinary half-speed
+        // amble. Without this the fragment's deletion would have halved every
+        // badnik in the demo, which is the silent-retune the campaign keeps
+        // finding one field at a time.
+        patrol_effort: 1.0,
         ..Default::default()
     });
     definition.vitals.max_health = Some(1);
     app.register_character(definition);
-}
-
-/// Register the demo's hostile roster fragment (the badnik archetype), keyed
-/// under the Sanic experience so the brain key namespaces per provider.
-pub fn register_badnik_roster(app: &mut App) {
-    use ambition_platformer2d::actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
-    app.register_character_roster_fragment(
-        CharacterRosterFragment::from_ron(
-            crate::provider::SANIC_EXPERIENCE,
-            None::<String>,
-            BADNIK_ROSTER_RON,
-        )
-        .expect("Sanic badnik roster fragment should be valid"),
-    );
 }
 
 /// **The defeat rule.** A player descending onto a badnik's head bounces up
@@ -272,11 +243,6 @@ pub fn defeat_badniks(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_badnik_roster_fragment_parses() {
-        register_badnik_roster(&mut App::new());
-    }
 
     fn kin(pos: ae::Vec2, vel: ae::Vec2) -> ae::BodyKinematics {
         let mut kin = ae::BodyKinematics::default();

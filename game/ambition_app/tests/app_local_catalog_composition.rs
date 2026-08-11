@@ -111,13 +111,22 @@ fn three_real_providers_compose_independent_of_registration_order() {
         .expect("real provider music ids must compose without collision");
 
     // Each experience contributes its own hostile-roster archetypes (Ambition's
-    // enemies, Mary-O's snake + AI Slop, Sanic's badnik) as an App-local provider
-    // fragment. They compose into ONE roster, BTreeMap-sorted, independent of
-    // registration order — a character in any fragment is spawnable by any
-    // experience once loaded.
+    // enemies, Mary-O's snake + AI Slop) as an App-local provider fragment. They
+    // compose into ONE roster, BTreeMap-sorted, independent of registration
+    // order — a character in any fragment is spawnable by any experience once
+    // loaded.
+    //
+    // ⭐ **Sanic left this list on 2026-08-11, and leaving is the achievement.**
+    // Its badnik is a CHARACTER now (`register_badnik_character`) — a complete
+    // body its four placements name — so the demo publishes no hostile roster
+    // at all. The composition property this test exists for is asserted below
+    // against the authority the badnik actually lives in.
+    assert_eq!(hostile_providers(&forward), vec!["ambition", "mary_o"]);
     assert_eq!(
-        hostile_providers(&forward),
-        vec!["ambition", "mary_o", "sanic"]
+        owners.provider_for("sanic"),
+        Some("sanic"),
+        "Sanic's content still composes App-locally — the badnik moved from its \
+         roster fragment to a character, not out of the provider"
     );
     assert_eq!(boss_providers(&forward), vec!["ambition"]);
     let bosses = forward.world().resource::<BossCatalog>();
@@ -151,13 +160,22 @@ fn separate_apps_select_independent_provider_sets() {
         .get_resource::<AudioCatalogRegistry>()
         .is_none());
 
-    // Sanic authors one hostile roster (its badnik), and it is App-local: the
-    // registry holds only Sanic's own provider.
-    let sanic_roster = sanic
+    // **Sanic authors NO hostile roster** — its badnik is a character, and the
+    // demo's archetype fragment was deleted with it (2026-08-11). What the
+    // App-local property is asserted over instead is the character owners map:
+    // Sanic's own provider, and nobody else's.
+    assert!(
+        sanic
+            .world()
+            .get_resource::<CharacterRosterRegistry>()
+            .is_none_or(|roster| roster.providers().next().is_none()),
+        "Sanic publishes no hostile archetypes; its enemy is a character"
+    );
+    let sanic_owners = sanic
         .world()
-        .get_resource::<CharacterRosterRegistry>()
-        .expect("Sanic content publishes its own hostile roster (the badnik)");
-    assert_eq!(sanic_roster.providers().collect::<Vec<_>>(), vec!["sanic"]);
+        .get_resource::<CharacterCatalogOwners>()
+        .expect("Sanic content publishes its own catalog");
+    assert_eq!(sanic_owners.provider_for("sanic"), Some("sanic"));
 
     // Mary-O authors one (its crony), and it is App-local: the registry holds
     // only Mary-O's own provider, with zero contamination from Ambition's roster.

@@ -1308,6 +1308,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
             authored.payload.brain.clone(),
             locomotion,
             definition.contact_damage,
+            definition.dream_seed,
         );
         // **The PLACEMENT's respawn policy** — the one fact here that is neither
         // the character's nor the controller's (ADR 0022).

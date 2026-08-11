@@ -426,6 +426,17 @@ pub struct CharacterDefinition {
     /// `None` leaves the archetype's projection in charge, which is every
     /// character that has not migrated.
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// **Deep-dream visual jitter seed** — this character's participation in the
+    /// psychedelic shader pass, and how it differs from its neighbours.
+    ///
+    /// ⚠ **presentation, and on the definition for the same reason the sheet
+    /// is**: it is a fact about what this creature LOOKS like, true of every
+    /// instance, and it was reachable only through an enemy archetype row. The
+    /// puppy slug is the live case — `dream_seed: Some(0.271828)` is the only
+    /// thing between a migrated slug and the psychedelic pass it has always had.
+    ///
+    /// `None` = does not participate, which is nearly everything.
+    pub dream_seed: Option<f32>,
 }
 
 impl CharacterDefinition {
@@ -455,6 +466,7 @@ impl CharacterDefinition {
             locomotion: None,
             contact_damage: None,
             autonomous_profile: None,
+            dream_seed: None,
         }
     }
 
@@ -470,6 +482,12 @@ impl CharacterDefinition {
         locomotion: ambition_characters::actor::CharacterLocomotion,
     ) -> Self {
         self.locomotion = Some(locomotion);
+        self
+    }
+
+    /// Author this character's deep-dream seed. See [`Self::dream_seed`].
+    pub fn with_dream_seed(mut self, seed: f32) -> Self {
+        self.dream_seed = Some(seed);
         self
     }
 
@@ -642,6 +660,8 @@ struct PreparedCharacterOverrides {
     contact_damage: Option<ambition_characters::actor::ContactDamage>,
     /// See [`CharacterDefinition::autonomous_profile`]. Carried.
     autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// See [`CharacterDefinition::dream_seed`]. Carried.
+    dream_seed: Option<f32>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -810,6 +830,10 @@ pub struct PreparedCharacterDefinition {
     ///
     /// [`BrainProfile`]: ambition_characters::brain::BrainProfile
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// **Deep-dream visual jitter seed.** See
+    /// [`CharacterDefinition::dream_seed`] — presentation, true of every
+    /// instance, and until now reachable only through an archetype row.
+    pub dream_seed: Option<f32>,
     /// The autonomous profile this character normally runs, if it named one —
     /// **RESOLVED**, as a canonical [`BrainPresetId`] rather than the authored
     /// [`BrainProfileRef`] the definition carries.
@@ -1275,6 +1299,7 @@ fn prepare_character(
         locomotion: definition.locomotion,
         contact_damage: definition.contact_damage,
         autonomous_profile: definition.autonomous_profile,
+        dream_seed: definition.dream_seed,
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1352,6 +1377,7 @@ fn finalize_character(
         locomotion,
         contact_damage,
         autonomous_profile,
+        dream_seed,
         moveset,
         action_set,
         motion_model,
@@ -1474,6 +1500,7 @@ fn finalize_character(
         locomotion,
         contact_damage,
         autonomous_profile,
+        dream_seed,
         authored_moveset,
         // **RESOLVED HERE, not at spawn.** A prepared definition should hold a
         // canonical identity, not an authored reference someone still has to

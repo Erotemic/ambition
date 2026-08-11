@@ -414,6 +414,9 @@ fn a_definition_carries_no_controller_binding() {
         // character may say what it does when nobody is driving it, and may not
         // say who is driving it now.
         autonomous_profile: _,
+        // Presentation, like the sheet: what this creature LOOKS like is a
+        // property of the creature, and no controller changes it.
+        dream_seed: _,
     } = def;
 }
 

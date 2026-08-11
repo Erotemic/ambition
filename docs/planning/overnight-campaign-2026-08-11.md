@@ -61,6 +61,27 @@ a resuming session needs, shortest form:
   archetype projection. Either a definition may hold an inline `BrainProfile`,
   or a registry maps a `BrainProfileRef` to one. Then the mites' rows go, and
   they are the first two lines the ledger has lost.
+* ⇥⇥ **THE NEXT CONTENT STEP, measured: the PUPPY SLUG, and what it needs.**
+  Ten enemy placements in `sandbox.ldtk`. Its definition can now state
+  everything its row does — 2 HP, 80px/s, Slither, surface-walking with cling
+  that breaks on hit, 0.55/1 contact, `dream_seed: Some(0.271828)` (the field
+  landed for exactly this), a `Wanderer` profile with zero aggro — with ONE
+  exception:
+  ```text
+  attacks_player: false     ambient wildlife that never aggros
+  ```
+  That is DISPOSITION, a spawn-context fact, and an `EnemySpawn` cannot author
+  one. Its respawn needs no authoring (`OnRoomReenter` is what the `combatant`
+  fallback says, as it was for the mites), and `character_id` already has an
+  LDtk field def — so the content step is:
+  1. add a `disposition` field DEF to the `EnemySpawn` entity in `sandbox.ldtk`
+     (⛔ surgical text edit, never `json.dumps`; count `EntityRef`s before and
+     after — the editor nulls them world-wide),
+  2. author `character_id: npc_puppy_slug` + `disposition: Peaceful` on the ten
+     placements,
+  3. author the definition, register it in `BUILDABLE_ONLY_CAST`, delete the row.
+  ⚠ a migrated slug that loses `attacks_player: false` becomes ambient wildlife
+  that CHASES, which is the visible regression to avoid.
 * ⭐ **THE LEDGER HAS MOVED: `character_archetypes.ron` is 799 lines, down from
   843.** The exploding mite and the dividing mite have no archetype row at all —
   the first rows this campaign has deleted. Both are built character-first: the

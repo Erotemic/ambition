@@ -761,6 +761,7 @@ impl ActorClusterSeed {
         // input → uses Puppy Slug's actual authored locomotion"*.
         locomotion: Option<ambition_characters::actor::CharacterLocomotion>,
         contact_damage: Option<ambition_characters::actor::ContactDamage>,
+        dream_seed: Option<f32>,
     ) -> Self {
         // The AUTHORED silhouette, resolved exactly as a peaceful NPC of the
         // same character resolves it — one body per character, however it is
@@ -800,6 +801,7 @@ impl ActorClusterSeed {
             contact_strength: contact_damage.map_or(0.0, |contact| contact.strength),
             damage_amount: contact_damage.map_or(0, |contact| contact.amount),
             body_contact_damage: contact_damage.is_some(),
+            dream_seed,
             surface_walker: locomotion.is_some_and(|locomotion| locomotion.surface_walker),
             cling_breaks_on_hit: locomotion
                 .is_some_and(|locomotion| locomotion.cling_breaks_on_hit),

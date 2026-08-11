@@ -1336,6 +1336,18 @@ pub fn install_mary_o_content(app: &mut App) {
     {
         snake::register_solid_snake_character(app);
         snake::register_ai_slop_character(app);
+        // ⛔ **the two PLANE SWARMS are deliberately NOT here**, and the reason
+        // is a packaging boundary rather than an oversight. Their catalog rows
+        // (`npc_snakes_on_a_paper_plane`, `npc_snakes_on_a_cartesian_plane`)
+        // live in `ambition_content`, so a STANDALONE Mary-O has no row for
+        // either — and a character with no row has no `body_kind: Floating`,
+        // which is where a migrated body reads its gravity-freedom from. They
+        // would fall out of the sky in the demo that owns the level they fly in.
+        //
+        // ⇒ they keep their roster rows until Mary-O declares her own catalog
+        // rows for them, or the demo composes the content provider. Measured
+        // 2026-08-11 by migrating them and watching `body_kind` come back
+        // `None`.
     }
     // The REMAINING archetypes — the two plane snakes, which are Ambition
     // characters this demo borrows — still install as roster rows, so their

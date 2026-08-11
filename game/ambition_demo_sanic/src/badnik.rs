@@ -93,24 +93,56 @@ const BOUNCE_SPEED: f32 = 460.0;
 /// Vertical tolerance (px) for "feet on the badnik's head".
 const STOMP_BAND: f32 = 16.0;
 
-/// Demo-owned hostile roster: ONE archetype. A 1-HP `Wanderer` paces and
-/// reverses at walls; it carries no melee, so its only offense is the
-/// default-on body contact.
-const BADNIK_ROSTER_RON: &str = r#"{
-    "sanic_badnik": (
-        max_health: 1,
+/// ⭐ **DELETED 2026-08-11 (D73 group A).** The badnik's roster row said its 1
+/// HP, its 60px/s pace, its contact damage and its Wanderer policy; the
+/// CHARACTER says all four now ([`register_badnik_character`]), and its four
+/// placements name it by `character_id`.
+///
+/// The fragment stays EMPTY rather than going away: registering it is what
+/// creates the `CharacterRoster` resource this demo's spawn path asks, and an
+/// unmigrated key still wants the fallback answer.
+const BADNIK_ROSTER_RON: &str = "{}";
+
+/// **Register the badnik as a CHARACTER** — the body its deleted row described.
+///
+/// A 1-HP wanderer that paces and reverses at walls, with no melee: its only
+/// offense is the body it walks into you with, which is what makes it a
+/// stomp-and-die badnik rather than a fight.
+pub fn register_badnik_character(app: &mut App) {
+    use ambition_platformer2d::actors::character_runtime::{
+        CharacterDefinition, CharacterDefinitionAppExt,
+    };
+    use ambition_platformer2d::characters::actor::{CharacterLocomotion, ContactDamage};
+    use ambition_platformer2d::characters::brain::{
+        BrainProfile, CharacterBrainTemplate, MoveStyleSpec,
+    };
+
+    let mut definition = CharacterDefinition::new(
+        BADNIK_BRAIN_KEY,
+        BADNIK_DISPLAY_NAME,
+        crate::provider::SANIC_EXPERIENCE,
+    )
+    // It wears the published `ai_slop` sheet under its own name — the catalog
+    // row says so, and a character states the TARGET rather than the file.
+    .with_sheet("ai_slop")
+    .with_locomotion(CharacterLocomotion {
         run_speed: 60.0,
-        patrol_effort: 1.0,
-        chase_effort: 1.0,
+        move_style: MoveStyleSpec::Walk,
+        ..Default::default()
+    })
+    .with_contact_damage(ContactDamage {
+        strength: 0.5,
+        amount: 1,
+    })
+    .with_autonomous_profile(BrainProfile {
+        template: CharacterBrainTemplate::Wanderer,
         aggro_radius: 0.0,
         attack_range: 0.0,
-        contact_strength: 0.5,
-        damage_amount: 1,
-        brain_template: Wanderer,
-        move_style: Walk,
-        respawn: OnRoomReenter,
-    ),
-}"#;
+        ..Default::default()
+    });
+    definition.vitals.max_health = Some(1);
+    app.register_character(definition);
+}
 
 /// Register the demo's hostile roster fragment (the badnik archetype), keyed
 /// under the Sanic experience so the brain key namespaces per provider.

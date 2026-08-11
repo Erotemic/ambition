@@ -426,6 +426,21 @@ pub struct CharacterDefinition {
     /// `None` leaves the archetype's projection in charge, which is every
     /// character that has not migrated.
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// **This body is a PRACTICE TARGET** — a training dummy, not a
+    /// participant.
+    ///
+    /// ⛔ **the last fact keeping the sandbags on `character_archetypes.ron`**
+    /// (ledger D77). `ArchetypeSpec::is_sandbag` has four live consumers — the
+    /// save sync excludes it from the file, the path assignment skips it, and
+    /// two sprite reads select on it — and `new_character_in` wrote `false` via
+    /// `..Default::default()`, so a migrated sandbag would silently have joined
+    /// the save file and changed its sprite.
+    ///
+    /// ⚠ **on the definition, not read off a catalog tag.** The plane-swarm
+    /// lesson: a body that reads an intrinsic from a catalog row it cannot see
+    /// gets the wrong answer in a standalone demo that borrowed the character.
+    #[doc(alias = "is_sandbag")]
+    pub practice_target: bool,
     /// **The weapon this character carries**, by id, resolved through the same
     /// held-item registry the archetype's `held_item` uses.
     ///
@@ -486,6 +501,7 @@ impl CharacterDefinition {
             locomotion: None,
             contact_damage: None,
             autonomous_profile: None,
+            practice_target: false,
             held_item: None,
             mount: None,
             dream_seed: None,
@@ -517,6 +533,12 @@ impl CharacterDefinition {
     /// Author this character's deep-dream seed. See [`Self::dream_seed`].
     pub fn with_dream_seed(mut self, seed: f32) -> Self {
         self.dream_seed = Some(seed);
+        self
+    }
+
+    /// Author this body as a training dummy. See [`Self::practice_target`].
+    pub fn as_practice_target(mut self) -> Self {
+        self.practice_target = true;
         self
     }
 
@@ -695,6 +717,8 @@ struct PreparedCharacterOverrides {
     contact_damage: Option<ambition_characters::actor::ContactDamage>,
     /// See [`CharacterDefinition::autonomous_profile`]. Carried.
     autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// See [`CharacterDefinition::practice_target`]. Carried.
+    practice_target: bool,
     /// See [`CharacterDefinition::held_item`]. Carried.
     held_item: Option<String>,
     /// See [`CharacterDefinition::dream_seed`]. Carried.
@@ -869,6 +893,8 @@ pub struct PreparedCharacterDefinition {
     ///
     /// [`BrainProfile`]: ambition_characters::brain::BrainProfile
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// See [`CharacterDefinition::practice_target`].
+    pub practice_target: bool,
     /// See [`CharacterDefinition::held_item`].
     pub held_item: Option<String>,
     /// **Deep-dream visual jitter seed.** See
@@ -1342,6 +1368,7 @@ fn prepare_character(
         locomotion: definition.locomotion,
         contact_damage: definition.contact_damage,
         autonomous_profile: definition.autonomous_profile,
+        practice_target: definition.practice_target,
         held_item: definition.held_item.clone(),
         dream_seed: definition.dream_seed,
         mount: definition.mount,
@@ -1433,6 +1460,7 @@ fn finalize_character(
         checked,
         unresolved,
         held_item,
+        practice_target,
     } = overrides;
 
     // THE KIT. Three outcomes, and which one a character gets is decided here
@@ -1547,6 +1575,7 @@ fn finalize_character(
         locomotion,
         contact_damage,
         autonomous_profile,
+        practice_target,
         held_item,
         dream_seed,
         mount,

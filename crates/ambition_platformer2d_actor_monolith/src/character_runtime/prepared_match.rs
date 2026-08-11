@@ -724,6 +724,10 @@ pub fn prepare_match(
             definition.locomotion,
             definition.contact_damage,
             definition.dream_seed,
+            // ⚠ a MATCH seat is never a practice target, whatever the character
+            // says: a stage seats fighters, and a body excluded from the save
+            // and skipped by targeting would be a seat nobody can fight.
+            false,
         );
         // The seed's own pool stands for a character that authored none — which
         // used to be impossible to express, because an unauthored `Vitals`

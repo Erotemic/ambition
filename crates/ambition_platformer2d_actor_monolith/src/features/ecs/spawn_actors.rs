@@ -1390,6 +1390,7 @@ pub(crate) fn spawn_enemy_with_faction_into(
             locomotion,
             definition.contact_damage,
             definition.dream_seed,
+            definition.practice_target,
         );
         // **The PLACEMENT's respawn policy** — the one fact here that is neither
         // the character's nor the controller's (ADR 0022).
@@ -2068,6 +2069,7 @@ pub(super) fn spawn_encounter_mob(
                 definition.locomotion,
                 definition.contact_damage,
                 definition.dream_seed,
+                definition.practice_target,
             );
             enemy.caps = crate::combat::CombatCapabilities::from(
                 &definition.death_traits.clone().unwrap_or_default(),

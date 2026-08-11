@@ -762,6 +762,11 @@ impl ActorClusterSeed {
         locomotion: Option<ambition_characters::actor::CharacterLocomotion>,
         contact_damage: Option<ambition_characters::actor::ContactDamage>,
         dream_seed: Option<f32>,
+        // **A training dummy, not a participant.** See
+        // `CharacterDefinition::practice_target`: it is excluded from the save
+        // file, skipped by the path assignment, and selects a different sprite,
+        // and this constructor wrote `false` for it via `..Default::default()`.
+        practice_target: bool,
     ) -> Self {
         // The AUTHORED silhouette, resolved exactly as a peaceful NPC of the
         // same character resolves it — one body per character, however it is
@@ -828,6 +833,7 @@ impl ActorClusterSeed {
             // seat is unchanged, and a mount whose rider is the threat (the
             // giant GNU) can finally say it never seeks anybody.
             attacks_player: brain_profile.attacks_player,
+            is_sandbag: practice_target,
             // ⚠ a fighter's death is the MATCH's business (stocks, blast zones),
             // never a room's respawn policy.
             respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
@@ -1245,6 +1251,7 @@ mod tests {
             Some(locomotion),
             None,
             None,
+            false,
         );
         assert_eq!(
             seed.config.tuning.max_run_speed, 200.0,
@@ -1275,10 +1282,40 @@ mod tests {
             Some(ambition_characters::actor::CharacterLocomotion::default()),
             None,
             None,
+            false,
         );
         assert_eq!(
             still.config.tuning.max_run_speed, 0.0,
             "a body that authored 0.0 was given the stage default instead"
+        );
+        assert!(
+            !still.config.tuning.is_sandbag,
+            "an ordinary body is not a practice target"
+        );
+
+        // **A PRACTICE TARGET SAYS SO.** `is_sandbag` has four live consumers —
+        // the save sync excludes it, the path assignment skips it, and two
+        // sprite reads select on it — and this constructor wrote `false` for it
+        // via `..Default::default()`, which is why the sandbags could not leave
+        // `character_archetypes.ron` (ledger D77).
+        let dummy = ActorClusterSeed::new_character_in(
+            &authored,
+            &catalog,
+            "dummy",
+            "sandbag",
+            "Sandbag",
+            ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(40.0, 40.0)),
+            6,
+            profile,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
+            Some(ambition_characters::actor::CharacterLocomotion::default()),
+            None,
+            None,
+            true,
+        );
+        assert!(
+            dummy.config.tuning.is_sandbag,
+            "a character that authors itself a training dummy did not reach the body"
         );
     }
 

@@ -416,6 +416,9 @@ fn a_definition_carries_no_controller_binding() {
         autonomous_profile: _,
         // The weapon the creature carries — an intrinsic like the sheet, not a
         // controller fact: a possessed raider is still holding a gun-sword.
+        // A training dummy is a fact about the creature, not about who is
+        // driving it: nothing drives a sandbag.
+        practice_target: _,
         held_item: _,
         // Presentation, like the sheet: what this creature LOOKS like is a
         // property of the creature, and no controller changes it.

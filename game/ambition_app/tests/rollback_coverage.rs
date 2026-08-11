@@ -573,6 +573,13 @@ fn every_component_in_unswept_populations_is_registered_derived_or_waived() {
         // Kinematic movers and the bodies riding them — moving platforms carry
         // path state the sim advances every tick.
         "vertical_shaft",
+        // ⭐ **the room `rollback_exit_oracle` itself simulates**, added
+        // 2026-08-11 while chasing D78 — a character-first enemy body there
+        // desyncs the oracle, and this instrument was the first thing to ask.
+        // It passes WITH that body present, which is the finding: the divergence
+        // is not an unaccounted COMPONENT. The room stays swept regardless; a
+        // population the oracle trusts should be one this instrument has seen.
+        "combat_calibration_lab",
     ] {
         let mut sim = Platformer2dSimHarness::new_with_options(
             ambition_app::rl_sim::Platformer2dSimHarnessOptions::default()

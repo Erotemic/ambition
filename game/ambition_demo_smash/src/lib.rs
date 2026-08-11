@@ -1330,6 +1330,14 @@ fn start_the_battle_when_asked(
     // `source_name_under` labels the slot with. Reading it here is what stops
     // the roster and the label disagreeing about who is holding what.
     assignment: bevy::prelude::Res<ambition_platformer2d::input::sources::InputAssignmentPolicy>,
+    // **WHO ALREADY HAS A REPERTOIRE**, so a seat whose character authors its own
+    // moves is not handed this stage's generic kit (Jon's redirect §17).
+    // `Option`, like every other reader of the cast.
+    prepared: Option<
+        bevy::prelude::Res<
+            ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry,
+        >,
+    >,
     mut shell: bevy::prelude::MessageWriter<ambition_platformer2d::game_shell::ShellCommand>,
 ) {
     if !asked.0 {
@@ -1364,7 +1372,22 @@ fn start_the_battle_when_asked(
         .map_or(0, |active| active.activation_id.0 as u64)
         .rotate_left(17)
         ^ select.participating() as u64;
-    let Some(decided) = select.roster_seeded(&fighters, seed, *assignment) else {
+    let Some(decided) = select.roster_seeded(
+        &fighters,
+        seed,
+        *assignment,
+        // The ids whose CHARACTER states its own move timelines. Computed here
+        // because only this side can see the prepared cast.
+        &prepared
+            .as_deref()
+            .map_or_else(Default::default, |registry| {
+                registry
+                    .iter()
+                    .filter(|(_, definition)| definition.authored_moveset.is_some())
+                    .map(|(id, _)| id.to_string())
+                    .collect()
+            }),
+    ) else {
         return;
     };
     // ⭐ **THE SEAT COUNT THIS MATCH DECIDED, published with the roster and

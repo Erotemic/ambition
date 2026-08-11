@@ -1131,9 +1131,9 @@ Section 20's numbering is preserved.
 | 17 | Resume Group-A/B/C migrations | ▢ (BLOCKED until 2–5 land) |
 | 18 | `player_robot_v3` off HostCode | ▢ |
 | 19 | Canonical robot moveset in the reusable provider | ✔ — `ambition_content::player_robot_moveset`, attached to v3 |
-| 20 | Seat the real Robot v3 in Smash | ▢ |
+| 20 | Seat the real Robot v3 in Smash | ✔ — it was already on the grid; now it keeps its OWN moves there |
 | 21 | Remove `smash_duelist_*` shadow definitions | ▢ |
-| 22 | Delete `smash_fighter_kit()` | ▢ |
+| 22 | Delete `smash_fighter_kit()` | ▢ — no longer blanket: adopters are now the seats whose character authored nothing |
 | 23 | Delete the `fighter_abilities` manufacturing fallback | ▢ |
 | 24 | Puppy Slug forced seating stays capability-faithful | ▢ |
 | 25 | Floor game / air dodge / ledge on Robot v3 | ▢ |

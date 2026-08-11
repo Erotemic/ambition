@@ -16,6 +16,54 @@ const UNIFIED: ambition_platformer2d::input::sources::InputAssignmentPolicy =
 /// whatever this demo declares itself, and a decision test that picked index 3
 /// would then start failing the day somebody edited [`SMASH_ROSTER`] — which is
 /// exactly the list Jon asked to be easy to edit.
+/// **A SEAT WITH ITS OWN MOVES KEEPS THEM; a seat with none takes the floor.**
+///
+/// ⛔ **`smash_fighter_kit()` was applied to EVERY seat, unconditionally**, so
+/// seating the real `player_robot_v3` got you the robot wearing somebody's
+/// generic swipe — which is the arrangement Jon's redirect §17 rejects: *"seat
+/// Character X → use Character X's real ActionSet/Moveset"*, with the generic
+/// kit as scaffolding for the characters that still lack one.
+///
+/// Two terms, and both matter: the character that authors a repertoire must NOT
+/// be handed the stage kit, and the one that authors nothing must still be — a
+/// Hall NPC's row says `peaceful` because standing in a room and talking is what
+/// it was authored for, and a crossover stage that seated it unarmed would be
+/// unplayable rather than principled.
+#[test]
+fn a_fighter_that_authors_its_own_moves_is_not_handed_the_stage_kit() {
+    const ARMED: &str = "has_its_own";
+    const UNARMED: &str = "authors_nothing";
+    let repertoires: std::collections::BTreeSet<String> = [ARMED.to_string()].into_iter().collect();
+
+    let fighters = SmashRoster(vec![ARMED.to_string(), UNARMED.to_string()]);
+    let mut select = SmashSelect::default();
+    for (slot, pick) in [(0usize, 0usize), (1, 1)] {
+        select.set_occupant(slot, SlotOccupant::Cpu);
+        select.set_pick(slot, SlotPick::Fighter(pick));
+    }
+    let roster = select
+        .roster_seeded(&fighters, 7, UNIFIED, &repertoires)
+        .expect("two decided seats are a match");
+
+    let seat_of = |id: &str| {
+        roster
+            .participants
+            .iter()
+            .find(|p| p.character == id)
+            .unwrap_or_else(|| panic!("`{id}` was not seated"))
+    };
+    assert!(
+        seat_of(ARMED).action_set.is_none(),
+        "a character with eleven authored timelines was handed the stage's \
+         generic swipe, which is the whole defect §17 names"
+    );
+    assert!(
+        seat_of(UNARMED).action_set.is_some(),
+        "a character that authored no moves was seated unarmed, so the grid is \
+         unplayable rather than principled"
+    );
+}
+
 fn fighters() -> SmashRoster {
     SmashRoster(
         (0..6)
@@ -532,7 +580,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     assert!(select.slot(0).pick.is_some_and(SlotPick::is_random));
 
     let roster = select
-        .roster_seeded(&fighters, 12_345, UNIFIED)
+        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default())
         .expect("two decided seats are a match");
     assert_eq!(roster.participants.len(), 2);
     for participant in &roster.participants {
@@ -546,7 +594,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     // ⚠ **SEEDED, not ambient** (ADR 0023). The same seed draws the same match,
     // which is what makes a desync explicable and a test able to name a draw.
     let again = select
-        .roster_seeded(&fighters, 12_345, UNIFIED)
+        .roster_seeded(&fighters, 12_345, UNIFIED, &Default::default())
         .expect("the same screen is still a match");
     assert_eq!(
         again.participants[0].character, roster.participants[0].character,
@@ -556,7 +604,7 @@ fn a_random_seat_draws_a_real_fighter_at_the_start_and_not_before() {
     // ...and a different seed is allowed to differ. Asserting it MUST differ
     // would be asserting a hash collision never happens on a grid this small.
     let other = select
-        .roster_seeded(&fighters, 99, UNIFIED)
+        .roster_seeded(&fighters, 99, UNIFIED, &Default::default())
         .expect("the same screen is still a match");
     assert_eq!(other.participants.len(), 2);
 }

@@ -564,7 +564,7 @@ impl SmashSelect {
         fighters: &SmashRoster,
         policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
     ) -> Option<MatchParticipantRoster> {
-        self.roster_seeded(fighters, 0, policy)
+        self.roster_seeded(fighters, 0, policy, &Default::default())
     }
 
     /// **The match this screen decided, with the random squares resolved.**
@@ -594,6 +594,18 @@ impl SmashSelect {
         fighters: &SmashRoster,
         seed: u64,
         policy: ambition_platformer2d::input::sources::InputAssignmentPolicy,
+        // **WHO ALREADY HAS A REPERTOIRE**, by id. See the kit block below: a
+        // seat whose character authors its own moves keeps them, and only the
+        // ones that authored nothing take this stage's generic kit.
+        //
+        // ⚠ **a set of ids rather than the registry**, deliberately. The
+        // registry can only be populated through the preparation barrier, which
+        // needs an `App` — so taking it here would mean this screen's regressions
+        // could not state the case they are about without standing a whole app
+        // up. The caller answers the question; this decides what to do about it.
+        //
+        // Empty = nobody authors anything, which is what every seat got before.
+        repertoires: &std::collections::BTreeSet<String>,
     ) -> Option<MatchParticipantRoster> {
         if !self.ready() {
             return None;
@@ -619,44 +631,51 @@ impl SmashSelect {
                     SlotPick::Fighter(index) => fighters.get(index)?,
                     SlotPick::Random => fighters.get(rng.draw(fighters.len())?)?,
                 };
-                Some(
-                    MatchParticipant::new(character)
-                        // A slot is driven by whoever the SCREEN says is at it.
-                        // Nothing is filled in on anybody's behalf: an absent
-                        // slot stays out of the match, and a CPU slot is one
-                        // somebody asked for.
-                        .driven_by(match card.occupant {
-                            SlotOccupant::Controller { device } => {
-                                crate::ControllerBinding::Human {
-                                    source: local_source_under(device, policy),
-                                }
-                            }
-                            _ => crate::ControllerBinding::Cpu {
-                                brain_profile: Some(crate::SMASH_DUELIST_BRAIN.to_string()),
-                            },
-                        })
-                        // **THE KIT THIS MATCH GIVES THEM.**
-                        //
-                        // ⛔ measured 2026-08-05: SEVEN of the twelve grid
-                        // fighters had no melee at all. They are Ambition's Hall
-                        // cast, and a Hall NPC's row says `peaceful` because
-                        // standing in a room and talking is what they were
-                        // authored for — which is CORRECT where they live. A
-                        // crossover stage is the one place allowed to say
-                        // otherwise, and `MatchParticipant::action_set` is how it
-                        // says it without editing a row that belongs to another
-                        // game.
-                        //
-                        // ⚠ **one kit for everybody is a FLOOR, not the design.**
-                        // It makes the grid playable and it is honestly a
-                        // levelling — the same levelling `fighter_abilities`
-                        // does, one rung lower, where it costs more. Per
-                        // character kits are the content job (Jon, 2026-08-05:
-                        // *"we might need to generate real smash movesets"*) and
-                        // this is the seam they land in.
-                        .with_action_set(smash_fighter_kit())
-                        .on_team(format!("seat {}", slot + 1)),
-                )
+                // ⭐⭐ **DOES THIS CHARACTER ALREADY HAVE MOVES?** (Jon's redirect
+                // §17.) The normal Smash path is *seat character X → use X's
+                // real repertoire*, and the generic kit is scaffolding for the
+                // seats that have none yet. It used to be applied to EVERY seat
+                // unconditionally, which meant seating the real robot got you
+                // the robot wearing somebody's generic swipe.
+                let authors_its_own = repertoires.contains(character);
+                let seat = MatchParticipant::new(character)
+                    // A slot is driven by whoever the SCREEN says is at it.
+                    // Nothing is filled in on anybody's behalf: an absent
+                    // slot stays out of the match, and a CPU slot is one
+                    // somebody asked for.
+                    .driven_by(match card.occupant {
+                        SlotOccupant::Controller { device } => crate::ControllerBinding::Human {
+                            source: local_source_under(device, policy),
+                        },
+                        _ => crate::ControllerBinding::Cpu {
+                            brain_profile: Some(crate::SMASH_DUELIST_BRAIN.to_string()),
+                        },
+                    })
+                    // **THE KIT THIS MATCH GIVES THE ONES WITH NONE.**
+                    //
+                    // ⛔ measured 2026-08-05: SEVEN of the twelve grid
+                    // fighters had no melee at all. They are Ambition's Hall
+                    // cast, and a Hall NPC's row says `peaceful` because
+                    // standing in a room and talking is what they were
+                    // authored for — which is CORRECT where they live. A
+                    // crossover stage is the one place allowed to say
+                    // otherwise, and `MatchParticipant::action_set` is how it
+                    // says it without editing a row that belongs to another
+                    // game.
+                    //
+                    // ⚠ **one kit for everybody is a FLOOR, not the design**
+                    // — and as of 2026-08-11 it is no longer for everybody.
+                    // `player_robot_v3` authors eleven real timelines, so it
+                    // keeps them; the Hall cast still takes the floor until
+                    // somebody writes them one. The adopter count is the
+                    // thing to watch: this kit's goal is DELETION, and every
+                    // character that gains a repertoire removes an adopter.
+                    .on_team(format!("seat {}", slot + 1));
+                Some(if authors_its_own {
+                    seat
+                } else {
+                    seat.with_action_set(smash_fighter_kit())
+                })
             })
             .collect();
         // **THE RULESET, from the one place that states it.** This block used

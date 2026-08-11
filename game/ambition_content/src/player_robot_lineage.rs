@@ -646,6 +646,11 @@ pub fn register_declared_cast(app: &mut bevy::prelude::App) {
             crate::AMBITION_CONTENT_PROVIDER,
         )
         .with_sheet(sheet);
+        // **What this character says about its own body**, for the ones that
+        // have taken their facts back from the archetype roster. A character
+        // still awaiting migration adds nothing here and stays a bare
+        // registration.
+        let definition = crate::character_catalog::authored_intrinsics(&id, definition);
         // `try_`, and a SKIP rather than a panic: another provider legitimately
         // owns some of these ids in a multi-game composition, and losing a race
         // for one is not this provider's error to raise.

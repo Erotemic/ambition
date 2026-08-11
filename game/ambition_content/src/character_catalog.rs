@@ -193,7 +193,55 @@ pub const PLAYABLE_ROSTER: &[&str] = &[
 /// ~100-NPC regression recorded on [`PLAYABLE_ROSTER`]. Author first, register
 /// second; that ordering is the whole reason this list is empty rather than
 /// pre-filled with the obvious candidates.
-pub const BUILDABLE_ONLY_CAST: &[&str] = &[];
+pub const BUILDABLE_ONLY_CAST: &[&str] = &[
+    // ⭐ **the first two characters migrated off `character_archetypes.ron`**
+    // (D73 phase 2, group A). Their death traits and health pools are authored
+    // on their DEFINITIONS by [`authored_intrinsics`] and deleted from their
+    // archetype rows in the same change, so the two authorities never state the
+    // same fact at once. Their sandbox placements name them explicitly.
+    "npc_exploding_mite",
+    "npc_dividing_mite",
+];
+
+/// **What a migrated character authors about its own body.**
+///
+/// The registration loop builds a bare definition from the catalog row — id,
+/// display name, sheet — which is all an unmigrated character can say. This is
+/// where a character that has taken its facts back from
+/// `character_archetypes.ron` states them.
+///
+/// ⛔ **an id in [`BUILDABLE_ONLY_CAST`] with no arm here is the bug that list's
+/// doc warns about**: a bare registration means "this character authors no
+/// body", and anything its archetype used to give it is simply lost. Author
+/// first, register second.
+pub fn authored_intrinsics(
+    id: &str,
+    definition: ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition,
+) -> ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition {
+    use ambition_characters::actor::CharacterDeathTraits;
+
+    match id {
+        // The sandbox kamikaze mite: two hit points and a corpse that detonates.
+        "npc_exploding_mite" => {
+            let mut definition = definition.with_death_traits(CharacterDeathTraits {
+                explodes_on_death: true,
+                ..Default::default()
+            });
+            definition.vitals.max_health = Some(2);
+            definition
+        }
+        // The splitter: four hit points, and it becomes two on death.
+        "npc_dividing_mite" => {
+            let mut definition = definition.with_death_traits(CharacterDeathTraits {
+                divides_on_death: true,
+                ..Default::default()
+            });
+            definition.vitals.max_health = Some(4);
+            definition
+        }
+        _ => definition,
+    }
+}
 
 /// Every id this game registers as a buildable character — the SELECTION cast
 /// plus the build-only cast. The one list registration iterates.
@@ -303,6 +351,68 @@ mod tests {
     /// **The two lists answer two questions, and the build-only one has to obey
     /// the same rules as the selection one** (D73 phase 2).
     ///
+    /// **The two characters that have taken their body back from the archetype
+    /// roster author it here** — D73 phase 2, group A, the first migration.
+    ///
+    /// ⭐ this is where the coverage that used to live in the monolith's
+    /// `archetype_capabilities_match_the_legacy_identity_checks` went. That test
+    /// asserted `explodes_on_death` on `character_archetypes.ron`'s
+    /// `exploding_mite` row; the row no longer says it, because the CHARACTER
+    /// does. The fact did not lose its guard, it moved with the fact.
+    ///
+    /// ⛔ poison: empty an arm of [`authored_intrinsics`] and this reds. That
+    /// matters more than it looks — a registered character that authors nothing
+    /// does not fall back to its archetype, it simply has no death behaviour,
+    /// and an exploding mite that stops exploding is invisible until someone
+    /// stands next to one.
+    #[test]
+    fn the_migrated_mites_author_their_own_death_and_health() {
+        for (id, explodes, divides, health) in [
+            ("npc_exploding_mite", true, false, 2),
+            ("npc_dividing_mite", false, true, 4),
+        ] {
+            let bare =
+                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    id,
+                    "unused",
+                    crate::AMBITION_CONTENT_PROVIDER,
+                );
+            let authored = authored_intrinsics(id, bare);
+            let traits = authored
+                .death_traits
+                .as_ref()
+                .unwrap_or_else(|| panic!("{id} is registered, so it must author its own death"));
+            assert_eq!(traits.explodes_on_death, explodes, "{id}");
+            assert_eq!(traits.divides_on_death, divides, "{id}");
+            assert_eq!(
+                authored.vitals.max_health,
+                Some(health),
+                "{id} must carry the pool its archetype row used to give it"
+            );
+        }
+    }
+
+    /// Every id in the build-only cast authors its intrinsics. See
+    /// [`BUILDABLE_ONLY_CAST`]'s own warning: registering an id whose facts are
+    /// still in the roster is how a character silently loses them.
+    #[test]
+    fn every_build_only_id_authors_something() {
+        for id in BUILDABLE_ONLY_CAST {
+            let bare =
+                ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                    *id,
+                    "unused",
+                    crate::AMBITION_CONTENT_PROVIDER,
+                );
+            let authored = authored_intrinsics(id, bare);
+            assert!(
+                authored.death_traits.is_some() || authored.vitals.max_health.is_some(),
+                "`{id}` is registered as buildable but authors no body — a bare \
+                 registration means it has none, not that its archetype keeps it"
+            );
+        }
+    }
+
     /// ⚠ it is empty today, so this asserts the CONTRACT rather than any
     /// current content: an id here must resolve a catalog row, and must not
     /// duplicate the selection cast — registering a character twice is how a

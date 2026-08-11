@@ -331,7 +331,6 @@
         ))),
         smash_hit_band: Some(30.0),
         move_style: Walk,
-        explodes_on_death: true,
     ),
     // Replicating blob: slow + a bit tanky (4 HP), and it splits into two
     // fast SmallSkitter offspring on death (`damage.rs::spawn_split_offspring`).
@@ -356,7 +355,6 @@
         ))),
         smash_hit_band: Some(34.0),
         move_style: Walk,
-        divides_on_death: true,
     ),
     // Ranged kiter: the Skirmisher brain holds a standoff distance (derived
     // from attack_range -> standoff_px ~182), strafes, and fires bolts on a

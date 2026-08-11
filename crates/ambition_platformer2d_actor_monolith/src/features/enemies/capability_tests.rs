@@ -12,11 +12,24 @@ use crate::features::enemies::ArchetypeSpecExt;
 /// (Stage 20: the named checks became data-driven capabilities).
 #[test]
 fn archetype_capabilities_match_the_legacy_identity_checks() {
+    // ⭐ **THE MITES ARE GONE FROM THIS TEST BECAUSE THEY ARE GONE FROM THE
+    // ROSTER** (D73 phase 2, group A, 2026-08-10). `explodes_on_death` and
+    // `divides_on_death` are authored on `npc_exploding_mite` /
+    // `npc_dividing_mite` as CHARACTERS now and deleted from their archetype
+    // rows, so asserting them here would assert the authority they left.
+    //
+    // ⛔ **the coverage did not drop, it MOVED**: `ambition_content`'s
+    // `the_migrated_mites_author_their_own_death_and_health` pins the same two
+    // facts where they now live, and this row's remaining assertions still
+    // guard every trait that has NOT migrated.
     let mite = crate::features::enemies::test_spec("exploding_mite").combat_capabilities();
-    assert!(mite.explodes_on_death && !mite.divides_on_death);
-
-    let blob = crate::features::enemies::test_spec("dividing_mite").combat_capabilities();
-    assert!(blob.divides_on_death && !blob.explodes_on_death);
+    assert_eq!(
+        mite,
+        Default::default(),
+        "the mite's archetype must state NOTHING about death now — a trait \
+         surviving here is the same fact in two authorities, which is what the \
+         migration exists to end"
+    );
 
     let shark = crate::features::enemies::test_spec("burning_flying_shark").combat_capabilities();
     assert!(shark.charge_crash_explodes);

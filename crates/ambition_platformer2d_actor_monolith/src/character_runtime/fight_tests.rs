@@ -69,7 +69,7 @@ fn strike(id: &str, damage: i32) -> MoveSpec {
                 },
                 damage,
                 knockback: 0.0,
-                kb_growth: 0.0,
+                knockback_growth: 0.0,
                 launch_dir: None,
                 on_hit: None,
                 vfx: None,

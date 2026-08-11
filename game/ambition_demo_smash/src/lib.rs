@@ -1601,7 +1601,7 @@ const SMASH_DI_MAX_ANGLE: f32 = 0.31;
 /// seem to be any knockback."* Every piece of the engine was already there — the
 /// growth term, hitstun and hitlag scaling off the resulting launch, DI steering
 /// it — and the duelists reached none of it, because their swings come from the
-/// `simple_melee` prefab and a prefab swing authors `kb_growth: 0.0`. A hit at
+/// `simple_melee` prefab and a prefab swing authors `knockback_growth: 0.0`. A hit at
 /// 150% launched exactly as far as a hit at 0%, so percent accumulated and moved
 /// nothing.
 ///
@@ -1611,9 +1611,17 @@ const SMASH_DI_MAX_ANGLE: f32 = 0.31;
 /// meter. The world baseline stays flat; a stage that wants the loop says so.
 ///
 /// The number: a duelist's swipe launches at 120 px/s, so at 100 damage it
-/// launches at 240 and at 200 damage at 360 — a fresh opponent is hard to move
+/// launches at 360 and at 200 damage at 600 — a fresh opponent is hard to move
 /// and a worn one flies, which is the read the whole stage is built around.
-const SMASH_KNOCKBACK_GROWTH: f32 = 0.01;
+///
+/// ⚠ **bumped 0.01 → 0.02 (Jon, 2026-08-11)**: *"knockback multiplier in smash
+/// is currently zero? I'd like to bump that number up so it's non zero."* It was
+/// not literally zero, but doubling at 100% is barely a curve when a stock ends
+/// somewhere north of 120% — the launch a player feels grows over the whole
+/// match rather than at the end of it. Tripling at 100% is the genre's shape.
+/// See `moveset.rs` for the unit trap that made the authored moves ignore this
+/// entirely, which is the half that actually read as zero.
+const SMASH_KNOCKBACK_GROWTH: f32 = 0.02;
 
 /// Stable ids the shell routes and lists this demo by.
 pub const SMASH_EXPERIENCE: &str = "smash";
@@ -2403,7 +2411,7 @@ mod tests {
             SMASH_KNOCKBACK_GROWTH > 0.0,
             "⛔ a platform fighter whose launch does not grow with percent is a \
              fighting game with no comeback and no kill: every basic swing here \
-             is prefab-derived and authors `kb_growth: 0.0`, so this declaration \
+             is prefab-derived and authors `knockback_growth: 0.0`, so this declaration \
              is the ONLY thing that makes a worn opponent fly"
         );
 

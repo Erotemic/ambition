@@ -30,7 +30,7 @@ policies:
 - **Knockback formula** (the resolver's launch step):
 
   ```text
-  kb = (base + growth * damage_taken * scale_of(victim.weight)) * move.kb_mult
+  kb = (base + growth * damage_taken * scale_of(victim.weight)) * move.knockback_mult
   dir = di_adjust(move.launch_dir_bodyframe -> worldframe, victim_DI)
   hitstun_frames = hitstun_base + hitstun_per_kb * kb
   ```
@@ -61,7 +61,7 @@ Composition of two landed pieces plus one rule: the `simple_charge` prefab
 provides hold-to-charge move shells; the directional-verb chain provides the
 smash-input surface (a `smash` verb family binds strong-directional attacks
 distinct from tilts — the flick-vs-hold input distinction is a resolver knob,
-authored per game); released charge fraction multiplies damage and `kb_mult`
+authored per game); released charge fraction multiplies damage and `knockback_mult`
 (`1.0 → smash_charge_mult`, data). Charge state lives on `MovePlayback` (a held
 Startup phase) — no new component.
 
@@ -322,7 +322,7 @@ landing cue, not a per-victim payload).
 
 | # | Slice | Grade |
 |---|---|---|
-| CM1 | ✅ LANDED. `HitVolume.{kb_growth,launch_dir}`, `ActorTuning.{weight,death_policy}`, `BodyHealth::damage_taken()`, pure `scaled_knockback()` applied victim-side at the moveset-hitbox overlap (the ONE growth-carrying path), `DeathPolicy::kills_at_max()` gating the kill path. `launch_dir` is direction-only, victim-gravity-frame, and preserves the feel-tuned launch SPEED — an authored angle can never out-throw the default. | done |
+| CM1 | ✅ LANDED. `HitVolume.{knockback_growth,launch_dir}`, `ActorTuning.{weight,death_policy}`, `BodyHealth::damage_taken()`, pure `scaled_knockback()` applied victim-side at the moveset-hitbox overlap (the ONE growth-carrying path), `DeathPolicy::kills_at_max()` gating the kill path. `launch_dir` is direction-only, victim-gravity-frame, and preserves the feel-tuned launch SPEED — an authored angle can never out-throw the default. | done |
 | CM2 | ✅ LANDED. Pure `di_adjust(launch, di_input_local, gravity_dir, max_angle)`; `di_max_angle` defaults `0.0` (off = parity; a fighter mode authors ≈0.31/18°). Wired via a localized `Option<&ActorControl>` on the two knockback-consumer SYSTEM queries, not the shared cluster views. **Turning DI on for a fighter is a feel number Jon sets.** | done |
 | CM3 | ✅ LANDED. `MoveSpec.smash_charge_mult` + `charge_scale_at(t)` — charge state IS the move's clock, no new component. **Partial-charge-on-EARLY-release awaits an `attack_held`/`attack_released` control signal** (input + feel, Jon's domain); the fraction already derives from `t`. | done |
 | CM4 | ✅ LANDED. See §4 "As landed". Empty timeline = byte-parity reject (tested). `frame_data().cancel_windows` carries conditions (FB2-ready). | done |

@@ -739,7 +739,7 @@ pub fn advance_move_playback(
                                 base: volume.knockback * charge_scale,
                                 // CM1: the smash-percent growth term rides the
                                 // volume through to victim-side scaling at overlap.
-                                growth: volume.kb_growth,
+                                growth: volume.knockback_growth,
                             },
                             // CM1: the authored launch direction rides the
                             // volume through to the victim-side resolver.

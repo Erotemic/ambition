@@ -271,11 +271,11 @@ pub struct HitVolume {
     pub knockback: f32,
     /// Knockback GROWTH per point of the victim's accumulated damage (CM1, the
     /// smash-percent axis): the applied knockback becomes
-    /// `knockback + kb_growth * victim.damage_taken() / victim.weight`. Default
+    /// `knockback + knockback_growth * victim.damage_taken() / victim.weight`. Default
     /// `0.0` == today's flat knockback exactly (parity by construction); content
     /// opts a row into growth to get percent-scaling launches.
     #[serde(default)]
-    pub kb_growth: f32,
+    pub knockback_growth: f32,
     /// Body-local launch direction override `(+x = facing, +y = gravity-down)`.
     /// `None` = today's facing+contact derivation. The runtime mirrors x by
     /// facing and rotates into the owner's gravity frame (frame-correct under any
@@ -1015,7 +1015,7 @@ pub struct MoveFrameData {
     /// fighter-brain.md recorded that nothing could). `0` for a move that
     /// lands no volume.
     pub max_damage: i32,
-    /// Highest flat `knockback` any Active volume applies (the `kb_growth`
+    /// Highest flat `knockback` any Active volume applies (the `knockback_growth`
     /// percent-scaling term is the victim's business, not the table's).
     pub max_knockback: f32,
     /// The move's authored self-motion at trigger, body-local (`+x` toward

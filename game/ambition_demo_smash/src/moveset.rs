@@ -2,7 +2,7 @@
 //!
 //! ⛔ **what this replaces.** Every seat in this demo carried
 //! `smash_fighter_kit()` — one `simple_melee` swipe, 4 damage, flat 120
-//! knockback, `kb_growth: 0.0` — so a jab, a forward smash and a back air were
+//! knockback, `knockback_growth: 0.0` — so a jab, a forward smash and a back air were
 //! the same swing, the same commitment and the same launch. Jon reported the
 //! consequence directly: the stage reads as *"generic characters walking around
 //! an arena"*, and the percent meter next to a launch that never grows is a
@@ -14,7 +14,7 @@
 //! a Smash-strength gesture off a directional flick, already falls back from
 //! `smash_forward` to `attack_forward`, and `MoveSpec` already carries
 //! `landing_lag_s`, `autocancel_after_s`, `smash_charge_mult` and per-volume
-//! `kb_growth`. All of it was reachable only by AUTHORING, and nobody had.
+//! `knockback_growth`. All of it was reachable only by AUTHORING, and nobody had.
 //!
 //! ## The shape of the repertoire
 //!
@@ -36,6 +36,16 @@
 //! play.** They follow the genre's proportions rather than any one game's
 //! frame data: a jab is ~3 frames of startup and a forward smash ~18, a smash
 //! launches 3–4× a jab, and an aerial's landing lag is roughly its recovery.
+//!
+//! ⛔ **`knockback_growth` here is ABSOLUTE px/s per point of damage, and the stage's
+//! `SMASH_KNOCKBACK_GROWTH` is a FRACTION OF THE MOVE'S BASE** — two different
+//! units for the same mechanic, and an authored move wins outright. The first
+//! pass wrote growths that looked like fractions (a jab at `0.30`), so every
+//! move in this table grew ~40× slower than the stage it was authored for: a
+//! jab at 100% launched 58 px/s instead of 165, which is the "there does not
+//! seem to be any knockback" Jon reported AGAIN after the ruleset fix landed.
+//! Every growth below is now exactly `base * SMASH_KNOCKBACK_GROWTH`, so
+//! authoring a move no longer silently opts it OUT of the stage's own loop.
 
 use ambition_platformer2d::entity_catalog::{
     ClipBinding, HitVolume, MoveGates, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
@@ -75,7 +85,7 @@ fn strike(
     half_extents: (f32, f32),
     damage: i32,
     knockback: f32,
-    kb_growth: f32,
+    knockback_growth: f32,
     launch_dir: Option<(f32, f32)>,
 ) -> MoveSpec {
     let active_start = startup_s;
@@ -111,7 +121,7 @@ fn strike(
                     },
                     damage,
                     knockback,
-                    kb_growth,
+                    knockback_growth,
                     launch_dir,
                     on_hit: None,
                     // The blade tag: the move runtime draws the slash from the
@@ -163,7 +173,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (18.0, 14.0),
         3,
         55.0,
-        0.30,
+        1.10,
         None,
     );
     jab.gates = grounded_only();
@@ -179,7 +189,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (20.0, 22.0),
         5,
         70.0,
-        0.55,
+        1.40,
         // Straight up: an anti-air that starts a juggle rather than sending the
         // opponent away.
         Some((0.15, -1.0)),
@@ -197,7 +207,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (20.0, 10.0),
         4,
         60.0,
-        0.40,
+        1.20,
         // A low poke that pops them up into the juggle.
         Some((0.5, -0.85)),
     );
@@ -221,7 +231,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (28.0, 20.0),
         15,
         150.0,
-        1.30,
+        3.00,
         // Slightly upward and away: the classic kill angle. A contact-derived
         // direction would send a crouching opponent along the floor instead.
         Some((1.0, -0.42)),
@@ -244,7 +254,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (24.0, 30.0),
         14,
         140.0,
-        1.25,
+        2.80,
         Some((0.12, -1.0)),
     );
     up_smash.gates = grounded_only();
@@ -261,7 +271,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (40.0, 14.0),
         12,
         130.0,
-        1.10,
+        2.60,
         // Low and outward — the edge-guarding smash, not a launcher.
         Some((1.0, -0.25)),
     );
@@ -284,7 +294,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (26.0, 22.0),
         6,
         75.0,
-        0.60,
+        1.50,
         None,
     );
     n_air.gates = airborne_only();
@@ -302,7 +312,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (22.0, 18.0),
         9,
         105.0,
-        0.85,
+        2.10,
         Some((1.0, -0.35)),
     );
     f_air.gates = airborne_only();
@@ -320,7 +330,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (22.0, 18.0),
         11,
         125.0,
-        1.00,
+        2.50,
         // Backwards and slightly up: the strongest aerial, and the one you have
         // to turn around for.
         Some((-1.0, -0.38)),
@@ -340,7 +350,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (22.0, 24.0),
         7,
         90.0,
-        0.80,
+        1.80,
         Some((0.1, -1.0)),
     );
     u_air.gates = airborne_only();
@@ -358,7 +368,7 @@ pub fn fighter_moveset() -> MovesetContract {
         (20.0, 22.0),
         10,
         110.0,
-        0.70,
+        2.20,
         // Straight DOWN — a spike. Offstage this is a stock; onstage it is a
         // bounce the opponent has to deal with.
         Some((0.0, 1.0)),
@@ -427,7 +437,7 @@ mod tests {
             mv.windows
                 .iter()
                 .flat_map(|w| w.volumes.iter())
-                .map(|v| (v.damage, v.knockback, v.kb_growth))
+                .map(|v| (v.damage, v.knockback, v.knockback_growth))
                 .next()
                 .expect("a strike has a volume")
         };
@@ -452,6 +462,40 @@ mod tests {
             smash.smash_charge_mult > 1.0,
             "holding the smash pays nothing, so there is no reason to charge it"
         );
+    }
+
+    /// **Every authored growth equals the stage's own declaration**, in the
+    /// stage's units.
+    ///
+    /// ⛔ **the guard for a UNIT MISMATCH that green tests cannot see.** A
+    /// volume's `knockback_growth` is absolute px/s per point; the ruleset's
+    /// `knockback_growth` is a fraction of the move's base. Both are plain
+    /// `f32`, both are "growth", and an authored move outranks the ruleset — so
+    /// the first pass's fraction-shaped numbers made every move in this table
+    /// grow ~40× slower than the stage declared, and nothing anywhere failed.
+    /// Percent accumulated and the launch barely moved, twice reported as no
+    /// knockback at all.
+    ///
+    /// A move MAY deliberately differ — that is what authoring is for — but it
+    /// has to differ by a factor a reader can see, not by a unit.
+    #[test]
+    fn an_authored_growth_is_the_stage_declaration_in_the_stage_units() {
+        for mv in &fighter_moveset().moves {
+            for volume in mv.windows.iter().flat_map(|w| w.volumes.iter()) {
+                let expected = volume.knockback * crate::SMASH_KNOCKBACK_GROWTH;
+                assert!(
+                    (volume.knockback_growth - expected).abs() < 0.01,
+                    "`{}` launches at {} and grows {}/point, but the stage \
+                     declares {} of base = {expected}/point. A growth that is \
+                     off by a FACTOR is the fraction-vs-absolute unit slip, and \
+                     it silently opts this move out of the percent loop",
+                    mv.id,
+                    volume.knockback,
+                    volume.knockback_growth,
+                    crate::SMASH_KNOCKBACK_GROWTH,
+                );
+            }
+        }
     }
 
     /// **The aerials commit, and the auto-cancel window is real.**

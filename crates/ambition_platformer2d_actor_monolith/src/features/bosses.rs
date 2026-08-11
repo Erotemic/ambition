@@ -173,7 +173,7 @@ pub fn boss_attack_moveset(
                             },
                             damage: behavior.attack_damage.max(1),
                             knockback: BOSS_STRIKE_KNOCKBACK,
-                            kb_growth: 0.0,
+                            knockback_growth: 0.0,
                             launch_dir: None,
                             on_hit: None,
                             // Boss geometry strikes are data-shaped volumes, not

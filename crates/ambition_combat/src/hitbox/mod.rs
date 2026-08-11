@@ -78,7 +78,7 @@ pub struct LandedBodyHit {
 /// and weight; the resulting event no longer carries unresolved growth.
 ///
 /// ⭐ **`ruleset_growth` is what a stage says when the MOVE says nothing.** An
-/// authored volume's own `kb_growth` wins outright; a swing derived from the
+/// authored volume's own `knockback_growth` wins outright; a swing derived from the
 /// `simple_melee` prefab carries `0.0`, which is every basic attack in the game,
 /// and without this every one of them launched a 150% opponent exactly as far as
 /// a fresh one. The ruleset value is a FRACTION of this move's base launch per

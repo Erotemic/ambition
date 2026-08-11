@@ -395,7 +395,7 @@ pub fn emit_hit_feedback(
 /// farther under the same hit, scaled down by its weight. Pure and
 /// frame-agnostic so it is unit-tested directly and reused by every hit path.
 ///
-/// `base` is the volume's flat knockback; `growth` is the authored `kb_growth`;
+/// `base` is the volume's flat knockback; `growth` is the authored `knockback_growth`;
 /// `victim_damage_taken` is `BodyHealth::damage_taken()`; `victim_weight` is the
 /// archetype weight (reference `1.0`). PARITY: `growth == 0.0` returns `base`
 /// exactly, so every un-authored volume is byte-identical to today.

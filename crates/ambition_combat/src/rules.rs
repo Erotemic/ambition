@@ -62,9 +62,9 @@ pub struct DeclaredCombatRules {
     /// is Ambition's PvE answer and the engine baseline.
     ///
     /// ⭐ **a RULESET fact, not a per-move one, and that is the point.** A move
-    /// may still author its own `kb_growth` on a hit volume and that wins
+    /// may still author its own `knockback_growth` on a hit volume and that wins
     /// outright; this is what a stage says when its moves author none. Without
-    /// it, every prefab-derived swing in the game carries `kb_growth: 0.0` — so
+    /// it, every prefab-derived swing in the game carries `knockback_growth: 0.0` — so
     /// Smash's duelists launched identically at 0% and 150%, which is exactly
     /// what Jon reported as *"there does not seem to be any knockback"*.
     ///

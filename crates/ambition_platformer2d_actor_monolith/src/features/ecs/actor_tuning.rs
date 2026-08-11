@@ -55,7 +55,7 @@ pub struct ActorTuning {
     /// the kill hook; DEFAULT: dead stays dead.
     pub respawn: RespawnPolicy,
     /// Knockback weight (CM1): heavier bodies launch less under the same growth
-    /// term (`kb_growth * damage_taken / weight`). `1.0` is the reference body;
+    /// term (`knockback_growth * damage_taken / weight`). `1.0` is the reference body;
     /// the default keeps every un-authored archetype at the reference.
     pub weight: f32,
     /// How this body's damage meter relates to death (CM1). `HpDepleted`

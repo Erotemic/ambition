@@ -2597,7 +2597,7 @@ fn swept_track(reaches: [f32; 3], segment_s: f32) -> MoveSpec {
         },
         damage: 5,
         knockback: 0.0,
-        kb_growth: 0.0,
+        knockback_growth: 0.0,
         launch_dir: None,
         on_hit: None,
         // ⚠ no `vfx` tag: a bladed volume would resolve the fixture manifest

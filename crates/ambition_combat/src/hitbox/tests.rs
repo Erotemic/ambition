@@ -1148,7 +1148,7 @@ fn the_authored_strike_sound_rides_the_overlap_onto_the_hit_event() {
 /// knockback."*
 ///
 /// Every basic swing in the game is derived from the `simple_melee` prefab, and
-/// a prefab swing carries `kb_growth: 0.0`. `scaled_knockback` returns the base
+/// a prefab swing carries `knockback_growth: 0.0`. `scaled_knockback` returns the base
 /// immediately when growth is zero, so before this the Smash duelists launched a
 /// 150% opponent exactly as far as a fresh one: percent accumulated and moved
 /// nothing. The engine had the whole mechanism and no content reached it.

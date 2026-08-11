@@ -589,6 +589,9 @@ fn construct_staged_actor(
         &ctx.services.context.characters,
         &ctx.services.context.sheets,
         &ctx.services.context.roster,
+        // ⭐ the cast this construction context has carried all along — the
+        // staged path simply never asked for it (queue D75).
+        &ctx.services.context.prepared,
         &ctx.services.boss_catalog,
         ctx.session,
         root.entity(),
@@ -1462,12 +1465,11 @@ pub fn authored_ground_item_requests(
     // Built once for the room, and only when it has ground items at all: this is
     // the registry the refusal below is measured against, and the list it names
     // when the reference misses.
-    let registry =
-        (!room.ground_items.is_empty()).then(|| {
-            ambition_platformer2d_shared_tangle::binding::Resolver::<
+    let registry = (!room.ground_items.is_empty()).then(|| {
+        ambition_platformer2d_shared_tangle::binding::Resolver::<
                 crate::rooms::binding::HeldItemId,
             >::new(ambition_characters::brain::held_item_ids())
-        });
+    });
     room.ground_items
         .iter()
         .map(|spec| {

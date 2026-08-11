@@ -133,6 +133,15 @@ pub fn apply_spawn_actor_requests(
     character_catalog: bevy::prelude::Res<CharacterCatalog>,
     authored_sheets: bevy::prelude::Res<ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     character_roster: bevy::prelude::Res<CharacterRoster>,
+    // **The prepared cast** — a runtime-staged actor that names a migrated
+    // character builds that character, like every other road (queue D75).
+    //
+    // ⚠ `Option`, matching its sibling on the authored path, and the absence is
+    // MEANINGFUL rather than defensive: a composition that never registered a
+    // character has no such resource at all, and that is exactly the state
+    // D75 is about. A required `Res` here turns a bare engine App into a panic —
+    // measured immediately by `a_refused_programmatic_giant_allocates_no_entity`.
+    prepared: Option<bevy::prelude::Res<crate::character_runtime::PreparedCharacterRegistry>>,
     boss_catalog: bevy::prelude::Res<BossCatalog>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
 ) {
@@ -141,6 +150,10 @@ pub fn apply_spawn_actor_requests(
     // exist — `grudge_against` names a foe by id, resolvable only after the whole
     // batch has reserved its entities.
     let mut staged: Vec<(String, bevy::prelude::Entity, Option<String>)> = Vec::new();
+    // The stand-in for a composition that registered nothing. Named rather than
+    // inlined so the two readings — "no cast published" and "this character is
+    // not in the cast" — stay distinguishable at the call site.
+    let empty_cast = crate::character_runtime::PreparedCharacterRegistry::default();
     let Some(session_scope) =
         SessionSpawnScope::for_optional_active_session(active_session.as_deref())
     else {
@@ -156,6 +169,7 @@ pub fn apply_spawn_actor_requests(
             &character_catalog,
             &authored_sheets,
             &character_roster,
+            prepared.as_deref().unwrap_or(&empty_cast),
             &boss_catalog,
             session_scope,
             req,
@@ -185,6 +199,7 @@ pub(crate) fn spawn_staged_actor(
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     character_roster: &CharacterRoster,
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     req: &SpawnActorRequest,
@@ -208,6 +223,7 @@ pub(crate) fn spawn_staged_actor(
         character_catalog,
         authored_sheets,
         character_roster,
+        prepared,
         boss_catalog,
         session_scope,
         root,
@@ -223,6 +239,9 @@ pub(crate) fn spawn_staged_actor_into(
     character_catalog: &CharacterCatalog,
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     character_roster: &CharacterRoster,
+    // **The prepared cast**, so a staged actor that names a migrated character
+    // builds that character (queue D75 / campaign P1.12).
+    prepared: &crate::character_runtime::PreparedCharacterRegistry,
     boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
@@ -267,13 +286,16 @@ pub(crate) fn spawn_staged_actor_into(
                 character_catalog,
                 authored_sheets,
                 character_roster,
-                // ▢ **no prepared cast on the PROGRAMMATIC path yet** (D73
-                // phase 3). A staged actor is minted by code rather than by an
-                // authored placement, and this seam has no registry in scope; an
-                // empty one means "no character authors anything", which is what
-                // every route did before adoption existed. The authored
-                // `EnemySpawn` path is wired — see `construct_authored_enemy`.
-                &Default::default(),
+                // ⭐ **WIRED 2026-08-11 (queue D75).** This passed
+                // `&Default::default()` — an EMPTY registry — with a note saying
+                // the programmatic path had no cast in scope yet. It reads as a
+                // gap and behaved as a lie: every staged actor was told no
+                // character authors anything, so a migrated creature spawned at
+                // runtime came out as its archetype. Two hosts spent an hour
+                // looking like they published no cast at all because of this one
+                // argument, and the construction context had the registry the
+                // whole time.
+                prepared,
                 session_scope,
                 root,
                 &authored,

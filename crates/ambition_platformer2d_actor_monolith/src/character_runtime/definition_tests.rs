@@ -817,6 +817,57 @@ fn the_cast_generation_advances_on_every_published_change() {
 /// decision-making meant sharing the body too.
 ///
 /// ⚠ the fixture gives the two characters DIFFERENT bodies and the same policy,
+/// **Completeness is a NAMED contract, not an inferred bool.**
+///
+/// ⛔ this replaces `is_complete_body()` (Jon's redirect §5), which answered
+/// `locomotion.is_some()`. That was true by coincidence — a character that had
+/// stated its top speed had, so far, also stated everything else — and the day
+/// it stopped being true nothing would have said so: the body would have taken
+/// the archetype road and looked unmigrated rather than incomplete.
+///
+/// Two terms, both observed: an incomplete character NAMES what it is missing,
+/// and a complete one hands over a blueprint carrying the facts construction
+/// actually reads.
+#[test]
+fn an_incomplete_character_names_the_fact_it_is_missing() {
+    let bare = crate::character_runtime::prepare_and_finalize_for_test(
+        CharacterDefinition::new("wisp", "Wisp", "test"),
+        &CharacterBindings::default(),
+    )
+    .prepared;
+    let missing = bare
+        .body_blueprint()
+        .expect_err("a character that authored nothing cannot build a body");
+    assert_eq!(missing.character_id, "wisp");
+    assert_eq!(missing.missing, vec!["locomotion"]);
+    assert!(
+        missing.to_string().contains("locomotion"),
+        "the diagnostic has to name the fact, or it is the bool again with a \
+         longer type: {missing}"
+    );
+
+    let whole = crate::character_runtime::prepare_and_finalize_for_test(
+        CharacterDefinition::new("goblin", "Goblin", "test")
+            .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                run_speed: 170.0,
+                ..Default::default()
+            })
+            .as_practice_target(),
+        &CharacterBindings::default(),
+    )
+    .prepared;
+    let body = whole
+        .body_blueprint()
+        .expect("a character that stated how it moves can build one");
+    assert_eq!(body.character_id, "goblin");
+    assert_eq!(body.locomotion.run_speed, 170.0);
+    assert!(
+        body.practice_target,
+        "the blueprint carries what construction READS, and a dummy that lost \
+         this on the way in is the D77 defect"
+    );
+}
+
 /// The assembled shape a shared-policy fixture has to model: fragment keys are
 /// namespaced `provider::local_name` by `CharacterCatalogRegistry`.
 const SHARED_POLICY_CATALOG: &str = r#"(

@@ -749,28 +749,44 @@ impl ActorClusterSeed {
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         id: impl Into<String>,
-        character_id: &str,
-        display_name: impl Into<String>,
+        // ⭐⭐ **THE PREPARED CHARACTER, AS ONE VALUE** (Jon's redirect §4).
+        //
+        // ⛔ this took eleven pre-unpacked arguments — character id, display
+        // name, max health, brain profile, locomotion, contact damage, dream
+        // seed, practice target — every one of them already resolved on the same
+        // prepared definition, re-listed by every caller. That is a
+        // hand-assembled projection rather than
+        // `prepared definition + context → body`, and its cost is not
+        // aesthetic: each new character fact meant a new parameter and a new
+        // chance for one road to pass it and another to forget, which is exactly
+        // how `practice_target`, the patrol path and an authored `run_speed: 0.0`
+        // each went missing on this road while being correct on the other.
+        //
+        // ⚠ **completeness is the blueprint's EXISTENCE**, so nothing in here
+        // asks whether the character said enough — see
+        // `PreparedCharacterDefinition::body_blueprint`.
+        body: crate::character_runtime::CharacterBodyBlueprint<'_>,
         aabb: ae::Aabb,
-        max_health: i32,
-        brain_profile: crate::features::ecs::actor_tuning::BrainProfile,
         config_brain: ambition_entity_catalog::placements::CharacterBrain,
-        // **What the CHARACTER says about its own body**, when it says anything.
-        // A crawler that authors its locomotion crawls in a fighter seat too,
-        // which is the whole of Jon's Puppy-Slug acceptance test: *"movement
-        // input → uses Puppy Slug's actual authored locomotion"*.
-        locomotion: Option<ambition_characters::actor::CharacterLocomotion>,
-        contact_damage: Option<ambition_characters::actor::ContactDamage>,
-        dream_seed: Option<f32>,
-        // **A training dummy, not a participant.** See
-        // `CharacterDefinition::practice_target`: it is excluded from the save
-        // file, skipped by the path assignment, and selects a different sprite,
-        // and this constructor wrote `false` for it via `..Default::default()`.
-        practice_target: bool,
         // **The room's authored kinematic paths**, so a `Patrol { path_id }`
         // placement gets its path — see the note at [`Self::motion`] below.
         paths: &[(String, ambition_platformer2d_core::KinematicPath)],
     ) -> Self {
+        let crate::character_runtime::CharacterBodyBlueprint {
+            character_id,
+            display_name,
+            max_health,
+            locomotion,
+            contact_damage,
+            dream_seed,
+            practice_target,
+            autonomous_profile,
+            ..
+        } = body;
+        // ⚠ **a body with no policy still needs one to be paced against.** The
+        // default is the shared middling striker, which is what every
+        // character-first body got before a definition could name a profile.
+        let brain_profile = autonomous_profile.unwrap_or_default();
         // The AUTHORED silhouette, resolved exactly as a peaceful NPC of the
         // same character resolves it — one body per character, however it is
         // spawned.
@@ -787,7 +803,7 @@ impl ActorClusterSeed {
         // catalog's answer, which is every unmigrated flyer. Without the first
         // half a character whose catalog row lives in another provider's
         // fragment could not fly in the demo that owns its level.
-        let is_aerial = locomotion.is_some_and(|locomotion| locomotion.flies)
+        let is_aerial = locomotion.flies
             || matches!(
                 catalog.body_kind(character_id),
                 Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
@@ -803,10 +819,7 @@ impl ActorClusterSeed {
         // is meant to stand still visibly. The giant GNU is the case: a
         // stationary mount that authors 0.0 would have been handed a sprinter's
         // top speed. Only an ABSENT locomotion block takes the default.
-        let run_speed = locomotion
-            .map_or(ambition_platformer2d_core::MAX_RUN_SPEED, |locomotion| {
-                locomotion.run_speed
-            });
+        let run_speed = locomotion.run_speed;
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
             max_health,
             // ⭐ **the PROFILE's pacing against the BODY's top speed** — §4.7's
@@ -826,9 +839,8 @@ impl ActorClusterSeed {
             damage_amount: contact_damage.map_or(0, |contact| contact.amount),
             body_contact_damage: contact_damage.is_some(),
             dream_seed,
-            surface_walker: locomotion.is_some_and(|locomotion| locomotion.surface_walker),
-            cling_breaks_on_hit: locomotion
-                .is_some_and(|locomotion| locomotion.cling_breaks_on_hit),
+            surface_walker: locomotion.surface_walker,
+            cling_breaks_on_hit: locomotion.cling_breaks_on_hit,
             // A match seat is a combatant whoever drives it; the disposition the
             // body carries is set by realization, and this is the tuning half.
             //
@@ -870,7 +882,7 @@ impl ActorClusterSeed {
             attack: BodyMelee::default(),
             config: ActorConfig {
                 id: id.into(),
-                name: display_name.into(),
+                name: display_name.to_string(),
                 tuning,
                 brain_profile,
                 brain: config_brain.clone(),
@@ -966,9 +978,7 @@ impl ActorClusterSeed {
                 body_contact_damage: false,
                 ranged_visual: String::new(),
                 signature_move: None,
-                move_style: locomotion
-                    .map(|locomotion| locomotion.move_style)
-                    .unwrap_or_default(),
+                move_style: locomotion.move_style,
             },
         }
     }
@@ -1188,6 +1198,38 @@ impl ActorClusterSeed {
 
 #[cfg(test)]
 mod tests {
+    /// A blueprint the way a prepared character produces one, for the
+    /// construction tests.
+    ///
+    /// ⚠ built by hand rather than through `PreparedCharacterDefinition`
+    /// because these tests are ABOUT the constructor: routing them through
+    /// preparation would make a constructor regression indistinguishable from a
+    /// preparation one.
+    #[cfg(test)]
+    fn test_blueprint<'a>(
+        character_id: &'a str,
+        display_name: &'a str,
+        max_health: i32,
+        locomotion: ambition_characters::actor::CharacterLocomotion,
+        profile: crate::features::ecs::actor_tuning::BrainProfile,
+        practice_target: bool,
+    ) -> crate::character_runtime::CharacterBodyBlueprint<'a> {
+        crate::character_runtime::CharacterBodyBlueprint {
+            character_id,
+            display_name,
+            max_health,
+            locomotion,
+            contact_damage: None,
+            dream_seed: None,
+            practice_target,
+            autonomous_profile: Some(profile),
+            mount: None,
+            held_item: None,
+            death_traits: None,
+            abilities: None,
+        }
+    }
+
     use super::*;
 
     /// A mechanical body is one whose CATALOG ROW says so — the engine knows
@@ -1272,16 +1314,9 @@ mod tests {
             &authored,
             &catalog,
             "gnu",
-            "giant_gnu",
-            "Giant GNU",
+            test_blueprint("giant_gnu", "Giant GNU", 42, locomotion, profile, false),
             ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(40.0, 40.0)),
-            42,
-            profile,
             ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
-            Some(locomotion),
-            None,
-            None,
-            false,
             &[],
         );
         assert_eq!(
@@ -1306,16 +1341,16 @@ mod tests {
             &authored,
             &catalog,
             "gnu",
-            "giant_gnu",
-            "Giant GNU",
+            test_blueprint(
+                "giant_gnu",
+                "Giant GNU",
+                42,
+                ambition_characters::actor::CharacterLocomotion::default(),
+                profile,
+                false,
+            ),
             ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(40.0, 40.0)),
-            42,
-            profile,
             ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
-            Some(ambition_characters::actor::CharacterLocomotion::default()),
-            None,
-            None,
-            false,
             &[],
         );
         assert_eq!(
@@ -1336,16 +1371,16 @@ mod tests {
             &authored,
             &catalog,
             "dummy",
-            "sandbag",
-            "Sandbag",
+            test_blueprint(
+                "sandbag",
+                "Sandbag",
+                6,
+                ambition_characters::actor::CharacterLocomotion::default(),
+                profile,
+                true,
+            ),
             ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(40.0, 40.0)),
-            6,
-            profile,
             ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
-            Some(ambition_characters::actor::CharacterLocomotion::default()),
-            None,
-            None,
-            true,
             &[],
         );
         assert!(
@@ -1386,18 +1421,18 @@ mod tests {
                 &authored,
                 &catalog,
                 "slug",
-                "npc_puppy_slug",
-                "Puppy Slug",
+                test_blueprint(
+                    "npc_puppy_slug",
+                    "Puppy Slug",
+                    2,
+                    ambition_characters::actor::CharacterLocomotion::default(),
+                    crate::features::ecs::actor_tuning::BrainProfile::default(),
+                    practice_target,
+                ),
                 ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(32.0, 48.0)),
-                2,
-                crate::features::ecs::actor_tuning::BrainProfile::default(),
                 ambition_entity_catalog::placements::CharacterBrain::Patrol {
                     path_id: Some("lab_patrol_line".to_string()),
                 },
-                Some(ambition_characters::actor::CharacterLocomotion::default()),
-                None,
-                None,
-                practice_target,
                 &paths,
             )
         };

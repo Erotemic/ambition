@@ -707,27 +707,27 @@ pub fn prepare_match(
             _ => None,
         }
         .unwrap_or_default();
+        // ⭐ **the character, as ONE value, with the MATCH's overrides named.**
+        // A seat differs from a room placement in exactly three ways, and each
+        // is a line rather than a parameter buried in a list of fourteen.
+        let mut body = definition.seat_blueprint(ambition_platformer2d_core::MAX_RUN_SPEED);
+        // The character's own pool, or the reference body's. `baseline` already
+        // folded the definition's authored maximum.
+        body.max_health = baseline.max_health_over(1);
+        // The policy is the MATCH's decision, not the character's default: a
+        // human seat's body carries none at all.
+        body.autonomous_profile = Some(profile);
+        // ⚠ a MATCH seat is never a practice target, whatever the character
+        // says: a stage seats fighters, and a body excluded from the save and
+        // skipped by targeting would be a seat nobody can fight.
+        body.practice_target = false;
         let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_character_in(
             authored_sheets,
             catalog,
             body_id.clone(),
-            // ⭐ the id, not the display name. Two characters may legitimately
-            // share a display name; only the id is unique.
-            participant.character.as_str(),
-            definition.display_name.clone(),
+            body,
             aabb,
-            // The character's own pool, or the reference body's. `baseline`
-            // already folded the definition's authored maximum.
-            baseline.max_health_over(1),
-            profile,
             seed_brain,
-            definition.locomotion,
-            definition.contact_damage,
-            definition.dream_seed,
-            // ⚠ a MATCH seat is never a practice target, whatever the character
-            // says: a stage seats fighters, and a body excluded from the save
-            // and skipped by targeting would be a seat nobody can fight.
-            false,
             // A stage has no authored patrol paths; a seat is driven.
             &[],
         );

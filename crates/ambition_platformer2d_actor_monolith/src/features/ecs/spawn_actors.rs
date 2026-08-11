@@ -1375,22 +1375,29 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // A migrated character's body is built from its own facts and it WEARS
     // itself, so its kit arrives through the one writer every worn body uses
     // rather than from an archetype's `melee` row.
-    if let Some(definition) = named.filter(|definition| definition.is_complete_body()) {
-        let locomotion = definition.locomotion;
+    // ⛔ **the fall-through is NAMED now, not silent** (Jon's redirect §5). A
+    // character that cannot build its own body drops to the archetype road, which
+    // is correct while the migration is unfinished — but it used to happen on a
+    // bare `is_complete_body()` bool, so an author who added a character and
+    // forgot a fact got a body that looked unmigrated rather than incomplete.
+    let blueprint =
+        named.map(crate::character_runtime::PreparedCharacterDefinition::body_blueprint);
+    if let Some(Err(missing)) = &blueprint {
+        bevy::log::warn!(
+            target: "ambition_platformer2d_actor_monolith::spawn",
+            "enemy `{}`: {missing}. It falls back to its archetype",
+            authored.id,
+        );
+    }
+    if let (Some(definition), Some(Ok(body))) = (named, &blueprint) {
+        let body = *body;
         let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
             authored_sheets,
             catalog,
             plan.context().feature_id.to_string(),
-            definition.id.as_str(),
-            definition.display_name.clone(),
+            body,
             plan.context().aabb,
-            definition.vitals.max_health.unwrap_or(1),
-            definition.autonomous_profile.unwrap_or_default(),
             authored.payload.brain.clone(),
-            locomotion,
-            definition.contact_damage,
-            definition.dream_seed,
-            definition.practice_target,
             paths,
         );
         // **The PLACEMENT's respawn policy** — the one fact here that is neither
@@ -2076,7 +2083,7 @@ pub(super) fn spawn_encounter_mob(
     // none) still builds from its archetype, visibly.
     let definition = character
         .and_then(|character_id| prepared.get(character_id))
-        .filter(|definition| definition.is_complete_body());
+        .filter(|definition| definition.body_blueprint().is_ok());
     let mut enemy = match definition {
         Some(definition) => {
             let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
@@ -2087,16 +2094,11 @@ pub(super) fn spawn_encounter_mob(
                 // runtime — the encounter's own `FeatureId` liveness lookup
                 // included — would collapse them into one.
                 id.clone(),
-                definition.id.as_str(),
-                label.clone(),
+                definition
+                    .body_blueprint()
+                    .expect("the filter above kept only character-complete definitions"),
                 aabb,
-                definition.vitals.max_health.unwrap_or(1),
-                definition.autonomous_profile.unwrap_or_default(),
                 brain,
-                definition.locomotion,
-                definition.contact_damage,
-                definition.dream_seed,
-                definition.practice_target,
                 &[],
             );
             enemy.caps = crate::combat::CombatCapabilities::from(

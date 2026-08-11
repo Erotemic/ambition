@@ -832,24 +832,140 @@ pub enum PreparedKit {
     },
 }
 
+/// **Everything construction needs to build this character's body**, gathered
+/// once so a constructor never has to rediscover what a character is.
+///
+/// ⭐ **the answer to Jon's redirect §4**: `ActorClusterSeed::new_character_in`
+/// took eleven pre-unpacked parallel arguments and then asked the catalog again
+/// for physical facts — "a hand-assembled projection", not
+/// `prepared definition + context → body`. Every field here is already resolved
+/// on the prepared definition; borrowing rather than cloning keeps that literal.
+///
+/// ⚠ **presentation and authoring metadata are deliberately absent** (sheet,
+/// portrait, voice, cue/vfx dependency inventories, the checked/unresolved
+/// report). They belong to a prepared definition and not to a body, and a
+/// constructor that could see them would eventually read one.
+#[derive(Clone, Copy, Debug)]
+pub struct CharacterBodyBlueprint<'a> {
+    pub character_id: &'a str,
+    pub display_name: &'a str,
+    /// The pool this body spawns with. Resolved rather than borrowed as
+    /// `Vitals`, because a MATCH may legitimately overrule it (a seat's pool is
+    /// the match's business) and an overridable field is honest about that where
+    /// a borrowed authored value would not be.
+    pub max_health: i32,
+    /// ⭐ **not `Option`** — this is what completeness MEANS. A body that cannot
+    /// say how it moves is not a body, and the whole point of
+    /// [`PreparedCharacterDefinition::body_blueprint`] is that the question is
+    /// answered once, at the boundary, rather than by every reader unwrapping.
+    pub locomotion: ambition_characters::actor::CharacterLocomotion,
+    pub contact_damage: Option<ambition_characters::actor::ContactDamage>,
+    pub dream_seed: Option<f32>,
+    pub practice_target: bool,
+    pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    pub mount: Option<&'a ambition_characters::actor::CharacterMount>,
+    pub held_item: Option<&'a str>,
+    pub death_traits: Option<&'a ambition_characters::actor::CharacterDeathTraits>,
+    pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
+}
+
+/// **Why this character cannot build a body on its own**, named rather than
+/// counted.
+///
+/// ⛔ **this replaces `is_complete_body() -> bool`** (Jon's redirect §5). That
+/// method inferred completeness from `locomotion.is_some()`, which is a
+/// MIGRATION HEURISTIC wearing the shape of an engine contract: it happened to
+/// be true that a character stating its top speed had also stated everything
+/// else, and nothing would have said so when it stopped being true. A body would
+/// simply have taken the archetype road, silently, and looked like an
+/// unmigrated character rather than a broken one.
+///
+/// Naming the facts costs one struct and buys the diagnostic: "goblin is not
+/// character-complete: locomotion" is a sentence somebody can act on.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MissingCharacterFacts {
+    pub character_id: String,
+    /// The absent facts, in a stable order.
+    pub missing: Vec<&'static str>,
+}
+
+impl std::fmt::Display for MissingCharacterFacts {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "character `{}` cannot build a body on its own; it has not authored: {}",
+            self.character_id,
+            self.missing.join(", ")
+        )
+    }
+}
+
 impl PreparedCharacterDefinition {
-    /// **Can a body be built from this character ALONE?**
+    /// **Can a body be built from this character ALONE — and if not, what is
+    /// missing?**
     ///
-    /// ⭐ **the migration frontier, as one question.** Construction has two
-    /// roads: character-first, which reads only this value, and the legacy road,
-    /// which builds an enemy ARCHETYPE and patches the character over it. Which
-    /// road a spawn takes cannot be a guess, and it cannot be "does it have a
-    /// character id" — a character that has authored nothing but a sheet would
-    /// arrive as a body with no top speed, unable to move.
+    /// ⭐ **the migration frontier, as one question with a nameable answer.**
+    /// Construction has two roads: character-first, which reads only the
+    /// blueprint, and the legacy road, which builds an enemy ARCHETYPE and
+    /// patches the character over it. Which road a spawn takes cannot be a
+    /// guess, and it cannot be "does it have a character id" — a character that
+    /// authored nothing but a sheet would arrive as a body with no top speed,
+    /// unable to move.
     ///
-    /// Locomotion is the discriminator because it is the fact a body cannot do
-    /// without and the last one to become authorable: a definition that states
-    /// how fast it runs has, by the time it does, also stated its vitals and
-    /// whatever else it needs. ⚠ if that stops being true, this is the place the
-    /// untruth shows up — add the missing fact to the test rather than to the
-    /// caller.
-    pub fn is_complete_body(&self) -> bool {
-        self.locomotion.is_some()
+    /// ⚠ **adding a required fact here is how the frontier moves.** A fact that
+    /// construction cannot do without belongs in this list, and the day one is
+    /// added every character missing it drops to the legacy road WITH A REASON
+    /// rather than silently.
+    pub fn body_blueprint(&self) -> Result<CharacterBodyBlueprint<'_>, MissingCharacterFacts> {
+        let mut missing = Vec::new();
+        if self.locomotion.is_none() {
+            missing.push("locomotion");
+        }
+        if !missing.is_empty() {
+            return Err(MissingCharacterFacts {
+                character_id: self.id.as_str().to_string(),
+                missing,
+            });
+        }
+        Ok(self.blueprint_with_locomotion(self.locomotion.expect("checked above")))
+    }
+
+    /// **The blueprint a MATCH SEAT builds**, with the stage supplying anything
+    /// the character has not stated.
+    ///
+    /// ⚠ **this is the one legitimate caller of a default top speed**, and it is
+    /// separated from [`Self::body_blueprint`] so it cannot be reached by
+    /// accident. A stage has to give a body that never said how fast it is
+    /// SOMETHING or it stands still on the platform; a ROOM must not, because
+    /// there the honest answer is that the character is not migrated yet and the
+    /// archetype road still owns it.
+    pub fn seat_blueprint(&self, fallback_run_speed: f32) -> CharacterBodyBlueprint<'_> {
+        self.blueprint_with_locomotion(self.locomotion.unwrap_or(
+            ambition_characters::actor::CharacterLocomotion {
+                run_speed: fallback_run_speed,
+                ..Default::default()
+            },
+        ))
+    }
+
+    fn blueprint_with_locomotion(
+        &self,
+        locomotion: ambition_characters::actor::CharacterLocomotion,
+    ) -> CharacterBodyBlueprint<'_> {
+        CharacterBodyBlueprint {
+            locomotion,
+            character_id: self.id.as_str(),
+            display_name: &self.display_name,
+            max_health: self.vitals.max_health.unwrap_or(1),
+            contact_damage: self.contact_damage,
+            dream_seed: self.dream_seed,
+            practice_target: self.practice_target,
+            autonomous_profile: self.autonomous_profile,
+            mount: self.mount.as_ref(),
+            held_item: self.held_item.as_deref(),
+            death_traits: self.death_traits.as_ref(),
+            abilities: self.abilities,
+        }
     }
 }
 

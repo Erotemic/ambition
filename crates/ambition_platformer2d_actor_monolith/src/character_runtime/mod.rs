@@ -50,9 +50,10 @@ pub use audit::{
 #[cfg(test)]
 pub(crate) use definition::{prepare_and_finalize_against_for_test, prepare_and_finalize_for_test};
 pub use definition::{
-    BodySource, CharacterBindings, CharacterCatalogGeneration, CharacterDefinition,
-    CharacterDefinitionAppExt, CharacterPreparationPlugin, CharacterRegistrationError, Lineage,
-    PreparedCharacterDefinition, PreparedCharacterRegistry, PreparedKit, Vitals,
+    BodySource, CharacterBindings, CharacterBodyBlueprint, CharacterCatalogGeneration,
+    CharacterDefinition, CharacterDefinitionAppExt, CharacterPreparationPlugin,
+    CharacterRegistrationError, Lineage, MissingCharacterFacts, PreparedCharacterDefinition,
+    PreparedCharacterRegistry, PreparedKit, Vitals,
 };
 pub use hurtbox::{
     resolve_hurtboxes, AuthoredHurtboxes, BodyPoseClock, HurtboxSelection, ResolvedHurtboxes,

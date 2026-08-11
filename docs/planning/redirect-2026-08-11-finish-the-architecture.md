@@ -1123,11 +1123,11 @@ Section 20's numbering is preserved.
 | 9 | Missing named profile = preparation error | ✔ — refused at the finalize barrier |
 | 10 | Inline XOR named | ✔ — authoring both is refused; the old precedence assertion is inverted |
 | 11 | `BrainProfileRegistry` | ✔ — published beside the catalog; preparation asks the POLICY authority |
-| 12 | Semantic `BrainPreset` migration plan | ▢ |
-| 13 | Constructor takes a blueprint | ▢ |
+| 12 | Semantic `BrainPreset` migration plan | ✔ — ledger D81, census attached; `sniper_default` (0 adopters) already deleted |
+| 13 | Constructor takes a blueprint | ✔ — `CharacterBodyBlueprint`; 14 args → 7 |
 | 14 | No catalog re-queries for prepared facts | ▢ |
-| 15 | Explicit completeness, not `locomotion.is_some()` | ▢ |
-| 16 | One complete-body constructor for enemy/NPC/match | ▢ |
+| 15 | Explicit completeness, not `locomotion.is_some()` | ✔ — `body_blueprint() -> Result<_, MissingCharacterFacts>` |
+| 16 | One complete-body constructor for enemy/NPC/match | ✔ — all three roads take the blueprint; the seat's three overrides are named |
 | 17 | Resume Group-A/B/C migrations | ▢ (BLOCKED until 2–5 land) |
 | 18 | `player_robot_v3` off HostCode | ▢ |
 | 19 | Canonical robot moveset in the reusable provider | ▢ |

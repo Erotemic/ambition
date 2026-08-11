@@ -256,6 +256,28 @@ pub fn authored_intrinsics(
         BrainProfile, CharacterBrainTemplate, MeleeActionSpec, MoveStyleSpec, SwipeSpec,
     };
 
+    // ⭐⭐ **EVERY PIRATE STATES WHAT IT BECOMES WHEN STRUCK** (ledger D84).
+    //
+    // ⛔ **this is a RULE rather than nine arms, because the thing it replaces
+    // was a rule too — a worse one.** `hostile_brain_id_for_actor` asks whether
+    // an id, a display name or a dialogue node contains `"pirate"`, or one of
+    // `"broadside bess"` / `"iron mary"` / `"salt annet"`, and hands the body a
+    // whole archetype. Nine characters answer that matcher, and every one of them
+    // has to state its own answer before the two rows it points at can die.
+    //
+    // ⚠ the heavy/light split is the matcher's own: it tests `pirate_heavy`
+    // FIRST, so the three named heavies take the brute policy and the rest take
+    // the boarder. Reproducing that split here rather than re-deciding it keeps
+    // the migration a migration.
+    let definition = if id.starts_with("npc_pirate_") {
+        definition.with_provoked_profile_named(if id.contains("pirate_heavy") {
+            "pirate_boarder_heavy"
+        } else {
+            "pirate_boarder"
+        })
+    } else {
+        definition
+    };
     match id {
         // ⭐ **THE FIRST TWO CHARACTERS TO OWN THEIR WHOLE BODY.** Their
         // `character_archetypes.ron` rows are DELETED in the same change: what
@@ -632,17 +654,6 @@ pub fn authored_intrinsics(
                     "gun_sword_heavy"
                 } else {
                     "gun_sword"
-                })
-                // ⭐ **WHAT IT BECOMES WHEN STRUCK**, stated by the creature
-                // rather than matched out of its display name (ledger D84).
-                // Provocation used to ask *does this actor's id or name or
-                // dialogue node contain "pirate"* and hand it a whole archetype;
-                // a raider that takes a swing is the same raider with a
-                // different mind.
-                .with_provoked_profile_named(if heavy {
-                    "pirate_boarder_heavy"
-                } else {
-                    "pirate_boarder"
                 })
                 .with_autonomous_profile(BrainProfile {
                     // Orbit-and-fire standoff: notice from across the cove,
@@ -1198,6 +1209,72 @@ mod tests {
             !data.brain_presets.is_empty(),
             "no presets at all, so the sweep above proved nothing"
         );
+    }
+
+    /// **Every character the provocation name-matcher answers states its own
+    /// provoked policy.**
+    ///
+    /// ⛔ **the measurement D84 said had to happen before the rows go.** Nine
+    /// characters match `hostile_brain_id_for_actor`'s substring test — six on
+    /// `"pirate"`, three on the named heavies — and the archetype rows those two
+    /// arms point at (`pirate_raider`, `pirate_heavy`, 103 lines) can only be
+    /// deleted once EVERY one of them answers for itself. A single character
+    /// that did not would fall through to the matcher, find no row, and become a
+    /// generic `combatant` with nothing to read.
+    ///
+    /// ⚠ the heavy/light split is asserted, not just the presence: the matcher
+    /// tests `pirate_heavy` first, and a migration that quietly gave Iron Mary
+    /// the duelist policy would be a retune wearing a migration's commit.
+    #[test]
+    fn every_pirate_answers_the_provocation_question_for_itself() {
+        let light = [
+            "npc_pirate_admiral",
+            "npc_pirate_raider",
+            "npc_pirate_quartermaster",
+            "npc_pirate_lookout",
+            "npc_pirate_navigator",
+            "npc_pirate_cutlass_viper",
+        ];
+        let heavy = [
+            "npc_pirate_heavy_broadside_bess",
+            "npc_pirate_heavy_iron_mary",
+            "npc_pirate_heavy_salt_annet",
+        ];
+        for (ids, expected) in [
+            (&light[..], "pirate_boarder"),
+            (&heavy[..], "pirate_boarder_heavy"),
+        ] {
+            for id in ids {
+                let definition = authored_intrinsics(
+                    id,
+                    ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                        *id,
+                        *id,
+                        crate::AMBITION_CONTENT_PROVIDER,
+                    ),
+                );
+                assert_eq!(
+                    definition
+                        .provoked_profile_ref
+                        .as_ref()
+                        .map(ambition_characters::brain::BrainProfileRef::as_str),
+                    Some(expected),
+                    "`{id}` still needs the display-name matcher to know what it \
+                     becomes when struck"
+                );
+            }
+        }
+        // ⚠ and a NON-pirate must not pick one up, or the rule is a blanket
+        // rather than a migration.
+        let goblin = authored_intrinsics(
+            "goblin",
+            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                "goblin",
+                "goblin",
+                crate::AMBITION_CONTENT_PROVIDER,
+            ),
+        );
+        assert!(goblin.provoked_profile_ref.is_none());
     }
 
     #[test]

@@ -794,12 +794,15 @@ impl ActorClusterSeed {
             .unwrap_or(ambition_platformer2d_core::MAX_RUN_SPEED);
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
             max_health,
-            // A fighter is driven at full pace by whatever drives it. The
-            // autonomous PACING is the profile's (`patrol`/`chase` effort), and
-            // it is expressed as normalized intent against this capability —
-            // the same split a possessed NPC gets, for the same reason.
-            patrol_speed: run_speed * 0.5,
-            chase_speed: run_speed,
+            // ⭐ **the PROFILE's pacing against the BODY's top speed** — §4.7's
+            // brain→body seam, both halves finally stated by their own
+            // authority. These were `run_speed * 0.5` and `run_speed`, hard
+            // coded, so every character-first body ambled at exactly half pace
+            // whatever its archetype row had said: `pirate_shark_rider`'s
+            // tuned 0.4783 and `medium_striker`'s 0.44 would both have been
+            // silently rounded to one shared number by migrating them.
+            patrol_speed: run_speed * brain_profile.patrol_effort,
+            chase_speed: run_speed * brain_profile.chase_effort,
             max_run_speed: run_speed,
             // Touching a body hurts only if its CHARACTER says so. A fighter
             // that authors none is safe to stand next to, which is what every
@@ -813,7 +816,11 @@ impl ActorClusterSeed {
                 .is_some_and(|locomotion| locomotion.cling_breaks_on_hit),
             // A match seat is a combatant whoever drives it; the disposition the
             // body carries is set by realization, and this is the tuning half.
-            attacks_player: true,
+            //
+            // ⚠ the PROFILE's answer, which defaults to `true` — so a fighter
+            // seat is unchanged, and a mount whose rider is the threat (the
+            // giant GNU) can finally say it never seeks anybody.
+            attacks_player: brain_profile.attacks_player,
             // ⚠ a fighter's death is the MATCH's business (stocks, blast zones),
             // never a room's respawn policy.
             respawn: ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead,
@@ -1181,6 +1188,69 @@ mod tests {
         assert_eq!(
             actor_hurt_feedback(&catalog, None),
             ambition_vfx::HurtFeedback::ENEMY,
+        );
+    }
+
+    /// **A PROFILE'S PACING REACHES THE BODY, and a mount that never hunts can
+    /// say so.**
+    ///
+    /// ⛔ these were `run_speed * 0.5` and `run_speed` and `true`, hard coded in
+    /// this constructor, so every character-first body ambled at exactly half
+    /// pace and treated the player as prey. That is the whole reason
+    /// `pirate_shark_rider` (patrol 0.4783) and `giant_gnu` (`attacks_player:
+    /// false`, a mount whose RIDER is the threat) could not migrate: the
+    /// migration would have silently rounded a tuned amble and made a prop hunt.
+    ///
+    /// ⚠ the fixture authors an absurd 0.25/0.75 rather than anything near the
+    /// old defaults, so a constructor that ignored the profile could not pass by
+    /// coincidence.
+    #[test]
+    fn a_character_first_body_paces_and_targets_by_its_profile() {
+        const CATALOG: &str = r#"(
+            brain_presets: { "idle": StandStill },
+            action_set_presets: { "peaceful": (move_style: Walk) },
+            characters: {},
+        )"#;
+        let catalog = CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
+        );
+        let authored = ambition_sprite_sheet::character::sheets::AuthoredSheets::default();
+        let locomotion = ambition_characters::actor::CharacterLocomotion {
+            run_speed: 200.0,
+            ..Default::default()
+        };
+        let profile = crate::features::ecs::actor_tuning::BrainProfile {
+            patrol_effort: 0.25,
+            chase_effort: 0.75,
+            attacks_player: false,
+            ..Default::default()
+        };
+        let seed = ActorClusterSeed::new_character_in(
+            &authored,
+            &catalog,
+            "gnu",
+            "giant_gnu",
+            "Giant GNU",
+            ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(40.0, 40.0)),
+            42,
+            profile,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
+            Some(locomotion),
+            None,
+            None,
+        );
+        assert_eq!(
+            seed.config.tuning.max_run_speed, 200.0,
+            "the BODY's capability"
+        );
+        assert_eq!(
+            seed.config.tuning.patrol_speed, 50.0,
+            "0.25 of it, not half"
+        );
+        assert_eq!(seed.config.tuning.chase_speed, 150.0, "0.75 of it, not all");
+        assert!(
+            !seed.config.tuning.attacks_player,
+            "a mount whose rider is the threat still hunted the player"
         );
     }
 

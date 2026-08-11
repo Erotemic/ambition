@@ -53,6 +53,21 @@ fn default_fighter_level() -> u8 {
     5
 }
 
+/// An unhurried patrol: half the body's top speed. The number the runtime
+/// hard-coded before a profile could state one.
+fn default_patrol_effort() -> f32 {
+    0.5
+}
+
+/// A chase is everything the body has, which is what makes noticing you matter.
+fn default_chase_effort() -> f32 {
+    1.0
+}
+
+fn default_attacks_player() -> bool {
+    true
+}
+
 /// **How an autonomous participant driving this body decides what to do.**
 ///
 /// Reusable across characters by design: several distinct bodies may name the
@@ -79,6 +94,28 @@ pub struct BrainProfile {
     /// inhabiting the same body.
     #[serde(default = "default_turns_at_walls")]
     pub turns_at_walls: bool,
+    /// **How hard this driver walks while patrolling**, as a fraction of the
+    /// body's own top speed — §4.7's normalized effort, and the reason a
+    /// profile never authors px/s.
+    ///
+    /// ⛔ **the runtime hard-coded `0.5` and `1.0`** in `new_character_in`, so a
+    /// character-first body could not be an ambler or a sprinter: every
+    /// migrated creature patrolled at exactly half pace whatever its archetype
+    /// row had said. `pirate_shark_rider` authors 0.4783 and `medium_striker`
+    /// 0.44 — numbers that were tuned, and that a migration would have silently
+    /// rounded to one shared value.
+    #[serde(default = "default_patrol_effort")]
+    pub patrol_effort: f32,
+    /// The same, for a committed chase.
+    #[serde(default = "default_chase_effort")]
+    pub chase_effort: f32,
+    /// **Does this driver treat the player as a target at all?**
+    ///
+    /// Controller policy, not a body fact: the giant GNU is a mount whose RIDER
+    /// is the threat, and the body itself never seeks anybody. `true` for
+    /// everything that fights, which is why it defaults that way.
+    #[serde(default = "default_attacks_player")]
+    pub attacks_player: bool,
     /// Which rung of the fighter ladder a [`CharacterBrainTemplate::Fighter`]
     /// driver plays at — difficulty, which is a controller fact. Ignored by
     /// every other template.
@@ -125,6 +162,9 @@ impl Default for BrainProfile {
             aggro_radius: 0.0,
             attack_range: 0.0,
             turns_at_walls: true,
+            patrol_effort: default_patrol_effort(),
+            chase_effort: default_chase_effort(),
+            attacks_player: default_attacks_player(),
             fighter_level: default_fighter_level(),
             smash_hit_band: DEFAULT_SMASH_HIT_BAND,
             smash_heavy: false,
@@ -176,6 +216,12 @@ mod tests {
         );
         assert_eq!(profile.fighter_level, 5, "the middle rung, not rung zero");
         assert_eq!(profile.smash_hit_band, DEFAULT_SMASH_HIT_BAND);
+        assert_eq!(profile.patrol_effort, 0.5, "the runtime's old hard-code");
+        assert_eq!(profile.chase_effort, 1.0);
+        assert!(
+            profile.attacks_player,
+            "a driver that authors nothing still fights"
+        );
     }
 
     /// **An authored value beats the default**, so the test above is not
@@ -184,7 +230,8 @@ mod tests {
     fn authored_policy_wins_over_the_default() {
         let profile: BrainProfile = ron::from_str(
             "(template: Smash, aggro_radius: 220.0, attack_range: 36.0, \
-             turns_at_walls: false, fighter_level: 9, smash_duelist: true)",
+             turns_at_walls: false, fighter_level: 9, smash_duelist: true, \
+             patrol_effort: 0.4783, chase_effort: 0.8, attacks_player: false)",
         )
         .expect("the authored form parses");
         assert_eq!(profile.aggro_radius, 220.0);
@@ -192,6 +239,9 @@ mod tests {
         assert!(!profile.turns_at_walls);
         assert_eq!(profile.fighter_level, 9);
         assert!(profile.smash_duelist);
+        assert_eq!(profile.patrol_effort, 0.4783, "a tuned amble survives");
+        assert_eq!(profile.chase_effort, 0.8);
+        assert!(!profile.attacks_player, "a mount is not a hunter");
     }
 
     /// **A misspelled knob is a REFUSAL, not a silent no-op.**

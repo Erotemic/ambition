@@ -177,6 +177,11 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             aggro_radius: self.aggro_radius,
             attack_range: self.attack_range,
             turns_at_walls: self.turns_at_walls,
+            // The pacing the row has always authored as fractions of its own
+            // `run_speed`, now carried by the authority that decides pace.
+            patrol_effort: self.patrol_effort,
+            chase_effort: self.chase_effort,
+            attacks_player: self.attacks_player,
             // The archetype's authored rung, or the middle one. A fighter
             // archetype that says nothing plays at 5 rather than refusing.
             fighter_level: self.fighter_level.unwrap_or(5),

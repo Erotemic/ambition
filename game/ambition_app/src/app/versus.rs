@@ -749,6 +749,12 @@ fn track_versus_roster(
                 // without bound is a different game's mechanic. Smash declares
                 // its own — see `SMASH_KNOCKBACK_GROWTH`.
                 knockback_growth: 0.0,
+                // ⚠ the generic versus stage keeps the POGO reading, deliberately:
+                // its rounds end on health rather than on a blast zone, so a
+                // spike has nothing to kill you off and the rebound is the more
+                // useful of the two. Smash declares otherwise — see
+                // `SMASH_KNOCKBACK_GROWTH`'s neighbour.
+                downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Pogo,
                 friendly_fire: false,
             });
             // A FRESH match. `VersusMatch` is a long-lived resource, so without

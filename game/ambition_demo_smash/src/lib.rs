@@ -1414,6 +1414,13 @@ fn start_the_battle_when_asked(
         declared_by: SMASH_EXPERIENCE.to_string(),
         di_max_angle: SMASH_DI_MAX_ANGLE,
         knockback_growth: SMASH_KNOCKBACK_GROWTH,
+        // ⭐⭐ **A DOWN-AIR IS A SPIKE HERE**, not a pogo (ledger D82). The robot's
+        // down-air is ONE authored swing that says it can rebound its attacker;
+        // Ambition takes it up on that, and a platform fighter must not — a
+        // d-air that bounced you back to safety offstage would be the opposite
+        // of a kill. Same move, two games, and the difference is declared rather
+        // than authored twice.
+        downward_hit: ambition_platformer2d::combat::rules::DownwardHitStyle::Spike,
         // ⚠ teams already decide who may hit whom. Switching global friendly
         // fire on to let two humans trade would make TEAMMATES hittable too.
         friendly_fire: false,

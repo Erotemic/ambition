@@ -191,6 +191,15 @@ pub fn set_pogo_sfx(effect: &mut EffectRef, cue: &str) {
 /// landed strike volume against [`PogoTargetVolumes`]. `Disabled` rejects it.
 pub fn apply_pogo_bounce(
     mut messages: MessageReader<OnHitEffectMessage>,
+    // ⭐⭐ **WHAT THIS GAME DOES WITH A DOWNWARD HIT** — see
+    // [`crate::rules::DeclaredCombatRules::downward_hit`], and ledger D82. The
+    // authored effect says *this swing is capable of rebounding its attacker*;
+    // the RULESET says whether this game rebounds them or lets them fall through
+    // and calls it a spike. One move table, two games.
+    //
+    // ⚠ `Option`, like every other reader of the projection: a composition that
+    // never installs the rules projection keeps the baseline, which pogos.
+    rules: Option<bevy::prelude::Res<crate::rules::ResolvedCombatTuning>>,
     pogo_targets: Query<(&PogoPolicy, Option<&PogoTargetVolumes>)>,
     mut owners: Query<(
         &ambition_platformer2d_shared_tangle::frame_env::ResolvedMotionFrame,
@@ -199,6 +208,18 @@ pub fn apply_pogo_bounce(
     )>,
     mut sfx: ambition_sfx::BodySfxWriter,
 ) {
+    // ⛔ read ONCE, and the read is what makes a spike a spike: a stage that
+    // declares `Spike` drops every rebound this frame rather than some of them.
+    if matches!(
+        rules.as_deref().copied().unwrap_or_default().downward_hit,
+        crate::rules::DownwardHitStyle::Spike
+    ) {
+        // ⚠ the messages are still DRAINED. Leaving them queued would hand the
+        // next frame a rebound the stage refused, which is worse than the bug
+        // this replaced.
+        messages.clear();
+        return;
+    }
     for msg in messages.read() {
         if msg.effect.key != POGO_BOUNCE_KEY {
             continue;

@@ -134,6 +134,7 @@ fn a_declaration_wins_and_the_world_it_plays_over_is_untouched() {
         di_max_angle: DECLARED_DI,
         knockback_growth: 0.0,
         friendly_fire: false,
+        downward_hit: Default::default(),
     });
     app.update();
 

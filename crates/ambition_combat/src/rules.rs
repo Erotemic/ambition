@@ -73,6 +73,25 @@ pub struct DeclaredCombatRules {
     /// is the property a per-move table would otherwise have to restate for
     /// every move.
     pub knockback_growth: f32,
+    /// **What a DOWNWARD hit does to the attacker.**
+    ///
+    /// ⭐⭐ **one move, two games** (Jon's redirect §16, ledger D82). The robot's
+    /// down-air is one authored swing with one hitbox and one launch direction —
+    /// and Ambition reads it as a POGO that bounces the attacker up off whatever
+    /// it hit, while a platform fighter reads it as a SPIKE that drives the
+    /// victim down and ends a stock offstage. Both readings are correct for
+    /// their game, and neither belongs on the move.
+    ///
+    /// ⛔ **this is what stopped the protagonist carrying its own repertoire.**
+    /// Attaching the canonical moveset to `player_robot_v3` turned
+    /// `gravity_symmetry::pogo_bounces_away_from_gravity` red, and the wrong fix
+    /// — authoring the robot a second, Ambition-only down-air — is the
+    /// duplicate-moves outcome §16 explicitly forbids.
+    ///
+    /// ⚠ [`DownwardHitStyle::Pogo`] is the baseline BECAUSE it is today's
+    /// behaviour: the effect is authored on the volume, so an undeclared world
+    /// keeps firing it. A stage that wants spikes says so.
+    pub downward_hit: DownwardHitStyle,
     /// Whether same-faction bodies damage each other.
     ///
     /// ⚠ a match with declared TEAMS should leave this `false`. `MatchTeam`
@@ -92,7 +111,24 @@ pub struct ResolvedCombatTuning {
     pub di_max_angle: f32,
     /// See [`DeclaredCombatRules::knockback_growth`]. `0.0` = flat knockback.
     pub knockback_growth: f32,
+    /// See [`DeclaredCombatRules::downward_hit`].
+    pub downward_hit: DownwardHitStyle,
     pub friendly_fire: bool,
+}
+
+/// **How this game reads a downward attack.** See
+/// [`DeclaredCombatRules::downward_hit`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DownwardHitStyle {
+    /// The ATTACKER rebounds off what it hit — Hollow Knight's down-slash, and
+    /// Ambition's. The default, because it is what an authored `pogo_bounce`
+    /// effect already does and an undeclared world must not change.
+    #[default]
+    Pogo,
+    /// The attacker keeps falling and the VICTIM is driven down — a platform
+    /// fighter's spike, which is a kill offstage and would be nonsense if it
+    /// also bounced you back to safety.
+    Spike,
 }
 
 impl DeclaredCombatRules {
@@ -114,6 +150,7 @@ impl ResolvedCombatTuning {
             Some(rules) => Self {
                 di_max_angle: rules.di_max_angle,
                 knockback_growth: rules.knockback_growth,
+                downward_hit: rules.downward_hit,
                 friendly_fire: rules.friendly_fire,
             },
             // ⚠ growth has NO world baseline to fall back to, unlike DI and
@@ -122,6 +159,10 @@ impl ResolvedCombatTuning {
             None => Self {
                 di_max_angle: baseline_di,
                 knockback_growth: 0.0,
+                // ⚠ an undeclared world POGOS, because that is what the authored
+                // effect already does. Anything else would change every Ambition
+                // room to buy a Smash feature.
+                downward_hit: DownwardHitStyle::Pogo,
                 friendly_fire: baseline_ff,
             },
         }
@@ -146,6 +187,7 @@ impl Default for ResolvedCombatTuning {
         Self {
             di_max_angle: 0.0,
             knockback_growth: 0.0,
+            downward_hit: DownwardHitStyle::Pogo,
             friendly_fire: false,
         }
     }
@@ -173,6 +215,7 @@ mod tests {
                 declared_by: "a_stage".to_string(),
                 di_max_angle: 0.30,
                 knockback_growth: 0.0,
+                downward_hit: DownwardHitStyle::Pogo,
                 friendly_fire: false,
             }),
             baseline_di,
@@ -194,6 +237,7 @@ mod tests {
             declared_by: "a_stage".to_string(),
             di_max_angle: 0.30,
             knockback_growth: 0.0,
+            downward_hit: DownwardHitStyle::Pogo,
             friendly_fire: true,
         });
         assert_eq!(
@@ -205,6 +249,7 @@ mod tests {
             ResolvedCombatTuning {
                 di_max_angle: 0.12,
                 knockback_growth: 0.0,
+                downward_hit: DownwardHitStyle::Pogo,
                 friendly_fire: false,
             }
         );

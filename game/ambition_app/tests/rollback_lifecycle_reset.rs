@@ -315,8 +315,21 @@ fn a_player_death_reset_survives_the_rollback_window() {
     let mut saw_death = false;
     let mut prev_hp = player_hp(&mut sim);
     for frame in 0..2400 {
-        // Walk toward the nearest living enemy and melee it (damage enemies, and
-        // stand in the melee strikers' reach so they whittle the 3 HP down).
+        // Walk toward the nearest living enemy and STAND THERE, inside the melee
+        // strikers' reach, until they whittle the 3 HP down.
+        //
+        // ⛔ **it used to swing back, and that stopped killing the player on
+        // 2026-08-11.** The protagonist gained its canonical repertoire (ledger
+        // D82) — a jab with ~3 frames of startup where the old prefab swipe had
+        // ~17 — so the same loop now clears the room before the strikers land
+        // three hits, and the death this test is ABOUT never happened.
+        //
+        // ⚠ **the fixture is repaired rather than the assertion weakened.** What
+        // this regression witnesses is that a death reset survives the rollback
+        // window while enemies are mid-brawl; the player's damage output was
+        // never part of that, it was just how the setup got there. Standing in
+        // reach is the same situation with the incidental half removed — and it
+        // no longer re-breaks every time the robot's frame data is retuned.
         let px = {
             let world = sim.world_mut();
             let mut q = world.query_filtered::<&ambition_platformer2d::platformer::body::BodyKinematics, With<ambition_platformer2d::platformer::markers::PrimaryPlayer>>();
@@ -328,11 +341,7 @@ fn a_player_death_reset_survives_the_rollback_window() {
             .min_by(|a, b| a.1.total_cmp(&b.1))
         {
             Some((x, d)) if d > 12.0 => AgentAction::move_x((x - px).signum()),
-            Some(_) => AgentAction {
-                attack: true,
-                ..AgentAction::default()
-            },
-            None => AgentAction::default(),
+            Some(_) | None => AgentAction::default(),
         };
         sim.step(action);
 

@@ -18,8 +18,8 @@
 //! Smash read it as a platform fighter.
 
 use ambition_platformer2d::entity_catalog::{
-    ClipBinding, HitVolume, MoveGates, MoveSpec, MoveWindow, MovesetContract, VolumeShape,
-    WindowTag,
+    ClipBinding, EffectRef, HitVolume, MoveGates, MoveSpec, MoveWindow, MovesetContract,
+    VolumeShape, WindowTag,
 };
 
 /// Ground moves are grounded-only so an airborne body falls THROUGH them to its
@@ -57,6 +57,11 @@ fn strike(
     knockback: f32,
     knockback_growth: f32,
     launch_dir: Option<(f32, f32)>,
+    // **What LANDING this hit can do beyond damage.** Today exactly one move
+    // uses it: the down-air says it is capable of rebounding its attacker, and
+    // the RULESET (`DeclaredCombatRules::downward_hit`) decides whether this
+    // game takes it up on that or reads the swing as a spike instead.
+    on_hit: Option<EffectRef>,
 ) -> MoveSpec {
     let active_start = startup_s;
     let active_end = startup_s + active_s;
@@ -93,7 +98,7 @@ fn strike(
                     knockback,
                     knockback_growth,
                     launch_dir,
-                    on_hit: None,
+                    on_hit,
                     // The blade tag: the move runtime draws the slash from the
                     // SAME spawned volume, so the hitbox and the arc can never
                     // point different ways.
@@ -145,6 +150,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         55.0,
         1.10,
         None,
+        None,
     );
     jab.gates = grounded_only();
     moves.push(jab);
@@ -163,6 +169,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         // Straight up: an anti-air that starts a juggle rather than sending the
         // opponent away.
         Some((0.15, -1.0)),
+        None,
     );
     up_tilt.gates = grounded_only();
     moves.push(up_tilt);
@@ -180,6 +187,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         1.20,
         // A low poke that pops them up into the juggle.
         Some((0.5, -0.85)),
+        None,
     );
     down_tilt.gates = grounded_only();
     moves.push(down_tilt);
@@ -205,6 +213,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         // Slightly upward and away: the classic kill angle. A contact-derived
         // direction would send a crouching opponent along the floor instead.
         Some((1.0, -0.42)),
+        None,
     );
     f_smash.gates = grounded_only();
     // A fully-held charge lands 1.7× as hard. `smash_charge_mult` scales damage
@@ -226,6 +235,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         140.0,
         2.80,
         Some((0.12, -1.0)),
+        None,
     );
     up_smash.gates = grounded_only();
     up_smash.smash_charge_mult = 1.7;
@@ -244,6 +254,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         2.60,
         // Low and outward — the edge-guarding smash, not a launcher.
         Some((1.0, -0.25)),
+        None,
     );
     down_smash.gates = grounded_only();
     down_smash.smash_charge_mult = 1.6;
@@ -266,6 +277,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         75.0,
         1.50,
         None,
+        None,
     );
     n_air.gates = airborne_only();
     n_air.landing_lag_s = Some(0.10);
@@ -284,6 +296,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         105.0,
         2.10,
         Some((1.0, -0.35)),
+        None,
     );
     f_air.gates = airborne_only();
     f_air.landing_lag_s = Some(0.18);
@@ -304,6 +317,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         // Backwards and slightly up: the strongest aerial, and the one you have
         // to turn around for.
         Some((-1.0, -0.38)),
+        None,
     );
     b_air.gates = airborne_only();
     b_air.landing_lag_s = Some(0.20);
@@ -322,6 +336,7 @@ pub fn player_robot_moveset() -> MovesetContract {
         90.0,
         1.80,
         Some((0.1, -1.0)),
+        None,
     );
     u_air.gates = airborne_only();
     u_air.landing_lag_s = Some(0.14);
@@ -342,6 +357,11 @@ pub fn player_robot_moveset() -> MovesetContract {
         // Straight DOWN — a spike. Offstage this is a stock; onstage it is a
         // bounce the opponent has to deal with.
         Some((0.0, 1.0)),
+        // ⭐ the ONE move that can bounce its attacker. Ambition reads this as a
+        // pogo; a platform fighter declares `Spike` and it becomes a kill.
+        Some(EffectRef::new(
+            ambition_platformer2d::combat::on_hit::POGO_BOUNCE_KEY,
+        )),
     );
     d_air.gates = airborne_only();
     // The heaviest lag in the set: a missed spike over the stage should hurt.

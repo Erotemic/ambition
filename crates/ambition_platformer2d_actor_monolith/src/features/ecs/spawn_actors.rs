@@ -599,8 +599,31 @@ impl NpcActorSpawnPlan {
         // consumer is the combat-kit builder below — which never reads `respawn`.
         // So the pin was a no-op, provocation replaced the policy with the
         // borrowed archetype's `OnRoomReenter`, and killed NPCs came back.
-        let hostile_spec = super::actors::hostile_spec_for_actor(roster, &id, &name, dialogue_id);
-        let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
+        // ⭐⭐ **WHAT THIS NPC WOULD FIGHT WITH, asked of its CHARACTER first**
+        // (ledger D84). A peaceful NPC carries the kit it will use if provoked,
+        // resolved at spawn — and it was resolved by handing an ARCHETYPE the
+        // NPC's display name and taking whatever that matched. For a character
+        // that authors its own repertoire, that is a borrowed weapon: the cove
+        // pirates state a bolt, a swipe and a gun-sword, and were being handed
+        // `pirate_raider`'s instead.
+        //
+        // ⚠ **the SECOND reader of the matcher, and the reason the two pirate
+        // rows could not simply be deleted.** The first is the provoke itself,
+        // which now prefers the creature's own policy; this one runs long before
+        // it, at spawn, and would have left a provoked pirate with the right mind
+        // and no weapon.
+        let authored_kit = npc_character_id(&interactable)
+            .and_then(|character| prepared.get(character))
+            .and_then(|prepared| prepared.kit.action_set())
+            .map(crate::combat::components::CombatKit::from_action_set);
+        let combat_kit = match authored_kit {
+            Some(kit) => kit,
+            None => {
+                let hostile_spec =
+                    super::actors::hostile_spec_for_actor(roster, &id, &name, dialogue_id);
+                super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec)
+            }
+        };
         let (mut seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
             authored_sheets,
             catalog,
@@ -1918,6 +1941,14 @@ pub(super) fn spawn_solo_enemy_into(
 /// (synthetic/legacy spawns, where `character_id` is `None`) — but a spawn
 /// that DOES name a character and fails to resolve is a content bug, not a
 /// naming preference, so that case is worth seeing rather than papering over.
+/// The character an NPC placement names, if it names one.
+fn npc_character_id(interactable: &ambition_interaction::Interactable) -> Option<&str> {
+    match &interactable.kind {
+        ambition_interaction::InteractionKind::Npc { character_id, .. } => character_id.as_deref(),
+        _ => None,
+    }
+}
+
 fn npc_display_label(
     catalog: &CharacterCatalog,
     interactable: &ambition_interaction::Interactable,

@@ -407,64 +407,28 @@ fn enemy_archetype_size_and_aggression_invariants() {
             < crate::features::enemies::test_spec("medium_striker").max_health
     );
     assert!(
-        crate::features::enemies::test_spec("small_lurker").max_health
-            < crate::features::enemies::test_spec("medium_striker").max_health
-    );
-    assert!(
         crate::features::enemies::test_spec("medium_striker").max_health
             < crate::features::enemies::test_spec("large_brute").max_health
     );
-    assert!(
-        crate::features::enemies::test_spec("large_brute").max_health
-            < crate::features::enemies::test_spec("large_colossus").max_health
-    );
 
-    // Aggro radius: low-aggression < high-aggression at same size.
-    assert!(
-        crate::features::enemies::test_spec("small_lurker")
-            .brain_profile()
-            .aggro_radius
-            < crate::features::enemies::test_spec("small_skitter")
-                .brain_profile()
-                .aggro_radius
-    );
-    assert!(
-        crate::features::enemies::test_spec("large_colossus")
-            .brain_profile()
-            .aggro_radius
-            < crate::features::enemies::test_spec("large_brute")
-                .brain_profile()
-                .aggro_radius
-    );
-
-    // Damage: large > medium / small (LargeColossus is the heaviest hitter).
-    assert!(
-        crate::features::enemies::test_spec("large_colossus").damage_amount
-            >= crate::features::enemies::test_spec("large_brute").damage_amount
-    );
+    // Damage: large > small.
     assert!(
         crate::features::enemies::test_spec("large_brute").damage_amount
             > crate::features::enemies::test_spec("small_skitter").damage_amount
     );
 
-    // Patrol speed: lurker / colossus visibly slower than their
-    // higher-aggression siblings.
-    assert!(
-        crate::features::enemies::test_spec("small_lurker")
-            .tuning()
-            .patrol_speed
-            < crate::features::enemies::test_spec("small_skitter")
-                .tuning()
-                .patrol_speed
-    );
-    assert!(
-        crate::features::enemies::test_spec("large_colossus")
-            .tuning()
-            .patrol_speed
-            < crate::features::enemies::test_spec("large_brute")
-                .tuning()
-                .patrol_speed
-    );
+    // ⛔ **`small_lurker` and `large_colossus` left this ladder on 2026-08-11,
+    // and the rungs they held are GONE rather than moved.** Both rows were
+    // authored, validated and placed in ZERO levels — the same shape as
+    // `sniper_default` (ledger D81), found the same way, by counting placements
+    // instead of trusting a key list. They existed to make the ladder five rungs
+    // long, and a rung nobody stands on is not an invariant.
+    //
+    // ⚠ what they pinned that the survivors do not: the low-aggression sibling
+    // pairs (lurker < skitter, colossus < brute) for aggro radius and patrol
+    // speed. That property has no adopter left to assert it on, so it is not
+    // asserted — restating it against a pair that does not have it would be the
+    // test agreeing with itself.
 }
 
 // `enemy_test_world` was deleted alongside the legacy AI tests

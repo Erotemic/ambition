@@ -42,6 +42,102 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     v
 }
 
+/// **Every archetype row is placed in a level, or named by the engine on
+/// purpose.**
+///
+/// ⛔ **`small_lurker` and `large_colossus` were neither** — authored,
+/// validated, iterated by two key lists, asserted about by three tests, and
+/// PLACED IN ZERO LEVELS (found 2026-08-11, the same way `sniper_default` was:
+/// by counting placements rather than trusting a list). They were deleted, and
+/// this is what would have caught them the day they became unreachable.
+///
+/// ⭐ **it matters most now**, while `character_archetypes.ron` is being
+/// retired: a row whose last placement migrates to a character should go red on
+/// the change that migrated it, rather than lingering as a body nobody can spawn
+/// and a migration nobody needs to do.
+///
+/// The allowlist is the honest half. Some rows are selected by NAME from Rust
+/// rather than placed — a fallback, a protagonist body, a provocation target —
+/// and each has to say which it is.
+#[test]
+fn every_archetype_row_is_placed_somewhere_or_deliberately_code_selected() {
+    use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
+
+    /// Rows the engine names directly, with the reason. ⚠ adding to this list is
+    /// how a row stops needing a placement — so it is a decision, not a fix.
+    const CODE_SELECTED: &[(&str, &str)] = &[
+        (
+            "combatant",
+            "the fallback every unresolved brain key lands on",
+        ),
+        (
+            "player_robot",
+            "the protagonist body, spawned by the session",
+        ),
+        (
+            "cellular_automaton_fighter",
+            "the PCA boss body, spawned by the boss road",
+        ),
+        (
+            "pirate_heavy",
+            "the provocation target `hostile_brain_id_for_actor` picks by name",
+        ),
+        (
+            "pirate_raider",
+            "the same provocation path, for the lighter pirate",
+        ),
+    ];
+
+    let project = load_project_for_test().expect("sandbox LDtk should load");
+    let room_set = project
+        .to_room_set(
+            &ambition_content::worlds::world_manifest(),
+            &ambition_app::composed_ldtk_vocabulary(),
+        )
+        .expect("room_set should build");
+    let placed: std::collections::BTreeSet<String> = room_set
+        .rooms
+        .iter()
+        .flat_map(|room| room.enemy_spawns.iter())
+        .filter_map(|spawn| match &spawn.payload.brain {
+            CharacterBrain::Custom(key) => Some(key.clone()),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        !placed.is_empty(),
+        "no placement names an archetype at all, so this sweep proved nothing"
+    );
+
+    let rows: Vec<&str> = ambition_content::enemy_roster::CHARACTER_ROSTER_RON
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim_end();
+            let key = line.strip_prefix("    \"")?;
+            let (key, rest) = key.split_once('"')?;
+            rest.starts_with(": (").then_some(key)
+        })
+        .collect();
+    assert!(
+        rows.len() > 3,
+        "the row scan found {} rows, which means the file's shape changed and \
+         this guard is reading nothing: {rows:?}",
+        rows.len()
+    );
+
+    let orphans: Vec<&str> = rows
+        .into_iter()
+        .filter(|key| !placed.contains(*key))
+        .filter(|key| !CODE_SELECTED.iter().any(|(named, _)| named == key))
+        .collect();
+    assert!(
+        orphans.is_empty(),
+        "archetype rows no level places and no engine path names: {orphans:?}. \
+         Delete them, or add them to CODE_SELECTED with the reason they are \
+         reachable"
+    );
+}
+
 /// **A creature that is not your enemy says so on its PLACEMENT.**
 ///
 /// ⛔ **the guard that replaces a deleted field.** `BrainProfile.attacks_player`

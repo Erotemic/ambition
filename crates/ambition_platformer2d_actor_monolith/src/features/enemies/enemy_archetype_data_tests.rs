@@ -187,15 +187,7 @@ fn smash_hit_band_is_data_authored() {
         Some(32.0)
     );
     assert_eq!(
-        crate::features::enemies::test_spec("small_lurker").smash_hit_band,
-        Some(32.0)
-    );
-    assert_eq!(
         crate::features::enemies::test_spec("large_brute").smash_hit_band,
-        Some(48.0)
-    );
-    assert_eq!(
-        crate::features::enemies::test_spec("large_colossus").smash_hit_band,
         Some(48.0)
     );
     // 36px-default Smash archetypes omit the field on purpose.

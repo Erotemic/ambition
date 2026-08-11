@@ -96,10 +96,8 @@ pub(super) use crate::features::ecs::actor_tuning::CharacterBrainTemplate;
 pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
     "combatant",
     "small_skitter",
-    "small_lurker",
     "medium_striker",
     "large_brute",
-    "large_colossus",
     "gradient_seeker",
     "pirate_raider",
     "puppy_slug",
@@ -129,10 +127,8 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
 pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "combatant",
     "small_skitter",
-    "small_lurker",
     "medium_striker",
     "large_brute",
-    "large_colossus",
     "gradient_seeker",
     "sandbag_infinite",
     "pirate_raider",

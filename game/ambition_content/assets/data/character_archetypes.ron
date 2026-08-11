@@ -352,27 +352,6 @@
     // differentiates the two sky spawns into distinct attack patterns.
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
     // careless approach still punishes via the swipe.
-    "small_lurker": (
-        respawn: OnRoomReenter,
-        max_health: 2,
-        run_speed: 90.0,
-        patrol_effort: 0.6667,
-        chase_effort: 1.0,
-        aggro_radius: 96.0,
-        attack_range: 90.0,
-        contact_strength: 0.45,
-        damage_amount: 1,
-        brain_template: Smash,
-        melee: Some(Swipe((
-            windup_s: 0.28,
-            active_s: 0.08,
-            recover_s: 0.32,
-            damage: 1,
-            reach_px: 28.0,
-        ))),
-        smash_hit_band: Some(32.0),
-        move_style: Walk,
-    ),
     "medium_striker": (
         respawn: OnRoomReenter,
         max_health: 5,
@@ -431,29 +410,6 @@
     // Boss-room "stationary heavy" — almost stationary, narrow threat
     // envelope but huge reach + biggest non-boss contact damage. Lunge
     // damage stays at 2 (BRUTE_DEFAULT) while body contact deals 3.
-    "large_colossus": (
-        max_health: 14,
-        run_speed: 80.0,
-        patrol_effort: 0.5,
-        chase_effort: 1.0,
-        aggro_radius: 200.0,
-        attack_range: 240.0,
-        contact_strength: 1.50,
-        damage_amount: 3,
-        smash_heavy: true,
-        respawn: OnRest,
-        brain_template: Smash,
-        melee: Some(Lunge((
-            windup_s: 0.45,
-            active_s: 0.12,
-            recover_s: 0.45,
-            damage: 2,
-            reach_px: 40.0,
-            step_px: 18.0,
-        ))),
-        smash_hit_band: Some(48.0),
-        move_style: WalkHeavy,
-    ),
     "gradient_seeker": (
         respawn: OnRoomReenter,
         max_health: 4,

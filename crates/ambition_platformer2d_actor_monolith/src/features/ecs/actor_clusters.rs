@@ -719,7 +719,7 @@ impl ActorClusterSeed {
         (seed, render_size)
     }
 
-    /// **A FIGHTER'S BODY, BUILT FROM ITS CHARACTER.**
+    /// **A BODY, BUILT FROM ITS CHARACTER.**
     ///
     /// ⭐ **the seat's body no longer comes from an enemy archetype.** A match
     /// seat used to build through [`Self::new_in`], which starts
@@ -745,7 +745,7 @@ impl ActorClusterSeed {
     /// definition (campaign P1.8), so they are stated here, once, where a match
     /// can see them, rather than borrowed from whichever archetype a seat
     /// happened to name. Each becomes a character fact as its field lands.
-    pub(crate) fn new_fighter_in(
+    pub(crate) fn new_character_in(
         authored: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
         catalog: &CharacterCatalog,
         id: impl Into<String>,

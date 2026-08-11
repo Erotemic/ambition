@@ -707,7 +707,7 @@ pub fn prepare_match(
             _ => None,
         }
         .unwrap_or_default();
-        let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_fighter_in(
+        let mut seed = crate::features::ecs::actor_clusters::ActorClusterSeed::new_character_in(
             authored_sheets,
             catalog,
             body_id.clone(),

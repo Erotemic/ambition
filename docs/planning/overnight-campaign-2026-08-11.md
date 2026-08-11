@@ -61,10 +61,15 @@ a resuming session needs, shortest form:
   archetype projection. Either a definition may hold an inline `BrainProfile`,
   or a registry maps a `BrainProfileRef` to one. Then the mites' rows go, and
   they are the first two lines the ledger has lost.
-* ⚠ **the deletion ledger has not moved yet.** `character_archetypes.ron` is 843
-  lines and `ArchetypeSpec` is 319; nothing has been removed since the mites.
-  Every slice so far has been the replacement half. That is the honest state and
-  it is the thing to fix next.
+* ⭐ **THE LEDGER HAS MOVED: `character_archetypes.ron` is 799 lines, down from
+  843.** The exploding mite and the dividing mite have no archetype row at all —
+  the first rows this campaign has deleted. Both are built character-first: the
+  enemy road asks `is_complete_body()` and, when a character can carry a body,
+  constructs from it and lets the body WEAR itself so its kit arrives through
+  the one persona writer. ⚠ one field still reaches a migrated enemy from the
+  file — `respawn`, via the `combatant` fallback — because an `EnemySpawn`
+  cannot author one; that is the next placement-authority fix, and the fallback
+  happens to carry the same policy the deleted rows did.
 
 ## Campaign progress (live — update as slices land)
 
@@ -78,12 +83,12 @@ a resuming session needs, shortest form:
 | P1.6 | Finish CharacterIdentity | ▢ |
 | P1.7 | Move/finalize character domain types into the appropriate low crate | ▢ |
 | P1.8 | Make PreparedCharacterDefinition complete for intrinsic construction | ◐ **capabilities, LOCOMOTION and CONTACT DAMAGE all authorable now** — `abilities` (verbs), `locomotion` (run speed, gait, surface cling, cling-breaks) and `contact_damage` (strength, amount), each `deny_unknown_fields`. A character can finally state how fast it is and whether touching it hurts, which is what a body needed the enemy archetype for. ▢ remaining before an enemy can be built character-first: melee/ranged action specs, mass, held item, respawn (placement) |
-| P1.9 | Route authored enemy through character-first construction | ▢ |
+| P1.9 | Route authored enemy through character-first construction | ◐ **the road EXISTS and two characters take it.** A placement naming a COMPLETE character (one that states its locomotion) is built by `new_character_in` with no archetype, and wears itself so the persona derive writes its kit. ▢ every other enemy is still half-migrated and takes the legacy road with `adopt_character_intrinsics` patching over it — which is now that seam's only remaining job |
 | P1.10 | Route NPC through the same body constructor | ▢ |
 | P1.11 | Route PreparedMatch through it immediately after | ✔ **A SEAT'S BODY IS BUILT FROM ITS CHARACTER.** `ActorClusterSeed::new_fighter_in` takes no roster: size and art from the character's sprite, health and weight from its definition, aerial-ness from its catalog body kind, abilities from the ruleset mask, and the CPU's `BrainProfile` handed in as a VALUE (`CharacterRoster::brain_profile_for`) rather than resolved by building a creature. Every fighter on the grid used to be physically a `combatant` wearing a character |
 | P1.12 | Route encounter, summon, programmatic paths | ▢ |
-| P2.13 | Migrate clean Group-A character/archetype cases | ▢ |
-| P2.14 | Delete each migrated legacy row as it becomes unnecessary | ▢ |
+| P2.13 | Migrate clean Group-A character/archetype cases | ◐ **the two mites are FULLY migrated and their rows are gone** — health, run speed, gait, contact damage, the swipe, the death blast and the Smash policy are all on their definitions, split across the three authorities. ▢ the remaining seven Group-A characters (puppy_slug 10 spawns, burning_flying_shark 7, pirate_shark_rider 6, sky_parrot 2, giant_gnu 1, Iron Mary 1, ai_slop 1) |
+| P2.14 | Delete each migrated legacy row as it becomes unnecessary | ◐ **44 lines out of `character_archetypes.ron`** (843 → 799) the moment the mites could carry their own bodies. The rule held: the deletion landed in the same change as the migration |
 | P2.15 | Extract Group-B shared AI behavior into real BrainProfiles | ◐ **the TYPE exists** — `ambition_characters::brain::BrainProfile`, authorable, `deny_unknown_fields`, replacing `CharacterBrainSpec` outright and taking `aggro_radius`/`attack_range`/`turns_at_walls` off `ActorTuning`. ▢ the archetype still PROJECTS one; no character names a profile yet, which is what Group B needs |
 | P2.16 | Classify Group-C generic roles | ▢ |
 | P2.17 | Migrate provider roster fragments | ▢ |

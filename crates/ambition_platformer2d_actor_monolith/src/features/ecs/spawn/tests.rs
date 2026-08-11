@@ -642,6 +642,133 @@ mod authored_enemy_reads_its_character {
         registry
     }
 
+    /// A character COMPLETE enough to build a body from: it states how fast it
+    /// runs, which is the discriminator `is_complete_body` uses.
+    fn prepared_complete() -> crate::character_runtime::PreparedCharacterRegistry {
+        let mut definition = crate::character_runtime::CharacterDefinition::new(
+            "npc_busy_beaver",
+            "Busy Beaver",
+            "test",
+        )
+        .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+            run_speed: 77.0,
+            move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+            ..Default::default()
+        })
+        .with_contact_damage(ambition_characters::actor::ContactDamage {
+            strength: 0.25,
+            amount: 3,
+        });
+        definition.vitals.max_health = Some(9);
+        let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+            definition,
+            &crate::character_runtime::CharacterBindings::default(),
+        );
+        let mut registry = crate::character_runtime::PreparedCharacterRegistry::default();
+        registry.insert_prepared(finalized.prepared);
+        registry
+    }
+
+    /// **A COMPLETE character is BUILT, not patched.**
+    ///
+    /// ⭐ the difference this asserts is the campaign's central one. Both spawns
+    /// below name the same character; the first is half-migrated and receives
+    /// the archetype's body with the character's health written over it, and the
+    /// second states how it moves and therefore gets a body made of nothing but
+    /// itself.
+    ///
+    /// The tell is a fact the ARCHETYPE authors and the character does not
+    /// mention: `medium_striker` says `attacks_player: false`. A patched body
+    /// carries that; a built one carries the constructor's own answer. Run speed
+    /// is the positive half — 77 px/s exists nowhere but the definition.
+    #[test]
+    fn a_complete_character_is_built_from_itself_rather_than_from_an_archetype() {
+        let (max, speed, contact) = spawn_with(prepared_complete(), Some("npc_busy_beaver"));
+        assert_eq!(max, 9, "the character's pool");
+        assert_eq!(
+            speed, 77.0,
+            "the body runs at the archetype's speed, so it was built from the \
+             archetype and the character was merely patched over it"
+        );
+        assert_eq!(
+            contact, 3,
+            "the character's contact damage did not reach the body"
+        );
+
+        // ⚠ the control: the SAME character, minus the locomotion that makes it
+        // buildable, still takes the legacy road — and must, or every
+        // half-migrated character in the tree becomes a body that cannot move.
+        let (max, speed, contact) = spawn_with(prepared(), Some("npc_busy_beaver"));
+        assert_eq!(
+            max, 9,
+            "the character's pool still outranks the archetype's"
+        );
+        assert_eq!(
+            speed, 0.0,
+            "the archetype's run speed, which is what it authors"
+        );
+        assert_eq!(contact, 0);
+    }
+
+    /// The two roads, sharing one harness: `(max health, run speed, contact damage)`.
+    fn spawn_with(
+        prepared: crate::character_runtime::PreparedCharacterRegistry,
+        character_id: Option<&'static str>,
+    ) -> (i32, f32, i32) {
+        let mut spec = crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "medium_striker".to_string(),
+            ),
+        );
+        spec.character_id = character_id.map(ambition_entity_catalog::CharacterId::from);
+        let authored = crate::rooms::Authored::new(
+            "EnemySpawn-1",
+            "Some Room Enemy",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            spec,
+        );
+
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(roster());
+        app.insert_resource(prepared);
+        app.add_systems(
+            Update,
+            move |mut commands: Commands,
+                  catalog: bevy::prelude::Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >,
+                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
+                  prepared: bevy::prelude::Res<
+                crate::character_runtime::PreparedCharacterRegistry,
+            >| {
+                let root = commands.spawn_empty().id();
+                crate::features::spawn_enemy_with_faction_into(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &roster,
+                    &prepared,
+                    SessionSpawnScope::UNSCOPED,
+                    root,
+                    &authored,
+                    &[],
+                    crate::features::ActorFaction::Enemy,
+                );
+            },
+        );
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<(&BodyHealth, &ActorConfig)>();
+        let (health, config) = q.iter(world).next().expect("one enemy body");
+        (
+            health.health.max,
+            config.tuning.max_run_speed,
+            config.tuning.damage_amount,
+        )
+    }
+
     fn spawn(name: &'static str, character_id: Option<&'static str>) -> (i32, Option<String>) {
         let mut spec = crate::rooms::EnemySpawnSpec::new(
             ambition_entity_catalog::placements::CharacterBrain::Custom(

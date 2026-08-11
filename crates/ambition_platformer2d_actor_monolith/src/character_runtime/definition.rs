@@ -410,6 +410,22 @@ pub struct CharacterDefinition {
     /// **Whether touching this body hurts, and how much.** `None` = it does
     /// not, which is most characters.
     pub contact_damage: Option<ambition_characters::actor::ContactDamage>,
+    /// **The POLICY this character runs when nothing else drives it** — the
+    /// controller authority, carried as a value rather than as a name.
+    ///
+    /// ⚠ **the second half of a fork this campaign has to close, and saying so
+    /// here is the point.** [`Self::default_brain_profile`] names a catalog
+    /// `brain_presets` key, which the NPC road resolves into a whole `Brain`;
+    /// this carries a `BrainProfile`, which the enemy road needs because that
+    /// road builds its brain from template + distances + tactics. They are the
+    /// same idea in two vocabularies — the note on `CharacterBrainTemplate` has
+    /// counted three of them for a while — and the convergence is a
+    /// `BrainPreset` that LOWERS to a `BrainProfile`. Until then a character
+    /// that must be spawnable as an enemy states this one.
+    ///
+    /// `None` leaves the archetype's projection in charge, which is every
+    /// character that has not migrated.
+    pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
 }
 
 impl CharacterDefinition {
@@ -438,6 +454,7 @@ impl CharacterDefinition {
             abilities: None,
             locomotion: None,
             contact_damage: None,
+            autonomous_profile: None,
         }
     }
 
@@ -453,6 +470,16 @@ impl CharacterDefinition {
         locomotion: ambition_characters::actor::CharacterLocomotion,
     ) -> Self {
         self.locomotion = Some(locomotion);
+        self
+    }
+
+    /// Author the policy this character runs by default. See
+    /// [`Self::autonomous_profile`].
+    pub fn with_autonomous_profile(
+        mut self,
+        profile: ambition_characters::brain::BrainProfile,
+    ) -> Self {
+        self.autonomous_profile = Some(profile);
         self
     }
 
@@ -613,6 +640,8 @@ struct PreparedCharacterOverrides {
     locomotion: Option<ambition_characters::actor::CharacterLocomotion>,
     /// See [`CharacterDefinition::contact_damage`]. Carried; no counterpart.
     contact_damage: Option<ambition_characters::actor::ContactDamage>,
+    /// See [`CharacterDefinition::autonomous_profile`]. Carried.
+    autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -682,6 +711,27 @@ pub enum PreparedKit {
     },
 }
 
+impl PreparedCharacterDefinition {
+    /// **Can a body be built from this character ALONE?**
+    ///
+    /// ⭐ **the migration frontier, as one question.** Construction has two
+    /// roads: character-first, which reads only this value, and the legacy road,
+    /// which builds an enemy ARCHETYPE and patches the character over it. Which
+    /// road a spawn takes cannot be a guess, and it cannot be "does it have a
+    /// character id" — a character that has authored nothing but a sheet would
+    /// arrive as a body with no top speed, unable to move.
+    ///
+    /// Locomotion is the discriminator because it is the fact a body cannot do
+    /// without and the last one to become authorable: a definition that states
+    /// how fast it runs has, by the time it does, also stated its vitals and
+    /// whatever else it needs. ⚠ if that stops being true, this is the place the
+    /// untruth shows up — add the missing fact to the test rather than to the
+    /// caller.
+    pub fn is_complete_body(&self) -> bool {
+        self.locomotion.is_some()
+    }
+}
+
 impl PreparedKit {
     /// The action set content decided on, or `None` when only a body can say.
     pub fn action_set(&self) -> Option<&ambition_characters::brain::ActionSet> {
@@ -742,6 +792,24 @@ pub struct PreparedCharacterDefinition {
     pub locomotion: Option<ambition_characters::actor::CharacterLocomotion>,
     /// **What touching this body costs**, as the character authored it.
     pub contact_damage: Option<ambition_characters::actor::ContactDamage>,
+    /// **The POLICY this character runs when nothing else drives it** — the
+    /// controller authority, carried as a value rather than as a name.
+    ///
+    /// ⚠ **the second half of a fork this campaign has to close, and saying so
+    /// here is the point.** [`Self::default_brain_profile`] names a catalog
+    /// `brain_presets` key, which the NPC road resolves into a whole `Brain`;
+    /// this carries a [`BrainProfile`], which the enemy road needs because that
+    /// road builds its brain from template + distances + tactics. They are the
+    /// same idea in two vocabularies — the note on `CharacterBrainTemplate` has
+    /// counted three of them for a while — and the convergence is a
+    /// `BrainPreset` that LOWERS to a `BrainProfile`. Until then a character
+    /// that must be spawnable as an enemy states this one.
+    ///
+    /// `None` leaves the archetype's projection in charge, which is every
+    /// character that has not migrated.
+    ///
+    /// [`BrainProfile`]: ambition_characters::brain::BrainProfile
+    pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
     /// The autonomous profile this character normally runs, if it named one —
     /// **RESOLVED**, as a canonical [`BrainPresetId`] rather than the authored
     /// [`BrainProfileRef`] the definition carries.
@@ -1206,6 +1274,7 @@ fn prepare_character(
         abilities: definition.abilities,
         locomotion: definition.locomotion,
         contact_damage: definition.contact_damage,
+        autonomous_profile: definition.autonomous_profile,
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1282,6 +1351,7 @@ fn finalize_character(
         abilities,
         locomotion,
         contact_damage,
+        autonomous_profile,
         moveset,
         action_set,
         motion_model,
@@ -1403,6 +1473,7 @@ fn finalize_character(
         abilities,
         locomotion,
         contact_damage,
+        autonomous_profile,
         authored_moveset,
         // **RESOLVED HERE, not at spawn.** A prepared definition should hold a
         // canonical identity, not an authored reference someone still has to

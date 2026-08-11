@@ -408,6 +408,12 @@ fn a_definition_carries_no_controller_binding() {
         // is dangerous to touch whoever is steering it.
         locomotion: _,
         contact_damage: _,
+        // ⚠ **a DEFAULT policy, which §4.7 permits and Jon's ruling authorised,
+        // and the reason this test survives rather than being deleted.** What
+        // it guards is that the CURRENT controller is nowhere on this type: a
+        // character may say what it does when nobody is driving it, and may not
+        // say who is driving it now.
+        autonomous_profile: _,
     } = def;
 }
 

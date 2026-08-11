@@ -220,22 +220,95 @@ pub fn authored_intrinsics(
 ) -> ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition {
     use ambition_characters::actor::CharacterDeathTraits;
 
+    use ambition_characters::actor::{CharacterLocomotion, ContactDamage};
+    use ambition_characters::brain::{
+        BrainProfile, CharacterBrainTemplate, MeleeActionSpec, MoveStyleSpec, SwipeSpec,
+    };
+
     match id {
-        // The sandbox kamikaze mite: two hit points and a corpse that detonates.
+        // ⭐ **THE FIRST TWO CHARACTERS TO OWN THEIR WHOLE BODY.** Their
+        // `character_archetypes.ron` rows are DELETED in the same change: what
+        // used to be twenty lines of `exploding_mite` is these facts, split
+        // across the three authorities that own them.
+        //
+        // ```text
+        // body        health, run speed, gait, contact damage, the swipe
+        // controller  the Smash policy: aggro 460, commit at 60, hit band 30
+        // placement   respawn, which the LDtk spawn already carries
+        // ```
+        //
+        // The sandbag kamikaze mite: two hit points and a corpse that detonates.
         "npc_exploding_mite" => {
-            let mut definition = definition.with_death_traits(CharacterDeathTraits {
-                explodes_on_death: true,
-                ..Default::default()
-            });
+            let mut definition = definition
+                .with_death_traits(CharacterDeathTraits {
+                    explodes_on_death: true,
+                    ..Default::default()
+                })
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 245.0,
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.60,
+                    amount: 1,
+                })
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::Smash,
+                    aggro_radius: 460.0,
+                    attack_range: 60.0,
+                    smash_hit_band: 30.0,
+                    ..Default::default()
+                })
+                .with_action_set(ambition_characters::brain::ActionSet {
+                    melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                        windup_s: 0.22,
+                        active_s: 0.08,
+                        recover_s: 0.30,
+                        damage: 1,
+                        reach_px: 26.0,
+                    })),
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                });
             definition.vitals.max_health = Some(2);
             definition
         }
-        // The splitter: four hit points, and it becomes two on death.
+        // The splitter: four hit points, slower and tankier, and it becomes two
+        // on death.
         "npc_dividing_mite" => {
-            let mut definition = definition.with_death_traits(CharacterDeathTraits {
-                divides_on_death: true,
-                ..Default::default()
-            });
+            let mut definition = definition
+                .with_death_traits(CharacterDeathTraits {
+                    divides_on_death: true,
+                    ..Default::default()
+                })
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 130.0,
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.70,
+                    amount: 1,
+                })
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::Smash,
+                    aggro_radius: 380.0,
+                    attack_range: 55.0,
+                    smash_hit_band: 34.0,
+                    ..Default::default()
+                })
+                .with_action_set(ambition_characters::brain::ActionSet {
+                    melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
+                        windup_s: 0.30,
+                        active_s: 0.10,
+                        recover_s: 0.34,
+                        damage: 1,
+                        reach_px: 30.0,
+                    })),
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                });
             definition.vitals.max_health = Some(4);
             definition
         }

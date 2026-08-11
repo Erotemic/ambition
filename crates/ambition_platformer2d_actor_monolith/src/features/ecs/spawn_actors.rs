@@ -1256,6 +1256,89 @@ pub(crate) fn spawn_enemy_with_faction_into(
     );
 
     let spec = roster.spec_for_brain(&authored.payload.brain);
+    // **WHICH CHARACTER, decided before the body is built rather than after.**
+    //
+    // ⛔ the arms below are the migration itself, and the middle one is new:
+    //
+    // ```text
+    // complete character   → the body is BUILT from it; no archetype involved
+    // incomplete/unnamed   → the archetype builds it, the character patches it
+    // named but unprepared → a fault, reported, archetype keeps the body
+    // ```
+    let named = match plan.definition(prepared) {
+        Ok(definition) => definition,
+        // ⛔ **the placement NAMED a character and construction could not find
+        // it.** Distinct from "not migrated" and never silent: a body authored
+        // as Iron Mary and quietly built as a shark rider is the original
+        // defect, and it would look exactly like a working spawn.
+        //
+        // ⚠ a WARNING rather than a refusal, and only until the placements are
+        // migrated. Today's `character_id` field predates D73: 28 authored
+        // spawns carry one as an ART claim (D56), so refusing here would refuse
+        // the tree. Once those are re-authored as GAMEPLAY claims this arm
+        // becomes a hard error.
+        Err(missing) => {
+            bevy::log::warn!(
+                target: "ambition_platformer2d_actor_monolith::spawn",
+                "enemy `{}` names character `{missing}`, which is not in the prepared \
+                 cast; it keeps its `{:?}` archetype instead",
+                authored.id,
+                authored.payload.brain,
+            );
+            None
+        }
+    };
+    // ⭐ **CHARACTER-FIRST, when the character can carry a body.** This is the
+    // road `adopt_character_intrinsics` was a probe for — appendix C calls that
+    // method a probe seam and says the constructor comes next, and this is it.
+    // A migrated character's body is built from its own facts and it WEARS
+    // itself, so its kit arrives through the one writer every worn body uses
+    // rather than from an archetype's `melee` row.
+    if let Some(definition) = named.filter(|definition| definition.is_complete_body()) {
+        let locomotion = definition.locomotion;
+        let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
+            authored_sheets,
+            catalog,
+            plan.context().feature_id.to_string(),
+            definition.id.as_str(),
+            definition.display_name.clone(),
+            plan.context().aabb,
+            definition.vitals.max_health.unwrap_or(1),
+            definition.autonomous_profile.unwrap_or_default(),
+            authored.payload.brain.clone(),
+            locomotion,
+            definition.contact_damage,
+        );
+        // The PLACEMENT's respawn policy, which is the one fact here that is
+        // neither the character's nor the controller's (ADR 0022).
+        enemy.config.tuning.respawn = spec.respawn;
+        // What this body DOES when it dies, and what it may do — both the
+        // character's, both already resolved on the definition.
+        enemy.caps = crate::combat::CombatCapabilities::from(
+            &definition.death_traits.clone().unwrap_or_default(),
+        );
+        spawn_solo_enemy_into(
+            commands,
+            catalog,
+            authored_sheets,
+            session_scope,
+            root,
+            enemy,
+            authored,
+            faction,
+        );
+        // ⭐ **IT WEARS ITSELF.** The persona derive is the single writer for a
+        // worn body's action set, moveset and identity baseline — the same one
+        // that serves a match seat — so a migrated enemy's kit comes from its
+        // character rather than from `enemy.spec.melee`.
+        commands
+            .entity(root)
+            .insert(ambition_characters::actor::WornCharacter::new(
+                definition.id.as_str(),
+            ));
+        attach_mount_role(commands, root, &spec);
+        return;
+    }
     let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
         authored_sheets,
         catalog,
@@ -1278,28 +1361,11 @@ pub(crate) fn spawn_enemy_with_faction_into(
     // matching a display name — so reading health, mass or death traits off it
     // would infer gameplay identity from presentation identity. A spawn that
     // has not named a character keeps its archetype, visibly.
-    match plan.definition(prepared) {
-        Ok(Some(definition)) => enemy.adopt_character_intrinsics(definition),
-        // Not migrated yet: no character named, so the archetype still decides.
-        Ok(None) => {}
-        // ⛔ **the placement NAMED a character and construction could not find
-        // it.** Distinct from the case above and never silent: a body that was
-        // authored as Iron Mary and quietly built as a shark rider is the
-        // original defect, and it would look exactly like a working spawn.
-        //
-        // ⚠ a WARNING rather than a refusal, and only until phase 4. Today's
-        // `character_id` field predates D73: 28 authored spawns carry one as an
-        // ART claim (D56), and the prepared cast is roughly a dozen characters,
-        // so most authored ids legitimately resolve nothing. Refusing here would
-        // refuse the tree. Once phase 4 re-authors those as GAMEPLAY claims and
-        // the field becomes required, this arm becomes a hard error.
-        Err(missing) => bevy::log::warn!(
-            target: "ambition_platformer2d_actor_monolith::spawn",
-            "enemy `{}` names character `{missing}`, which is not in the prepared \
-             cast; it keeps its `{:?}` archetype instead",
-            authored.id,
-            authored.payload.brain,
-        ),
+    // A character that is not complete enough to BUILD a body still gets to
+    // correct one. This is the probe seam, and it now serves only the shrinking
+    // population of half-migrated characters.
+    if let Some(definition) = named {
+        enemy.adopt_character_intrinsics(definition);
     }
     spawn_solo_enemy_into(
         commands,

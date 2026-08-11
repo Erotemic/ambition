@@ -110,7 +110,17 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
     "cellular_automaton_fighter",
 ];
 
-/// Every authored row in the fixture (combat + training dummies + raw mites).
+/// Every authored row in the fixture (combat + training dummies).
+///
+/// ⭐ **`exploding_mite` and `dividing_mite` left this list on 2026-08-11, and
+/// leaving is the achievement.** Their rows are DELETED from
+/// `character_archetypes.ron`: the two mites author their own health, run speed,
+/// gait, contact damage, swipe, death blast and Smash policy on their character
+/// DEFINITIONS, and their placements name them, so construction never resolves
+/// an archetype for them. The eight LDtk placements still carry
+/// `brain: "exploding_mite"` — a string that now resolves to the `combatant`
+/// fallback and is read for exactly one field, the placement's respawn policy,
+/// which has nowhere else to live yet.
 #[cfg(test)]
 pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "combatant",
@@ -128,8 +138,6 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "pirate_heavy",
     "pirate_heavy_shark_rider",
     "puppy_slug",
-    "exploding_mite",
-    "dividing_mite",
     "ranged_skirmisher",
 ];
 

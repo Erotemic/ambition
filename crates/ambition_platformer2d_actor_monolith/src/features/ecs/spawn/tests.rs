@@ -485,7 +485,7 @@ fn enemy_default_action_set_covers_every_combat_archetype() {
 fn enemy_default_action_set_picks_per_archetype_specs() {
     // ⚠ the puppy slug's row is deleted; its `Slither` gait and empty melee are
     // authored on its character and pinned beside the definition.
-    let set = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_heavy"));
+    let set = enemy_default_action_set(&crate::features::enemies::fixture_spec("pirate_heavy"));
     assert!(matches!(set.melee, Some(MeleeActionSpec::Lunge(_))));
     assert!(matches!(set.move_style, MoveStyleSpec::WalkHeavy));
 
@@ -519,7 +519,7 @@ fn pirate_heavy_action_set_swings_when_brain_is_forced_hostile() {
         }
         other => panic!("expected PirateHeavy to use MeleeBrute, got {other:?}"),
     }
-    let actions = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_heavy"));
+    let actions = enemy_default_action_set(&crate::features::enemies::fixture_spec("pirate_heavy"));
     assert!(matches!(actions.melee, Some(MeleeActionSpec::Lunge(_))));
 
     let snapshot = ambition_characters::brain::BrainSnapshot {

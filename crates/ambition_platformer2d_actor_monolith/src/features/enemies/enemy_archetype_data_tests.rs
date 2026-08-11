@@ -16,7 +16,7 @@ use super::*;
 fn enemy_roster_resolves_brain_keys_with_fallback() {
     use ambition_entity_catalog::placements::CharacterBrain;
     let mut by_brain = std::collections::BTreeMap::new();
-    by_brain.insert("pirate_heavy".to_string(), test_spec("pirate_heavy"));
+    by_brain.insert("pirate_heavy".to_string(), fixture_spec("pirate_heavy"));
     let roster = CharacterRoster::new(by_brain, test_spec("combatant"));
     // Known key → its spec (PirateHeavy is peaceful by default).
     assert!(
@@ -173,7 +173,7 @@ fn smash_hit_band_is_data_authored() {
         None
     );
     assert_eq!(
-        crate::features::enemies::test_spec("pirate_raider").smash_hit_band,
+        crate::features::enemies::fixture_spec("pirate_raider").smash_hit_band,
         None
     );
 }
@@ -182,7 +182,7 @@ fn smash_hit_band_is_data_authored() {
 fn body_contact_damage_is_explicitly_opted_in() {
     assert!(crate::features::enemies::test_spec("combatant").body_contact_damage);
     assert!(crate::features::enemies::test_spec("puppy_slug").body_contact_damage);
-    assert!(!crate::features::enemies::test_spec("pirate_heavy").body_contact_damage);
+    assert!(!crate::features::enemies::fixture_spec("pirate_heavy").body_contact_damage);
     assert!(!crate::features::enemies::fixture_spec("fixture_armed_rider").body_contact_damage);
     assert!(!crate::features::enemies::test_spec("sandbag_infinite").body_contact_damage);
 }
@@ -198,7 +198,7 @@ fn body_contact_damage_is_explicitly_opted_in() {
 /// stop distance.
 #[test]
 fn pirate_heavy_stops_within_her_melee_reach() {
-    let spec = test_spec("pirate_heavy");
+    let spec = fixture_spec("pirate_heavy");
     let authored_aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(36.0, 55.0));
     let pos = authored_aabb.center();
     let size = spec

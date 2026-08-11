@@ -96,9 +96,7 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
     "combatant",
     "medium_striker",
     "gradient_seeker",
-    "pirate_raider",
     "puppy_slug",
-    "pirate_heavy",
     "cellular_automaton_fighter",
 ];
 
@@ -126,8 +124,6 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "medium_striker",
     "gradient_seeker",
     "sandbag_infinite",
-    "pirate_raider",
-    "pirate_heavy",
 ];
 
 /// The actor-crate projections of an authored archetype row.
@@ -1031,6 +1027,72 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
         .rfind('}')
         .expect("the archetype fixture is a RON map");
     let extra = r#"
+    // ⭐ **THE TWO PIRATES THE MOUNT AND HEAVY TESTS PLAN AGAINST, owned by the
+    // FIXTURE.** Their shipped rows were deleted on 2026-08-11 (ledger D84): all
+    // nine pirate characters state their own provoked policy now, and no
+    // pirate-named placement in any world lacks a `character_id`, so nothing in
+    // the game reaches them. What still needs them is a handful of tests about
+    // riders and heavies — exactly the case the giant's note below describes,
+    // and the same answer: a test's cast belongs to the test.
+    "pirate_raider": (
+        respawn: OnRoomReenter,
+        max_health: 5,
+        run_speed: 190.0,
+        patrol_effort: 0.6842,
+        chase_effort: 1.0,
+        aggro_radius: 460.0,
+        attack_range: 140.0,
+        contact_strength: 0.85,
+        damage_amount: 1,
+        default_size: Some((44.0, 78.0)),
+        // A cove raider can ride a "shark"-class mount (ADR 0020).
+        pilotable_mount_classes: ["shark"],
+        brain_template: Smash,
+        melee: Some(Swipe((
+            windup_s: 0.28,
+            active_s: 0.08,
+            recover_s: 0.32,
+            damage: 1,
+            reach_px: 28.0,
+        ))),
+        move_style: Walk,
+    ),
+    "pirate_heavy": (
+        max_health: 10,
+        // A heavy cove pirate can ride a "shark"-class mount (ADR 0020).
+        pilotable_mount_classes: ["shark"],
+        // Peaceful cove crew until provoked; then forced into an
+        // aggressive MeleeBrute with a wide aggro radius.
+        attacks_player: false,
+        body_contact_damage: false,
+        respawn: OnRest,
+        provoke_forced_brute_min_aggro: Some(500.0),
+        // attack_range is the stop-and-swing distance. PirateHeavy's
+        // melee hitbox (attack_aabb_dir) reaches size.x*0.55+24+34 =
+        // 97.6 px from her center, so against a ~14 px-half player she
+        // can only connect at a center distance under ~112 px. The old
+        // 150 made her stop ~40 px too far and swing into empty air.
+        // 90 stops her inside her own reach (≈21 px hit margin) while
+        // keeping ~40 px body clearance.
+        attack_range: 90.0,
+        run_speed: 130.0,
+        patrol_effort: 0.5769,
+        chase_effort: 1.0,
+        aggro_radius: 0.0,
+        contact_strength: 0.0,
+        damage_amount: 2,
+        default_size: Some((72.0, 110.0)),
+        brain_template: MeleeBrute,
+        melee: Some(Lunge((
+            windup_s: 0.42,
+            active_s: 0.12,
+            recover_s: 0.46,
+            damage: 2,
+            reach_px: 38.0,
+            step_px: 14.0,
+        ))),
+        move_style: WalkHeavy,
+    ),
     "fixture_mount": (
         max_health: 6, run_speed: 260.0, patrol_effort: 0.42, chase_effort: 1.0,
         aggro_radius: 1200.0, attack_range: 200.0, contact_strength: 1.1,

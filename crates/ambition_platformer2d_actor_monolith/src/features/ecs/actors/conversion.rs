@@ -32,23 +32,17 @@ pub(crate) fn hostile_brain_id_for_actor(
     if looks_like_cellular_automaton {
         return "cellular_automaton_fighter";
     }
-    let looks_like_pirate_heavy = id.contains("pirate_heavy")
-        || name.contains("broadside bess")
-        || name.contains("iron mary")
-        || name.contains("salt annet")
-        || dialogue.contains("pirate_heavy");
-    if looks_like_pirate_heavy {
-        return "pirate_heavy";
-    }
-    let looks_like_pirate = id.contains("pirate")
-        || name.contains("pirate")
-        || name.contains("quartermaster")
-        || name.contains("lookout")
-        || name.contains("navigator")
-        || dialogue.contains("pirate");
-    if looks_like_pirate {
-        return "pirate_raider";
-    }
+    // ⛔ **THE TWO PIRATE ARMS ARE DELETED (2026-08-11, ledger D84), with the
+    // rows they pointed at.** They asked whether an id, a display name or a
+    // dialogue node contained `"pirate"` — or one of `"broadside bess"` /
+    // `"iron mary"` / `"salt annet"` — and handed the body a whole archetype.
+    //
+    // All nine characters that answered them now state their own
+    // `provoked_profile_ref`, and the branch above takes it. Measured before
+    // deleting, twice: every pirate-named placement in every world carries a
+    // `character_id` (so none can fall through to here), and a body built from a
+    // named character keeps that id through construction (so the branch above can
+    // find it).
     // Generic provoked NPC = a melee brawler (`combatant`: Smash + melee Swipe,
     // NO ranged), matching how the pirates fight. Deliberately NOT
     // `medium_striker` — that archetype carries a ranged Rock, which turned every

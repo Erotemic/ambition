@@ -288,6 +288,9 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     rider: &ActorConfig,
     kit: &CombatKit,
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,
+    // **The prepared cast**, so a rider that fell off can be asked what IT
+    // swings rather than borrowing `pirate_raider`'s. See below.
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
 ) -> (Brain, ActionSet) {
     // Rebuild the rider's solo action set from its DURABLE stored combat
     // kit (`innate_melee` / `innate_ranged` / `move_style`) plus its live
@@ -295,13 +298,25 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     // the entity so the runtime dismount never re-reads the roster enum.
     let mut action_set = kit.to_action_set(held_item);
     if action_set.melee.is_none() {
-        action_set.melee = roster
-            .spec_for_brain(
-                &ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "pirate_raider".into(),
-                ),
-            )
-            .melee_spec();
+        // ⭐ **THE RIDER'S OWN SWING FIRST** (ledger D84). This reached straight
+        // for `pirate_raider`'s melee — the THIRD reader of the provocation
+        // matcher's archetypes, and the one a placement census could not see
+        // because it counts levels rather than code. A rider whose character
+        // authors a swing was being handed a stranger's on the way down.
+        action_set.melee = prepared
+            .zip(rider.sprite_character_id.as_deref())
+            .and_then(|(registry, character)| {
+                registry.get(character)?.kit.action_set()?.melee.clone()
+            })
+            .or_else(|| {
+                roster
+                    .spec_for_brain(
+                        &ambition_entity_catalog::placements::CharacterBrain::Custom(
+                            "pirate_raider".into(),
+                        ),
+                    )
+                    .melee_spec()
+            });
     }
 
     // If the dismounted rider still has a ranged held item, keep using a

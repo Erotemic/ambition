@@ -416,6 +416,9 @@ pub struct MountRiderLinkEnforced;
 pub fn enforce_mount_rider_link(
     mut commands: Commands,
     roster: Res<crate::features::CharacterRoster>,
+    // **The prepared cast**, so a dismounted rider swings its own weapon rather
+    // than borrowing an archetype's (ledger D84).
+    prepared: Option<Res<crate::character_runtime::PreparedCharacterRegistry>>,
     mut mount_died: MessageWriter<MountDied>,
     mut riders: Query<
         (
@@ -569,6 +572,7 @@ pub fn enforce_mount_rider_link(
                         rider.config,
                         &rider_kit,
                         held_item.map(|item| &item.spec),
+                        prepared.as_deref(),
                     );
                     commands
                         .entity(rider_entity)

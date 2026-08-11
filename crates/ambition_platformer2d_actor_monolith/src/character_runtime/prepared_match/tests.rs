@@ -1722,6 +1722,13 @@ fn the_matchs_declared_abilities_reach_every_seat() {
 /// checks the body carries a CURRENT stamp, which only construction can have
 /// written, and that it displaced nothing, which is what distinguishes building
 /// a body as a character from replacing one.
+///
+/// ⛔⛔ **AND IT IS STILL NOT SUFFICIENT — MEASURED.** With the seat's
+/// `grant_prepared_character_body` call disabled, this test STAYS GREEN: the
+/// persona derive runs on the unstamped body and writes a baseline that looks
+/// exactly like construction's. Only
+/// `a_seated_fighter_is_complete_and_the_next_pass_changes_nothing` goes red.
+/// Keep both — this one names the request, that one names the invariant.
 #[test]
 fn a_seated_fighter_carries_its_applied_template_and_asks_for_nothing() {
     let mut app = seating_app();
@@ -1762,6 +1769,90 @@ fn a_seated_fighter_carries_its_applied_template_and_asks_for_nothing() {
         !asked,
         "the seat still asks to be finished, so something it needs is still \
          arriving a tick late"
+    );
+}
+
+/// **AND NEITHER TEMPLATE OBSERVER HAS WORK TO DO ON THE NEXT PASS.**
+///
+/// ⛔⛔ **the test above is not sufficient, and believing it was is the mistake
+/// this one exists for** (GPT 5.6 §1, 2026-08-11). Removing `RecharacterizeBody`
+/// silences the PERSONA derive. `project_prepared_character_definitions` is a
+/// SECOND observer, it fires on `Changed<WornCharacter>`, and a seated body with
+/// no `ProjectedCharacterKit` was still being finished by it a tick after
+/// construction — hurtboxes, posed body, movement tuning, motion model.
+///
+/// ⭐ **so this asserts the OTHER record too, and then asserts nothing moves.**
+/// Both stamps current on the construction frame is the claim; a second update
+/// with no hot reload and no re-template request changing nothing is the proof.
+/// D73's invariant in one test: *an ordinary match seat is a complete instance of
+/// its CharacterDefinition on its construction frame.*
+#[test]
+fn a_seated_fighter_is_complete_and_the_next_pass_changes_nothing() {
+    let mut app = seating_app();
+    app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("duelist")],
+        ..Default::default()
+    });
+    finalize_and_update(&mut app);
+
+    let generation = app
+        .world()
+        .resource::<crate::character_runtime::PreparedCharacterRegistry>()
+        .generation();
+
+    // The two applied-template records, read together: a body carrying one and
+    // not the other is a body one observer still owns.
+    let read = |app: &mut App| {
+        let world = app.world_mut();
+        let mut q = world.query_filtered::<(
+            Option<&crate::avatar::PersonaBaseline>,
+            Option<&crate::character_runtime::presentation::ProjectedCharacterKit>,
+            Option<&crate::features::MotionModel>,
+        ), With<MatchSeat>>();
+        let rows: Vec<_> = q
+            .iter(world)
+            .map(|(persona, projected, model)| {
+                (
+                    persona.cloned(),
+                    projected.cloned(),
+                    model.map(|m| m.kind()),
+                )
+            })
+            .collect();
+        assert_eq!(rows.len(), 1, "one seat, one body");
+        rows.into_iter().next().unwrap()
+    };
+
+    let (persona, projected, model) = read(&mut app);
+    let persona =
+        persona.expect("no gameplay baseline, so the persona derive still owns this body");
+    let projected = projected.expect(
+        "no PROJECTION stamp, so `project_prepared_character_definitions` still \
+         owns this body — the seat stopped asking one observer and kept the other",
+    );
+    assert_eq!(persona.generation, generation);
+    assert_eq!(projected.generation, generation);
+    assert_eq!(projected.id, "duelist");
+
+    // ⭐ **the proof.** No hot reload, no `RecharacterizeBody`: a template system
+    // that still had work would do it here.
+    app.update();
+    let (persona_after, projected_after, model_after) = read(&mut app);
+    assert_eq!(
+        persona_after.as_ref(),
+        Some(&persona),
+        "a template observer rewrote the gameplay baseline on an untouched body"
+    );
+    assert_eq!(
+        projected_after.as_ref(),
+        Some(&projected),
+        "a template observer rewrote the projection stamp on an untouched body"
+    );
+    assert_eq!(
+        model_after, model,
+        "the motion model changed on the pass AFTER construction, which is the \
+         two-phase body this whole row exists to remove"
     );
 }
 

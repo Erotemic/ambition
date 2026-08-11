@@ -1065,19 +1065,11 @@ fn realize_seat(
     let at = seed.kin.pos;
     let facing = seed.kin.facing;
     let centered = ambition_platformer2d_core::CenteredAabb::from_center_size(at, seat.body_px);
-    // ⭐ **THE CHARACTER'S OWN MOTION MODEL** — grant five of five (ledger D85).
-    //
-    // ⛔ this derived one from the seed's TUNING, and the persona pass then
-    // switched it to the character's a tick later — which is why a crawler
-    // seated as a fighter spent its first frame on the axis-swept solver. A
-    // prepared definition states its model; construction is where a body gets
-    // one, and `switch_motion_model` exists for a LIVE change with state to
-    // preserve, which a body being built has none of.
-    let motion_model = {
-        let mut model = seed.config.tuning.motion_model();
-        ambition_platformer2d_core::switch_motion_model(&mut model, seat.definition.motion_model);
-        model
-    };
+    // ⚠ the seed's model, which `grant_prepared_character_body` then switches to
+    // the CHARACTER's below. Switching rather than replacing is ADR 0024: a
+    // cross-model change preserves every shared body fact and initializes only
+    // the destination solver's private state.
+    let motion_model = seed.config.tuning.motion_model();
     let (identity, _seed_disposition, combat, intent, cooldowns) =
         crate::features::ecs::enemy_component_snapshot(&seed);
     // A match participant is a COMBATANT, whatever drives it. The disposition
@@ -1185,22 +1177,11 @@ fn realize_seat(
                 // fighter rather than a generic actor follows from this one
                 // component.
                 ambition_characters::actor::WornCharacter::new(seat.character_id.as_str()),
-                // ⭐⭐ **AND IT NO LONGER ASKS TO BE FINISHED** (ledger D85, Jon's
-                // second redirect P0). All five grants the persona derive used to
-                // supply have moved here — the kit, the death traits, the
-                // identity kit, the moveset and the motion model — so the stamp
-                // goes on LAST, which is the order that keeps a stamp from
-                // certifying work nobody does.
-                //
-                // ⚠ **EMPTY displacement**: nothing was taken from this body,
-                // because the body was BUILT as this character. A replacement
-                // records what it displaced so it can retract to it; a
-                // construction has nothing to retract to.
-                crate::avatar::PersonaBaseline {
-                    id: seat.character_id.clone(),
-                    generation: cast_generation,
-                    displaced: Default::default(),
-                },
+                // ⭐⭐ **AND IT NO LONGER ASKS TO BE FINISHED** (ledger D85). Both
+                // applied-template records are stamped by
+                // `grant_prepared_character_body` below, which is also what
+                // installs the hurtboxes, the posed body, the movement tuning and
+                // the motion model — see the call for why they are not here.
                 // The MATCH owns this fighter's death, not the world. Without it
                 // a KO runs the exploration economy — a bounty coin, a heart, an
                 // in-place respawn timer — none of which an arena has a use for.
@@ -1233,6 +1214,30 @@ fn realize_seat(
         None,
         None,
         super::PhysicalRetraction::NONE,
+    );
+    // ⭐⭐ **THE SHARED PREPARED-CHARACTER BODY GRANT** — the other half of D85,
+    // and the half I first reported done without checking (GPT 5.6 §1,
+    // 2026-08-11).
+    //
+    // ⛔ **removing `RecharacterizeBody` silences the PERSONA derive and nothing
+    // else.** `project_prepared_character_definitions` is a SECOND template
+    // observer, it fires on `Changed<WornCharacter>`, and a seated body had no
+    // `ProjectedCharacterKit` — so a seat that asked the derive for nothing was
+    // still finished a tick later by the projector: hurtboxes, the authored
+    // posed body, movement tuning, the motion model. Two observers, and I had
+    // verified one. That is the same mis-verification D78 cost a session to.
+    //
+    // ⭐ **so the seat calls the ONE materializer** instead of hand-copying a
+    // third subset of it. `CallerResolved` says what is true here and nowhere
+    // else: this caller already resolved its own kit — a match repertoire is the
+    // character's overlaid with the match's override — so the grant must not
+    // write the kit, but must do everything else and stamp BOTH records.
+    crate::character_runtime::presentation::grant_prepared_character_body(
+        commands,
+        body,
+        &seat.definition,
+        cast_generation,
+        crate::character_runtime::presentation::KitOwnership::CallerResolved,
     );
     body
 }

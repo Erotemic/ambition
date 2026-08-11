@@ -164,6 +164,22 @@ fn declared_identities(dir: &Path) -> (BTreeMap<String, Vec<String>>, Vec<String
         if path.extension().and_then(|ext| ext.to_str()) != Some("py") {
             continue;
         }
+        // ⭐ **A LEADING UNDERSCORE IS PYTHON FOR "NOT A TARGET".**
+        // `_runge_kutta_duo.py` is the SHARED module `carl_runga.py` and
+        // `martin_cutta.py` both import their rig from — it draws nobody by
+        // itself, and counting it as a render target made this scan report a
+        // character with no catalog row that does not exist. Every real target in
+        // this directory is named for who it draws.
+        //
+        // ⚠ the count below is the instrument, so a false positive here reads as
+        // a content gap and gets "fixed" by registering a character nobody drew.
+        if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.starts_with('_'))
+        {
+            continue;
+        }
         let Ok(text) = std::fs::read_to_string(&path) else {
             continue;
         };

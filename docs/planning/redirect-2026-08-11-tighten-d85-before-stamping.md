@@ -13,7 +13,7 @@ DONE, and its §4 unblocks D86. Read the progress table before working an item.
 
 | Item | State |
 | --- | --- |
-| §1 the seat needs `grant_prepared_character_body` + `ProjectedCharacterKit` | ▢ ⛔ **CONFIRMED BY GREP**: `realize_seat` never mentions `ProjectedCharacterKit`, and `project_prepared_character_definitions` fires on `Changed<WornCharacter>` |
+| §1 the seat needs `grant_prepared_character_body` + `ProjectedCharacterKit` | ✔ **DONE** — `KitOwnership::CallerResolved` (the gate was asking *who writes the kit* when the question is *is a derive coming*); the seat's hand-written stamp and hand-written motion model are DELETED in favour of the shared grant. Acceptance test + poison: with the grant disabled the OLD test stays green (the derive writes an identical-looking baseline) and only the new one goes red |
 | §2 ONE resolved seat kit (action set + identity kit + combat kit + moveset + ranged execution) | ▢ — the overlay runs once but its `ActionSet`/`CombatKit` are DISCARDED and rebuilt in `realize_seat` |
 | §3 effective abilities resolved BEFORE the kit is derived | ▢ |
 | §4 D86: **KEEP the robot's charge**; rename `RangedExecution::HostCharge` → `ChargedProjectile` | ▢ — ⭐ **no longer blocked on Jon** |

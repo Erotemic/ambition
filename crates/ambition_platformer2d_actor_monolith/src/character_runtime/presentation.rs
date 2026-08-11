@@ -543,6 +543,17 @@ pub enum KitOwnership {
     /// two-writers-one-question bug that made a character with no authored
     /// action set fight as the worn player and stand empty-handed as player two.
     PersonaDerive,
+    /// **The CALLER already resolved this body's kit and inserted it** — a match
+    /// seat, whose repertoire is the character's overlaid with the match's own
+    /// override and so cannot be read off the definition alone.
+    ///
+    /// ⭐ **everything else is granted, and BOTH applied-template records are
+    /// stamped.** That is the difference from [`Self::PersonaDerive`], which
+    /// leaves the gameplay baseline to the derive because the derive is coming.
+    /// For a seat nothing is coming: it is a construction, and a construction
+    /// that skipped the stamp would be finished by an observer a tick later —
+    /// which is exactly the two-phase body D85 exists to remove.
+    CallerResolved,
 }
 
 /// **Put every fact a prepared character owns onto a body, as ONE batch.**
@@ -587,7 +598,11 @@ pub fn grant_prepared_character_body(
         // meaning**: nothing was taken from this body, because the body was BUILT
         // as this character. A replacement records what it displaced so it can
         // retract to it; a construction has nothing to retract to.
-        if kit == KitOwnership::Grant {
+        // ⛔ **the gate is "is a derive coming", not "who writes the kit".** Those
+        // are two different questions and this asked one of them: a caller that
+        // resolves its own kit (a match seat) still needs the gameplay baseline,
+        // because nothing else is going to write it.
+        if kit != KitOwnership::PersonaDerive {
             commands
                 .entity(entity)
                 .insert(crate::avatar::PersonaBaseline {

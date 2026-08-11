@@ -1,5 +1,15 @@
 # Overnight campaign: finish the character architecture and make Smash feel like a real platform fighter
 
+⛔⛔ **SUPERSEDED IN PART, 2026-08-11 (later the same day):
+`redirect-2026-08-11-finish-the-architecture.md` OUTRANKS THIS FILE.** Jon's
+redirect off checkpoint `853d9a66b5ed` replaces the P0.1–P5.42 execution order
+below with its own P0–P4, and its first instruction is **pause broad character
+migration**: D78 is not a rollback bug, it is the last two-phase seam in ordinary
+character construction, and fixing that root comes before any further migration
+rows. Everything this file says about the two coupled goals, the three
+authorities, deleting legacy AS EACH MIGRATION LANDS and the prohibitions still
+stands. Read the redirect first; read the RESUME block below for measured state.
+
 ⛔ **Jon's brief, verbatim, given 2026-08-11T03:0xZ.** Recorded here at his
 instruction ("You might want to record this in docs planning so it survives
 compaction"). Nothing below this banner is agent prose; the only agent addition

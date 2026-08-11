@@ -157,7 +157,7 @@ impl PlayerSimulationBundle {
         let moveset = crate::combat::moveset::ActorMoveset(
             crate::avatar::starting_character::derive_persona_moveset(
                 &action_set,
-                crate::avatar::RangedExecution::HostCharge,
+                crate::avatar::RangedExecution::ChargedProjectile,
                 None,
             ),
         );
@@ -386,7 +386,7 @@ mod tests {
             player_scratch(),
             Health::new(20),
             "player_robot_v3",
-            &mut crate::avatar::RangedExecution::HostCharge,
+            &mut crate::avatar::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Player Robot v3");
         assert!(bundle.brain.is_player());
@@ -416,7 +416,7 @@ mod tests {
             player_scratch(),
             Health::new(20),
             "npc_pirate_admiral",
-            &mut crate::avatar::RangedExecution::HostCharge,
+            &mut crate::avatar::RangedExecution::ChargedProjectile,
         );
         assert_eq!(bundle.name.as_str(), "Pirate Admiral");
         assert!(bundle.brain.is_player(), "still keyboard-controlled");
@@ -445,7 +445,7 @@ mod tests {
             player_scratch(),
             Health::new(20),
             "not_a_real_character",
-            &mut crate::avatar::RangedExecution::HostCharge,
+            &mut crate::avatar::RangedExecution::ChargedProjectile,
         );
         assert!(bundle.brain.is_player());
         assert_eq!(

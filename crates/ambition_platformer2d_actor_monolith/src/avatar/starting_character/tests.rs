@@ -49,6 +49,46 @@ fn install_test_catalog(app: &mut bevy::prelude::App) {
 
 mod live_refresh;
 
+/// **AN AUTHORED CHARGE SURVIVES ITS AUTHORED KIT.**
+///
+/// ⛔⛔ **the poison for GPT 5.6 §4.** The Authored arm returned
+/// `RangedExecution::MovesetVerb` unconditionally, on the reasoning that the
+/// charge belonged to the code-side compat kit — so the moment Robot v3 authors
+/// its own `ActionSet` (§5) it would silently stop charging, and "delete
+/// `HostCode`" would have deleted the Hadouken with it.
+///
+/// Two terms, because one alone proves nothing: a character that authors
+/// `ChargedProjectile` charges even with a fully authored kit, and one that
+/// authors nothing does NOT — the default has to stay `MovesetVerb` or every
+/// content NPC acquires a charge mechanic it never asked for.
+#[test]
+fn an_authored_character_decides_whether_it_charges() {
+    use crate::avatar::RangedExecution;
+    use crate::character_runtime::CharacterDefinition;
+
+    let charged = CharacterDefinition::new("charger", "Charger", "test")
+        .with_ranged_execution(RangedExecution::ChargedProjectile);
+    assert_eq!(
+        charged.ranged_execution,
+        RangedExecution::ChargedProjectile,
+        "a character that authors a charge did not keep it"
+    );
+    assert!(
+        charged.ranged_execution.charges_projectiles(),
+        "the authored charge does not reach the runtime capability, so the \
+         marker that installs `ChargesProjectiles` will never be set"
+    );
+
+    // ⚠ the poison: the DEFAULT must remain the ordinary verb.
+    let plain = CharacterDefinition::new("plain", "Plain", "test");
+    assert_eq!(
+        plain.ranged_execution,
+        RangedExecution::MovesetVerb,
+        "an unmigrated character acquired a charge mechanic it never authored"
+    );
+    assert!(!plain.ranged_execution.charges_projectiles());
+}
+
 #[test]
 fn default_is_unset_and_is_default() {
     // No override: an empty id routes to the untouched `from_scratch` path.
@@ -1692,7 +1732,7 @@ fn the_spawned_and_the_rewarn_host_kit_are_one_construction() {
     );
     let rewarn = crate::avatar::starting_character::derive_persona_moveset(
         &action_set,
-        crate::avatar::RangedExecution::HostCharge,
+        crate::avatar::RangedExecution::ChargedProjectile,
         None,
     );
 

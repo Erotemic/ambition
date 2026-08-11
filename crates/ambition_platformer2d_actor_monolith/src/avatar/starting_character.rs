@@ -289,13 +289,22 @@ fn sync_worn_motion_model_preserving_state(
 /// exactly as it was; this is the derivation-time decision that installs it.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum RangedExecution {
-    /// The host's chargeable-projectile mechanic owns the ranged press.
+    /// **A CHARGEABLE PROJECTILE owns the ranged press** — hold to build, release
+    /// to fire.
     ///
-    /// The compat kit every unknown id and every `HostCode` row wears. Its
-    /// ranged verb is NOT a moveset move — folding one in would make one press
-    /// do two things, which is the test that went red when the queue's H2 first
-    /// tried passing `set.ranged` unconditionally.
-    HostCharge,
+    /// ⭐ **this was called `HostCharge`, and the rename is the point** (GPT 5.6
+    /// §4, 2026-08-11). Charging is a fact about a CHARACTER's ranged attack, not
+    /// about which crate happens to build that character today. The old name
+    /// exposed the special case and made the mechanic look like scaffolding to be
+    /// deleted along with `HostCode` — but Jon's product rule is that Player
+    /// Robot v3 is the same character with the same repertoire in Ambition and in
+    /// Smash, so removing the charge to delete a host-code branch would be a
+    /// gameplay regression wearing a refactor's commit.
+    ///
+    /// ⚠ its ranged verb is NOT a moveset move — folding one in would make one
+    /// press do two things, which is the test that went red when the queue's H2
+    /// first tried passing `set.ranged` unconditionally.
+    ChargedProjectile,
     /// A moveset verb derived from the action set's own `ranged` preset.
     ///
     /// What content-authored personas use. They have no charge mechanic and no
@@ -305,9 +314,9 @@ pub enum RangedExecution {
 }
 
 impl RangedExecution {
-    /// Whether a body executing this way carries the host charge capability.
+    /// Whether a body executing this way carries the charge capability.
     pub fn charges_projectiles(self) -> bool {
-        matches!(self, Self::HostCharge)
+        matches!(self, Self::ChargedProjectile)
     }
 }
 
@@ -332,7 +341,7 @@ pub fn derive_persona_moveset(
     let (ranged, special) = match execution {
         // The charge mechanic already owns the ranged press; `special` is the
         // shell marker this kit's moves are built from.
-        RangedExecution::HostCharge => (None, set.special.as_ref()),
+        RangedExecution::ChargedProjectile => (None, set.special.as_ref()),
         // Symmetrically: the ranged preset IS the ranged verb — and the special
         // preset IS the special verb.
         //
@@ -401,7 +410,7 @@ fn resolve_playable_action_set(
     match source {
         Some(PlayableKitSource::HostCode) => (
             crate::avatar::bundles::default_player_action_set(base_abilities),
-            RangedExecution::HostCharge,
+            RangedExecution::ChargedProjectile,
         ),
         Some(PlayableKitSource::Authored) => {
             // A known authored row with a missing preset is malformed content.
@@ -416,7 +425,7 @@ fn resolve_playable_action_set(
             // Unknown ids use one explicit compatibility fallback. This is
             // intentionally distinct from a known-but-invalid Authored row.
             crate::avatar::bundles::default_player_action_set(base_abilities),
-            RangedExecution::HostCharge,
+            RangedExecution::ChargedProjectile,
         ),
     }
 }
@@ -556,7 +565,12 @@ fn apply_worn_character_kit(
     // built together by the one path that knows they have to agree.
     let (set, derived, execution) =
         if let Some(kit) = match_kit {
-            let execution = RangedExecution::MovesetVerb;
+            // ⚠ a MATCH kit is a borrowed repertoire, and how the borrower fires
+            // is still the character's own fact — a robot seated with a stage's
+            // generic set still charges if the robot charges.
+            let execution = prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
+                prepared.ranged_execution
+            });
             // ⛔ **THE GRANT COVERS THE ACTION SET, NOT THE MOVES**, and passing
             // `None` here meant it covered both. A character that authored its
             // own eleven-move repertoire — jab, tilts, three smashes, five
@@ -583,13 +597,19 @@ fn apply_worn_character_kit(
                 }) => (
                     action_set.clone(),
                     moveset.clone(),
-                    // The charge mechanic is the CODE-SIDE compat kit's, and a character
-                    // whose capabilities content decided is not wearing that kit.
-                    RangedExecution::MovesetVerb,
+                    // ⭐ **WHAT THE CHARACTER SAYS**, since 2026-08-11 (GPT 5.6 §4).
+                    // This read `MovesetVerb` unconditionally, on the reasoning that
+                    // the charge belonged to the code-side compat kit — which made a
+                    // property of the protagonist's ranged ATTACK a property of which
+                    // arm of `PlayableKitSource` built it. An authored character that
+                    // charges can now say so and keep charging once `HostCode` is gone.
+                    prepared.map_or(RangedExecution::MovesetVerb, |prepared| {
+                        prepared.ranged_execution
+                    }),
                 ),
                 Some(crate::character_runtime::PreparedKit::HostCode { authored_moveset }) => {
                     let set = crate::avatar::bundles::default_player_action_set(base_abilities);
-                    let execution = RangedExecution::HostCharge;
+                    let execution = RangedExecution::ChargedProjectile;
                     let derived = derive_persona_moveset(&set, execution, authored_moveset.clone());
                     (set, derived, execution)
                 }

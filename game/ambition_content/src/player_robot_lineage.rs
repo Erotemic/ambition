@@ -322,6 +322,19 @@ fn definition_from(
     // character-first robot fired an unadorned rock while the archetype road drew
     // the real thing.
     definition = definition.with_ranged_vfx("hadouken");
+    // ⭐⭐ **AND IT CHARGES.** Hold to build, release to fire — the mechanic the
+    // protagonist has always had, authored on the CHARACTER for the first time
+    // (GPT 5.6 §4, 2026-08-11).
+    //
+    // ⛔ **this was a property of `PlayableKitSource::HostCode`**, which made
+    // *delete HostCode* read as *delete the charge*. Jon's product rule is the
+    // opposite: Player Robot v3 is the same character with the same repertoire in
+    // Ambition and in Smash, and a mode changes interpretation and restrictions
+    // rather than silently replacing its moves. Authoring it here is what lets
+    // `HostCode` be deleted without the robot losing the Hadouken.
+    definition = definition.with_ranged_execution(
+        ambition_platformer2d_actor_monolith::avatar::RangedExecution::ChargedProjectile,
+    );
     // ⭐ **THEOREM CHAIN, on the incarnation the duel fields.** v3 carries the
     // platform-fighter table instead; two incarnations of one robot with
     // different repertoires is what a lineage IS.

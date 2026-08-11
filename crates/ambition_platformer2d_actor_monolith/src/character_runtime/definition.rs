@@ -479,6 +479,20 @@ pub struct CharacterDefinition {
     /// `None` = this character's ranged verb draws whatever the projectile
     /// itself authors, which is every character that has never had one.
     pub ranged_vfx: Option<String>,
+    /// **HOW this character's ranged attack is executed** — a charged projectile
+    /// (hold to build, release to fire) or an ordinary moveset verb.
+    ///
+    /// ⭐ **an authored CHARACTER fact since 2026-08-11** (GPT 5.6 §4). It was
+    /// derived from `PlayableKitSource::HostCode`, which made a gameplay property
+    /// of the protagonist's attack look like a property of which crate built it —
+    /// and so made *delete HostCode* read as *delete the charge*. Jon's product
+    /// rule is the opposite: Player Robot v3 is the same character with the same
+    /// repertoire in Ambition and in Smash, and a mode changes interpretation and
+    /// restrictions rather than silently replacing its moves.
+    ///
+    /// ⚠ the DEFAULT is `MovesetVerb`, which is what every character that has
+    /// never had a charge already does.
+    pub ranged_execution: crate::avatar::RangedExecution,
     /// **This body is a PRACTICE TARGET** — a training dummy, not a
     /// participant.
     ///
@@ -557,6 +571,7 @@ impl CharacterDefinition {
             autonomous_profile_ref: None,
             provoked_profile_ref: None,
             ranged_vfx: None,
+            ranged_execution: crate::avatar::RangedExecution::MovesetVerb,
             practice_target: false,
             held_item: None,
             mount: None,
@@ -624,6 +639,12 @@ impl CharacterDefinition {
 
     /// Author what this character's projectile looks like. See
     /// [`Self::ranged_vfx`].
+    /// See [`Self::ranged_execution`]. A character that charges says so here.
+    pub fn with_ranged_execution(mut self, execution: crate::avatar::RangedExecution) -> Self {
+        self.ranged_execution = execution;
+        self
+    }
+
     pub fn with_ranged_vfx(mut self, id: impl Into<String>) -> Self {
         self.ranged_vfx = Some(id.into());
         self
@@ -803,6 +824,8 @@ struct PreparedCharacterOverrides {
     autonomous_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
     /// See [`CharacterDefinition::ranged_vfx`]. Carried.
     ranged_vfx: Option<String>,
+    /// See [`CharacterDefinition::ranged_execution`]. Carried.
+    ranged_execution: crate::avatar::RangedExecution,
     /// See [`CharacterDefinition::provoked_profile_ref`]. RESOLVED at finalize.
     provoked_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
     /// See [`CharacterDefinition::practice_target`]. Carried.
@@ -1103,6 +1126,11 @@ pub struct PreparedCharacterDefinition {
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
     /// See [`CharacterDefinition::ranged_vfx`].
     pub ranged_vfx: Option<String>,
+    /// **HOW this character fires** — see
+    /// [`CharacterDefinition::ranged_execution`]. Read by the persona derive so
+    /// the charge is a fact about the CHARACTER rather than about which arm of
+    /// `PlayableKitSource` built it.
+    pub ranged_execution: crate::avatar::RangedExecution,
     /// **The policy this creature adopts when provoked**, RESOLVED — see
     /// [`CharacterDefinition::provoked_profile_ref`].
     pub provoked_profile: Option<ambition_characters::brain::BrainProfile>,
@@ -1591,6 +1619,7 @@ fn prepare_character(
         autonomous_profile: definition.autonomous_profile,
         autonomous_profile_ref: definition.autonomous_profile_ref.clone(),
         ranged_vfx: definition.ranged_vfx.clone(),
+        ranged_execution: definition.ranged_execution,
         provoked_profile_ref: definition.provoked_profile_ref.clone(),
         practice_target: definition.practice_target,
         held_item: definition.held_item.clone(),
@@ -1688,6 +1717,7 @@ fn finalize_character(
         practice_target,
         autonomous_profile_ref,
         ranged_vfx,
+        ranged_execution,
         provoked_profile_ref,
     } = overrides;
 
@@ -1734,7 +1764,7 @@ fn finalize_character(
             // moveset declares the `ranged` verb, the same press is owned twice:
             // by the legacy charge-projectile path this kit installs, and by the
             // moveset's ranged verb. That is the exact double-ownership
-            // `RangedExecution::HostCharge` exists to prevent, arriving through
+            // `RangedExecution::ChargedProjectile` exists to prevent, arriving through
             // the one door it does not watch.
             //
             // The finalization plan recorded that there was no contradictory
@@ -1834,6 +1864,7 @@ fn finalize_character(
             profiles,
         ),
         ranged_vfx,
+        ranged_execution,
         provoked_profile: resolve_autonomous_profile(
             &id,
             &provider,

@@ -172,9 +172,8 @@ pub use spawn_actors::{
     GiantHandPlan, SpawnActorKind, SpawnActorRequest,
 };
 pub(crate) use spawn_actors::{
-    giant_hand_plans, populate_giant_hand_into, populate_giant_host_into,
+    giant_hand_plans, is_limbed_host, populate_giant_hand_into, populate_giant_host_into,
     spawn_boss_with_overrides_into, spawn_enemy_with_faction_into, spawn_staged_actor_into,
-    spec_is_limbed_host,
 };
 pub use target_volumes::{
     derive_pogo_target_volumes, refresh_body_damageable_volumes, refresh_boss_damageable_volumes,

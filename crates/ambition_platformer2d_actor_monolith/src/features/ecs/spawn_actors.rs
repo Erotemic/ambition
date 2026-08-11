@@ -1604,11 +1604,43 @@ pub struct GiantHandPlan {
     pub home_offset: ae::Vec2,
 }
 
-/// Whether an archetype is a limbed `"giant"`-class host. The one predicate the
-/// request builder and any remaining loop share, so they cannot disagree about
-/// which enemies are planned as hosts.
+/// Whether an archetype is a limbed `"giant"`-class host.
+///
+/// ⚠ **the roster-only form, and its only remaining caller is
+/// [`reject_runtime_giant`]** — a refusal on paths (summons, encounter waves,
+/// runtime minions) that hold a spec and no placement, so they have no character
+/// to ask. Planning uses [`is_limbed_host`] instead. Making the refusal
+/// character-aware means giving those paths a placement, which they do not have.
 pub(crate) fn spec_is_limbed_host(spec: &super::super::enemies::ArchetypeSpec) -> bool {
     mount_has_hand_limbs(spec)
+}
+
+/// **Is this placement a limbed `"giant"`-class host — asking the CHARACTER
+/// first?**
+///
+/// ⛔ **the roster-only form is what kept the giant chained to
+/// `character_archetypes.ron`.** A character may author
+/// `CharacterMount { class: Some("giant") }` on its definition, and
+/// `npc_giant_gnu` does; the planner could not see it, so deleting the row made
+/// every giant a handless host (measured: 18 red tests, "host + two hands",
+/// `left: 1, right: 3` — ledger D76).
+///
+/// Character-first-then-spec, the same shape `new_character_in` already uses for
+/// `is_aerial`: a character that states a mount at all is believed, and one that
+/// says nothing leaves its archetype in charge — which is every unmigrated
+/// creature.
+///
+/// ⚠ still scoped to the `"giant"` string. A data-driven "which mounts have
+/// limbs" flag waits for a SECOND limbed mount, exactly as
+/// [`mount_has_hand_limbs`] has said all along.
+pub(crate) fn is_limbed_host(
+    character: Option<&crate::character_runtime::PreparedCharacterDefinition>,
+    spec: &super::super::enemies::ArchetypeSpec,
+) -> bool {
+    match character.and_then(|definition| definition.mount.as_ref()) {
+        Some(mount) => mount.class.as_deref() == Some("giant"),
+        None => mount_has_hand_limbs(spec),
+    }
 }
 
 /// Refuse a `"giant"`-class archetype on a runtime hostile-spawn path.

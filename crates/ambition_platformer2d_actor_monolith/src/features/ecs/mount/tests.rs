@@ -3,8 +3,8 @@
 
 use super::super::CenteredAabb;
 use super::*;
-use bevy::prelude::*;
 use crate::boss_encounter::behavior::BossBehaviorProfileExt;
+use bevy::prelude::*;
 
 type ActorClusterBundle = (
     super::super::actor_clusters::BodyKinematics,
@@ -712,17 +712,14 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     };
     use ambition_characters::brain::{Brain, PlayerSlot};
 
-    // (1) The `giant_gnu` archetype parses as a rideable "giant"-class mount.
-    let mount_spec = crate::features::enemies::test_spec("giant_gnu");
-    assert_eq!(
-        mount_spec.mount_class.as_deref(),
-        Some("giant"),
-        "the giant_gnu archetype must be a rideable 'giant'-class mount",
-    );
-    assert!(
-        !mount_spec.body_contact_damage,
-        "the carried giant deals no contact damage (its rider is the threat)",
-    );
+    // (1) **The giant's "I am a rideable giant-class mount, and touching me does
+    // not hurt" assertion lives with the CHARACTER now**, in
+    // `ambition_content`'s `the_giant_gnu_authors_the_mount_its_archetype_row_used_to`.
+    // It asked `test_spec("giant_gnu")` here until that archetype row was
+    // deleted (D73 group A) — and it cannot follow the facts into this file,
+    // because the engine crate must not depend on a game's content crate. What
+    // this test is for is the mount/rider BRIDGE below, which needs no shipped
+    // content at all.
 
     // (2) The `npc_giant_gnu` catalog id resolves a character sprite — the mount
     // renders through the character-sprite path. Gated on the baked sheet being
@@ -777,7 +774,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // frame. Rideable "giant" class + the standard MountSlot back-reference.
     let mount_pos = ae::Vec2::new(0.0, 0.0);
     let mount_size = ae::Vec2::new(220.0, 220.0);
-    let mut mount_actor = hostile("giant_gnu", "giant_gnu", mount_pos, mount_size);
+    let mut mount_actor = hostile("fixture_giant", "fixture_giant", mount_pos, mount_size);
     mount_actor.1 .2.health.current = 0; // dead → dissolution fires
     let mut mountable = Mountable::at(ae::Vec2::new(0.0, -140.0));
     mountable.class = MountClass("giant".into());

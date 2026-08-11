@@ -277,6 +277,7 @@ impl RoomFeatureConstructionPlan {
                 provider,
                 std::slice::from_ref(request),
                 roster,
+                construction.prepared,
             ));
         }
         // Phase 4c: EVERY authored placement is a plan row carrying its frozen
@@ -295,7 +296,10 @@ impl RoomFeatureConstructionPlan {
         // rows joined by limb relations, bosses as `AuthoredBoss`. The family
         // loops that used to build these in `spawn` are deleted.
         requests.extend(crate::construction::authored_actor_requests(
-            room, roster, &paths,
+            room,
+            roster,
+            &paths,
+            construction.prepared,
         ));
         // Authored mount links are planned `ambition.mount` relations between
         // those rows; a link naming nobody fails HERE instead of being retried

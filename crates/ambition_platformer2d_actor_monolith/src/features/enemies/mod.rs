@@ -1036,6 +1036,19 @@ pub(crate) fn fixture_roster_with_mount() -> CharacterRoster {
         default_size: Some((126.0, 52.0)), mount_class: Some("shark"), mass: 6.0,
         brain_template: ChargeCrash, move_style: Float,
     ),
+    // ⭐ **the limbed giant the construction tests plan against, owned by the
+    // FIXTURE.** They used to name the shipped `giant_gnu`, so a content
+    // migration that deleted that row turned 18 construction tests red about
+    // nothing — the D73 campaign deletes shipped rows on purpose, and a
+    // structural test that reads shipped content as its fixture fails for the
+    // exact reason the campaign is succeeding.
+    "fixture_giant": (
+        max_health: 42, run_speed: 0.0, patrol_effort: 0.0, chase_effort: 0.0,
+        aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+        damage_amount: 0, attacks_player: false, body_contact_damage: false,
+        mount_class: Some("giant"), mass: 8.0, default_size: Some((220.0, 220.0)),
+        brain_template: StandStill, move_style: WalkHeavy,
+    ),
     "fixture_rider": (
         max_health: 3, run_speed: 150.0, patrol_effort: 0.6, chase_effort: 1.0,
         aggro_radius: 500.0, attack_range: 150.0, contact_strength: 0.6,

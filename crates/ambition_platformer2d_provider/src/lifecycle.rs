@@ -1151,8 +1151,7 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     >,
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
-    authored_sheets:
-        Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
+    authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
     character_roster: Res<'w, ambition_platformer2d_actor_monolith::features::CharacterRoster>,
     boss_catalog: Res<'w, ambition_platformer2d_actor_monolith::boss_encounter::BossCatalog>,
     placement_lowering:
@@ -1223,11 +1222,27 @@ impl PlatformerSessionBuilder<'_, '_> {
                 // Activation is the one place that holds the exact prepared
                 // definition, so it is the one place a construction plan can
                 // state a REAL activation generation rather than defaulting.
-                construction:
-                    ambition_platformer2d_actor_monolith::features::ActorConstructionContext::new(
-                        &self.construction_recipes,
-                        prepared_identity.epoch,
-                    ),
+                construction: {
+                    let context =
+                        ambition_platformer2d_actor_monolith::features::ActorConstructionContext::new(
+                            &self.construction_recipes,
+                            prepared_identity.epoch,
+                        );
+                    // ⛔ **the cast was two lines away and not handed over.**
+                    // Planning asks the CHARACTER whether a placement is a
+                    // limbed `"giant"`-class host before it asks the roster, and
+                    // with no cast it can only ask the roster — so the shipped
+                    // sandbox's giant, which authors its mount class on its
+                    // definition, planned as an ordinary enemy and failed
+                    // relation verification (*"is the mount of relation
+                    // `ambition.mount` but is constructed as a
+                    // `authored-enemy`"*). `self.prepared_characters` is right
+                    // here; the room-transition path already passes it.
+                    match self.prepared_characters.as_deref() {
+                        Some(prepared) => context.with_prepared(prepared),
+                        None => context,
+                    }
+                },
                 boss_catalog: &self.boss_catalog,
                 default_character_id,
                 sandbox_data_asset: self.sandbox_data_asset.as_deref(),

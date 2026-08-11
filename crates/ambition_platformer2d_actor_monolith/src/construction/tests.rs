@@ -916,6 +916,7 @@ fn every_parameter_variant_constructs_its_root() {
             "prov",
             &[staged_enemy("staged", None)],
             &crate::features::enemies::fixture_roster_with_mount(),
+            None,
         )
         .pop()
         .expect("one request"),
@@ -1125,6 +1126,7 @@ fn every_parameter_variant_matches_its_descriptor() {
         "prov",
         &[staged_enemy("staged", None)],
         &crate::features::enemies::fixture_roster_with_mount(),
+        None,
     )
     .pop()
     .expect("one request");
@@ -1844,7 +1846,7 @@ fn preflight(requests: Vec<ActorConstructionRequest>) -> Result<(), ActorConstru
 /// Two limbs claiming one host slot is refused before any spawn.
 #[test]
 fn two_limbs_in_one_slot_are_rejected() {
-    let host = minion_request("giant", "giant_gnu");
+    let host = minion_request("giant", "fixture_giant");
     let mut a = minion_request("hand_a", "giant_gnu_hands");
     let mut b = minion_request("hand_b", "giant_gnu_hands");
     a.relations.push(RelationRequest {
@@ -1864,8 +1866,8 @@ fn two_limbs_in_one_slot_are_rejected() {
 /// One limb naming two hosts is refused.
 #[test]
 fn a_limb_with_two_hosts_is_rejected() {
-    let host_a = minion_request("giant_a", "giant_gnu");
-    let host_b = minion_request("giant_b", "giant_gnu");
+    let host_a = minion_request("giant_a", "fixture_giant");
+    let host_b = minion_request("giant_b", "fixture_giant");
     let mut limb = minion_request("hand", "giant_gnu_hands");
     limb.relations.push(RelationRequest {
         to: host_a.sim_id.clone(),
@@ -1941,7 +1943,7 @@ fn a_self_mount_is_rejected() {
 fn an_incompatible_pilot_and_mount_class_are_rejected() {
     // A shark-rider cannot pilot a `giant`-class mount.
     let mut rider = minion_request("rider", "pirate_raider");
-    let mount = minion_request("giant", "giant_gnu");
+    let mount = minion_request("giant", "fixture_giant");
     rider.relations.push(RelationRequest {
         to: mount.sim_id.clone(),
         relation: ActorRelation::Mount,
@@ -1990,9 +1992,65 @@ fn giant_room() -> crate::rooms::RoomSpec {
         "boss_mount",
         "Giant GNU",
         ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
-        ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("fixture_giant".into()),
     ));
     room
+}
+
+/// **A CHARACTER can make a limbed host, with no archetype row saying so.**
+///
+/// ⛔ this is the predicate that kept `giant_gnu` chained to
+/// `character_archetypes.ron` (ledger D76). Planning asked
+/// `spec_for_brain(brain).mount_class`, a roster lookup, so a character that
+/// authors `CharacterMount { class: Some("giant") }` was invisible to it and the
+/// giant lowered as a HANDLESS host — measured as 18 red tests, `left: 1, right:
+/// 3`, the moment the row was deleted.
+///
+/// ⚠ the fixture's roster deliberately answers `combatant` for this brain, so
+/// the ONLY thing that can produce three rows here is the character.
+#[test]
+fn a_character_that_authors_a_giant_mount_plans_its_hands_without_a_row() {
+    let mut room = empty_room("arena");
+    let mut authored: crate::rooms::Authored<crate::rooms::EnemySpawnSpec> =
+        crate::rooms::Authored::new(
+            "boss_mount",
+            "Giant GNU",
+            ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::splat(60.0)),
+            ambition_entity_catalog::placements::CharacterBrain::Custom("no_such_archetype".into()),
+        );
+    authored.payload.character_id = Some(ambition_entity_catalog::CharacterId::new("npc_giant"));
+    room.enemy_spawns.push(authored);
+
+    let roster = crate::features::enemies::fixture_roster_with_mount();
+    let finalized = crate::character_runtime::prepare_and_finalize_for_test(
+        crate::character_runtime::CharacterDefinition::new("npc_giant", "Giant GNU", "test")
+            .with_mount(ambition_characters::actor::CharacterMount {
+                class: Some("giant".to_string()),
+                ..Default::default()
+            }),
+        &crate::character_runtime::CharacterBindings::default(),
+    );
+    let mut cast = crate::character_runtime::PreparedCharacterRegistry::default();
+    cast.insert_prepared(finalized.prepared);
+
+    let without_cast = crate::construction::authored_actor_requests(&room, &roster, &[], None);
+    assert_eq!(
+        without_cast.len(),
+        1,
+        "the control: with no cast prepared, the unknown brain is an ordinary \
+         enemy — so three rows below cannot come from the roster"
+    );
+
+    let requests = crate::construction::authored_actor_requests(&room, &roster, &[], Some(&cast));
+    assert_eq!(
+        requests.len(),
+        3,
+        "host + two hands, decided by the CHARACTER: {:?}",
+        requests
+            .iter()
+            .map(|r| r.sim_id.clone())
+            .collect::<Vec<_>>()
+    );
 }
 
 /// **The giant host and both hands are explicit plan rows joined by limb
@@ -2001,7 +2059,7 @@ fn giant_room() -> crate::rooms::RoomSpec {
 #[test]
 fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
     let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
+    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[], None);
 
     // One host + two hands.
     assert_eq!(requests.len(), 3, "host + two hands");
@@ -2042,7 +2100,7 @@ fn a_giant_enemy_becomes_a_host_row_and_two_hand_rows() {
 #[test]
 fn a_committed_giant_has_a_verified_two_hand_rig() {
     let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
+    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[], None);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -2084,7 +2142,7 @@ fn a_committed_giant_has_a_verified_two_hand_rig() {
 #[test]
 fn the_giant_reconstruction_closure_is_the_whole_cluster() {
     let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
+    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[], None);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,
@@ -2127,7 +2185,9 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
         faction: crate::features::ActorFaction::Enemy,
         grudge_against: None,
         kind: SpawnActorKind::Enemy {
-            brain: ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu".into()),
+            brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "fixture_giant".into(),
+            ),
             character: None,
         },
     }
@@ -2140,7 +2200,7 @@ fn staged_giant(id: &str) -> SpawnActorRequest {
 #[test]
 fn a_staged_giant_becomes_a_host_row_and_two_hand_rows() {
     let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = staged_actor_requests("hall", "prov", &[staged_giant("gnu")], &roster);
+    let requests = staged_actor_requests("hall", "prov", &[staged_giant("gnu")], &roster, None);
 
     assert_eq!(requests.len(), 3, "host + two hands");
     let host = SimId::placement("gnu");
@@ -2179,7 +2239,8 @@ fn a_staged_giant_becomes_a_host_row_and_two_hand_rows() {
 #[test]
 fn a_staged_non_giant_stays_a_single_staged_actor_row() {
     let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = staged_actor_requests("hall", "prov", &[staged_enemy("npc", None)], &roster);
+    let requests =
+        staged_actor_requests("hall", "prov", &[staged_enemy("npc", None)], &roster, None);
     assert_eq!(requests.len(), 1);
     assert!(matches!(
         &requests[0].parameters,
@@ -2285,7 +2346,7 @@ fn a_runtime_minion_giant_is_refused_before_it_spawns() {
             "Giant GNU",
             ae::Vec2::ZERO,
             ae::Vec2::splat(60.0),
-            "giant_gnu",
+            "fixture_giant",
             "enc",
             crate::features::ActorFaction::Enemy,
             crate::features::ActorAggression::hostile(),
@@ -2320,7 +2381,7 @@ fn an_encounter_wave_giant_is_refused_before_it_spawns() {
                 id: "wave_gnu".to_string(),
                 character: None,
                 brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
-                    "giant_gnu".into(),
+                    "fixture_giant".into(),
                 ),
                 pos: ae::Vec2::ZERO,
                 size: ae::Vec2::splat(120.0),
@@ -2345,7 +2406,7 @@ fn committed_giant() -> (
     TransactionBaseline,
 ) {
     let roster = crate::features::enemies::fixture_roster_with_mount();
-    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[]);
+    let requests = crate::construction::authored_actor_requests(&giant_room(), &roster, &[], None);
     let plan = ActorConstructionPlan::prepare(
         dynamic_scope(),
         requests,

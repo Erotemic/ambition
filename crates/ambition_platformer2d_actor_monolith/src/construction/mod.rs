@@ -1505,6 +1505,11 @@ pub fn staged_actor_requests(
     provider: &str,
     requests: &[SpawnActorRequest],
     roster: &crate::features::CharacterRoster,
+    // **The prepared cast, when the caller has one.** Planning asks the
+    // CHARACTER whether a placement is a limbed host before it asks the roster
+    // — see `features::is_limbed_host`. `None` is the host that has no cast
+    // prepared, and it plans exactly as it did before.
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
 ) -> Vec<ActorConstructionRequest> {
     let mut rows = Vec::new();
     for request in requests {
@@ -1525,9 +1530,12 @@ pub fn staged_actor_requests(
         // (The pre-`e164f22` staged path routed every enemy through
         // `spawn_enemy_with_faction_into`, which no longer spawns hands, so a
         // staged giant lost its rig entirely.)
-        if let SpawnActorKind::Enemy { brain, .. } = &request.kind {
+        if let SpawnActorKind::Enemy { brain, character } = &request.kind {
             let spec = roster.spec_for_brain(brain);
-            if crate::features::spec_is_limbed_host(&spec) {
+            if crate::features::is_limbed_host(
+                resolve_planned_character(prepared, character.as_ref()),
+                &spec,
+            ) {
                 let aabb = ambition_platformer2d_core::Aabb::new(request.pos, request.half_size);
                 let host_authored = crate::rooms::Authored::new(
                     request.id.clone(),
@@ -1598,11 +1606,16 @@ pub fn authored_actor_requests(
     room: &crate::rooms::RoomSpec,
     roster: &crate::features::CharacterRoster,
     paths: &[(String, ambition_platformer2d_core::KinematicPath)],
+    // See [`staged_actor_requests`].
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
 ) -> Vec<ActorConstructionRequest> {
     let mut requests = Vec::new();
     for enemy in &room.enemy_spawns {
         let spec = roster.spec_for_brain(&enemy.payload.brain);
-        if crate::features::spec_is_limbed_host(&spec) {
+        if crate::features::is_limbed_host(
+            resolve_planned_character(prepared, enemy.payload.character_id.as_ref()),
+            &spec,
+        ) {
             let giant_sim = SimId::placement(&enemy.id);
             let hands = crate::features::giant_hand_plans(&enemy.id, enemy.aabb, &spec);
             let source = room.id.clone();
@@ -1720,14 +1733,33 @@ fn giant_cluster_rows(
 /// The authored ids this room constructs as `"giant"`-class hosts, so the
 /// family loop that still builds ordinary enemies can skip them — a giant is a
 /// plan row now, and building it on the loop too would duplicate it.
+/// The prepared definition a placement names, if it names one the cast knows.
+///
+/// ⚠ an id the cast does NOT know resolves to `None` — planning falls back to
+/// the archetype rather than refusing here, because the refusal for an unknown
+/// `CharacterId` belongs at the spawn seam (P0.1) where it can say which
+/// placement named it.
+fn resolve_planned_character<'a>(
+    prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+    character: Option<&ambition_entity_catalog::CharacterId>,
+) -> Option<&'a crate::character_runtime::PreparedCharacterDefinition> {
+    prepared
+        .zip(character)
+        .and_then(|(cast, id)| cast.get(id.as_str()))
+}
+
 pub fn planned_giant_host_ids(
     room: &crate::rooms::RoomSpec,
     roster: &crate::features::CharacterRoster,
+    prepared: Option<&crate::character_runtime::PreparedCharacterRegistry>,
 ) -> std::collections::BTreeSet<String> {
     room.enemy_spawns
         .iter()
         .filter(|enemy| {
-            crate::features::spec_is_limbed_host(&roster.spec_for_brain(&enemy.payload.brain))
+            crate::features::is_limbed_host(
+                resolve_planned_character(prepared, enemy.payload.character_id.as_ref()),
+                &roster.spec_for_brain(&enemy.payload.brain),
+            )
         })
         .map(|enemy| enemy.id.clone())
         .collect()

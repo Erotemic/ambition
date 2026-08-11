@@ -292,6 +292,28 @@ pub struct EnemySpawnSpec {
     /// `None` = the archetype's answer, which is every level authored so far.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disposition: Option<ambition_entity_catalog::placements::SpawnDisposition>,
+    /// **WHO DRIVES THIS ONE** — the shared controller policy this placement
+    /// wants, by provider-relative name.
+    ///
+    /// ⭐⭐ **the third authority's missing half.** A character states what a
+    /// body IS and a `BrainProfile` states how a driver decides, but until now
+    /// only the CHARACTER could name a profile — so one creature had exactly one
+    /// way to be played everywhere it appeared. That is the enemy-archetype
+    /// ontology surviving one level down: body and driver fused, just at a
+    /// finer grain.
+    ///
+    /// What it buys is the demonstration Jon asked for in place of the
+    /// one-of-each archetype museum: *the same controller policy can drive
+    /// distinct bodies, and the same body can use distinct policies.* A goblin
+    /// that patrols a corridor and a goblin that guards a door are one creature
+    /// and two placements, not two creatures.
+    ///
+    /// `None` = the character's own profile, which is every level authored so
+    /// far. ⛔ a name that resolves to nothing is a construction ERROR, the same
+    /// contract `CharacterDefinition::autonomous_profile_ref` carries — an
+    /// explicit reference that misses must never read as silence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brain_profile: Option<ambition_entity_catalog::BrainProfileRef>,
 }
 
 impl EnemySpawnSpec {
@@ -301,6 +323,7 @@ impl EnemySpawnSpec {
             character_id: None,
             respawn: None,
             disposition: None,
+            brain_profile: None,
         }
     }
 

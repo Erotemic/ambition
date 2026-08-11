@@ -659,6 +659,19 @@ pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
             }
         }
     }
+    // **WHO DRIVES IT**, when this placement wants a policy other than the
+    // character's own. See `EnemySpawnSpec::brain_profile`: the same body with
+    // two placements is a patroller in one corridor and a door guard in the
+    // next, which the creature itself must not have to decide.
+    //
+    // ⚠ PROVIDER-RELATIVE, like every other authored profile reference — a level
+    // author writes `medium_striker`, never `ambition::medium_striker`.
+    if let Some(profile) = field_string(entity, "brain_profile") {
+        let profile = profile.trim();
+        if !profile.is_empty() {
+            payload.brain_profile = Some(ambition_entity_catalog::BrainProfileRef::new(profile));
+        }
+    }
     let mut emission = RoomEmission::enemy_spawn(
         ambition_platformer2d_world::rooms::Authored::new(id.clone(), name, aabb, payload),
     );

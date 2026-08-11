@@ -33,6 +33,7 @@ pub use action_set::{
     BiteSpec, HeldItemSpec, HeldUseBehavior, LungeSpec, MeleeActionSpec, MoveStyleSpec, PunchSpec,
     RangedActionSpec, SlamSpec, SpecialActionSpec, SwipeSpec,
 };
+pub use ambition_entity_catalog::{BrainProfileId, BrainProfileRef};
 #[allow(unused_imports)]
 pub use boss_pattern::{
     tick_boss_pattern, BossAttackIntent, BossAttackPattern, BossAttackProfile, BossAttackState,
@@ -42,7 +43,7 @@ pub use boss_pattern::{
 };
 #[allow(unused_imports)]
 pub use player::tick_player_brain;
-pub use profile::{BrainProfile, BrainProfileId, BrainProfileRef};
+pub use profile::BrainProfile;
 #[allow(unused_imports)]
 pub use smash::{
     BroadMode, CrowdingSignal, DifficultyProfile, ObservationFrame, SmashCfg, SmashState,

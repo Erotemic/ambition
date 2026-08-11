@@ -309,6 +309,12 @@ pub(crate) fn spawn_staged_actor_into(
                 // argument, and the construction context had the registry the
                 // whole time.
                 prepared,
+                // ⚠ **no placement, so no placement-authored policy.** A staged
+                // actor is built from a REQUEST rather than from a level, and
+                // `EnemySpawnSpec::new` leaves `brain_profile` absent — so an
+                // empty registry is the honest value here rather than a
+                // borrowed one, and nothing can name into it.
+                &ambition_characters::actor::character_catalog::BrainProfileRegistry::default(),
                 session_scope,
                 root,
                 &authored,
@@ -1281,6 +1287,9 @@ pub(crate) fn spawn_enemy_with_faction_into(
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    // **The published controller policies**, so this PLACEMENT may name one.
+    // See `EnemySpawnSpec::brain_profile`.
+    profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
@@ -1390,7 +1399,31 @@ pub(crate) fn spawn_enemy_with_faction_into(
         );
     }
     if let (Some(definition), Some(Ok(body))) = (named, &blueprint) {
-        let body = *body;
+        let mut body = *body;
+        // ⭐⭐ **WHO DRIVES THIS ONE, if the placement said.** The last of the
+        // three authorities to become authorable at the placement: a character
+        // states what a body IS, a `BrainProfile` states how a driver decides,
+        // and until now only the character could name a profile — so one
+        // creature had exactly one way to be played everywhere it appeared.
+        //
+        // ⛔ **a name that resolves to nothing is a REFUSAL**, the same contract
+        // `CharacterDefinition::autonomous_profile_ref` carries. An explicit
+        // reference that misses must never read as silence, or the level says
+        // "guard this door" and the body patrols.
+        if let Some(reference) = &authored.payload.brain_profile {
+            let resolved = reference.resolve_in(definition.provider.as_str());
+            match profiles.get(&resolved) {
+                Some(profile) => body.autonomous_profile = Some(*profile),
+                None => panic!(
+                    "EnemySpawn `{}` names the controller profile `{reference}`, \
+                     which resolves to `{resolved}` against character `{}`'s \
+                     provider and is not published. Published: [{}]",
+                    authored.id,
+                    definition.id.as_str(),
+                    profiles.ids().collect::<Vec<_>>().join(", "),
+                ),
+            }
+        }
         let mut enemy = super::actor_clusters::ActorClusterSeed::new_character_in(
             authored_sheets,
             catalog,
@@ -1582,6 +1615,7 @@ pub(crate) fn populate_giant_host_into(
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
@@ -1594,6 +1628,7 @@ pub(crate) fn populate_giant_host_into(
         authored_sheets,
         roster,
         prepared,
+        profiles,
         session_scope,
         root,
         authored,
@@ -1616,6 +1651,7 @@ pub(crate) fn populate_giant_hand_into(
     authored_sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
     roster: &CharacterRoster,
     prepared: &crate::character_runtime::PreparedCharacterRegistry,
+    profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
     session_scope: SessionSpawnScope,
     root: bevy::ecs::entity::Entity,
     authored: &crate::rooms::Authored<crate::rooms::EnemySpawnSpec>,
@@ -1631,6 +1667,7 @@ pub(crate) fn populate_giant_hand_into(
         authored_sheets,
         roster,
         prepared,
+        profiles,
         session_scope,
         root,
         authored,

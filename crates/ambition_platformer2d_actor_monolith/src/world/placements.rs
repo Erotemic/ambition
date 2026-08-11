@@ -29,6 +29,16 @@ pub struct ActorPlacementContext {
     /// against a snapshot of authored content taken when staging was requested,
     /// not against live resources that may change mid-commit.
     pub prepared: crate::character_runtime::PreparedCharacterRegistry,
+    /// **The shared controller policies this host published**, so a PLACEMENT
+    /// may name one (`EnemySpawnSpec::brain_profile`).
+    ///
+    /// ⭐ a separate authority from the catalog beside it, deliberately: a
+    /// character catalog answers who exists, and this answers what may drive a
+    /// body. An EMPTY registry means "this composition publishes no shared
+    /// policies", which is the correct reading for a fixture and for a host that
+    /// authors none — and it is why a placement that NAMES one against an empty
+    /// registry is a construction error rather than a shrug.
+    pub brain_profiles: ambition_characters::actor::character_catalog::BrainProfileRegistry,
 }
 
 impl ActorPlacementContext {
@@ -51,6 +61,19 @@ impl ActorPlacementContext {
         self
     }
 
+    /// **Supply the published controller policies**, so a placement may name
+    /// one. A builder for the same reason `with_prepared` is: an empty registry
+    /// is a meaningful value, and the sites that have none should not have to
+    /// write one.
+    #[must_use]
+    pub fn with_brain_profiles(
+        mut self,
+        profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
+    ) -> Self {
+        self.brain_profiles = profiles.clone();
+        self
+    }
+
     pub fn new(
         characters: &CharacterCatalog,
         sheets: &ambition_sprite_sheet::character::sheets::AuthoredSheets,
@@ -61,6 +84,7 @@ impl ActorPlacementContext {
             sheets: sheets.clone(),
             roster: roster.clone(),
             prepared: Default::default(),
+            brain_profiles: Default::default(),
         }
     }
 }

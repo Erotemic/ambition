@@ -127,6 +127,12 @@ pub struct ActorConstructionContext<'a> {
     /// what this path assumed before a definition could state one. Every
     /// existing caller keeps its behaviour by saying nothing.
     pub prepared: Option<&'a crate::character_runtime::PreparedCharacterRegistry>,
+    /// **The published controller policies**, so a PLACEMENT may name one
+    /// (`EnemySpawnSpec::brain_profile`). Same `Option` contract as the cast: an
+    /// absent registry means this composition publishes no shared policies,
+    /// which is what every level assumed before a placement could name one.
+    pub brain_profiles:
+        Option<&'a ambition_characters::actor::character_catalog::BrainProfileRegistry>,
 }
 
 impl<'a> ActorConstructionContext<'a> {
@@ -140,6 +146,7 @@ impl<'a> ActorConstructionContext<'a> {
                 content_epoch,
             ),
             prepared: None,
+            brain_profiles: None,
         }
     }
 
@@ -150,6 +157,17 @@ impl<'a> ActorConstructionContext<'a> {
         prepared: &'a crate::character_runtime::PreparedCharacterRegistry,
     ) -> Self {
         self.prepared = Some(prepared);
+        self
+    }
+
+    /// **Supply the published controller policies**, so a placement may name
+    /// one. See [`Self::brain_profiles`].
+    #[must_use]
+    pub fn with_brain_profiles(
+        mut self,
+        profiles: &'a ambition_characters::actor::character_catalog::BrainProfileRegistry,
+    ) -> Self {
+        self.brain_profiles = Some(profiles);
         self
     }
 }
@@ -347,6 +365,9 @@ impl RoomFeatureConstructionPlan {
             crate::world::placements::ActorPlacementContext::new(catalog, sheets, roster);
         if let Some(prepared) = construction.prepared {
             placement_context = placement_context.with_prepared(prepared);
+        }
+        if let Some(profiles) = construction.brain_profiles {
+            placement_context = placement_context.with_brain_profiles(profiles);
         }
         Ok(Self {
             room: room.clone(),

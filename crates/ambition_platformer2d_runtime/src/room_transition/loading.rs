@@ -323,9 +323,18 @@ pub fn begin_room_transition_load_system(
     // already at seven and reads positionally at the call site
     // (`construction_services.6`), so an eighth member would be one more number
     // for a reader to decode.
-    prepared_characters: Option<
-        Res<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>,
-    >,
+    // ⚠ **PAIRED, and only because a Bevy system stops at sixteen params.** The
+    // two authorities travel together anyway: a placement names a character and
+    // may name the policy that drives it.
+    character_authorities: (
+        Option<
+            Res<ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>,
+        >,
+        // **The published controller policies**, so an enemy placement may name
+        // one. A composition that publishes none is ordinary, and a placement
+        // naming into an absent registry is what refuses.
+        Option<Res<ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
+    ),
     asset_contributor: Option<Res<RoomTransitionAssetContributor>>,
     mut plan_prefetch: Option<ResMut<super::prefetch::RoomConstructionPlanPrefetch>>,
     real_time: Option<Res<bevy::prelude::Time<bevy::prelude::Real>>>,
@@ -336,6 +345,7 @@ pub fn begin_room_transition_load_system(
     mut load_events: MessageWriter<LoadEvent>,
     mut next_mode: ResMut<NextState<ambition_platformer2d_shared_tangle::schedule::GameMode>>,
 ) {
+    let (prepared_characters, brain_profiles) = character_authorities;
     let current_session = active_session.as_deref().and_then(|scope| scope.current());
     for request in requests.read() {
         if state.active.as_ref().is_some_and(|active| {
@@ -641,6 +651,12 @@ pub fn begin_room_transition_load_system(
                     }
                     if let Some(prepared) = prepared_characters.as_deref() {
                         context = context.with_prepared(prepared);
+                    }
+                    // ⭐ **and the policies a PLACEMENT may name.** Published
+                    // beside the catalog by assembly; a room whose enemy spawn
+                    // authors `brain_profile` resolves it against this.
+                    if let Some(profiles) = brain_profiles.as_deref() {
+                        context = context.with_brain_profiles(profiles);
                     }
                     context
                 },

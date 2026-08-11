@@ -1149,6 +1149,10 @@ pub struct PlatformerSessionBuilder<'w, 's> {
     prepared_characters: Option<
         Res<'w, ambition_platformer2d_actor_monolith::character_runtime::PreparedCharacterRegistry>,
     >,
+    /// The published controller policies, so an enemy placement may name one
+    /// (`EnemySpawnSpec::brain_profile`).
+    brain_profiles:
+        Option<Res<'w, ambition_characters::actor::character_catalog::BrainProfileRegistry>>,
     /// Provider-authored sheets (U1): activation sizes each seated body
     /// from its sheet, so the builder needs it beside the catalog.
     authored_sheets: Res<'w, ambition_sprite_sheet::character::sheets::AuthoredSheets>,
@@ -1238,8 +1242,13 @@ impl PlatformerSessionBuilder<'_, '_> {
                     // `ambition.mount` but is constructed as a
                     // `authored-enemy`"*). `self.prepared_characters` is right
                     // here; the room-transition path already passes it.
-                    match self.prepared_characters.as_deref() {
+                    let context = match self.prepared_characters.as_deref() {
                         Some(prepared) => context.with_prepared(prepared),
+                        None => context,
+                    };
+                    // ⭐ and the policies a PLACEMENT may name.
+                    match self.brain_profiles.as_deref() {
+                        Some(profiles) => context.with_brain_profiles(profiles),
                         None => context,
                     }
                 },

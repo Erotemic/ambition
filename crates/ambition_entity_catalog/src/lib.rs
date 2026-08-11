@@ -33,7 +33,10 @@ use std::collections::{BTreeMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 pub mod action_scheme;
+pub mod brain_profile_ref;
 pub mod placements;
+
+pub use brain_profile_ref::{BrainProfileId, BrainProfileRef};
 
 /// The reward/effect represented by a pickup, a chest, or a defeated boss.
 ///

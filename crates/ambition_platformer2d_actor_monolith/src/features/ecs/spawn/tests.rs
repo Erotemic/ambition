@@ -653,6 +653,136 @@ mod authored_enemy_reads_its_character {
     /// `npc_busy_beaver` is a REAL catalog row with the real display name
     /// "Busy Beaver", authoring 9 HP as a character. Using a real row is what
     /// makes the name-fallback case in the second test reachable at all.
+    /// **THE SAME BODY, TWO PLACEMENTS, TWO DRIVERS.**
+    ///
+    /// ⭐ the demonstration Jon asked for in place of the one-of-each archetype
+    /// museum: *the same controller policy can drive distinct bodies, and the
+    /// same body can use distinct policies.* A goblin that patrols a corridor
+    /// and a goblin that guards a door are one creature and two placements — and
+    /// until `EnemySpawnSpec::brain_profile` existed, they could not be.
+    ///
+    /// Two terms, both observed: the placement's policy REACHES the body's
+    /// tuning, and a placement that names nothing keeps the character's own — so
+    /// this cannot pass by both answers happening to agree.
+    #[test]
+    fn a_placement_may_name_the_policy_that_drives_this_body() {
+        let profiles = policy_registry();
+        let unplaced = spawn_with_placement_policy(None, &profiles);
+        let guarding = spawn_with_placement_policy(Some("door_guard"), &profiles);
+        assert!(
+            (unplaced - 77.0 * 0.5).abs() < 0.01,
+            "a placement that names no policy keeps the character's own, whose \
+             patrol effort is the 0.5 default: {unplaced}"
+        );
+        assert!(
+            (guarding - 77.0 * 0.1).abs() < 0.01,
+            "the PLACEMENT's policy did not reach the body — it patrols at the \
+             character's pace instead of the door guard's: {guarding}"
+        );
+    }
+
+    /// **A placement that names a policy nobody published is a REFUSAL.**
+    ///
+    /// ⛔ the same contract `CharacterDefinition::autonomous_profile_ref`
+    /// carries, one authority over: an explicit reference that misses must never
+    /// read as silence, or the level says "guard this door" and the body
+    /// patrols, with everything green.
+    #[test]
+    #[should_panic(expected = "is not published")]
+    fn a_placement_naming_an_unpublished_policy_is_refused() {
+        let profiles = policy_registry();
+        let _ = spawn_with_placement_policy(Some("no_such_policy"), &profiles);
+    }
+
+    /// One published policy: a door guard that barely ambles.
+    fn policy_registry() -> ambition_characters::actor::character_catalog::BrainProfileRegistry {
+        use ambition_characters::actor::character_catalog::CharacterCatalog;
+        // ⚠ NAMESPACED, because assembly namespaces every fragment key — a
+        // fixture keying the bare local name models a catalog that cannot exist.
+        const CATALOG: &str = r#"(
+            autonomous_profiles: {
+                "test::door_guard": (
+                    template: MeleeBrute,
+                    aggro_radius: 120.0,
+                    attack_range: 40.0,
+                    patrol_effort: 0.1,
+                ),
+            },
+            brain_presets: {},
+            action_set_presets: {},
+            characters: {},
+        )"#;
+        ambition_characters::actor::character_catalog::BrainProfileRegistry::from_catalog_for_test(
+            &CharacterCatalog::from_data(
+                ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
+            ),
+        )
+    }
+
+    /// Spawn the complete character with an optional placement-authored policy,
+    /// and report the patrol speed its tuning ended up with.
+    fn spawn_with_placement_policy(
+        policy: Option<&'static str>,
+        profiles: &ambition_characters::actor::character_catalog::BrainProfileRegistry,
+    ) -> f32 {
+        let mut spec = crate::rooms::EnemySpawnSpec::new(
+            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "medium_striker".to_string(),
+            ),
+        );
+        spec.character_id = Some(ambition_entity_catalog::CharacterId::from(
+            "npc_busy_beaver",
+        ));
+        spec.brain_profile = policy.map(ambition_entity_catalog::BrainProfileRef::new);
+        let authored = crate::rooms::Authored::new(
+            "EnemySpawn-1",
+            "Some Room Enemy",
+            ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0)),
+            spec,
+        );
+        let profiles = profiles.clone();
+
+        let mut app = App::new();
+        app.insert_resource(crate::character_roster::catalog());
+        app.insert_resource(roster());
+        app.insert_resource(prepared_complete());
+        app.add_systems(
+            Update,
+            move |mut commands: Commands,
+                  catalog: bevy::prelude::Res<
+                ambition_characters::actor::character_catalog::CharacterCatalog,
+            >,
+                  roster: bevy::prelude::Res<crate::features::CharacterRoster>,
+                  prepared: bevy::prelude::Res<
+                crate::character_runtime::PreparedCharacterRegistry,
+            >| {
+                let root = commands.spawn_empty().id();
+                crate::features::spawn_enemy_with_faction_into(
+                    &mut commands,
+                    &catalog,
+                    &Default::default(),
+                    &roster,
+                    &prepared,
+                    &profiles,
+                    SessionSpawnScope::UNSCOPED,
+                    root,
+                    &authored,
+                    &[],
+                    crate::features::ActorFaction::Enemy,
+                );
+            },
+        );
+        app.update();
+
+        let world = app.world_mut();
+        let mut q = world.query::<&ActorConfig>();
+        q.iter(world)
+            .next()
+            .expect("one enemy body")
+            .tuning
+            .patrol_speed
+    }
+
     fn prepared() -> crate::character_runtime::PreparedCharacterRegistry {
         let mut definition = crate::character_runtime::CharacterDefinition::new(
             "npc_busy_beaver",
@@ -779,6 +909,9 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &roster,
                     &prepared,
+                    // These fixtures author no placement-side policy, so an
+                    // empty registry is the state they model.
+                    &Default::default(),
                     SessionSpawnScope::UNSCOPED,
                     root,
                     &authored,
@@ -959,6 +1092,9 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &roster,
                     &prepared,
+                    // These fixtures author no placement-side policy, so an
+                    // empty registry is the state they model.
+                    &Default::default(),
                     SessionSpawnScope::UNSCOPED,
                     root,
                     &authored,
@@ -1032,6 +1168,9 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &roster,
                     &prepared,
+                    // These fixtures author no placement-side policy, so an
+                    // empty registry is the state they model.
+                    &Default::default(),
                     SessionSpawnScope::UNSCOPED,
                     root,
                     &authored,
@@ -1087,6 +1226,9 @@ mod authored_enemy_reads_its_character {
                     &Default::default(),
                     &roster,
                     &prepared,
+                    // These fixtures author no placement-side policy, so an
+                    // empty registry is the state they model.
+                    &Default::default(),
                     SessionSpawnScope::UNSCOPED,
                     root,
                     &authored,

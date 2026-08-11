@@ -436,10 +436,19 @@ pub struct CharacterDefinition {
     /// skitter. A named profile lets those five keep their own bodies and share
     /// the decision-making, which is the Group-B/Group-C split.
     ///
-    /// ⚠ **an inline [`Self::autonomous_profile`] WINS.** Naming a shared policy
-    /// and then overriding it is a legitimate thing to author, and the more
-    /// specific statement is the one that should stand.
-    pub autonomous_profile_ref: Option<String>,
+    /// ⛔⛔ **INLINE XOR NAMED, and authoring both is a REFUSAL** (Jon's
+    /// redirect §9). The precedence this used to document — inline wins, named
+    /// is the fallback — was whole-value REPLACEMENT wearing the word
+    /// "specialization", and nothing merged. Documenting replacement as
+    /// specialization is misleading API on the day it ships; if a real patch is
+    /// ever wanted it gets a real `BrainProfilePatch` with explicit semantics.
+    ///
+    /// ⛔ **and a name nobody authored is a PREPARATION FAILURE**, not a silent
+    /// `None`. Falling back would reproduce the explicit-`CharacterId` mistake
+    /// one layer down: the author said which policy this creature uses, the
+    /// lookup missed, and the archetype quietly stayed in charge — green
+    /// everywhere, wrong in play.
+    pub autonomous_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
     /// **This body is a PRACTICE TARGET** — a training dummy, not a
     /// participant.
     ///
@@ -563,10 +572,14 @@ impl CharacterDefinition {
         self
     }
 
-    /// Name a SHARED policy out of the catalog. See
+    /// Name a SHARED policy, PROVIDER-RELATIVE. See
     /// [`Self::autonomous_profile_ref`].
+    ///
+    /// ⭐ pass the LOCAL name (`medium_striker`). Whether the assembled catalog
+    /// has namespaced its fragments is not something an author should have to
+    /// know, and the one who guesses wrong gets a silent miss.
     pub fn with_autonomous_profile_named(mut self, key: impl Into<String>) -> Self {
-        self.autonomous_profile_ref = Some(key.into());
+        self.autonomous_profile_ref = Some(ambition_characters::brain::BrainProfileRef::new(key));
         self
     }
 
@@ -741,7 +754,7 @@ struct PreparedCharacterOverrides {
     autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
     /// See [`CharacterDefinition::autonomous_profile_ref`]. RESOLVED at
     /// preparation, so nothing downstream ever sees the name.
-    autonomous_profile_ref: Option<String>,
+    autonomous_profile_ref: Option<ambition_characters::brain::BrainProfileRef>,
     /// See [`CharacterDefinition::practice_target`]. Carried.
     practice_target: bool,
     /// See [`CharacterDefinition::held_item`]. Carried.
@@ -1603,15 +1616,15 @@ fn finalize_character(
         contact_damage,
         // ⭐ **the NAMED profile, resolved here** — a prepared definition holds a
         // canonical value, never a reference somebody still has to look up
-        // (ledger D80). An inline profile wins; a name resolves out of the
-        // assembled catalog; a name nobody authored resolves to `None`, which
-        // leaves the archetype projection in charge exactly as authoring
-        // nothing does.
-        autonomous_profile: autonomous_profile.or_else(|| {
-            autonomous_profile_ref
-                .as_deref()
-                .and_then(|key| Some(*catalog?.autonomous_profile(key)?))
-        }),
+        // (ledger D80). See `resolve_autonomous_profile`: provider-relative,
+        // inline XOR named, and a name nobody authored is a refusal.
+        autonomous_profile: resolve_autonomous_profile(
+            &id,
+            &provider,
+            autonomous_profile,
+            autonomous_profile_ref.as_ref(),
+            catalog,
+        ),
         practice_target,
         held_item,
         dream_seed,
@@ -1660,6 +1673,71 @@ fn finalize_character(
         vfx_dependencies,
         checked,
         unresolved,
+    }
+}
+
+/// **Which policy this character runs**, from at most one of the two ways to say
+/// it.
+///
+/// ⛔⛔ **three refusals, and each replaces a silent fallback** (Jon's redirect
+/// §§8–9):
+///
+/// * **inline AND named** — replacement documented as specialization. Nothing
+///   merges, so "the inline one wins" is the more specific statement quietly
+///   discarding the shared one. An author who wanted both wants a patch type
+///   that does not exist yet, and should be told so rather than given one of
+///   their two answers.
+/// * **a name nobody authored** — the mistake `CharacterSpawnPlan` already made
+///   one layer up: an EXPLICIT reference that misses is a construction error,
+///   not an absence. Resolving it to `None` leaves the archetype projection in
+///   charge while the content file says otherwise.
+/// * **a name that needed namespacing and did not get it** — the author writes
+///   `medium_striker` and the assembled registry holds `ambition::medium_striker`,
+///   so the reference is qualified against the DEFINITION's own provider here.
+///
+/// ⚠ **no catalog at all is NOT a missing profile.** A headless fixture, an RL
+/// rollout and an art-free shell all prepare characters with nothing assembled;
+/// there is no registry for the name to be absent FROM, so the honest answer is
+/// that this composition cannot resolve shared policies, said once as a warning.
+fn resolve_autonomous_profile(
+    id: &str,
+    provider: &str,
+    inline: Option<ambition_characters::brain::BrainProfile>,
+    named: Option<&ambition_characters::brain::BrainProfileRef>,
+    catalog: Option<&ambition_characters::actor::character_catalog::CharacterCatalog>,
+) -> Option<ambition_characters::brain::BrainProfile> {
+    match (inline, named) {
+        (Some(_), Some(named)) => panic!(
+            "character `{id}` authors an inline autonomous profile AND names the \
+             shared profile `{named}`. Those do not merge — one would silently \
+             replace the other — so authoring both is refused. State one, or ask \
+             for a real patch type"
+        ),
+        (Some(inline), None) => Some(inline),
+        (None, None) => None,
+        (None, Some(named)) => {
+            let Some(catalog) = catalog else {
+                bevy::log::warn!(
+                    "character `{id}` names the shared autonomous profile `{named}`, \
+                     and this composition assembled no character catalog for it to \
+                     live in. Nothing can resolve it; the character prepares without \
+                     a policy"
+                );
+                return None;
+            };
+            let resolved = named.resolve_in(provider);
+            match catalog.autonomous_profile(resolved.as_str()) {
+                Some(profile) => Some(*profile),
+                None => panic!(
+                    "character `{id}` (provider `{provider}`) names the autonomous \
+                     profile `{named}`, which resolves to `{resolved}` and is not in \
+                     the assembled catalog. An explicitly named policy that does not \
+                     exist is a content error, not an absence — resolving it to \
+                     nothing would leave this body on its archetype while the \
+                     definition says otherwise"
+                ),
+            }
+        }
     }
 }
 

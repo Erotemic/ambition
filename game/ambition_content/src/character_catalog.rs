@@ -760,10 +760,13 @@ pub fn authored_intrinsics(
                     strength: 0.70,
                     amount: 1,
                 })
-                .with_autonomous_profile_named(format!(
-                    "{}::medium_striker",
-                    crate::AMBITION_CONTENT_PROVIDER
-                ));
+                // ⭐ **the LOCAL name.** It used to hand-namespace this
+                // (`format!("{}::medium_striker", AMBITION_CONTENT_PROVIDER)`),
+                // which made an author responsible for knowing whether the
+                // surrounding catalog had been assembled yet — the leak Jon's
+                // redirect §8 names. `BrainProfileRef` resolves it against this
+                // definition's own provider.
+                .with_autonomous_profile_named("medium_striker");
             definition.vitals.max_health = Some(5);
             definition
         }
@@ -1115,10 +1118,13 @@ mod tests {
         assert_eq!(locomotion.run_speed, 170.0);
         assert!(matches!(locomotion.move_style, MoveStyleSpec::Walk));
         assert_eq!(
-            definition.autonomous_profile_ref.as_deref(),
-            Some("ambition::medium_striker"),
-            "it NAMES the shared policy; carrying one inline would make it \
-             unshareable, which is the whole point"
+            definition
+                .autonomous_profile_ref
+                .as_ref()
+                .map(ambition_characters::brain::BrainProfileRef::as_str),
+            Some("medium_striker"),
+            "it NAMES the shared policy, provider-relative; carrying one inline \
+             would make it unshareable, which is the whole point"
         );
         assert!(
             definition.autonomous_profile.is_none(),

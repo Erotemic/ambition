@@ -42,7 +42,7 @@ pub use boss_pattern::{
 };
 #[allow(unused_imports)]
 pub use player::tick_player_brain;
-pub use profile::BrainProfile;
+pub use profile::{BrainProfile, BrainProfileId, BrainProfileRef};
 #[allow(unused_imports)]
 pub use smash::{
     BroadMode, CrowdingSignal, DifficultyProfile, ObservationFrame, SmashCfg, SmashState,

@@ -817,25 +817,35 @@ fn the_cast_generation_advances_on_every_published_change() {
 /// decision-making meant sharing the body too.
 ///
 /// ⚠ the fixture gives the two characters DIFFERENT bodies and the same policy,
+/// The assembled shape a shared-policy fixture has to model: fragment keys are
+/// namespaced `provider::local_name` by `CharacterCatalogRegistry`.
+const SHARED_POLICY_CATALOG: &str = r#"(
+    autonomous_profiles: {
+        // ⚠ NAMESPACED, because assembly namespaces every fragment key
+        // (`registry.rs`: `namespaced(provider_id, local_name)`). A fixture
+        // keying the bare local name models a catalog that cannot exist, and
+        // it would hide exactly the mismatch `BrainProfileRef` was introduced
+        // to stop — the author writing one spelling and the registry holding
+        // another.
+        "test::striker": (
+            template: Skirmisher,
+            aggro_radius: 620.0,
+            attack_range: 96.0,
+            patrol_effort: 0.44,
+        ),
+    },
+    brain_presets: {},
+    action_set_presets: {},
+    characters: {},
+)"#;
+
 /// because that combination is the thing that could not be said before.
 #[test]
 fn two_characters_can_name_one_shared_policy() {
     use ambition_characters::actor::character_catalog::CharacterCatalog;
     use ambition_characters::brain::CharacterBrainTemplate;
 
-    const CATALOG: &str = r#"(
-        autonomous_profiles: {
-            "striker": (
-                template: Skirmisher,
-                aggro_radius: 620.0,
-                attack_range: 96.0,
-                patrol_effort: 0.44,
-            ),
-        },
-        brain_presets: {},
-        action_set_presets: {},
-        characters: {},
-    )"#;
+    const CATALOG: &str = SHARED_POLICY_CATALOG;
     let catalog = CharacterCatalog::from_data(
         ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
     );
@@ -873,37 +883,56 @@ fn two_characters_can_name_one_shared_policy() {
         "two DIFFERENT bodies sharing one policy is the case that could not be \
          expressed before — a fixture where they matched would prove nothing"
     );
+}
 
-    // **An inline profile WINS**, or naming a shared policy could never be
-    // specialized.
-    let override_profile = ambition_characters::brain::BrainProfile {
-        template: CharacterBrainTemplate::StandStill,
-        ..Default::default()
-    };
-    let overridden = crate::character_runtime::prepare_and_finalize_against_for_test(
+/// **Inline AND named is a REFUSAL, not a precedence rule** (Jon's redirect §9).
+///
+/// ⛔ this assertion is the INVERSE of the one that stood here until
+/// 2026-08-11, and the reversal is the point. The old behaviour — inline wins,
+/// named is the fallback — was documented as "specialization", and nothing
+/// merged: the shared policy was discarded whole. An author who writes both
+/// wants a patch type that does not exist, and telling them so is cheaper than
+/// silently answering half their question.
+#[test]
+#[should_panic(expected = "authors an inline autonomous profile AND names")]
+fn authoring_a_policy_twice_is_refused_rather_than_ranked() {
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::CharacterBrainTemplate;
+
+    let catalog = CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(SHARED_POLICY_CATALOG),
+    );
+    let _ = crate::character_runtime::prepare_and_finalize_against_for_test(
         CharacterDefinition::new("statue", "Statue", "test")
             .with_autonomous_profile_named("striker")
-            .with_autonomous_profile(override_profile),
+            .with_autonomous_profile(ambition_characters::brain::BrainProfile {
+                template: CharacterBrainTemplate::StandStill,
+                ..Default::default()
+            }),
         &CharacterBindings::default(),
         Some(&catalog),
-    )
-    .prepared;
-    assert_eq!(
-        overridden
-            .autonomous_profile
-            .expect("the inline profile")
-            .template,
-        CharacterBrainTemplate::StandStill,
     );
+}
 
-    // **A name nobody authored is silence, not a wrong answer** — the same
-    // meaning authoring nothing has, so the archetype projection stays in charge.
-    let unknown = crate::character_runtime::prepare_and_finalize_against_for_test(
+/// **A named policy nobody authored is a preparation failure.**
+///
+/// ⛔ also an inversion: this used to assert `None`, on the reading that a miss
+/// means the same as saying nothing. It does not. Saying nothing leaves the
+/// archetype in charge on purpose; naming a policy that does not exist leaves
+/// the archetype in charge while the content file says the opposite — the
+/// explicit-`CharacterId` mistake, one layer down.
+#[test]
+#[should_panic(expected = "is not in the assembled catalog")]
+fn a_named_policy_that_does_not_exist_is_a_failure_rather_than_silence() {
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+
+    let catalog = CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(SHARED_POLICY_CATALOG),
+    );
+    let _ = crate::character_runtime::prepare_and_finalize_against_for_test(
         CharacterDefinition::new("ghost", "Ghost", "test")
             .with_autonomous_profile_named("no_such_policy"),
         &CharacterBindings::default(),
         Some(&catalog),
-    )
-    .prepared;
-    assert!(unknown.autonomous_profile.is_none());
+    );
 }

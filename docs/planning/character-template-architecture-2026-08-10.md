@@ -81,9 +81,9 @@ path works beside the old one.
 
 | # | Phase | State |
 |---|---|---|
-| 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the EXPRESSIVENESS half is done** — death traits, knockback weight and a default autonomous profile are authorable and adopted; see "phase 1 progress". ▢ what remains is the TYPE MOVE (into `ambition_characters`) and the remaining intrinsic facts, most of which need phase 3's consumer |
-| 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ **mapped; the DOOR is open** — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
-| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ◐ **the AUTHORED ENEMY path reads its character** — `adopt_character_intrinsics` on the seed, called from `spawn_enemy_with_faction_into`, reached by both the construction executor and the giant host. ⇒ **phase 2 group A is UNBLOCKED**. ▢ the programmatic (`spawn_staged_actor_into`) and encounter-mob paths still pass an empty registry; ▢ the plan/`CharacterSpawnPlan` shape itself is untouched |
+| 1 | Establish final domain types (`CharacterId`, definition, prepared, registry, controller-profile identity) | ◐ **the TYPES ARE NAMED AND THE EXPRESSIVENESS HALF IS DONE.** ✔ `CharacterId` (entity_catalog, serde-transparent) · ✔ `BrainProfileRef` vs `BrainPresetId` (authored reference vs resolved key) · ✔ `CharacterDeathTraits` extracted below the runtime component · ✔ knockback weight and a default autonomous profile authorable and adopted. ▢ THE TYPE MOVE: `definition.rs` is down to ONE coupling (`build_actor_moveset`) and it is a design call, see "phase 1 progress" · ▢ `WornCharacter` → universal `CharacterIdentity`, blocked on the persona derive still resolving through the CATALOG |
+| 2 | Migrate authored character data out of `character_archetypes.ron` | ▢ **mapped, and DELIBERATELY NOT STARTED** — appendix C reorders it after the constructor. `BUILDABLE_ONLY_CAST` is short-lived scaffolding, not architecture. Otherwise as mapped; the DOOR is open — see APPENDIX B. `BUILDABLE_ONLY_CAST` splits "can build" from "offers on the select grid", so a migrated character can be registered without becoming a portrait. Empty today; start with the mites |
+| 3 | Unify character construction (`PreparedCharacterDefinition` + `CharacterSpawnPlan`) | ◐ **the AUTHORED ENEMY path reads its character, from the PLACEMENT** — `adopt_character_intrinsics`, guarded end-to-end by `mod authored_enemy_reads_its_character`. ⛔ appendix C: that method is a PROBE SEAM; the next step is `CharacterSpawnPlan` (appendix E), not more fields through it. ▢ the programmatic and encounter-mob paths still pass an empty registry; ▢ `PreparedMatch` still builds through `CharacterRoster` and is the appendix-D proving ground |
 | 4 | Migrate the 93 authored placements, encounters, summons | ▢ |
 | 5 | Controller/provocation simplification; rollback becomes controller-only | ▢ |
 | 6 | Remove legacy runtime projections (`ActorTuning`, `CharacterBrainSpec`, `sprite_character_id`) | ▢ |
@@ -301,6 +301,20 @@ whether or not it explains the PCA.
   derive must be made complete, BEFORE enemies can wear a character.** That is
   the same "one character-body constructor" the correction asks for, reached
   from the identity end, which is evidence the two items are one item.
+* ⛔ **PREPARED COMPLETENESS (ruling 8) CANNOT LAND FOR DEATH TRAITS YET, and
+  the reason is worth writing down before someone tries.** The ruling is right:
+  `None` surviving preparation encodes *"ask the old body definition"*, which is
+  the overlay ontology hiding inside the new type, and "no special death
+  behaviour" is an ordinary resolved value rather than an absence.
+  ⚠ **but flipping it to `CharacterDeathTraits::default()` today makes an
+  exploding mite stop exploding.** `adopt_character_intrinsics` only overwrites
+  the seed's capabilities when the definition SAYS something; a definition that
+  always says something would reset every authored-enemy body to the default the
+  moment its placement names a character — and the archetype is still where the
+  mites' traits live. ⇒ **completeness for this field is gated on phase 2
+  moving those traits**, not on anyone deciding to be stricter. The persona path
+  is already correct (it retracts by resetting, conditional on the previous
+  persona having claimed the field).
 * ⭐ **`CharacterDeathTraits`'s FIVE FIELDS, inspected individually** — a
   reviewer asked for this before the type is declared final, and two of the five
   do not fit the name.

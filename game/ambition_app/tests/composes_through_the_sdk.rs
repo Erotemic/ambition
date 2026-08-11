@@ -190,6 +190,40 @@ fn the_second_mounted_experience_launches_and_its_asset_policy_is_the_primarys()
          route and id"
     );
 
+    // ⭐ **BOTH GAMES' CASTS ARE PUBLISHED** (queue D75, fixed 2026-08-11).
+    //
+    // ⛔ this host reached enemy construction with a `PreparedCharacterRegistry`
+    // of ZERO characters, measured by probe. The preparation barrier latched
+    // itself shut at `PreStartup`, and a shell that mounts an experience
+    // afterwards staged its registrations into a resource nobody ever folded —
+    // so every placement fell back to its archetype, and a migrated creature
+    // whose row was deleted came out as a generic combatant wearing its name.
+    //
+    // ⚠ asserted for BOTH games on purpose. The barrier merges now instead of
+    // replacing, and a version that replaced would pass an "is it non-empty"
+    // check while having deleted the first game's cast.
+    {
+        use ambition_platformer2d::actors::character_runtime::PreparedCharacterRegistry;
+        let registry = app
+            .world()
+            .get_resource::<PreparedCharacterRegistry>()
+            .expect("a composed host publishes a prepared cast");
+        assert!(
+            registry
+                .get(ambition_demo_mary_o::provider::MARY_O_CHARACTER_ID)
+                .is_some(),
+            "the SECOND mounted game's cast never published: {} character(s) \
+             registered",
+            registry.len()
+        );
+        assert!(
+            registry.get("sanic").is_some(),
+            "the FIRST mounted game's cast was lost when the second published: \
+             {} character(s) registered",
+            registry.len()
+        );
+    }
+
     let catalog = app.world().resource::<Platformer2dAssetCatalog>();
 
     // ── One character visual, and therefore one logical asset path ──

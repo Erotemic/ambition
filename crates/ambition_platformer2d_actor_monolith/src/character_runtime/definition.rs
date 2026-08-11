@@ -2088,6 +2088,13 @@ impl bevy::prelude::Plugin for CharacterPreparationPlugin {
         // `finish` exists to remove. What `finish` still buys is that the
         // registry exists before ANY system runs, including `Startup`.
         app.add_systems(bevy::prelude::PreStartup, close_preparation_barrier);
+        // ⚠ **a `PreUpdate` re-close was TRIED for queue D75 and does not fix
+        // it** (2026-08-11). The hypothesis was a cast arriving after the
+        // barrier latched; the measurement says otherwise — those hosts read a
+        // registry of ZERO at spawn time whether the barrier can re-close or
+        // not, so the cast is not late, it is absent from whatever world the
+        // spawn is reading. Recorded rather than left as a plausible fix nobody
+        // re-measured.
     }
 
     fn finish(&self, app: &mut bevy::prelude::App) {
@@ -2111,10 +2118,11 @@ fn finalize_prepared_cast(world: &mut bevy::prelude::World) {
     // after this bit us, 2026-07-29). The `PreStartup` backstop is a second
     // trigger on top of that.
     //
-    // Without this flag, a second call republished an EMPTY registry: the staged
+    // Without a guard, a second call republished an EMPTY registry: the staged
     // overrides had already been consumed, so the whole cast silently vanished on
     // the fixture's second step. The barrier has to be idempotent itself;
     // nothing upstream makes it so.
+    //
     if staged.finalized {
         return;
     }

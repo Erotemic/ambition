@@ -247,6 +247,9 @@ pub fn simulation_world(
         initial_scratch.kinematics.size = size;
         initial_scratch.base_size.base_size = size;
     }
+    // ⭐ **HOW THIS BODY FIRES**, resolved by the overlay the bundle already runs
+    // and kept rather than discarded — see below.
+    let mut ranged = crate::avatar::RangedExecution::HostCharge;
     let player_bundle = if starting_character.is_default() {
         crate::avatar::PlayerSimulationBundle::from_scratch(initial_scratch, player_health)
     } else {
@@ -255,6 +258,7 @@ pub fn simulation_world(
             initial_scratch,
             player_health,
             &starting_character.character_id,
+            &mut ranged,
         )
     };
     // Session ownership is captured by the caller when world construction
@@ -275,19 +279,32 @@ pub fn simulation_world(
                 ambition_characters::actor::WornCharacter::new(
                     starting_character.effective_id(default_character_id),
                 ),
-                // ⭐ **and the protagonist ASKS for its template.** The bundle
-                // already applies the overlay at construction
-                // (`from_scratch_as_character`), so the body is not incomplete —
-                // what the derive still owns for this body is the pair of
-                // capability MARKERS a `Bundle` cannot conditionally omit
-                // (`ChargesProjectiles` / `PlayerProjectileState`). It used to
-                // reach them off the `Added<WornCharacter>` edge; that edge is
-                // gone (Jon's redirect §2), so the request is explicit.
-                ambition_characters::actor::RecharacterizeBody,
                 player_bundle,
             ),
         )
         .id();
+
+    // ⭐⭐ **THE PROTAGONIST IS COMPLETE ON THIS FRAME** (Jon's second redirect,
+    // P0): it inserted `RecharacterizeBody` and asked the persona derive to
+    // finish initialising it, which is the thing that component exists NOT to be.
+    //
+    // Two pieces were outstanding and both are answered here. The projectile
+    // MARKERS a `Bundle` cannot conditionally omit — the overlay resolved how
+    // this body fires and the bundle discarded that answer, so it is kept now.
+    // And the applied-template stamp, with an EMPTY displacement: nothing was
+    // taken from a body that was BUILT as this character.
+    crate::avatar::sync_charge_projectile_capability(commands, player, ranged, false);
+    commands
+        .entity(player)
+        .insert(crate::avatar::PersonaBaseline {
+            id: starting_character
+                .effective_id(default_character_id)
+                .to_string(),
+            generation: prepared_characters
+                .map(crate::character_runtime::PreparedCharacterRegistry::generation)
+                .unwrap_or_default(),
+            displaced: Default::default(),
+        });
 
     // The authored MASS. Health and the box are already on the body above (both
     // are construction inputs the bundle consumes); this is the remainder, and it

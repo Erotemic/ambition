@@ -243,6 +243,13 @@ impl PlayerSimulationBundle {
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
         character_id: &str,
+        // ⭐ **HOW THIS BODY FIRES, handed back to the caller** (Jon's second
+        // redirect, P0). The overlay resolves it and this used to DISCARD it —
+        // which is why the protagonist needed a `RecharacterizeBody` on ordinary
+        // construction: the two projectile markers a `Bundle` cannot
+        // conditionally omit were the derive's only remaining job, and the
+        // answer they need was computed right here and thrown away.
+        ranged: &mut crate::avatar::RangedExecution,
     ) -> Self {
         // The body's code-side capability set — the source of the protagonist's
         // kit, captured before `scratch` folds into the movement bundle so the
@@ -252,7 +259,7 @@ impl PlayerSimulationBundle {
         let mut bundle = Self::from_scratch(scratch, health);
         // The SAME overlay the runtime re-wear system applies (name + the resolved
         // kit), so spawn and runtime can never disagree on what a character is.
-        let _ = crate::avatar::apply_worn_character_overlay(
+        *ranged = crate::avatar::apply_worn_character_overlay(
             catalog,
             // A from-scratch bundle predates the world it will live in, so there is
             // no registry to consult here. The per-frame derivation above reaches
@@ -379,6 +386,7 @@ mod tests {
             player_scratch(),
             Health::new(20),
             "player_robot_v3",
+            &mut crate::avatar::RangedExecution::HostCharge,
         );
         assert_eq!(bundle.name.as_str(), "Player Robot v3");
         assert!(bundle.brain.is_player());
@@ -408,6 +416,7 @@ mod tests {
             player_scratch(),
             Health::new(20),
             "npc_pirate_admiral",
+            &mut crate::avatar::RangedExecution::HostCharge,
         );
         assert_eq!(bundle.name.as_str(), "Pirate Admiral");
         assert!(bundle.brain.is_player(), "still keyboard-controlled");
@@ -436,6 +445,7 @@ mod tests {
             player_scratch(),
             Health::new(20),
             "not_a_real_character",
+            &mut crate::avatar::RangedExecution::HostCharge,
         );
         assert!(bundle.brain.is_player());
         assert_eq!(

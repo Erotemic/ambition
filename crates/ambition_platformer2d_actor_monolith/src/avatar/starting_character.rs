@@ -658,7 +658,7 @@ fn apply_worn_character_kit(
     execution
 }
 
-fn sync_charge_projectile_capability(
+pub fn sync_charge_projectile_capability(
     commands: &mut Commands,
     entity: Entity,
     execution: RangedExecution,

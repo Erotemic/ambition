@@ -446,7 +446,31 @@ fn movement_options(view: &crate::perception::WorldView, situation: Situation) -
             }
         }
         Situation::Disadvantage => {
-            if me.can_shield {
+            // **A SHIELD IS A REACTION, NOT A STANCE — and scoring it as a
+            // stance produced a match of two statues.**
+            //
+            // ⛔ measured 2026-08-11, the day the Smash fighters were first
+            // given the `shield` capability. `Disadvantage` covers "in hitstun"
+            // AND "cornered", and on a small stage two fighters who open near
+            // the edges are BOTH cornered on the first tick. Shield outscored
+            // Retreat, shielding does not un-corner anybody, and the situation
+            // that selected it therefore never changes: an absorbing state, one
+            // per fighter, reached in the opening second and held for the rest
+            // of the match. The stage was two bodies facing each other with
+            // their guard up, forever, and the CPU-versus-CPU regression read
+            // `travel: 0.0px`.
+            //
+            // ⭐ the genre's own answer is the fix: you shield an ATTACK. A
+            // cornered player with nothing incoming retreats, rolls or jumps
+            // out — pressing guard against nothing is how you get grabbed. So
+            // the verb is offered only when a hostile is actually swinging, and
+            // "cornered with nothing incoming" falls through to Retreat, which
+            // solves the problem being cornered actually poses.
+            let threatened = view
+                .actors
+                .iter()
+                .any(|actor| actor.hostile_to_self && actor.alive && actor.phase.is_attacking());
+            if me.can_shield && threatened {
                 push(MovementVerb::Shield, 0.8);
             }
             push(MovementVerb::Retreat, 0.7);

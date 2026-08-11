@@ -227,6 +227,36 @@ pub struct MatchRules {
     pub stocks: Option<u32>,
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
     pub opens_suspended: bool,
+    /// **How long the opening ceremony holds the cast**, in simulation ticks.
+    ///
+    /// `0` means no ceremony: a suspended cast is released on the tick it is
+    /// built, which is what every match did before this existed and is the
+    /// honest reading of `opens_suspended` for a ruleset with no opening.
+    ///
+    /// ⛔ **TICKS, not seconds, and that is a determinism requirement rather
+    /// than a taste.** The release is a comparison against the sim clock, so a
+    /// rollback re-runs it and reaches the same answer; a wall-clock timer
+    /// would drift a peer's release by a frame and diverge the whole cast.
+    pub opening_countdown_ticks: u32,
+}
+
+/// **Where an opening ceremony has got to** — derived from the clock, never
+/// stored.
+///
+/// ⭐ **no ticking timer anywhere, on purpose.** A countdown is the obvious
+/// place to put a `f32` that counts down, and doing that would add authoritative
+/// mutable state inside the rollback window — the trap this file already paid
+/// for once with `effective_from` (*"the original frame 8 ran with no plan and
+/// activated on 9, while the RESIMULATED frame 8 found the plan already standing
+/// and activated on 8"*). A phase computed from `now - activated_on` is a pure
+/// function of the clock and the receipt, so a rewind cannot land the ceremony
+/// on a different beat than the first run did.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum OpeningPhase {
+    /// The cast is held. `beats_remaining` counts DOWN to the release: 3, 2, 1.
+    Counting { beats_remaining: u32 },
+    /// The hold is over. The tick this first reads `Live` is the release tick.
+    Live,
 }
 
 impl MatchRules {
@@ -240,7 +270,48 @@ impl MatchRules {
             ambition_characters::actor::DeathPolicy::default()
         }
     }
+
+    /// **How many BEATS the ceremony has**, one per counted number.
+    ///
+    /// Three beats is "3, 2, 1" — the ticks are divided evenly and the
+    /// remainder lands on the last beat, so a 180-tick countdown at 60Hz is one
+    /// second a number.
+    pub fn opening_beats(&self) -> u32 {
+        if self.opening_countdown_ticks == 0 {
+            0
+        } else {
+            OPENING_BEATS
+        }
+    }
+
+    /// Where the ceremony stands `elapsed` ticks after the cast was built.
+    ///
+    /// ⚠ **a match with no ceremony is `Live` from tick zero**, which is what
+    /// makes this safe to consult unconditionally: a ruleset that never asked
+    /// for a countdown cannot accidentally acquire one.
+    pub fn opening_phase(&self, elapsed: u64) -> OpeningPhase {
+        let total = u64::from(self.opening_countdown_ticks);
+        if elapsed >= total {
+            return OpeningPhase::Live;
+        }
+        let beats = u64::from(self.opening_beats().max(1));
+        // Ticks per beat, rounded UP, so the final beat is the short one rather
+        // than the first — a "1" that lingers reads as a stall on the tick the
+        // fighters are about to be released.
+        let per_beat = total.div_ceil(beats);
+        let elapsed_beats = elapsed / per_beat;
+        OpeningPhase::Counting {
+            beats_remaining: (beats - elapsed_beats.min(beats - 1)) as u32,
+        }
+    }
 }
+
+/// How many numbers an opening ceremony counts: 3, 2, 1.
+///
+/// A constant rather than a rule field because it is the GENRE's shape — every
+/// platform fighter counts three — while how LONG each number holds is the
+/// ruleset's call and lives in `opening_countdown_ticks`.
+pub const OPENING_BEATS: u32 = 3;
 
 /// **The match, resolved.**
 #[derive(Resource, Clone, Debug)]
@@ -448,6 +519,7 @@ pub fn prepare_match(
         stocks: roster.fighter_stocks,
         abilities: roster.fighter_abilities,
         opens_suspended: roster.opens_suspended,
+        opening_countdown_ticks: roster.opening_countdown_ticks,
     };
     let death_policy = rules.death_policy();
 
@@ -1125,7 +1197,8 @@ pub fn activate_the_prepared_match(
     // that frame's replay — the original ran without it and the resimulation
     // found it standing, and the cast appeared a tick early. The plan names the
     // tick instead.
-    if tick.is_some_and(|tick| tick.get() < prepared.effective_from()) {
+    let now = tick.as_deref().map(|tick| tick.get());
+    if now.is_some_and(|now| now < prepared.effective_from()) {
         return;
     }
     // No active session means no owner for the bodies. Activation waits rather
@@ -1189,7 +1262,69 @@ pub fn activate_the_prepared_match(
         prepared.seats().len(),
         prepared.seat_topology(),
         prepared.session(),
+        // WHEN, so the opening ceremony is a function of the clock rather than
+        // a timer somebody has to remember to rewind.
+        now,
     ));
+}
+
+/// **Release the opening hold when the ceremony ends — every seat on ONE tick.**
+///
+/// `opens_suspended` stamps `ScriptedControl` on every fighter in the flush that
+/// creates them, so no body is ever observable in a state the ruleset did not
+/// ask for. This is the other half: the tick the hold comes off.
+///
+/// ⛔ **it lived in the Smash STAGE and released on "the match is live"**, which
+/// was the honest reading while no ruleset had a ceremony — and it meant the
+/// countdown could never be added without also moving this, because a stage
+/// system that fires on activation cannot be talked out of it by a rule. The
+/// release belongs to match FLOW, next to the thing that applied the hold.
+///
+/// ⭐ **atomic by construction.** Every held seat is released in one command
+/// flush against one clock reading, so there is no tick on which one fighter can
+/// act and another cannot — the property a countdown exists to give and the one
+/// a per-fighter timer would quietly lose.
+pub fn release_the_opening_hold(
+    mut commands: Commands,
+    active: Option<Res<super::ActiveMatch>>,
+    prepared: Option<Res<PreparedMatch>>,
+    held: Query<
+        Entity,
+        (
+            With<super::MatchSeat>,
+            With<ambition_characters::brain::ScriptedControl>,
+        ),
+    >,
+    tick: Option<Res<ambition_time::SimTick>>,
+) {
+    let (Some(active), Some(prepared)) = (active, prepared) else {
+        return;
+    };
+    // ⛔ **A CEREMONY THIS RULESET DID NOT DECLARE IS NOT THIS SYSTEM'S TO
+    // END.** `opens_suspended` with no countdown means somebody ELSE owns the
+    // opening — the versus stage's `Starting` arm reaching zero is the live
+    // case — and releasing here would take the hold off underneath them on the
+    // tick the cast appears, which is precisely the window the flag exists to
+    // close.
+    if prepared.rules().opening_countdown_ticks == 0 {
+        return;
+    }
+    // A composition with no clock cannot time a ceremony; the honest answer is
+    // to release rather than to hold a cast forever waiting for a tick that
+    // never arrives.
+    let elapsed = tick
+        .as_deref()
+        .and_then(|now| active.ticks_since_activation(now.get()));
+    if let Some(elapsed) = elapsed {
+        if prepared.rules().opening_phase(elapsed) != OpeningPhase::Live {
+            return;
+        }
+    }
+    for body in held.iter() {
+        commands
+            .entity(body)
+            .try_remove::<ambition_characters::brain::ScriptedControl>();
+    }
 }
 
 /// **Declare the match's cast as what the camera frames.**

@@ -99,6 +99,17 @@ pub struct ActiveMatch {
     /// session lifecycle at all, which is the same answer `PreparedMatch` stamps
     /// there, so the two still compare equal.
     session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+    /// **The sim tick the cast was built on**, so the opening ceremony can be
+    /// DERIVED rather than ticked.
+    ///
+    /// ⭐ this is what lets a 3–2–1–GO countdown exist without any new mutable
+    /// state in the rollback window: the phase is `now - activated_on` against
+    /// the ruleset's declared length, which a rewind recomputes identically.
+    ///
+    /// `None` in a composition with no sim clock at all (a bare fixture), where
+    /// the honest answer is that there is no ceremony to time — the hold is
+    /// released immediately, exactly as it was before countdowns existed.
+    activated_on: Option<u64>,
 }
 
 impl ActiveMatch {
@@ -111,12 +122,20 @@ impl ActiveMatch {
         seats: usize,
         seat_topology: Option<u64>,
         session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+        activated_on: Option<u64>,
     ) -> Self {
         Self {
             seats,
             seat_topology,
             session,
+            activated_on,
         }
+    }
+
+    /// How many ticks the match has been live, or `None` when the composition
+    /// has no clock to measure against.
+    pub fn ticks_since_activation(&self, now: u64) -> Option<u64> {
+        self.activated_on.map(|then| now.saturating_sub(then))
     }
 
     /// **The session whose prepared plan this receipts.**
@@ -165,7 +184,15 @@ impl ActiveMatch {
             seats,
             seat_topology,
             session: None,
+            // No clock, so no ceremony: a fixture that wants a LIVE match gets
+            // one, which is what this hatch is named for.
+            activated_on: None,
         }
+    }
+
+    /// The sim tick the cast was built on, when the composition had a clock.
+    pub fn activated_on(&self) -> Option<u64> {
+        self.activated_on
     }
 
     /// Rebuild an activation from a rollback snapshot.
@@ -183,11 +210,13 @@ impl ActiveMatch {
         seats: usize,
         seat_topology: Option<u64>,
         session: Option<ambition_platformer2d_shared_tangle::lifecycle::SessionScopeId>,
+        activated_on: Option<u64>,
     ) -> Self {
         Self {
             seats,
             seat_topology,
             session,
+            activated_on,
         }
     }
 }

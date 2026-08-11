@@ -820,6 +820,9 @@ fn seat_a_two_cpu_match(sim: &mut Platformer2dSimHarness) -> usize {
             cpu("player_robot_v2", "red"),
         ],
         opens_suspended: true,
+        // No ceremony in a rollback fixture: the stage that owns the opening
+        // is not part of what these tests exercise.
+        opening_countdown_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::activated_at(7),
         fighter_abilities: None,
         fighter_stocks: None,

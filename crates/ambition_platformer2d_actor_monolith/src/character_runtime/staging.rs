@@ -266,6 +266,18 @@ pub struct MatchParticipantRoster {
     /// Taken off by whoever put the countdown up — for versus, the `Starting`
     /// arm reaching zero, which is the one place a round goes live.
     pub opens_suspended: bool,
+    /// **How long the opening ceremony holds the cast**, in simulation ticks.
+    ///
+    /// Meaningless without [`Self::opens_suspended`] — there is nothing to hold
+    /// — and `0` there means the hold ends on the tick the cast is built, which
+    /// is what every roster did before a countdown existed.
+    ///
+    /// ⚠ **the hold is RELEASED by the engine now**, keyed on this number and
+    /// the sim clock. It used to be released by whichever stage happened to own
+    /// the ceremony, and the Smash stage owned none — so its release fired the
+    /// instant the match went live, and the comment above (*"taken off by
+    /// whoever put the countdown up"*) described a countdown that did not exist.
+    pub opening_countdown_ticks: u32,
     /// **Whether anybody has agreed to seat this roster yet.** See
     /// [`RosterSeating`].
     pub seating: RosterSeating,

@@ -284,6 +284,12 @@ pub fn versus_roster_from(local_players: usize, seating: RosterSeating) -> Match
         // insert lands (GPT 5.6, 2026-07-29). The `Starting` arm reaching zero is
         // what takes it off, which is already the one place a round goes live.
         opens_suspended: true,
+        // **THIS STAGE OWNS ITS OWN CEREMONY**, so the engine's countdown stays
+        // out of it: the `Starting` arm reaching zero is what takes the hold
+        // off, and it has been that way since before a ruleset could declare a
+        // count. `0` says "not mine to end" rather than "no countdown" — the
+        // versus round very much has one.
+        opening_countdown_ticks: 0,
         // **A FAIR FIGHT.** Seat 0 is the ADOPTED primary player and arrives
         // carrying whatever the session granted it — in the shipped host, the
         // sandbox dev kit (blink, fly, shield). Every other seat is spawned with

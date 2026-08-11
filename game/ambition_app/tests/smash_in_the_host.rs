@@ -779,6 +779,9 @@ fn a_keyboard_player_and_a_pad_player_drive_different_fighters() {
          a cursor"
     );
 
+    // The round opens on a countdown; a body held by it cannot be moved by
+    // anybody, which would make the measurement below about the ceremony.
+    wait_for_the_round_to_go_live(&mut app);
     let x = |app: &App, body: Entity| app.world().get::<BodyKinematics>(body).unwrap().pos.x;
     let (start_one, start_two) = (x(&app, body_one), x(&app, body_two));
 
@@ -1319,6 +1322,37 @@ fn start_and_report(app: &mut App) -> MatchStart {
         }
     }
     MatchStart::ActivationStalled
+}
+
+/// **Run out the opening ceremony.**
+///
+/// The Smash ruleset opens 3 — 2 — 1 — GO: every fighter carries
+/// `ScriptedControl` until the count ends, so a test that presses a button on
+/// the tick the stage appears is pressing it at a held body and measuring the
+/// ceremony rather than the input. Waiting is what a player does too.
+///
+/// ⛔ **bounded, and it ASSERTS rather than giving up quietly.** A silent
+/// timeout here would turn "the hold never came off" — a real and previously
+/// shipped bug — into a test that simply measured a shorter fight.
+fn wait_for_the_round_to_go_live(app: &mut App) {
+    for _ in 0..600 {
+        let held = {
+            let world = app.world_mut();
+            let mut q = world.query_filtered::<
+                &ambition_platformer2d::actors::character_runtime::MatchSeat,
+                With<ambition_platformer2d::characters::brain::ScriptedControl>,
+            >();
+            q.iter(world).count()
+        };
+        if held == 0 {
+            return;
+        }
+        app.update();
+    }
+    panic!(
+        "the opening hold never came off in ten seconds of ticks, so every \
+         fighter in this match is a statue"
+    );
 }
 
 /// Every seated fighter's x, in seat order.

@@ -67,6 +67,11 @@ fn seating_app() -> App {
             // that can fail is the half that no longer builds anything.
             prepare_the_match,
             activate_the_prepared_match,
+            // The ceremony's other end, chained exactly as production chains it.
+            // ⛔ omitting it made the countdown test measure a fixture that had
+            // no release system rather than a release that never fired — the
+            // failure looked identical.
+            release_the_opening_hold,
             // **The persona derive, which is now the writer for a seated body's
             // kit too** (Phase B, 2026-07-29). It used to be absent here and the
             // tests still passed, because the projection wrote seated kits — two
@@ -930,6 +935,81 @@ fn a_roster_that_opens_suspended_seats_fighters_that_cannot_act_yet() {
              one tick the countdown cannot cover"
         );
     }
+}
+
+/// **3 — 2 — 1 — GO: the cast is held for the whole ceremony and freed on ONE
+/// tick.**
+///
+/// Jon asked for exactly this test — *"add a deterministic test proving bodies
+/// remain held before GO and release at the transition"* — and the property it
+/// pins is the one a per-fighter timer would lose: not "everybody is eventually
+/// free" but "there is no tick on which one fighter can act and another
+/// cannot".
+///
+/// ⭐ **the ceremony is DERIVED, so this test is a clock and two reads.** There
+/// is no timer to advance and nothing to tick: the phase is
+/// `now - activated_on` against the ruleset's declared length, which is what
+/// makes it survive a rollback — a rewound frame recomputes the same beat
+/// instead of resuming a countdown from wherever it landed.
+#[test]
+fn a_declared_countdown_holds_every_seat_until_it_ends() {
+    /// Short, and not a round number: a countdown that happened to match some
+    /// other constant would pass for the wrong reason.
+    const TICKS: u32 = 7;
+
+    let mut app = seating_app();
+    app.insert_resource(ambition_time::SimTick(0));
+    app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("duelist"), cpu("duelist")],
+        opens_suspended: true,
+        opening_countdown_ticks: TICKS,
+        ..Default::default()
+    });
+
+    fn held(app: &mut App) -> (usize, usize) {
+        let world = app.world_mut();
+        let mut q = world
+            .query_filtered::<Option<&ambition_characters::brain::ScriptedControl>, With<MatchSeat>>(
+            );
+        let seats: Vec<bool> = q.iter(world).map(|scripted| scripted.is_some()).collect();
+        (seats.iter().filter(|held| **held).count(), seats.len())
+    }
+
+    // The plan is stamped for the NEXT tick, so the cast appears on tick 1 and
+    // the ceremony is measured from there.
+    finalize_and_update(&mut app);
+    // ⛔ **both terms must be OBSERVED.** The first version of this loop ran to
+    // `TICKS` and every iteration took the "still held" branch — the release
+    // assertion was never evaluated once, and it passed.
+    let (mut saw_held, mut saw_released) = (false, false);
+    for now in 1..=u64::from(TICKS) + 1 {
+        app.insert_resource(ambition_time::SimTick(now));
+        finalize_and_update(&mut app);
+        let (held_now, seated) = held(&mut app);
+        assert_eq!(seated, 2, "both fighters must seat at all (tick {now})");
+        let elapsed = now - 1;
+        if elapsed < u64::from(TICKS) {
+            saw_held = true;
+            assert_eq!(
+                held_now, 2,
+                "a fighter was free {elapsed} tick(s) into a {TICKS}-tick ceremony, \
+                 so the round starts before the count does"
+            );
+        } else {
+            saw_released = true;
+            assert_eq!(
+                held_now, 0,
+                "the ceremony ended and somebody is still held: the release is not \
+                 atomic, so one fighter acts on a tick another cannot"
+            );
+        }
+    }
+    assert!(
+        saw_held && saw_released,
+        "the loop never reached one of the two states, so this test is a \
+         statement about its own range rather than about the ceremony"
+    );
 }
 
 /// **And a LOCAL-INPUT seat is suspended on that tick too.**

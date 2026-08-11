@@ -228,12 +228,21 @@ fn recovery_offers_no_attacks_and_exactly_one_obligation() {
 
 /// Movement expresses the situation's ONE obligation, so a brain with no L3
 /// still plays a recognizable game.
+///
+/// ⚠ **`Disadvantage` moved from Shield to Retreat on 2026-08-11**, and the
+/// row below is the reason rather than a weakening: `Disadvantage` covers being
+/// CORNERED as well as being in hitstun, and guarding does not un-corner
+/// anybody. Two shielding fighters who never move is a stable state, and it is
+/// what the Smash stage did for a whole match the day these bodies were first
+/// given the capability. Shield is a reaction to a swing —
+/// [`disadvantage_shields_only_against_an_incoming_swing`] is the other half
+/// of this pair and asserts it still happens when there IS one.
 #[test]
 fn each_situation_has_its_obligation() {
     let kit = [candidate("jab", 0.1, 100.0)];
     let w = UtilityWeights::v1();
     for (situation, expect) in [
-        (Situation::Disadvantage, MovementVerb::Shield),
+        (Situation::Disadvantage, MovementVerb::Retreat),
         (Situation::Advantage, MovementVerb::Approach),
         (Situation::EdgeGuard, MovementVerb::Approach),
         (Situation::Neutral, MovementVerb::Approach),
@@ -250,6 +259,45 @@ fn each_situation_has_its_obligation() {
             "{situation:?} should reach for {expect:?}"
         );
     }
+}
+
+/// **A shield is a reaction to a SWING, not a stance for being cornered.**
+///
+/// The half that keeps the change above honest: with a hostile actually
+/// attacking, the guard is still the best answer in `Disadvantage`. Without one
+/// the same view retreats — so this pair says the verb is GATED, not removed.
+#[test]
+fn disadvantage_shields_only_against_an_incoming_swing() {
+    let kit = [candidate("jab", 0.1, 100.0)];
+    let w = UtilityWeights::v1();
+
+    let quiet = view_with(300.0, 400.0);
+    let calm = generate_options(
+        Perceived::cheating(&quiet),
+        Situation::Disadvantage,
+        &kit,
+        &w,
+    );
+    assert_eq!(
+        calm.best_movement().unwrap().verb,
+        MovementVerb::Retreat,
+        "cornered with nothing incoming is a spacing problem, not a guarding one"
+    );
+
+    let mut swinging = view_with(300.0, 400.0);
+    swinging.actors[0].phase = crate::perception::BodyPhase::AttackStartup;
+    let threatened = generate_options(
+        Perceived::cheating(&swinging),
+        Situation::Disadvantage,
+        &kit,
+        &w,
+    );
+    assert_eq!(
+        threatened.best_movement().unwrap().verb,
+        MovementVerb::Shield,
+        "a hostile is mid-swing and the guard was not offered, so the gate \
+         removed the verb instead of timing it"
+    );
 }
 
 /// A body without a capability never proposes it. The brain physically cannot

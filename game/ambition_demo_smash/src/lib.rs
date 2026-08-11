@@ -128,7 +128,31 @@ where
                 .on_team(format!("seat {}", index + 1))
         })
         .collect();
+    apply_smash_match_rules(&mut roster);
+    roster.published_by(SMASH_EXPERIENCE)
+}
+
+/// **WHAT KIND OF MATCH THIS IS** — the Smash ruleset, in one place.
+///
+/// ⛔ **it was in TWO places and they had drifted.** `smash_roster` (the fixed
+/// two-fighter rig the tests and the standalone open with) and the select
+/// screen's assembled roster each declared stocks, the opening hold and the
+/// ability floor separately, with the same forty lines of comment copied
+/// between them. Adding a 3–2–1–GO countdown to one of them produced a shipped
+/// stage whose fighters were never released — held forever by a hold whose
+/// owner only existed on the other path, which is exactly the failure two
+/// copies of a rule are for.
+pub fn apply_smash_match_rules(roster: &mut MatchParticipantRoster) {
     roster.opens_suspended = true;
+    // **THE OPENING CEREMONY: 3 — 2 — 1 — GO.**
+    //
+    // Three beats at 60Hz. The hold was already here and had nothing to wait
+    // for, so it came off on the tick the cast was built and the round began
+    // with two fighters already moving before a player had looked at the stage.
+    //
+    // ⛔ ticks rather than seconds, because the release is a comparison against
+    // the sim clock — see `MatchRules::opening_countdown_ticks`.
+    roster.opening_countdown_ticks = 3 * 60;
     roster.fighter_stocks = Some(STARTING_STOCKS);
     // **EVERY FIGHTER IN THIS MATCH HAS THE SAME VERBS.**
     //
@@ -185,7 +209,6 @@ where
         ledge_grab: true,
         ..ambition_platformer2d::engine_core::AbilitySet::NONE
     });
-    roster.published_by(SMASH_EXPERIENCE)
 }
 
 /// The same roster, at a named ladder level.
@@ -399,7 +422,7 @@ impl bevy::prelude::Plugin for SmashRulesPlugin {
         // not the active mode.
         let rules = (
             publish_smash_hud,
-            release_the_opening_hold,
+            announce_the_opening_countdown,
             place_respawning_fighters,
             take_eliminated_fighters_out_of_play,
             announce_the_winner,
@@ -524,44 +547,74 @@ pub fn publish_smash_hud(
     }
 }
 
-/// **Let the fighters move once the match is live.**
+/// **3 — 2 — 1 — GO.**
 ///
 /// The roster opens `opens_suspended`, which stamps `ScriptedControl` on every
-/// fighter in the same flush that creates them — so no body is ever observable
-/// in a state the ruleset did not ask for. Something has to take it OFF, and in
-/// the versus stage that is the countdown reaching zero.
+/// fighter in the same flush that creates them, and declares
+/// `opening_countdown_ticks`. The ENGINE takes the hold off when the ceremony
+/// ends (`release_the_opening_hold`), atomically, for every seat on one tick.
+/// This system is the part a stage owns: saying the numbers out loud.
 ///
-/// ⚠ **this demo has no countdown, and for a day it had no release either.** The
-/// fighters seated, stood exactly where seating put them, and never moved. Every
-/// test passed: they existed, wore seats, carried stocks, and were correctly
-/// suspended forever. The tell was a diagram printing `travel: [0.0, 0.0]` —
-/// a number no assertion in the tree was looking at.
+/// ⚠ **this demo had no countdown and released the instant the match went
+/// live.** The comment that stood here recorded the day it had no release
+/// either — the fighters seated, stood exactly where seating put them, and
+/// never moved while every test passed, because they existed, wore seats,
+/// carried stocks and were correctly suspended forever. The tell was a diagram
+/// printing `travel: [0.0, 0.0]`.
 ///
-/// Releasing on "the match is live" is the honest reading of the flag for a
-/// ruleset with no opening ceremony: the hold exists to cover the gap between
-/// construction and the round starting, and here those are the same tick.
-fn release_the_opening_hold(
-    mut commands: bevy::prelude::Commands,
+/// ⭐ **DERIVED from the clock, so it cannot drift from the release.** The
+/// number on screen and the tick the bodies are freed are two readings of one
+/// pure function of `now - activated_on`; a separate timer for the banner would
+/// be a second authority on when the round starts, and the two would disagree
+/// on the frame anybody looked closely.
+fn announce_the_opening_countdown(
     active: Option<
         bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::ActiveMatch>,
     >,
-    held: bevy::prelude::Query<
-        bevy::prelude::Entity,
-        (
-            bevy::prelude::With<ambition_platformer2d::actor::MatchSeat>,
-            bevy::prelude::With<ambition_platformer2d::characters::brain::ScriptedControl>,
-        ),
+    prepared: Option<
+        bevy::prelude::Res<ambition_platformer2d::actors::character_runtime::PreparedMatch>,
+    >,
+    tick: Option<bevy::prelude::Res<ambition_platformer2d::time::SimTick>>,
+    mut said: bevy::prelude::Local<Option<String>>,
+    mut banner: bevy::prelude::MessageWriter<
+        ambition_platformer2d::combat::GameplayBannerRequested,
     >,
 ) {
-    if active.is_none() {
+    use ambition_platformer2d::actors::character_runtime::OpeningPhase;
+    let (Some(active), Some(prepared), Some(tick)) = (active, prepared, tick) else {
+        *said = None;
+        return;
+    };
+    let Some(elapsed) = active.ticks_since_activation(tick.get()) else {
+        return;
+    };
+    if !prepared.rules().opens_suspended || prepared.rules().opening_countdown_ticks == 0 {
         return;
     }
-    for body in held.iter() {
-        commands
-            .entity(body)
-            .try_remove::<ambition_platformer2d::characters::brain::ScriptedControl>();
+    let word = match prepared.rules().opening_phase(elapsed) {
+        OpeningPhase::Counting { beats_remaining } => beats_remaining.to_string(),
+        // The release beat says GO once and then stops: `elapsed` keeps growing,
+        // and a banner re-requested every tick for the rest of the match would
+        // never let the winner card through.
+        OpeningPhase::Live => "GO!".to_string(),
+    };
+    if said.as_deref() == Some(word.as_str()) {
+        return;
     }
+    if matches!(said.as_deref(), Some("GO!")) {
+        return;
+    }
+    *said = Some(word.clone());
+    banner.write(ambition_platformer2d::combat::GameplayBannerRequested::new(
+        word,
+        // A beat, near enough: long enough to read, short enough that the next
+        // number replaces it rather than queueing behind it.
+        OPENING_BEAT_SECONDS,
+    ));
 }
+
+/// How long one counted number holds, in seconds of banner time.
+const OPENING_BEAT_SECONDS: f32 = 0.9;
 
 /// Put a respawning fighter back over the platform.
 ///

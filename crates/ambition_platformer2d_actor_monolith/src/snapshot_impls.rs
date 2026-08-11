@@ -72,6 +72,18 @@ impl SnapshotState for crate::character_runtime::ActiveMatch {
                 put_u64(out, session.0);
             }
         }
+        // ⛔ **WHEN the cast was built travels too, and leaving it out would be
+        // a rollback bug with a visible symptom.** The opening ceremony is
+        // derived as `now - activated_on`, so a rewind that restored the receipt
+        // without the stamp would restart the countdown from whatever tick the
+        // rewind landed on — the cast held again, mid-match, for three beats.
+        match self.activated_on() {
+            None => put_bool(out, false),
+            Some(tick) => {
+                put_bool(out, true);
+                put_u64(out, tick);
+            }
+        }
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         let seats = r.u64()? as usize;
@@ -81,10 +93,12 @@ impl SnapshotState for crate::character_runtime::ActiveMatch {
         } else {
             None
         };
+        let activated_on = if r.bool()? { Some(r.u64()?) } else { None };
         Some(crate::character_runtime::ActiveMatch::from_snapshot(
             seats,
             seat_topology,
             session,
+            activated_on,
         ))
     }
 }

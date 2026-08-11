@@ -63,8 +63,8 @@ pub use physical_baseline::{
 };
 pub use prepared_match::{
     activate_the_prepared_match, declare_the_match_cast_as_the_view, prepare_match,
-    prepare_the_match, seat_placement, ControlAuthority, MatchPreparationProblems, MatchRules,
-    PreparedMatch, PreparedSeat,
+    prepare_the_match, release_the_opening_hold, seat_placement, ControlAuthority,
+    MatchPreparationProblems, MatchRules, OpeningPhase, PreparedMatch, PreparedSeat, OPENING_BEATS,
 };
 pub use presentation::{
     authorize_staged_character_presentation_sources, inherit_projectile_presentation_sources,
@@ -927,7 +927,15 @@ impl Plugin for CharacterRuntimePlugin {
                 // Activation stays here because building bodies is simulation,
                 // and it replays correctly precisely because the plan it reads
                 // was decided outside the window and cannot have changed.
-                prepared_match::activate_the_prepared_match
+                (
+                    prepared_match::activate_the_prepared_match,
+                    // The ceremony's other end: the tick the hold comes off.
+                    // Chained after activation so a match whose ruleset declares
+                    // NO countdown still releases on the tick it is built — the
+                    // behaviour every match had before ceremonies existed.
+                    prepared_match::release_the_opening_hold,
+                )
+                    .chain()
                     // Preparation needs an ASSEMBLED content composition. The archetype
                     // roster is built from registered fragments, so a bare engine
                     // App legitimately has none — and this is a run condition

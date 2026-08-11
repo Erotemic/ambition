@@ -124,6 +124,9 @@ fn two_human_roster() -> MatchParticipantRoster {
         // Not suspended: an opening hold would keep both fighters still and let
         // every assertion below pass for the wrong reason.
         opens_suspended: false,
+        // No ceremony in a rollback fixture: the stage that owns the opening
+        // is not part of what these tests exercise.
+        opening_countdown_ticks: 0,
         seating: ambition_platformer2d::actor::RosterSeating::default(),
         fighter_abilities: None,
         fighter_stocks: None,

@@ -39,7 +39,7 @@ drift.
 | **Who is the goblin lab's HEAVY?** (Jon's magenta-box observation) | 3 mobs in `goblin_encounter` still draw placeholders | ▢ **needs Jon** — one casting call, see below |
 | ~~Is a crate name part of the rollback wire format?~~ (S30) | ~~the WHOLE carve campaign~~ | ✔✔ **IMPLEMENTED 2026-08-09 as (b′), schema v20** — `3333a4b0f`. Nothing owed. |
 | Is a SESSION scope marker construction provenance? | tracks K2b-i | ⚠ answered by agent — see below |
-| **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but the parent tree reads dirty until it is settled | ▢ **needs Jon**, 30 seconds — see below |
+| **Should the superproject's measurement-submodule pointer advance?** (2026-08-09) | nothing — but it is one of THREE lines keeping the parent tree dirty, and the run's own "nothing uncommitted" check failing | ▢ **needs Jon**, 30 seconds — see below · ⚠ rechecked 2026-08-10, the submodule is no longer clean inside |
 | **Give rust-analyzer its own target dir?** (queue D59, 2026-08-09) | nothing — a build-hygiene setting in Jon's untracked `.vscode/settings.json` | ▢ **needs Jon**, one line — ⚠ **hygiene only**, and ⭐ the link failure it sat beside RESOLVED 2026-08-10, so this is not answering a live breakage |
 | ~~Your *"in mary-o when you die the level doesn't restart"*  — was it actually Mary-O?~~ (queue D68) | ~~that investigation~~ | ✔✔ **ANSWERED by Jon 2026-08-09** — nothing owed |
 
@@ -477,7 +477,24 @@ move the superproject's pointer.**
 
 ⇒ the consequence, stated plainly: **`git status` in the parent reads
 `M dev/ambition_dev_measurements` and will keep reading that** until the pointer
-moves. Everything of mine is committed; this one line is the whole residue.
+moves.
+
+⚠ **RECHECKED 2026-08-10 and two things have changed since this was written.**
+1. The submodule is **no longer clean inside** — it carries an uncommitted
+   `compile_graph.jsonl` (another measurement run appended to it). So the parent
+   line has two causes now: the unmoved pointer AND live content. Answering (a)
+   settles the first; the second wants a commit inside the submodule first, the
+   same way `9a570d7` handled the last one.
+2. **The parent no longer reads dirty for this reason alone.**
+   `tools/ambition_music_renderer` and `tools/ambition_sprite2d_renderer` are
+   both dirty too, with work that is not mine and not this question's. ⇒ **do
+   not read "the tree is dirty" as "the pointer question is unanswered"** —
+   answering this one shrinks the list to two, it does not empty it.
+
+⇒ and it now costs something it did not before: the 72-hour run's own
+end-of-turn check includes *"nothing is left uncommitted"*, and this is one of
+the three lines that keeps it failing. Not a reason to decide it either way —
+just the honest current price of leaving it open.
 
 * **(a) advance the pointer with each measurement commit.** The parent tree goes
   clean, and the superproject records which measurements a given commit was
@@ -494,9 +511,12 @@ moves. Everything of mine is committed; this one line is the whole residue.
 
 **My recommendation: (a)**, and I did not just do it because my standing
 instruction for this run is *never commit a submodule pointer move* — written
-back when that submodule carried your uncommitted work. It carries none now
-(`git status` inside it is clean as of `9a570d7`), so the instruction may simply
-have outlived its reason. ⇒ **if you say (a), I will also retire that rule**;
+back when that submodule carried your uncommitted work.
+⛔ **the sentence that used to follow was "it carries none now", and as of
+2026-08-10 that is false**: an appended `compile_graph.jsonl` is sitting
+uncommitted inside it. The instruction's original reason has therefore NOT
+clearly outlived itself, and I am no longer arguing that it has — the
+recommendation stands on its own merits instead. ⇒ **if you say (a), I will also retire that rule**;
 if you say (b) I will keep it and stop re-raising this.
 
 

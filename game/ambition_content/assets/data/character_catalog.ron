@@ -37,6 +37,33 @@
             smash_hit_band: 32.0,
             smash_dash_to_close: true,
         ),
+        // ⭐ **A WANDERING SENTRY that notices late and never hurries.** Not a
+        // creature — a WAY OF PLAYING one, which is the whole point of a shared
+        // policy: the same body on a patrol route and the same body holding a
+        // doorway are two placements of one character, and the level decides.
+        //
+        // ⚠ effort is a FRACTION of whatever body wears it, so a fast creature
+        // patrolling at 0.35 is still faster than a slow one at 1.0. That is why
+        // a policy can be shared across bodies at all.
+        "patroller": (
+            template: Wanderer,
+            aggro_radius: 140.0,
+            attack_range: 40.0,
+            patrol_effort: 0.35,
+            chase_effort: 0.8,
+        ),
+        // ⭐ **HOLDS ITS GROUND.** Notices a long way off and commits hard, but
+        // barely drifts from where it was placed — a door guard rather than a
+        // hunter. The counterpart to `patroller` on the one axis a level cares
+        // about: does this one come looking for you, or wait.
+        "door_guard": (
+            template: Smash,
+            aggro_radius: 320.0,
+            attack_range: 120.0,
+            patrol_effort: 0.08,
+            chase_effort: 1.0,
+            smash_hit_band: 36.0,
+        ),
     },
     brain_presets: {
         "stand_still": StandStill,

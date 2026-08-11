@@ -42,6 +42,73 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     v
 }
 
+/// **The controller gallery demonstrates both directions of composition.**
+///
+/// ⭐ **this replaces the one-of-each-archetype museum** at sandbox placements
+/// `EnemySpawn-0140`..`0146`, which was a row of six bodies whose only reason to
+/// exist was that the old ontology made body and AI one thing. Jon's decision
+/// (redirect §13) was: delete it, or recast it as a gallery over REAL characters
+/// showing that *the same controller policy can drive distinct bodies, and the
+/// same body can use distinct policies*. This asserts the recast still says
+/// that.
+///
+/// ⛔ both directions, because either alone is the museum again: six bodies each
+/// with its own policy proves nothing about reuse, and one body with six
+/// policies proves nothing about portability.
+#[test]
+fn the_controller_gallery_shows_one_policy_on_many_bodies_and_many_on_one() {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let project = load_project_for_test().expect("sandbox LDtk should load");
+    let room_set = project
+        .to_room_set(
+            &ambition_content::worlds::world_manifest(),
+            &ambition_app::composed_ldtk_vocabulary(),
+        )
+        .expect("room_set should build");
+    // (character, policy) for every placement that names both.
+    let pairs: Vec<(String, String)> = room_set
+        .rooms
+        .iter()
+        .flat_map(|room| room.enemy_spawns.iter())
+        .filter_map(|spawn| {
+            let character = spawn.payload.character_id.as_ref()?.as_str().to_string();
+            let policy = spawn.payload.brain_profile.as_ref()?.as_str().to_string();
+            Some((character, policy))
+        })
+        .collect();
+    assert!(
+        !pairs.is_empty(),
+        "no placement names a controller policy at all, so the gallery is gone \
+         and this guard is measuring nothing"
+    );
+
+    let mut bodies_per_policy: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    let mut policies_per_body: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
+    for (character, policy) in &pairs {
+        bodies_per_policy
+            .entry(policy.as_str())
+            .or_default()
+            .insert(character.as_str());
+        policies_per_body
+            .entry(character.as_str())
+            .or_default()
+            .insert(policy.as_str());
+    }
+    assert!(
+        bodies_per_policy.values().any(|bodies| bodies.len() >= 2),
+        "no policy drives more than one body, so nothing shows a policy is \
+         REUSABLE: {bodies_per_policy:?}"
+    );
+    assert!(
+        policies_per_body
+            .values()
+            .any(|policies| policies.len() >= 2),
+        "no body is driven by more than one policy, so nothing shows a body's \
+         driver is a PLACEMENT decision: {policies_per_body:?}"
+    );
+}
+
 /// **Every archetype row is placed in a level, or named by the engine on
 /// purpose.**
 ///

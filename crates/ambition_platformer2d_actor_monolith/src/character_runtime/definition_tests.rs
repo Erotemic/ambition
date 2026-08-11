@@ -817,6 +817,81 @@ fn the_cast_generation_advances_on_every_published_change() {
 /// decision-making meant sharing the body too.
 ///
 /// ⚠ the fixture gives the two characters DIFFERENT bodies and the same policy,
+/// **A prepared character already knows whether it flies.**
+///
+/// ⛔ the constructor used to ask `catalog.body_kind(id)` for this, which is a
+/// constructor rediscovering what the character IS (Jon's redirect §14) — and
+/// the fact was fully determined at preparation, which holds the catalog anyway.
+/// A "prepared" definition that still needs a second lookup to answer a body
+/// question is partly prepared, and every caller has to remember the second
+/// half.
+///
+/// ⚠ **fill, never overrule.** `flies: false` means *"this character did not
+/// say"*, so a character that authored `flies: true` keeps it whatever the
+/// catalog thinks, and one that authored nothing takes the catalog's answer.
+#[test]
+fn gravity_freedom_is_resolved_at_preparation_rather_than_at_construction() {
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+
+    const CATALOG: &str = r#"(
+        brain_presets: { "stand_still": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk, melee: None, ranged: None, special: None) },
+        characters: {
+            "floater": (
+                display_name: "Floater",
+                spritesheet: "sprites/x.png",
+                manifest: "sprites/x.ron",
+                tier: MainHall,
+                body_kind: Floating,
+                composition: None,
+                default_brain: "stand_still",
+                default_action_set: "peaceful",
+                tags: [],
+                fallback_dialogue: [],
+            ),
+        },
+    )"#;
+    let catalog = CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
+    );
+    let walking = ambition_characters::actor::CharacterLocomotion {
+        run_speed: 90.0,
+        ..Default::default()
+    };
+    let prepared = crate::character_runtime::prepare_and_finalize_against_for_test(
+        CharacterDefinition::new("floater", "Floater", "test").with_locomotion(walking),
+        &CharacterBindings::default(),
+        Some(&catalog),
+    )
+    .prepared;
+    assert!(
+        prepared
+            .body_blueprint()
+            .expect("it states its locomotion")
+            .locomotion
+            .flies,
+        "the catalog says this body floats and the character did not say \
+         otherwise, so the PREPARED character has to carry it — a constructor \
+         asking the catalog again is the thing §14 deletes"
+    );
+
+    // A character nobody's catalog knows keeps its own answer, which is the
+    // ordinary case for a body that walks.
+    let grounded = crate::character_runtime::prepare_and_finalize_against_for_test(
+        CharacterDefinition::new("stranger", "Stranger", "test").with_locomotion(walking),
+        &CharacterBindings::default(),
+        Some(&catalog),
+    )
+    .prepared;
+    assert!(
+        !grounded
+            .body_blueprint()
+            .expect("it states its locomotion")
+            .locomotion
+            .flies
+    );
+}
+
 /// **Completeness is a NAMED contract, not an inferred bool.**
 ///
 /// ⛔ this replaces `is_complete_body()` (Jon's redirect §5), which answered

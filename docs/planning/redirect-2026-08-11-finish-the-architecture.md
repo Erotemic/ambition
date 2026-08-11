@@ -1125,7 +1125,7 @@ Section 20's numbering is preserved.
 | 11 | `BrainProfileRegistry` | ✔ — published beside the catalog; preparation asks the POLICY authority |
 | 12 | Semantic `BrainPreset` migration plan | ✔ — ledger D81, census attached; `sniper_default` (0 adopters) already deleted |
 | 13 | Constructor takes a blueprint | ✔ — `CharacterBodyBlueprint`; 14 args → 7 |
-| 14 | No catalog re-queries for prepared facts | ▢ |
+| 14 | No catalog re-queries for prepared facts | ✔ — gravity-freedom folds at preparation; only the SHEET-derived silhouette still reads art at construction |
 | 15 | Explicit completeness, not `locomotion.is_some()` | ✔ — `body_blueprint() -> Result<_, MissingCharacterFacts>` |
 | 16 | One complete-body constructor for enemy/NPC/match | ✔ — all three roads take the blueprint; the seat's three overrides are named |
 | 17 | Resume Group-A/B/C migrations | ▢ (BLOCKED until 2–5 land) |

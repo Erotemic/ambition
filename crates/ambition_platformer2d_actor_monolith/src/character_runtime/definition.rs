@@ -1729,7 +1729,27 @@ fn finalize_character(
         // Carried, not folded: nothing else in the engine can state a body's
         // verbs, so there is no second authority to reconcile with.
         abilities,
-        locomotion,
+        // ⭐ **GRAVITY-FREEDOM IS FOLDED HERE, not asked at construction**
+        // (Jon's redirect §14). `new_character_in` used to answer
+        // `locomotion.flies || catalog.body_kind(id) == Floating` — a
+        // constructor rediscovering what the character is from the catalog, for
+        // a fact preparation had every input to settle. A prepared definition
+        // that still needs the catalog to say whether a body flies is only
+        // partly prepared.
+        //
+        // ⚠ `flies: false` means *"this character did not say"* (see the field's
+        // own doc), which is exactly why the catalog's answer may fill it and
+        // never overrule it.
+        locomotion: locomotion.map(
+            |locomotion| ambition_characters::actor::CharacterLocomotion {
+                flies: locomotion.flies
+                    || matches!(
+                    catalog.and_then(|catalog| catalog.body_kind(&id)),
+                    Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
+                ),
+                ..locomotion
+            },
+        ),
         contact_damage,
         // ⭐ **the NAMED profile, resolved here** — a prepared definition holds a
         // canonical value, never a reference somebody still has to look up

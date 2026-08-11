@@ -426,6 +426,20 @@ pub struct CharacterDefinition {
     /// `None` leaves the archetype's projection in charge, which is every
     /// character that has not migrated.
     pub autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// **The SHARED policy this character names**, resolved out of the catalog's
+    /// `autonomous_profiles` map at preparation into [`Self::autonomous_profile`].
+    ///
+    /// ⭐ **this is what makes a policy reusable** (ledger D80). Carrying a
+    /// profile by value says what ONE character does; naming one says several
+    /// characters fight alike — which is the whole reason `medium_striker`
+    /// exists as a whole-body archetype worn by five goblins, a lab raider and a
+    /// skitter. A named profile lets those five keep their own bodies and share
+    /// the decision-making, which is the Group-B/Group-C split.
+    ///
+    /// ⚠ **an inline [`Self::autonomous_profile`] WINS.** Naming a shared policy
+    /// and then overriding it is a legitimate thing to author, and the more
+    /// specific statement is the one that should stand.
+    pub autonomous_profile_ref: Option<String>,
     /// **This body is a PRACTICE TARGET** — a training dummy, not a
     /// participant.
     ///
@@ -501,6 +515,7 @@ impl CharacterDefinition {
             locomotion: None,
             contact_damage: None,
             autonomous_profile: None,
+            autonomous_profile_ref: None,
             practice_target: false,
             held_item: None,
             mount: None,
@@ -545,6 +560,13 @@ impl CharacterDefinition {
     /// Author the weapon this character carries. See [`Self::held_item`].
     pub fn with_held_item(mut self, id: impl Into<String>) -> Self {
         self.held_item = Some(id.into());
+        self
+    }
+
+    /// Name a SHARED policy out of the catalog. See
+    /// [`Self::autonomous_profile_ref`].
+    pub fn with_autonomous_profile_named(mut self, key: impl Into<String>) -> Self {
+        self.autonomous_profile_ref = Some(key.into());
         self
     }
 
@@ -717,6 +739,9 @@ struct PreparedCharacterOverrides {
     contact_damage: Option<ambition_characters::actor::ContactDamage>,
     /// See [`CharacterDefinition::autonomous_profile`]. Carried.
     autonomous_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// See [`CharacterDefinition::autonomous_profile_ref`]. RESOLVED at
+    /// preparation, so nothing downstream ever sees the name.
+    autonomous_profile_ref: Option<String>,
     /// See [`CharacterDefinition::practice_target`]. Carried.
     practice_target: bool,
     /// See [`CharacterDefinition::held_item`]. Carried.
@@ -1368,6 +1393,7 @@ fn prepare_character(
         locomotion: definition.locomotion,
         contact_damage: definition.contact_damage,
         autonomous_profile: definition.autonomous_profile,
+        autonomous_profile_ref: definition.autonomous_profile_ref.clone(),
         practice_target: definition.practice_target,
         held_item: definition.held_item.clone(),
         dream_seed: definition.dream_seed,
@@ -1461,6 +1487,7 @@ fn finalize_character(
         unresolved,
         held_item,
         practice_target,
+        autonomous_profile_ref,
     } = overrides;
 
     // THE KIT. Three outcomes, and which one a character gets is decided here
@@ -1574,7 +1601,17 @@ fn finalize_character(
         abilities,
         locomotion,
         contact_damage,
-        autonomous_profile,
+        // ⭐ **the NAMED profile, resolved here** — a prepared definition holds a
+        // canonical value, never a reference somebody still has to look up
+        // (ledger D80). An inline profile wins; a name resolves out of the
+        // assembled catalog; a name nobody authored resolves to `None`, which
+        // leaves the archetype projection in charge exactly as authoring
+        // nothing does.
+        autonomous_profile: autonomous_profile.or_else(|| {
+            autonomous_profile_ref
+                .as_deref()
+                .and_then(|key| Some(*catalog?.autonomous_profile(key)?))
+        }),
         practice_target,
         held_item,
         dream_seed,

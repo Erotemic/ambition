@@ -658,7 +658,10 @@ mod tests;
 /// projected data without naming the content archetype enum. Authored
 /// per archetype in `character_archetypes.ron` and projected onto
 /// [`BrainProfile`] at spawn.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+// ⚠ `Serialize` because a `BrainProfile` carrying one is now authorable in the
+// character catalog, and `CharacterCatalogData` round-trips through serde for
+// the content pack. Deserialize alone would have made the new map write-only.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub enum CharacterBrainTemplate {
     /// No motion / no AI — the actor only reacts to events (sandbag's
     /// PunchWeak counter, dialogue-only NPCs that become hostile).

@@ -73,7 +73,7 @@ fn default_attacks_player() -> bool {
 /// Reusable across characters by design: several distinct bodies may name the
 /// same profile, and the same body may be driven by a different one in a
 /// different context. Nothing here says what the body can physically do.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct BrainProfile {
     /// Which motion / decision policy the brain instantiates.

@@ -84,6 +84,7 @@ impl CharacterCatalog {
     /// Every lookup returns `None`.
     pub fn empty() -> Self {
         Self(CharacterCatalogData {
+            autonomous_profiles: Default::default(),
             brain_presets: Default::default(),
             action_set_presets: Default::default(),
             characters: Default::default(),
@@ -325,6 +326,15 @@ impl CharacterCatalog {
     /// the shared editable tuning. The axis analogue of [`momentum_params`].
     ///
     /// [`momentum_params`]: Self::momentum_params
+    /// **A named autonomous profile**, or `None` for a key nobody authored.
+    ///
+    /// The reusable-policy half of the three authorities: several characters
+    /// name one profile, and the profile says nothing about what any of their
+    /// bodies can do. See [`CharacterCatalogData::autonomous_profiles`].
+    pub fn autonomous_profile(&self, key: &str) -> Option<&crate::brain::BrainProfile> {
+        self.data().autonomous_profiles.get(key)
+    }
+
     pub fn axis_tuning(
         &self,
         character_id: &str,

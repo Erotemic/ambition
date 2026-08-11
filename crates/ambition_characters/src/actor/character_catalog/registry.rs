@@ -260,6 +260,7 @@ impl CharacterCatalogRegistry {
     }
 
     pub fn assemble(&self) -> Result<AssembledCharacterCatalog, CharacterCatalogAssemblyError> {
+        let mut autonomous_profiles = BTreeMap::new();
         let mut brain_presets = BTreeMap::new();
         let mut action_set_presets = BTreeMap::new();
         let mut characters = BTreeMap::new();
@@ -280,6 +281,11 @@ impl CharacterCatalogRegistry {
                 .map(|name| (name.clone(), namespaced(provider_id, name)))
                 .collect();
 
+            // Namespaced like every other preset map: a name is local to the
+            // provider that authored it, so two games may both say "striker".
+            for (local_name, profile) in &fragment.catalog.autonomous_profiles {
+                autonomous_profiles.insert(namespaced(provider_id, local_name), *profile);
+            }
             for (local_name, preset) in &fragment.catalog.brain_presets {
                 brain_presets.insert(brain_names[local_name].clone(), preset.clone());
             }
@@ -314,6 +320,7 @@ impl CharacterCatalogRegistry {
         }
 
         let catalog = CharacterCatalog::from_data(CharacterCatalogData {
+            autonomous_profiles,
             brain_presets,
             action_set_presets,
             characters,

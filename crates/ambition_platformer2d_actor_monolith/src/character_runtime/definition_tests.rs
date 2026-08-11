@@ -414,6 +414,10 @@ fn a_definition_carries_no_controller_binding() {
         // character may say what it does when nobody is driving it, and may not
         // say who is driving it now.
         autonomous_profile: _,
+        // The same authority by NAME instead of by value — a shared policy
+        // several characters point at. Still a character fact: it says what this
+        // creature does when nobody drives it, not who is driving it.
+        autonomous_profile_ref: _,
         // The weapon the creature carries — an intrinsic like the sheet, not a
         // controller fact: a possessed raider is still holding a gun-sword.
         // A training dummy is a fact about the creature, not about who is
@@ -800,4 +804,106 @@ fn the_cast_generation_advances_on_every_published_change() {
         registry.generation() > after_first,
         "a replaced cast reported the same generation as the one it replaced"
     );
+}
+
+/// **SEVERAL BODIES, ONE POLICY — which is the sentence Group B and Group C
+/// were missing.** (ledger D80)
+///
+/// A character could carry a `BrainProfile` by VALUE, or name a catalog
+/// `BrainPreset` by key — two vocabularies read by two different roads, so
+/// "these five creatures fight alike" was expressible for the NPC road and not
+/// for the enemy road. That is why `medium_striker` exists as a whole-BODY
+/// archetype worn by five goblins, a lab raider and a skitter: sharing the
+/// decision-making meant sharing the body too.
+///
+/// ⚠ the fixture gives the two characters DIFFERENT bodies and the same policy,
+/// because that combination is the thing that could not be said before.
+#[test]
+fn two_characters_can_name_one_shared_policy() {
+    use ambition_characters::actor::character_catalog::CharacterCatalog;
+    use ambition_characters::brain::CharacterBrainTemplate;
+
+    const CATALOG: &str = r#"(
+        autonomous_profiles: {
+            "striker": (
+                template: Skirmisher,
+                aggro_radius: 620.0,
+                attack_range: 96.0,
+                patrol_effort: 0.44,
+            ),
+        },
+        brain_presets: {},
+        action_set_presets: {},
+        characters: {},
+    )"#;
+    let catalog = CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(CATALOG),
+    );
+
+    let named = |id: &str, run_speed: f32| {
+        crate::character_runtime::prepare_and_finalize_against_for_test(
+            CharacterDefinition::new(id, id, "test")
+                .with_locomotion(ambition_characters::actor::CharacterLocomotion {
+                    run_speed,
+                    ..Default::default()
+                })
+                .with_autonomous_profile_named("striker"),
+            &CharacterBindings::default(),
+            Some(&catalog),
+        )
+        .prepared
+    };
+    let goblin = named("goblin", 120.0);
+    let skitter = named("skitter", 260.0);
+
+    for prepared in [&goblin, &skitter] {
+        let profile = prepared
+            .autonomous_profile
+            .expect("the NAMED policy resolved into a value at preparation");
+        assert_eq!(profile.template, CharacterBrainTemplate::Skirmisher);
+        assert_eq!(profile.aggro_radius, 620.0);
+        assert_eq!(
+            profile.patrol_effort, 0.44,
+            "the shared amble, as a fraction of each body's own top speed"
+        );
+    }
+    assert_ne!(
+        goblin.locomotion.map(|l| l.run_speed),
+        skitter.locomotion.map(|l| l.run_speed),
+        "two DIFFERENT bodies sharing one policy is the case that could not be \
+         expressed before — a fixture where they matched would prove nothing"
+    );
+
+    // **An inline profile WINS**, or naming a shared policy could never be
+    // specialized.
+    let override_profile = ambition_characters::brain::BrainProfile {
+        template: CharacterBrainTemplate::StandStill,
+        ..Default::default()
+    };
+    let overridden = crate::character_runtime::prepare_and_finalize_against_for_test(
+        CharacterDefinition::new("statue", "Statue", "test")
+            .with_autonomous_profile_named("striker")
+            .with_autonomous_profile(override_profile),
+        &CharacterBindings::default(),
+        Some(&catalog),
+    )
+    .prepared;
+    assert_eq!(
+        overridden
+            .autonomous_profile
+            .expect("the inline profile")
+            .template,
+        CharacterBrainTemplate::StandStill,
+    );
+
+    // **A name nobody authored is silence, not a wrong answer** — the same
+    // meaning authoring nothing has, so the archetype projection stays in charge.
+    let unknown = crate::character_runtime::prepare_and_finalize_against_for_test(
+        CharacterDefinition::new("ghost", "Ghost", "test")
+            .with_autonomous_profile_named("no_such_policy"),
+        &CharacterBindings::default(),
+        Some(&catalog),
+    )
+    .prepared;
+    assert!(unknown.autonomous_profile.is_none());
 }

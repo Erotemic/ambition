@@ -931,6 +931,29 @@ pub struct ActionSetPreset {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct CharacterCatalogData {
+    /// **Reusable autonomous-controller profiles, by name** — the second of the
+    /// three authorities (`docs/planning/overnight-campaign-2026-08-11.md`),
+    /// authored once and NAMED by any number of characters.
+    ///
+    /// ⭐ **the missing sentence that gated Group B and Group C** (ledger D80). A
+    /// character could carry a [`crate::brain::BrainProfile`] by VALUE
+    /// (`CharacterDefinition::autonomous_profile`) or name a [`BrainPreset`] by
+    /// key — and those are different vocabularies read by different roads, so
+    /// "several bodies share one policy" was expressible for the NPC road and
+    /// not for the enemy road. That is why `medium_striker` exists as a
+    /// whole-body ARCHETYPE worn by five goblins, a lab raider and a skitter.
+    ///
+    /// ⚠ deliberately NOT [`BrainPreset`], and the difference is the point: a
+    /// preset authors ABSOLUTE speeds (`chase_speed`, `cruise_speed`) while a
+    /// profile authors normalized EFFORT against the body's own `run_speed`
+    /// (§4.7). Merging the two vocabularies needs the BODY, which a preset does
+    /// not know; this map sidesteps that by being the profile vocabulary from
+    /// the start. The presets are untouched.
+    ///
+    /// ⚠ namespaced per provider on assembly, exactly like the presets beside
+    /// it, so two games may both author a `"striker"` without colliding.
+    #[serde(default)]
+    pub autonomous_profiles: BTreeMap<String, crate::brain::BrainProfile>,
     pub brain_presets: BTreeMap<String, BrainPreset>,
     pub action_set_presets: BTreeMap<String, ActionSetPreset>,
     pub characters: BTreeMap<String, CharacterCatalogEntry>,

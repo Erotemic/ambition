@@ -218,6 +218,8 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     "npc_ai_slop",
     // The first MOUNT to become a character (ADR 0020).
     "npc_burning_flying_shark",
+    // The second, and the first body that authors "I never hunt anybody".
+    "npc_giant_gnu",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -538,6 +540,52 @@ pub fn authored_intrinsics(
             definition.vitals.mass = Some(6.0);
             definition
         }
+        // **The carried giant (ADR 0020).** A brainless, stationary MOUNT whose
+        // RIDER is the threat — GNU-ton, who stays a boss and is not touched
+        // here.
+        //
+        // ⭐ **the first migrated body that authors `attacks_player: false`**,
+        // and it could not have migrated a day earlier: the character-first
+        // constructor wrote that flag as the literal `true`, so a migrated giant
+        // would have started hunting the player it exists to carry. The row's
+        // hostility half is controller policy and now says so.
+        //
+        // ⚠ `default_size` does NOT come across, and the placement is why: the
+        // sandbox's giant is authored as a 220x220 LDtk box, exactly the
+        // envelope the row was restating, so the size survives without a second
+        // authority stating it. Its `respawn: OnRoomReenter` moves to the
+        // placement, where a respawn policy belongs.
+        "npc_giant_gnu" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    // Grounded heavy locomotion, inert while StandStill — the
+                    // correct gait for a lumbering giant if ever steered.
+                    run_speed: 0.0,
+                    move_style: MoveStyleSpec::WalkHeavy,
+                    ..Default::default()
+                })
+                .with_mount(ambition_characters::actor::CharacterMount {
+                    class: Some("giant".to_string()),
+                    ..Default::default()
+                })
+                .with_autonomous_profile(BrainProfile {
+                    template: CharacterBrainTemplate::StandStill,
+                    aggro_radius: 0.0,
+                    attack_range: 0.0,
+                    // It never seeks and never strikes. The scholar on its
+                    // shoulders does both.
+                    attacks_player: false,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(42);
+            // Far heavier than the scholar riding it, so the mount pair's centre
+            // of gravity sits on the giant and the lighter rider orbits it under
+            // a gravity flip.
+            definition.vitals.mass = Some(8.0);
+            // No `contact_damage`: a prop-like mount does no damage by being
+            // stood next to, which is what `body_contact_damage: false` said.
+            definition
+        }
         _ => definition,
     }
 }
@@ -675,6 +723,63 @@ mod tests {
     /// standing. This is the other half: the file must not still describe a
     /// creature its character now describes.
     #[test]
+    /// **The giant carries its own facts now** — every one its archetype row
+    /// states, authored on the definition.
+    ///
+    /// ⛔ **and its row is NOT deleted yet, which is a measured blocker and not
+    /// a half-finished migration.** The construction PLANNER decides which
+    /// enemies lower into a host + two driven hands by asking
+    /// `spec_is_limbed_host(roster.spec_for_brain(brain))` — a roster lookup, at
+    /// three sites that hold a placement and no prepared character registry.
+    /// Deleting the row makes every giant a handless host (measured: 18 red
+    /// tests, `left: 1, right: 3` — "host + two hands"). The deletion needs the
+    /// limbed-host predicate to read the CHARACTER's mount class, which is its
+    /// own slice.
+    ///
+    /// ⭐ the two facts that could not have been authored before this campaign:
+    /// `attacks_player: false` (a mount whose RIDER is the threat) and a
+    /// `run_speed` of exactly zero (a body that stands still, which the
+    /// constructor used to read as "said nothing" and answer with a sprinter's
+    /// top speed).
+    #[test]
+    fn the_giant_gnu_authors_the_mount_its_archetype_row_used_to() {
+        use ambition_characters::brain::{CharacterBrainTemplate, MoveStyleSpec};
+
+        let definition = authored_intrinsics(
+            "npc_giant_gnu",
+            ambition_platformer2d_actor_monolith::character_runtime::CharacterDefinition::new(
+                "npc_giant_gnu",
+                "Giant GNU",
+                crate::AMBITION_CONTENT_PROVIDER,
+            ),
+        );
+        assert_eq!(definition.vitals.max_health, Some(42));
+        assert_eq!(
+            definition.vitals.mass,
+            Some(8.0),
+            "the mount pair's centre of gravity sits on the giant"
+        );
+        let locomotion = definition.locomotion.expect("it states its gait");
+        assert_eq!(locomotion.run_speed, 0.0, "stationary, and it SAYS so");
+        assert!(matches!(locomotion.move_style, MoveStyleSpec::WalkHeavy));
+        assert!(
+            definition.contact_damage.is_none(),
+            "standing next to a prop does not hurt"
+        );
+        let mount = definition.mount.expect("it is a mount");
+        assert_eq!(mount.class.as_deref(), Some("giant"));
+        assert!(
+            mount.pilotable_classes.is_empty(),
+            "the giant rides nothing"
+        );
+        let profile = definition.autonomous_profile.expect("its policy");
+        assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
+        assert!(
+            !profile.attacks_player,
+            "the scholar on its shoulders is the threat, not the giant"
+        );
+    }
+
     fn the_migrated_characters_rows_are_gone_from_the_archetype_file() {
         let rows = include_str!("../assets/data/character_archetypes.ron");
         for key in [

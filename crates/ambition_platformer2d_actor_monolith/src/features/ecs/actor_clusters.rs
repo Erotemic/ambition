@@ -788,10 +788,17 @@ impl ActorClusterSeed {
         // ⭐ **THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE.** A fighter
         // default otherwise: the stage has to give a body that has never said
         // how fast it is SOMETHING, and a match is the one place that may.
+        // ⛔ **an authored `0.0` is a SPEED, not a silence.** This filtered
+        // zeroes out and fell through to the stage default, which conflates *"I
+        // did not say"* with *"I do not move"* — the same conflation P0.1 exists
+        // to delete, and `CharacterLocomotion::run_speed`'s own doc says a zero
+        // is meant to stand still visibly. The giant GNU is the case: a
+        // stationary mount that authors 0.0 would have been handed a sprinter's
+        // top speed. Only an ABSENT locomotion block takes the default.
         let run_speed = locomotion
-            .map(|locomotion| locomotion.run_speed)
-            .filter(|speed| *speed > 0.0)
-            .unwrap_or(ambition_platformer2d_core::MAX_RUN_SPEED);
+            .map_or(ambition_platformer2d_core::MAX_RUN_SPEED, |locomotion| {
+                locomotion.run_speed
+            });
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
             max_health,
             // ⭐ **the PROFILE's pacing against the BODY's top speed** — §4.7's
@@ -1251,6 +1258,27 @@ mod tests {
         assert!(
             !seed.config.tuning.attacks_player,
             "a mount whose rider is the threat still hunted the player"
+        );
+
+        // **An authored ZERO is a speed.** A stationary mount that says so must
+        // not be handed the stage's sprinter default.
+        let still = ActorClusterSeed::new_character_in(
+            &authored,
+            &catalog,
+            "gnu",
+            "giant_gnu",
+            "Giant GNU",
+            ae::aabb_from_min_size(ae::Vec2::ZERO, ae::Vec2::new(40.0, 40.0)),
+            42,
+            profile,
+            ambition_entity_catalog::placements::CharacterBrain::Custom("idle".to_string()),
+            Some(ambition_characters::actor::CharacterLocomotion::default()),
+            None,
+            None,
+        );
+        assert_eq!(
+            still.config.tuning.max_run_speed, 0.0,
+            "a body that authored 0.0 was given the stage default instead"
         );
     }
 

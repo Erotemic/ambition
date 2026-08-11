@@ -48,16 +48,24 @@ fn the_shipped_archetypes_state_their_aerial_answer_explicitly() {
 
     // ⚠ the floor: if nothing authors the key, `Some`/`None` is untested by the
     // shipped content and this file is asserting against an empty set.
-    assert_eq!(
-        decided.len(),
-        4,
-        "the four archetypes that author `is_aerial` are the fixture this test \
-         rests on; got {decided:?}"
+    //
+    // ⛔ **this said `decided.len() == 4` and `flying.len() == 2`, and those
+    // numbers were wrong within a week.** The D73 migration moves creatures OFF
+    // this file one at a time — the sky parrot and the burning flying shark were
+    // two of the four, and both now state `flies` on their character
+    // definitions, which is where the fact belongs. A census of a file that is
+    // deliberately shrinking to nothing is not a property; it is a countdown,
+    // and it fails for the exact reason the campaign is succeeding. What this
+    // test is FOR is that `Some(false)` and `None` are distinguishable in
+    // shipped content, so that is what it asserts.
+    assert!(
+        !decided.is_empty(),
+        "no shipped archetype authors `is_aerial` at all, so `Some` is \
+         unreachable from content and this file tests nothing"
     );
-    assert_eq!(
-        flying.len(),
-        2,
-        "two of the four author flight; got {flying:?}"
+    assert!(
+        flying.len() <= decided.len(),
+        "impossible census: {flying:?} of {decided:?}"
     );
 
     // ⭐ and the distinction that did not exist before: an archetype that says

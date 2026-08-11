@@ -1399,10 +1399,16 @@ pub(crate) fn spawn_enemy_with_faction_into(
         // this file to a migrated enemy; a placement that authors its own cuts
         // it.
         enemy.config.tuning.respawn = authored.payload.respawn.unwrap_or(spec.respawn);
+        // ⛔ **the fallback is the CONSTRUCTED value, not the archetype's.** It
+        // read `spec.attacks_player`, and `spec` for a migrated character is the
+        // generic `combatant` row — which says `true`. So the giant GNU, a mount
+        // whose authored profile states it never seeks anybody, was handed its
+        // hostility back one line after construction resolved it correctly. A
+        // placement may still overrule, which is what a disposition is for.
         enemy.config.tuning.attacks_player = authored
             .payload
             .disposition
-            .map_or(spec.attacks_player, |disposition| {
+            .map_or(enemy.config.tuning.attacks_player, |disposition| {
                 disposition.attacks_player()
             });
         // What this body DOES when it dies, and what it may do — both the

@@ -214,6 +214,8 @@ pub const BUILDABLE_ONLY_CAST: &[&str] = &[
     // the standalone demo still has its roster rows to fall back to.
     "npc_snakes_on_a_paper_plane",
     "npc_snakes_on_a_cartesian_plane",
+    // The Hall's slop, which is also the sandbox's placed enemy.
+    "npc_ai_slop",
     // ⚠ the parrot is NOT here and must not be: `stochastic_parrot` is already
     // on `PLAYABLE_ROSTER`, so it is registered, and listing it twice would
     // register it twice.
@@ -441,6 +443,38 @@ pub fn authored_intrinsics(
                     ..Default::default()
                 });
             definition.vitals.max_health = Some(if paper { 1 } else { 2 });
+            definition
+        }
+        // **The Hall's AI Slop, as a placed enemy.** One spawn in the sandbox,
+        // one archetype row, and the same creature already standing on a Hall
+        // pedestal — which is the ontology this campaign is about: one
+        // character, two contexts.
+        //
+        // ⚠ its catalog row's `default_brain` is `melee_brute_striker`, and that
+        // is NOT what this authors. The catalog default is what a PEACEFUL Hall
+        // NPC of this character does; the profile below is what the placed enemy
+        // does, and they are allowed to differ because the first is a catalog
+        // fact and the second is this character's own default policy.
+        "npc_ai_slop" => {
+            let mut definition = definition
+                .with_locomotion(CharacterLocomotion {
+                    run_speed: 42.0,
+                    move_style: MoveStyleSpec::Walk,
+                    ..Default::default()
+                })
+                .with_contact_damage(ContactDamage {
+                    strength: 0.5,
+                    amount: 1,
+                })
+                .with_autonomous_profile(BrainProfile {
+                    // Walks forward, reverses at walls, notices nobody. Its only
+                    // offense is the body it walks into you with.
+                    template: CharacterBrainTemplate::Wanderer,
+                    aggro_radius: 0.0,
+                    attack_range: 0.0,
+                    ..Default::default()
+                });
+            definition.vitals.max_health = Some(1);
             definition
         }
         _ => definition,

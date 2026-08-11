@@ -351,7 +351,41 @@ pub fn derive_persona_moveset(
     if execution.charges_projectiles() {
         crate::combat::moveset::apply_player_robot_slash_sfx(&mut derived);
     }
-    authored.unwrap_or(derived)
+    let Some(authored) = authored else {
+        return derived;
+    };
+    // ⭐⭐ **AUTHORED MOVES OVERLAY THE BODY'S, they do not REPLACE them.**
+    //
+    // ⛔ this was `authored.unwrap_or(derived)`, and the replacement was silent
+    // and total. It did not matter while only Smash-only identities authored
+    // movesets; it mattered the moment the PROTAGONIST did (Jon's redirect §15),
+    // because the robot's shield and its pogo are host-kit verbs folded into the
+    // derivation, and authoring eleven attack timelines deleted them. Measured:
+    // three `app_it` regressions went red at once, and the first one to say why
+    // was *"the folded special move started this tick"*.
+    //
+    // ⭐ the shape Jon's §18 asks for — *body capabilities + explicit grants −
+    // explicit restrictions* — read one layer down: what a character AUTHORS is
+    // a grant over what its body already had, so the two compose per VERB rather
+    // than one winning outright.
+    //
+    // ⚠ authored wins on collision, in both halves. A character that authors an
+    // `"attack"` move means that swing rather than the derived one; a character
+    // that authors none keeps whatever the body's kit folded.
+    let authored_ids: std::collections::BTreeSet<&str> =
+        authored.moves.iter().map(|mv| mv.id.as_str()).collect();
+    let mut merged = ambition_entity_catalog::MovesetContract {
+        moves: authored.moves.clone(),
+        verbs: derived.verbs,
+    };
+    merged.moves.extend(
+        derived
+            .moves
+            .into_iter()
+            .filter(|mv| !authored_ids.contains(mv.id.as_str())),
+    );
+    merged.verbs.extend(authored.verbs);
+    merged
 }
 
 /// Resolve a playable ActionSet without collapsing an invalid authored row into

@@ -69,6 +69,7 @@ pub mod items;
 #[cfg(feature = "audio")]
 pub mod music;
 pub mod player_robot_lineage;
+pub mod player_robot_moveset;
 pub mod plugin;
 /// Content-owned presentation passes (visible builds; the app adds
 /// [`presentation::AmbitionPresentationPlugin`] beside the renderer's plugins).

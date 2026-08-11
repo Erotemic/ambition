@@ -205,6 +205,32 @@ fn definition_from(
             .with_sprite_authored_body(world_per_pixel)
             .with_hurtboxes(forgiving_hurtbox(body_px * world_per_pixel));
     }
+    // ⭐⭐ **THE CURRENT INCARNATION CARRIES THE MOVES.** (Jon's redirect §15.)
+    //
+    // ⛔ **the protagonist's repertoire was Smash-only until now.** The eleven
+    // authored timelines — jab, three tilts, three smashes, five aerials, with
+    // landing lag and auto-cancel — lived in `ambition_demo_smash` attached to
+    // shadow identities (`smash_duelist_a/b`) wearing Robot art, so the real
+    // robot could not throw any of them and the demo was proving the
+    // architecture on characters nobody plays.
+    //
+    // ⚠ **v3 only, and that is not a shortcut.** v0 and v2 are the bodies the
+    // player USED to be — a lineage the game shows you rather than a roster it
+    // seats — and giving a retired incarnation the current one's frame data
+    // would be inventing content, not migrating it.
+    //
+    // ⚠ the ACTION SET is still the host's (`playable_kit: HostCode`): what the
+    // robot may DO is progression-gated, and what its swings ARE is not. Those
+    // are different questions and this answers only the second.
+    // ⛔⛔ **NOT ATTACHED YET, and the reason is measured** — ledger D82.
+    // Attaching it turned three `app_it` regressions red at once. One was a
+    // composition bug and is fixed (`derive_persona_moveset` replaced the body's
+    // folded kit instead of overlaying it, so the robot lost its bubble shield).
+    // The other is a PRODUCT question: this table's d-air is a Smash spike with
+    // `launch_dir (0, 1)`, and Ambition's down-air is a POGO that bounces the
+    // attacker up off what it hits. Both are the same press and the same
+    // geometry read two ways, which is exactly the mode/ruleset split Jon's §16
+    // describes — and it is not a line of wiring.
     definition.lineage = Some(Lineage {
         derived_from: incarnation.replaces.map(str::to_string),
         // Left `None` deliberately. These are hand-authored incarnations, not

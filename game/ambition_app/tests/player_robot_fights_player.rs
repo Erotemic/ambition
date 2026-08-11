@@ -13,6 +13,8 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_app::AmbitionSim;
+use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use ambition_platformer2d::actors::actor::BodyMelee;
 use ambition_platformer2d::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_platformer2d::actors::combat::components::{ActorDisposition, ActorTarget};
@@ -22,8 +24,6 @@ use ambition_platformer2d::characters::brain::ActorControl;
 use ambition_platformer2d::engine_core as ae;
 use ambition_platformer2d::entity_catalog::placements::CharacterBrain;
 use ambition_platformer2d::projectiles::enemy::EnemyProjectile;
-use ambition_app::AmbitionSim;
-use ambition_app::{AgentAction, Platformer2dSimHarness, TimestepMode};
 use bevy::prelude::World;
 
 const ROBOT_ID: &str = "player_robot_boss";
@@ -80,18 +80,25 @@ fn observe(world: &mut World, player_pos: ae::Vec2, t: &mut Tally) {
 
 #[test]
 fn the_player_robot_fights_the_player_with_its_own_full_kit() {
-    let mut sim =
-        Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+    let mut sim = Platformer2dSimHarness::new_with_timestep(TimestepMode::fixed_60hz())
+        .expect("sandbox sim builds");
 
     // Drop the protagonist's own body a medium stride away — far enough to open
     // with the signature Hadouken, close enough to then melee the human.
     let (p, start_hp) = player(sim.world_mut());
-    sim.spawn_enemy_at(
+    // ⭐ **THE CHARACTER, not the archetype** (ledger D83). This named
+    // `player_robot` — an eighty-line row holding the robot's body, its
+    // controller policy and a respawn rule at once — and got its fight from
+    // there. The body and the policy live on the lineage now, and the kit is
+    // the character's `robot_duelist_kit`, so the fight this test measures is
+    // the one the CHARACTER describes.
+    sim.spawn_enemy_character_at(
         ROBOT_ID,
         "Player",
         (p.x + 200.0, p.y),
         (14.0, 23.0),
         CharacterBrain::Custom("player_robot".to_string()),
+        Some("player_robot_v2"),
     );
 
     let mut t = Tally::default();

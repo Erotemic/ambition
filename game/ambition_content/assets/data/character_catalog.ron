@@ -170,6 +170,23 @@
             ranged: None,
             special: None,
         ),
+        // ⭐ **THE ROBOT'S OWN KIT**, lifted off the `player_robot` archetype
+        // row's combat half (2026-08-11, ledger D83): the snappy player-like
+        // strike and the signature projectile. The row's numbers verbatim — a
+        // migration that retuned on the way would be two changes wearing one
+        // commit.
+        "robot_duelist_kit": (
+            move_style: Walk,
+            melee: Some(Swipe(
+                windup_s: 0.16,
+                active_s: 0.06,
+                recover_s: 0.20,
+                damage: 1,
+                reach_px: 34.0,
+            )),
+            ranged: Some(Rock(speed: 360.0, damage: 1)),
+            special: None,
+        ),
         "brute_lunge": (
             move_style: WalkHeavy,
             melee: Some(Lunge(
@@ -2448,7 +2465,7 @@
             body_kind: Standard,
             composition: None,
             default_brain: "stand_still",
-            default_action_set: "striker_swipe",
+            default_action_set: "robot_duelist_kit",
             tags: ["robot", "player", "former_self", "playable_candidate"],
             authoring_description: "The player robot as it shipped before the SVG rig replaced it. Preserved as a CHARACTER rather than as history: Ambition wants old versions of yourself to be things you can meet, talk to, and fight, so this keeps its own id, its own sheet, and its own pedestal instead of living in a git object. `robot` is v0, the original. There is no v1 -- that is a joke, not a gap.",
             gameplay_description: "Mechanically the protagonist minus everything learned since: the same procedural body and the same generic swipe kit, with none of the current kit's blade presentation. The obvious use is a mirror fight -- a former build that moves the way you used to.",

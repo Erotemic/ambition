@@ -435,10 +435,18 @@ mod tests {
              seats the robot now receives a way to teleport home"
         );
 
-        // ⚠ and a RETIRED incarnation still authors nothing — it is a body the
-        // player used to be, not one anything seats.
+        // ⚠ **a RETIRED incarnation shares the VERBS and not the MOVES**, and
+        // the split is the point: v0, v2 and v3 are one robot at three ages, so
+        // what its body can do is the lineage's — the duel arena fields v2 and
+        // it has to blink and dash like the robot it is. The current frame data
+        // is v3's alone, because handing a retired incarnation today's timings
+        // would be inventing content rather than migrating it.
         let v2 = crate::player_robot_lineage::definition(&crate::player_robot_lineage::V2);
-        assert!(v2.abilities.is_none());
+        assert!(
+            v2.abilities.is_some_and(|verbs| verbs.blink && verbs.dash),
+            "the exhibition robot lost the verbs its archetype row granted it"
+        );
+        assert!(v2.moveset.is_none(), "v2 was handed v3's frame data");
     }
 
     /// **The repertoire is a SMASH table, and it says so in its d-air.**

@@ -387,6 +387,11 @@ pub struct MovementTuning {
     pub air_dodge_speed: f32,
     #[serde(default)]
     pub air_dodge_endlag: f32,
+    /// **The launch speed at which a hit sends this body into TUMBLE**, px/s.
+    /// `0.0` (the default) = this body never tumbles and never gets knocked
+    /// down, which is every body until one authors a fighter's floor game.
+    #[serde(default)]
+    pub tumble_speed: f32,
     pub parry_window_time: f32,
     /// Momentum-carry parameters for ledge getups. Set to
     /// `LedgeMomentumTuning::OFF` to disable the mechanic.
@@ -612,6 +617,9 @@ pub struct TraversalAbilityTuning {
     pub air_dodge_speed: f32,
     #[serde(default)]
     pub air_dodge_endlag: f32,
+    /// See [`TraversalAbilityTuning::tumble_speed`].
+    #[serde(default)]
+    pub tumble_speed: f32,
     pub parry_window_time: f32,
     #[serde(default)]
     pub ledge_momentum: LedgeMomentumTuning,
@@ -728,6 +736,7 @@ impl MovementTuning {
                 air_dodge_time: self.air_dodge_time,
                 air_dodge_speed: self.air_dodge_speed,
                 air_dodge_endlag: self.air_dodge_endlag,
+                tumble_speed: self.tumble_speed,
                 parry_window_time: self.parry_window_time,
                 ledge_momentum: self.ledge_momentum,
             },
@@ -816,6 +825,9 @@ pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     air_dodge_time: 0.0,
     air_dodge_speed: AIR_DODGE_SPEED,
     air_dodge_endlag: AIR_DODGE_ENDLAG,
+    // ⛔ zero for the same reason the air dodge is: a wandering enemy that got
+    // knocked down and had to stand up would be a different game.
+    tumble_speed: 0.0,
     parry_window_time: PARRY_WINDOW_TIME,
     ledge_momentum: LedgeMomentumTuning::DEFAULT,
 };

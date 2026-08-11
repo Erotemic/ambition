@@ -26,6 +26,18 @@ pub enum MovementOp {
     /// so a listener (animation, fx, a causal trace) can tell a body that rolled
     /// along the floor from one that spent its airtime.
     AirDodge,
+    /// Launched into tumble — helpless until it decays or the floor decides.
+    Tumble,
+    /// A teched landing: the knockdown refused.
+    Tech,
+    /// Landed while tumbling without teching — prone.
+    Knockdown,
+    /// Stood up from a knockdown (by choice or by timeout).
+    Getup,
+    /// Rolled out of a knockdown.
+    GetupRoll,
+    /// Stood up swinging. The kernel publishes the option; combat answers it.
+    GetupAttack,
     FlyToggle,
     Blink,
     PrecisionBlink,
@@ -69,6 +81,12 @@ impl MovementOp {
             MovementOp::DoubleDash => "DD",
             MovementOp::DodgeRoll => "DR",
             MovementOp::AirDodge => "AD",
+            MovementOp::Tumble => "TB",
+            MovementOp::Tech => "TC",
+            MovementOp::Knockdown => "KD",
+            MovementOp::Getup => "GU",
+            MovementOp::GetupRoll => "GR",
+            MovementOp::GetupAttack => "GA",
             MovementOp::FlyToggle => "F",
             MovementOp::Blink => "B",
             MovementOp::PrecisionBlink => "PB",
@@ -101,6 +119,12 @@ impl MovementOp {
             MovementOp::DoubleDash => "double dash",
             MovementOp::DodgeRoll => "dodge roll",
             MovementOp::AirDodge => "air dodge",
+            MovementOp::Tumble => "tumble",
+            MovementOp::Tech => "tech",
+            MovementOp::Knockdown => "knockdown",
+            MovementOp::Getup => "getup",
+            MovementOp::GetupRoll => "getup roll",
+            MovementOp::GetupAttack => "getup attack",
             MovementOp::FlyToggle => "fly toggle",
             MovementOp::Blink => "blink",
             MovementOp::PrecisionBlink => "precision blink",

@@ -43,6 +43,12 @@ pub struct BodyMotionFacts {
     /// committed and no longer invulnerable. Presentation and AI read this;
     /// [`Self::evading`] deliberately does NOT include it.
     pub air_dodge_endlag: bool,
+    /// Launched and helpless — see [`crate::movement::knockdown`].
+    pub tumbling: bool,
+    /// Prone on the floor with getup options open.
+    pub knocked_down: bool,
+    /// Tech/getup invulnerability is running.
+    pub getup_invulnerable: bool,
     /// The blink telegraph is showing (precision aim or charge hold).
     pub blink_telegraph: bool,
     /// Precision blink aim specifically (drives the aim preview).
@@ -71,7 +77,7 @@ impl BodyMotionFacts {
     /// five emit sites and miss the sixth. Adding an evade means extending this
     /// method, not auditing every caller of `body_vulnerable`.
     pub fn evading(&self) -> bool {
-        self.dodge_rolling || self.air_dodging
+        self.dodge_rolling || self.air_dodging || self.getup_invulnerable
     }
 
     /// Project the active policy's semantic facts. Non-axis policies have no
@@ -86,6 +92,9 @@ impl BodyMotionFacts {
             dodge_rolling: state.dodge_roll_timer > 0.0,
             air_dodging: state.air_dodge_timer > 0.0,
             air_dodge_endlag: state.air_dodge_endlag_timer > 0.0,
+            tumbling: state.tumble_until_landing,
+            knocked_down: state.knockdown_timer > 0.0,
+            getup_invulnerable: state.getup_invuln_timer > 0.0,
             blink_telegraph: state.blink_aiming || state.blink_hold_active,
             blink_aiming: state.blink_aiming,
             blink_aim_offset: state.blink_aim_offset,

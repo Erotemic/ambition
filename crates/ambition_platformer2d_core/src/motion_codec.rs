@@ -147,6 +147,13 @@ fn put_axis_maneuver_state(out: &mut Vec<u8>, state: &crate::AxisManeuverState) 
     put_f32(out, state.dodge_roll_timer);
     put_f32(out, state.air_dodge_timer);
     put_f32(out, state.air_dodge_endlag_timer);
+    put_f32(out, state.tumble_timer);
+    put_bool(out, state.tumble_until_landing);
+    put_bool(out, state.tumble_unannounced);
+    put_f32(out, state.tech_press_timer);
+    put_f32(out, state.tech_lockout_timer);
+    put_f32(out, state.knockdown_timer);
+    put_f32(out, state.getup_invuln_timer);
     put_ledge_grab(out, &state.ledge_grab);
     put_bool(out, state.gliding);
     put_bool(out, state.fast_falling);
@@ -178,6 +185,13 @@ fn axis_maneuver_state(r: &mut Reader<'_>) -> Option<crate::AxisManeuverState> {
         dodge_roll_timer: r.f32()?,
         air_dodge_timer: r.f32()?,
         air_dodge_endlag_timer: r.f32()?,
+        tumble_timer: r.f32()?,
+        tumble_until_landing: r.bool()?,
+        tumble_unannounced: r.bool()?,
+        tech_press_timer: r.f32()?,
+        tech_lockout_timer: r.f32()?,
+        knockdown_timer: r.f32()?,
+        getup_invuln_timer: r.f32()?,
         ledge_grab: ledge_grab(r)?,
         gliding: r.bool()?,
         fast_falling: r.bool()?,
@@ -346,6 +360,7 @@ fn put_axis_swept_params(out: &mut Vec<u8>, p: &crate::AxisSweptParams) {
     put_f32(out, a.air_dodge_time);
     put_f32(out, a.air_dodge_speed);
     put_f32(out, a.air_dodge_endlag);
+    put_f32(out, a.tumble_speed);
     put_f32(out, a.parry_window_time);
     put_f32(out, a.ledge_momentum.window);
     put_f32(out, a.ledge_momentum.x_gain);
@@ -421,6 +436,7 @@ fn axis_swept_params(r: &mut Reader<'_>) -> Option<crate::AxisSweptParams> {
             air_dodge_time: r.f32()?,
             air_dodge_speed: r.f32()?,
             air_dodge_endlag: r.f32()?,
+            tumble_speed: r.f32()?,
             parry_window_time: r.f32()?,
             ledge_momentum: LedgeMomentumTuning {
                 window: r.f32()?,

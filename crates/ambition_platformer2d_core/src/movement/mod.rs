@@ -33,6 +33,7 @@ mod facts;
 mod input;
 mod integration;
 mod kernel;
+pub mod knockdown;
 mod model;
 mod ops;
 mod player;
@@ -121,6 +122,32 @@ pub(crate) fn update_body_control_in_frame(
         events.reset = Some(ResetCause::Requested);
         return events;
     }
+
+    // **The floor game, first.** Tumble / knockdown / tech / getup resolve
+    // before any maneuver, because a helpless or prone body is not choosing
+    // anything.
+    //
+    // ⛔ **in the CONTROL phase, and that placement was measured.** It first sat
+    // in the simulation phase, one phase too late: the control phase had already
+    // read the same press, so a tech attempt mid-tumble came out as an AIR DASH
+    // that zeroed the launch's velocity and stalled the body in mid-air, and a
+    // buffered dash fired a dodge roll on the very tick the body was knocked
+    // down (`[DodgeRoll, Knockdown]`, measured). A state that takes the
+    // controller away has to take it away where the controller is read.
+    //
+    // ⚠ it does NOT short-circuit the step: a knocked-down body still
+    // integrates, still resolves contacts, and still falls if the floor under it
+    // is removed. It loses its input, not its physics.
+    let input = knockdown::tick_knockdown(
+        clusters.kinematics,
+        state,
+        clusters.ground,
+        clusters.combo_trace,
+        input,
+        control_dt,
+        frame,
+        &mut events,
+    );
 
     abilities::apply_intent(
         clusters.kinematics,
@@ -330,6 +357,14 @@ fn update_body_simulation_inner(
             );
         }
     }
+
+    // The floor game already ran in the control phase; the simulation half only
+    // has to agree about who is holding the controller.
+    let input = if knockdown::owns_control(state) {
+        InputState::default()
+    } else {
+        input
+    };
 
     // Active ledge-grab tick. Returns true if it consumed the frame
     // (the rest of the simulation phase short-circuits).

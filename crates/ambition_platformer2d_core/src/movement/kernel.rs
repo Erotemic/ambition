@@ -235,8 +235,16 @@ fn accept_external_launch(
         // redundant: it makes the launch channel the single story for every
         // model, so a reader does not have to know which arm secretly relies on
         // a second write somewhere else.
-        MotionModel::AxisSwept(_) => {
+        MotionModel::AxisSwept(axis) => {
             clusters.kinematics.vel = launch;
+            // ⭐ **and the floor game starts HERE, for the same reason the drain
+            // is here.** "Was this launch big enough to send the body tumbling"
+            // is a question only the model can answer — the threshold is authored
+            // per body, and maneuver state is model-private (ADR 0024) — and the
+            // reaction that resolved the knockback holds neither. Asking it at
+            // the one gateway every launch already passes through is what keeps
+            // it from being a follow-up call some caller forgets.
+            super::knockdown::launch_into_tumble(&mut axis.state, axis.params, launch.length());
         }
         MotionModel::SurfaceMomentum(momentum) => {
             let mut body = SurfaceBody {

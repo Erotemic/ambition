@@ -126,6 +126,34 @@ pub struct AxisManeuverState {
     pub air_dodge_timer: f32,
     /// Endlag after an air dodge: control is back, the evade is not.
     pub air_dodge_endlag_timer: f32,
+    /// **Tumble, the helpless part**: launched with no control at all, scaled by
+    /// how hard the launch was. See [`super::knockdown`].
+    pub tumble_timer: f32,
+    /// **Tumble, the part that outlives the helplessness**: this body is still
+    /// falling out of a launch, so its next landing is a knockdown unless it is
+    /// teched.
+    ///
+    /// ⚠ two fields because they are two facts. Ultimate's tumble works exactly
+    /// this way — control comes back before the tumble does, and you either act
+    /// out of it or you hit the floor — and a single timer models neither: too
+    /// short and a launch that peaks high lands on its feet as if nothing
+    /// happened, too long and the body is helpless for the whole arc.
+    pub tumble_until_landing: bool,
+    /// **A launch began a tumble and the frame has not reported it yet.**
+    ///
+    /// ⚠ real rollback state, not a memo: the launch arrives at the kernel's
+    /// drain (before the step) while the op channel for that tick does not exist
+    /// until the step runs, so the announcement has to survive the gap. A
+    /// resimulation that replays the launch replays this with it.
+    pub tumble_unannounced: bool,
+    /// A live tech press, waiting for a surface. Expires into a lockout.
+    pub tech_press_timer: f32,
+    /// No teching until this runs out — the cost of a mistimed one.
+    pub tech_lockout_timer: f32,
+    /// **Knockdown**: prone on the floor, with getup options.
+    pub knockdown_timer: f32,
+    /// Invulnerability from a tech or a getup.
+    pub getup_invuln_timer: f32,
     pub ledge_grab: Option<crate::LedgeGrabState>,
     pub gliding: bool,
     pub fast_falling: bool,
@@ -159,6 +187,13 @@ impl Default for AxisManeuverState {
             dodge_roll_timer: 0.0,
             air_dodge_timer: 0.0,
             air_dodge_endlag_timer: 0.0,
+            tumble_timer: 0.0,
+            tumble_until_landing: false,
+            tumble_unannounced: false,
+            tech_press_timer: 0.0,
+            tech_lockout_timer: 0.0,
+            knockdown_timer: 0.0,
+            getup_invuln_timer: 0.0,
             ledge_grab: None,
             gliding: false,
             fast_falling: false,

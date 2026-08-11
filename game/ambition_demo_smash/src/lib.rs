@@ -1885,6 +1885,14 @@ fn install_smash_content(app: &mut bevy::prelude::App) {
                 air_dodge_time: ambition_platformer2d::engine_core::AIR_DODGE_TIME,
                 air_dodge_speed: ambition_platformer2d::engine_core::AIR_DODGE_SPEED,
                 air_dodge_endlag: ambition_platformer2d::engine_core::AIR_DODGE_ENDLAG,
+                // **THE FLOOR GAME.** Above this launch speed a hit sends the
+                // body tumbling, and the landing that follows is a knockdown
+                // unless it is teched. 500 px/s sits above a jab's shove and
+                // below a smash's launch, so the state a player enters is the
+                // one a player earned — the engine default is 0.0 (no floor
+                // game), because a wandering enemy that had to stand up after
+                // every hit would be a different game for the exploration side.
+                tumble_speed: 500.0,
                 ..ambition_platformer2d::engine_core::DEFAULT_TUNING
             });
             // **WHAT THIS FIGHTER'S BODY CAN DO — authored on the CHARACTER,

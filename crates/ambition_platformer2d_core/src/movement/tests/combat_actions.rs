@@ -451,3 +451,232 @@ fn a_body_without_an_authored_window_has_no_air_dodge() {
         events.operations
     );
 }
+
+// ── The floor game: tumble / knockdown / tech / getup ───────────────────────
+//
+// A body used to fly, land, and be running again in the same tick, so a big hit
+// and a small one differed only in distance. These pin the four states and the
+// two ways out of the last one.
+
+use crate::movement::knockdown;
+
+fn floor_game_tuning() -> crate::test_support::TestTuning {
+    let mut tuning = crate::test_support::TEST_TUNING;
+    tuning.tumble_speed = 420.0;
+    tuning
+}
+
+fn step_fighter(
+    world: &crate::World,
+    scratch: &mut BodyClusterScratch,
+    input: InputState,
+) -> FrameEvents {
+    crate::test_support::update_player_with_tuning_scratch(
+        world,
+        scratch,
+        input,
+        1.0 / 60.0,
+        floor_game_tuning(),
+    )
+}
+
+/// Launch the body the way a real knockback does — through the ONE channel the
+/// kernel drains, never by writing the timer, because "was that big enough to
+/// tumble" is the kernel's question to answer.
+fn launch(world: &crate::World, scratch: &mut BodyClusterScratch, speed: f32) -> FrameEvents {
+    scratch.kinematics.pos.y = world.size.y - 400.0;
+    scratch.ground.on_ground = false;
+    scratch.flight.pending_launch = Vec2::new(speed * 0.6, -speed * 0.8);
+    step_fighter(world, scratch, InputState::default())
+}
+
+/// **A small hit is not a tumble.** The threshold is the whole reason a heavy
+/// hit reads as heavy, so a launch under it must leave the body in ordinary
+/// control — and a body that authors no threshold never tumbles at all.
+#[test]
+fn only_a_launch_over_the_authored_threshold_tumbles() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    let events = launch(&world, &mut scratch, 200.0);
+    assert!(!events.operations.contains(&MovementOp::Tumble));
+    assert_eq!(scratch.axis().tumble_timer, 0.0, "under the threshold");
+
+    let mut scratch = scratch_at(world.spawn);
+    let events = launch(&world, &mut scratch, 900.0);
+    assert!(
+        events.operations.contains(&MovementOp::Tumble),
+        "over it, got {:?}",
+        events.operations
+    );
+    assert!(scratch.axis().tumble_timer > 0.0);
+
+    // The same launch on a body whose tuning says nothing: no floor game.
+    let mut scratch = scratch_at(world.spawn);
+    scratch.kinematics.pos.y = world.size.y - 400.0;
+    scratch.ground.on_ground = false;
+    scratch.flight.pending_launch = Vec2::new(540.0, -720.0);
+    let events = step_scratch(&world, &mut scratch, InputState::default());
+    assert!(
+        !events.operations.contains(&MovementOp::Tumble),
+        "an unauthored body keeps the movement it had"
+    );
+}
+
+/// **Landing while tumbling is a knockdown, and the prone body has no control.**
+/// Without this a launch is just a shove: nothing to punish, nothing to escape.
+#[test]
+fn a_tumbling_body_that_lands_is_knocked_down_and_stands_up_on_its_own() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    launch(&world, &mut scratch, 900.0);
+    // Fall to the floor.
+    let mut knocked = false;
+    for _ in 0..200 {
+        let events = step_fighter(&world, &mut scratch, InputState::default());
+        if events.operations.contains(&MovementOp::Knockdown) {
+            knocked = true;
+            break;
+        }
+    }
+    assert!(knocked, "the landing resolved into a knockdown");
+    assert!(scratch.axis().knockdown_timer > 0.0);
+
+    // Prone bodies do not run. A LEAN (under the getup-roll threshold) is the
+    // honest probe: a full stick is a getup roll, which is a choice, not control.
+    for _ in 0..6 {
+        step_fighter(&world, &mut scratch, InputState::with_axes(0.4, 0.0));
+    }
+    assert!(
+        scratch.axis().knockdown_timer > 0.0,
+        "still prone — a lean under the roll threshold is not a getup"
+    );
+    assert!(
+        scratch.kinematics.vel.x.abs() < 5.0,
+        "a knocked-down body does not run, got {:?} after six frames of stick",
+        scratch.kinematics.vel
+    );
+    let mut stood = false;
+    for _ in 0..120 {
+        let events = step_fighter(&world, &mut scratch, InputState::default());
+        if events.operations.contains(&MovementOp::Getup) {
+            stood = true;
+            break;
+        }
+    }
+    assert!(stood, "the knockdown ends on its own");
+    assert!(
+        scratch.axis().getup_invuln_timer > 0.0,
+        "standing up is invulnerable, or getting up is a free hit for the winner"
+    );
+}
+
+/// **A tech refuses the knockdown**, and the i-frames it grants are the SAME
+/// `evading()` term every other evade uses.
+#[test]
+fn a_tech_on_the_landing_skips_the_knockdown_entirely() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    launch(&world, &mut scratch, 900.0);
+    let dash = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Dash,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    };
+    // Fall until one frame before contact, then press.
+    let mut teched = false;
+    for _ in 0..200 {
+        // Press only once the body is genuinely about to touch down: falling,
+        // and within a third of the tech window of the floor at this speed.
+        let rest_y = world.size.y - 48.0 - scratch.kinematics.size.y * 0.5;
+        let close = scratch.kinematics.vel.y > 1.0
+            && scratch.kinematics.pos.y + scratch.kinematics.vel.y * (knockdown::TECH_WINDOW / 3.0)
+                >= rest_y;
+        let events = step_fighter(
+            &world,
+            &mut scratch,
+            if close { dash } else { InputState::default() },
+        );
+        if events.operations.contains(&MovementOp::Tech) {
+            teched = true;
+            break;
+        }
+        assert!(
+            !events.operations.contains(&MovementOp::Knockdown),
+            "a press inside the window must not land as a knockdown"
+        );
+    }
+    assert!(teched, "the timed press teched the landing");
+    assert_eq!(scratch.axis().knockdown_timer, 0.0, "no prone state at all");
+    let facts = crate::movement::BodyMotionFacts::from_model(&scratch.model);
+    assert!(
+        facts.evading(),
+        "a tech is invulnerable through the one term the damage rule reads"
+    );
+}
+
+/// **A tech guessed too early costs the option.** Mashing has to be worse than
+/// reading, or the knockdown is decorative.
+#[test]
+fn a_mistimed_tech_locks_the_option_out() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    launch(&world, &mut scratch, 900.0);
+    let dash = InputState {
+        movement: crate::ActionEdges::EMPTY.with(
+            crate::MovementAction::Dash,
+            crate::Edge {
+                pressed: true,
+                held: false,
+                released: false,
+            },
+        ),
+        ..Default::default()
+    };
+    step_fighter(&world, &mut scratch, dash);
+    assert!(scratch.axis().tech_press_timer > 0.0, "the press is live");
+    // Ride the window out in the air.
+    for _ in 0..((knockdown::TECH_WINDOW * 60.0) as i32 + 2) {
+        step_fighter(&world, &mut scratch, InputState::default());
+    }
+    assert!(
+        scratch.axis().tech_lockout_timer > 0.0,
+        "the guess expired into a lockout"
+    );
+    // A second press inside the lockout buys nothing.
+    step_fighter(&world, &mut scratch, dash);
+    assert_eq!(
+        scratch.axis().tech_press_timer,
+        0.0,
+        "no tech while locked out"
+    );
+}
+
+/// **A getup is a CHOICE**: hold a direction and you roll out of the knockdown
+/// instead of standing in place, with the same invulnerability.
+#[test]
+fn a_held_direction_rolls_out_of_the_knockdown() {
+    let world = test_world();
+    let mut scratch = scratch_at(world.spawn);
+    launch(&world, &mut scratch, 900.0);
+    for _ in 0..200 {
+        let events = step_fighter(&world, &mut scratch, InputState::default());
+        if events.operations.contains(&MovementOp::Knockdown) {
+            break;
+        }
+    }
+    assert!(scratch.axis().knockdown_timer > 0.0, "prone first");
+    let events = step_fighter(&world, &mut scratch, InputState::with_axes(-1.0, 0.0));
+    assert!(
+        events.operations.contains(&MovementOp::GetupRoll),
+        "got {:?}",
+        events.operations
+    );
+    assert_eq!(scratch.axis().knockdown_timer, 0.0, "the roll ends it");
+    assert!(scratch.axis().getup_invuln_timer > 0.0);
+}

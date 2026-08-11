@@ -174,6 +174,9 @@ pub struct EditableMovementTuning {
     pub air_dodge_time: f32,
     pub air_dodge_speed: f32,
     pub air_dodge_endlag: f32,
+    /// See [`ae::TraversalAbilityTuning::tumble_speed`] — 0.0 means this body
+    /// has no floor game.
+    pub tumble_speed: f32,
     pub parry_window_time: f32,
     // Ledge momentum-carry boost. Seconds-after-grab during which a
     // getup option can claim incoming momentum; gains scale incoming
@@ -254,6 +257,7 @@ impl EditableMovementTuning {
             air_dodge_time: self.air_dodge_time,
             air_dodge_speed: self.air_dodge_speed,
             air_dodge_endlag: self.air_dodge_endlag,
+            tumble_speed: self.tumble_speed,
             parry_window_time: self.parry_window_time,
             ledge_momentum: ae::LedgeMomentumTuning {
                 window: self.ledge_boost_window,
@@ -318,6 +322,7 @@ impl From<ae::MovementTuning> for EditableMovementTuning {
             air_dodge_time: value.air_dodge_time,
             air_dodge_speed: value.air_dodge_speed,
             air_dodge_endlag: value.air_dodge_endlag,
+            tumble_speed: value.tumble_speed,
             parry_window_time: value.parry_window_time,
             ledge_boost_window: value.ledge_momentum.window,
             ledge_boost_x_gain: value.ledge_momentum.x_gain,

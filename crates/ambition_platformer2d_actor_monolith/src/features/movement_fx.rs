@@ -171,6 +171,32 @@ pub fn emit_movement_fx(
             // The aerial evade reads COOLER and thinner than the roll's dust —
             // no ground to kick up, and the colour is the tell a player uses to
             // recognize the maneuver mid-air.
+            // **The floor game's beats.** A knockdown thumps and kicks up dust;
+            // a tech is the crisp recovery that refused it; a getup roll reads
+            // like the ground roll it is. `Tumble` and `Getup` are deliberately
+            // silent — the first is a state the launch already announced with
+            // its own hit feedback, and the second is what a body does when it
+            // ran out of options.
+            ae::MovementOp::Knockdown => {
+                vfx.write(VfxMessage::Burst {
+                    pos,
+                    count: 12,
+                    speed: 200.0,
+                    color: [0.72, 0.66, 0.56, 0.85],
+                    kind: ParticleKind::Dust,
+                });
+            }
+            ae::MovementOp::Tech | ae::MovementOp::GetupRoll => {
+                sfx.write_for_body(source, SfxMessage::Dash { pos });
+                vfx.write(VfxMessage::Burst {
+                    pos,
+                    count: 8,
+                    speed: 260.0,
+                    color: [0.80, 0.92, 1.0, 0.80],
+                    kind: ParticleKind::Dust,
+                });
+            }
+            ae::MovementOp::Tumble | ae::MovementOp::Getup | ae::MovementOp::GetupAttack => {}
             ae::MovementOp::AirDodge => {
                 sfx.write_for_body(source, SfxMessage::Dash { pos });
                 vfx.write(VfxMessage::Burst {

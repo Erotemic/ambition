@@ -42,6 +42,58 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     v
 }
 
+/// **A creature that is not your enemy says so on its PLACEMENT.**
+///
+/// ⛔ **the guard that replaces a deleted field.** `BrainProfile.attacks_player`
+/// came across from `ArchetypeSpec` and was removed 2026-08-11 (Jon's redirect
+/// §6): a controller policy answers *how do I play this body*, never *who are my
+/// enemies*, and it must not carry player-centric vocabulary at all. The giant
+/// GNU was the field's motivating case — a mount whose RIDER is the threat — so
+/// the moment it is gone, the giant's placement is the only thing standing
+/// between a lumbering prop and a hostile one.
+///
+/// Two terms, both OBSERVED, because either alone passes for the wrong reason:
+/// the placement must EXIST (a rename or a lost `character_id` would otherwise
+/// make this vacuous) and it must be `Peaceful`.
+#[test]
+fn the_giant_mount_is_peaceful_by_placement_now_that_no_policy_says_so() {
+    use ambition_platformer2d::entity_catalog::placements::SpawnDisposition;
+    let project = load_project_for_test().expect("sandbox LDtk should load");
+    let room_set = project
+        .to_room_set(
+            &ambition_content::worlds::world_manifest(),
+            &ambition_app::composed_ldtk_vocabulary(),
+        )
+        .expect("room_set should build");
+    let giants: Vec<_> = room_set
+        .rooms
+        .iter()
+        .flat_map(|room| room.enemy_spawns.iter())
+        .filter(|spawn| {
+            spawn
+                .payload
+                .character_id
+                .as_ref()
+                .is_some_and(|id| id.as_str() == "npc_giant_gnu")
+        })
+        .collect();
+    assert!(
+        !giants.is_empty(),
+        "no placement names `npc_giant_gnu`, so this guard is measuring nothing \
+         — the giant moved, was renamed, or lost its character_id"
+    );
+    for giant in giants {
+        assert_eq!(
+            giant.payload.disposition,
+            Some(SpawnDisposition::Peaceful),
+            "the giant GNU placement does not say `Peaceful`, and nothing else \
+             says it any more: its policy is `StandStill` with a zero aggro \
+             radius, which stops it SEEKING but leaves it hostile, so the mount \
+             the scholar rides publishes contact damage at whoever walks past"
+        );
+    }
+}
+
 #[test]
 fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
     let project = load_project_for_test().expect("sandbox LDtk should load");

@@ -832,10 +832,16 @@ impl ActorClusterSeed {
             // A match seat is a combatant whoever drives it; the disposition the
             // body carries is set by realization, and this is the tuning half.
             //
-            // ⚠ the PROFILE's answer, which defaults to `true` — so a fighter
-            // seat is unchanged, and a mount whose rider is the threat (the
-            // giant GNU) can finally say it never seeks anybody.
-            attacks_player: brain_profile.attacks_player,
+            // ⛔ **NOT the profile's answer** — it does not have one, and used
+            // to (`BrainProfile.attacks_player`, deleted 2026-08-11, Jon's
+            // redirect §6). Hostility is a relationship, so it belongs to the
+            // PLACEMENT: `spawn_enemy_with_faction_into` overwrites this from
+            // the authored `SpawnDisposition` on the very next line it runs, and
+            // the sandbox giant — the mount whose rider is the threat, and the
+            // case that motivated the profile field — now says `Peaceful` there.
+            // A body built here with no placement to speak for it is a
+            // combatant, which is what every seat is.
+            attacks_player: true,
             is_sandbag: practice_target,
             // ⚠ a fighter's death is the MATCH's business (stocks, blast zones),
             // never a room's respawn policy.
@@ -1260,7 +1266,6 @@ mod tests {
         let profile = crate::features::ecs::actor_tuning::BrainProfile {
             patrol_effort: 0.25,
             chase_effort: 0.75,
-            attacks_player: false,
             ..Default::default()
         };
         let seed = ActorClusterSeed::new_character_in(
@@ -1289,8 +1294,10 @@ mod tests {
         );
         assert_eq!(seed.config.tuning.chase_speed, 150.0, "0.75 of it, not all");
         assert!(
-            !seed.config.tuning.attacks_player,
-            "a mount whose rider is the threat still hunted the player"
+            seed.config.tuning.attacks_player,
+            "construction has no relationship to state, so it states the ordinary \
+             one; the mount's PLACEMENT is what says `Peaceful`, and a policy \
+             that answered this instead is the thing §6 deleted"
         );
 
         // **An authored ZERO is a speed.** A stationary mount that says so must

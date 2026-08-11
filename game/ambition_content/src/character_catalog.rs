@@ -581,9 +581,10 @@ pub fn authored_intrinsics(
                     template: CharacterBrainTemplate::StandStill,
                     aggro_radius: 0.0,
                     attack_range: 0.0,
-                    // It never seeks and never strikes. The scholar on its
-                    // shoulders does both.
-                    attacks_player: false,
+                    // It never seeks and never strikes — and `StandStill` with
+                    // a zero aggro radius already SAYS that. The relationship
+                    // half ("this creature is not your enemy") is the
+                    // PLACEMENT's: the sandbox giant authors `Peaceful`.
                     ..Default::default()
                 });
             definition.vitals.max_health = Some(42);
@@ -687,7 +688,7 @@ pub fn authored_intrinsics(
                     attack_range: 0.0,
                     // A limb never seeks anybody: the rider's routed strikes
                     // spawn the damaging hitboxes, and the hand is their vehicle.
-                    attacks_player: false,
+                    // `StandStill` + zero aggro is the whole of that as policy.
                     ..Default::default()
                 });
             definition.vitals.max_health = Some(42);
@@ -946,10 +947,14 @@ mod tests {
         );
         let profile = definition.autonomous_profile.expect("its policy");
         assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
-        assert!(
-            !profile.attacks_player,
-            "the scholar on its shoulders is the threat, not the giant"
+        assert_eq!(
+            profile.aggro_radius, 0.0,
+            "the scholar on its shoulders is the threat, and a driver that \
+             notices nobody is the whole of what the deleted `attacks_player` \
+             said as POLICY — the rest of it was a relationship, and the \
+             sandbox placement says `Peaceful`"
         );
+        assert_eq!(profile.attack_range, 0.0);
     }
 
     /// **The two shark riders differ from each other, which is what the pair of
@@ -1045,10 +1050,12 @@ mod tests {
         );
         let profile = definition.autonomous_profile.expect("its policy");
         assert_eq!(profile.template, CharacterBrainTemplate::StandStill);
-        assert!(
-            !profile.attacks_player,
-            "the rider's routed strikes hurt; the hand is their vehicle"
+        assert_eq!(
+            profile.aggro_radius, 0.0,
+            "the rider's routed strikes hurt; the hand is their vehicle, and a \
+             vehicle notices nobody"
         );
+        assert_eq!(profile.attack_range, 0.0);
     }
 
     /// **The practice target says it is one.** `practice_target` is the fact

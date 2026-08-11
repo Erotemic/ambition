@@ -64,15 +64,27 @@ fn default_chase_effort() -> f32 {
     1.0
 }
 
-fn default_attacks_player() -> bool {
-    true
-}
-
 /// **How an autonomous participant driving this body decides what to do.**
 ///
 /// Reusable across characters by design: several distinct bodies may name the
 /// same profile, and the same body may be driven by a different one in a
 /// different context. Nothing here says what the body can physically do.
+///
+/// ⛔⛔ **AND NOTHING HERE SAYS WHO THIS BODY'S ENEMIES ARE.** This answers *how
+/// aggressively do I close, how far away do I notice, which attack do I prefer,
+/// how do I patrol* — never *is that a target*. Hostility is a relationship, and
+/// a relationship belongs to the PLACEMENT and the session: `SpawnDisposition`,
+/// factions, teams. The driver is handed eligible targets and decides what to do
+/// about them.
+///
+/// ⛔ **`attacks_player` used to live here and was deleted 2026-08-11** (Jon's
+/// redirect §6). It came across from `ArchetypeSpec`, where body and AI and
+/// social role were one thing, and it was wrong twice over: it is not a policy,
+/// and it is player-centric vocabulary in the one type that must never be. The
+/// giant GNU was its motivating case and it is the proof it was unnecessary —
+/// the mount is a `StandStill` driver with a zero aggro radius, so its POLICY
+/// already said it never seeks anybody, and its placement now says `Peaceful`
+/// because that is where "this creature is not your enemy" belongs.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct BrainProfile {
@@ -109,13 +121,6 @@ pub struct BrainProfile {
     /// The same, for a committed chase.
     #[serde(default = "default_chase_effort")]
     pub chase_effort: f32,
-    /// **Does this driver treat the player as a target at all?**
-    ///
-    /// Controller policy, not a body fact: the giant GNU is a mount whose RIDER
-    /// is the threat, and the body itself never seeks anybody. `true` for
-    /// everything that fights, which is why it defaults that way.
-    #[serde(default = "default_attacks_player")]
-    pub attacks_player: bool,
     /// Which rung of the fighter ladder a [`CharacterBrainTemplate::Fighter`]
     /// driver plays at — difficulty, which is a controller fact. Ignored by
     /// every other template.
@@ -164,7 +169,6 @@ impl Default for BrainProfile {
             turns_at_walls: true,
             patrol_effort: default_patrol_effort(),
             chase_effort: default_chase_effort(),
-            attacks_player: default_attacks_player(),
             fighter_level: default_fighter_level(),
             smash_hit_band: DEFAULT_SMASH_HIT_BAND,
             smash_heavy: false,
@@ -218,10 +222,6 @@ mod tests {
         assert_eq!(profile.smash_hit_band, DEFAULT_SMASH_HIT_BAND);
         assert_eq!(profile.patrol_effort, 0.5, "the runtime's old hard-code");
         assert_eq!(profile.chase_effort, 1.0);
-        assert!(
-            profile.attacks_player,
-            "a driver that authors nothing still fights"
-        );
     }
 
     /// **An authored value beats the default**, so the test above is not
@@ -231,7 +231,7 @@ mod tests {
         let profile: BrainProfile = ron::from_str(
             "(template: Smash, aggro_radius: 220.0, attack_range: 36.0, \
              turns_at_walls: false, fighter_level: 9, smash_duelist: true, \
-             patrol_effort: 0.4783, chase_effort: 0.8, attacks_player: false)",
+             patrol_effort: 0.4783, chase_effort: 0.8)",
         )
         .expect("the authored form parses");
         assert_eq!(profile.aggro_radius, 220.0);
@@ -241,7 +241,6 @@ mod tests {
         assert!(profile.smash_duelist);
         assert_eq!(profile.patrol_effort, 0.4783, "a tuned amble survives");
         assert_eq!(profile.chase_effort, 0.8);
-        assert!(!profile.attacks_player, "a mount is not a hunter");
     }
 
     /// **A misspelled knob is a REFUSAL, not a silent no-op.**

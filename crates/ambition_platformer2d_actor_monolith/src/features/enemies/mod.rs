@@ -183,7 +183,13 @@ impl ArchetypeSpecExt for ArchetypeSpec {
             // `run_speed`, now carried by the authority that decides pace.
             patrol_effort: self.patrol_effort,
             chase_effort: self.chase_effort,
-            attacks_player: self.attacks_player,
+            // ⛔ **`attacks_player` does NOT come across, and that is the point.**
+            // The row holds it because the archetype ontology fused body, driver
+            // and social role; a controller policy answers how to play a body,
+            // never who its enemies are. The archetype path keeps reading its own
+            // field into `ActorTuning` below — this conversion is what a MIGRATED
+            // character gets, and a migrated character's hostility comes from its
+            // placement's `SpawnDisposition` (Jon's redirect §6).
             // The archetype's authored rung, or the middle one. A fighter
             // archetype that says nothing plays at 5 rather than refusing.
             fighter_level: self.fighter_level.unwrap_or(5),

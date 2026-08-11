@@ -223,6 +223,23 @@ pub enum AutonomousSource {
     /// preset. Reconstructed by rerunning that construction, never rebuilt as a
     /// catalog default.
     Provoked { archetype: HostileArchetypeId },
+    /// **A provoked CHARACTER's own combat policy**, carried by value.
+    ///
+    /// ⭐ **the character-first half of provocation** (Jon's second redirect,
+    /// P1). `Provoked` above reconstructs a body ARCHETYPE — new tuning, new HP
+    /// pool, new capabilities — which is the fused ontology and is wrong for a
+    /// creature that states what it becomes: the body does not change, only the
+    /// mind. This variant records the mind.
+    ///
+    /// ⚠ **by canonical NAME, like the three variants above it.** A source is a
+    /// stable id that a rebuild resolves — `Provoked` names a roster archetype,
+    /// `Boss` names a boss row, and this names a published profile. Carrying the
+    /// `BrainProfile` by value was the first shape and it was worse in two ways:
+    /// it costs `Eq` on this enum (a profile holds `f32`s) and it puts a dozen
+    /// tuned floats into the rollback codec, where a string already suffices.
+    ProvokedProfile {
+        profile: ambition_entity_catalog::BrainProfileId,
+    },
     /// A boss's authored autonomous mode. The live brain is a `BossPattern`
     /// rebuilt from the boss catalog by this id (never a catalog preset). A boss
     /// carries this so it has a reconstructible autonomous source when a player
@@ -276,7 +293,9 @@ impl BrainBinding {
         match &self.source {
             AutonomousSource::CatalogPreset(id) => Some(id),
             AutonomousSource::CatalogDefault => self.default_preset.as_ref(),
-            AutonomousSource::Provoked { .. } | AutonomousSource::Boss { .. } => None,
+            AutonomousSource::Provoked { .. }
+            | AutonomousSource::ProvokedProfile { .. }
+            | AutonomousSource::Boss { .. } => None,
         }
     }
 

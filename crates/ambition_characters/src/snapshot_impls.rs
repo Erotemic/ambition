@@ -512,6 +512,14 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
                 put_u8(out, 3);
                 put_str(out, archetype.as_str());
             }
+            // ⭐ A provoked CHARACTER's own combat policy, by canonical id — the
+            // same shape as its three neighbours, and the reason the variant
+            // names a profile instead of carrying one: a tag and a string,
+            // rather than a dozen tuned floats in the rollback codec.
+            AutonomousSource::ProvokedProfile { profile } => {
+                put_u8(out, 4);
+                put_str(out, profile.as_str());
+            }
         }
     }
 
@@ -532,6 +540,9 @@ impl SnapshotState for crate::actor::character_catalog::BrainBinding {
             },
             3 => AutonomousSource::Boss {
                 archetype: BossAutonomyId::new(r.str()?.to_string()),
+            },
+            4 => AutonomousSource::ProvokedProfile {
+                profile: ambition_entity_catalog::BrainProfileId::new(r.str()?.to_string()),
             },
             _ => return None,
         };

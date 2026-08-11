@@ -209,14 +209,38 @@ pub(crate) fn provoke_actor_in_place(
     //
     // ⭐ provocation is one body, a different driver, a changed relationship.
     // The body stays exactly as its character built it.
+    // ⚠ the ID travels with the value: the value drives the body NOW and the id
+    // is what a rewind resolves later, and taking both from one lookup is what
+    // stops them disagreeing.
     let authored_provoked = prepared
-        .zip(em.config.sprite_character_id.as_deref())
-        .and_then(|(registry, character)| registry.get(character)?.provoked_profile);
-    if let Some(profile) = authored_provoked {
+        .zip(worn_character)
+        .and_then(|(registry, character)| {
+            let prepared = registry.get(character)?;
+            Some((
+                prepared.provoked_profile?,
+                prepared.provoked_profile_id.clone()?,
+            ))
+        });
+    if let Some((profile, profile_id)) = authored_provoked {
         if disposition.is_peaceful() {
             em.config.brain_profile = profile;
             *disposition = ActorDisposition::Hostile;
         }
+        // ⭐⭐ **RECORD THE POLICY AS THE AUTONOMOUS SOURCE** (Jon's second
+        // redirect, P1). Without this a rewind rereads `AutonomousSource`, finds
+        // whatever the body carried before it was provoked, and rebuilds the
+        // peaceful mind — so a provoke would not survive a rollback at all.
+        let recorded = profile_id.clone();
+        commands.queue(move |world: &mut bevy::prelude::World| {
+            if let Some(mut binding) = world
+                .get_mut::<ambition_characters::actor::character_catalog::BrainBinding>(entity)
+            {
+                binding.source =
+                    ambition_characters::actor::character_catalog::AutonomousSource::ProvokedProfile {
+                        profile: recorded,
+                    };
+            }
+        });
         // ⚠ the BRAIN is rebuilt from the new policy by the shared writer below,
         // which is also what protects a player-driven body from a silent
         // seizure — see the note further down.

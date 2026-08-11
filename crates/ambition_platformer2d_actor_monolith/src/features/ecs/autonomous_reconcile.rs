@@ -233,6 +233,13 @@ pub fn reconcile_autonomous_actors(world: &mut World) {
             AutonomousSource::Provoked { archetype } => {
                 reconstruct_provoked(world, job.entity, archetype.as_str());
             }
+            // ⭐ **A PROVOKED CHARACTER KEEPS ITS BODY.** The archetype arm above
+            // rebuilds a whole body — tuning, HP pool, capabilities — because an
+            // archetype IS the creature. A character that states what it becomes
+            // when struck changed only its mind, so only its mind is rebuilt.
+            AutonomousSource::ProvokedProfile { profile } => {
+                reconstruct_provoked_profile(world, job.entity, profile);
+            }
             AutonomousSource::CatalogDefault | AutonomousSource::CatalogPreset(_) => {
                 restore_peaceful_config(world, job.entity, job.character_id.as_deref());
             }
@@ -250,6 +257,56 @@ pub fn reconcile_autonomous_actors(world: &mut World) {
 /// coupled config (tuning / brain-spec / capabilities / sprite / read-model brain
 /// / live brain / action set). Leaves the registered disposition / health /
 /// gravity to their own restored blobs.
+/// **Rebuild a provoked CHARACTER's mind, and nothing else.**
+///
+/// ⭐ the counterpart to [`reconstruct_provoked`], which rebuilds a whole body
+/// because an archetype IS the creature. A character that states what it becomes
+/// when struck changed only its controller policy and its relationship, so a
+/// rewind restores only those — the body it came back to is the one its
+/// character built.
+///
+/// ⚠ a profile the registry no longer publishes leaves the live brain alone,
+/// which is the same answer the archetype path gives for a roster it cannot
+/// resolve: a headless fixture publishes nothing, and refusing to guess is
+/// better than installing a default somebody's rewind did not ask for.
+fn reconstruct_provoked_profile(
+    world: &mut World,
+    entity: Entity,
+    profile: &ambition_entity_catalog::BrainProfileId,
+) {
+    let Some(resolved) = world
+        .get_resource::<ambition_characters::actor::character_catalog::BrainProfileRegistry>()
+        .and_then(|profiles| profiles.get(profile).copied())
+    else {
+        return;
+    };
+    let Some(config) = world.get::<ActorConfig>(entity).cloned() else {
+        return;
+    };
+    let abilities = world
+        .get::<ambition_platformer2d_core::BodyAbilities>(entity)
+        .map(|abilities| abilities.abilities)
+        .unwrap_or_default();
+    let mut hostile = config;
+    hostile.brain_profile = resolved;
+    let brain = crate::features::ecs::enemy_default_brain(&hostile, abilities);
+    let Ok(mut em) = world.get_entity_mut(entity) else {
+        return;
+    };
+    if let Some(mut config) = em.get_mut::<ActorConfig>() {
+        config.brain_profile = resolved;
+    }
+    // ⛔ never over a player-driven body — the silent-seizure rule the live
+    // provoke path documents at length. One rule, every writer.
+    let driven = em
+        .get::<ambition_characters::brain::Brain>()
+        .is_some_and(ambition_characters::brain::Brain::is_player);
+    if !driven {
+        em.insert(brain);
+    }
+    em.insert(crate::combat::components::ActorDisposition::Hostile);
+}
+
 fn reconstruct_provoked(world: &mut World, entity: Entity, archetype: &str) {
     let Some(spec) = world
         .get_resource::<CharacterRoster>()
@@ -331,6 +388,25 @@ pub(crate) fn fresh_health_pool(max_health: i32) -> BodyHealth {
 pub(crate) fn autonomous_brain_for_source(world: &World, entity: Entity) -> Option<Brain> {
     let binding = world.get::<BrainBinding>(entity)?;
     match &binding.source {
+        // ⭐ the character's own combat policy, resolved from the published
+        // registry — the same shape as the archetype arm below it, one authority
+        // over.
+        AutonomousSource::ProvokedProfile { profile } => {
+            let profiles = world.get_resource::<
+                ambition_characters::actor::character_catalog::BrainProfileRegistry,
+            >()?;
+            let resolved = *profiles.get(profile)?;
+            let config = world.get::<ActorConfig>(entity)?;
+            let mut hostile = config.clone();
+            hostile.brain_profile = resolved;
+            let abilities = world
+                .get::<ambition_platformer2d_core::BodyAbilities>(entity)
+                .map(|abilities| abilities.abilities)
+                .unwrap_or_default();
+            Some(crate::features::ecs::enemy_default_brain(
+                &hostile, abilities,
+            ))
+        }
         AutonomousSource::Provoked { archetype } => {
             let roster = world.get_resource::<CharacterRoster>()?;
             let spec =

@@ -1106,6 +1106,14 @@ pub struct PreparedCharacterDefinition {
     /// **The policy this creature adopts when provoked**, RESOLVED — see
     /// [`CharacterDefinition::provoked_profile_ref`].
     pub provoked_profile: Option<ambition_characters::brain::BrainProfile>,
+    /// The same policy's CANONICAL ID, kept beside the value.
+    ///
+    /// ⭐ the value drives the body at the moment of the provoke; the id is what
+    /// a REWIND resolves later (`AutonomousSource::ProvokedProfile`). Resolving
+    /// both from one preparation is what stops them disagreeing — a provoke that
+    /// installed one policy and restored another would be a desync nobody could
+    /// read.
+    pub provoked_profile_id: Option<ambition_entity_catalog::BrainProfileId>,
     /// See [`CharacterDefinition::practice_target`].
     pub practice_target: bool,
     /// See [`CharacterDefinition::held_item`].
@@ -1833,6 +1841,9 @@ fn finalize_character(
             provoked_profile_ref.as_ref(),
             profiles,
         ),
+        provoked_profile_id: provoked_profile_ref
+            .as_ref()
+            .map(|reference| reference.resolve_in(&provider)),
         practice_target,
         held_item,
         dream_seed,

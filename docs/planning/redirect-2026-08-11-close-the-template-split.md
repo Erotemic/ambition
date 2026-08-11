@@ -654,8 +654,8 @@ The branch is on the right trajectory. The important redirect is to close the re
 
 | # | Item | State |
 |---|------|-------|
-| P0 | ONE template materializer, Construction vs Replacement boundaries | ▢ |
-| P0 | No `RecharacterizeBody` on ordinary construction (seat, protagonist) | ▢ — the enemy road needs none now; seat + protagonist still insert it |
+| P0 | ONE template materializer, Construction vs Replacement boundaries | ◑ — the SHAPE landed: the character overlay runs ONCE, at preparation, where the catalog is in scope, and `realize_seat` consumes the result. ▢ the enemy road's `grant_prepared_character_body` and this one are still two functions doing the same job |
+| P0 | No `RecharacterizeBody` on ordinary construction (seat, protagonist) | ✔✔ **DONE 2026-08-11** — all three roads. The seat was the hard one (D85): five grants moved one per commit, the STAMP last; one of the five had already landed. One production writer left: Mary-O's powerup, the real re-template |
 | P0 | Direct invariant test (no reapplication; identity-alone does nothing) | ✔ — both, poison-verified; the second asks TWICE so neither half can pass alone |
 | P0 | Rerun D78 | ✔✔ **GREEN** — all four tests, both characters. The duplicate applier WAS the cause |
 | P1 | Provocation reads `WornCharacter`, not `sprite_character_id` | ✔ — ⚠ the first commit threaded the parameter but a silent no-op replace left the READ on `sprite_character_id`; corrected in the following commit |

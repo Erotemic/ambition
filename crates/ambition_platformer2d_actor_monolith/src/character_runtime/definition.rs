@@ -398,6 +398,18 @@ pub struct CharacterDefinition {
     /// thing that makes Puppy Slug in a fighter seat indistinguishable from a
     /// generic humanoid.
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// **How this body moves under its own power** — top speed, gait, surface
+    /// cling. See [`ambition_characters::actor::CharacterLocomotion`].
+    ///
+    /// `None` means the character said nothing, and a construction path with a
+    /// legacy source (the archetype's `run_speed`/`move_style`, a match's
+    /// fighter default) still uses it. A crawler that authors this is a crawler
+    /// wherever it is spawned — including a fighter seat, which is Jon's
+    /// compositional acceptance test.
+    pub locomotion: Option<ambition_characters::actor::CharacterLocomotion>,
+    /// **Whether touching this body hurts, and how much.** `None` = it does
+    /// not, which is most characters.
+    pub contact_damage: Option<ambition_characters::actor::ContactDamage>,
 }
 
 impl CharacterDefinition {
@@ -424,12 +436,32 @@ impl CharacterDefinition {
             motion_model: None,
             movement_tuning: None,
             abilities: None,
+            locomotion: None,
+            contact_damage: None,
         }
     }
 
     /// Author the verbs this body has. See [`Self::abilities`].
     pub fn with_abilities(mut self, abilities: ambition_platformer2d_core::AbilitySet) -> Self {
         self.abilities = Some(abilities);
+        self
+    }
+
+    /// Author how this body moves. See [`Self::locomotion`].
+    pub fn with_locomotion(
+        mut self,
+        locomotion: ambition_characters::actor::CharacterLocomotion,
+    ) -> Self {
+        self.locomotion = Some(locomotion);
+        self
+    }
+
+    /// Author what touching this body costs. See [`Self::contact_damage`].
+    pub fn with_contact_damage(
+        mut self,
+        contact: ambition_characters::actor::ContactDamage,
+    ) -> Self {
+        self.contact_damage = Some(contact);
         self
     }
 
@@ -577,6 +609,10 @@ struct PreparedCharacterOverrides {
     /// a catalog row has never been able to state a body's verbs — so it
     /// carries straight through.
     abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// See [`CharacterDefinition::locomotion`]. Carried; no catalog counterpart.
+    locomotion: Option<ambition_characters::actor::CharacterLocomotion>,
+    /// See [`CharacterDefinition::contact_damage`]. Carried; no counterpart.
+    contact_damage: Option<ambition_characters::actor::ContactDamage>,
     moveset: Option<MovesetContract>,
     /// The authored action set, carried through preparation unchanged.
     ///
@@ -701,6 +737,11 @@ pub struct PreparedCharacterDefinition {
     /// none, and a construction path that has a legacy source for verbs (an
     /// archetype's movement kit, a match's declared set) still uses it.
     pub abilities: Option<ambition_platformer2d_core::AbilitySet>,
+    /// **How this body moves**, as the character authored it. `None` leaves a
+    /// legacy source (an archetype row, a construction default) in charge.
+    pub locomotion: Option<ambition_characters::actor::CharacterLocomotion>,
+    /// **What touching this body costs**, as the character authored it.
+    pub contact_damage: Option<ambition_characters::actor::ContactDamage>,
     /// The autonomous profile this character normally runs, if it named one —
     /// **RESOLVED**, as a canonical [`BrainPresetId`] rather than the authored
     /// [`BrainProfileRef`] the definition carries.
@@ -1163,6 +1204,8 @@ fn prepare_character(
         death_traits: definition.death_traits,
         default_brain_profile: definition.default_brain_profile,
         abilities: definition.abilities,
+        locomotion: definition.locomotion,
+        contact_damage: definition.contact_damage,
         moveset: definition.moveset,
         action_set: definition.action_set,
         motion_model: definition.motion_model,
@@ -1237,6 +1280,8 @@ fn finalize_character(
         death_traits,
         default_brain_profile,
         abilities,
+        locomotion,
+        contact_damage,
         moveset,
         action_set,
         motion_model,
@@ -1356,6 +1401,8 @@ fn finalize_character(
         // Carried, not folded: nothing else in the engine can state a body's
         // verbs, so there is no second authority to reconcile with.
         abilities,
+        locomotion,
+        contact_damage,
         authored_moveset,
         // **RESOLVED HERE, not at spawn.** A prepared definition should hold a
         // canonical identity, not an authored reference someone still has to

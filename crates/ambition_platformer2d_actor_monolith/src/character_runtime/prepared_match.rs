@@ -721,6 +721,8 @@ pub fn prepare_match(
             baseline.max_health_over(1),
             profile,
             seed_brain,
+            definition.locomotion,
+            definition.contact_damage,
         );
         // The seed's own pool stands for a character that authored none — which
         // used to be impossible to express, because an unauthored `Vitals`

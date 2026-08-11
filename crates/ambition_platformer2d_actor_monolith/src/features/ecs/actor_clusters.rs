@@ -755,6 +755,12 @@ impl ActorClusterSeed {
         max_health: i32,
         brain_profile: crate::features::ecs::actor_tuning::BrainProfile,
         config_brain: ambition_entity_catalog::placements::CharacterBrain,
+        // **What the CHARACTER says about its own body**, when it says anything.
+        // A crawler that authors its locomotion crawls in a fighter seat too,
+        // which is the whole of Jon's Puppy-Slug acceptance test: *"movement
+        // input → uses Puppy Slug's actual authored locomotion"*.
+        locomotion: Option<ambition_characters::actor::CharacterLocomotion>,
+        contact_damage: Option<ambition_characters::actor::ContactDamage>,
     ) -> Self {
         // The AUTHORED silhouette, resolved exactly as a peaceful NPC of the
         // same character resolves it — one body per character, however it is
@@ -772,15 +778,31 @@ impl ActorClusterSeed {
             Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
         );
         let pos = actor_spawn_center_for_collision(aabb, collision_size);
+        // ⭐ **THE CHARACTER'S OWN TOP SPEED WHEN IT STATES ONE.** A fighter
+        // default otherwise: the stage has to give a body that has never said
+        // how fast it is SOMETHING, and a match is the one place that may.
+        let run_speed = locomotion
+            .map(|locomotion| locomotion.run_speed)
+            .filter(|speed| *speed > 0.0)
+            .unwrap_or(ambition_platformer2d_core::MAX_RUN_SPEED);
         let tuning = crate::features::ecs::actor_tuning::ActorTuning {
             max_health,
             // A fighter is driven at full pace by whatever drives it. The
             // autonomous PACING is the profile's (`patrol`/`chase` effort), and
             // it is expressed as normalized intent against this capability —
             // the same split a possessed NPC gets, for the same reason.
-            patrol_speed: ambition_platformer2d_core::MAX_RUN_SPEED * 0.5,
-            chase_speed: ambition_platformer2d_core::MAX_RUN_SPEED,
-            max_run_speed: ambition_platformer2d_core::MAX_RUN_SPEED,
+            patrol_speed: run_speed * 0.5,
+            chase_speed: run_speed,
+            max_run_speed: run_speed,
+            // Touching a body hurts only if its CHARACTER says so. A fighter
+            // that authors none is safe to stand next to, which is what every
+            // fighter has been.
+            contact_strength: contact_damage.map_or(0.0, |contact| contact.strength),
+            damage_amount: contact_damage.map_or(0, |contact| contact.amount),
+            body_contact_damage: contact_damage.is_some(),
+            surface_walker: locomotion.is_some_and(|locomotion| locomotion.surface_walker),
+            cling_breaks_on_hit: locomotion
+                .is_some_and(|locomotion| locomotion.cling_breaks_on_hit),
             // A match seat is a combatant whoever drives it; the disposition the
             // body carries is set by realization, and this is the tuning half.
             attacks_player: true,
@@ -885,7 +907,9 @@ impl ActorClusterSeed {
                 body_contact_damage: false,
                 ranged_visual: String::new(),
                 signature_move: None,
-                move_style: ambition_characters::brain::MoveStyleSpec::Walk,
+                move_style: locomotion
+                    .map(|locomotion| locomotion.move_style)
+                    .unwrap_or_default(),
             },
         }
     }

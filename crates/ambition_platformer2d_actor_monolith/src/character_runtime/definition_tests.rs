@@ -403,6 +403,11 @@ fn a_definition_carries_no_controller_binding() {
         // decides is which of them are legal in this match — a mask, never a
         // grant.
         abilities: _,
+        // How fast this body runs and whether touching it hurts. Both are the
+        // creature's, not the driver's: a possessed crawler crawls, and a mite
+        // is dangerous to touch whoever is steering it.
+        locomotion: _,
+        contact_damage: _,
     } = def;
 }
 

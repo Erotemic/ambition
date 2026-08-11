@@ -778,6 +778,95 @@ fn a_seated_fighter_receives_its_definitions_action_set() {
     );
 }
 
+/// **FORCING A CRAWLER INTO A FIGHTER SEAT GIVES YOU A CRAWLER.**
+///
+/// Jon's compositional acceptance test, at the seam where it is decided: *"Force
+/// a Puppy Slug into Smash … movement input → uses Puppy Slug's actual authored
+/// locomotion. Jump → no jump if its body cannot jump. Smash must not silently
+/// give it a generic swipe, a generic humanoid jump, a generic dash."*
+///
+/// ⛔ what made it impossible until now: a seat was built from an enemy
+/// ARCHETYPE, so its top speed, its gait and its contact damage were whichever
+/// creature the CPU's brain key named. A crawler seated in a match ran at a
+/// duelist's speed because it was, physically, a duelist.
+///
+/// ⚠ the fighter DEFAULT is the other half and it has to stay: a character that
+/// has never said how fast it is must still be given something by the stage, or
+/// every unmigrated fighter is a statue. This asserts both.
+#[test]
+fn a_crawler_seated_as_a_fighter_keeps_its_own_locomotion() {
+    use ambition_characters::actor::{CharacterLocomotion, ContactDamage};
+    use ambition_characters::brain::MoveStyleSpec;
+
+    let mut app = seating_app();
+    app.register_character(
+        CharacterDefinition::new("crawler", "Puppy Slug", "demo")
+            .with_locomotion(CharacterLocomotion {
+                run_speed: 36.0,
+                move_style: MoveStyleSpec::Slither,
+                surface_walker: true,
+                cling_breaks_on_hit: false,
+            })
+            .with_contact_damage(ContactDamage {
+                strength: 0.4,
+                amount: 2,
+            }),
+    );
+    app.register_character(CharacterDefinition::new("duelist", "Duelist", "demo"));
+    app.insert_resource(MatchParticipantRoster {
+        participants: vec![cpu("crawler"), cpu("duelist")],
+        ..Default::default()
+    });
+
+    finalize_and_update(&mut app);
+
+    let seats: Vec<(usize, f32, i32, bool)> = {
+        let world = app.world_mut();
+        let mut q = world.query::<(&MatchSeat, &crate::features::ActorConfig)>();
+        let mut rows: Vec<(usize, f32, i32, bool)> = q
+            .iter(world)
+            .map(|(seat, config)| {
+                (
+                    seat.0,
+                    config.tuning.max_run_speed,
+                    config.tuning.damage_amount,
+                    config.tuning.surface_walker,
+                )
+            })
+            .collect();
+        rows.sort_by_key(|(seat, _, _, _)| *seat);
+        rows
+    };
+    assert_eq!(seats.len(), 2, "{seats:?}");
+    let (_, crawler_speed, crawler_damage, crawler_clings) = seats[0];
+    let (_, duelist_speed, duelist_damage, duelist_clings) = seats[1];
+
+    assert_eq!(
+        crawler_speed, 36.0,
+        "the crawler is seated at somebody else's top speed: {seats:?}"
+    );
+    assert!(
+        crawler_clings,
+        "the crawler lost its surface cling by being seated: {seats:?}"
+    );
+    assert_eq!(
+        crawler_damage, 2,
+        "the crawler's contact damage did not survive the seat: {seats:?}"
+    );
+
+    assert!(
+        duelist_speed > crawler_speed,
+        "the character that authored NO locomotion did not receive the stage's \
+         fighter default, so an unmigrated fighter is a statue: {seats:?}"
+    );
+    assert_eq!(
+        duelist_damage, 0,
+        "a fighter that authored no contact damage hurts on touch, which is the \
+         engine inventing a capability: {seats:?}"
+    );
+    assert!(!duelist_clings);
+}
+
 /// **A MATCH GRANT COVERS THE ACTION SET, NOT THE MOVES.**
 ///
 /// ⛔ the defect this pins, found the hour a real repertoire was first authored:
